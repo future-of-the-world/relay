@@ -30,7 +30,6 @@ _NOT_TYPED_STARTS = ("[Request interrupted", "<local-command-stdout>", "<local-c
 # /rate-limit-options, ...) with a `<local-command-stdout>` line instead of a model reply, so the structure
 # tells them apart, not a list of names: see _absorb.
 _COMMAND_WRAPPER = ("<command-name>", "<command-message>")
-_LOCAL_OUTPUT = ("<local-command-stdout>", "<local-command-stderr>")
 # promptSource of a user line the owner wrote; any other value ("sdk": a program, "system") is not the owner.
 OWNER_PROMPT_SOURCES = ("typed", "suggestion_accepted", "queued")
 _ESCALATED = re.compile(r"(?mi)^\s*Escalated:\s*\S")
@@ -139,7 +138,7 @@ class Trace:
     _agent_calls: dict = field(default_factory=dict)   # Agent tool_use id -> {prompt_chars, escalated}
     first_read: int = 0            # cache_creation tokens of the first request: what a fresh agent pays
     chars_by_model: dict = field(default_factory=dict)  # agent only: model -> visible characters of its answers
-    _command_open: bool = False    # a slash command was counted as a turn and nothing has answered it yet
+    _command_open: bool = False    # a slash command line was seen and no other user line or model reply has followed it yet
     _pending: dict = field(default_factory=dict)       # agent only: requestId -> the request's lines folded together
 
     @property
@@ -223,7 +222,9 @@ def _absorb(trace, entry, seen_requests):
     if str(entry.get("entrypoint") or "").startswith("sdk"):
         trace.scripted = True
     if kind == "assistant":
-        trace._command_open = False       # a model reply answered the command: it ran a prompt, it is a turn
+        if trace._command_open:
+            trace.user_turns += 1         # a model reply answered the command: it ran a prompt, it is a turn
+            trace._command_open = False
     if kind == "user":
         content = message.get("content")
         result = entry.get("toolUseResult")
@@ -239,14 +240,14 @@ def _absorb(trace, entry, seen_requests):
         )):
             text = content if isinstance(content, str) else " ".join(b.get("text") or "" for b in content if isinstance(b, dict))
             stripped = text.lstrip()
-            if trace._command_open and stripped.startswith(_LOCAL_OUTPUT):
-                trace.user_turns -= 1         # the harness answered the command itself: no prompt went to the model
-            if not stripped.startswith(("<local-command-caveat>",)):
-                trace._command_open = False
+            if not (stripped.startswith("<local-command-caveat>") or entry.get("isMeta")):
+                trace._command_open = False   # the next user line without a model reply between: the command ran locally
             if not (entry.get("isMeta") or entry.get("isCompactSummary") or is_notification(text, entry.get("origin"))
                     or not is_owner_turn(text, entry.get("origin"), entry.get("promptSource"))):
-                trace.user_turns += 1
-                trace._command_open = stripped.startswith(_COMMAND_WRAPPER)
+                if stripped.startswith(_COMMAND_WRAPPER):
+                    trace._command_open = True    # counted only if the model answers it (a real /clear has no output line at all)
+                else:
+                    trace.user_turns += 1
                 if not text.lstrip().startswith("<"):   # tool results and system reminders are not the owner
                     trace.prompt_chars += len(text)
                     if len(text) > 600:
