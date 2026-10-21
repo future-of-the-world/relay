@@ -30,11 +30,17 @@ The directory is "?" when the command's place is unknown (`cd -` with no known
 previous directory, `popd` of an empty stack); the guard counts it as the main
 checkout. `cd -`, `pushd` and `popd` are tracked otherwise. Arithmetic
 (`$(( ))`, `(( ))`) is not a command. Not seen: a write made by a program's own
-code (`python3 -c "open(p, 'w')"`, `node -e`), a path or directory held in a
-shell variable, and a tar/zip written into main (only extraction is judged).
+code (`python3 -c "open(p, 'w')"`, `node -e`), and a tar/zip written into main
+(only extraction is judged).
 
-A word holding `$` or a backtick is unknown and skipped: this catches slips,
-not a determined bypass.
+Shell variables: a plain assignment earlier in the same command line
+(`W=/abs/path && git -C $W add`, `export W=...`) is remembered and `$W` /
+`${W}` expanded from then on, so the command is judged where it really acts.
+A word holding a `$` that cannot be resolved (an unset or computed variable,
+`$(...)`, a backtick) is unknown: it is skipped, and a command whose place is
+such a word (`git -C $X`, `cd $X`, a target flag's value) is neither judged as
+the main checkout nor refused, because Bash state does not carry between calls
+and the guard cannot know. This catches slips, not a determined bypass.
 """
 import os
 import re
@@ -46,11 +52,12 @@ ENV_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 
 class Word:
-    __slots__ = ("text", "dynamic")
+    __slots__ = ("text", "dynamic", "hard")
 
-    def __init__(self, text, dynamic):
+    def __init__(self, text, dynamic, hard=False):
         self.text = text
         self.dynamic = dynamic
+        self.hard = hard      # dynamic for a reason that is not a plain $NAME (a substitution, arithmetic): never expanded
 
 
 class Frame:
@@ -60,6 +67,7 @@ class Frame:
         self.buf = []
         self.has_word = False
         self.dynamic = False
+        self.hard = False
         self.start = start
         self.pending = None  # "redir" (a write target follows) or "skip" (an input follows)
         self.masked = []  # (offset, length) of quoted spans, for masking
@@ -67,7 +75,7 @@ class Frame:
     def end_word(self):
         if not self.has_word:
             return
-        w = Word("".join(self.buf), self.dynamic)
+        w = Word("".join(self.buf), self.dynamic, self.hard)
         if self.pending == "redir":
             self.redirs.append(w)
         elif self.pending == "skip":
@@ -75,7 +83,7 @@ class Frame:
         else:
             self.words.append(w)
         self.pending = None
-        self.buf, self.has_word, self.dynamic = [], False, False
+        self.buf, self.has_word, self.dynamic, self.hard = [], False, False, False
 
 
 def mask_text(raw):
@@ -154,10 +162,14 @@ def parse(cmd):
         elif c == '"':
             j, parts = i + 1, []
             while j < n and cmd[j] != '"':
+                escaped = False
                 if cmd[j] == "\\" and j + 1 < n:
                     j += 1
+                    escaped = True
                 if cmd[j] in "$`":
                     f.dynamic = True
+                    if escaped or cmd[j] == "`" or cmd.startswith("$(", j):
+                        f.hard = True
                 parts.append(cmd[j])
                 j += 1
             f.buf.append("".join(parts))
@@ -173,6 +185,7 @@ def parse(cmd):
             j = cmd.find("`", i + 1)
             j = n if j < 0 else j
             f.dynamic = True
+            f.hard = True
             f.buf.append("$SUB")
             f.has_word = True
             yield ("open", None)
@@ -183,18 +196,21 @@ def parse(cmd):
         elif cmd.startswith("$((", i):
             # arithmetic expansion: no command inside, and `>` is a comparison
             f.dynamic = True
+            f.hard = True
             f.buf.append("$ARITH")
             f.has_word = True
             i = arith_end(cmd, i + 1)
         elif c == "(" and not f.has_word and cmd.startswith("((", i):
             # (( )) arithmetic command or C-style for header
             f.dynamic = True
+            f.hard = True
             f.buf.append("$ARITH")
             f.has_word = True
             i = arith_end(cmd, i)
         elif (c == "$" and cmd.startswith("$(", i)) or (c in "<>" and cmd.startswith("(", i + 1)):
             # $( ) and process substitution: its commands run in a subshell
             f.dynamic = True
+            f.hard = True
             f.buf.append("$SUB")
             f.has_word = True
             stack.append(Frame(i + 2))
@@ -295,6 +311,8 @@ def parse(cmd):
                 f.pending = "redir"
                 i = j
         else:
+            if c == "$" and i + 1 < n and (cmd[i + 1].isalnum() or cmd[i + 1] in "_{?$!#@*-"):
+                f.dynamic = True       # a variable: resolved later if it was assigned in this command line
             f.buf.append(c)
             f.has_word = True
             i += 1
@@ -310,12 +328,38 @@ def parse(cmd):
 
 
 UNKNOWN = "?"
+# The place of a command that cannot be known (`git -C $X`, `cd $X` with $X not assigned in this command line):
+# unlike UNKNOWN it is not counted as the main checkout; the command is not judged by place at all.
+DYNAMIC = "$"
+
+VAR_REF = re.compile(r"\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})")
+STILL_DYNAMIC = re.compile(r"\$[A-Za-z0-9_{?$!#@*-]")
+VAR_COMMANDS = {"export", "declare", "local", "readonly", "typeset"}
+
+
+def expand(word, variables):
+    """The word with the variables assigned earlier in this command line filled in; it stays dynamic if any is left."""
+    if not word.dynamic or word.hard:
+        return word
+    text = VAR_REF.sub(lambda m: variables.get(m.group(1) or m.group(2), m.group(0)), word.text)
+    return Word(text, bool(STILL_DYNAMIC.search(text)), False)
+
+
+def assign(words, variables):
+    """Remember `NAME=value` words; a value that cannot be resolved forgets the name."""
+    for w in words:
+        if ENV_ASSIGN.match(w.text):
+            name, _eq, value = w.text.partition("=")
+            if w.dynamic:
+                variables.pop(name, None)
+            else:
+                variables[name] = value
 
 
 def resolve(path, base):
     p = os.path.expanduser(path)
     if not os.path.isabs(p):
-        if base == UNKNOWN:
+        if base in (UNKNOWN, DYNAMIC):
             return UNKNOWN
         p = os.path.join(base, p)
     return os.path.realpath(p)
@@ -366,8 +410,7 @@ def git_parts(words, cwd):
     while i < len(words):
         t = words[i].text
         if t == "-C" and i + 1 < len(words):
-            if not words[i + 1].dynamic:
-                d = resolve(words[i + 1].text, d)
+            d = DYNAMIC if words[i + 1].dynamic else resolve(words[i + 1].text, d)
             i += 2
         elif t in GIT_GLOBAL_VALUE and i + 1 < len(words):
             i += 2
@@ -425,10 +468,11 @@ class State:
 
     def __init__(self, cur):
         self.cur, self.prev, self.stack = cur, UNKNOWN, []
+        self.vars = {}
 
     def copy(self):
         c = State(self.cur)
-        c.prev, c.stack = self.prev, list(self.stack)
+        c.prev, c.stack, c.vars = self.prev, list(self.stack), dict(self.vars)
         return c
 
 
@@ -526,23 +570,33 @@ def shell_writes(name, args, paths, cur, via_xargs):
     return []
 
 
-def analyze(cmd, cwd, flags, depth=0):
+def analyze(cmd, cwd, flags, depth=0, variables=None):
     out = []
     states = [State(cwd)]
+    states[0].vars = dict(variables or {})
 
     def simple(words, redirs, raw, st, via_xargs=False):
         cur = st.cur
+        words = [expand(w, st.vars) for w in words]
+        redirs = [expand(w, st.vars) for w in redirs]
+        if words and all(ENV_ASSIGN.match(w.text) for w in words):
+            assign(words, st.vars)
         real = strip_prefix(words)
+        if real and real[0].text in VAR_COMMANDS:
+            assign(real[1:], st.vars)
         name = os.path.basename(real[0].text) if real else ""
         d = cur
         if name in ("cd", "pushd", "popd") and not via_xargs:
-            out.append(("C", cur, seg_text(raw)))
+            if cur != DYNAMIC:
+                out.append(("C", cur, seg_text(raw)))
             arg = next((w for w in real[1:] if w.text == "-" or not w.text.startswith("-")), None)
             if name == "popd":
                 st.prev, st.cur = cur, (st.stack.pop() if st.stack else UNKNOWN)
             elif arg is not None and arg.text == "-":
                 st.prev, st.cur = cur, st.prev
-            elif arg is not None and not arg.dynamic and arg.text != "":
+            elif arg is not None and arg.dynamic:
+                st.prev, st.cur = cur, DYNAMIC
+            elif arg is not None and arg.text != "":
                 new = resolve(arg.text, cur)
                 if name == "pushd":
                     st.stack.append(cur)
@@ -555,21 +609,25 @@ def analyze(cmd, cwd, flags, depth=0):
                 if why:
                     out.append(("B", why))
             what = git_write(sub, rest)
-            if what:
+            if what and d != DYNAMIC:
                 out.append(("G", d, what))
         # a target flag's value is the directory (or a file in it) the command acts on
         for k, w in enumerate(words):
             for flag in flags:
                 val = None
-                if w.text == flag and k + 1 < len(words) and not words[k + 1].dynamic:
-                    val = words[k + 1].text
-                elif w.text.startswith(flag + "=") and not w.dynamic:
-                    val = w.text[len(flag) + 1:]
-                if val:
+                dyn = False
+                if w.text == flag and k + 1 < len(words):
+                    val, dyn = words[k + 1].text, words[k + 1].dynamic
+                elif w.text.startswith(flag + "="):
+                    val, dyn = w.text[len(flag) + 1:], w.dynamic
+                if dyn:
+                    d = DYNAMIC
+                elif val:
                     d = resolve(val, cur)
                     if d != UNKNOWN and os.path.isfile(d):
                         d = os.path.dirname(d)
-        out.append(("C", d, seg_text(raw)))
+        if d != DYNAMIC:
+            out.append(("C", d, seg_text(raw)))
 
         if name == "printenv" or (name == "env" and len(real) == 1) or (
             name == "export" and [w.text for w in real[1:]] == ["-p"]
@@ -581,9 +639,9 @@ def analyze(cmd, cwd, flags, depth=0):
             if name in SHELLS:
                 k = next((k for k, w in enumerate(real) if k > 0 and re.match(r"^-[A-Za-z]*c[A-Za-z]*$", w.text)), None)
                 if k is not None and k + 1 < len(real):
-                    out.extend(analyze(real[k + 1].text, cur, flags, depth + 1))
+                    out.extend(analyze(real[k + 1].text, cur, flags, depth + 1, st.vars))
             elif name == "eval" and len(real) > 1:
-                out.extend(analyze(" ".join(w.text for w in real[1:]), cur, flags, depth + 1))
+                out.extend(analyze(" ".join(w.text for w in real[1:]), cur, flags, depth + 1, st.vars))
             elif name == "xargs":
                 k = 1
                 while k < len(real) and real[k].text.startswith("-"):
