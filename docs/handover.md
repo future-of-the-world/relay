@@ -120,7 +120,47 @@ Built and tested offline (no `claude` binary, no real sessions here):
   `realpath(root)`. Keep lib canonical.
 - Step 3 waits on the owner's `/cost` figure for session 0b953f5c
   (`relay report --today` estimated it at $0.39 at that point).
-- ~/relay is still not a git repo, so fixes have no branch to go on.
+- Git: owner chose (2a) to make ~/relay a repo on `master` (first commit
+  930f84b, the install as found). Fixes are on branch
+  `fix/live-verification` in `.worktrees/live-fixes`: c9ae99c, 625e8ae,
+  434e926 (worker), b9e6e2a (fixer, after review 1: 1 must + 6 should),
+  f88542c (exec bits). Review 2: all review-1 findings closed; merge
+  ready apart from the open items below. Not merged: owner has not asked.
+- Agent pairing now by id from the main transcript: 3,175 of 3,185
+  Agent calls in 30 days matched (the 10 others refused or errored).
+- Outage fixed 2026-10-21: the zip had lost the exec bit on 9 scripts
+  (`plugins/core/bin/kit`, `plugins/front/bin/relay`, templates, eval
+  fixture). Without `bin/kit` the core guard failed closed (rc 2) on every
+  tool call in ~/kartoteka (the one project with `.claude/kit.toml`).
+  Fixed in the installed cache (`~/.claude/plugins/cache/relay/{core,
+  front}/0.1.0`) by chmod, and in the source on the branch (f88542c).
+  Guard re-tested: rc 0.
+- Open after review 2 (to the owner with a recommendation):
+  - S-A: `plugins/core/bin/kit` needs Python 3.11 (tomllib); on 3.9 the
+    guard fails closed. On this Mac `python3` on PATH is Homebrew 3.14,
+    so it works unless a hook runs without Homebrew on PATH.
+  - S-B: "your turns" counts "[Request interrupted by user]", `/clear`
+    and local-command output as owner turns (today 5 counted, 4 typed).
+  - The guard does not expand shell variables: `git -C $W add` and
+    `mkdir -p $S` are taken as writes in the main checkout and refused.
+  - Full `bin/ci` paid eval step not run; its `--eval-dir` fix untested.
+  - core@principles is still installed (disabled); core@relay enabled.
+- Owner's answers this session (verbatim): "1a 2a" (1a = will paste
+  `/cost`; 2a = git repo on master, fixes on a branch), "go ahead".
+  Then: "Now - let's explore this utility - what it can how can be
+  expanded and what is the goals". The thinker's write-up was in the
+  session scratchpad (explore-relay.md); summary: goals = less spend for
+  the same work ($1,738/7d estimated, $1.52 per typed turn, uncalibrated),
+  block known waste, change setup only after a measured bench, same rules
+  in 10 projects (0 synced). Ranked options: 1 trustworthy numbers,
+  2 repair+calibrate bench (it likely gives both profiles the same agent
+  models; unverified), 3 wire the 10 projects, 4 a finding for 50-200k
+  context requests (67% of spend, untargeted), 5 bench tasks from own
+  commits, 6 weekly digest, 7 hard limits.
+- Questions to the owner still unanswered: billing per token or
+  subscription; what after this merge (recommended 1 then 4); the
+  `/cost` figure; run the paid eval step before merge (recommended yes,
+  after counting cases and stating the cost).
 
 ## Open items (decisions for the owner or work not done)
 
@@ -162,6 +202,8 @@ Built and tested offline (no `claude` binary, no real sessions here):
 
 ## Next step
 
-Step 1 of "verify first". Then `relay improve suggest --since 7d` on the
-real transcripts: the first list of findings on real data is the first
-candidate profile.
+Get the owner's answers above. If the owner asks to merge
+`fix/live-verification`, merge it, then reinstall the relay plugins so the
+installed copies carry the fixes. Then the chosen option (recommended:
+option 1 "trustworthy numbers", which includes S-A, S-B and the guard's
+variable handling; then step 3 calibration with the `/cost` figure).
