@@ -133,10 +133,11 @@ prompt line `Remaining: <report file>` continues it: read it and review only
 what it lists.
 
 ## Reply
-At most 10 lines: the report path; counts by severity (in check mode: met,
-not met, new HIGH, new MEDIUM, and the verdict's `open`); one line per HIGH
-(where, what goes wrong); the count outside the change; "remaining" when you
-stop early; then what your flow adds below.
+At most 10 lines, not counting the HIGH lines: the report path; counts by
+severity (in check mode: met, not met, new HIGH, new MEDIUM, and the verdict's
+`open`); the count outside the change; "remaining" when you stop early; then
+what your flow adds below. Then one line per HIGH (where, what goes wrong),
+beyond the 10, so no HIGH is cut.
 
 One reply: what your flow's `Reply, in addition` names joins this list in
 the same limit; if it gives its own list, that list is the reply (an item
@@ -299,8 +300,9 @@ line.
 
 Write the report with `mkdir -p` its directory, then `cat > <path> <<'EOF'`;
 it is the only file you write; it ends with the `validate` and `spec-check`
-results. The reply is this one list, at most 10 lines, and replaces the shared
-reply list above: the report path; the counts per tag (they stand for the
-counts by severity); one line per BLOCKER (`artifact:line`, what breaks); one
-line per **Question for the owner** (the report holds it in full); the
-`validate` and `spec-check` results, one line each.
+results. The reply is this one list and replaces the shared reply list above.
+At most 10 lines, not counting the BLOCKER lines: the report path; the counts
+per tag (they stand for the counts by severity); one line per **Question for
+the owner** (the report holds it in full); the `validate` and `spec-check`
+results, one line each. Then one line per BLOCKER (`artifact:line`, what
+breaks), beyond the 10, so no BLOCKER is cut.

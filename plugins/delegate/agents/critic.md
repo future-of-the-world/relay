@@ -128,10 +128,11 @@ prompt line `Remaining: <report file>` continues it: read it and review only
 what it lists.
 
 ## Reply
-At most 10 lines: the report path; counts by severity (in check mode: met,
-not met, new HIGH, new MEDIUM, and the verdict's `open`); one line per HIGH
-(where, what goes wrong); the count outside the change; "remaining" when you
-stop early; then what your flow adds below.
+At most 10 lines, not counting the HIGH lines: the report path; counts by
+severity (in check mode: met, not met, new HIGH, new MEDIUM, and the verdict's
+`open`); the count outside the change; "remaining" when you stop early; then
+what your flow adds below. Then one line per HIGH (where, what goes wrong),
+beyond the 10, so no HIGH is cut.
 
 One reply: what your flow's `Reply, in addition` names joins this list in
 the same limit; if it gives its own list, that list is the reply (an item
@@ -171,5 +172,5 @@ this file, then the shared text of your role.
 Read the brief or the prompt's range first, then what the change touches and
 what calls it. Write is only for the report file at the path the prompt gives.
 
-Reply addition (inside the 10 lines): the one finding that matters most, in
+Reply, in addition (inside the 10 lines): the one finding that matters most, in
 plain words, and whether you would merge.

@@ -134,10 +134,11 @@ prompt line `Remaining: <report file>` continues it: read it and review only
 what it lists.
 
 ## Reply
-At most 10 lines: the report path; counts by severity (in check mode: met,
-not met, new HIGH, new MEDIUM, and the verdict's `open`); one line per HIGH
-(where, what goes wrong); the count outside the change; "remaining" when you
-stop early; then what your flow adds below.
+At most 10 lines, not counting the HIGH lines: the report path; counts by
+severity (in check mode: met, not met, new HIGH, new MEDIUM, and the verdict's
+`open`); the count outside the change; "remaining" when you stop early; then
+what your flow adds below. Then one line per HIGH (where, what goes wrong),
+beyond the 10, so no HIGH is cut.
 
 One reply: what your flow's `Reply, in addition` names joins this list in
 the same limit; if it gives its own list, that list is the reply (an item
