@@ -37,6 +37,15 @@ git worktree add -q .wt/a -b wt/a && mkdir -p .wt/a/sub && cd .wt/a/sub
 ck "from a worktree subdir, the worktree's own file is used (it has none)" "$(rc "$kit" get gate.check)" "1"
 ck "...and the message names the worktree" "$("$kit" get gate.check 2>&1 | grep -c "$tmp/.wt/a")" "1"
 cd "$tmp" && ck "dump" "$("$kit" dump | jq -c .gate)" '{"check":"bin/check"}'
+# Python 3.9 (the macOS system python) has no tomllib: kit reads the file through the shared fallback reader
+if [ -x /usr/bin/python3 ]; then
+  ck "python 3.9: get" "$(/usr/bin/python3 "$kit" get gate.check 2>&1)" "bin/check"
+  ck "python 3.9: list" "$(/usr/bin/python3 "$kit" get project.stack_skills | tr '\n' ,)" "a,b,"
+  ck "python 3.9: dump" "$(/usr/bin/python3 "$kit" dump | jq -c .gate)" '{"check":"bin/check"}'
+  mv .claude/kit.toml .claude/kit.toml.good && printf '[gate\n' >.claude/kit.toml
+  ck "python 3.9: broken file exits 2" "$(rc /usr/bin/python3 "$kit" get gate.check)" "2"
+  mv .claude/kit.toml.good .claude/kit.toml
+fi
 # kit path: source layout, then an installed layout (<market>/<plugin>/<version>/)
 plugins="$(cd "$here/../.." && pwd -P)"
 ck "path, sibling plugin" "$("$kit" path product/scripts/measure.mjs)" "$plugins/product/scripts/measure.mjs"

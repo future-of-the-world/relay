@@ -28,6 +28,8 @@ import sys
 HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 
+import relay_toml  # noqa: E402  (tomllib when present, else the fallback reader: runs on Python 3.9)
+
 
 def project_root():
     try:
@@ -50,14 +52,9 @@ def load_config(root):
         )
         sys.exit(1)
     try:
-        import tomllib
-    except ImportError:
-        print("kit: needs Python 3.11 or newer (tomllib)", file=sys.stderr)
-        sys.exit(2)
-    try:
         with open(path, "rb") as f:
-            return path, tomllib.load(f)
-    except tomllib.TOMLDecodeError as e:
+            return path, relay_toml.load(f)
+    except ValueError as e:      # tomllib.TOMLDecodeError is a ValueError; so is the fallback reader's error
         print(f"kit: {path}: {e}", file=sys.stderr)
         sys.exit(2)
 
