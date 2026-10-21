@@ -15,9 +15,10 @@ and `lib/relay_analyze.py` aggregates.
 `relay report [--since 7d | --today | --session <id>]` prints:
 
 - the period: sessions, agents, your turns (what you typed: background-agent
-  notifications and compaction summaries are not turns), estimated cost, the agents'
-  share, cost per turn, average reply length, compactions;
-- by model: requests and the four token kinds;
+  notifications and compaction summaries are not turns), cost split into exact
+  and estimated (see below), the agents' share, cost per turn, average reply
+  length, compactions;
+- by model: requests and the four token kinds, each row labelled exact or estimate;
 - by agent type: count, models, requests, average largest context, cost, share;
 - the 15 most expensive sessions;
 - the top three findings (see `relay improve suggest`).
@@ -26,6 +27,44 @@ and `lib/relay_analyze.py` aggregates.
 puts two periods side by side, normalised per turn of yours, with the
 share of cost on each model tier. Use it a week after adopting a change.
 
+### Why a transcript alone undercounts, and what is exact
+
+Notional dollars are what the tokens would cost at list price; the owner pays a
+subscription, so a dollar is a common weight, not a bill. Three things make
+the transcripts low (measured 2026-10-21 against `/cost`):
+
+1. **Agent transcripts keep a snapshot taken mid-answer.** The main thread's
+   lines carry the final usage; an agent's lines are written while the answer
+   still streams (`stop_reason` empty, `output_tokens` the count so far), and
+   the final count is on disk nowhere. relay estimates an agent request's
+   output as max(largest recorded count, visible characters x a factor per
+   model); the factor covers hidden thinking (settings: `[estimate.output_per_char]`
+   in `prices.toml`, refit by `relay calibrate`).
+2. **Hidden helpers.** Claude Code makes model requests of its own (the
+   likely case: a progress line for a background agent, a session title)
+   that no transcript holds. They re-read an agent's whole context, about 50k
+   tokens each. relay adds `helper_uplift` (1.23) to agents' cost.
+3. **Prices.** The cache-write price depends on how long the cache is kept:
+   the main thread writes for 1 hour, agents for 5 minutes, and
+   `usage.cache_creation` in the transcript says which; relay prices them
+   apart.
+
+**The exact source.** Claude Code writes `/cost`'s own per-model totals to
+`~/.claude.json` (`projects[<folder>].lastSessionId` and `lastModelUsage`).
+Only the last session per folder is kept, and it is written when the session
+closes. At every `SessionStart` the observe hook copies the folder's finished
+session into the ledger as a `session_usage` line (numbers only), so the next
+session in that folder does not overwrite it; `relay calibrate` copies all
+current entries. `relay report` uses a session's `session_usage` figures
+(labelled **exact**) when it has them, else the estimate above (labelled
+**estimate**, with its measured error), says what share of the period's usage is
+exact, and shows "Claude Code helpers (no transcript)" as exact minus what the
+transcripts explain. Per agent there is no exact figure, ever.
+
+`relay calibrate` prints, per model, the transcripts against the exact totals,
+the median pricing error (it warns above `calibration_tolerance`), and the
+fitted `output_per_char` and `helper_uplift` for `prices.toml`.
+
 ## The ledger: when things happened
 
 The `observe` plugin registers one hook script on nine events and appends
@@ -33,6 +72,7 @@ one JSON line per event to `~/.relay/ledger/<YYYY-MM-DD>.jsonl`:
 
 | event | fields beyond ts/session_id/cwd |
 |---|---|
+| session_usage | session_id, cwd, source, models: {model: input_tokens, output_tokens, thinking_tokens, cache_read_input_tokens, cache_creation_input_tokens, web_search_requests, cost_usd}. Claude Code's own totals for a finished session, copied at the next SessionStart in the folder (or by `relay calibrate`) |
 | session_start | source, model; on resume: context_tokens, prompt_cache_likely_expired, estimated_cache_write_usd |
 | prompt | chars, prompt_id, kind (`owner`, or `notification` for a background-agent message: judged by the harness's `origin` when it sends one, else by a marker at the very start of the text), slash (the command if the prompt starts with one) |
 | agent_start | agent_id, agent_type, effort, input_keys (the names of the fields this Claude Code sends, never values), prompt_chars (always 0 on this Claude Code: SubagentStart carries no prompt) |
@@ -70,12 +110,11 @@ say so; the bench gives the real figure.
 
 ## Prices
 
-`prices.toml` holds USD per million tokens by tier with a `measured` date;
-`relay doctor` warns when it is over 90 days old. To re-measure: run one
-`relay bench` (its cost is Claude's own), compare with the ledger's
-`cost_est` for the same session ids (the last `agent_stop` per agent: an
-agent stopped twice would be counted twice otherwise), and adjust the
-table until they agree within 10%.
+`prices.toml` holds USD per million tokens by model (opus, sonnet, haiku,
+haiku-4-5, fable) with input, 5-minute and 1-hour cache write, cache read and
+output, a web-search price, and a `measured` date; `relay doctor` warns when
+it is over 90 days old. To re-measure, run `relay calibrate`: it prices Claude
+Code's own token totals with the table and prints the error per model.
 
 ## OpenTelemetry (optional, for a team)
 

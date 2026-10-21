@@ -220,6 +220,138 @@ class Ledger(Base):
         self.assertEqual(len(rl.agent_spans(ev)), 1)
 
 
+class Numbers(Base):
+    """Trustworthy numbers: prices, agent snapshots, Claude Code's own totals."""
+
+    # Claude Code's own per-model totals for one session (what /cost showed), as numbers only.
+    SESSION_8_43 = {
+        "claude-opus-5-5": dict(input_tokens=56_500, output_tokens=118_400, cache_read_input_tokens=11_200_000,
+                                cache_creation_input_tokens=383_100, one_hour=80_000, cost=6.99),
+        "claude-sonnet-5-5": dict(input_tokens=32_700, output_tokens=48_700, cache_read_input_tokens=4_300_000,
+                                  cache_creation_input_tokens=180_700, one_hour=0, cost=1.43),
+        "claude-haiku-5-5": dict(input_tokens=1_200, output_tokens=1_900, cache_read_input_tokens=32_700,
+                                 cache_creation_input_tokens=13_900, one_hour=0, cost=0.00313),
+    }
+
+    def test_prices_reproduce_cost_within_one_percent(self):
+        import relay_prices
+        total = 0.0
+        for model, row in self.SESSION_8_43.items():
+            usage = {k: row[k] for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")}
+            usage["cache_creation"] = {"ephemeral_1h_input_tokens": row["one_hour"]}
+            got = relay_prices.cost(model, usage)
+            self.assertAlmostEqual(got / row["cost"], 1.0, delta=0.01, msg=model)
+            total += got
+        self.assertAlmostEqual(total / 8.43, 1.0, delta=0.01)
+
+    def test_main_only_opus_sessions_price_within_a_tenth_of_a_percent(self):
+        import relay_prices
+        # (input, output, cache read, cache write, costUSD): Claude Code's totals; the main thread writes for 1 hour
+        sessions = [
+            (34, 5683, 1_053_863, 46_711, 0.6982566), (126, 7406, 973_181, 46_161, 0.7125482),
+            (4, 2031, 69_960, 19_252, 0.208644), (102, 41_505, 5_020_358, 141_392, 2.9657156),
+            (728, 11_061, 873_270, 42_492, 0.738722), (96, 147_804, 8_365_862, 214_728, 6.3474604),
+        ]
+        for i, o, cr, cw, want in sessions:
+            usage = {"input_tokens": i, "output_tokens": o, "cache_read_input_tokens": cr, "cache_creation_input_tokens": cw,
+                     "cache_creation": {"ephemeral_1h_input_tokens": cw}}
+            self.assertAlmostEqual(relay_prices.cost("claude-opus-5-5", usage) / want, 1.0, delta=0.001)
+
+    def test_one_hour_writes_cost_eight_not_five(self):
+        import relay_prices
+        hour = {"cache_creation_input_tokens": 1_000_000, "cache_creation": {"ephemeral_1h_input_tokens": 1_000_000}}
+        five = {"cache_creation_input_tokens": 1_000_000, "cache_creation": {"ephemeral_5m_input_tokens": 1_000_000, "ephemeral_1h_input_tokens": 0}}
+        self.assertAlmostEqual(relay_prices.cost("claude-opus-5-5", hour), 8.0)
+        self.assertAlmostEqual(relay_prices.cost("claude-opus-5-5", five), 5.0)
+        self.assertAlmostEqual(relay_prices.cost("claude-opus-5-5", {"cache_creation_input_tokens": 1_000_000}), 5.0)
+        # reads differ 20x between models, ratios inside a model do not
+        self.assertAlmostEqual(relay_prices.cost("claude-haiku-5-5", {"cache_read_input_tokens": 1_000_000}), 0.01)
+        self.assertAlmostEqual(relay_prices.cost("claude-haiku-4-5", {"cache_read_input_tokens": 1_000_000}), 0.10)
+        self.assertEqual(relay_prices.tier("claude-haiku-4-5-20251001"), "haiku-4-5")
+
+    def _agent_session(self, final_output):
+        """A main session plus one Sonnet agent whose only request was written in two mid-stream lines."""
+        import fixtures
+        base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
+        fixtures.write_session(self.claude, "-Users-me-x", "s-snap", base, [("delegate:worker", "claude-sonnet-5-5", 1, 1)])
+        path = os.path.join(self.claude, "projects", "-Users-me-x", "s-snap", "subagents", "agent-a0.jsonl")
+        first = fixtures.assistant("2026-10-21T09:12:00.000Z", "claude-sonnet-5-5", 0, 15_000, 16, "req-1",
+                                   tools=[("Bash", {"command": "x" * 400})], sidechain=True)
+        second = fixtures.assistant("2026-10-21T09:12:01.000Z", "claude-sonnet-5-5", 0, 15_000, 40, "req-1",
+                                    text="y" * 100, sidechain=True)
+        with open(path, "w") as handle:
+            for line in (first, second):
+                handle.write(json.dumps(line) + "\n")
+        return os.path.join(self.claude, "projects", "-Users-me-x", "s-snap.jsonl")
+
+    def test_agent_output_is_not_the_mid_answer_snapshot(self):
+        import relay_transcripts as tr
+        self._agent_session(None)
+        agent = tr.session_agents(os.path.join(self.claude, "projects", "-Users-me-x", "s-snap.jsonl"))[0]
+        # visible: json of the tool input 13 + 400 + 2 = 415 characters, plus 100 of text = 515; x 0.62 = 319.3
+        self.assertEqual(agent.total.usage["output_tokens"], 319)
+        self.assertTrue(agent.total.estimated)
+        self.assertEqual(agent.total.requests, 1)
+
+    def test_recorded_count_wins_when_larger_than_the_guess(self):
+        import relay_transcripts as tr
+        self._agent_session(None)
+        path = os.path.join(self.claude, "projects", "-Users-me-x", "s-snap", "subagents", "agent-a0.jsonl")
+        with open(path, "a") as handle:
+            import fixtures
+            handle.write(json.dumps(fixtures.assistant("2026-10-21T09:12:02.000Z", "claude-sonnet-5-5", 0, 15_000, 5000, "req-1", sidechain=True)) + "\n")
+        agent = tr.session_agents(os.path.join(self.claude, "projects", "-Users-me-x", "s-snap.jsonl"))[0]
+        self.assertEqual(agent.total.usage["output_tokens"], 5000)
+
+    def _claude_json(self, session_id):
+        models = {}
+        for model, row in self.SESSION_8_43.items():
+            models[model] = {"inputTokens": row["input_tokens"], "outputTokens": row["output_tokens"], "thinkingTokens": 0,
+                             "cacheReadInputTokens": row["cache_read_input_tokens"],
+                             "cacheCreationInputTokens": row["cache_creation_input_tokens"], "webSearchRequests": 0,
+                             "costUSD": row["cost"]}
+        with open(os.path.join(self.claude, ".claude.json"), "w") as handle:
+            json.dump({"projects": {"/Users/me/x": {"lastSessionId": session_id, "lastModelUsage": models}}}, handle)
+
+    def test_report_uses_claude_codes_totals_when_present(self):
+        import relay_analyze
+        self._agent_session(None)
+        self._claude_json("s-snap")
+        base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
+        text = relay_analyze.report(relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1)))
+        sonnet = next(line for line in text.splitlines() if line.startswith("claude-sonnet-5-5"))
+        self.assertIn("49k", sonnet)            # 48,700 exact output tokens, not the snapshot's few hundred
+        self.assertIn("$1.43", sonnet)
+        self.assertIn("exact", sonnet)
+        self.assertIn("exact for 100% of usage", text)
+        self.assertIn("$8.42", text)            # 6.99 + 1.43 + 0.00313 = 8.42313; /cost rounds its unrounded sums to 8.43
+        self.assertIn("Claude Code helpers (no transcript)", text)
+
+    def test_report_without_totals_says_estimate_with_its_error(self):
+        import relay_analyze
+        self._agent_session(None)
+        base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
+        text = relay_analyze.report(relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1)))
+        self.assertIn("exact for 0% of usage", text)
+        self.assertIn("estimate", text)
+        self.assertIn("Known error", text)
+
+    def test_capture_copies_totals_once_and_skips_the_running_session(self):
+        import relay_ledger
+        self._claude_json("s-old")
+        self.assertEqual(relay_ledger.capture("2026-10-21T10:00:00Z", folder="/Users/me/x", skip_session="s-old"), [])
+        self.assertEqual(relay_ledger.capture("2026-10-21T10:00:00Z", folder="/Users/me/other"), [])
+        self.assertEqual(relay_ledger.capture("2026-10-21T10:00:00Z", folder="/Users/me/x", skip_session="s-new"), ["s-old"])
+        self.assertEqual(relay_ledger.capture("2026-10-21T10:05:00Z", folder="/Users/me/x", skip_session="s-new"), [])
+        lines = [e for e in relay_ledger.read() if e["event"] == "session_usage"]
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0]["models"]["claude-opus-5-5"]["output_tokens"], 118_400)
+        self.assertEqual(lines[0]["models"]["claude-opus-5-5"]["cost_usd"], 6.99)
+        self.assertEqual(sorted(lines[0]["models"]["claude-haiku-5-5"]), sorted(
+            ["input_tokens", "output_tokens", "thinking_tokens", "cache_read_input_tokens", "cache_creation_input_tokens",
+             "web_search_requests", "cost_usd"]))
+
+
 class Bench(Base):
     def fake_claude(self, cost, turns, text, make_file=None):
         """A `claude` that prints a result document; records its argv; optionally writes a file."""

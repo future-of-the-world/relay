@@ -58,7 +58,124 @@ def collect(claude_dir, since=None, until=None, session_ids=None):
         for a in agents:
             a.escalated = bool(main.agent_briefs.get(a.agent_id, {}).get("escalated"))
         sessions.append({"main": main, "agents": agents, "path": path})
-    return {"sessions": sessions, "since": since, "until": until}
+    return {"sessions": sessions, "since": since, "until": until, "exact": relay_ledger.exact_sessions()}
+
+
+def _exact_usage(numbers):
+    return {
+        "input_tokens": int(numbers.get("input_tokens", 0)),
+        "output_tokens": int(numbers.get("output_tokens", 0)),
+        "cache_read_input_tokens": int(numbers.get("cache_read_input_tokens", 0)),
+        "cache_creation_input_tokens": int(numbers.get("cache_creation_input_tokens", 0)),
+        "web_search_requests": int(numbers.get("web_search_requests", 0)),
+    }
+
+
+def session_figures(session, exact_map):
+    """Per-model tokens and cost of one session, and whether they are exact.
+
+    exact: Claude Code's own totals for the session (what /cost showed), when they were captured.
+    estimate: the transcripts, whose agent output is a snapshot (so estimated), plus the helper
+    requests Claude Code makes that have no transcript (agents' cost x the helper uplift)."""
+    main, agents = session["main"], session["agents"]
+    transcript_cost = main.total.cost + sum(a.total.cost for a in agents)
+    requests = defaultdict(int)
+    for trace in [main] + agents:
+        for model, agg in trace.by_model.items():
+            requests[model] += agg.requests
+    exact = exact_map.get(main.session_id)
+    models = {}
+    if exact:
+        for model, numbers in exact.items():
+            usage = _exact_usage(numbers)
+            cost = numbers["cost_usd"] if "cost_usd" in numbers else relay_prices.cost(model, usage)
+            models[model] = {"requests": requests.get(model, 0), "usage": usage, "cost": cost}
+        total = sum(m["cost"] for m in models.values())
+        return {"label": "exact", "cost": total, "models": models, "transcript_cost": transcript_cost,
+                "helpers": max(0.0, total - transcript_cost)}
+    uplift = relay_prices.helper_uplift()
+    for trace, weight in [(main, 1.0)] + [(a, uplift) for a in agents]:
+        for model, agg in trace.by_model.items():
+            row = models.setdefault(model, {"requests": 0, "usage": {k: 0 for k in tr.USAGE_KEYS}, "cost": 0.0})
+            row["requests"] += agg.requests
+            for k in tr.USAGE_KEYS:
+                row["usage"][k] += agg.usage[k]
+            row["cost"] += agg.cost * weight
+    total = sum(m["cost"] for m in models.values())
+    return {"label": "estimate", "cost": total, "models": models, "transcript_cost": transcript_cost, "helpers": 0.0}
+
+
+def calibrate(claude_dir, now):
+    """Backfill the ledger from Claude Code's own per-session totals, then compare them with what the
+    transcripts and prices.toml give. Returns the text to print."""
+    import statistics
+    written = relay_ledger.capture(now)
+    sessions = relay_ledger.claude_json_sessions()
+    per_model = defaultdict(lambda: defaultdict(float))
+    ratios = defaultdict(list)
+    uplifts = []
+    errors = defaultdict(list)
+    used = 0
+    for _folder, sid, models in sessions:
+        path = tr.session_path_for(claude_dir, sid)
+        for model, numbers in models.items():
+            usage = _exact_usage(numbers)
+            if "cost_usd" in numbers and numbers["cost_usd"] > 0:
+                # Claude Code's totals do not say how much was written for 1 hour: the true cost lies between
+                # all-5-minute and all-1-hour writes; the error is the distance to that range.
+                low = relay_prices.cost(model, usage)
+                high = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": usage["cache_creation_input_tokens"]}))
+                gap = max(0.0, low - numbers["cost_usd"], numbers["cost_usd"] - high)
+                errors[relay_prices.tier(model)].append(gap / numbers["cost_usd"])
+        if not path:
+            continue
+        used += 1
+        main = tr.read_trace(path)
+        agents = tr.session_agents(path)
+        for model, numbers in models.items():
+            row = per_model[relay_prices.tier(model)]
+            row["sessions"] += 1
+            row["exact_out"] += numbers.get("output_tokens", 0)
+            row["exact_cost"] += numbers.get("cost_usd", 0.0)
+            for trace in [main] + agents:
+                agg = trace.by_model.get(model)
+                if agg:
+                    row["tr_out"] += agg.usage["output_tokens"]
+                    row["tr_cost"] += agg.cost
+            agent_chars = sum(a.chars_by_model.get(model, 0) for a in agents)
+            agent_reqs = sum(a.by_model[model].requests for a in agents if model in a.by_model)
+            if agent_reqs >= 5 and agent_chars:
+                rest = numbers.get("output_tokens", 0) - (main.by_model[model].usage["output_tokens"] if model in main.by_model else 0)
+                ratios[relay_prices.family(model)].append(rest / agent_chars)
+        agent_cost = sum(a.total.cost for a in agents)
+        total = sum(n.get("cost_usd", 0.0) for n in models.values())
+        if agent_cost > 0 and total > main.total.cost:
+            uplifts.append((total - main.total.cost) / agent_cost)
+    lines = [f"Claude Code's own totals: {len(sessions)} sessions in {relay_config_json()}, {len(written)} newly copied "
+             f"into the ledger, {used} with a transcript on this machine.", ""]
+    rows = []
+    for key, row in sorted(per_model.items()):
+        rows.append([key, int(row["sessions"]), _k(int(row["exact_out"])), _k(int(row["tr_out"])), _money(row["exact_cost"]),
+                     _money(row["tr_cost"]), f"{(row['tr_cost'] - row['exact_cost']) / row['exact_cost'] * 100:+.0f}%" if row["exact_cost"] else "-"])
+    lines.append(_table(rows, ["model", "sessions", "output exact", "output transcripts", "cost exact", "cost transcripts (est.)", "gap"]))
+    lines.append("")
+    tolerance = relay_prices.calibration_tolerance()
+    lines.append(f"Prices (prices.toml, measured {relay_prices.table().get('measured')}) applied to Claude Code's tokens, median error per model (cache writes priced between the 5-minute and 1-hour rate):")
+    for key, errs in sorted(errors.items()):
+        med = statistics.median(errs)
+        lines.append(f"  {key}: {med * 100:.2f}% over {len(errs)} entries" + (f"  WARNING: above the {tolerance * 100:.1f}% tolerance, re-measure prices.toml" if med > tolerance else ""))
+    lines.append("")
+    lines.append("Fitted settings for prices.toml [estimate] (sessions with 5+ agent requests on the model):")
+    for key, vals in sorted(ratios.items()):
+        lines.append(f"  output_per_char.{key} = {statistics.median(vals):.2f}  (now {relay_prices.output_per_char(key):.2f}; {len(vals)} sessions, range {min(vals):.2f}-{max(vals):.2f})")
+    if uplifts:
+        lines.append(f"  helper_uplift = {statistics.median(uplifts):.2f}  (now {relay_prices.helper_uplift():.2f}; {len(uplifts)} sessions with agents)")
+    return "\n".join(lines)
+
+
+def relay_config_json():
+    import relay_config
+    return relay_config.claude_json()
 
 
 def _sum_agg(aggs):
@@ -74,10 +191,19 @@ def _sum_agg(aggs):
 def totals(data):
     mains = [s["main"] for s in data["sessions"]]
     agents = [a for s in data["sessions"] for a in s["agents"]]
-    by_model = defaultdict(list)
-    for t in mains + agents:
-        for model, agg in t.by_model.items():
-            by_model[model].append(agg)
+    figures = [session_figures(s, data.get("exact") or {}) for s in data["sessions"]]
+    by_model = {}
+    basis = defaultdict(set)
+    for fig in figures:
+        for model, row in fig["models"].items():
+            agg = by_model.setdefault(model, tr.Agg())
+            agg.requests += row["requests"]
+            for k in tr.USAGE_KEYS:
+                agg.usage[k] += row["usage"][k]
+            agg.cost += row["cost"]
+            basis[model].add(fig["label"])
+    exact_figs = [f for f in figures if f["label"] == "exact"]
+    estimate_figs = [f for f in figures if f["label"] == "estimate"]
     by_type = defaultdict(list)
     for a in agents:
         by_type[a.agent_type or "general-purpose"].append(a)
@@ -86,7 +212,14 @@ def totals(data):
         "agents": len(agents),
         "main": _sum_agg([m.total for m in mains]),
         "agents_total": _sum_agg([a.total for a in agents]),
-        "by_model": {m: _sum_agg(v) for m, v in by_model.items()},
+        "by_model": by_model,
+        "basis": basis,
+        "grand": sum(f["cost"] for f in figures),
+        "exact_cost": sum(f["cost"] for f in exact_figs),
+        "estimate_cost": sum(f["cost"] for f in estimate_figs),
+        "exact_sessions": len(exact_figs),
+        "helpers": sum(f["helpers"] for f in exact_figs),
+        "figures": figures,
         "by_type": by_type,
         "user_turns": sum(m.user_turns for m in mains),
         "reply_chars": sum(m.reply_chars for m in mains),
@@ -118,7 +251,7 @@ def _table(rows, headers):
 
 def report(data, title="Usage"):
     t = totals(data)
-    grand = t["main"].cost + t["agents_total"].cost
+    grand = t["grand"]
     lines = [f"# {title}", ""]
     span = ""
     if data.get("since"):
@@ -126,9 +259,21 @@ def report(data, title="Usage"):
     if data.get("until"):
         span += f" to {data['until'].strftime('%Y-%m-%d %H:%M')}"
     lines.append(f"{t['sessions']} sessions, {t['agents']} agents, {t['user_turns']} of your turns {span}".strip())
-    lines.append(f"Estimated cost {_money(grand)} (prices.toml, measured {relay_prices.table().get('measured')}): "
-                 f"main sessions {_money(t['main'].cost)}, agents {_money(t['agents_total'].cost)}"
-                 + (f" ({t['agents_total'].cost/grand*100:.0f}%)" if grand else ""))
+    exact_share = t["exact_cost"] / grand * 100 if grand else 0
+    lines.append(f"Cost {_money(grand)} in notional dollars (list prices, prices.toml measured "
+                 f"{relay_prices.table().get('measured')}; your plan is a subscription): exact for {exact_share:.0f}% of usage "
+                 f"({t['exact_sessions']} of {t['sessions']} sessions, Claude Code's own totals {_money(t['exact_cost'])}), "
+                 f"estimate for the rest ({_money(t['estimate_cost'])})")
+    if t["sessions"] > t["exact_sessions"]:
+        lines.append(f"  The estimate counts agents' output from what the transcript shows and adds {relay_prices.helper_uplift():.2f}x "
+                     f"on agents for Claude Code's own helper requests. Known error (measured on 30 sessions): about 5% for half "
+                     f"of the sessions with agents, up to 36% low at worst; sessions without agents within 2%. "
+                     f"Exact figures arrive when the next session starts in the same folder.")
+    if t["exact_sessions"]:
+        lines.append(f"  Claude Code helpers (no transcript), exact sessions only: {_money(t['helpers'])}")
+    lines.append(f"  Transcripts explain: main sessions {_money(t['main'].cost)}, agents {_money(t['agents_total'].cost)} "
+                 f"(agent output estimated)"
+                 + (f" ({t['agents_total'].cost/(t['main'].cost + t['agents_total'].cost)*100:.0f}% agents)" if t['main'].cost + t['agents_total'].cost else ""))
     if t["user_turns"]:
         lines.append(f"Per turn of yours: {_money(grand / t['user_turns'])}; "
                      f"reply length {t['reply_chars'] // t['user_turns']:,} characters on average; "
@@ -139,11 +284,12 @@ def report(data, title="Usage"):
     rows = []
     for model, agg in sorted(t["by_model"].items(), key=lambda kv: -kv[1].cost):
         u = agg.usage
+        label = "/".join(sorted(t["basis"][model]))
         rows.append([model, agg.requests, _k(u["cache_read_input_tokens"]), _k(u["cache_creation_input_tokens"]),
-                     _k(u["input_tokens"]), _k(u["output_tokens"]), _money(agg.cost)])
-    lines.append(_table(rows, ["model", "requests", "cache read", "cache write", "input", "output", "cost"]))
+                     _k(u["input_tokens"]), _k(u["output_tokens"]), _money(agg.cost), label])
+    lines.append(_table(rows, ["model", "requests", "cache read", "cache write", "input", "output", "cost", "basis"]))
     lines.append("")
-    lines.append("## By agent type")
+    lines.append("## By agent type (estimate: no agent's own total exists; helpers not included)")
     rows = []
     for kind, agents in sorted(t["by_type"].items(), key=lambda kv: -sum(a.total.cost for a in kv[1])):
         agg = _sum_agg([a.total for a in agents])
@@ -155,12 +301,12 @@ def report(data, title="Usage"):
     lines.append("")
     lines.append("## Sessions")
     rows = []
-    for s in sorted(data["sessions"], key=lambda s: -(s["main"].total.cost + sum(a.total.cost for a in s["agents"])))[:15]:
+    paired = sorted(zip(data["sessions"], t["figures"]), key=lambda p: -p[1]["cost"])[:15]
+    for s, fig in paired:
         m = s["main"]
-        cost = m.total.cost + sum(a.total.cost for a in s["agents"])
         rows.append([m.session_id[:8], os.path.basename(m.cwd or "?"), (m.started or "")[:16], m.user_turns,
-                     len(s["agents"]), _k(m.max_context), m.compactions, _money(cost)])
-    lines.append(_table(rows, ["session", "project", "started", "turns", "agents", "max context", "compact", "cost"]))
+                     len(s["agents"]), _k(m.max_context), m.compactions, _money(fig["cost"]), fig["label"]])
+    lines.append(_table(rows, ["session", "project", "started", "turns", "agents", "max context", "compact", "cost", "basis"]))
     return "\n".join(lines)
 
 
@@ -285,13 +431,13 @@ def compare(a, b, label_a="A", label_b="B"):
 
     def per_turn(t, key):
         turns = max(t["user_turns"], 1)
-        return (t["main"].cost + t["agents_total"].cost) / turns if key == "cost" else t[key] / turns
+        return t["grand"] / turns if key == "cost" else t[key] / turns
 
     rows = [
         row("sessions", lambda t: t["sessions"], lambda t: t["sessions"], str),
         row("your turns", lambda t: t["user_turns"], lambda t: t["user_turns"], str),
         row("agents", lambda t: t["agents"], lambda t: t["agents"], str),
-        row("cost total $", lambda t: t["main"].cost + t["agents_total"].cost, lambda t: t["main"].cost + t["agents_total"].cost),
+        row("cost total $", lambda t: t["grand"], lambda t: t["grand"]),
         row("cost per turn $", lambda t: per_turn(t, "cost"), lambda t: per_turn(t, "cost")),
         row("agent share %", lambda t: (t["agents_total"].cost / max(t["main"].cost + t["agents_total"].cost, 1e-9)) * 100,
             lambda t: (t["agents_total"].cost / max(t["main"].cost + t["agents_total"].cost, 1e-9)) * 100, lambda x: f"{x:.0f}"),
