@@ -406,3 +406,21 @@ STATE 22 Oct, session 0b953f5c (after the design check):
   hash (coordinator's choice: folder names collide across clones).
 - NEXT: thinker writes v3 (brief scratchpad brief-design-v3.md ->
   design-role-bases-v3.md), checker confirms, then build part 1.
+
+STATE 22 Oct (v3 written: scratchpad design-role-bases-v3.md, ~2000 lines,
+"v3 changes" rows 1-20). Owner's final answers (verbatim where quoted):
+- Marks: committed file `.relay/checks/<full 40-char sha>.json`, written by
+  a SubagentStop hook only for delegate:checker; guard blocks tool writes
+  there; full sha always ("why we can't store full commit hash").
+- Hard rules (merge check + worktree removal) in every repo whose default
+  branch has `.relay/` ("2. a"); `.relay/` created only by relay setup.
+- Per-role project additions in part 1 ("3. a"), `.claude/kit/<role>.md`.
+- Queue items land on their own branch `wt/queue-<slug>`, merged at once
+  by code when the only change is under `.relay/queue/` ("1. a - but
+  don't lock wt/queue name ... queue worktree should be named
+  differently"); retry on a moved head, 5 tries.
+- state-from-facts ip 80 ("2. a").
+- Question format locked: "Now your questions contains enough to make
+  decision, lock it" (memory questions-carry-context).
+- NEXT: checker confirms v3 (brief scratchpad brief-check-design-v3.md ->
+  check-design-v3.md), then build part 1 (135 agent min).
