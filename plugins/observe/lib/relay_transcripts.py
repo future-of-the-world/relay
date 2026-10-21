@@ -13,6 +13,7 @@ Nothing here reads prompt or reply text beyond its length.
 import glob
 import json
 import os
+import re
 from dataclasses import dataclass, field
 
 import relay_prices
@@ -20,13 +21,28 @@ import relay_prices
 USAGE_KEYS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens")
 
 
-NOTIFICATION_MARKERS = ("<task-notification>", "<agent-message from=")
+NOTIFICATION_MARKERS = ("[SYSTEM NOTIFICATION", "<task-notification>", "<agent-message from=")
+NOTIFICATION_KINDS = ("task-notification", "peer")
+_ESCALATED = re.compile(r"(?mi)^\s*Escalated:\s*\S")
 
 
-def is_notification(text):
-    """True when a "user prompt" is really a background-agent notification, not the owner typing."""
-    text = text or ""
-    return text.lstrip().startswith("[SYSTEM NOTIFICATION") or any(m in text for m in NOTIFICATION_MARKERS)
+def is_notification(text, origin=None):
+    """True when a "user prompt" is really a background-agent notification, not the owner typing.
+
+    The structured field wins when the harness sent one (`origin.kind`: "task-notification" or
+    "peer" are notifications, any other kind is not). Without it, the text must start with a
+    marker: an owner who quotes a marker in the middle of a sentence is still the owner."""
+    kind = origin.get("kind") if isinstance(origin, dict) else None
+    if kind:
+        return kind in NOTIFICATION_KINDS
+    text = (text or "").lstrip()
+    return any(text.startswith(m) for m in NOTIFICATION_MARKERS)
+
+
+def is_escalated(prompt):
+    """True when an agent prompt carries a line `Escalated: <reason>` (any case, a reason is required).
+    The routing guard and the ledger both use this, so they cannot disagree."""
+    return bool(_ESCALATED.search(prompt or ""))
 
 
 def _zero():
@@ -82,7 +98,10 @@ class Trace:
     gaps_over_5m: int = 0          # pauses between requests longer than the 5-minute agent cache
     max_gap_s: float = 0.0
     _last_request_ts: str = ""
-    escalated: bool = False        # agent only: its prompt had an `Escalated:` line (set from the ledger)
+    escalated: bool = False        # agent only: its prompt had an `Escalated:` line (set from the parent's transcript)
+    agent_briefs: dict = field(default_factory=dict)   # session only: agent_id -> {prompt_chars, escalated}, paired by id
+    handback_chars: object = None  # agent only: length of its SubagentHandback message (None: it never handed back)
+    _agent_calls: dict = field(default_factory=dict)   # Agent tool_use id -> {prompt_chars, escalated}
     first_read: int = 0            # cache_creation tokens of the first request: what a fresh agent pays
 
     @property
@@ -129,12 +148,19 @@ def _absorb(trace, entry, seen_requests):
     message = entry.get("message") or {}
     if kind == "user":
         content = message.get("content")
+        result = entry.get("toolUseResult")
+        if isinstance(result, dict) and result.get("agentId") and isinstance(content, list):
+            # the Agent call that started this agent: the result names the agent, its block names the call
+            for block in content:
+                call = trace._agent_calls.get(block.get("tool_use_id")) if isinstance(block, dict) else None
+                if call is not None:
+                    trace.agent_briefs[str(result["agentId"])] = call
         # A real user turn is a string or text blocks; tool results are user lines too.
         if isinstance(content, str) or (isinstance(content, list) and any(
             isinstance(b, dict) and b.get("type") == "text" for b in content
         )):
             text = content if isinstance(content, str) else " ".join(b.get("text") or "" for b in content if isinstance(b, dict))
-            if not entry.get("isMeta") and not is_notification(text):
+            if not (entry.get("isMeta") or entry.get("isCompactSummary") or is_notification(text, entry.get("origin"))):
                 trace.user_turns += 1
                 if not text.lstrip().startswith("<"):   # tool results and system reminders are not the owner
                     trace.prompt_chars += len(text)
@@ -154,8 +180,13 @@ def _absorb(trace, entry, seen_requests):
                 name = block.get("name") or "?"
                 trace.tools[name] = trace.tools.get(name, 0) + 1
                 if name in ("Agent", "Task"):
-                    sub = (block.get("input") or {}).get("subagent_type") or "general-purpose"
+                    given = block.get("input") or {}
+                    sub = given.get("subagent_type") or "general-purpose"
                     trace.agents_started[sub] = trace.agents_started.get(sub, 0) + 1
+                    prompt = given.get("prompt") or ""
+                    trace._agent_calls[block.get("id")] = {"prompt_chars": len(prompt), "escalated": is_escalated(prompt)}
+                elif name == "SubagentHandback":
+                    trace.handback_chars = len((block.get("input") or {}).get("message") or "")
     usage = message.get("usage") or {}
     if not any(usage.get(k) for k in USAGE_KEYS):
         return

@@ -26,7 +26,10 @@ class Base(unittest.TestCase):
         os.environ["RELAY_HOME"] = self.home
         os.environ["RELAY_ROOT"] = ROOT
         projects = os.path.join(self.tmp, "projects.toml")
-        shutil.copy(os.path.join(ROOT, "projects.toml"), projects)
+        self.project_file = os.path.join(self.tmp, "demo", "CLAUDE.local.md")   # never the owner's real project files
+        with open(projects, "w") as handle:
+            handle.write('[global]\nfile = "~/.claude/CLAUDE.md"\ntitle = "Defaults for all projects"\nintro = "Test."\nload = []\n\n'
+                         '[demo]\nfile = "%s"\ntitle = "Principles this project loads"\nload = ["quality-gate"]\nread = []\n' % self.project_file)
         os.environ["RELAY_PROJECTS"] = projects
         for m in list(sys.modules):
             if m.startswith("relay_"):
@@ -88,33 +91,103 @@ class Analysis(Base):
         self.assertIn("cost per turn", text)
         self.assertIn("opus share", text)
 
-    def test_escalated_build_agent_is_not_finding_f1(self):
+    def f1_ids(self, base):
         import relay_analyze
-        import relay_ledger as rl
-        base = fixtures.populate(self.claude)
         window = (base - dt.timedelta(days=1), base + dt.timedelta(days=1))
-        self.assertIn("F1", {f["id"] for f in relay_analyze.findings(relay_analyze.collect(self.claude, *window))})
+        return {f["id"] for f in relay_analyze.findings(relay_analyze.collect(self.claude, *window))}
+
+    def test_escalated_build_agent_is_not_finding_f1(self):
+        base = fixtures.populate(self.claude)
+        self.assertIn("F1", self.f1_ids(base))
+        shutil.rmtree(os.path.join(self.claude, "projects"))
+        base = fixtures.populate(self.claude, prompts={0: "do it\nescalated: sonnet failed twice"})
+        self.assertNotIn("F1", self.f1_ids(base))
+
+    def test_refused_call_does_not_hand_its_flag_to_the_next_agent(self):
+        """Today's shape: a refused Opus worker call (no agent), then the escalated retry. The ledger lists
+        both calls and one agent start; the agent must get the retry's flag, whatever the ledger order."""
+        import relay_ledger as rl
+        base = fixtures.populate(self.claude, prompts={0: "do it\nEscalated: sonnet failed twice"})
         sid = "s-alix-" + base.strftime("%m%d")
         os.makedirs(rl.ledger_dir(), exist_ok=True)
+        pre = {"event": "tool_pre", "session_id": sid, "tool": "Agent", "subagent_type": "alix-worker", "prompt_chars": 40}
         with open(os.path.join(rl.ledger_dir(), "2026-10-18.jsonl"), "w") as handle:
-            handle.write(json.dumps({"ts": "2026-10-18T09:11:00Z", "event": "tool_pre", "session_id": sid, "tool": "Agent",
-                                     "subagent_type": "alix-worker", "prompt_chars": 40, "escalated": True}) + "\n")
-            handle.write(json.dumps({"ts": "2026-10-18T09:11:01Z", "event": "agent_start", "session_id": sid,
+            for ts, extra in (("2026-10-18T09:11:00Z", {"escalated": False}), ("2026-10-18T09:11:01Z", {"escalated": True})):
+                handle.write(json.dumps(dict(pre, ts=ts, **extra)) + "\n")
+            handle.write(json.dumps({"ts": "2026-10-18T09:11:02Z", "event": "agent_start", "session_id": sid,
                                      "agent_id": "a0", "agent_type": "alix-worker"}) + "\n")
-        self.assertNotIn("F1", {f["id"] for f in relay_analyze.findings(relay_analyze.collect(self.claude, *window))})
+        self.assertNotIn("F1", self.f1_ids(base))
+
+    def test_agent_calls_are_paired_to_agents_by_id(self):
+        import relay_transcripts as tr
+        path = os.path.join(self.tmp, "m.jsonl")
+        call = lambda i, prompt, kind="delegate:worker": fixtures.assistant(
+            "2026-10-18T09:00:0%dZ" % i, "claude-opus-5", 1, 0, 1, "r%d" % i, tools=[("Agent", {"subagent_type": kind, "prompt": prompt})])
+        lines = [call(1, "refused, no Escalated line"),                      # tu_r1_0: refused, never answered with an agent
+                 fixtures.tool_result("2026-10-18T09:00:02Z", "tu_r1_0"),
+                 call(3, "plain work\nEscalated:"),                          # tu_r3_0: reason missing, so not escalated
+                 call(4, "x\n  escalated: failed twice"),                    # tu_r4_0: escalated
+                 fixtures.tool_result("2026-10-18T09:00:05Z", "tu_r4_0", "second"),   # results arrive in the other order
+                 fixtures.tool_result("2026-10-18T09:00:06Z", "tu_r3_0", "first")]
+        with open(path, "w") as handle:
+            handle.write("".join(json.dumps(l) + "\n" for l in lines))
+        briefs = tr.read_trace(path).agent_briefs
+        self.assertEqual(sorted(briefs), ["first", "second"])
+        self.assertFalse(briefs["first"]["escalated"])
+        self.assertTrue(briefs["second"]["escalated"])
+        self.assertEqual(briefs["first"]["prompt_chars"], len("plain work\nEscalated:"))
 
     def test_notifications_are_not_owner_turns(self):
         import relay_transcripts as tr
         path = os.path.join(self.tmp, "n.jsonl")
-        lines = [fixtures.user("2026-10-18T09:00:00Z", "please do it"),
-                 fixtures.user("2026-10-18T09:01:00Z", "<task-notification>agent done</task-notification>"),
-                 fixtures.user("2026-10-18T09:02:00Z", "x <agent-message from=a>hi</agent-message>"),
-                 fixtures.user("2026-10-18T09:03:00Z", "[SYSTEM NOTIFICATION: background agent finished]")]
+        notice = fixtures.user("2026-10-18T09:01:00Z", "<task-notification>agent done</task-notification>")
+        notice["origin"] = {"kind": "task-notification"}
+        peer = dict(fixtures.user("2026-10-18T09:02:00Z", "<agent-message from=a>hi</agent-message>"), isMeta=True, origin={"kind": "peer"})
+        owner_quotes = "tune-stage still fires on <task-notification> prompts, fix it"
+        lines = [fixtures.user("2026-10-18T09:00:00Z", "please do it"), notice, peer,
+                 fixtures.user("2026-10-18T09:03:00Z", "[SYSTEM NOTIFICATION: background agent finished]"),
+                 fixtures.user("2026-10-18T09:04:00Z", "<task-notification>no origin field</task-notification>"),
+                 dict(fixtures.user("2026-10-18T09:05:00Z", "summary " * 100), isCompactSummary=True),
+                 fixtures.user("2026-10-18T09:06:00Z", owner_quotes)]
         with open(path, "w") as handle:
             handle.write("".join(json.dumps(l) + "\n" for l in lines))
         trace = tr.read_trace(path)
-        self.assertEqual(trace.user_turns, 1)
-        self.assertEqual(trace.prompt_chars, len("please do it"))
+        self.assertEqual(trace.user_turns, 2)
+        self.assertEqual(trace.prompt_chars, len("please do it") + len(owner_quotes))
+
+    def test_escalated_rule_is_one_rule(self):
+        import relay_transcripts as tr
+        self.assertTrue(tr.is_escalated("a\nEscalated: x"))
+        self.assertTrue(tr.is_escalated("a\n  escalated: x"))
+        self.assertFalse(tr.is_escalated("Escalated:"))
+        self.assertFalse(tr.is_escalated("Not Escalated: here"))
+
+    def test_handback_length_is_read_from_the_agent_transcript(self):
+        import relay_transcripts as tr
+        path = os.path.join(self.tmp, "a.jsonl")
+        lines = [fixtures.assistant("2026-10-18T09:00:00Z", "claude-haiku-5", 1, 0, 1, "r1", text="plain text " * 100)]
+        with open(path, "w") as handle:
+            handle.write("".join(json.dumps(l) + "\n" for l in lines))
+        self.assertIsNone(tr.read_trace(path).handback_chars)
+        lines.append(fixtures.assistant("2026-10-18T09:00:01Z", "claude-haiku-5", 1, 0, 1, "r2",
+                                        tools=[("SubagentHandback", {"message": "DONE: 3 files"})]))
+        with open(path, "w") as handle:
+            handle.write("".join(json.dumps(l) + "\n" for l in lines))
+        self.assertEqual(tr.read_trace(path).handback_chars, len("DONE: 3 files"))
+
+    def test_toml_fallback_reads_what_tomllib_reads(self):
+        import glob
+        try:
+            import tomllib
+        except ImportError:
+            self.skipTest("tomllib needs Python 3.11; the fallback is what runs there")
+        import relay_toml
+        for path in glob.glob(os.path.join(ROOT, "*.toml")) + glob.glob(os.path.join(ROOT, "profiles", "*.toml")):
+            with open(path, "rb") as handle:
+                text = handle.read().decode()
+            self.assertEqual(relay_toml._loads(text), tomllib.loads(text), path)
+        sample = 'a = 1\nb = [1, "x", [2.5]]\n[t.u]\nk = "v # not a comment" # comment\ni = {x = 1, y = true}\n[[arr]]\nn = 1\n[[arr]]\nn = 2\n'
+        self.assertEqual(relay_toml._loads(sample), tomllib.loads(sample))
 
     def test_classify(self):
         import relay_analyze as ra
@@ -137,40 +210,14 @@ class Ledger(Base):
         self.assertEqual(rl.running_agents(rl.read()), {})
 
 
-    def test_agent_brief_comes_from_the_agent_tool_call(self):
-        import relay_ledger as rl
-        ev = [
-            {"event": "tool_pre", "session_id": "s", "tool": "Agent", "subagent_type": "delegate:scout", "prompt_chars": 300, "escalated": False},
-            {"event": "tool_pre", "session_id": "s", "tool": "Agent", "subagent_type": "delegate:worker", "prompt_chars": 900, "escalated": True},
-            {"event": "agent_start", "session_id": "s", "agent_id": "w1", "agent_type": "delegate:worker", "prompt_chars": 0},
-            {"event": "agent_start", "session_id": "s", "agent_id": "s1", "agent_type": "delegate:scout", "prompt_chars": 0},
-        ]
-        briefs = rl.agent_briefs(ev)
-        self.assertEqual(briefs[("s", "w1")], {"subagent_type": "delegate:worker", "prompt_chars": 900, "escalated": True})
-        self.assertEqual(briefs[("s", "s1")]["prompt_chars"], 300)
-        self.assertFalse(briefs[("s", "s1")]["escalated"])
-
-    def test_agent_stopped_twice_has_one_reply_and_the_last_requests(self):
+    def test_agent_stopped_twice_is_one_span(self):
         import relay_ledger as rl
         ev = [
             {"event": "agent_start", "session_id": "s", "agent_id": "a", "agent_type": "delegate:scout"},
-            {"event": "agent_stop", "session_id": "s", "agent_id": "a", "agent_type": "delegate:scout", "reply_chars": 420,
-             "requests": 5, "context": 20000, "model": "claude-haiku-5", "cost_est": 0.05},
-            {"event": "agent_stop", "session_id": "s", "agent_id": "a", "agent_type": "delegate:scout", "reply_chars": 0,
-             "requests": 6, "context": 21000, "model": "claude-haiku-5", "cost_est": 0.06},
+            {"event": "agent_stop", "session_id": "s", "agent_id": "a", "agent_type": "delegate:scout", "requests": 5},
+            {"event": "agent_stop", "session_id": "s", "agent_id": "a", "agent_type": "delegate:scout", "requests": 6},
         ]
-        r = rl.agent_results(ev)
-        self.assertEqual(len(r), 1)
-        self.assertEqual(r[("s", "a")]["reply_chars"], 420)
-        self.assertEqual(r[("s", "a")]["requests"], 6)
-        self.assertEqual(r[("s", "a")]["cost_est"], 0.06)
-        self.assertEqual(r[("s", "a")]["stops"], 2)
         self.assertEqual(len(rl.agent_spans(ev)), 1)
-
-    def test_owner_prompts_leave_out_notifications(self):
-        import relay_ledger as rl
-        ev = [{"event": "prompt", "kind": "owner"}, {"event": "prompt", "kind": "notification"}, {"event": "prompt"}]
-        self.assertEqual(len(rl.owner_prompts(ev)), 2)
 
 
 class Bench(Base):
@@ -303,19 +350,24 @@ class Bench(Base):
 
 
 class Rules(Base):
-    def test_sync_writes_global_and_agents(self):
+    def test_sync_writes_global_and_project_files(self):
         import relay_config
         import relay_rules
         profile = relay_config.active_profile()
-        results = relay_rules.sync(profile, only={"global", "agents"})
+        # not "agents": that rewrites the repository's own agent files (test_profile_rewrites_tiered_agents_in_a_copy covers it)
+        results = relay_rules.sync(profile, only={"global", "demo"})
         states = {n: s for n, _, s in results}
         self.assertEqual(states["global"], "written")
+        self.assertEqual(states["demo"], "written")
+        self.assertIn("## Quality gate", open(self.project_file).read())
         text = open(os.path.join(self.claude, "CLAUDE.md")).read()
         self.assertIn("Generated by relay", text)
         self.assertIn("## Delegation", text)
         self.assertIn("Rules to read when they apply", text)
-        # only the targets this test synced; the other projects' files are the owner's real ones
-        self.assertEqual([c for c in relay_rules.check(profile) if c[0] == "global"], [])
+        self.assertEqual(relay_rules.check(profile), [])
+        with open(self.project_file, "a") as handle:
+            handle.write("edited\n")
+        self.assertEqual([c[0] for c in relay_rules.check(profile)], ["demo"])
 
     def test_hand_written_file_is_not_overwritten(self):
         import relay_config

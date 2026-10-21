@@ -24,10 +24,10 @@ import json
 import os
 import re
 import sys
-import tomllib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
+import relay_toml  # noqa: E402
 
 TYPED = {
     "look": "delegate:scout (read-only lookups, file:line answers)",
@@ -46,7 +46,7 @@ def settings(cwd):
         root = cwd or os.getcwd()
         path = os.path.join(root, ".claude", "kit.toml")
         with open(path, "rb") as handle:
-            out.update(tomllib.load(handle).get("delegate", {}))
+            out.update(relay_toml.load(handle).get("delegate", {}))
     except Exception:
         pass
     for key in ("typed_only", "fork_limit", "build_tier_opus", "max_parallel"):
@@ -73,6 +73,11 @@ def running_now(session_id):
         return len(relay_ledger.running_agents(events).get(session_id, []))
     except Exception:
         return 0
+
+
+def is_escalated(prompt):
+    import relay_transcripts   # the ledger uses the same rule
+    return relay_transcripts.is_escalated(prompt)
 
 
 def deny(reason):
@@ -106,7 +111,7 @@ def decide(data):
                     + ". For a job none of them fits, set [delegate].typed_only = false in .claude/kit.toml.")
     if "opus" in model and role in SMALL_TIERS:
         policy = str(cfg["build_tier_opus"])
-        if policy == "deny" or (policy == "escalate" and not re.search(r"(?mi)^\s*Escalated:\s*\S", prompt)):
+        if policy == "deny" or (policy == "escalate" and not is_escalated(prompt)):
             return deny(f"Routing: {sub} runs on the profile's model for its tier; Opus is for thinker and critic. "
                         "To escalate (a Sonnet agent failed the same task, or the project names the case), add a line "
                         "`Escalated: <reason>` to the prompt and keep the same brief.")

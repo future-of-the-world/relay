@@ -14,6 +14,8 @@ cd "$(mktemp -d)"
 check "general-purpose denied" '"deny"' '{"tool_name":"Agent","cwd":".","tool_input":{"subagent_type":"general-purpose","prompt":"x"}}'
 check "typed scout allowed" '' '{"tool_name":"Agent","cwd":".","tool_input":{"subagent_type":"delegate:scout","prompt":"x"}}'
 check "worker on opus denied" 'Escalated' '{"tool_name":"Agent","cwd":".","tool_input":{"subagent_type":"delegate:worker","model":"opus","prompt":"x"}}'
+check "worker on opus with lower-case escalation allowed" '' '{"tool_name":"Agent","cwd":".","tool_input":{"subagent_type":"delegate:worker","model":"opus","prompt":"x\n escalated: sonnet failed twice"}}'
+check "worker on opus with an empty escalation denied" 'Escalated' '{"tool_name":"Agent","cwd":".","tool_input":{"subagent_type":"delegate:worker","model":"opus","prompt":"x\nEscalated:"}}'
 check "worker on opus with escalation allowed" '' '{"tool_name":"Agent","cwd":".","tool_input":{"subagent_type":"delegate:worker","model":"opus","prompt":"Brief: /b.md\nEscalated: sonnet failed twice"}}'
 check "thinker on opus allowed" '' '{"tool_name":"Agent","cwd":".","tool_input":{"subagent_type":"delegate:thinker","model":"opus","prompt":"x"}}'
 long="$(python3 -c 'print("a"*3500)')"

@@ -10,7 +10,7 @@
 
 import os
 import subprocess
-import tomllib
+import relay_toml
 
 ROOT = os.environ.get("RELAY_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -37,7 +37,7 @@ def bench_dir():
 
 def read_toml(path):
     with open(path, "rb") as handle:
-        return tomllib.load(handle)
+        return relay_toml.load(handle)
 
 
 def project_root(cwd=None):

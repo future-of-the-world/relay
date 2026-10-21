@@ -42,7 +42,6 @@ def collect(claude_dir, since=None, until=None, session_ids=None):
     since_m = since.timestamp() if since else 0.0
     paths = tr.find_sessions(claude_dir, since_mtime=since_m)
     sessions = []
-    briefs = relay_ledger.agent_briefs(relay_ledger.read(since=since, until=until))
     for path in paths:
         sid = os.path.basename(path)[:-len(".jsonl")]
         if session_ids and sid not in session_ids:
@@ -57,7 +56,7 @@ def collect(claude_dir, since=None, until=None, session_ids=None):
             continue
         agents = tr.session_agents(path)
         for a in agents:
-            a.escalated = briefs.get((main.session_id, a.agent_id), {}).get("escalated", False)
+            a.escalated = bool(main.agent_briefs.get(a.agent_id, {}).get("escalated"))
         sessions.append({"main": main, "agents": agents, "path": path})
     return {"sessions": sessions, "since": since, "until": until}
 

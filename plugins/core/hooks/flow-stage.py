@@ -20,9 +20,10 @@ import json
 import os
 import subprocess
 import sys
-import tomllib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "..", "lib"))
+import relay_toml  # noqa: E402
 KIT = os.path.join(HERE, "..", "bin", "kit")
 ALIASES = {"openspec": "sdd"}
 
@@ -38,7 +39,7 @@ def project_root(cwd):
 def flow_binding(root):
     try:
         with open(os.path.join(root, ".claude", "kit.toml"), "rb") as handle:
-            flow = tomllib.load(handle).get("flow", {})
+            flow = relay_toml.load(handle).get("flow", {})
     except Exception:
         return None, None
     kind = flow.get("kind")

@@ -9,7 +9,6 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
-import relay_transcripts  # noqa: E402
 
 PATTERNS = [
     r"\b(haiku|sonnet|opus)\b",
@@ -24,11 +23,12 @@ PATTERNS = [
 
 
 def main():
+    import relay_transcripts   # inside main: an import problem fails open instead of a traceback
     data = json.load(sys.stdin)
     if data.get("hook_event_name") != "UserPromptSubmit" or data.get("agent_id"):
         return
     prompt = data.get("prompt") or ""
-    if prompt.lstrip().startswith("/") or relay_transcripts.is_notification(prompt):
+    if prompt.lstrip().startswith("/") or relay_transcripts.is_notification(prompt, data.get("origin")):
         return
     if not any(re.search(p, prompt, re.I) for p in PATTERNS):
         return

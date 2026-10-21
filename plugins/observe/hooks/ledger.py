@@ -46,11 +46,11 @@ def base(data, event):
 
 def log_prompts_enabled(cwd):
     try:
-        import tomllib
+        import relay_toml
         root = cwd or os.getcwd()
         path = os.path.join(root, ".claude", "kit.toml")
         with open(path, "rb") as handle:
-            return bool(tomllib.load(handle).get("observe", {}).get("log_prompts"))
+            return bool(relay_toml.load(handle).get("observe", {}).get("log_prompts"))
     except Exception:
         return False
 
@@ -70,7 +70,7 @@ def main():
         prompt = data.get("prompt") or ""
         out["chars"] = len(prompt)
         out["prompt_id"] = data.get("prompt_id")
-        out["kind"] = "notification" if relay_transcripts.is_notification(prompt) else "owner"
+        out["kind"] = "notification" if relay_transcripts.is_notification(prompt, data.get("origin")) else "owner"
         out["slash"] = prompt.strip().split()[0] if prompt.strip().startswith("/") else None
         if log_prompts_enabled(data.get("cwd")):
             out["text"] = prompt[:200]
@@ -81,7 +81,7 @@ def main():
         out["input_keys"] = sorted(str(k) for k in data)
     elif event == "SubagentStop":
         out = base(data, "agent_stop")
-        out["reply_chars"] = len(data.get("last_assistant_message") or "")
+        handback = None
         path = data.get("agent_transcript_path")
         if not (path and os.path.isfile(path)):
             # older input: the agent's file sits beside the session's transcript
@@ -95,6 +95,12 @@ def main():
             out["context"] = trace.last_context
             out["model"] = trace.model
             out["cost_est"] = round(trace.total.cost, 4)
+            handback = trace.handback_chars
+        # What the caller receives: the SubagentHandback message when the agent used it (its
+        # last_assistant_message is then the text before the hand-back, never delivered), else the
+        # final text. None, not 0, when neither can be seen.
+        reply = len(data.get("last_assistant_message") or "") or None
+        out["reply_chars"] = handback if handback is not None else reply
     elif event == "PreToolUse":
         out = base(data, "tool_pre")
         out["tool"] = data.get("tool_name")
@@ -105,7 +111,7 @@ def main():
             out["model"] = ti.get("model")
             prompt = ti.get("prompt") or ""
             out["prompt_chars"] = len(prompt)
-            out["escalated"] = any(line.lstrip().startswith("Escalated:") for line in prompt.splitlines())
+            out["escalated"] = relay_transcripts.is_escalated(prompt)
     elif event == "PostToolUse":
         out = base(data, "tool_post")
         out["tool"] = data.get("tool_name")

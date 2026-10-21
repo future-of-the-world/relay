@@ -16,4 +16,7 @@ quiet "slash command: silent" '"/opsx:apply add-x"'
 quiet "task notification: silent" '"<task-notification>the worker finished; compare haiku and sonnet</task-notification>"'
 quiet "agent message: silent" '"<agent-message from=\"scout\">try haiku instead of sonnet for workers</agent-message>"'
 quiet "system notification: silent" '"[SYSTEM NOTIFICATION] what did this week cost?"'
+check "owner quoting a marker mid-sentence is still heard" 'front:tune' '"try haiku for workers; tune-stage still fires on <task-notification> prompts"'
+out="$(printf '{"hook_event_name":"UserPromptSubmit","prompt":"try haiku for workers","origin":{"kind":"task-notification"}}' | python3 "$here/../hooks/tune-stage.py")"
+if [[ -z "$out" ]]; then echo "ok   origin task-notification: silent"; else echo "FAIL origin: got '$out'"; fails=1; fi
 exit $fails

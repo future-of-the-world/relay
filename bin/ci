@@ -23,7 +23,7 @@ hook_tests() { local f rc=0; for f in plugins/*/tests/*.test.sh; do [ -e "$f" ] 
     # the principles-era core tests need bun, the fixture's node_modules or claude; run them when RELAY_CORE_TESTS=1
     [ "${RELAY_CORE_TESTS:-0}" = 1 ] || { echo "--- $f (skipped: RELAY_CORE_TESTS=1 runs it)"; continue; } ;; esac
   echo "--- $f"; bash "$f" || { echo "FAIL $f"; rc=1; }; done; return $rc; }
-lib_copies() { local rc=0 f p; for p in observe delegate front; do for f in plugins/$p/lib/relay_*.py; do
+lib_copies() { local rc=0 f p; for p in observe delegate front core; do for f in plugins/$p/lib/relay_*.py; do
   [ -e "$f" ] || continue; cmp -s "$f" "lib/$(basename "$f")" || { echo "FAIL $f differs from lib/ (run bin/sync-lib-copies)"; rc=1; }; done
   cmp -s "plugins/$p/lib/prices.toml" prices.toml 2>/dev/null || { [ -e "plugins/$p/lib/prices.toml" ] && { echo "FAIL plugins/$p/lib/prices.toml differs"; rc=1; }; }; done; return $rc; }
 grader_tests() { bash evals/plugin/graders.test.sh; }
@@ -36,7 +36,7 @@ step "eval grader tests" grader_tests
 step "plugin validate" validate_all
 if [ "$quick" = 0 ]; then
   if command -v claude >/dev/null 2>&1; then
-    step "plugin evals" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir "$root/evals/plugin" --trust-plugin --scaffold --allow-tools Bash Agent --ablation none --no-publish --max-cost-usd "${EVALS_MAX_COST:-15}" --json "$root/.ci/evals.json"'
+    step "plugin evals" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none --no-publish --max-cost-usd "${EVALS_MAX_COST:-15}" --json "$root/.ci/evals.json"'
   else
     echo "ci: plugin evals skipped: claude is not on PATH"; status=1
   fi
