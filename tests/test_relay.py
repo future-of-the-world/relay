@@ -916,7 +916,9 @@ class Roles(Base):
                 base = [r["name"] for r in rr.parse_regions(text) if isinstance(r, dict) and r["kind"] == "base"][0]
                 by_base.setdefault(base, []).append(os.path.relpath(path, ROOT))
         self.assertEqual(by_base, {"lookup": ["plugins/delegate/agents/scout.md"], "run": ["plugins/delegate/agents/runner.md"],
-                                   "build": ["plugins/delegate/agents/worker.md", "plugins/sdd/agents/worker.md"]})
+                                   "build": ["plugins/delegate/agents/worker.md", "plugins/sdd/agents/worker.md"],
+                                   "fix": ["plugins/delegate/agents/fixer.md", "plugins/sdd/agents/fixer.md"],
+                                   "think": ["plugins/delegate/agents/thinker.md", "plugins/sdd/agents/author.md"]})
 
     def test_missing_base_names_the_checkout_rule(self):
         rr = self.lib()
