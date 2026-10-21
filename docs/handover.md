@@ -157,10 +157,19 @@ Built and tested offline (no `claude` binary, no real sessions here):
   models; unverified), 3 wire the 10 projects, 4 a finding for 50-200k
   context requests (67% of spend, untargeted), 5 bench tasks from own
   commits, 6 weekly digest, 7 hard limits.
-- Questions to the owner still unanswered: billing per token or
-  subscription; what after this merge (recommended 1 then 4); the
-  `/cost` figure; run the paid eval step before merge (recommended yes,
-  after counting cases and stating the cost).
+- Step 3 done: owner's `/cost` screenshot for session 0b953f5c: $8.43
+  (Opus $6.99, Sonnet $1.43, Haiku $0.0031); relay's report said $5.40,
+  36% low. Cause is mostly token counting, not prices: relay saw Sonnet
+  output 673 tokens vs 48.7k, Opus output 39k vs 118.4k, Opus input 344
+  vs 56.5k. Per-model figures in memory `relay-cost-calibration`. Fix
+  counting first, then refit prices.toml.
+- The screenshot shows the owner is on a subscription with usage limits
+  (2% session, 0% week): dollars are notional; the goal is work per
+  limit. Claude Code's own advice there: critic is 28% of usage, "give
+  delegate:critic a cheaper model" (the `sonnet-judge` candidate profile).
+- Questions to the owner still unanswered: what after this merge
+  (recommended 1 then 4); merge (recommended: run the paid eval step
+  first, after counting cases and stating the cost).
 
 ## Open items (decisions for the owner or work not done)
 
