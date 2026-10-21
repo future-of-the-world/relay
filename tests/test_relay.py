@@ -195,6 +195,22 @@ class Analysis(Base):
             handle.write("".join(json.dumps(l) + "\n" for l in lines))
         self.assertEqual(tr.read_trace(path).user_turns, 1)
 
+    def test_a_command_answered_after_a_background_notice_is_still_a_turn(self):
+        # real shape: /list-agents, a task-notification (and a system line), then the model's reply
+        import relay_transcripts as tr
+        path = os.path.join(self.tmp, "t.jsonl")
+        lines = [fixtures.user("2026-10-18T09:00:00Z", "<command-name>/list-agents</command-name>\n<command-args></command-args>"),
+                 dict(fixtures.user("2026-10-18T09:00:02Z", "<task-notification>agent done</task-notification>"), origin={"kind": "task-notification"}),
+                 dict(fixtures.user("2026-10-18T09:00:03Z", "injected by the system"), origin={"kind": "system"}, promptSource="system"),
+                 fixtures.assistant("2026-10-18T09:00:05Z", "claude-opus-5-5", 10, 10, 5, "req1", text="here are the agents"),
+                 # a command cut off by the owner's next typed line stays not a turn
+                 fixtures.user("2026-10-18T09:01:00Z", "<command-name>/clear</command-name>"),
+                 dict(fixtures.user("2026-10-18T09:01:05Z", "<task-notification>x</task-notification>"), origin={"kind": "task-notification"}),
+                 dict(fixtures.user("2026-10-18T09:01:10Z", "next thing"), origin={"kind": "human"}, promptSource="typed")]
+        with open(path, "w") as handle:
+            handle.write("".join(json.dumps(l) + "\n" for l in lines))
+        self.assertEqual(tr.read_trace(path).user_turns, 2)    # /list-agents (answered) and "next thing"
+
     def test_scripted_sessions_are_counted_apart_from_your_turns(self):
         import relay_transcripts as tr
         path = os.path.join(self.tmp, "t.jsonl")

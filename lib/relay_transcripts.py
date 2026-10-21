@@ -29,6 +29,7 @@ _NOT_TYPED_STARTS = ("[Request interrupted", "<local-command-stdout>", "<local-c
 # A slash command is a turn only when it runs a prompt. The harness answers its own commands (/clear, /cost,
 # /rate-limit-options, ...) with a `<local-command-stdout>` line instead of a model reply, so the structure
 # tells them apart, not a list of names: see _absorb.
+_ENDS_COMMAND = ("[Request interrupted", "<local-command-stdout>", "<local-command-stderr>")   # a local command ended, or was cut off
 _COMMAND_WRAPPER = ("<command-name>", "<command-message>")
 # promptSource of a user line the owner wrote; any other value ("sdk": a program, "system") is not the owner.
 OWNER_PROMPT_SOURCES = ("typed", "suggestion_accepted", "queued")
@@ -240,8 +241,13 @@ def _absorb(trace, entry, seen_requests):
         )):
             text = content if isinstance(content, str) else " ".join(b.get("text") or "" for b in content if isinstance(b, dict))
             stripped = text.lstrip()
-            if not (stripped.startswith("<local-command-caveat>") or entry.get("isMeta")):
-                trace._command_open = False   # the next user line without a model reply between: the command ran locally
+            if stripped.startswith(_ENDS_COMMAND) or not (
+                    stripped.startswith("<local-command-caveat>") or entry.get("isMeta")
+                    or is_notification(text, entry.get("origin")) or not is_owner_turn(text, entry.get("origin"), entry.get("promptSource"))):
+                # the owner's next line (or the command's own output) with no model reply between: the command ran locally.
+                # A caveat, a skill expansion, a background-task notice or any other line the owner did not write
+                # (origin or promptSource says so) leaves the command open: the reply can still come after it.
+                trace._command_open = False
             if not (entry.get("isMeta") or entry.get("isCompactSummary") or is_notification(text, entry.get("origin"))
                     or not is_owner_turn(text, entry.get("origin"), entry.get("promptSource"))):
                 if stripped.startswith(_COMMAND_WRAPPER):
