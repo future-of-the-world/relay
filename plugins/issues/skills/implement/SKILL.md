@@ -53,11 +53,15 @@ worker. The same brief failing twice on Sonnet may go once to Opus with
 
 `delegate:critic` over `origin/<default_branch>...<slug>` against the
 acceptance criteria and the project's rules; `delegate:fixer` on HIGH and
-MEDIUM; `delegate:checker` on the fix. Then a `delegate:runner`
-runs `gate.ci` in the worktree (detached when it may pass 4 minutes); a
-red gate goes to a fixer with the log path; the second red comes to the
-owner. LOW left: listed in the PR body, not fixed now. The review method is
-`roles/judge.md`, which every reviewer carries.
+MEDIUM. Then a `delegate:runner` runs `gate.ci` in the worktree on the fixed
+head (detached when it may pass 4 minutes) into a log whose first line is
+`head <sha>` and last `exit <code>`: `{ echo "head $(git -C <wt> rev-parse
+HEAD)"; <gate.ci>; echo "exit $?"; } > <log> 2>&1`. A red gate goes to a
+fixer with the log path and then runs again; the second red comes to the
+owner. Last, `delegate:checker` with `Gate: <log>` (a fix, the gate, then
+the check; with no fix commits, `Fixes: none` and `Gate: none`). LOW left:
+listed in the PR body, not fixed now. The review method is the judge base
+that every reviewer carries (relay's copy: `~/relay/roles/judge.md`).
 
 ## 5. Commit and push
 

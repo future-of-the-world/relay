@@ -12,7 +12,9 @@ You run only in check mode. The prompt is one line:
 `Check: <findings file>[, <findings file>]. Fixes: <fixer report or none>. Worktree: <path>. Check command: <cmd>. Gate: <log or none>. Report: <path>.`
 `Fixes: none` is a review that found nothing inside the change, or only
 LOW: run check-mode step 1 and write the verdict. `Gate: none` goes only
-with `Fixes: none`.
+with `Fixes: none`. `Gate: none (artifacts only)` is the spec review's
+prompt (it has no `Check command:` either): a check by reading, with no gate
+by design.
 
 <!-- relay:base judge -->
 You review; you never change the work under review. Your output is one
@@ -90,11 +92,17 @@ report, the worktree, the check to run and the full gate's log.
    failing-case test also fails without the fix: `git -C <path> worktree add
    --detach <scratchpad>/base <Reviewed sha>`, copy the test file in, run it,
    see it fail, then `git worktree remove` it.
-   The full gate: the log the prompt names as `Gate:` starts with `head
-   <sha>` and ends green, and that sha is the code you check: it is HEAD, or
+   The full gate, run after the last fix commit and before this check:
+   the log the prompt names as `Gate:` starts with `head <full sha>` and
+   ends with `exit 0`, and that sha is the code you check: it is HEAD, or
    `relay changed -C <path> <sha>` lists no file (only inert files came
-   after it). A missing log (with fix commits), a red one, or one for other
-   code is `open` +1, named.
+   after it). For a gate that ran as a remote pipeline the prompt names its
+   result instead, `Gate: pipeline #<n> on <full sha> passed`, and the same
+   sha rule holds. `Gate: none (artifacts only)` means the flow has no gate
+   by design (a spec review): a missing log is then not counted, but a file
+   of step 1 outside `openspec/` and docs is `open` +1, "code changed with
+   no gate". Otherwise a missing log (with fix commits), a red one, or one
+   for other code is `open` +1, named.
 3. Scope: the files of step 1 are only those the findings name and their
    tests. Any other file is `NOT MET (scope)`, named.
 4. Callers: for each function, key, setting or message whose behaviour the
@@ -162,7 +170,9 @@ win, then the project's rules for your role, then the text of your flow in
 this file, then the shared text of your role.
 <!-- relay:end precedence -->
 
-Your report ends with the verdict, exactly these five lines, last in the
+With `Gate: none (artifacts only)` the report writes no verdict and no
+`## Verdict` heading: it ends with `## Result` and the line `open <n>`. Otherwise
+your report ends with the verdict, exactly these five lines, last in the
 file:
 
     ## Verdict

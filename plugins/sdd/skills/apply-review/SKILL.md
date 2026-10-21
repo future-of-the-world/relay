@@ -116,38 +116,20 @@ test at the size and with the value that showed it; one only the eye can
 judge (a colour) is proven by the check's screenshot, and the report
 says so.
 
-## 4. Check of the fixes
-
-`delegate:checker` runs once on `<scratchpad>/review/triage.md` and the
-fixers' reports, over `<gate base>..HEAD` (the gate base is the `Reviewed:`
-sha), with the final gate's log named as `Gate:`. The look review runs in
-check mode when the fix commits touch the surface (the test of section 1 on
-that range):
-
-> Check: `<scratchpad>/review/triage.md`. Fixes: `<fixer reports>`. Worktree: `<abs change worktree path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<scratchpad>/review/check.md`.
-
-There is no fixer after it and no new open review. The triage author keeps
-each finding's failing case and pass-cases when it merges duplicates. Every
-finding left open goes to the owner with a recommendation: fix now (one more
-round, on their word, checked the same way), or a follow-up with an id, an
-owner and a deadline. A high finding is asked before section 5, since the
-gate would run on code the owner may want fixed first. A look defect still
-on screen is listed with its screenshot; the look is never reported clean.
-
-## 5. Close: the final gate
+## 4. Close: the final gate (before the check)
 
 `openspec validate <change> --strict` and `kit spec-check <change>`, each cut
 to its tail; commit `Review fixes: <summary>`.
 
-- **`<final>` is `local`**: `ci 2>&1 | tail -15` in the change worktree
-  (detached with a log and waited on in calls of at most 240 s if it may pass
-  4 minutes). A failure goes to an `sdd:fixer` with `kit get gate.ci_log`,
-  then `ci` again.
+- **`<final>` is `local`**: in the change worktree, on the fixed head, `{ echo "head $(git -C <wt> rev-parse HEAD)"; ci; echo "exit $?"; } > <gate log> 2>&1`
+  (detached and waited on in calls of at most 240 s if it may pass 4
+  minutes); the check reads that log as `Gate:`. A failure goes to an
+  `sdd:fixer` with the log, then the gate runs again.
 - **`<final>` is `remote`**: merge `<base>` into `wt/<change>` if it moved,
   push the branch (a push is not a merge), and start the pipeline by hand as
   the project's rules say. An `Explore` agent with `model: "haiku"`, started
   when the pipeline is due (no agent waits on it), reads the result as one
-  line and, on a failure, writes the failing lines to
+  line (`pipeline #<n> on <full sha> passed`, which the check takes as `Gate:`) and, on a failure, writes the failing lines to
   `<scratchpad>/review/gate-<n>.md` for an `sdd:fixer`; then push and run again. If the pipeline cannot run, say so
   and ask the owner; a local full run is a fallback only on their word.
   The gate holds for its commit: a later commit that changes only
@@ -157,6 +139,24 @@ to its tail; commit `Review fixes: <summary>`.
 A failure that passes on a rerun is a flaky test: the gate has not passed
 until it is fixed or its fix runs in its own worktree, and the report names
 it under **Flaky**.
+
+## 5. Check of the fixes (after the final gate)
+
+`delegate:checker` runs once on `<scratchpad>/review/triage.md` and the
+fixers' reports, over `<gate base>..HEAD` (the gate base is the `Reviewed:`
+sha), with the log of section 4's final gate (or its pipeline result) named as `Gate:`. The look review runs in
+check mode when the fix commits touch the surface (the test of section 1 on
+that range):
+
+> Check: `<scratchpad>/review/triage.md`. Fixes: `<fixer reports>`. Worktree: `<abs change worktree path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<scratchpad>/review/check.md`.
+
+There is no fixer after it and no new open review. The triage author keeps
+each finding's failing case and pass-cases when it merges duplicates. Every
+finding left open goes to the owner with a recommendation. An open HIGH or
+MEDIUM inside the change is fixed before the merge: it is one more round on
+the owner's word (a fix, the gate again, then the check again), never a
+follow-up; only items outside the change are listed as follow-ups. A look defect still
+on screen is listed with its screenshot; the look is never reported clean.
 
 If the change alters what a person sees, the owner checks it before merge:
 give the last look review's contact sheets and offer to launch the change

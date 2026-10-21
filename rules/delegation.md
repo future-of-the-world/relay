@@ -34,6 +34,6 @@ does not need; and the big model only where judgment is what is being bought.
   cases by a checker, not reviewed again. Never no review. Wrong inside the
   change is fixed before the merge; wrong elsewhere is listed for the owner
   under Outside this change. What is still open comes to the owner with a
-  recommendation. The review method is the judge base, `roles/judge.md`.
+  recommendation. The review method is the judge base that every reviewer carries (relay's copy: `~/relay/roles/judge.md`).
 - Reports go to files in the session scratchpad; the conversation gets the
   outcome in plain words.

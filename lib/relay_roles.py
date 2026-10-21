@@ -185,18 +185,22 @@ def write_role_map(root, dry=False):
     return True
 
 
-def assemble(root, dry=False):
-    """Assemble every agent file under root/plugins/*/agents; return the paths that changed (or would).
-    Also writes plugins/core/lib/agent-roles.tsv (not counted in the paths)."""
+def assemble_detail(root, dry=False):
+    """Assemble every agent file under root/plugins/*/agents; return [(path, [(kind, name), ...])] for the files that
+    changed (or would), with the regions whose text differed. Also writes plugins/core/lib/agent-roles.tsv."""
     changed = []
     for path in agent_files(root):
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
         if not has_markers(text):
             continue
-        new = assemble_text(text, root, label=os.path.relpath(path, root))
+        label = os.path.relpath(path, root)
+        new = assemble_text(text, root, label=label)
         if new != text:
-            changed.append(path)
+            max_turns = split_frontmatter(text)[0].get("maxTurns")
+            regions = [(r["kind"], r["name"]) for r in _regions(parse_regions(text, label))
+                       if r["content"] != expected_content(root, r, max_turns)]
+            changed.append((path, regions))
             if not dry:
                 with open(path, "w", encoding="utf-8") as handle:
                     handle.write(new)
@@ -204,8 +208,13 @@ def assemble(root, dry=False):
     return changed
 
 
+def assemble(root, dry=False):
+    """Assemble every agent file; return the paths that changed (or would). The role map is written too (not counted)."""
+    return [path for path, _ in assemble_detail(root, dry=dry)]
+
+
 def check(root):
-    """[(path, region name)] of regions whose text differs from their source."""
+    """[(path, region name, kind)] of regions whose text differs from their source (kind: "base" or "part")."""
     out = []
     for path in agent_files(root):
         with open(path, encoding="utf-8") as handle:
@@ -216,14 +225,20 @@ def check(root):
         max_turns = split_frontmatter(text)[0].get("maxTurns")
         for region in _regions(parse_regions(text, label)):
             if region["content"] != expected_content(root, region, max_turns):
-                out.append((path, region["name"]))
+                out.append((path, region["name"], region["kind"]))
     return out
 
 
-def describe(path, region, root):
+def source_path(kind, name):
+    """The repository-relative source file of a base or a part."""
+    return f"roles/parts/{name}.md" if kind == "part" else f"roles/{name}.md"
+
+
+def describe(path, region, root, kind="base"):
     rel = os.path.relpath(path, root)
-    return (f"{rel}: text in relay:base {region} differs from roles/{region}.md: "
-            f"edit roles/{region}.md, then run bin/relay sync agents from this checkout")
+    source = source_path(kind, region)
+    return (f"{rel}: text in relay:{kind} {region} differs from {source}: "
+            f"edit {source}, then run bin/relay sync agents from this checkout")
 
 
 def _tools(meta):

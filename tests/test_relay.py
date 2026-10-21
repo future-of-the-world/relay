@@ -756,7 +756,7 @@ class Roles(Base):
         stripped); a hand edit inside a region is reported with the file and the base; the real tree is current."""
         rr = self.lib()
         root = self.fixture(markers="<!-- relay:base judge -->\nstale\n<!-- relay:end judge -->\n\nFlow text.\n")
-        self.assertEqual(rr.check(root), [(self.agent(root), "judge")])
+        self.assertEqual(rr.check(root), [(self.agent(root), "judge", "base")])
         rr.assemble(root)
         text = open(self.agent(root)).read()
         # worked out by hand: the base body, its {maxTurns} = 60 from this agent's frontmatter, between the markers
@@ -765,13 +765,58 @@ class Roles(Base):
         self.assertEqual(rr.check(root), [])
         with open(self.agent(root), "w") as handle:
             handle.write(text.replace("Judge body.", "Judge body, edited."))
-        self.assertEqual(rr.check(root), [(self.agent(root), "judge")])
+        self.assertEqual(rr.check(root), [(self.agent(root), "judge", "base")])
         self.assertEqual(rr.describe(self.agent(root), "judge", root),
                          "plugins/x/agents/a.md: text in relay:base judge differs from roles/judge.md: "
                          "edit roles/judge.md, then run bin/relay sync agents from this checkout")
-        self.assertEqual(rr.check(ROOT), [])   # the real agent files are what their bases say
+        # F5: an edit inside a part names the part and its file, and sync says which region of which file it rewrote
+        root = self.fixture()   # an agent with a base and the limits part
+        rr.assemble(root)
+        with open(self.agent(root)) as handle:
+            text = handle.read()
+        with open(self.agent(root), "w") as handle:
+            handle.write(text.replace("No long commands.", "Long commands are fine."))
+        (found,) = rr.check(root)
+        self.assertEqual(found, (self.agent(root), "limits", "part"))
+        self.assertEqual(rr.describe(*found[:2], root, found[2]),
+                         "plugins/x/agents/a.md: text in relay:part limits differs from roles/parts/limits.md: "
+                         "edit roles/parts/limits.md, then run bin/relay sync agents from this checkout")
+        self.assertEqual(rr.assemble_detail(root, dry=True), [(self.agent(root), [("part", "limits")])])
+        self.assertEqual(rr.assemble_detail(root), [(self.agent(root), [("part", "limits")])])
+        self.assertEqual(rr.check(root), [])
+        # on the real tree a stale region fails with the describe() message, not a tuple
+        self.assertEqual([rr.describe(p, n, ROOT, k) for p, n, k in rr.check(ROOT)], [])   # the real agent files are what their bases say
         with open(os.path.join(ROOT, rr.MAP_FILE), encoding="utf-8") as handle:
             self.assertEqual(handle.read(), rr.role_map(ROOT))   # and the role map is what their markers say
+
+    def test_assembly_writes_the_role_map(self):
+        """F2: assembly writes plugins/core/lib/agent-roles.tsv (one line per marked agent, sorted), leaves it alone
+        when current, leaves a stale one alone on a dry run, and writes none when the checkout has no core plugin."""
+        rr = self.lib()
+        root = self.fixture()
+        self.assertFalse(os.path.exists(os.path.join(root, rr.MAP_FILE)))
+        rr.assemble(root)
+        self.assertFalse(os.path.exists(os.path.join(root, rr.MAP_FILE)))   # no plugins/core/lib: no map
+        os.makedirs(os.path.join(root, "plugins/core/lib"))
+        with open(os.path.join(root, "plugins/x/agents/b.md"), "w") as handle:
+            handle.write("---\nname: b\nmaxTurns: 80\n---\n\n<!-- relay:base build -->\n<!-- relay:end build -->\n")
+        mapfile = os.path.join(root, rr.MAP_FILE)
+        rr.assemble(root, dry=True)
+        self.assertFalse(os.path.exists(mapfile))   # dry: nothing written
+        rr.assemble(root)
+        with open(mapfile) as handle:
+            self.assertEqual(handle.read(), "x:a\tjudge\nx:b\tbuild\n")
+        before = (open(mapfile).read(), os.stat(mapfile).st_mtime_ns)
+        rr.assemble(root)
+        self.assertEqual((open(mapfile).read(), os.stat(mapfile).st_mtime_ns), before)   # current: untouched
+        with open(mapfile, "w") as handle:
+            handle.write("stale\n")
+        rr.assemble(root, dry=True)
+        with open(mapfile) as handle:
+            self.assertEqual(handle.read(), "stale\n")
+        rr.assemble(root)
+        with open(mapfile) as handle:
+            self.assertEqual(handle.read(), "x:a\tjudge\nx:b\tbuild\n")
 
     def test_include_is_expanded_one_level(self):
         rr = self.lib()
@@ -998,6 +1043,46 @@ class Agents(unittest.TestCase):
             with open(os.path.join(ROOT, place), encoding="utf-8") as handle:
                 self.assertIn("roles/judge.md", handle.read(), place + " does not name roles/judge.md")
 
+    def test_gate_runs_before_the_check_in_every_flow(self):
+        """F3/F4/F6/F7: in each flow the order is fix, full gate (a log that starts with `head <sha>`), check; a flow
+        with no gate says so; the global texts name relay's path for the judge base; an open finding inside the change
+        is not deferred."""
+        def read(rel):   # line breaks do not matter to the wording
+            with open(os.path.join(ROOT, rel), encoding="utf-8") as handle:
+                return " ".join(handle.read().split())
+        writer = 'echo "head $(git -C <wt> rev-parse HEAD)"'
+        implement = read("plugins/issues/skills/implement/SKILL.md")
+        self.assertIn(writer, implement)
+        self.assertLess(implement.index("delegate:fixer"), implement.index("runs `gate.ci`"))
+        self.assertLess(implement.index("runs `gate.ci`"), implement.index("`delegate:checker` with `Gate: <log>`"))
+        review = read("plugins/sdd/skills/apply-review/SKILL.md")
+        self.assertIn(writer, review)
+        self.assertLess(review.index("## 4. Close: the final gate"), review.index("## 5. Check of the fixes"))
+        self.assertIn("pipeline #<n> on <full sha> passed", review)
+        delegate = read("plugins/delegate/skills/delegate/SKILL.md")
+        self.assertIn(writer, delegate)
+        self.assertLess(delegate.index("5. **Full gate.**"), delegate.index("6. **Check.**"))
+        # the checker side: the log form, the remote form and the no-gate form are all named, and agree with spec-review
+        judge = read("roles/judge.md")
+        self.assertIn("`head <full sha>`", judge)
+        self.assertIn("pipeline #<n> on <full sha> passed", judge)
+        self.assertIn("`Gate: none (artifacts only)`", judge)
+        self.assertIn("outside `openspec/`", judge)   # a code fix with no gate is still open +1
+        checker = read("plugins/delegate/agents/checker.md")
+        spec = read("plugins/sdd/skills/spec-review/SKILL.md")
+        self.assertIn("Gate: none (artifacts only)", spec)
+        self.assertIn("writes no verdict", spec)
+        self.assertIn("writes no verdict", checker)
+        # F6: the global rule and the skills that run in other projects give relay's path, never a bare roles/judge.md
+        for rel in ("rules/delegation.md", "plugins/delegate/skills/delegate/SKILL.md",
+                    "plugins/issues/skills/implement/SKILL.md", "plugins/sdd/skills/spec-review/SKILL.md"):
+            text = read(rel)
+            self.assertIn("~/relay/roles/judge.md", text, rel)
+            self.assertEqual(text.count("roles/judge.md"), text.count("~/relay/roles/judge.md"), rel)
+        # F7: no deferral of an open HIGH or MEDIUM inside the change
+        self.assertNotIn("follow-up with an id", review)
+        self.assertIn("never a follow-up", review)
+
     def test_relay_changed(self):
         """A12: `relay changed -C <repo> <sha>` lists the changed files that are not inert, and follows the matcher:
         `*` stays inside one path part, `**` crosses parts."""
@@ -1048,6 +1133,26 @@ class Agents(unittest.TestCase):
         self.assertTrue(relay_inert.matches(".relay/checks/abc.json"))
         self.assertFalse(relay_inert.matches(".relay/queuex/a.md"))
         self.assertFalse(relay_inert.matches("sub/docs/handover.md"))
+        # F1: a rename counts as delete + add, so code moved into an inert folder (or out of one) is listed
+        write("lib/foo.py", "1\n")
+        write("lib/\u00fc.py", "1\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "more")
+        start = git("rev-parse", "HEAD")
+        git("mv", "lib/foo.py", ".relay/queue/foo.py")
+        git("mv", "docs/handover.md", "lib/h.py")
+        write("lib/\u00fc.py", "2\n")
+        write("docs/handover.md", "again\n")   # a new inert file, ignored
+        write(".relay/checks/x.json", "{}\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "moves")
+        self.assertEqual(relay_inert.changed(repo, start), ["lib/foo.py", "lib/h.py", "lib/\u00fc.py"])
+        git("commit", "-q", "--allow-empty", "-m", "nothing")
+        write("docs/handover.md", "3\n")
+        write(".relay/checks/y.json", "{}\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "inert only")
+        self.assertEqual(relay_inert.changed(repo, "HEAD~1"), [])
         self.assertTrue(relay_inert._regex("a/*/c").match("a/b/c"))
         self.assertFalse(relay_inert._regex("a/*/c").match("a/b/d/c"))
         self.assertTrue(relay_inert._regex("a/**/c").match("a/b/d/c"))

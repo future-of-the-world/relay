@@ -197,9 +197,12 @@ def sync(profile, only=None, adopt=None, dry=False):
             results.append((name, spec["file"], write_target(name, spec, text, adopt=(adopt == name or adopt == "all"))))
     if not only or "agents" in only:
         try:
-            assembled = relay_roles.assemble(ROOT, dry=dry)
+            assembled = relay_roles.assemble_detail(ROOT, dry=dry)
         except relay_roles.RolesError as error:
             raise Fail(str(error))
+        for path, regions in assembled:
+            names = ", ".join(f"relay:{kind} {name}" for kind, name in regions)
+            results.append(("agents", os.path.relpath(path, ROOT), ("would rewrite " if dry else "rewrote ") + names))
         changed = sync_agents(profile, dry=dry)
         state = (f"would assemble {len(assembled)}, would set model/effort in {len(changed)}" if dry
                  else f"assembled {len(assembled)}, set model/effort in {len(changed)}")

@@ -99,8 +99,13 @@ worker's DONE on a change that will be merged:
 4. **Fix.** One `delegate:fixer` per group of findings; it ends with one of
    four outcomes per finding (Fixed, Disputed, Gap, Outside).
 5. **Full gate.** When fix commits exist, a `delegate:runner` runs the
-   project's full gate on the fixed head, detached, into a log whose first
-   line is `head <sha>`.
+   project's full gate on the fixed head (after the last fix, before the
+   check), detached, into a log whose first line is `head <sha>` and last
+   `exit <code>`; the command is `{ echo "head $(git -C <wt> rev-parse HEAD)";
+   <gate>; echo "exit $?"; } > <log> 2>&1`. A gate that is a remote pipeline
+   gives `Gate: pipeline #<n> on <full sha> passed` instead. A red gate goes
+   to a fixer, then the gate runs again, then the check. A flow with no gate
+   by design (a spec review) passes `Gate: none (artifacts only)`.
 6. **Check.** `delegate:checker` on the findings file, the fixer's report and
    the gate log; its report ends with the verdict. Commit the handover after
    the check, so the branch carries the state it was merged in.
@@ -135,4 +140,4 @@ Prompts:
 > Check: `<findings file>`. Fixes: `<fixer report>`. Worktree: `<path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<path>`.
 
 The review method (scope, cases, severity, the check of a fix) is the judge
-base, `roles/judge.md`; every reviewer carries it.
+base, carried by every reviewer (relay's copy: `~/relay/roles/judge.md`).

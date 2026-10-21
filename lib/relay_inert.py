@@ -46,8 +46,10 @@ def matches(path):
 
 
 def changed(repo, since, until="HEAD"):
-    """Files changed from `since` to `until` in `repo` (git diff --name-only since..until) that are not inert."""
-    run = subprocess.run(["git", "-C", repo, "diff", "--name-only", f"{since}..{until}"], capture_output=True, text=True)
+    """Files changed from `since` to `until` in `repo` that are not inert. A rename or copy counts as a delete plus an
+    add (--no-renames), so a code file moved into an inert folder is still listed; -z keeps odd names unquoted."""
+    run = subprocess.run(["git", "-C", repo, "diff", "--name-only", "--no-renames", "-z", f"{since}..{until}"],
+                         capture_output=True, text=True)
     if run.returncode != 0:
         raise ValueError(f"git diff {since}..{until} failed in {repo}: {run.stderr.strip()}")
-    return [line for line in run.stdout.splitlines() if line and not matches(line)]
+    return [line for line in run.stdout.split("\0") if line and not matches(line)]
