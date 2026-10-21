@@ -1,0 +1,95 @@
+# Kartoteka's bindings for the principles plugins (copied to .claude/kit.toml by
+# migration/kartoteka/apply.sh). Filled from Kartoteka's CLAUDE.md and its old
+# packet, spec-check and guard-main scripts (2026-10-19).
+
+[project]
+name = "kartoteka"
+default_branch = "master"
+worktrees = ".worktrees"
+stack_skills = ["ts-dev"]
+
+[gate]
+wt = "bin/wt"
+check = "bin/check"
+ci = "bin/ci"
+ci_log = ".ci/ci.log"
+final = "local"
+
+[product]
+medium = "the site on a phone (below 1024 CSS px) and on a computer (from 1024 px)"
+run_skill = "kartoteka-run"
+look_review = true
+# Files that can reach a screen (regexes on changed paths).
+surface = ['^src/ui/', '^src/.+\.css$', '^index\.html$', '^public/', '^src/data/']
+# Phone widths (the layout below 1024 px) and the computer layout (1024 px, where it starts,
+# and 1440 px, where the grids have reflowed).
+widths = [320, 340, 390, 1024, 1440]
+build = "bun run build --outDir {out} --emptyOutDir"
+serve = "bun run preview --port {port} --strictPort --outDir {out}"
+# No look_diff: Kartoteka has no screenshot diff, so the look review always runs on a surface change.
+# `^src/data/` is in `surface` on purpose: a card file can change what a screen shows, so a
+# logic-only change under src/data also runs the look review (add a look_diff later to skip those).
+
+[coordination]
+mode = "leadless"
+
+# --- kit packet -------------------------------------------------------------
+[packet]
+module = "typescript"
+install_hint = "run `bun install --frozen-lockfile`"
+max_source_files = 4
+# Source files: .ts and .tsx under src/ that are not tests, and .rs under src-tauri/src/.
+source = ['^src/.+\.tsx?$', '^src-tauri/src/.+\.rs$']
+source_exclude = ['\.test\.tsx?$']
+
+[[packet.required_test]]
+kind = "e2e"
+# A component (a .tsx under src/ui/ that is not a test) or an end-to-end spec.
+files = ['^src/ui/.+\.tsx$', '^e2e/.+\.spec\.ts$']
+files_exclude = ['\.test\.tsx$']
+waiver = true
+missing = 'Tests: {item} changes what the user sees: add e2e "<test title>" (a Playwright test in e2e/ that drives it in the real browsers), or e2e none (<reason>)'
+brief = '- e2e: "{title}" in e2e/, black-box: drive the built app through what is on the screen (roles, names, text), never importing from src/. Run it only through `bin/check <change> <task>` (it gives the run its own port), never `bun run test:e2e` by hand'
+
+# --- kit spec-check -----------------------------------------------------------
+# A requirement of a kind below needs the failure scenarios listed (matched in
+# scenario titles and their GIVEN/WHEN/THEN/AND lines). "load" is not a trigger
+# word: in a media app it mostly means media arriving.
+[[spec_check.group]]
+name = "stored data"
+trigger = '\b(stor(?:e|ed|es|ing|age)|sav(?:e|es|ed|ing)|persist\w*|restor(?:e|es|ed|ing)|migrat\w*|localStorage)\b'
+[spec_check.group.cases]
+"Corrupt data" = 'unreadable|corrupt\w*|garbage|(not valid|invalid) JSON|hand[- ]edited|wrong type|malformed'
+"Older data" = 'older version|older build|old(er)? data|saved before|written before|missing field|unknown version'
+"Storage unavailable" = 'storage (is |was )?(unavailable|blocked|full)|(blocked|full|unavailable) storage|(storage|stor(e|ing)|writ(e|ing)|sav(e|ing)|setItem|getItem) throws|private window|quota|cannot (be )?writ(e|ten)|can.t write'
+
+[[spec_check.group]]
+name = "the native shell"
+trigger = '\b(tauri|native|plugins?|haptic\w*|vibrat\w*|notifications?|invok(?:e|es|ed|ing)|capabilit(?:y|ies)|status bar|deep[- ]links?)\b'
+[spec_check.group.cases]
+"Plain browser" = 'plain browser|in (a|the) browser|without Tauri|no native shell|outside the app|web build'
+
+# --- the main-checkout guard --------------------------------------------------
+[guard]
+# Flags whose value is the directory a command acts on (besides `cd` and `git -C`).
+target_flags = ["--cwd"]
+
+# Commands that write tracked files, blocked in the main checkout. `{start}` in a
+# pattern stands for "where a command can start, after env assignments". A
+# fragment that matches `unless` is let through.
+[[guard.block]]
+pattern = '{start}bun[[:space:]]+(add|remove|rm|update|upgrade|link|unlink|patch|patch-commit)([[:space:]]|$)'
+reason = "this bun command changes package.json and bun.lock"
+
+[[guard.block]]
+pattern = '{start}bun[[:space:]]+(install|i)([[:space:]][^;&|]*)?($|[;&|])'
+unless = '--frozen-lockfile'
+reason = "'bun install' can rewrite bun.lock (only 'bun install --frozen-lockfile' is allowed here)"
+
+[[guard.block]]
+pattern = '{start}bun[[:space:]]+run[[:space:]]+format([[:space:]]|$|[;&|)])'
+reason = "'bun run format' rewrites source files"
+
+[[guard.block]]
+pattern = '{start}(bun|bunx)[[:space:]][^;&|]*[[:space:]](--write|--fix|--update|-u)([[:space:]]|$|[;&|)])'
+reason = "--write / --fix / -u rewrite tracked files"

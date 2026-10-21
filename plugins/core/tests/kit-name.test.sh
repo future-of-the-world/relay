@@ -10,7 +10,20 @@
 # cheap guard until a clash is real.)
 #   plugins/core/tests/kit-name.test.sh
 set -uo pipefail
-found="$(command -v kit 2>/dev/null || true)"
+# Only a `kit` that is NOT this plugin's own helper counts (any checkout or install of it on PATH is fine), so the
+# result does not depend on which copy of the plugin happens to be on this machine's PATH.
+here="$(cd "$(dirname "$0")" && pwd -P)"
+ours() { # <file>: is it a copy of this plugin's bin/kit (this checkout, another checkout or worktree of it, an install)?
+  local real; real="$(cd "$(dirname "$1")" && pwd -P)/$(basename "$1")"
+  case "$real" in */plugins/core/bin/kit) return 0 ;; esac
+  cmp -s "$1" "$here/../bin/kit"
+}
+found=""
+IFS=: read -r -a dirs <<<"$PATH"
+for d in "${dirs[@]}"; do
+  [ -n "$d" ] && [ -f "$d/kit" ] && [ -x "$d/kit" ] || continue
+  if ! ours "$d/kit"; then found="$d/kit"; break; fi
+done
 if [ -z "$found" ]; then
   echo "ok    no other 'kit' on PATH, so the plugin's helper is the one agents call"
   echo "kit-name.test: all passed"

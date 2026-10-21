@@ -36,11 +36,14 @@ code (`python3 -c "open(p, 'w')"`, `node -e`), and a tar/zip written into main
 Shell variables: a plain assignment earlier in the same command line
 (`W=/abs/path && git -C $W add`, `export W=...`) is remembered and `$W` /
 `${W}` expanded from then on, so the command is judged where it really acts.
-A word holding a `$` that cannot be resolved (an unset or computed variable,
-`$(...)`, a backtick) is unknown: it is skipped, and a command whose place is
-such a word (`git -C $X`, `cd $X`, a target flag's value) is neither judged as
-the main checkout nor refused, because Bash state does not carry between calls
-and the guard cannot know. This catches slips, not a determined bypass.
+Any other word holding a `$` (an unset variable, `$PWD`, `${W:-.}`, `$(...)`,
+a backtick), quoted or not, is judged as the directory the command is in: Bash
+state does not carry between calls, so a variable not assigned in this command
+line is empty at run time and `git -C "$W"` / `cd "$W"` stay in the current
+folder; `$(pwd)` and `$PWD` are that folder. So in the main checkout such a
+command is refused exactly as it was before variables were followed. A
+subshell's assignment does not leak out of it. This catches slips, not a
+determined bypass.
 """
 import os
 import re
@@ -328,9 +331,6 @@ def parse(cmd):
 
 
 UNKNOWN = "?"
-# The place of a command that cannot be known (`git -C $X`, `cd $X` with $X not assigned in this command line):
-# unlike UNKNOWN it is not counted as the main checkout; the command is not judged by place at all.
-DYNAMIC = "$"
 
 VAR_REF = re.compile(r"\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})")
 STILL_DYNAMIC = re.compile(r"\$[A-Za-z0-9_{?$!#@*-]")
@@ -359,7 +359,7 @@ def assign(words, variables):
 def resolve(path, base):
     p = os.path.expanduser(path)
     if not os.path.isabs(p):
-        if base in (UNKNOWN, DYNAMIC):
+        if base == UNKNOWN:
             return UNKNOWN
         p = os.path.join(base, p)
     return os.path.realpath(p)
@@ -410,7 +410,7 @@ def git_parts(words, cwd):
     while i < len(words):
         t = words[i].text
         if t == "-C" and i + 1 < len(words):
-            d = DYNAMIC if words[i + 1].dynamic else resolve(words[i + 1].text, d)
+            d = resolve(words[i + 1].text, d)
             i += 2
         elif t in GIT_GLOBAL_VALUE and i + 1 < len(words):
             i += 2
@@ -587,15 +587,12 @@ def analyze(cmd, cwd, flags, depth=0, variables=None):
         name = os.path.basename(real[0].text) if real else ""
         d = cur
         if name in ("cd", "pushd", "popd") and not via_xargs:
-            if cur != DYNAMIC:
-                out.append(("C", cur, seg_text(raw)))
+            out.append(("C", cur, seg_text(raw)))
             arg = next((w for w in real[1:] if w.text == "-" or not w.text.startswith("-")), None)
             if name == "popd":
                 st.prev, st.cur = cur, (st.stack.pop() if st.stack else UNKNOWN)
             elif arg is not None and arg.text == "-":
                 st.prev, st.cur = cur, st.prev
-            elif arg is not None and arg.dynamic:
-                st.prev, st.cur = cur, DYNAMIC
             elif arg is not None and arg.text != "":
                 new = resolve(arg.text, cur)
                 if name == "pushd":
@@ -609,25 +606,21 @@ def analyze(cmd, cwd, flags, depth=0, variables=None):
                 if why:
                     out.append(("B", why))
             what = git_write(sub, rest)
-            if what and d != DYNAMIC:
+            if what:
                 out.append(("G", d, what))
         # a target flag's value is the directory (or a file in it) the command acts on
         for k, w in enumerate(words):
             for flag in flags:
                 val = None
-                dyn = False
                 if w.text == flag and k + 1 < len(words):
-                    val, dyn = words[k + 1].text, words[k + 1].dynamic
+                    val = words[k + 1].text
                 elif w.text.startswith(flag + "="):
-                    val, dyn = w.text[len(flag) + 1:], w.dynamic
-                if dyn:
-                    d = DYNAMIC
-                elif val:
+                    val = w.text[len(flag) + 1:]
+                if val:
                     d = resolve(val, cur)
                     if d != UNKNOWN and os.path.isfile(d):
                         d = os.path.dirname(d)
-        if d != DYNAMIC:
-            out.append(("C", d, seg_text(raw)))
+        out.append(("C", d, seg_text(raw)))
 
         if name == "printenv" or (name == "env" and len(real) == 1) or (
             name == "export" and [w.text for w in real[1:]] == ["-p"]

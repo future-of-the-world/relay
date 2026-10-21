@@ -14,7 +14,7 @@
 #   heredoc, tee, sed -i, perl -i, cp, mv, rm, touch, mkdir, ln, install,
 #   truncate, find -delete, xargs rm, rsync, patch, tar -x, unzip, curl -o,
 #   wget -O, dd of=). Not seen: a program's own code (python3 -c, node -e)
-#   and a path held in a shell variable;
+#   and a path held in a variable set in an earlier call;
 # - an anonymous `git stash` (bare, -u, push without -m) and any `git stash
 #   pop`, anywhere (the stash is shared);
 # - shell tracing (set -x, bash -x), verbose curl on an authenticated request,
@@ -35,9 +35,11 @@
 # | & newlines, subshells, quotes, heredocs). Each part is judged by the
 # directory it runs in: the tracked `cd`, overridden by its `git -C` or a
 # target flag's value, starting from the session cwd. So in the main checkout
-# `git -C .worktrees/a log && git merge x` still blocks the merge. A path or
-# directory held in a shell variable is unknown and not followed. This catches
-# slips, not a determined bypass.
+# `git -C .worktrees/a log && git merge x` still blocks the merge. A variable
+# assigned earlier in the same command line (`W=/abs && git -C $W ...`) is
+# followed; any other `$...` (unset, $PWD, $(...), quoted or not) counts as the
+# directory the command is in, since an unset variable is empty at run time and
+# `git -C ""` / `cd ""` stay put. This catches slips, not a determined bypass.
 #
 # Tests: plugins/core/tests/guard-main.test.sh
 set -uo pipefail

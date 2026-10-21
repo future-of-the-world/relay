@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Allow/block cases for hooks/guard-main.sh over a temporary repository, once
-# per binding profile (Kartoteka's real kit.toml, and the profiles/ examples).
+# per binding profile (a copy of Kartoteka's kit.toml, and the profiles/ examples).
 #   plugins/core/tests/guard-main.test.sh
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd -P)"
 hook="$here/../hooks/guard-main.sh"
-kartoteka="$here/../../../migration/kartoteka/kit.toml"
+kartoteka="$here/profiles/kartoteka.toml"   # a copy of Kartoteka's real bindings, kept in tests
 unset CLAUDE_PROJECT_DIR
 
 tmp="$(cd "$(mktemp -d)" && pwd -P)"
@@ -88,11 +88,25 @@ EOF"
   t allow "redirect into a worktree from main" Bash "$M" command "cp README.md $W/README.copy"
   t allow "quoted > is no redirect"    Bash "$M" command "echo 'a > b' && grep -n \"x > y\" README.md"
   t allow "cat a main file"            Bash "$M" command "cat README.md | head -2"
-  # shell variables: one assigned earlier in the command line is followed; one that cannot be resolved is neither refused nor taken for main
-  t allow "git -C on an unassigned variable, run from main" Bash "$M" command "git -C \$W add -A"
-  t allow "mkdir -p on an unassigned variable"  Bash "$M" command "mkdir -p \$S/a"
-  t allow "redirect into an unassigned variable" Bash "$M" command "echo hi > \$S/a"
-  t allow "cd to an unassigned variable, then commit" Bash "$M" command "cd \$X && git commit -m x"
+  # shell variables: one assigned earlier in the SAME command line is followed; every other `$...` (unset, $PWD,
+  # $(...), ${W:-.}, quoted or not) is judged as the directory the command is in, so from main it is refused
+  t block "git -C on an unassigned variable, run from main" Bash "$M" command "git -C \$W add -A"
+  t block "git -C on a quoted unassigned variable" Bash "$M" command "git -C \"\$W\" commit -m x"
+  t block "cd to an unassigned variable, then commit" Bash "$M" command "cd \$X && git commit -m x"
+  t block "cd to a quoted unassigned variable, then commit" Bash "$M" command "cd \"\$WT\" && git commit -m x"
+  t block "git -C \$(pwd)"            Bash "$M" command "git -C \"\$(pwd)\" commit -m x"
+  t block "cd to the toplevel, commit" Bash "$M" command "cd \"\$(git rev-parse --show-toplevel)\" && git commit -m x"
+  t block "git -C \$PWD"              Bash "$M" command "git -C \$PWD commit -m x"
+  t block "cd \$PWD, reset"           Bash "$M" command "cd \$PWD && git reset --hard HEAD~1"
+  t block "git -C \${W:-.}"           Bash "$M" command "git -C \"\${W:-.}\" commit -m x"
+  t block "a variable from \$(pwd)"   Bash "$M" command "W=\$(pwd) && git -C \$W commit -m x"
+  t block "redirect after cd to an unassigned variable" Bash "$M" command "cd \"\$X\" && echo hi > README.md"
+  t block "subshell assignment does not leak" Bash "$M" command "(V=$W; git -C \$V commit -m x); git -C \$V commit -m y"
+  t block "assignment, then the next line unset"  Bash "$M" command "git -C \"\$W\" commit -m x # W unset at run time"
+  t allow "mkdir -p on an unassigned variable"  Bash "$W" command "mkdir -p \$S/a"
+  t allow "unassigned variables, run from a worktree" Bash "$W" command "git -C \"\$W\" commit -m x && cd \$X && git commit -m y"
+  t allow "bash -c assigns a worktree, then git -C" Bash "$M" command "bash -c 'V=$W; git -C \$V commit -m x'"
+  t allow "export of a worktree, then bash -c"   Bash "$M" command "export V=$W; bash -c 'git -C \$V commit -m x'"
   t allow "variable assigned a worktree, git -C" Bash "$M" command "V=$W && git -C \$V add -A"
   t allow "variable assigned a worktree, mkdir"  Bash "$M" command "S=$W/out; mkdir -p \${S}/x"
   t block "variable assigned the main checkout, git -C" Bash "$W" command "V=$M && git -C \"\$V\" add -A"

@@ -19,8 +19,9 @@ step() { local name="$1"; shift; local log=".ci/steps/${name// /-}.log" start rc
   else echo "ci: $name FAILED ($(( $(date +%s) - start ))s, log: $log)"; grep -E 'FAIL|Error|error|✗' "$log" | head -8 | sed 's/^/    /'; status=1; fi; }
 lib_tests() { python3 -W ignore::ResourceWarning -m unittest discover -s tests -p 'test_*.py'; }
 hook_tests() { local f rc=0; for f in plugins/*/tests/*.test.sh; do [ -e "$f" ] || continue
-  case "$f" in *hooks-live*|*packet*|*check-contract*|*shim*|*spec-check*|*kit.test*|*kit-name*|*guard-main*|*inject-addition*)
+  case "$f" in *hooks-live*|*packet*|*check-contract*|*shim*|*spec-check*|*inject-addition*)
     # the principles-era core tests need bun, the fixture's node_modules or claude; run them when RELAY_CORE_TESTS=1
+    # (guard-main, kit and kit-name need only git, jq and python3, so they run in every gate)
     [ "${RELAY_CORE_TESTS:-0}" = 1 ] || { echo "--- $f (skipped: RELAY_CORE_TESTS=1 runs it)"; continue; } ;; esac
   echo "--- $f"; bash "$f" || { echo "FAIL $f"; rc=1; }; done; return $rc; }
 lib_copies() { local rc=0 f p; for p in observe delegate front core; do for f in plugins/$p/lib/relay_*.py; do
