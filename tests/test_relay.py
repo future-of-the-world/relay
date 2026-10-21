@@ -469,12 +469,42 @@ class Numbers(Base):
         text = relay_analyze.report(relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1)))
         self.assertIn("exact for 0% of usage", text)
 
+    def _late_turn(self, ts, out):
+        import fixtures
+        path = os.path.join(self.claude, "projects", "-Users-me-x", "s-snap.jsonl")
+        with open(path, "a") as handle:
+            handle.write(json.dumps(fixtures.assistant(ts, "claude-opus-5-5", 10, 1000, out, "req-late")) + "\n")
+
+    def test_resume_then_work_seconds_later_is_still_an_estimate(self):
+        import relay_analyze
+        import relay_ledger
+        self._agent_session(None)
+        self._claude_json("s-snap")
+        relay_ledger.capture("2026-10-21T09:30:00Z", folder="/Users/me/x")      # resume copies the stale total
+        self._late_turn("2026-10-21T09:30:45.000Z", 60000)                       # 45 s later: no tolerance window
+        base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
+        text = relay_analyze.report(relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1)))
+        self.assertIn("exact for 0% of usage", text)
+        self.assertNotIn("$8.42", text)
+
+    def test_calibrate_leaves_out_sessions_that_went_on_after_their_total(self):
+        import relay_analyze
+        import relay_ledger
+        self._agent_session(None)
+        self._claude_json("s-snap")
+        relay_ledger.capture("2026-10-21T09:30:00Z", folder="/Users/me/x")
+        self._late_turn("2026-10-21T09:40:00.000Z", 200000)
+        text = relay_analyze.calibrate(self.claude, "2026-10-21T09:41:00Z")
+        self.assertEqual(relay_analyze.load_calibration()["estimate"], {})
+        self.assertIn("1 skipped (not covered", text)
+
     def test_calibration_file_of_another_shape_does_not_crash_the_report(self):
         import relay_analyze
         self._agent_session(None)
         base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
         window = (self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
-        for data in ({"estimate": {"with_agents": {"median": 0.05}}}, {"estimate": {"with_agents": 1}}, [], {"estimate": []}):
+        for data in ({"estimate": {"with_agents": {"median": 0.05}}}, {"estimate": {"with_agents": 1}}, [], {"estimate": []},
+                     {"estimate": {"with_agents": {"median": "0.05", "worst_signed": -0.1, "over_10": 0, "n": 1}}}):
             relay_analyze._save_calibration(data)
             text = relay_analyze.report(relay_analyze.collect(*window))
             self.assertIn("not measured yet; run relay calibrate", text, msg=json.dumps(data))

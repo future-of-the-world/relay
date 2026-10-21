@@ -77,12 +77,13 @@ def _exact_usage(numbers):
 
 def _covers(session, written):
     """True when a total written at `written` is later than everything the session did (a resumed session's
-    earlier total does not cover its later work). Unknown times count as covering."""
+    earlier total does not cover its later work). No tolerance: any later line, even a second later, may carry
+    new usage. Unknown times count as covering."""
     if written is None:
         return True
     ends = [_ts(t.ended) for t in [session["main"]] + session["agents"] if t.ended]
     ends = [e for e in ends if e]
-    return not ends or max(ends) <= written + dt.timedelta(seconds=60)
+    return not ends or max(ends) <= written
 
 
 def session_figures(session, exact_map, exact_at=None):
@@ -181,7 +182,9 @@ def calibrate(claude_dir, now):
     transcripts and prices.toml give; store what was measured (relay shows it beside every estimate).
     Returns the text to print."""
     written = relay_ledger.capture(now)
-    sessions = [(sid, models) for sid, models in sorted(relay_ledger.exact_sessions().items())]
+    records = relay_ledger.exact_records()
+    sessions = [(sid, models) for sid, (_when, models) in sorted(records.items())]
+    skipped = 0
     per_model = defaultdict(lambda: defaultdict(float))
     ratios = defaultdict(list)
     uplifts = []
@@ -193,6 +196,9 @@ def calibrate(claude_dir, now):
         path = tr.session_path_for(claude_dir, sid)
         main = tr.read_trace(path) if path else None
         agents = tr.session_agents(path) if path else []
+        if path and not _covers({"main": main, "agents": agents}, records[sid][0]):
+            skipped += 1        # the session went on after this total was written: it would measure the estimate against a stale figure
+            continue
         for model, numbers in models.items():
             if numbers.get("cost_usd", 0) > 0:
                 err, basis = price_error(model, numbers, main, agents)
@@ -224,7 +230,7 @@ def calibrate(claude_dir, now):
             guess = session_figures({"main": main, "agents": agents}, {})["cost"]
             (est_with if agents else est_without).append((guess - total) / total)
     lines = [f"Claude Code's own totals: {len(sessions)} sessions ({relay_config_json()} and the ledger), {len(written)} newly copied "
-             f"into the ledger, {used} with a transcript on this machine.", ""]
+             f"into the ledger, {used} with a transcript on this machine, {skipped} skipped (not covered: the session went on after the total).", ""]
     rows = []
     for key, row in sorted(per_model.items()):
         rows.append([key, int(row["sessions"]), _k(int(row["exact_out"])), _k(int(row["tr_out"])), _money(row["exact_cost"]),
@@ -285,7 +291,7 @@ def known_error_sentence():
         if not parts:
             return not_yet
         return f"Known error (measured {cal.get('measured')} against Claude Code's totals): " + "; ".join(parts) + "."
-    except (KeyError, TypeError, AttributeError):
+    except (KeyError, TypeError, AttributeError, ValueError):
         return not_yet      # a file of another shape (older or newer fields): treat as not measured
 
 
