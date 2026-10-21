@@ -2,10 +2,10 @@
 > Small work on small models, thinking on thinking models, nothing lost: one brief file per agent, typed agents only, a 10-line hand-back. Load the `delegate` skill before the first agent.
 
 What work costs is the number of requests times the context each one re-reads.
-A subagent's cache lives 5 minutes, a session's 1 hour; on every model a
-5-minute cache write costs 25 reads, a 1-hour write 40, an output 100, while a
-read itself is 20x cheaper on Haiku than on Opus (measured 2026-10-21 from Claude
-Code's own totals; prices.toml keeps the table).
+A subagent's cache lives 5 minutes, a session's 1 hour; on Opus and Sonnet a 5-minute
+cache write costs 25 reads, a 1-hour write 40, an output 100 (Haiku half of
+that, Fable double; measured 2026-10-21 from Claude Code's own totals;
+prices.toml keeps the table).
 So: fewer, longer agents; no agent that waits; no agent that carries what it
 does not need; and the big model only where judgment is what is being bought.
 

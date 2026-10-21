@@ -6,9 +6,11 @@
 # comparison on any machine. Notional dollars: the owner is on a subscription,
 # so a dollar here is a common weight for tokens, not a bill.
 #
-# The ratios inside a model are the same on every model: a 5-minute cache
-# write costs 25 cache reads, a 1-hour write 40, an output 100. The read price
-# itself differs 20x between models (Opus 0.20, Sonnet 0.10, Haiku 0.01).
+# The ratios to a cache read differ by model. Opus and Sonnet: a 5-minute
+# cache write costs 25 reads, a 1-hour write 40, an output 100. Haiku has half
+# of that (12.5, 20, 50), Fable double (50, 80, 200); the table below is the
+# truth. The read price itself differs between models (Opus 0.20, Sonnet 0.10,
+# Haiku 0.01).
 # The main thread writes its cache for 1 hour, agents for 5 minutes; the
 # transcript's usage.cache_creation says which, and relay prices them apart.
 #
