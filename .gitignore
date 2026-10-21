@@ -5,3 +5,4 @@ __pycache__/
 *.before-relay
 profiles/history/
 evals/plugin/results/
+.worktrees/
