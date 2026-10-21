@@ -270,3 +270,31 @@ Russian and English with typos incl. negatives (~$0.30). Memory:
 Sonnet long-context price with the claude-api skill. Old worktrees
 `.worktrees/live-fixes`, `.worktrees/numbers` are merged and can go.
 The plan: docs/plans/trustworthy-numbers.md.
+
+Decisions of 21 Oct evening (owner's words verbatim where quoted):
+- Review method: "our review - fix - review flow is wrong we move in
+  cycle fixing the same problems. One good review is better than several
+  bad reviews, and cheaper". Earlier: skipping a review is
+  "unacceptable". New shape: design review before risky builds; one
+  thorough whole-change review that writes the cases a correct version
+  must pass; the fix is checked against those cases. Reword
+  rules/delegation.md ("Review runs twice at most") in batch 3. Memory
+  `always-review-fixes`.
+- Guard: variable-following dropped ("1. a"); kit_guard.py and
+  guard-main.sh back to 6a4b713 behaviour (a2b5753), proven by
+  guard-diff.test.sh: 309 commands, 0 differences vs a golden file.
+- Resume: owner's live test: /cost 0.3238, newer session 0.2823, resumed
+  first session 0.3238 again: Claude Code continues a resumed session's
+  count; F3 cannot happen. A bare "hi" session costs ~$0.30 on Opus.
+- Self-contained relay ("pluggable, all in one"): phase 1 AFTER batch 3
+  ("2. a"); rules in a marked block in ~/.claude/CLAUDE.md that relay
+  owns, the owner's text outside it untouched ("3. a"); split rules into
+  relay's set and the owner's personal set (working-with-me, shell,
+  glonass) chosen at install ("a"). Also in phase 1: project list per
+  machine in ~/.relay (not committed), ship the OpenSpec coordinator
+  skill, `relay uninstall`, paths resolved at install, retire principles
+  leftovers. Design notes: session scratchpad selfcontained.md (its
+  claim that plugins run from a stale cache is WRONG: the ledger shows
+  merged code live from ~/relay within minutes).
+- OpenSpec natural-language triggers and doctor checks: batch 3 (see
+  above).
