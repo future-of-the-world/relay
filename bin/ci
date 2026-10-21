@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# The single gate of the relay repository. Quiet: one line per step; a failing
+# step's first findings; the full log in .ci/ci.log. Exit 0 only when green.
+#
+#   bin/ci              every step, the paid ones included (plugin evals need `claude`)
+#   bin/ci --quick      the free steps only; ends "QUICK MODE" and never releases
+#
+# Steps: library tests (python), hook tests (bash), lib copies identical, plugin
+# evals' grader tests, `claude plugin validate` (skipped loudly without claude),
+# plugin evals (full mode only; compared with evals/plugin/baseline).
+set -uo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd -P)"; cd "$root" || exit 1
+export NO_COLOR=1 RELAY_ROOT="$root"
+quick=0; for a in "$@"; do case "$a" in --quick|--no-evals) quick=1 ;; *) echo "usage: bin/ci [--quick]" >&2; exit 2 ;; esac; done
+mkdir -p .ci/steps; : > .ci/ci.log; status=0
+step() { local name="$1"; shift; local log=".ci/steps/${name// /-}.log" start rc; start=$(date +%s)
+  "$@" > "$log" 2>&1; rc=$?; { echo "==> $name"; cat "$log"; } >> .ci/ci.log
+  if [ "$rc" -eq 0 ]; then echo "ci: $name ok ($(( $(date +%s) - start ))s)"
+  else echo "ci: $name FAILED ($(( $(date +%s) - start ))s, log: $log)"; grep -E 'FAIL|Error|error|✗' "$log" | head -8 | sed 's/^/    /'; status=1; fi; }
+lib_tests() { python3 -W ignore::ResourceWarning -m unittest discover -s tests -p 'test_*.py'; }
+hook_tests() { local f rc=0; for f in plugins/*/tests/*.test.sh; do [ -e "$f" ] || continue
+  case "$f" in *hooks-live*|*packet*|*check-contract*|*shim*|*spec-check*|*kit.test*|*kit-name*|*guard-main*|*inject-addition*)
+    # the principles-era core tests need bun, the fixture's node_modules or claude; run them when RELAY_CORE_TESTS=1
+    [ "${RELAY_CORE_TESTS:-0}" = 1 ] || { echo "--- $f (skipped: RELAY_CORE_TESTS=1 runs it)"; continue; } ;; esac
+  echo "--- $f"; bash "$f" || { echo "FAIL $f"; rc=1; }; done; return $rc; }
+lib_copies() { local rc=0 f p; for p in observe delegate front; do for f in plugins/$p/lib/relay_*.py; do
+  [ -e "$f" ] || continue; cmp -s "$f" "lib/$(basename "$f")" || { echo "FAIL $f differs from lib/ (run bin/sync-lib-copies)"; rc=1; }; done
+  cmp -s "plugins/$p/lib/prices.toml" prices.toml 2>/dev/null || { [ -e "plugins/$p/lib/prices.toml" ] && { echo "FAIL plugins/$p/lib/prices.toml differs"; rc=1; }; }; done; return $rc; }
+grader_tests() { bash evals/plugin/graders.test.sh; }
+validate_all() { command -v claude >/dev/null 2>&1 || { echo "skipped: claude is not on PATH (install Claude Code to validate plugins)"; return 0; }
+  local d rc=0; for d in . plugins/*/; do echo "--- $d"; claude plugin validate "$d" || rc=1; done; return $rc; }
+step "library tests" lib_tests
+step "hook tests" hook_tests
+step "lib copies identical" lib_copies
+step "eval grader tests" grader_tests
+step "plugin validate" validate_all
+if [ "$quick" = 0 ]; then
+  if command -v claude >/dev/null 2>&1; then
+    step "plugin evals" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir "$root/evals/plugin" --trust-plugin --scaffold --allow-tools Bash Agent --ablation none --no-publish --max-cost-usd "${EVALS_MAX_COST:-15}" --json "$root/.ci/evals.json"'
+  else
+    echo "ci: plugin evals skipped: claude is not on PATH"; status=1
+  fi
+fi
+if [ "$status" -ne 0 ]; then echo "ci: RED"; elif [ "$quick" = 1 ]; then echo "ci: green (QUICK MODE: paid steps skipped, not a release gate)"; else echo "ci: green"; fi
+exit $status

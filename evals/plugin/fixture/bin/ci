@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Quiet full gate: the unit suite and the OpenSpec specs. Prints only what
+# needs attention; the full log is .ci/ci.log. Exit 0 only when green.
+set -uo pipefail
+root="$(git rev-parse --show-toplevel)"
+cd "$root" || exit 1
+mkdir -p .ci
+: >.ci/ci.log
+status=0
+run() {
+  local name="$1"; shift
+  { echo "==> $name"; "$@"; } >>.ci/ci.log 2>&1 && echo "ci: $name ok" || { echo "ci: $name FAILED (see .ci/ci.log)"; status=1; }
+}
+run unit bun test
+if command -v openspec >/dev/null 2>&1; then run specs openspec validate --specs --strict; fi
+exit $status

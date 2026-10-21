@@ -1,0 +1,2 @@
+Confirmed, high:
+- `src/shelf.ts:27`: `page()` slices to `start + size + 1`, so each page has one item too many. DOC-RULE: `pageCount` has no doc comment.

@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: worker-group
+description: sdd:worker implements one task group in its change worktree; bin/check passes there and the new test fails, on an assertion, against the base stub.
+tags: [sdd, worker]
+plugins: ["../../../plugins/core", "../../../plugins/sdd"]
+context:
+  scaffold_script: scaffold.sh

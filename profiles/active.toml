@@ -1,0 +1,41 @@
+# The active profile: the setup every session runs. `relay sync` writes it into
+# the delegate agents (model, effort), ~/.claude/CLAUDE.md (rules) and each
+# project's CLAUDE.local.md. Change it only through `relay improve adopt <name>`
+# after a bench, so improve/log.md records why.
+
+[profile]
+name = "active"
+description = "Opus front and thinkers, Sonnet builders, Haiku lookups; typed agents only"
+
+[session]
+model = "opus"            # the front: it talks and routes; its output is small, its judgment matters
+effort = "high"
+permission_mode = "acceptEdits"
+
+[models]                  # one model per delegation tier
+look = "haiku"            # scout
+run = "haiku"             # runner
+build = "sonnet"          # worker
+fix = "sonnet"            # fixer
+think = "opus"            # thinker
+judge = "opus"            # critic
+
+[effort]
+look = "low"
+run = "low"
+build = "medium"
+fix = "medium"
+think = "high"
+judge = "high"
+
+[rules]                   # rules/<name>.md loaded in full into the global CLAUDE.md; the rest listed by gist
+load = ["working-with-me", "front", "delegation", "git", "secrets", "shell", "verify", "glonass"]
+
+[plugins]
+enabled = ["core", "observe", "delegate", "front"]
+
+[delegate]
+typed_only = true
+fork_limit = 100000
+max_parallel = 4
+build_tier_opus = "escalate"

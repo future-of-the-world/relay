@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# bin/check: the quiet check a worker loops on. The contract (plugins/core/README.md):
+#   check <change> <task>            the quick steps, then the task's Check: command (OpenSpec flows)
+#   check <change> <task> --failed   failed test files first, then the whole check
+#   check --tests <file>... [--failed]
+# Quiet: "passed" on green; the first findings and FAILED at <step> (round N of 3; log: <path>) on red.
+# Exit 0 green, 1 failed (a hang and a spent budget are failures), 2 usage error. Stop words:
+# BUDGET SPENT, HUNG, TIME BUDGET SPENT. State under .ci/check/.
+set -uo pipefail
+root="$(git rev-parse --show-toplevel)"; cd "$root"
+timeout_s="${CHECK_TIMEOUT:-300}"; minutes="${CHECK_WORKER_MINUTES:-40}"
+mkdir -p .ci/check
+key="task-${2:-tests}"; [ "${1:-}" = "--tests" ] && key="tests-$(printf '%s' "$*" | md5sum | cut -c1-8)"
+log=".ci/check/$key.log"; fails=".ci/check/$key.fails"; started=".ci/check/$key.started"
+[ -f "$started" ] || date +%s > "$started"
+elapsed=$(( ( $(date +%s) - $(cat "$started") ) / 60 ))
+run_step() { # name cmd...
+  local name="$1"; shift
+  if ! timeout -k 5 "$timeout_s" "$@" > "$log" 2>&1; then
+    local rc=$?
+    [ "$rc" -eq 124 ] && echo "HUNG: $name exceeded ${timeout_s}s"
+    n=$(( $(cat "$fails" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$fails"
+    head -30 "$log"
+    echo "FAILED at $name (round $n of 3; log: $log)"
+    [ "$n" -ge 3 ] && echo "BUDGET SPENT: stop fixing and report"
+    [ "$elapsed" -ge "$minutes" ] && echo "TIME BUDGET SPENT"
+    exit 1
+  fi
+}
+# TODO ({{stack}}, {{tool}}): the quick steps on the changed files, then the task's own check. Examples:
+#   run_step format   bun run format --check
+#   run_step types    bun run typecheck
+#   run_step tests    bun test ${TEST_FILES:-}
+run_step placeholder true
+rm -f "$fails"
+echo "passed (${elapsed} min since the first check of this task)"
+[ "$elapsed" -ge "$minutes" ] && echo "TIME BUDGET SPENT"
+exit 0

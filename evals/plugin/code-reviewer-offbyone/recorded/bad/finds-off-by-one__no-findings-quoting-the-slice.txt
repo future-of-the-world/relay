@@ -1,0 +1,2 @@
+No findings. Reviewed page() at src/shelf.ts:25-28 (`items.slice(start, start + size + 1)`); the paging reads as intended.
+Report: /tmp/x/.ci/code-review.md

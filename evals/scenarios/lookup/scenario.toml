@@ -1,0 +1,26 @@
+# A lookup question. Measures cost and speed of the cheapest kind of request;
+# a profile that sends Opus to read two files loses here.
+name = "lookup"
+description = "Where is total() defined and who calls it"
+tags = ["look", "cheap"]
+fixture = "../../plugin/fixture"
+max_turns = 10
+timeout_s = 300
+permission_mode = "default"
+allowed_tools = ["Read", "Grep", "Glob", "Agent"]
+runs = 2
+
+[[graders]]
+name = "names-definition"
+type = "regex"
+pattern = "shelf\\.ts:?\\s?1[3-6]\\b"
+
+[[graders]]
+name = "names-the-test-caller"
+type = "regex"
+pattern = "shelf\\.test\\.ts"
+
+[[graders]]
+name = "short"
+type = "regex"
+pattern = "^(?![\\s\\S]{1500,})"

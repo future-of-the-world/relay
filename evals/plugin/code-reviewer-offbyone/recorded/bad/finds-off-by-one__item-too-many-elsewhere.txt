@@ -1,0 +1,2 @@
+1 confirmed. src/shelf.ts:25 CONFIRMED: page() takes one parameter too many, and the slice is fine.
+Report: /tmp/x/.ci/code-review.md

@@ -1,0 +1,37 @@
+# A small feature with tests: the bread-and-butter job. Measures whether the
+# front delegates to a worker (not Opus itself), and whether the result is right.
+name = "add-function"
+description = "Add removeItem() with tests to the shelf fixture"
+tags = ["build", "cheap"]
+fixture = "../../plugin/fixture"
+scaffold = "scaffold.sh"
+max_turns = 40
+timeout_s = 900
+permission_mode = "acceptEdits"
+allowed_tools = ["Read", "Edit", "Write", "Bash", "Grep", "Glob", "Agent", "Skill"]
+runs = 1
+
+[[graders]]
+name = "tests-pass"
+type = "command"
+command = "bun test 2>&1 | tail -3 && bun test >/dev/null 2>&1"
+
+[[graders]]
+name = "function-exists"
+type = "command"
+command = "grep -q 'export function removeItem' src/shelf.ts"
+
+[[graders]]
+name = "test-written"
+type = "command"
+command = "grep -q 'removeItem' src/shelf.test.ts"
+
+[[graders]]
+name = "delegated-to-a-worker"
+type = "agent_used"
+agent_type = "worker"
+
+[[graders]]
+name = "reply-is-short"
+type = "regex"
+pattern = "^(?![\\s\\S]{2500,})"

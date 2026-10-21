@@ -1,0 +1,23 @@
+# Bindings of the eval fixture: shaped like Kartoteka, much smaller.
+[project]
+name = "shelf"
+default_branch = "master"
+worktrees = ".worktrees"
+stack_skills = []
+
+[gate]
+wt = "bin/wt"
+check = "bin/check"
+ci = "bin/ci"
+ci_log = ".ci/ci.log"
+
+[coordination]
+mode = "leadless"
+
+[[spec_check.group]]
+name = "stored data"
+trigger = '\b(stor(?:e|ed|es|ing|age)|sav(?:e|es|ed|ing)|persist\w*|restor(?:e|es|ed|ing)|file)\b'
+[spec_check.group.cases]
+"Corrupt data" = 'unreadable|corrupt\w*|garbage|(not valid|invalid) JSON|malformed'
+"Older data" = 'older version|old(er)? data|saved before|missing field|unknown version'
+"Storage unavailable" = 'storage (is |was )?(unavailable|blocked|full)|cannot (be )?(read|writ(e|ten))|missing file|does not exist'

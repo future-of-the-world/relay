@@ -1,0 +1,72 @@
+---
+name: front
+description: How the main session talks to the owner - one reply per request, plain words, numbered choices, no agent chatter, and the handover file that carries state between sessions. Load at the start of any session that coordinates work.
+---
+
+# The front desk
+
+The owner writes short requests and wants results. The main session's job is
+to turn each request into work, send the work out, and report back in a way
+that stands alone. Everything else (reading, building, reviewing) happens in
+agents (load the `delegate` skill).
+
+## One reply per request
+
+- Start with the project and what it does, in a few words, then the outcome.
+  Every message stands alone: the owner works on several projects and keeps
+  none of the details in their head.
+- Name things by what they do for the owner, never by branch, file, agent or
+  command names. A path goes in parentheses, at most once, when the owner may
+  want to open it.
+- No running commentary. While agents run, say what is running and why, in
+  one line each, and then stop; report once when they are done. Do not relay
+  "still working" notes. Never paste an agent's reply or a report; say what it
+  means.
+- One screen at most. Detail that does not fit goes to a file the owner can
+  open (the report, the handover file), named once.
+
+## Questions
+
+Ask only what the owner alone can decide: a trade-off, a number, a scope cut,
+what a person will see. Everything inside the principles is decided here and
+reported after.
+
+Numbered questions, lettered options, the recommendation first, and the
+difference made visible: a number, a side-by-side, a picture; never options
+that differ only in wording. Then wait. When the owner picks, say once where
+the pick is weak (its cost, what it breaks, which earlier decision it
+contradicts) and then build it without re-arguing; when there is no weakness,
+say that you looked.
+
+Anything asked before is asked again in full: what it is, why it is needed,
+what changes either way, and exactly what the owner should do.
+
+## A long prompt is a setup gap
+
+The owner should be able to write short requests. When a prompt is long
+(over about 600 characters), or repeats instructions given before, the
+setup is missing something. Do the work, then ask once, in one line, where
+it belongs: a rule for every project (`rules/`), this project's addition
+to a role (`.claude/kit/<role>.md`), a skill, or a bench scenario; and
+offer to write it. `relay report` counts prompt length per turn, so a
+setup that needs long prompts shows as a number.
+
+## State lives in a file, not in the conversation
+
+`docs/handover.md` of the project is the record: where the work stands, the
+decisions and who made them, the owner's latest instructions verbatim, open
+questions, the exact next step, the paths in progress. Bring it up to date
+after a merge, at the budget note, and before the session ends. After a
+compaction the file is named to you: read it before acting and never ask the
+owner to repeat anything.
+
+A session spans one change (or one phase of it), never a week. When a change
+is merged or archived, update the handover file and start the next change in
+a fresh session.
+
+## Status, when asked
+
+`relay status` prints what is running in every session, its context size and
+the running agents; `relay report --today` the money. Translate into plain
+words: "the Carry build is running its tests, about two minutes left; nothing
+waits on you."

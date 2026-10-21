@@ -1,0 +1,40 @@
+# Candidate: reviews on Sonnet at high effort. Hypothesis: a read-only review
+# with a concrete-case rule holds up on Sonnet; the critic is a third of
+# agent spend in review-heavy flows.
+
+[profile]
+name = "sonnet-judge"
+description = "Critic on Sonnet (high effort), otherwise as active"
+
+[session]
+model = "opus"
+effort = "high"
+permission_mode = "acceptEdits"
+
+[models]
+look = "haiku"
+run = "haiku"
+build = "sonnet"
+fix = "sonnet"
+think = "opus"
+judge = "sonnet"
+
+[effort]
+look = "low"
+run = "low"
+build = "medium"
+fix = "medium"
+think = "high"
+judge = "xhigh"
+
+[rules]
+load = ["working-with-me", "front", "delegation", "git", "secrets", "shell", "verify", "glonass"]
+
+[plugins]
+enabled = ["core", "observe", "delegate", "front"]
+
+[delegate]
+typed_only = true
+fork_limit = 100000
+max_parallel = 4
+build_tier_opus = "escalate"

@@ -1,0 +1,1 @@
+Findings: none. D2 moves a corrupt file aside to shelf.json.bad, which is a sound design.

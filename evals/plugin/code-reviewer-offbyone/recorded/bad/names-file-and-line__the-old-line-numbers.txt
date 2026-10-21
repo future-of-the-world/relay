@@ -1,0 +1,1 @@
+src/shelf.ts:21 CONFIRMED: page() holds one extra item.

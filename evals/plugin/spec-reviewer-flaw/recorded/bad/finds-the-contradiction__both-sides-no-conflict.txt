@@ -1,0 +1,2 @@
+Findings: none. The "Corrupt data" scenario leaves the file in place and D2 moves a copy aside to shelf.json.bad; both read fine to me.
+Report: /tmp/x/.ci/spec-review.md

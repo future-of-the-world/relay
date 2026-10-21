@@ -1,0 +1,1 @@
+Write a small script `bin/count` (executable, bash is fine) that takes a file path and prints how many lines in it contain the word `test(`. Make it work on src/shelf.test.ts. Two lines back: done, and the number it printed.

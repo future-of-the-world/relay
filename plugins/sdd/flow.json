@@ -1,0 +1,16 @@
+{
+  "kind": "openspec",
+  "plugin": "sdd",
+  "description": "Spec-driven development on OpenSpec: a behaviour change is a proposal, spec deltas, design and tasks before code; apply in waves of workers; review; archive.",
+  "detect": { "dirs": ["openspec"] },
+  "requires_plugins": ["core", "sdd"],
+  "bindings_required": ["project.default_branch", "project.worktrees", "gate.wt", "gate.check", "gate.ci", "gate.ci_log"],
+  "stages": [
+    { "name": "plan",         "skill": "sdd:plan",           "triggers": ["/opsx:explore", "/opsx:propose", "/opsx:new"] },
+    { "name": "spec-review",  "skill": "sdd:spec-review",    "triggers": ["/opsx:update"] },
+    { "name": "apply",        "skill": "sdd:parallel-apply", "triggers": ["/opsx:apply"] },
+    { "name": "apply-review", "skill": "sdd:apply-review",   "triggers": ["/opsx:verify"] },
+    { "name": "archive",      "skill": "sdd:archive",        "triggers": ["/opsx:archive", "/opsx:sync"] }
+  ],
+  "roles": { "build": "sdd:worker", "fix": "sdd:fixer", "think": "sdd:author", "judge": "sdd:reviewer" }
+}

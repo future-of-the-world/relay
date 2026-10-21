@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# bin/wt new <name> [base] | rm <name> | ls : worktrees in .worktrees/<name> on branch wt/<name>.
+set -euo pipefail
+root="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd -P)"
+case "${1:-}" in
+  new) git -C "$root" worktree add -q "$root/.worktrees/${2:?name}" -b "wt/$2" "${3:-HEAD}" && echo "$root/.worktrees/$2" ;;
+  rm) git -C "$root" worktree remove --force "$root/.worktrees/${2:?name}" && git -C "$root" branch -D "wt/$2" >/dev/null ;;
+  ls) git -C "$root" worktree list ;;
+  *) echo "usage: bin/wt new <name> [base] | rm <name> | ls" >&2; exit 2 ;;
+esac

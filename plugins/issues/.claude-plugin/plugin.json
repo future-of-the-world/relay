@@ -1,0 +1,6 @@
+{
+  "name": "issues",
+  "version": "0.1.0",
+  "description": "Issue flow: an issue becomes a brief, a worktree, a worker, a review, a pull request and a merge, with the tracker and the hosting named in the project's bindings (Forgejo, GitLab, GitHub, Yandex Tracker).",
+  "author": { "name": "amidman" }
+}

@@ -1,0 +1,22 @@
+# Clean / Mind: Rust and Tauri on top of the bun rules.
+[project]
+worktrees = ".worktrees"
+default_branch = "master"
+[gate]
+wt = "bin/wt"
+
+[guard]
+target_flags = ["--cwd", "--manifest-path"]
+
+[[guard.block]]
+pattern = '{start}cargo([[:space:]]|$)'
+reason = "'cargo' writes Cargo.lock and src-tauri/target of the main checkout"
+
+[[guard.block]]
+pattern = '{start}(bun[[:space:]]+run|bunx|bun)[[:space:]]+tauri[[:space:]]+[^[:space:];&|)]+'
+unless = 'tauri[[:space:]]+(info|dev|build|help|--help|-h|--version|-V)([[:space:]]|$)'
+reason = "this tauri subcommand generates or edits files"
+
+[[guard.block]]
+pattern = '{start}bun[[:space:]]+(add|remove|rm|update|upgrade|link|unlink|patch|patch-commit)([[:space:]]|$)'
+reason = "this bun command changes package.json and bun.lock"

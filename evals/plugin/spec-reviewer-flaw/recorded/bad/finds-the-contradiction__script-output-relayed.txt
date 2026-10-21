@@ -1,0 +1,2 @@
+openspec validate add-saved-shelf --strict: valid. kit spec-check add-saved-shelf: no gaps. No findings.
+Report: /tmp/x/.ci/spec-review.md

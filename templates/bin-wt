@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# bin/wt: worktrees for this project (the relay contract: new <name> <base> | rm <name> | ls).
+# A worktree lives at .worktrees/<name> on branch wt/<name>.
+set -euo pipefail
+root="$(git rev-parse --path-format=absolute --git-common-dir)/.."
+root="$(cd "$root" && pwd -P)"
+dir="$root/.worktrees"
+case "${1:-}" in
+  new)
+    name="${2:?name}"; base="${3:-{{branch}}}"
+    mkdir -p "$dir"
+    git -C "$root" worktree add "$dir/$name" -b "wt/$name" "$base" >/dev/null
+    # TODO ({{stack}}): prepare the worktree so its check runs (dependencies, env). Examples:
+    #   bun:  ln -s "$root/node_modules" "$dir/$name/node_modules"
+    #   mix:  ln -s "$root/deps" "$dir/$name/deps"; ln -s "$root/_build" "$dir/$name/_build"
+    echo "$dir/$name"
+    ;;
+  rm)
+    name="${2:?name}"
+    git -C "$root" worktree remove --force "$dir/$name"
+    git -C "$root" branch -D "wt/$name" >/dev/null 2>&1 || true
+    ;;
+  ls) git -C "$root" worktree list ;;
+  *) echo "usage: bin/wt new <name> [base] | rm <name> | ls" >&2; exit 2 ;;
+esac

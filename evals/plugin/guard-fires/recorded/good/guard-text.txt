@@ -1,0 +1,1 @@
+guard-main: a shell command writes /x/guard-probe.txt in the main checkout (redirect, tee, sed -i, cp, mv, rm, ...).

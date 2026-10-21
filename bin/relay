@@ -1,0 +1,424 @@
+#!/usr/bin/env python3
+"""relay: the owner's one command for the system of work.
+
+  relay status                       what is running now, context sizes, running agents
+  relay report [--since 7d] [--today] [--session <id>]
+                                     where the money went: by model, by agent type, by session
+  relay report --compare <A> <B>     two periods side by side (e.g. 2026-10-10..2026-10-13 2026-10-14..2026-10-17)
+  relay improve suggest [--since 7d] measured anti-patterns, each with its saving and the lever that fixes it
+  relay improve adopt <profile>      make a candidate the active profile (after a bench), sync, log why
+  relay improve log                  the history of adopted changes and their bench results
+  relay bench <profileA> <profileB> [--scenario <name>...|--tag <tag>] [--runs N] [--max-cost N] [--isolate] [--keep]
+                                     the same work under two setups: quality, cost, time, turns side by side
+                                     (--isolate: a throwaway config dir, so only the profiles differ; --keep: keep workspaces)
+  relay bench active --set models.build=haiku --set effort.build=low
+                                     try a change without writing a profile: B is A with these keys changed
+  relay bench list                   past bench results
+  relay candidate <name> [--copy delegate,issues] [--set k=v]
+                                     a candidate to edit by hand: copies of plugins whose agents or skills change
+  relay profile [<name>]             show the active profile, or a candidate
+  relay sync [--dry] [--adopt <target>]
+                                     write ~/.claude/CLAUDE.md, each project's CLAUDE.local.md, agent models
+  relay install [--principles ~/principles] [--no-claude]
+                                     this machine onto relay: global CLAUDE.md, user settings, plugins, the
+                                     projects the principles library knew
+  relay migrate --all [--apply]      the migration plan (or the move) for every known project
+  relay setup [<dir>] [--flow openspec|issues|none] [--product|--no-product] [--no-global]
+                                     a project onto relay (new or existing; nothing deleted)
+  relay migrate [<dir>] [--apply]    an existing project from the old agents/skills/hooks; --apply moves them aside
+  relay doctor [<dir>]               check-up of the machine, the rules, the ledger, and a project
+  relay flows                        the task flows available and what each needs
+  relay rules                        the catalogue of rules with gists
+
+The repository root is this script's parent, or $RELAY_ROOT.
+"""
+
+import datetime as dt
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "lib"))
+
+import relay_analyze  # noqa: E402
+import relay_bench  # noqa: E402
+import relay_config  # noqa: E402
+import relay_ledger  # noqa: E402
+import relay_rules  # noqa: E402
+import relay_setup  # noqa: E402
+
+ROOT = relay_config.ROOT
+
+
+class Usage(Exception):
+    pass
+
+
+def parse_span(text):
+    """'7d', '12h', 'today', '2026-10-10', '2026-10-10..2026-10-13' -> (since, until) aware datetimes."""
+    now = dt.datetime.now(dt.timezone.utc)
+    if text in ("today",):
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return start, None
+    m = re.fullmatch(r"(\d+)([dh])", text)
+    if m:
+        n, unit = int(m.group(1)), m.group(2)
+        return now - (dt.timedelta(days=n) if unit == "d" else dt.timedelta(hours=n)), None
+    if ".." in text:
+        a, b = text.split("..", 1)
+        return _day(a), _day(b) + dt.timedelta(days=1)
+    return _day(text), _day(text) + dt.timedelta(days=1)
+
+
+def _day(text):
+    return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc)
+
+
+def flag(args, name, default=None, takes_value=True):
+    if name in args:
+        i = args.index(name)
+        if takes_value:
+            value = args[i + 1]
+            del args[i:i + 2]
+            return value
+        del args[i]
+        return True
+    return default
+
+
+def cmd_status(args):
+    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=12)
+    events = relay_ledger.read(since=since)
+    if not events:
+        print("No ledger events in the last 12 hours. Is the observe plugin enabled? (`relay doctor`)")
+        return 0
+    print(relay_analyze.status(events, relay_config.claude_dir()))
+    return 0
+
+
+def cmd_report(args):
+    if "--compare" in args:
+        i = args.index("--compare")
+        a, b = args[i + 1], args[i + 2]
+        sa, ua = parse_span(a)
+        sb, ub = parse_span(b)
+        da = relay_analyze.collect(relay_config.claude_dir(), sa, ua)
+        db = relay_analyze.collect(relay_config.claude_dir(), sb, ub)
+        print(f"# {a} vs {b} (per-turn figures are the fair ones)\n")
+        print(relay_analyze.compare(da, db, a, b))
+        return 0
+    session = flag(args, "--session")
+    if flag(args, "--today", takes_value=False):
+        since, until = parse_span("today")
+    else:
+        since, until = parse_span(flag(args, "--since", "7d"))
+    data = relay_analyze.collect(relay_config.claude_dir(), since, until, session_ids={session} if session else None)
+    if not data["sessions"]:
+        print("No sessions found in that period under " + os.path.join(relay_config.claude_dir(), "projects"))
+        return 0
+    print(relay_analyze.report(data))
+    found = relay_analyze.findings(data)
+    if found:
+        print("\n## What to change (run `relay improve suggest` for the full list)")
+        for f in found[:3]:
+            print(f"- {f['id']} {f['title']}: {f['evidence']}" + (f"; about ${f['saving_usd']:.2f} to save" if f['saving_usd'] else ""))
+    return 0
+
+
+def cmd_improve(args):
+    sub = args[0] if args else "suggest"
+    rest = args[1:]
+    if sub == "suggest":
+        since, until = parse_span(flag(rest, "--since", "7d"))
+        data = relay_analyze.collect(relay_config.claude_dir(), since, until)
+        found = relay_analyze.findings(data)
+        t = relay_analyze.totals(data)
+        total = t["main"].cost + t["agents_total"].cost
+        print(f"# Suggestions from the last period ({t['sessions']} sessions, {t['agents']} agents, about ${total:.2f})\n")
+        if not found:
+            print("Nothing measured stands out. Add a bench scenario for what you want better, then `relay bench`.")
+            return 0
+        for n, f in enumerate(found, 1):
+            saving = f" About ${f['saving_usd']:.2f} of ${total:.2f}." if f["saving_usd"] else ""
+            print(f"{n}. {f['title']}\n   Measured: {f['evidence']}.{saving}\n   Lever: {f['lever']}\n")
+        print("Pick one, write it into profiles/candidates/<name>.toml (or a rule), then:\n"
+              "  relay bench active <name>        # same work, both setups, side by side\n"
+              "  relay improve adopt <name>       # if the verdict says so")
+        return 0
+    if sub == "adopt":
+        if not rest:
+            raise Usage("relay improve adopt <profile>")
+        name = rest[0]
+        reason = flag(rest, "--because", "")
+        profile = relay_bench.load_profile(name)
+        active = os.path.join(ROOT, "profiles", "active.toml")
+        previous = relay_bench.load_profile("active")
+        stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+        history = os.path.join(ROOT, "profiles", "history")
+        os.makedirs(history, exist_ok=True)
+        import shutil
+        shutil.copy2(active, os.path.join(history, f"{stamp.replace(' ', 'T').replace(':', '-')}-{previous['profile']['name']}.toml"))
+        # A candidate that carries edited plugin copies: they become the plugins, the originals are kept.
+        import shutil as _sh
+        enabled = list(profile.get("plugins", {}).get("enabled", []))
+        for i, entry in enumerate(enabled):
+            folder = relay_bench.plugin_dir(profile, entry)
+            if folder and folder.startswith(os.path.join(ROOT, "profiles", "candidates")):
+                plugin = os.path.basename(folder)
+                keep = os.path.join(history, f"{stamp.replace(' ', 'T').replace(':', '-')}-plugins-{plugin}")
+                _sh.copytree(os.path.join(ROOT, "plugins", plugin), keep, dirs_exist_ok=True)
+                for sub in ("agents", "skills", "hooks", "lib", "bin"):
+                    src = os.path.join(folder, sub)
+                    if os.path.isdir(src):
+                        _sh.copytree(src, os.path.join(ROOT, "plugins", plugin, sub), dirs_exist_ok=True)
+                enabled[i] = plugin
+                print(f"plugins/{plugin}: replaced by the candidate's copy (previous in {keep})")
+        profile["plugins"]["enabled"] = enabled
+        text = relay_bench.to_toml(profile)
+        text = re.sub(r'(?m)^name = ".*"$', 'name = "active"', text, count=1)
+        header = f"# Active profile, adopted {stamp} from {name}" + (f": {reason}" if reason else "") + "\n# Previous: profiles/history/. Change only through `relay improve adopt`.\n\n"
+        with open(active, "w", encoding="utf-8") as handle:
+            handle.write(header + text.lstrip("\n"))
+        last = relay_bench.list_results(limit=1)
+        bench_ref = last[0][0] if last else "no bench recorded"
+        with open(os.path.join(ROOT, "improve", "log.md"), "a", encoding="utf-8") as handle:
+            handle.write(f"\n## {stamp}: adopted {name}\n- was: {previous['profile']['name']} ({previous['profile'].get('description', '')})\n"
+                         f"- now: {profile['profile'].get('description', '')}\n- bench: {bench_ref}\n- because: {reason or '(not given)'}\n")
+        results = relay_rules.sync(relay_config.active_profile())
+        print(f"Adopted {name} as the active profile; previous kept in profiles/history/. Synced:")
+        for n, path, state in results:
+            print(f"  {n}: {state} ({path})")
+        print("Restart Claude Code sessions for the new agent models to apply.")
+        return 0
+    if sub == "log":
+        path = os.path.join(ROOT, "improve", "log.md")
+        print(open(path, encoding="utf-8").read() if os.path.isfile(path) else "No adoptions yet.")
+        return 0
+    raise Usage("relay improve suggest|adopt <profile>|log")
+
+
+def cmd_bench(args):
+    if args and args[0] == "list":
+        for name, doc in relay_bench.list_results():
+            agg = relay_bench.aggregate(doc)
+            profiles = [p["name"] for p in doc["profiles"]]
+            summary = "; ".join(f"{p}: " + ", ".join(f"{s} {agg.get((p, s), {}).get('score_mean', 0):.2f}/${agg.get((p, s), {}).get('cost_mean') or 0:.2f}" for s in doc["scenarios"]) for p in profiles)
+            print(f"{name}  {summary}" + ("  PARTIAL" if doc.get("partial") else ""))
+        return 0
+    runs = flag(args, "--runs")
+    max_cost = flag(args, "--max-cost")
+    tag = flag(args, "--tag")
+    keep = flag(args, "--keep", takes_value=False)
+    judge = flag(args, "--judge-model", "haiku")
+    out_root = flag(args, "--out")
+    isolate = flag(args, "--isolate", takes_value=False)
+    scenarios = []
+    while "--scenario" in args:
+        scenarios.append(flag(args, "--scenario"))
+    sets = []
+    while "--set" in args:
+        sets.append(flag(args, "--set"))
+    names = args
+    if len(names) < 1:
+        raise Usage("relay bench <profileA> [<profileB> | --set key=value ...] [--scenario <name>...] [--tag <tag>] [--runs N] [--max-cost USD]")
+    profiles = [relay_bench.load_profile(n) for n in names]
+    if sets:
+        profiles.append(relay_bench.derive_profile(profiles[0], sets))
+    chosen = [relay_bench.load_scenario(s) for s in scenarios] if scenarios else relay_bench.list_scenarios(tag=tag)
+    if not chosen:
+        raise Usage("no scenarios: add evals/scenarios/<name>/scenario.toml or pass --scenario")
+    est = len(profiles) * sum(int(runs) if runs else s.get("runs", 1) for s in chosen)
+    print(f"Running {len(chosen)} scenario(s) x {len(profiles)} profile(s): {est} headless sessions (each a real model call).")
+    out_dir, doc, text = relay_bench.run_bench(profiles, chosen, runs=int(runs) if runs else None, judge_model=judge,
+                                               keep=bool(keep), out_root=out_root, max_cost_usd=float(max_cost) if max_cost else None, isolate=bool(isolate))
+    print(text)
+    print(f"\nSaved: {out_dir}/report.md and results.json")
+    return 0
+
+
+def cmd_candidate(args):
+    copies = []
+    while "--copy" in args:
+        copies += [c.strip() for c in flag(args, "--copy").split(",") if c.strip()]
+    sets = []
+    while "--set" in args:
+        sets.append(flag(args, "--set"))
+    base = flag(args, "--from", "active")
+    if not args:
+        raise Usage("relay candidate <name> [--from <profile>] [--copy delegate,issues] [--set key=value]")
+    name = args[0]
+    out, copied = relay_bench.new_candidate(name, base, copies, sets)
+    print(f"Candidate {name}: {out['profile']['description']}\n  profile: {out['_path']}")
+    for c in copied:
+        print(f"  edit the copy: {c}  (agents/*.md, skills/*/SKILL.md)")
+    print(f"  then: relay bench active {name} --tag cheap")
+    return 0
+
+
+def cmd_profile(args):
+    name = args[0] if args else "active"
+    p = relay_bench.load_profile(name)
+    print(f"# {p['profile']['name']}: {p['profile'].get('description', '')}  ({p['_path']})")
+    print(f"front: {p.get('session', {}).get('model')} at effort {p.get('session', {}).get('effort')}")
+    print("tiers:")
+    for tier in relay_bench.TIERS:
+        print(f"  {tier:6} {p.get('models', {}).get(tier, '-'):8} effort {p.get('effort', {}).get(tier, '-')}")
+    print("rules loaded: " + ", ".join(p.get("rules", {}).get("load", [])))
+    print("plugins: " + ", ".join(p.get("plugins", {}).get("enabled", [])))
+    others = [f[:-5] for f in os.listdir(os.path.join(ROOT, "profiles", "candidates")) if f.endswith(".toml")]
+    if name == "active" and others:
+        print("candidates: " + ", ".join(sorted(others)) + "  (compare: relay bench active <candidate>)")
+    return 0
+
+
+def cmd_sync(args):
+    dry = flag(args, "--dry", takes_value=False)
+    adopt = flag(args, "--adopt")
+    only = set(args) or None
+    results = relay_rules.sync(relay_config.active_profile(), only=only, adopt=adopt, dry=bool(dry))
+    for name, path, state in results:
+        print(f"{name}: {state} ({path})")
+    return 0
+
+
+def cmd_setup(args, migrate=False):
+    if migrate and "--all" in args:
+        args.remove("--all")
+        return cmd_migrate_all(args)
+    apply = flag(args, "--apply", takes_value=False)
+    flow = flag(args, "--flow")
+    product = True if flag(args, "--product", takes_value=False) else (False if flag(args, "--no-product", takes_value=False) else None)
+    no_global = flag(args, "--no-global", takes_value=False)
+    root = os.path.realpath(args[0] if args else os.getcwd())
+    if not os.path.isdir(root):
+        raise Usage(f"no such folder: {root}")
+    if migrate:
+        d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply), flow=flow, product=product, apply_global=not no_global)
+        print(f"# {d['name']} ({root}): migration" + (" applied" if apply else " plan (nothing moved; add --apply)"))
+        if items:
+            print("\nThe old setup had, and relay replaces with:")
+            for kind, path, target, note in items:
+                print(f"- {kind} {path} -> {target}; {note}")
+        else:
+            print("\nNo old agents, skills, hooks or scripts to replace.")
+        if moved:
+            print("\nMoved aside (revert with mv):")
+            for src, dst in moved:
+                print(f"- {src} -> {dst}")
+    else:
+        d, flow, product, done, todo = relay_setup.setup(root, flow=flow, product=product, apply_global=not no_global)
+        print(f"# {d['name']} ({root}): set up")
+    print(f"\nDetected: {d['stack']} ({d['tool'] or 'no tool'}), default branch {d['default_branch']}, flow {flow}, "
+          f"{'a person-facing surface' if product else 'no person-facing surface'}.")
+    print("\nDone:")
+    for item in done:
+        print(f"- {item}")
+    if todo:
+        print("\nYours to do (only what the setup cannot know):")
+        for n, item in enumerate(todo, 1):
+            print(f"{n}. {item}")
+    results = relay_rules.sync(relay_config.active_profile(), only={d["name"], "global"} if not no_global else {d["name"]}, adopt=d["name"])
+    print("\nSynced: " + "; ".join(f"{n} {state}" for n, _, state in results))
+    print("\nCheck: relay doctor " + root)
+    return 0
+
+
+def cmd_install(args):
+    principles = flag(args, "--principles", "~/principles")
+    no_claude = flag(args, "--no-claude", takes_value=False)
+    done, todo = relay_setup.install(principles=principles, run_claude=not no_claude)
+    print("# relay install\n\nDone:")
+    for d in done:
+        print(f"- {d}")
+    if todo:
+        print("\nYours to do:")
+        for n, t in enumerate(todo, 1):
+            print(f"{n}. {t}")
+    print("\nNext: `relay migrate --all` (the plan for every project), then `relay doctor`.")
+    return 0
+
+
+def cmd_migrate_all(args):
+    apply = flag(args, "--apply", takes_value=False)
+    principles = flag(args, "--principles", "~/principles")
+    projects = relay_setup.known_projects()
+    if not projects:
+        print("No projects registered (relay install imports them from ~/principles/projects.toml; relay setup <dir> adds one).")
+        return 0
+    for name, root, exists in projects:
+        print(f"\n==== {name} ({root})")
+        if not exists:
+            print("  folder missing: skipped")
+            continue
+        copied = relay_setup.copy_kit_drafts(principles, name, root)
+        if copied:
+            print(f"  kit drafts from principles/migration/{name}: " + ", ".join(copied))
+        d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply), apply_global=False)
+        print(f"  flow {flow}, {'screen' if product else 'no screen'}; {len(items)} old files " + ("moved aside" if apply else "to move (add --apply)"))
+        for kind, path, target, note in items:
+            print(f"  - {kind} {path} -> {target}")
+        for t in todo:
+            if "plugin marketplace" not in t:
+                print(f"  todo: {t}")
+    print("\nThen: relay sync; relay doctor <dir> for each.")
+    return 0
+
+
+def cmd_doctor(args):
+    root = os.path.realpath(args[0]) if args else None
+    checks = relay_setup.doctor(root, profile=relay_config.active_profile())
+    bad = 0
+    for name, good, detail in checks:
+        print(f"{'ok  ' if good else 'FIX '} {name}" + (f"  ({detail})" if detail and not good else ""))
+        bad += not good
+    print(f"\n{len(checks) - bad} ok, {bad} to fix")
+    return 1 if bad else 0
+
+
+def cmd_flows(args):
+    for m in relay_setup.list_flows():
+        print(f"# {m['kind']} (plugin {m['plugin']}): {m['description']}")
+        print("  stages: " + ", ".join(f"{s['name']} ({', '.join(s['triggers'])} -> {s['skill']})" for s in m["stages"]))
+        print("  needs plugins: " + ", ".join(m.get("requires_plugins", [])) + "; bindings: " + ", ".join(m.get("bindings_required", [])))
+        print()
+    print("Bind one in .claude/kit.toml: [flow] kind = \"<kind>\". A new flow is a plugin with a flow.json (docs/flows.md).")
+    return 0
+
+
+def cmd_rules(args):
+    profile = relay_config.active_profile()
+    loaded = set(profile.get("rules", {}).get("load", []))
+    for name, rule in relay_rules.rules().items():
+        print(f"{'LOADED ' if name in loaded else 'gist   '} {name:16} {rule['gist']}")
+    return 0
+
+
+COMMANDS = {
+    "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
+    "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
+    "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules,
+}
+
+
+def main(argv):
+    if len(argv) < 2 or argv[1] in ("-h", "--help", "help"):
+        print(__doc__.strip())
+        return 2
+    cmd, args = argv[1], list(argv[2:])
+    if cmd not in COMMANDS:
+        print(f"relay: unknown command '{cmd}'\n", file=sys.stderr)
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    try:
+        return COMMANDS[cmd](args) or 0
+    except Usage as exc:
+        print(f"relay {cmd}: {exc}", file=sys.stderr)
+        return 2
+    except (relay_rules.Fail, FileNotFoundError, ValueError) as exc:
+        print(f"relay {cmd}: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

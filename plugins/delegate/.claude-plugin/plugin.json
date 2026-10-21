@@ -1,0 +1,6 @@
+{
+  "name": "delegate",
+  "version": "0.1.0",
+  "description": "Typed agents by tier (scout, runner, worker, fixer, thinker, critic) with model and effort set by the active relay profile, and the routing guard that keeps small work on small models.",
+  "author": { "name": "amidman" }
+}

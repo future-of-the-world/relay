@@ -1,0 +1,1 @@
+Add a "remove item" operation to the shelf: `removeItem(items, name)` returns a new list without the item of that name; a name that is not there leaves the list unchanged (same contents). Follow the project's principles (new list, never mutate; tests beside the code, one per scenario). Run the tests. Reply in at most 10 lines with what you did and the test result.

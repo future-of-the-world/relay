@@ -1,0 +1,8 @@
+{
+  "description": "Routing guard: typed agents only, no forks from big sessions, Opus only for thinker/critic unless escalated.",
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Agent|Task", "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/route-guard.py"], "timeout": 10 }] }
+    ]
+  }
+}

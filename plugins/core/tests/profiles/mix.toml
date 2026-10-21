@@ -1,0 +1,10 @@
+# ALIX: Elixir. Worktrees live in .worktree.
+[project]
+worktrees = ".worktree"
+
+[guard]
+secret_patterns = ['BYBIT_', 'ALIX_EXCHANGE_', 'TYPESAFE_', 'X-BAPI']
+
+[[guard.block]]
+pattern = '{start}mix([[:space:]]|$)'
+reason = "'mix' writes _build/ and deps/ of the main checkout"

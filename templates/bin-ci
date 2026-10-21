@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# bin/ci: the full gate (the relay contract: quiet, log in .ci/ci.log, exit 0 only when green).
+set -uo pipefail
+root="$(git rev-parse --show-toplevel)"; cd "$root"
+mkdir -p .ci; : > .ci/ci.log
+status=0
+step() { local name="$1"; shift; local start=$(date +%s)
+  if "$@" >> .ci/ci.log 2>&1; then echo "ci: $name ok ($(( $(date +%s) - start ))s)"
+  else echo "ci: $name FAILED ($(( $(date +%s) - start ))s, log: .ci/ci.log)"; grep -nE 'FAIL|error|Error' .ci/ci.log | tail -8 | sed 's/^/    /'; status=1; fi; }
+# TODO ({{stack}}, {{tool}}): the steps. Examples:
+#   step "format" bun run format --check
+#   step "types"  bun run typecheck
+#   step "lint"   bun run lint
+#   step "tests"  bun test
+#   step "build"  bun run build
+step "placeholder" true
+[ "$status" -eq 0 ] && echo "ci: green" || echo "ci: RED"
+exit $status

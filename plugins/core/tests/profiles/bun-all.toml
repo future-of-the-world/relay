@@ -1,0 +1,10 @@
+# Glyph: any bun, bunx, acton, npm, npx or node run is blocked in the main checkout.
+[project]
+worktrees = ".worktree"
+
+[guard]
+secret_patterns = ['API_KEY', 'TONCENTER', 'BOT_TOKEN', 'MNEMONIC']
+
+[[guard.block]]
+pattern = '{start}(bun|bunx|acton|npm|npx|node)([[:space:]]|$)'
+reason = "bun/acton in the main checkout writes node_modules/ and build output"

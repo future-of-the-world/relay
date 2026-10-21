@@ -1,0 +1,2 @@
+1 confirmed. src/shelf.ts:27 CONFIRMED: page() slices to start + size + 1, one extra item per page. Fix: slice(start, start + size).
+Report: /tmp/x/.ci/code-review.md

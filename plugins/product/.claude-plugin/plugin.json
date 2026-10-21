@@ -1,0 +1,8 @@
+{
+  "name": "product",
+  "version": "0.1.0",
+  "description": "Look review of person-facing work: the ui-reviewer agent (shoots every screen and state, compares with the locked sample) and its measuring script.",
+  "author": {
+    "name": "amidman"
+  }
+}

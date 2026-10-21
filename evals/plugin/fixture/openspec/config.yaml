@@ -1,0 +1,6 @@
+schema: spec-driven
+
+context: |
+  Project: Shelf, a tiny TypeScript library that keeps a list of stock items
+  (name and quantity). Tech stack: TypeScript, bun (package manager, test runner).
+  Source in src/, tests next to it as *.test.ts. No UI.

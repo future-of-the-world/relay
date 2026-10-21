@@ -1,0 +1,1 @@
+- BLOCKER `design.md:13` vs `specs/shelf/spec.md:18`: design D2 moves a garbled file aside to `shelf.json.bad`, but the "Corrupt data" scenario says "the file is left as it is". The worker can't satisfy both.

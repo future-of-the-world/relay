@@ -1,0 +1,3 @@
+Findings: 1 high.
+1. specs/shelf/spec.md "Corrupt data" vs design.md D2: the scenario says the corrupt file is left as it is, but D2 moves it aside to shelf.json.bad and writes a fresh file. The two contradict each other; a test written from the scenario fails against the design. Fix: pick one and state it in both.
+Report: /tmp/x/.ci/spec-review.md

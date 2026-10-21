@@ -1,0 +1,1 @@
+1 confirmed. src/shelf.ts:27 CONFIRMED DOC-RULE: something is undocumented.

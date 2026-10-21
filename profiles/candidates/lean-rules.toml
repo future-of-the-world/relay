@@ -1,0 +1,40 @@
+# Candidate: fewer rules in every context. Hypothesis: the short rule set
+# loses nothing the hooks do not already enforce, and saves its tokens on
+# every request of every agent.
+
+[profile]
+name = "lean-rules"
+description = "Only working-with-me, delegation and secrets loaded in full; the rest by gist"
+
+[session]
+model = "opus"
+effort = "high"
+permission_mode = "acceptEdits"
+
+[models]
+look = "haiku"
+run = "haiku"
+build = "sonnet"
+fix = "sonnet"
+think = "opus"
+judge = "opus"
+
+[effort]
+look = "low"
+run = "low"
+build = "medium"
+fix = "medium"
+think = "high"
+judge = "high"
+
+[rules]
+load = ["working-with-me", "delegation", "secrets"]
+
+[plugins]
+enabled = ["core", "observe", "delegate", "front"]
+
+[delegate]
+typed_only = true
+fork_limit = 100000
+max_parallel = 4
+build_tier_opus = "escalate"

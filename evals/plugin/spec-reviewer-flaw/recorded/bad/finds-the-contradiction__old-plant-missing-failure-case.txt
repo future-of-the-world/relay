@@ -1,0 +1,2 @@
+Findings: 1 high. The saved-shelf requirement has no failure scenario: nothing says what happens when the file is corrupt, unreadable or saved by an older version.
+Report: /tmp/x/.ci/spec-review.md

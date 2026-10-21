@@ -1,0 +1,71 @@
+# Who loads what. `relay setup <dir>` adds a project here; `relay sync` writes
+# the files. The global target loads the rules the active profile names.
+
+[global]
+file = "~/.claude/CLAUDE.md"
+title = "Defaults for all projects"
+intro = """A project's own CLAUDE.md, skills, and hooks override anything here. These
+rules come from the relay repository (`rules/`, one file per rule); each project
+adds the ones it needs through its `CLAUDE.local.md`. Change a rule there and
+run `relay sync`."""
+load = []
+
+[alix]
+file = "~/alix/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["openspec", "quality-gate"]
+read = []
+
+[arsenal]
+file = "~/go/src/go.amidman.dev/arsenal/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["openspec", "quality-gate"]
+read = []
+
+[testenv]
+file = "~/go/src/go.amidman.dev/testenv/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["quality-gate"]
+read = []
+
+[cartoons]
+file = "~/cartoons/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["product-work"]
+read = []
+
+[clean]
+file = "~/clean/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["product-work", "openspec", "quality-gate"]
+read = []
+
+[kartoteka]
+file = "~/kartoteka/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["product-work", "openspec", "quality-gate"]
+read = []
+
+[mind]
+file = "~/mind/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["product-work", "openspec", "quality-gate"]
+read = []
+
+[sight]
+file = "~/sight/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["product-work", "openspec", "quality-gate"]
+read = []
+
+[glyph]
+file = "~/glyph/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["product-work", "openspec", "quality-gate"]
+read = []
+
+[noisegate]
+file = "~/noisegate/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["product-work", "openspec", "quality-gate"]
+read = []

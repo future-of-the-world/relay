@@ -1,0 +1,14 @@
+{
+  "description": "Write the relay ledger (~/.relay/ledger). Sizes and names only; never text.",
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/ledger.py"], "timeout": 5 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/ledger.py"], "timeout": 5 }] }],
+    "SubagentStart": [{ "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/ledger.py"], "timeout": 5 }] }],
+    "SubagentStop": [{ "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/ledger.py"], "timeout": 10 }] }],
+    "PreToolUse": [{ "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/ledger.py"], "timeout": 5 }] }],
+    "PostToolUse": [{ "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/ledger.py"], "timeout": 5 }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/ledger.py"], "timeout": 10 }] }],
+    "PreCompact": [{ "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/ledger.py"], "timeout": 5 }] }],
+    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/ledger.py"], "timeout": 1 }] }]
+  }
+}

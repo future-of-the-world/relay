@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# The observe, delegate and front plugins carry copies of the lib modules they
+# need, so they work from an installed plugin without the repository. This
+# refreshes the copies; bin/ci fails when they drift.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd -P)"
+for p in observe delegate front; do
+  for f in "$root"/plugins/$p/lib/relay_*.py; do [ -e "$f" ] && cp "$root/lib/$(basename "$f")" "$f"; done
+  [ -e "$root/plugins/$p/lib/prices.toml" ] && cp "$root/prices.toml" "$root/plugins/$p/lib/prices.toml"
+done
+echo "lib copies refreshed"

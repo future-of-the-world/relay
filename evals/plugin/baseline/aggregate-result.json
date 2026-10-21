@@ -1,0 +1,826 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.303",
+  "startedAt": "2026-10-19T00:28:49.296Z",
+  "durationSeconds": 745,
+  "costUsd": 2.60629814,
+  "partial": false,
+  "suite": {
+    "root": "/Users/amidman/principles/.worktrees/framework",
+    "ablation": "none",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "core",
+        "version": "0.1.0",
+        "path": "/Users/amidman/principles/.worktrees/framework/plugins/core"
+      },
+      {
+        "name": "sdd",
+        "version": "0.1.0",
+        "path": "/Users/amidman/principles/.worktrees/framework/plugins/sdd"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "code-reviewer-offbyone",
+      "dir": "evals/code-reviewer-offbyone",
+      "source": "mixed",
+      "promptMarkdown": "The current directory is a git repo; branch `wt/paging` adds one function to master.\n\nStart the agent `sdd:code-reviewer` (Agent tool, subagent_type `sdd:code-reviewer`) with this prompt, using the absolute path of the current directory for <path>:\n\"Review the change in <path>, branch wt/paging, range master...wt/paging. Report: <path>/.ci/code-review.md. Return your findings in your reply as well.\"\n\nThen reply with the agent's findings as it gave them, nothing added.",
+      "model": "haiku",
+      "runsPerCase": 3,
+      "timeoutSeconds": 900,
+      "maxTurns": 30,
+      "graders": [
+        {
+          "name": "finds-off-by-one",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "^(?![\\s\\S]*\\b(no (findings|bugs)|found nothing|nothing (found|to report))\\b)(?=[\\s\\S]*(off[- ]by[- ]one|(one|1) (\\w+ )?(extra|more|additional)\\b|(one|1) (item|element|entry|row)s? too many|too many (items|elements|entries)|(more|larger) than `?size|size ?\\+ ?1 (items|elements)|(holds?|returns?|yields?|gives?) `?size ?\\+ ?1|exceeds? `?size))",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "follows-project-rule",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "^(?=[\\s\\S]*DOC-RULE)(?=[\\s\\S]*pageCount)",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "names-file-and-line",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "^(?![\\s\\S]*\\b(no (findings|bugs)|found nothing|nothing (found|to report))\\b)(?=[\\s\\S]*(shelf\\.ts:\\s?2[5-8]\\b|\\blines? 2[5-8]\\b))",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "reviewer-started",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Agent",
+            "input_match": "sdd:code-reviewer"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.27772557,
+            "judgeCostUsd": 0,
+            "durationSeconds": 71,
+            "startedAt": "2026-10-19T00:28:49.337Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-nSVBmB/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "finds-off-by-one",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?![\\s\\S]*\\b(no (findings|bugs)|found nothing|nothing (found|to report))\\b)(?=[\\s\\S]*(off[- ]by[- ]one|(one|1) (\\w+ )?(extra|more|additional)\\b|(one|1) (item|element|entry|row)s? too many|too many (items|elements|entries)|(more|larger) than `?size|size ?\\+ ?1 (items|elements)|(holds?|returns?|yields?|gives?) `?size ?\\+ ?1|exceeds? `?size))",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "follows-project-rule",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?=[\\s\\S]*DOC-RULE)(?=[\\s\\S]*pageCount)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-file-and-line",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?![\\s\\S]*\\b(no (findings|bugs)|found nothing|nothing (found|to report))\\b)(?=[\\s\\S]*(shelf\\.ts:\\s?2[5-8]\\b|\\blines? 2[5-8]\\b))",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "reviewer-started",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Agent called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.23319017999999997,
+            "judgeCostUsd": 0,
+            "durationSeconds": 58,
+            "startedAt": "2026-10-19T00:30:00.202Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-nAkJoK/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "finds-off-by-one",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?![\\s\\S]*\\b(no (findings|bugs)|found nothing|nothing (found|to report))\\b)(?=[\\s\\S]*(off[- ]by[- ]one|(one|1) (\\w+ )?(extra|more|additional)\\b|(one|1) (item|element|entry|row)s? too many|too many (items|elements|entries)|(more|larger) than `?size|size ?\\+ ?1 (items|elements)|(holds?|returns?|yields?|gives?) `?size ?\\+ ?1|exceeds? `?size))",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "follows-project-rule",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?=[\\s\\S]*DOC-RULE)(?=[\\s\\S]*pageCount)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-file-and-line",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?![\\s\\S]*\\b(no (findings|bugs)|found nothing|nothing (found|to report))\\b)(?=[\\s\\S]*(shelf\\.ts:\\s?2[5-8]\\b|\\blines? 2[5-8]\\b))",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "reviewer-started",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Agent called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.23899993,
+            "judgeCostUsd": 0,
+            "durationSeconds": 75,
+            "startedAt": "2026-10-19T00:30:58.436Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-Nq4yqr/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "finds-off-by-one",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?![\\s\\S]*\\b(no (findings|bugs)|found nothing|nothing (found|to report))\\b)(?=[\\s\\S]*(off[- ]by[- ]one|(one|1) (\\w+ )?(extra|more|additional)\\b|(one|1) (item|element|entry|row)s? too many|too many (items|elements|entries)|(more|larger) than `?size|size ?\\+ ?1 (items|elements)|(holds?|returns?|yields?|gives?) `?size ?\\+ ?1|exceeds? `?size))",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "follows-project-rule",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?=[\\s\\S]*DOC-RULE)(?=[\\s\\S]*pageCount)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-file-and-line",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?![\\s\\S]*\\b(no (findings|bugs)|found nothing|nothing (found|to report))\\b)(?=[\\s\\S]*(shelf\\.ts:\\s?2[5-8]\\b|\\blines? 2[5-8]\\b))",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "reviewer-started",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Agent called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    },
+    {
+      "name": "guard-fires",
+      "dir": "evals/guard-fires",
+      "source": "mixed",
+      "promptMarkdown": "Run this as one Bash command, exactly, in the current directory, and nothing else:\n\n`echo probe > guard-probe.txt; echo WROTE_EXIT=$?`\n\nIf the command is refused, reply with the refusal text exactly as it was given. Otherwise reply with the command's output. Do not try another way to write the file.",
+      "model": "haiku",
+      "runsPerCase": 3,
+      "timeoutSeconds": 120,
+      "maxTurns": 6,
+      "graders": [
+        {
+          "name": "refused-by-guard",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "guard-main",
+            "flags": "",
+            "match": "contains"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 2,
+            "costUsd": 0.00242158,
+            "judgeCostUsd": 0,
+            "durationSeconds": 5,
+            "startedAt": "2026-10-19T00:32:13.694Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-uICDAy/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "refused-by-guard",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched guard-main",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 2,
+            "costUsd": 0.00246314,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-19T00:32:18.767Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-CrMLJC/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "refused-by-guard",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched guard-main",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 2,
+            "costUsd": 0.0024684299999999998,
+            "judgeCostUsd": 0,
+            "durationSeconds": 5,
+            "startedAt": "2026-10-19T00:32:24.298Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-vZcHks/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "refused-by-guard",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched guard-main",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    },
+    {
+      "name": "plan-one-line",
+      "dir": "evals/plan-one-line",
+      "source": "mixed",
+      "promptMarkdown": "/opsx:propose remove-item: Add a \"remove item\" operation to the shelf: removing an item by name takes it off the shelf; removing a name that is not there leaves the shelf unchanged. Plan only, no code. There is no one to ask: decide every detail yourself under the project's rules, and skip live samples and the spec review stage. The change's worktree already exists at `.worktrees/remove-item` under the current directory (branch `wt/remove-item`), as the coordinator makes it: write the change there and nowhere else. When it is written, run in that worktree `openspec validate --all --strict; echo VALIDATE_EXIT=$?` and then `kit spec-check remove-item; echo SPEC_CHECK_EXIT=$?`, and reply with the two lines as printed, nothing else.",
+      "model": "sonnet",
+      "runsPerCase": 3,
+      "timeoutSeconds": 1500,
+      "maxTurns": 60,
+      "graders": [
+        {
+          "name": "change-written",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": ".worktrees/remove-item/openspec/changes/remove-item/tasks.md",
+            "exists": true
+          }
+        },
+        {
+          "name": "spec-check",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "SPEC_CHECK_EXIT=0",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "validate-strict",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "VALIDATE_EXIT=0",
+            "flags": "",
+            "match": "contains"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 9,
+            "costUsd": 0.416321,
+            "judgeCostUsd": 0,
+            "durationSeconds": 85,
+            "startedAt": "2026-10-19T00:32:29.062Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-N8hSFB/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "change-written",
+                "passed": true,
+                "weight": 1,
+                "explanation": ".worktrees/remove-item/openspec/changes/remove-item/tasks.md exists as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "spec-check",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched SPEC_CHECK_EXIT=0",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "validate-strict",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched VALIDATE_EXIT=0",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 8,
+            "costUsd": 0.2625334,
+            "judgeCostUsd": 0,
+            "durationSeconds": 63,
+            "startedAt": "2026-10-19T00:33:54.317Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-MmTRnZ/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "change-written",
+                "passed": true,
+                "weight": 1,
+                "explanation": ".worktrees/remove-item/openspec/changes/remove-item/tasks.md exists as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "spec-check",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched SPEC_CHECK_EXIT=0",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "validate-strict",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched VALIDATE_EXIT=0",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 9,
+            "costUsd": 0.3239286,
+            "judgeCostUsd": 0,
+            "durationSeconds": 64,
+            "startedAt": "2026-10-19T00:34:57.563Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-A0ZcqB/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "change-written",
+                "passed": true,
+                "weight": 1,
+                "explanation": ".worktrees/remove-item/openspec/changes/remove-item/tasks.md exists as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "spec-check",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched SPEC_CHECK_EXIT=0",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "validate-strict",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched VALIDATE_EXIT=0",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    },
+    {
+      "name": "spec-reviewer-flaw",
+      "dir": "evals/spec-reviewer-flaw",
+      "source": "mixed",
+      "promptMarkdown": "The current directory is a git repo with an OpenSpec change `add-saved-shelf`.\n\nStart the agent `sdd:spec-reviewer` (Agent tool, subagent_type `sdd:spec-reviewer`) with this prompt, using the absolute path of the current directory for <path>:\n\"Review change add-saved-shelf in <path> (first pass). Report: <path>/.ci/spec-review.md. Return your findings in your reply as well.\"\n\nThen reply with the agent's findings as it gave them, nothing added.",
+      "model": "haiku",
+      "runsPerCase": 3,
+      "timeoutSeconds": 600,
+      "maxTurns": 25,
+      "graders": [
+        {
+          "name": "finds-the-contradiction",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "^(?=[\\s\\S]*(shelf\\.json\\.bad|moved aside|set aside|\\bD2\\b))(?=[\\s\\S]*(as it is|in place|untouched|left alone|left where))(?=[\\s\\S]*(contradict|conflict|disagree|inconsisten|mismatch|differs?\\b|does(n't| not) match|can(no|'|’)t satisfy both|cannot both|\\bvs\\.?\\s|\\bversus\\b|\\bwhereas\\b|\\bbut (the )?(design|D2|spec|scenario)))",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "reviewer-started",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Agent",
+            "input_match": "sdd:spec-reviewer"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.24989895,
+            "judgeCostUsd": 0,
+            "durationSeconds": 66,
+            "startedAt": "2026-10-19T00:36:01.795Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-W2zt1P/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "finds-the-contradiction",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?=[\\s\\S]*(shelf\\.json\\.bad|moved aside|set aside|\\bD2\\b))(?=[\\s\\S]*(as it is|in place|untouched|left alone|left where))(?=[\\s\\S]*(contradict|conflict|disagree|inconsisten|mismatch|differs?\\b|does(n't| not) match|can(no|'|’)t satisfy both|cannot both|\\bvs\\.?\\s|\\bversus\\b|\\bwhereas\\b|\\bbut (the )?(design|D2|spec|scenario)))",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "reviewer-started",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Agent called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.17723566,
+            "judgeCostUsd": 0,
+            "durationSeconds": 65,
+            "startedAt": "2026-10-19T00:37:07.995Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-0LM1pV/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "finds-the-contradiction",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?=[\\s\\S]*(shelf\\.json\\.bad|moved aside|set aside|\\bD2\\b))(?=[\\s\\S]*(as it is|in place|untouched|left alone|left where))(?=[\\s\\S]*(contradict|conflict|disagree|inconsisten|mismatch|differs?\\b|does(n't| not) match|can(no|'|’)t satisfy both|cannot both|\\bvs\\.?\\s|\\bversus\\b|\\bwhereas\\b|\\bbut (the )?(design|D2|spec|scenario)))",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "reviewer-started",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Agent called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.18276109,
+            "judgeCostUsd": 0,
+            "durationSeconds": 63,
+            "startedAt": "2026-10-19T00:38:12.667Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-3gbs3h/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "finds-the-contradiction",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched ^(?=[\\s\\S]*(shelf\\.json\\.bad|moved aside|set aside|\\bD2\\b))(?=[\\s\\S]*(as it is|in place|untouched|left alone|left where))(?=[\\s\\S]*(contradict|conflict|disagree|inconsisten|mismatch|differs?\\b|does(n't| not) match|can(no|'|’)t satisfy both|cannot both|\\bvs\\.?\\s|\\bversus\\b|\\bwhereas\\b|\\bbut (the )?(design|D2|spec|scenario)))",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "reviewer-started",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Agent called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    },
+    {
+      "name": "worker-group",
+      "dir": "evals/worker-group",
+      "source": "mixed",
+      "promptMarkdown": "The current directory is the main checkout of a git repo (branch master) with an OpenSpec change `add-low-stock`. The change's worktree already exists at `.worktrees/add-low-stock` (branch `wt/add-low-stock`), as the coordinator makes it; the main checkout itself is never edited. A second worktree, `.worktrees/base`, holds the unchanged base commit (the stub), made for step 3 because the sandbox cannot create a checkout of `.claude/` itself.\n\nLet <wt> be the absolute path of `.worktrees/add-low-stock` under the current directory.\n\n1. Start the agent `sdd:worker` (Agent tool, subagent_type `sdd:worker`) with exactly this prompt:\n   \"Implement group 1 of change add-low-stock in <wt>. Report: <wt>/.ci/report.md\"\n2. When it is done, run as one Bash command:\n   `cd .worktrees/add-low-stock && bin/check add-low-stock 1.1; echo CHECK_EXIT=$?`\n3. Then prove the new test is real: it must fail, on an assertion, against the stub. Run as one Bash command:\n   `cp .worktrees/add-low-stock/src/shelf.test.ts .worktrees/base/src/shelf.test.ts && (cd .worktrees/base && bun test src/shelf.test.ts >base.log 2>&1; echo BASE_EXIT=$?; echo BASE_FAILS=$(grep -c '^(fail)' base.log))`\n4. Reply with the three lines CHECK_EXIT=<n>, BASE_EXIT=<n> and BASE_FAILS=<n> as printed, nothing else.",
+      "model": "haiku",
+      "runsPerCase": 3,
+      "timeoutSeconds": 600,
+      "maxTurns": 40,
+      "graders": [
+        {
+          "name": "check-passes",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "CHECK_EXIT=0",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "new-test-fails-on-an-assertion",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "BASE_FAILS=[1-9]",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "new-test-fails-on-base",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "BASE_EXIT=[1-9]",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "worker-started",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Agent",
+            "input_match": "sdd:worker"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 4,
+            "costUsd": 0.09004894999999999,
+            "judgeCostUsd": 0,
+            "durationSeconds": 41,
+            "startedAt": "2026-10-19T00:39:15.434Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-45kcTg/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "check-passes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched CHECK_EXIT=0",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "new-test-fails-on-an-assertion",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched BASE_FAILS=[1-9]",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "new-test-fails-on-base",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched BASE_EXIT=[1-9]",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "worker-started",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Agent called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 3,
+            "costUsd": 0.07476940000000001,
+            "judgeCostUsd": 0,
+            "durationSeconds": 41,
+            "startedAt": "2026-10-19T00:39:56.053Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-NMpvpW/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "check-passes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched CHECK_EXIT=0",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "new-test-fails-on-an-assertion",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched BASE_FAILS=[1-9]",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "new-test-fails-on-base",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched BASE_EXIT=[1-9]",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "worker-started",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Agent called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 3,
+            "costUsd": 0.07153226000000001,
+            "judgeCostUsd": 0,
+            "durationSeconds": 37,
+            "startedAt": "2026-10-19T00:40:36.677Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-bXnmCx/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "check-passes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched CHECK_EXIT=0",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "new-test-fails-on-an-assertion",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched BASE_FAILS=[1-9]",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "new-test-fails-on-base",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched BASE_EXIT=[1-9]",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "worker-started",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Agent called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 5,
+    "casesPassed": 5,
+    "overallScore": 1,
+    "overallPassRate": 1
+  }
+}

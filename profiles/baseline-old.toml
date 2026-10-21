@@ -1,0 +1,39 @@
+# The setup relay replaces, approximated, so a bench can show what changed:
+# Opus everywhere, general-purpose agents allowed, long rules. Not for use.
+
+[profile]
+name = "baseline-old"
+description = "Opus everywhere, general-purpose agents allowed (the setup before relay)"
+
+[session]
+model = "opus"
+effort = "high"
+permission_mode = "acceptEdits"
+
+[models]
+look = "opus"
+run = "opus"
+build = "opus"
+fix = "opus"
+think = "opus"
+judge = "opus"
+
+[effort]
+look = "high"
+run = "high"
+build = "high"
+fix = "high"
+think = "high"
+judge = "high"
+
+[rules]
+load = ["working-with-me", "git", "secrets", "shell", "verify", "glonass"]
+
+[plugins]
+enabled = ["core", "observe"]
+
+[delegate]
+typed_only = false
+fork_limit = 10000000
+max_parallel = 6
+build_tier_opus = "allow"

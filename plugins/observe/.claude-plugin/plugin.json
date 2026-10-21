@@ -1,0 +1,6 @@
+{
+  "name": "observe",
+  "version": "0.1.0",
+  "description": "The ledger: every session, prompt, agent, tool call and compaction as one JSON line, so `relay report` can say where the money and the time went.",
+  "author": { "name": "amidman" }
+}

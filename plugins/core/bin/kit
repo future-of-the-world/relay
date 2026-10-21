@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""kit: the shared helper of the principles plugins.
+
+    kit get [--default VALUE] [--json] <key>   one binding of .claude/kit.toml
+    kit dump                                   the whole file as JSON
+    kit packet <change> <task|group>           a worker's brief
+    kit packet --check <change>                check a change's tasks
+    kit spec-check <change>                    check a change's spec deltas, then its tasks
+    kit spec-check --path <dir>                check every spec.md under <dir>
+    kit path <plugin>/<file>                   absolute path of a file shipped in a plugin
+                                               (the version installed for this project)
+
+The project root is the git top-level of the current directory (a worktree's
+own root inside a worktree), else the current directory. Bindings live in
+<root>/.claude/kit.toml; see the core plugin's README for the keys.
+
+`kit get` prints a string, number or boolean as is, a list of scalars one
+per line, anything else (a table, a list of tables) as JSON. A missing key
+exits 1 and names the key, unless --default gives a value. A project with no
+.claude/kit.toml is an error for every command but `path` (exit 1, naming the
+file): --default covers a missing key in an existing file, never a missing file.
+"""
+import json
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.join(HERE, "..", "lib"))
+
+
+def project_root():
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False
+        ).stdout.strip()
+    except OSError:
+        out = ""
+    return out or os.getcwd()
+
+
+def load_config(root):
+    """(path, dict): the parsed .claude/kit.toml. A missing file is an error, never a default."""
+    path = os.path.join(root, ".claude", "kit.toml")
+    if not os.path.exists(path):
+        print(
+            f"kit: no .claude/kit.toml in {root}: this project has no bindings file "
+            "(on a worktree branch, merge the default branch in first)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    try:
+        import tomllib
+    except ImportError:
+        print("kit: needs Python 3.11 or newer (tomllib)", file=sys.stderr)
+        sys.exit(2)
+    try:
+        with open(path, "rb") as f:
+            return path, tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        print(f"kit: {path}: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _vkey(v):
+    return [int(x) if x.isdigit() else -1 for x in v.replace("-", ".").split(".")]
+
+
+def _installed_entries(plugin):
+    """Registry entries (dicts) of `plugin` from Claude Code's installed_plugins.json, or []."""
+    reg = os.environ.get("KIT_INSTALLED_PLUGINS") or os.path.expanduser("~/.claude/plugins/installed_plugins.json")
+    try:
+        with open(reg, encoding="utf-8") as f:
+            plugins = json.load(f).get("plugins", {})
+    except (OSError, ValueError):
+        return []
+    out = []
+    for key, entries in plugins.items():
+        if key.split("@")[0] == plugin and isinstance(entries, list):
+            out.extend(e for e in entries if isinstance(e, dict) and e.get("installPath"))
+    return out
+
+
+def _roots(root):
+    """The project root and its main checkout (a worktree belongs to the main checkout's project)."""
+    roots = {os.path.realpath(root)}
+    try:
+        common = subprocess.run(
+            ["git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            capture_output=True, text=True, check=False,
+        ).stdout.strip()
+        if common:
+            roots.add(os.path.realpath(os.path.join(common, "..")))
+    except OSError:
+        pass
+    return roots
+
+
+def plugin_file(spec, root=None):
+    """Absolute path of <plugin>/<file> as this project runs it, else None.
+
+    Order: (1) a source checkout (plugins/<plugin>/<file> beside core); (2) the
+    version installed for this project: Claude Code's installed_plugins.json entry
+    with scope project/local and this project's path (or its main checkout's), else
+    the user/managed-scope entry; (3) the same version as the running core, in the
+    installed layout <market>/<plugin>/<version>/. Never "the newest installed":
+    projects move between releases one at a time.
+    """
+    plugin, _, rel = spec.partition("/")
+    if not plugin or not rel or ".." in rel.split("/") or plugin in (".", ".."):
+        return None
+    core_root = os.path.dirname(HERE)
+    candidates = [os.path.join(core_root, rel)] if plugin == "core" else [os.path.join(os.path.dirname(core_root), plugin, rel)]
+    roots = _roots(root or project_root())
+    entries = _installed_entries(plugin)
+    scoped = [e for e in entries if e.get("scope") in ("project", "local") and os.path.realpath(e.get("projectPath", "")) in roots]
+    wide = [e for e in entries if e.get("scope") in ("user", "managed")]
+    for e in scoped + wide:
+        candidates.append(os.path.join(e["installPath"], rel))
+    # Installed layout: <market>/<plugin>/<version>/..., core's own version is the pin.
+    version = os.path.basename(core_root)
+    candidates.append(os.path.join(os.path.dirname(os.path.dirname(core_root)), plugin, version, rel))
+    for c in candidates:
+        if os.path.isfile(c):
+            return os.path.realpath(c)
+    return None
+
+
+def render(value, as_json):
+    if as_json:
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (str, int, float)):
+        return str(value)
+    if isinstance(value, list) and all(isinstance(v, (str, int, float, bool)) for v in value):
+        return "\n".join(render(v, False) for v in value)
+    return json.dumps(value, ensure_ascii=False)
+
+
+def cmd_get(args, root):
+    default, as_json, key = None, False, None
+    i = 0
+    while i < len(args):
+        if args[i] == "--default" and i + 1 < len(args):
+            default = args[i + 1]
+            i += 2
+        elif args[i] == "--json":
+            as_json = True
+            i += 1
+        elif key is None and not args[i].startswith("--"):
+            key = args[i]
+            i += 1
+        else:
+            print(__doc__.strip(), file=sys.stderr)
+            return 2
+    if key is None:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    path, cfg = load_config(root)
+    value = cfg
+    for part in key.split("."):
+        if not isinstance(value, dict) or part not in value:
+            value = None
+            break
+        value = value[part]
+    if value is None:
+        if default is not None:
+            print(default)
+            return 0
+        print(f"kit: missing key '{key}' (no such key in {path})", file=sys.stderr)
+        return 1
+    print(render(value, as_json))
+    return 0
+
+
+def main(argv):
+    if len(argv) < 2 or argv[1] in ("-h", "--help", "help"):
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    sub, args = argv[1], argv[2:]
+    root = project_root()
+    if sub == "get":
+        return cmd_get(args, root)
+    if sub == "dump":
+        _path, cfg = load_config(root)
+        print(json.dumps(cfg or {}, ensure_ascii=False))
+        return 0
+    if sub == "path":
+        if len(args) != 1:
+            print(__doc__.strip(), file=sys.stderr)
+            return 2
+        found = plugin_file(args[0], root)
+        if found is None:
+            print(f"kit: no file '{args[0]}' in the installed plugins (form: <plugin>/<file>)", file=sys.stderr)
+            return 1
+        print(found)
+        return 0
+    if sub == "packet":
+        import kit_packet
+        _path, cfg = load_config(root)
+        return kit_packet.main(["kit packet"] + args, root, (cfg or {}).get("packet", {}))
+    if sub == "spec-check":
+        import kit_spec_check
+        _path, cfg = load_config(root)
+        return kit_spec_check.main(["kit spec-check"] + args, root, (cfg or {}))
+    print(f"kit: unknown command '{sub}'\n", file=sys.stderr)
+    print(__doc__.strip(), file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

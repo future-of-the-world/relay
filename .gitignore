@@ -1,0 +1,7 @@
+.ci/
+__pycache__/
+*.pyc
+*.bak
+*.before-relay
+profiles/history/
+evals/plugin/results/

@@ -1,0 +1,28 @@
+# The "Opus wrote a simple script" case: a throwaway script. The right setup
+# sends it to a worker on the middle model and answers in two lines.
+name = "small-script"
+description = "A bin/ script that prints the item count"
+tags = ["build", "cheap"]
+fixture = "../../plugin/fixture"
+scaffold = "scaffold.sh"
+max_turns = 25
+timeout_s = 600
+permission_mode = "acceptEdits"
+allowed_tools = ["Read", "Edit", "Write", "Bash", "Grep", "Glob", "Agent", "Skill"]
+runs = 1
+
+[[graders]]
+name = "script-runs"
+type = "command"
+command = "test -x bin/count && bin/count src/shelf.test.ts | grep -Eq '^[0-9]+$'"
+
+[[graders]]
+name = "delegated-to-a-worker"
+type = "agent_used"
+agent_type = "worker"
+
+[[graders]]
+name = "no-opus-agent"
+type = "agent_used"
+agent_type = "thinker|critic"
+exists = false

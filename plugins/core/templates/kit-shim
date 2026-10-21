@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# bin/kit: reaches the principles `kit` from scripts that run outside Claude
+# (bin/ci in a terminal, a CI job), where the plugin's bin/ is not on PATH.
+# Copy this file to the project's bin/kit (chmod +x) and call `bin/kit
+# spec-check --path openspec/specs`, `bin/kit get gate.ci` from project scripts.
+#
+# Finds `kit` in this order:
+#   1. $KIT, a path to a kit executable (an override, e.g. in CI);
+#   2. the core plugin installed for THIS project, from Claude Code's
+#      ~/.claude/plugins/installed_plugins.json: the project-scope entry whose
+#      projectPath is this project (or its main checkout), else the user-scope one;
+#   3. a source checkout: $PRINCIPLES_DIR (default ~/principles)/plugins/core.
+# It needs Python 3.11+ on PATH (kit reads TOML). Tests: plugins/core/tests/shim.test.sh
+set -uo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd -P)"
+
+if [ -n "${KIT:-}" ]; then
+  [ -x "$KIT" ] || { echo "bin/kit: \$KIT ($KIT) is not an executable." >&2; exit 2; }
+  exec "$KIT" "$@"
+fi
+
+main="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && main="$(cd "$main/.." && pwd -P)" || main="$root"
+registry="${KIT_INSTALLED_PLUGINS:-$HOME/.claude/plugins/installed_plugins.json}"
+
+kit="$(python3 - "$registry" "$root" "$main" <<'PY' 2>/dev/null
+import json, os, sys
+registry, *roots = sys.argv[1:]
+roots = {os.path.realpath(r) for r in roots}
+try:
+    plugins = json.load(open(registry)).get("plugins", {})
+except (OSError, ValueError):
+    sys.exit(0)
+entries = [e for k, v in plugins.items() if k.split("@")[0] == "core" and isinstance(v, list) for e in v if isinstance(e, dict)]
+scoped = [e for e in entries if e.get("scope") in ("project", "local") and os.path.realpath(e.get("projectPath", "")) in roots]
+wide = [e for e in entries if e.get("scope") in ("user", "managed")]
+for e in scoped + wide:
+    k = os.path.join(e.get("installPath", ""), "bin", "kit")
+    if os.access(k, os.X_OK):
+        print(k)
+        break
+PY
+)"
+
+if [ -z "$kit" ]; then
+  src="${PRINCIPLES_DIR:-$HOME/principles}/plugins/core/bin/kit"
+  [ -x "$src" ] && kit="$src"
+fi
+
+if [ -z "$kit" ]; then
+  echo "bin/kit: the principles core plugin is not installed for this project, and there is no source checkout at ${PRINCIPLES_DIR:-$HOME/principles}." >&2
+  echo "  Install it: claude plugin install core@principles --scope project (after: claude plugin marketplace add <path to the principles checkout>)," >&2
+  echo "  or point KIT at a kit executable." >&2
+  exit 2
+fi
+cd "$root" && exec "$kit" "$@"

@@ -1,0 +1,4 @@
+Review of master...wt/paging: 2 confirmed, 0 plausible.
+1. src/shelf.ts:27 CONFIRMED: page() slices to start + size + 1, so every page holds size + 1 items, one extra. page([a,b,c], 0, 2) returns 3 items. Fix: items.slice(start, start + size).
+2. src/shelf.ts:30 CONFIRMED DOC-RULE: exported function pageCount has no doc comment.
+Report: /tmp/x/.ci/code-review.md

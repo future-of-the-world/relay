@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: code-reviewer-offbyone
+description: sdd:code-reviewer finds the planted off-by-one in a branch diff, with file and line.
+tags: [sdd, review]
+plugins: ["../../../plugins/core", "../../../plugins/sdd"]
+context:
+  scaffold_script: scaffold.sh

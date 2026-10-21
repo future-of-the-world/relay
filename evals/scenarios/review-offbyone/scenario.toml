@@ -1,0 +1,29 @@
+# A review: does the setup find a planted off-by-one, name the line, and route
+# the review to a critic instead of reading the diff in the front?
+name = "review-offbyone"
+description = "Find the planted off-by-one in branch wt/paging"
+tags = ["review"]
+fixture = "../../plugin/fixture"
+scaffold = "scaffold.sh"
+max_turns = 30
+timeout_s = 900
+permission_mode = "acceptEdits"
+allowed_tools = ["Read", "Bash", "Grep", "Glob", "Agent", "Write", "Skill"]
+runs = 1
+
+[[graders]]
+name = "finds-off-by-one"
+type = "regex"
+pattern = "off[- ]by[- ]one|one (item|element|entry)s? too many|size ?\\+ ?1|(more|larger) than `?size"
+flags = "i"
+
+[[graders]]
+name = "names-the-line"
+type = "regex"
+pattern = "shelf\\.ts:?\\s?2[5-8]\\b|line 2[5-8]\\b"
+flags = "i"
+
+[[graders]]
+name = "delegated-to-a-critic"
+type = "agent_used"
+agent_type = "critic|reviewer"

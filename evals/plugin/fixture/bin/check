@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# A worker's inner loop, following the check-script contract in
+# plugins/core/README.md ("The check-script contract"): quick, quiet, bounded.
+#
+#   bin/check <change> <task>               the task's own `Check:` command
+#   bin/check <change> <task> --failed      rerun: the test files that failed last round first
+#   bin/check --tests <file>... [--failed]  review-fix mode: these test files
+#
+# The fixture has no formatter, typecheck or lint step, so a run is just the
+# task's `Check:` (or the named test files). Prints one line when green; on a
+# failure the first findings, then the round, the log path and the stop words:
+# BUDGET SPENT after the third failure in a row, HUNG when the check ran past
+# CHECK_TIMEOUT seconds (default 300) and was killed, TIME BUDGET SPENT once
+# CHECK_WORKER_MINUTES (default 40) have passed since the first run of this
+# task. Full output: .ci/check/<key>.log. Exit 0 only when green; 1 when the
+# check failed; 2 on a usage error or an unreadable task.
+set -uo pipefail
+
+budget=3
+check_timeout="${CHECK_TIMEOUT:-300}"
+worker_minutes="${CHECK_WORKER_MINUTES:-40}"
+root="$(git rev-parse --show-toplevel)" || exit 2
+cd "$root" || exit 2
+state=".ci/check"
+mkdir -p "$state"
+
+usage() { echo "usage: bin/check <change> <task> [--failed] | bin/check --tests <file>... [--failed]" >&2; exit 2; }
+
+failed_only=false mode="" change="" task="" files=() n=0
+for arg in "$@"; do
+  case "$arg" in
+    --failed) failed_only=true ;;
+    --tests) mode=tests ;;
+    -*) usage ;;
+    *)
+      if [ "$mode" = tests ]; then files+=("$arg")
+      else
+        n=$((n + 1))
+        case "$n" in 1) change="$arg" ;; 2) task="$arg" ;; *) usage ;; esac
+      fi
+      ;;
+  esac
+done
+
+if [ "$mode" = tests ]; then
+  [ "${#files[@]}" -gt 0 ] && [ -z "$change" ] || usage
+  key="tests-$(printf '%s\n' "${files[@]}" | shasum | cut -c1-8)"
+  check_cmd="bun test ${files[*]}"
+else
+  [ -n "$change" ] && [ -n "$task" ] || usage
+  [ -f "openspec/changes/$change/tasks.md" ] || { echo "bin/check: no change '$change' (openspec/changes/$change/tasks.md)" >&2; exit 2; }
+  key="task-$task"
+  check_cmd="$(python3 - "openspec/changes/$change/tasks.md" "$task" <<'PY'
+import re, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+m = re.search(r"(?ms)^- \[[ x]\] %s .*?(?=^- \[[ x]\] |^## |\Z)" % re.escape(sys.argv[2]), text)
+if not m:
+    sys.exit("bin/check: no task " + sys.argv[2])
+c = re.search(r"Check: `([^`]+)`", " ".join(m.group(0).split()))
+print(c.group(1) if c else "")
+PY
+)" || exit 2
+  [ -n "$check_cmd" ] || { echo "bin/check: task $task has no \`Check:\` command in backticks" >&2; exit 2; }
+fi
+
+log="$state/$key.log"; count_file="$state/$key.fails"; started_file="$state/$key.started"; failed_file="$state/$key.failed-tests"
+: >"$log"
+[ -f "$started_file" ] || date +%s >"$started_file"
+elapsed_min=$(( ($(date +%s) - $(cat "$started_file")) / 60 ))
+
+time_note() {
+  echo "bin/check: ${elapsed_min} min since this task's first check (budget ${worker_minutes} min)."
+  if [ "$elapsed_min" -ge "$worker_minutes" ]; then
+    echo "bin/check: TIME BUDGET SPENT. Stop: commit what passes, and report where you are, what blocks you, and what is left."
+  fi
+}
+
+fail() {
+  local n=$(( $(cat "$count_file" 2>/dev/null || echo 0) + 1 ))
+  echo "$n" >"$count_file"
+  echo "bin/check: FAILED at $1 (round $n of $budget; log: $log)"
+  if [ "$n" -ge "$budget" ]; then
+    echo "bin/check: BUDGET SPENT. Stop fixing. Commit nothing that fails; report this failure, what you tried, and your best guess at the cause."
+  else
+    echo "bin/check: fix it, then rerun (add --failed to rerun only the failing test files first)."
+  fi
+  time_note
+  exit 1
+}
+
+# Run a command under the timeout in its own process group; 124 = hung, and
+# everything it started is killed.
+with_timeout() {
+  python3 - "$check_timeout" "$@" <<'PY'
+import os, signal, subprocess, sys
+proc = subprocess.Popen(sys.argv[2:], start_new_session=True)
+try:
+    sys.exit(proc.wait(timeout=float(sys.argv[1])))
+except subprocess.TimeoutExpired:
+    os.killpg(proc.pid, signal.SIGKILL)
+    sys.exit(124)
+PY
+}
+
+# With --failed, the test files that failed last round run first, for a fast
+# answer; the whole check still runs after them, so a pass always means all of it.
+if $failed_only && [ -s "$failed_file" ]; then
+  # shellcheck disable=SC2046
+  if ! with_timeout bun test $(cat "$failed_file") >>"$log" 2>&1; then
+    echo "bin/check: still failing:"; sed 's/^/  /' "$failed_file"
+    fail "the failing tests"
+  fi
+fi
+
+with_timeout bash -c "$check_cmd" >>"$log" 2>&1
+status=$?
+if [ "$status" -ne 0 ]; then
+  # bun prints "<file>:" before a file's results and "(fail) <test>" for each failure.
+  awk '/^[^ ].*\.test\.[jt]sx?:$/ { f = substr($0, 1, length($0) - 1) } /^\(fail\)/ { if (f != "") print f }' "$log" | sort -u >"$failed_file"
+  if [ "$status" -eq 124 ]; then
+    echo "bin/check: HUNG: \`$check_cmd\` ran past ${check_timeout}s and was killed."
+    fail "the check (hang)"
+  fi
+  grep -E '^error|^\(fail\)|Expected|Received' "$log" | head -30
+  [ -s "$failed_file" ] && { echo "failed test files:"; sed 's/^/  /' "$failed_file"; }
+  fail "the check: $check_cmd"
+fi
+
+rm -f "$count_file" "$failed_file"
+echo "bin/check: passed ($check_cmd)"
+time_note

@@ -1,0 +1,86 @@
+{
+  "kind": "issues",
+  "plugin": "issues",
+  "description": "Issue flow (from Arsenal): an issue is .issues/<slug>/description.md on its own branch, a tracker issue, and a worktree; one PR per issue, squash-merged; no status in the file, git state is the truth.",
+  "detect": {
+    "dirs": [
+      ".issues"
+    ],
+    "any_bindings": [
+      "issues.view"
+    ]
+  },
+  "requires_plugins": [
+    "core",
+    "issues",
+    "delegate"
+  ],
+  "bindings_required": [
+    "project.default_branch",
+    "project.worktrees",
+    "gate.wt",
+    "gate.check",
+    "gate.ci",
+    "issues.create",
+    "issues.pr_create",
+    "issues.pr_merge"
+  ],
+  "stages": [
+    {
+      "name": "read",
+      "skill": "issues:read",
+      "triggers": [
+        "/issues:read",
+        "/issues:list"
+      ],
+      "keywords": [
+        "\\b(list|show|read|find|which|what)\\b.*\\b(issues?|follow-ups?)\\b",
+        "\\.issues/"
+      ],
+      "note": "Reading is read-only: a scout, never the main session."
+    },
+    {
+      "name": "create",
+      "skill": "issues:create",
+      "triggers": [
+        "/issues:create",
+        "/issues:new"
+      ],
+      "keywords": [
+        "\\b(create|draft|file|open|break (it|this|the plan) (down|into))\\b.*\\b(issues?|microtasks?)\\b"
+      ]
+    },
+    {
+      "name": "implement",
+      "skill": "issues:implement",
+      "triggers": [
+        "/issue",
+        "/issues:implement"
+      ],
+      "keywords": [
+        "(^|\\W)#[0-9]+\\b",
+        "\\b(implement|do|take|pick up|continue|finish|start)\\b.*\\b(issues?|#[0-9]+)",
+        "\\bworktrees?\\b"
+      ]
+    },
+    {
+      "name": "merge",
+      "skill": "issues:merge",
+      "triggers": [
+        "/issues:merge",
+        "/issues:pr"
+      ],
+      "keywords": [
+        "\\b(pull requests?|PRs?|merge|rebase)\\b"
+      ]
+    }
+  ],
+  "roles": {
+    "look": "delegate:scout",
+    "run": "delegate:runner",
+    "build": "delegate:worker",
+    "fix": "delegate:fixer",
+    "think": "delegate:thinker",
+    "judge": "delegate:critic"
+  }
+}

@@ -1,0 +1,2 @@
+1 confirmed. src/shelf.ts:27 CONFIRMED: pageNo is not clamped, so a negative page number slices from the end of the list.
+Report: /tmp/x/.ci/code-review.md

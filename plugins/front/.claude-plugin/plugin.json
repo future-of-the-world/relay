@@ -1,0 +1,6 @@
+{
+  "name": "front",
+  "version": "0.1.0",
+  "description": "The front desk: keeps the main session thin (handover at the budget line, wrap notes for big agents, the handover file named after a compaction) and shapes what the owner sees.",
+  "author": { "name": "amidman" }
+}
