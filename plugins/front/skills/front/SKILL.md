@@ -33,7 +33,22 @@ reported after.
 
 Numbered questions, lettered options, the recommendation first, and the
 difference made visible: a number, a side-by-side, a picture; never options
-that differ only in wording. Then wait. When the owner picks, say once where
+that differ only in wording.
+
+Every question opens with an introduction: what it is about, how the
+mechanism works, a live example from the current work, and what each answer
+changes, so the owner can answer it after days away without the
+conversation. The question and its options stay short. The shape:
+
+```
+**<the question, as a title>**
+<intro paragraph: the mechanism, a live example, what each answer changes;
+ the critique of the owner's earlier pick, if any>
+<a side-by-side table, when the options differ in several ways>
+a (recommended) <one line>   b <one line>
+```
+
+Then wait. When the owner picks, say once where
 the pick is weak (its cost, what it breaks, which earlier decision it
 contradicts) and then build it without re-arguing; when there is no weakness,
 say that you looked.

@@ -31,6 +31,8 @@
   relay doctor [<dir>]               check-up of the machine, the rules, the ledger, and a project
   relay flows                        the task flows available and what each needs
   relay rules                        the catalogue of rules with gists
+  relay changed [-C <repo>] <sha>    the files changed since <sha> (to HEAD) that are not on the inert list
+                                     (handover, queue and check files): what a check of a fix looks at
 
 The repository root is this script's parent, or $RELAY_ROOT.
 """
@@ -46,6 +48,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "lib"))
 import relay_analyze  # noqa: E402
 import relay_bench  # noqa: E402
 import relay_config  # noqa: E402
+import relay_inert  # noqa: E402
 import relay_ledger  # noqa: E402
 import relay_rules  # noqa: E402
 import relay_setup  # noqa: E402
@@ -402,10 +405,21 @@ def cmd_rules(args):
     return 0
 
 
+def cmd_changed(args):
+    repo = "."
+    if len(args) >= 2 and args[0] == "-C":
+        repo, args = args[1], args[2:]
+    if len(args) != 1:
+        raise Usage("relay changed [-C <repo>] <sha>")
+    for path in relay_inert.changed(os.path.realpath(repo), args[0]):
+        print(path)
+    return 0
+
+
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed,
 }
 
 

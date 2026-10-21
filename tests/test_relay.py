@@ -996,6 +996,61 @@ class Agents(unittest.TestCase):
             with open(os.path.join(ROOT, place), encoding="utf-8") as handle:
                 self.assertIn("roles/judge.md", handle.read(), place + " does not name roles/judge.md")
 
+    def test_relay_changed(self):
+        """A12: `relay changed -C <repo> <sha>` lists the changed files that are not inert, and follows the matcher:
+        `*` stays inside one path part, `**` crosses parts."""
+        tmp = tempfile.mkdtemp(prefix="relay-changed-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        repo = os.path.join(tmp, "repo")
+        os.makedirs(repo)
+
+        def git(*args):
+            return subprocess.run(["git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                                  capture_output=True, text=True, check=True).stdout.strip()
+
+        def write(rel, text):
+            path = os.path.join(repo, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as handle:
+                handle.write(text)
+
+        git("init", "-q")
+        write("lib/a.py", "1\n")
+        write("docs/handover.md", "1\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        base = git("rev-parse", "HEAD")
+        write("lib/a.py", "2\n")
+        write("docs/handover.md", "2\n")
+        write("docs/handover.md.bak", "x\n")
+        write(".relay/queue/x.md", "x\n")
+        write(".relay/queue/deep/y.md", "y\n")
+        write(".relay/checks/%s.json" % base, "{}\n")
+        write(".relay/other.md", "z\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "change")
+        env = dict(os.environ, RELAY_ROOT=ROOT)
+        run = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "changed", "-C", repo, base],
+                             capture_output=True, text=True, env=env)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        # not inert: the code, a sibling of the handover with another name, an unlisted .relay file
+        self.assertEqual(sorted(run.stdout.split()), [".relay/other.md", "docs/handover.md.bak", "lib/a.py"])
+        # nothing changed since HEAD: nothing listed
+        run = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "changed", "-C", repo, "HEAD"],
+                             capture_output=True, text=True, env=env)
+        self.assertEqual((run.returncode, run.stdout), (0, ""))
+        # the matcher itself
+        sys.path.insert(0, os.path.join(ROOT, "lib"))
+        import relay_inert
+        self.assertTrue(relay_inert.matches(".relay/queue/a/b/c.md"))
+        self.assertTrue(relay_inert.matches(".relay/checks/abc.json"))
+        self.assertFalse(relay_inert.matches(".relay/queuex/a.md"))
+        self.assertFalse(relay_inert.matches("sub/docs/handover.md"))
+        self.assertTrue(relay_inert._regex("a/*/c").match("a/b/c"))
+        self.assertFalse(relay_inert._regex("a/*/c").match("a/b/d/c"))
+        self.assertTrue(relay_inert._regex("a/**/c").match("a/b/d/c"))
+        self.assertTrue(relay_inert._regex("a/**/c").match("a/c"))
+
 
 class Bench(Base):
     def fake_claude(self, cost, turns, text, make_file=None):

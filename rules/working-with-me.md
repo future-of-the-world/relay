@@ -13,6 +13,13 @@
 - Choices: numbered questions, lettered options, my recommendation first,
   and the difference made visible (side by side, numbers or pictures).
   Never options that only differ in wording.
+- Every question opens with an introduction: what it is about, how the
+  mechanism works, a live example from the current work, and what each answer
+  changes, so it can be answered after days away without the conversation.
+  The question and its lettered options stay short. Shape: a bold question
+  title; an intro paragraph (the mechanism, a live example, and any critique
+  of an earlier pick); a side-by-side table when the options differ in
+  several ways; short lettered options, the recommendation first.
 - Critique my picks; agree only on the merits. "Agreed" means you checked
   the choice, not that I made it. Before carrying out a pick of mine, say
   where it is weak: what it costs, what it breaks or loses, which principle
