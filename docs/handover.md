@@ -271,6 +271,33 @@ Sonnet long-context price with the claude-api skill. Old worktrees
 `.worktrees/live-fixes`, `.worktrees/numbers` are merged and can go.
 The plan: docs/plans/trustworthy-numbers.md.
 
+STATE at the 350k handover (21 Oct, ~22:45 local), session 0b953f5c:
+- Batch 2 (wt/open-items, .worktrees/batch2) is merge-ready: whole-change
+  review (0 must, 4 should: A1 session-end speed, D1 guard header, D2
+  Python docs, D3 observability doc) fixed in bb3d9ed and checked against
+  the review's own pass-cases: all pass, nothing outside scope
+  (scratchpad review-batch2-whole.md, section "Check of bb3d9ed").
+- Running: full `bin/ci` with the paid evals, cap $15 (owner: "a" = run
+  it, then merge if green). Log: scratchpad ci-batch2.log; results
+  .ci/evals.json in the worktree.
+- EXACT NEXT STEP: if ci is green, `git -C /Users/amidman/relay merge
+  --ff-only wt/open-items` (the guard allows only ff merges of wt/
+  branches in the main checkout), check `git -C ~/relay status` clean,
+  tell the owner. If red: find the cause before any merge.
+- Then batch 3, in order: (1) shared role bases for delegate + sdd agents
+  with the new review method in the judge base (design review first);
+  (2) reword rules/delegation.md review rule; (3) OpenSpec stages by
+  meaning in any language + doctor/setup checks for the openspec CLI and
+  /opsx commands; (4) status line + limit share; (5) large repeated
+  requests finding (incl. ~$0.30 session start-up). Then phase 1
+  (self-contained, OpenSpec as adapter).
+- Owner's latest words: "a" (paid run before merge), "a" (OpenSpec as
+  adapter in phase 1), "a a" (shared role bases, in batch 3), "a" (split
+  personal rules), "One good review is better than several bad reviews,
+  and cheaper".
+- Old worktrees `.worktrees/live-fixes` and `.worktrees/numbers` are
+  merged and can be removed.
+
 Decisions of 21 Oct evening (owner's words verbatim where quoted):
 - Review method: "our review - fix - review flow is wrong we move in
   cycle fixing the same problems. One good review is better than several
