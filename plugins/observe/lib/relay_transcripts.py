@@ -60,11 +60,13 @@ class Agg:
     requests: int = 0
     usage: dict = field(default_factory=_zero)
     cost: float = 0.0
+    estimated: bool = False     # output tokens were estimated (agent transcripts hold a mid-answer snapshot)
 
-    def add(self, model, usage):
+    def add(self, model, usage, estimated=False):
         self.requests += 1
         _add(self.usage, usage)
         self.cost += relay_prices.cost(model, usage)
+        self.estimated = self.estimated or estimated
 
     @property
     def context(self):
@@ -103,6 +105,8 @@ class Trace:
     handback_chars: object = None  # agent only: length of its SubagentHandback message (None: it never handed back)
     _agent_calls: dict = field(default_factory=dict)   # Agent tool_use id -> {prompt_chars, escalated}
     first_read: int = 0            # cache_creation tokens of the first request: what a fresh agent pays
+    chars_by_model: dict = field(default_factory=dict)  # agent only: model -> visible characters of its answers
+    _pending: dict = field(default_factory=dict)       # agent only: requestId -> the request's lines folded together
 
     @property
     def model(self):
@@ -128,7 +132,40 @@ def read_trace(path, kind="session"):
             except ValueError:
                 continue
             _absorb(trace, entry, seen_requests)
+    _settle_agent_requests(trace)
     return trace
+
+
+def _visible_chars(content):
+    """Characters of the answer that can be seen on disk: text, thinking, and tool-call input."""
+    total = 0
+    if isinstance(content, list):
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            kind = block.get("type")
+            if kind == "text":
+                total += len(block.get("text") or "")
+            elif kind == "thinking":
+                total += len(block.get("thinking") or "")
+            elif kind == "tool_use":
+                total += len(json.dumps(block.get("input"), ensure_ascii=False))
+    return total
+
+
+def _settle_agent_requests(trace):
+    """Agent transcripts are written while the answer streams: each line keeps the output count so far
+    (stop_reason empty), and the final count is on disk nowhere. A request's output is therefore
+    max(largest recorded count, visible characters x tokens-per-character of its model), marked
+    estimated. The main thread's lines carry the final usage and are counted as they come."""
+    for item in trace._pending.values():
+        usage = dict(item["usage"])
+        guess = round(item["chars"] * relay_prices.output_per_char(item["model"]))
+        usage["output_tokens"] = max(item["out"], guess)
+        trace.chars_by_model[item["model"]] = trace.chars_by_model.get(item["model"], 0) + item["chars"]
+        trace.total.add(item["model"], usage, estimated=True)
+        trace.by_model.setdefault(item["model"], Agg()).add(item["model"], usage, estimated=True)
+    trace._pending = {}
 
 
 def _absorb(trace, entry, seen_requests):
@@ -191,6 +228,10 @@ def _absorb(trace, entry, seen_requests):
     if not any(usage.get(k) for k in USAGE_KEYS):
         return
     request_id = entry.get("requestId") or entry.get("uuid")
+    if trace.kind == "agent" and request_id in trace._pending:
+        item = trace._pending[request_id]
+        item["chars"] += _visible_chars(content)
+        item["out"] = max(item["out"], int(usage.get("output_tokens") or 0))
     if request_id in seen_requests:
         return
     seen_requests.add(request_id)
@@ -202,12 +243,16 @@ def _absorb(trace, entry, seen_requests):
                 if gap > 300:
                     trace.gaps_over_5m += 1
         trace._last_request_ts = ts
-    if trace.total.requests == 0:
+    if len(seen_requests) == 1:
         trace.first_read = int(usage.get("cache_creation_input_tokens") or 0) + int(usage.get("input_tokens") or 0)
     model = message.get("model") or "unknown"
     trace.models.add(model)
-    trace.total.add(model, usage)
-    trace.by_model.setdefault(model, Agg()).add(model, usage)
+    if trace.kind == "agent":
+        trace._pending[request_id] = {"model": model, "usage": usage, "chars": _visible_chars(content),
+                                      "out": int(usage.get("output_tokens") or 0)}
+    else:
+        trace.total.add(model, usage)
+        trace.by_model.setdefault(model, Agg()).add(model, usage)
     context = sum(int(usage.get(k) or 0) for k in USAGE_KEYS[:3])
     trace.last_context = context
     trace.max_context = max(trace.max_context, context)
