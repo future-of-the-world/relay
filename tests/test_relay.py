@@ -368,6 +368,38 @@ class Numbers(Base):
         os.remove(os.path.join(self.home, "ledger", "usage-index.json"))     # the index is a shortcut, not the truth
         self.assertEqual(relay_ledger.capture("2026-10-21T10:01:00Z"), [])
 
+    def test_a_restarted_counter_that_grows_past_the_old_total_stays_an_estimate(self):
+        """First part 9.00; the resumed part restarts at 0, is seen at 4.00 (smaller: not written, session marked),
+        then grows to 12.00. A plain 'grew' rule would write 12.00 and label a 21.00 session exact; it must not."""
+        import relay_ledger
+        for cost, when in ((9.0, "09:00"), (4.0, "10:00"), (12.0, "11:00")):
+            self.SESSION_8_43["claude-opus-5-5"]["cost"] = cost
+            try:
+                self._claude_json("s-g")
+            finally:
+                self.SESSION_8_43["claude-opus-5-5"]["cost"] = 6.99
+            written = relay_ledger.capture("2026-10-21T%s:00Z" % when)
+            self.assertEqual(written, ["s-g"] if cost == 9.0 else [])
+        self.assertEqual(relay_ledger.usage_sessions()["s-g"]["claude-opus-5-5"]["cost_usd"], 9.0)
+        self.assertNotIn("s-g", relay_ledger.exact_sessions())          # never exact again, not even the 12.00 in the file
+        os.remove(os.path.join(self.home, "ledger", "usage-index.json"))
+        self.assertEqual(relay_ledger.capture("2026-10-21T12:00:00Z"), [])
+
+    def test_the_usage_index_keeps_every_entry_under_concurrent_writers(self):
+        """30 SessionEnd hooks at once used to keep 12 to 26 of 30 index entries (read-modify-write, shared temp)."""
+        import subprocess
+        code = ("import sys; sys.path.insert(0, %r); import relay_ledger as l; "
+                "l.record_usage(sys.argv[1], '/p', {'m': {'output_tokens': 1}}, '2026-10-21T09:00:00Z')" % os.path.join(ROOT, "lib"))
+        env = dict(os.environ, RELAY_HOME=self.home)
+        procs = [subprocess.Popen([sys.executable, "-c", code, "s%02d" % n], env=env) for n in range(30)]
+        for proc in procs:
+            self.assertEqual(proc.wait(), 0)
+        import relay_ledger
+        with open(os.path.join(self.home, "ledger", "usage-index.json")) as handle:
+            index = json.load(handle)
+        self.assertEqual(len(index.get("sessions", index)), 30)
+        self.assertEqual(len(relay_ledger.usage_sessions()), 30)
+
     def test_capture_never_reads_the_whole_ledger(self):
         import relay_ledger
         self._claude_json("s-n4")

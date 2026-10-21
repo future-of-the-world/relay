@@ -3,7 +3,8 @@ one file per day under ~/.relay/ledger/. This module reads it.
 
 Events (field `event`): session_start, prompt, agent_start, agent_stop,
 tool_pre, tool_post, stop, compact, session_end, session_usage (Claude Code's own
-per-model figures for a finished session: the exact numbers `/cost` showed). Every event has `ts`
+per-model figures for a finished session: the exact numbers `/cost` showed), usage_restart (that session's
+counter went down: it stays an estimate). Every event has `ts`
 (ISO 8601, UTC), `session_id`, and, inside a subagent, `agent_id` and `agent_type`.
 """
 
@@ -11,6 +12,11 @@ import datetime as dt
 import glob
 import json
 import os
+
+try:
+    import fcntl
+except ImportError:      # not on Windows
+    fcntl = None
 
 from relay_config import claude_json, ledger_dir
 
@@ -154,6 +160,12 @@ def usage_records(since=None):
     return found
 
 
+def restarted_sessions(since=None):
+    """Session ids whose Claude Code counter was seen to restart (see _shrank): their totals cover only part of
+    the session, so they are never labelled exact, even when the new count later grows past the old one."""
+    return {e["session_id"] for e in read(since=since) if e.get("event") == "usage_restart" and e.get("session_id")}
+
+
 def usage_sessions(since=None):
     """{session_id: {model: numbers}} from `session_usage` ledger lines (the newest line of a session wins)."""
     return {sid: models for sid, (_when, models) in usage_records(since).items()}
@@ -167,43 +179,84 @@ def _index_path():
 
 
 def _read_index():
+    """{"sessions": {session_id: models}, "restarted": [session_id, ...]}; empty when missing or unreadable."""
     try:
         with open(_index_path(), encoding="utf-8") as handle:
             found = json.load(handle)
-        return found if isinstance(found, dict) else {}
     except (OSError, ValueError):
-        return {}
+        found = None
+    if not isinstance(found, dict) or not isinstance(found.get("sessions"), dict):
+        return {"sessions": {}, "restarted": []}
+    restarted = found.get("restarted")
+    return {"sessions": found["sessions"], "restarted": restarted if isinstance(restarted, list) else []}
 
 
 def _write_index(index):
-    while len(index) > _INDEX_KEEP:
-        index.pop(next(iter(index)))
+    """Atomic: a temp file of its own (one per writer), then a rename, so a reader never sees half a file."""
+    sessions = index["sessions"]
+    while len(sessions) > _INDEX_KEEP:
+        sessions.pop(next(iter(sessions)))
+    del index["restarted"][:-_INDEX_KEEP]
     os.makedirs(ledger_dir(), exist_ok=True)
-    tmp = _index_path() + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as handle:
-        json.dump(index, handle)
-    os.replace(tmp, _index_path())
+    tmp = "%s.tmp.%d" % (_index_path(), os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(index, handle)
+        os.replace(tmp, _index_path())
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def _update_index(change):
+    """Read-modify-write of the index under a lock, so concurrent SessionEnd hooks merge instead of overwriting
+    each other (30 hooks at once lost up to 18 of 30 entries without it)."""
+    try:
+        os.makedirs(ledger_dir(), exist_ok=True)
+        with open(os.path.join(ledger_dir(), "usage-index.lock"), "a") as lock:
+            if fcntl is not None:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+            index = _read_index()
+            change(index)
+            _write_index(index)
+    except OSError:
+        pass
 
 
 def record_usage(session_id, folder, models, now, source="claude.json"):
     append({"ts": now, "event": "session_usage", "session_id": session_id, "cwd": folder,
             "source": source, "models": models})
-    index = _read_index()
-    index.pop(session_id, None)
-    index[session_id] = models
-    try:
-        _write_index(index)
-    except OSError:
-        pass
+
+    def change(index):
+        index["sessions"].pop(session_id, None)
+        index["sessions"][session_id] = models
+    _update_index(change)
+
+
+def record_restart(session_id, folder, now):
+    """Remember that a session's counter restarted: it stays an estimate for the rest of its life."""
+    append({"ts": now, "event": "usage_restart", "session_id": session_id, "cwd": folder})
+
+    def change(index):
+        if session_id not in index["restarted"]:
+            index["restarted"].append(session_id)
+    _update_index(change)
 
 
 def _recorded(session_id, index):
     """The total the ledger holds for a session, without reading the ledger: the small index file, else the
     last few days' lines (the index is only a shortcut and may be missing)."""
-    if session_id in index:
-        return index[session_id]
+    if session_id in index["sessions"]:
+        return index["sessions"][session_id]
     since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=3)
     return usage_sessions(since=since).get(session_id)
+
+
+def _is_restarted(session_id, index):
+    if session_id in index["restarted"]:
+        return True
+    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=3)
+    return session_id in restarted_sessions(since=since)
 
 
 def _shrank(old, new):
@@ -223,7 +276,10 @@ def capture(now, folder=None, skip_session=None, only_session=None):
     folder: only that project folder (the hook's own); skip_session: a session still running;
     only_session: just that session (the hook of a session that is ending).
     Cost does not grow with the age of the ledger: the check against what is recorded reads one small index.
-    A total smaller than the recorded one is not written (see _shrank)."""
+    A total smaller than the recorded one is not written, and the session is marked restarted: Claude Code
+    has not been seen to say whether its counter restarts on resume, so once a total went down the counter is
+    taken to have restarted, and every later total of that session (even one that grows past the old figure,
+    which would then look like a plain growth) covers only a part. Such a session stays an estimate."""
     written = []
     index = None
     for project, sid, models in claude_json_sessions():
@@ -233,11 +289,17 @@ def capture(now, folder=None, skip_session=None, only_session=None):
             continue
         if index is None:
             index = _read_index()
+        if _is_restarted(sid, index):
+            continue
         have = _recorded(sid, index)
-        if have == models or (have is not None and _shrank(have, models)):
+        if have == models:
+            continue
+        if have is not None and _shrank(have, models):
+            record_restart(sid, project, now)
+            index["restarted"].append(sid)
             continue
         record_usage(sid, project, models, now)
-        index[sid] = models
+        index["sessions"][sid] = models
         written.append(sid)
     return written
 
@@ -253,7 +315,12 @@ def exact_records():
     Code's file where it holds a different (newer) total or one not yet copied; those get UNKNOWN as their
     time, so a report estimates them while the session has any transcript activity."""
     found = usage_records()
+    restarted = restarted_sessions()
+    for sid in restarted:
+        found.pop(sid, None)
     for _folder, sid, models in claude_json_sessions():
+        if sid in restarted:
+            continue
         if sid not in found or found[sid][1] != models:
             found[sid] = (UNKNOWN, models)
     return found
