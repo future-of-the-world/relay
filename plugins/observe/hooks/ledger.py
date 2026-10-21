@@ -66,8 +66,10 @@ def main():
             if key in data:
                 out[key] = data[key]
         # The last session of this folder finished: copy Claude Code's own totals for it into the
-        # ledger before the next session overwrites them (this one, still running, is skipped).
-        relay_ledger.capture(out["ts"], folder=data.get("cwd"), skip_session=data.get("session_id"))
+        # ledger before the next session overwrites them. A new session skips itself; a resumed one is
+        # copied too (its old total, stamped now, so the work that follows makes it an estimate).
+        resumed = data.get("source") in ("resume", "compact")
+        relay_ledger.capture(out["ts"], folder=data.get("cwd"), skip_session=None if resumed else data.get("session_id"))
     elif event == "UserPromptSubmit":
         out = base(data, "prompt")
         prompt = data.get("prompt") or ""
@@ -131,6 +133,8 @@ def main():
     elif event == "SessionEnd":
         out = base(data, "session_end")
         out["reason"] = data.get("reason")
+        # The session is over: if Claude Code has written its final total, it covers everything.
+        relay_ledger.capture(out["ts"], folder=data.get("cwd"), only_session=data.get("session_id"))
     if out:
         relay_ledger.append(out)
 

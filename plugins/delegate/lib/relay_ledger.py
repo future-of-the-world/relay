@@ -164,16 +164,17 @@ def record_usage(session_id, folder, models, now, source="claude.json"):
             "source": source, "models": models})
 
 
-def capture(now, folder=None, skip_session=None):
+def capture(now, folder=None, skip_session=None, only_session=None):
     """Write a `session_usage` line for each session in Claude Code's file whose total is not yet in the ledger
-    (or has changed since: a resumed session). folder: only that project folder (the hook's own);
-    skip_session: a session still running."""
+    (or has changed since: a resumed session). The line's time is `now`: the moment the total was seen.
+    folder: only that project folder (the hook's own); skip_session: a session still running;
+    only_session: just that session (the hook of a session that is ending)."""
     written = []
     recorded = None
     for project, sid, models in claude_json_sessions():
         if folder is not None and project != folder:
             continue
-        if sid == skip_session:
+        if sid == skip_session or (only_session is not None and sid != only_session):
             continue
         if recorded is None:
             recorded = usage_sessions()
@@ -185,17 +186,20 @@ def capture(now, folder=None, skip_session=None):
     return written
 
 
+# The write time of a total found only in ~/.claude.json: unknown. Claude Code rewrites that file every few
+# seconds, so its modification time says nothing about when this session's total was last updated. A total
+# counts as covering the whole session only when a ledger line proves it was seen after the last activity.
+UNKNOWN = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+
+
 def exact_records():
-    """{session_id: (when the figure was written, {model: numbers})}: the ledger's newest lines, then Claude
-    Code's file where it holds a different (newer) total or one not yet copied; its time is the file's."""
+    """{session_id: (when the figure was seen, {model: numbers})}: the ledger's newest lines, then Claude
+    Code's file where it holds a different (newer) total or one not yet copied; those get UNKNOWN as their
+    time, so a report estimates them while the session has any transcript activity."""
     found = usage_records()
-    try:
-        file_time = dt.datetime.fromtimestamp(os.path.getmtime(claude_json()), dt.timezone.utc)
-    except OSError:
-        file_time = None
     for _folder, sid, models in claude_json_sessions():
         if sid not in found or found[sid][1] != models:
-            found[sid] = (file_time, models)
+            found[sid] = (UNKNOWN, models)
     return found
 
 

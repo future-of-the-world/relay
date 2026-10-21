@@ -31,6 +31,15 @@ export RELAY_CLAUDE_JSON="$RELAY_HOME/claude.json"
 send '{"hook_event_name":"SessionStart","session_id":"s","cwd":"/p","source":"startup"}'; has "session start copies the last finished session's totals" '"event": "session_usage".*"session_id": "old1".*"output_tokens": 5683'
 send '{"hook_event_name":"SessionStart","session_id":"s2","cwd":"/p","source":"startup"}'
 [ "$(grep -c '"session_usage"' "$RELAY_HOME"/ledger/*.jsonl)" = 1 ] && echo "ok   totals copied once" || { echo "FAIL totals copied twice"; fails=1; }
+# a resumed session is copied, not skipped (its stale total is stamped at the resume start); a new one skips itself
+printf '{"projects":{"/q":{"lastSessionId":"res1","lastModelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":777,"costUSD":0.1}}}}}' > "$RELAY_HOME/claude.json"
+send '{"hook_event_name":"SessionStart","session_id":"res1","cwd":"/q","source":"startup"}'
+[ "$(cat "$RELAY_HOME"/ledger/*.jsonl | grep '"session_usage"' | grep -c '"session_id": "res1"')" = 0 ] && echo "ok   a new session does not copy its own entry" || { echo "FAIL new session copied itself"; fails=1; }
+send '{"hook_event_name":"SessionStart","session_id":"res1","cwd":"/q","source":"resume"}'; has "a resumed session's total is copied at the resume" '"event": "session_usage".*"session_id": "res1".*"output_tokens": 777'
+printf '{"projects":{"/r":{"lastSessionId":"end1","lastModelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":888,"costUSD":0.2}}},"/q":{"lastSessionId":"other","lastModelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":999,"costUSD":0.3}}}}}' > "$RELAY_HOME/claude.json"
+send '{"hook_event_name":"SessionEnd","session_id":"end1","cwd":"/r","reason":"other"}'; has "session end copies the ending session's final total" '"event": "session_usage".*"session_id": "end1".*"output_tokens": 888'
+send '{"hook_event_name":"SessionEnd","session_id":"end2","cwd":"/q","reason":"other"}'
+[ "$(cat "$RELAY_HOME"/ledger/*.jsonl | grep -c '"output_tokens": 999')" = 0 ] && echo "ok   session end copies only its own session" || { echo "FAIL session end copied another session"; fails=1; }
 unset RELAY_CLAUDE_JSON
 send 'garbage'; echo "ok   malformed input fails open"
 exit $fails

@@ -317,8 +317,10 @@ class Numbers(Base):
 
     def test_report_uses_claude_codes_totals_when_present(self):
         import relay_analyze
+        import relay_ledger
         self._agent_session(None)
         self._claude_json("s-snap")
+        relay_ledger.capture("2026-10-21T10:00:00Z")        # seen after the session's last activity (09:12)
         base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
         text = relay_analyze.report(relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1)))
         sonnet = next(line for line in text.splitlines() if line.startswith("claude-sonnet-5-5"))
@@ -415,8 +417,7 @@ class Numbers(Base):
         self._claude_json("s-snap")
         self.assertEqual(relay_ledger.capture("2026-10-21T09:05:00Z"), ["s-snap"])     # copied before the session ended
         self.assertEqual(relay_ledger.capture("2026-10-21T09:06:00Z"), [])             # same total: nothing new
-        os.remove(os.path.join(self.claude, ".claude.json"))
-        text = relay_analyze.report(relay_analyze.collect(*window))
+        text = relay_analyze.report(relay_analyze.collect(*window))     # claude.json stays, with a fresh mtime
         self.assertIn("exact for 0% of usage", text)                   # the transcript runs past the copied total
         # the owner resumed the session: Claude Code writes the bigger total again
         self.SESSION_8_43["claude-opus-5-5"]["cost"] = 9.0
@@ -426,10 +427,84 @@ class Numbers(Base):
             self.SESSION_8_43["claude-opus-5-5"]["cost"] = 6.99
         self.assertEqual(relay_ledger.capture("2026-10-21T10:00:00Z"), ["s-snap"])
         self.assertEqual(relay_ledger.usage_sessions()["s-snap"]["claude-opus-5-5"]["cost_usd"], 9.0)
-        os.remove(os.path.join(self.claude, ".claude.json"))
         text = relay_analyze.report(relay_analyze.collect(*window))
         self.assertIn("exact for 100% of usage", text)
         self.assertIn("$10.43", text)       # 9.00 + 1.43 + 0.00313: the newest line, not the first
+
+    def test_claude_json_alone_never_makes_a_total_exact(self):
+        """Claude Code rewrites ~/.claude.json all the time, so its mtime is no proof; a total only in that file
+        (a resumed session's stale one, or a closed one not yet copied) is an estimate until the ledger holds it."""
+        import relay_analyze
+        import relay_ledger
+        self._agent_session(None)
+        self._claude_json("s-snap")
+        p = os.path.join(self.claude, ".claude.json")
+        stamp = dt.datetime(2026, 10, 21, 9, 21, 30, tzinfo=dt.timezone.utc).timestamp()     # 18 s after the last activity
+        os.utime(p, (stamp, stamp))
+        base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
+        window = (self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
+        text = relay_analyze.report(relay_analyze.collect(*window))
+        self.assertIn("exact for 0% of usage", text)
+        self.assertNotIn("$8.42", text)
+        # the session ended (09:12 was its last line) and its hook copied the total: now it is exact
+        self.assertEqual(relay_ledger.capture("2026-10-21T09:30:00Z", only_session="s-snap"), ["s-snap"])
+        text = relay_analyze.report(relay_analyze.collect(*window))
+        self.assertIn("exact for 100% of usage", text)
+        self.assertIn("$8.42", text)
+
+    def test_resume_start_copies_the_old_total_so_the_resumed_work_makes_it_an_estimate(self):
+        import relay_analyze
+        import relay_ledger
+        self._agent_session(None)
+        self._claude_json("s-snap")                                  # A closed earlier with this total
+        # the owner resumes A at 09:30: the hook copies the stale total (not skipping the resumed session)
+        self.assertEqual(relay_ledger.capture("2026-10-21T09:30:00Z", folder="/Users/me/x"), ["s-snap"])
+        # A works on until 09:40, claude.json is rewritten meanwhile by other sessions
+        import fixtures
+        path = os.path.join(self.claude, "projects", "-Users-me-x", "s-snap.jsonl")
+        with open(path, "a") as handle:
+            handle.write(json.dumps(fixtures.assistant("2026-10-21T09:40:00.000Z", "claude-opus-5-5", 10, 1000, 200, "req-late")) + "\n")
+        self._claude_json("s-snap")
+        base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
+        text = relay_analyze.report(relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1)))
+        self.assertIn("exact for 0% of usage", text)
+
+    def test_calibration_file_of_another_shape_does_not_crash_the_report(self):
+        import relay_analyze
+        self._agent_session(None)
+        base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
+        window = (self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
+        for data in ({"estimate": {"with_agents": {"median": 0.05}}}, {"estimate": {"with_agents": 1}}, [], {"estimate": []}):
+            relay_analyze._save_calibration(data)
+            text = relay_analyze.report(relay_analyze.collect(*window))
+            self.assertIn("not measured yet; run relay calibrate", text, msg=json.dumps(data))
+        relay_analyze._save_calibration({"measured": "2026-10-21", "estimate": {}})
+        text = relay_analyze.report(relay_analyze.collect(*window))
+        self.assertIn("no session had both a transcript and a total", text)
+
+    def test_calibrate_stores_the_errors_the_report_prints_beside_an_estimate(self):
+        import relay_analyze
+        import relay_ledger
+        self._agent_session(None)
+        # Claude Code's total for the session with an agent: the transcripts-only estimate is far below it
+        self._claude_json("s-snap")
+        text = relay_analyze.calibrate(self.claude, "2026-10-21T12:00:00Z")
+        stored = relay_analyze.load_calibration()["estimate"]
+        self.assertEqual(list(stored), ["with_agents"])             # the session has an agent: it is not filed as without
+        mains = relay_analyze.collect(self.claude, dt.datetime(2026, 10, 20, tzinfo=dt.timezone.utc), dt.datetime(2026, 10, 22, tzinfo=dt.timezone.utc))
+        guess = relay_analyze.session_figures(mains["sessions"][0], {})["cost"]
+        total = sum(m["cost_usd"] for m in relay_ledger.usage_sessions()["s-snap"].values())
+        want = (guess - total) / total                              # estimate against Claude Code's total, signed
+        self.assertLess(want, -0.1)
+        self.assertAlmostEqual(stored["with_agents"]["worst_signed"], want, places=6)
+        self.assertAlmostEqual(stored["with_agents"]["median"], abs(want), places=6)
+        self.assertEqual(stored["with_agents"]["n"], 1)
+        self.assertEqual(stored["with_agents"]["over_10"], 1)
+        # drop the ledger copy and the file's total so the report has an estimate to print
+        os.remove(os.path.join(self.claude, ".claude.json"))
+        shutil.rmtree(os.path.join(self.home, "ledger"), ignore_errors=True)
+        report = relay_analyze.report(relay_analyze.collect(self.claude, dt.datetime(2026, 10, 20, tzinfo=dt.timezone.utc), dt.datetime(2026, 10, 22, tzinfo=dt.timezone.utc)))
+        self.assertIn(f"sessions with agents: median {abs(want) * 100:.0f}%, worst {abs(want) * 100:.0f}% low, 1 of 1 over 10% off", report)
 
 
 class Bench(Base):
