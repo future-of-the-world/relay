@@ -424,3 +424,30 @@ STATE 22 Oct (v3 written: scratchpad design-role-bases-v3.md, ~2000 lines,
   decision, lock it" (memory questions-carry-context).
 - NEXT: checker confirms v3 (brief scratchpad brief-check-design-v3.md ->
   check-design-v3.md), then build part 1 (135 agent min).
+
+STATE 22 Oct, part 1 built and checked (session 0b953f5c):
+- Part 1 commits on wt/role-bases: d7c3006 a9ddfc0 76aa463 8854e2a
+  037573e 47ca87d 36154df (build), 3c7218d (review fixes F1-F7, checked
+  open 0: scratchpad check-p1.md), 156ca53 (path LOW), cff3f39 (grader +
+  one reply format + quality-gate rule, checked: check-specrev.md),
+  77e6a98 (HIGH lines beyond the 10-line cap; critic heading).
+- First full paid run (156ca53): 14/15, spec-reviewer-flaw 2/3, $4.55.
+  Diagnosis ($3.06, scratchpad diagnose-specrev.md): the grader's word
+  lists, not the branch (master also failed 1/3 with a correct finding);
+  found too: branch reviewer replies 24-39 lines vs 11-13, +45% cost.
+  Owner: "1. a 2. a 3. a" (line-pair grader; one reply format; proof by
+  replay + one full paid run). Owner on flakiness (verbatim): "you need
+  more analysis of cause rather than more runs ... actor is a single of
+  act (who reades and writes, do act)" -> rules/quality-gate.md, memory
+  flaky-means-find-the-cause.
+- Review noted: spec-reviewer now marks "a known wrong left inside the
+  change" BLOCKER (was FIX), tag C19; told the owner, kept.
+- Outside the change (O1, queue item for phase 1): sdd/product run from
+  the principles marketplace, so these texts reach projects only then.
+- Queue items to seed in part 2 besides the design's: the setup-tuning
+  hook fires on any mention of cost (false trigger on "It costs about
+  $3.50"); code-reviewer-offbyone grades by a phrase list.
+- Running: full paid `bin/ci` on 77e6a98 (log scratchpad
+  gate-p1-full2.log). Paid so far today in batch 3: $7.61 + this run.
+- NEXT: if green, ask the owner for the merge of wt/role-bases; then
+  part 2 (design fixes M-A, M-B from check-design-v3.md first).
