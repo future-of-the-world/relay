@@ -387,3 +387,22 @@ STATE 21 Oct ~23:30 local, session 0b953f5c (supersedes "NOW" above):
   brief-revise-roles.md -> design-role-bases-v2.md), a checker confirms
   each must-fix and decision is in it, then the worker builds in
   .worktrees/batch3.
+
+STATE 22 Oct, session 0b953f5c (after the design check):
+- v2 checked (scratchpad check-design-v2.md): 20 resolved, 1 rejected
+  (M1, correct), 2 HIGH (checker can't write a mark under main .git;
+  any later commit deadlocks the merge), 4 MEDIUM.
+- Owner: two merges ("1. a"); own worktree removed at next session start
+  ("q2 - a"); later commits keep the mark only via a fixed inert-file
+  list, "model shouldn't decide by self"; kinds fix|feature; ordering by
+  IP ("important points, from zero to infinity, order by IP"), a new fix
+  starts above every feature ("2. a"); marks written only by a hook on
+  checker finish, guard blocks other writes ("1. a, yes this is a good
+  mechanism"); `.relay/` for project files is "a rule"; questions open
+  with a context introduction (memory questions-carry-context), goes
+  into relay in part 1; queue seed adds "state from facts" (owner
+  distrusts a hand-written handover).
+- Marks: ~/.relay/checks/<repo-id>/<branch>.json, repo-id = root commit
+  hash (coordinator's choice: folder names collide across clones).
+- NEXT: thinker writes v3 (brief scratchpad brief-design-v3.md ->
+  design-role-bases-v3.md), checker confirms, then build part 1.
