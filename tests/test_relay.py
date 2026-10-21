@@ -904,6 +904,20 @@ class Roles(Base):
         self.assertEqual(rr.assemble(root), [self.agent(root)])
         self.assertEqual(open(self.agent(root)).read(), once)
 
+    def test_real_agents_with_markers_are_well_formed(self):
+        """A2/A3 on the real tree: every agent file that holds markers has one base, known parts, the tools its base needs.
+        (Agents not yet moved onto a base carry no markers; the 'every agent has a base' form of A2 comes with the last part.)"""
+        rr = self.lib()
+        self.assertEqual(rr.problems(ROOT), [])
+        by_base = {}
+        for path in rr.agent_files(ROOT):
+            text = open(path).read()
+            if rr.has_markers(text):
+                base = [r["name"] for r in rr.parse_regions(text) if isinstance(r, dict) and r["kind"] == "base"][0]
+                by_base.setdefault(base, []).append(os.path.relpath(path, ROOT))
+        self.assertEqual(by_base, {"lookup": ["plugins/delegate/agents/scout.md"], "run": ["plugins/delegate/agents/runner.md"],
+                                   "build": ["plugins/delegate/agents/worker.md", "plugins/sdd/agents/worker.md"]})
+
     def test_missing_base_names_the_checkout_rule(self):
         rr = self.lib()
         root = self.fixture(markers="<!-- relay:base judge -->\n<!-- relay:end judge -->\n")
