@@ -19,7 +19,8 @@ set -uo pipefail
 budget=3
 check_timeout="${CHECK_TIMEOUT:-300}"
 worker_minutes="${CHECK_WORKER_MINUTES:-40}"
-root="$(git rev-parse --show-toplevel)" || exit 2
+# git cannot run inside the eval sandbox; the script lives in <root>/bin, so fall back to that.
+root="$(git rev-parse --show-toplevel 2>/dev/null || { cd "$(dirname "$0")/.." && pwd -P; })" || exit 2
 cd "$root" || exit 2
 state=".ci/check"
 mkdir -p "$state"
