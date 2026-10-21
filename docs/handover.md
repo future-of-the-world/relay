@@ -280,10 +280,13 @@ STATE at the 350k handover (21 Oct, ~22:45 local), session 0b953f5c:
 - Running: full `bin/ci` with the paid evals, cap $15 (owner: "a" = run
   it, then merge if green). Log: scratchpad ci-batch2.log; results
   .ci/evals.json in the worktree.
-- EXACT NEXT STEP: if ci is green, `git -C /Users/amidman/relay merge
-  --ff-only wt/open-items` (the guard allows only ff merges of wt/
-  branches in the main checkout), check `git -C ~/relay status` clean,
-  tell the owner. If red: find the cause before any merge.
+- DONE: full ci green (paid evals 15/15, $3.52); batch 2 MERGED, master
+  7f07ede, main checkout clean.
+- NOW: batch 3 in `.worktrees/batch3` on `wt/role-bases`. Step 1: a
+  thinker designs the shared role bases + review-method wording
+  (scratchpad brief-role-bases.md -> design-role-bases.md); then a
+  critic reviews the DESIGN; then a worker builds; then one thorough
+  whole-change review with pass-cases; fix checked against them.
 - Then batch 3, in order: (1) shared role bases for delegate + sdd agents
   with the new review method in the judge base (design review first);
   (2) reword rules/delegation.md review rule; (3) OpenSpec stages by
