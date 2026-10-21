@@ -17,7 +17,7 @@ Below, `wt`, `check` and `ci` are the commands `kit get gate.wt`,
 context rules of `sdd:parallel-apply`: reviews, triage and fixes live in
 report files under `<scratchpad>/review/` and in typed agents; it reads only
 their 10-line hand-backs. Record the gate base first
-(`git -C <path> rev-parse HEAD`). One review, then a check of the fixes; the method is the judge base, `roles/judge.md`.
+(`git -C <path> rev-parse HEAD`). One review, then a check of the fixes; the method is the judge base, `~/relay/roles/judge.md`.
 
 ## 1. Gate: the reviews in one message
 
