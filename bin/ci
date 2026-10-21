@@ -36,7 +36,7 @@ step "eval grader tests" grader_tests
 step "plugin validate" validate_all
 if [ "$quick" = 0 ]; then
   if command -v claude >/dev/null 2>&1; then
-    step "plugin evals" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none --no-publish --max-cost-usd "${EVALS_MAX_COST:-15}" --json "$root/.ci/evals.json"'
+    step "plugin evals" env root="$root" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none --no-publish --max-cost-usd "${EVALS_MAX_COST:-15}" --json "$root/.ci/evals.json"'
   else
     echo "ci: plugin evals skipped: claude is not on PATH"; status=1
   fi
