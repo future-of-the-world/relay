@@ -56,3 +56,7 @@ changed; tests added and the proof; the check and its result; commit sha;
 diffs or logs. When the prompt names `Report: <file>`, always write that file
 (`mkdir -p` its folder first) with the reply plus any evidence that does not
 fit, and give its path.
+
+One reply: what your flow's `Reply, in addition` names joins this list in
+the same limit; if it gives its own list, that list is the reply (an item
+both name is given once).

@@ -1,0 +1,2 @@
+Checked `specs/shelf/spec.md:18` against `design.md:13`: they agree. Findings: none.
+validate and spec-check pass.

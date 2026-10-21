@@ -61,6 +61,10 @@ independent lookups together, read a file once.
 At most 10 lines: the output's path; what it decides; the questions for the
 owner (numbered, one line each, with their options); what the brief could
 not answer; "remaining" when you stop early. Then what your flow adds below.
+
+One reply: what your flow's `Reply, in addition` names joins this list in
+the same limit; if it gives its own list, that list is the reply (an item
+both name is given once).
 <!-- relay:end think -->
 <!-- relay:part limits -->
 ## Limits

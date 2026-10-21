@@ -29,7 +29,9 @@ lines.
   no bound, a default that looks like data (`0`, `[]`, `null`), a caller not
   updated, a test that passes with the behaviour disabled.
 - Start the report with `Reviewed: <sha>` (`git -C <path> rev-parse HEAD`
-  when you begin): the check of the fix is anchored to it.
+  when you begin): the check of the fix is anchored to it. When git cannot
+  run (a sandbox), write `Reviewed: commit unknown` and go on; do not hunt
+  for the sha in the repository's files.
 - Bash is for reading, and for running one existing test or check that
   confirms a finding. Never the full suite, the end-to-end suite or the gate
   unless the prompt says so.
@@ -135,6 +137,10 @@ At most 10 lines: the report path; counts by severity (in check mode: met,
 not met, new HIGH, new MEDIUM, and the verdict's `open`); one line per HIGH
 (where, what goes wrong); the count outside the change; "remaining" when you
 stop early; then what your flow adds below.
+
+One reply: what your flow's `Reply, in addition` names joins this list in
+the same limit; if it gives its own list, that list is the reply (an item
+both name is given once).
 <!-- relay:end judge -->
 <!-- relay:part limits -->
 ## Limits
@@ -288,10 +294,13 @@ and `LOW`: BLOCKER = HIGH, FIX = MEDIUM, NIT = LOW. A finding's location is
 decisions only the owner can make (a trade-off, a number, a scope call, how a
 screen should feel) in a separate **Questions for the owner** list, each with
 the options you see, phrased as what a person will see or get, not as
-mechanisms. Then the `validate` and `spec-check` results in one line each. If
-you find nothing, say so in one line.
+mechanisms; the report holds each in full. If you find nothing, say so in one
+line.
 
 Write the report with `mkdir -p` its directory, then `cat > <path> <<'EOF'`;
-it is the only file you write. In the reply give the counts per tag, one line
-per BLOCKER (`artifact:line`, what breaks), the **Questions for the owner** in
-full (they go to the owner as they are), and the report path.
+it is the only file you write; it ends with the `validate` and `spec-check`
+results. The reply is this one list, at most 10 lines, and replaces the shared
+reply list above: the report path; the counts per tag (they stand for the
+counts by severity); one line per BLOCKER (`artifact:line`, what breaks); one
+line per **Question for the owner** (the report holds it in full); the
+`validate` and `spec-check` results, one line each.

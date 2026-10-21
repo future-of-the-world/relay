@@ -1,0 +1,24 @@
+**Blockers:**
+- **F1** (`specs/shelf/spec.md:18` vs `design.md:13`): the spec and design disagree on a corrupt file. The spec leaves it in place, so the next `saveShelf` writes over it and the person's data is gone. The design moves it aside but hard-codes the name `shelf.json.bad` even though the path is a parameter. It also doesn't say what happens when a `.bad` file already exists.
+- **F2** (`specs/shelf/spec.md:25-28`, `design.md:17`): "Storage unavailable" can't be built. `loadShelf(path): Item[]` has no way to tell anyone the file couldn't be read, and the library has no screen. Returning an empty shelf on a read error also means the next save replaces the real file. The design also never separates a missing file (first run) from other read errors.
+- **F3** (`design.md`): there is no failure-state table, although the change adds about eight failure states.
+
+**Fixes:** saving has no failure behaviour and isn't atomic (F4). The stored shape has no version, the "Older data" scenario describes a file no version ever wrote, and valid JSON of the wrong shape passes through (`{}` makes `total()` throw) (F5). The unavailable-storage test has no reliable input or fake (F6). Callers can't tell a damaged file from a first run (F7). The NIT is task 1.1's `Reads:` leaving out `src/shelf.ts` (F8).
+
+**Questions for the owner**
+
+**Q1. A damaged shelf file.** When the saved file can't be parsed (someone hand-edited it, or a save was cut off), the plan says two different things. The design keeps the damaged file beside the real one as `&lt;name&gt;.bad` and starts an empty one. The spec leaves the damaged file in place, so the next save writes over it. Example from this change: `inv.json` holding `{not json`. What should the person get?
+- a. An empty shelf; the damaged file is kept as `inv.json.bad` for them to repair.
+- b. An empty shelf; the damaged file is left, and the next save replaces it (its content is lost).
+- c. No shelf: the program stops with "could not read inv.json: it is damaged".
+
+**Q2. A shelf file that can't be read.** When the file exists but can't be opened (no permission, disk not mounted), the spec gives an empty shelf and "tells the person". The library has no screen, so the caller has to be handed something. If the program carries on with an empty shelf, its next save replaces the person's real shelf. What should the person get?
+- a. The program stops with "could not read &lt;file&gt;: &lt;reason&gt;"; nothing is overwritten.
+- b. An empty shelf with a notice, and saving is refused until the file can be read.
+- c. An empty shelf with a notice, and the next save replaces the file.
+
+**Checks:**
+- `openspec validate add-saved-shelf --strict`: valid, exit 0.
+- `kit spec-check add-saved-shelf`: 1 requirement, 0 problems, exit 0. It only matches keywords; F1, F2 and F5 show the matched scenarios are wrong or can't be built.
+
+Report: /private/tmp/e-ctXoF2/home/cwd/.ci/spec-review.md

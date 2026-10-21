@@ -1,0 +1,39 @@
+The `sdd:spec-reviewer` agent has finished. Its findings, as it returned them:
+
+This plan is not ready to implement: I found 4 BLOCKERs, 3 FIXes and 1 NIT. The report is `/private/tmp/e-UOr1wy/home/cwd/.ci/spec-review.md` (`Reviewed: cd46d676371087aea7671e9b5b5d2a36ada16029`).
+
+**BLOCKERs:**
+- **F1** (`specs/shelf/spec.md:18` vs `design.md:13`): the spec and the design disagree about a corrupt file. The spec's "Corrupt data" scenario says the file "is left as it is". Design D2 moves it to `shelf.json.bad` and writes a fresh empty file. The worker gets both texts, so the tests and the code will contradict each other.
+- **F2** (`spec.md:28`, `design.md:17`): "the person is told the file could not be read" cannot be built or tested. `loadShelf(path): Item[]` can only return a list, and the library has no UI. Returning `[]` also looks exactly like a first run, so the next save overwrites a file that was only briefly unreadable, and its contents are lost.
+- **F3** (`design.md`): there is no failure-state table, though the change adds 9 failure states (missing file, not JSON, wrong shape, write fails, `.bad` already exists, and more) across two callers.
+- **F4** (`spec.md:3-9`, `design.md:9`): nothing says what a failed or interrupted save does. A write that truncates the file and then fails leaves a cut-off file, which the next load reads as corrupt and empty, so the whole shelf is lost. This one is PLAUSIBLE: it depends on how the write is done.
+
+**FIXes:**
+- **F5:** valid JSON in the wrong shape (such as `{}` or a negative quantity) has no defined outcome. The file format has no version field. The "Older data" scenario describes an older file version that has never existed.
+- **F6:** the fixed name `shelf.json.bad` ignores `path`, and a second corrupt file overwrites the first copy.
+- **F7:** nothing gives the tests a way to make reads or writes fail, and `chmod 000` does not block reads when tests run as root. The task's `Reads:` also leaves out `src/shelf.ts`.
+
+**NIT:**
+- **F8:** `docs/handover.md` and the architecture note in `CLAUDE.md` are not updated for the new `src/store.ts`.
+
+**Questions for the owner**
+
+1. **What happens to an unreadable (corrupt) shelf file.** When the saved file is not valid JSON, loading cannot recover the items. The spec keeps the file where it is. The design moves it to a side copy and starts a fresh empty file. In this change, a file holding `{bolt` loads as an empty shelf in both versions. They differ in what is on disk afterwards, and in whether the next save can wipe the old bytes.
+   - (a) The file stays untouched, loading refuses with an error naming the file, and nothing is saved over it until the person deals with it.
+   - (b) The file is moved to `&lt;name&gt;.bad` next to it, the person gets an empty shelf and a message naming the `.bad` file, and saving works again.
+   - (c) The file stays as it is, the shelf is empty, and the next save writes over it (the spec as written: simplest, but the old bytes are lost).
+
+2. **What happens when the file exists but cannot be read** (permissions, a disk error). An empty shelf looks the same as a first run, so a program would save over the real file. Today `loadShelf` can only return a list, so it has no way to say "could not read".
+   - (a) Loading fails with an error naming the file and the reason. The caller shows it, and nothing is saved.
+   - (b) Loading returns an empty shelf plus a separate "problem" the caller must show. Saving is then the caller's risk.
+
+3. **Items with no quantity, and the file's version.** The spec reads items without `qty` as quantity 1 "from an older version". No older version of the file exists yet, and the file carries no version marker.
+   - (a) Drop the "Older data" scenario, put a version number in the file from day one, and treat a file without one as corrupt.
+   - (b) Keep "a missing quantity means 1" as a rule for hand-edited files, and treat other bad quantities (0, negative, text) as corrupt.
+   - (c) Treat any item without a valid quantity as a corrupt file.
+
+**Tool results:**
+- `openspec validate add-saved-shelf --strict`: valid (exit 0).
+- `kit spec-check add-saved-shelf`: 1 requirement touching stored data, 0 problems; packet: 0 problems (exit 0). Its keyword check passes but does not catch F1 or F2: the scenarios use the right words, but their outcomes contradict the design or cannot be observed.
+
+Nothing was found outside this change, and nothing is left unreviewed. `git` cannot run in this sandbox, so I read HEAD from the repository's metadata files instead.

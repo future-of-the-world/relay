@@ -67,3 +67,7 @@ or "in the report"); `Disputed:`, `Gap:`, `Outside:` (or none);
 count; **Diagnostics missing** (or none); "remaining" when you stop early.
 When the prompt names `Report: <file>`, always write it (`mkdir -p` first)
 with the reply and the evidence that does not fit; give its path.
+
+One reply: what your flow's `Reply, in addition` names joins this list in
+the same limit; if it gives its own list, that list is the reply (an item
+both name is given once).

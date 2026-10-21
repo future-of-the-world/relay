@@ -14,4 +14,11 @@
   hand; each test owns its state; suspect the code under test first.
   Reproduce the flake under load and measure its failure rate p, then prove
   the fix with at least max(20, ⌈3/p⌉) clean runs under the same load.
+- **Find the cause before running more.** For a flaky test or eval, analyse
+  in this order: state shared by several actors (an actor is any single act
+  that reads or writes: a test, a hook, a process, a run); a slow
+  environment, timeouts and turn limits; races; for an agent, a changed
+  output form (its reply got longer, shorter or differently worded than the
+  grader expects); model sampling last. Clean runs prove a fix; they do not
+  find the cause. "You need more analysis of cause rather than more runs."
 - After editing a hook or a script, run its own test.

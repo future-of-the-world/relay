@@ -1,0 +1,12 @@
+The plan isn't ready to build: 3 BLOCKER, 6 FIX, 3 NIT.
+
+- **BLOCKER** `specs/shelf/spec.md:18` vs `design.md:13`: the spec says a corrupt file is left as it is, but the design moves it to a literal `shelf.json.bad` and writes a fresh empty file. Whichever the worker builds, the other side's test fails.
+- **BLOCKER** `design.md` has no failure-state table. No file, not JSON, wrong shape, older shape, read refused, write refused or cut off, and move-aside failing are all left for the worker to decide.
+- **BLOCKER** `specs/shelf/spec.md:28` says "the person is told", but `loadShelf(path): Item[]` has no way to tell anyone, the library allows no UI, and no wording is given. Returning an empty shelf also lets the next save overwrite a real file that was only unreadable.
+
+**Questions for the owner**
+1. When the saved file is damaged, what should the person find afterwards? (a) their file untouched, an empty shelf and a notice; (b) their file renamed to `&lt;name&gt;.bad`, a fresh empty file and a notice; (c) no shelf at all, only an error naming the file, so they fix it first.
+2. When the file can't be read (permissions, disk gone), what should the person get? (a) an error naming the file, so nothing gets overwritten by an empty shelf; (b) an empty shelf plus a notice, accepting that the next save replaces the unreadable file. If there's a notice, which words?
+3. Is there an older saved format at all? The handover says nothing is saved today. (a) yes: describe it, and items without a quantity count as 1 or another number you pick; (b) no: drop the "Older data" case and start writing a format version now, so later changes can tell old files from new.
+
+`openspec validate --strict` passes; `kit spec-check` reports 0 problems, but it only matches keywords and missed all three blockers. Report: /private/tmp/e-27EUVU/home/cwd/.ci/spec-review.md

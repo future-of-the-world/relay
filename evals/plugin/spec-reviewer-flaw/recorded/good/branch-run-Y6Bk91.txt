@@ -1,0 +1,39 @@
+The plan for add-saved-shelf is not ready to build: I found 4 blockers, 5 FIX and 1 NIT. The full report is at `/private/tmp/e-Y6Bk91/home/cwd/.ci/spec-review.md`, anchored to `bb3d0f92b0c33276091b038c26cdbf3a5f63498a` (git won't run in this sandbox, so I read the sha from the repository's files).
+
+**Blockers:**
+- **`specs/shelf/spec.md:18` against `design.md:13`:** for a corrupt file, the spec says "the file is left as it is", but the design moves it to `shelf.json.bad` and writes a fresh empty file. No code can meet both. If the worker follows the spec, the next save writes over the person's only copy.
+- **`design.md`:** there is no failure-state table. These cases are undecided:
+  - a read that fails for a reason other than a missing file;
+  - valid JSON in the wrong shape (for example `qty: -2`);
+  - the move to `.bad` failing, or a `.bad` file already existing;
+  - a save that fails, or one cut off halfway.
+- **`specs/shelf/spec.md:28` and `design.md:17`:** "the person is told the file could not be read" has no way to happen, because `loadShelf` only returns a list. An unreadable file returns `[]`, exactly like a first run, so no test can check the message. This needs your decision (Q1).
+- **`specs/shelf/spec.md:20-23` and `design.md:3`:** the "Older data" scenario describes a format no earlier version ever wrote, and its "qty 1" default is in no decision. The real gap is that the stored shape has no version field, so the next format change can't tell old files from new.
+
+**FIX:**
+- **F5:** the backup name `shelf.json.bad` is fixed, so it is unclear for other paths, and two corrupt files overwrite each other's backup. The design also never says where the file lives.
+- **F6:** there are no scenarios for a failed save or for the exact text a save writes.
+- **F7:** there is no wave 0 with a fake for unavailable storage, and no last wave updating `CLAUDE.md` and `docs/handover.md`.
+- **F8:** task 1.1's `Reads:` leaves out `src/shelf.ts` (where `Item` is defined) and the project principles.
+- **F9:** the proposal says the file is read back "on the next run", but this is a library with no run. It also doesn't name the new functions or the files that change.
+
+**NIT:**
+- **F10:** "Save and read back" uses only one item, so a loader that drops or reorders items still passes.
+
+**Questions for the owner**
+
+Q1. When the shelf file can't be used, what does the program using Shelf get? Shelf has no screen, so the calling program decides what to show. Today `loadShelf` returns only a list, so a broken file looks the same as a new shelf. Yet the spec says the person "is told".
+- (a) `loadShelf` stops with an error naming the file and the reason. The person sees no shelf until the program handles it.
+- (b) `loadShelf` returns an empty shelf plus a note, such as "stock.json could not be read" or "stock.json was damaged and kept as stock.json.bad". The program opens an empty shelf and shows the note.
+
+Either choice changes the interface and three scenarios.
+
+Q2. What happens to a saved item with no quantity? This only happens when someone edits the file by hand. The spec fills in 1, but the project rule is that bad values are refused, never quietly fixed.
+- (a) Treat the file as damaged, the same as a corrupt file. This keeps the rule.
+- (b) Load the item with quantity 1 and record that in the design. The items stay visible, but the count may be wrong.
+
+**Checks:**
+- **validate:** `openspec validate add-saved-shelf --strict` reports the change is valid (exit 0).
+- **spec-check:** `kit spec-check add-saved-shelf` reports 0 problems (exit 0). It passes only because the scenario names match its patterns.
+
+Nothing found outside this change, and nothing remaining.
