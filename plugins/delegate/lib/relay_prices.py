@@ -1,10 +1,14 @@
-"""Tokens to money. The price table is prices.toml at the repository root."""
+"""Tokens to money. The price table is prices.toml at the repository root.
+
+Notional dollars: what the tokens would cost at Claude Code's list prices. Also
+the estimate settings (output tokens per visible character, helper uplift)."""
 
 import os
 
 from relay_config import ROOT, read_toml
 
 _TABLE = None
+PER = 1_000_000
 
 
 def table():
@@ -18,7 +22,7 @@ def table():
 
 
 def tier(model):
-    """'opus', 'sonnet', 'haiku' or 'default' for a model id or alias."""
+    """The price key for a model id or alias: 'opus', 'sonnet', 'haiku', 'haiku-4-5', 'fable' or 'default'."""
     name = (model or "").lower()
     keys = sorted((k for k in table()["models"] if k != "default"), key=len, reverse=True)
     for key in keys:
@@ -27,13 +31,50 @@ def tier(model):
     return "default"
 
 
+def family(model):
+    """The coarse family ('opus', 'sonnet', 'haiku', 'fable', 'default'): haiku-4-5 counts as haiku."""
+    key = tier(model)
+    return key.split("-")[0] if key != "default" else key
+
+
+def _bounded(value, low, high, default):
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return default
+    return min(high, max(low, value))
+
+
+def output_per_char(model):
+    """Output tokens per visible character for an agent answer of this model (bound 0.3-2.0)."""
+    factors = table().get("estimate", {}).get("output_per_char", {})
+    raw = factors.get(tier(model), factors.get(family(model), factors.get("default", 0.8)))
+    return _bounded(raw, 0.3, 2.0, 0.8)
+
+
+def helper_uplift():
+    """Multiplier on agents' cost for Claude Code's hidden helper requests (bound 1.0-1.6)."""
+    return _bounded(table().get("estimate", {}).get("helper_uplift", 1.23), 1.0, 1.6, 1.23)
+
+
+def calibration_tolerance():
+    return _bounded(table().get("estimate", {}).get("calibration_tolerance", 0.02), 0.005, 0.10, 0.02)
+
+
 def cost(model, usage):
-    """USD for one usage dict (input_tokens, cache_creation_input_tokens, cache_read_input_tokens, output_tokens)."""
+    """USD for one usage dict (input_tokens, cache_creation_input_tokens, cache_read_input_tokens,
+    output_tokens). When usage.cache_creation splits the writes, 1-hour writes are priced at the
+    1-hour rate; every other written token at the 5-minute rate."""
     rates = table()["models"][tier(model)]
-    per = 1_000_000
+    created = int(usage.get("cache_creation_input_tokens") or 0)
+    split = usage.get("cache_creation")
+    one_hour = int(split.get("ephemeral_1h_input_tokens") or 0) if isinstance(split, dict) else 0
+    one_hour = min(one_hour, created)
     return (
-        usage.get("input_tokens", 0) * rates["input"]
-        + usage.get("cache_creation_input_tokens", 0) * rates["cache_write"]
-        + usage.get("cache_read_input_tokens", 0) * rates["cache_read"]
-        + usage.get("output_tokens", 0) * rates["output"]
-    ) / per
+        int(usage.get("input_tokens") or 0) * rates["input"]
+        + (created - one_hour) * rates["cache_write"]
+        + one_hour * rates.get("cache_write_1h", rates["cache_write"])
+        + int(usage.get("cache_read_input_tokens") or 0) * rates["cache_read"]
+        + int(usage.get("output_tokens") or 0) * rates["output"]
+        + int(usage.get("web_search_requests") or 0) * table().get("web_search_per_1000", 10.0) * 1000
+    ) / PER

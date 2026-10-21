@@ -1,40 +1,78 @@
 # Prices relay uses to turn tokens into money. USD per million tokens.
 #
-# These are ESTIMATES for the ledger and `relay report`; the benchmark reads the
-# cost Claude Code itself reports (`total_cost_usd` / `modelUsage`), which is
-# authoritative. Re-measure when the platform changes its prices or cache
-# behaviour, and keep the date.
+# Source: Claude Code's own per-session figures (`lastModelUsage` in
+# ~/.claude.json, the numbers `/cost` shows), solved by least squares over 30
+# sessions and checked against round figures; `relay calibrate` re-runs the
+# comparison on any machine. Notional dollars: the owner is on a subscription,
+# so a dollar here is a common weight for tokens, not a bill.
 #
-# Default rows reflect the ratios measured by the owner in 2026-10 (see
-# rules/delegation.md): cache read is the same on every model; on Opus a cache
-# write costs 25 reads and an output 100; on Sonnet 12.5 and 50; Haiku is
-# set at a quarter of Sonnet.
+# The ratios inside a model are the same on every model: a 5-minute cache
+# write costs 25 cache reads, a 1-hour write 40, an output 100. The read price
+# itself differs 20x between models (Opus 0.20, Sonnet 0.10, Haiku 0.01).
+# The main thread writes its cache for 1 hour, agents for 5 minutes; the
+# transcript's usage.cache_creation says which, and relay prices them apart.
 #
 # A model id is matched by the first key that is a substring of it (longest
-# key first), so "claude-opus-5-20261001" matches "opus".
+# key first), so "claude-opus-5-20261001" matches "opus" and
+# "claude-haiku-4-5-2025" matches "haiku-4-5", not "haiku".
 
-measured = "2026-10-19"
+measured = "2026-10-21"
+web_search_per_1000 = 10.00     # USD per 1,000 web searches
 
 [models.opus]
-input = 5.00
+input = 4.00
 cache_write = 5.00
+cache_write_1h = 8.00
 cache_read = 0.20
 output = 20.00
 
 [models.sonnet]
-input = 2.50
+input = 2.00
 cache_write = 2.50
-cache_read = 0.20
+cache_write_1h = 4.00
+cache_read = 0.10
 output = 10.00
 
 [models.haiku]
-input = 0.60
-cache_write = 0.60
-cache_read = 0.20
-output = 2.50
+input = 0.10
+cache_write = 0.125
+cache_write_1h = 0.20
+cache_read = 0.01
+output = 0.50
+
+[models.haiku-4-5]
+input = 1.00
+cache_write = 1.25
+cache_write_1h = 2.00
+cache_read = 0.10
+output = 5.00
+
+[models.fable]
+input = 10.00
+cache_write = 12.50
+cache_write_1h = 20.00
+cache_read = 0.25
+output = 50.00
 
 [models.default]
-input = 2.50
+input = 2.00
 cache_write = 2.50
-cache_read = 0.20
+cache_write_1h = 4.00
+cache_read = 0.10
 output = 10.00
+
+# Estimates for what the disk does not hold (agent transcripts keep a
+# snapshot of each answer taken mid-stream; helpers have no transcript).
+# `relay calibrate` refits them from the exact figures.
+[estimate]
+helper_uplift = 1.23            # agents' cost x this, for Claude Code's hidden helper requests; bound 1.0-1.6
+calibration_tolerance = 0.02    # relay calibrate warns when priced tokens differ from Claude Code's cost by more; bound 0.005-0.10
+
+# Output tokens per visible character (text + tool-call input) of an agent
+# answer; covers the hidden thinking. Bound 0.3-2.0.
+[estimate.output_per_char]
+opus = 1.04
+sonnet = 0.62
+haiku = 1.1
+fable = 0.83
+default = 0.8
