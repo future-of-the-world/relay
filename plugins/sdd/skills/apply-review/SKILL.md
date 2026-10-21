@@ -1,6 +1,6 @@
 ---
 name: apply-review
-description: Quality gate and fix loop for an implemented OpenSpec change - correctness review, spec conformance, code review and, for a person-facing change, the look review in parallel, then one triage, fixes by sdd:fixer agents, one second pass, the final gate, and the report. Use after the last apply wave (sdd:parallel-apply calls it), after a sequential apply, whenever /opsx:verify runs, or when the user asks to review an implemented change before merge.
+description: Quality gate and fix loop for an implemented OpenSpec change - correctness review, spec conformance, code review and, for a person-facing change, the look review in parallel, then one triage, fixes by sdd:fixer agents, one check of the fixes, the final gate, and the report. Use after the last apply wave (sdd:parallel-apply calls it), after a sequential apply, whenever /opsx:verify runs, or when the user asks to review an implemented change before merge.
 argument-hint: "<change>"
 ---
 
@@ -17,7 +17,7 @@ Below, `wt`, `check` and `ci` are the commands `kit get gate.wt`,
 context rules of `sdd:parallel-apply`: reviews, triage and fixes live in
 report files under `<scratchpad>/review/` and in typed agents; it reads only
 their 10-line hand-backs. Record the gate base first
-(`git -C <path> rev-parse HEAD`). A review runs at most twice.
+(`git -C <path> rev-parse HEAD`). One review, then a check of the fixes; the method is the judge base, `roles/judge.md`.
 
 ## 1. Gate: the reviews in one message
 
@@ -113,25 +113,26 @@ Every fix comes with a test that fails without it, shown by disabling the fix
 and watching it fail. A look defect the page can be asked about (cut text, an
 overlap, a box that moves between states, sideways scroll) gets an end-to-end
 test at the size and with the value that showed it; one only the eye can
-judge (a colour) is proven by the second pass's screenshot, and the report
+judge (a colour) is proven by the check's screenshot, and the report
 says so.
 
-## 4. Second pass
+## 4. Check of the fixes
 
-Fresh reviewers run once more on `<gate base>..HEAD`, in one message:
-`sdd:reviewer` always (fixes introduce bugs), every other reviewer whose
-findings were fixed, and the look review when the fix commits touch the
-surface (the test of section 1 on that range):
+`delegate:checker` runs once on `<scratchpad>/review/triage.md` and the
+fixers' reports, over `<gate base>..HEAD` (the gate base is the `Reviewed:`
+sha), with the final gate's log named as `Gate:`. The look review runs in
+check mode when the fix commits touch the surface (the test of section 1 on
+that range):
 
-> Second pass on change <change> in `<abs change worktree path>`, branch `wt/<change>`. Range: `<gate base>..HEAD`. Report: `<scratchpad>/review/<name>-2.md`.
+> Check: `<scratchpad>/review/triage.md`. Fixes: `<fixer reports>`. Worktree: `<abs change worktree path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<scratchpad>/review/check.md`.
 
-The look review's second prompt also names its first report and scratchpad.
-This is the last pass: no fixer after it, no third pass. Every finding left
-open goes to the owner with a recommendation: fix now (one more round, on
-their word), or a follow-up with an id, an owner and a deadline. A high
-finding is asked before section 5, since the gate would run on code the owner
-may want fixed first. A look defect still on screen is listed with its
-screenshot; the look is never reported clean.
+There is no fixer after it and no new open review. The triage author keeps
+each finding's failing case and pass-cases when it merges duplicates. Every
+finding left open goes to the owner with a recommendation: fix now (one more
+round, on their word, checked the same way), or a follow-up with an id, an
+owner and a deadline. A high finding is asked before section 5, since the
+gate would run on code the owner may want fixed first. A look defect still
+on screen is listed with its screenshot; the look is never reported clean.
 
 ## 5. Close: the final gate
 
@@ -167,9 +168,9 @@ It opens with the gate, since that says whether the change is safe to merge.
 Build it from the hand-backs; open `triage.md` only for a line they lack.
 
 ```
-Quality gate: <N> findings (<X> high), <fixed / open>. Second pass: <M>.
+Quality gate: <N> findings (<X> high), <fixed / open>. Check: <met>/<all> cases met, open <n>.
 - <each high finding: what the person would have seen or lost, and the fix>
-Open after the second pass: <each finding and the recommendation; "none">.
+Open after the check: <each finding and the recommendation; "none">.
 What changes for the person: <the new screen, moment, words or output, in one line>.
 Look: <D> defects (<fixed / open>), <T> matters of taste (<kept / changed / waiting for you>); or: skipped, <N> shots identical to <base>; or: not run (<why>).
 Contact sheets: <path; or none>.

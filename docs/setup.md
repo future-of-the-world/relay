@@ -86,6 +86,14 @@ same procedure written for the session that runs it.
 6. Glonass repositories: `[issues] attribution = "none"` and the `glonass`
    rule loaded (it is in the active profile).
 
+## Editing roles and agents
+
+A worker in a worktree assembles the agent files with `<worktree>/bin/relay
+sync agents` only: never the `relay` on PATH (it is the main checkout's), never
+a full `relay sync` (it would render the unmerged `rules/` into
+`~/.claude/CLAUDE.md`), and it never sets `RELAY_ROOT`. After the owner-approved
+merge, the coordinator runs the full `relay sync` once from the main checkout.
+
 ## Rollback of the whole thing
 
 `relay` writes only: `~/.claude/CLAUDE.md` (backup `.before-relay`),

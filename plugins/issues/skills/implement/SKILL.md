@@ -52,11 +52,12 @@ worker. The same brief failing twice on Sonnet may go once to Opus with
 ## 4. Self-review and gate
 
 `delegate:critic` over `origin/<default_branch>...<slug>` against the
-acceptance criteria and the project's rules; `delegate:fixer` on blockers
-and majors; the critic again over the fix range. Then a `delegate:runner`
+acceptance criteria and the project's rules; `delegate:fixer` on HIGH and
+MEDIUM; `delegate:checker` on the fix. Then a `delegate:runner`
 runs `gate.ci` in the worktree (detached when it may pass 4 minutes); a
 red gate goes to a fixer with the log path; the second red comes to the
-owner. Minors left: listed in the PR body, not fixed now.
+owner. LOW left: listed in the PR body, not fixed now. The review method is
+`roles/judge.md`, which every reviewer carries.
 
 ## 5. Commit and push
 

@@ -1,6 +1,6 @@
 ---
 name: spec-review
-description: Review and fix an OpenSpec change's planning artifacts before apply. Use after /opsx:propose (sdd:plan calls it), when the user asks to review a spec, proposal or plan, and together with openspec-update-change whenever /opsx:update revises a change. Runs sdd:spec-reviewer, fixes findings through one sdd:author with the full sweep, one second pass at most, and asks the owner only for real decisions.
+description: Review and fix an OpenSpec change's planning artifacts before apply. Use after /opsx:propose (sdd:plan calls it), when the user asks to review a spec, proposal or plan, and together with openspec-update-change whenever /opsx:update revises a change. Runs sdd:spec-reviewer, fixes findings through one sdd:author with the full sweep, one check of the fixes, and asks the owner only for real decisions.
 argument-hint: "<change>"
 ---
 
@@ -65,18 +65,22 @@ It takes this one report, hands back when done or after about 60 tool calls
 
 It is an `openspec-update-change` pass: it never edits code.
 
-## 4. Second pass
+## 4. Check of the fixes
 
-If the first pass had a BLOCKER, or the fixes restructured waves or
-requirements, a fresh reviewer runs once on the fix commits:
+The method is the judge base, `roles/judge.md`.
 
-> Second pass on change <change> in `<abs change worktree path>`. Range: `<review base>..HEAD`. Report: `<scratchpad>/review/spec-2.md`.
+Whenever fix commits exist (any BLOCKER or FIX was fixed), `delegate:checker`
+runs once over `<review base>..HEAD`; it reads the artifacts (artifact cases
+are checked by reading):
 
-This is the last pass: no author fixes what it finds and there is no third
-pass, even when the fixes changed a core rule. Every finding it leaves open
-goes to the owner with a recommendation (the reviewer's smallest fix now, a
-follow-up, or a drop, and why); open `spec-2.md` for that list. A further fix
-or review round runs only on the owner's word.
+> Check: `<scratchpad>/review/spec-1.md`. Fixes: `<author report>`. Worktree: `<abs change worktree path>`. Report: `<scratchpad>/review/spec-check.md`.
+
+No author fixes what it finds and there is no new open review, even when the
+fixes changed a core rule. The spec check writes no verdict (it is not a
+merge). Every finding it leaves open goes to the owner with a recommendation
+(the reviewer's smallest fix now, a follow-up, or a drop, and why); open
+`spec-check.md` for that list. A further fix runs only on the owner's word
+and is checked the same way.
 
 ## 5. Report
 
@@ -84,7 +88,7 @@ or review round runs only on the owner's word.
 Spec review: <N> findings (<B> blockers), <fixed / open>.
 - <each blocker: what apply would have built wrong, and the fix>
 Questions answered: <decision -> where it was written>.
-Open after the second pass: <each finding and the recommendation; "none">.
+Open after the check: <each finding and the recommendation; "none">.
 openspec validate --strict: passed. spec-check: passed.
 Branch: wt/<change>, ready for /opsx:apply.
 ```

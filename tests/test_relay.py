@@ -975,6 +975,27 @@ class Agents(unittest.TestCase):
             elif model == "sonnet":
                 self.assertEqual(turns.group(1), "80", name)
 
+    def test_no_place_restates_the_old_loop(self):
+        """A6 (part 1): the review is one review and a checked fix. No rule, base, skill or agent says the old loop
+        (two passes, a third pass, debt), and each of the five review places names roles/judge.md."""
+        import glob
+        import re
+        banned = ["over the fix range", "at most twice", "no third pass", "second pass", "tech debt", "technical debt"]
+        files = []
+        for pattern in ("rules/*.md", "roles/*.md", "roles/parts/*.md", "plugins/*/skills/*/SKILL.md", "plugins/*/agents/*.md"):
+            files += glob.glob(os.path.join(ROOT, pattern))
+        self.assertGreater(len(files), 40)
+        for path in sorted(files):
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read().lower()
+            for phrase in banned:
+                self.assertNotIn(phrase, text, "%s still says %r" % (os.path.relpath(path, ROOT), phrase))
+        places = ["rules/delegation.md", "plugins/delegate/skills/delegate/SKILL.md", "plugins/issues/skills/implement/SKILL.md",
+                  "plugins/sdd/skills/apply-review/SKILL.md", "plugins/sdd/skills/spec-review/SKILL.md"]
+        for place in places:
+            with open(os.path.join(ROOT, place), encoding="utf-8") as handle:
+                self.assertIn("roles/judge.md", handle.read(), place + " does not name roles/judge.md")
+
 
 class Bench(Base):
     def fake_claude(self, cost, turns, text, make_file=None):

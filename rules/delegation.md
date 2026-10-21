@@ -28,7 +28,12 @@ does not need; and the big model only where judgment is what is being bought.
   the brief and the old report.
 - At most 4 agents at once unless the project says otherwise; independent
   lookups go to one scout in one message.
-- Review runs twice at most: critic, fixer, critic over the fix range. What
-  is still open comes to the owner with a recommendation.
+- One good review, not several: a design review before a risky build; one
+  review of the whole change in which every finding carries its failing case
+  and the cases a correct fix must pass; the fix is checked against those
+  cases by a checker, not reviewed again. Never no review. Wrong inside the
+  change is fixed before the merge; wrong elsewhere is listed for the owner
+  under Outside this change. What is still open comes to the owner with a
+  recommendation. The review method is the judge base, `roles/judge.md`.
 - Reports go to files in the session scratchpad; the conversation gets the
   outcome in plain words.

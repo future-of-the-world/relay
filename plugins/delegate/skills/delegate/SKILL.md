@@ -21,6 +21,7 @@ with one brief, and comes back as at most 10 lines.
 | fixing listed findings or a red gate | `delegate:fixer` | narrow scope, no new design |
 | a design, a plan, options with costs, the cause of a hard bug | `delegate:thinker` | the big model where judgment pays; writes one file |
 | a review before merge, a design critique | `delegate:critic` | adversarial, read-only, findings with cases |
+| the check of a fix against the review's cases | `delegate:checker` | reads the findings, the fixer's report and the gate log; ends with a verdict |
 
 Never `general-purpose` (every tool, 30k tokens re-read each request) and
 never `fork` from a session over 100k tokens: the routing guard refuses both.
@@ -40,6 +41,7 @@ directory; `mkdir -p` it):
 # <what, in one line>
 Project: <name>, <what it does in a few words>
 Worktree: <absolute path> (branch <name>)        # for worker/fixer
+Assembly: run `<worktree>/bin/relay sync agents` only (never the `relay` on PATH, never a full `relay sync`, never set RELAY_ROOT)   # where the job touches roles/ or agents
 Goal: <the result, in the owner's words>
 Done when: <the check that passes / the file that exists / the question answered>
 Check: <command>                                  # the quiet check to loop on
@@ -49,7 +51,7 @@ Decisions (the owner's, verbatim):
 - "<quote>"
 Not decided (ask, do not guess):
 - <item>
-Constraints: <project rules that apply; the no-attribution rule where it applies>
+Constraints: <project rules that apply; the no-attribution rule where it applies>; commit the handover after the check
 Report: <scratchpad>/reports/<name>.md
 ```
 
@@ -76,7 +78,61 @@ brief and the old report.
 
 ## Review loop
 
-After a worker's DONE on a change that will be merged: one critic, then one
-fixer on its findings, then the critic again over the fix range. What is still
-open after the second pass comes to the owner as a numbered list with a
-recommendation. No third pass without the owner's word.
+One good review, then a checked fix; never a new open review. After a
+worker's DONE on a change that will be merged:
+
+1. **Design review before a risky build.** A `delegate:critic` reviews the
+   design or plan before a worker starts, when a trigger holds or the owner
+   asks. The triggers are settings:
+
+   | Trigger | Default | Bound |
+   |---|---|---|
+   | stored data shape or migration | on | on/off |
+   | a hook or guard that runs on every tool call or session | on | on/off |
+   | secrets, auth, network writes | on | on/off |
+   | a shared base (`roles/`) or a rule (`rules/`) | on | on/off |
+   | planned files changed | more than 8 | 3 to 30 |
+
+2. **Build.**
+3. **One whole-change review.** Every judge the flow names runs once, in one
+   message, over `<base>...HEAD`.
+4. **Fix.** One `delegate:fixer` per group of findings; it ends with one of
+   four outcomes per finding (Fixed, Disputed, Gap, Outside).
+5. **Full gate.** When fix commits exist, a `delegate:runner` runs the
+   project's full gate on the fixed head, detached, into a log whose first
+   line is `head <sha>`.
+6. **Check.** `delegate:checker` on the findings file, the fixer's report and
+   the gate log; its report ends with the verdict. Commit the handover after
+   the check, so the branch carries the state it was merged in.
+7. **To the owner.** What is NOT MET, new, Disputed, Gap or Outside comes as a
+   numbered list with a recommendation. Another fix runs on the owner's word
+   and is checked the same way (a fix, then a check). Every change that will
+   be merged gets step 3 and a verdict.
+
+A judge that hands back with "remaining" is continued at once by a fresh
+judge with `Remaining: <report>` and the same range, before any triage or
+fix; the fix starts only on a complete review. A second "remaining" on the
+same review comes to the owner (split the change, or continue once more).
+
+Where findings go:
+
+| What the review found | Where it goes |
+|---|---|
+| HIGH or MEDIUM inside the change | fixed in this change |
+| LOW inside the change | fixed with its group when cheap, else listed in the report and dropped |
+| wrong outside the change | listed for the owner under Outside this change |
+| marked `Design:` (the design itself is wrong) | stop building on that part; it stays open and goes to the owner |
+| a feature (a judge's suggestion, an out-of-scope question) | listed for the owner |
+| a question for the owner | asked with its introduction; the answer is a decision recorded in the design or brief |
+
+The owner can say a finding is not wrong: append `Owner: F3 is not wrong
+("<owner's words>")` to the findings file and run the checker again.
+
+Prompts:
+
+> Review the change. Range: `<base>...HEAD` in `<worktree>`. Report: `<path>`.
+
+> Check: `<findings file>`. Fixes: `<fixer report>`. Worktree: `<path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<path>`.
+
+The review method (scope, cases, severity, the check of a fix) is the judge
+base, `roles/judge.md`; every reviewer carries it.
