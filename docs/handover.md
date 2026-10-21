@@ -347,3 +347,43 @@ Decisions of 21 Oct evening (owner's words verbatim where quoted):
   standing description). Keep OpenSpec-specific stages in the adapter
   (spec review against openspec/specs). Owner's framing: "openspec it
   just a notes for spec writing and reading ... addition to our base".
+
+STATE 21 Oct ~23:30 local, session 0b953f5c (supersedes "NOW" above):
+- Design of batch 3 done (scratchpad design-role-bases.md); design review
+  done (scratchpad review-design-roles.md: 5 must, 9 should, 7 notes).
+  Verified claims: sdd and product run in projects from
+  /Users/amidman/principles (relay's sdd edits reach no project yet);
+  sdd apply-review's second pass covers only the fix commits
+  (`<gate base>..HEAD`, apply-review:121), the earlier "whole range" was
+  wrong.
+- M1 corrected by a live check: `claude plugin update` says relay plugins
+  are read from their folders in ~/relay; edits take effect at the next
+  session start or /reload-plugins. ~/.claude/plugins/cache/relay is an
+  unused 17:16 leftover. Hooks run current code; agent texts are fixed at
+  session start. So M1 becomes: after a merge, the message says open
+  sessions keep the old agent texts until restart or /reload-plugins.
+- Owner answers (verbatim "1. a 2. a 3. a 4. a 5. a"): refresh (done,
+  no-op); fix checker = Sonnet that runs the listed cases + the fixer's
+  tests and reads the callers of what the fix changed; the check reports
+  new HIGH and MEDIUM problems to the owner; projects get the review
+  method in phase 1; merged worktree removed right after the merge, with
+  the M2-M4 guards (per-project opt-in, not the worktree the session runs
+  in, not a worktree with no commits of its own).
+- Work queue (owner: "a" = in batch 3): no "tech debt" term or behaviour
+  (owner, citing TigerBeetle zero technical debt). Found during a change:
+  wrong inside the change -> fixed in it, merge refused until fixed;
+  wrong elsewhere -> queue item with a failing case, ahead of all new
+  work; design wrong -> stop building on it, redesign is the next change;
+  idea -> queue item ordered by the owner. Session start shows
+  "queue: N wrong, M ideas". Out-of-scope owner questions: answered
+  briefly, become a queue item, built later in a fresh session.
+  Replaces sdd's "follow-up with id, owner, deadline".
+- Folder (owner "a a"): project files of relay live in `.relay/` (queue
+  in `.relay/queue/<item>.md`, committed); owner: folder must not be a
+  bare `queue` because e.g. a Go module may have a `queue` package. The
+  issues flow merging into the queue is the FIRST queue item, not batch 3
+  (it touches ALIX and arsenal live flows).
+- NEXT: thinker revises the design (brief scratchpad
+  brief-revise-roles.md -> design-role-bases-v2.md), a checker confirms
+  each must-fix and decision is in it, then the worker builds in
+  .worktrees/batch3.
