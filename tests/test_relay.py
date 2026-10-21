@@ -172,9 +172,34 @@ class Analysis(Base):
                  dict(fixtures.user("2026-10-18T09:03:00Z", "<task-notification>done</task-notification>"), origin={"kind": "task-notification"}),
                  dict(fixtures.user("2026-10-18T09:03:30Z", "something the system injected"), origin={"kind": "system"}),
                  fixtures.user("2026-10-18T09:04:00Z", "<command-message>opsx:apply</command-message>\n<command-name>/opsx:apply</command-name>\n<command-args>x</command-args>")]
+        # harness screens the old fixed list did not know: recognised by the output line that answers them
+        for n, name in enumerate(("rate-limit-options", "usage-credits", "some-future-screen")):
+            lines.append(fixtures.user("2026-10-18T09:05:%02dZ" % (n * 10), "<command-name>/%s</command-name>\n<command-message>%s</command-message>" % (name, name)))
+            lines.append(fixtures.user("2026-10-18T09:05:%02dZ" % (n * 10 + 5), "<local-command-stdout>screen</local-command-stdout>"))
+        # a program's prompt (headless run): promptSource "sdk", no origin
+        lines.append(dict(fixtures.user("2026-10-18T09:06:00Z", "run the benchmark"), promptSource="sdk"))
         with open(path, "w") as handle:
             handle.write("".join(json.dumps(l) + "\n" for l in lines))
         self.assertEqual(tr.read_trace(path).user_turns, 3)      # the typed text, the accepted suggestion, /opsx:apply
+
+    def test_a_command_that_runs_a_prompt_is_a_turn_when_the_model_answers(self):
+        import relay_transcripts as tr
+        path = os.path.join(self.tmp, "t.jsonl")
+        lines = [fixtures.user("2026-10-18T09:00:00Z", "<command-name>/brand-new:thing</command-name>\n<command-args>x</command-args>"),
+                 fixtures.assistant("2026-10-18T09:00:05Z", "claude-opus-5-5", 10, 10, 5, "req1", text="ok")]
+        with open(path, "w") as handle:
+            handle.write("".join(json.dumps(l) + "\n" for l in lines))
+        self.assertEqual(tr.read_trace(path).user_turns, 1)
+
+    def test_scripted_sessions_are_counted_apart_from_your_turns(self):
+        import relay_transcripts as tr
+        path = os.path.join(self.tmp, "t.jsonl")
+        lines = [dict(fixtures.user("2026-10-18T09:00:00Z", "please do it " * 60), entrypoint="sdk-cli", promptSource="sdk"),
+                 dict(fixtures.user("2026-10-18T09:01:00Z", "and then this"), entrypoint="sdk-cli")]
+        with open(path, "w") as handle:
+            handle.write("".join(json.dumps(l) + "\n" for l in lines))
+        trace = tr.read_trace(path)
+        self.assertEqual((trace.user_turns, trace.scripted_turns, trace.scripted, trace.prompt_chars), (0, 1, True, 0))
 
     def test_escalated_rule_is_one_rule(self):
         import relay_transcripts as tr

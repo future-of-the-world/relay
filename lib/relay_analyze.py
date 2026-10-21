@@ -344,6 +344,7 @@ def totals(data):
         "figures": figures,
         "by_type": by_type,
         "user_turns": sum(m.user_turns for m in mains),
+        "scripted_sessions": sum(1 for m in mains if m.scripted),
         "reply_chars": sum(m.reply_chars for m in mains),
         "prompt_chars": sum(m.prompt_chars for m in mains),
         "long_prompts": sum(m.long_prompts for m in mains),
@@ -381,6 +382,9 @@ def report(data, title="Usage"):
     if data.get("until"):
         span += f" to {data['until'].strftime('%Y-%m-%d %H:%M')}"
     lines.append(f"{t['sessions']} sessions, {t['agents']} agents, {t['user_turns']} of your turns {span}".strip())
+    if t.get("scripted_sessions"):
+        lines.append(f"{t['scripted_sessions']} scripted sessions (started by a program: headless runs, benchmarks, evals); "
+                     f"their prompts are not counted as your turns")
     exact_share = t["exact_cost"] / grand * 100 if grand else 0
     lines.append(f"Cost {_money(grand)} in notional dollars (list prices, prices.toml measured "
                  f"{relay_prices.table().get('measured')}; your plan is a subscription): exact for {exact_share:.0f}% of usage "

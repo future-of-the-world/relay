@@ -26,15 +26,13 @@ NOTIFICATION_KINDS = ("task-notification", "peer")
 # Lines that are user lines in a transcript but not something the owner typed.
 _NOT_TYPED_STARTS = ("[Request interrupted", "<local-command-stdout>", "<local-command-stderr>", "<local-command-caveat>",
                      "<bash-input>", "<bash-stdout>", "<bash-stderr>")
-# Slash commands the harness answers itself (no prompt goes to the model); one that runs a prompt, such as
-# /opsx:apply or /init, is a turn.
-LOCAL_COMMANDS = frozenset((
-    "clear", "cost", "model", "help", "compact", "config", "status", "exit", "quit", "context", "usage", "resume",
-    "rewind", "login", "logout", "doctor", "memory", "mcp", "agents", "permissions", "hooks", "ide", "theme", "vim",
-    "terminal-setup", "bug", "release-notes", "add-dir", "export", "stats", "statusline", "output-style", "plugin",
-    "privacy-settings", "upgrade", "effort", "fast", "color", "rename", "copy", "tasks", "feedback",
-))
-_COMMAND_NAME = re.compile(r"<command-name>\s*/?([^<\s]+)\s*</command-name>")
+# A slash command is a turn only when it runs a prompt. The harness answers its own commands (/clear, /cost,
+# /rate-limit-options, ...) with a `<local-command-stdout>` line instead of a model reply, so the structure
+# tells them apart, not a list of names: see _absorb.
+_COMMAND_WRAPPER = ("<command-name>", "<command-message>")
+_LOCAL_OUTPUT = ("<local-command-stdout>", "<local-command-stderr>")
+# promptSource of a user line the owner wrote; any other value ("sdk": a program, "system") is not the owner.
+OWNER_PROMPT_SOURCES = ("typed", "suggestion_accepted", "queued")
 _ESCALATED = re.compile(r"(?mi)^\s*Escalated:\s*\S")
 
 
@@ -51,21 +49,21 @@ def is_notification(text, origin=None):
     return any(text.startswith(m) for m in NOTIFICATION_MARKERS)
 
 
-def is_owner_turn(text, origin=None):
-    """True when a user line is something the owner typed (or a slash command that runs a prompt).
+def is_owner_turn(text, origin=None, prompt_source=None):
+    """True when a user line is something the owner typed (or a slash command; _absorb takes back one the
+    harness answered itself).
 
-    With the structured `origin`, only kind "human" counts. Whatever the origin says, the text must not be an
+    With the structured `origin`, only kind "human" counts; with `promptSource`, only what the owner wrote
+    (typed, an accepted suggestion, a queued line), so a prompt a program sent ("sdk") is not a turn. Whatever the origin says, the text must not be an
     interruption marker, a local command's wrapper or output, or a notification (older transcripts have no origin)."""
     if is_notification(text, origin):
         return False
     kind = origin.get("kind") if isinstance(origin, dict) else None
     if kind and kind != "human":
         return False
-    stripped = (text or "").lstrip()
-    if stripped.startswith(_NOT_TYPED_STARTS):
+    if prompt_source and prompt_source not in OWNER_PROMPT_SOURCES:
         return False
-    named = _COMMAND_NAME.search(stripped) if stripped.startswith(("<command-name>", "<command-message>")) else None
-    return not (named and named.group(1) in LOCAL_COMMANDS)
+    return not (text or "").lstrip().startswith(_NOT_TYPED_STARTS)
 
 
 def is_escalated(prompt):
@@ -123,6 +121,8 @@ class Trace:
     tools: dict = field(default_factory=dict)         # tool name -> count
     agents_started: dict = field(default_factory=dict)  # subagent_type -> count (Agent tool calls)
     user_turns: int = 0
+    scripted_turns: int = 0        # prompts a program sent (headless `claude -p`, bench, evals): not the owner's turns
+    scripted: bool = False         # session only: started by a program (entrypoint "sdk-*")
     prompt_chars: int = 0          # what the owner typed, in characters (a long prompt is a setup gap)
     long_prompts: int = 0          # prompts over 600 characters
     reply_chars: int = 0           # assistant text, in characters (noise measure)
@@ -139,6 +139,7 @@ class Trace:
     _agent_calls: dict = field(default_factory=dict)   # Agent tool_use id -> {prompt_chars, escalated}
     first_read: int = 0            # cache_creation tokens of the first request: what a fresh agent pays
     chars_by_model: dict = field(default_factory=dict)  # agent only: model -> visible characters of its answers
+    _command_open: bool = False    # a slash command was counted as a turn and nothing has answered it yet
     _pending: dict = field(default_factory=dict)       # agent only: requestId -> the request's lines folded together
 
     @property
@@ -166,6 +167,9 @@ def read_trace(path, kind="session"):
                 continue
             _absorb(trace, entry, seen_requests)
     _settle_agent_requests(trace)
+    if trace.scripted:          # every prompt of a program-started session is the program's, not the owner's
+        trace.scripted_turns += trace.user_turns
+        trace.user_turns = trace.prompt_chars = trace.long_prompts = 0
     return trace
 
 
@@ -216,6 +220,10 @@ def _absorb(trace, entry, seen_requests):
     if entry.get("isCompactSummary") or kind == "summary":
         trace.compactions += 1
     message = entry.get("message") or {}
+    if str(entry.get("entrypoint") or "").startswith("sdk"):
+        trace.scripted = True
+    if kind == "assistant":
+        trace._command_open = False       # a model reply answered the command: it ran a prompt, it is a turn
     if kind == "user":
         content = message.get("content")
         result = entry.get("toolUseResult")
@@ -230,9 +238,15 @@ def _absorb(trace, entry, seen_requests):
             isinstance(b, dict) and b.get("type") == "text" for b in content
         )):
             text = content if isinstance(content, str) else " ".join(b.get("text") or "" for b in content if isinstance(b, dict))
+            stripped = text.lstrip()
+            if trace._command_open and stripped.startswith(_LOCAL_OUTPUT):
+                trace.user_turns -= 1         # the harness answered the command itself: no prompt went to the model
+            if not stripped.startswith(("<local-command-caveat>",)):
+                trace._command_open = False
             if not (entry.get("isMeta") or entry.get("isCompactSummary") or is_notification(text, entry.get("origin"))
-                    or not is_owner_turn(text, entry.get("origin"))):
+                    or not is_owner_turn(text, entry.get("origin"), entry.get("promptSource"))):
                 trace.user_turns += 1
+                trace._command_open = stripped.startswith(_COMMAND_WRAPPER)
                 if not text.lstrip().startswith("<"):   # tool results and system reminders are not the owner
                     trace.prompt_chars += len(text)
                     if len(text) > 600:
