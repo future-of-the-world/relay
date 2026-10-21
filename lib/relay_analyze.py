@@ -268,17 +268,25 @@ def calibrate(claude_dir, now):
 
 def known_error_sentence():
     """The error printed beside an estimate: from the last `relay calibrate`, or an honest 'not measured'."""
+    not_yet = "Known error: not measured yet; run relay calibrate."
     cal = load_calibration()
-    est = (cal or {}).get("estimate") or {}
-    if not est:
-        return "Known error: not measured yet; run relay calibrate."
-    parts = []
-    for name, label in (("with_agents", "sessions with agents"), ("without_agents", "sessions without agents")):
-        sp = est.get(name)
-        if sp:
-            parts.append(f"{label}: median {sp['median'] * 100:.0f}%, worst {abs(sp['worst_signed']) * 100:.0f}% "
-                         f"{'low' if sp['worst_signed'] < 0 else 'high'}, {sp['over_10']} of {sp['n']} over 10% off")
-    return f"Known error (measured {cal.get('measured')} against Claude Code's totals): " + "; ".join(parts) + "."
+    try:
+        est = cal.get("estimate") if isinstance(cal, dict) else None
+        if isinstance(est, dict) and not est and cal.get("measured"):
+            return f"Known error: relay calibrate ran on {cal['measured']}, but no session had both a transcript and a total to measure."
+        if not est:
+            return not_yet
+        parts = []
+        for name, label in (("with_agents", "sessions with agents"), ("without_agents", "sessions without agents")):
+            sp = est.get(name)
+            if sp:
+                parts.append(f"{label}: median {sp['median'] * 100:.0f}%, worst {abs(sp['worst_signed']) * 100:.0f}% "
+                             f"{'low' if sp['worst_signed'] < 0 else 'high'}, {sp['over_10']} of {sp['n']} over 10% off")
+        if not parts:
+            return not_yet
+        return f"Known error (measured {cal.get('measured')} against Claude Code's totals): " + "; ".join(parts) + "."
+    except (KeyError, TypeError, AttributeError):
+        return not_yet      # a file of another shape (older or newer fields): treat as not measured
 
 
 def relay_config_json():
