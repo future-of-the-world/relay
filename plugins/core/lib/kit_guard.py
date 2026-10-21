@@ -356,6 +356,14 @@ def assign(words, variables):
                 variables[name] = value
 
 
+def where(word, base):
+    """The directory a word names, from base; a word still holding a `$`, `$(...)` or backtick after expansion
+    names nothing the guard can know, so it is the directory the command runs in."""
+    if word.dynamic:
+        return base
+    return resolve(word.text, base)
+
+
 def resolve(path, base):
     p = os.path.expanduser(path)
     if not os.path.isabs(p):
@@ -410,7 +418,7 @@ def git_parts(words, cwd):
     while i < len(words):
         t = words[i].text
         if t == "-C" and i + 1 < len(words):
-            d = resolve(words[i + 1].text, d)
+            d = where(words[i + 1], d)
             i += 2
         elif t in GIT_GLOBAL_VALUE and i + 1 < len(words):
             i += 2
@@ -594,7 +602,7 @@ def analyze(cmd, cwd, flags, depth=0, variables=None):
             elif arg is not None and arg.text == "-":
                 st.prev, st.cur = cur, st.prev
             elif arg is not None and arg.text != "":
-                new = resolve(arg.text, cur)
+                new = where(arg, cur)
                 if name == "pushd":
                     st.stack.append(cur)
                 st.prev, st.cur = cur, new
@@ -613,11 +621,11 @@ def analyze(cmd, cwd, flags, depth=0, variables=None):
             for flag in flags:
                 val = None
                 if w.text == flag and k + 1 < len(words):
-                    val = words[k + 1].text
+                    val = words[k + 1]
                 elif w.text.startswith(flag + "="):
-                    val = w.text[len(flag) + 1:]
-                if val:
-                    d = resolve(val, cur)
+                    val = Word(w.text[len(flag) + 1:], w.dynamic, w.hard)
+                if val is not None and val.text:
+                    d = where(val, cur)
                     if d != UNKNOWN and os.path.isfile(d):
                         d = os.path.dirname(d)
         out.append(("C", d, seg_text(raw)))
@@ -644,6 +652,10 @@ def analyze(cmd, cwd, flags, depth=0, variables=None):
                     simple(real[k:], [], raw, st, via_xargs=True)
 
         # files written
+        # a redirect target still holding a `$` after expansion is judged as the directory the command runs in
+        for t in redirs:
+            if t.dynamic and t.text and not t.text.startswith("/dev/"):
+                out.append(("W", where(t, cur)))
         targets = [w for w in redirs if not w.dynamic and not w.text.startswith("/dev/")]
         args = [w for w in real[1:] if not w.dynamic]
         paths = positional(name, args)

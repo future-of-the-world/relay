@@ -32,7 +32,7 @@ use() { # <profile name> <kit.toml or ->  <worktrees dir>
   profile="$1"
   mkdir -p "$M/.claude"
   if [ "$2" = - ]; then rm -f "$M/.claude/kit.toml"; else cp "$2" "$M/.claude/kit.toml"; fi
-  W="$M/$3/any-change"
+  W="$M/$3/any-change"; WD="$3"
   : >"$W/f.txt"
 }
 
@@ -114,6 +114,17 @@ EOF"
   t block "variable assigned the main checkout, redirect" Bash "$W" command "D=$M; echo hi > \$D/x.txt"
   t block "variable chained through another"      Bash "$W" command "A=$M; B=\$A; git -C \$B commit -m x"
   t block "export of the main checkout, cd, commit" Bash "$W" command "export R=$M; cd \$R && git commit -m x"
+  # a word that still holds a `$`, `$(...)` or backtick after expansion is the directory the command runs in,
+  # even behind a literal prefix (review 2, R1): at run time the variable is empty or the substitution climbs out
+  t block "git -C <worktree>/\$T, T unset"   Bash "$M" command "git -C \"$WD/any-change/\$T\" commit -m x"
+  t block "git -C .<wts>/\$T, T unset"       Bash "$M" command "git -C \"$WD/\$T\" commit -m x"
+  t block "git -C wt/\$(echo ../..)"         Bash "$M" command "git -C $WD/any-change/\$(echo ../..) commit -m x"
+  t block "cd wt/\$(printf ../..), reset"    Bash "$M" command "cd \"$WD/any-change/\$(printf ../..)\" && git reset --hard"
+  t block "cd wt<backtick>echo /../..<backtick>, commit" Bash "$M" command "cd $WD/any-change\`echo /../..\` && git commit -m x"
+  t block "redirect through wt/\$N/../.."     Bash "$M" command "echo hi > $WD/\$N/../../README.md"
+  t block "cd <worktrees>/\$NAME, commit"    Bash "$M" command "cd $WD/\$NAME && git commit -m x"
+  t allow "fully resolved same-line worktree path" Bash "$M" command "T=any-change; git -C $WD/\$T commit -m x"
+  t allow "fully resolved, cd and braces"    Bash "$M" command "T=any-change && cd $WD/\${T} && git commit -m x"
   # compound commands: every part is judged by its own directory
   t block "worktree log, then merge in main" Bash "$M" command "git -C $W log -1 && git merge wt/foo"
   t block "subshell commit, then reset"      Bash "$M" command "(cd $W && git commit -m x); git reset --hard HEAD~1"
@@ -230,6 +241,7 @@ t block "env-prefixed cargo in main" Bash "$M" command "RUST_BACKTRACE=1 cargo t
 t block "manifest-path into main"    Bash "$W" command "cargo build --manifest-path $M/src-tauri/Cargo.toml"
 t allow "cargo in worktree cwd"      Bash "$W" command "cd src-tauri && cargo clippy"
 t allow "cd worktree && cargo"       Bash "$M" command "cd $W/src-tauri && cargo clippy"
+  t block "manifest-path through wt/\$T/../.." Bash "$M" command "cargo build --manifest-path $WD/any-change/\$T/../../Cargo.toml"
 t allow "tauri info in main"         Bash "$M" command "bun run tauri info"
 t allow "tauri dev in main"          Bash "$M" command "bun run tauri dev"
 t block "tauri add in main"          Bash "$M" command "bun run tauri add haptics"
