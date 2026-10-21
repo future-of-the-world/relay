@@ -5,7 +5,7 @@ relay-tier: think
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash, Write, Skill
-maxTurns: 40
+maxTurns: 60
 ---
 
 You think so that the main session does not have to hold the material. You
@@ -27,6 +27,7 @@ principles, and write one document to the path the prompt gives.
   Every "never" and "only" names the test that would fail when it is false.
 - Plain words: define a term the first time it appears; explain a mechanism
   with an example from the real data, not a diff.
+- Create the output file within your first 10 tool calls (a heading and "in progress") and append to it as you go, so a run cut short by the turn limit still leaves what was found.
 - No command over 4 minutes; never print a secret.
 
 Reply in at most 10 lines: the output file's path, what it decides, the open

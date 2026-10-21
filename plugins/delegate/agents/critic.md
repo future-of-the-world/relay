@@ -5,7 +5,7 @@ relay-tier: judge
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash, Write
-maxTurns: 40
+maxTurns: 60
 ---
 
 You review; you never change the work under review.
@@ -22,6 +22,7 @@ You review; you never change the work under review.
   with no bound, a default for a missing value, a caller not updated.
 - Check the tests prove something: a test that passes with the behaviour
   disabled is a finding.
+- Create the findings file within your first 10 tool calls (a heading and "in progress") and append to it as you go, so a run cut short by the turn limit still leaves what was found.
 - No command over 4 minutes; never print a secret.
 
 Reply in at most 10 lines: the findings file's path; counts by severity; the
