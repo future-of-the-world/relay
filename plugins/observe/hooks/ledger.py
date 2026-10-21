@@ -65,6 +65,9 @@ def main():
         for key in ("model", "context_tokens", "seconds_since_last_response", "prompt_cache_likely_expired", "estimated_cache_write_usd"):
             if key in data:
                 out[key] = data[key]
+        # The last session of this folder finished: copy Claude Code's own totals for it into the
+        # ledger before the next session overwrites them (this one, still running, is skipped).
+        relay_ledger.capture(out["ts"], folder=data.get("cwd"), skip_session=data.get("session_id"))
     elif event == "UserPromptSubmit":
         out = base(data, "prompt")
         prompt = data.get("prompt") or ""

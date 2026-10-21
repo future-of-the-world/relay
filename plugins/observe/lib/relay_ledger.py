@@ -2,7 +2,8 @@
 one file per day under ~/.relay/ledger/. This module reads it.
 
 Events (field `event`): session_start, prompt, agent_start, agent_stop,
-tool_pre, tool_post, stop, compact, session_end. Every event has `ts`
+tool_pre, tool_post, stop, compact, session_end, session_usage (Claude Code's own
+per-model figures for a finished session: the exact numbers `/cost` showed). Every event has `ts`
 (ISO 8601, UTC), `session_id`, and, inside a subagent, `agent_id` and `agent_type`.
 """
 
@@ -11,7 +12,7 @@ import glob
 import json
 import os
 
-from relay_config import ledger_dir
+from relay_config import claude_json, ledger_dir
 
 
 def day_file(when=None):
@@ -108,3 +109,85 @@ def agent_spans(events):
     for key, start in starts.items():
         spans.append((key[0], start.get("agent_type") or "", key[1], parse_ts(start.get("ts")), None))
     return spans
+
+
+# ---- exact per-session figures, written by Claude Code itself -------------------------------
+# Claude Code keeps, per project folder, the last session's id and its per-model totals
+# (`lastModelUsage`: the numbers /cost shows). The next session in that folder overwrites them, so
+# relay copies them into the ledger as `session_usage` lines before that happens.
+
+_MODEL_KEYS = {
+    "inputTokens": "input_tokens", "outputTokens": "output_tokens", "thinkingTokens": "thinking_tokens",
+    "cacheReadInputTokens": "cache_read_input_tokens", "cacheCreationInputTokens": "cache_creation_input_tokens",
+    "webSearchRequests": "web_search_requests", "costUSD": "cost_usd",
+}
+
+
+def claude_json_sessions():
+    """[(project folder, session id, {model: numbers})] for every folder whose last session has figures."""
+    try:
+        with open(claude_json(), encoding="utf-8") as handle:
+            projects = (json.load(handle) or {}).get("projects") or {}
+    except (OSError, ValueError, AttributeError):
+        return []
+    out = []
+    for folder, entry in projects.items():
+        if not isinstance(entry, dict) or not entry.get("lastSessionId") or not isinstance(entry.get("lastModelUsage"), dict):
+            continue
+        models = {}
+        for model, raw in entry["lastModelUsage"].items():
+            if isinstance(raw, dict):
+                models[model] = {new: raw[old] for old, new in _MODEL_KEYS.items()
+                                 if isinstance(raw.get(old), (int, float))}
+        if models:
+            out.append((folder, entry["lastSessionId"], models))
+    return out
+
+
+def usage_sessions(since=None):
+    """{session_id: {model: numbers}} from `session_usage` ledger lines (the latest line of a session wins)."""
+    found = {}
+    for event in read(since=since):
+        if event.get("event") == "session_usage" and event.get("session_id") and isinstance(event.get("models"), dict):
+            found[event["session_id"]] = event["models"]
+    return found
+
+
+def _recorded(session_id):
+    needle = session_id.encode()
+    for path in glob.glob(os.path.join(ledger_dir(), "*.jsonl")):
+        try:
+            with open(path, "rb") as handle:
+                for raw in handle:
+                    if needle in raw and b'"session_usage"' in raw:
+                        return True
+        except OSError:
+            continue
+    return False
+
+
+def record_usage(session_id, folder, models, now, source="claude.json"):
+    append({"ts": now, "event": "session_usage", "session_id": session_id, "cwd": folder,
+            "source": source, "models": models})
+
+
+def capture(now, folder=None, skip_session=None):
+    """Write a `session_usage` line for each session in Claude Code's file not yet in the ledger.
+    folder: only that project folder (the hook's own); skip_session: a session still running."""
+    written = []
+    for project, sid, models in claude_json_sessions():
+        if folder is not None and project != folder:
+            continue
+        if sid == skip_session or _recorded(sid):
+            continue
+        record_usage(sid, project, models, now)
+        written.append(sid)
+    return written
+
+
+def exact_sessions():
+    """{session_id: {model: numbers}}: the ledger's lines, then Claude Code's file for sessions not yet copied."""
+    found = usage_sessions()
+    for _folder, sid, models in claude_json_sessions():
+        found.setdefault(sid, models)
+    return found

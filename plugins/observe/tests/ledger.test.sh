@@ -26,5 +26,11 @@ send '{"hook_event_name":"UserPromptSubmit","session_id":"s","cwd":"/p","prompt"
 printf '{"type":"assistant","timestamp":"2026-10-19T10:00:00Z","requestId":"r9","message":{"model":"claude-haiku-5","content":[{"type":"tool_use","id":"h1","name":"SubagentHandback","input":{"message":"DONE ok"}}],"usage":{"input_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":0,"output_tokens":5}}}\n' > "$RELAY_HOME/s/subagents/agent-a2.jsonl"
 send "{\"hook_event_name\":\"SubagentStop\",\"session_id\":\"s\",\"cwd\":\"/p\",\"agent_id\":\"a2\",\"agent_type\":\"delegate:scout\",\"transcript_path\":\"$t\",\"last_assistant_message\":\"text before the hand-back that the caller never sees\"}"; has "reply length is the hand-back message, not the text before it" '"agent_id": "a2".*"reply_chars": 7'
 send "{\"hook_event_name\":\"SubagentStop\",\"session_id\":\"s\",\"cwd\":\"/p\",\"agent_id\":\"a3\",\"agent_type\":\"delegate:scout\",\"transcript_path\":\"$t\"}"; has "reply length unknown is null, not 0" '"agent_id": "a3".*"reply_chars": null'
+printf '{"projects":{"/p":{"lastSessionId":"old1","lastModelUsage":{"claude-opus-5-5":{"inputTokens":34,"outputTokens":5683,"cacheReadInputTokens":1053863,"cacheCreationInputTokens":46711,"costUSD":0.698}}}}}' > "$RELAY_HOME/claude.json"
+export RELAY_CLAUDE_JSON="$RELAY_HOME/claude.json"
+send '{"hook_event_name":"SessionStart","session_id":"s","cwd":"/p","source":"startup"}'; has "session start copies the last finished session's totals" '"event": "session_usage".*"session_id": "old1".*"output_tokens": 5683'
+send '{"hook_event_name":"SessionStart","session_id":"s2","cwd":"/p","source":"startup"}'
+[ "$(grep -c '"session_usage"' "$RELAY_HOME"/ledger/*.jsonl)" = 1 ] && echo "ok   totals copied once" || { echo "FAIL totals copied twice"; fails=1; }
+unset RELAY_CLAUDE_JSON
 send 'garbage'; echo "ok   malformed input fails open"
 exit $fails

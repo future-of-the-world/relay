@@ -5,6 +5,8 @@
   relay report [--since 7d] [--today] [--session <id>]
                                      where the money went: by model, by agent type, by session
   relay report --compare <A> <B>     two periods side by side (e.g. 2026-10-10..2026-10-13 2026-10-14..2026-10-17)
+  relay calibrate                    copy Claude Code's own per-session totals into the ledger, then show
+                                     transcripts vs exact per model and the fitted estimate settings
   relay improve suggest [--since 7d] measured anti-patterns, each with its saving and the lever that fixes it
   relay improve adopt <profile>      make a candidate the active profile (after a bench), sync, log why
   relay improve log                  the history of adopted changes and their bench results
@@ -123,6 +125,12 @@ def cmd_report(args):
         print("\n## What to change (run `relay improve suggest` for the full list)")
         for f in found[:3]:
             print(f"- {f['id']} {f['title']}: {f['evidence']}" + (f"; about ${f['saving_usd']:.2f} to save" if f['saving_usd'] else ""))
+    return 0
+
+
+def cmd_calibrate(args):
+    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    print(relay_analyze.calibrate(relay_config.claude_dir(), now))
     return 0
 
 
@@ -397,7 +405,7 @@ def cmd_rules(args):
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules,
 }
 
 

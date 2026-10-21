@@ -27,6 +27,16 @@ def claude_dir():
     return os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude")
 
 
+def claude_json():
+    """Claude Code's own state file: where it keeps /cost's per-session figures (`lastModelUsage`).
+    With CLAUDE_CONFIG_DIR it sits inside that folder, else it is ~/.claude.json."""
+    if os.environ.get("RELAY_CLAUDE_JSON"):
+        return os.path.expanduser(os.environ["RELAY_CLAUDE_JSON"])
+    if os.environ.get("CLAUDE_CONFIG_DIR"):
+        return os.path.join(claude_dir(), ".claude.json")
+    return os.path.expanduser("~/.claude.json")
+
+
 def ledger_dir():
     return os.path.join(home_dir(), "ledger")
 
