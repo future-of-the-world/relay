@@ -133,8 +133,12 @@ def main():
     elif event == "SessionEnd":
         out = base(data, "session_end")
         out["reason"] = data.get("reason")
-        # The session is over: if Claude Code has written its final total, it covers everything.
+        # The event line first (the hook has 1 s), then, if Claude Code has already written the session's final
+        # total, copy it: it covers everything. If Claude Code writes it only after this hook, the next session
+        # start in the folder copies it.
+        relay_ledger.append(out)
         relay_ledger.capture(out["ts"], folder=data.get("cwd"), only_session=data.get("session_id"))
+        out = None
     if out:
         relay_ledger.append(out)
 

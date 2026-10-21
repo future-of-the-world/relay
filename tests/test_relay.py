@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -330,6 +331,60 @@ class Numbers(Base):
         self.assertIn("exact for 100% of usage", text)
         self.assertIn("$8.42", text)            # 6.99 + 1.43 + 0.00313 = 8.42313; /cost rounds its unrounded sums to 8.43
         self.assertIn("Claude Code helpers (no transcript)", text)
+
+    def test_capture_does_not_write_a_total_smaller_than_the_recorded_one(self):
+        """If Claude Code restarts its counter on resume, the new total covers only the resumed part: it must
+        not replace the bigger one already recorded (it would be labelled exact for the whole session)."""
+        import relay_ledger
+        self.SESSION_8_43["claude-opus-5-5"]["cost"] = 9.0
+        try:
+            self._claude_json("s-r")
+        finally:
+            self.SESSION_8_43["claude-opus-5-5"]["cost"] = 6.99
+        self.assertEqual(relay_ledger.capture("2026-10-21T09:00:00Z"), ["s-r"])
+        self._claude_json("s-r")                                   # now 6.99: smaller than the 9.00 recorded
+        self.assertEqual(relay_ledger.capture("2026-10-21T10:00:00Z"), [])
+        self.assertEqual(relay_ledger.usage_sessions()["s-r"]["claude-opus-5-5"]["cost_usd"], 9.0)
+        os.remove(os.path.join(self.home, "ledger", "usage-index.json"))     # the index is a shortcut, not the truth
+        self.assertEqual(relay_ledger.capture("2026-10-21T10:01:00Z"), [])
+
+    def test_capture_never_reads_the_whole_ledger(self):
+        import relay_ledger
+        self._claude_json("s-n4")
+        real = relay_ledger.read
+
+        def bounded(since=None, until=None):
+            if since is None:
+                raise AssertionError("capture read the whole ledger")
+            return real(since=since, until=until)
+        relay_ledger.read = bounded
+        try:
+            self.assertEqual(relay_ledger.capture("2026-10-21T10:00:00Z"), ["s-n4"])
+            self.assertEqual(relay_ledger.capture("2026-10-21T10:01:00Z"), [])
+        finally:
+            relay_ledger.read = real
+
+    def test_session_end_hook_is_fast_on_a_large_ledger(self):
+        """SessionEnd has a 1 s timeout; the ledger grows without limit. 300,000 old lines must cost nothing."""
+        import subprocess
+        self._claude_json("s-end")
+        ledger = os.path.join(self.home, "ledger")
+        os.makedirs(ledger)
+        line = json.dumps({"ts": "2026-06-01T10:00:00.000Z", "event": "tool_post", "session_id": "old", "cwd": "/p",
+                           "tool": "Bash", "tool_use_id": "x" * 40}) + "\n"
+        for day in range(1, 31):
+            with open(os.path.join(ledger, "2026-06-%02d.jsonl" % day), "w") as handle:
+                handle.write(line * 10000)
+        env = dict(os.environ, RELAY_CLAUDE_JSON=os.path.join(self.claude, ".claude.json"))
+        hook = os.path.join(ROOT, "plugins", "observe", "hooks", "ledger.py")
+        payload = json.dumps({"hook_event_name": "SessionEnd", "session_id": "s-end", "cwd": "/Users/me/x", "reason": "other"})
+        started = time.monotonic()
+        subprocess.run([sys.executable, hook], input=payload.encode(), env=env, check=True)
+        took = time.monotonic() - started
+        self.assertLess(took, 0.5, "SessionEnd hook took %.2f s on a 300,000-line ledger" % took)
+        text = "".join(open(os.path.join(ledger, f)).read() for f in os.listdir(ledger) if not f.startswith("2026-06") and f.endswith(".jsonl"))
+        self.assertIn('"event": "session_end"', text)
+        self.assertIn('"event": "session_usage"', text)
 
     def test_report_without_totals_says_estimate_with_its_error(self):
         import relay_analyze

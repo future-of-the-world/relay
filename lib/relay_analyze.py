@@ -389,7 +389,7 @@ def report(data, title="Usage"):
     if t["sessions"] > t["exact_sessions"]:
         lines.append(f"  The estimate counts agents' output from what the transcript shows and adds {relay_prices.helper_uplift():.2f}x "
                      f"on agents for Claude Code's own helper requests. {known_error_sentence()} "
-                     f"Exact figures arrive when the session closes (a session that went on after its total was written stays an estimate).")
+                     f"Exact figures are copied from Claude Code when a session closes or at the next session start in the same folder (a session that went on after its total was written stays an estimate).")
     if t["exact_sessions"]:
         lines.append(f"  Claude Code helpers (no transcript), exact sessions only: {_money(t['helpers'])}")
     lines.append(f"  Transcripts explain: main sessions {_money(t['main'].cost)}, agents {_money(t['agents_total'].cost)} "

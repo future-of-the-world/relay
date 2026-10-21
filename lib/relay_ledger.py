@@ -159,29 +159,85 @@ def usage_sessions(since=None):
     return {sid: models for sid, (_when, models) in usage_records(since).items()}
 
 
+_INDEX_KEEP = 300      # newest sessions the index remembers: it must stay small, the hook reads it every time
+
+
+def _index_path():
+    return os.path.join(ledger_dir(), "usage-index.json")
+
+
+def _read_index():
+    try:
+        with open(_index_path(), encoding="utf-8") as handle:
+            found = json.load(handle)
+        return found if isinstance(found, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_index(index):
+    while len(index) > _INDEX_KEEP:
+        index.pop(next(iter(index)))
+    os.makedirs(ledger_dir(), exist_ok=True)
+    tmp = _index_path() + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        json.dump(index, handle)
+    os.replace(tmp, _index_path())
+
+
 def record_usage(session_id, folder, models, now, source="claude.json"):
     append({"ts": now, "event": "session_usage", "session_id": session_id, "cwd": folder,
             "source": source, "models": models})
+    index = _read_index()
+    index.pop(session_id, None)
+    index[session_id] = models
+    try:
+        _write_index(index)
+    except OSError:
+        pass
+
+
+def _recorded(session_id, index):
+    """The total the ledger holds for a session, without reading the ledger: the small index file, else the
+    last few days' lines (the index is only a shortcut and may be missing)."""
+    if session_id in index:
+        return index[session_id]
+    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=3)
+    return usage_sessions(since=since).get(session_id)
+
+
+def _shrank(old, new):
+    """True when a total is smaller than the one already recorded for the same session: a counter that
+    restarted from 0 on resume would look like this, and its figure covers only the resumed part."""
+    for model, row in old.items():
+        now_row = new.get(model) or {}
+        for key in ("output_tokens", "cost_usd"):
+            if isinstance(row.get(key), (int, float)) and now_row.get(key, 0) < row[key]:
+                return True
+    return False
 
 
 def capture(now, folder=None, skip_session=None, only_session=None):
     """Write a `session_usage` line for each session in Claude Code's file whose total is not yet in the ledger
-    (or has changed since: a resumed session). The line's time is `now`: the moment the total was seen.
+    (or has grown since: a resumed session). The line's time is `now`: the moment the total was seen.
     folder: only that project folder (the hook's own); skip_session: a session still running;
-    only_session: just that session (the hook of a session that is ending)."""
+    only_session: just that session (the hook of a session that is ending).
+    Cost does not grow with the age of the ledger: the check against what is recorded reads one small index.
+    A total smaller than the recorded one is not written (see _shrank)."""
     written = []
-    recorded = None
+    index = None
     for project, sid, models in claude_json_sessions():
         if folder is not None and project != folder:
             continue
         if sid == skip_session or (only_session is not None and sid != only_session):
             continue
-        if recorded is None:
-            recorded = usage_sessions()
-        if recorded.get(sid) == models:
+        if index is None:
+            index = _read_index()
+        have = _recorded(sid, index)
+        if have == models or (have is not None and _shrank(have, models)):
             continue
         record_usage(sid, project, models, now)
-        recorded[sid] = models
+        index[sid] = models
         written.append(sid)
     return written
 
