@@ -1,6 +1,6 @@
 # core
 
-Part of the relay repository (`~/relay`), unchanged from the principles library except for the flow stage hook (`hooks/flow-stage.py`, see `docs/flows.md`) and the addition injection now serving `delegate:`, `issues:` and `front:` roles too. The text below is the original reference.
+Part of the relay repository (`~/relay`), unchanged from the principles library except for the flow stage hook (`hooks/flow-stage.py`, see `docs/flows.md`) and the addition injection, which serves the agents and skills of `core`, `sdd`, `product`, `delegate`, `issues` and `front` (`.claude/kit/<name>.md`) and, at an agent's start, the project's rules for its role (`.claude/kit/<role>.md`, role one of lookup, run, build, fix, think, judge; the agent's own file wins where they differ). The text below is the original reference.
 
 
 **How shared agents and skills run the plugin's scripts (tested 2026-10-19,

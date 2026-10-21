@@ -12,8 +12,8 @@ named file (its frontmatter stripped) and touches nothing outside markers. A
 base or part may hold a line `<!-- relay:include tests -->`, expanded to that
 part's body (one level). `{maxTurns}` becomes the agent's own frontmatter value.
 
-assemble(root) writes <root>/plugins/*/agents/*.md only; never an installed
-copy, a bench candidate or another checkout.
+assemble(root) writes <root>/plugins/*/agents/*.md and plugins/core/lib/agent-roles.tsv (agent -> role, for the
+per-role project files) only; never an installed copy, a bench candidate or another checkout.
 """
 
 import glob
@@ -149,8 +149,45 @@ def has_markers(text):
     return any(OPEN.match(line) or END.match(line) for line in text.split("\n"))
 
 
+MAP_FILE = os.path.join("plugins", "core", "lib", "agent-roles.tsv")
+
+
+def role_map(root):
+    """The text of agent-roles.tsv: one line `<plugin>:<name><TAB><role>` per agent with a relay:base region, sorted.
+    The core plugin's addition hook reads it to give an agent its role's project file (.claude/kit/<role>.md)."""
+    lines = []
+    for path in agent_files(root):
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+        if not has_markers(text):
+            continue
+        plugin = os.path.basename(os.path.dirname(os.path.dirname(path)))
+        name = split_frontmatter(text)[0].get("name") or os.path.basename(path)[:-3]
+        for region in _regions(parse_regions(text, os.path.relpath(path, root))):
+            if region["kind"] == "base":
+                lines.append(f"{plugin}:{name}\t{region['name']}")
+    return "".join(line + "\n" for line in sorted(lines))
+
+
+def write_role_map(root, dry=False):
+    """Write the role map when the checkout has a core plugin; True when it changed (or would)."""
+    folder = os.path.dirname(os.path.join(root, MAP_FILE))
+    if not os.path.isdir(folder):
+        return False
+    path = os.path.join(root, MAP_FILE)
+    current = open(path, encoding="utf-8").read() if os.path.isfile(path) else None
+    text = role_map(root)
+    if current == text:
+        return False
+    if not dry:
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(text)
+    return True
+
+
 def assemble(root, dry=False):
-    """Assemble every agent file under root/plugins/*/agents; return the paths that changed (or would)."""
+    """Assemble every agent file under root/plugins/*/agents; return the paths that changed (or would).
+    Also writes plugins/core/lib/agent-roles.tsv (not counted in the paths)."""
     changed = []
     for path in agent_files(root):
         with open(path, encoding="utf-8") as handle:
@@ -163,6 +200,7 @@ def assemble(root, dry=False):
             if not dry:
                 with open(path, "w", encoding="utf-8") as handle:
                     handle.write(new)
+    write_role_map(root, dry=dry)
     return changed
 
 
@@ -211,6 +249,14 @@ def problems(root, require_base=False):
             continue
         for found in sorted(set(PLACEHOLDER.findall(body)) - {"{maxTurns}"}):
             out.append(f"roles/{name}.md: placeholder {found} (only {{maxTurns}} exists)")
+    map_path = os.path.join(root, MAP_FILE)
+    if os.path.isdir(os.path.dirname(map_path)):
+        have = open(map_path, encoding="utf-8").read() if os.path.isfile(map_path) else None
+        try:
+            if have != role_map(root):
+                out.append(f"{MAP_FILE} differs from the agents' relay:base markers: run bin/relay sync agents from this checkout")
+        except RolesError:
+            pass   # the broken region is reported below
     for path in agent_files(root):
         label = os.path.relpath(path, root)
         with open(path, encoding="utf-8") as handle:

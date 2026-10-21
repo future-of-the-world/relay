@@ -770,6 +770,8 @@ class Roles(Base):
                          "plugins/x/agents/a.md: text in relay:base judge differs from roles/judge.md: "
                          "edit roles/judge.md, then run bin/relay sync agents from this checkout")
         self.assertEqual(rr.check(ROOT), [])   # the real agent files are what their bases say
+        with open(os.path.join(ROOT, rr.MAP_FILE), encoding="utf-8") as handle:
+            self.assertEqual(handle.read(), rr.role_map(ROOT))   # and the role map is what their markers say
 
     def test_include_is_expanded_one_level(self):
         rr = self.lib()
@@ -1050,6 +1052,33 @@ class Agents(unittest.TestCase):
         self.assertFalse(relay_inert._regex("a/*/c").match("a/b/d/c"))
         self.assertTrue(relay_inert._regex("a/**/c").match("a/b/d/c"))
         self.assertTrue(relay_inert._regex("a/**/c").match("a/c"))
+
+    def test_role_names_are_not_agent_or_skill_names(self):
+        """A13: a role file `.claude/kit/<role>.md` must not also be the per-agent or per-skill file of a served plugin
+        (one file would serve both); the map plugins/core/lib/agent-roles.tsv is what the agents' base markers say."""
+        import glob
+        import re
+        sys.path.insert(0, os.path.join(ROOT, "lib"))
+        import relay_roles
+        roles = {os.path.basename(f)[:-3] for f in glob.glob(os.path.join(ROOT, "roles", "*.md"))}
+        self.assertEqual(roles, {"lookup", "run", "build", "fix", "think", "judge"})
+        served = {"core", "sdd", "product", "delegate", "issues", "front"}
+        names = {}
+        for kind, pattern in (("agent", "plugins/*/agents/*.md"), ("skill", "plugins/*/skills/*/SKILL.md")):
+            for path in glob.glob(os.path.join(ROOT, pattern)):
+                plugin = os.path.relpath(path, ROOT).split(os.sep)[1]
+                if plugin in served:
+                    stem = os.path.basename(path)[:-3] if kind == "agent" else os.path.basename(os.path.dirname(path))
+                    names[stem] = kind + " " + plugin
+        self.assertGreater(len(names), 15)
+        for role in sorted(roles):
+            self.assertNotIn(role, names, "role %s is also the name of %s" % (role, names.get(role)))
+        with open(os.path.join(ROOT, relay_roles.MAP_FILE), encoding="utf-8") as handle:
+            lines = handle.read().splitlines()
+        self.assertEqual(len(lines), len(glob.glob(os.path.join(ROOT, "plugins", "*", "agents", "*.md"))))
+        for line in lines:
+            self.assertRegex(line, r"^[a-z]+:[a-z-]+\t(lookup|run|build|fix|think|judge)$")
+        self.assertEqual("".join(l + "\n" for l in lines), relay_roles.role_map(ROOT))
 
 
 class Bench(Base):

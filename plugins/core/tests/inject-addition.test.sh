@@ -3,7 +3,9 @@
 #   plugins/core/tests/inject-addition.test.sh
 set -uo pipefail
 
-hook="$(cd "$(dirname "$0")" && pwd -P)/../hooks/inject-addition.sh"
+here="$(cd "$(dirname "$0")" && pwd -P)"
+hook="$here/../hooks/inject-addition.sh"
+golden="$here/inject-addition.golden"
 tmp="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$tmp"' EXIT
 R="$tmp/repo"
@@ -70,5 +72,64 @@ other="$(jq -n --arg c "$R" '{hook_event_name: "PostToolUse", tool_name: "Bash",
 ck "another tool gets nothing" - "$other"
 ck "an outside directory gets nothing" - "$(agent sdd:worker "$tmp")"
 ck "another event gets nothing" - "$(jq -n --arg c "$R" '{hook_event_name: "Stop", cwd: $c}' | "$hook")"
+
+# I4: kartoteka's 12 per-agent files and no role file: the output is byte for byte what the hook gave before role files
+# existed (inject-addition.golden, recorded from that hook; INJECT_RECORD=<file> re-records, only ever from a hook known good).
+K="$tmp/kartoteka"
+mkdir -p "$K/.claude/kit" && git -C "$K" init -q -b master
+names="apply-review archive author fixer parallel-apply plan reviewer spec-conformance spec-review spec-reviewer ui-reviewer worker"
+for n in $names; do printf '%s-MARK\nline two of %s\n' "$n" "$n" >"$K/.claude/kit/$n.md"; done
+golden_out() {
+  for n in $names; do
+    echo "== agent sdd:$n"; agent "sdd:$n" "$K"
+    echo "== agent product:$n"; agent "product:$n" "$K"
+    echo "== skill sdd:$n"; skill "sdd:$n" "$K"
+    echo "== prompt /sdd:$n"; prompt "/sdd:$n go" "$K"
+  done
+}
+if [ -n "${INJECT_RECORD:-}" ]; then golden_out >"$INJECT_RECORD"; echo "recorded $INJECT_RECORD"; exit 0; fi
+if [ "$(golden_out | shasum)" = "$(shasum <"$golden")" ]; then echo "ok    I4: 12 per-agent files, no role file: output equals the golden file"
+else echo "FAIL  I4: output differs from inject-addition.golden"; fails=$((fails + 1)); fi
+
+# Per-role files (I1-I3, I5-I9): the same 12 files plus .claude/kit/judge.md, JUDGE-MARK inside.
+J="$tmp/withrole"
+cp -R "$K" "$J" && printf 'JUDGE-MARK\n' >"$J/.claude/kit/judge.md"
+before() { # <first marker> <second marker> <text>: the first occurs, then the second after it
+  local a b
+  a="$(grep -bo -m1 -- "$1" <<<"$3" | head -1 | cut -d: -f1)"; b="$(grep -bo -m1 -- "$2" <<<"$3" | head -1 | cut -d: -f1)"
+  [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]
+}
+out="$(ctx "$(agent sdd:reviewer "$J")")"
+before "JUDGE-MARK" "reviewer-MARK" "$out" && echo "ok    I1: sdd:reviewer gets the judge file, then its own" || { echo "FAIL  I1: $out"; fails=$((fails + 1)); }
+ck "I1: role heading" "Project rules for the judge role (.claude/kit/judge.md of this project)" "$out"
+ck "I1: agent heading says its rules win" "Project rules for sdd:reviewer (.claude/kit/reviewer.md); where they differ from the role's rules, these win" "$out"
+ck "I1: event name" "SubagentStart" "$(ev "$(agent sdd:reviewer "$J")")"
+out="$(ctx "$(agent delegate:critic "$J")")"
+ck "I2: delegate:critic gets the judge file" "JUDGE-MARK" "$out"
+ck "I2: and its role heading" "Project rules for the judge role" "$out"
+case "$out" in *"Project rules for delegate:critic"*) echo "FAIL  I2: critic has no file of its own, no second heading"; fails=$((fails + 1)) ;; *) echo "ok    I2: no agent heading without an agent file" ;; esac
+ck "I3: delegate:checker gets the judge file" "JUDGE-MARK" "$(ctx "$(agent delegate:checker "$J")")"
+out="$(ctx "$(agent delegate:worker "$J")")"
+ck "I5: delegate:worker gets worker.md as before" "worker-MARK" "$out"
+case "$out" in *JUDGE-MARK*) echo "FAIL  I5: a build agent got the judge file"; fails=$((fails + 1)) ;; *) echo "ok    I5: and not the judge file" ;; esac
+ck "I6: the skill sdd:plan gets plan.md" "plan-MARK" "$(ctx "$(skill sdd:plan "$J")")"
+ck "I6: the typed /sdd:plan gets plan.md" "plan-MARK" "$(ctx "$(prompt "/sdd:plan go" "$J")")"
+case "$(skill sdd:plan "$J")$(prompt "/sdd:plan go" "$J")" in *JUDGE-MARK*) echo "FAIL  I6: a role file reached a skill"; fails=$((fails + 1)) ;; *) echo "ok    I6: no role file for a skill or a typed stage" ;; esac
+JO="$tmp/judgeonly"; mkdir -p "$JO/.claude/kit" && git -C "$JO" init -q -b master && printf 'JUDGE-MARK\n' >"$JO/.claude/kit/judge.md"
+out="$(ctx "$(agent product:ui-reviewer "$JO")")"
+ck "I8: judge.md alone reaches product:ui-reviewer" "JUDGE-MARK" "$out"
+ck "I8: judge.md alone gives a build agent nothing" - "$(agent delegate:worker "$JO")"
+# a map of our own, beside a copy of the hook
+mkdir -p "$tmp/h/hooks" "$tmp/h/lib" && cp "$hook" "$tmp/h/hooks/inject-addition.sh"
+hook_saved="$hook"; hook="$tmp/h/hooks/inject-addition.sh"
+printf 'sdd:author\tthink\n' >"$tmp/h/lib/agent-roles.tsv"
+ck "I7: an agent missing from the map gets its own file only" "reviewer-MARK" "$(ctx "$(agent sdd:reviewer "$J")")"
+case "$(agent sdd:reviewer "$J")" in *JUDGE-MARK*) echo "FAIL  I7: a role file reached an agent not in the map"; fails=$((fails + 1)) ;; *) echo "ok    I7: and no role file" ;; esac
+rm -f "$tmp/h/lib/agent-roles.tsv"
+out="$(agent sdd:reviewer "$J")"; rc=$?
+[ "$rc" -eq 0 ] && echo "ok    I9: no map file: exit 0" || { echo "FAIL  I9: exit $rc"; fails=$((fails + 1)); }
+ck "I9: no map file: per-agent file only" "reviewer-MARK" "$(ctx "$out")"
+case "$out" in *JUDGE-MARK*) echo "FAIL  I9: role file with no map"; fails=$((fails + 1)) ;; *) echo "ok    I9: and no role file" ;; esac
+hook="$hook_saved"
 
 [ "$fails" -eq 0 ] && echo "inject-addition.test: all passed" || { echo "inject-addition.test: $fails failed"; exit 1; }

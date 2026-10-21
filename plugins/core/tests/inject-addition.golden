@@ -1,0 +1,336 @@
+== agent sdd:apply-review
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:apply-review (.claude/kit/apply-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\napply-review-MARK\nline two of apply-review\n"
+  }
+}
+== agent product:apply-review
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:apply-review (.claude/kit/apply-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\napply-review-MARK\nline two of apply-review\n"
+  }
+}
+== skill sdd:apply-review
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:apply-review (.claude/kit/apply-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\napply-review-MARK\nline two of apply-review\n"
+  }
+}
+== prompt /sdd:apply-review
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:apply-review (.claude/kit/apply-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\napply-review-MARK\nline two of apply-review\n"
+  }
+}
+== agent sdd:archive
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:archive (.claude/kit/archive.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\narchive-MARK\nline two of archive\n"
+  }
+}
+== agent product:archive
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:archive (.claude/kit/archive.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\narchive-MARK\nline two of archive\n"
+  }
+}
+== skill sdd:archive
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:archive (.claude/kit/archive.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\narchive-MARK\nline two of archive\n"
+  }
+}
+== prompt /sdd:archive
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:archive (.claude/kit/archive.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\narchive-MARK\nline two of archive\n"
+  }
+}
+== agent sdd:author
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:author (.claude/kit/author.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nauthor-MARK\nline two of author\n"
+  }
+}
+== agent product:author
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:author (.claude/kit/author.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nauthor-MARK\nline two of author\n"
+  }
+}
+== skill sdd:author
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:author (.claude/kit/author.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nauthor-MARK\nline two of author\n"
+  }
+}
+== prompt /sdd:author
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:author (.claude/kit/author.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nauthor-MARK\nline two of author\n"
+  }
+}
+== agent sdd:fixer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:fixer (.claude/kit/fixer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nfixer-MARK\nline two of fixer\n"
+  }
+}
+== agent product:fixer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:fixer (.claude/kit/fixer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nfixer-MARK\nline two of fixer\n"
+  }
+}
+== skill sdd:fixer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:fixer (.claude/kit/fixer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nfixer-MARK\nline two of fixer\n"
+  }
+}
+== prompt /sdd:fixer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:fixer (.claude/kit/fixer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nfixer-MARK\nline two of fixer\n"
+  }
+}
+== agent sdd:parallel-apply
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:parallel-apply (.claude/kit/parallel-apply.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nparallel-apply-MARK\nline two of parallel-apply\n"
+  }
+}
+== agent product:parallel-apply
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:parallel-apply (.claude/kit/parallel-apply.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nparallel-apply-MARK\nline two of parallel-apply\n"
+  }
+}
+== skill sdd:parallel-apply
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:parallel-apply (.claude/kit/parallel-apply.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nparallel-apply-MARK\nline two of parallel-apply\n"
+  }
+}
+== prompt /sdd:parallel-apply
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:parallel-apply (.claude/kit/parallel-apply.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nparallel-apply-MARK\nline two of parallel-apply\n"
+  }
+}
+== agent sdd:plan
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:plan (.claude/kit/plan.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nplan-MARK\nline two of plan\n"
+  }
+}
+== agent product:plan
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:plan (.claude/kit/plan.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nplan-MARK\nline two of plan\n"
+  }
+}
+== skill sdd:plan
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:plan (.claude/kit/plan.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nplan-MARK\nline two of plan\n"
+  }
+}
+== prompt /sdd:plan
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:plan (.claude/kit/plan.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nplan-MARK\nline two of plan\n"
+  }
+}
+== agent sdd:reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:reviewer (.claude/kit/reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nreviewer-MARK\nline two of reviewer\n"
+  }
+}
+== agent product:reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:reviewer (.claude/kit/reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nreviewer-MARK\nline two of reviewer\n"
+  }
+}
+== skill sdd:reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:reviewer (.claude/kit/reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nreviewer-MARK\nline two of reviewer\n"
+  }
+}
+== prompt /sdd:reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:reviewer (.claude/kit/reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nreviewer-MARK\nline two of reviewer\n"
+  }
+}
+== agent sdd:spec-conformance
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:spec-conformance (.claude/kit/spec-conformance.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-conformance-MARK\nline two of spec-conformance\n"
+  }
+}
+== agent product:spec-conformance
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:spec-conformance (.claude/kit/spec-conformance.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-conformance-MARK\nline two of spec-conformance\n"
+  }
+}
+== skill sdd:spec-conformance
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:spec-conformance (.claude/kit/spec-conformance.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-conformance-MARK\nline two of spec-conformance\n"
+  }
+}
+== prompt /sdd:spec-conformance
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:spec-conformance (.claude/kit/spec-conformance.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-conformance-MARK\nline two of spec-conformance\n"
+  }
+}
+== agent sdd:spec-review
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:spec-review (.claude/kit/spec-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-review-MARK\nline two of spec-review\n"
+  }
+}
+== agent product:spec-review
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:spec-review (.claude/kit/spec-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-review-MARK\nline two of spec-review\n"
+  }
+}
+== skill sdd:spec-review
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:spec-review (.claude/kit/spec-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-review-MARK\nline two of spec-review\n"
+  }
+}
+== prompt /sdd:spec-review
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:spec-review (.claude/kit/spec-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-review-MARK\nline two of spec-review\n"
+  }
+}
+== agent sdd:spec-reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:spec-reviewer (.claude/kit/spec-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-reviewer-MARK\nline two of spec-reviewer\n"
+  }
+}
+== agent product:spec-reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:spec-reviewer (.claude/kit/spec-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-reviewer-MARK\nline two of spec-reviewer\n"
+  }
+}
+== skill sdd:spec-reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:spec-reviewer (.claude/kit/spec-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-reviewer-MARK\nline two of spec-reviewer\n"
+  }
+}
+== prompt /sdd:spec-reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:spec-reviewer (.claude/kit/spec-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-reviewer-MARK\nline two of spec-reviewer\n"
+  }
+}
+== agent sdd:ui-reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:ui-reviewer (.claude/kit/ui-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nui-reviewer-MARK\nline two of ui-reviewer\n"
+  }
+}
+== agent product:ui-reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:ui-reviewer (.claude/kit/ui-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nui-reviewer-MARK\nline two of ui-reviewer\n"
+  }
+}
+== skill sdd:ui-reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:ui-reviewer (.claude/kit/ui-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nui-reviewer-MARK\nline two of ui-reviewer\n"
+  }
+}
+== prompt /sdd:ui-reviewer
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:ui-reviewer (.claude/kit/ui-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nui-reviewer-MARK\nline two of ui-reviewer\n"
+  }
+}
+== agent sdd:worker
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for sdd:worker (.claude/kit/worker.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nworker-MARK\nline two of worker\n"
+  }
+}
+== agent product:worker
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Project addition for product:worker (.claude/kit/worker.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nworker-MARK\nline two of worker\n"
+  }
+}
+== skill sdd:worker
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Project addition for sdd:worker (.claude/kit/worker.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nworker-MARK\nline two of worker\n"
+  }
+}
+== prompt /sdd:worker
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Project addition for sdd:worker (.claude/kit/worker.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nworker-MARK\nline two of worker\n"
+  }
+}
