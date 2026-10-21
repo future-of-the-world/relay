@@ -298,3 +298,14 @@ Decisions of 21 Oct evening (owner's words verbatim where quoted):
   merged code live from ~/relay within minutes).
 - OpenSpec natural-language triggers and doctor checks: batch 3 (see
   above).
+- Agent families ("a a"): sdd agents are separate full copies of the
+  delegate roles (only model/effort synced by tier via relay sync,
+  lib/relay_rules.py:133-163). Batch 3: one shared base per role
+  (judge, build, fix, think, look, run) written once; each agent file
+  assembled from base + its flow-specific part by `relay sync`; a ci test
+  fails if any assembled file is stale. The new review method goes into
+  the shared judge base so both families get it: every finding with a
+  concrete failing case and the pass-cases for the fix; sdd apply-review
+  already reviews the whole range on its second pass (keep that), but
+  its reviewers lack the failing-case rule. Design review (critic on the
+  thinker's design) BEFORE building, per the new review method.
