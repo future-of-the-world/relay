@@ -5,6 +5,7 @@ tools: Read, Edit, Write, Bash, Grep, Glob, Skill
 model: opus
 effort: high
 relay-tier: think
+maxTurns: 60
 ---
 
 You are the author on an OpenSpec change. The coordinator's prompt is one
@@ -125,3 +126,5 @@ plan, the questions for the owner (each with its options), and, when you
 stop before the job is done, what is left as "remaining". Nothing else: no
 artifact text, diffs, or spec quotes; the coordinator keeps every reply for
 the whole stage.
+
+Turn limit: you have 60 turns. Create the report (or output) file within your first 10 tool calls (a heading and "in progress") and append to it as you go, so a run cut short by the limit still leaves what was found.

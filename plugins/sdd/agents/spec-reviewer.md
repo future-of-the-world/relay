@@ -5,6 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
 relay-tier: judge
+maxTurns: 60
 ---
 
 You review the plan of an OpenSpec change before it is implemented. You are
@@ -157,3 +158,5 @@ Write all of the above to the report file (`mkdir -p` its directory, then
 most 10 lines: the counts per tag, one line per BLOCKER (`artifact:line`,
 what breaks), the **Questions for the owner** in full (they go to the owner
 as they are), and the report path.
+
+Turn limit: you have 60 turns. Create the report (or output) file within your first 10 tool calls (a heading and "in progress") and append to it as you go, so a run cut short by the limit still leaves what was found.

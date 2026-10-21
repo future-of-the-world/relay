@@ -5,6 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
 relay-tier: judge
+maxTurns: 60
 ---
 
 You review a change for correctness: that the product keeps its promise to
@@ -95,3 +96,5 @@ Write all of the above to the report file (`mkdir -p` its directory, then
 10 lines: the counts per tag, one line per HIGH finding (`file:line`, what
 goes wrong), and the report path. The coordinator's context is the budget;
 the fixers read the file.
+
+Turn limit: you have 60 turns. Create the report (or output) file within your first 10 tool calls (a heading and "in progress") and append to it as you go, so a run cut short by the limit still leaves what was found.

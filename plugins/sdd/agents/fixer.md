@@ -5,6 +5,7 @@ tools: Read, Edit, Write, Bash, Grep, Glob, Skill
 model: sonnet
 effort: medium
 relay-tier: fix
+maxTurns: 80
 ---
 
 You fix one group of findings on an OpenSpec change. The coordinator gives

@@ -5,6 +5,7 @@ tools: Read, Grep, Glob, Bash, Skill
 model: opus
 effort: high
 relay-tier: judge
+maxTurns: 60
 ---
 
 You review the code of a change for correctness bugs. You are read-only: you
@@ -60,3 +61,5 @@ Write the findings to the report file (`mkdir -p` its directory, then
 10 lines: the counts (confirmed, plausible), one line per CONFIRMED high
 finding (`file:line`, what goes wrong), any "remaining", and the report path.
 The coordinator's context is the budget; the fixers read the file.
+
+Turn limit: you have 60 turns. Create the report (or output) file within your first 10 tool calls (a heading and "in progress") and append to it as you go, so a run cut short by the limit still leaves what was found.

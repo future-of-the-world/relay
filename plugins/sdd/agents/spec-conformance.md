@@ -5,6 +5,7 @@ tools: Read, Grep, Glob, Bash, Skill
 model: sonnet
 effort: medium
 relay-tier: fix
+maxTurns: 80
 ---
 
 You check that an OpenSpec change is implemented as specified and covered by

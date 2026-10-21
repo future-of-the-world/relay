@@ -670,15 +670,28 @@ class Numbers(Base):
 
 
 class Agents(unittest.TestCase):
-    def test_judge_agents_have_room_and_write_their_file_early(self):
-        """Two Opus agents once ran out of turns with no report: critic and thinker get 60 and must start the file early."""
+    def test_every_agent_has_a_turn_limit_and_judges_write_their_file_early(self):
+        """Two Opus agents once ran out of turns with no report. Every agent file in every plugin carries maxTurns
+        (a new agent without one fails here): Opus judges and thinkers 60 and must start the file early, Sonnet
+        builders and fixers 80, the small lookup agents keep their own."""
+        import glob
         import re
-        for name in ("critic", "thinker"):
-            with open(os.path.join(ROOT, "plugins", "delegate", "agents", name + ".md"), encoding="utf-8") as handle:
+        files = sorted(glob.glob(os.path.join(ROOT, "plugins", "*", "agents", "*.md")))
+        self.assertGreaterEqual(len(files), 14)
+        for path in files:
+            with open(path, encoding="utf-8") as handle:
                 text = handle.read()
-            self.assertEqual(re.search(r"(?m)^maxTurns: (\d+)$", text).group(1), "60", name)
-            self.assertIn("within your first 10 tool calls", text, name)
-            self.assertIn("append to it as you go", text, name)
+            name = os.path.relpath(path, ROOT)
+            front = text.split("---", 2)[1]
+            turns = re.search(r"(?m)^maxTurns: (\d+)$", front)
+            self.assertIsNotNone(turns, name + " has no maxTurns")
+            model = re.search(r"(?m)^model: (\w+)$", front).group(1)
+            if model == "opus":
+                self.assertEqual(turns.group(1), "60", name)
+                self.assertIn("within your first 10 tool calls", text, name)
+                self.assertIn("append to it as you go", text, name)
+            elif model == "sonnet":
+                self.assertEqual(turns.group(1), "80", name)
 
 
 class Bench(Base):

@@ -5,6 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
 relay-tier: judge
+maxTurns: 60
 ---
 
 You review how a change looks, by looking at it. The other reviews read the
@@ -225,3 +226,5 @@ Write all of the above to the report file (`mkdir -p` its directory, then
 and `TASTE`, per severity), one line per `HIGH` finding with its screenshot
 path and per `TASTE` question with the path of its A-beside-B sheet, the path
 of `sheets/index.html`, and the report path.
+
+Turn limit: you have 60 turns. Create the report (or output) file within your first 10 tool calls (a heading and "in progress") and append to it as you go, so a run cut short by the limit still leaves what was found.

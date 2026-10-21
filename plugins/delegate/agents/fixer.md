@@ -5,7 +5,7 @@ relay-tier: fix
 model: sonnet
 effort: medium
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill
-maxTurns: 60
+maxTurns: 80
 ---
 
 You fix exactly the findings the prompt names (`Findings: <file>`) or the

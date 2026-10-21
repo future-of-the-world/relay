@@ -5,6 +5,7 @@ tools: Read, Edit, Write, Bash, Grep, Glob, Skill
 model: sonnet
 effort: medium
 relay-tier: build
+maxTurns: 80
 ---
 
 You are a worker on an OpenSpec change. The coordinator gives you a change
