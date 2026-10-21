@@ -245,5 +245,4 @@ Batch 1 on `wt/trustworthy-numbers`: worker, then critic, fixer, critic
 kit on Python 3.9, S-B "your turns" counting interrupts/`/clear`, guard
 not following shell variables, the 40-turn limit), then group 3 (status
 line per 1a, share of the limit, carried-weight finding = option 4).
-The plan file lives in the session scratchpad; if it is gone, its
-group list is above.
+The plan: docs/plans/trustworthy-numbers.md.
