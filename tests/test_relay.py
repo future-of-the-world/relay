@@ -904,21 +904,43 @@ class Roles(Base):
         self.assertEqual(rr.assemble(root), [self.agent(root)])
         self.assertEqual(open(self.agent(root)).read(), once)
 
-    def test_real_agents_with_markers_are_well_formed(self):
-        """A2/A3 on the real tree: every agent file that holds markers has one base, known parts, the tools its base needs.
-        (Agents not yet moved onto a base carry no markers; the 'every agent has a base' form of A2 comes with the last part.)"""
+    def test_every_real_agent_has_one_base(self):
+        """A2 on the real tree: every agent file of every plugin has exactly one relay:base region, known parts and the tools
+        its base needs; the bases of the 15 agents are the ones the design names (the checker is a judge)."""
         rr = self.lib()
-        self.assertEqual(rr.problems(ROOT), [])
+        self.assertEqual(rr.problems(ROOT, require_base=True), [])
         by_base = {}
         for path in rr.agent_files(ROOT):
             text = open(path).read()
-            if rr.has_markers(text):
-                base = [r["name"] for r in rr.parse_regions(text) if isinstance(r, dict) and r["kind"] == "base"][0]
-                by_base.setdefault(base, []).append(os.path.relpath(path, ROOT))
-        self.assertEqual(by_base, {"lookup": ["plugins/delegate/agents/scout.md"], "run": ["plugins/delegate/agents/runner.md"],
-                                   "build": ["plugins/delegate/agents/worker.md", "plugins/sdd/agents/worker.md"],
-                                   "fix": ["plugins/delegate/agents/fixer.md", "plugins/sdd/agents/fixer.md"],
-                                   "think": ["plugins/delegate/agents/thinker.md", "plugins/sdd/agents/author.md"]})
+            base = [r["name"] for r in rr.parse_regions(text) if isinstance(r, dict) and r["kind"] == "base"][0]
+            by_base.setdefault(base, []).append(os.path.relpath(path, ROOT))
+        self.assertEqual(by_base, {
+            "lookup": ["plugins/delegate/agents/scout.md"],
+            "run": ["plugins/delegate/agents/runner.md"],
+            "build": ["plugins/delegate/agents/worker.md", "plugins/sdd/agents/worker.md"],
+            "fix": ["plugins/delegate/agents/fixer.md", "plugins/sdd/agents/fixer.md"],
+            "think": ["plugins/delegate/agents/thinker.md", "plugins/sdd/agents/author.md"],
+            "judge": ["plugins/delegate/agents/checker.md", "plugins/delegate/agents/critic.md", "plugins/product/agents/ui-reviewer.md",
+                      "plugins/sdd/agents/code-reviewer.md", "plugins/sdd/agents/reviewer.md", "plugins/sdd/agents/spec-conformance.md",
+                      "plugins/sdd/agents/spec-reviewer.md"]})
+
+    def test_judges_cannot_edit_and_check_mode_does_not_need_part_two(self):
+        """The judge base forbids Edit tools (A3) and names no part-2 thing as a given: marks, merge refusal and queue
+        items appear only as 'when the project has' them. A judge that gained Edit, or a base that states a queue as fact, fails."""
+        rr = self.lib()
+        for path in rr.agent_files(ROOT):
+            text = open(path).read()
+            meta, _ = rr.split_frontmatter(text)
+            if "relay:base judge" in text:
+                for tool in ("Edit", "MultiEdit", "NotebookEdit"):
+                    self.assertNotIn(tool, [x.strip() for x in meta["tools"].split(",")], path)
+        judge = open(os.path.join(ROOT, "roles", "judge.md")).read()
+        flat = " ".join(judge.split())
+        self.assertIn("When the project has a work queue, a finding from a findings file", flat)
+        self.assertIn("When the project has a work queue, a `Design:` finding", flat)
+        self.assertIn("relay changed -C <path> <sha>` lists no file", flat)
+        checker = open(os.path.join(ROOT, "plugins", "delegate", "agents", "checker.md")).read()
+        self.assertIn("where the project has check marks", " ".join(checker.split()))
 
     def test_missing_base_names_the_checkout_rule(self):
         rr = self.lib()
