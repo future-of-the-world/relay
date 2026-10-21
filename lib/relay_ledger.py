@@ -144,26 +144,19 @@ def claude_json_sessions():
     return out
 
 
-def usage_sessions(since=None):
-    """{session_id: {model: numbers}} from `session_usage` ledger lines (the latest line of a session wins)."""
+def usage_records(since=None):
+    """{session_id: (when written, {model: numbers})} from `session_usage` ledger lines. The newest line of a
+    session wins: a resumed session is written again when Claude Code's total for it has changed."""
     found = {}
     for event in read(since=since):
         if event.get("event") == "session_usage" and event.get("session_id") and isinstance(event.get("models"), dict):
-            found[event["session_id"]] = event["models"]
+            found[event["session_id"]] = (parse_ts(event.get("ts")), event["models"])
     return found
 
 
-def _recorded(session_id):
-    needle = session_id.encode()
-    for path in glob.glob(os.path.join(ledger_dir(), "*.jsonl")):
-        try:
-            with open(path, "rb") as handle:
-                for raw in handle:
-                    if needle in raw and b'"session_usage"' in raw:
-                        return True
-        except OSError:
-            continue
-    return False
+def usage_sessions(since=None):
+    """{session_id: {model: numbers}} from `session_usage` ledger lines (the newest line of a session wins)."""
+    return {sid: models for sid, (_when, models) in usage_records(since).items()}
 
 
 def record_usage(session_id, folder, models, now, source="claude.json"):
@@ -172,22 +165,40 @@ def record_usage(session_id, folder, models, now, source="claude.json"):
 
 
 def capture(now, folder=None, skip_session=None):
-    """Write a `session_usage` line for each session in Claude Code's file not yet in the ledger.
-    folder: only that project folder (the hook's own); skip_session: a session still running."""
+    """Write a `session_usage` line for each session in Claude Code's file whose total is not yet in the ledger
+    (or has changed since: a resumed session). folder: only that project folder (the hook's own);
+    skip_session: a session still running."""
     written = []
+    recorded = None
     for project, sid, models in claude_json_sessions():
         if folder is not None and project != folder:
             continue
-        if sid == skip_session or _recorded(sid):
+        if sid == skip_session:
+            continue
+        if recorded is None:
+            recorded = usage_sessions()
+        if recorded.get(sid) == models:
             continue
         record_usage(sid, project, models, now)
+        recorded[sid] = models
         written.append(sid)
     return written
 
 
+def exact_records():
+    """{session_id: (when the figure was written, {model: numbers})}: the ledger's newest lines, then Claude
+    Code's file where it holds a different (newer) total or one not yet copied; its time is the file's."""
+    found = usage_records()
+    try:
+        file_time = dt.datetime.fromtimestamp(os.path.getmtime(claude_json()), dt.timezone.utc)
+    except OSError:
+        file_time = None
+    for _folder, sid, models in claude_json_sessions():
+        if sid not in found or found[sid][1] != models:
+            found[sid] = (file_time, models)
+    return found
+
+
 def exact_sessions():
     """{session_id: {model: numbers}}: the ledger's lines, then Claude Code's file for sessions not yet copied."""
-    found = usage_sessions()
-    for _folder, sid, models in claude_json_sessions():
-        found.setdefault(sid, models)
-    return found
+    return {sid: models for sid, (_when, models) in exact_records().items()}

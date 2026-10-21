@@ -61,9 +61,13 @@ class Agg:
     usage: dict = field(default_factory=_zero)
     cost: float = 0.0
     estimated: bool = False     # output tokens were estimated (agent transcripts hold a mid-answer snapshot)
+    one_hour: int = 0           # cache-write tokens the transcript says were written for 1 hour
 
     def add(self, model, usage, estimated=False):
         self.requests += 1
+        split = usage.get("cache_creation")
+        if isinstance(split, dict):
+            self.one_hour += int(split.get("ephemeral_1h_input_tokens") or 0)
         _add(self.usage, usage)
         self.cost += relay_prices.cost(model, usage)
         self.estimated = self.estimated or estimated

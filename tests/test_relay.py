@@ -312,6 +312,8 @@ class Numbers(Base):
                              "costUSD": row["cost"]}
         with open(os.path.join(self.claude, ".claude.json"), "w") as handle:
             json.dump({"projects": {"/Users/me/x": {"lastSessionId": session_id, "lastModelUsage": models}}}, handle)
+        stamp = dt.datetime(2026, 10, 22, tzinfo=dt.timezone.utc).timestamp()      # written after the session ended
+        os.utime(os.path.join(self.claude, ".claude.json"), (stamp, stamp))
 
     def test_report_uses_claude_codes_totals_when_present(self):
         import relay_analyze
@@ -350,6 +352,84 @@ class Numbers(Base):
         self.assertEqual(sorted(lines[0]["models"]["claude-haiku-5-5"]), sorted(
             ["input_tokens", "output_tokens", "thinking_tokens", "cache_read_input_tokens", "cache_creation_input_tokens",
              "web_search_requests", "cost_usd"]))
+
+    def test_report_known_error_comes_from_the_last_calibrate_run(self):
+        import relay_analyze
+        self._agent_session(None)
+        base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
+        window = (self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
+        text = relay_analyze.report(relay_analyze.collect(*window))
+        self.assertIn("not measured yet; run relay calibrate", text)
+        self.assertNotIn("36%", text)
+        relay_analyze._save_calibration({"measured": "2026-10-21", "estimate": {
+            "with_agents": {"n": 7, "median": 0.05, "worst": 0.31, "worst_signed": -0.31, "over_10": 2}}})
+        text = relay_analyze.report(relay_analyze.collect(*window))
+        self.assertNotIn("not measured yet", text)
+        self.assertIn("sessions with agents: median 5%, worst 31% low, 2 of 7 over 10% off", text)
+
+    def _opus_session(self, n, miss=1.0):
+        """A transcript-only Opus session `n` and Claude Code's total for it: the cost the prices give, divided by `miss`."""
+        import fixtures
+        import relay_prices
+        base = dt.datetime(2026, 10, 21, 8, 0, tzinfo=dt.timezone.utc)
+        fixtures.write_session(self.claude, f"-Users-me-p{n}", f"s-cal{n}", base, [])
+        usage = {"input_tokens": 150, "cache_read_input_tokens": 420_000, "cache_creation_input_tokens": 15_000, "output_tokens": 1200}
+        return {"inputTokens": 150, "outputTokens": 1200, "thinkingTokens": 0, "cacheReadInputTokens": 420_000,
+                "cacheCreationInputTokens": 15_000, "webSearchRequests": 0,
+                "costUSD": relay_prices.cost("claude-opus-5", usage) / miss}
+
+    def test_calibrate_reports_median_and_worst_and_stores_them(self):
+        import relay_analyze
+        projects = {}
+        for n in range(5):
+            projects[f"/Users/me/p{n}"] = {"lastSessionId": f"s-cal{n}", "lastModelUsage": {"claude-opus-5": self._opus_session(n)}}
+        projects["/Users/me/p5"] = {"lastSessionId": "s-cal5", "lastModelUsage": {"claude-opus-5": self._opus_session(5, miss=1.5)}}
+        # inside the 5-minute..1-hour range (a band check sees no error) yet 13% below what the transcript's own split prices
+        projects["/Users/me/p6"] = {"lastSessionId": "s-cal6", "lastModelUsage": {"claude-opus-5": self._opus_session(6, miss=1 / 1.15)}}
+        # a session with no transcript on this machine: priced against the 5-minute..1-hour range
+        projects["/Users/me/gone"] = {"lastSessionId": "s-gone", "lastModelUsage": {"claude-opus-5": {
+            "inputTokens": 100, "outputTokens": 1000, "thinkingTokens": 0, "cacheReadInputTokens": 100_000,
+            "cacheCreationInputTokens": 10_000, "webSearchRequests": 0, "costUSD": 0.10}}}
+        with open(os.path.join(self.claude, ".claude.json"), "w") as handle:
+            json.dump({"projects": projects}, handle)
+        text = relay_analyze.calibrate(self.claude, "2026-10-21T12:00:00Z")
+        line = next(l for l in text.splitlines() if l.startswith("  opus:"))
+        self.assertIn("median 0.00%", line)
+        self.assertIn("worst +50.0%", line)         # the one large miss must show, not hide behind the median
+        self.assertIn("2 of 8 over 10% off", line)
+        self.assertIn("7 transcript", line)
+        self.assertIn("1 band", line)
+        self.assertIn("WARNING", line)
+        stored = relay_analyze.load_calibration()
+        self.assertEqual(stored["prices"]["opus"]["over_10"], 2)
+        self.assertAlmostEqual(stored["prices"]["opus"]["worst"], 0.5)
+        self.assertIn("estimate", stored)
+        self.assertEqual(len([e for e in __import__('relay_ledger').read() if e["event"] == "session_usage"]), 8)
+
+    def test_resumed_session_keeps_the_newest_total_and_is_an_estimate_until_then(self):
+        import relay_analyze
+        import relay_ledger
+        self._agent_session(None)
+        base = dt.datetime(2026, 10, 21, 9, 0, tzinfo=dt.timezone.utc)
+        window = (self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
+        self._claude_json("s-snap")
+        self.assertEqual(relay_ledger.capture("2026-10-21T09:05:00Z"), ["s-snap"])     # copied before the session ended
+        self.assertEqual(relay_ledger.capture("2026-10-21T09:06:00Z"), [])             # same total: nothing new
+        os.remove(os.path.join(self.claude, ".claude.json"))
+        text = relay_analyze.report(relay_analyze.collect(*window))
+        self.assertIn("exact for 0% of usage", text)                   # the transcript runs past the copied total
+        # the owner resumed the session: Claude Code writes the bigger total again
+        self.SESSION_8_43["claude-opus-5-5"]["cost"] = 9.0
+        try:
+            self._claude_json("s-snap")
+        finally:
+            self.SESSION_8_43["claude-opus-5-5"]["cost"] = 6.99
+        self.assertEqual(relay_ledger.capture("2026-10-21T10:00:00Z"), ["s-snap"])
+        self.assertEqual(relay_ledger.usage_sessions()["s-snap"]["claude-opus-5-5"]["cost_usd"], 9.0)
+        os.remove(os.path.join(self.claude, ".claude.json"))
+        text = relay_analyze.report(relay_analyze.collect(*window))
+        self.assertIn("exact for 100% of usage", text)
+        self.assertIn("$10.43", text)       # 9.00 + 1.43 + 0.00313: the newest line, not the first
 
 
 class Bench(Base):

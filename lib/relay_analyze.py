@@ -8,6 +8,7 @@ rule), so `relay improve suggest` can print them as numbered choices.
 
 import datetime as dt
 import os
+import statistics
 from collections import defaultdict
 
 import relay_ledger
@@ -58,7 +59,10 @@ def collect(claude_dir, since=None, until=None, session_ids=None):
         for a in agents:
             a.escalated = bool(main.agent_briefs.get(a.agent_id, {}).get("escalated"))
         sessions.append({"main": main, "agents": agents, "path": path})
-    return {"sessions": sessions, "since": since, "until": until, "exact": relay_ledger.exact_sessions()}
+    records = relay_ledger.exact_records()
+    return {"sessions": sessions, "since": since, "until": until,
+            "exact": {sid: models for sid, (_when, models) in records.items()},
+            "exact_at": {sid: when for sid, (when, _models) in records.items()}}
 
 
 def _exact_usage(numbers):
@@ -71,10 +75,21 @@ def _exact_usage(numbers):
     }
 
 
-def session_figures(session, exact_map):
+def _covers(session, written):
+    """True when a total written at `written` is later than everything the session did (a resumed session's
+    earlier total does not cover its later work). Unknown times count as covering."""
+    if written is None:
+        return True
+    ends = [_ts(t.ended) for t in [session["main"]] + session["agents"] if t.ended]
+    ends = [e for e in ends if e]
+    return not ends or max(ends) <= written + dt.timedelta(seconds=60)
+
+
+def session_figures(session, exact_map, exact_at=None):
     """Per-model tokens and cost of one session, and whether they are exact.
 
-    exact: Claude Code's own totals for the session (what /cost showed), when they were captured.
+    exact: Claude Code's own totals for the session (what /cost showed), when they were captured and
+    written after the session's last activity.
     estimate: the transcripts, whose agent output is a snapshot (so estimated), plus the helper
     requests Claude Code makes that have no transcript (agents' cost x the helper uplift)."""
     main, agents = session["main"], session["agents"]
@@ -84,6 +99,8 @@ def session_figures(session, exact_map):
         for model, agg in trace.by_model.items():
             requests[model] += agg.requests
     exact = exact_map.get(main.session_id)
+    if exact and not _covers(session, (exact_at or {}).get(main.session_id)):
+        exact = None        # the session went on after Claude Code wrote this total: estimate until it is written again
     models = {}
     if exact:
         for model, numbers in exact.items():
@@ -105,33 +122,85 @@ def session_figures(session, exact_map):
     return {"label": "estimate", "cost": total, "models": models, "transcript_cost": transcript_cost, "helpers": 0.0}
 
 
+def calibration_path():
+    import relay_config
+    return os.path.join(relay_config.home_dir(), "calibration.json")
+
+
+def load_calibration():
+    """What the last `relay calibrate` measured (None when it never ran)."""
+    import json
+    try:
+        with open(calibration_path(), encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError):
+        return None
+
+
+def _save_calibration(data):
+    import json
+    os.makedirs(os.path.dirname(calibration_path()), exist_ok=True)
+    with open(calibration_path(), "w", encoding="utf-8") as handle:
+        json.dump(data, handle, indent=1, sort_keys=True)
+
+
+def _spread(errors):
+    """{n, median, worst, over_10}: absolute relative errors (median and worst), sessions more than 10% off."""
+    absolute = [abs(e) for e in errors]
+    return {"n": len(errors), "median": statistics.median(absolute), "worst": max(absolute),
+            "worst_signed": max(errors, key=abs), "over_10": sum(1 for e in absolute if e > 0.10)}
+
+
+def price_error(model, numbers, main, agents):
+    """(signed relative error of priced tokens against Claude Code's cost, basis) for one model of a session.
+    basis 'transcript': cache writes split at the session's own 1-hour share (from its transcripts' usage);
+    'band': no transcript, the distance to the range between all-5-minute and all-1-hour writes."""
+    cost = numbers["cost_usd"]
+    usage = _exact_usage(numbers)
+    written = usage["cache_creation_input_tokens"]
+    created = one_hour = 0
+    for trace in ([main] + agents if main else []):
+        agg = trace.by_model.get(model)
+        if agg:
+            created += agg.usage["cache_creation_input_tokens"]
+            one_hour += agg.one_hour
+    if created:
+        priced = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": round(written * one_hour / created)}))
+        return (priced - cost) / cost, "transcript"
+    low = relay_prices.cost(model, usage)
+    high = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": written}))
+    if cost < low:
+        return (low - cost) / cost, "band"
+    if cost > high:
+        return (high - cost) / cost, "band"
+    return 0.0, "band"
+
+
 def calibrate(claude_dir, now):
     """Backfill the ledger from Claude Code's own per-session totals, then compare them with what the
-    transcripts and prices.toml give. Returns the text to print."""
-    import statistics
+    transcripts and prices.toml give; store what was measured (relay shows it beside every estimate).
+    Returns the text to print."""
     written = relay_ledger.capture(now)
-    sessions = relay_ledger.claude_json_sessions()
+    sessions = [(sid, models) for sid, models in sorted(relay_ledger.exact_sessions().items())]
     per_model = defaultdict(lambda: defaultdict(float))
     ratios = defaultdict(list)
     uplifts = []
     errors = defaultdict(list)
+    bases = defaultdict(lambda: defaultdict(int))
+    est_with, est_without = [], []
     used = 0
-    for _folder, sid, models in sessions:
+    for sid, models in sessions:
         path = tr.session_path_for(claude_dir, sid)
+        main = tr.read_trace(path) if path else None
+        agents = tr.session_agents(path) if path else []
         for model, numbers in models.items():
-            usage = _exact_usage(numbers)
-            if "cost_usd" in numbers and numbers["cost_usd"] > 0:
-                # Claude Code's totals do not say how much was written for 1 hour: the true cost lies between
-                # all-5-minute and all-1-hour writes; the error is the distance to that range.
-                low = relay_prices.cost(model, usage)
-                high = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": usage["cache_creation_input_tokens"]}))
-                gap = max(0.0, low - numbers["cost_usd"], numbers["cost_usd"] - high)
-                errors[relay_prices.tier(model)].append(gap / numbers["cost_usd"])
+            if numbers.get("cost_usd", 0) > 0:
+                err, basis = price_error(model, numbers, main, agents)
+                errors[relay_prices.tier(model)].append(err)
+                bases[relay_prices.tier(model)][basis] += 1
         if not path:
             continue
         used += 1
-        main = tr.read_trace(path)
-        agents = tr.session_agents(path)
         for model, numbers in models.items():
             row = per_model[relay_prices.tier(model)]
             row["sessions"] += 1
@@ -151,7 +220,10 @@ def calibrate(claude_dir, now):
         total = sum(n.get("cost_usd", 0.0) for n in models.values())
         if agent_cost > 0 and total > main.total.cost:
             uplifts.append((total - main.total.cost) / agent_cost)
-    lines = [f"Claude Code's own totals: {len(sessions)} sessions in {relay_config_json()}, {len(written)} newly copied "
+        if total > 0:
+            guess = session_figures({"main": main, "agents": agents}, {})["cost"]
+            (est_with if agents else est_without).append((guess - total) / total)
+    lines = [f"Claude Code's own totals: {len(sessions)} sessions ({relay_config_json()} and the ledger), {len(written)} newly copied "
              f"into the ledger, {used} with a transcript on this machine.", ""]
     rows = []
     for key, row in sorted(per_model.items()):
@@ -160,17 +232,53 @@ def calibrate(claude_dir, now):
     lines.append(_table(rows, ["model", "sessions", "output exact", "output transcripts", "cost exact", "cost transcripts (est.)", "gap"]))
     lines.append("")
     tolerance = relay_prices.calibration_tolerance()
-    lines.append(f"Prices (prices.toml, measured {relay_prices.table().get('measured')}) applied to Claude Code's tokens, median error per model (cache writes priced between the 5-minute and 1-hour rate):")
+    lines.append(f"Prices (prices.toml, measured {relay_prices.table().get('measured')}) applied to Claude Code's tokens against its cost, per model "
+                 f"(cache writes split at the session's own 1-hour share from its transcripts; 'band' = no transcript, distance to the 5-minute..1-hour range):")
+    stored = {}
     for key, errs in sorted(errors.items()):
-        med = statistics.median(errs)
-        lines.append(f"  {key}: {med * 100:.2f}% over {len(errs)} entries" + (f"  WARNING: above the {tolerance * 100:.1f}% tolerance, re-measure prices.toml" if med > tolerance else ""))
+        sp = _spread(errs)
+        basis = ", ".join(f"{n} {name}" for name, n in sorted(bases[key].items()))
+        stored[key] = dict(sp, basis=dict(bases[key]))
+        warn = []
+        if sp["median"] > tolerance:
+            warn.append(f"median above the {tolerance * 100:.1f}% tolerance, re-measure prices.toml")
+        if sp["over_10"]:
+            warn.append(f"{sp['over_10']} of {sp['n']} sessions more than 10% off")
+        lines.append(f"  {key}: median {sp['median'] * 100:.2f}%, worst {sp['worst_signed'] * 100:+.1f}%, {sp['over_10']} of {sp['n']} over 10% off ({basis})"
+                     + (f"  WARNING: {'; '.join(warn)}" if warn else ""))
+    lines.append("")
+    lines.append("The estimate (transcripts only, no Claude Code total) against Claude Code's total, per session:")
+    estimate = {}
+    for name, errs in (("with_agents", est_with), ("without_agents", est_without)):
+        if errs:
+            sp = _spread(errs)
+            estimate[name] = sp
+            lines.append(f"  {name.replace('_', ' ')}: median {sp['median'] * 100:.1f}%, worst {sp['worst_signed'] * 100:+.1f}%, "
+                         f"{sp['over_10']} of {sp['n']} over 10% off")
     lines.append("")
     lines.append("Fitted settings for prices.toml [estimate] (sessions with 5+ agent requests on the model):")
     for key, vals in sorted(ratios.items()):
         lines.append(f"  output_per_char.{key} = {statistics.median(vals):.2f}  (now {relay_prices.output_per_char(key):.2f}; {len(vals)} sessions, range {min(vals):.2f}-{max(vals):.2f})")
     if uplifts:
         lines.append(f"  helper_uplift = {statistics.median(uplifts):.2f}  (now {relay_prices.helper_uplift():.2f}; {len(uplifts)} sessions with agents)")
+    _save_calibration({"measured": now[:10] if isinstance(now, str) else str(now)[:10], "sessions": len(sessions),
+                       "prices": stored, "estimate": estimate})
     return "\n".join(lines)
+
+
+def known_error_sentence():
+    """The error printed beside an estimate: from the last `relay calibrate`, or an honest 'not measured'."""
+    cal = load_calibration()
+    est = (cal or {}).get("estimate") or {}
+    if not est:
+        return "Known error: not measured yet; run relay calibrate."
+    parts = []
+    for name, label in (("with_agents", "sessions with agents"), ("without_agents", "sessions without agents")):
+        sp = est.get(name)
+        if sp:
+            parts.append(f"{label}: median {sp['median'] * 100:.0f}%, worst {abs(sp['worst_signed']) * 100:.0f}% "
+                         f"{'low' if sp['worst_signed'] < 0 else 'high'}, {sp['over_10']} of {sp['n']} over 10% off")
+    return f"Known error (measured {cal.get('measured')} against Claude Code's totals): " + "; ".join(parts) + "."
 
 
 def relay_config_json():
@@ -191,7 +299,7 @@ def _sum_agg(aggs):
 def totals(data):
     mains = [s["main"] for s in data["sessions"]]
     agents = [a for s in data["sessions"] for a in s["agents"]]
-    figures = [session_figures(s, data.get("exact") or {}) for s in data["sessions"]]
+    figures = [session_figures(s, data.get("exact") or {}, data.get("exact_at")) for s in data["sessions"]]
     by_model = {}
     basis = defaultdict(set)
     for fig in figures:
@@ -266,9 +374,8 @@ def report(data, title="Usage"):
                  f"estimate for the rest ({_money(t['estimate_cost'])})")
     if t["sessions"] > t["exact_sessions"]:
         lines.append(f"  The estimate counts agents' output from what the transcript shows and adds {relay_prices.helper_uplift():.2f}x "
-                     f"on agents for Claude Code's own helper requests. Known error (measured on 30 sessions): about 5% for half "
-                     f"of the sessions with agents, up to 36% low at worst; sessions without agents within 2%. "
-                     f"Exact figures arrive when the next session starts in the same folder.")
+                     f"on agents for Claude Code's own helper requests. {known_error_sentence()} "
+                     f"Exact figures arrive when the session closes (a session that went on after its total was written stays an estimate).")
     if t["exact_sessions"]:
         lines.append(f"  Claude Code helpers (no transcript), exact sessions only: {_money(t['helpers'])}")
     lines.append(f"  Transcripts explain: main sessions {_money(t['main'].cost)}, agents {_money(t['agents_total'].cost)} "
