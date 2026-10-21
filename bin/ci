@@ -18,7 +18,8 @@ step() { local name="$1"; shift; local log=".ci/steps/${name// /-}.log" start rc
   if [ "$rc" -eq 0 ]; then echo "ci: $name ok ($(( $(date +%s) - start ))s)"
   else echo "ci: $name FAILED ($(( $(date +%s) - start ))s, log: $log)"; grep -E 'FAIL|Error|error|✗' "$log" | head -8 | sed 's/^/    /'; status=1; fi; }
 lib_tests() { python3 -W ignore::ResourceWarning -m unittest discover -s tests -p 'test_*.py'; }
-hook_tests() { local f rc=0; for f in plugins/*/tests/*.test.sh; do [ -e "$f" ] || continue
+hook_tests() { local f rc=0; [ "$quick" = 1 ] && export RELAY_QUICK=1   # the guard suite runs its shared cases once in quick mode
+  for f in plugins/*/tests/*.test.sh; do [ -e "$f" ] || continue
   case "$f" in *hooks-live*|*packet*|*check-contract*|*shim*|*spec-check*|*inject-addition*)
     # the principles-era core tests need bun, the fixture's node_modules or claude; run them when RELAY_CORE_TESTS=1
     # (guard-main, kit and kit-name need only git, jq and python3, so they run in every gate)

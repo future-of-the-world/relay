@@ -11,16 +11,24 @@ unset CLAUDE_PROJECT_DIR
 
 tmp="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$tmp"' EXIT
-M="$tmp/repo"
-mkdir -p "$M" && cd "$M" && git init -q -b master . \
-  && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m init \
-  && git worktree add -q .worktrees/any-change -b wt/any-change \
-  && git worktree add -q .worktree/any-change -b wt/any-change2 || { echo "guard-main.test: cannot build the repo" >&2; exit 1; }
-printf '.ci/\n' >"$M/.gitignore"; printf 'a\n' >"$M/README.md"
-mkdir -p "$M/deps/jason" && ln -s "$M/deps" "$M/.worktree/any-change/deps"
-fails=0
+# RELAY_QUICK=1 (bin/ci --quick): the shared cases (common) run once, under Kartoteka's kit.toml; each profile's own
+# cases always run. Every profile runs in its own repository, in parallel. Without it every profile runs all cases.
+quick="${RELAY_QUICK:-0}"
 
+mkrepo() { # <dir>: a fresh repository with a worktree in each of the two directories the profiles use
+  M="$1"
+  mkdir -p "$M" && cd "$M" && git init -q -b master . \
+    && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m init \
+    && git worktree add -q .worktrees/any-change -b wt/any-change \
+    && git worktree add -q .worktree/any-change -b wt/any-change2 || { echo "guard-main.test: cannot build the repo" >&2; exit 1; }
+  printf '.ci/\n' >"$M/.gitignore"; printf 'a\n' >"$M/README.md"
+  mkdir -p "$M/deps/jason" && ln -s "$M/deps" "$M/.worktree/any-change/deps"
+  fails=0
+}
+
+shards=1; shard=0; ncase=0   # quick mode cuts the shared cases into shards that run in parallel
 t() {
+  ncase=$((ncase + 1)); [ $((ncase % shards)) -eq "$shard" ] || return 0
   local expect="$1" desc="$2" tool="$3" cwd="$4" key="$5" val="$6" got
   jq -n --arg tool "$tool" --arg cwd "$cwd" --arg key "$key" --arg val "$val" \
     '{tool_name: $tool, cwd: $cwd, tool_input: {($key): $val}}' | "$hook" >/dev/null 2>&1
@@ -222,95 +230,123 @@ EOF"
   t block "ln -s into main"                Bash "$M" command "ln -s $W/f.txt link"
 }
 
-# --- Kartoteka: bun rules, worktrees in .worktrees ---------------------------
-use kartoteka "$kartoteka" .worktrees
-common
-t allow "cd relative worktree"       Bash "$M" command "cd .worktrees/any-change && bin/ci"
-t allow "grep for 'cargo test'"      Bash "$M" command "grep -rn 'cargo test' docs"
-t block "bun add in main"            Bash "$M" command "bun add @tauri-apps/api"
-t block "bun remove in main"         Bash "$M" command "bun remove preact"
-t block "bun install in main"        Bash "$M" command "bun install"
-t block "bun i in main"              Bash "$M" command "git status && bun i"
-t allow "frozen install in main"     Bash "$M" command "bun install --frozen-lockfile"
-t block "bun run format in main"     Bash "$M" command "bun run format"
-t allow "format:check in main"       Bash "$M" command "bun run format:check"
-t block "prettier --write in main"   Bash "$M" command "bunx prettier --write src"
-t block "eslint --fix in main"       Bash "$M" command "bun run lint --fix"
-t block "snapshot update in main"    Bash "$M" command "bun run test -u"
-t allow "bun run check in main"      Bash "$M" command "bun run check"
-t allow "bun run dev in main"        Bash "$M" command "bun run dev"
-t allow "bin/ci --check in main"     Bash "$M" command "bin/ci --check"
-t allow "bun add in worktree cwd"    Bash "$W" command "bun add @tauri-apps/api"
-t allow "cd worktree && bun add"     Bash "$M" command "cd $W && bun add @tauri-apps/api"
-t allow "bun --cwd worktree"         Bash "$M" command "bun --cwd $W run format"
-t block "bun --cwd main from wt"     Bash "$W" command "bun add --cwd $M zod"
-t allow "bun info is not install"    Bash "$M" command "bun info preact"
-t allow "commit message says cargo"  Bash "$W" command "git commit -m 'run cargo fmt'"
-t allow "cargo is no rule here"      Bash "$M" command "cargo test"
+# the shared cases: all of them under the first profile in quick mode, under every profile otherwise
+shared() { if [ "$quick" = 1 ]; then return; fi; common; }
+prof_shared() { shards=3; shard="${1:-0}"; use kartoteka "$kartoteka" .worktrees; common; }   # quick mode only: the shared cases, in a run of their own
 
-# --- Rust and Tauri (Clean, Mind) ---------------------------------------------
-use tauri "$here/profiles/tauri.toml" .worktrees
-common
-t block "cargo in main src-tauri"    Bash "$M" command "cd src-tauri && cargo clippy"
-t block "env-prefixed cargo in main" Bash "$M" command "RUST_BACKTRACE=1 cargo test"
-t block "manifest-path into main"    Bash "$W" command "cargo build --manifest-path $M/src-tauri/Cargo.toml"
-t allow "cargo in worktree cwd"      Bash "$W" command "cd src-tauri && cargo clippy"
-t allow "cd worktree && cargo"       Bash "$M" command "cd $W/src-tauri && cargo clippy"
+prof_kartoteka() {
+  # --- Kartoteka: bun rules, worktrees in .worktrees ---------------------------
+  use kartoteka "$kartoteka" .worktrees
+  shared
+  t allow "cd relative worktree"       Bash "$M" command "cd .worktrees/any-change && bin/ci"
+  t allow "grep for 'cargo test'"      Bash "$M" command "grep -rn 'cargo test' docs"
+  t block "bun add in main"            Bash "$M" command "bun add @tauri-apps/api"
+  t block "bun remove in main"         Bash "$M" command "bun remove preact"
+  t block "bun install in main"        Bash "$M" command "bun install"
+  t block "bun i in main"              Bash "$M" command "git status && bun i"
+  t allow "frozen install in main"     Bash "$M" command "bun install --frozen-lockfile"
+  t block "bun run format in main"     Bash "$M" command "bun run format"
+  t allow "format:check in main"       Bash "$M" command "bun run format:check"
+  t block "prettier --write in main"   Bash "$M" command "bunx prettier --write src"
+  t block "eslint --fix in main"       Bash "$M" command "bun run lint --fix"
+  t block "snapshot update in main"    Bash "$M" command "bun run test -u"
+  t allow "bun run check in main"      Bash "$M" command "bun run check"
+  t allow "bun run dev in main"        Bash "$M" command "bun run dev"
+  t allow "bin/ci --check in main"     Bash "$M" command "bin/ci --check"
+  t allow "bun add in worktree cwd"    Bash "$W" command "bun add @tauri-apps/api"
+  t allow "cd worktree && bun add"     Bash "$M" command "cd $W && bun add @tauri-apps/api"
+  t allow "bun --cwd worktree"         Bash "$M" command "bun --cwd $W run format"
+  t block "bun --cwd main from wt"     Bash "$W" command "bun add --cwd $M zod"
+  t allow "bun info is not install"    Bash "$M" command "bun info preact"
+  t allow "commit message says cargo"  Bash "$W" command "git commit -m 'run cargo fmt'"
+  t allow "cargo is no rule here"      Bash "$M" command "cargo test"
+
+}
+prof_tauri() {
+  # --- Rust and Tauri (Clean, Mind) ---------------------------------------------
+  use tauri "$here/profiles/tauri.toml" .worktrees
+  shared
+  t block "cargo in main src-tauri"    Bash "$M" command "cd src-tauri && cargo clippy"
+  t block "env-prefixed cargo in main" Bash "$M" command "RUST_BACKTRACE=1 cargo test"
+  t block "manifest-path into main"    Bash "$W" command "cargo build --manifest-path $M/src-tauri/Cargo.toml"
+  t allow "cargo in worktree cwd"      Bash "$W" command "cd src-tauri && cargo clippy"
+  t allow "cd worktree && cargo"       Bash "$M" command "cd $W/src-tauri && cargo clippy"
   t block "manifest-path through wt/\$T/../.." Bash "$M" command "cargo build --manifest-path $WD/any-change/\$T/../../Cargo.toml"
-t allow "tauri info in main"         Bash "$M" command "bun run tauri info"
-t allow "tauri dev in main"          Bash "$M" command "bun run tauri dev"
-t block "tauri add in main"          Bash "$M" command "bun run tauri add haptics"
-t block "tauri ios init in main"     Bash "$M" command "bun run tauri ios init"
-t block "tauri icon in main"         Bash "$M" command "bunx tauri icon src-tauri/app-icon.svg"
-t allow "tauri add in worktree"      Bash "$W" command "bun run tauri add haptics"
-t allow "commit message says cargo"  Bash "$W" command "git commit -m 'run cargo fmt'"
+  t allow "tauri info in main"         Bash "$M" command "bun run tauri info"
+  t allow "tauri dev in main"          Bash "$M" command "bun run tauri dev"
+  t block "tauri add in main"          Bash "$M" command "bun run tauri add haptics"
+  t block "tauri ios init in main"     Bash "$M" command "bun run tauri ios init"
+  t block "tauri icon in main"         Bash "$M" command "bunx tauri icon src-tauri/app-icon.svg"
+  t allow "tauri add in worktree"      Bash "$W" command "bun run tauri add haptics"
+  t allow "commit message says cargo"  Bash "$W" command "git commit -m 'run cargo fmt'"
 
-# --- Elixir (ALIX): worktrees in .worktree, key patterns, symlinked deps/ -------
-use mix "$here/profiles/mix.toml" .worktree
-common
-t block "edit through deps symlink"  Edit "$M" file_path "$W/deps/jason/mix.exs"
-t block "mix test in main"           Bash "$M" command "mix test"
-t block "env-prefixed mix in main"   Bash "$M" command "ALIX_EXCHANGE_KEY=x mix test --only venue"
-t allow "mix in worktree cwd"        Bash "$W" command "mix test"
-t allow "cd worktree && mix"         Bash "$M" command "cd $W && mix ci"
-t allow "cd relative worktree"       Bash "$M" command "cd .worktree/any-change && mix ci"
-t allow "grep for 'mix test'"        Bash "$M" command "grep -rn 'mix test' docs"
-t allow "commit message says mix"    Bash "$W" command "git commit -m 'run mix format'"
-t block "curl -v with key header"    Bash "$W" command "curl -v -H \"X-BAPI-API-KEY: \$ALIX_EXCHANGE_KEY\" https://api-demo.bybit.com/v5/account"
-t allow "curl -v public endpoint"    Bash "$W" command "curl -v https://api-demo.bybit.com/v5/market/time"
-t allow "curl -s with key header"    Bash "$W" command "curl -s -H \"X-BAPI-API-KEY: \$ALIX_EXCHANGE_KEY\" https://api-demo.bybit.com/v5/account"
-t allow "the other worktrees dir is main" Bash "$M" command "cd .worktrees/any-change && git status"
-t block "edit in the unlisted .worktrees dir" Edit "$M" file_path "$M/.worktrees/any-change/x.ex"
+}
+prof_mix() {
+  # --- Elixir (ALIX): worktrees in .worktree, key patterns, symlinked deps/ -------
+  use mix "$here/profiles/mix.toml" .worktree
+  shared
+  t block "edit through deps symlink"  Edit "$M" file_path "$W/deps/jason/mix.exs"
+  t block "mix test in main"           Bash "$M" command "mix test"
+  t block "env-prefixed mix in main"   Bash "$M" command "ALIX_EXCHANGE_KEY=x mix test --only venue"
+  t allow "mix in worktree cwd"        Bash "$W" command "mix test"
+  t allow "cd worktree && mix"         Bash "$M" command "cd $W && mix ci"
+  t allow "cd relative worktree"       Bash "$M" command "cd .worktree/any-change && mix ci"
+  t allow "grep for 'mix test'"        Bash "$M" command "grep -rn 'mix test' docs"
+  t allow "commit message says mix"    Bash "$W" command "git commit -m 'run mix format'"
+  t block "curl -v with key header"    Bash "$W" command "curl -v -H \"X-BAPI-API-KEY: \$ALIX_EXCHANGE_KEY\" https://api-demo.bybit.com/v5/account"
+  t allow "curl -v public endpoint"    Bash "$W" command "curl -v https://api-demo.bybit.com/v5/market/time"
+  t allow "curl -s with key header"    Bash "$W" command "curl -s -H \"X-BAPI-API-KEY: \$ALIX_EXCHANGE_KEY\" https://api-demo.bybit.com/v5/account"
+  t allow "the other worktrees dir is main" Bash "$M" command "cd .worktrees/any-change && git status"
+  t block "edit in the unlisted .worktrees dir" Edit "$M" file_path "$M/.worktrees/any-change/x.ex"
 
-# --- every bun-like tool blocked (Glyph) ---------------------------------------
-use bun-all "$here/profiles/bun-all.toml" .worktree
-common
-t block "bun test in main"           Bash "$M" command "bun test"
-t block "acton build in main"        Bash "$M" command "acton build"
-t block "bunx in main"               Bash "$M" command "bunx vite build"
-t block "env-prefixed bun in main"   Bash "$M" command "TONCENTER_KEY=x bun test"
-t allow "bun in worktree cwd"        Bash "$W" command "bun test"
-t allow "cd worktree && bun"         Bash "$M" command "cd $W && bun run check"
-t allow "grep for 'bun test'"        Bash "$M" command "grep -rn 'bun test' docs"
-t block "curl -v with key header"    Bash "$W" command "curl -v -H \"Authorization: \$TONCENTER_API_KEY\" https://testnet.toncenter.com/api/v2/getAddressInformation"
+}
+prof_bun_all() {
+  # --- every bun-like tool blocked (Glyph) ---------------------------------------
+  use bun-all "$here/profiles/bun-all.toml" .worktree
+  shared
+  t block "bun test in main"           Bash "$M" command "bun test"
+  t block "acton build in main"        Bash "$M" command "acton build"
+  t block "bunx in main"               Bash "$M" command "bunx vite build"
+  t block "env-prefixed bun in main"   Bash "$M" command "TONCENTER_KEY=x bun test"
+  t allow "bun in worktree cwd"        Bash "$W" command "bun test"
+  t allow "cd worktree && bun"         Bash "$M" command "cd $W && bun run check"
+  t allow "grep for 'bun test'"        Bash "$M" command "grep -rn 'bun test' docs"
+  t block "curl -v with key header"    Bash "$W" command "curl -v -H \"Authorization: \$TONCENTER_API_KEY\" https://testnet.toncenter.com/api/v2/getAddressInformation"
 
-# --- no kit.toml: the generic rules only ---------------------------------------
-use none - .worktrees
-common
-t allow "stack commands are no rule" Bash "$M" command "bun add zod"
+}
+prof_none() {
+  # --- no kit.toml: the generic rules only ---------------------------------------
+  use none - .worktrees
+  shared
+  t allow "stack commands are no rule" Bash "$M" command "bun add zod"
 
-# A kit.toml that cannot be read never silently drops the project's rules.
-printf '[gate\n' >"$M/.claude/kit.toml"
-profile=broken
-for tool_cwd in "Bash $W command ls" "Edit $M file_path $W/a.txt"; do
-  # shellcheck disable=SC2086
-  set -- $tool_cwd
-  out="$(jq -n --arg tool "$1" --arg cwd "$2" --arg key "$3" --arg val "$4" '{tool_name: $tool, cwd: $cwd, tool_input: {($key): $val}}' | "$hook" 2>&1 >/dev/null)"; rc=$?
-  if [ "$rc" -eq 2 ] && grep -q "kit.toml is unreadable" <<<"$out"; then echo "ok    block  [broken] unreadable kit.toml, $1"; else echo "FAIL  rc=$rc [broken] unreadable kit.toml, $1: $out"; fails=$((fails + 1)); fi
+}
+prof_broken() {
+  # A kit.toml that cannot be read never silently drops the project's rules.
+  use broken - .worktrees
+  printf '[gate\n' >"$M/.claude/kit.toml"
+  for tool_cwd in "Bash $W command ls" "Edit $M file_path $W/a.txt"; do
+    # shellcheck disable=SC2086
+    set -- $tool_cwd
+    out="$(jq -n --arg tool "$1" --arg cwd "$2" --arg key "$3" --arg val "$4" '{tool_name: $tool, cwd: $cwd, tool_input: {($key): $val}}' | "$hook" 2>&1 >/dev/null)"; rc=$?
+    if [ "$rc" -eq 2 ] && grep -q "kit.toml is unreadable" <<<"$out"; then echo "ok    block  [broken] unreadable kit.toml, $1"; else echo "FAIL  rc=$rc [broken] unreadable kit.toml, $1: $out"; fails=$((fails + 1)); fi
+  done
+  rm -f "$M/.claude/kit.toml"
+
+  # Outside any repository nothing is guarded.
+  t allow "a directory outside any repo" Edit "$tmp" file_path "$tmp/x.txt"
+
+}
+
+pids=()
+units=(kartoteka tauri mix bun_all none broken); [ "$quick" = 1 ] && units=(shared0 shared1 shared2 "${units[@]}")
+for nm in "${units[@]}"; do
+  ( mkrepo "$tmp/$nm"; case "$nm" in shared*) prof_shared "${nm#shared}" ;; *) "prof_$nm" ;; esac; [ "$fails" -eq 0 ] ) >"$tmp/out.$nm" 2>&1 &
+  pids+=("$!")
 done
-rm -f "$M/.claude/kit.toml"
+total=0
+for i in "${!pids[@]}"; do wait "${pids[$i]}" || total=$((total + 1)); done
+for nm in "${units[@]}"; do cat "$tmp/out.$nm"; done
 
-# Outside any repository nothing is guarded.
-t allow "a directory outside any repo" Edit "$tmp" file_path "$tmp/x.txt"
-
-[ "$fails" -eq 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }
+nfail=$(cat "$tmp"/out.* | grep -c '^FAIL' || true)
+[ "$total" -eq 0 ] && [ "$nfail" -eq 0 ] && echo "all passed" || { echo "$nfail failed ($total of ${#units[@]} runs red)"; exit 1; }
