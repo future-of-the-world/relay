@@ -345,12 +345,52 @@ def expand(word, variables):
     return Word(text, bool(STILL_DYNAMIC.search(text)), False)
 
 
-def assign(words, variables):
+NAME = r"[A-Za-z_][A-Za-z0-9_]*"
+_SEG = r"[^;&|\n]*"
+
+
+def _block(cmd, opener, closer, start):
+    """The text from start to the closer that matches the first opener at or after start (or to the end)."""
+    depth, i = 0, start
+    pat = re.compile(opener + "|" + closer)
+    for m in pat.finditer(cmd, start):
+        depth += 1 if re.fullmatch(opener, m.group(0)) else -1
+        if depth <= 0:
+            return cmd[start:m.end()]
+    return cmd[start:]
+
+
+def touched(cmd):
+    """Names the guard cannot follow in this command line: changed by unset, +=, read, a for loop, eval,
+    printf -v, declare/local/typeset, or assigned inside a function body or a loop. They are unresolved."""
+    names = set()
+    for m in re.finditer(r"\b(?:unset|read|declare|local|typeset)\b(" + _SEG + ")", cmd):
+        names.update(re.findall(r"(?<![\w$-])(" + NAME + r")(?==|\b)", m.group(1)))
+    names.update(re.findall(r"\b(" + NAME + r")\+=", cmd))
+    names.update(re.findall(r"\bfor\s+(" + NAME + r")\s+in\b", cmd))
+    names.update(re.findall(r"\bprintf\s+(?:-\w+\s+)*-v\s+(" + NAME + ")", cmd))
+    for m in re.finditer(r"\beval\b(" + _SEG + ")", cmd):
+        names.update(re.findall(r"\b(" + NAME + r")\+?=", m.group(1)))
+        if "$" in m.group(1) or "`" in m.group(1):
+            names.add("*")
+    bodies = []
+    for m in re.finditer(r"(?:\bfunction\s+" + NAME + r"|\b" + NAME + r"\s*\(\s*\))\s*\{", cmd):
+        bodies.append(_block(cmd, r"\{", r"\}", m.end() - 1))
+    for m in re.finditer(r"\b(?:for|while|until)\b", cmd):
+        bodies.append(_block(cmd, r"\b(?:for|while|until)\b", r"\bdone\b", m.start()))
+    for b in bodies:
+        names.update(re.findall(r"(?<![\w$-])(" + NAME + r")\+?=", b))
+    return names
+
+
+def assign(words, variables, skip=()):
     """Remember `NAME=value` words; a value that cannot be resolved forgets the name."""
     for w in words:
         if ENV_ASSIGN.match(w.text):
             name, _eq, value = w.text.partition("=")
-            if w.dynamic:
+            if name in skip or "*" in skip:
+                variables.pop(name, None)
+            elif w.dynamic:
                 variables.pop(name, None)
             else:
                 variables[name] = value
@@ -581,17 +621,18 @@ def shell_writes(name, args, paths, cur, via_xargs):
 def analyze(cmd, cwd, flags, depth=0, variables=None):
     out = []
     states = [State(cwd)]
-    states[0].vars = dict(variables or {})
+    unseen = touched(cmd)
+    states[0].vars = {k: v for k, v in (variables or {}).items() if k not in unseen and "*" not in unseen}
 
     def simple(words, redirs, raw, st, via_xargs=False):
         cur = st.cur
         words = [expand(w, st.vars) for w in words]
         redirs = [expand(w, st.vars) for w in redirs]
         if words and all(ENV_ASSIGN.match(w.text) for w in words):
-            assign(words, st.vars)
+            assign(words, st.vars, unseen)
         real = strip_prefix(words)
         if real and real[0].text in VAR_COMMANDS:
-            assign(real[1:], st.vars)
+            assign(real[1:], st.vars, unseen)
         name = os.path.basename(real[0].text) if real else ""
         d = cur
         if name in ("cd", "pushd", "popd") and not via_xargs:
