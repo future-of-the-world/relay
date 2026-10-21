@@ -257,7 +257,16 @@ restarts the count (N3/F3), SessionEnd hook speed (N4), kit on Python
 3.9 (S-A), "your turns" counting (S-B), guard and shell variables,
 critic/thinker maxTurns 40 -> 60 with write-early text). Then review,
 fix, review, owner's OK to merge. Then group 3 (status line per 1a,
-share of the limit, carried-weight finding = option 4). Also verify the
+share of the limit, carried-weight finding = option 4), plus two owner
+picks of 21 Oct: (1) "a": `relay doctor`/`setup` check the openspec CLI
+is installed and working and the `/opsx:` commands exist in OpenSpec
+projects; (2) "a, model should recognize it, I can typo text in many
+languages, with misstypings and common language errors": OpenSpec
+stages triggered by the model's understanding (stage intents in the
+injected instructions, the hook adds the open change names per prompt,
+`/opsx:` kept as fast path), proven by ~15 paid Haiku eval prompts in
+Russian and English with typos incl. negatives (~$0.30). Memory:
+`natural-language-triggers`. Also verify the
 Sonnet long-context price with the claude-api skill. Old worktrees
 `.worktrees/live-fixes`, `.worktrees/numbers` are merged and can go.
 The plan: docs/plans/trustworthy-numbers.md.
