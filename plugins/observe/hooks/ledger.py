@@ -70,12 +70,15 @@ def main():
         prompt = data.get("prompt") or ""
         out["chars"] = len(prompt)
         out["prompt_id"] = data.get("prompt_id")
+        out["kind"] = "notification" if relay_transcripts.is_notification(prompt) else "owner"
         out["slash"] = prompt.strip().split()[0] if prompt.strip().startswith("/") else None
         if log_prompts_enabled(data.get("cwd")):
             out["text"] = prompt[:200]
     elif event == "SubagentStart":
         out = base(data, "agent_start")
-        out["prompt_chars"] = len(data.get("agent_prompt") or "")
+        out["prompt_chars"] = len(data.get("agent_prompt") or data.get("prompt") or "")
+        # key names only, never values: tells which fields this Claude Code version sends
+        out["input_keys"] = sorted(str(k) for k in data)
     elif event == "SubagentStop":
         out = base(data, "agent_stop")
         out["reply_chars"] = len(data.get("last_assistant_message") or "")
@@ -100,6 +103,9 @@ def main():
             ti = data.get("tool_input") or {}
             out["subagent_type"] = ti.get("subagent_type") or "general-purpose"
             out["model"] = ti.get("model")
+            prompt = ti.get("prompt") or ""
+            out["prompt_chars"] = len(prompt)
+            out["escalated"] = any(line.lstrip().startswith("Escalated:") for line in prompt.splitlines())
     elif event == "PostToolUse":
         out = base(data, "tool_post")
         out["tool"] = data.get("tool_name")

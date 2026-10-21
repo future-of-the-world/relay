@@ -42,6 +42,7 @@ def collect(claude_dir, since=None, until=None, session_ids=None):
     since_m = since.timestamp() if since else 0.0
     paths = tr.find_sessions(claude_dir, since_mtime=since_m)
     sessions = []
+    briefs = relay_ledger.agent_briefs(relay_ledger.read(since=since, until=until))
     for path in paths:
         sid = os.path.basename(path)[:-len(".jsonl")]
         if session_ids and sid not in session_ids:
@@ -55,6 +56,8 @@ def collect(claude_dir, since=None, until=None, session_ids=None):
         if main.total.requests == 0:
             continue
         agents = tr.session_agents(path)
+        for a in agents:
+            a.escalated = briefs.get((main.session_id, a.agent_id), {}).get("escalated", False)
         sessions.append({"main": main, "agents": agents, "path": path})
     return {"sessions": sessions, "since": since, "until": until}
 
@@ -169,8 +172,9 @@ def findings(data):
     mains = [s["main"] for s in data["sessions"]]
     rates = relay_prices.table()["models"]
 
-    # F1: build-class agents on Opus
-    opus_build = [a for a in agents if classify(a.agent_type) == "build" and relay_prices.tier(a.model) == "opus"]
+    # F1: build-class agents on Opus (an agent whose prompt said `Escalated:` was sent there on purpose)
+    opus_build = [a for a in agents if classify(a.agent_type) == "build"
+                  and relay_prices.tier(a.model) == "opus" and not a.escalated]
     if opus_build:
         cost = sum(a.total.cost for a in opus_build)
         as_sonnet = sum(relay_prices.cost("sonnet", a.total.usage) for a in opus_build)

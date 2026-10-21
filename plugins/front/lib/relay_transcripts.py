@@ -20,6 +20,15 @@ import relay_prices
 USAGE_KEYS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens")
 
 
+NOTIFICATION_MARKERS = ("<task-notification>", "<agent-message from=")
+
+
+def is_notification(text):
+    """True when a "user prompt" is really a background-agent notification, not the owner typing."""
+    text = text or ""
+    return text.lstrip().startswith("[SYSTEM NOTIFICATION") or any(m in text for m in NOTIFICATION_MARKERS)
+
+
 def _zero():
     return {k: 0 for k in USAGE_KEYS}
 
@@ -73,6 +82,7 @@ class Trace:
     gaps_over_5m: int = 0          # pauses between requests longer than the 5-minute agent cache
     max_gap_s: float = 0.0
     _last_request_ts: str = ""
+    escalated: bool = False        # agent only: its prompt had an `Escalated:` line (set from the ledger)
     first_read: int = 0            # cache_creation tokens of the first request: what a fresh agent pays
 
     @property
@@ -123,9 +133,9 @@ def _absorb(trace, entry, seen_requests):
         if isinstance(content, str) or (isinstance(content, list) and any(
             isinstance(b, dict) and b.get("type") == "text" for b in content
         )):
-            if not entry.get("isMeta"):
+            text = content if isinstance(content, str) else " ".join(b.get("text") or "" for b in content if isinstance(b, dict))
+            if not entry.get("isMeta") and not is_notification(text):
                 trace.user_turns += 1
-                text = content if isinstance(content, str) else " ".join(b.get("text") or "" for b in content if isinstance(b, dict))
                 if not text.lstrip().startswith("<"):   # tool results and system reminders are not the owner
                     trace.prompt_chars += len(text)
                     if len(text) > 600:

@@ -4,8 +4,12 @@ itself (models, effort, cost, comparing setups, how agents work). One line of
 additional context; nothing when the prompt is about the project's work. Fails open."""
 
 import json
+import os
 import re
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
+import relay_transcripts  # noqa: E402
 
 PATTERNS = [
     r"\b(haiku|sonnet|opus)\b",
@@ -24,7 +28,7 @@ def main():
     if data.get("hook_event_name") != "UserPromptSubmit" or data.get("agent_id"):
         return
     prompt = data.get("prompt") or ""
-    if prompt.lstrip().startswith("/"):
+    if prompt.lstrip().startswith("/") or relay_transcripts.is_notification(prompt):
         return
     if not any(re.search(p, prompt, re.I) for p in PATTERNS):
         return

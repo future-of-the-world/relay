@@ -108,3 +108,55 @@ def agent_spans(events):
     for key, start in starts.items():
         spans.append((key[0], start.get("agent_type") or "", key[1], parse_ts(start.get("ts")), None))
     return spans
+
+
+def owner_prompts(events):
+    """Prompt events typed by the owner (not background-agent notifications; old events have no kind)."""
+    return [e for e in events if e.get("event") == "prompt" and e.get("kind") != "notification"]
+
+
+def agent_briefs(events):
+    """What each agent was asked: {(session_id, agent_id): {subagent_type, prompt_chars, escalated}}.
+
+    SubagentStart does not carry the prompt, so it comes from the `Agent` tool call that
+    started the agent: each agent_start takes the oldest unclaimed Agent tool_pre of its
+    session with the same subagent type."""
+    waiting = {}
+    out = {}
+    for event in events:
+        kind = event.get("event")
+        sid = event.get("session_id")
+        if kind == "tool_pre" and event.get("tool") in ("Agent", "Task"):
+            waiting.setdefault(sid, []).append(event)
+        elif kind == "agent_start":
+            want = event.get("agent_type") or "general-purpose"
+            queue = waiting.get(sid, [])
+            for i, pre in enumerate(queue):
+                if (pre.get("subagent_type") or "general-purpose") == want:
+                    queue.pop(i)
+                    out[(sid, event.get("agent_id"))] = {
+                        "subagent_type": want,
+                        "prompt_chars": int(pre.get("prompt_chars") or 0),
+                        "escalated": bool(pre.get("escalated")),
+                    }
+                    break
+    return out
+
+
+def agent_results(events):
+    """One record per agent from its agent_stop events. The harness fires agent_stop twice:
+    with the reply, then again after the hand-back message (reply_chars 0, requests + 1).
+    reply_chars is the largest seen; requests, context, model and cost_est are the last stop's
+    (they are cumulative). {(session_id, agent_id): {...}}"""
+    out = {}
+    for event in events:
+        if event.get("event") != "agent_stop":
+            continue
+        key = (event.get("session_id"), event.get("agent_id"))
+        cur = out.setdefault(key, {"agent_type": event.get("agent_type") or "", "reply_chars": 0, "stops": 0})
+        cur["stops"] += 1
+        cur["reply_chars"] = max(cur["reply_chars"], int(event.get("reply_chars") or 0))
+        for field in ("requests", "context", "model", "cost_est"):
+            if field in event:
+                cur[field] = event[field]
+    return out

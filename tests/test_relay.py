@@ -88,6 +88,34 @@ class Analysis(Base):
         self.assertIn("cost per turn", text)
         self.assertIn("opus share", text)
 
+    def test_escalated_build_agent_is_not_finding_f1(self):
+        import relay_analyze
+        import relay_ledger as rl
+        base = fixtures.populate(self.claude)
+        window = (base - dt.timedelta(days=1), base + dt.timedelta(days=1))
+        self.assertIn("F1", {f["id"] for f in relay_analyze.findings(relay_analyze.collect(self.claude, *window))})
+        sid = "s-alix-" + base.strftime("%m%d")
+        os.makedirs(rl.ledger_dir(), exist_ok=True)
+        with open(os.path.join(rl.ledger_dir(), "2026-10-18.jsonl"), "w") as handle:
+            handle.write(json.dumps({"ts": "2026-10-18T09:11:00Z", "event": "tool_pre", "session_id": sid, "tool": "Agent",
+                                     "subagent_type": "alix-worker", "prompt_chars": 40, "escalated": True}) + "\n")
+            handle.write(json.dumps({"ts": "2026-10-18T09:11:01Z", "event": "agent_start", "session_id": sid,
+                                     "agent_id": "a0", "agent_type": "alix-worker"}) + "\n")
+        self.assertNotIn("F1", {f["id"] for f in relay_analyze.findings(relay_analyze.collect(self.claude, *window))})
+
+    def test_notifications_are_not_owner_turns(self):
+        import relay_transcripts as tr
+        path = os.path.join(self.tmp, "n.jsonl")
+        lines = [fixtures.user("2026-10-18T09:00:00Z", "please do it"),
+                 fixtures.user("2026-10-18T09:01:00Z", "<task-notification>agent done</task-notification>"),
+                 fixtures.user("2026-10-18T09:02:00Z", "x <agent-message from=a>hi</agent-message>"),
+                 fixtures.user("2026-10-18T09:03:00Z", "[SYSTEM NOTIFICATION: background agent finished]")]
+        with open(path, "w") as handle:
+            handle.write("".join(json.dumps(l) + "\n" for l in lines))
+        trace = tr.read_trace(path)
+        self.assertEqual(trace.user_turns, 1)
+        self.assertEqual(trace.prompt_chars, len("please do it"))
+
     def test_classify(self):
         import relay_analyze as ra
         self.assertEqual(ra.classify("sdd:worker"), "build")
@@ -107,6 +135,42 @@ class Ledger(Base):
         self.assertEqual(rl.tool_durations(events)[0][2], 30.0)
         rl.append({"ts": "2026-10-18T09:01:00Z", "event": "agent_stop", "session_id": "s", "agent_id": "a"})
         self.assertEqual(rl.running_agents(rl.read()), {})
+
+
+    def test_agent_brief_comes_from_the_agent_tool_call(self):
+        import relay_ledger as rl
+        ev = [
+            {"event": "tool_pre", "session_id": "s", "tool": "Agent", "subagent_type": "delegate:scout", "prompt_chars": 300, "escalated": False},
+            {"event": "tool_pre", "session_id": "s", "tool": "Agent", "subagent_type": "delegate:worker", "prompt_chars": 900, "escalated": True},
+            {"event": "agent_start", "session_id": "s", "agent_id": "w1", "agent_type": "delegate:worker", "prompt_chars": 0},
+            {"event": "agent_start", "session_id": "s", "agent_id": "s1", "agent_type": "delegate:scout", "prompt_chars": 0},
+        ]
+        briefs = rl.agent_briefs(ev)
+        self.assertEqual(briefs[("s", "w1")], {"subagent_type": "delegate:worker", "prompt_chars": 900, "escalated": True})
+        self.assertEqual(briefs[("s", "s1")]["prompt_chars"], 300)
+        self.assertFalse(briefs[("s", "s1")]["escalated"])
+
+    def test_agent_stopped_twice_has_one_reply_and_the_last_requests(self):
+        import relay_ledger as rl
+        ev = [
+            {"event": "agent_start", "session_id": "s", "agent_id": "a", "agent_type": "delegate:scout"},
+            {"event": "agent_stop", "session_id": "s", "agent_id": "a", "agent_type": "delegate:scout", "reply_chars": 420,
+             "requests": 5, "context": 20000, "model": "claude-haiku-5", "cost_est": 0.05},
+            {"event": "agent_stop", "session_id": "s", "agent_id": "a", "agent_type": "delegate:scout", "reply_chars": 0,
+             "requests": 6, "context": 21000, "model": "claude-haiku-5", "cost_est": 0.06},
+        ]
+        r = rl.agent_results(ev)
+        self.assertEqual(len(r), 1)
+        self.assertEqual(r[("s", "a")]["reply_chars"], 420)
+        self.assertEqual(r[("s", "a")]["requests"], 6)
+        self.assertEqual(r[("s", "a")]["cost_est"], 0.06)
+        self.assertEqual(r[("s", "a")]["stops"], 2)
+        self.assertEqual(len(rl.agent_spans(ev)), 1)
+
+    def test_owner_prompts_leave_out_notifications(self):
+        import relay_ledger as rl
+        ev = [{"event": "prompt", "kind": "owner"}, {"event": "prompt", "kind": "notification"}, {"event": "prompt"}]
+        self.assertEqual(len(rl.owner_prompts(ev)), 2)
 
 
 class Bench(Base):

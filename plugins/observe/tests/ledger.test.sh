@@ -14,5 +14,10 @@ send '{"hook_event_name":"SubagentStart","session_id":"s","cwd":"/p","agent_id":
 send "{\"hook_event_name\":\"SubagentStop\",\"session_id\":\"s\",\"cwd\":\"/p\",\"agent_id\":\"a1\",\"agent_type\":\"delegate:scout\",\"transcript_path\":\"$t\",\"last_assistant_message\":\"done\"}"; has "agent_stop reads the agent transcript by fallback" '"event": "agent_stop".*"requests": 1'
 send "{\"hook_event_name\":\"Stop\",\"session_id\":\"s\",\"cwd\":\"/p\",\"transcript_path\":\"$t\",\"last_assistant_message\":\"hello\"}"; has "stop with context" '"event": "stop".*"context": 50100'
 send '{"hook_event_name":"PreToolUse","session_id":"s","cwd":"/p","tool_name":"Agent","tool_use_id":"t1","tool_input":{"subagent_type":"delegate:worker","model":"sonnet"}}'; has "tool_pre with subagent" '"subagent_type": "delegate:worker"'
+send '{"hook_event_name":"PreToolUse","session_id":"s","cwd":"/p","tool_name":"Agent","tool_use_id":"t2","tool_input":{"subagent_type":"delegate:worker","model":"opus","prompt":"line one\nEscalated: needs depth"}}'; has "tool_pre records prompt length and the escalated flag" '"prompt_chars": 31, "escalated": true'
+send '{"hook_event_name":"PreToolUse","session_id":"s","cwd":"/p","tool_name":"Agent","tool_use_id":"t3","tool_input":{"subagent_type":"delegate:scout","prompt":"Not Escalated: here"}}'; has "no flag when the line does not start with it" '"prompt_chars": 19, "escalated": false'
+grep -q 'needs depth' "$RELAY_HOME"/ledger/*.jsonl && { echo "FAIL agent prompt text stored"; fails=1; } || echo "ok   agent prompt text not stored"
+send '{"hook_event_name":"UserPromptSubmit","session_id":"s","cwd":"/p","prompt":"<task-notification>done</task-notification>","prompt_id":"p2"}'; has "notification prompt is marked" '"kind": "notification"'
+has "owner prompt is marked" '"kind": "owner"'
 send 'garbage'; echo "ok   malformed input fails open"
 exit $fails
