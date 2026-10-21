@@ -92,6 +92,8 @@ EOF"
   t allow "redirect to /dev/null"      Bash "$M" command "ls > /dev/null 2>&1"
   t allow "stderr to stdout"           Bash "$M" command "ls 2>&1 | head -3"
   t allow "git-ignored log in main"    Bash "$M" command "mkdir -p .ci && echo ok > .ci/ci.log"
+  t block "unquoted \$F is a literal path under main"  Bash "$M" command 'touch $F'
+  t allow "quoted \$F is skipped"                      Bash "$M" command 'touch "$F"'
   t allow "redirect in a worktree"     Bash "$W" command "echo hi > src/x.ts && rm -f src/x.ts"
   t allow "redirect into a worktree from main" Bash "$M" command "cp README.md $W/README.copy"
   t allow "quoted > is no redirect"    Bash "$M" command "echo 'a > b' && grep -n \"x > y\" README.md"

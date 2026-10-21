@@ -33,8 +33,11 @@ checkout. `cd -`, `pushd` and `popd` are tracked otherwise. Arithmetic
 code (`python3 -c "open(p, 'w')"`, `node -e`), a path or directory held in a
 shell variable, and a tar/zip written into main (only extraction is judged).
 
-Paths in shell variables are not followed: a word holding `$` or a backtick is
-unknown and skipped, so such a command is judged by the directory it runs in.
+Paths in shell variables are not followed. An unquoted word such as `$S/f.md`
+is taken literally, as a path under the current directory (so `touch $F` is
+refused in the main checkout). A quoted word holding `$` or a backtick
+(`"$S/f.md"`) is skipped: a write to it is not refused, even when it lands in
+main.
 This catches slips, not a determined bypass.
 """
 import os

@@ -36,10 +36,11 @@
 # directory it runs in: the tracked `cd`, overridden by its `git -C` or a
 # target flag's value, starting from the session cwd. So in the main checkout
 # `git -C .worktrees/a log && git merge x` still blocks the merge. Paths held
-# in shell variables are not followed: a word holding `$` or a backtick is
-# skipped, so such a command is judged by the directory it runs in (the
-# tracked `cd`, else the session cwd). Tests: tests/guard-diff.test.sh. This
-# catches slips, not a determined bypass.
+# in shell variables are not followed. An unquoted `$NAME/...` word is taken
+# literally, as a path under the current directory (refused in the main
+# checkout); a quoted word holding `$` or a backtick is skipped (a write to it
+# is not refused, even when it lands in main). Tests: tests/guard-diff.test.sh.
+# This catches slips, not a determined bypass.
 #
 # Tests: plugins/core/tests/guard-main.test.sh
 set -uo pipefail

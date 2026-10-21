@@ -461,6 +461,29 @@ class Numbers(Base):
         finally:
             relay_ledger.read = real
 
+    def test_capture_with_a_readable_index_never_reads_the_ledger(self):
+        """The index is trusted when it can be read: not in "sessions" = not recorded, not in "restarted" = not
+        restarted. The ledger is read only when the index is missing (the day files of the last 3 days)."""
+        import relay_ledger
+        self._claude_json("s-trust")
+        real = relay_ledger.read
+        index_file = os.path.join(self.home, "ledger", "usage-index.json")
+
+        def guarded(since=None, until=None):
+            if os.path.exists(index_file):
+                raise AssertionError("capture read the ledger although the index exists")
+            return real(since=since, until=until)
+        relay_ledger.read = guarded
+        try:
+            self.assertEqual(relay_ledger.capture("2026-10-21T10:00:00Z"), ["s-trust"])   # new session
+            self.assertEqual(relay_ledger.capture("2026-10-21T10:01:00Z"), [])            # recorded session
+            with open(index_file, "w") as handle:
+                handle.write("{not json")                                                  # corrupt: ledger fallback
+            relay_ledger.read = real
+            self.assertEqual(relay_ledger.capture("2026-10-21T10:02:00Z"), [])
+        finally:
+            relay_ledger.read = real
+
     def test_session_end_hook_is_fast_on_a_large_ledger(self):
         """SessionEnd has a 1 s timeout; the ledger grows without limit. 300,000 old lines must cost nothing."""
         import subprocess
@@ -472,13 +495,21 @@ class Numbers(Base):
         for day in range(1, 31):
             with open(os.path.join(ledger, "2026-06-%02d.jsonl" % day), "w") as handle:
                 handle.write(line * 10000)
+        # the days the old code did read (today and the 3 before), 100,000 lines each, and an index
+        recent = line.replace("2026-06-01", "2026-10-21")
+        for back in range(4):
+            day = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=back)).strftime("%Y-%m-%d")
+            with open(os.path.join(ledger, day + ".jsonl"), "a") as handle:
+                handle.write(recent * 100000)
+        with open(os.path.join(ledger, "usage-index.json"), "w") as handle:
+            json.dump({"sessions": {}, "restarted": []}, handle)
         env = dict(os.environ, RELAY_CLAUDE_JSON=os.path.join(self.claude, ".claude.json"))
         hook = os.path.join(ROOT, "plugins", "observe", "hooks", "ledger.py")
         payload = json.dumps({"hook_event_name": "SessionEnd", "session_id": "s-end", "cwd": "/Users/me/x", "reason": "other"})
         started = time.monotonic()
         subprocess.run([sys.executable, hook], input=payload.encode(), env=env, check=True)
         took = time.monotonic() - started
-        self.assertLess(took, 0.5, "SessionEnd hook took %.2f s on a 300,000-line ledger" % took)
+        self.assertLess(took, 0.3, "SessionEnd hook took %.2f s on a 700,000-line ledger" % took)
         text = "".join(open(os.path.join(ledger, f)).read() for f in os.listdir(ledger) if not f.startswith("2026-06") and f.endswith(".jsonl"))
         self.assertIn('"event": "session_end"', text)
         self.assertIn('"event": "session_usage"', text)

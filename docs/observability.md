@@ -14,8 +14,7 @@ and `lib/relay_analyze.py` aggregates.
 
 `relay report [--since 7d | --today | --session <id>]` prints:
 
-- the period: sessions, agents, your turns (what you typed: background-agent
-  notifications and compaction summaries are not turns), cost split into exact
+- the period: sessions, agents, your turns (what you typed; see "Your turns" below), cost split into exact
   and estimated (see below), the agents' share, cost per turn, average reply
   length, compactions;
 - by model: requests and the four token kinds, each row labelled exact or estimate;
@@ -52,10 +51,16 @@ the transcripts low (measured 2026-10-21 against `/cost`):
 **The exact source.** Claude Code writes `/cost`'s own per-model totals to
 `~/.claude.json` (`projects[<folder>].lastSessionId` and `lastModelUsage`).
 Only the last session per folder is kept, and it is written when the session
-closes. At every `SessionStart` the observe hook copies the folder's finished
-session into the ledger as a `session_usage` line (numbers only), so the next
-session in that folder does not overwrite it; `relay calibrate` copies all
-current entries. `relay report` uses a session's `session_usage` figures
+closes. The observe hook copies the folder's session into the ledger as a
+`session_usage` line (numbers only) at two moments: at `SessionEnd` (the
+ending session) and at the next `SessionStart` in that folder (a session that
+ended without the copy), so a later session does not overwrite it;
+`relay calibrate` copies all current entries. To avoid reading the ledger on
+every copy, the hook keeps `~/.relay/ledger/usage-index.json` (the 300 newest
+sessions' totals and the restarted ones; a lock file beside it, so hooks
+running together merge). The index is only a shortcut: when it is readable it
+is trusted, and when it is missing or corrupt the hook falls back to the last 3
+days of the ledger. `relay report` uses a session's `session_usage` figures
 (labelled **exact**) when it has them, else the estimate above (labelled
 **estimate**, with its measured error), says what share of the period's usage is
 exact, and shows "Claude Code helpers (no transcript)" as exact minus what the
@@ -72,7 +77,8 @@ one JSON line per event to `~/.relay/ledger/<YYYY-MM-DD>.jsonl`:
 
 | event | fields beyond ts/session_id/cwd |
 |---|---|
-| session_usage | session_id, cwd, source, models: {model: input_tokens, output_tokens, thinking_tokens, cache_read_input_tokens, cache_creation_input_tokens, web_search_requests, cost_usd}. Claude Code's own totals for a finished session, copied at the next SessionStart in the folder (or by `relay calibrate`) |
+| session_usage | session_id, cwd, source, models: {model: input_tokens, output_tokens, thinking_tokens, cache_read_input_tokens, cache_creation_input_tokens, web_search_requests, cost_usd}. Claude Code's own totals for a finished session, copied at SessionEnd, at the next SessionStart in the folder, or by `relay calibrate` |
+| usage_restart | session_id, cwd. A session's `/cost` total went down against the one recorded (the counter restarted on resume): from then on its totals cover only a part, and the session stays an estimate |
 | session_start | source, model; on resume: context_tokens, prompt_cache_likely_expired, estimated_cache_write_usd |
 | prompt | chars, prompt_id, kind (`owner`, or `notification` for a background-agent message: judged by the harness's `origin` when it sends one, else by a marker at the very start of the text), slash (the command if the prompt starts with one) |
 | agent_start | agent_id, agent_type, effort, input_keys (the names of the fields this Claude Code sends, never values), prompt_chars (always 0 on this Claude Code: SubagentStart carries no prompt) |
@@ -85,6 +91,15 @@ one JSON line per event to `~/.relay/ledger/<YYYY-MM-DD>.jsonl`:
 Never text, unless the project sets `[observe] log_prompts = true`
 (the first 200 characters of each prompt). The hook fails open and reads
 at most the tail of one transcript.
+
+**Your turns.** `relay report` counts a user line as your turn by these rules:
+a line a program sent (`promptSource` other than typed, accepted suggestion or
+queued; a background-agent notice; a compaction summary) is not a turn; a slash
+command is a turn only when the model answers it (a command the harness answers
+itself, such as `/clear` or `/login`, or one cut off, is not); an interrupt
+marker and local-command lines (`<local-command-...>`) are not turns; and a
+session started by a program (entrypoint `sdk-*`: `claude -p`, benchmarks) has
+all its prompts counted apart as scripted turns, not as yours.
 
 `relay status` reads the last 12 hours: each session's last activity,
 context size, and the agents started but not stopped.

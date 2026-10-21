@@ -178,17 +178,22 @@ def _index_path():
     return os.path.join(ledger_dir(), "usage-index.json")
 
 
-def _read_index():
-    """{"sessions": {session_id: models}, "restarted": [session_id, ...]}; empty when missing or unreadable."""
+def _load_index():
+    """(index, usable): index is {"sessions": {session_id: models}, "restarted": [session_id, ...]}; usable is
+    False when the file is missing, unreadable or corrupt (the index is then empty)."""
     try:
         with open(_index_path(), encoding="utf-8") as handle:
             found = json.load(handle)
     except (OSError, ValueError):
         found = None
     if not isinstance(found, dict) or not isinstance(found.get("sessions"), dict):
-        return {"sessions": {}, "restarted": []}
+        return {"sessions": {}, "restarted": []}, False
     restarted = found.get("restarted")
-    return {"sessions": found["sessions"], "restarted": restarted if isinstance(restarted, list) else []}
+    return {"sessions": found["sessions"], "restarted": restarted if isinstance(restarted, list) else []}, True
+
+
+def _read_index():
+    return _load_index()[0]
 
 
 def _write_index(index):
@@ -245,9 +250,10 @@ def record_restart(session_id, folder, now):
 
 def _recorded(session_id, index):
     """The total the ledger holds for a session, without reading the ledger: the small index file, else the
-    last few days' lines (the index is only a shortcut and may be missing)."""
-    if session_id in index["sessions"]:
-        return index["sessions"][session_id]
+    last few days' lines when there is no usable index. An index that was read is trusted: a session not in it
+    is not recorded (no ledger read, whose cost grows with how busy the last days were)."""
+    if session_id in index["sessions"] or index["usable"]:
+        return index["sessions"].get(session_id)
     since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=3)
     return usage_sessions(since=since).get(session_id)
 
@@ -255,6 +261,8 @@ def _recorded(session_id, index):
 def _is_restarted(session_id, index):
     if session_id in index["restarted"]:
         return True
+    if index["usable"]:
+        return False
     since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=3)
     return session_id in restarted_sessions(since=since)
 
@@ -288,7 +296,8 @@ def capture(now, folder=None, skip_session=None, only_session=None):
         if sid == skip_session or (only_session is not None and sid != only_session):
             continue
         if index is None:
-            index = _read_index()
+            index, usable = _load_index()
+            index["usable"] = usable        # in memory only: _write_index is never given this copy
         if _is_restarted(sid, index):
             continue
         have = _recorded(sid, index)

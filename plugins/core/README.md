@@ -22,7 +22,7 @@ Install (from the local marketplace; the owner's `claude plugin marketplace add 
 both need `core` (their agents and skills start with `kit get ...`, which exists
 only while core is enabled), so enable core wherever you enable them.
 
-Needs Python 3.11+ (`tomllib`), `jq`, and bash. Bindings: `.claude/kit.toml`
+Needs Python 3.9+ (kit and the hooks run on macOS /usr/bin/python3; only the `relay` command itself needs 3.11+ for `tomllib`), `jq`, and bash. Bindings: `.claude/kit.toml`
 of the project (`migration/kartoteka/kit.toml` is a full example; `kit dump`
 prints the parsed file). A project with no `.claude/kit.toml` is an error for
 every `kit` command but `path` (exit 1, naming the file); `--default` covers a
@@ -97,7 +97,7 @@ terminal or in CI (its `bin/ci` calling the spec check, say) copies
 openspec/specs`. The shim finds core by `$KIT`, else the core installed for this
 project (the registry, as `kit path` does), else a source checkout
 (`$PRINCIPLES_DIR`, default `~/principles`), and says what to do when it finds none.
-It needs Python 3.11+ on PATH. Tested by `tests/shim.test.sh`.
+It needs Python 3.9+ on PATH (the `relay` command itself needs 3.11+). Tested by `tests/shim.test.sh`.
 
 ## The check-script contract
 
@@ -167,8 +167,10 @@ keeps the main checkout clean and secrets out of the output. Tests:
   judged by the directory it runs in: the tracked `cd` / `pushd` / `popd` / `cd -`
   (a directory it cannot know counts as the main checkout), overridden by its
   `git -C` or a target flag's value. `git -C wt/a log && git merge x` still blocks the merge.
-  A directory or path held in a shell variable is unknown and not followed: the
-  guard catches slips, not a determined bypass.
+  Shell variables are not followed: an unquoted `$S/f.md` is taken literally, as a
+  path under the current directory (refused in the main checkout), while a quoted
+  `"$S/f.md"` is skipped (a write to it is not refused, even when it lands in main).
+  The guard catches slips, not a determined bypass.
 - **Anywhere:** an anonymous `git stash` (bare, `-u`, `push` without `-m`), every
   `git stash pop`; shell tracing; verbose curl on an authenticated request; and
   environment dumps (`env`, `printenv`, `export -p`).
