@@ -309,3 +309,11 @@ Decisions of 21 Oct evening (owner's words verbatim where quoted):
   already reviews the whole range on its second pass (keep that), but
   its reviewers lack the failing-case rule. Design review (critic on the
   thinker's design) BEFORE building, per the new review method.
+- OpenSpec as an adapter ("a", phase 1): relay owns one generic change
+  cycle (plan -> build -> review -> fix -> finish) used by every flow
+  (sdd, issues, plain tasks); OpenSpec plugs in as the spec format: its
+  file rules (`openspec instructions`), `validate --strict` gate, and
+  `archive` that merges requirement deltas into openspec/specs (the
+  standing description). Keep OpenSpec-specific stages in the adapter
+  (spec review against openspec/specs). Owner's framing: "openspec it
+  just a notes for spec writing and reading ... addition to our base".
