@@ -240,9 +240,24 @@ Built and tested offline (no `claude` binary, no real sessions here):
 
 ## Next step
 
-Batch 1 on `wt/trustworthy-numbers`: worker, then critic, fixer, critic
-(two reviews at most); then the owner's OK to merge. Then group 2 (S-A
-kit on Python 3.9, S-B "your turns" counting interrupts/`/clear`, guard
-not following shell variables, the 40-turn limit), then group 3 (status
-line per 1a, share of the limit, carried-weight finding = option 4).
+Batch 1 MERGED (master 6a4b713, 21 Oct): worker, critic, fixer, critic,
+then a third review the owner chose ("b"), a last fixer pass ("a", proven
+by the reviewer's repro tests), full bin/ci green incl. paid evals 15/15
+($3.44, owner chose to run it: "b"). Live check: relay $20.11 estimate vs
+/cost $19.25 (+4.5%). `relay calibrate` run on the real ledger
+(~/.relay/calibration.json): Opus worst +2.3%, Haiku -4.6%, Sonnet
+-20.8% on 2 of 15 sessions (both 266-278k context; long-context price
+suspected, unverified); whole-session estimate median 2.9%.
+Overview page for the owner: https://claude.ai/artifact/NgVrUz62oU7nCEgnPyQxwb
+(source in the session scratchpad, relay-overview.html).
+
+Batch 2 building on `wt/open-items` in `.worktrees/batch2` (brief: live
+check of when Claude Code writes session totals and whether resume
+restarts the count (N3/F3), SessionEnd hook speed (N4), kit on Python
+3.9 (S-A), "your turns" counting (S-B), guard and shell variables,
+critic/thinker maxTurns 40 -> 60 with write-early text). Then review,
+fix, review, owner's OK to merge. Then group 3 (status line per 1a,
+share of the limit, carried-weight finding = option 4). Also verify the
+Sonnet long-context price with the claude-api skill. Old worktrees
+`.worktrees/live-fixes`, `.worktrees/numbers` are merged and can go.
 The plan: docs/plans/trustworthy-numbers.md.
