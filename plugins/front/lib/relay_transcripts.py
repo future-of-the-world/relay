@@ -23,6 +23,18 @@ USAGE_KEYS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_t
 
 NOTIFICATION_MARKERS = ("[SYSTEM NOTIFICATION", "<task-notification>", "<agent-message from=")
 NOTIFICATION_KINDS = ("task-notification", "peer")
+# Lines that are user lines in a transcript but not something the owner typed.
+_NOT_TYPED_STARTS = ("[Request interrupted", "<local-command-stdout>", "<local-command-stderr>", "<local-command-caveat>",
+                     "<bash-input>", "<bash-stdout>", "<bash-stderr>")
+# Slash commands the harness answers itself (no prompt goes to the model); one that runs a prompt, such as
+# /opsx:apply or /init, is a turn.
+LOCAL_COMMANDS = frozenset((
+    "clear", "cost", "model", "help", "compact", "config", "status", "exit", "quit", "context", "usage", "resume",
+    "rewind", "login", "logout", "doctor", "memory", "mcp", "agents", "permissions", "hooks", "ide", "theme", "vim",
+    "terminal-setup", "bug", "release-notes", "add-dir", "export", "stats", "statusline", "output-style", "plugin",
+    "privacy-settings", "upgrade", "effort", "fast", "color", "rename", "copy", "tasks", "feedback",
+))
+_COMMAND_NAME = re.compile(r"<command-name>\s*/?([^<\s]+)\s*</command-name>")
 _ESCALATED = re.compile(r"(?mi)^\s*Escalated:\s*\S")
 
 
@@ -37,6 +49,23 @@ def is_notification(text, origin=None):
         return kind in NOTIFICATION_KINDS
     text = (text or "").lstrip()
     return any(text.startswith(m) for m in NOTIFICATION_MARKERS)
+
+
+def is_owner_turn(text, origin=None):
+    """True when a user line is something the owner typed (or a slash command that runs a prompt).
+
+    With the structured `origin`, only kind "human" counts. Whatever the origin says, the text must not be an
+    interruption marker, a local command's wrapper or output, or a notification (older transcripts have no origin)."""
+    if is_notification(text, origin):
+        return False
+    kind = origin.get("kind") if isinstance(origin, dict) else None
+    if kind and kind != "human":
+        return False
+    stripped = (text or "").lstrip()
+    if stripped.startswith(_NOT_TYPED_STARTS):
+        return False
+    named = _COMMAND_NAME.search(stripped) if stripped.startswith(("<command-name>", "<command-message>")) else None
+    return not (named and named.group(1) in LOCAL_COMMANDS)
 
 
 def is_escalated(prompt):
@@ -201,7 +230,8 @@ def _absorb(trace, entry, seen_requests):
             isinstance(b, dict) and b.get("type") == "text" for b in content
         )):
             text = content if isinstance(content, str) else " ".join(b.get("text") or "" for b in content if isinstance(b, dict))
-            if not (entry.get("isMeta") or entry.get("isCompactSummary") or is_notification(text, entry.get("origin"))):
+            if not (entry.get("isMeta") or entry.get("isCompactSummary") or is_notification(text, entry.get("origin"))
+                    or not is_owner_turn(text, entry.get("origin"))):
                 trace.user_turns += 1
                 if not text.lstrip().startswith("<"):   # tool results and system reminders are not the owner
                     trace.prompt_chars += len(text)
