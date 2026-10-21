@@ -167,9 +167,38 @@ Built and tested offline (no `claude` binary, no real sessions here):
   (2% session, 0% week): dollars are notional; the goal is work per
   limit. Claude Code's own advice there: critic is 28% of usage, "give
   delegate:critic a cheaper model" (the `sonnet-judge` candidate profile).
-- Questions to the owner still unanswered: what after this merge
-  (recommended 1 then 4); merge (recommended: run the paid eval step
-  first, after counting cases and stating the cost).
+- Owner's answers (verbatim): "1a 2a" (run the paid eval step, then
+  merge and reinstall; next = trustworthy numbers, then option 4), cap
+  "b" ($15), then "1a 2b" (1a = visible status line `5h % · week % · $`
+  that also logs; 2b = remove the older principles guard from kartoteka).
+  Owner asked whether estimates were human-hours: they were; from now on
+  estimates are agent minutes + % of limit (memory
+  `estimates-in-agent-time`; measured: build+review+fix+review ~30 min).
+- Full `bin/ci` green after two fixes: bin/ci passed an unexported `$root`
+  into `bash -c` (eb8b14c); fixture `bin/check` needed git, which the eval
+  sandbox lacks (d504103). Paid evals: 4/5 in the full run ($3.23), then
+  worker-group 3/3 after the fix ($0.26); about $3.75 in all incl. the
+  fixer's three 1-run probes.
+- Merged: master fast-forwarded to d504103 via `wt/live-verification`
+  (guard allows only `git merge --ff-only wt/<name>` in the main
+  checkout: name task branches `wt/<name>`). Old worktree
+  `.worktrees/live-fixes` and branches fix/ + wt/live-verification can go.
+- Plugins: `claude plugin update` says relay plugins are read from their
+  folders in ~/relay/plugins (directory marketplace), so the
+  `~/.claude/plugins/cache/relay` copies are unused and stale; merged
+  changes are live at the next session start or /reload-plugins. This
+  closes the open item "Agents' models in installed copies".
+- Kartoteka: `core@principles` turned off in
+  `~/kartoteka/.claude/settings.local.json` (listed in kartoteka's
+  `.git/info/exclude`; its tracked settings.json untouched). relay's
+  `kit` is byte-identical to the principles one and answers there, so
+  sdd@principles / product@principles still find `kit`.
+- Two Opus agents (critic, thinker) hit the 40-turn limit without a
+  report; resumed with "write now". Add to group 2: raise the limit or
+  make agents write the report file early.
+- Batch 1 (group 1 of plan-trustworthy-numbers.md, kept in the session
+  scratchpad; tn_*.py evidence scripts beside it) is building in
+  `.worktrees/numbers` on `wt/trustworthy-numbers`.
 
 ## Open items (decisions for the owner or work not done)
 
@@ -211,8 +240,10 @@ Built and tested offline (no `claude` binary, no real sessions here):
 
 ## Next step
 
-Get the owner's answers above. If the owner asks to merge
-`fix/live-verification`, merge it, then reinstall the relay plugins so the
-installed copies carry the fixes. Then the chosen option (recommended:
-option 1 "trustworthy numbers", which includes S-A, S-B and the guard's
-variable handling; then step 3 calibration with the `/cost` figure).
+Batch 1 on `wt/trustworthy-numbers`: worker, then critic, fixer, critic
+(two reviews at most); then the owner's OK to merge. Then group 2 (S-A
+kit on Python 3.9, S-B "your turns" counting interrupts/`/clear`, guard
+not following shell variables, the 40-turn limit), then group 3 (status
+line per 1a, share of the limit, carried-weight finding = option 4).
+The plan file lives in the session scratchpad; if it is gone, its
+group list is above.
