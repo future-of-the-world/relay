@@ -299,7 +299,9 @@ def relay_folder(root):
     return path, True
 
 
-def setup(root, flow=None, product=None, apply_global=True):
+def setup(root, flow=None, product=None, apply_global=True, relay_dir=True):
+    """Set one project up. `relay_dir=False` leaves `.relay/` out: `migrate` (even as a plan) must not turn the work queue and the
+    merge checks on in a project the owner has not chosen (docs/setup.md: old projects are not given a .relay/ folder)."""
     root = os.path.realpath(root)
     d = detect(root)
     flow = flow or d["flow"]
@@ -337,7 +339,7 @@ def setup(root, flow=None, product=None, apply_global=True):
         done.append(f"{path}: relay marketplace registered, user-scope plugins enabled" + ("" if changed else " (already)"))
         for r in removed:
             done.append(f"  removed a user hook the front plugin now provides: {r}")
-    if relay_folder(root)[1]:
+    if relay_dir and relay_folder(root)[1]:
         done.append("wrote .relay/README.md (turns on the work queue and the merge checks once it is on the default branch)")
     todo.append("in Claude Code, run `/plugin marketplace add " + ROOT + "` once, then `/reload-plugins` (or restart) so the plugins load")
     return d, flow, product, done, todo
@@ -387,7 +389,7 @@ def migrate(root, apply=False, **kw):
             shutil.copy2(os.path.join(ROOT, "plugins", "core", "templates", "kit-shim"), os.path.join(root, "bin", "kit"))
             os.chmod(os.path.join(root, "bin", "kit"), 0o755)
             moved.append(("bin/kit", "written from the shim template"))
-    d2, flow, product, done, todo = setup(root, **kw)
+    d2, flow, product, done, todo = setup(root, relay_dir=False, **kw)
     return d, items, moved, flow, product, done, todo
 
 

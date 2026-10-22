@@ -1632,6 +1632,21 @@ class RelayFolder(Base):
         self.assertTrue(os.path.isfile(os.path.join(repo, ".relay", "README.md")))
 
 
+    def test_f10_migrate_plan_and_apply_leave_the_relay_folder_out(self):
+        """Review F10: `relay migrate` (a plan, and --apply) does the plain setup but writes no .relay/ (not Kartoteka's)."""
+        import relay_setup
+        for apply in (False, True):
+            repo = self._repo() if not apply else os.path.join(self.tmp, "second")
+            if apply:
+                os.makedirs(repo)
+                subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
+            relay_setup.migrate(repo, apply=apply, flow="none", product=False)
+            self.assertTrue(os.path.isfile(os.path.join(repo, ".claude", "kit.toml")), apply)       # the rest of setup ran
+            self.assertFalse(os.path.exists(os.path.join(repo, ".relay")), apply)
+        relay_setup.setup(repo, flow="none", product=False)                                      # relay setup of that one project does
+        self.assertTrue(os.path.isfile(os.path.join(repo, ".relay", "README.md")))
+
+
 class DefaultBranch(unittest.TestCase):
     """T18: relay_git.default_branch is never the current branch (design fact 2.8)."""
 
