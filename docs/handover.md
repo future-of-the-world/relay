@@ -668,3 +668,23 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
   projects (Kartoteka, principles) not touched. Overview page:
   https://claude.ai/artifact/XMsv3xJxw5uZCtYk4Z3416
 - Spend 22 Oct: ~$29.68 of the owner's $35 cap.
+
+## STATE 22 Oct, part 2 design v4 written, critiqued, being fixed
+
+- Session 90ec47d2 (scratchpad .../90ec47d2-c126-4eb7-9ec0-dd339c42d141/scratchpad;
+  old v3 design and checks copied to its old/).
+- Design v4: docs/plans/review-gate.md (commit 780b8ca). M-A (merge
+  commit from master + `relay changed --own`), M-B (gate head via
+  `relay changed`), m-1, m-3, m-4 addressed; owner pipeline folded in;
+  23 queue seeds. Build: chain B1-B6 + C1-C2, ~250-265 agent min.
+- Critique: reports/critic-design-part2.md: 2 HIGH (F1 `relay setup`
+  for relay rewrites global settings; F2 queue landing retry loses
+  items), 7 MEDIUM, 8 LOW. Fix running (thinker, brief
+  briefs/fix-design-part2.md).
+- Coordinator decisions (owner may overturn): F4 = a merged worktree is
+  never removed while a session runs in it (git worktree lock); F9 = the
+  front publishes the page, scripts only write HTML.
+- Open owner question 1: paid evals in the merge gate (a: free gate
+  decides, paid run proposed per text change, recommended; b: required;
+  c: only on request). Spend 22 Oct ~$29.68 of $35.
+- Next: on the fix, a checker over the design fix, then build briefs B1..
