@@ -1367,6 +1367,8 @@ picks.
 
 **1. Do the paid eval runs belong to the merge gate?**
 
+**Decided** by the owner, 22 Oct: "a, you can run paid checks without my approve, increase limit to 50$". The merge gate is the free half; the coordinator runs the full paid `bin/ci` itself for each change that edits agent, skill, role or rule texts, without asking, within a $50 daily cap on paid runs (was $35). The chat screen reports the run and its cost.
+
 Relay's gate has two halves. `bin/ci --quick` runs the free checks (python
 and hook tests, copies, grader tests, plugin validate) in a few minutes. The
 full `bin/ci` also runs 18 plugin eval cases, where real agents run on
