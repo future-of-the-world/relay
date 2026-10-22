@@ -73,13 +73,13 @@ Whenever fix commits exist (any BLOCKER or FIX was fixed), `delegate:checker`
 runs once over `<review base>..HEAD`; it reads the artifacts (artifact cases
 are checked by reading):
 
-> Check: `<scratchpad>/review/spec-1.json`. Fixes: `<author report>`. Worktree: `<abs change worktree path>`. Gate: none (artifacts only). Report: `<scratchpad>/review/spec-check.md`.
+> Check: `<scratchpad>/review/spec-1.json`. Fixes: `<author report>`. Worktree: `<abs change worktree path>`. Gate: none (artifacts only). Report: `<scratchpad>/review/spec-check.json`.
 
 No author fixes what it finds and there is no new open review, even when the
 fixes changed a core rule. The spec check writes no verdict (it is not a
 merge). Every finding it leaves open goes to the owner with a recommendation
-(the reviewer's smallest fix now, a queue item, or a drop, and why); open
-`spec-check.md` for that list. A further fix runs only on the owner's word
+(the reviewer's smallest fix now, a queue item, or a drop, and why); read
+`relay check show <scratchpad>/review/spec-check.json` for that list. A further fix runs only on the owner's word
 and is checked the same way.
 
 ## 5. Report

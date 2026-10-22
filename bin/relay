@@ -49,6 +49,10 @@
                                      a judge's way to write its verdict: the TOML input names the report (a .json path)
                                      and holds the fields and prose; validated, then written as JSON (agents never type
                                      JSON and pass no text through the shell); see roles/judge.md for the template
+  relay check owner <review.json> <id> --input <file.toml>
+                                     keep the owner's word that finding <id> is not wrong: the TOML holds `words` (the owner's
+                                     words as said, '''...''' for several lines); appended with the date to the review's
+                                     `owner` list; a checker counts that finding as not wrong; show and the page print it
   relay check page [-C <repo>] <branch> [-o <file>]
                                      one HTML file for the person's step, built from the stored checks (default
                                      <repo>/.ci/page-<name>.html); it only writes the file, the front publishes it
@@ -492,6 +496,19 @@ def cmd_gate(args):
 
 
 RECORD_USAGE = "relay check record review|check --input <file.toml>"
+OWNER_USAGE = "relay check owner <review.json> <id> --input <file.toml>"
+
+
+def cmd_check_owner(args):
+    """relay check owner <review.json> <id> --input <file.toml>: keep the owner's word that a finding is not wrong."""
+    if len(args) != 4 or args[2] != "--input" or args[3].startswith("--") or args[0].startswith("-") or args[1].startswith("-"):
+        raise Usage(OWNER_USAGE)
+    try:
+        path = relay_verdict.add_owner(args[0], args[1], args[3], dt.date.today().isoformat())
+    except relay_verdict.VerdictError as exc:
+        raise ValueError(str(exc))
+    print("recorded the owner's word on %s in %s" % (args[1], path))
+    return 0
 
 
 def cmd_check_record(args):
@@ -509,9 +526,11 @@ def cmd_check_record(args):
 
 def cmd_check(args):
     usage = ("relay check show [-C <repo>] [--brief] <branch | report.json | sha>  |  relay check page [-C <repo>] <branch> [-o <file>]  |  "
-             "relay check record review|check --input <file.toml>")
+             "relay check record review|check --input <file.toml>  |  " + OWNER_USAGE)
     if args and args[0] == "record":
         return cmd_check_record(args[1:])
+    if args and args[0] == "owner":
+        return cmd_check_owner(args[1:])
     if not args or args[0] not in ("show", "page"):
         raise Usage(usage)
     verb, args, repo, out, rest, brief = args[0], list(args[1:]), ".", None, [], False

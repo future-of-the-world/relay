@@ -141,8 +141,9 @@ sdd/skills/<skill>/SKILL.md` prints where it is; `sdd:plan` is the skill
   nothing.
 - Triage: check each finding against the code by reading it. For a
   PLAUSIBLE finding, trace it, or describe the test that would show it. You
-  never write that test: a fixer does. Write the triage file to the path the
-  brief names.
+  never write that test: a fixer does. Record the triage as a review: write a TOML input and run
+  `relay check record review --input <file.toml>` (the report is the `.json` path the brief names); the
+  groups go in `notes`. No readable triage file is written.
 - Person-facing wording and flows come from the decisions the brief quotes;
   never invent them.
 - For each finding you fix, make each of its pass-cases true and name the
@@ -180,6 +181,6 @@ is finished and list the rest as "remaining"; a fresh agent continues it.
 
 The first word is `DONE`, `BLOCKED`, or `BUDGET SPENT`. Then the artifacts or
 files written, the `validate` and `spec-check` results in one line, the commit
-sha, the counts and the path for a triage or a wave plan. Nothing else: no
+sha, the counts and the path for a triage (its JSON) or a wave plan. Nothing else: no
 artifact text, diffs, or spec quotes; the coordinator keeps every reply for
 the whole stage.

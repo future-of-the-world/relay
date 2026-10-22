@@ -65,7 +65,11 @@ is not an Opus job) gets one line:
 
 > Triage the review reports of change <change> in `<abs change worktree path>`. Brief: `<brief path>`.
 
-It writes `<scratchpad>/review/triage.md`:
+It records the triage as a review: it writes a TOML input (`<scratchpad>/review/triage.toml`; the template is
+`~/relay/roles/judge.md`, "Record the findings") and runs `relay check record review --input <scratchpad>/review/triage.toml`, which writes
+`<scratchpad>/review/triage.json` (`reviewed` = the full sha of the change's head, `base` = `<base>`; each
+confirmed finding is a `[[finding]]`, a look finding's screenshot path under `evidence`; the groups and the
+`For the owner` questions go in `notes`). The triage:
 
 1. One defect reported twice is one finding; ids F1, F2, ...
 2. Each finding is checked against the code: CONFIRMED kept; PLAUSIBLE traced,
@@ -75,10 +79,10 @@ It writes `<scratchpad>/review/triage.md`:
 3. A spec gap (the spec silent or wrong) is fixed in the artifacts first,
    through `sdd:spec-review` step 3, before code.
 4. Confirmed findings are grouped by the files they touch, one
-   `## Group <x>` with its file list; dependency manifests, lockfiles,
+   `Group <x>` in `notes` with its file list and finding ids; dependency manifests, lockfiles,
    `tasks.md` and the artifacts form their own group.
 5. Look `DEFECT`s are grouped like any finding; each `TASTE` goes under
-   `## For the owner` with its question and its A-beside-B picture.
+   `For the owner` in `notes` with its question and its A-beside-B picture.
 
 It replies in at most 10 lines: counts (confirmed, dropped, spec gaps), one
 line per high finding, the groups and files, the judgment calls. A judgment
@@ -101,7 +105,7 @@ branch from it. Then one **`sdd:fixer`** (Sonnet) per group, fresh:
 - **More**: one per group in `wt new <change>-fix-<x> wt/<change>`, at most 4
   at once, merged back as a wave (`sdd:parallel-apply` section 3).
 
-> Fix findings in group <x> of `<scratchpad>/review/triage.md` (change <change>) in `<abs worktree path>`. Range: `<base>...wt/<change>`. Report: `<scratchpad>/reports/fix-<x>.md`.
+> Fix findings in group <x> of `<scratchpad>/review/triage.json` (change <change>) in `<abs worktree path>`. Range: `<base>...wt/<change>`. Report: `<scratchpad>/reports/fix-<x>.md`.
 
 The fixer stops at `check` on its test files. `model: "opus"` only after a
 Sonnet fixer failed the same group, or where the project's rules name the
@@ -142,13 +146,13 @@ it under **Flaky**.
 
 ## 5. Check of the fixes (after the final gate)
 
-`delegate:checker` runs once on `<scratchpad>/review/triage.md` and the
+`delegate:checker` runs once on `<scratchpad>/review/triage.json` (the recorded review; the hand-off is that JSON, no readable file) and the
 fixers' reports, over `<gate base>..HEAD` (the gate base is the `Reviewed:`
 sha), with the log of section 4's final gate (or its pipeline result) named as `Gate:`. The look review runs in
 check mode when the fix commits touch the surface (the test of section 1 on
 that range):
 
-> Check: `<scratchpad>/review/triage.md`. Fixes: `<fixer reports>`. Worktree: `<abs change worktree path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<scratchpad>/review/check.json`.
+> Check: `<scratchpad>/review/triage.json`. Fixes: `<fixer reports>`. Worktree: `<abs change worktree path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<scratchpad>/review/check.json`.
 
 There is no fixer after it and no new open review. The triage author keeps
 each finding's failing case and pass-cases when it merges duplicates. Every
@@ -165,7 +169,7 @@ with `kit get product.run_skill`.
 ## 6. Report
 
 It opens with the gate, since that says whether the change is safe to merge.
-Build it from the hand-backs; open `triage.md` only for a line they lack.
+Build it from the hand-backs; read `triage.json` (`relay check show --brief <path>`) only for a line they lack.
 
 ```
 Quality gate: <N> findings (<X> high), <fixed / open>. Check: <met>/<all> cases met, open <n>.

@@ -32,11 +32,12 @@ class PageError(Exception):
     """The page could not be built; the text says why in one line."""
 
 
-def finding_view(finding):
+def finding_view(finding, owner=()):
     """The page's view of a recorded finding: path, line, severity, id, what, linter, case (the failing case in one
     paragraph)."""
     return {"path": finding["path"], "line": finding["line"], "severity": finding["severity"], "rank": finding["rank"], "id": finding["id"],
-            "what": finding["summary"], "linter": relay_verdict.linter(finding), "case": " ".join(l.strip() for l in finding["failing_case"] if l.strip())}
+            "what": finding["summary"], "linter": relay_verdict.linter(finding), "case": " ".join(l.strip() for l in finding["failing_case"] if l.strip()),
+            "owner": [" ".join(l.strip() for l in o["words"] if l.strip()) + " (%s)" % o["date"] for o in owner]}
 
 
 def statuses_of(check):
@@ -85,6 +86,8 @@ def render_finding(finding, status, shown, slug=None, outside=False):
         parts.append("<pre>%s</pre>" % e("\n".join("%4d  %s" % (n, t) for n, t in shown)))
     if finding["case"]:
         parts.append("<p>%s</p>" % e(finding["case"]))
+    for words in finding["owner"]:
+        parts.append("<p>Owner: not wrong: %s</p>" % e(words))
     parts.append("</div>")
     return "".join(parts)
 
@@ -119,9 +122,8 @@ def build(repo, branch):
     if review_set is None or check is None:
         raise PageError("the review or check data of %s is not stored for %s (the mark is from before the data form: run delegate:checker again)" % (commit, branch))
     statuses = statuses_of(check)
-    inside = [f for r in review_set["reviews"] for f in r["findings"] if f["kind"] in ("inside", "design", "feature")]
-    inside = [finding_view(f) for f in inside]
-    outside = [finding_view(f) for r in review_set["reviews"] for f in r["findings"] if f["kind"] == "outside"]
+    inside = [finding_view(f, relay_verdict.owner_of(r, f["id"])) for r in review_set["reviews"] for f in r["findings"] if f["kind"] in ("inside", "design", "feature")]
+    outside = [finding_view(f, relay_verdict.owner_of(r, f["id"])) for r in review_set["reviews"] for f in r["findings"] if f["kind"] == "outside"]
     title_line = branch
 
     gate = relay_marks.newest(repo, ref, relay_marks.gate_logs(repo, ref))

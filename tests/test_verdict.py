@@ -14,6 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
+import relay_checkpage  # noqa: E402
 import relay_verdict as rv  # noqa: E402
 
 RELAY = os.path.join(ROOT, "bin", "relay")
@@ -355,6 +356,120 @@ class FlowWords(RecordBase):
         found = [dict(finding(), severity="BLOCKER", rank="high"), dict(finding(), severity="CRITICAL", rank="high"),
                  dict(finding(), severity="FIX", rank="medium")]
         self.assertEqual(rv.counts_by_rank(found), {"high": 2, "medium": 1, "low": 0})
+
+
+class Owner(RecordBase):
+    """`relay check owner`: the owner's word that a finding is not wrong is data in the review JSON, not a prompt line."""
+
+    # shell characters, a quote, a backslash and a second line: none may change on the way into the JSON
+    WORDS = ["it's \"fine\" as built: $HOME `date` $(touch x) & ; | > \\n", "second line, kept"]
+
+    def owner(self, fid="F1", words=None, review=None):
+        text = "words = " + lit(self.WORDS if words is None else words) + "\n"
+        return self.relay("check", "owner", review or self.report, fid, "--input", self.write_input(text, "owner.toml"))
+
+    def test_the_word_is_appended_verbatim_with_the_date_and_the_review_stays_valid(self):
+        self.assertEqual(self.record_review([IN_FINDING, dict(IN_FINDING, id="F2", line=3)]).returncode, 0)
+        done = self.owner("F2")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        data = self.load()
+        # one entry: the id asked for, the two lines exactly as written (no shell touched them), a date
+        self.assertEqual([(e["id"], e["words"]) for e in data["owner"]], [("F2", self.WORDS)])
+        self.assertRegex(data["owner"][0]["date"], r"^\d{4}-\d{2}-\d{2}$")
+        self.assertEqual(rv.review_errors(data), [])
+        self.assertEqual(sorted(os.listdir(self.tmp)), ["in.toml", "owner.toml", "rev.json"])    # no readable copy written
+        self.assertEqual(self.owner("F1", ["second word"]).returncode, 0)
+        self.assertEqual([e["id"] for e in self.load()["owner"]], ["F2", "F1"])                 # a second word is appended
+
+    def test_the_library_stores_the_date_it_is_given(self):
+        self.assertEqual(self.record_review().returncode, 0)
+        rv.add_owner(self.report, "F1", self.write_input("words = '''no problem'''\n"), "2026-10-23")
+        self.assertEqual(self.load()["owner"], [{"id": "F1", "words": ["no problem"], "date": "2026-10-23"}])
+
+    def test_an_unknown_id_is_refused_and_the_review_is_unchanged(self):
+        self.assertEqual(self.record_review().returncode, 0)
+        before = open(self.report, encoding="utf-8").read()
+        done = self.owner("F9")
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("F9 is not a finding of", done.stderr)
+        self.assertEqual(open(self.report, encoding="utf-8").read(), before)
+
+    def test_bad_input_is_refused_by_name(self):
+        self.assertEqual(self.record_review().returncode, 0)
+        for text, word in (("other = 'x'\n", "unknown key `other`"), ("", "missing required key `words`"), ("words = '''  '''\n", "must hold the owner's words")):
+            done = self.relay("check", "owner", self.report, "F1", "--input", self.write_input(text, "o.toml"))
+            self.assertNotEqual(done.returncode, 0, text)
+            self.assertIn(word, done.stderr)
+        self.assertNotIn("owner", self.load())
+
+    def test_the_schema_refuses_an_owner_entry_for_a_finding_the_review_lacks(self):
+        data = {"schema": 1, "type": "review", "reviewed": SHA_A, "base": "master", "findings": [finding()],
+                "owner": [{"id": "F5", "words": ["x"], "date": "2026-10-23"}]}
+        self.assertTrue(any("id 'F5' is not a finding of this review" in e for e in rv.review_errors(data)))
+        data["owner"] = [{"id": "F1", "words": [], "date": "23 Oct"}]
+        errors = rv.review_errors(data)
+        self.assertTrue(any("words must be a list of lines" in e for e in errors) and any("date must look like" in e for e in errors), errors)
+
+    def test_the_checker_count_leaves_out_a_finding_with_an_owner_entry(self):
+        high, medium, low = finding("F1"), finding("F2", severity="FIX", rank="medium"), finding("F3", severity="NIT", rank="low")
+        outside = finding("F4", kind="outside")
+        review = {"schema": 1, "type": "review", "reviewed": SHA_A, "base": "master", "findings": [high, medium, low, outside]}
+        statuses = [{"id": i, "verdict": "NOT MET"} for i in ("F1", "F2", "F3", "F4")]
+        # high and medium inside the change and NOT MET: F1 and F2 (F3 is low, F4 is outside) -> 2
+        self.assertEqual(rv.count_open(review, statuses), 2)
+        review["owner"] = [{"id": "F1", "words": ["not wrong"], "date": "2026-10-23"}]
+        self.assertEqual(rv.count_open(review, statuses), 1)           # the owner's word takes F1 out: only F2 is left
+        self.assertEqual(rv.count_open(review, [dict(s, verdict="MET") for s in statuses]), 0)
+
+    def test_show_and_the_page_print_the_words_under_the_finding(self):
+        self.assertEqual(self.record_review().returncode, 0)
+        self.assertEqual(self.owner("F1", ["not wrong, because it is by design"]).returncode, 0)
+        data = self.load()
+        date = data["owner"][0]["date"]
+        shown = self.relay("check", "show", self.report).stdout
+        self.assertIn("  Owner (%s) says not wrong:\n    not wrong, because it is by design\n" % date, shown)
+        view = relay_checkpage.finding_view(data["findings"][0], rv.owner_of(data, "F1"))
+        self.assertIn("Owner: not wrong: not wrong, because it is by design (%s)" % date, relay_checkpage.render_finding(view, "not checked", []))
+        plain = relay_checkpage.render_finding(relay_checkpage.finding_view(data["findings"][0]), "not checked", [])
+        self.assertNotIn("Owner", plain)
+
+
+class ApplyReviewHandoff(RecordBase):
+    """sdd:apply-review hands the triage to the checker as a review record: the author writes the TOML input and records it,
+    the checker's `Check:` names that JSON. The fixture runs both record steps with no live agent."""
+
+    SKILL = os.path.join(ROOT, "plugins", "sdd", "skills", "apply-review", "SKILL.md")
+
+    def test_a_triage_recorded_as_a_review_is_what_a_check_records_against(self):
+        triage = os.path.join(self.tmp, "triage.json")
+        finding_in = dict(IN_FINDING, evidence=["screenshot: shots/home.png"], pass_cases=["a=2 gives 1 row"])
+        fields = {"report": triage, "reviewed": SHA_A, "base": "master", "notes": ["Group A: lib/x.py (F1)", "For the owner: none"]}
+        recorded = self.relay("check", "record", "review", "--input", self.write_input(toml_input(fields, [("finding", finding_in)]), "triage.toml"))
+        self.assertEqual(recorded.returncode, 0, recorded.stderr)
+        data = self.load("triage.json")
+        self.assertEqual(data["type"], "review")
+        self.assertEqual(data["notes"][0], "Group A: lib/x.py (F1)")
+        checked = self.record_check(statuses=[{"id": "F1", "verdict": "MET", "reason": ["tests/test_x.py:4"]}], review=triage, open=0)
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+        self.assertEqual(self.load("chk.json")["review"], [triage])
+        self.assertIn("F1 MET", self.relay("check", "show", os.path.join(self.tmp, "chk.json")).stdout)
+
+    def test_the_checker_refuses_a_markdown_triage(self):
+        old = os.path.join(self.tmp, "triage.md")
+        with open(old, "w") as handle:
+            handle.write("## Group A\nF1\n")
+        done = self.record_check(statuses=[{"id": "F1", "verdict": "MET"}], review=old)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("is not JSON", done.stderr)
+
+    def test_the_skill_hands_the_json_over_and_names_no_triage_markdown(self):
+        with open(self.SKILL, encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertNotIn("review/triage.md", text)
+        self.assertIn("relay check record review --input", text)
+        checks = [l for l in text.splitlines() if l.startswith("> Check:")]
+        self.assertEqual(len(checks), 1)
+        self.assertIn("Check: `<scratchpad>/review/triage.json`", checks[0])
 
 
 if __name__ == "__main__":

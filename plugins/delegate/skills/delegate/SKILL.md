@@ -160,8 +160,12 @@ Where findings go:
 | a feature (a judge's suggestion, an out-of-scope question) | listed for the owner |
 | a question for the owner | asked with its introduction; the answer is a decision recorded in the design or brief |
 
-The owner can say a finding is not wrong: put `Owner: F3 is not wrong
-("<owner's words>")` in the checker's prompt and run the checker again.
+The owner can say a finding is not wrong: keep the word as data, then run the
+checker again. Write a TOML file with `words = '''<the owner's words, verbatim>'''`
+and run `relay check owner <review.json> F3 --input <file.toml>`: it appends the
+words and the date to the `owner` list of that review's JSON, and refuses an id
+the review does not have. The checker counts a finding with an owner entry as
+not wrong; `relay check show` and the page print the words under the finding.
 
 Prompts:
 

@@ -162,8 +162,8 @@ In one Bash call: `kit get gate.check`, `kit get gate.ci_log`,
 `kit get project.stack_skills`. Below, `<check>` is the first and `<logs>`
 the folder of the second (git-ignored).
 
-The report the prompt names is your whole briefing: a `## Group <x>` of the
-triage file, a worker's report (a blocker), the log of a failed check or
+The report the prompt names is your whole briefing: a `Group <x>` of the
+triage review (`relay check show <report.json>`), a worker's report (a blocker), the log of a failed check or
 gate, or a flaky test's name and file.
 
 - Do not read `tasks.md`, `design.md`, `proposal.md` or the spec deltas

@@ -755,6 +755,17 @@ class TestTake(Base):
             rq.done(self.wb, "job", "tests/test_job.py::test_job_works", good)
         self.assertIn("not taken by wt/b", str(ctx.exception))
 
+    def test_done_refuses_check_data_it_cannot_read(self):
+        """A check path that is missing, or is a folder, is refused with "cannot read the check data" and commits nothing."""
+        rq.take(self.wa, "job", self.findings(), **QUIET)
+        self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "test")
+        head = git(self.wa, "rev-parse", "HEAD")
+        for report in (os.path.join(self.tmp, "none.json"), self.tmp):
+            with self.assertRaises(rq.Refused, msg=report) as ctx:
+                rq.done(self.wa, "job", "tests/test_job.py::test_job_works", report)
+            self.assertTrue(str(ctx.exception).startswith("cannot read the check data "), str(ctx.exception))
+            self.assertEqual(git(self.wa, "rev-parse", "HEAD"), head)
+
     def test_done_reads_the_check_json_for_q1(self):
         """A fix closes only when the check data says Q1 MET: no file, a prose file, Q1 NOT MET, no verdict for Q1 and a
         review (not a check) are refused with the reason and commit nothing; Q1 MET is accepted."""

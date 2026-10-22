@@ -9,7 +9,10 @@ against the schemas below (no outside library) and refuses bad input with a mess
 
 Every file carries "schema": 1 (a version, for later conversions) and "type". Prose is stored as lists of lines.
 Review data:  {"schema": 1, "type": "review", "reviewed": <full sha or "unknown">, "base": <sha or ref>,
-               "scope": [line, ...], "notes": [line, ...], "findings": [FINDING, ...]}   (a stored set adds "file")
+               "scope": [line, ...], "notes": [line, ...], "findings": [FINDING, ...],
+               "owner": [{"id": of a finding, "words": [line, ...], "date": "YYYY-MM-DD"}, ...]}   (a stored set adds "file")
+The owner's word that a finding is not wrong is data: `relay check owner <review.json> <id> --input <file.toml>`
+(`add_owner`) appends to "owner" the words as the owner said them; a checker counts such a finding as not wrong.
 FINDING:      {"id": "F<n>" or "Q<n>", "path", "line": int >= 1, "severity": a word of WORDS (the flow's own),
                "rank": high|medium|low, "kind": inside|outside|design|feature|question, "summary",
                "failing_case": [line, ...] (at least one), "details", "pass_cases", "evidence", "fix_hint": [line, ...]}
@@ -40,6 +43,7 @@ KINDS = ("inside", "outside", "design", "feature", "question")
 VERDICTS = ("MET", "NOT MET", "DISPUTED", "GAP", "OUTSIDE", "QUEUED")
 SHA = re.compile(r"^[0-9a-f]{40}\Z")
 FINDING_ID = re.compile(r"^[FQ]\d+\Z")
+DATE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
 PROSE = ("details", "pass_cases", "evidence", "fix_hint")       # a finding's optional prose, as lists of lines
 # The most lines `relay check show --brief` prints (bound 5-30: at 5 only the verdict and two findings fit, at 30 it is a page).
 BRIEF_LINES = 10
@@ -146,9 +150,35 @@ def review_errors(data):
         errors.append("base must be a one-line text (a sha or a ref), got %r" % (data.get("base"),))
     if "file" in data and not _text(data["file"]):
         errors.append("file must be a one-line text")
-    for key in sorted(set(data) - {"schema", "type", "reviewed", "base", "scope", "notes", "findings", "file"}):
+    for key in sorted(set(data) - {"schema", "type", "reviewed", "base", "scope", "notes", "findings", "file", "owner"}):
         errors.append("unknown field %s" % key)
-    return errors + _findings_errors(data.get("findings"), "findings")
+    errors += _findings_errors(data.get("findings"), "findings")
+    return errors + _owner_errors(data)
+
+
+def _owner_errors(data):
+    """[message] for the `owner` list of review data: each entry an id of one of its findings, the words, a date."""
+    if "owner" not in data:
+        return []
+    owner = data["owner"]
+    if not isinstance(owner, list):
+        return ["owner must be a list"]
+    ids = {f.get("id") for f in data.get("findings") or [] if isinstance(f, dict)}
+    errors = []
+    for i, entry in enumerate(owner):
+        where = "owner[%d]" % i
+        if not isinstance(entry, dict):
+            errors.append("%s is not an object" % where)
+            continue
+        for key in sorted(set(entry) - {"id", "words", "date"}):
+            errors.append("%s has an unknown field %s" % (where, key))
+        if entry.get("id") not in ids:
+            errors.append("%s: id %r is not a finding of this review" % (where, entry.get("id")))
+        if not (_lines_ok(entry.get("words")) and any(l.strip() for l in entry["words"])):
+            errors.append("%s: words must be a list of lines with at least one non-empty line" % where)
+        if not (isinstance(entry.get("date"), str) and DATE.match(entry["date"])):
+            errors.append("%s: date must look like 2026-10-23, got %r" % (where, entry.get("date")))
+    return errors
 
 
 def check_errors(data, stored=False):
@@ -264,15 +294,23 @@ def _section(out, title, lines, indent="  "):
         out += [(indent + l).rstrip() for l in lines]
 
 
-def finding_lines(finding):
-    """The finding as the reader sees it: the linter line, then its kind (when not plain inside) and prose, indented."""
+def finding_lines(finding, owner=()):
+    """The finding as the reader sees it: the linter line, then its kind (when not plain inside), prose and the owner's
+    words (the entries of the review's `owner` list for this finding), indented."""
     out = [linter(finding)]
     if finding["kind"] != "inside":
         out.append("  Kind: %s" % finding["kind"])
     for title, key in (("Failing case", "failing_case"), ("Pass cases", "pass_cases"), ("Details", "details"),
                        ("Evidence", "evidence"), ("Fix hint", "fix_hint")):
         _section(out, "  " + title, finding.get(key) or [], indent="    ")
+    for entry in owner:
+        _section(out, "  Owner (%s) says not wrong" % entry["date"], entry["words"], indent="    ")
     return out
+
+
+def owner_of(data, fid):
+    """The owner entries of review data for finding `fid`, in the order they were given."""
+    return [e for e in data.get("owner") or [] if e["id"] == fid]
 
 
 def _prose_head(out, data):
@@ -285,7 +323,7 @@ def _review_lines(data):
     _prose_head(out, data)
     out.append("Findings: %d" % len(data["findings"]))
     for finding in data["findings"]:
-        out += [""] + finding_lines(finding)
+        out += [""] + finding_lines(finding, owner_of(data, finding["id"]))
     return out
 
 
@@ -516,6 +554,49 @@ def record_check(input_path):
     if errors:
         raise VerdictError("nothing recorded: " + "; ".join(errors))
     return _write_json(raw["report"], data)
+
+
+OWNER_USAGE_KEYS = ("words",)
+
+
+def add_owner(review_path, fid, input_path, today):
+    """Append the owner's word that finding `fid` is not wrong to the `owner` list of the review JSON at `review_path`.
+    The TOML input holds `words`, the owner's words as said; `today` is the date (YYYY-MM-DD) stored with them.
+    Returns the path; VerdictError (nothing changed) for a bad input, an unreadable review or an id it does not have."""
+    raw = read_input(input_path, "owner word kept")
+    errors = table_errors(raw, "at the top of the input", OWNER_USAGE_KEYS, OWNER_USAGE_KEYS)
+    if not isinstance(raw, dict) or errors:
+        raise VerdictError("nothing recorded: " + "; ".join(errors))
+    words = as_lines(raw["words"], "words", "at the top of the input", errors)
+    if not any(l.strip() for l in words):
+        errors.append("`words` must hold the owner's words")
+    if errors:
+        raise VerdictError("nothing recorded: " + "; ".join(errors))
+    try:
+        with open(review_path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError as exc:
+        raise VerdictError("nothing recorded: the review data %s cannot be read: %s" % (review_path, exc.strerror))
+    data = load_review(text, "the review data %s" % review_path)
+    if fid not in {f["id"] for f in data["findings"]}:
+        raise VerdictError("nothing recorded: %s is not a finding of %s" % (fid, review_path))
+    data["owner"] = list(data.get("owner") or []) + [{"id": fid, "words": words, "date": today}]
+    return write_review(review_path, data)
+
+
+def owner_ids(review):
+    """The ids of review data that have an owner entry: the owner said these are not wrong."""
+    return {e["id"] for e in review.get("owner") or []}
+
+
+def count_open(review, statuses):
+    """How many HIGH or MEDIUM findings inside the change of review data `review` are NOT MET in `statuses` (the check's
+    [{"id", "verdict"}]) and have no owner entry. A finding with no status counts as NOT MET. (The checker adds the new
+    problems and its own +1s.)"""
+    said = {s["id"]: s["verdict"] for s in statuses}
+    owned = owner_ids(review)
+    return sum(1 for f in review["findings"]
+               if f["kind"] == "inside" and f["rank"] in ("high", "medium") and said.get(f["id"]) != "MET" and f["id"] not in owned)
 
 
 def stored_set(reviews, reviewed):

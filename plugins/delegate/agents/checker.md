@@ -147,8 +147,9 @@ report, the worktree, the check to run and the full gate's log.
    `F2 NOT MET <why>` (recorded as a `[[status]]` table, its `reason` the rest), then
    record the check with the verdict (options in your flow part). `open` counts
    the `HIGH` and `MEDIUM` findings inside the change that are `NOT MET`,
-   plus the new ones and the +1s of steps 1 and 2, minus those the prompt
-   lists under `Owner: <id> is not wrong`. When the project has a work
+   plus the new ones and the +1s of steps 1 and 2, minus those that
+   have an `owner` entry in the review data (the owner's word, kept by `relay
+   check owner`; `relay check show` prints it under the finding). When the project has a work
    queue, a `Design:` finding listed under `Owner: <id> moved to queue item
    <slug>` counts under `queued`, not `open`, when `git -C <path> cat-file -e
    <ref>:.relay/queue/<slug>.json` succeeds for the default branch; otherwise
