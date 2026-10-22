@@ -149,7 +149,8 @@ lines; other MEDIUM and LOW findings stay in the report file.
 
 One reply: what your flow's `Reply, in addition` names joins this list in
 the same limit; if it gives its own list, that list is the reply (an item
-both name is given once).
+both name is given once). The lines beyond the 10 (every HIGH line, every
+project-rule line) belong to every reply, a flow's own list included.
 <!-- relay:end judge -->
 <!-- relay:part limits -->
 ## Limits
@@ -236,4 +237,5 @@ run.
 Write items 1-6 to the report file with `mkdir -p` its directory, then
 `cat > <path> <<'EOF'`; it is the only file you write. In the reply give item
 6, one line per CRITICAL issue and per MISSING scenario (up to 6, then "and N
-more"), and the report path.
+more"), the report path, and, beyond that, one line per finding a project rule
+raises (where, what, the rule's label) and per HIGH not already given.

@@ -157,7 +157,8 @@ lines; other MEDIUM and LOW findings stay in the report file.
 
 One reply: what your flow's `Reply, in addition` names joins this list in
 the same limit; if it gives its own list, that list is the reply (an item
-both name is given once).
+both name is given once). The lines beyond the 10 (every HIGH line, every
+project-rule line) belong to every reply, a flow's own list included.
 <!-- relay:end judge -->
 <!-- relay:part limits -->
 ## Limits
@@ -396,4 +397,6 @@ Write all of the above to the report file (`mkdir -p` its directory, then
 `cat > <path> <<'EOF'`) and reply with at most 10 lines: the counts (`DEFECT`
 and `TASTE`, per severity), one line per `HIGH` finding with its screenshot
 path and per `TASTE` question with the path of its A-beside-B sheet, the path
-of `sheets/index.html`, and the report path.
+of `sheets/index.html`, and the report path; beyond that, one line per
+finding a project rule raises (where, what, the rule's label), and per HIGH not
+already given.

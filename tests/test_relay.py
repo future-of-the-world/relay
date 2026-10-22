@@ -1062,6 +1062,18 @@ class Agents(unittest.TestCase):
             self.assertIn("## The rating is yours", text, name)
             self.assertIn("carries the rule's label", text, name)
             self.assertIn("Every finding a project rule raises gets one line too (where, what, the rule's label)", text, name)
+            # the reply section the agent actually emits: the shared one says the lines beyond the 10 belong to every
+            # reply, and a flow that gives its own reply list names the project-rule line in that list
+            reply = text[text.index("## Reply "):]
+            self.assertIn("belong to every reply, a flow's own list included", reply, name)
+            if "## Reply, in addition" in text:
+                own = text[text.index("## Reply, in addition"):]
+                own = re.split(r" ## (?!Reply, in addition)", own)[0]
+                if re.search(r"replaces the shared reply list|reply with at most 10|In the reply give", own):
+                    self.assertRegex(own, r"project rule\s+raises \(where, what, the rule's label\)", name + " own reply list")
+        for flow in ("plugins/sdd/agents/spec-reviewer.md", "plugins/sdd/agents/spec-conformance.md",
+                     "plugins/product/agents/ui-reviewer.md"):
+            self.assertIn("## Reply, in addition", read(flow), flow)
         code = read("plugins/sdd/agents/code-reviewer.md")
         self.assertIn("The skill runs without the project's rules", code)
         self.assertIn("in its own reply line even when the skill rated it low", code)

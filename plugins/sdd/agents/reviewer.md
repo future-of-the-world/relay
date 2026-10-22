@@ -152,7 +152,8 @@ lines; other MEDIUM and LOW findings stay in the report file.
 
 One reply: what your flow's `Reply, in addition` names joins this list in
 the same limit; if it gives its own list, that list is the reply (an item
-both name is given once).
+both name is given once). The lines beyond the 10 (every HIGH line, every
+project-rule line) belong to every reply, a flow's own list included.
 <!-- relay:end judge -->
 <!-- relay:part limits -->
 ## Limits

@@ -151,7 +151,8 @@ lines; other MEDIUM and LOW findings stay in the report file.
 
 One reply: what your flow's `Reply, in addition` names joins this list in
 the same limit; if it gives its own list, that list is the reply (an item
-both name is given once).
+both name is given once). The lines beyond the 10 (every HIGH line, every
+project-rule line) belong to every reply, a flow's own list included.
 <!-- relay:end judge -->
 <!-- relay:part limits -->
 ## Limits
@@ -315,4 +316,5 @@ At most 10 lines, not counting the BLOCKER lines: the report path; the counts
 per tag (they stand for the counts by severity); one line per **Question for
 the owner** (the report holds it in full); the `validate` and `spec-check`
 results, one line each. Then one line per BLOCKER (`artifact:line`, what
-breaks), beyond the 10, so no BLOCKER is cut.
+breaks), beyond the 10, so no BLOCKER is cut; and one line per finding a
+project rule raises (where, what, the rule's label), beyond the 10 too.
