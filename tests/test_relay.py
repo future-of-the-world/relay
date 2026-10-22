@@ -998,6 +998,13 @@ class Roles(Base):
         self.assertIn("<path>:<line>: <SEVERITY>: F<n> <what goes wrong>", each)
         self.assertIn("relay changed -C <path> <sha>` lists no file", judge)     # the gate rule has no --own
         self.assertIn("F2 MET tests/test_inert.py:88", judge)
+        # F5: agents without Write get a quoted heredoc, never an unquoted one, in the base and in every synced copy
+        self.assertIn("with a quoted heredoc `cat > <file> <<'EOF'` when you have no Write tool", judge)
+        rr = self.lib()
+        for path in rr.agent_files(ROOT):
+            text = " ".join(open(path).read().split())
+            if "relay:base judge" in text:
+                self.assertIn("with a quoted heredoc `cat > <file> <<'EOF'` when you have no Write tool", text, path)
         checker = " ".join(open(os.path.join(ROOT, "plugins", "delegate", "agents", "checker.md")).read().split())
         self.assertIn("written by `relay gate`", checker)
         self.assertIn("never `Brief: <file>`", checker)

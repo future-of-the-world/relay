@@ -142,8 +142,10 @@ What is `NOT MET` or new goes to the owner, never to another fix round.
 
 ## Record the findings (review) and the verdict (check)
 The merge reads only JSON, and you never type JSON or pass text through the
-shell. Write a TOML input file (in the scratchpad or `.ci/`), then run
-`relay check record review --input <file.toml>`. The script checks every field,
+shell. Write a TOML input file (in the scratchpad or `.ci/`) with the Write
+tool, or with a quoted heredoc `cat > <file> <<'EOF'` when you have no Write
+tool (quoted, never `<<EOF`: an unquoted one expands `$` and runs backticks in
+your findings), then run `relay check record review --input <file.toml>`. The script checks every field,
 refuses a bad value with a message that names the field (fix the file and run
 it again), and writes the report's JSON. Recording again replaces it. Text goes
 in `'''...'''` (three single quotes; nothing inside is escaped, so `$`,
