@@ -67,7 +67,9 @@ brief: ask it in the prompt, several questions at once.
 ## Reading a hand-back
 
 The reply is at most 10 lines and starts with DONE, BLOCKED or BUDGET SPENT.
-Open the report file (`head -40`) only when the first word is not DONE. Never
+Open the report file (`head -40`) only when the first word is not DONE. A
+judge's report path is its JSON (`.json`): read it with `relay check show
+--brief <path>` (ten lines; without `--brief` the whole readable text). Never
 paste a report into the conversation: tell the owner the outcome in one or two
 plain sentences, and keep the path.
 
@@ -115,11 +117,11 @@ worker's DONE on a change that will be merged:
    again.
 7. **Check.** `delegate:checker` on the findings file, the fixer's report and
    the gate log (with `Fixes: none` after a review with nothing inside the
-   change; the gate log of step 3 is the gate). Its report ends with the
-   verdict, and where the project has `.relay/` a hook commits the check mark,
-   the review and the report. Start it with the one-line check prompt below,
-   never `Brief: <file>`: the hook reads the `Report:` label and, from the JSON the checker recorded beside that report
-   (`relay check record check`), everything else.
+   change; the gate log of step 3 is the gate). Its report is the JSON it
+   recorded (`relay check record check`) at the `Report:` path, and where the
+   project has `.relay/` a hook commits the check mark and the review and check
+   data. Start it with the one-line check prompt below, never `Brief: <file>`:
+   the hook reads the `Report:` label and, from that JSON, everything else.
    Then run `relay check show <branch>` (a runner; it waits while the hook is
    committing) before the front commits the handover, so the branch carries
    the state it was merged in and the commit does not meet the hook's lock.
@@ -128,9 +130,9 @@ worker's DONE on a change that will be merged:
    merge commit, never `git rebase` (a rebase gives every commit a new sha, and
    the mark names the old one). When code came in, run `relay gate` again. If
    `relay changed --own -C <wt> <checked sha>` lists a file (a conflict, or a
-   file both sides changed that git combined), that change is a fix: write a
-   findings file (`Reviewed: <head before the merge>`) with one finding per
-   file, `<file>:1: MEDIUM: F<n> combined with master's change by the merge`,
+   file both sides changed that git combined), that change is a fix: record a
+   findings file (`relay check record review`, `reviewed` = the head before the
+   merge) with one finding per file, `<file>:1: MEDIUM: F<n> combined with master's change by the merge`,
    failing case "the gate fails or the merge does not apply", pass-case "the
    gate passes"; a fixer resolves a conflict first (none for a clean
    combination, `Fixes: none`); then `relay gate`, then the checker. Files that
@@ -153,19 +155,19 @@ Where findings go:
 |---|---|
 | HIGH or MEDIUM inside the change | fixed in this change |
 | LOW inside the change | fixed with its group when cheap, else listed in the report and dropped |
-| wrong outside the change | a fix item: `relay queue add --from <report> F<n>` |
+| wrong outside the change | a fix item: `relay queue add --from <report.json> F<n> --input <file.toml>` (the TOML holds `why` and `time`) |
 | marked `Design:` (the design itself is wrong) | stop building on that part; it stays open and goes to the owner |
 | a feature (a judge's suggestion, an out-of-scope question) | listed for the owner |
 | a question for the owner | asked with its introduction; the answer is a decision recorded in the design or brief |
 
-The owner can say a finding is not wrong: append `Owner: F3 is not wrong
-("<owner's words>")` to the findings file and run the checker again.
+The owner can say a finding is not wrong: put `Owner: F3 is not wrong
+("<owner's words>")` in the checker's prompt and run the checker again.
 
 Prompts:
 
-> Review the change. Range: `<base>...HEAD` in `<worktree>`. Report: `<path>`.
+> Review the change. Range: `<base>...HEAD` in `<worktree>`. Report: `<path>.json`.
 
-> Check: `<findings file>`. Fixes: `<fixer report>`. Worktree: `<path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<path>`.
+> Check: `<findings file>`. Fixes: `<fixer report>`. Worktree: `<path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<path>.json`.
 
 This check prompt is the one line, never `Brief: <file>`. Under `relay gate`,
 `Gate:` is `<worktree>/.relay/checks/<G>.gate.log`.

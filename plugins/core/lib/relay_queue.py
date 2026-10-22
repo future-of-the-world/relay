@@ -135,8 +135,8 @@ def changed(item, **changes):
 
 
 def lines_of(text):
-    """Text as the list of its lines (surrounding blank lines dropped)."""
-    return text.strip().split("\n") if text.strip() else []
+    """Text as the list of its lines (blank lines at its start and end dropped, the lines themselves unchanged)."""
+    return relay_verdict.lines_of(text)
 
 
 def joined(item, key):
@@ -204,6 +204,21 @@ def count_text(items):
         top = sorted(open_items, key=order_key)[0]
         text += f"; top: {top['slug']} ({top['kind']}, ip {top['ip']}, {format_time(top['time'])})"
     return text
+
+
+def show_text(item):
+    """One well-formed item in full, as the person reads it (a read-only view of the stored JSON)."""
+    state = item["state"] + (f" by {item['taken_by']}" if item["taken_by"] else "")
+    out = [f"{item['slug']}: {item['title']}", f"{item['kind']}, ip {item['ip']}, {format_time(item['time'])}, {state}",
+           f"found {item['found']} in {item['found_in']}"]
+    if item.get("where"):
+        out.append(f"where {item['where']}")
+    if item["closed_by"]:
+        out.append(f"closed by {item['closed_by']} with test {item['test']}")
+    for title, key in (("What", "what"), ("Why", "why"), ("Failing case", "failing_case"), ("Pass cases", "pass_cases"), ("Dropped because", "dropped_why")):
+        if item.get(key):
+            out += [f"{title}:"] + ["  " + line for line in item[key]]
+    return "\n".join(out)
 
 
 LIST_HEADER = ("ip", "kind", "time", "what", "name")
@@ -504,30 +519,64 @@ def _taken_by_refusal(item):
 # ---------------------------------------------------------------- commands
 
 def find_finding(report, fid):
-    """The finding `fid` from the data a judge recorded beside `report` (`<report>.json`, written by `relay check record`):
-    a review's findings, or a check's new ones. Refused, naming the expected file, when it is missing or invalid."""
-    path = report if report.endswith(".json") else relay_verdict.json_path(report)
+    """The finding `fid` from the JSON a judge recorded at `report` (written by `relay check record`): a review's findings,
+    or a check's new ones. Refused, naming the file, when it is missing or invalid."""
     try:
-        with open(path, encoding="utf-8") as handle:
+        with open(report, encoding="utf-8") as handle:
             text = handle.read()
     except OSError:
-        raise Refused(f"no recorded findings for {report}: expected {path} (written by relay check record)")
+        raise Refused(f"no recorded findings at {report}: it is the JSON file `relay check record` wrote")
     try:
-        data = json.loads(text)
-    except ValueError as exc:
-        raise Refused(f"the recorded data {path} is not JSON: {exc}")
-    try:
-        schema = data.get("schema") if isinstance(data, dict) else None
-        if schema == relay_verdict.CHECK_SCHEMA:
-            found = relay_verdict.load_check(text, f"the check data {path}")["new"]
-        else:
-            found = relay_verdict.load_review(text, f"the review data {path}")["findings"]
+        kind, data = relay_verdict.load_any(text, f"the recorded data {report}")
     except relay_verdict.VerdictError as exc:
         raise Refused(str(exc))
+    if kind == relay_verdict.SET_TYPE:
+        found = [f for r in data["reviews"] for f in r["findings"]]
+    else:
+        found = data["new"] if kind == relay_verdict.CHECK_TYPE else data["findings"]
     for finding in found:
         if finding["id"] == fid:
             return finding
-    raise Refused(f"no finding {fid} in {path}")
+    raise Refused(f"no finding {fid} in {report}")
+
+
+ADD_KEYS = ("kind", "title", "why", "what", "failing_case", "pass_cases", "time", "ip", "where")
+FROM_KEYS = ("why", "time", "ip")
+
+
+def read_add_input(path, keys, required):
+    """The values of a queue-add TOML input file as keyword arguments of `add`: text fields as strings (their lines
+    joined), `time` in minutes. Refused, naming the key, for an unknown or missing key or a wrong kind of value."""
+    try:
+        raw = relay_verdict.read_input(path, "queued")
+    except relay_verdict.VerdictError as exc:
+        raise Refused(str(exc))
+    problems = relay_verdict.table_errors(raw, "in the input", keys, required)
+    if problems:
+        raise Refused("nothing queued: " + "; ".join(problems))
+    out = {}
+    for key, value in raw.items():
+        if key in ("kind", "title", "where"):
+            if not isinstance(value, str):
+                problems.append(f"`{key}` must be a text")
+            out[key] = value
+        elif key == "ip":
+            if not _is_int(value):
+                problems.append("`ip` must be a whole number from 0")
+            out["ip"] = value
+        elif key == "time":
+            try:
+                out["minutes"] = value if _is_int(value) else parse_time(value)
+            except (Refused, AttributeError):
+                problems.append(f"`time` must be {TIME_FORMS}")
+        else:
+            errors = []
+            lines = relay_verdict.as_lines(value, key, "in the input", errors)
+            problems += errors
+            out[{"failing_case": "failing", "pass_cases": "pass_cases"}.get(key, key)] = "\n".join(lines)
+    if problems:
+        raise Refused("nothing queued: " + "; ".join(problems))
+    return out
 
 
 def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=None, ip=None, where="",
@@ -623,7 +672,8 @@ def release(repo, slug, **engine):
 
 
 def take(worktree, slug, findings, **engine):
-    """Land `taken` on the default branch, bring it into the worktree's branch, and for a fix write the findings file."""
+    """Land `taken` on the default branch, bring it into the worktree's branch, and for a fix write the review JSON
+    (`findings`, one finding Q1 from the item) that the checker records against."""
     main, default = _context_with_relay(worktree)
     branch = relay_git.current_branch(worktree)
     if branch is None or branch == default:
@@ -651,20 +701,24 @@ def take(worktree, slug, findings, **engine):
         if rc != 0:
             raise Refused(f"{out[0]}; but no merge-base of {branch} and {default}: {err}")
         where = item.get("where") or f"{_path(slug)}:1"
-        parts = [f"Reviewed: {_text(base)}", f"From queue: {slug}", "",
-                 f"{where}: HIGH: Q1 {item['title']}", f"Failing case: {joined(item, 'failing_case')}"]
-        passes = joined(item, "pass_cases")
-        if passes:
-            parts.append(f"Pass-cases: {passes}")
-        os.makedirs(os.path.dirname(os.path.abspath(findings)), exist_ok=True)
-        with open(findings, "w", encoding="utf-8") as handle:
-            handle.write("\n".join(parts) + "\n")
+        place, _, line = where.rpartition(":")
+        if not (place and line.isdigit() and int(line) >= 1):
+            place, line = where, "1"
+        finding = {"id": "Q1", "path": place, "line": int(line), "severity": "HIGH", "rank": "high", "kind": "inside", "summary": item["title"],
+                   "failing_case": list(item["failing_case"]), "details": list(item["why"]),
+                   "pass_cases": list(item.get("pass_cases") or []), "evidence": [], "fix_hint": []}
+        data = relay_verdict.review_data(_text(base), default, [finding], scope=[f"From queue item {slug}: the fix is checked as finding Q1."])
+        try:
+            relay_verdict.write_review(findings, data)
+        except relay_verdict.VerdictError as exc:
+            raise Refused(f"{out[0]}; but the findings cannot be written: {exc}")
         out.append(f"findings written to {findings}")
     return "\n".join(out)
 
 
 def done(worktree, slug, test, check):
-    """Close a taken item on the task branch: needs the named test at HEAD and a checker report that says `Q1 MET`."""
+    """Close a taken item on the task branch: needs the named test at HEAD and, for a fix, check data (`check`, the JSON
+    `relay check record check` wrote) whose verdict for Q1 is MET."""
     branch = relay_git.current_branch(worktree)
     main, default = _context(worktree)
     if branch is None or branch == default:
@@ -689,9 +743,19 @@ def done(worktree, slug, test, check):
         with open(check, encoding="utf-8") as handle:
             report = handle.read()
     except OSError as exc:
-        raise Refused(f"cannot read the checker report: {exc}")
-    if item["kind"] == "fix" and not re.search(r"(?m)^\s*Q1 MET\b", report):
-        raise Refused("the checker report does not say Q1 MET")
+        raise Refused(f"cannot read the check data {check}: {exc.strerror}")
+    try:
+        kind, data = relay_verdict.load_any(report, f"the check data {check}")
+    except relay_verdict.VerdictError as exc:
+        raise Refused(str(exc))
+    if kind != relay_verdict.CHECK_TYPE:
+        raise Refused(f"{check} is a {kind}, not the check data (the JSON of relay check record check)")
+    if item["kind"] == "fix":
+        verdict = next((s["verdict"] for s in data["findings"] if s["id"] == "Q1"), None)
+        if verdict is None:
+            raise Refused(f"the check data {check} gives no verdict for Q1")
+        if verdict != "MET":
+            raise Refused(f"the check data {check} says Q1 {verdict}, not MET")
     root = _text(_git(worktree, "rev-parse", "--show-toplevel")[1])
     text = serialize(slug, changed(item, state="done", closed_by=branch, test=test))
     old, new = os.path.join(root, _path(slug)), os.path.join(root, _path(slug, "done/"))

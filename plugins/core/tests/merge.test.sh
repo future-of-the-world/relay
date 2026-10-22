@@ -282,8 +282,8 @@ mark() { python3 -I - "$LIB" "$W" "$X" "${1:-0}" <<'PY'
 import sys
 sys.path.insert(0, sys.argv[1]); import relay_marks as m
 w, c, o = sys.argv[2], sys.argv[3], int(sys.argv[4])
-m.put(w, c, {"commit": c, "verdict": {"open": o, "queued": 0, "reviewed": c}, "review": c + ".review.md", "check": c + ".check.md",
-             "gate": None, "time": "2026-10-22T10:00:00Z"}, {c + ".check.md": "report\n"})
+m.put(w, c, {"schema": 1, "commit": c, "verdict": {"open": o, "queued": 0, "reviewed": c}, "review": c + ".review.json", "check": c + ".check.json",
+             "gate": None, "time": "2026-10-22T10:00:00Z"}, {c + ".check.json": "{}\n"})
 PY
 }
 gate() { python3 -I - "$LIB" "$W" "$(head_of)" "${1:-0}" <<'PY'
@@ -312,7 +312,7 @@ expect "T15a no mark: refused" "$(refused 'no check mark for wt/t'; echo $?)"
 # (b) mark open 2
 m15; commit "fix a" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 2; pre "$MERGE"
 expect "T15b open 2: refused" "$(refused 'left 2 things inside the change wrong'; echo $?)"
-expect "T15b names the report" "$(has ".relay/checks/$X.check.md" "$out"; echo $?)"
+expect "T15b names the report" "$(has ".relay/checks/$X.check.json" "$out"; echo $?)"
 # (c) clean mark and green gate; the merge itself then succeeds
 m15; green; pre "$MERGE"
 expect "T15c clean mark and green gate: allowed, silent" "$(allowed; echo $?)"
@@ -355,13 +355,37 @@ m15; commit "fix a and x" "lib/a.py=v2\n" "bin/x=1a\n2\n3\n4\n5\n6\n"; BEFORE="$
 printf '1\n2\n3\n4\n5\n6a\n' >"$M/bin/x"; git -C "$M" commit -q -am "x end"; git -C "$W" merge -q --no-edit master
 pre "$MERGE"
 expect "T15k combined file: refused, changed bin/x" "$(refused 'changed bin/x'; echo $?)"
-"$RELAY" check record review --report "$S/f.md" --reviewed "$BEFORE" --base master --finding id=F1 path=bin/x line=1 severity=MEDIUM kind=inside \
-  summary="combined with master's change by the merge" failing="the gate fails or the merge does not apply" >/dev/null
+cat >"$S/review.toml" <<EOF
+report = "$S/f.json"
+reviewed = "$BEFORE"
+base = "master"
+[[finding]]
+id = "F1"
+path = "bin/x"
+line = 1
+severity = "MEDIUM"
+kind = "inside"
+summary = "combined with master's change by the merge"
+failing_case = "the gate fails or the merge does not apply"
+EOF
+"$RELAY" check record review --input "$S/review.toml" >/dev/null
 "$RELAY" gate -C "$W" >"$tmp/gate.out" 2>&1
 HEADK="$(head_of)"
-"$RELAY" check record check --report "$S/rep.md" --head "$HEADK" --reviewed "$BEFORE" --worktree "$W" --gate none --review "$S/f.json" \
-  --status F1=MET --open 0 --queued 0 >/dev/null
-jq -nc --arg t "Check: \`$S/f.md\`. Fixes: \`none\`. Worktree: \`$W\`. Check command: \`bin/ci --quick\`. Gate: \`none\`. Report: \`$S/rep.md\`." \
+cat >"$S/check.toml" <<EOF
+report = "$S/rep.json"
+head = "$HEADK"
+reviewed = "$BEFORE"
+worktree = "$W"
+gate = "none"
+review = ["$S/f.json"]
+open = 0
+queued = 0
+[[status]]
+id = "F1"
+verdict = "MET"
+EOF
+"$RELAY" check record check --input "$S/check.toml" >/dev/null
+jq -nc --arg t "Check: \`$S/f.json\`. Fixes: \`none\`. Worktree: \`$W\`. Check command: \`bin/ci --quick\`. Gate: \`none\`. Report: \`$S/rep.json\`." \
   '{type:"user", timestamp:"2026-10-22T10:00:00.000Z", message:{role:"user", content:$t}}' >"$S/agent.jsonl"
 jq -n --arg cwd "$M" --arg tp "$S/agent.jsonl" '{hook_event_name:"SubagentStop", agent_type:"delegate:checker", agent_id:"a1", cwd:$cwd, agent_transcript_path:$tp}' | python3 -I "$CHECKMARK" >/dev/null 2>&1
 pre "$MERGE"

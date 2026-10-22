@@ -22,7 +22,7 @@ their 10-line hand-backs. Record the gate base first
 ## 1. Gate: the reviews in one message
 
 Each is read-only and gets the change name, the worktree path, the branch
-`wt/<change>`, and its report path `<scratchpad>/review/<name>.md`:
+`wt/<change>`, and its report path `<scratchpad>/review/<name>.json`:
 
 | Review | Model | Looks at |
 |---|---|---|
@@ -52,7 +52,7 @@ code:
 
 In doubt, run it. Its prompt:
 
-> Look review of change <change> in `<abs change worktree path>`, branch `wt/<change>`. Scratchpad: `<scratchpad>/review/look/`. Report: `<scratchpad>/review/look.md`.
+> Look review of change <change> in `<abs change worktree path>`, branch `wt/<change>`. Scratchpad: `<scratchpad>/review/look/`. Report: `<scratchpad>/review/look.json`.
 
 No other review stands in for it: a screen that passed them has not been seen.
 
@@ -148,7 +148,7 @@ sha), with the log of section 4's final gate (or its pipeline result) named as `
 check mode when the fix commits touch the surface (the test of section 1 on
 that range):
 
-> Check: `<scratchpad>/review/triage.md`. Fixes: `<fixer reports>`. Worktree: `<abs change worktree path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<scratchpad>/review/check.md`.
+> Check: `<scratchpad>/review/triage.md`. Fixes: `<fixer reports>`. Worktree: `<abs change worktree path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<scratchpad>/review/check.json`.
 
 There is no fixer after it and no new open review. The triage author keeps
 each finding's failing case and pass-cases when it merges duplicates. Every

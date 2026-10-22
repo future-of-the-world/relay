@@ -1,21 +1,24 @@
-"""Review and check data as JSON, and the readable report rendered from it (docs/plans/review-gate.md sections 3, 4.1, 6).
+"""Review and check data as JSON, the only stored form of a report (docs/plans/review-gate.md sections 3, 4.1, 6).
 
-A review (critic or any judge) records `<report>.json` beside its readable `<report>.md`; a checker records the same for
-its check. The JSON is written by `record_review` / `record_check` (the commands `relay check record review|check`),
-never typed by an agent: the agent passes fields, this module validates them against the schemas below (no outside
-library) and refuses bad input with a message that names the field. The readable report is the agent's prose plus a
-block this module generates from the same data, from the line `RECORD_MARK` to the end of the file, so the two cannot
-disagree. Recording again replaces that block and keeps the prose before it.
+A review (critic or any judge) records `<report>.json`; a checker records the same for its check. Nothing readable is
+stored beside the data: `render_review` / `render_check` / `render_set` and their `brief_*` forms print the readable text
+from the JSON on demand (`relay check show`). The JSON is written by `record_review` / `record_check` (the commands
+`relay check record review|check --input <file.toml>`), never typed by an agent: the agent writes a TOML input file
+(multi-line text in '''...''' keeps every character, so no text passes through the shell), this module validates it
+against the schemas below (no outside library) and refuses bad input with a message that names the field.
 
-Review data:  {"schema": "relay-review/1", "reviewed": <full sha or "unknown">, "base": <sha or ref>,
-               "findings": [FINDING, ...]}               (optional "file": the findings file's name, in a stored set)
-FINDING:      {"id": "F<n>", "path", "line": int >= 1, "severity": a word of WORDS (the flow's own), "rank": high|medium|low,
-               "kind": inside|outside|design|feature|question, "summary", "failing_case": [line, ...] (at least one)}
-Check data:   {"schema": "relay-check/1", "head": <full sha>, "reviewed": <full sha>, "gate": <log path> or null,
+Every file carries "schema": 1 (a version, for later conversions) and "type". Prose is stored as lists of lines.
+Review data:  {"schema": 1, "type": "review", "reviewed": <full sha or "unknown">, "base": <sha or ref>,
+               "scope": [line, ...], "notes": [line, ...], "findings": [FINDING, ...]}   (a stored set adds "file")
+FINDING:      {"id": "F<n>" or "Q<n>", "path", "line": int >= 1, "severity": a word of WORDS (the flow's own),
+               "rank": high|medium|low, "kind": inside|outside|design|feature|question, "summary",
+               "failing_case": [line, ...] (at least one), "details", "pass_cases", "evidence", "fix_hint": [line, ...]}
+Check data:   {"schema": 1, "type": "check", "head": <full sha>, "reviewed": <full sha>, "gate": <log path> or null,
                "worktree": <path> (left out of the stored copy), "review": [<review json path>, ...],
-               "findings": [{"id", "verdict": MET|NOT MET|DISPUTED|GAP|OUTSIDE|QUEUED, "note"?}],
+               "scope": [...], "notes": [...],
+               "findings": [{"id", "verdict": MET|NOT MET|DISPUTED|GAP|OUTSIDE|QUEUED, "reason": [line, ...]}],
                "new": [FINDING, ...], "open": int >= 0, "queued": int >= 0}
-Stored review set (`.relay/checks/<reviewed>.review.json`): {"schema": "relay-review-set/1", "reviewed": <sha>,
+Stored review set (`.relay/checks/<reviewed>.review.json`): {"schema": 1, "type": "review-set", "reviewed": <sha>,
                "reviews": [review data with "file", ...]}
 """
 
@@ -23,10 +26,8 @@ import json
 import os
 import re
 
-REVIEW_SCHEMA = "relay-review/1"
-CHECK_SCHEMA = "relay-check/1"
-SET_SCHEMA = "relay-review-set/1"
-RECORD_MARK = "<!-- relay:record -->"
+SCHEMA = 1
+REVIEW_TYPE, CHECK_TYPE, SET_TYPE = "review", "check", "review-set"
 # Each flow's severity words and the rank they stand for. The finding keeps the flow's word (`severity`) and stores
 # its rank beside it (`rank`); everything that counts or sorts findings uses the rank.
 WORD_SETS = (("default", ("HIGH", "MEDIUM", "LOW")), ("spec-reviewer", ("BLOCKER", "FIX", "NIT")),
@@ -38,8 +39,10 @@ SEVERITY_HELP = ", ".join("/".join(words) for _, words in WORD_SETS)
 KINDS = ("inside", "outside", "design", "feature", "question")
 VERDICTS = ("MET", "NOT MET", "DISPUTED", "GAP", "OUTSIDE", "QUEUED")
 SHA = re.compile(r"^[0-9a-f]{40}\Z")
-FINDING_ID = re.compile(r"^F\d+\Z")
-FINDING_KEYS = ("id", "path", "line", "severity", "kind", "summary", "failing")
+FINDING_ID = re.compile(r"^[FQ]\d+\Z")
+PROSE = ("details", "pass_cases", "evidence", "fix_hint")       # a finding's optional prose, as lists of lines
+# The most lines `relay check show --brief` prints (bound 5-30: at 5 only the verdict and two findings fit, at 30 it is a page).
+BRIEF_LINES = 10
 
 
 class VerdictError(Exception):
@@ -58,15 +61,35 @@ def _text(value):
     return isinstance(value, str) and bool(value.strip()) and "\n" not in value
 
 
+def _lines_ok(value):
+    """A list of one-line strings (blank lines allowed: they separate paragraphs)."""
+    return isinstance(value, list) and all(isinstance(l, str) and "\n" not in l for l in value)
+
+
+def lines_of(text):
+    """Text as the list of its lines, the blank lines at its start and end dropped (the lines themselves unchanged)."""
+    lines = text.split("\n")
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return lines
+
+
+def _prose_errors(data, key, where, errors):
+    if key in data and not _lines_ok(data[key]):
+        errors.append("%s: %s must be a list of one-line texts" % (where, key))
+
+
 def finding_errors(finding, where):
     if not isinstance(finding, dict):
         return ["%s is not an object" % where]
     errors = []
-    allowed = {"id", "path", "line", "severity", "rank", "kind", "summary", "failing_case"}
+    allowed = {"id", "path", "line", "severity", "rank", "kind", "summary", "failing_case"} | set(PROSE)
     for key in sorted(set(finding) - allowed):
         errors.append("%s has an unknown field %s" % (where, key))
     if not (isinstance(finding.get("id"), str) and FINDING_ID.match(finding["id"])):
-        errors.append("%s: id must look like F1, got %r" % (where, finding.get("id")))
+        errors.append("%s: id must look like F1 (or Q1 for a queue item), got %r" % (where, finding.get("id")))
     if not _text(finding.get("path")):
         errors.append("%s: path must be a one-line text" % where)
     if not (_is_int(finding.get("line")) and finding["line"] >= 1):
@@ -80,8 +103,10 @@ def finding_errors(finding, where):
     if not _text(finding.get("summary")):
         errors.append("%s: summary must be a one-line text" % where)
     case = finding.get("failing_case")
-    if not (isinstance(case, list) and case and all(isinstance(l, str) and l.strip() for l in case)):
-        errors.append("%s: failing_case must be a list of at least one non-empty line (no finding without a failing case)" % where)
+    if not (_lines_ok(case) and any(l.strip() for l in case)):
+        errors.append("%s: failing_case must be a list of lines with at least one non-empty line (no finding without a failing case)" % where)
+    for key in PROSE:
+        _prose_errors(finding, key, where, errors)
     return errors
 
 
@@ -99,20 +124,29 @@ def _findings_errors(findings, where):
     return errors
 
 
+def _head_errors(data, kind):
+    errors = []
+    if data.get("schema") != SCHEMA or isinstance(data.get("schema"), bool):
+        errors.append("schema must be %d, got %r" % (SCHEMA, data.get("schema")))
+    if data.get("type") != kind:
+        errors.append("type must be %s, got %r" % (kind, data.get("type")))
+    for key in ("scope", "notes"):
+        _prose_errors(data, key, "the data", errors)
+    return errors
+
+
 def review_errors(data):
     """[message] for review data that breaks the schema; [] when it is whole."""
     if not isinstance(data, dict):
         return ["the review data is not an object"]
-    errors = []
-    if data.get("schema") != REVIEW_SCHEMA:
-        errors.append("schema must be %s, got %r" % (REVIEW_SCHEMA, data.get("schema")))
+    errors = _head_errors(data, REVIEW_TYPE)
     if not (is_sha(data.get("reviewed")) or data.get("reviewed") == "unknown"):
         errors.append("reviewed must be a full 40-character sha or \"unknown\", got %r" % (data.get("reviewed"),))
     if not _text(data.get("base")):
         errors.append("base must be a one-line text (a sha or a ref), got %r" % (data.get("base"),))
     if "file" in data and not _text(data["file"]):
         errors.append("file must be a one-line text")
-    for key in sorted(set(data) - {"schema", "reviewed", "base", "findings", "file"}):
+    for key in sorted(set(data) - {"schema", "type", "reviewed", "base", "scope", "notes", "findings", "file"}):
         errors.append("unknown field %s" % key)
     return errors + _findings_errors(data.get("findings"), "findings")
 
@@ -121,9 +155,7 @@ def check_errors(data, stored=False):
     """[message] for check data that breaks the schema; the stored copy has no `worktree`."""
     if not isinstance(data, dict):
         return ["the check data is not an object"]
-    errors = []
-    if data.get("schema") != CHECK_SCHEMA:
-        errors.append("schema must be %s, got %r" % (CHECK_SCHEMA, data.get("schema")))
+    errors = _head_errors(data, CHECK_TYPE)
     for key in ("head", "reviewed"):
         if not is_sha(data.get(key)):
             errors.append("%s must be a full 40-character sha, got %r" % (key, data.get(key)))
@@ -150,19 +182,18 @@ def check_errors(data, stored=False):
             if not isinstance(item, dict):
                 errors.append("%s is not an object" % where)
                 continue
-            for key in sorted(set(item) - {"id", "verdict", "note"}):
+            for key in sorted(set(item) - {"id", "verdict", "reason"}):
                 errors.append("%s has an unknown field %s" % (where, key))
             if not (isinstance(item.get("id"), str) and FINDING_ID.match(item["id"])):
                 errors.append("%s: id must look like F1, got %r" % (where, item.get("id")))
             if item.get("verdict") not in VERDICTS:
                 errors.append("%s: verdict must be one of %s, got %r" % (where, "/".join(VERDICTS), item.get("verdict")))
-            if "note" in item and not _text(item["note"]):
-                errors.append("%s: note must be a one-line text" % where)
+            _prose_errors(item, "reason", where, errors)
             if item.get("id") in seen:
                 errors.append("%s: id %s is used twice" % (where, item.get("id")))
             seen.add(item.get("id"))
     errors += _findings_errors(data.get("new"), "new")
-    for key in sorted(set(data) - {"schema", "head", "reviewed", "gate", "worktree", "review", "findings", "new", "open", "queued"}):
+    for key in sorted(set(data) - {"schema", "type", "head", "reviewed", "gate", "worktree", "review", "scope", "notes", "findings", "new", "open", "queued"}):
         errors.append("unknown field %s" % key)
     return errors
 
@@ -170,9 +201,7 @@ def check_errors(data, stored=False):
 def set_errors(data):
     if not isinstance(data, dict):
         return ["the stored review is not an object"]
-    errors = []
-    if data.get("schema") != SET_SCHEMA:
-        errors.append("schema must be %s, got %r" % (SET_SCHEMA, data.get("schema")))
+    errors = _head_errors(data, SET_TYPE)
     if not is_sha(data.get("reviewed")):
         errors.append("reviewed must be a full 40-character sha, got %r" % (data.get("reviewed"),))
     reviews = data.get("reviews")
@@ -206,106 +235,266 @@ def load_set(text, what="the stored review"):
     return _load(text, set_errors, what)
 
 
-def json_path(report):
-    """The data file beside a report: `x.md` -> `x.json`, any other name gets `.json` added."""
-    return (report[:-3] if report.endswith(".md") else report) + ".json"
+def load_any(text, what="the data"):
+    """(type, data) of a review, check or stored review set, by its `type`; VerdictError when it is none of them or invalid.
+    A check with a `worktree` is a recorded one, without it a stored one."""
+    try:
+        parsed = json.loads(text)
+    except ValueError as exc:
+        raise VerdictError("%s is not JSON: %s" % (what, exc))
+    kind = parsed.get("type") if isinstance(parsed, dict) else None
+    if kind == REVIEW_TYPE:
+        return kind, load_review(text, what)
+    if kind == CHECK_TYPE:
+        return kind, load_check(text, what, stored="worktree" not in parsed)
+    if kind == SET_TYPE:
+        return kind, load_set(text, what)
+    raise VerdictError("%s is not a review, a check or a stored review (type %r)" % (what, kind))
 
 
 def linter(finding):
     return "%s:%d: %s: %s %s" % (finding["path"], finding["line"], finding["severity"], finding["id"], finding["summary"])
 
 
-def _finding_lines(finding):
-    lines = [linter(finding)]
-    if finding["kind"] in ("design", "feature"):
-        lines.append("Kind: %s" % finding["kind"])
-    lines.append("Failing case: " + finding["failing_case"][0])
-    lines += finding["failing_case"][1:]
-    return lines
+# ---------------------------------------------------------------- readable views (read-only, rendered from the data)
+
+def _section(out, title, lines, indent="  "):
+    if lines:
+        out.append(title + ":")
+        out += [(indent + l).rstrip() for l in lines]
+
+
+def finding_lines(finding):
+    """The finding as the reader sees it: the linter line, then its kind (when not plain inside) and prose, indented."""
+    out = [linter(finding)]
+    if finding["kind"] != "inside":
+        out.append("  Kind: %s" % finding["kind"])
+    for title, key in (("Failing case", "failing_case"), ("Pass cases", "pass_cases"), ("Details", "details"),
+                       ("Evidence", "evidence"), ("Fix hint", "fix_hint")):
+        _section(out, "  " + title, finding.get(key) or [], indent="    ")
+    return out
+
+
+def _prose_head(out, data):
+    _section(out, "Scope", data.get("scope") or [])
+    _section(out, "Notes", data.get("notes") or [])
+
+
+def _review_lines(data):
+    out = ["Review of %s against %s" % (data["reviewed"], data["base"])]
+    _prose_head(out, data)
+    out.append("Findings: %d" % len(data["findings"]))
+    for finding in data["findings"]:
+        out += [""] + finding_lines(finding)
+    return out
 
 
 def render_review(data):
-    """The generated block of a review report (it starts with RECORD_MARK)."""
-    out = [RECORD_MARK, "## Findings", "Reviewed: %s" % data["reviewed"], "Base: %s" % data["base"]]
-    groups = (("inside", None), ("outside", "## Outside this change"), ("question", "## Questions for the owner"))
-    shown = {"inside": [f for f in data["findings"] if f["kind"] in ("inside", "design", "feature")],
-             "outside": [f for f in data["findings"] if f["kind"] == "outside"],
-             "question": [f for f in data["findings"] if f["kind"] == "question"]}
-    for name, heading in groups:
-        if heading:
-            if not shown[name]:
-                continue
-            out += ["", heading]
-        for finding in shown[name]:
-            out += [""] + _finding_lines(finding)
-    if not data["findings"]:
-        out += ["", "No findings."]
-    return "\n".join(out) + "\n"
+    """The full readable text of review data."""
+    return "\n".join(_review_lines(data)) + "\n"
 
 
 def render_check(data):
-    """The generated block of a check report: status lines, new problems, then the five verdict lines last."""
-    out = [RECORD_MARK, "## Findings checked"]
+    """The full readable text of check data."""
+    out = ["Check of %s" % data["head"], "Reviewed: %s" % data["reviewed"], "Gate: %s" % (data["gate"] or "none"),
+           "Open: %d  Queued: %d" % (data["open"], data["queued"])]
+    _prose_head(out, data)
+    out.append("Findings checked: %d" % len(data["findings"]))
     for item in data["findings"]:
-        out.append(("%s %s %s" % (item["id"], item["verdict"], item.get("note", ""))).rstrip())
-    if not data["findings"]:
-        out.append("No findings to check.")
+        out.append("%s %s" % (item["id"], item["verdict"]))
+        out += ["  " + l for l in item.get("reason") or []]
     if data["new"]:
-        out += ["", "## New problems"]
+        out += ["", "New problems: %d" % len(data["new"])]
         for finding in data["new"]:
-            out += [""] + _finding_lines(finding)
-    out += ["", "## Verdict", "head %s" % data["head"], "reviewed %s" % data["reviewed"], "open %d" % data["open"], "queued %d" % data["queued"]]
+            out += [""] + finding_lines(finding)
     return "\n".join(out) + "\n"
 
 
-def _write_pair(report, block, data):
-    """Replace the generated block of `report` (keep the prose before RECORD_MARK) and write its JSON; both or error."""
-    try:
-        old = open(report, encoding="utf-8").read() if os.path.exists(report) else ""
-    except OSError as exc:
-        raise VerdictError("the report %s cannot be read: %s" % (report, exc.strerror))
-    prose = old.split(RECORD_MARK, 1)[0].rstrip()
-    text = (prose + "\n\n" if prose else "") + block
-    try:
-        os.makedirs(os.path.dirname(os.path.abspath(report)), exist_ok=True)
-        with open(report, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        with open(json_path(report), "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
-    except OSError as exc:
-        raise VerdictError("cannot write the report or its data: %s" % exc.strerror)
-    return json_path(report)
+def render_set(data):
+    """The full readable text of a stored review set: each review under its findings file's name."""
+    out = []
+    for review in data["reviews"]:
+        out += ["# %s" % review.get("file", "review")] + _review_lines(review) + [""]
+    return "\n".join(out).rstrip("\n") + "\n"
 
 
-def _finding(raw):
-    """A finding dict from the dict the command line collected (strings), line as int; VerdictError on a bad line."""
-    out = {k: raw[k] for k in ("id", "path", "severity", "kind", "summary") if k in raw}
-    if "line" in raw:
-        try:
-            out["line"] = int(raw["line"])
-        except ValueError:
-            raise VerdictError("%s: line must be a whole number, got %r" % (raw.get("id", "a finding"), raw["line"]))
-    out["failing_case"] = list(raw.get("failing", []))
+def _cut(lines, source, limit=BRIEF_LINES):
+    if len(lines) <= limit:
+        return lines
+    return lines[:limit - 1] + ["... %d more lines: relay check show %s" % (len(lines) - limit + 1, source)]
+
+
+def brief_review(data, source="<report>"):
+    counts = counts_by_rank(data["findings"])
+    out = ["Review of %s against %s: %d findings (high %d, medium %d, low %d)" % (
+        data["reviewed"][:12], data["base"][:12], len(data["findings"]), counts["high"], counts["medium"], counts["low"])]
+    out += [linter(f) for f in data["findings"]]
+    return "\n".join(_cut(out, source)) + "\n"
+
+
+def brief_check(data, source="<report>"):
+    out = ["Check of %s (reviewed %s): open %d, queued %d, gate %s" % (
+        data["head"][:12], data["reviewed"][:12], data["open"], data["queued"], os.path.basename(data["gate"]) if data["gate"] else "none")]
+    for item in data["findings"]:
+        reason = item.get("reason") or []
+        out.append(("%s %s %s" % (item["id"], item["verdict"], reason[0] if reason else "")).rstrip())
+    out += ["new: " + linter(f) for f in data["new"]]
+    return "\n".join(_cut(out, source)) + "\n"
+
+
+def brief_set(data, source="<report>"):
+    found = [f for r in data["reviews"] for f in r["findings"]]
+    out = ["Review of %s: %d findings in %d files" % (data["reviewed"][:12], len(found), len(data["reviews"]))] + [linter(f) for f in found]
+    return "\n".join(_cut(out, source)) + "\n"
+
+
+def render_any(text, brief=False, source="<report>", what="the data"):
+    """The readable text (or the 10-line summary) of a review, check or stored review set given as JSON text."""
+    kind, data = load_any(text, what)
+    full = {REVIEW_TYPE: render_review, CHECK_TYPE: render_check, SET_TYPE: render_set}
+    short = {REVIEW_TYPE: brief_review, CHECK_TYPE: brief_check, SET_TYPE: brief_set}
+    return short[kind](data, source) if brief else full[kind](data)
+
+
+# ---------------------------------------------------------------- the TOML input and the records
+
+def read_input(path, done="recorded"):
+    """The decoded TOML input file at `path`; VerdictError ("nothing <done>: ...") when it cannot be read or is not TOML."""
+    try:
+        import tomllib
+    except ImportError:
+        raise VerdictError("nothing %s: reading the input needs Python 3.11 or newer (tomllib)" % done)
+    try:
+        with open(path, "rb") as handle:
+            raw = handle.read()
+    except OSError as exc:
+        raise VerdictError("nothing %s: the input file %s cannot be read: %s" % (done, path, exc.strerror))
+    try:
+        return tomllib.loads(raw.decode("utf-8"))
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
+        raise VerdictError("nothing %s: the input file is not valid TOML: %s" % (done, exc))
+
+
+def table_errors(raw, where, allowed, required):
+    """[message] for unknown or missing keys of the input table `raw` (`where` names it)."""
+    if not isinstance(raw, dict):
+        return ["%s is not a table" % where]
+    errors = ["unknown key `%s` %s (allowed: %s)" % (k, where, ", ".join(allowed)) for k in sorted(set(raw) - set(allowed))]
+    errors += ["missing required key `%s` %s" % (k, where) for k in required if k not in raw]
+    return errors
+
+
+def as_lines(value, key, where, errors):
+    """A prose value of the input as a list of lines: a text is split into lines, a list of texts is taken as it is."""
+    if isinstance(value, str):
+        return lines_of(value)
+    if isinstance(value, list) and all(isinstance(l, str) and "\n" not in l for l in value):
+        return list(value)
+    errors.append("`%s` %s must be a text (''' ... ''' for several lines) or a list of one-line texts" % (key, where))
+    return []
+
+
+FINDING_KEYS = ("id", "path", "line", "severity", "kind", "summary", "failing_case") + PROSE
+STATUS_KEYS = ("id", "verdict", "reason")
+
+
+def _finding_from(raw, where, errors):
+    """A finding dict from one `[[finding]]`/`[[new]]` table of the input; problems are appended to `errors`."""
+    problems = table_errors(raw, where, FINDING_KEYS, FINDING_KEYS[:7])
+    errors += problems
+    if not isinstance(raw, dict):
+        return {}
+    out = {k: v for k, v in raw.items() if k in FINDING_KEYS and k not in PROSE and k != "failing_case"}
+    out["failing_case"] = as_lines(raw["failing_case"], "failing_case", where, errors) if "failing_case" in raw else []
+    for key in PROSE:
+        out[key] = as_lines(raw.get(key, []), key, where, errors)
     if out.get("severity") in WORDS:
         out["rank"] = WORDS[out["severity"]]
     return out
 
 
-def record_review(report, reviewed, base, findings, file=None):
-    """Validate and write a review's data and generated report block; returns the JSON path. `findings` are dicts of
-    strings as `parse_findings` makes them."""
-    data = {"schema": REVIEW_SCHEMA, "reviewed": reviewed, "base": base, "findings": [_finding(f) for f in findings]}
-    if file:
-        data["file"] = file
+def _tables(raw, key, build, errors):
+    value = raw.get(key, [])
+    if not isinstance(value, list):
+        errors.append("`%s` must be written as [[%s]] tables" % (key, key))
+        return []
+    return [build(item, "in [[%s]] %d" % (key, i), errors) for i, item in enumerate(value, 1)]
+
+
+def _status_from(raw, where, errors):
+    errors += table_errors(raw, where, STATUS_KEYS, STATUS_KEYS[:2])
+    if not isinstance(raw, dict):
+        return {}
+    out = {k: raw[k] for k in ("id", "verdict") if k in raw}
+    out["reason"] = as_lines(raw.get("reason", []), "reason", where, errors)
+    return out
+
+
+def _report_errors(raw, errors):
+    if "report" in raw and not (isinstance(raw["report"], str) and raw["report"].endswith(".json") and raw["report"].strip() != ".json"):
+        errors.append("`report` must be the path of the report's JSON file, ending in .json")
+
+
+def _write_json(path, data):
+    try:
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        raise VerdictError("nothing recorded: cannot write %s: %s" % (path, exc.strerror))
+    return path
+
+
+def review_data(reviewed, base, findings, scope=(), notes=()):
+    """Review data as a dict (the findings already as `_finding_from` makes them); the schema check is the caller's."""
+    return {"schema": SCHEMA, "type": REVIEW_TYPE, "reviewed": reviewed, "base": base, "scope": list(scope), "notes": list(notes),
+            "findings": findings}
+
+
+def write_review(path, data):
+    """Validate review `data` and write it as JSON at `path` (the library's own writers, e.g. a queue take, use this)."""
     errors = review_errors(data)
     if errors:
         raise VerdictError("nothing recorded: " + "; ".join(errors))
-    return _write_pair(report, render_review(data), data)
+    return _write_json(path, data)
 
 
-def record_check(report, head, reviewed, gate, worktree, review_paths, statuses, new, open_, queued):
-    """Validate and write a check's data and generated report block; returns the JSON path. Every review data file must
-    be valid and name the same `reviewed`; every checked id must be a finding of those reviews or a new one."""
+REVIEW_TOP = ("report", "reviewed", "base", "scope", "notes", "finding")
+
+
+def record_review(input_path):
+    """Record a review from the TOML input file at `input_path`; returns the JSON path."""
+    raw = read_input(input_path)
+    errors = table_errors(raw, "at the top of the input", REVIEW_TOP, REVIEW_TOP[:3])
+    if not isinstance(raw, dict) or errors:
+        raise VerdictError("nothing recorded: " + "; ".join(errors))
+    _report_errors(raw, errors)
+    findings = _tables(raw, "finding", _finding_from, errors)
+    prose = {k: as_lines(raw.get(k, []), k, "at the top of the input", errors) for k in ("scope", "notes")}
+    if errors:
+        raise VerdictError("nothing recorded: " + "; ".join(errors))
+    return write_review(raw["report"], review_data(raw["reviewed"], raw["base"], findings, prose["scope"], prose["notes"]))
+
+
+CHECK_TOP = ("report", "head", "reviewed", "worktree", "gate", "review", "scope", "notes", "status", "new", "open", "queued")
+
+
+def record_check(input_path):
+    """Record a check from the TOML input file at `input_path`. Every review data file must be valid and name the same
+    `reviewed`; every checked id must be a finding of those reviews or a new one. Returns the JSON path."""
+    raw = read_input(input_path)
+    errors = table_errors(raw, "at the top of the input", CHECK_TOP, ("report", "head", "reviewed", "worktree", "gate", "review", "open", "queued"))
+    if not isinstance(raw, dict) or errors:
+        raise VerdictError("nothing recorded: " + "; ".join(errors))
+    _report_errors(raw, errors)
+    statuses = _tables(raw, "status", _status_from, errors)
+    new = _tables(raw, "new", _finding_from, errors)
+    prose = {k: as_lines(raw.get(k, []), k, "at the top of the input", errors) for k in ("scope", "notes")}
+    if errors:
+        raise VerdictError("nothing recorded: " + "; ".join(errors))
+    review_paths = raw["review"]
+    if not (isinstance(review_paths, list) and review_paths and all(_text(p) for p in review_paths)):
+        raise VerdictError("nothing recorded: `review` must be a list of at least one review JSON path")
     paths = [os.path.abspath(p) for p in review_paths]
     known = set()
     for path in paths:
@@ -314,59 +503,24 @@ def record_check(report, head, reviewed, gate, worktree, review_paths, statuses,
         except OSError:
             raise VerdictError("nothing recorded: the review data %s cannot be read (record the review first)" % path)
         review = load_review(text, "the review data %s" % path)
-        if review["reviewed"] != reviewed:
-            raise VerdictError("nothing recorded: the review data %s is of %s, not of the reviewed sha %s" % (path, review["reviewed"], reviewed))
+        if review["reviewed"] != raw["reviewed"]:
+            raise VerdictError("nothing recorded: the review data %s is of %s, not of the reviewed sha %s" % (path, review["reviewed"], raw["reviewed"]))
         known |= {f["id"] for f in review["findings"]}
-    data = {"schema": CHECK_SCHEMA, "head": head, "reviewed": reviewed, "gate": None if gate in (None, "none") else gate,
-            "worktree": worktree, "review": paths, "findings": statuses, "new": [_finding(f) for f in new],
-            "open": open_, "queued": queued}
+    gate = raw["gate"]
+    data = {"schema": SCHEMA, "type": CHECK_TYPE, "head": raw["head"], "reviewed": raw["reviewed"], "gate": None if gate in (None, "none") else gate,
+            "worktree": os.path.realpath(raw["worktree"]) if _text(raw["worktree"]) else raw["worktree"], "review": paths,
+            "scope": prose["scope"], "notes": prose["notes"], "findings": statuses, "new": new, "open": raw["open"], "queued": raw["queued"]}
     errors = check_errors(data)
     known |= {f["id"] for f in data["new"] if isinstance(f, dict)}
     errors += ["findings: %s is not a finding of the reviews or a new one" % s["id"] for s in statuses if s.get("id") not in known]
     if errors:
         raise VerdictError("nothing recorded: " + "; ".join(errors))
-    return _write_pair(report, render_check(data), data)
-
-
-def parse_findings(tokens):
-    """[finding] from the words after a `--finding`/`--new` option: `key=value` words, a new finding at each `id=`; `failing=`
-    may repeat (one failing-case line each). A word without a known key is refused."""
-    found = []
-    for token in tokens:
-        key, sep, value = token.partition("=")
-        if not sep or key not in FINDING_KEYS:
-            raise VerdictError("a finding word must be one of %s as key=value, got %r" % (", ".join(k + "=" for k in FINDING_KEYS), token))
-        if key == "id" or not found:
-            if key != "id":
-                raise VerdictError("a finding starts with id=F<n>, got %r" % token)
-            found.append({"failing": []})
-        if key == "failing":
-            found[-1]["failing"].append(value)
-        elif key in found[-1]:
-            raise VerdictError("%s is given twice for %s" % (key, found[-1].get("id", "a finding")))
-        else:
-            found[-1][key] = value
-    return found
-
-
-def parse_status(text):
-    """{"id", "verdict", "note"?} from `F2=NOT MET: no test` (the note after a colon is optional)."""
-    fid, sep, rest = text.partition("=")
-    if not sep:
-        raise VerdictError("a status must look like F1=MET or F2=NOT MET: why, got %r" % text)
-    for verdict in sorted(VERDICTS, key=len, reverse=True):
-        if rest == verdict or rest.startswith(verdict + ":"):
-            note = rest[len(verdict) + 1:].strip()
-            item = {"id": fid, "verdict": verdict}
-            if note:
-                item["note"] = note
-            return item
-    raise VerdictError("status %r: the verdict must be one of %s" % (text, "/".join(VERDICTS)))
+    return _write_json(raw["report"], data)
 
 
 def stored_set(reviews, reviewed):
     """The stored review set (a dict) for review data dicts `reviews`, each marked with its findings file's name."""
-    return {"schema": SET_SCHEMA, "reviewed": reviewed, "reviews": reviews}
+    return {"schema": SCHEMA, "type": SET_TYPE, "reviewed": reviewed, "reviews": reviews}
 
 
 def stored_check(data, review_name):

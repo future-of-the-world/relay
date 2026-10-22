@@ -2,12 +2,10 @@
 
 This module is the only code that reads or writes the folder `.relay/checks/` on a task branch:
 
-    <commit>.json         the check mark: {"commit", "verdict": {"open", "queued", "reviewed"},
-                          "review", "check", "gate", "time"}
-    <commit>.check.md     the checker's report (readable; no code reads it)
-    <commit>.check.json   the checker's data (relay_verdict.py: the only form code reads)
-    <reviewed>.review.md  the review's findings files, joined (readable)
-    <reviewed>.review.json  the review set: the review data of each findings file (the only form code reads)
+    <commit>.json         the check mark: {"schema": 1, "commit", "verdict": {"open", "queued", "reviewed"},
+                          "review", "check", "gate", "time"}; review and check name the two files below
+    <commit>.check.json   the checker's data (relay_verdict.py; the only stored form of the check)
+    <reviewed>.review.json  the review set: the review data of each findings file (the only stored form of the review)
     <commit>.gate.log     the gate log: first line `head <commit>`, last line `exit <n>`
 
 Writes are git commits made with `add` then `commit --no-verify --only -- <files>`: other staged changes stay
@@ -111,10 +109,9 @@ def put(worktree, commit, mark, files, sleep=time.sleep):
 
 
 def drop(worktree, commit, sleep=time.sleep):
-    """Remove the mark and the check report and data of `commit` (tracked files only) in one commit; True when it
-    removed any."""
+    """Remove the mark and the check data of `commit` (tracked files only) in one commit; True when it removed any."""
     tracked = []
-    for name in ("%s.json" % commit, "%s.check.md" % commit, "%s.check.json" % commit):
+    for name in ("%s.json" % commit, "%s.check.json" % commit):
         rel = FOLDER + "/" + name
         if _git(worktree, "ls-files", "--error-unmatch", "--", rel)[0] == 0:
             tracked.append(rel)
@@ -230,6 +227,35 @@ def review_outside(repo, ref, name):
     return None if data is None else relay_verdict.outside_count(data)
 
 
+def stored_texts(repo, sha):
+    """The JSON texts stored for commit `sha` (an abbreviation will do), found at HEAD or any local branch: the check of
+    that commit and the review set it covers; or, when no check is stored, the review set of that reviewed commit.
+    MarkError when there is none (never a guess)."""
+    rc, full = relay_git.git(repo, "rev-parse", "--verify", "-q", "%s^{commit}" % sha)
+    if rc != 0 or not is_sha(full):
+        raise MarkError("no commit %s" % sha)
+    rc, out = relay_git.git(repo, "for-each-ref", "--format=%(refname)", "refs/heads/")
+    refs = ["HEAD"] + (out.splitlines() if rc == 0 else [])
+    for name in ("%s.check.json" % full, "%s.review.json" % full):
+        for ref in refs:
+            text = _show(repo, ref, name)
+            if text is None:
+                continue
+            if not name.endswith(".check.json"):
+                return [text]
+            texts = [text]
+            try:
+                review = json.loads(text).get("review")
+            except ValueError:
+                review = None
+            if isinstance(review, list) and review and isinstance(review[0], str):
+                more = _show(repo, ref, os.path.basename(review[0]))
+                if more is not None:
+                    texts.append(more)
+            return texts
+    raise MarkError("no stored check or review for %s" % full)
+
+
 def lock_path(worktree):
     """The worktree's index.lock, absolute."""
     rc, out = relay_git.git(worktree, "rev-parse", "--path-format=absolute", "--git-path", "index.lock")
@@ -269,7 +295,7 @@ def show(repo, branch, sleep=time.sleep):
     verdict = data["verdict"]
     lines.append("mark %s: open %d, queued %d, reviewed %s" % (commit, verdict["open"], verdict["queued"], verdict["reviewed"]))
     try:
-        outside = review_outside(repo, ref, str(data.get("review_data") or "%s.review.json" % verdict["reviewed"]))
+        outside = review_outside(repo, ref, str(data.get("review") or "%s.review.json" % verdict["reviewed"]))
         lines.append("outside: %s" % ("review not stored" if outside is None else "%d in the review" % outside))
     except MarkError as exc:
         lines.append("outside: unknown (%s)" % exc)

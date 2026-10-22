@@ -14,7 +14,7 @@ Something found during a change is one of four things:
 
 The queue is `.relay/queue/` on the project's default branch, one JSON file per item
 (`<slug>.json`), read the same from every worktree. Only `relay queue` writes an item. Items are ordered by ip, highest first. Use
-`relay queue` to list them, `relay queue add` to add one, `relay queue take` to
+`relay queue` to list them, `relay queue show <slug>` to read one, `relay queue add` to add one, `relay queue take` to
 start one in a worktree, `relay queue done` to close one with its test; `relay
 queue -h` shows the rest. A view is a read-only script in relay's own `lib/queue_ext/`
 (`relay queue json` prints the items for scripts); extensions live in relay only, they read and

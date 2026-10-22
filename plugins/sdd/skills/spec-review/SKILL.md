@@ -22,7 +22,7 @@ minutes. Work in `<worktrees>/<change>` (`kit get project.worktrees`) on
 Record the review base (`git -C <path> rev-parse HEAD`). Spawn the reviewer
 with one line:
 
-> Review change <change> in `<abs change worktree path>`. Report: `<scratchpad>/review/spec-1.md`.
+> Review change <change> in `<abs change worktree path>`. Report: `<scratchpad>/review/spec-1.json`.
 
 Don't edit the artifacts while it runs. It replies with the counts, one line
 per blocker, the questions for the owner, and the report path.
@@ -73,7 +73,7 @@ Whenever fix commits exist (any BLOCKER or FIX was fixed), `delegate:checker`
 runs once over `<review base>..HEAD`; it reads the artifacts (artifact cases
 are checked by reading):
 
-> Check: `<scratchpad>/review/spec-1.md`. Fixes: `<author report>`. Worktree: `<abs change worktree path>`. Gate: none (artifacts only). Report: `<scratchpad>/review/spec-check.md`.
+> Check: `<scratchpad>/review/spec-1.json`. Fixes: `<author report>`. Worktree: `<abs change worktree path>`. Gate: none (artifacts only). Report: `<scratchpad>/review/spec-check.md`.
 
 No author fixes what it finds and there is no new open review, even when the
 fixes changed a core rule. The spec check writes no verdict (it is not a

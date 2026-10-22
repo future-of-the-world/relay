@@ -241,15 +241,13 @@ class Page(Fixture):
         log = os.path.join(self.wt, ".relay", "checks", reviewed + ".gate.log")
         write(log, "head %s\ncmd fixture\nci: tests ok (1s)\nexit 0\n" % reviewed)
         relay_marks.commit_file(self.wt, log, "relay: gate of " + reviewed)
-        review = {"schema": relay_verdict.REVIEW_SCHEMA, "reviewed": reviewed, "base": "master", "findings": findings, "file": "findings.md"}
-        check = {"schema": relay_verdict.CHECK_SCHEMA, "head": reviewed, "reviewed": reviewed, "gate": None, "review": [reviewed + ".review.json"],
-                 "findings": [{"id": "F1", "verdict": "MET", "note": "tests/t.py:5"}, {"id": "F2", "verdict": "NOT MET", "note": "no test"}],
+        review = {"schema": 1, "type": "review", "reviewed": reviewed, "base": "master", "findings": findings, "file": "findings.json"}
+        check = {"schema": 1, "type": "check", "head": reviewed, "reviewed": reviewed, "gate": None, "review": [reviewed + ".review.json"],
+                 "findings": [{"id": "F1", "verdict": "MET", "reason": ["tests/t.py:5"]}, {"id": "F2", "verdict": "NOT MET", "reason": ["no test"]}],
                  "new": [], "open": opened, "queued": 0}
-        mark = {"commit": reviewed, "verdict": {"open": opened, "queued": 0, "reviewed": reviewed},
-                "review": reviewed + ".review.md", "review_data": reviewed + ".review.json",
-                "check": reviewed + ".check.md", "check_data": reviewed + ".check.json", "gate": None, "time": "2026-10-22T10:00:00Z"}
+        mark = {"schema": 1, "commit": reviewed, "verdict": {"open": opened, "queued": 0, "reviewed": reviewed},
+                "review": reviewed + ".review.json", "check": reviewed + ".check.json", "gate": None, "time": "2026-10-22T10:00:00Z"}
         relay_marks.put(self.wt, reviewed, mark, {
-            reviewed + ".review.md": "# findings.md\n", reviewed + ".check.md": "# Check\n",
             reviewed + ".review.json": json.dumps(relay_verdict.stored_set([review], reviewed)),
             reviewed + ".check.json": json.dumps(check)})
         if queue_line:
@@ -308,7 +306,7 @@ class Page(Fixture):
         self.assertEqual(page.count('class="finding"'), 50)
         self.assertIn("src/a.py:52: MEDIUM: F50 thing 50", page)
         self.assertNotIn("F51 thing 51", page)
-        self.assertIn("25 more findings in .relay/checks/%s.review.md" % reviewed, page)
+        self.assertIn("25 more findings in .relay/checks/%s.review.json" % reviewed, page)
 
     def test_page_refuses_a_mark_whose_review_data_is_missing_or_invalid(self):
         """The page reads only the stored JSON: a mark from the prose-only days (no data files) or with a broken review

@@ -116,8 +116,8 @@ a fresh session.
 
 ## An out-of-scope question
 
-Answer it in two lines. Then add it to the work queue, `relay queue add --kind
-feature` (the ip is the owner's, default 0), and build it in a fresh session,
+Answer it in two lines. Then add it to the work queue, `relay queue add --input
+<file.toml>` with `kind = "feature"` (the ip is the owner's, default 0), and build it in a fresh session,
 not in this one. Rule: `rules/queue.md`.
 
 ## Status, when asked

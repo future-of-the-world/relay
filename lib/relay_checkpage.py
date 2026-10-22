@@ -36,12 +36,12 @@ def finding_view(finding):
     """The page's view of a recorded finding: path, line, severity, id, what, linter, case (the failing case in one
     paragraph)."""
     return {"path": finding["path"], "line": finding["line"], "severity": finding["severity"], "rank": finding["rank"], "id": finding["id"],
-            "what": finding["summary"], "linter": relay_verdict.linter(finding), "case": " ".join(finding["failing_case"])}
+            "what": finding["summary"], "linter": relay_verdict.linter(finding), "case": " ".join(l.strip() for l in finding["failing_case"] if l.strip())}
 
 
 def statuses_of(check):
-    """{F<n>: "MET tests/x.py:88" or "NOT MET why"} from the stored check data."""
-    return {item["id"]: (item["verdict"] + " " + item.get("note", "")).strip() for item in check["findings"]}
+    """{F<n>: "MET tests/x.py:88" or "NOT MET why"} from the stored check data (the verdict, then its reason in one line)."""
+    return {item["id"]: (item["verdict"] + " " + " ".join(l.strip() for l in item.get("reason") or [] if l.strip())).strip() for item in check["findings"]}
 
 
 def excerpt(repo, commit, finding):
@@ -110,10 +110,10 @@ def build(repo, branch):
         raise PageError("no check mark for %s yet: run delegate:checker on its head first" % branch)
     commit, data = mark
     reviewed = data["verdict"]["reviewed"]
-    review_name = str(data.get("review") or "%s.review.md" % reviewed)
+    review_name = str(data.get("review") or "%s.review.json" % reviewed)
     try:
-        review_set = relay_marks.review_set(repo, ref, str(data.get("review_data") or "%s.review.json" % reviewed))
-        check = relay_marks.check_data(repo, ref, str(data.get("check_data") or "%s.check.json" % commit))
+        review_set = relay_marks.review_set(repo, ref, review_name)
+        check = relay_marks.check_data(repo, ref, str(data.get("check") or "%s.check.json" % commit))
     except relay_marks.MarkError as exc:
         raise PageError(str(exc))
     if review_set is None or check is None:

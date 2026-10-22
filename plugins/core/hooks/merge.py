@@ -163,7 +163,7 @@ def step_mark(main, default, branch):
         if not own:
             mark = stored[commit]
             if mark["verdict"]["open"] != 0:
-                raise Refused("the check of %s left %s inside the change wrong (report: .relay/checks/%s.check.md)" % (
+                raise Refused("the check of %s left %s inside the change wrong (report: .relay/checks/%s.check.json; relay check show prints it)" % (
                     commit, plural(mark["verdict"]["open"], "thing"), commit))
             return commit
         if newest_list is None:

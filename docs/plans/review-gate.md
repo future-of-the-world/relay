@@ -25,7 +25,7 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
 | # | Change | Why | Section |
 |---|---|---|---|
 | 1 | The owner's pipeline: free code checks first, then the review, its findings stored in git as `file:line: severity: message` lines, then the person's step, then the merge | owner, 22 Oct | 3, 4, 8 |
-| 2 | Review, check report and gate log are committed beside the mark: `.relay/checks/<sha>.review.md`, `<sha>.check.md`, `<sha>.gate.log`, `<sha>.json` | owner | 4, 6 |
+| 2 | Review, check report and gate log are committed beside the mark: `.relay/checks/<sha>.review.json`, `<sha>.check.json`, `<sha>.gate.log`, `<sha>.json` | owner | 4, 6 |
 | 3 | New command `relay gate`: code, not an agent, runs the gate and commits its log; a runner only starts it | the gate log is evidence the merge trusts, so code writes it, as for marks | 5 |
 | 4 | M-A fixed: a task branch takes the default branch by a merge commit (never a rebase); `relay changed --own` leaves out files that came in from the default branch; the gate runs again (free) when such files are code; a branch behind the default is refused with a clear message | check-design-v3 M-A | 7.2, 7.3 |
 | 5 | M-B: the merged judge base already compares the gate log's head to HEAD by `relay changed` (`roles/judge.md:91-101`); part 2 adds the same rule to the merge hook and test T15 (l) | check-design-v3 M-B | 7.4 |
@@ -87,14 +87,14 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
   `exit <n>`; `<G>` is the commit the gate ran on.
 - **Review**: the one whole-change review by the judges (critic, sdd
   reviewers), each finding with a failing case and pass-cases (part 1).
-  Stored as `.relay/checks/<R>.review.md`, `<R>` the reviewed commit.
+  Stored as `.relay/checks/<R>.review.json`, `<R>` the reviewed commit.
 - **Linter line**: the first line of every finding, `<path>:<line>:
   <SEVERITY>: F<n> <what goes wrong>`, for example
   `lib/relay_inert.py:51: MEDIUM: F2 a merge commit from master lists master's files`.
   Editors and terminals open `path:line` directly.
 - **Check**: `delegate:checker` comparing a fix with the findings' cases; its
   report ends with the **verdict** (`head`, `reviewed`, `open`, `queued`).
-  Stored as `.relay/checks/<X>.check.md`, `<X>` the checked commit.
+  Stored as `.relay/checks/<X>.check.json`, `<X>` the checked commit.
 - **Check mark** (mark): `.relay/checks/<X>.json`, written and committed by a
   hook when `delegate:checker` finishes. Only `lib/relay_marks.py` reads or
   writes marks.
@@ -180,10 +180,10 @@ and the owner says so.
 |---|---|---|---|
 | 1 Build | worker | code commits | per brief |
 | 2 Gate | runner starts `relay gate` (detached); red goes back to the worker or a fixer, then 2 again | `<G1>.gate.log` | 4-8 runner (the inert probe doubles the plain 2-4, 12.6), free |
-| 3 Review | judges, once, over `<default>...HEAD`, only after a green step 2; each records its findings with `relay check record review` (`<report>.md` and `<report>.json`, 4.3) | (copied in step 6) | 15-20 |
+| 3 Review | judges, once, over `<default>...HEAD`, only after a green step 2; each records its findings with `relay check record review --input <file.toml>` (`<report>.json` only, 4.3) | (copied in step 6) | 15-20 |
 | 4 Fix | fixer, when HIGH or MEDIUM inside the change | fix commits | 10-15 |
 | 5 Gate again | runner, `relay gate`, when step 4 made commits | `<G2>.gate.log` | 4-8, free |
-| 6 Check | `delegate:checker`, which records its check with `relay check record check` (`<report>.json`); the finish hook commits the mark with the review and the check, report and data | `<X>.json`, `<X>.check.md`, `<X>.check.json`, `<R>.review.md`, `<R>.review.json` | 3-5 |
+| 6 Check | `delegate:checker`, which records its check with `relay check record check --input <file.toml>` (`<report>.json`); the finish hook commits the mark with the check data and the review data | `<X>.json`, `<X>.check.json`, `<R>.review.json` | 3-5 |
 | 7 Take the default branch | runner, `git -C <wt> merge --no-edit <default>`, only when the branch is behind; `relay gate` again when code came in (7.3); a one-finding check when a file of the branch's own changed too (7.2) | a merge commit; maybe `<G3>.gate.log` | 1, or 5-9, or 8-14 |
 | 8 The person's step | front: one chat screen, one private page (8) | nothing | 1-2 |
 | 9 Merge | front, on the owner's word: `git merge --ff-only wt/<name>` in the main checkout; the merge hook refuses unless 7.1 holds; the cleanup hook removes the worktree | the files arrive on the default branch | 0 |
@@ -204,15 +204,13 @@ not need another check: they hold only inert files.
 | File | Named by | Written by | Content |
 |---|---|---|---|
 | `<G>.gate.log` | the commit the gate ran on | `relay gate` (5) | `head <G>`, `cmd <command>`, the gate's own output (quiet: one line per step), `exit <n>` |
-| `<R>.review.md` | the reviewed commit (`Reviewed:` sha) | the check hook (6), copied from the findings files the checker's prompt names | the findings files, joined, each under `# <file name>` |
-| `<X>.check.md` | the checked commit (`head` of the verdict) | the check hook, copied from the checker's report | the readable report, ending in the verdict block the record script generated; no code reads it |
-| `<X>.check.json` | the checked commit | the check hook, from the checker's recorded data | the check data (4.3) without `worktree`; `review` names `<R>.review.json` |
-| `<R>.review.json` | the reviewed commit | the check hook, from the review data of each findings file | `{"schema": "relay-review-set/1", "reviewed": R, "reviews": [review data + "file", ...]}`; the only form code reads |
-| `<X>.json` | the checked commit | the check hook | `{"commit": X, "verdict": {"open": n, "queued": m, "reviewed": R}, "review": "<R>.review.md", "review_data": "<R>.review.json", "check": "<X>.check.md", "check_data": "<X>.check.json", "gate": "<G>.gate.log", "time": "<iso>"}` |
+| `<X>.check.json` | the checked commit | the check hook, from the checker's recorded data | the check data (4.3) without `worktree`; `review` names `<R>.review.json`; the only stored form of the check |
+| `<R>.review.json` | the reviewed commit | the check hook, from the review data of each findings file | `{"schema": 1, "type": "review-set", "reviewed": R, "reviews": [review data + "file", ...]}`; the only stored form of the review |
+| `<X>.json` | the checked commit | the check hook | `{"schema": 1, "commit": X, "verdict": {"open": n, "queued": m, "reviewed": R}, "review": "<R>.review.json", "check": "<X>.check.json", "gate": "<G>.gate.log", "time": "<iso>"}` |
 
 In the common case `G = X` (the gate ran on the fixed head and the check on
-the same head), so a change carries `X.gate.log`, `X.check.md`, `X.json`
-and `R.review.md`: the owner's four names. A file is named by the commit it
+the same head), so a change carries `X.gate.log`, `X.check.json`, `X.json`
+and `R.review.json`: four names, all data (no readable report is stored; `relay check show` prints one). A file is named by the commit it
 is about, so nothing is renamed when a handover commit lands between steps.
 
 Size: relay's quiet gate output is about 15 lines (1 KB); a review 10-30 KB;
@@ -220,22 +218,32 @@ a check 3-10 KB. About 20-50 KB per change, kept in history after the merge
 (about 5 MB per 100 changes). Nothing is pruned (the history keeps it
 anyway).
 
-### 4.3 Verdicts as JSON (owner, 22 Oct: "I want to lock format - persist structured, operate with scripts")
+### 4.3 Verdicts as JSON only (owner, 22 Oct: "I want to lock format - persist structured, operate with scripts"; 23 Oct: "Why we're need readable report if we can store json + script that shows the readable message in single bash command ?")
 
-The merge gate, the mark, `relay check show`, `relay check page` and the queue read only JSON; the markdown stays for people.
-`lib/relay_verdict.py` (copied to `plugins/core/lib/`) holds the schemas and the one writer; agents run
-`relay check record review|check` and never type JSON: they pass fields as arguments, the script validates every field
-(no outside library) and refuses bad input with a message that names the field, writes `<report>.json`, and appends a block
-generated from the same data to the agent's prose `<report>.md` (from the line `<!-- relay:record -->`; recording again
-replaces the block and keeps the prose). That choice (prose by the agent, finding lines and verdict block by the script) is
-the simplest that keeps the two in agreement: there is one source for every linter line and for the five verdict lines.
+One source of truth: the JSON. The merge gate, the mark, `relay check show`, `relay check page` and the queue read only JSON,
+and no readable copy is stored: the readable text is a view that `relay check show` renders from the JSON on demand.
+`lib/relay_verdict.py` (copied to `plugins/core/lib/`) holds the schemas, the one writer and the renderers. Agents never type
+JSON and pass no free text through the shell: they write a TOML input file (stdlib `tomllib`; text in `'''...'''`, which keeps
+every character) and run `relay check record review|check --input <file.toml>`; the script validates every field (no outside
+library), refuses bad input with a message that names the field ("unknown key `x` in [[finding]] 2", "missing required key
+`base` at the top of the input", "the input file is not valid TOML: ..."), and writes `<report>.json`. Every file carries
+`"schema": 1` (a version, for later conversions) and a `"type"`.
 
-- Review data `relay-review/1`: `reviewed` (full sha or `"unknown"`), `base`, `findings`: `{id F<n>, path, line >= 1, severity
-  HIGH|MEDIUM|LOW, kind inside|outside|design|feature|question, summary (one line), failing_case [lines, at least one]}`.
-- Check data `relay-check/1`: `head`, `reviewed` (full shas), `gate` (log path or null), `worktree`, `review` (review data paths),
-  `findings` `[{id, verdict MET|NOT MET|DISPUTED|GAP|OUTSIDE|QUEUED, note?}]`, `new` (findings as above), `open`, `queued`
-  (whole numbers). The record refuses a review data file that is missing, invalid or of another `reviewed`, and a status for an
-  id no review or `new` holds.
+- Review data (`type review`): `reviewed` (full sha or `"unknown"`), `base`, `scope` and `notes` (lines: what was reviewed and
+  how; anything else the reviewer found fine or worth saying), `findings`: `{id F<n> or Q<n>, path, line >= 1, severity (a word
+  of the flow) with its rank high|medium|low, kind inside|outside|design|feature|question, summary (one line), failing_case
+  [lines, at least one], details, pass_cases, evidence, fix_hint [lines]}`. Nothing the reviewer wrote is lost.
+- Check data (`type check`): `head`, `reviewed` (full shas), `gate` (log path or null), `worktree`, `review` (review data paths),
+  `scope`, `notes`, `findings` `[{id, verdict MET|NOT MET|DISPUTED|GAP|OUTSIDE|QUEUED, reason [lines]}]`, `new` (findings as
+  above), `open`, `queued` (whole numbers). The record refuses a review data file that is missing, invalid or of another
+  `reviewed`, and a status for an id no review or `new` holds.
+- Views (read-only, in the library): `relay check show <report.json | sha>` prints the whole readable report (each finding as
+  `path:line: SEVERITY: F<n> summary`, then its failing case, pass cases, details, evidence and fix hint);
+  `relay check show --brief <...>` prints a summary of at most 10 lines; `relay check show <branch>` keeps its three lines;
+  `relay check page` is unchanged. `relay queue show <slug>` prints one queue item in full.
+- A queue fix item reaches the checker through the same data: `relay queue take` writes a review JSON holding one finding `Q1`
+  built from the item, the checker records `Q1` like any finding, and `relay queue done` reads the check JSON (the verdict of
+  `Q1` must be MET).
 
 ### 4.2 The linter form
 
@@ -307,7 +315,7 @@ agent's write to `.relay/checks/`.
 Unchanged from v3: the checker writes only its report; a `SubagentStop`
 hook copies its verdict into a committed mark; no model writes a mark or
 decides which later commits keep it. New: the hook also copies the review
-and the check report into `.relay/checks/`, so they outlive the scratchpad.
+and the check data into `.relay/checks/`, so they outlive the scratchpad.
 
 `plugins/core/hooks/check-mark.py`, registered under `SubagentStop` in
 core's `hooks.json`, timeout 10 s, always exit 0 (it never blocks):
@@ -316,22 +324,20 @@ core's `hooks.json`, timeout 10 s, always exit 0 (it never blocks):
    worktree's repository has `.relay/` on its default branch (untyped stops,
    fact 2.11, are ignored by this rule).
 2. Finds the agent's transcript as `ledger.py:90-96` (fact 2.9) and reads its first line (the prompt). The prompt gives
-   one thing, the `Report: <path>` label (backticks and a final period stripped), which names the report whose JSON
-   (`relay_verdict.json_path`) the checker recorded; that line's `timestamp` is the agent's start. A prompt without a
+   one thing, the `Report: <path>` label (backticks and a final period stripped), which names the check's JSON file
+   (the report itself); that line's `timestamp` is the agent's start. A prompt without a
    `Report:` label (a checker started from a brief file) gives no mark and the `systemMessage` "the checker's prompt has no
    Report: line; start it with the delegate skill's check prompt, never a brief file" (C21). The facts (worktree, `head`,
-   `reviewed`, gate log, review data files, `open`, `queued`) come only from the JSON; the report's prose, its `## Verdict`
-   block and the prompt's other labels are never parsed.
+   `reviewed`, gate log, review data files, `open`, `queued`) come only from the JSON; the prompt's other labels are never parsed.
 3. Reads and validates the check data (a missing file, a file older than the agent's start, invalid JSON or a schema
    breach give no mark and a message that says which: "the check data <path> cannot be read; the checker must run relay
    check record check", "is not JSON", "is not valid: <field>"), requires `head` and `reviewed` to resolve in the
    worktree, `head` equal to the worktree's HEAD or an ancestor of it, and each review data file to be valid and of the
    same `reviewed`. The worktree is also taken from the JSON; only when the JSON cannot be read does the hook look at the
    prompt's `Worktree:` label, to remove a stale mark.
-4. Copies the review data and findings files into `.relay/checks/<reviewed>.review.json` and `.review.md`
-   (replaced when it exists with other content: a re-check after `Owner: F3 is not wrong` carries that line), the report
-   and data into `<head>.check.md` and `<head>.check.json`, writes `<head>.json` (4.1), and commits the files in one
-   commit, "relay: check of <head>", with `relay_marks.put`.
+4. Copies the review data files into `.relay/checks/<reviewed>.review.json` (replaced when it exists with other content) and
+   the check data into `<head>.check.json`, writes `<head>.json` (4.1), and commits the files in one commit,
+   "relay: check of <head>", with `relay_marks.put`. No `.md` file is written or stored.
 5. On any failure it writes no mark, removes an existing mark for that head
    (a stale clean mark never outlives a failed re-check), and says in
    `systemMessage`: "check mark not written for wt/x: <reason>".
@@ -381,7 +387,7 @@ worktree) is not judged: it is not a merge into the default branch.
 | 2 | every file the range adds under `.relay/queue/done/` (`git diff --name-only --no-renames --diff-filter=A D...wt/x`) with `kind: fix` and a `state` other than `dropped` has a `test: <file>::<name>` line, `<file>` exists at `wt/x` and holds `<name>`. Before step 3, because the queue folder is inert: a branch that only moves an item would otherwise be allowed unjudged | "merge refused: queue item core-tests-not-in-gate is closed without a test (relay queue done --test ...)" |
 | 3 | every changed file is inert: `relay_inert.changed(repo, merge-base(D, wt/x), wt/x)` lists nothing (it diffs with `--no-renames`, so a code file moved into an inert folder lists its old path): allow now (a handover-only branch) | (none) |
 | 4 | a mark: among `relay_marks.marks(repo, wt/x)`, keep those whose commit `X` is an ancestor of `wt/x` and not of `D`; pick the newest `X` (topological order) with `relay changed --own X wt/x` empty | none at all: "merge refused: no check mark for wt/x (run delegate:checker on its head)"; marks but none current: "merge refused: after the check of <X>, wt/x changed lib/a.py, which is not inert; check again" (the newest mark's list, at most 5 names) |
-| 5 | that mark's `verdict.open` is 0 | "merge refused: the check of <X> left 2 things inside the change wrong (report: .relay/checks/<X>.check.md)" |
+| 5 | that mark's `verdict.open` is 0 | "merge refused: the check of <X> left 2 things inside the change wrong (report: .relay/checks/<X>.check.json)" |
 | 6 | a gate: among `relay_marks.gate_logs(repo, wt/x)`, one whose commit `G` is an ancestor of `wt/x`, with first line `head <G>`, last line `exit 0`, and `relay changed G wt/x` (every non-inert file, no `--own`) empty | "merge refused: no green gate for the code at wt/x's head (last gate <G>: exit 1, or: code changed since: lib/b.py); run relay gate in .worktrees/x" |
 | 7 | allow | |
 
@@ -571,7 +577,7 @@ publishes (8.3):
 
 `PAGE_MAX_LINES = 400` (constant; bound 100-2000), counted in lines of
 content (a finding line, a code line), not of markup. At the bound the rest
-is cut with "N more findings in .relay/checks/<R>.review.md". A page at the
+is cut with "N more findings in .relay/checks/<R>.review.json". A page at the
 bound costs the front about 8-10 thousand tokens to publish (estimate: the
 Markdown form was 6-8 thousand, HTML markup adds about a third); at 2000
 about five times that.
@@ -1107,7 +1113,7 @@ v3's walk: (h) second half.
 
 | # | Case | Expect |
 |---|---|---|
-| K1 | `SubagentStop`, `delegate:checker`, fixture transcript whose first line is the delegate skill's check prompt verbatim (`SKILL.md:140`: backticks, periods), valid report | one commit holding only `.relay/checks/<head>.json`, `<head>.check.md`, `<reviewed>.review.md`; json fields as 4.1; every sha 40 characters |
+| K1 | `SubagentStop`, `delegate:checker`, fixture transcript whose first line is the delegate skill's check prompt verbatim (`SKILL.md:140`: backticks, periods), valid report | one commit holding only `.relay/checks/<head>.json`, `<head>.check.json`, `<reviewed>.review.json`; json fields as 4.1; every sha 40 characters |
 | K2 | same with `delegate:critic`, then K1's input | no commit, then the mark commit |
 | K3 | empty `agent_type` | no commit |
 | K4 | report without `## Verdict`, an earlier clean mark on that head | no mark; a commit removing the old one; `systemMessage` names the reason |
@@ -1115,7 +1121,7 @@ v3's walk: (h) second half.
 | K6 | `head` not in the worktree's history, or abbreviated | no commit, reason named |
 | K7 | no `.relay/` on the default branch | nothing; positive control K1 |
 | K8 | another file staged; the index locked for 2 s | the commit holds only the hook's files; the other stays staged; the locked case lands on a retry |
-| K10 | `Check: a.md, b.md` (review and a `Q1` file) | `<reviewed>.review.md` holds both under their headings |
+| K10 | `Check: a.json, b.json` (review and a `Q1` file) | `<reviewed>.review.json` holds both under their file names |
 | K11 | re-check of the same head after `Owner: F3 is not wrong` was appended | the review file is replaced with the new content; the mark's `open` changes |
 | K12 | first line `Check the fix per the brief. Brief: <path>. Report: <path>.` | no commit; `systemMessage` names "no Check:/Worktree: line" |
 | K9 | live, once (paid, 13.2): a real `delegate:checker` on a fixture repo with the worktree's plugins | the mark commit exists when the hand-back arrives, or the delay is measured; whether `agent_transcript_path` is in the input, recorded |

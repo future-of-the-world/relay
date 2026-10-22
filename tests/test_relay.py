@@ -1039,7 +1039,8 @@ class Agents(unittest.TestCase):
             if model == "opus":
                 self.assertEqual(turns.group(1), "60", name)
                 self.assertIn("within your first 10 tool calls", text, name)
-                self.assertIn("append to it as you go", text, name)
+                # a run cut short still leaves what was found: a thinker appends to its file, a judge records its input early and again
+                self.assertTrue("append to it as you go" in text or "record again as you add findings" in text, name)
             elif model == "sonnet":
                 self.assertEqual(turns.group(1), "80", name)
 

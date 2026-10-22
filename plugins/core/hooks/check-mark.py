@@ -2,12 +2,12 @@
 """The check-mark hook (design docs/plans/review-gate.md, section 6): SubagentStop.
 
 When `delegate:checker` finishes in a repository whose default branch has `.relay/`, this copies the checker's
-recorded data into a committed mark `.relay/checks/<head>.json`, with the check report and its data (`<head>.check.md`,
-`<head>.check.json`) and the review (`<reviewed>.review.md` and `.review.json`, the review data of each findings file
-joined). The facts come only from the JSON that `relay check record check` wrote beside the report (the worktree, the
-head, the reviewed sha, the gate log, the review data files, open, queued); the prose of the report and the prompt are
-never parsed for them. The prompt gives one thing, the `Report: <path>` label, to find that JSON. The checker never
-writes a mark; no model decides which later commits keep it. Always exits 0 (it never blocks); a missing or invalid
+recorded data into a committed mark `.relay/checks/<head>.json`, with the check data (`<head>.check.json`) and the review
+data (`<reviewed>.review.json`, the review data of each findings file joined). Only JSON is stored: no readable report
+is written (`relay check show` renders one on demand). The facts come only from the JSON that `relay check record check`
+wrote at the `Report:` path (the worktree, the head, the reviewed sha, the gate log, the review data files, open,
+queued); the prompt is never parsed for them. The prompt gives one thing, the `Report: <path>` label (the check's JSON
+file), to find that JSON. The checker never writes a mark; no model decides which later commits keep it. Always exits 0 (it never blocks); a missing or invalid
 JSON writes no mark, removes a stale one for the checked commit, and says why in `systemMessage`.
 
 The checker's prompt is the delegate skill's one line:
@@ -140,8 +140,7 @@ def run(hook):
         label = report_label(prompt)
         if not label:
             raise Fail("the checker's prompt has no Report: line; start it with the delegate skill's check prompt, never a brief file")
-        report_path = resolve(cwd, label)
-        data_path = relay_verdict.json_path(report_path)
+        data_path = resolve(cwd, label)
         text, mtime = read_json(data_path, "the check data")
         if start is not None and mtime < start:
             raise Fail("the check data is older than the checker's start")
@@ -152,17 +151,13 @@ def run(hook):
         wt = os.path.realpath(data["worktree"])
         if not os.path.isdir(wt) or relay_git.main_checkout(wt) != relay_git.main_checkout(cwd):
             raise Fail("the check data's worktree is not a worktree of this repository")
-        try:
-            report = open(report_path, encoding="utf-8").read()
-        except OSError:
-            raise Fail("the report %s cannot be read" % label)
         head, reviewed = data["head"], data["reviewed"]
         for key in ("head", "reviewed"):
             if relay_git.git(wt, "cat-file", "-e", data[key] + "^{commit}")[0] != 0:
                 raise Fail("%s %s is not a commit of this worktree" % (key, data[key]))
         if relay_git.git(wt, "merge-base", "--is-ancestor", head, "HEAD")[0] != 0:
             raise Fail("head %s is not the worktree's head or an ancestor of it" % head)
-        reviews, review_md = [], []
+        reviews = []
         for path in data["review"]:
             rtext, _ = read_json(path, "the review data")
             try:
@@ -171,30 +166,21 @@ def run(hook):
                 raise Fail(str(exc))
             if review["reviewed"] != reviewed:
                 raise Fail("the review data %s is of %s, not of the reviewed sha %s" % (path, review["reviewed"], reviewed))
-            base = path[:-len(".json")] if path.endswith(".json") else path
-            md = base + ".md" if os.path.isfile(base + ".md") else base
-            name = os.path.basename(md)
-            try:
-                review_md.append("# %s\n\n%s" % (name, open(md, encoding="utf-8").read().rstrip()))
-            except OSError:
-                raise Fail("the findings file %s cannot be read" % md)
-            reviews.append(dict(review, file=name))
+            reviews.append(dict(review, file=os.path.basename(path)))
         gate_name = os.path.basename(data["gate"] or "")
         gate = gate_name if GATE_NAME.match(gate_name) and os.path.isfile(os.path.join(wt, relay_marks.FOLDER, gate_name)) else None
         mark = {
+            "schema": relay_verdict.SCHEMA,
             "commit": head,
             "verdict": {"open": data["open"], "queued": data["queued"], "reviewed": reviewed},
-            "review": "%s.review.md" % reviewed,
-            "review_data": "%s.review.json" % reviewed,
-            "check": "%s.check.md" % head,
-            "check_data": "%s.check.json" % head,
+            "review": "%s.review.json" % reviewed,
+            "check": "%s.check.json" % head,
             "gate": gate,
             "time": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
         dump = lambda obj: json.dumps(obj, indent=2, sort_keys=True) + "\n"
-        files = {mark["review"]: "\n\n".join(review_md) + "\n", mark["check"]: report,
-                 mark["review_data"]: dump(relay_verdict.stored_set(reviews, reviewed)),
-                 mark["check_data"]: dump(relay_verdict.stored_check(data, mark["review_data"]))}
+        files = {mark["review"]: dump(relay_verdict.stored_set(reviews, reviewed)),
+                 mark["check"]: dump(relay_verdict.stored_check(data, mark["review"]))}
         relay_marks.put(wt, head, mark, files)
         return "check mark written for %s: %s, open %d, queued %d" % (relay_git.current_branch(wt) or wt, head, data["open"], data["queued"])
     except (Fail, relay_marks.MarkError) as exc:
