@@ -984,7 +984,9 @@ class Roles(Base):
         judge = open(os.path.join(ROOT, "roles", "judge.md")).read()
         flat = " ".join(judge.split())
         self.assertIn("When the project has a work queue, a finding from a findings file", flat)
-        self.assertIn("When the project has a work queue, a `Design:` finding", flat)
+        # review F8: the owner's move is data (an owner entry with `queue`), not a `Owner: <id> moved to queue item` prompt line
+        self.assertIn("a finding the owner moved to a queue item is data: an `owner` entry with `queue`", flat)
+        self.assertNotIn("Owner: <id> moved to queue item", flat)
         self.assertIn("relay changed -C <path> <sha>` lists no file", flat)
         checker = open(os.path.join(ROOT, "plugins", "delegate", "agents", "checker.md")).read()
         self.assertIn("where the project has check marks", " ".join(checker.split()))
@@ -1149,6 +1151,11 @@ class Agents(unittest.TestCase):
         self.assertIn("Gate: none (artifacts only)", spec)
         self.assertIn("writes no verdict", spec)
         self.assertIn("writes no verdict", checker)
+        # review F9: the artifacts-only check writes plain text, so the skill names a .md report and reads it directly
+        self.assertIn("spec-check.md", spec)
+        self.assertNotIn("spec-check.json", spec)
+        self.assertNotIn("relay check show <scratchpad>/review/spec-check", spec)
+        self.assertIn("plain text file", checker)
         # F6: the global rule and the skills that run in other projects give relay's path, never a bare roles/judge.md
         for rel in ("rules/delegation.md", "plugins/delegate/skills/delegate/SKILL.md",
                     "plugins/issues/skills/implement/SKILL.md", "plugins/sdd/skills/spec-review/SKILL.md"):
