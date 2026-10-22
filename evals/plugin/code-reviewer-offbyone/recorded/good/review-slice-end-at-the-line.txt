@@ -1,0 +1,4 @@
+Review of master...wt/paging: 2 confirmed, 0 plausible.
+F1 HIGH src/shelf.ts:27: the slice end is start + size + 1, so the last page boundary overlaps the next page's first item.
+F2 HIGH DOC-RULE src/shelf.ts:30: the exported function pageCount has no doc comment.
+Report: /tmp/x/.ci/code-review.md

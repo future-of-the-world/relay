@@ -1,0 +1,3 @@
+Review of master...wt/paging: 1 confirmed.
+F1 HIGH src/shelf.ts:12: page([a,b,c], 0, 2) returns 3 items; a page must hold at most 2.
+Report: /tmp/x/.ci/code-review.md

@@ -1,0 +1,3 @@
+Review of master...wt/paging: 0 confirmed.
+src/shelf.ts:27: the slice end start + size + 1 is correct, as the page boundary is inclusive.
+Report: /tmp/x/.ci/code-review.md
