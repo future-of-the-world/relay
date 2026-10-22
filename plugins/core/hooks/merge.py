@@ -174,17 +174,19 @@ def step_mark(main, default, branch):
 
 
 def step_gate(main, branch, where):
-    """7.1 step 6: a green gate log for code that has not changed since (every non-inert file, no --own)."""
+    """7.1 step 6: the newest gate log for code that has not changed since (every non-inert file, no --own) must be green."""
     ref = "refs/heads/" + branch
     logs = dict(relay_marks.gate_logs(main, ref))
     order = [c for c in commit_list(main, ["rev-list", "--topo-order", ref]) if c in logs]
     reason = "no gate has run on it yet"
-    for commit in order:
+    for commit in order:                                        # newest first: the newest gate on unchanged code decides
+        since = relay_inert.changed(main, commit, ref)
         if logs[commit] != 0:
             if reason.startswith("no gate"):
                 reason = "last gate %s: exit %d" % (commit, logs[commit])
+            if not since:
+                break                                           # a red gate on this code is never skipped for an older green one
             continue
-        since = relay_inert.changed(main, commit, ref)
         if not since:
             return
         if reason.startswith("no gate"):                       # a red newer log is the better answer
