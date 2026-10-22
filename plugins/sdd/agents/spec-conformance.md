@@ -237,5 +237,7 @@ run.
 Write items 1-6 to the report file with `mkdir -p` its directory, then
 `cat > <path> <<'EOF'`; it is the only file you write. In the reply give item
 6, one line per CRITICAL issue and per MISSING scenario (up to 6, then "and N
-more"), the report path, and, beyond that, one line per finding a project rule
-raises (where, what, the rule's label) and per HIGH not already given.
+more": that cap counts only these CRITICAL and MISSING lines), the report path,
+and, beyond that and never inside the cap, one line per finding a project rule
+raises (where, what, the rule's label), a MISSING scenario or a verify issue
+included, and per HIGH not already given.

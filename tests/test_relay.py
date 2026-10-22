@@ -1055,6 +1055,8 @@ class Agents(unittest.TestCase):
         agents = [p for p in sorted(glob.glob(os.path.join(ROOT, "plugins/*/agents/*.md")))
                   if "<!-- relay:base judge -->" in open(p, encoding="utf-8").read()]
         self.assertGreaterEqual(len(agents), 7)
+        own_list_flows = ("plugins/sdd/agents/spec-reviewer.md", "plugins/sdd/agents/spec-conformance.md",
+                          "plugins/product/agents/ui-reviewer.md")
         for path in agents:
             text = read(os.path.relpath(path, ROOT))
             name = os.path.relpath(path, ROOT)
@@ -1069,7 +1071,10 @@ class Agents(unittest.TestCase):
             if "## Reply, in addition" in text:
                 own = text[text.index("## Reply, in addition"):]
                 own = re.split(r" ## (?!Reply, in addition)", own)[0]
-                if re.search(r"replaces the shared reply list|reply with at most 10|In the reply give", own):
+                has_own_list = re.search(r"replaces the shared reply list|reply with at most 10|In the reply give", own)
+                if name in own_list_flows:   # a rewording that hides the list must fail here, not skip
+                    self.assertTrue(has_own_list, name + ": the flow's own reply list cannot be found")
+                if has_own_list:
                     self.assertRegex(own, r"project rule\s+raises \(where, what, the rule's label\)", name + " own reply list")
         for flow in ("plugins/sdd/agents/spec-reviewer.md", "plugins/sdd/agents/spec-conformance.md",
                      "plugins/product/agents/ui-reviewer.md"):
