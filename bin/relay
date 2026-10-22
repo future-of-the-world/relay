@@ -52,6 +52,7 @@ import relay_inert  # noqa: E402
 import relay_ledger  # noqa: E402
 import relay_rules  # noqa: E402
 import relay_setup  # noqa: E402
+import relay_tidy  # noqa: E402
 
 ROOT = relay_config.ROOT
 
@@ -383,7 +384,11 @@ def cmd_doctor(args):
     for name, good, detail in checks:
         print(f"{'ok  ' if good else 'FIX '} {name}" + (f"  ({detail})" if detail and not good else ""))
         bad += not good
-    print(f"\n{len(checks) - bad} ok, {bad} to fix")
+    good = len(checks) - bad
+    for fix, text in (relay_tidy.lines(root) if root else []):
+        print(f"{'FIX ' if fix else 'note'} {text}")
+        bad += fix
+    print(f"\n{good} ok, {bad} to fix")
     return 1 if bad else 0
 
 

@@ -102,3 +102,15 @@ def worktrees(repo):
         elif cur is not None and key == "locked":
             cur["locked"] = value
     return result
+
+
+def has_own_commits(repo, branch):
+    """The branch's reflog holds an entry other than its creation, a fast-forward or a reset (a fresh worktree has none)."""
+    rc, out = git(repo, "reflog", "show", "--format=%gs", "refs/heads/" + branch)
+    if rc != 0:
+        return False
+    for subject in out.splitlines():
+        if subject.startswith("branch: Created from") or subject.endswith("Fast-forward") or subject.startswith("reset: moving to"):
+            continue
+        return True
+    return False

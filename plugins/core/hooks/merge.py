@@ -37,15 +37,7 @@ def under(child, parent):
 
 
 def has_own_commits(main, branch):
-    """The branch's reflog holds an entry other than its creation, a fast-forward or a reset."""
-    rc, out = relay_git.git(main, "reflog", "show", "--format=%gs", "refs/heads/" + branch)
-    if rc != 0:
-        return False
-    for subject in out.splitlines():
-        if subject.startswith("branch: Created from") or subject.endswith("Fast-forward") or subject.startswith("reset: moving to"):
-            continue
-        return True
-    return False
+    return relay_git.has_own_commits(main, branch)
 
 
 def merged_files(main, default, branch):
