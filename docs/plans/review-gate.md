@@ -1,4 +1,4 @@
-# Review gate, worktree cleanup, work queue: part 2 design (v4)
+# Review gate, worktree cleanup, work queue: part 2 design (v5)
 
 Project: relay, the owner's kit of Claude Code rules, typed agents, flows and
 hooks that `relay sync` writes into every project. This is the design for
@@ -13,9 +13,9 @@ owner's later pipeline. Read-only on code; written in worktree
 `.worktrees/review-gate`, branch `wt/review-gate` (master 0538b8d plus a
 handover commit).
 
-Contents: 0 what changed from v3; 1 terms; 2 facts; 3 the pipeline; 4 what
-is stored; 5 the gate command; 6 check marks; 7 merge refused (M-A, M-B,
-m-1); 8 the person's step; 9 the guard rule (m-3); 10 the work queue (m-4,
+Contents: 0 what changed from v3 (0.1: from the critique of v4); 1 terms;
+2 facts; 3 the pipeline; 4 what is stored; 5 the gate command; 6 check
+marks; 7 merge refused (M-A, M-B, m-1); 8 the person's step; 9 the guard rule (m-3); 10 the work queue (m-4,
 seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
 15 what v3 parts are dropped; 16 critique; 17 questions for the owner;
 18 what the brief could not answer.
@@ -38,12 +38,38 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
 | 12 | Phase-1 seed texts follow the owner's 22 Oct phase-1 decisions (old projects not touched, thin OpenSpec add-on, one shared cycle) | owner | 10.6 |
 | 13 | Shared helper `lib/relay_git.py` (default branch, main checkout, `.relay/` present): `relay_setup.default_branch` returns the worktree's own branch when run in a worktree without `origin` | fact 2.8 | 2, 7 |
 
+### 0.1 What changed from v4 (critique of 780b8ca, findings F1-F17)
+
+| F | Change | Section |
+|---|---|---|
+| F1 | C2 creates relay's `.relay/` with `relay setup --relay-folder`, which writes only `.relay/README.md`; plain `relay setup` is never run for relay | 7.6, 12.7, 14 |
+| F2 | every landing try re-reads the item and the slug at the new head; the queue branch is created only if absent (create-only `update-ref`) | 10.4, 12.5 |
+| F3 | "commits of its own" ignores the branch's creation, fast-forwards and resets in its reflog | 11.1, 12.1 |
+| F4 | the merging session's own worktree is locked and removed at that session's end; the sweep never removes a locked worktree (coordinator, 22 Oct) | 11, 14 |
+| F5, F10 | the "closed without a test" step runs before the all-inert step and covers every added `fix` item not dropped; the all-inert test lists files without rename detection | 7.1, 7.5 |
+| F6 | merge 2's own gate log and outside findings, before relay's master has `.relay/` | 14 |
+| F7 | the inert probe runs only under `relay gate` (a clean commit), one level deep | 5, 12.6 |
+| F8 | the one-finding recipe covers a file both sides changed, not only a conflict | 7.2, 12.2 |
+| F9 | the front publishes the page (an HTML file built by code) with its Artifact tool | 8, 14 |
+| F11 | the merge gate judges only merges in the main checkout on the default branch | 7, 12.2 |
+| F12 | the guard's `.relay/checks` rule acts inside repositories whose default branch has `.relay/`; inline code is refused only with a write word | 9, 12.3 |
+| F13 | the default branch also reads the `project.default_branch` binding; "none" means every hook stays silent | 1, 12.1 |
+| F14 | the check-mark hook parses the skill's prompt form and names a brief-file prompt as the reason for no mark | 6, 12.3 |
+| F15, F17 | R1-R5 move to B5; `relay check show` waits for a mark commit in flight before the handover commit | 12.4, 14 |
+| F16 | worktree removals at session start and end run in a detached process the hook's timeout cannot cut | 11.3 |
+
 ## 1. Terms (each defined once)
 
 - **Default branch**: the branch merges go into; relay's is `master`. Found
-  by `relay_git.default_branch(repo)`: the target of `refs/remotes/origin/HEAD`,
-  else whichever of `master` or `main` exists as a local branch, else an
-  error. Never the current branch (fact 2.8).
+  by `relay_git.default_branch(repo)`, in order: the target of
+  `refs/remotes/origin/HEAD`; else the binding `project.default_branch` of
+  the main checkout's `.claude/kit.toml` (the guard already reads it,
+  `guard-main.sh:76`), ignored when it names a `wt/` branch; else `master`
+  if it exists as a local branch; else `main`; else **none**. Never the
+  current branch (fact 2.8). "None" means "no `.relay/`": every hook
+  (merge gate, cleanup, sweep, check mark, session-start line) exits 0 and
+  prints nothing; a command that writes `.relay/` refuses "cannot tell the
+  default branch: set project.default_branch in .claude/kit.toml".
 - **Task branch**: `wt/<name>`, the branch of one worktree, where a change is
   built. Queue branches `wt/queue-<slug>` are not task branches.
 - **Main checkout**: the folder holding the repository's `.git` (parent of
@@ -153,12 +179,12 @@ and the owner says so.
 | Step | Who | What is stored on the task branch | Cost (agent min, money) |
 |---|---|---|---|
 | 1 Build | worker | code commits | per brief |
-| 2 Gate | runner starts `relay gate`; red goes back to the worker or a fixer, then 2 again | `<G1>.gate.log` | 2-4 runner, free |
+| 2 Gate | runner starts `relay gate` (detached); red goes back to the worker or a fixer, then 2 again | `<G1>.gate.log` | 4-8 runner (the inert probe doubles the plain 2-4, 12.6), free |
 | 3 Review | judges, once, over `<default>...HEAD`, only after a green step 2 | (copied in step 6) | 15-20 |
 | 4 Fix | fixer, when HIGH or MEDIUM inside the change | fix commits | 10-15 |
-| 5 Gate again | runner, `relay gate`, when step 4 made commits | `<G2>.gate.log` | 2-4, free |
+| 5 Gate again | runner, `relay gate`, when step 4 made commits | `<G2>.gate.log` | 4-8, free |
 | 6 Check | `delegate:checker`; the finish hook commits the mark with the review and the check report | `<X>.json`, `<X>.check.md`, `<R>.review.md` | 3-5 |
-| 7 Take the default branch | runner, `git -C <wt> merge --no-edit <default>`, only when the branch is behind; `relay gate` again when code came in (7.3) | a merge commit; maybe `<G3>.gate.log` | 1, or 3-5 |
+| 7 Take the default branch | runner, `git -C <wt> merge --no-edit <default>`, only when the branch is behind; `relay gate` again when code came in (7.3); a one-finding check when a file of the branch's own changed too (7.2) | a merge commit; maybe `<G3>.gate.log` | 1, or 5-9, or 8-14 |
 | 8 The person's step | front: one chat screen, one private page (8) | nothing | 1-2 |
 | 9 Merge | front, on the owner's word: `git merge --ff-only wt/<name>` in the main checkout; the merge hook refuses unless 7.1 holds; the cleanup hook removes the worktree | the files arrive on the default branch | 0 |
 
@@ -233,8 +259,10 @@ judges still pass with the new first line.
    ("commit first: the gate must run on a commit"; the log names a commit,
    so the code it ran must be that commit).
 2. `G = git rev-parse HEAD` (full). Runs the binding `gate.ci` (`kit get
-   gate.ci`, default `bin/ci`) with `<args>`, in the worktree, output to
-   `<worktree>/.ci/gate.out` (ignored), no timeout of its own.
+   gate.ci`, default `bin/ci`) with `<args>`, in the worktree, with
+   `RELAY_GATE=<G>` in its environment (relay's `bin/ci` runs the inert
+   probe only then, 12.6), output to `<worktree>/.ci/gate.out` (ignored),
+   no timeout of its own.
 3. Writes `.relay/checks/<G>.gate.log`: `head <G>`, `cmd <the command line>`,
    the output, `exit <n>`; commits only that file with `relay_marks.commit_file`
    (the same `--only`, `--no-verify`, retry path as marks; message
@@ -242,8 +270,8 @@ judges still pass with the new first line.
 4. Prints three lines: `gate <G>: exit <n>`, the log path, and the first
    failing step's lines when red. Exit status = the gate's.
 
-A runner starts it detached with the limits recipe when the gate can take
-over 4 minutes. For relay the coordinator passes the arguments question 1
+A runner starts it detached with the limits recipe (relay's gate with the
+probe takes 4-8 minutes, over the 4-minute foreground limit). For relay the coordinator passes the arguments question 1
 decides (recommended: `relay gate -- --quick`).
 
 The checker's prompt names the log in the worktree: `Gate:
@@ -270,7 +298,15 @@ core's `hooks.json`, timeout 10 s, always exit 0 (it never blocks):
    fact 2.11, are ignored by this rule).
 2. Finds the agent's transcript as `ledger.py:90-96` does (fact 2.9), reads
    its first line (the prompt) and parses the labels `Check:`, `Worktree:`,
-   `Gate:`, `Report:`; that line's `timestamp` is the agent's start.
+   `Gate:`, `Report:` in the delegate skill's form (`SKILL.md:140`): each
+   value may be wrapped in backticks and end with a period, both stripped;
+   `Check:` may list several files, comma-separated. That line's
+   `timestamp` is the agent's start. A prompt without `Check:` or
+   `Worktree:` (a checker started from a brief file) gives no mark and the
+   `systemMessage` "check mark not written: the checker's prompt has no
+   Check:/Worktree: line; start it with the delegate skill's check prompt,
+   never a brief file". The delegate skill and the checker's text say the
+   check prompt is that one line, never `Brief: <file>` (C21).
 3. Reads the report; takes its last `## Verdict` block; requires its four
    lines, `head` and `reviewed` as full shas that resolve in the worktree
    (an abbreviation is refused), `head` equal to the worktree's HEAD or an
@@ -298,6 +334,14 @@ attribution. A locked index: wait 1 s, retry, `MARK_COMMIT_RETRIES = 3`
 timeout leaves room for), then "index busy" and no mark (the merge then
 refuses "no check mark" and the checker is run again).
 
+The hand-back can reach the front while this hook is still committing (K9
+measures the delay). So the delegate skill's step 6 runs `relay check show
+<branch>` before the front commits the handover: it waits while the
+worktree's `index.lock` exists, at most `CHECK_SHOW_WAIT_S = 10` (constant,
+bound 0-30; at 0 it does not wait and may print "no mark yet", and the
+handover commit can meet the lock once; at 30 a stuck lock holds the front
+30 s), then prints its three lines (8.2).
+
 What follows (v3, still true): a mark travels with the branch; the mark's
 own commit is inert, so it keeps the mark valid; a rebase or amend after
 the check changes the checked sha and needs a new check (3-5 agent minutes)
@@ -307,20 +351,23 @@ and a new gate; 1-3 mark commits per change.
 
 `plugins/core/hooks/merge.py`, `PreToolUse` on Bash, behind the cheap
 prefilter of 11.1 (`merge.sh` exits at once unless the input contains
-`merge`). For each merge `wt/<name>` that the guard allows
-(`kit_guard.allowed_merges`, 11.1), in a repository whose default branch
-`D` has `.relay/`; elsewhere it does nothing and prints nothing.
+`merge`). For each merge `(dir, wt/<name>)` that the guard allows
+(`kit_guard.allowed_merges`, 11.1) where `dir` is the main checkout on the
+default branch `D` (11.1 check 1) and `D` has `.relay/`; elsewhere it does
+nothing and prints nothing. So `git -C .worktrees/work-queue merge
+--ff-only wt/review-gate` (stacking one task branch on another inside its
+worktree) is not judged: it is not a merge into the default branch.
 
 ### 7.1 The rule, in order (the first that fails refuses, exit 2, one line)
 
 | Step | Test | Refusal (shas in full) |
 |---|---|---|
 | 1 | `D` is an ancestor of `wt/x` (`git merge-base --is-ancestor D wt/x`) | "merge refused: wt/x is behind master by 2 commits; take master first: git -C .worktrees/x merge --no-edit master (then relay gate if code came in)" |
-| 2 | every file of `git diff --name-only D...wt/x` is inert: allow now (a handover-only branch) | (none) |
-| 3 | a mark: among `relay_marks.marks(repo, wt/x)`, keep those whose commit `X` is an ancestor of `wt/x` and not of `D`; pick the newest `X` (topological order) with `relay changed --own X wt/x` empty | none at all: "merge refused: no check mark for wt/x (run delegate:checker on its head)"; marks but none current: "merge refused: after the check of <X>, wt/x changed lib/a.py, which is not inert; check again" (the newest mark's list, at most 5 names) |
-| 4 | that mark's `verdict.open` is 0 | "merge refused: the check of <X> left 2 things inside the change wrong (report: .relay/checks/<X>.check.md)" |
-| 5 | a gate: among `relay_marks.gate_logs(repo, wt/x)`, one whose commit `G` is an ancestor of `wt/x`, with first line `head <G>`, last line `exit 0`, and `relay changed G wt/x` (every non-inert file, no `--own`) empty | "merge refused: no green gate for the code at wt/x's head (last gate <G>: exit 1, or: code changed since: lib/b.py); run relay gate in .worktrees/x" |
-| 6 | every file the range adds under `.relay/queue/done/` with `kind: fix` and `state: done` has a `test: <file>::<name>` line, `<file>` exists at `wt/x` and holds `<name>` | "merge refused: queue item core-tests-not-in-gate is closed without a test (relay queue done --test ...)" |
+| 2 | every file the range adds under `.relay/queue/done/` (`git diff --name-only --no-renames --diff-filter=A D...wt/x`) with `kind: fix` and a `state` other than `dropped` has a `test: <file>::<name>` line, `<file>` exists at `wt/x` and holds `<name>`. Before step 3, because the queue folder is inert: a branch that only moves an item would otherwise be allowed unjudged | "merge refused: queue item core-tests-not-in-gate is closed without a test (relay queue done --test ...)" |
+| 3 | every changed file is inert: `relay_inert.changed(repo, merge-base(D, wt/x), wt/x)` lists nothing (it diffs with `--no-renames`, so a code file moved into an inert folder lists its old path): allow now (a handover-only branch) | (none) |
+| 4 | a mark: among `relay_marks.marks(repo, wt/x)`, keep those whose commit `X` is an ancestor of `wt/x` and not of `D`; pick the newest `X` (topological order) with `relay changed --own X wt/x` empty | none at all: "merge refused: no check mark for wt/x (run delegate:checker on its head)"; marks but none current: "merge refused: after the check of <X>, wt/x changed lib/a.py, which is not inert; check again" (the newest mark's list, at most 5 names) |
+| 5 | that mark's `verdict.open` is 0 | "merge refused: the check of <X> left 2 things inside the change wrong (report: .relay/checks/<X>.check.md)" |
+| 6 | a gate: among `relay_marks.gate_logs(repo, wt/x)`, one whose commit `G` is an ancestor of `wt/x`, with first line `head <G>`, last line `exit 0`, and `relay changed G wt/x` (every non-inert file, no `--own`) empty | "merge refused: no green gate for the code at wt/x's head (last gate <G>: exit 1, or: code changed since: lib/b.py); run relay gate in .worktrees/x" |
 | 7 | allow | |
 
 The owner's word is not in this table: a hook cannot tell an owner's "a" in
@@ -328,7 +375,7 @@ answer to "merge?" from an "a" to another question, and the owner writes
 in any language (critique 16.3). It stays the rule it is today: the front
 runs step 9 of the pipeline only on the owner's word in this conversation.
 
-Step 3 replaces v3's walk. v3 walked `D..wt/x` newest first and stopped at
+Step 4 replaces v3's walk. v3 walked `D..wt/x` newest first and stopped at
 the first commit touching a non-inert file without a mark; after step 7 of
 the pipeline the newest such commit is the merge commit from master, whose
 diff to its first parent shows master's files, so the walk found no mark
@@ -380,8 +427,8 @@ Where `--own` is used, and where it is not:
   <Reviewed sha>` (part 2 edits `roles/judge.md:76`). Without it, a fix
   checked after the branch took master would list master's files as "NOT
   MET (scope)";
-- the merge hook's step 3 (mark still current);
-- not for the gate (step 5, and the judge base's gate rule): the gate must
+- the merge hook's step 4 (mark still current);
+- not for the gate (step 6, and the judge base's gate rule): the gate must
   have run on all the code at the head, master's included.
 
 The other choice the check named, "accept a re-check", does not work on
@@ -394,16 +441,22 @@ Cost per merge of the default branch into a task branch (agent minutes):
 
 | What came in | Chosen: `--own` and a re-gate | Re-check every time | Rebase |
 |---|---|---|---|
-| only queue items (the common case: `relay queue add`) | 1 (the runner's merge) | 1 + 3-5 check | 1 + 3-5 check + 2-4 gate |
-| code from another merged change | 1 + 2-4 gate (free) | 1 + 2-4 gate + 3-5 check | same |
-| a conflict, resolved | fixer 5-10 + gate 2-4 + check 3-5 | same | same, plus all marks lost |
+| only queue items (the common case: `relay queue add`) | 1 (the runner's merge) | 1 + 3-5 check | 1 + 3-5 check + 4-8 gate |
+| code from another merged change | 1 + 4-8 gate (free) | 1 + 4-8 gate + 3-5 check | same |
+| a file the branch had changed, also changed on master, combined by git without conflict | 1 + gate 4-8 + check 3-5 | same | same, plus all marks lost |
+| a conflict, resolved | fixer 5-10 + gate 4-8 + check 3-5 | same | same, plus all marks lost |
 
-A conflict resolution is a fix: the coordinator writes a one-finding file
-(`Reviewed: <head before the merge>`, `<file>:<line>: MEDIUM: F1 conflict
-with master resolved`, failing case "the gate fails or the merge does not
-apply", pass-case "the gate passes"), a fixer resolves, `relay gate`, then
-the checker; its `--own` list is the resolved files, which F1 names, so
-scope holds.
+Whenever `relay changed --own <mark> HEAD` lists a file after the branch
+took the default branch (a conflict, or a file both sides changed that git
+combined cleanly, like `bin/relay` in the table above), the change of those
+files is a fix: the coordinator writes a findings file (`Reviewed: <head
+before the merge>`) with one finding per listed file, `<file>:1: MEDIUM:
+F<n> combined with master's change by the merge`, failing case "the gate
+fails or the merge does not apply", pass-case "the gate passes". On a
+conflict a fixer resolves first; on a clean combination there is no fixer
+(`Fixes: none`). Then `relay gate`, then the checker: its `--own` list is
+exactly the listed files, each named by a finding, so scope holds and a
+green gate gives `open 0`. The delegate skill's step 7 says the same (C21).
 
 ### 7.3 The walk-through of v3 7.6, corrected (M-A)
 
@@ -419,22 +472,22 @@ scope holds.
    itself would have answered "Not possible to fast-forward".)
 5. A runner: `git -C .worktrees/x merge --no-edit master` -> `Y` (brings only
    `.relay/queue/<slug>.md`).
-6. The merge again: step 2 no (code in the range); step 3 `--own X wt/x`
-   empty -> mark `X`; step 4 open 0; step 5 `relay changed X wt/x` lists
-   nothing (only inert files after `X`) -> the gate of `X` counts; step 6
-   nothing closed; allowed. Fast-forward succeeds (`Y` contains `Q`).
+6. The merge again: step 2 nothing closed; step 3 no (code in the
+   range); step 4 `--own X wt/x` empty -> mark `X`; step 5 open 0; step 6
+   `relay changed X wt/x` lists nothing (only inert files after `X`) -> the
+   gate of `X` counts; allowed. Fast-forward succeeds (`Y` contains `Q`).
 
-Variant: master also received `lib/b.py` from another change. Step 5 refuses
+Variant: master also received `lib/b.py` from another change. Step 6 refuses
 "code changed since: lib/b.py; run relay gate"; the runner runs `relay
 gate` on `Y` (log `Y.gate.log`, commit `Y+1`); the merge passes with the
 same mark `X`. A commit touching `lib/a.py` on the branch after `X` is
-refused by step 3, "check again".
+refused by step 4, "check again".
 
 ### 7.4 M-B: the gate's head and the commits after it
 
 The merged judge base already accepts a gate log for commit `F` when
 `relay changed -C <path> F` lists no file (fact 2.5). The merge hook uses the
-same rule (7.1 step 5). The case the check named, now test T15 (l): the
+same rule (7.1 step 6). The case the check named, now test T15 (l): the
 gate log is for `F`; HEAD is `F` + the mark commit + a handover commit; the
 mark says `open 0`; the merge is allowed. Same with the checker: a re-check
 after `Owner: F3 is not wrong` reads the same gate log and does not count it
@@ -443,9 +496,13 @@ as "another head" (the judge base text, unchanged).
 ### 7.5 m-1: a `fix` item closed without its test
 
 v3 enforced the test only in `relay queue done`. A hand move of the item
-file into `done/` skipped it. Step 6 of 7.1 closes that: the merge that
-closes a `fix` item needs the `test:` line, and the test name present at the
-branch head. Whether that test fails without the fix stays the checker's
+file into `done/` (`git mv .relay/queue/x.md .relay/queue/done/`, which
+leaves `state: taken`) skipped it. Step 2 of 7.1 closes that: every `fix`
+item the range adds under `done/`, whatever its state except `dropped`,
+needs the `test:` line and the test name present at the branch head; it
+runs before the all-inert step, since a branch whose only change is the
+move is all-inert. A `dropped` item that arrived through a merge of the
+default branch is not in `D...wt/x`, so it is not judged. Whether that test fails without the fix stays the checker's
 job (judge base step 2, `From queue:`); the hook only refuses a close with
 no test at all. Cost: one `git show` per closed item in the range.
 
@@ -455,7 +512,15 @@ Every repository whose default branch has `.relay/` (`git cat-file -e
 <default>:.relay`, read from git, so the main checkout and every worktree
 agree). `.relay/` is created only by `relay setup` (it writes
 `.relay/README.md` saying what the folder turns on; the front asks the
-owner before running it in a project). Every relay command that writes into
+owner before running it in a project). `relay setup --relay-folder
+[<repo>]` (default: the current folder) does that step alone: it writes
+`.relay/README.md` when absent and nothing else (no `.claude/kit.toml`, no
+`~/.claude/settings.json`, no `bin/check` or `bin/wt` templates, no
+`projects.toml` entry), and exits 0 with no change when the file exists.
+It is the only form run for relay itself (part C2): plain `relay setup` in
+a relay worktree would point every project's plugins at that worktree
+(`merge_user_settings`), write a kit.toml with `default_branch =
+"wt/work-queue"` and register the worktree as a project (critique F1). Every relay command that writes into
 `.relay/` (`relay gate`, `relay queue add|take|done|drop|ip|land`) refuses
 where the default branch has none. Read-only commands (`relay changed`,
 `relay queue`, `relay queue count`, `relay check show`, `relay check page`)
@@ -470,7 +535,10 @@ Owner: "one chat screen + a private page (claude.ai artifact)".
 
 `relay check page [-C <repo>] <branch> [-o <file>]` (`lib/relay_checkpage.py`)
 reads only the files in `.relay/checks/` at the branch head and git, and
-writes one Markdown file (default `<scratchpad or .ci>/page-<name>.md`):
+writes one HTML file (default `<repo>/.ci/page-<name>.html`; `.ci/` is
+ignored): plain HTML with inline styles, no script, no outside link or
+asset, code excerpts in `<pre>`. It only writes the file; it never
+publishes (8.3):
 
 1. Title: the project and the branch's purpose (the first line of the
    newest `R.review.md`'s heading, else the branch name).
@@ -486,9 +554,12 @@ writes one Markdown file (default `<scratchpad or .ci>/page-<name>.md`):
 6. The branch's own files with their line counts (`git diff --stat
    D...<branch>`).
 
-`PAGE_MAX_LINES = 400` (constant; bound 100-2000). At the bound the rest is
-cut with "N more findings in .relay/checks/<R>.review.md". A page over the
-bound costs the front about 6-8 thousand tokens to publish (8.3).
+`PAGE_MAX_LINES = 400` (constant; bound 100-2000), counted in lines of
+content (a finding line, a code line), not of markup. At the bound the rest
+is cut with "N more findings in .relay/checks/<R>.review.md". A page at the
+bound costs the front about 8-10 thousand tokens to publish (estimate: the
+Markdown form was 6-8 thousand, HTML markup adds about a third); at 2000
+about five times that.
 
 ### 8.2 The chat screen
 
@@ -506,17 +577,19 @@ Checks: free checks green. Review: 3 inside the change, all fixed and checked;
 ```
 
 The numbers come from `relay check show <branch>` (three lines: gate, mark,
-outside items), run by a runner; the front never reads the stored files.
+outside items), run by a runner. Of the stored files the front reads only
+the page's HTML file, once, to publish it (8.3); never the review, the
+check report or the gate log.
 
 ### 8.3 Publishing the page
 
-The front publishes the page file as a private claude.ai artifact and puts
-the link in the chat screen. Whether the coordinating session in Claude
-Code has an artifact tool, and whether a subagent can publish one, is not
-known from here (an overview page was published on 22 Oct, by a means the
-handover does not record): the worker of part B6 confirms it live. When no
-tool is available, the chat screen gives the page's file path instead, and
-the owner opens it in the editor.
+The front (the main session) publishes the page file with its Artifact
+tool as a private claude.ai page and puts the link in the chat screen.
+Scripts, hooks and agents only build the file: a hook or script cannot
+publish, and no worker publishes. When the Artifact tool errors, the chat
+screen gives the page's file path instead and says why, and the owner
+opens it in a browser. The first live publication is merge 2's own
+person's step (14), done by the front; no build part confirms it.
 
 ## 9. The guard rule for `.relay/checks/` (v3, narrowed: m-3)
 
@@ -525,19 +598,31 @@ enabled account-wide) refuses, with the message "guard-main: files in
 .relay/checks are written only by relay (the check hook, relay gate); run
 the checker or relay gate instead":
 
+One scope for every row below: the path lies inside a git repository whose
+default branch has `.relay/` (the main checkout or any of its worktrees;
+`relay_git`, one git call, made only when the command or path names
+`.relay/checks`), whichever folder the command runs from (today `W` rows
+are judged only in main). Outside such a repository, for example a fixture
+under the scratchpad with no commit holding `.relay/`, Write and Bash are
+both allowed.
+
 - Write, Edit, MultiEdit, NotebookEdit on a path with a part sequence
-  `.relay/checks/`, in the main checkout or any worktree (checked before the
-  main-checkout test at `guard-main.sh:113`);
+  `.relay/checks/` (checked before the main-checkout test at
+  `guard-main.sh:113`);
 - a Bash `W` row (redirect, `tee`, `cp`, `mv`, `rm`, `sed -i`, ...) under
-  `.relay/checks/`, anywhere (today `W` rows are judged only in main);
+  `.relay/checks/`;
 - `git add`, `git rm`, `git mv`, `git checkout ... --`, `git restore`,
   `git update-index` naming `.relay/checks`;
-- inline code naming `.relay/checks`: `python`/`python3 -c`, `node -e`,
-  `perl -e`, `ruby -e` (the guard cannot see inside them).
+- inline code (`python`/`python3 -c`, `node -e`, `perl -e`, `ruby -e`; the
+  guard cannot see inside them) naming `.relay/checks` together with a write
+  word: `open(` with a `w`, `a` or `x` mode, `write`, `unlink`, `remove`,
+  `rename`, `rmtree`, `copy`, `move`, `writeFile`, or `>`.
 
 Allowed (the m-3 fix): every read (`cat`, `grep -rn .relay/checks`, `ls`,
-`git show`, `git log`, the Read tool), `relay gate`, `relay check show`,
-`relay check page`. v3 refused "any other Bash text naming `.relay/checks`",
+`jq .verdict`, `git show`, `git log`, the Read tool, inline code without a
+write word such as `python3 -c "import json;
+print(json.load(open('.relay/checks/X.json'))['verdict'])"`), `relay gate`,
+`relay check show`, `relay check page`. v3 refused "any other Bash text naming `.relay/checks`",
 which refused a critic's `grep -rn ".relay/checks" plugins/core` and every
 `cat >> report <<'EOF'` that mentions the folder; now reviewers must read
 stored reviews, so reads are allowed. Cost: none of v3's tests G1-G3 is
@@ -616,7 +701,8 @@ A `fix` without `Failing case:` is refused by `relay queue add` and shown as
   0. `relay queue ip <slug> <n>` changes it.
 - Take: `relay queue take <slug> -C <worktree> --findings <path>`:
   1. refuses when the item is `taken` on the default branch ("taken by
-     wt/other");
+     wt/other"), read again at the head of every landing try (10.4 step 2),
+     so of two `take`s at once exactly one lands;
   2. lands `state: taken`, `taken-by: wt/<branch>` on the default branch
      through the landing path of 10.4 (the code check then allows exactly a
      change of that one file); this is the m-4 fix: a second session sees
@@ -646,30 +732,49 @@ A `fix` without `Failing case:` is refused by `relay queue add` and shown as
 `relay queue add` (and `take`, `release`, `ip`, `drop`) refuses where the
 default branch has no `.relay/`. Otherwise:
 
-1. Slug from the title; taken names get `-2`, `-3`, ...; the final slug is
-   printed.
-2. One commit on the current default head, touching no checkout:
-   `hash-object -w`, `read-tree` and `update-index` on a temporary
-   `GIT_INDEX_FILE`, `write-tree`, `commit-tree`, message `queue: <slug>`;
-   branch `wt/queue-<slug>` set to it with `update-ref` (a name of its own
-   per item, so concurrent sessions never share one: owner, q3).
-3. Code check: `git diff --name-only <default>..wt/queue-<slug>` is exactly
-   the one allowed file (for `drop`, its move to `done/`); anything else
-   stops and deletes the branch.
-4. Land: `git -C <main> merge --ff-only wt/queue-<slug>` in the main
+Each try, at most `QUEUE_LAND_TRIES = 5` (constant, bound 1-20; at 20 a
+landing can take about 20 s), waiting 0.2-1 s between tries:
+
+1. Read the default head `H`; everything below reads `H` through git, never
+   a checkout.
+2. Precondition at `H`. `add`: the slug from the title, the first of
+   `<slug>`, `<slug>-2`, `<slug>-3`, ... free at `H` (`.relay/queue/`,
+   `done/`) with no `wt/queue-*` branch of that name. `take`, `ip`, `drop`,
+   `release`: the item's file and state at `H` (10.3: `take` refuses a
+   taken item, `ip` and `drop` refuse it too). A refusal ends the command;
+   nothing was written.
+3. One commit on `H`, touching no checkout: `hash-object -w`, `read-tree`
+   and `update-index` on a temporary `GIT_INDEX_FILE`, `write-tree`,
+   `commit-tree`, message `queue: <slug>`. The branch `wt/queue-<slug>` is
+   created only if absent: `git update-ref refs/heads/wt/queue-<slug> <new>
+   0000000000000000000000000000000000000000` (40 zeros: git refuses when the
+   branch exists). A refused create means another session holds that name
+   at this moment: `add` goes back to step 2 for the next suffix; the other
+   commands start a new try. A name is never shared between sessions
+   (owner, q3).
+4. Code check: `git diff --name-only H..wt/queue-<slug>` is exactly the one
+   allowed file (for `drop`, its move to `done/`); anything else stops and
+   deletes the branch.
+5. Land: `git -C <main> merge --ff-only wt/queue-<slug>` in the main
    checkout, which must be on the default branch ("the main checkout is not
-   on master"). On a moved head or a held lock: rebuild step 2 on the new
-   head and retry, `QUEUE_LAND_TRIES = 5` (constant, bound 1-20; at 20 a
-   landing can take about 20 s), waiting 0.2-1 s between tries. Then `git
-   branch -d wt/queue-<slug>`.
-5. Prints "queued <slug> (fix, ip 91), landed on master at <full sha>"; after
-   the last failed try, "not landed after 5 tries: <git's last line>; kept
-   on wt/queue-<slug>; relay queue land <slug> tries again". `relay doctor`
-   lists leftover `wt/queue-*` branches.
+   on master"). On a moved head or a held lock: delete the branch (`git
+   update-ref -d refs/heads/wt/queue-<slug> <new>`, only while it still
+   names this try's commit) and start a new try at step 1. The item is read
+   again there, so a `take` that lost the race is refused "taken by wt/a",
+   and an `add` whose slug landed meanwhile takes the next suffix. After a
+   landing, `git branch -d wt/queue-<slug>`.
+6. Prints "queued <slug> (fix, ip 91), landed on master at <full sha>";
+   after the last failed try the branch is kept: "not landed after 5 tries:
+   <git's last line>; kept on wt/queue-<slug>; relay queue land <slug>
+   tries again" (`land` re-runs step 2 for that one file at the new head and
+   refuses when it no longer holds). `relay doctor` lists leftover
+   `wt/queue-*` branches; while one is left, an `add` of that title takes
+   the next suffix and a command on that item is refused "wt/queue-<slug>
+   exists (relay queue land, or relay doctor)".
 
 This is the one merge into the default branch without the owner's word; it
 runs inside `relay`, so the guard and the merge hook do not see it, and step
-3 is its only gate (test Q9). Every such landing makes open task branches
+4 is its only gate (test Q9). Every such landing makes open task branches
 behind (7.2); the cost is one runner merge per task branch before its own
 merge (critique 16.4).
 
@@ -768,10 +873,20 @@ goes at the next session start, "q2 - a"); never a branch with no commits
 of its own; changed, untracked and locked worktrees kept; a hard rule where
 the default branch has `.relay/` (no switch).
 
+Reading of "it goes at the next session start" (coordinator, 22 Oct,
+reading of q2 - a; owner may overturn): a merged worktree is never removed
+while a session still runs in it. The merging session's worktree is locked
+(`git worktree lock --reason "session <id>"`) and removed by that session's
+own end or next start; the sweep never removes a locked worktree. Without
+the lock, any other session starting in the repository would remove the
+folder under a session still working in it (critique F4: this design
+session, after merge 2, mid-handover).
+
 ### 11.1 The hook
 
-- `plugins/core/hooks/hooks.json` gains `PreToolUse` and `PostToolUse`,
-  matcher `Bash`, command `merge.sh`. `merge.sh` reads stdin and exits 0 at
+- `plugins/core/hooks/hooks.json` gains `PreToolUse` and `PostToolUse`
+  (timeout 60 s), matcher `Bash`, command `merge.sh`, and `SessionEnd`,
+  command `merge.py end` (11.3). `merge.sh` reads stdin and exits 0 at
   once unless the input contains `merge` (a shell `case`, about 5 ms; no
   python on other Bash calls); else it pipes to `python3 merge.py`, which
   reads `hook_event_name`: `PreToolUse` = the merge gate (7), `PostToolUse`
@@ -786,16 +901,23 @@ the default branch has `.relay/` (no switch).
   has `.relay/`, the hook checks git itself (not the tool's exit status):
   1. `dir` is the main checkout, on the default branch (`relay_git`).
   2. Merged: `git merge-base --is-ancestor wt/<name> HEAD`.
-  3. Has commits of its own: `git reflog show --format=%H
-     refs/heads/wt/<name>` has more than one entry; else kept, "kept wt/n:
-     it has no commits of its own (a fresh worktree)".
+  3. Has commits of its own: `git reflog show --format=%gs
+     refs/heads/wt/<name>` has an entry other than the branch's creation
+     (`branch: Created from ...`), a fast-forward (ends in `Fast-forward`)
+     or a reset (`reset: moving to ...`); else kept, "kept wt/n: it has no
+     commits of its own (a fresh worktree)". A fresh branch that `relay
+     queue take` fast-forwarded to the default branch (10.3 step 3) has two
+     entries, `branch: Created from HEAD` and `merge master: Fast-forward`
+     (checked in a scratch repository), and is kept; a worker's commit adds
+     `commit: <subject>`.
   4. The worktree on `refs/heads/wt/<name>` from `git worktree list
      --porcelain` (names and branches differ in practice); none: only the
      branch goes (step 7).
   5. Not the session's own: the worktree path (`pwd -P`) contains neither
-     the hook's `cwd` nor `$CLAUDE_PROJECT_DIR`; else kept, "kept
-     .worktrees/x: this session runs in it; it goes at the next session
-     start".
+     the hook's `cwd` nor `$CLAUDE_PROJECT_DIR`; else the hook locks it,
+     `git worktree lock --reason "session <session_id>" <path>`
+     (`session_id` from the hook input), and keeps it: "kept .worktrees/x:
+     this session runs in it; locked until this session ends".
   6. Ignored paths listed first (`git status --ignored --porcelain`, `!! `
      lines, at most 5 named, then "and N more"); then `git worktree remove
      <path>` (never `--force`): git refuses changed, untracked and locked
@@ -826,15 +948,35 @@ worktree". Outside any repository it still exits 0.
 - Session start sweep (owner "q2 - a"): `merge.py sweep`, a core
   `SessionStart` hook (timeout 5 s), in a repository with `.relay/`, removes
   every worktree whose branch passes guards 2-7 of 11.1, except the one the
-  session starts in. One line: "Removed 1 merged worktree: .worktrees/x
-  (wt/x)".
+  session starts in and every locked one. One exception to "locked": a
+  worktree locked with this session's own id (`session <session_id>`, the
+  same session resumed or compacted) is unlocked first, then judged like
+  the rest (so it stays while this session starts in it). One line:
+  "Removing 1 merged worktree: .worktrees/x (wt/x)".
+- Session end: `merge.py end`, a core `SessionEnd` hook (timeout 5 s),
+  unlocks every worktree locked with this session's id and removes it when
+  guards 2-7 pass (the session no longer runs anywhere, so guard 5 does not
+  apply).
+- Both run each removal (guards 6-7) in a detached child process (`merge.py
+  remove <path> <branch>`, a new process session, so the hook's 5 s timeout
+  cannot kill it): a `git worktree remove` cut halfway leaves a registered
+  worktree with files missing, which git then refuses to remove as
+  "changed". The child appends one line per removal to `<git common
+  dir>/relay-cleanup.log`; the next session start names any failure the log
+  holds ("could not remove .worktrees/x: <git's line>") and clears the
+  log. The merge's own cleanup (`PostToolUse`, 60 s) removes in place.
+- A session that ended without its `SessionEnd` hook (a crash, a killed
+  terminal) and is never resumed leaves its worktree locked: `relay doctor`
+  lists it, and the front removes it on the owner's word (`git worktree
+  unlock`, then `git worktree remove`).
 - `relay doctor` (read-only) adds: merged worktrees still present (ancestor
   of the default branch or of `origin/<default>` as last fetched, with
   commits of their own); `wt/*` branches whose upstream is gone ("probably
   merged on the server (squash)", listed, never removed); the unused
   `~/.claude/plugins/cache/relay/` copy (informational); leftover
   `wt/queue-*` branches; queue items `taken` by a branch that no longer
-  exists.
+  exists; merged worktrees locked with `session <id>` ("locked by session
+  <id>; remove it once that session is closed").
 
 ### 11.4 The rule text
 
@@ -864,8 +1006,8 @@ the same test, so a disabled hook fails it.
 | T1 | `git merge --ff-only wt/t` in main, clean | folder and branch gone; "Removed" |
 | T2 | `git -C <main> merge --ff-only wt/t` from elsewhere | same |
 | T3 | no `.relay/`; then the folder committed and the same input | first: kept, no output; second: removed |
-| T4 | hook `cwd` = `.worktrees/t` | kept, "this session runs in it" |
-| T5 | fresh `wt/n` at master, no commit | kept, "no commits of its own" |
+| T4 | hook `cwd` = `.worktrees/t`, `session_id` = `s1` | kept, "this session runs in it"; `git worktree list --porcelain` shows it locked with reason `session s1` |
+| T5 | fresh `wt/n` at master, no commit; then master gains a queue commit and `wt/n` fast-forwards to it (take step 3), clean | kept both times, "no commits of its own" |
 | T6 | tracked file changed in the worktree | kept, file named; branch kept |
 | T7 | untracked file | kept, named |
 | T8 | locked worktree | kept, "locked" |
@@ -875,8 +1017,11 @@ the same test, so a disabled hook fails it.
 | T12 | two merges joined by `&&`; `cd <main> && git merge --ff-only wt/t` | both handled |
 | T13 | guard: `CLAUDE_PROJECT_DIR` a deleted folder, cwd = main, `touch a` | refused (today: allowed) |
 | T14 | ignored file under `.ci/` | removed; message names `.ci/` |
-| T16 | sweep: one merged worktree, one unmerged, the session's own merged | only the first removed |
-| T17 | doctor (`tests/test_tidy.py`): merged, unmerged, fresh, upstream gone, cache dir, leftover `wt/queue-x`, item taken by a gone branch | exactly those lines |
+| T16 | sweep: one merged worktree, one unmerged, the session's own merged, one merged and locked with `session s9` (another session) | only the first removed (the test waits for the detached child, polling its log at most 10 s) |
+| T17 | doctor (`tests/test_tidy.py`): merged, unmerged, fresh, upstream gone, cache dir, leftover `wt/queue-x`, item taken by a gone branch, merged and locked by `session s9` | exactly those lines |
+| T18 | `relay_git.default_branch` (`tests/test_relay.py`): only `develop`, no `origin/HEAD`, kit.toml `default_branch = "develop"`; the same without kit.toml; a relay-like repo with no remote, asked from a worktree on `wt/review-gate`; both `master` and `main`; kit.toml naming `wt/x` | `develop`; none (and the merge hook, sweep and check-mark hook on that repo exit 0 with no output, positive control T1); `master`, never `wt/review-gate`; `master`; the binding ignored |
+| T19 | `SessionEnd` with `session_id` = `s1` after T4 | unlocked and removed; a worktree locked by `s9` kept |
+| T20 | sweep whose removal is slowed past 5 s (a fixture `git` wrapper that sleeps 7 s before the real `git worktree remove`), hook killed at 5 s | the removal still completes; the next sweep prints no failure; with the wrapper failing, the next sweep names the failure from the log |
 
 ### 12.2 The merge gate, T15 (same file)
 
@@ -895,10 +1040,13 @@ gate log and a clean mark for that commit, unless the case says otherwise.
 | (h) M-A | (c); then a `.relay/queue/x.md` commit lands on master | refused, "wt/t is behind master by 1 commit"; after `git -C .worktrees/t merge --no-edit master`: allowed, and the real `git merge --ff-only` succeeds |
 | (i) M-A | (c); master gains `lib/b.py` from another branch; `wt/t` merges master | refused, "code changed since: lib/b.py; run relay gate"; after `relay gate` (green): allowed with the same mark |
 | (j) | (c) with the mark on a fix commit; then a commit restoring `lib/a.py` to master's content | refused, "changed lib/a.py" (a reverted checked fix is not "from master") |
-| (k) | the branch changed `bin/x` before the mark; master changes another part of `bin/x`; the branch merges master without conflict | refused, "changed bin/x"; after a check of the merge commit (fixture mark): allowed |
+| (k) | the branch changed `bin/x` before the mark; master changes another part of `bin/x`; the branch merges master without conflict | refused, "changed bin/x"; then the one-finding file of 7.2 naming `bin/x`, a green `relay gate`, a fixture checker report built from that file with `open 0`, fed to the real check-mark hook (B4): allowed |
 | (l) M-B | gate log for `F`; mark for `F` with `open 0`; HEAD = `F` + mark commit + handover commit | allowed |
 | (m) | only a red gate log (`exit 1`) for head | refused, "last gate <G>: exit 1" |
 | (n) m-1 | the range moves `fix` item `x` to `done/` with no `test:` line; then with `test: tests/t.sh::case_x` present in `tests/t.sh` | refused, "closed without a test"; then allowed |
+| (n2) m-1 | the range is only `git mv .relay/queue/x.md .relay/queue/done/` (`state: taken`, no test, no mark); the same move plus a `lib/a.py` fix with a clean mark and green gate; a `done/y.md` with `state: dropped` that arrived through a merge of master | refused, "closed without a test"; refused, same; not judged (allowed with (c)'s mark) |
+| (o) | the range is only `git mv lib/a.py .relay/queue/a.py`, no mark | refused, "no check mark" (not all inert); positive controls (d) and (f) |
+| (p) | `git -C .worktrees/w merge --ff-only wt/t` (a merge inside a task worktree), no mark | no output, exit 0; positive control (a) in the same run |
 
 Plus `tests/test_relay.py` A14 `test_relay_changed_own`: the six rows of
 7.2's worked values on a fixture repository, each listed or not as the
@@ -906,17 +1054,19 @@ table says, and `relay changed` without `--own` listing `lib/relay_queue.py`
 (master's file) for the same pair.
 
 Regression proof (run with each part disabled, the named cases fail): step 1
-removed: (h) first half; `--own` replaced by plain `changed` in step 3: (i)
-second half; the `since` half of the own rule removed: (j); step 5 compared
-by equality instead of `changed`: (l); step 5 removed: (i) first half and
-(m); step 6 removed: (n) first half; the merge commit handled as in v3's
-walk: (h) second half.
+removed: (h) first half; `--own` replaced by plain `changed` in step 4: (i)
+second half; the `since` half of the own rule removed: (j); step 6 compared
+by equality instead of `changed`: (l); step 6 removed: (i) first half and
+(m); step 2 removed: (n) first half; step 2 moved after step 3, or limited
+to `state: done`: (n2) first or second case; step 3 with rename detection:
+(o); the main-checkout test removed: (p); the merge commit handled as in
+v3's walk: (h) second half.
 
 ### 12.3 Check-mark hook and guard, `plugins/core/tests/check-mark.test.sh`
 
 | # | Case | Expect |
 |---|---|---|
-| K1 | `SubagentStop`, `delegate:checker`, fixture transcript whose first line is a check prompt, valid report | one commit holding only `.relay/checks/<head>.json`, `<head>.check.md`, `<reviewed>.review.md`; json fields as 4.1; every sha 40 characters |
+| K1 | `SubagentStop`, `delegate:checker`, fixture transcript whose first line is the delegate skill's check prompt verbatim (`SKILL.md:140`: backticks, periods), valid report | one commit holding only `.relay/checks/<head>.json`, `<head>.check.md`, `<reviewed>.review.md`; json fields as 4.1; every sha 40 characters |
 | K2 | same with `delegate:critic`, then K1's input | no commit, then the mark commit |
 | K3 | empty `agent_type` | no commit |
 | K4 | report without `## Verdict`, an earlier clean mark on that head | no mark; a commit removing the old one; `systemMessage` names the reason |
@@ -926,28 +1076,40 @@ walk: (h) second half.
 | K8 | another file staged; the index locked for 2 s | the commit holds only the hook's files; the other stays staged; the locked case lands on a retry |
 | K10 | `Check: a.md, b.md` (review and a `Q1` file) | `<reviewed>.review.md` holds both under their headings |
 | K11 | re-check of the same head after `Owner: F3 is not wrong` was appended | the review file is replaced with the new content; the mark's `open` changes |
+| K12 | first line `Check the fix per the brief. Brief: <path>. Report: <path>.` | no commit; `systemMessage` names "no Check:/Worktree: line" |
 | K9 | live, once (paid, 13.2): a real `delegate:checker` on a fixture repo with the worktree's plugins | the mark commit exists when the hand-back arrives, or the delay is measured; whether `agent_transcript_path` is in the input, recorded |
 | G1 | Write/Edit on `<worktree>/.relay/checks/x.json` and on main's | refused, the guard's message |
 | G2 | `printf x > .relay/checks/a.json` in a worktree, `cp a .relay/checks/`, `git add .relay/checks`, `git checkout other -- .relay/checks` | refused |
-| G3 | `python3 -c` naming `.relay/checks` | refused |
+| G3 | `python3 -c "open('.relay/checks/a.json','w').write('x')"`; `node -e` with `writeFile` naming `.relay/checks` | refused |
 | G4 | the checker's own write: Write on `<scratchpad>/check.md` and `<worktree>/.ci/check.md`, real guard, `CLAUDE_PROJECT_DIR` = the worktree | allowed |
 | G5 | `relay check show wt/x`; `relay gate`; `git log` | allowed |
-| G6 (m-3) | `grep -rn ".relay/checks" plugins/core`; `cat .relay/checks/x.review.md`; `cat >> <scratchpad>/r.md <<'EOF'` whose body names `.relay/checks` | allowed |
+| G6 (m-3) | `grep -rn ".relay/checks" plugins/core`; `cat .relay/checks/x.review.md`; `jq .verdict .relay/checks/X.json`; `python3 -c "import json;print(json.load(open('.relay/checks/X.json'))['verdict'])"`; `cat >> <scratchpad>/r.md <<'EOF'` whose body names `.relay/checks` | allowed |
+| G7 | outside any repository with `.relay/`: `mkdir -p <scratchpad>/fx/.relay/checks && printf '{}' > <scratchpad>/fx/.relay/checks/a.json`, and Write on the same path; then the same printf into `.worktrees/t/.relay/checks/a.json` | allowed, allowed; refused |
 
 Regression proof: agent-type test removed: K2; mtime test removed: K5;
-guard rule removed: G1-G3; v3's text rule restored: G6.
+backtick and period stripping removed: K1; guard rule removed: G1-G3; v3's
+text rule restored, or inline code refused without a write word: G6; the
+`W` rule judged "anywhere" again: G7 first case.
+
+`relay check show` (built in B4): P3 prints exactly three lines; P4 with
+the worktree's `index.lock` held 2 s it waits and then prints the new
+mark; with the lock held past `CHECK_SHOW_WAIT_S` it prints "no mark yet"
+within the bound.
 
 ### 12.4 The gate command and the page, `tests/test_gate.py`
 
 R1 refuses without `.relay/` (message names `relay setup`); R2 refuses a
 worktree with a changed tracked file and one with an untracked file, and
 accepts an ignored one; R3 green fixture gate: log `head <G>`, `cmd`, the
-output, `exit 0`, committed alone (a staged file stays staged); R4 red
-fixture gate: exit status 1, log ends `exit 1`; R5 refused in the main
-checkout. P1 `relay check page` on a fixture branch holds each linter line,
-its status line and five lines of code at the reviewed commit; P2 a fixture
-with 600 lines of findings is cut at `PAGE_MAX_LINES` with the "more" line;
-P3 `relay check show` prints exactly three lines.
+output, `exit 0`, committed alone (a staged file stays staged), and the
+fixture gate saw `RELAY_GATE=<G>`; R4 red fixture gate: exit status 1, log
+ends `exit 1`; R5 refused in the main checkout. R1-R5 are built with
+`relay gate` (B5). P1 `relay check page` on a fixture branch writes an HTML
+file holding each linter line, its status line and five lines of code at
+the reviewed commit, with no `<script>` and no `http` link, and a code
+line holding `<` and `&` shown escaped (`&lt;`, `&amp;`); P2 a fixture
+with 600 lines of findings is cut at `PAGE_MAX_LINES` with the "more" line
+(B6). P3 and P4 are in 12.3.
 
 ### 12.5 Queue, `tests/test_queue.py` (fixtures only)
 
@@ -963,30 +1125,61 @@ worktree's `git status --porcelain` empty, deletes `wt/queue-<slug>`,
 suffixes `-2`; Q7 `done` refuses without `--test`, with a name the file
 lacks, with a report lacking `Q1 MET`; Q8 a new `fix` gets 1 + the top open
 feature's ip; Q9 two `add`s at once from two worktrees, 10 rounds, both
-land, no branch left; with `index.lock` held 2 s it still lands; with
-`QUEUE_LAND_TRIES` = 1 and a moved head it reports "not landed" and keeps
-the branch; a queue branch touching a second file is refused and deleted;
-Q10 (m-4) `take` lands `state: taken` on the default branch; a second
-`take` from another worktree is refused "taken by wt/a"; `ip` and `drop`
-refuse a taken item; `release` lands `state: open`; the task branch's later
-`done` merges into the default branch without a conflict.
+land, no branch left; two `add`s with the same title at once (barrier), 10
+rounds: `<slug>.md` and `<slug>-2.md`, both texts intact; with
+`index.lock` held 2 s it still lands; with `QUEUE_LAND_TRIES` = 1 and a
+moved head it reports "not landed" and keeps the branch; a queue branch
+touching a second file is refused and deleted; Q10 (m-4) `take` lands
+`state: taken` on the default branch; a second `take` from another worktree
+is refused "taken by wt/a"; two `take`s of one item started together
+(barrier), 10 rounds: exactly one lands, the other exits non-zero with
+"taken by wt/<first>", and master's item names the first; `ip <slug> 50`
+racing a `take`: either both land in that order, or `ip` is refused "taken
+by"; never a taken item with a changed ip; `ip` and `drop` refuse a taken
+item; `release` lands `state: open`; the task branch's later `done` merges
+into the default branch without a conflict. Regression proof: the
+precondition read once before the tries: Q10's race fails; `update-ref`
+without the zero old value: Q9's same-title case loses a text.
 
 ### 12.6 Wording and the inert probe
 
 - A6 (part 1's test) gains the part-2 phrases: "follow-up with an id",
   "follow-up id"; `rules/queue.md` holds neither "tech debt" nor
   "technical debt".
-- A11 `bin/ci` step `inert`, in `--quick` too (the merge gate is the free
-  gate, question 1, and a mark kept across an inert commit relies on it;
-  cost: one more quick run inside the gate, free, a few minutes): in a temporary worktree at HEAD,
-  every inert file gets a line appended and each inert folder probe files
+- A11 `bin/ci` step `inert`, last, in `--quick` too, but only when
+  `RELAY_GATE` is set, that is under `relay gate` (5), which refuses a
+  worktree with changes: so HEAD is exactly the tree the outer run tested.
+  Without `RELAY_GATE` (a worker's loop on `bin/ci --quick`) it prints
+  "inert: skipped (runs under relay gate)" and the loop keeps today's speed.
+  The step: in a temporary worktree at `RELAY_GATE`'s commit, every inert
+  file gets a line appended and each inert folder probe files
   (`.relay/queue/zz-probe.md` malformed, `.relay/checks/zz.json`,
-  `zz.review.md`, `zz.gate.log`); `bin/ci --quick` runs again; fails when
-  its result or test count differs from the unchanged run. Proves that no
-  outcome depends on an inert file, which keeping a mark relies on.
+  `zz.review.md`, `zz.gate.log`); `bin/ci --quick` runs there with
+  `RELAY_GATE` unset (so the nested run skips `inert`: one level only);
+  fails when a step's result or the test count differs from the outer
+  run's (read from `.ci/steps/`). Proves that no outcome depends on an
+  inert file, which keeping a mark relies on. Cost: the gate takes about
+  twice the plain quick run (estimated 4-8 minutes instead of 2-4; B5
+  measures it), free. Cases: (1) `bin/ci --quick` without `RELAY_GATE`:
+  the skip line, green; (2) a committed test that reads `docs/handover.md`
+  and asserts on its content, under a fixture `relay gate`: `inert` RED;
+  (3) under `relay gate`, exactly one nested run (counted by a marker
+  file); (4) nothing changed: `inert` green.
 - A15 `test_judge_base_part2`: `roles/judge.md` names `relay changed --own`
   in check step 1 and the linter line in "Each finding"; the checker's flow
   part and the delegate skill name `relay gate`.
+
+### 12.7 Setup's `.relay/` step, in `tests/test_relay.py` beside the setup tests (C2)
+
+S1 `relay setup --relay-folder` on a fixture repository with no kit.toml,
+temp `HOME` holding a `~/.claude/settings.json`: afterwards `git status
+--porcelain` lists only `.relay/README.md`; the settings file and
+`projects.toml` are byte-for-byte unchanged; no `bin/check`, `bin/wt`,
+`.claude/kit.toml`. S2 the same on a repository that already has
+`.relay/README.md`: no change, exit 0. S3 plain `relay setup` on a new
+project still writes kit.toml, settings and the README (the existing setup
+tests keep passing). Regression proof: `--relay-folder` routed through
+`setup()`: S1 fails.
 
 ## 13. Proof plan (part 2 rows)
 
@@ -1005,10 +1198,13 @@ file against master (`git diff --word-diff master -- <file>`) to
 - **C20** every finding starts with its linter line; the checker writes one
   status line per finding (4.2).
 - **C21** the pipeline: the delegate skill's Review loop gains step 2 (gate
-  before review, `relay gate`), step 5 by `relay gate`, step 7 (take the
-  default branch by a merge commit, never a rebase; re-gate when code came
-  in; a conflict is a one-finding fix), and the person's step (8.2); the
-  front skill gains "A change ready to merge".
+  before review, `relay gate`), step 5 by `relay gate`, step 6 (`relay
+  check show` before the handover commit, 6), step 7 (take the default
+  branch by a merge commit, never a rebase; re-gate when code came in; a
+  conflict or a file both sides changed is a one-finding fix, 7.2), the
+  check prompt as the one-line template, never a brief file (6), and the
+  person's step (8.2); the front skill gains "A change ready to merge" with
+  the publication by its Artifact tool (8.3).
 
 An untagged hunk is a finding for the critic.
 
@@ -1026,7 +1222,8 @@ it can run out of turns while waiting, so the brief gives it the log path
 to report even when it stops early.
 
 Free and live, no money: Q5 (the owner sees the session-start line, first
-session after merge 2), 8.3 (publishing the page, the front, part B6).
+session after merge 2), 8.3 (publishing the page: the front, at merge 2's
+person's step).
 
 ## 14. Build plan (merge 2)
 
@@ -1041,39 +1238,59 @@ after B1 (C needs `lib/relay_git.py`). At most 4 agents at once.
 
 | Part | Builds | Check | Agent min |
 |---|---|---|---|
-| B1 | `lib/relay_git.py` (default branch, main checkout, `.relay/` present; never the current branch, fact 2.8) and its core copy; `kit_guard.allowed_merges`; `merge.sh`, `merge.py` cleanup (11.1); `hooks.json`; `rules/git.md` (11.4); T1-T12, T14 | `bin/ci --quick` (runs the hook tests and guard-diff) | 25 |
-| B2 | guard fallback (11.2); session-start sweep (11.3); T3 control, T13, T16 | same | 15 |
-| B3 | doctor lines (11.3); `tests/test_tidy.py` T17 | same | 12 |
-| B4 | `lib/relay_marks.py` and core copy; `check-mark.py` on `SubagentStop` copying review and report (6); the guard's `.relay/checks` rule, narrowed (9); `relay check show`; K1-K8, K10, K11, G1-G6; K9 live (P-1, about $0.50) | same | 30 |
-| B5 | `relay gate` (5); `relay_inert.changed(own=True)`, `relay changed --own`, core copy of `relay_inert.py`; the merge gate 7.1 steps 1-6 (M-A, M-B, m-1); T15 (a)-(n), A14, A11 in quick mode with the new probe files; `roles/judge.md` (C18, C20), the checker's flow part and the delegate skill (C21) | same, plus A15 | 35 |
-| B6 | `relay check page` (8.1); the front skill's "A change ready to merge" (8.2); publishing confirmed live or the fallback written (8.3); P1-P3, R1-R5 | same | 15 |
-| C1 | `lib/relay_queue.py` and front copy; `relay queue` add, land, count, ip, take (landed, m-4), release, done, drop; the session-start line (10.5); Q1-Q10 | `bin/ci --quick` | 32 |
-| C2 | `relay setup`'s `.relay/README.md` step and the refusals (7.6), run once for relay (creates relay's `.relay/`); `rules/queue.md`; the 23 seeds of 10.6 (reading the two stale-text places for seed 10); the rewording of 10.7 (C15); A6 part-2 phrases; `docs/` note on `.relay/` versus `~/.relay`, marks, gate logs and the pipeline | same | 28 |
+| B1 | `lib/relay_git.py` (default branch with the binding and "none", term 1; main checkout; `.relay/` present; never the current branch, fact 2.8) and its core copy; `kit_guard.allowed_merges`; `merge.sh`, `merge.py` cleanup (11.1, with the reflog rule of check 3 and the lock of check 5); `hooks.json`; `rules/git.md` (11.4); T1-T12, T14, T18 | `bin/ci --quick` (runs the hook tests and guard-diff) | 28 |
+| B2 | guard fallback (11.2); session-start sweep, `SessionEnd` hook and the detached removal (11.3); T3 control, T13, T16, T19, T20 | same | 22 |
+| B3 | doctor lines (11.3); `tests/test_tidy.py` T17 | same | 13 |
+| B4 | `lib/relay_marks.py` and core copy; `check-mark.py` on `SubagentStop` copying review and report, with the prompt parse of 6; the guard's `.relay/checks` rule, narrowed and scoped (9); `relay check show` with its wait (6); K1-K8, K10-K12, G1-G7, P3, P4; K9 live (P-1, about $0.50) | same | 35 |
+| B5 | `relay gate` (5, with `RELAY_GATE`); `relay_inert.changed(own=True)`, `relay changed --own`, core copy of `relay_inert.py`; the merge gate 7.1 steps 1-6 and its main-checkout test (M-A, M-B, m-1); T15 (a)-(p), A14, A11 under `relay gate` (12.6), R1-R5; `roles/judge.md` (C18, C20), the checker's flow part and the delegate skill (C21) | same, plus A15 | 42 |
+| B6 | `relay check page` writing the HTML file (8.1); the front skill's "A change ready to merge" (8.2) with the publication by the front's Artifact tool and the path fallback (8.3); P1, P2. No worker publishes: the first live publication is the front's, at merge 2's person's step | same | 10 |
+| C1 | `lib/relay_queue.py` and front copy; `relay queue` add, land, count, ip, take (landed, m-4), release, done, drop, with the per-try precondition and create-only branch of 10.4; the session-start line (10.5); Q1-Q10 | `bin/ci --quick` | 40 |
+| C2 | `relay setup --relay-folder` and the refusals (7.6); S1-S3; run once for relay as `<worktree>/bin/relay setup --relay-folder <worktree>` (creates `.relay/README.md` only); `rules/queue.md`; the 23 seeds of 10.6 (reading the two stale-text places for seed 10); the rewording of 10.7 (C15); A6 part-2 phrases; `docs/` note on `.relay/` versus `~/.relay`, marks, gate logs and the pipeline. The brief carries verbatim: "Never run plain `relay setup` for relay; run only `<worktree>/bin/relay setup --relay-folder <worktree>`." | same | 32 |
 
-Building: 192 agent minutes (B 132, C 60). Then: a runner merges
-`wt/work-queue` into `wt/review-gate` (in its worktree, a merge commit),
-`relay gate -- --quick` green, P-2 (paid, about $5), then the review of the
-pipeline over `master...wt/review-gate`: two critics in one message (one for
-B's files, one for C's), 15-20 minutes each; fixers 10-15; gate 3; the
-check by the real `delegate:checker` (the coordinating session must have
-started after merge 1, so the agent exists), 5. About 55-70. Total about
-250-265 agent minutes; wall time about 200 minutes (chain B plus review; C
-runs beside B).
+Building: 222 agent minutes (B 150, C 72).
+
+Merge 2's own gate and outside findings. Until merge 2, relay's master has
+no `.relay/`, so `relay gate` refuses there (R1) and `relay queue add`
+refuses too (7.6). So for merge 2 only: the gate log is written by the
+delegate skill's runner redirect (fact 2.6), `{ echo "head $(git rev-parse
+HEAD)"; RELAY_GATE=$(git rev-parse HEAD) bin/ci --quick; echo "exit $?"; } >
+<scratchpad>/gate-merge2.log`, started detached (the inert probe runs, 4-8
+minutes), and the checker's `Gate:` names that file. The review's
+"Outside this change" findings stay listed on the chat screen as today;
+right after merge 2 one runner lands each from the main checkout with
+`relay queue add --from <report> F<n>` (master now has `.relay/`), and the
+handover names that as the next step until it is done.
+
+Then: a runner merges `wt/work-queue` into `wt/review-gate` (in its
+worktree, a merge commit), the gate above green, P-2 (paid, about $5), then
+the review of the pipeline over `master...wt/review-gate`: two critics in
+one message (one for B's files, one for C's), 15-20 minutes each; fixers
+10-15; gate 4-8; the check by the real `delegate:checker` (the coordinating
+session must have started after merge 1, so the agent exists), 5. About
+57-75. Total about 280-300 agent minutes; wall time about 210-225 minutes
+(chain B plus review; C runs beside B).
 
 Merge 2 is not refused by its own hook: hooks run the main checkout's code,
 and Claude Code reads `hooks.json` at session start. After the merge, in
-order: `relay sync` once from the main checkout; the front tells the owner
-that open sessions keep the old texts and hooks until restarted or
-`/reload-plugins` (only the owner can type it); the worktree goes at the
-next session start (11.3, the session runs in it); the handover's "Open
-items" becomes state plus a pointer to `relay queue`. From then on every
+order: `relay sync` once from the main checkout; the front locks its own
+worktree, `git -C .worktrees/review-gate worktree lock --reason "session
+<its session id, the scratchpad folder's name>" .worktrees/review-gate`
+(its hooks are the old ones, read at its start, so no cleanup hook does
+it; without the lock the next session started anywhere in relay would
+remove the folder this session still runs in, F4); the front tells the
+owner that open sessions keep the old texts and hooks until restarted or
+`/reload-plugins` (only the owner can type it); the runner lands merge 2's
+outside findings (above); the handover's "Open items" becomes state plus a
+pointer to `relay queue`. This session has no `SessionEnd` hook either, so
+after it closes, the next session's `relay doctor` lists the locked
+worktree and the front removes it on the owner's word (11.3). From then on every
 merge in relay goes through the pipeline of section 3.
 
 ## 15. What v3 parts are dropped or replaced
 
 | v3 | Now | Why |
 |---|---|---|
-| 7.6 `find` walk over `D..wt/x` | list of marks, newest current one (7.1 step 3) | the walk stops at a merge commit from the default branch (M-A) |
+| 7.6 `find` walk over `D..wt/x` | list of marks, newest current one (7.1 step 4) | the walk stops at a merge commit from the default branch (M-A) |
 | 7.6 walk-through "the merge passes" | 7.3 | it did not pass (M-A) |
 | 7.7 "the report path points at a scratchpad later deleted; the mark keeps the numbers" | the report and the review are copied into `.relay/checks/` | owner: results stored in git |
 | 7.1 step 5 and the delegate skill's runner redirect for the gate log, in projects with `.relay/` | `relay gate` | the log is evidence; code writes it (the redirect stays for projects without `.relay/`) |
@@ -1096,7 +1313,7 @@ picks.
    printing secrets, and the owner is told at once to rotate if one appears.
    Accepted as given.
 2. **Free checks before the review.** I looked for a weakness and found none
-   beyond 2-4 runner minutes per change; it saves a 15-20 minute review of a
+   beyond 4-8 runner minutes per change; it saves a 15-20 minute review of a
    red build.
 3. **"Merge refused unless ... the owner's word."** The first two conditions
    are code (7.1); the owner's word cannot be: a hook sees the owner's
@@ -1131,6 +1348,21 @@ picks.
    wrote it; an agent that pieces a path together at run time could still
    write one. Same level as marks: it stops mistakes, not an adversary.
 
+9. **The page as an HTML file (coordinator's pick for F9).** Built on as
+   given. Its cost: HTML markup makes a page about a third larger than the
+   Markdown form, so each publication costs the front about 8-10 thousand
+   tokens at `PAGE_MAX_LINES` instead of 6-8; and code excerpts must be
+   escaped (a `<` in code left raw breaks the excerpt), which P1 checks.
+10. **The lock reading of "q2 - a" (coordinator's pick for F4).** Built on
+   as given. Its cost: a session that crashes before its `SessionEnd` hook
+   and is never resumed leaves its merged worktree on disk until `relay
+   doctor` names it and the owner says remove; nothing is lost, only disk
+   space and one doctor line per such worktree.
+11. **The inert probe only under `relay gate` (F7).** Workers' loops keep
+   today's speed and cannot compare HEAD with an uncommitted tree; the
+   gate itself takes about twice as long (4-8 minutes, always detached), so
+   each change spends 4-12 more runner minutes waiting, free.
+
 ## 17. Questions for the owner
 
 **1. Do the paid eval runs belong to the merge gate?**
@@ -1164,14 +1396,17 @@ changes.
 
 ## 18. What the brief could not answer
 
-- Whether the coordinating session in Claude Code (or a subagent) can
-  publish a private claude.ai artifact, and how the 22 Oct overview page was
-  published (8.3): part B6 confirms it live; the fallback is the file path.
+- Whether the front's Artifact tool takes the HTML file as written or needs
+  it wrapped: seen at merge 2's person's step (8.3); the fallback is the
+  file path.
+- Whether Claude Code keeps `session_id` when a session is resumed (11.3: a
+  resumed session unlocks its own worktree). If not, that worktree waits
+  for `relay doctor` and the owner's word, as after a crash.
 - Whether `SubagentStop` input carries `agent_transcript_path`, and whether
   the hook has finished before the checker's hand-back reaches the front
   (K9; a late mark only delays the merge by seconds).
 - Whether SessionStart's `systemMessage` is shown to the owner (Q5).
-- How long relay's free gate takes end to end (estimated 2-4 minutes; B5
-  measures it).
+- How long relay's free gate takes end to end (estimated 2-4 minutes plain,
+  4-8 with the inert probe; B5 measures it).
 - What exactly "guard and $TMPDIR" and the stale `case.yaml:3` refer to in
   the handover (seeds 6 and 10 say how the taker settles them).
