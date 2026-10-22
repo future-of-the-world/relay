@@ -688,3 +688,22 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
   decides, paid run proposed per text change, recommended; b: required;
   c: only on request). Spend 22 Oct ~$29.68 of $35.
 - Next: on the fix, a checker over the design fix, then build briefs B1..
+
+## STATE 22 Oct, building merge 2 (session 90ec47d2)
+
+- Design v5 checked (open 0). Built on wt/review-gate: B1 313a3c9, B2 dcb470e,
+  B3 4e38f26, B4 6c77939 (K9 live $0.444); B5-B6 running. On wt/work-queue
+  (.worktrees/work-queue, from 313a3c9): C1 139bda3, C2 8f446e9, time display
+  8d54609; readable list running; then queue-json (brief briefs/queue-json.md).
+  Join notes: scratchpad join-notes.md.
+- Owner decisions 22 Oct (verbatim):
+  - Q1 paid evals: "a, you can run paid checks without my approve, increase limit to 50$"
+  - queue time: "Store in minutes, for me display in 1h 30m"; "My head can calc this, I care about your calculation, store in minutes plain numbers, show pretty format for me"
+  - queue storage: "why we can't store plain json and add scripts for working with this, in future we can add python scripts as extensions for work with it, same for show"; extensions: "a, relay only"
+  - review verdicts to JSON in this change: "a"
+  - principle: "I want to lock format - persist structured, operate with scripts" -> rules/structured-data.md (in queue-json brief)
+- Coordinator decisions (owner may overturn): F4 lock reading; F9 front publishes the page; rules/queue.md gist-only in profiles; queue list rows ip/kind/time/what/name.
+- Next: B5-B6 done -> verdict-json (brief briefs/verdict-json.md) in review-gate;
+  queue-json in work-queue; then join C into B, sync-lib-copies, gate log by
+  runner redirect, paid full bin/ci (~$5; day ~$30.12 of $50), two critics,
+  fix, gate, checker, owner's word.
