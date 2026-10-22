@@ -33,6 +33,9 @@
   relay rules                        the catalogue of rules with gists
   relay changed [-C <repo>] <sha>    the files changed since <sha> (to HEAD) that are not on the inert list
                                      (handover, queue and check files): what a check of a fix looks at
+  relay queue [count|land|ip|take|release|done|drop|add] ...
+                                     the work queue (.relay/queue/ on the default branch): `relay queue` lists it,
+                                     `relay queue count` gives the one-line count; see `relay queue -h`
 
 The repository root is this script's parent, or $RELAY_ROOT.
 """
@@ -50,6 +53,7 @@ import relay_bench  # noqa: E402
 import relay_config  # noqa: E402
 import relay_inert  # noqa: E402
 import relay_ledger  # noqa: E402
+import relay_queue  # noqa: E402
 import relay_rules  # noqa: E402
 import relay_setup  # noqa: E402
 
@@ -416,10 +420,107 @@ def cmd_changed(args):
     return 0
 
 
+QUEUE_USAGE = """relay queue                              the ordered list, one line each
+relay queue count                        "10 fix, 12 feature; top: <slug> (fix, ip 95, 30 min)"
+relay queue add --from <report> F<n> [--why ..] [--size N] [--ip N]
+relay queue add --kind feature|fix --title "..." --why "..." --size N [--ip N] [--what ".."] [--failing ".."]
+relay queue land <slug>                  try again to land a kept wt/queue-<slug>
+relay queue ip <slug> <n>
+relay queue take <slug> -C <worktree> --findings <path>
+relay queue release <slug>
+relay queue done <slug> -C <worktree> --test <file>::<name> --check <report>
+relay queue drop <slug> --why "..."
+Every form takes [-C <repo>] (default: the current folder)."""
+
+
+def _queue_options(args, spec):
+    """Small option reader: spec maps `--name` to a type (str/int) or None for a flag; returns (options, positionals)."""
+    opts, rest, i = {}, [], 0
+    while i < len(args):
+        a = args[i]
+        if a in spec:
+            if i + 1 >= len(args):
+                raise Usage(f"{a} needs a value")
+            try:
+                opts[a] = spec[a](args[i + 1])
+            except ValueError:
+                raise Usage(f"{a} needs a whole number")
+            i += 2
+        elif a.startswith("-") and len(a) > 1:
+            raise Usage(f"unknown option {a}\n{QUEUE_USAGE}")
+        else:
+            rest.append(a)
+            i += 1
+    return opts, rest
+
+
+def cmd_queue(args):
+    sub = args[0] if args and not args[0].startswith("-") else ""
+    rest = args[1:] if sub else args
+    if sub in ("-h", "--help") or (args and args[0] in ("-h", "--help")):
+        print(QUEUE_USAGE)
+        return 0
+    common = {"-C": str}
+    if sub in ("", "count"):
+        o, p = _queue_options(rest, common)
+        if p:
+            raise Usage(QUEUE_USAGE)
+        items = relay_queue.read_queue(os.path.realpath(o.get("-C", ".")))
+        if sub == "count":
+            print(relay_queue.count_text(items))
+        else:
+            for line in relay_queue.list_lines(items) or ["the queue is empty"]:
+                print(line)
+        return 0
+    repo = lambda o: os.path.realpath(o.get("-C", "."))
+    if sub == "add":
+        o, p = _queue_options(rest, dict(common, **{"--from": str, "--kind": str, "--title": str, "--why": str, "--size": int,
+                                                    "--ip": int, "--what": str, "--failing": str}))
+        if "--from" in o:
+            if len(p) != 1:
+                raise Usage("relay queue add --from <report> F<n>")
+            print(relay_queue.add_from(repo(o), o["--from"], p[0], why=o.get("--why", ""), size=o.get("--size"), ip=o.get("--ip")))
+        else:
+            if p or "--title" not in o:
+                raise Usage(QUEUE_USAGE)
+            print(relay_queue.add(repo(o), o.get("--kind", "feature"), o["--title"], why=o.get("--why", ""), what=o.get("--what", ""),
+                                  failing=o.get("--failing", ""), size=o.get("--size"), ip=o.get("--ip")))
+        return 0
+    spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--why": str}, 1),
+            "take": ({"--findings": str}, 1), "done": ({"--test": str, "--check": str}, 1)}
+    if sub not in spec:
+        raise Usage(QUEUE_USAGE if sub else "relay queue ...")
+    extra, count = spec[sub]
+    o, p = _queue_options(rest, dict(common, **extra))
+    if len(p) != count:
+        raise Usage(QUEUE_USAGE)
+    if sub == "land":
+        print(relay_queue.land(repo(o), p[0]))
+    elif sub == "ip":
+        try:
+            n = int(p[1])
+        except ValueError:
+            raise Usage("relay queue ip <slug> <n>: n is a whole number")
+        print(relay_queue.set_ip(repo(o), p[0], n))
+    elif sub == "release":
+        print(relay_queue.release(repo(o), p[0]))
+    elif sub == "drop":
+        print(relay_queue.drop(repo(o), p[0], o.get("--why", "")))
+    elif sub == "take":
+        if "--findings" not in o:
+            raise Usage("relay queue take <slug> -C <worktree> --findings <path>")
+        print(relay_queue.take(repo(o), p[0], o["--findings"]))
+    else:
+        if "--test" not in o or "--check" not in o:
+            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name> --check <report>")
+        print(relay_queue.done(repo(o), p[0], o["--test"], o["--check"]))
+    return 0
+
+
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "queue": cmd_queue,
 }
 
 
