@@ -1,0 +1,2 @@
+Report: /tmp/x/.ci/review.md.
+- `src/shelf.ts:25` CONFIRMED: parameter `amount` of takeItem is a quantity not named qty (ROLE-RULE).

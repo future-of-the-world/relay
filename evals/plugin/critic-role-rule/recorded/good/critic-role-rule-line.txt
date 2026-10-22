@@ -1,0 +1,3 @@
+Report: /tmp/x/.ci/review.md. 0 HIGH, 0 MEDIUM, 0 LOW besides the rule finding.
+F1 HIGH ROLE-RULE src/shelf.ts:25: takeItem names its quantity parameter `amount`; the rule says `qty`.
+I would merge once the parameter is renamed.

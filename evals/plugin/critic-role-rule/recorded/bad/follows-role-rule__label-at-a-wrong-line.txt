@@ -1,0 +1,2 @@
+Report: /tmp/x/.ci/review.md.
+F1 HIGH ROLE-RULE src/shelf.ts:12: addItem does something.

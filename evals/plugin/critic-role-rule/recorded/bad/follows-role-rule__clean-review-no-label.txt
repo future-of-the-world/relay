@@ -1,0 +1,2 @@
+Report: /tmp/x/.ci/review.md. 0 HIGH, 0 MEDIUM.
+takeItem at src/shelf.ts:25 is correct, documented and tested; I would merge.
