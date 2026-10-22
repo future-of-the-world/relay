@@ -19,6 +19,10 @@
 #   pop`, anywhere (the stash is shared);
 # - shell tracing (set -x, bash -x), verbose curl on an authenticated request,
 #   and environment dumps (env, printenv, export -p), because all print secrets;
+# - anywhere (main checkout or any worktree) in a repository whose default branch has `.relay/`: a write to
+#   `.relay/checks/` (Write/Edit, a Bash write row, git add/rm/mv/restore/update-index/checkout -- naming it, inline
+#   code naming it with a write word); reads are allowed. Those files are written only by relay's own hook and
+#   `relay gate`. Tests: plugins/core/tests/check-mark.test.sh;
 # - everything, with the reason, when the guard cannot read its own bindings:
 #   .claude/kit.toml present but unreadable, or jq / python3 missing. A broken
 #   guard never silently allows.
@@ -99,6 +103,15 @@ resolve() {
   echo "$(cd "$p" && pwd -P)$tail"
 }
 
+# .relay/checks is written only by relay (the check hook, relay gate): in a repository whose default branch has
+# .relay/, whichever folder the command runs from. Outside such a repository a write is allowed (design section 9).
+# One git call, made only when a path or command names .relay/checks.
+checks_refuse() { # <existing directory the write acts in>
+  python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import relay_git; sys.exit(0 if relay_git.has_relay(sys.argv[2]) else 1)' "$lib" "$1" 2>/dev/null || return 0
+  echo "guard-main: files in .relay/checks are written only by relay (the check hook, relay gate); run the checker or relay gate instead" >&2
+  exit 2
+}
+
 in_main() {
   case "$1" in
     "$main/$wtdir" | "$main/$wtdir/"*) return 1 ;;
@@ -113,6 +126,10 @@ case "$tool" in
     file="$(jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' <<<"$input")"
     [ -n "$file" ] || exit 0
     target="$(resolve "$file" "$cwd")"
+    case "$target" in */.relay/checks | */.relay/checks/*)
+      dir="$target"; while [ ! -d "$dir" ]; do dir="$(dirname "$dir")"; done
+      checks_refuse "$dir" ;;
+    esac
     in_main "$target" && block "$tool on $target writes to the main checkout."
     exit 0
     ;;
@@ -176,6 +193,7 @@ rows="$(printf '%s' "$cmd" | python3 -I "$lib/kit_guard.py" "$cwd" "${flags[@]+"
 while IFS=$SEP read -r kind a b; do
   case "$kind" in
     B) echo "guard-main: $a" >&2; exit 2 ;;
+    X) checks_refuse "$a" ;;
     W)
       # a git-ignored target stays allowed (.ci/ logs); a not-yet-existing ignored
       # directory is probed through a child path

@@ -25,6 +25,12 @@ separated by \\x1f:
                        `xargs git reset` all count.
     B <reason>         a command blocked anywhere: an anonymous stash, a stash
                        pop, an environment dump.
+    X <dir>            a command that writes `.relay/checks/` (a redirect, cp, mv,
+                       rm, ... under it; git add/rm/mv/restore/update-index or
+                       `checkout --` naming it; inline code naming it with a write
+                       word), and the nearest existing directory it acts in. The
+                       guard refuses it only when that directory's repository has
+                       a `.relay/` folder on its default branch (design section 9).
 
 The directory is "?" when the command's place is unknown (`cd -` with no known
 previous directory, `popd` of an empty stack); the guard counts it as the main
@@ -341,6 +347,12 @@ OPT_VALUE = {
 XARGS_VALUE = {"-I", "-n", "-P", "-L", "-d", "-s", "-E", "-a", "-J", "--max-args", "--max-procs", "--delimiter", "--arg-file"}
 GIT_WRITE = {"commit", "merge", "switch", "checkout", "reset", "rebase", "restore", "cherry-pick", "revert", "pull",
              "am", "apply", "add", "rm", "mv", "clean", "update-ref", "read-tree", "checkout-index", "filter-branch"}
+CHECKS = re.compile(r"(?:^|/)\.relay/checks(?:/|$)")
+CHECKS_NAMED = re.compile(r"(?:^|[^A-Za-z0-9_.])\.relay/checks(?:/|$|[^A-Za-z0-9_.])")
+GIT_CHECKS_WRITE = {"add", "rm", "mv", "restore", "update-index"}
+INLINE_CODE = {"python", "python3", "node", "perl", "ruby"}
+# a write in inline code: open( with a w, a or x mode, or one of these words, or a redirect
+INLINE_WRITE = re.compile(r"open\([^)]*['\"][wax][+bt]*['\"]|write|unlink|remove|rename|rmtree|copy|move|>")
 GIT_GLOBAL_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix"}
 
 
@@ -362,6 +374,17 @@ def strip_prefix(words):
         else:
             break
     return words[i:]
+
+
+def existing_dir(path):
+    """The nearest existing directory at or above `path`."""
+    p = path
+    while p and not os.path.isdir(p):
+        parent = os.path.dirname(p)
+        if parent == p:
+            break
+        p = parent
+    return p
 
 
 def git_parts(words, cwd):
@@ -573,6 +596,11 @@ def analyze(cmd, cwd, flags, depth=0, merges=None):
                 if branch:
                     merges.append((d, branch))
             what = git_write(sub, rest)
+            texts = [w.text for w in rest]
+            if d != UNKNOWN and any(CHECKS.search(t) or CHECKS_NAMED.search(t) for t in texts) and (
+                sub in GIT_CHECKS_WRITE or (sub == "checkout" and "--" in texts)
+            ):
+                out.append(("X", existing_dir(d)))
             if what:
                 out.append(("G", d, what))
         # a target flag's value is the directory (or a file in it) the command acts on
@@ -610,6 +638,12 @@ def analyze(cmd, cwd, flags, depth=0, merges=None):
                 if k < len(real):
                     simple(real[k:], [], raw, st, via_xargs=True)
 
+        # inline code naming .relay/checks together with a write word
+        if name in INLINE_CODE or re.match(r"^python3?\.\d+\Z", name):
+            code = " ".join(w.text for w in real[1:])
+            if cur != UNKNOWN and CHECKS_NAMED.search(code) and INLINE_WRITE.search(code):
+                out.append(("X", existing_dir(cur)))
+
         # files written
         targets = [w for w in redirs if not w.dynamic and not w.text.startswith("/dev/")]
         args = [w for w in real[1:] if not w.dynamic]
@@ -619,6 +653,8 @@ def analyze(cmd, cwd, flags, depth=0, merges=None):
             if t.text and not t.dynamic:
                 row = resolve(t.text, cur)
                 if row != UNKNOWN:
+                    if CHECKS.search(row):
+                        out.append(("X", existing_dir(row)))
                     out.append(("W", row))
 
     for kind, payload in parse(cmd):

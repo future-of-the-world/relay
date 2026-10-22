@@ -105,7 +105,22 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "-I",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/check-mark.py"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
     ]
   },
-  "description": "Main-checkout guard, project additions injected into shared roles, the flow stage hook, the cleanup after a merge, and the sweep at session start and end."
+  "description": "Main-checkout guard, project additions injected into shared roles, the flow stage hook, the cleanup after a merge, the sweep at session start and end, and the check mark written when a checker finishes."
 }
