@@ -451,3 +451,26 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
   gate-p1-full2.log). Paid so far today in batch 3: $7.61 + this run.
 - NEXT: if green, ask the owner for the merge of wt/role-bases; then
   part 2 (design fixes M-A, M-B from check-design-v3.md first).
+
+## STATE 22 Oct, code-reviewer miss fixed and checked
+
+- Owner on the diagnosis: "1a 2a 3a" = the reviewer owns the rating
+  (re-rates a helper skill's severities against project rules); every
+  project-rule finding gets a labelled reply line beyond the 10-line cap;
+  cap raised to $22 for 6 live runs with traces kept (each checked for the
+  cause: helper rated low, reply still carries DOC-RULE) plus the full run.
+- Fix f8e30e0 (roles/judge.md "The rating is yours", style "unless a
+  project rule makes it one", code-reviewer and spec-conformance flows),
+  check check-offbyone.md: open 1 MEDIUM (3 flows' own reply lists dropped
+  the line). Fix 7183617, gate gate-offbyone-2.log exit 0, check
+  check-offbyone-2.md: open 0 (two LOWs).
+- Explainer of the eval suite: scratchpad evals-explained.md (5 cases,
+  3 of 15 agents covered, 4 wording graders; finds-off-by-one rejects a
+  correct "returns 3 items; a page must hold at most 2").
+- Open questions to the owner: (1) fix finds-off-by-one by the
+  fact-through-form rule before the 6 paid runs (recommended a);
+  (2) a live case for the per-role file .claude/kit/judge.md in this
+  change, cap to ~$26 (recommended a) or a queue fix item.
+- Next: on the answers, the grader fix and/or new case, check, then the
+  6 runs, then the full paid run, then the owner's word on merging.
+- Spend: $13.28 of $22.
