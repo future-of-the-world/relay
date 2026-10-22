@@ -167,6 +167,9 @@ def run(hook):
             if review["reviewed"] != reviewed:
                 raise Fail("the review data %s is of %s, not of the reviewed sha %s" % (path, review["reviewed"], reviewed))
             reviews.append(dict(review, file=os.path.basename(path)))
+        floor = relay_verdict.floor_error(reviews, data)
+        if floor:
+            raise Fail(floor)
         gate_name = os.path.basename(data["gate"] or "")
         gate = gate_name if GATE_NAME.match(gate_name) and os.path.isfile(os.path.join(wt, relay_marks.FOLDER, gate_name)) else None
         mark = {

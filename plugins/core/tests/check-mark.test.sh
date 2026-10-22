@@ -133,6 +133,10 @@ expect "K4b not JSON: no commit, reason named" "$([ "$(count)" -eq "$before" ] &
 report 0; jq '.open = "0"' "$S/rep.json" >"$S/rep2.json" && mv "$S/rep2.json" "$S/rep.json"; touch -t $NEW "$S/rep.json"; stop delegate:checker
 expect "K4b open is a string: no commit, reason names open" "$([ "$(count)" -eq "$before" ] && has 'open must be a whole number' "$msg"; echo $?)"
 
+# K4c: hand-made check data (the record command would refuse it) with F1 HIGH inside NOT MET and open 0: no mark, the reason names F1
+mkrepo; prompt; report 0; jq '.findings[0].verdict = "NOT MET"' "$S/rep.json" >"$S/rep2.json" && mv "$S/rep2.json" "$S/rep.json"; touch -t $NEW "$S/rep.json"; before="$(count)"; stop delegate:checker
+expect "K4c open below the verdicts: no commit, reason names F1" "$([ "$(count)" -eq "$before" ] && has 'open is 0 but 1 findings inside the change are not met: F1' "$msg"; echo $?)"
+
 # K5: a report older than the transcript's first timestamp
 mkrepo; prompt; report 0 $OLD; before="$(count)"; stop delegate:checker   # the data file is older than the start
 expect "K5 old report: no commit" "$([ "$(count)" -eq "$before" ]; echo $?)"

@@ -186,7 +186,7 @@ class Record(RecordBase):
         for key in ("details", "pass_cases", "evidence", "fix_hint", "failing_case"):
             self.assertEqual(stored[key], f[key], key)          # lines as written, the empty line between paragraphs kept
         done = self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET", "reason": ["no test", "see t.py"]}], new=[dict(IN_FINDING, id="F5", details=["d"])],
-                                 scope=["rechecked F1"], notes=["gate was red"])
+                                 scope=["rechecked F1"], notes=["gate was red"], open=2)
         self.assertEqual(done.returncode, 0, done.stderr)
         check = self.load("chk.json")
         self.assertEqual(check["findings"], [{"id": "F1", "verdict": "NOT MET", "reason": ["no test", "see t.py"]}])
@@ -228,12 +228,39 @@ class Record(RecordBase):
         for bad_args in (("review",), ("review", "--report", self.report), ("other", "--input", "x"), ("review", "--input", "a", "b")):
             self.assertEqual(self.relay("check", "record", *bad_args).returncode, 2, bad_args)     # the old option form is gone
 
+    def test_check_refuses_an_open_below_what_the_verdicts_say(self):
+        # F1 is HIGH inside. NOT MET with open 0 hides it; a new inside HIGH adds a second (hand count: floor 2 with F2 new)
+        self.assertEqual(self.record_review().returncode, 0)
+        done = self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET"}], new=[dict(IN_FINDING, id="F2")], open=0)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("open is 0 but 2 findings inside the change are not met: F1, F2", done.stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "chk.json")))
+        # no status at all for F1 counts as not met
+        done = self.record_check(open=0)
+        self.assertIn("open is 0 but 1 findings inside the change are not met: F1", done.stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "chk.json")))
+
+    def test_check_accepts_an_open_at_or_above_the_floor(self):
+        self.assertEqual(self.record_review().returncode, 0)
+        met = [{"id": "F1", "verdict": "MET"}]
+        for statuses, open_, label in (
+                (met, 0, "met, open 0"),
+                ([{"id": "F1", "verdict": "NOT MET"}], 1, "not met, open 1"),
+                ([{"id": "F1", "verdict": "NOT MET"}], 2, "open above the floor (the checker's +1)")):
+            done = self.record_check(statuses=statuses, open=open_)
+            self.assertEqual(done.returncode, 0, label + done.stderr)
+        # the owner's word that F1 is not wrong takes it out of the floor
+        owner = self.write_input('words = ["not wrong, the owner said so"]\n', "owner.toml")
+        self.assertEqual(self.relay("check", "owner", self.report, "F1", "--input", owner).returncode, 0)
+        done = self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET"}], open=0)
+        self.assertEqual(done.returncode, 0, done.stderr)
+
     def test_check_data_is_stored_with_its_verdicts_and_new_problems(self):
         self.assertEqual(self.record_review().returncode, 0)
-        done = self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET", "reason": ["no test"]}], new=[dict(IN_FINDING, id="F5", path="lib/z.py", line=2, severity="MEDIUM", summary="a new problem")])
+        done = self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET", "reason": ["no test"]}], new=[dict(IN_FINDING, id="F5", path="lib/z.py", line=2, severity="MEDIUM", summary="a new problem")], open=2)
         self.assertEqual(done.returncode, 0, done.stderr)
         data = self.load("chk.json")
-        self.assertEqual((data["schema"], data["type"], data["open"], data["queued"], data["gate"]), (1, "check", 1, 0, None))
+        self.assertEqual((data["schema"], data["type"], data["open"], data["queued"], data["gate"]), (1, "check", 2, 0, None))
         self.assertEqual(data["new"][0]["id"], "F5")
         self.assertEqual(data["new"][0]["rank"], "medium")
         self.assertEqual(data["review"], [self.report])
@@ -305,14 +332,14 @@ class Views(RecordBase):
     def test_show_of_a_check_lists_verdicts_with_their_reasons(self):
         self.recorded()
         self.assertEqual(self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET", "reason": ["no test", "see t.py"]}, {"id": "F2", "verdict": "OUTSIDE"}],
-                                           new=[dict(IN_FINDING, id="F5", summary="fresh")], notes=["gate red"]).returncode, 0)
+                                           new=[dict(IN_FINDING, id="F5", summary="fresh")], notes=["gate red"], open=2).returncode, 0)
         path = os.path.join(self.tmp, "chk.json")
         full = self.relay("check", "show", path).stdout
-        for line in ("Check of %s" % SHA_B, "Reviewed: %s" % SHA_A, "Gate: none", "Open: 1  Queued: 0", "Notes:", "  gate red", "Findings checked: 2",
+        for line in ("Check of %s" % SHA_B, "Reviewed: %s" % SHA_A, "Gate: none", "Open: 2  Queued: 0", "Notes:", "  gate red", "Findings checked: 2",
                      "F1 NOT MET", "  no test", "  see t.py", "F2 OUTSIDE", "New problems: 1", "lib/x.py:12: HIGH: F5 fresh"):
             self.assertIn(line + "\n", full)
         brief = self.relay("check", "show", "--brief", path).stdout.splitlines()
-        self.assertEqual(brief, ["Check of %s (reviewed %s): open 1, queued 0, gate none" % (SHA_B[:12], SHA_A[:12]), "F1 NOT MET no test", "F2 OUTSIDE",
+        self.assertEqual(brief, ["Check of %s (reviewed %s): open 2, queued 0, gate none" % (SHA_B[:12], SHA_A[:12]), "F1 NOT MET no test", "F2 OUTSIDE",
                                  "new: lib/x.py:12: HIGH: F5 fresh"])
 
     def test_show_refuses_what_is_not_a_report(self):

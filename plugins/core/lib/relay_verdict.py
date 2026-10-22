@@ -535,6 +535,7 @@ def record_check(input_path):
         raise VerdictError("nothing recorded: `review` must be a list of at least one review JSON path")
     paths = [os.path.abspath(p) for p in review_paths]
     known = set()
+    loaded = []
     for path in paths:
         try:
             text = open(path, encoding="utf-8").read()
@@ -544,6 +545,7 @@ def record_check(input_path):
         if review["reviewed"] != raw["reviewed"]:
             raise VerdictError("nothing recorded: the review data %s is of %s, not of the reviewed sha %s" % (path, review["reviewed"], raw["reviewed"]))
         known |= {f["id"] for f in review["findings"]}
+        loaded.append(review)
     gate = raw["gate"]
     data = {"schema": SCHEMA, "type": CHECK_TYPE, "head": raw["head"], "reviewed": raw["reviewed"], "gate": None if gate in (None, "none") else gate,
             "worktree": os.path.realpath(raw["worktree"]) if _text(raw["worktree"]) else raw["worktree"], "review": paths,
@@ -551,6 +553,10 @@ def record_check(input_path):
     errors = check_errors(data)
     known |= {f["id"] for f in data["new"] if isinstance(f, dict)}
     errors += ["findings: %s is not a finding of the reviews or a new one" % s["id"] for s in statuses if s.get("id") not in known]
+    if not errors:
+        # `open` is typed by the checker but the merge gate trusts it: it may not be below what the verdicts say
+        floor = floor_error(loaded, data)
+        errors += [floor] if floor else []
     if errors:
         raise VerdictError("nothing recorded: " + "; ".join(errors))
     return _write_json(raw["report"], data)
@@ -597,6 +603,28 @@ def count_open(review, statuses):
     owned = owner_ids(review)
     return sum(1 for f in review["findings"]
                if f["kind"] == "inside" and f["rank"] in ("high", "medium") and said.get(f["id"]) != "MET" and f["id"] not in owned)
+
+
+def open_floor(reviews, check):
+    """The ids of the findings that must count as open in check data `check` (a dict with `findings` and `new`): the HIGH or
+    MEDIUM inside findings of the review data dicts `reviews` that are not MET and have no owner entry (`count_open`'s rule),
+    and the check's own new inside HIGH or MEDIUM findings. The checker's `open` may be higher (its +1s), never lower."""
+    ids = []
+    for review in reviews:
+        said = {s["id"]: s["verdict"] for s in check["findings"]}
+        owned = owner_ids(review)
+        ids += [f["id"] for f in review["findings"]
+                if f["kind"] == "inside" and f["rank"] in ("high", "medium") and said.get(f["id"]) != "MET" and f["id"] not in owned]
+    ids += [f["id"] for f in check["new"] if f["kind"] == "inside" and f["rank"] in ("high", "medium")]
+    return ids
+
+
+def floor_error(reviews, check):
+    """The refusal text when `check`'s `open` is below `open_floor`, else None."""
+    ids = open_floor(reviews, check)
+    if check["open"] < len(ids):
+        return "open is %d but %d findings inside the change are not met: %s" % (check["open"], len(ids), ", ".join(ids))
+    return None
 
 
 def stored_set(reviews, reviewed):
