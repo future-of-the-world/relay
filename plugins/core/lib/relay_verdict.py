@@ -44,6 +44,7 @@ VERDICTS = ("MET", "NOT MET", "DISPUTED", "GAP", "OUTSIDE", "QUEUED")
 SHA = re.compile(r"^[0-9a-f]{40}\Z")
 FINDING_ID = re.compile(r"^[FQ]\d+\Z")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
+SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*\Z")
 PROSE = ("details", "pass_cases", "evidence", "fix_hint")       # a finding's optional prose, as lists of lines
 # The most lines `relay check show --brief` prints (bound 5-30: at 5 only the verdict and two findings fit, at 30 it is a page).
 BRIEF_LINES = 10
@@ -170,8 +171,10 @@ def _owner_errors(data):
         if not isinstance(entry, dict):
             errors.append("%s is not an object" % where)
             continue
-        for key in sorted(set(entry) - {"id", "words", "date"}):
+        for key in sorted(set(entry) - {"id", "words", "date", "queue"}):
             errors.append("%s has an unknown field %s" % (where, key))
+        if "queue" in entry and not (isinstance(entry["queue"], str) and SLUG.match(entry["queue"])):
+            errors.append("%s: queue must be the name of a queue item (lowercase words with hyphens), got %r" % (where, entry["queue"]))
         if entry.get("id") not in ids:
             errors.append("%s: id %r is not a finding of this review" % (where, entry.get("id")))
         if not (_lines_ok(entry.get("words")) and any(l.strip() for l in entry["words"])):
@@ -304,7 +307,8 @@ def finding_lines(finding, owner=()):
                        ("Evidence", "evidence"), ("Fix hint", "fix_hint")):
         _section(out, "  " + title, finding.get(key) or [], indent="    ")
     for entry in owner:
-        _section(out, "  Owner (%s) says not wrong" % entry["date"], entry["words"], indent="    ")
+        what = "moved to queue item %s" % entry["queue"] if entry.get("queue") else "says not wrong"
+        _section(out, "  Owner (%s) %s" % (entry["date"], what), entry["words"], indent="    ")
     return out
 
 
@@ -562,17 +566,24 @@ def record_check(input_path):
     return _write_json(raw["report"], data)
 
 
-OWNER_USAGE_KEYS = ("words",)
+OWNER_USAGE_KEYS = ("words", "queue")
 
 
-def add_owner(review_path, fid, input_path, today):
-    """Append the owner's word that finding `fid` is not wrong to the `owner` list of the review JSON at `review_path`.
-    The TOML input holds `words`, the owner's words as said; `today` is the date (YYYY-MM-DD) stored with them.
+def add_owner(review_path, fid, input_path, today, queue_has=None):
+    """Append the owner's word on finding `fid` to the `owner` list of the review JSON at `review_path`: that it is not wrong, or
+    (with `queue` in the input) that it moved to that queue item. The TOML input holds `words`, the owner's words as said, and
+    optionally `queue`, the item's name; `today` is the date (YYYY-MM-DD) stored with them. `queue_has(name)` says whether the
+    item is on the default branch; with a `queue` it must be given and true, else nothing is recorded (the finding stays open).
     Returns the path; VerdictError (nothing changed) for a bad input, an unreadable review or an id it does not have."""
     raw = read_input(input_path, "owner word kept")
-    errors = table_errors(raw, "at the top of the input", OWNER_USAGE_KEYS, OWNER_USAGE_KEYS)
+    errors = table_errors(raw, "at the top of the input", OWNER_USAGE_KEYS, ("words",))
     if not isinstance(raw, dict) or errors:
         raise VerdictError("nothing recorded: " + "; ".join(errors))
+    queue = raw.get("queue")
+    if queue is not None and not (isinstance(queue, str) and SLUG.match(queue)):
+        errors.append("`queue` must be the name of a queue item (lowercase words with hyphens)")
+    elif queue is not None and not (queue_has and queue_has(queue)):
+        errors.append("queue item %s not found on the default branch" % queue)
     words = as_lines(raw["words"], "words", "at the top of the input", errors)
     if not any(l.strip() for l in words):
         errors.append("`words` must hold the owner's words")
@@ -586,13 +597,21 @@ def add_owner(review_path, fid, input_path, today):
     data = load_review(text, "the review data %s" % review_path)
     if fid not in {f["id"] for f in data["findings"]}:
         raise VerdictError("nothing recorded: %s is not a finding of %s" % (fid, review_path))
-    data["owner"] = list(data.get("owner") or []) + [{"id": fid, "words": words, "date": today}]
+    entry = {"id": fid, "words": words, "date": today}
+    if queue is not None:
+        entry["queue"] = queue
+    data["owner"] = list(data.get("owner") or []) + [entry]
     return write_review(review_path, data)
 
 
 def owner_ids(review):
-    """The ids of review data that have an owner entry: the owner said these are not wrong."""
-    return {e["id"] for e in review.get("owner") or []}
+    """The ids of review data that have an owner entry saying not wrong (an entry with a `queue` is a move, not that word)."""
+    return {e["id"] for e in review.get("owner") or [] if not e.get("queue")}
+
+
+def moved_ids(review):
+    """The ids of review data the owner moved to a queue item: they count under the check's `queued`, not `open`."""
+    return {e["id"] for e in review.get("owner") or [] if e.get("queue")}
 
 
 def count_open(review, statuses):
@@ -624,6 +643,9 @@ def floor_error(reviews, check):
     ids = open_floor(reviews, check)
     if check["open"] < len(ids):
         return "open is %d but %d findings inside the change are not met: %s" % (check["open"], len(ids), ", ".join(ids))
+    moved = sorted(i for review in reviews for i in moved_ids(review))
+    if check["queued"] < len(moved):
+        return "queued is %d but the owner moved %d findings to queue items: %s" % (check["queued"], len(moved), ", ".join(moved))
     return None
 
 

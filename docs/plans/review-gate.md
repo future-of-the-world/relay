@@ -666,9 +666,10 @@ Something found during a change is one of four things:
 3. the design is wrong (`Design:`): stop building on it; the redesign is a
    `fix` item and the next change; the current change finishes first only
    when the owner agrees it does not build on the wrong part (the coordinator
-   appends `Owner: F<n> moved to queue item <slug> ("<owner's words>")` to
-   the findings file; the checker counts it as `queued` when the item exists
-   on the default branch);
+   runs `relay check owner <review.json> F<n> --input <toml>` with `queue =
+   "<slug>"` and the owner's words; it is stored in the review JSON as an
+   `owner` entry with `queue`, refused when the item is not on the default
+   branch, and the checker counts it as `queued`);
 4. a feature: a queue item of kind `feature`, with the ip the owner gives
    (default 0).
 

@@ -37,7 +37,8 @@ def finding_view(finding, owner=()):
     paragraph)."""
     return {"path": finding["path"], "line": finding["line"], "severity": finding["severity"], "rank": finding["rank"], "id": finding["id"],
             "what": finding["summary"], "linter": relay_verdict.linter(finding), "case": " ".join(l.strip() for l in finding["failing_case"] if l.strip()),
-            "owner": [" ".join(l.strip() for l in o["words"] if l.strip()) + " (%s)" % o["date"] for o in owner]}
+            "owner": [("moved to queue item %s: " % o["queue"] if o.get("queue") else "not wrong: ")
+                      + " ".join(l.strip() for l in o["words"] if l.strip()) + " (%s)" % o["date"] for o in owner]}
 
 
 def statuses_of(check):
@@ -87,7 +88,7 @@ def render_finding(finding, status, shown, slug=None, outside=False):
     if finding["case"]:
         parts.append("<p>%s</p>" % e(finding["case"]))
     for words in finding["owner"]:
-        parts.append("<p>Owner: not wrong: %s</p>" % e(words))
+        parts.append("<p>Owner: %s</p>" % e(words))
     parts.append("</div>")
     return "".join(parts)
 

@@ -151,10 +151,12 @@ report, the worktree, the check to run and the full gate's log.
    plus the new ones and the +1s of steps 1 and 2, minus those that
    have an `owner` entry in the review data (the owner's word, kept by `relay
    check owner`; `relay check show` prints it under the finding). When the project has a work
-   queue, a `Design:` finding listed under `Owner: <id> moved to queue item
-   <slug>` counts under `queued`, not `open`, when `git -C <path> cat-file -e
-   <ref>:.relay/queue/<slug>.json` succeeds for the default branch; otherwise
-   it stays in `open` with "queue item <slug> not found".
+   queue, a finding the owner moved to a queue item is data: an `owner` entry
+   with `queue` (the item's name), kept by `relay check owner` from a TOML with
+   `queue = "<slug>"` beside `words`. It counts under `queued`, not `open`;
+   `relay check owner` refuses a name that is not on the default branch, and
+   then the finding stays in `open`. `relay check record check` refuses a
+   `queued` below the number of such entries.
 What is `NOT MET` or new goes to the owner, never to another fix round.
 
 ## Record the findings (review) and the verdict (check)

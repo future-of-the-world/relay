@@ -136,8 +136,8 @@ class RecordBase(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.report = os.path.join(self.tmp, "rev.json")
 
-    def relay(self, *args):
-        return subprocess.run([sys.executable, RELAY, *args], capture_output=True, text=True, env={**os.environ, "RELAY_ROOT": ROOT})
+    def relay(self, *args, cwd=None):
+        return subprocess.run([sys.executable, RELAY, *args], capture_output=True, text=True, env={**os.environ, "RELAY_ROOT": ROOT}, cwd=cwd)
 
     def write_input(self, text, name="in.toml"):
         path = os.path.join(self.tmp, name)
@@ -459,6 +459,76 @@ class Owner(RecordBase):
         self.assertIn("Owner: not wrong: not wrong, because it is by design (%s)" % date, relay_checkpage.render_finding(view, "not checked", []))
         plain = relay_checkpage.render_finding(relay_checkpage.finding_view(data["findings"][0]), "not checked", [])
         self.assertNotIn("Owner", plain)
+
+
+class OwnerMoved(RecordBase):
+    """Review F8: "the owner moved this finding to queue item <slug>" is data in the review JSON (an owner entry with `queue`),
+    counted by the script, not a prompt line."""
+
+    DESIGN = dict(IN_FINDING, id="F3", kind="design", severity="MEDIUM", summary="the design is wrong here")
+
+    def setUp(self):
+        super().setUp()
+        self.repo = os.path.join(self.tmp, "proj")
+        os.makedirs(os.path.join(self.repo, ".relay", "queue"))
+        item = {"kind": "fix", "state": "open", "ip": 91, "time": 10, "found": "2026-10-23", "found_in": "test", "title": "Redo the part",
+                "what": ["the part"], "why": ["it matters"], "failing_case": ["it fails"], "taken_by": "", "closed_by": "", "test": "", "dropped_why": None}
+        with open(os.path.join(self.repo, ".relay", "queue", "redo-x.json"), "w") as handle:
+            json.dump(item, handle)
+        env = {**os.environ, "GIT_AUTHOR_NAME": "T", "GIT_AUTHOR_EMAIL": "t@e.x", "GIT_COMMITTER_NAME": "T", "GIT_COMMITTER_EMAIL": "t@e.x"}
+        for args in (("init", "-q", "-b", "master"), ("add", "-A"), ("commit", "-q", "-m", "queue")):
+            subprocess.run(["git", "-C", self.repo, *args], check=True, capture_output=True, env=env)
+        self.assertEqual(self.record_review([IN_FINDING, self.DESIGN]).returncode, 0)
+
+    def read_report(self):
+        with open(self.report, encoding="utf-8") as handle:
+            return handle.read()
+
+    def move(self, slug="redo-x", fid="F3"):
+        text = "words = '''the owner: put it in the queue, $HOME'''\nqueue = \"%s\"\n" % slug
+        return self.relay("check", "owner", self.report, fid, "--input", self.write_input(text, "move.toml"), cwd=self.repo)
+
+    def test_a_move_is_an_owner_entry_with_the_item_and_show_and_the_page_print_it(self):
+        done = self.move()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        data = self.load()
+        entry = data["owner"][0]
+        self.assertEqual((entry["id"], entry["queue"], entry["words"]), ("F3", "redo-x", ["the owner: put it in the queue, $HOME"]))
+        self.assertEqual(rv.review_errors(data), [])
+        shown = self.relay("check", "show", self.report).stdout
+        self.assertIn("  Owner (%s) moved to queue item redo-x:\n    the owner: put it in the queue, $HOME\n" % entry["date"], shown)
+        view = relay_checkpage.finding_view(data["findings"][1], rv.owner_of(data, "F3"))
+        self.assertIn("Owner: moved to queue item redo-x: the owner: put it in the queue, $HOME (%s)" % entry["date"],
+                      relay_checkpage.render_finding(view, "not checked", []))
+
+    def test_a_slug_that_is_not_on_the_default_branch_is_refused_and_the_review_is_unchanged(self):
+        before = self.read_report()
+        done = self.move("redo-y")
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("queue item redo-y not found", done.stderr)
+        self.assertEqual(self.read_report(), before)
+        self.assertNotEqual(self.move("Bad Name").returncode, 0)       # a name that cannot be an item is refused the same way
+        self.assertEqual(self.read_report(), before)
+
+    def test_without_queue_the_entry_still_means_not_wrong(self):
+        text = "words = '''by design'''\n"
+        self.assertEqual(self.relay("check", "owner", self.report, "F1", "--input", self.write_input(text, "o.toml"), cwd=self.repo).returncode, 0)
+        data = self.load()
+        self.assertNotIn("queue", data["owner"][0])
+        self.assertEqual(rv.owner_ids(data), {"F1"})
+        self.assertEqual(rv.moved_ids(data), set())
+
+    def test_a_moved_entry_is_not_the_not_wrong_word_and_the_checker_must_count_it_under_queued(self):
+        self.assertEqual(self.move().returncode, 0)
+        data = self.load()
+        self.assertEqual((rv.owner_ids(data), rv.moved_ids(data)), (set(), {"F3"}))
+        # F1 is not met (open 1); F3 moved: queued must be at least 1
+        statuses = [{"id": "F1", "verdict": "NOT MET"}]
+        done = self.record_check(statuses=statuses, open=1, queued=0)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("queued is 0 but the owner moved 1 findings to queue items: F3", done.stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "chk.json")))
+        self.assertEqual(self.record_check(statuses=statuses, open=1, queued=1).returncode, 0)
 
 
 class ApplyReviewHandoff(RecordBase):

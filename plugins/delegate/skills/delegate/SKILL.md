@@ -167,6 +167,12 @@ words and the date to the `owner` list of that review's JSON, and refuses an id
 the review does not have. The checker counts a finding with an owner entry as
 not wrong; `relay check show` and the page print the words under the finding.
 
+When the owner moves a finding (a `Design:` one, say) to a queue item, keep that as
+data too: the same TOML with `queue = "<slug>"` beside `words`. The item must be on the
+default branch (else nothing is recorded and the finding stays open); the checker
+counts such a finding under `queued`, not `open`, and `relay check record check`
+refuses a `queued` below their number.
+
 Prompts:
 
 > Review the change. Range: `<base>...HEAD` in `<worktree>`. Report: `<path>.json`.
