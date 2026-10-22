@@ -145,6 +145,20 @@ class Tidy(unittest.TestCase):
         self.assertIn("FIX  merged worktree still present: .worktrees/m (wt/m)", done.stdout)
         self.assertEqual(done.returncode, 1)
 
+    def test_relay_doctor_with_no_folder_checks_the_current_repository(self):
+        self.task("m")
+        git(self.main, "merge", "-q", "--ff-only", "wt/m")
+        env = {**os.environ, "CLAUDE_CONFIG_DIR": self.claude, "RELAY_HOME": os.path.join(self.tmp, "home"), "RELAY_ROOT": ROOT}
+        relay = os.path.join(ROOT, "bin", "relay")
+        inside = subprocess.run([sys.executable, relay, "doctor"], capture_output=True, text=True, env=env, cwd=self.main)
+        self.assertIn("FIX  merged worktree still present: .worktrees/m (wt/m)", inside.stdout)
+        # outside any repository: no tidy lines and no traceback
+        elsewhere = os.path.join(self.tmp, "not-a-repo")
+        os.makedirs(elsewhere)
+        outside = subprocess.run([sys.executable, relay, "doctor"], capture_output=True, text=True, env=env, cwd=elsewhere)
+        self.assertNotIn("merged worktree", outside.stdout)
+        self.assertNotIn("Traceback", outside.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

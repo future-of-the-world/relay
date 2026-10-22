@@ -427,7 +427,7 @@ def cmd_doctor(args):
         print(f"{'ok  ' if good else 'FIX '} {name}" + (f"  ({detail})" if detail and not good else ""))
         bad += not good
     good = len(checks) - bad
-    for fix, text in (relay_tidy.lines(root) if root else []):
+    for fix, text in relay_tidy.lines(root or os.getcwd()):   # no folder given: the repository of the current folder (none: no lines)
         print(f"{'FIX ' if fix else 'note'} {text}")
         bad += fix
     print(f"\n{good} ok, {bad} to fix")
