@@ -734,3 +734,12 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
   (relay check page, published by the front) and the owner's word on
   merge 2; after the merge the steps of design section 14 (relay sync,
   lock this worktree, land outside findings, trim "Open items").
+- 23 Oct later: inert mode mismatch fixed (27af3e7); free gate green
+  (scratchpad gate-quick-3.log, head 27af3e7, exit 0); paid 18/18 on
+  6ebabfe ($5.92; texts unchanged since). Checker reports/check-merge2.json:
+  32 MET, open 0, queued 0. Owner's page (hand-built from the review JSON,
+  the page builder needs the new hooks): https://claude.ai/artifact/1pJFYJUFuKQHokSMepgK9T
+- WAITING: the owner's word "merge". Then design section 14 steps; also
+  queue two items: check ids across several review files; critic-role-rule
+  eval proof weak (agent read the rule file in 2 of 3 runs).
+- Paid 23 Oct: $11.52 of $50.
