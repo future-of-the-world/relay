@@ -24,7 +24,7 @@ step() { local name="$1"; shift; local log=".ci/steps/${name// /-}.log" start rc
   if [ "$rc" -eq 0 ]; then echo "ci: $name ok ($(( $(date +%s) - start ))s)"
   else echo "ci: $name FAILED ($(( $(date +%s) - start ))s, log: $log)"; grep -E 'FAIL|Error|error|✗' "$log" | head -8 | sed 's/^/    /'; status=1; fi; }
 lib_tests() { python3 -W ignore::ResourceWarning -m unittest discover -s tests -p 'test_*.py'; }
-hook_tests() { local f rc=0; [ "$quick" = 1 ] && export RELAY_QUICK=1   # the guard suite runs its shared cases once in quick mode
+hook_tests() { local f rc=0; [ "$quick" = 1 ] && [ -z "${RELAY_INERT_FULL_HOOKS:-}" ] && export RELAY_QUICK=1   # the guard suite runs its shared cases once in quick mode (not in the inert probe of a full run: see inert_probe)
   for f in plugins/*/tests/*.test.sh; do [ -e "$f" ] || continue
   case "$f" in *hooks-live*|*packet*|*check-contract*|*shim*|*spec-check*|*inject-addition*)
     # the principles-era core tests need bun, the fixture's node_modules or claude; run them when RELAY_CORE_TESTS=1
@@ -51,7 +51,9 @@ inert_probe() { local tmpd work rc=0 f
   printf 'not a queue item\n' > "$work/.relay/queue/zz-probe.json"; echo '{}' > "$work/.relay/checks/zz.json"
   echo '{}' > "$work/.relay/checks/zz.review.json"; echo '{}' > "$work/.relay/checks/zz.check.json"; printf 'head 0\nexit 0\n' > "$work/.relay/checks/zz.gate.log"
   git -C "$work" add -A && git -C "$work" -c user.name=relay-ci -c user.email=ci@relay commit -q --no-verify -m "inert probe"
-  ( cd "$work" && env -u RELAY_GATE bash bin/ci --quick ) > "$tmpd/nested.log" 2>&1
+  # a full outer run ran the hook suites in full (guard-main repeats its shared cases per profile); the nested run is quick
+  # for the paid steps only, so its hook tests run in full too, or the case counts differ by mode, not by an inert file
+  ( cd "$work" && env -u RELAY_GATE RELAY_INERT_FULL_HOOKS="$([ "$quick" = 0 ] && echo 1)" bash bin/ci --quick ) > "$tmpd/nested.log" 2>&1
   if ! diff <(outcome "$root") <(outcome "$work") > "$tmpd/diff.txt"; then
     echo "FAIL inert: a step's result or the test count changed when only inert files changed:"; sed 's/^/    /' "$tmpd/diff.txt"; rc=1
   else echo "inert: the same results with every inert file changed"; fi

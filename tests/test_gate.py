@@ -230,6 +230,22 @@ class Inert(Fixture):
         self.assertIn("ci: library tests ok", log)       # the outer run itself was green
         self.assertEqual(self.runs(), 2)
 
+    def test_a_full_run_is_probed_with_its_hook_suites_in_full(self):
+        """The hook case count must not depend on the mode: a suite that prints 2 ok lines in full mode and 1 under
+        RELAY_QUICK=1 (as guard-main does) gives 2 in a full outer run; the nested probe run is quick for the paid steps
+        only, so it must count 2 as well, else `inert` was red with 932 against 448 cases. The full outer run ends red
+        here (the fixture has no eval-record); only the `inert` line is asserted."""
+        self.project()
+        main = os.path.dirname(os.path.dirname(self.wt))
+        write(os.path.join(self.wt, "plugins", "x", "tests", "a.test.sh"),
+              'echo "ok   one"\n[ "${RELAY_QUICK:-0}" = 1 ] || echo "ok   two"\n')
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "hook suite")
+        self.gate(self.wt, "--")
+        head = git(self.wt, "rev-parse", "HEAD~1")
+        log = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))
+        self.assertIn("ci: inert ok", log)
+
     def test_f9_the_probe_plants_files_under_the_stored_json_names(self):
         """F9: a test that breaks on an unknown queue item or check JSON (as a reader listing the folders would) turns
         `inert` red: the probe planted .relay/queue/zz-probe.json, .relay/checks/zz.review.json and zz.check.json."""
