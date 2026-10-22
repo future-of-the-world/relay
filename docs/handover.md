@@ -474,3 +474,32 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
 - Next: on the answers, the grader fix and/or new case, check, then the
   6 runs, then the full paid run, then the owner's word on merging.
 - Spend: $13.28 of $22.
+
+## STATE 22 Oct, graders: code for facts, Jev + Sonnet for meaning
+
+- Commits since c716a9f: 6483b6f, aa0ba22 (new case critic-role-rule for
+  .claude/kit/judge.md), f9e8150, 886c9fd (review-evals.md fixes; check
+  check-evals.md: open 1 MEDIUM N1 + MINOR N2, and the checker's own
+  probes: regex graders pass 20 of 31 wrong answers). Not fixed by
+  regex: the owner chose a judge instead.
+- Owner decisions: no Woodpecker ("just git ... agent can manage
+  scripts and run it"); review results and check reports stored in git
+  beside the mark, merge gate local; "2a" code for facts, a judge for
+  meaning; judge = TypeSafe Jev first (sure if max(p,1-p) >= 0.9),
+  Sonnet below that with a reason; step 4 of the pipeline = one chat
+  screen + a private page. Key in ~/.zshrc as TYPESAFE_API_KEY (live
+  call OK, pinned jev-1.14.0 accepted; never print it).
+- Owner's pipeline (verbatim): "Code checks run first - it's free /
+  Then they passes - run review step, that have result and can store
+  artifacts (like linter message with link to wrong places) / If review
+  passes - we can proceed". Goes into the part 2 design.
+- Design: scratchpad design-judge.md (rev 3), review review-judge.md,
+  check check-judge-design.md. Lost traces: bin/ci lacks --keep-temp
+  (proved by exp-nokeep.log / exp-keep.log). Two old traces kept in
+  scratchpad/kept-traces/.
+- Open owner questions: measurement size (rec. 10 per question, ~$3,
+  cap to ~$28), when Jev counts (rec. after 0 sure-but-wrong), reviewer
+  reading the rule file itself (rec. pass but flagged).
+- Next: on answers, build the judge (worker), review, fix, gate, check;
+  measurement; 6 live runs; full paid run; owner's word on merging.
+- Spend: $13.28 + about $0.01 of $26.
