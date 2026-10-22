@@ -41,6 +41,7 @@ TEXT = ("what", "why", "failing_case", "pass_cases")
 REQUIRED = ("kind", "state", "ip", "time", "found", "found_in", "title", "what", "why", "taken_by", "closed_by", "test", "dropped_why")
 STRINGS = ("found_in", "title", "where", "taken_by", "closed_by", "test")
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+TITLE_MAX = 60                # a title is under this many characters (rules/queue.md)
 
 
 class Refused(ValueError):
@@ -55,10 +56,6 @@ def _is_int(value):
 
 def _is_lines(value):
     return isinstance(value, list) and all(isinstance(x, str) for x in value)
-
-
-def _slug_words(slug):
-    return slug.replace("-", " ")
 
 
 def check(slug, data):
@@ -90,9 +87,13 @@ def check(slug, data):
             problems.append(f"{key} is not a list of lines")
     if "dropped_why" in data and data["dropped_why"] is not None and not _is_lines(data["dropped_why"]):
         problems.append("dropped_why is not null or a list of lines")
-    if isinstance(data.get("title"), str) and data["title"].strip() in ("", _slug_words(slug)):
-        problems.append("the title only repeats the name")
-    if _is_lines(data.get("what")) and "\n".join(data["what"]).strip() in ("", _slug_words(slug)):
+    # "repeats the name" means typed as the slug itself (hyphens): a lowercase sentence is a title, and its slug is its words
+    if isinstance(data.get("title"), str):
+        if "\n" in data["title"]:
+            problems.append("the title is not one line")
+        if data["title"].strip() in ("", slug):
+            problems.append("the title only repeats the name")
+    if _is_lines(data.get("what")) and "\n".join(data["what"]).strip() in ("", slug):
         problems.append("what only repeats the name")
     return problems
 
@@ -544,16 +545,16 @@ ADD_KEYS = ("kind", "title", "why", "what", "failing_case", "pass_cases", "time"
 FROM_KEYS = ("why", "time", "ip")
 
 
-def read_add_input(path, keys, required):
+def read_add_input(path, keys, required, done="queued"):
     """The values of a queue-add TOML input file as keyword arguments of `add`: text fields as strings (their lines
     joined), `time` in minutes. Refused, naming the key, for an unknown or missing key or a wrong kind of value."""
     try:
-        raw = relay_verdict.read_input(path, "queued")
+        raw = relay_verdict.read_input(path, done)
     except relay_verdict.VerdictError as exc:
         raise Refused(str(exc))
     problems = relay_verdict.table_errors(raw, "in the input", keys, required)
     if problems:
-        raise Refused("nothing queued: " + "; ".join(problems))
+        raise Refused(f"nothing {done}: " + "; ".join(problems))
     out = {}
     for key, value in raw.items():
         if key in ("kind", "title", "where"):
@@ -575,7 +576,7 @@ def read_add_input(path, keys, required):
             problems += errors
             out[{"failing_case": "failing", "pass_cases": "pass_cases"}.get(key, key)] = "\n".join(lines)
     if problems:
-        raise Refused("nothing queued: " + "; ".join(problems))
+        raise Refused(f"nothing {done}: " + "; ".join(problems))
     return out
 
 
@@ -586,16 +587,20 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
         raise Refused("kind is fix or feature")
     if not title.strip():
         raise Refused("an item needs a title")
-    if title.strip() == slugify(title).replace("-", " "):
+    if "\n" in title.strip():
+        raise Refused("the title is one line")
+    if len(title.strip()) >= TITLE_MAX:
+        raise Refused(f"the title is under {TITLE_MAX} characters (it is the \"what\" column); the longer story goes in `what`")
+    if title.strip() == slugify(title):
         raise Refused("the title only repeats the name; say in a sentence what is wrong or wanted")
-    if what.strip() == slugify(title).replace("-", " "):
+    if what.strip() == slugify(title):
         raise Refused("what only repeats the name; say in a sentence what is wrong or wanted")
     if kind == "fix" and not failing.strip():
-        raise Refused("a fix item needs its failing case (--failing)")
+        raise Refused("a fix item needs its failing case (`failing_case` in the input)")
     if not why.strip():
-        raise Refused("an item needs why it matters (--why)")
+        raise Refused("an item needs why it matters (`why` in the input)")
     if minutes is None or minutes < 0:
-        raise Refused(f"an item needs its time (--time), as {TIME_FORMS}")
+        raise Refused(f"an item needs its time (`time` in the input or --time), as {TIME_FORMS}")
     if ip is not None and ip < 0:
         raise Refused("ip is a whole number from 0")
     base = slugify(title)
@@ -627,8 +632,10 @@ def add_from(repo, report, fid, why="", minutes=None, ip=None, today=None, **eng
     context = f"finding {fid} of {os.path.basename(report)}"
     summary = found["summary"]
     title = summary[0].upper() + summary[1:]     # a summary is a sentence; the capital keeps `add` from taking it for the slug's words
+    if len(title) >= TITLE_MAX:                   # a title is the "what" column: cut a long summary at a word (the linter line in `what` holds all of it)
+        title = title[:TITLE_MAX - 2].rsplit(" ", 1)[0].rstrip(" ,;:.-") + "…"
     return add(repo, "fix", title, why=why, what=relay_verdict.linter(found), failing="\n".join(found["failing_case"]),
-               minutes=minutes, ip=ip, where=f"{found['path']}:{found['line']}", context=context, today=today, **engine)
+               pass_cases="\n".join(found.get("pass_cases") or []), minutes=minutes, ip=ip, where=f"{found['path']}:{found['line']}", context=context, today=today, **engine)
 
 
 def set_ip(repo, slug, ip, **engine):
@@ -641,6 +648,8 @@ def set_ip(repo, slug, ip, **engine):
             raise _taken_by_refusal(item)
         if item["state"] != "open":
             raise Refused(f"queue item '{slug}' is {item['state']}")
+        if item["ip"] == ip:
+            raise Refused(f"queue item '{slug}' already has ip {ip}; nothing changed")
         return Plan(slug, {_path(slug): serialize(slug, changed(item, ip=ip))}, f"{item['kind']}, ip {ip}", "ip set")
 
     return _run(repo, planner, **engine)
@@ -648,7 +657,7 @@ def set_ip(repo, slug, ip, **engine):
 
 def drop(repo, slug, why, **engine):
     if not why.strip():
-        raise Refused("drop needs the owner's words (--why)")
+        raise Refused("drop needs the owner's words (`why` in the input)")
 
     def planner(reader):
         item = _item_at(reader, slug)
@@ -671,6 +680,17 @@ def release(repo, slug, **engine):
     return _run(repo, planner, **engine)
 
 
+def _q1(item):
+    """The finding Q1 a fix item becomes: its place, title, failing case, why and pass cases."""
+    where = item.get("where") or f"{_path(item['slug'])}:1"
+    place, _, line = where.rpartition(":")
+    if not (place and line.isdigit() and int(line) >= 1):
+        place, line = where, "1"
+    return {"id": "Q1", "path": place, "line": int(line), "severity": "HIGH", "rank": "high", "kind": "inside", "summary": item["title"],
+            "failing_case": list(item["failing_case"]), "details": list(item["why"]),
+            "pass_cases": list(item.get("pass_cases") or []), "evidence": [], "fix_hint": []}
+
+
 def take(worktree, slug, findings, **engine):
     """Land `taken` on the default branch, bring it into the worktree's branch, and for a fix write the review JSON
     (`findings`, one finding Q1 from the item) that the checker records against."""
@@ -687,6 +707,10 @@ def take(worktree, slug, findings, **engine):
         if item["state"] != "open":
             raise Refused(f"queue item '{slug}' is {item['state']}")
         seen["item"] = item
+        if item["kind"] == "fix":                   # the finding Q1 must be writable before `taken` lands: no item left taken without findings
+            errors = relay_verdict.finding_errors(_q1(item), "finding Q1 of the item")
+            if errors:
+                raise Refused(f"queue item '{slug}' cannot become finding Q1, nothing taken: {'; '.join(errors[:3])}")
         text = serialize(slug, changed(item, state="taken", taken_by=branch))
         return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "taken")
 
@@ -700,20 +724,41 @@ def take(worktree, slug, findings, **engine):
         rc, base, err = _git(worktree, "merge-base", branch, default)
         if rc != 0:
             raise Refused(f"{out[0]}; but no merge-base of {branch} and {default}: {err}")
-        where = item.get("where") or f"{_path(slug)}:1"
-        place, _, line = where.rpartition(":")
-        if not (place and line.isdigit() and int(line) >= 1):
-            place, line = where, "1"
-        finding = {"id": "Q1", "path": place, "line": int(line), "severity": "HIGH", "rank": "high", "kind": "inside", "summary": item["title"],
-                   "failing_case": list(item["failing_case"]), "details": list(item["why"]),
-                   "pass_cases": list(item.get("pass_cases") or []), "evidence": [], "fix_hint": []}
-        data = relay_verdict.review_data(_text(base), default, [finding], scope=[f"From queue item {slug}: the fix is checked as finding Q1."])
+        data = relay_verdict.review_data(_text(base), default, [_q1(item)], scope=[f"From queue item {slug}: the fix is checked as finding Q1."])
         try:
             relay_verdict.write_review(findings, data)
         except relay_verdict.VerdictError as exc:
             raise Refused(f"{out[0]}; but the findings cannot be written: {exc}")
         out.append(f"findings written to {findings}")
     return "\n".join(out)
+
+
+def _holds_test(path, name, source):
+    """Whether the test file's text defines the test `name` as a whole word (a python file: `def name`); test_xy is not test_x."""
+    pattern = r"\bdef\s+" + re.escape(name) + r"\b" if path.endswith(".py") else r"(?<![\w])" + re.escape(name) + r"(?![\w])"
+    return re.search(pattern, source) is not None
+
+
+def _check_is_of_this_item(worktree, slug, check, data):
+    """Refuse check data that is not the check of this branch's Q1 for this item: its head must be HEAD (or an earlier commit
+    with only `.relay/` files changed since), and one of its reviews must be the findings file `take` wrote for `slug`."""
+    rc, _, _ = _git(worktree, "merge-base", "--is-ancestor", data["head"], "HEAD")
+    if rc != 0:
+        raise Refused(f"the check data {check} is of {data['head'][:12]}, which is not in this branch's history: it is not the check of this fix")
+    rc, out, _ = _git(worktree, "diff", "--name-only", "--no-renames", f"{data['head']}..HEAD")
+    later = sorted(p for p in _text(out).split("\n") if p and not p.startswith(".relay/"))
+    if later:
+        raise Refused(f"the check data {check} is of {data['head'][:12]}; {', '.join(later[:3])} changed after it: check the fix again")
+    marker = f"From queue item {slug}:"
+    for path in data["review"]:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                review = relay_verdict.load_review(handle.read(), f"the review data {path}")
+        except (OSError, relay_verdict.VerdictError):
+            continue
+        if any(line.startswith(marker) for line in review.get("scope") or []):
+            return
+    raise Refused(f"the check data {check} does not check the findings file `relay queue take` wrote for '{slug}' (scope \"{marker}\")")
 
 
 def done(worktree, slug, test, check):
@@ -737,7 +782,7 @@ def done(worktree, slug, test, check):
     rc, source, _ = _git(worktree, "cat-file", "blob", f"HEAD:{path}")
     if rc != 0:
         raise Refused(f"the test file {path} is not in the last commit of {branch}")
-    if name.split("::")[-1] not in source.decode("utf-8", "replace"):
+    if not _holds_test(path, name.split("::")[-1], source.decode("utf-8", "replace")):
         raise Refused(f"{path} does not hold a test named {name}")
     try:
         with open(check, encoding="utf-8") as handle:
@@ -756,6 +801,7 @@ def done(worktree, slug, test, check):
             raise Refused(f"the check data {check} gives no verdict for Q1")
         if verdict != "MET":
             raise Refused(f"the check data {check} says Q1 {verdict}, not MET")
+        _check_is_of_this_item(worktree, slug, check, data)
     root = _text(_git(worktree, "rev-parse", "--show-toplevel")[1])
     text = serialize(slug, changed(item, state="done", closed_by=branch, test=test))
     old, new = os.path.join(root, _path(slug)), os.path.join(root, _path(slug, "done/"))

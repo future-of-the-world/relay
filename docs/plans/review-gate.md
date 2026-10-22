@@ -760,8 +760,8 @@ relay only; they read, they never write items: the writes stay `add`, `take`, `r
   file to `done/` with `state: done`, `closed_by`, `test`, and commits on
   the task branch. The item is closed by the merge; the merge hook refuses a
   close without the test (7.5).
-- Drop: only on the owner's word, `relay queue drop <slug> --why "<the
-  owner's words>"`, landed like `add`, moved to `done/` with `state: dropped`.
+- Drop: only on the owner's word, `relay queue drop <slug> --input <file.toml>`
+  (the TOML holds `why`, the owner's words), landed like `add`, moved to `done/` with `state: dropped`.
 
 ### 10.4 Landing on the default branch (v3 8.4, unchanged in method)
 
@@ -826,7 +826,7 @@ relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree> --findings <path>
 relay queue release <slug>
 relay queue done <slug> -C <worktree> --test <file>::<name> --check <report>
-relay queue drop <slug> --why "..."
+relay queue drop <slug> --input <file.toml>   # why = the owner's words
 ```
 
 The list reads as a table a person scans (the "what" is the item's `# ` title, cut at

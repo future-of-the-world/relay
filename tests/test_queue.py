@@ -185,6 +185,32 @@ class TestOrderAndParse(Base):
             rq.add_from(self.main, report, "F9", why="w", minutes=5, **QUIET)
         self.assertIn("no finding F9", str(ctx.exception))
 
+    def test_f4_add_from_copies_the_findings_pass_cases_and_q1_carries_them(self):
+        both = {"id": "F1", "path": "lib/q.py", "line": 4, "severity": "LOW", "rank": "low", "kind": "outside", "summary": "the thing breaks",
+                "failing_case": ["call c()"], "pass_cases": ["call c(), get d", "call e(), get f"]}
+        none = dict(both, id="F2", summary="the other thing breaks")
+        del none["pass_cases"]
+        report = self.review_data(findings=[both, none])
+        rq.add_from(self.main, report, "F1", why="w", minutes=5, **QUIET)
+        rq.add_from(self.main, report, "F2", why="w", minutes=5, **QUIET)
+        self.assertEqual(self.item("the-thing-breaks")["pass_cases"], ["call c(), get d", "call e(), get f"])
+        self.assertNotIn("pass_cases", self.item("the-other-thing-breaks"))          # without the key, as before
+        wa = self.worktree("w4")
+        rq.take(wa, "the-thing-breaks", os.path.join(self.tmp, "q.json"), **QUIET)
+        with open(os.path.join(self.tmp, "q.json")) as handle:
+            self.assertEqual(rv.load_review(handle.read())["findings"][0]["pass_cases"], ["call c(), get d", "call e(), get f"])
+
+    def test_title_under_60_and_a_long_summary_is_cut_at_a_word(self):
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.add(self.main, "feature", "A" + " word" * 12, why="w", minutes=5, **QUIET)   # 61 characters
+        self.assertIn("under 60 characters", str(ctx.exception))
+        long = {"id": "F1", "path": "lib/q.py", "line": 4, "severity": "LOW", "rank": "low", "kind": "outside",
+                "summary": "queue add --from takes a summary longer than sixty characters and still queues it", "failing_case": ["x"]}
+        rq.add_from(self.main, self.review_data(findings=[long]), "F1", why="w", minutes=5, **QUIET)
+        titles = [i["title"] for i in rq.read_queue(self.main)]
+        # 58 characters taken, cut back to the last space: "Queue add --from takes a summary longer than sixty" + ellipsis
+        self.assertEqual(titles, ["Queue add --from takes a summary longer than sixty…"])
+
     def test_q3_add_from_a_checks_new_finding_and_a_flows_own_severity_word(self):
         new = {"id": "F9", "path": "lib/x.py", "line": 3, "severity": "BLOCKER", "rank": "high", "kind": "inside",
                "summary": "drops a row on empty input", "failing_case": ["a=1 gives none"]}
@@ -285,8 +311,8 @@ class TestSchema(Base):
             ("dropped_why text", raw_item(good, dropped_why="no"), "dropped_why is not null or a list"),
             ("fix without failing_case", raw_item(good, drop=("failing_case",)), "a fix without failing_case"),
             ("fix with an empty failing_case", raw_item(good, failing_case=["  "]), "a fix without failing_case"),
-            ("title equal to the slug words", raw_item(good, title="some slug"), "title only repeats the name"),
-            ("what equal to the slug words", raw_item(good, what=["some slug"]), "what only repeats the name"),
+            ("title equal to the slug words", raw_item(good, title="some-slug"), "title only repeats the name"),
+            ("what equal to the slug words", raw_item(good, what=["some-slug"]), "what only repeats the name"),
             ("not json", "{ nope", "not valid JSON"),
             ("not an object", "[1, 2]\n", "not a JSON object"),
         ]
@@ -311,7 +337,7 @@ class TestSchema(Base):
     def test_add_refuses_a_what_equal_to_the_slug_words(self):
         before = git(self.main, "rev-parse", "master")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.add(self.main, "fix", "A real sentence here", what="a real sentence here", why="w", failing="f", minutes=5, **QUIET)
+            rq.add(self.main, "fix", "A real sentence here", what="a-real-sentence-here", why="w", failing="f", minutes=5, **QUIET)
         self.assertIn("what only repeats the name", str(ctx.exception))
         self.assertEqual(git(self.main, "rev-parse", "master"), before)
 
@@ -486,10 +512,18 @@ class TestTime(Base):
     def test_t7_add_refuses_a_title_that_is_the_slug_words(self):
         before = git(self.main, "rev-parse", "master")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.add(self.main, "feature", "core tests not in gate", why="w", minutes=5, **QUIET)
+            rq.add(self.main, "feature", "core-tests-not-in-gate", why="w", minutes=5, **QUIET)
         self.assertIn("repeats the name", str(ctx.exception))
         self.assertEqual(git(self.main, "rev-parse", "master"), before)       # nothing was written
         rq.add(self.main, "feature", "Core tests are not in the gate", why="w", minutes=5, **QUIET)   # a sentence is accepted
+
+    def test_f13_a_lowercase_sentence_is_a_title_only_the_slug_typed_is_refused(self):
+        # review F13: "tally crashes on bad input" is a sentence, though its slug words are the same words
+        rq.add(self.main, "fix", "tally crashes on bad input", why="w", failing="f", minutes=5, **QUIET)
+        item = self.item("tally-crashes-on-bad-input")
+        self.assertEqual(item["title"], "tally crashes on bad input")
+        self.assertEqual(rq.parse("tally-crashes-on-bad-input", git(self.main, "show", "master:.relay/queue/tally-crashes-on-bad-input.json"))["problems"], [])
+        rq.add(self.main, "feature", "Tally crashes on bad input two", why="w", minutes=5, **QUIET)   # (as today: capitalised)
 
     def test_t4_list_row_shows_time_and_cli_size_option(self):
         repo = self.repo("time", items={"long": fix_item(size=90)})
@@ -730,9 +764,11 @@ class TestTake(Base):
         self.assertEqual(dropped["state"], "dropped")
         self.assertEqual(dropped["dropped_why"], ["the owner said drop it"])
 
-    def check_json(self, name, verdict="MET", ids=("Q1",)):
-        """Check data as `relay check record check` writes it, with these ids at this verdict; returns its path."""
-        data = {"schema": 1, "type": "check", "head": "b" * 40, "reviewed": "a" * 40, "gate": None, "worktree": "/w", "review": ["/r.json"],
+    def check_json(self, name, verdict="MET", ids=("Q1",), head=None, review=None):
+        """Check data as `relay check record check` writes it, with these ids at this verdict; returns its path. By default it is
+        the check of the fix: its head is the commit wt/a is at and its review is the findings file `take` wrote."""
+        data = {"schema": 1, "type": "check", "head": head or git(self.wa, "rev-parse", "HEAD"), "reviewed": "a" * 40, "gate": None,
+                "worktree": "/w", "review": [review or self.findings()],
                 "findings": [{"id": i, "verdict": verdict, "reason": ["tests/test_job.py:1"]} for i in ids], "new": [], "open": 0, "queued": 0}
         path = os.path.join(self.tmp, name)
         with open(path, "w") as handle:
@@ -807,6 +843,81 @@ class TestTake(Base):
             self.assertEqual(git(self.wa, "rev-parse", "HEAD"), head)
         self.assertIn("closed job", rq.done(self.wa, "job", test, self.check_json("met.json")))
 
+    def test_f3_done_refuses_a_check_that_is_not_of_this_fix(self):
+        """Review F3: Q1 MET in a check of another review, or of another head, or of code changed since, closes nothing."""
+        rq.take(self.wa, "job", self.findings(), **QUIET)
+        self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "test")
+        test = "tests/test_job.py::test_job_works"
+        other = os.path.join(self.tmp, "other-review.json")                 # an unrelated review, as a fixer's scratchpad may hold
+        with open(other, "w") as handle:
+            json.dump(rv.review_data("a" * 40, "master", [{"id": "Q1", "path": "x.py", "line": 1, "severity": "HIGH", "rank": "high", "kind": "inside",
+                                                         "summary": "some other item", "failing_case": ["x"]}], scope=["From queue item another-thing: ..."]), handle)
+        wrong_head = git(self.wa, "rev-parse", "HEAD~1")                     # the commit before the test file: the test is newer than the check
+        cases = [(self.check_json("c1.json", review=other), "does not check the findings file"),
+                 (self.check_json("c2.json", head="c" * 40), "not in this branch's history"),
+                 (self.check_json("c3.json", head=wrong_head), "changed after it")]
+        head = git(self.wa, "rev-parse", "HEAD")
+        for report, expect in cases:
+            with self.assertRaises(rq.Refused, msg=report) as ctx:
+                rq.done(self.wa, "job", test, report)
+            self.assertIn(expect, str(ctx.exception))
+            self.assertEqual(git(self.wa, "rev-parse", "HEAD"), head)
+        self.assertIn("closed job", rq.done(self.wa, "job", test, self.check_json("good.json")))   # the check of this branch's own Q1
+
+    def test_f3_a_check_from_before_a_queue_only_commit_still_closes(self):
+        rq.take(self.wa, "job", self.findings(), **QUIET)
+        self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "test")
+        report = self.check_json("c.json")
+        self.write_commit(self.wa, {".relay/queue/zzz-note.json": feature_item("Zzz note")}, "a queue-only commit")
+        self.assertIn("closed job", rq.done(self.wa, "job", "tests/test_job.py::test_job_works", report))
+
+    def test_f15_done_wants_the_test_name_whole(self):
+        rq.take(self.wa, "job", self.findings(), **QUIET)
+        self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works_twice():\n    pass\n"}, "test")
+        with self.assertRaises(rq.Refused) as ctx:                                  # the file holds test_job_works_twice only
+            rq.done(self.wa, "job", "tests/test_job.py::test_job_works", self.check_json("c.json"))
+        self.assertIn("does not hold a test named test_job_works", str(ctx.exception))
+        self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works_twice():\n    pass\n\n\nclass T:\n    def test_job_works(self):\n        pass\n"}, "t2")
+        self.assertIn("closed job", rq.done(self.wa, "job", "tests/test_job.py::T::test_job_works", self.check_json("d.json")))
+
+    def test_f2_take_refuses_before_landing_when_q1_cannot_be_built(self):
+        """Review F2: an item whose title cannot be a one-line summary is not left taken with no findings."""
+        text = raw_item(fix_item("Two lines"), title="Two\nlines title")             # a file as a bad merge could leave it
+        self.write_commit(self.main, {".relay/queue/two-lines-title.json": text}, "bad title")
+        git(self.wa, "merge", "-q", "--no-edit", "master")
+        # the file is malformed to the reader, so take refuses it; and `add` refuses to create one (the finding's failing case)
+        before = git(self.main, "rev-parse", "master")
+        with self.assertRaises(rq.Refused):
+            rq.take(self.wa, "two-lines-title", self.findings(), **QUIET)
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.add(self.main, "fix", "Two\nlines title", why="w", failing="f", minutes=5, **QUIET)
+        self.assertIn("one line", str(ctx.exception))
+        self.assertEqual(git(self.main, "rev-parse", "master"), before)
+        self.assertEqual(self.item("job")["state"], "open")
+
+    def test_f2_take_builds_q1_in_the_planner_before_the_landing(self):
+        # the guard is the planner's call of finding_errors: with Q1 unwritable (here by patching _q1 to give a two-line summary)
+        # nothing lands and the item stays open
+        before = git(self.main, "rev-parse", "master")
+        real = rq._q1
+        with mock.patch.object(rq, "_q1", lambda item: dict(real(item), summary="a\nb")):
+            with self.assertRaises(rq.Refused) as ctx:
+                rq.take(self.wa, "job", self.findings(), **QUIET)
+        self.assertIn("cannot become finding Q1, nothing taken", str(ctx.exception))
+        self.assertEqual(git(self.main, "rev-parse", "master"), before)
+        self.assertEqual(self.item("job")["state"], "open")
+        self.assertFalse(os.path.exists(self.findings()))
+
+    def test_f12_ip_to_its_own_value_is_a_plain_refusal(self):
+        before = git(self.main, "rev-parse", "master")
+        with self.assertRaises(rq.Refused) as ctx:                                  # feat has ip 20
+            rq.set_ip(self.main, "feat", 20, **QUIET)
+        self.assertIn("already has ip 20", str(ctx.exception))
+        self.assertEqual(git(self.main, "rev-parse", "master"), before)
+        self.assertEqual(self.branches(), [])
+        rq.set_ip(self.main, "feat", 21, **QUIET)                                   # a new value lands
+        self.assertEqual(self.item("feat")["ip"], 21)
+
 
 class TestInputFile(Base):
     """`relay queue add --input <file.toml>`: free text reaches the item through a file, never through the shell."""
@@ -865,6 +976,38 @@ class TestInputFile(Base):
         self.assertEqual(done.returncode, 0, done.stderr)
         item = self.item("a-thing-is-off")
         self.assertEqual((item["why"], item["time"], item["ip"], item["where"]), (["it matters"], 20, 7, "lib/q.py:4"))
+
+    def test_f5_drop_takes_the_owners_words_from_a_toml_file(self):
+        self.write_commit(self.main, {".relay/queue/feat.json": feature_item("Feat")}, "seed")
+        words = 'owner said $HOME `date` "no"'                                # a shell would expand the first two
+        path = self.toml("why = \'\'\'\n" + words + "\n\'\'\'\n", "drop.toml")
+        before = git(self.main, "rev-parse", "master")
+        for args in (("drop", "feat", "-C", self.main), ("drop", "feat", "--why", "x", "-C", self.main)):    # no input file, and the old flag
+            done = self.run_relay(*args)
+            self.assertEqual(done.returncode, 2, args)
+        self.assertEqual(git(self.main, "rev-parse", "master"), before)           # nothing landed
+        done = self.run_relay("drop", "feat", "--input", path, "-C", self.main)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(self.item("feat", sub="done/")["dropped_why"], [words])
+
+    def test_f5_drop_of_a_taken_item_is_still_refused(self):
+        self.write_commit(self.main, {".relay/queue/job.json": with_fields(fix_item("Job"), state="taken", taken_by="wt/x")}, "seed")
+        done = self.run_relay("drop", "job", "--input", self.toml("why = 'no'\n"), "-C", self.main)
+        self.assertEqual(done.returncode, 2)
+        self.assertIn("taken by wt/x", done.stderr)
+
+    def test_f11_add_from_with_kind_is_a_usage_error_and_queues_nothing(self):
+        report = os.path.join(self.tmp, "rev.json")
+        with open(report, "w") as handle:
+            json.dump({"schema": 1, "type": "review", "reviewed": "a" * 40, "base": "master", "findings": [
+                {"id": "F1", "path": "lib/q.py", "line": 4, "severity": "LOW", "rank": "low", "kind": "outside", "summary": "a thing is off",
+                 "failing_case": ["x"]}]}, handle)
+        before = git(self.main, "rev-parse", "master")
+        done = self.run_relay("add", "--from", report, "F1", "--input", self.toml("why = 'w'\ntime = '5m'\n"), "--kind", "fix", "-C", self.main)
+        self.assertEqual(done.returncode, 2)
+        self.assertIn("--kind does not go with --from", done.stderr)
+        self.assertNotIn("Traceback", done.stderr)
+        self.assertEqual(git(self.main, "rev-parse", "master"), before)
 
     def test_show_prints_one_item_in_full(self):
         self.write_commit(self.main, {".relay/queue/job.json": fix_item("Job", ip=60, size=90, failing="line 1\nline 2")}, "seed")

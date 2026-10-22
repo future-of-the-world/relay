@@ -583,7 +583,8 @@ relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree> --findings <review.json>   (a fix: writes the review JSON with finding Q1)
 relay queue release <slug>
 relay queue done <slug> -C <worktree> --test <file>::<name> --check <check.json>   (a fix: the check's verdict for Q1 is MET)
-relay queue drop <slug> --why "..."
+relay queue drop <slug> --input <file.toml>
+                                         the TOML holds `why`: the owner's words (text in '''...''')
 Every form takes [-C <repo>] (default: the current folder)."""
 
 
@@ -661,6 +662,8 @@ def cmd_queue(args):
         if "--input" not in o:
             raise Usage(QUEUE_USAGE)
         from_report = "--from" in o
+        if from_report and "--kind" in o:
+            raise Usage("--kind does not go with --from: a finding is always queued as a fix")
         try:
             if from_report and len(p) != 1 or not from_report and p:
                 raise Usage("relay queue add --from <report.json> F<n> --input <file.toml>  |  relay queue add --input <file.toml>")
@@ -678,7 +681,7 @@ def cmd_queue(args):
         except relay_queue.Refused as e:
             raise Usage(str(e))
         return 0
-    spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--why": str}, 1),
+    spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--input": str}, 1),
             "take": ({"--findings": str}, 1), "done": ({"--test": str, "--check": str}, 1)}
     extra, count = spec[sub]
     o, p = _queue_options(rest, dict(common, **extra))
@@ -695,7 +698,12 @@ def cmd_queue(args):
     elif sub == "release":
         print(relay_queue.release(repo(o), p[0]))
     elif sub == "drop":
-        print(relay_queue.drop(repo(o), p[0], o.get("--why", "")))
+        if "--input" not in o:
+            raise Usage("relay queue drop <slug> --input <file.toml>: the TOML holds `why`, the owner's words")
+        try:
+            print(relay_queue.drop(repo(o), p[0], relay_queue.read_add_input(o["--input"], ("why",), ("why",), "dropped")["why"]))
+        except relay_queue.Refused as e:
+            raise Usage(str(e))
     elif sub == "take":
         if "--findings" not in o:
             raise Usage("relay queue take <slug> -C <worktree> --findings <review.json>")
