@@ -53,12 +53,12 @@ class Fixture(unittest.TestCase):
         self.env = {**os.environ, **GIT_ENV, "RELAY_ROOT": ROOT}
         self.env.pop("RELAY_GATE", None)
 
-    def repo(self, relay=True, gate=None):
+    def repo(self, relay=True, gate=None, ignore=".ci/\n.worktrees/\n"):
         """main checkout on master with a worktree .worktrees/x on wt/x holding one commit; gate = the gate script's text"""
         main = os.path.join(self.tmp, "main")
         os.makedirs(main)
         git(main, "init", "-q", "-b", "master")
-        write(os.path.join(main, ".gitignore"), ".ci/\n.worktrees/\n")
+        write(os.path.join(main, ".gitignore"), ignore)
         if relay:
             write(os.path.join(main, ".relay", "README.md"), "x\n")
         if gate is not None:
@@ -128,6 +128,16 @@ class Gate(Fixture):
         self.assertEqual(git(self.wt, "diff", "--cached", "--name-only"), "extra.txt")
         out = run.stdout.splitlines()
         self.assertEqual(out, ["gate %s: exit 0" % head, log])
+
+    def test_f11_a_project_that_does_not_ignore_ci_can_run_the_gate_twice(self):
+        """F11: .gitignore lacks .ci/. The gate's own output file must not appear in the tree: two gates in a row both run
+        (the second is on the first's log commit, an inert one), and the tree stays clean."""
+        self.repo(gate="echo ok\nexit 0\n", ignore=".worktrees/\n")
+        first = self.gate(self.wt)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        second = self.gate(self.wt)
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        self.assertEqual(git(self.wt, "status", "--porcelain"), "")
 
     def test_r4_red_gate_exits_with_its_status_and_names_the_failure(self):
         """R4: a red fixture gate: exit status 1 (its own), the log ends exit 1, the failing step's lines are printed."""

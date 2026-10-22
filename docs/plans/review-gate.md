@@ -288,7 +288,7 @@ judges still pass with the new first line.
 2. `G = git rev-parse HEAD` (full). Runs the binding `gate.ci` (`kit get
    gate.ci`, default `bin/ci`) with `<args>`, in the worktree, with
    `RELAY_GATE=<G>` in its environment (relay's `bin/ci` runs the inert
-   probe only then, 12.6), output to `<worktree>/.ci/gate.out` (ignored),
+   probe only then, 12.6), output to `relay-gate.out` in the worktree's git dir (never in the tree, so no ignore rule is needed),
    no timeout of its own.
 3. Writes `.relay/checks/<G>.gate.log`: `head <G>`, `cmd <the command line>`,
    the output, `exit <n>`; commits only that file with `relay_marks.commit_file`

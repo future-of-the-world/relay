@@ -81,9 +81,14 @@ def run(worktree, args=(), environ=None):
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
     command = shlex.split(binding(worktree)) + list(args)
-    folder = os.path.join(worktree, ".ci")
-    os.makedirs(folder, exist_ok=True)
-    out_path = os.path.join(folder, "gate.out")
+    # the output goes under the worktree's git dir, never into the tree: a project that does not ignore .ci/ would see
+    # an untracked file and the next gate (and the merge cleanup) would refuse
+    rc, git_path = relay_git.git(worktree, "rev-parse", "--path-format=absolute", "--git-path", "relay-gate.out")
+    if rc != 0 or not git_path:
+        raise GateRefused("git cannot tell where %s keeps its files" % worktree)
+    out_path = git_path
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    os.makedirs(os.path.join(worktree, ".ci"), exist_ok=True)      # the gate command's own scratch folder (empty, so git sees nothing)
     env = dict(os.environ if environ is None else environ)
     env["RELAY_GATE"] = head
     try:
