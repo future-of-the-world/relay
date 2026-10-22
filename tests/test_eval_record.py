@@ -1,0 +1,180 @@
+"""Free tests of the eval record step (bin/eval-record), the rule-file flag patterns and bin/ci's eval lines.
+No test calls a model."""
+import importlib.util, io, json, os, re, shutil, subprocess, tempfile, unittest
+from contextlib import redirect_stdout
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PLUGIN = os.path.join(ROOT, "evals", "plugin")
+
+
+def load_record():
+    from importlib.machinery import SourceFileLoader
+    loader = SourceFileLoader("eval_record", os.path.join(ROOT, "bin", "eval-record"))
+    spec = importlib.util.spec_from_loader("eval_record", loader)
+    m = importlib.util.module_from_spec(spec); loader.exec_module(m)
+    return m
+
+
+def grader(path):
+    meta = {}
+    lines = open(path, encoding="utf-8").read().split("\n")
+    for line in lines[1:lines.index("---", 1)]:
+        k, _, v = line.partition(":"); v = v.strip()
+        meta[k.strip()] = json.loads(v) if v.startswith('"') else v
+    return meta
+
+
+class FlagPatterns(unittest.TestCase):
+    """T2: the input_match of the three rule-file flags, tested as the eval tool applies it (JavaScript RegExp over the input JSON)."""
+    HEREDOC = "cat > .ci/code-review.md <<'EOF'\nReviewed: head of wt/paging\nThe rule (.claude/kit/code-reviewer.md) applies; grep -rn x . ok\nEOF"
+    CASES = [
+        ("Bash", "cat .claude/kit/code-reviewer.md; ls .claude", True),
+        ("Bash", "cd .claude && cat kit/code-reviewer.md", True),
+        ("Bash", "G=/x/git; cd /p; $G rev-parse a; cat .claude/kit/code-reviewer.md; ls", True),
+        ("Bash", "grep -rn ROLE-RULE .", True),
+        ("Bash", "rg -uu RULE", True),
+        ("Bash", 'cd "$TMPDIR" && cat .claude/kit/judge.md', True),        # N2a: a quote before the verb
+        ("Bash", 'cat ".claude/kit/judge.md"', True),
+        ("Bash", 'echo "x" ; cat .claude/kit/judge.md', True),
+        ("Bash", "sed -n 1,20p ./.claude/kit/judge.md", True),
+        ("Bash", "ls -la", False),
+        ("Bash", "git diff master...wt/paging -- src/shelf.ts", False),
+        ("Bash", HEREDOC, False),
+        ("Bash", "grep -rn slice src/", False),                            # N2b: a recursive grep of the source tree
+        ("Bash", 'grep -R "x" src', False),
+        ("Read", {"file_path": "/x/.claude/kit/judge.md"}, True),
+        ("Read", {"file_path": "/x/src/shelf.ts"}, False),
+        ("Grep", {"pattern": "ROLE-RULE", "path": "/x"}, True),
+        ("Grep", {"pattern": "x", "path": "/x/.claude"}, True),
+        ("Grep", {"pattern": "slice", "path": "/x/src"}, False),
+    ]
+
+    def js(self, rx, text):
+        code = "const [p,t]=JSON.parse(require('fs').readFileSync(0,'utf8'));process.stdout.write(String(new RegExp(p).test(t)))"
+        return subprocess.run(["node", "-e", code], input=json.dumps([rx, text]), capture_output=True, text=True, check=True).stdout == "true"
+
+    def test_every_case(self):
+        tool = {"Bash": "bash", "Read": "read", "Grep": "grep"}
+        for case in ("code-reviewer-offbyone", "critic-role-rule"):
+            for name, arg, want in self.CASES:
+                g = grader(os.path.join(PLUGIN, case, "graders", f"rule-file-read-by-{tool[name]}.md"))
+                self.assertEqual(g["tool"], name); self.assertEqual(g["min"], "0"); self.assertEqual(g["weight"], "0.001")
+                text = json.dumps({"command": arg} if name == "Bash" else arg, separators=(",", ":"))
+                with self.subTest(case=case, tool=name, arg=str(arg)[:50]):
+                    self.assertEqual(self.js(g["input_match"], text), want)
+
+    def test_both_cases_carry_the_same_patterns(self):
+        for t in ("read", "grep", "bash"):
+            a, b = (grader(os.path.join(PLUGIN, c, "graders", f"rule-file-read-by-{t}.md")) for c in ("code-reviewer-offbyone", "critic-role-rule"))
+            self.assertEqual(a, b)
+
+
+def fixture(votes_by_run, partial=None, flagged_runs=(), no_votes=False, evidence="intro\nF1 HIGH src/shelf.ts:27: slice end\nmore"):
+    runs = []
+    for n, votes in enumerate(votes_by_run, 1):
+        gs = [{"name": "reports-off-by-one", "passed": sum(votes) >= 2, "weight": 1, "explanation": "judge votes", "evidence": evidence}]
+        if not no_votes:
+            gs[0]["judgeVotes"] = votes
+        gs.append({"name": "rule-file-read-by-bash", "passed": True, "weight": 0.001,
+                   "explanation": f"Bash called {1 if n in flagged_runs else 0}x (expected 0..∞)"})
+        runs.append({"graders": gs})
+    d = {"startedAt": "2026-10-22T14:48:17.123Z", "partial": bool(partial), "suite": {"judgeModel": "haiku"},
+         "cases": [{"name": "code-reviewer-offbyone",
+                    "graders": [{"name": "reports-off-by-one", "type": "llm"},
+                                {"name": "names-file-and-line", "type": "regex", "config": {"pattern": r"(?:^|\n)[^\n]*shelf\.ts:\s?2[5-8]\b", "flags": "i"}},
+                                {"name": "rule-file-read-by-bash", "type": "tool_used"}],
+                    "arms": {"with": runs}}]}
+    if partial: d["partialReason"] = partial
+    return d
+
+
+class Record(unittest.TestCase):
+    def setUp(self):
+        self.rec = load_record()
+        self.tmp = tempfile.mkdtemp(prefix="rec-")
+        self.home = os.path.join(self.tmp, "home"); self.json = os.path.join(self.tmp, "evals.json")
+        os.environ["RELAY_HOME"] = self.home
+
+    def tearDown(self):
+        os.environ.pop("RELAY_HOME", None); shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def run_step(self, data, **kw):
+        if data is not None: json.dump(data, open(self.json, "w"))
+        argv = ["--json", self.json, "--repo", "relay", "--branch", "wt/role-bases"]
+        for k, v in kw.items(): argv += [f"--{k}", str(v)]
+        out = io.StringIO()
+        with redirect_stdout(out): code = self.rec.main(argv)
+        return code, out.getvalue()
+
+    def test_a_fresh_file_is_copied_and_old_ones_pruned_to_the_newest_30(self):
+        folder = os.path.join(self.home, "evals", "relay"); os.makedirs(folder)
+        for i in range(30): open(os.path.join(folder, f"2026-01-{i + 1:02d}T00-00-00Z-old.json"), "w").write("{}")
+        code, out = self.run_step(fixture([[True] * 3] * 3))
+        self.assertEqual(code, 0)
+        names = sorted(os.listdir(folder))
+        self.assertEqual(len(names), 30)
+        self.assertNotIn("2026-01-01T00-00-00Z-old.json", names)
+        self.assertIn("2026-10-22T14-48-17Z-wt-role-bases.json", names)
+
+    def test_a_failed_grader_prints_votes_and_the_judged_line_matching_the_code_check(self):
+        _, out = self.run_step(fixture([[True] * 3, [False, False, True], [True] * 3]))
+        self.assertIn("1 meaning grader(s) failed, 1 split vote", out)
+        self.assertIn("FAIL code-reviewer-offbyone run 2 reports-off-by-one: votes FAIL FAIL PASS", out)
+        self.assertIn('judged: "F1 HIGH src/shelf.ts:27: slice end"', out)
+        self.assertIn("record: ", out)
+
+    def test_the_judged_line_is_the_first_200_characters_when_no_line_matches(self):
+        _, out = self.run_step(fixture([[False] * 3], evidence="x" * 300))
+        self.assertIn('judged: "' + "x" * 200 + '"', out); self.assertNotIn("x" * 201, out)
+
+    def test_a_passing_split_vote_is_a_note_and_counted_unanimous_votes_print_nothing(self):
+        _, out = self.run_step(fixture([[True, False, True]]))
+        self.assertIn("0 meaning grader(s) failed, 1 split vote", out)
+        self.assertIn("note: code-reviewer-offbyone run 1 reports-off-by-one passed on a split vote (PASS FAIL PASS)", out)
+        _, quiet = self.run_step(fixture([[True] * 3, [False] * 3]))
+        self.assertNotIn("split vote (", quiet); self.assertIn("0 split votes", quiet)
+
+    def test_a_rule_file_read_is_a_note_naming_the_run(self):
+        _, out = self.run_step(fixture([[True] * 3] * 3, flagged_runs=(2,)))
+        self.assertIn("a session in the run read the rule file in 1 of 3 runs (run 2, Bash), so those runs do not prove the hook delivered it", out)
+
+    def test_no_file_prints_no_record_and_exits_0(self):
+        code, out = self.run_step(None)
+        self.assertEqual(code, 0); self.assertIn("plugin evals wrote no record", out); self.assertFalse(os.path.exists(self.home))
+
+    def test_partial_prints_the_reason_once(self):
+        _, out = self.run_step(fixture([[True] * 3] * 2, partial="cost ceiling reached"))
+        self.assertEqual(out.count("cost ceiling reached"), 1)
+
+    def test_a_grader_without_votes_is_not_judged_never_votes(self):
+        _, out = self.run_step(fixture([[True] * 3], no_votes=True))
+        self.assertIn("not judged (cost ceiling)", out); self.assertNotIn("votes ", out.replace("split votes", "")); self.assertNotIn("FAIL code-reviewer", out)
+
+    def test_a_copy_that_cannot_be_made_exits_1(self):
+        os.makedirs(self.home); open(os.path.join(self.home, "evals"), "w").write("a file where the folder should be")
+        code, out = self.run_step(fixture([[True] * 3]))
+        self.assertEqual(code, 1); self.assertIn("could not store the eval record", out)
+
+
+class CiLines(unittest.TestCase):
+    """T5: the lines of bin/ci that keep a stale or unjudged result from passing for today's."""
+    def setUp(self):
+        self.ci = open(os.path.join(ROOT, "bin", "ci"), encoding="utf-8").read()
+
+    def test_the_eval_command_names_the_judge_model(self):
+        self.assertRegex(self.ci, r'claude plugin eval[^\n]*--judge-model "\$\{EVALS_JUDGE_MODEL:-haiku\}"')
+
+    def test_the_old_results_file_is_removed_before_the_eval_step(self):
+        rm, ev = self.ci.find("rm -f .ci/evals.json"), self.ci.find('step "plugin evals"')
+        self.assertTrue(0 <= rm < ev, "rm -f .ci/evals.json must stand before the plugin evals step")
+
+    def test_the_record_step_is_inside_the_full_mode_branch_only(self):
+        full = self.ci[self.ci.index('if [ "$quick" = 0 ]; then'):self.ci.index('if [ "$status" -ne 0 ]')]
+        self.assertIn("bin/eval-record", full)
+        outside = "\n".join(l for l in self.ci.replace(full, "").split("\n") if not l.lstrip().startswith("#"))
+        self.assertNotIn("bin/eval-record", outside)
+        self.assertLess(full.index('step "plugin evals"'), full.index("bin/eval-record"))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -7,7 +7,9 @@
 #
 # Steps: library tests (python), hook tests (bash), lib copies identical, plugin
 # evals' grader tests, `claude plugin validate` (skipped loudly without claude),
-# plugin evals (full mode only; compared with evals/plugin/baseline).
+# plugin evals (full mode only; compared with evals/plugin/baseline), then the record step
+# (bin/eval-record: files .ci/evals.json under $RELAY_HOME/evals, prints failed meaning graders,
+# split votes and rule-file reads; it never changes the gate's status except when the copy fails).
 set -uo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd -P)"; cd "$root" || exit 1
 export NO_COLOR=1 RELAY_ROOT="$root"
@@ -38,7 +40,9 @@ step "eval grader tests" grader_tests
 step "plugin validate" validate_all
 if [ "$quick" = 0 ]; then
   if command -v claude >/dev/null 2>&1; then
-    step "plugin evals" env root="$root" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none --no-publish --max-cost-usd "${EVALS_MAX_COST:-15}" --json "$root/.ci/evals.json"'
+    rm -f .ci/evals.json   # a leftover file from an earlier run must never be filed or printed as this batch
+    step "plugin evals" env root="$root" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none --judge-model "${EVALS_JUDGE_MODEL:-haiku}" --no-publish --max-cost-usd "${EVALS_MAX_COST:-15}" --json "$root/.ci/evals.json"'
+    python3 bin/eval-record --json .ci/evals.json || { echo "ci: RED (the eval record could not be stored)"; status=1; }
   else
     echo "ci: plugin evals skipped: claude is not on PATH"; status=1
   fi
