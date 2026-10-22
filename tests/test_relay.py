@@ -1043,6 +1043,30 @@ class Agents(unittest.TestCase):
             with open(os.path.join(ROOT, place), encoding="utf-8") as handle:
                 self.assertIn("roles/judge.md", handle.read(), place + " does not name roles/judge.md")
 
+    def test_project_rule_rating_belongs_to_the_judge(self):
+        """A project rule reaches every agent that rates under it: in every judge-base agent the rating is the agent's
+        own (a skill's severities are input), style is a finding when a project rule makes it one, and a finding a
+        project rule raises gets its own reply line with the rule's label; the two judges that run a skill say so."""
+        import glob
+        import re
+        def read(rel):
+            with open(os.path.join(ROOT, rel), encoding="utf-8") as handle:
+                return " ".join(handle.read().split())
+        agents = [p for p in sorted(glob.glob(os.path.join(ROOT, "plugins/*/agents/*.md")))
+                  if "<!-- relay:base judge -->" in open(p, encoding="utf-8").read()]
+        self.assertGreaterEqual(len(agents), 7)
+        for path in agents:
+            text = read(os.path.relpath(path, ROOT))
+            name = os.path.relpath(path, ROOT)
+            self.assertIn("unless a project rule makes it one", text, name)
+            self.assertIn("## The rating is yours", text, name)
+            self.assertIn("carries the rule's label", text, name)
+            self.assertIn("Every finding a project rule raises gets one line too (where, what, the rule's label)", text, name)
+        code = read("plugins/sdd/agents/code-reviewer.md")
+        self.assertIn("The skill runs without the project's rules", code)
+        self.assertIn("in its own reply line even when the skill rated it low", code)
+        self.assertIn("The skill does not see the project's rules", read("plugins/sdd/agents/spec-conformance.md"))
+
     def test_gate_runs_before_the_check_in_every_flow(self):
         """F3/F4/F6/F7: in each flow the order is fix, full gate (a log that starts with `head <sha>`), check; a flow
         with no gate says so; the global texts name relay's path for the judge base; an open finding inside the change

@@ -56,11 +56,19 @@ data, or fails on ordinary use. `MEDIUM` is wrong in a case a person or a
 caller can reach. Both are wrong: inside the change they are fixed before
 the merge, with no deferral. `LOW` is correct today but fragile or unclear:
 fixed in the change when cheap, else listed and dropped. Not a finding:
-style, naming, a cleanup that changes no behaviour. A matter of taste or a
+style, naming, a cleanup that changes no behaviour, unless a project rule
+makes it one. A matter of taste or a
 choice only the owner can make goes under **Questions for the owner**: each
 opens with an introduction (what it is about, how the mechanism works, a live
 example from this change, what each answer changes); the question and its
 options, as what a person would see or get, stay short.
+
+## The rating is yours
+A skill or helper you run (a code-review or verify skill) works without the
+project's rules, so its severities are input, not the verdict. Rate every
+finding again against the project's rules you were given, and add a finding a
+project rule requires that the helper did not report. A finding a project
+rule raises gets the severity that rule sets and carries the rule's label.
 
 ## Inside and outside the change
 A finding is inside when its fix lies in a file the change touched or must
@@ -135,7 +143,9 @@ At most 10 lines, not counting the HIGH lines: the report path; counts by
 severity (in check mode: met, not met, new HIGH, new MEDIUM, and the verdict's
 `open`); the count outside the change; "remaining" when you stop early; then
 what your flow adds below. Then one line per HIGH (where, what goes wrong),
-beyond the 10, so no HIGH is cut.
+beyond the 10, so no HIGH is cut. Every finding a project rule raises gets
+one line too (where, what, the rule's label), beyond the 10 like the HIGH
+lines; other MEDIUM and LOW findings stay in the report file.
 
 One reply: what your flow's `Reply, in addition` names joins this list in
 the same limit; if it gives its own list, that list is the reply (an item
@@ -185,6 +195,10 @@ prompt gives. Run every command from the worktree (`git -C <path>` or
    `high <range>`, and follow it on that range. Never pass `--fix`,
    `--comment` or `--post`, and never the `ultra` level: nothing here edits
    the tree, posts anywhere, or runs in the cloud.
+   The skill runs without the project's rules (it sees `CLAUDE.md` only):
+   its severities are input. Rate each finding again on the rules you were
+   given, and add the findings a project rule requires that it did not
+   report.
 3. You have no Agent tool. Where the skill's recipe calls for helpers, do
    those passes yourself, one after another.
 4. Review the diff, and read the code it touches as far as a finding needs
@@ -192,14 +206,18 @@ prompt gives. Run every command from the worktree (`git -C <path>` or
    coverage and the look are the other reviewers' work: report a bug you see
    there, but don't repeat their checks.
 5. Keep correctness findings. Leave out style, naming, and cleanups that
-   change no behaviour.
+   change no behaviour, unless a project rule makes one a finding.
 
 A finding you could not trace through the code, or confirm with one existing
 test, is PLAUSIBLE, and triage decides it.
 
 ## Reply, in addition
 
-If you find nothing, say so in one line. Don't pad with style comments. The
+A finding under a project rule gives the rule's label and the name it asks
+for (the function, the file), at the severity the rule sets, in its own reply
+line even when the skill rated it low.
+
+If you find nothing, say so in one line. Don't pad with style comments that no project rule asks for. The
 counts you give are confirmed and plausible.
 
 Write the report with `mkdir -p` its directory, then `cat > <path> <<'EOF'`;

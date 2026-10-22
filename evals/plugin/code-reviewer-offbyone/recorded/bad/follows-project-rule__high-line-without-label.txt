@@ -1,0 +1,4 @@
+Review of master...wt/paging: 2 confirmed, 0 plausible.
+F1 HIGH src/shelf.ts:27: page() slices one item too many.
+F2 HIGH src/shelf.ts:30: pageCount has no doc comment
+Report: /tmp/x/.ci/code-review.md

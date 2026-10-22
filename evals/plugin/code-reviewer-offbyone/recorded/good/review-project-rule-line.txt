@@ -1,0 +1,4 @@
+Review of master...wt/paging: 2 confirmed, 0 plausible.
+F1 HIGH src/shelf.ts:27: page() slices to start + size + 1, so every page holds one item too many; page([a,b,c], 0, 2) returns 3 items.
+F2 HIGH DOC-RULE src/shelf.ts:30: the exported function pageCount has no doc comment (the code-review skill rated it low; the project rule makes it high).
+Report: /tmp/x/.ci/code-review.md
