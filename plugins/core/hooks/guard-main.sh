@@ -57,7 +57,10 @@ cwd="$(jq -r '.cwd // empty' <<<"$input")"
 [ -n "$cwd" ] || cwd="$PWD"
 
 # Main checkout = parent of the git common dir, which every worktree shares.
+# A session folder that was deleted (its worktree removed) falls back to cwd; with neither there, refuse.
 anchor="${CLAUDE_PROJECT_DIR:-$cwd}"
+if [ ! -d "$anchor" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then anchor="$cwd"; fi
+[ -d "$anchor" ] || die "the session's folder ${CLAUDE_PROJECT_DIR:-$cwd} no longer exists, so the guard cannot tell the main checkout; start the session again from the main checkout or a worktree"
 common="$(git -C "$anchor" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || exit 0
 main="$(cd "$common/.." && pwd -P)"
 

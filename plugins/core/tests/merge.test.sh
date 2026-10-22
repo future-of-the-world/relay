@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cleanup after the allowed merge (hooks/merge.sh -> merge.py), cases T1-T12, T14 and T18 of
+# Cleanup after the allowed merge (hooks/merge.sh -> merge.py), cases T1-T14, T16, T18-T20 of
 # docs/plans/review-gate.md section 12.1, on throwaway repositories under a temp dir (temp HOME).
 #   plugins/core/tests/merge.test.sh
 set -uo pipefail
@@ -149,5 +149,106 @@ mkdir "$D/.claude"; printf '[project]\ndefault_branch = "develop"\n' >"$D/.claud
 expect "T18 kit.toml default_branch develop: hook cleans up" "$(has 'Removed .worktrees/t' "$out" && [ ! -e "$D/.worktrees/t" ]; echo $?)"
 mkdefault wtb develop; mkdir "$D/.claude"; printf '[project]\ndefault_branch = "wt/x"\n' >"$D/.claude/kit.toml"; dhook
 expect "T18 kit.toml naming wt/x ignored: silent" "$([ -z "$out" ] && [ -d "$D/.worktrees/t" ]; echo $?)"
+
+# ---- B2: guard fallback (T13), session-start sweep (T3 control, T16, T20), SessionEnd (T19) ----
+guard="$here/../hooks/guard-main.sh"
+guard_run() { # <cwd> <command> <CLAUDE_PROJECT_DIR> -> $out, $rc
+  out="$(jq -n --arg cwd "$1" --arg c "$2" '{tool_name:"Bash",cwd:$cwd,tool_input:{command:$c}}' | CLAUDE_PROJECT_DIR="${3-}" "$guard" 2>&1)"; rc=$?
+}
+sweep_hook() { # <cwd> <session_id> -> $out, $ctx, $rc
+  out="$(jq -n --arg cwd "$1" --arg s "$2" '{hook_event_name:"SessionStart",cwd:$cwd,session_id:$s}' | python3 -I "$here/../hooks/merge.py" sweep 2>&1)"; rc=$?
+  ctx="$(jq -r '.hookSpecificOutput.additionalContext // empty' <<<"$out" 2>/dev/null)"
+}
+end_hook() { # <session_id> [cwd]
+  out="$(jq -n --arg cwd "${2:-$M}" --arg s "$1" '{hook_event_name:"SessionEnd",cwd:$cwd,session_id:$s}' | python3 -I "$here/../hooks/merge.py" end 2>&1)"; rc=$?
+}
+wait_for() { # <timeout s> <command...>: poll for the detached child's effect; at most <timeout> seconds
+  local limit=$(( $1 * 10 )) i=0; shift
+  while [ "$i" -lt "$limit" ]; do "$@" && return 0; i=$((i + 1)); python3 -c 'import time; time.sleep(0.1)'; done; return 1
+}
+absent() { [ ! -e "$1" ]; }
+nobranch() { ! git -C "$M" show-ref --verify --quiet "refs/heads/$1"; }
+
+# T13: a deleted CLAUDE_PROJECT_DIR falls back to cwd (main): `touch a` is refused; before, it was allowed
+mkrepo; guard_run "$M" "touch a" "$tmp/deleted-folder"
+expect "T13 deleted CLAUDE_PROJECT_DIR, cwd = main: touch refused" "$([ "$rc" -eq 2 ]; echo $?)"
+guard_run "$W" "touch a" "$tmp/deleted-folder"
+expect "T13 control: cwd a worktree: the same fallback allows the write" "$([ "$rc" -eq 0 ]; echo $?)"
+guard_run "$tmp/none-1" "touch a" "$tmp/none-2"
+expect "T13 neither folder exists: refused, names the folder" "$([ "$rc" -eq 2 ] && has "$tmp/none-2 no longer exists" "$out"; echo $?)"
+mkdir "$tmp/norepo"; guard_run "$tmp/norepo" "touch a" ""
+expect "T13 outside any repository: allowed" "$([ "$rc" -eq 0 ]; echo $?)"
+
+# T3 control (sweep): no .relay/ -> silent and kept; once the folder is committed the same sweep removes
+mkrepo norelay; git -C "$M" merge -q --ff-only wt/t; sweep_hook "$M" s0
+expect "T3 sweep, no .relay/: silent, kept" "$([ -z "$out" ] && [ "$rc" -eq 0 ] && [ -d "$W" ]; echo $?)"
+( cd "$M" && mkdir .relay && echo x >.relay/README.md && git add .relay && git commit -q -m relay )
+sweep_hook "$M" s0
+expect "T3 sweep with .relay/: line 'Removing 1 merged worktree: .worktrees/t (wt/t)'" "$(has 'Removing 1 merged worktree: .worktrees/t (wt/t)' "$ctx"; echo $?)"
+expect "T3 sweep with .relay/: removed (detached child)" "$(wait_for 10 absent "$W"; echo $?)"
+
+# T16: one merged, one unmerged, the session's own merged, one merged and locked by another session
+mkrepo
+for x in u own locked; do
+  git -C "$M" worktree add -q .worktrees/$x -b wt/$x; ( cd "$M/.worktrees/$x" && echo $x >$x.txt && git add $x.txt && git commit -q -m $x )
+done
+git -C "$M" merge -q --ff-only wt/t; git -C "$M" merge -q --no-edit wt/own; git -C "$M" merge -q --no-edit wt/locked
+git -C "$M" worktree lock --reason "session s9" "$M/.worktrees/locked"
+sweep_hook "$M/.worktrees/own" s1
+expect "T16 line names only .worktrees/t" "$([ "$ctx" = "Removing 1 merged worktree: .worktrees/t (wt/t)" ]; echo $?)"
+expect "T16 the merged one is removed" "$(wait_for 10 absent "$W"; echo $?)"
+expect "T16 its branch is gone" "$(wait_for 10 nobranch wt/t; echo $?)"
+expect "T16 unmerged, own and locked-by-s9 kept" "$([ -d "$M/.worktrees/u" ] && [ -d "$M/.worktrees/own" ] && [ -d "$M/.worktrees/locked" ]; echo $?)"
+expect "T16 s9's lock still there" "$(git -C "$M" worktree list --porcelain | grep -qx 'locked session s9'; echo $?)"
+
+# T16b: locked with this very session's id: started inside it, kept and still locked; started elsewhere, removed
+mkrepo; git -C "$M" merge -q --ff-only wt/t; git -C "$M" worktree lock --reason "session s1" "$W"
+sweep_hook "$W" s1
+expect "T16b started inside its own locked worktree: kept, still locked" "$([ -d "$W" ] && git -C "$M" worktree list --porcelain | grep -qx 'locked session s1'; echo $?)"
+sweep_hook "$M" s1
+expect "T16b same session started elsewhere: unlocked and removed" "$(wait_for 10 absent "$W"; echo $?)"
+
+# T19: SessionEnd for s1 after T4: unlocked and removed; a worktree locked by s9 kept
+mkrepo; git -C "$M" worktree add -q .worktrees/o -b wt/o; ( cd "$M/.worktrees/o" && echo o >o.txt && git add o.txt && git commit -q -m o )
+git -C "$M" merge -q --ff-only wt/t; git -C "$M" merge -q --no-edit wt/o
+run_hook "git -C $M merge --ff-only wt/t" "$W" s1; git -C "$M" worktree lock --reason "session s9" "$M/.worktrees/o"
+expect "T19 before: locked by s1" "$(git -C "$M" worktree list --porcelain | grep -qx 'locked session s1'; echo $?)"
+end_hook s1 "$W"
+expect "T19 s1's worktree removed" "$(wait_for 10 absent "$W"; echo $?)"
+expect "T19 s9's worktree kept and locked" "$([ -d "$M/.worktrees/o" ] && git -C "$M" worktree list --porcelain | grep -qx 'locked session s9'; echo $?)"
+
+# T20: a removal slowed past 5 s (a git wrapper) still completes; the next sweep is quiet. A failing one is named next time.
+realgit="$(command -v git)"; wrap="$tmp/wrap"; mkdir -p "$wrap"
+cat >"$wrap/git" <<WRAPEOF
+#!/usr/bin/env bash
+case " \$* " in *" worktree remove "*) case "\${WRAP_MODE:-}" in slow) sleep 7 ;; fail) echo "fatal: simulated refusal" >&2; exit 1 ;; esac ;; esac
+exec "$realgit" "\$@"
+WRAPEOF
+chmod +x "$wrap/git"
+mkrepo; git -C "$M" merge -q --ff-only wt/t
+# the hook runs in its own process group, which is killed (as the 5 s timeout would) once the hook has returned
+cat >"$tmp/cut.py" <<'CUTEOF'
+import json, os, signal, subprocess, sys
+p = subprocess.Popen([sys.executable, "-I", sys.argv[1], "sweep"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, start_new_session=True)
+out, _ = p.communicate(json.dumps({"hook_event_name": "SessionStart", "cwd": sys.argv[2], "session_id": "s0"}))
+try:
+    os.killpg(p.pid, signal.SIGKILL)
+except OSError:
+    pass
+print(out)
+CUTEOF
+( export PATH="$wrap:$PATH" WRAP_MODE=slow; python3 -I "$tmp/cut.py" "$here/../hooks/merge.py" "$M" | jq -r '.hookSpecificOutput.additionalContext // empty' >"$tmp/t20.ctx" )
+expect "T20 slow: the sweep returns while the folder is still there" "$([ -d "$W" ] && has 'Removing 1 merged worktree' "$(cat "$tmp/t20.ctx")"; echo $?)"
+expect "T20 slow: the removal still completes (folder and branch)" "$(wait_for 20 absent "$W" && wait_for 20 nobranch wt/t; echo $?)"
+sweep_hook "$M" s0
+expect "T20 slow: the next sweep prints no failure" "$([ -z "$out" ]; echo $?)"
+mkrepo; git -C "$M" merge -q --ff-only wt/t
+( export PATH="$wrap:$PATH" WRAP_MODE=fail; sweep_hook "$M" s0 )
+cleanlog="$(git -C "$M" rev-parse --path-format=absolute --git-common-dir)/relay-cleanup.log"
+wait_for 10 test -s "$cleanlog"
+sweep_hook "$M" s0
+expect "T20 failing: the next sweep names the failure from the log" "$(has 'could not remove .worktrees/t: simulated refusal' "$ctx"; echo $?)"
+sweep_hook "$M" s0
+expect "T20 failing: the failure is named once (log cleared)" "$(has 'simulated refusal' "$ctx"; [ $? -ne 0 ]; echo $?)"
 
 echo; [ "$fails" -eq 0 ] && echo "merge.test: all passed" || { echo "merge.test: $fails failed"; exit 1; }

@@ -21,6 +21,38 @@
         ]
       }
     ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "-I",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/merge.py",
+              "sweep"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "-I",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/merge.py",
+              "end"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "SubagentStart": [
       {
         "hooks": [
@@ -75,5 +107,5 @@
       }
     ]
   },
-  "description": "Main-checkout guard, project additions injected into shared roles, the flow stage hook, and the cleanup after a merge."
+  "description": "Main-checkout guard, project additions injected into shared roles, the flow stage hook, the cleanup after a merge, and the sweep at session start and end."
 }

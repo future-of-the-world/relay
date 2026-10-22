@@ -4,6 +4,9 @@
     merge.py     the hook JSON on stdin; `hook_event_name` picks the work:
                  PreToolUse = the merge gate (part B5; nothing yet),
                  PostToolUse = the cleanup after `git merge --ff-only wt/<name>`.
+    merge.py sweep   SessionStart (section 11.3): removes the merged worktrees no session needs.
+    merge.py end     SessionEnd: unlocks this session's worktrees and removes the merged ones.
+    merge.py remove <path> <branch>   the detached child both start for guards 6-7.
 
 Only in a repository whose default branch has `.relay/`; elsewhere it exits 0 and prints nothing.
 Cleanup checks git itself, never the tool's exit status, and never forces: no `worktree remove
@@ -11,6 +14,7 @@ Cleanup checks git itself, never the tool's exit status, and never forces: no `w
 """
 import json
 import os
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -134,7 +138,153 @@ def post(hook):
     return 0
 
 
+# ---- section 11.3: session start sweep, session end, and the detached removal ----
+
+LOG_NAME = "relay-cleanup.log"
+
+
+def log_file(main):
+    rc, common = relay_git.git(main, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    return os.path.join(common, LOG_NAME) if rc == 0 and common else None
+
+
+def log_line(main, text):
+    path = log_file(main)
+    if path:
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(text + "\n")
+
+
+def last_line(text):
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    line = lines[-1] if lines else "git gave no reason"
+    return line[len("fatal: "):] if line.startswith("fatal: ") else line
+
+
+def take_failures(main):
+    """Failure lines the detached removals logged; the log is cleared (renamed first, so a late append is not lost)."""
+    path = log_file(main)
+    if not path or not os.path.isfile(path):
+        return []
+    mine = path + ".read"
+    try:
+        os.replace(path, mine)
+        with open(mine, encoding="utf-8") as handle:
+            lines = handle.read().splitlines()
+        os.remove(mine)
+    except OSError:
+        return []
+    return [l for l in lines if l.startswith("could not remove")]
+
+
+def remove_child(path, branch):
+    """Guards 6-7 for one merged worktree, run detached: `git worktree remove` (never --force), then `git branch -d`."""
+    main = relay_git.main_checkout(path)
+    if main is None:
+        return 1
+    name = rel(main, path)
+    done = subprocess.run(["git", "-C", main, "worktree", "remove", path], capture_output=True, text=True)
+    if done.returncode != 0:
+        log_line(main, "could not remove %s: %s" % (name, last_line(done.stderr)))
+        return 1
+    done = subprocess.run(["git", "-C", main, "branch", "-d", branch], capture_output=True, text=True)
+    if done.returncode != 0:
+        log_line(main, "could not remove branch %s: %s" % (branch, last_line(done.stderr)))
+        return 1
+    log_line(main, "removed %s and branch %s" % (name, branch))
+    return 0
+
+
+def spawn_remove(path, branch):
+    """Start the removal in a new process session, so the hook's own timeout cannot kill it halfway."""
+    subprocess.Popen([sys.executable, "-I", os.path.realpath(__file__), "remove", path, branch],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def task_worktrees(main):
+    """Worktrees of task branches (`wt/<name>`, not queue branches); never the main checkout."""
+    return [w for w in relay_git.worktrees(main)
+            if w["path"] != main and w["branch"] and w["branch"].startswith("wt/") and not w["branch"].startswith("wt/queue-")]
+
+
+def is_clean(path):
+    rc, status = relay_git.git(path, "status", "--porcelain", raw=True)
+    return rc == 0 and not [l for l in status.splitlines() if not l.startswith("!! ")]
+
+
+def removable(main, default, tree):
+    """Guards 2, 3 and 6 (changes): merged, with commits of its own, nothing changed or untracked."""
+    branch = tree["branch"]
+    return (relay_git.git(main, "merge-base", "--is-ancestor", "refs/heads/" + branch, "refs/heads/" + default)[0] == 0
+            and has_own_commits(main, branch) and is_clean(tree["path"]))
+
+
+def repo_of(hook):
+    """(main checkout, default branch) of the session's folder, or None where the hard rules do not act."""
+    for candidate in (hook.get("cwd"), os.environ.get("CLAUDE_PROJECT_DIR")):
+        if candidate and os.path.isdir(candidate):
+            main = relay_git.main_checkout(candidate)
+            default = relay_git.default_branch(main) if main else None
+            if main and default and relay_git.has_relay(main):
+                return main, default
+            return None
+    return None
+
+
+def say(event, lines):
+    if lines:
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": "\n".join(lines)}}))
+
+
+def sweep(hook):
+    found = repo_of(hook)
+    if found is None:
+        return 0
+    main, default = found
+    sid = hook.get("session_id") or "unknown"
+    here = [os.path.realpath(p) for p in (hook.get("cwd"), os.environ.get("CLAUDE_PROJECT_DIR")) if p]
+    lines = take_failures(main)
+    going = []
+    for tree in task_worktrees(main):
+        path = tree["path"]
+        mine = tree["locked"] == "session " + sid
+        if tree["locked"] is not None and not mine:
+            continue                                  # another session's lock, or a person's: never removed
+        if any(under(p, path) for p in here):
+            continue                                  # the session starts in it (a lock of its own stays too)
+        if not removable(main, default, tree):
+            continue
+        if mine and relay_git.git(main, "worktree", "unlock", path)[0] != 0:
+            continue
+        going.append((path, tree["branch"]))
+    for path, branch in going:
+        spawn_remove(path, branch)
+    if going:
+        lines.append("Removing %d merged worktree%s: %s" % (
+            len(going), "" if len(going) == 1 else "s", ", ".join("%s (%s)" % (rel(main, p), b) for p, b in going)))
+    say("SessionStart", lines)
+    return 0
+
+
+def end(hook):
+    found = repo_of(hook)
+    sid = hook.get("session_id")
+    if found is None or not sid:
+        return 0
+    main, default = found
+    for tree in task_worktrees(main):
+        if tree["locked"] != "session " + sid:
+            continue
+        if relay_git.git(main, "worktree", "unlock", tree["path"])[0] != 0:
+            continue
+        if removable(main, default, tree):
+            spawn_remove(tree["path"], tree["branch"])
+    return 0
+
+
 def main():
+    if len(sys.argv) == 4 and sys.argv[1] == "remove":
+        return remove_child(sys.argv[2], sys.argv[3])
     try:
         hook = json.loads(sys.stdin.read() or "{}")
     except ValueError:
@@ -142,6 +292,10 @@ def main():
     if not isinstance(hook, dict):
         return 0
     event = hook.get("hook_event_name")
+    if len(sys.argv) == 2 and sys.argv[1] == "sweep":
+        return sweep(hook)
+    if len(sys.argv) == 2 and sys.argv[1] == "end":
+        return end(hook)
     if event == "PostToolUse" and hook.get("tool_name") == "Bash":
         return post(hook)
     return 0     # PreToolUse: the merge gate is part B5
