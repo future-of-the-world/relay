@@ -396,6 +396,11 @@ expect "T15l gate log of F, HEAD = F + gate + mark + handover: allowed" "$(allow
 # (m) only a red gate log
 m15; commit "fix a" "lib/a.py=v2\n"; G="$(head_of)"; X="$G"; gate 1; mark 0; pre "$MERGE"
 expect "T15m red gate log: refused, last gate exit 1" "$(refused "last gate $G: exit 1"; echo $?)"
+# (m2) F2: green on G, then red on the same code (a flaky failure): the newest gate on unchanged code decides; green again allows
+m15; commit "fix a" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 0; G2="$(head_of)"; gate 1; pre "$MERGE"
+expect "T15m2 green then red on the same code: refused, names the red log" "$(refused "last gate $G2: exit 1"; echo $?)"
+gate 0; pre "$MERGE"
+expect "T15m2 green again after the red, same code: allowed" "$(allowed; echo $?)"
 # (n) m-1: a fix item moved to done/ without a test; then with the test
 m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json
 commit "fix a, close x" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
