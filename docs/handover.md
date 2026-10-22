@@ -632,3 +632,4 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
   Runner ran out of turns again (queue: runner turn limit when waiting).
   Check of 7fbed11 (README) running; then the owner's word on merging
   wt/role-bases.
+- Check of 7fbed11 (check-readme-cost.md): met, 0 HIGH/MEDIUM, 3 LOW (queue: sonnet figures come from two runs; $10 ceiling worst case ~$13). Waiting for the owner's word on merging wt/role-bases.
