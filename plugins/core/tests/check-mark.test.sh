@@ -222,6 +222,9 @@ g allow "G6 grep -rn" Bash "$GW" command "grep -rn \".relay/checks\" plugins/cor
 g allow "G6 cat a stored review" Bash "$GW" command "cat .relay/checks/x.review.json"
 g allow "G6 jq .verdict" Bash "$GW" command "jq .verdict .relay/checks/X.json"
 g allow "G6 inline python that only reads" Bash "$GW" command "python3 -c \"import json;print(json.load(open('.relay/checks/X.json'))['verdict'])\""
+g allow "G6 F8 inline python that reads and compares with >" Bash "$GW" command "python3 -c \"import json; print(json.load(open('.relay/checks/a.json'))['verdict']['open'] > 0)\""
+g allow "G6 F8 inline python that reads and prints with sys.stdout.write" Bash "$GW" command "python3 -c \"import sys; sys.stdout.write(open('.relay/checks/a.json').read())\""
+g block "G3 F8 shutil.rmtree of .relay/checks" Bash "$GW" command "python3 -c \"import shutil; shutil.rmtree('.relay/checks')\""
 g allow "G6 a heredoc into the scratchpad whose body names .relay/checks" Bash "$GW" command "cat >> $tmp/scratch/r.md <<'EOF'
 the findings live in .relay/checks/x.review.md
 EOF"
