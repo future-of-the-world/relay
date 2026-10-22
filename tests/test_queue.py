@@ -316,17 +316,37 @@ class TestSchema(Base):
         self.assertEqual(git(self.main, "rev-parse", "master"), before)
 
 
+def committed_items(repo):
+    """{file name: text} of the .relay/queue items as committed. The queue folder is inert (bin/ci's inert probe appends a
+    line to every item and commits it as "inert probe"), so the items are read from git, from the commit before such a probe
+    commit, never from the checkout: the outcome of the tests must not depend on inert files. With no git, the checkout."""
+    ref = "HEAD"
+    if git(repo, "log", "-1", "--format=%s", "HEAD", check=False) == "inert probe":
+        ref = "HEAD^"
+    names = git(repo, "ls-tree", "--name-only", ref, ".relay/queue/", check=False).split("\n")
+    if names == [""]:
+        folder = os.path.join(repo, ".relay", "queue")
+        return {n: open(os.path.join(folder, n), encoding="utf-8").read() for n in sorted(os.listdir(folder)) if n.endswith(".json")}
+    return {os.path.basename(n): git(repo, "show", "%s:%s" % (ref, n)) + "\n" for n in sorted(names) if n.endswith(".json")}
+
+
 class TestFormat(Base):
     def test_round_trip_is_byte_identical_for_every_seed_item(self):
-        folder = os.path.join(ROOT, ".relay", "queue")
-        names = sorted(n for n in os.listdir(folder) if n.endswith(".json"))
-        self.assertGreaterEqual(len(names), 22)
-        for name in names:
-            with open(os.path.join(folder, name), encoding="utf-8") as handle:
-                text = handle.read()
+        items = committed_items(ROOT)
+        self.assertGreaterEqual(len(items), 22)
+        for name, text in items.items():
             item = rq.parse(name[:-5], text)
             self.assertEqual(item["problems"], [], name)
             self.assertEqual(rq.serialize(name[:-5], item), text, name)
+
+    def test_the_seed_items_are_read_from_before_the_inert_probe_commit(self):
+        # the probe appends a line to every item and commits it: the committed items before it are what counts
+        repo = self.repo("probe", items={"x": fix_item("Long one")})
+        good = open(os.path.join(repo, ".relay", "queue", "x.json"), encoding="utf-8").read()
+        with open(os.path.join(repo, ".relay", "queue", "x.json"), "a", encoding="utf-8") as handle:
+            handle.write("inert probe line\n")
+        git(repo, "commit", "-aqm", "inert probe")
+        self.assertEqual(committed_items(repo), {"x.json": good})
 
     def test_the_file_form_is_indent_2_fixed_order_utf8_and_lines_as_arrays(self):
         item = rq.new_item("fix", 3, 5, "2026-10-01", "t", "Caf\u00e9 breaks", "first\nsecond", "why", failing="a\nb")
