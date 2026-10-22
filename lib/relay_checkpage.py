@@ -124,25 +124,32 @@ def build(repo, branch):
     statuses = statuses_of(check)
     inside = [finding_view(f, relay_verdict.owner_of(r, f["id"])) for r in review_set["reviews"] for f in r["findings"] if f["kind"] in ("inside", "design", "feature")]
     outside = [finding_view(f, relay_verdict.owner_of(r, f["id"])) for r in review_set["reviews"] for f in r["findings"] if f["kind"] == "outside"]
+    new = [finding_view(f) for f in check["new"]]
+    questions = [finding_view(f, relay_verdict.owner_of(r, f["id"])) for r in review_set["reviews"] for f in r["findings"] if f["kind"] == "question"]
     title_line = branch
 
     gate = relay_marks.newest(repo, ref, relay_marks.gate_logs(repo, ref))
     if gate is None:
         free = "none yet"
     elif gate[1] == 0:
-        free = "green (gate of %s)" % date_of(repo, gate[0])
+        stale = relay_inert.changed(repo, gate[0], ref)           # code changed after the gate: the merge refuses (step 6)
+        free = "green, but code changed since (gate of %s)" % date_of(repo, gate[0]) if stale else "green (gate of %s)" % date_of(repo, gate[0])
     else:
         free = "red (gate of %s, exit %d)" % (date_of(repo, gate[0]), gate[1])
     met = sum(1 for f in inside if statuses.get(f["id"], "").startswith("MET"))
-    done = "all fixed and checked" if inside and met == len(inside) else "%d fixed and checked" % met
+    all_met = inside and met == len(inside) and not new and data["verdict"]["open"] == 0
+    done = "all fixed and checked" if all_met else "%d fixed and checked" % met
     review_part = "%d found inside the change, %s" % (len(inside), done) if inside else "nothing found inside the change"
+    if new:
+        review_part += ", %d new in the check" % len(new)
     queued = sum(1 for f in outside if queue_slug(repo, default, f))
     verdict = "Free checks: %s. Review: %s; %d outside, %s. Open: %d." % (
         free, review_part, len(outside), "none queued" if not queued else "%d queued" % queued, data["verdict"]["open"])
-    bad = data["verdict"]["open"] != 0 or gate is None or gate[1] != 0
+    bad = data["verdict"]["open"] != 0 or gate is None or gate[1] != 0 or free.startswith("green, but")
 
     budget, hidden, body = PAGE_MAX_LINES, 0, []
-    for heading, group, is_outside in (("Inside the change", inside, False), ("Outside this change", outside, True)):
+    for heading, group, is_outside in (("Inside the change", inside, False), ("New in the check", new, False),
+                                       ("Questions for the owner", questions, False), ("Outside this change", outside, True)):
         if not group:
             continue
         body.append("<h2>%s</h2>" % heading)
@@ -154,7 +161,8 @@ def build(repo, branch):
                 continue
             budget -= need
             slug = queue_slug(repo, default, finding) if is_outside else None
-            body.append(render_finding(finding, statuses.get(finding["id"], "not checked"), shown, slug, is_outside))
+            status = {"New in the check": "new in the check", "Questions for the owner": "question"}.get(heading) or statuses.get(finding["id"], "not checked")
+            body.append(render_finding(finding, status, shown, slug, is_outside))
     if hidden:
         body.append("<p>%d more finding%s in .relay/checks/%s</p>" % (hidden, "" if hidden == 1 else "s", e(review_name)))
 

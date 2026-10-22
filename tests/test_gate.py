@@ -228,7 +228,7 @@ def finding(fid, path, line, severity, summary, case, kind="inside"):
 class Page(Fixture):
     """P1 and P2 (design 12.4): `relay check page` writes one HTML file from the stored checks."""
 
-    def stored(self, findings, source_lines=100, opened=1, queue_line=None):
+    def stored(self, findings, source_lines=100, opened=1, queue_line=None, new=(), code_after=False):
         """A branch with src/a.py (line 10 holds `if a < b and c & d:`), a green gate log, a review set made of `findings`
         (finding dicts), a check with F1 MET tests/t.py:5 / F2 NOT MET no test, and the mark; returns the reviewed sha."""
         self.repo()
@@ -244,7 +244,7 @@ class Page(Fixture):
         review = {"schema": 1, "type": "review", "reviewed": reviewed, "base": "master", "findings": findings, "file": "findings.json"}
         check = {"schema": 1, "type": "check", "head": reviewed, "reviewed": reviewed, "gate": None, "review": [reviewed + ".review.json"],
                  "findings": [{"id": "F1", "verdict": "MET", "reason": ["tests/t.py:5"]}, {"id": "F2", "verdict": "NOT MET", "reason": ["no test"]}],
-                 "new": [], "open": opened, "queued": 0}
+                 "new": list(new), "open": opened, "queued": 0}
         mark = {"schema": 1, "commit": reviewed, "verdict": {"open": opened, "queued": 0, "reviewed": reviewed},
                 "review": reviewed + ".review.json", "check": reviewed + ".check.json", "gate": None, "time": "2026-10-22T10:00:00Z"}
         relay_marks.put(self.wt, reviewed, mark, {
@@ -256,6 +256,10 @@ class Page(Fixture):
             write(os.path.join(self.main, ".relay", "queue", "foo.json"), relay_queue.serialize("foo", item))
             git(self.main, "add", "-A")
             git(self.main, "commit", "-q", "-m", "queue foo")
+        if code_after:                      # a code commit after the gate and the mark, with no new gate
+            write(os.path.join(self.wt, "lib", "later.py"), "later\n")
+            git(self.wt, "add", "-A")
+            git(self.wt, "commit", "-q", "-m", "code after the gate")
         return reviewed
 
     def page(self, *extra):
@@ -295,6 +299,43 @@ class Page(Fixture):
         written, _ = self.page("-o", target)
         self.assertEqual(written, target)
         self.assertTrue(os.path.exists(target))
+
+    def test_f3_page_shows_the_checks_new_findings_and_the_questions(self):
+        """F3: a mark with open 1 whose check has a new inside HIGH F9 and every review finding MET, and a question finding:
+        the page shows F9's linter line and case, the question under its heading, and never says 'all fixed' next to it."""
+        review = [finding("F1", "src/a.py", 10, "HIGH", "first", "x."), finding("F2", "src/a.py", 20, "MEDIUM", "second", "y."),
+                  finding("F3", "src/a.py", 30, "LOW", "which way", "z.", kind="question")]
+        new = [finding("F9", "src/a.py", 40, "HIGH", "a break the fix caused", "w gives 0.")]
+        self.stored(review, new=new)
+        _, page = self.page()
+        self.assertIn("<h2>New in the check</h2>", page)
+        self.assertIn("src/a.py:40: HIGH: F9 a break the fix caused", page)
+        self.assertIn("w gives 0.", page)
+        self.assertIn("<h2>Questions for the owner</h2>", page)
+        self.assertIn("src/a.py:30: LOW: F3 which way", page)
+        self.assertIn("1 new in the check", page)
+        self.assertNotIn("all fixed and checked", page)
+
+    def test_f3_a_clean_check_still_says_all_fixed_and_checked(self):
+        # one inside finding F1, MET in the fixture check, open 0, no new: the verdict as before
+        self.stored([finding("F1", "src/a.py", 10, "HIGH", "first", "x.")], opened=0)
+        _, page = self.page()
+        self.assertIn("1 found inside the change, all fixed and checked; 0 outside, none queued. Open: 0.", page)
+        self.assertNotIn("New in the check", page)
+
+    def test_f10_the_page_does_not_say_plain_green_when_code_changed_after_the_gate(self):
+        self.stored([finding("F1", "src/a.py", 10, "HIGH", "first", "x.")], opened=0, code_after=True)
+        _, page = self.page()
+        self.assertIn("Free checks: green, but code changed since (gate of ", page)
+        self.assertIn('class="verdict bad"', page)
+
+    def test_f10_an_inert_commit_after_the_gate_is_still_plain_green(self):
+        self.stored([finding("F1", "src/a.py", 10, "HIGH", "first", "x.")], opened=0)
+        write(os.path.join(self.wt, "docs", "handover.md"), "state\n")
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "handover")
+        _, page = self.page()
+        self.assertIn("Free checks: green (gate of ", page)
 
     def test_p2_page_is_cut_at_page_max_lines(self):
         """P2: 75 findings of 8 content lines each (linter, status, five code lines, failing case) = 600 lines. By hand:
