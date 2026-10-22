@@ -118,13 +118,14 @@ class TestOrderAndParse(Base):
         done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "queue", "-C", repo],
                               capture_output=True, text=True, env=dict(os.environ, RELAY_ROOT=ROOT))
         self.assertEqual(done.returncode, 0, done.stderr)
-        slugs = [line.split()[0] for line in done.stdout.strip().split("\n")]
-        self.assertEqual(slugs, ["high", "low"])
+        lines = done.stdout.strip().split("\n")
+        self.assertEqual(lines[0].split(), ["slug", "kind", "ip", "time", "title"])   # the header names the columns
+        self.assertEqual([line.split()[0] for line in lines[1:]], ["high", "low"])
 
     def test_q2_fix_without_failing_case_refused_and_shown_malformed(self):
         before = git(self.main, "rev-parse", "master")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.add(self.main, "fix", "No case", why="w", size=5, **QUIET)
+            rq.add(self.main, "fix", "No case", why="w", minutes=5, **QUIET)
         self.assertIn("Failing case", str(ctx.exception))
         self.assertEqual(git(self.main, "rev-parse", "master"), before)       # nothing was written
         bad = rq.render("fix", 10, 5, "2026-10-01, t", "Bad", "What is wrong: x")
@@ -145,7 +146,7 @@ class TestOrderAndParse(Base):
         message = rq.add_from(self.main, report, "F7", today="2026-10-22", **QUIET)
         self.assertIn("queued a-merge-commit-lists-master-s-files (fix, ip 1)", message)
         item = self.item("a-merge-commit-lists-master-s-files")
-        self.assertEqual((item["kind"], item["state"], item["ip"], item["size"]), ("fix", "open", 1, 25))
+        self.assertEqual((item["kind"], item["state"], item["ip"], item["time"]), ("fix", "open", 1, 25))
         self.assertEqual(item["found"], "2026-10-22, finding F7 of review.md")
         self.assertEqual(item["where"], "lib/relay_inert.py:51")
         self.assertIn("lib/relay_inert.py:51: MEDIUM: F7 a merge commit lists master's files", item["body"])   # the linter line, verbatim
@@ -156,17 +157,17 @@ class TestOrderAndParse(Base):
             rq.add_from(self.main, report, "F9", **QUIET)
 
     def test_q4_count_ignores_done_taken_and_other_branches(self):
-        # open: one fix (ip 80, 30 min), one feature; ignored: a done item, a taken one, an item only on a branch
+        # open: one fix (ip 80, time 30m), one feature; ignored: a done item, a taken one, an item only on a branch
         repo = self.repo("c", items={"f1": fix_item(ip=80, size=30), "ft": feature_item(ip=3),
                                      "tk": rq.set_fields(fix_item(ip=99), state="taken", taken_by="wt/z")})
         self.write_commit(repo, {".relay/queue/done/old.md": rq.set_fields(fix_item(ip=95), state="done")}, "done item")
         git(repo, "checkout", "-q", "-b", "wt/side")
         self.write_commit(repo, {".relay/queue/side.md": fix_item(ip=100)}, "only on a branch")
         git(repo, "checkout", "-q", "master")
-        self.assertEqual(rq.count_text(rq.read_queue(repo)), "1 fix, 1 feature; top: f1 (fix, ip 80, 30 min)")
+        self.assertEqual(rq.count_text(rq.read_queue(repo)), "1 fix, 1 feature; top: f1 (fix, ip 80, time 30m)")
         done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "queue", "count", "-C", repo],
                               capture_output=True, text=True, env=dict(os.environ, RELAY_ROOT=ROOT))
-        self.assertEqual(done.stdout.strip(), "1 fix, 1 feature; top: f1 (fix, ip 80, 30 min)")
+        self.assertEqual(done.stdout.strip(), "1 fix, 1 feature; top: f1 (fix, ip 80, time 30m)")
 
     def test_q5_session_line_from_a_worktree_and_nothing_without_queue(self):
         hook = os.path.join(ROOT, "plugins", "front", "hooks", "handover.py")
@@ -179,7 +180,7 @@ class TestOrderAndParse(Base):
         repo = self.repo("q5", items={"top": fix_item(ip=95, size=30), "ft": feature_item(ip=1)})
         wt = os.path.join(self.tmp, "q5wt")
         git(repo, "worktree", "add", "-q", "-b", "wt/q5wt", wt)
-        want = "Queue: 1 fix, 1 feature; top: top (fix, ip 95, 30 min). relay queue lists them."
+        want = "Queue: 1 fix, 1 feature; top: top (fix, ip 95, time 30m). relay queue lists them."
         out = run(wt)
         self.assertIn(want, out["hookSpecificOutput"]["additionalContext"])
         self.assertEqual(out["systemMessage"], want)
@@ -193,13 +194,48 @@ class TestOrderAndParse(Base):
         # open features 40 and 70; a taken feature at 90 does not count; so a fix gets 71, a feature 0
         repo = self.repo("q8", items={"fa": feature_item(ip=40), "fb": feature_item(ip=70),
                                       "fc": rq.set_fields(feature_item(ip=90), state="taken", taken_by="wt/z")})
-        rq.add(repo, "fix", "New fix", why="w", failing="f", size=5, **QUIET)
+        rq.add(repo, "fix", "New fix", why="w", failing="f", minutes=5, **QUIET)
         self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-fix.md"))["ip"], 71)
-        rq.add(repo, "feature", "New feature", why="w", size=5, **QUIET)
+        rq.add(repo, "feature", "New feature", why="w", minutes=5, **QUIET)
         self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-feature.md"))["ip"], 0)
         bare = self.repo("q8b")
-        rq.add(bare, "fix", "First", why="w", failing="f", size=5, **QUIET)
+        rq.add(bare, "fix", "First", why="w", failing="f", minutes=5, **QUIET)
         self.assertEqual(rq.parse("n", git(bare, "show", "master:.relay/queue/first.md"))["ip"], 1)   # no open feature: 1 + 0
+
+
+class TestTime(Base):
+    def test_t1_format_time(self):
+        # under an hour: minutes; whole hours: Nh; otherwise "Nh Mm" (125 = 2 h 5 min)
+        for minutes, want in [(0, "0m"), (5, "5m"), (59, "59m"), (60, "1h"), (90, "1h 30m"), (120, "2h"), (125, "2h 5m")]:
+            self.assertEqual(rq.format_time(minutes), want)
+
+    def test_t2_parse_time_accepts_the_forms(self):
+        for text, want in [("20m", 20), ("1h", 60), ("1h30m", 90), ("45", 45), ("0", 0), ("2h", 120), ("1h 30m", 90), ("2h5m", 125)]:
+            self.assertEqual(rq.parse_time(text), want)
+
+    def test_t3_parse_time_refuses_the_rest(self):
+        for text in ["", "abc", "1.5h", "-5", "30 min", "m", "h", "30m1h", "1h  30m"]:
+            with self.assertRaises(rq.Refused) as ctx:
+                rq.parse_time(text)
+            self.assertIn("1h30m", str(ctx.exception))             # the message shows the accepted forms
+
+    def test_t5_columns_align_with_wide_times(self):
+        repo = self.repo("align", items={"a": fix_item("A", ip=90, size=90), "bb": feature_item("B", ip=5, size=20)})
+        lines = rq.list_lines(rq.read_queue(repo), header=True)
+        # slugs "a"/"bb" pad to 2, kinds "fix"/"feature" to 7, times "1h 30m"/"20m" to 6 (right-aligned): both titles start at one column
+        self.assertEqual(len(lines), 3)
+        self.assertEqual(lines[1].rindex("A"), lines[2].rindex("B"))
+        self.assertTrue(lines[1].endswith("1h 30m  A"))
+        self.assertTrue(lines[2].endswith("   20m  B"))
+
+    def test_t4_list_row_shows_time_and_cli_size_option(self):
+        repo = self.repo("time", items={"long": fix_item(size=90)})
+        self.assertIn("1h 30m", rq.list_lines(rq.read_queue(repo))[0])
+        done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "queue", "add", "--kind", "feature", "--title", "T",
+                               "--why", "w", "--time", "soon", "-C", repo],
+                              capture_output=True, text=True, env=dict(os.environ, RELAY_ROOT=ROOT))
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("1h30m", done.stderr)
 
 
 class TestLanding(Base):
@@ -207,15 +243,15 @@ class TestLanding(Base):
         bare = self.repo("plain", relay=False)
         before = git(bare, "rev-parse", "master")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.add(bare, "feature", "Thing", why="w", size=5, **QUIET)
+            rq.add(bare, "feature", "Thing", why="w", minutes=5, **QUIET)
         self.assertIn(".relay", str(ctx.exception))
         self.assertEqual(git(bare, "rev-parse", "master"), before)
         self.assertEqual(git(bare, "branch", "--list", "wt/queue-*"), "")
 
     def test_q6_add_from_main_and_from_a_worktree_leaves_no_trace(self):
         wt = self.worktree("w1")
-        first = rq.add(self.main, "feature", "From main", why="w", size=5, **QUIET)
-        second = rq.add(wt, "feature", "From worktree", why="w", size=5, **QUIET)
+        first = rq.add(self.main, "feature", "From main", why="w", minutes=5, **QUIET)
+        second = rq.add(wt, "feature", "From worktree", why="w", minutes=5, **QUIET)
         head = git(self.main, "rev-parse", "master")
         self.assertIn(f"landed on master at {head}", second)                       # the full 40-character sha
         self.assertEqual(len(head), 40)
@@ -229,19 +265,19 @@ class TestLanding(Base):
         self.assertEqual(git(self.main, "log", "-1", "--format=%s"), "queue: from-worktree")
 
     def test_q6_same_title_gets_suffix(self):
-        rq.add(self.main, "feature", "Same title", why="one", size=5, **QUIET)
-        message = rq.add(self.main, "feature", "Same title", why="two", size=5, **QUIET)
+        rq.add(self.main, "feature", "Same title", why="one", minutes=5, **QUIET)
+        message = rq.add(self.main, "feature", "Same title", why="two", minutes=5, **QUIET)
         self.assertIn("queued same-title-2", message)
         self.assertIn("one", self.item("same-title")["body"])
         self.assertIn("two", self.item("same-title-2")["body"])
         self.write_commit(self.main, {".relay/queue/done/other.md": rq.set_fields(feature_item(), state="done")}, "done")
-        rq.add(self.main, "feature", "Other", why="w", size=5, **QUIET)
+        rq.add(self.main, "feature", "Other", why="w", minutes=5, **QUIET)
         self.assertIsNotNone(self.item("other-2"))                                  # a name in done/ is taken too
 
     def test_q6_add_refused_when_main_is_not_on_default(self):
         git(self.main, "checkout", "-q", "-b", "side")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.add(self.main, "feature", "Thing", why="w", size=5, **QUIET)
+            rq.add(self.main, "feature", "Thing", why="w", minutes=5, **QUIET)
         self.assertIn("main checkout is not on master", str(ctx.exception))
         self.assertEqual(self.branches(), [])
 
@@ -249,8 +285,8 @@ class TestLanding(Base):
         w1, w2 = self.worktree("w1"), self.worktree("w2")
         for rnd in range(10):
             hook = self.barrier()
-            a, b = self.pair(lambda: rq.add(w1, "feature", f"Alpha {rnd}", why="a", size=5, after_plan=hook, **QUIET),
-                             lambda: rq.add(w2, "feature", f"Beta {rnd}", why="b", size=5, after_plan=hook, **QUIET))
+            a, b = self.pair(lambda: rq.add(w1, "feature", f"Alpha {rnd}", why="a", minutes=5, after_plan=hook, **QUIET),
+                             lambda: rq.add(w2, "feature", f"Beta {rnd}", why="b", minutes=5, after_plan=hook, **QUIET))
             self.assertIsInstance(a, str, a)
             self.assertIsInstance(b, str, b)
             self.assertIsNotNone(self.item(f"alpha-{rnd}"))
@@ -262,8 +298,8 @@ class TestLanding(Base):
         for rnd in range(10):
             title = f"Twin {rnd}"
             hook = self.barrier()
-            a, b = self.pair(lambda: rq.add(w1, "feature", title, why=f"text-a-{rnd}", size=5, after_plan=hook, **QUIET),
-                             lambda: rq.add(w2, "feature", title, why=f"text-b-{rnd}", size=5, after_plan=hook, **QUIET))
+            a, b = self.pair(lambda: rq.add(w1, "feature", title, why=f"text-a-{rnd}", minutes=5, after_plan=hook, **QUIET),
+                             lambda: rq.add(w2, "feature", title, why=f"text-b-{rnd}", minutes=5, after_plan=hook, **QUIET))
             self.assertIsInstance(a, str, a)
             self.assertIsInstance(b, str, b)
             slug = f"twin-{rnd}"
@@ -281,7 +317,7 @@ class TestLanding(Base):
             slept.append(seconds)
             if len(slept) == 3 and os.path.exists(lock):    # the lock holder lets go during the third wait
                 os.remove(lock)
-        message = rq.add(self.main, "feature", "Locked", why="w", size=5, sleep=sleep)
+        message = rq.add(self.main, "feature", "Locked", why="w", minutes=5, sleep=sleep)
         self.assertIn("queued locked", message)
         self.assertEqual(len(slept), 3)                                              # tries 1-3 met the lock; the fourth landed
         self.assertTrue(all(0.2 <= s <= 1 for s in slept), slept)                    # design 10.4: 0.2-1 s between tries
@@ -291,14 +327,14 @@ class TestLanding(Base):
         def move_head(n, plan):
             self.write_commit(self.main, {"other.txt": "moved\n"}, "head moves")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.add(self.main, "feature", "Slow", why="w", size=5, tries=1, after_plan=move_head, **QUIET)
+            rq.add(self.main, "feature", "Slow", why="w", minutes=5, tries=1, after_plan=move_head, **QUIET)
         self.assertIn("not landed after 1 tries", str(ctx.exception))
         self.assertIn("kept on wt/queue-slow", str(ctx.exception))
         self.assertIn("relay queue land slow", str(ctx.exception))
         self.assertEqual(self.branches(), ["wt/queue-slow"])
         self.assertIsNone(self.item("slow"))
         # while the branch is left, an add of that title takes the next suffix
-        rq.add(self.main, "feature", "Slow", why="second", size=5, **QUIET)
+        rq.add(self.main, "feature", "Slow", why="second", minutes=5, **QUIET)
         self.assertIsNotNone(self.item("slow-2"))
         self.assertIn("landed on master", rq.land(self.main, "slow", **QUIET))
         self.assertIsNotNone(self.item("slow"))
@@ -306,13 +342,13 @@ class TestLanding(Base):
         self.assertTrue(os.path.exists(os.path.join(self.main, "other.txt")))        # the moved head stayed
 
     def test_q9_land_refused_when_the_file_no_longer_holds(self):
-        rq.add(self.main, "feature", "Gone", why="w", size=5, **QUIET)
+        rq.add(self.main, "feature", "Gone", why="w", minutes=5, **QUIET)
         text = self.item("gone")
 
         def move_head(n, plan):
             self.write_commit(self.main, {".relay/queue/late.md": feature_item()}, "head moves")
         with self.assertRaises(rq.Refused):
-            rq.add(self.main, "feature", "Late", why="w", size=5, tries=1, after_plan=move_head, **QUIET)
+            rq.add(self.main, "feature", "Late", why="w", minutes=5, tries=1, after_plan=move_head, **QUIET)
         # a kept `late` branch would add late.md, which now exists on master with other content: it no longer holds
         with self.assertRaises(rq.Refused) as ctx:
             rq.land(self.main, "late", **QUIET)
@@ -349,7 +385,7 @@ class TestTake(Base):
         self.assertIn("taken job (fix, ip 60), landed on master at " + git(self.main, "rev-parse", "master"), out)
         item = self.item("job")
         self.assertEqual((item["state"], item["taken_by"]), ("taken", "wt/a"))
-        self.assertEqual(rq.count_text(rq.read_queue(self.main)), "0 fix, 1 feature; top: feat (feature, ip 20, 10 min)")
+        self.assertEqual(rq.count_text(rq.read_queue(self.main)), "0 fix, 1 feature; top: feat (feature, ip 20, time 10m)")
         self.assertEqual(self.branches(), [])
         # the worktree branch now holds the taken state (a fast-forward of a fresh worktree)
         self.assertEqual(git(self.wa, "rev-parse", "HEAD"), git(self.main, "rev-parse", "master"))
@@ -427,7 +463,7 @@ class TestTake(Base):
 
     def test_q10_later_done_on_the_task_branch_merges_without_conflict(self):
         rq.take(self.wa, "job", self.findings(), **QUIET)
-        rq.add(self.main, "feature", "Meanwhile", why="w", size=5, **QUIET)        # master moves on
+        rq.add(self.main, "feature", "Meanwhile", why="w", minutes=5, **QUIET)        # master moves on
         self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "the fix and its test")
         report = os.path.join(self.tmp, "check.md")
         with open(report, "w") as handle:

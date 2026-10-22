@@ -2,7 +2,7 @@
 kind: feature
 state: open
 ip: 40
-size: 90
+time: 90
 found: 2026-10-22, relay review-gate design 10.6 seed 16
 taken-by:
 closed-by:

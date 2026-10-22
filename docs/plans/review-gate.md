@@ -654,7 +654,7 @@ Something found during a change is one of four things:
 An out-of-scope question from the owner is answered in two lines and
 becomes a `feature` item, built later in a fresh session. A new request
 while `fix` items wait: the coordinator names them (how many, the top one,
-its size) and the owner decides what goes first (owner "q4 - a").
+its time) and the owner decides what goes first (owner "q4 - a").
 
 New rule file `rules/queue.md`, first two lines `# Work queue` and the gist
 `> Nothing wrong is left behind: wrong inside a change is fixed before its
@@ -676,7 +676,7 @@ to `.relay/queue/done/`.
 kind: fix              # fix | feature
 state: open            # open | taken | done | dropped
 ip: 95                 # important points, integer >= 0; highest first
-size: 30               # agent minutes, the finder's estimate
+time: 30               # agent minutes (whole number), the finder's estimate; shown as 30m, 1h, 1h 30m
 found: 2026-10-22, check of batch 3 part 1 (bin/ci:25)
 taken-by:              # the task branch working on it
 closed-by:             # the branch whose merge closed it
@@ -782,9 +782,9 @@ Commands:
 
 ```
 relay queue add --from <report> F7       # a finding outside the change, or Design:, becomes a fix item
-relay queue add --kind feature --title "..." --why "..." --size 15 [--ip 40]
+relay queue add --kind feature --title "..." --why "..." --time 15m [--ip 40]   # also 1h, 1h30m, "1h 30m" or bare minutes
 relay queue                              # the ordered list, one line each
-relay queue count                        # "10 fix, 12 feature; top: core-tests-not-in-gate (fix, ip 95, 30 min)"
+relay queue count                        # "10 fix, 12 feature; top: core-tests-not-in-gate (fix, ip 95, time 30m)"
 relay queue land <slug>
 relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree> --findings <path>
@@ -802,7 +802,7 @@ when it should not hold the output.
 
 `plugins/front/hooks/handover.py` adds, when the default branch has
 `.relay/queue/`: "Queue: 10 fix, 12 feature; top: core-tests-not-in-gate
-(fix, ip 95, 30 min). relay queue lists them." It reads the default
+(fix, ip 95, time 30m). relay queue lists them." It reads the default
 branch's `.relay/queue/*.md` (not `done/`) with `git ls-tree` and one `git
 cat-file --batch`, never the working tree, so every worktree sees the same
 queue. It goes to the model as `additionalContext` and to the owner as
@@ -820,7 +820,7 @@ from v3 (issues flow, state from facts, status line, OpenSpec stages, phase
 "Queue seeds for part 2" and "Queue:" notes of 22 Oct, and check-judge-fix
 L1-L3 (list 2). Duplicates merged as named in the last column.
 
-| # | Slug | Kind | ip | Size | Failing case or what (source; merged duplicates) |
+| # | Slug | Kind | ip | Time (min) | Failing case or what (source; merged duplicates) |
 |---|---|---|---|---|---|
 | 1 | `core-tests-not-in-gate` | fix | 95 | 30 | `bin/ci:25` skips `inject-addition`, `packet`, `check-contract`, `shim`, `spec-check`, `hooks-live` unless `RELAY_CORE_TESTS=1`; part 1's per-role tests I1-I9 live in `inject-addition.test.sh`, so a regression in role injection passes `bin/ci --quick` (v3 #1; handover "core plugin tests not in bin/ci --quick") |
 | 2 | `eval-cost-ceiling-overshoots` | fix | 93 | 20 | `--max-cost-usd 4` at `-j 4` ran to $6.32 (Sonnet measure, 22 Oct); the README's $10 ceiling can reach about $13; should stop within one batch of the ceiling (handover "ceiling overshoot", "eval cost ceiling not firm at -j 4", check-readme-cost "$10 ceiling worst case ~$13") |

@@ -25,7 +25,7 @@ QDIR = ".relay/queue"
 ZERO = "0" * 40
 KINDS = ("fix", "feature")
 STATES = ("open", "taken", "done", "dropped")
-FIELDS = ("kind", "state", "ip", "size", "found", "taken-by", "closed-by", "test")
+FIELDS = ("kind", "state", "ip", "time", "found", "taken-by", "closed-by", "test")
 LABELS = ("What is wrong", "Failing case", "Pass-cases", "Why it matters", "Where", "Finding", "Size", "Smallest fix", "Design", "What")
 LINTER = re.compile(r"^(?P<path>[^\s:]+):(?P<line>\d+): (?P<sev>[A-Z]+): (?P<id>[A-Z]\d+) (?P<what>.+)$")
 LABEL = re.compile(r"^(%s):\s*(.*)$" % "|".join(re.escape(x) for x in LABELS))
@@ -56,7 +56,7 @@ def _frontmatter(text):
 def parse(slug, text):
     """An item as a dict: the fields, `title`, `where`, `body`, and `problems` (empty when well formed)."""
     fields, end, lines = _frontmatter(text)
-    item = {"slug": slug, "problems": [], "kind": "", "state": "", "ip": None, "size": None, "found": "",
+    item = {"slug": slug, "problems": [], "kind": "", "state": "", "ip": None, "time": None, "found": "",
             "taken_by": "", "closed_by": "", "test": "", "title": slug, "where": "", "body": ""}
     if fields is None:
         item["problems"].append("no frontmatter")
@@ -70,7 +70,7 @@ def parse(slug, text):
         item["problems"].append("kind is not fix or feature")
     if item["state"] not in STATES:
         item["problems"].append("state is not open, taken, done or dropped")
-    for key in ("ip", "size"):
+    for key in ("ip", "time"):
         value = fields.get(key, "")
         if re.fullmatch(r"\d+", value):
             item[key] = int(value)
@@ -122,8 +122,8 @@ def set_fields(text, **changes):
     return "\n".join(lines)
 
 
-def render(kind, ip, size, found, title, body, state="open"):
-    return (f"---\nkind: {kind}\nstate: {state}\nip: {ip}\nsize: {size}\nfound: {found}\ntaken-by:\nclosed-by:\ntest:\n---\n"
+def render(kind, ip, minutes, found, title, body, state="open"):
+    return (f"---\nkind: {kind}\nstate: {state}\nip: {ip}\ntime: {minutes}\nfound: {found}\ntaken-by:\nclosed-by:\ntest:\n---\n"
             f"# {title}\n\n{body.rstrip()}\n")
 
 
@@ -145,26 +145,65 @@ def ordered(items):
     return good + bad
 
 
+def format_time(minutes):
+    """Minutes as a person reads them: 20m, 1h, 1h 30m."""
+    if minutes < 60:
+        return f"{minutes}m"
+    hours, rest = divmod(minutes, 60)
+    return f"{hours}h" + (f" {rest}m" if rest else "")
+
+
+TIME_FORMS = "20m, 1h, 1h30m, \"1h 30m\" or a whole number of minutes"
+
+
+def parse_time(text):
+    """`20m`, `1h`, `1h30m`, `1h 30m` or bare minutes to whole minutes; Refused for anything else."""
+    m = re.fullmatch(r"(\d+)|(?:(\d+)h)? ?(?:(\d+)m)?", text.strip())
+    if not m or not text.strip():
+        raise Refused(f"time '{text}' is not understood; use {TIME_FORMS}")
+    if m.group(1) is not None:
+        return int(m.group(1))
+    return int(m.group(2) or 0) * 60 + int(m.group(3) or 0)
+
+
 def count_text(items):
-    """`10 fix, 12 feature; top: slug (fix, ip 95, 30 min)` over the open, well-formed items."""
+    """`10 fix, 12 feature; top: slug (fix, ip 95, time 30m)` over the open, well-formed items."""
     open_items = [i for i in items if not i["problems"] and i["state"] == "open"]
     fix = sum(1 for i in open_items if i["kind"] == "fix")
     text = f"{fix} fix, {len(open_items) - fix} feature"
     if open_items:
         top = sorted(open_items, key=order_key)[0]
-        text += f"; top: {top['slug']} ({top['kind']}, ip {top['ip']}, {top['size']} min)"
+        text += f"; top: {top['slug']} ({top['kind']}, ip {top['ip']}, time {format_time(top['time'])})"
     return text
 
 
-def list_lines(items):
-    lines = []
+LIST_HEADER = ("slug", "kind", "ip", "time", "title")
+
+
+def list_lines(items, header=False):
+    """One aligned line per item; with `header`, a first line naming the columns (slug kind ip time title)."""
+    rows = []
     for i in ordered(items):
         if i["problems"]:
-            lines.append(f"{i['slug']}  malformed ({'; '.join(i['problems'])})")
+            rows.append(("malformed", f"{i['slug']}  malformed ({'; '.join(i['problems'])})"))
             continue
         state = "" if i["state"] == "open" else f"  {i['state']} by {i['taken_by'] or '?'}"
-        lines.append(f"{i['slug']}  {i['kind']}  ip {i['ip']}  {i['size']} min{state}  {i['title']}")
+        rows.append(("ok", (i["slug"], i["kind"], f"ip {i['ip']}", format_time(i["time"]), i["title"] + state)))
+    good = [r[1] for r in rows if r[0] == "ok"]
+    if header and good:
+        good = [LIST_HEADER] + good
+    width = [max(len(r[c]) for r in good) for c in range(4)] if good else []
+    lines = []
+    if header and good:
+        lines.append(_row(LIST_HEADER, width))
+    for kind, row in rows:
+        lines.append(row if kind == "malformed" else _row(row, width))
     return lines
+
+
+def _row(row, width):
+    # time is right-aligned so 30m and 1h 30m line up by their units
+    return f"{row[0]:<{width[0]}}  {row[1]:<{width[1]}}  {row[2]:<{width[2]}}  {row[3]:>{width[3]}}  {row[4]}"
 
 
 # ---------------------------------------------------------------- reading git
@@ -427,11 +466,11 @@ def find_finding(report_text, fid):
             size = re.match(r"\d+", field_block(body, "Size"))
             return {"linter": raw, "where": f"{match.group('path')}:{match.group('line')}", "what": match.group("what"),
                     "failing": field_block(body, "Failing case"), "pass": field_block(body, "Pass-cases"),
-                    "why": field_block(body, "Why it matters"), "size": int(size.group()) if size else None}
+                    "why": field_block(body, "Why it matters"), "time": int(size.group()) if size else None}
     raise Refused(f"no finding {fid} in the report")
 
 
-def add(repo, kind, title, why="", what="", failing="", pass_cases="", size=None, ip=None, where="", linter="",
+def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=None, ip=None, where="", linter="",
         context="relay queue add", today=None, **engine):
     """Queue a new item. The slug comes from the title, suffixed -2, -3, ... when taken."""
     if kind not in KINDS:
@@ -442,8 +481,8 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", size=None
         raise Refused("a fix item needs its Failing case:")
     if not why.strip():
         raise Refused("an item needs Why it matters (--why)")
-    if size is None or size < 0:
-        raise Refused("an item needs its size in agent minutes (--size)")
+    if minutes is None or minutes < 0:
+        raise Refused(f"an item needs its time (--time), as {TIME_FORMS}")
     if ip is not None and ip < 0:
         raise Refused("ip is a whole number from 0")
     base = slugify(title)
@@ -474,12 +513,12 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", size=None
         if value is None:
             top = [i["ip"] for i in reader.items().values() if not i["problems"] and i["kind"] == "feature" and i["state"] == "open"]
             value = (1 + max(top, default=0)) if kind == "fix" else 0
-        return Plan(slug, {_path(slug): render(kind, value, size, found, title.strip(), body)}, f"{kind}, ip {value}", "queued")
+        return Plan(slug, {_path(slug): render(kind, value, minutes, found, title.strip(), body)}, f"{kind}, ip {value}", "queued")
 
     return _run(repo, planner, **engine)
 
 
-def add_from(repo, report, fid, why="", size=None, ip=None, today=None, **engine):
+def add_from(repo, report, fid, why="", minutes=None, ip=None, today=None, **engine):
     """Queue the finding `fid` of a findings report as a fix item (the linter line and the cases are copied)."""
     try:
         with open(report, encoding="utf-8") as handle:
@@ -488,10 +527,10 @@ def add_from(repo, report, fid, why="", size=None, ip=None, today=None, **engine
         raise Refused(f"cannot read the report: {exc}")
     found = find_finding(text, fid)
     context = f"finding {fid} of {os.path.basename(report)}"
-    if size is None:
-        size = found["size"]
+    if minutes is None:
+        minutes = found["time"]
     return add(repo, "fix", found["what"], why=why or found["why"], what=found["what"], failing=found["failing"],
-               pass_cases=found["pass"], size=size, ip=ip, where=found["where"], linter=found["linter"],
+               pass_cases=found["pass"], minutes=minutes, ip=ip, where=found["where"], linter=found["linter"],
                context=context, today=today, **engine)
 
 

@@ -2,7 +2,7 @@
 kind: fix
 state: open
 ip: 93
-size: 20
+time: 20
 found: 2026-10-22, relay review-gate design 10.6 seed 2
 taken-by:
 closed-by:

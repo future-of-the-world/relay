@@ -20,5 +20,5 @@ queue -h` shows the rest. Only in a project whose default branch has `.relay/`.
 
 An out-of-scope question from the owner is answered in two lines and becomes a
 `feature` item, built later in a fresh session. When a new request arrives while
-`fix` items wait, name them (how many, the top one, its size) and let the owner
+`fix` items wait, name them (how many, the top one, its time, written 30m or 1h 30m) and let the owner
 decide what goes first.
