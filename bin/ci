@@ -41,7 +41,7 @@ step "plugin validate" validate_all
 if [ "$quick" = 0 ]; then
   if command -v claude >/dev/null 2>&1; then
     rm -f .ci/evals.json   # a leftover file from an earlier run must never be filed or printed as this batch
-    step "plugin evals" env root="$root" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none --judge-model "${EVALS_JUDGE_MODEL:-haiku}" --no-publish --max-cost-usd "${EVALS_MAX_COST:-15}" --json "$root/.ci/evals.json"'
+    step "plugin evals" env root="$root" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none --judge-model "${EVALS_JUDGE_MODEL:-sonnet}" --no-publish --max-cost-usd "${EVALS_MAX_COST:-15}" --json "$root/.ci/evals.json"'
     python3 bin/eval-record --json .ci/evals.json || { echo "ci: RED (the eval record could not be stored)"; status=1; }
   else
     echo "ci: plugin evals skipped: claude is not on PATH"; status=1

@@ -25,7 +25,10 @@ Run (paid, 58 items, 870 votes: about $1.07 on haiku, $3.02 on sonnet; start onl
     claude plugin eval . --eval-dir evals/judge-measure --runs 5 -j 4 --judge-model sonnet --ablation none --no-publish --trust-plugin --scaffold --max-cost-usd 4 --json <scratch>/measure-sonnet.json
     python3 evals/judge-measure/tally.py <scratch>/measure-haiku.json --expect-model haiku
 
-A question passes when wrong verdicts <= 0 and split items <= 1 (`--max-wrong`, `--max-split`). If haiku
-fails any question, sonnet judges the whole batch: `EVALS_JUDGE_MODEL=sonnet bin/ci`. A grader that
+A question passes when wrong verdicts <= 0 and split items <= 1 (`--max-wrong`, `--max-split`).
+Result of 2026-10-22: haiku failed the off-by-one question (7 wrong verdicts of 120 on two right items; it keys
+on words of the rubric's FAIL clause), sonnet passed all four questions (0 wrong of 870 votes). So sonnet is
+the default judge of `bin/ci` (`EVALS_JUDGE_MODEL`, still overridable, e.g. `EVALS_JUDGE_MODEL=haiku bin/ci`).
+Cost: sonnet is about 17x haiku per vote; a sonnet-judged batch is about $0.34 (haiku about $0.02). A grader that
 fails on sonnet too comes out of its case until its rubric is reworded and measured again. The eval
 writes `results/` here (ignored by git); `git status --short` must be empty afterwards.

@@ -209,7 +209,7 @@ class CiLines(unittest.TestCase):
         self.ci = open(os.path.join(ROOT, "bin", "ci"), encoding="utf-8").read()
 
     def test_the_eval_command_names_the_judge_model(self):
-        self.assertRegex(self.ci, r'claude plugin eval[^\n]*--judge-model "\$\{EVALS_JUDGE_MODEL:-haiku\}"')
+        self.assertRegex(self.ci, r'claude plugin eval[^\n]*--judge-model "\$\{EVALS_JUDGE_MODEL:-sonnet\}"')
 
     def test_the_old_results_file_is_removed_before_the_eval_step(self):
         rm, ev = self.ci.find("rm -f .ci/evals.json"), self.ci.find('step "plugin evals"')
