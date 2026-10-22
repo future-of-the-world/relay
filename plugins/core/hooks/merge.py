@@ -380,7 +380,9 @@ def sweep(hook):
         if tree["locked"] is not None and not mine:
             continue                                  # another session's lock, or a person's: never removed
         if any(under(p, path) for p in here):
-            continue                                  # the session starts in it (a lock of its own stays too)
+            if tree["locked"] is None:                # the session runs in it: lock it so no other session's merge or sweep removes it
+                relay_git.git(main, "worktree", "lock", "--reason", "session " + sid, path)
+            continue                                  # (a lock of its own stays too; SessionEnd unlocks it)
         if not removable(main, default, tree):
             continue
         if mine and relay_git.git(main, "worktree", "unlock", path)[0] != 0:

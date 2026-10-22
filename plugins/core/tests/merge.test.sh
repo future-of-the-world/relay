@@ -208,6 +208,17 @@ expect "T16b started inside its own locked worktree: kept, still locked" "$([ -d
 sweep_hook "$M" s1
 expect "T16b same session started elsewhere: unlocked and removed" "$(wait_for 10 absent "$W"; echo $?)"
 
+# T16c (F4): session s1 starts inside .worktrees/t (not merged yet) and locks it; s2's merge and sweep from main keep it; s1's end removes it
+mkrepo; sweep_hook "$W" s1
+expect "T16c a session started inside a worktree locks it" "$(git -C "$M" worktree list --porcelain | grep -qx 'locked session s1'; echo $?)"
+git -C "$M" merge -q --ff-only wt/t; run_hook "git -C $M merge --ff-only wt/t" "$M" s2
+expect "T16c another session's merge keeps it, message names the lock" "$([ -d "$W" ] && has 'kept .worktrees/t: locked (session s1)' "$ctx"; echo $?)"
+sweep_hook "$M" s2
+expect "T16c another session's sweep keeps it" "$([ -d "$W" ]; echo $?)"
+end_hook s1 "$W"
+expect "T16c s1's end removes it" "$(wait_for 10 absent "$W"; echo $?)"
+# no session inside: the merge removes it as before (T1); a session started in main does not lock it (T16 covers the sweep)
+
 # T19: SessionEnd for s1 after T4: unlocked and removed; a worktree locked by s9 kept
 mkrepo; git -C "$M" worktree add -q .worktrees/o -b wt/o; ( cd "$M/.worktrees/o" && echo o >o.txt && git add o.txt && git commit -q -m o )
 git -C "$M" merge -q --ff-only wt/t; git -C "$M" merge -q --no-edit wt/o
