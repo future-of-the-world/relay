@@ -21,7 +21,7 @@ Copies read (2026-10-19): `kartoteka-apply-review`, `clean-apply-review`,
 | Every fix has a test seen failing without it | all | |
 | Look defect → end-to-end test when the page can be asked, else screenshot proof | Mind | |
 | Second pass: correctness always, plus each reviewer whose findings were fixed, plus look when fixes touch the surface | ALIX (correctness found bugs the fixes made), Glyph (those with findings), Mind (look reshoots) | union; stricter than Kartoteka's correctness-only |
-| Open findings: fix now on the owner's word, or follow-up with id, owner, deadline; ask a high one before the gate | Sight, Mind, ALIX | |
+| Open findings: fix now on the owner's word, or a queue item (was: follow-up with id, owner, deadline); ask a high one before the gate | Sight, Mind, ALIX | |
 | Local close: `ci`, validate, spec-check; detached when long | all local copies; Sight for detached | |
 | Remote close: merge base in, push, start by hand, Haiku reader started when due, failure file for a fixer, can't run → ask, gate holds for its commit, docs-only commits need no new gate | ALIX, Glyph | the two remote copies agree; now one shared procedure under `gate.final = "remote"` |
 | Owner sees a person-facing change before merge; contact sheets; offer to launch | Mind, Kartoteka, Clean | |

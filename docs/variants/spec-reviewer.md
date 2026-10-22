@@ -16,7 +16,7 @@ weaker scenario rules; Glyph is a short rewrite.
 | 3 Failure scenarios (missing, corrupt, older, slow, unavailable) | Clean 3, Kartoteka 3, Sight 3, ALIX 3, Glyph 3 | merged to the generic cases; each project's named cases stay in its addition |
 | 4 Failure-state table, never/only/first sentences, parity list, caller sweep | ALIX 13, Glyph 8 | later measurement (outbox-sqlite: 7 of 12 high findings came from the design's silence); `sdd:plan` now asks for the table |
 | 5 Principles: departure needs the owner's written decision | Clean 4, Kartoteka 4 | |
-| 5 Bounds, checked reads, visible causes, deferred work with id/owner/deadline | ALIX 12 | the strictest; Glyph 4 has the same bound rule |
+| 5 Bounds, checked reads, visible causes, left-out work as a queue item (was: deferred work with id/owner/deadline) | ALIX 12 | the strictest; Glyph 4 has the same bound rule |
 | 6 Settings, not constants; how the default was chosen | Mind 5, ALIX 4, Sight 5, Glyph 4 | four of six had it; Mind's "what a person would notice" is the strongest form |
 | 7 What a person sees, BLOCKER for a busier screen | Clean 5, Kartoteka 5 | |
 | 7 Quotes the locked words exactly; no internal terms | Glyph 6 | matches the product-work rule ("quoted exactly by the specs") |

@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 15,
+  "time": 20,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 21",
+  "title": "Issue commands for Arsenal and Glonass",
+  "what": [
+    "`[issues]` commands for Arsenal and Glonass (v3 #11)"
+  ],
+  "why": [
+    "the owner ranked it 15 in the work order of 22 Oct."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

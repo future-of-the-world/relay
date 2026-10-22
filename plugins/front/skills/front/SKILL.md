@@ -114,6 +114,12 @@ A session spans one change (or one phase of it), never a week. When a change
 is merged or archived, update the handover file and start the next change in
 a fresh session.
 
+## An out-of-scope question
+
+Answer it in two lines. Then add it to the work queue, `relay queue add --kind
+feature` (the ip is the owner's, default 0), and build it in a fresh session,
+not in this one. Rule: `rules/queue.md`.
+
 ## Status, when asked
 
 `relay status` prints what is running in every session, its context size and

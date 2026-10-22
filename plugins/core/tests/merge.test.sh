@@ -255,14 +255,19 @@ expect "T20 failing: the failure is named once (log cleared)" "$(has 'simulated 
 LIB="$here/../lib"; RELAY="$here/../../../bin/relay"; CHECKMARK="$here/../hooks/check-mark.py"
 printf '#!/bin/sh\necho "ci: fixture ok"\nexit "${FIXGATE_EXIT:-0}"\n' >"$tmp/fixgate"; chmod +x "$tmp/fixgate"
 
-# m15 [norelay]: master holds lib/a.py (v1), bin/x (six lines), .relay/queue/x.md (a taken fix item), a kit.toml whose
+# qjson <state> <test>: a queue item file as lib/relay_queue.py writes it (a fix item named x; the hook reads it through relay_queue)
+qjson() {
+  local why=null; [ "$1" = dropped ] && why='["not wanted"]'
+  printf '{\n  "kind": "fix",\n  "state": "%s",\n  "ip": 5,\n  "time": 10,\n  "found": "2026-10-22",\n  "found_in": "fixture",\n  "title": "Item x loses a row",\n  "what": ["x loses a row"],\n  "why": ["a row is lost"],\n  "failing_case": ["y"],\n  "taken_by": "wt/t",\n  "closed_by": "",\n  "test": "%s",\n  "dropped_why": %s\n}' "$1" "$2" "$why"
+}
+# m15 [norelay]: master holds lib/a.py (v1), bin/x (six lines), .relay/queue/x.json (a taken fix item, JSON as relay_queue writes it), a kit.toml whose
 # gate is the fixture gate; M = main checkout, W = .worktrees/t on wt/t (no commit yet); BASE = master's head
 m15() {
   n=$((n + 1)); M="$tmp/g$n"; S="$tmp/gs$n"; mkdir -p "$M/lib" "$M/bin" "$M/.claude" "$S"; cd "$M" && git init -q -b master . || exit 1
   printf '.ci/\n.worktrees/\n' >.gitignore; printf 'v1\n' >lib/a.py; printf '1\n2\n3\n4\n5\n6\n' >bin/x
   printf '[gate]\nci = "%s"\n' "$tmp/fixgate" >.claude/kit.toml
   [ "${1:-}" = norelay ] || { mkdir -p .relay/queue && echo x >.relay/README.md
-    printf -- '---\nkind: fix\nstate: taken\nip: 5\ntest:\n---\n# Item x\nFailing case: y\n' >.relay/queue/x.md; }
+    qjson taken "" >.relay/queue/x.json; }
   git add -A && git commit -q -m init; BASE="$(git rev-parse HEAD)"
   git worktree add -q .worktrees/t -b wt/t; W="$M/.worktrees/t"
 }
@@ -368,19 +373,19 @@ expect "T15l gate log of F, HEAD = F + gate + mark + handover: allowed" "$(allow
 m15; commit "fix a" "lib/a.py=v2\n"; G="$(head_of)"; X="$G"; gate 1; mark 0; pre "$MERGE"
 expect "T15m red gate log: refused, last gate exit 1" "$(refused "last gate $G: exit 1"; echo $?)"
 # (n) m-1: a fix item moved to done/ without a test; then with the test
-m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.md .relay/queue/done/x.md
+m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json
 commit "fix a, close x" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n item closed without test: refused" "$(refused 'queue item x is closed without a test'; echo $?)"
-commit "test" "tests/t.sh=case_x() { :; }\n" ".relay/queue/done/x.md=---\nkind: fix\nstate: done\ntest: tests/t.sh::case_x\n---\n# Item x\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+commit "test" "tests/t.sh=case_x() { :; }\n" ".relay/queue/done/x.json=$(qjson done tests/t.sh::case_x)\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n with the test line and the test: allowed" "$(allowed; echo $?)"
 commit "name gone" "tests/t.sh=other() { :; }\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n test file lacks the name: refused" "$(refused 'closed without a test'; echo $?)"
 # (n2) m-1 before step 3 (a move alone), with a fix and a clean mark, and a dropped item that came through master
-m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.md .relay/queue/done/x.md; git -C "$W" commit -q -m "move x"; pre "$MERGE"
+m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json; git -C "$W" commit -q -m "move x"; pre "$MERGE"
 expect "T15n2 only the move (all inert): refused, closed without a test" "$(refused 'queue item x is closed without a test'; echo $?)"
-m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.md .relay/queue/done/x.md; git -C "$W" commit -q -m "move x"; green; pre "$MERGE"
+m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json; git -C "$W" commit -q -m "move x"; green; pre "$MERGE"
 expect "T15n2 the move plus a fix with clean mark and gate: refused" "$(refused 'queue item x is closed without a test'; echo $?)"
-m15; green; mkdir -p "$M/.relay/queue/done"; printf -- '---\nkind: fix\nstate: dropped\n---\n# y\n' >"$M/.relay/queue/done/y.md"; git -C "$M" add -A; git -C "$M" commit -q -m "drop y"
+m15; green; mkdir -p "$M/.relay/queue/done"; qjson dropped "" >"$M/.relay/queue/done/y.json"; git -C "$M" add -A; git -C "$M" commit -q -m "drop y"
 git -C "$W" merge -q --no-edit master; pre "$MERGE"
 expect "T15n2 a dropped item that came through master: not judged, allowed" "$(allowed; echo $?)"
 # (o) a code file moved into an inert folder is not "all inert"; control (f)

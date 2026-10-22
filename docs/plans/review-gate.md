@@ -102,7 +102,7 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
   uses it, never an abbreviation.
 - **Behind**: a task branch is behind when the default branch's head is not
   one of its ancestors; `git merge --ff-only` then fails.
-- **Queue item**: `.relay/queue/<slug>.md`, kind `fix` (something wrong, with
+- **Queue item**: `.relay/queue/<slug>.json`, kind `fix` (something wrong, with
   its failing case) or `feature`; ordered by **ip** (important points,
   integer >= 0, highest first).
 - **The person's step**: one chat screen and one private page (a claude.ai
@@ -428,7 +428,7 @@ merges master as `Y`):
 | File | at `B_S` | at `X` | at `B_U` | at `Y` | Listed by `--own X Y`? | Why |
 |---|---|---|---|---|---|---|
 | `lib/relay_queue.py` | v1 | v1 | v2 | v2 | no | only master changed it |
-| `.relay/queue/foo.md` | none | none | new | new | no | inert anyway |
+| `.relay/queue/foo.json` | none | none | new | new | no | inert anyway |
 | `lib/relay_marks.py`, changed by the branch before `X`, untouched after | none | a | none | a | no: not in the `X..Y` diff | the checked code |
 | `plugins/core/hooks/merge.py`, edited by the branch after `X` | none | a | none | b | yes | new code after the check |
 | `lib/relay_inert.py`, fixed before `X`, then the fix reverted | v1 | v1+fix | v1 | v1 | yes | at `X` the branch had touched it: a revert of a checked fix is listed |
@@ -477,16 +477,16 @@ green gate gives `open 0`. The delegate skill's step 7 says the same (C21).
 
 `wt/x` at `X`; the critic finds a wrong thing outside the change.
 
-1. `relay queue add --from <report> F7` lands `.relay/queue/<slug>.md` on
+1. `relay queue add --from <report> F7` lands `.relay/queue/<slug>.json` on
    master at once (10.4): master moves from `M` to `Q`.
-2. The checker checks `X` (`open 0`); the hook commits `X.json`, `X.check.md`,
-   `R.review.md` as `X+1`; the gate log `X.gate.log` was committed before.
+2. The checker checks `X` (`open 0`); the hook commits `X.json`, `X.check.json`,
+   `R.review.json` (and the readable `.md` of both) as `X+1`; the gate log `X.gate.log` was committed before.
 3. The handover is committed: `X+2`.
 4. The owner says merge. `git merge --ff-only wt/x` in main: refused by step 1,
    "wt/x is behind master by 1 commit ...". (v3 said "the merge passes"; git
    itself would have answered "Not possible to fast-forward".)
 5. A runner: `git -C .worktrees/x merge --no-edit master` -> `Y` (brings only
-   `.relay/queue/<slug>.md`).
+   `.relay/queue/<slug>.json`).
 6. The merge again: step 2 nothing closed; step 3 no (code in the
    range); step 4 `--own X wt/x` empty -> mark `X`; step 5 open 0; step 6
    `relay changed X wt/x` lists nothing (only inert files after `X`) -> the
@@ -511,7 +511,7 @@ as "another head" (the judge base text, unchanged).
 ### 7.5 m-1: a `fix` item closed without its test
 
 v3 enforced the test only in `relay queue done`. A hand move of the item
-file into `done/` (`git mv .relay/queue/x.md .relay/queue/done/`, which
+file into `done/` (`git mv .relay/queue/x.json .relay/queue/done/`, which
 leaves `state: taken`) skipped it. Step 2 of 7.1 closes that: every `fix`
 item the range adds under `done/`, whatever its state except `dropped`,
 needs the `test:` line and the test name present at the branch head; it
@@ -669,7 +669,7 @@ Something found during a change is one of four things:
 An out-of-scope question from the owner is answered in two lines and
 becomes a `feature` item, built later in a fresh session. A new request
 while `fix` items wait: the coordinator names them (how many, the top one,
-its size) and the owner decides what goes first (owner "q4 - a").
+its time) and the owner decides what goes first (owner "q4 - a").
 
 New rule file `rules/queue.md`, first two lines `# Work queue` and the gist
 `> Nothing wrong is left behind: wrong inside a change is fixed before its
@@ -681,32 +681,47 @@ two kinds, ip, and `relay queue`.
 
 ### 10.2 The item file
 
-`.relay/queue/<slug>.md`, committed; `<slug>` lowercase words joined by
+`.relay/queue/<slug>.json`, committed; `<slug>` lowercase words joined by
 `-`, at most 48 characters, unique among the default branch's
 `.relay/queue/` and `done/` and the `wt/queue-*` branches. Closed items move
-to `.relay/queue/done/`.
+to `.relay/queue/done/<slug>.json`.
+
+The file is JSON, pretty-printed with indent 2, keys in this fixed order, UTF-8, a trailing newline.
+Text that can run over several lines is an array of lines, so a git diff stays line by line.
+Only `lib/relay_queue.py` writes it (`serialize`) or reads it (`parse`); nothing searches the text.
 
 ```
----
-kind: fix              # fix | feature
-state: open            # open | taken | done | dropped
-ip: 95                 # important points, integer >= 0; highest first
-size: 30               # agent minutes, the finder's estimate
-found: 2026-10-22, check of batch 3 part 1 (bin/ci:25)
-taken-by:              # the task branch working on it
-closed-by:             # the branch whose merge closed it
-test:                  # fix items, at close: <test file>::<test name>
----
-# Core plugin tests that never run in the gate
-
-What is wrong: ...
-Failing case: ...
-Pass-cases: (optional, 2-5)
-Why it matters: ...
+{
+  "kind": "fix",                 fix | feature
+  "state": "open",               open | taken | done | dropped
+  "ip": 95,                      important points, integer >= 0; highest first
+  "time": 30,                    agent minutes (whole number), the finder's estimate; shown as 30m, 1h, 1h 30m
+  "found": "2026-10-22",         YYYY-MM-DD
+  "found_in": "check of batch 3 part 1 (bin/ci:25)",
+  "title": "...",                one plain sentence, under 60 characters (the "what" column)
+  "what": ["..."],               lines; for a fix, what is wrong
+  "why": ["..."],                lines; why it matters
+  "failing_case": ["..."],       lines; required for a fix
+  "pass_cases": ["..."],         lines; optional (2-5)
+  "where": "bin/ci:25",          optional: path:line for the Q1 linter line
+  "taken_by": "",                the task branch working on it
+  "closed_by": "",               the branch whose merge closed it
+  "test": "",                    fix items, at close: <test file>::<test name>
+  "dropped_why": null            null until the owner drops it, then lines
+}
 ```
 
-A `fix` without `Failing case:` is refused by `relay queue add` and shown as
-"malformed" by `relay queue`. A `feature` has "What" and "Why it matters".
+The check (in `lib/relay_queue.py`, no new dependency) refuses unknown keys, a wrong type, a `fix`
+without `failing_case`, a `title` or a `what` that is only the slug's words. `relay queue add` refuses
+the same, and `relay queue` shows a file that fails the check as `malformed: <reason>` instead of
+crashing.
+
+Extensions: `relay queue <name>` (or `relay queue --view <name>`) runs `lib/queue_ext/<name>.py`, found
+in relay only (never in a project, never by a path from the command line). It exposes
+`run(items, args) -> int` and receives the parsed, checked items as plain dicts, copies, in queue
+order. `table.py` is the default view; `json.py` prints the items for scripts. Extensions live in
+relay only; they read, they never write items: the writes stay `add`, `take`, `release`, `done`,
+`drop`, `ip` in the library.
 
 ### 10.3 Order, pick-up, close (m-4 fixed)
 
@@ -718,7 +733,7 @@ A `fix` without `Failing case:` is refused by `relay queue add` and shown as
   1. refuses when the item is `taken` on the default branch ("taken by
      wt/other"), read again at the head of every landing try (10.4 step 2),
      so of two `take`s at once exactly one lands;
-  2. lands `state: taken`, `taken-by: wt/<branch>` on the default branch
+  2. lands `state: taken`, `taken_by: wt/<branch>` on the default branch
      through the landing path of 10.4 (the code check then allows exactly a
      change of that one file); this is the m-4 fix: a second session sees
      the item as taken at once, not after the first branch merges;
@@ -736,7 +751,7 @@ A `fix` without `Failing case:` is refused by `relay queue add` and shown as
 - Close: `relay queue done <slug> -C <worktree> --test <file>::<name>
   --check <checker report>` refuses unless the test file exists at HEAD and
   holds `<name>` and the report's verdict names `Q1 MET`; then moves the
-  file to `done/` with `state: done`, `closed-by`, `test`, and commits on
+  file to `done/` with `state: done`, `closed_by`, `test`, and commits on
   the task branch. The item is closed by the merge; the merge hook refuses a
   close without the test (7.5).
 - Drop: only on the owner's word, `relay queue drop <slug> --why "<the
@@ -797,9 +812,9 @@ Commands:
 
 ```
 relay queue add --from <report> F7       # a finding outside the change, or Design:, becomes a fix item
-relay queue add --kind feature --title "..." --why "..." --size 15 [--ip 40]
-relay queue                              # the ordered list, one line each
-relay queue count                        # "10 fix, 12 feature; top: core-tests-not-in-gate (fix, ip 95, 30 min)"
+relay queue add --kind feature --title "..." --why "..." --time 15m [--ip 40]   # also 1h, 1h30m, "1h 30m" or bare minutes
+relay queue                              # the ordered list: ip, kind, time, what, name (below)
+relay queue count                        # "10 fix, 12 feature; top: core-tests-not-in-gate (fix, ip 95, 30m)"
 relay queue land <slug>
 relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree> --findings <path>
@@ -808,7 +823,18 @@ relay queue done <slug> -C <worktree> --test <file>::<name> --check <report>
 relay queue drop <slug> --why "..."
 ```
 
-Code: `lib/relay_queue.py` (plain-text frontmatter parse, no new
+The list reads as a table a person scans (the "what" is the item's `# ` title, cut at
+60 characters with "…"; the name is last):
+
+```
+ ip  kind     time    what                                          name
+ 95  fix       30m    Six core test files never run in the quick gate  core-tests-not-in-gate
+ 90  feature    1h    Merge the issues flow into the queue             issues-flow-into-queue
+```
+
+`add` refuses a title that only repeats the name's words.
+
+Code: `lib/relay_queue.py` (JSON parse and serialize in one place, a schema check, no new
 dependency), copied to `plugins/front/lib/` (checked by `bin/ci`),
 `cmd_queue` in `bin/relay`. The coordinator runs these through a runner
 when it should not hold the output.
@@ -817,8 +843,8 @@ when it should not hold the output.
 
 `plugins/front/hooks/handover.py` adds, when the default branch has
 `.relay/queue/`: "Queue: 10 fix, 12 feature; top: core-tests-not-in-gate
-(fix, ip 95, 30 min). relay queue lists them." It reads the default
-branch's `.relay/queue/*.md` (not `done/`) with `git ls-tree` and one `git
+(fix, ip 95, 30m). relay queue lists them." It reads the default
+branch's `.relay/queue/*.json` (not `done/`) with `git ls-tree` and one `git
 cat-file --batch`, never the working tree, so every worktree sees the same
 queue. It goes to the model as `additionalContext` and to the owner as
 `systemMessage` (that the owner sees it is confirmed live, Q5; if not, the
@@ -835,7 +861,7 @@ from v3 (issues flow, state from facts, status line, OpenSpec stages, phase
 "Queue seeds for part 2" and "Queue:" notes of 22 Oct, and check-judge-fix
 L1-L3 (list 2). Duplicates merged as named in the last column.
 
-| # | Slug | Kind | ip | Size | Failing case or what (source; merged duplicates) |
+| # | Slug | Kind | ip | Time (min) | Failing case or what (source; merged duplicates) |
 |---|---|---|---|---|---|
 | 1 | `core-tests-not-in-gate` | fix | 95 | 30 | `bin/ci:25` skips `inject-addition`, `packet`, `check-contract`, `shim`, `spec-check`, `hooks-live` unless `RELAY_CORE_TESTS=1`; part 1's per-role tests I1-I9 live in `inject-addition.test.sh`, so a regression in role injection passes `bin/ci --quick` (v3 #1; handover "core plugin tests not in bin/ci --quick") |
 | 2 | `eval-cost-ceiling-overshoots` | fix | 93 | 20 | `--max-cost-usd 4` at `-j 4` ran to $6.32 (Sonnet measure, 22 Oct); the README's $10 ceiling can reach about $13; should stop within one batch of the ceiling (handover "ceiling overshoot", "eval cost ceiling not firm at -j 4", check-readme-cost "$10 ceiling worst case ~$13") |
@@ -1052,14 +1078,14 @@ gate log and a clean mark for that commit, unless the case says otherwise.
 | (e) | (c), then a `lib/a.py` commit | refused, "after the check of <X>, wt/t changed lib/a.py" |
 | (f) | range only inert, no mark, no gate | allowed |
 | (g) | no `.relay/` on the default branch, no mark | allowed, silent; positive control (a) in the same run |
-| (h) M-A | (c); then a `.relay/queue/x.md` commit lands on master | refused, "wt/t is behind master by 1 commit"; after `git -C .worktrees/t merge --no-edit master`: allowed, and the real `git merge --ff-only` succeeds |
+| (h) M-A | (c); then a `.relay/queue/x.json` commit lands on master | refused, "wt/t is behind master by 1 commit"; after `git -C .worktrees/t merge --no-edit master`: allowed, and the real `git merge --ff-only` succeeds |
 | (i) M-A | (c); master gains `lib/b.py` from another branch; `wt/t` merges master | refused, "code changed since: lib/b.py; run relay gate"; after `relay gate` (green): allowed with the same mark |
 | (j) | (c) with the mark on a fix commit; then a commit restoring `lib/a.py` to master's content | refused, "changed lib/a.py" (a reverted checked fix is not "from master") |
 | (k) | the branch changed `bin/x` before the mark; master changes another part of `bin/x`; the branch merges master without conflict | refused, "changed bin/x"; then the one-finding file of 7.2 naming `bin/x`, a green `relay gate`, a fixture checker report built from that file with `open 0`, fed to the real check-mark hook (B4): allowed |
 | (l) M-B | gate log for `F`; mark for `F` with `open 0`; HEAD = `F` + mark commit + handover commit | allowed |
 | (m) | only a red gate log (`exit 1`) for head | refused, "last gate <G>: exit 1" |
 | (n) m-1 | the range moves `fix` item `x` to `done/` with no `test:` line; then with `test: tests/t.sh::case_x` present in `tests/t.sh` | refused, "closed without a test"; then allowed |
-| (n2) m-1 | the range is only `git mv .relay/queue/x.md .relay/queue/done/` (`state: taken`, no test, no mark); the same move plus a `lib/a.py` fix with a clean mark and green gate; a `done/y.md` with `state: dropped` that arrived through a merge of master | refused, "closed without a test"; refused, same; not judged (allowed with (c)'s mark) |
+| (n2) m-1 | the range is only `git mv .relay/queue/x.json .relay/queue/done/` (`state: taken`, no test, no mark); the same move plus a `lib/a.py` fix with a clean mark and green gate; a `done/y.json` with `state: dropped` that arrived through a merge of master | refused, "closed without a test"; refused, same; not judged (allowed with (c)'s mark) |
 | (o) | the range is only `git mv lib/a.py .relay/queue/a.py`, no mark | refused, "no check mark" (not all inert); positive controls (d) and (f) |
 | (p) | `git -C .worktrees/w merge --ff-only wt/t` (a merge inside a task worktree), no mark | no output, exit 0; positive control (a) in the same run |
 
@@ -1128,9 +1154,9 @@ with 600 lines of findings is cut at `PAGE_MAX_LINES` with the "more" line
 
 ### 12.5 Queue, `tests/test_queue.py` (fixtures only)
 
-Q1 order (ip, then found, then slug); Q2 `fix` without `Failing case:`
+Q1 order (ip, then found, then slug); Q2 `fix` without `failing_case`
 refused by `add`, "malformed" in `relay queue`; Q3 `add --from <report>
-F7` copies the fields of a fixture report (linter line included); Q4
+F7` copies the fields of a fixture review JSON written by `relay check record` (the linter line, built by `relay_verdict.linter`, is the item's `what`; a missing `<report>.json` is refused naming the file); Q4
 `count` ignores `done/` and reads the default branch only; Q5 the
 SessionStart line in a session whose cwd is a worktree shows the default
 branch's items, nothing without `.relay/queue/` (live part after merge 2:
@@ -1141,7 +1167,7 @@ suffixes `-2`; Q7 `done` refuses without `--test`, with a name the file
 lacks, with a report lacking `Q1 MET`; Q8 a new `fix` gets 1 + the top open
 feature's ip; Q9 two `add`s at once from two worktrees, 10 rounds, both
 land, no branch left; two `add`s with the same title at once (barrier), 10
-rounds: `<slug>.md` and `<slug>-2.md`, both texts intact; with
+rounds: `<slug>.json` and `<slug>-2.json`, both texts intact; with
 `index.lock` held 2 s it still lands; with `QUEUE_LAND_TRIES` = 1 and a
 moved head it reports "not landed" and keeps the branch; a queue branch
 touching a second file is refused and deleted; Q10 (m-4) `take` lands
@@ -1168,7 +1194,7 @@ without the zero old value: Q9's same-title case loses a text.
   "inert: skipped (runs under relay gate)" and the loop keeps today's speed.
   The step: in a temporary worktree at `RELAY_GATE`'s commit, every inert
   file gets a line appended and each inert folder probe files
-  (`.relay/queue/zz-probe.md` malformed, `.relay/checks/zz.json`,
+  (`.relay/queue/zz-probe.json` malformed, `.relay/checks/zz.json`,
   `zz.review.md`, `zz.gate.log`); `bin/ci --quick` runs there with
   `RELAY_GATE` unset (so the nested run skips `inert`: one level only);
   fails when a step's result or the test count differs from the outer

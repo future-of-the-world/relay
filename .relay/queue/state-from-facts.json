@@ -1,0 +1,20 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 80,
+  "time": 90,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 12",
+  "title": "Rebuild session state from git, not the handover",
+  "what": [
+    "rebuild session state from git (branches, worktrees, merges, marks), the queue, the ledger and reports; keep by hand only the owner's words and decisions; at session start name each difference between the handover and the facts (owner, q4 \"a\"; v3 #4)",
+    "Also: the owner's decisions and instructions are kept verbatim in a dated structured log (a JSON file the library appends to), and the state of a session is rebuilt from git plus that log; the handover text is only a readable rendering of it (owner, 22 Oct: 'persist structured, operate with scripts')."
+  ],
+  "why": [
+    "the owner ranked it 80 in the work order of 22 Oct."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

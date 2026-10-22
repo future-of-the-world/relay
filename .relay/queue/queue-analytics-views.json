@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 0,
+  "time": 40,
+  "found": "2026-10-23",
+  "found_in": "owner, 23 Oct: add analytics views to the queue",
+  "title": "Analytics views over the queue and stored reviews",
+  "what": [
+    "Read-only extensions in lib/queue_ext/ (and a check-stats view over .relay/checks/*.json): queue totals by kind, age and time; findings per reviewer, share MET at first check."
+  ],
+  "why": [
+    "The owner wants scripts that handle many items fast and give analytics, reusable by the model for finding information; the model and the owner get answers from one tested script instead of reading many files."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

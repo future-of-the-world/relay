@@ -155,7 +155,7 @@ each finding's failing case and pass-cases when it merges duplicates. Every
 finding left open goes to the owner with a recommendation. An open HIGH or
 MEDIUM inside the change is fixed before the merge: it is one more round on
 the owner's word (a fix, the gate again, then the check again), never a
-follow-up; only items outside the change are listed as follow-ups. A look defect still
+follow-up; only items outside the change become queue items. A look defect still
 on screen is listed with its screenshot; the look is never reported clean.
 
 If the change alters what a person sees, the owner checks it before merge:
@@ -178,6 +178,6 @@ Scenarios: <covered>/<total> asserted by tests. Verify: <critical> critical.
 Tests: <counts>. Gate: <ci passed | pipeline #<n> on <sha> passed>. openspec validate --strict: passed.
 Flaky: <each test that failed then passed, and its fix branch; "none">.
 Spec gaps: <each, and where it was folded in>.
-Diagnostics missing: <each, and the task or follow-up that covers it>.
+Diagnostics missing: <each, and the task or queue item that covers it>.
 Branch: wt/<change>, ready for /opsx:archive (archive first, then the merge).
 ```

@@ -9,38 +9,16 @@ import re
 
 import relay_config
 import relay_git
-
-QUEUE_DIR = ".relay/queue"
-
-
-def _item_fields(text):
-    """The `key: value` lines of an item file's front matter (the block between the first two `---` lines)."""
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return {}
-    fields = {}
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        key, _, value = line.partition(":")
-        fields[key.strip()] = value.split("#", 1)[0].strip()
-    return fields
+import relay_queue
 
 
 def _taken_items(main, default):
-    """(slug, taken-by) of every committed queue item on the default branch whose state is `taken`."""
-    rc, names = relay_git.git(main, "ls-tree", "--name-only", "refs/heads/" + default, QUEUE_DIR + "/")
-    if rc != 0:
+    """(slug, taken-by) of every well-formed queue item on the default branch whose state is `taken` (relay_queue reads it)."""
+    if relay_git.git(main, "show-ref", "--verify", "--quiet", "refs/heads/" + default)[0] != 0:
         return []
-    taken = []
-    for name in sorted(names.splitlines()):
-        if not name.endswith(".md"):
-            continue
-        rc, text = relay_git.git(main, "show", "refs/heads/%s:%s" % (default, name), raw=True)
-        fields = _item_fields(text) if rc == 0 else {}
-        if fields.get("state") == "taken" and fields.get("taken-by"):
-            taken.append((os.path.basename(name)[:-3], fields["taken-by"]))
-    return taken
+    items = relay_queue.Reader(main, "refs/heads/" + default).items()
+    return [(slug, item["taken_by"]) for slug, item in sorted(items.items())
+            if not item["problems"] and item["state"] == "taken" and item["taken_by"]]
 
 
 def _merged(main, default, branch):
@@ -73,8 +51,8 @@ def lines(repo):
         branch, _, track = ref.partition(" ")
         if track == "[gone]":
             found.append((False, "%s: its upstream is gone (probably merged on the server, a squash); not removed" % branch))
-        if branch.startswith("wt/queue-"):
-            found.append((True, "leftover queue branch: %s" % branch))
+    for branch in relay_queue.leftover_branches(main):
+        found.append((True, "leftover queue branch: %s" % branch))
     cache = os.path.join(relay_config.claude_dir(), "plugins", "cache", "relay")
     if os.path.isdir(cache):
         home = os.path.expanduser("~")

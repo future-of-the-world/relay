@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 91,
+  "time": 20,
+  "found": "2026-10-22",
+  "found_in": "owner rule structured-data, 22 Oct",
+  "title": "Eval tallies read yes and no votes from file names",
+  "what": [
+    "bin/eval-record reads the yes/no votes of a run from the names of files (bin/eval-record:23, :92, :102); store the votes of one run in one JSON file."
+  ],
+  "why": [
+    "A file name that is renamed, truncated or copied changes a vote, and a tally built on it is a wrong answer about the judge."
+  ],
+  "failing_case": [
+    "rename or copy a vote file of a run (for example give a vote file a name with an extra suffix): the tally counts it as another vote or none; votes in one JSON per run cannot be changed by a name"
+  ],
+  "pass_cases": [
+    "a run whose vote files carry the expected names tallies correctly today"
+  ],
+  "where": "bin/eval-record:23",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 import relay_checkpage  # noqa: E402
 import relay_verdict  # noqa: E402
 import relay_marks  # noqa: E402
+import relay_queue  # noqa: E402
 
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
@@ -221,7 +222,7 @@ class Inert(Fixture):
 
 
 def finding(fid, path, line, severity, summary, case, kind="inside"):
-    return {"id": fid, "path": path, "line": line, "severity": severity, "kind": kind, "summary": summary, "failing_case": [case]}
+    return {"id": fid, "path": path, "line": line, "severity": severity, "rank": {"HIGH": "high", "MEDIUM": "medium", "LOW": "low"}[severity], "kind": kind, "summary": summary, "failing_case": [case]}
 
 
 class Page(Fixture):
@@ -252,7 +253,9 @@ class Page(Fixture):
             reviewed + ".review.json": json.dumps(relay_verdict.stored_set([review], reviewed)),
             reviewed + ".check.json": json.dumps(check)})
         if queue_line:
-            write(os.path.join(self.main, ".relay", "queue", "foo.md"), "---\nkind: fix\n---\n# Foo\n%s\n" % queue_line)
+            # an item as relay_queue writes it: the finding's linter line is the first line of its `what`
+            item = relay_queue.new_item("fix", 1, 10, "2026-10-22", "test", "an outside thing", queue_line, "it matters", failing="z")
+            write(os.path.join(self.main, ".relay", "queue", "foo.json"), relay_queue.serialize("foo", item))
             git(self.main, "add", "-A")
             git(self.main, "commit", "-q", "-m", "queue foo")
         return reviewed

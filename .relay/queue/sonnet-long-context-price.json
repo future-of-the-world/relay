@@ -1,0 +1,22 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 91,
+  "time": 20,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 5",
+  "title": "Cost reports for long Sonnet sessions are a fifth low",
+  "what": [
+    "relay calibrate puts long Sonnet sessions (266k-278k context) about 20.8% under Claude Code's total."
+  ],
+  "why": [
+    "Cost reports for long sessions are wrong by about a fifth."
+  ],
+  "failing_case": [
+    "`relay calibrate` on the 21 Oct ledger: 2 of 15 Sonnet sessions at 266k-278k context are 20.8% under Claude Code's total; should be within 5% (v3 #2)"
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

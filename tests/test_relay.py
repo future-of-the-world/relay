@@ -1048,7 +1048,8 @@ class Agents(unittest.TestCase):
         (two passes, a third pass, debt), and each of the five review places names roles/judge.md."""
         import glob
         import re
-        banned = ["over the fix range", "at most twice", "no third pass", "second pass", "tech debt", "technical debt"]
+        banned = ["over the fix range", "at most twice", "no third pass", "second pass", "tech debt", "technical debt",
+                  "follow-up with an id", "follow-up id"]
         files = []
         for pattern in ("rules/*.md", "roles/*.md", "roles/parts/*.md", "plugins/*/skills/*/SKILL.md", "plugins/*/agents/*.md"):
             files += glob.glob(os.path.join(ROOT, pattern))
@@ -1537,6 +1538,83 @@ class Setup(Base):
         # idempotent
         d2, *_ = relay_setup.setup(proj, flow="none", product=False)
         self.assertTrue(d2["has_bindings"])
+
+
+class RelayFolder(Base):
+    """S1-S3 (design 12.7): `relay setup --relay-folder` writes `.relay/README.md` and nothing else."""
+
+    def _repo(self):
+        repo = os.path.join(self.tmp, "fixture-repo")
+        os.makedirs(repo)
+        subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
+        with open(os.path.join(repo, "go.mod"), "w") as handle:
+            handle.write("module x\n")
+        subprocess.run(["git", "-C", repo, "add", "-A"], check=True)
+        subprocess.run(["git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x"], check=True)
+        return repo
+
+    def _env(self):
+        home = os.path.join(self.tmp, "home")
+        os.makedirs(os.path.join(home, ".claude"), exist_ok=True)
+        settings = os.path.join(home, ".claude", "settings.json")
+        with open(settings, "w") as handle:
+            handle.write('{"enabledPlugins": {"x@y": true}}\n')
+        return dict(os.environ, HOME=home, CLAUDE_CONFIG_DIR=os.path.join(home, ".claude")), settings
+
+    def _run(self, env, *args, cwd=None):
+        return subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "setup", *args],
+                              env=env, cwd=cwd, capture_output=True, text=True, timeout=60)
+
+    def _status(self, repo):
+        return subprocess.run(["git", "-C", repo, "status", "--porcelain", "-uall"], capture_output=True, text=True, check=True).stdout.splitlines()
+
+    def test_s1_relay_folder_writes_only_the_readme(self):
+        repo = self._repo()
+        env, settings = self._env()
+        projects = os.environ["RELAY_PROJECTS"]
+        before = (open(settings, "rb").read(), open(projects, "rb").read())
+        out = self._run(env, "--relay-folder", repo)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        # only the one file is new: every other piece of plain setup (kit.toml, bin/*, settings, project entry) is absent
+        self.assertEqual(self._status(repo), ["?? .relay/README.md"])
+        self.assertEqual((open(settings, "rb").read(), open(projects, "rb").read()), before)
+        for rel in ("bin/check", "bin/wt", ".claude/kit.toml"):
+            self.assertFalse(os.path.exists(os.path.join(repo, rel)), rel)
+
+    def test_s1_default_folder_is_the_current_one(self):
+        repo = self._repo()
+        env, _ = self._env()
+        out = self._run(env, "--relay-folder", cwd=repo)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(self._status(repo), ["?? .relay/README.md"])
+
+    def test_s2_existing_readme_is_left_alone(self):
+        repo = self._repo()
+        env, settings = self._env()
+        os.makedirs(os.path.join(repo, ".relay"))
+        with open(os.path.join(repo, ".relay", "README.md"), "w") as handle:
+            handle.write("mine\n")
+        before = open(settings, "rb").read()
+        out = self._run(env, "--relay-folder", repo)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(open(os.path.join(repo, ".relay", "README.md")).read(), "mine\n")
+        self.assertEqual(self._status(repo), ["?? .relay/README.md"])   # still just the pre-existing file, nothing added
+        self.assertEqual(open(settings, "rb").read(), before)
+
+    def test_relay_folder_refuses_other_flags_and_a_missing_folder(self):
+        env, _ = self._env()
+        out = self._run(env, "--relay-folder", "--flow", "none", self._repo())
+        self.assertEqual(out.returncode, 2)
+        out = self._run(env, "--relay-folder", os.path.join(self.tmp, "nope"))
+        self.assertEqual(out.returncode, 2)
+
+    def test_s3_plain_setup_still_writes_kit_toml_settings_and_readme(self):
+        import relay_setup
+        repo = self._repo()
+        d, flow, product, done, todo = relay_setup.setup(repo, flow="none", product=False)
+        self.assertTrue(os.path.isfile(os.path.join(repo, ".claude", "kit.toml")))
+        self.assertTrue(os.path.isfile(os.path.join(repo, ".claude", "settings.json")))
+        self.assertTrue(os.path.isfile(os.path.join(repo, ".relay", "README.md")))
 
 
 class DefaultBranch(unittest.TestCase):

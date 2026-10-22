@@ -20,7 +20,7 @@ SHA_A, SHA_B = "a" * 40, "b" * 40
 
 
 def finding(fid="F1", **over):
-    base = {"id": fid, "path": "lib/x.py", "line": 12, "severity": "HIGH", "kind": "inside", "summary": "drops a row",
+    base = {"id": fid, "path": "lib/x.py", "line": 12, "severity": "HIGH", "rank": "high", "kind": "inside", "summary": "drops a row",
             "failing_case": ["input a=1 gives 0 rows", "should give 1"]}
     base.update(over)
     return base
@@ -40,7 +40,7 @@ class Schema(unittest.TestCase):
         # hand-listed: the field each bad value breaks, and the word the message must carry
         cases = [({"id": "1"}, "id must look like F1"), ({"line": 0}, "line must be a whole number of 1 or more"),
                  ({"line": "3"}, "line must be a whole number"), ({"line": True}, "line must be a whole number"),
-                 ({"severity": "CRITICAL"}, "severity must be one of HIGH/MEDIUM/LOW"), ({"kind": "other"}, "kind must be one of"),
+                 ({"severity": "URGENT"}, "severity must be one of HIGH/MEDIUM/LOW, BLOCKER/FIX/NIT, CRITICAL/WARNING/SUGGESTION"), ({"rank": "low"}, "rank must be high for severity HIGH"), ({"kind": "other"}, "kind must be one of"),
                  ({"summary": "two\nlines"}, "summary must be a one-line text"), ({"failing_case": []}, "no finding without a failing case"),
                  ({"failing_case": [""]}, "failing_case must be a list"), ({"path": ""}, "path must be")]
         for over, word in cases:
@@ -104,7 +104,7 @@ class Schema(unittest.TestCase):
                 rv.parse_findings(bad)
 
 
-class Record(unittest.TestCase):
+class RecordBase(unittest.TestCase):
     def setUp(self):
         self.tmp = os.path.realpath(tempfile.mkdtemp(prefix="relay-verdict-"))
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
@@ -117,6 +117,8 @@ class Record(unittest.TestCase):
     def record_review(self, *extra):
         return self.relay("review", "--report", self.report, "--reviewed", SHA_A, "--base", "master", *extra)
 
+
+class Record(RecordBase):
     FINDING = ["--finding", "id=F1", "path=lib/x.py", "line=12", "severity=HIGH", "kind=inside", "summary=drops a row",
                "failing=input a=1 gives 0 rows", "failing=should give 1"]
 
@@ -205,6 +207,43 @@ class Record(unittest.TestCase):
         self.assertIn("is not JSON", self.record_check(review=broken).stderr)
         self.assertFalse(os.path.exists(os.path.join(self.tmp, "chk.json")))
         self.assertFalse(os.path.exists(os.path.join(self.tmp, "chk.md")))
+
+
+class FlowWords(RecordBase):
+    """A flow's own severity words are accepted: the finding keeps the word and stores its rank beside it."""
+
+    # the sets named in the flows: roles/judge.md (default), sdd spec-reviewer ("BLOCKER = HIGH, FIX = MEDIUM, NIT = LOW"),
+    # sdd spec-conformance (CRITICAL / WARNING / SUGGESTION, worked as high / medium / low in that order)
+    SETS = {"default": [("HIGH", "high"), ("MEDIUM", "medium"), ("LOW", "low")],
+            "spec-reviewer": [("BLOCKER", "high"), ("FIX", "medium"), ("NIT", "low")],
+            "spec-conformance": [("CRITICAL", "high"), ("WARNING", "medium"), ("SUGGESTION", "low")]}
+
+    def record_set(self, words):
+        args = []
+        for i, (word, _) in enumerate(words, 1):
+            args += ["--finding", "id=F%d" % i, "path=lib/x.py", "line=%d" % i, "severity=" + word, "kind=inside", "summary=s%d" % i, "failing=f"]
+        done = self.record_review(*args)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return json.load(open(os.path.join(self.tmp, "rev.json")))
+
+    def test_each_flows_words_are_kept_with_their_rank(self):
+        for flow, words in self.SETS.items():
+            data = self.record_set(words)
+            self.assertEqual([(f["severity"], f["rank"]) for f in data["findings"]], words, flow)
+            self.assertIn("lib/x.py:1: %s: F1 s1" % words[0][0], open(self.report).read(), flow)
+            self.assertEqual(rv.counts_by_rank(data["findings"]), {"high": 1, "medium": 1, "low": 1}, flow)
+
+    def test_a_word_of_no_flow_is_refused_naming_the_sets(self):
+        done = self.record_review("--finding", "id=F1", "path=lib/x.py", "line=1", "severity=URGENT", "kind=inside", "summary=s", "failing=f")
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("severity must be one of HIGH/MEDIUM/LOW, BLOCKER/FIX/NIT, CRITICAL/WARNING/SUGGESTION", done.stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "rev.json")))
+
+    def test_counts_by_rank_mix_words_of_two_flows(self):
+        # BLOCKER and CRITICAL are both high; FIX is medium: worked by hand 2 / 1 / 0
+        found = [dict(finding(), severity="BLOCKER", rank="high"), dict(finding(), severity="CRITICAL", rank="high"),
+                 dict(finding(), severity="FIX", rank="medium")]
+        self.assertEqual(rv.counts_by_rank(found), {"high": 2, "medium": 1, "low": 0})
 
 
 if __name__ == "__main__":

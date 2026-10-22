@@ -9,7 +9,7 @@ disagree. Recording again replaces that block and keeps the prose before it.
 
 Review data:  {"schema": "relay-review/1", "reviewed": <full sha or "unknown">, "base": <sha or ref>,
                "findings": [FINDING, ...]}               (optional "file": the findings file's name, in a stored set)
-FINDING:      {"id": "F<n>", "path", "line": int >= 1, "severity": HIGH|MEDIUM|LOW,
+FINDING:      {"id": "F<n>", "path", "line": int >= 1, "severity": a word of WORDS (the flow's own), "rank": high|medium|low,
                "kind": inside|outside|design|feature|question, "summary", "failing_case": [line, ...] (at least one)}
 Check data:   {"schema": "relay-check/1", "head": <full sha>, "reviewed": <full sha>, "gate": <log path> or null,
                "worktree": <path> (left out of the stored copy), "review": [<review json path>, ...],
@@ -27,7 +27,14 @@ REVIEW_SCHEMA = "relay-review/1"
 CHECK_SCHEMA = "relay-check/1"
 SET_SCHEMA = "relay-review-set/1"
 RECORD_MARK = "<!-- relay:record -->"
-SEVERITIES = ("HIGH", "MEDIUM", "LOW")
+# Each flow's severity words and the rank they stand for. The finding keeps the flow's word (`severity`) and stores
+# its rank beside it (`rank`); everything that counts or sorts findings uses the rank.
+WORD_SETS = (("default", ("HIGH", "MEDIUM", "LOW")), ("spec-reviewer", ("BLOCKER", "FIX", "NIT")),
+             ("spec-conformance", ("CRITICAL", "WARNING", "SUGGESTION")))
+RANK_ORDER = ("high", "medium", "low")
+WORDS = {word: RANK_ORDER[i] for _, words in WORD_SETS for i, word in enumerate(words)}
+SEVERITIES = tuple(WORDS)
+SEVERITY_HELP = ", ".join("/".join(words) for _, words in WORD_SETS)
 KINDS = ("inside", "outside", "design", "feature", "question")
 VERDICTS = ("MET", "NOT MET", "DISPUTED", "GAP", "OUTSIDE", "QUEUED")
 SHA = re.compile(r"^[0-9a-f]{40}\Z")
@@ -55,7 +62,7 @@ def finding_errors(finding, where):
     if not isinstance(finding, dict):
         return ["%s is not an object" % where]
     errors = []
-    allowed = {"id", "path", "line", "severity", "kind", "summary", "failing_case"}
+    allowed = {"id", "path", "line", "severity", "rank", "kind", "summary", "failing_case"}
     for key in sorted(set(finding) - allowed):
         errors.append("%s has an unknown field %s" % (where, key))
     if not (isinstance(finding.get("id"), str) and FINDING_ID.match(finding["id"])):
@@ -65,7 +72,9 @@ def finding_errors(finding, where):
     if not (_is_int(finding.get("line")) and finding["line"] >= 1):
         errors.append("%s: line must be a whole number of 1 or more, got %r" % (where, finding.get("line")))
     if finding.get("severity") not in SEVERITIES:
-        errors.append("%s: severity must be one of %s, got %r" % (where, "/".join(SEVERITIES), finding.get("severity")))
+        errors.append("%s: severity must be one of %s, got %r" % (where, SEVERITY_HELP, finding.get("severity")))
+    elif finding.get("rank") != WORDS[finding["severity"]]:
+        errors.append("%s: rank must be %s for severity %s, got %r" % (where, WORDS[finding["severity"]], finding["severity"], finding.get("rank")))
     if finding.get("kind") not in KINDS:
         errors.append("%s: kind must be one of %s, got %r" % (where, "/".join(KINDS), finding.get("kind")))
     if not _text(finding.get("summary")):
@@ -277,6 +286,8 @@ def _finding(raw):
         except ValueError:
             raise VerdictError("%s: line must be a whole number, got %r" % (raw.get("id", "a finding"), raw["line"]))
     out["failing_case"] = list(raw.get("failing", []))
+    if out.get("severity") in WORDS:
+        out["rank"] = WORDS[out["severity"]]
     return out
 
 
@@ -368,3 +379,11 @@ def stored_check(data, review_name):
 def outside_count(review_set):
     """How many findings of a stored review set are outside the change."""
     return sum(1 for review in review_set["reviews"] for f in review["findings"] if f["kind"] == "outside")
+
+
+def counts_by_rank(findings):
+    """{"high": n, "medium": n, "low": n} of finding dicts, whatever words their flow used."""
+    counts = {rank: 0 for rank in RANK_ORDER}
+    for finding in findings:
+        counts[finding["rank"]] += 1
+    return counts

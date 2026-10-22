@@ -144,7 +144,7 @@ class Marks(unittest.TestCase):
     # -- relay check show: P3, P4 -------------------------------------------------------------------------------
 
     def finding(self, fid, kind, path="a.txt", line=1):
-        return {"id": fid, "path": path, "line": line, "severity": "MEDIUM", "kind": kind, "summary": "s " + fid, "failing_case": ["x"]}
+        return {"id": fid, "path": path, "line": line, "severity": "MEDIUM", "rank": "medium", "kind": kind, "summary": "s " + fid, "failing_case": ["x"]}
 
     def gate_log(self):
         folder = os.path.join(self.wt, ".relay", "checks")

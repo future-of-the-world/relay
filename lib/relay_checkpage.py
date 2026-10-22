@@ -10,6 +10,7 @@ import os
 import relay_git
 import relay_inert
 import relay_marks
+import relay_queue
 import relay_verdict
 
 # Lines of finding content (a linter line, a status line, a code line, a failing-case line) the page shows before the
@@ -34,7 +35,7 @@ class PageError(Exception):
 def finding_view(finding):
     """The page's view of a recorded finding: path, line, severity, id, what, linter, case (the failing case in one
     paragraph)."""
-    return {"path": finding["path"], "line": finding["line"], "severity": finding["severity"], "id": finding["id"],
+    return {"path": finding["path"], "line": finding["line"], "severity": finding["severity"], "rank": finding["rank"], "id": finding["id"],
             "what": finding["summary"], "linter": relay_verdict.linter(finding), "case": " ".join(finding["failing_case"])}
 
 
@@ -56,10 +57,13 @@ def excerpt(repo, commit, finding):
 
 def queue_slug(repo, default, finding):
     """The slug of the queue item on the default branch that carries this finding's linter line, else None."""
-    rc, out = relay_git.git(repo, "grep", "-l", "-F", "-e", finding["linter"], "refs/heads/" + default, "--", ".relay/queue")
-    if rc != 0 or not out:
+    if relay_git.git(repo, "show-ref", "--verify", "--quiet", "refs/heads/" + default)[0] != 0:
         return None
-    return os.path.basename(out.splitlines()[0])[:-3]
+    main = relay_git.main_checkout(repo) or repo
+    for slug, item in sorted(relay_queue.Reader(main, "refs/heads/" + default).items().items()):
+        if not item["problems"] and finding["linter"] in item["what"]:
+            return slug
+    return None
 
 
 def cost(finding, shown):

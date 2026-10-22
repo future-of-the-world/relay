@@ -27,6 +27,23 @@ It ends with a numbered list of what only you can finish (the stack
 commands, two lines about the product) and the one Claude Code step
 (`/plugin marketplace add ~/relay`, install, restart).
 
+## `.relay/` in a project, and `~/.relay` on the machine
+
+Two folders with similar names, different jobs:
+
+- **`.relay/`** is committed in a project. `relay setup` writes its `README.md`; it turns on relay's
+  hard rules, which act only where the project's default branch has the folder. In it: `queue/` (the
+  work queue: one JSON file per item, `fix` or `feature`, highest important points first; `relay queue`, and read-only views in relay's `lib/queue_ext/`: extensions live in relay only, they read, they never write items),
+  and `checks/` (per task branch: the gate log, the review, the check and the check mark a hook writes
+  when the checker finishes). A merge into the default branch is refused until the branch's last commit
+  has its gate, review and check; the pipeline is in `docs/plans/review-gate.md`.
+- **`~/.relay`** is per machine and never committed: the ledger and bench results.
+
+`relay setup --relay-folder [<dir>]` writes only `.relay/README.md` (nothing else: no kit.toml, no
+settings, no project entry) and does nothing when the file exists. It is the only form to run for relay
+itself: plain `relay setup` inside a relay worktree would point every project's plugins at that worktree.
+Old projects (Kartoteka, principles) are not given a `.relay/` folder.
+
 ## An existing project
 
 ```sh

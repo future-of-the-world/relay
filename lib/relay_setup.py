@@ -270,6 +270,35 @@ def register_project(name, root, flow, product):
 
 # --- the procedures ---------------------------------------------------------
 
+RELAY_README = """# .relay/
+
+This folder turns on relay's hard rules in this repository (relay's design: docs/plans/review-gate.md).
+It exists on the default branch, so every worktree sees it. It is created only by `relay setup`
+(or `relay setup --relay-folder`), and committed.
+
+- `queue/` the work queue: one file per item, `fix` (something wrong, with its failing case) or
+  `feature`, ordered by important points. `relay queue` lists it; `relay queue -h` shows the commands.
+- `checks/` the gate logs, reviews, checks and check marks of task branches. A merge into the
+  default branch is refused until the branch's last commit has its gate, its review and its check.
+
+Not here: `~/.relay` is per machine (ledger, bench results) and is never committed.
+"""
+
+
+def relay_folder(root):
+    """Write `.relay/README.md` when it is absent and nothing else; (path, created). The only step run for relay itself."""
+    root = os.path.realpath(root)
+    if not os.path.isdir(root):
+        raise ValueError(f"no such folder: {root}")
+    path = os.path.join(root, ".relay", "README.md")
+    if os.path.exists(path):
+        return path, False
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(RELAY_README)
+    return path, True
+
+
 def setup(root, flow=None, product=None, apply_global=True):
     root = os.path.realpath(root)
     d = detect(root)
@@ -308,6 +337,8 @@ def setup(root, flow=None, product=None, apply_global=True):
         done.append(f"{path}: relay marketplace registered, user-scope plugins enabled" + ("" if changed else " (already)"))
         for r in removed:
             done.append(f"  removed a user hook the front plugin now provides: {r}")
+    if relay_folder(root)[1]:
+        done.append("wrote .relay/README.md (turns on the work queue and the merge checks once it is on the default branch)")
     todo.append("in Claude Code, run `/plugin marketplace add " + ROOT + "` once, then `/reload-plugins` (or restart) so the plugins load")
     return d, flow, product, done, todo
 

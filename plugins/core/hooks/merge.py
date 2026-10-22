@@ -24,6 +24,7 @@ import kit_guard  # noqa: E402
 import relay_git  # noqa: E402
 import relay_inert  # noqa: E402
 import relay_marks  # noqa: E402
+import relay_queue  # noqa: E402
 
 NAMES = 5          # files or paths named in a message, then "and N more"
 LOG_RANGE = 50     # newest entries of the default branch's reflog searched for its state before a merge
@@ -116,21 +117,6 @@ class Refused(Exception):
     """The merge is refused; the text is the one line the hook prints."""
 
 
-def front_matter(text):
-    """{key: value} of a queue item's `---` block; a trailing ` # comment` is dropped."""
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return {}
-    found = {}
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        key, sep, value = line.partition(":")
-        if sep and key.strip():
-            found[key.strip()] = value.split(" #")[0].strip()
-    return found
-
-
 def plural(n, word):
     return "%d %s%s" % (n, word, "" if n == 1 else "s")
 
@@ -151,13 +137,14 @@ def step_queue(main, default, branch):
     """7.1 step 2 (m-1): every `fix` item the range moves into done/ (not dropped) has a test that exists."""
     added = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z",
                           "refs/heads/%s...refs/heads/%s" % (default, branch))[1]
-    for path in sorted(p for p in added.split("\0") if p.startswith(DONE_DIR) and p.endswith(".md")):
-        text = blob(main, "refs/heads/" + branch, path)
-        meta = front_matter(text or "")
-        if meta.get("kind") != "fix" or meta.get("state") == "dropped":
+    for path in sorted(p for p in added.split("\0") if p.startswith(DONE_DIR) and p.endswith(".json")):
+        slug = os.path.basename(path)[:-5]
+        meta = relay_queue.parse(slug, blob(main, "refs/heads/" + branch, path) or "")
+        if meta["problems"]:
+            raise Refused("queue item %s is malformed (%s); fix it before the merge" % (slug, "; ".join(meta["problems"])))
+        if meta["kind"] != "fix" or meta["state"] == "dropped":
             continue
-        slug = os.path.basename(path)[:-3]
-        test_file, sep, test_name = meta.get("test", "").partition("::")
+        test_file, sep, test_name = meta["test"].partition("::")
         source = blob(main, "refs/heads/" + branch, test_file.strip()) if sep and test_file.strip() else None
         if not test_name.strip() or source is None or test_name.strip() not in source:
             raise Refused("queue item %s is closed without a test (relay queue done --test <file>::<name>)" % slug)

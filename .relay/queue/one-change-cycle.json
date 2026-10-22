@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 40,
+  "time": 90,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 16",
+  "title": "One shared change cycle for every flow",
+  "what": [
+    "one shared change cycle for every flow, ten correctness checks everywhere, waves in the shared cycle, a thin OpenSpec add-on (sdd renamed), no per-flow addition files (owner's phase-1 decisions, 22 Oct; replaces v3 #8 `openspec-as-adapter`)"
+  ],
+  "why": [
+    "the owner ranked it 40 in the work order of 22 Oct."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

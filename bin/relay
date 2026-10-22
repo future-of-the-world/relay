@@ -27,6 +27,7 @@
   relay migrate --all [--apply]      the migration plan (or the move) for every known project
   relay setup [<dir>] [--flow openspec|issues|none] [--product|--no-product] [--no-global]
                                      a project onto relay (new or existing; nothing deleted)
+  relay setup --relay-folder [<dir>] write .relay/README.md only (nothing else); the only form run for relay itself
   relay migrate [<dir>] [--apply]    an existing project from the old agents/skills/hooks; --apply moves them aside
   relay doctor [<dir>]               check-up of the machine, the rules, the ledger, and a project
   relay flows                        the task flows available and what each needs
@@ -50,6 +51,9 @@
   relay check page [-C <repo>] <branch> [-o <file>]
                                      one HTML file for the person's step, built from the stored checks (default
                                      <repo>/.ci/page-<name>.html); it only writes the file, the front publishes it
+  relay queue [count|land|ip|take|release|done|drop|add] ...
+                                     the work queue (.relay/queue/ on the default branch): `relay queue` lists it,
+                                     `relay queue count` gives the one-line count; see `relay queue -h`
 
 The repository root is this script's parent, or $RELAY_ROOT.
 """
@@ -71,6 +75,7 @@ import relay_inert  # noqa: E402
 import relay_ledger  # noqa: E402
 import relay_marks  # noqa: E402
 import relay_verdict  # noqa: E402
+import relay_queue  # noqa: E402
 import relay_rules  # noqa: E402
 import relay_setup  # noqa: E402
 import relay_tidy  # noqa: E402
@@ -319,6 +324,16 @@ def cmd_setup(args, migrate=False):
     if migrate and "--all" in args:
         args.remove("--all")
         return cmd_migrate_all(args)
+    if "--relay-folder" in args:
+        args.remove("--relay-folder")
+        if migrate or any(a.startswith("--") for a in args) or len(args) > 1:
+            raise Usage("--relay-folder takes only an optional folder: relay setup --relay-folder [<dir>]")
+        root = os.path.realpath(args[0] if args else os.getcwd())
+        if not os.path.isdir(root):
+            raise Usage(f"no such folder: {root}")
+        path, created = relay_setup.relay_folder(root)
+        print(f"{path}: " + ("written" if created else "already there, nothing changed"))
+        return 0
     apply = flag(args, "--apply", takes_value=False)
     flow = flag(args, "--flow")
     product = True if flag(args, "--product", takes_value=False) else (False if flag(args, "--no-product", takes_value=False) else None)
@@ -559,10 +574,124 @@ def cmd_check(args):
     return 0
 
 
+QUEUE_USAGE = """relay queue                              the ordered list: ip, kind, time, what, name
+relay queue count                        "10 fix, 12 feature; top: <slug> (fix, ip 95, 30m)"
+relay queue <view>                       a read-only view from relay's lib/queue_ext/ (also: relay queue --view <view>); `table` is the default, `json` prints the items for scripts
+relay queue add --from <report> F<n> --why ".." --time 20m|1h|1h30m [--ip N]   (reads <report>.json)
+relay queue add --kind feature|fix --title "..." --why "..." --time 20m|1h|1h30m [--ip N] [--what ".."] [--failing ".."]
+relay queue land <slug>                  try again to land a kept wt/queue-<slug>
+relay queue ip <slug> <n>
+relay queue take <slug> -C <worktree> --findings <path>
+relay queue release <slug>
+relay queue done <slug> -C <worktree> --test <file>::<name> --check <report>
+relay queue drop <slug> --why "..."
+Every form takes [-C <repo>] (default: the current folder)."""
+
+
+def _queue_options(args, spec):
+    """Small option reader: spec maps `--name` to a type (str/int) or None for a flag; returns (options, positionals)."""
+    opts, rest, i = {}, [], 0
+    while i < len(args):
+        a = args[i]
+        if a in spec:
+            if i + 1 >= len(args):
+                raise Usage(f"{a} needs a value")
+            try:
+                opts[a] = spec[a](args[i + 1])
+            except relay_queue.Refused as e:
+                raise Usage(str(e))
+            except ValueError:
+                raise Usage(f"{a} needs a whole number")
+            i += 2
+        elif a.startswith("-") and len(a) > 1:
+            raise Usage(f"unknown option {a}\n{QUEUE_USAGE}")
+        else:
+            rest.append(a)
+            i += 1
+    return opts, rest
+
+
+QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "done")
+
+
+def cmd_queue(args):
+    sub = args[0] if args and not args[0].startswith("-") else ""
+    rest = args[1:] if sub else args
+    if sub in ("-h", "--help") or (args and args[0] in ("-h", "--help")):
+        print(QUEUE_USAGE)
+        return 0
+    common = {"-C": str}
+    if sub == "count":
+        o, p = _queue_options(rest, common)
+        if p:
+            raise Usage(QUEUE_USAGE)
+        print(relay_queue.count_text(relay_queue.read_queue(os.path.realpath(o.get("-C", ".")))))
+        return 0
+    if sub not in QUEUE_WRITES:
+        # a read-only view: `relay queue [--view] <name> [args]`, the table when no name is given
+        name, extra, folder = ("table" if not sub else sub), [], "."
+        if sub == "" and rest[:1] == ["--view"]:
+            if len(rest) < 2:
+                raise Usage("--view needs a view name")
+            name, rest = rest[1], rest[2:]
+        i = 0
+        while i < len(rest):
+            if rest[i] == "-C" and i + 1 < len(rest):
+                folder, i = rest[i + 1], i + 2
+            else:
+                extra.append(rest[i])
+                i += 1
+        try:
+            return relay_queue.run_extension(name, relay_queue.read_queue(os.path.realpath(folder)), extra)
+        except relay_queue.Refused as e:
+            raise Usage(str(e))
+    repo = lambda o: os.path.realpath(o.get("-C", "."))
+    if sub == "add":
+        o, p = _queue_options(rest, dict(common, **{"--from": str, "--kind": str, "--title": str, "--why": str, "--time": relay_queue.parse_time,
+                                                    "--ip": int, "--what": str, "--failing": str}))
+        if "--from" in o:
+            if len(p) != 1:
+                raise Usage("relay queue add --from <report> F<n>")
+            print(relay_queue.add_from(repo(o), o["--from"], p[0], why=o.get("--why", ""), minutes=o.get("--time"), ip=o.get("--ip")))
+        else:
+            if p or "--title" not in o:
+                raise Usage(QUEUE_USAGE)
+            print(relay_queue.add(repo(o), o.get("--kind", "feature"), o["--title"], why=o.get("--why", ""), what=o.get("--what", ""),
+                                  failing=o.get("--failing", ""), minutes=o.get("--time"), ip=o.get("--ip")))
+        return 0
+    spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--why": str}, 1),
+            "take": ({"--findings": str}, 1), "done": ({"--test": str, "--check": str}, 1)}
+    extra, count = spec[sub]
+    o, p = _queue_options(rest, dict(common, **extra))
+    if len(p) != count:
+        raise Usage(QUEUE_USAGE)
+    if sub == "land":
+        print(relay_queue.land(repo(o), p[0]))
+    elif sub == "ip":
+        try:
+            n = int(p[1])
+        except ValueError:
+            raise Usage("relay queue ip <slug> <n>: n is a whole number")
+        print(relay_queue.set_ip(repo(o), p[0], n))
+    elif sub == "release":
+        print(relay_queue.release(repo(o), p[0]))
+    elif sub == "drop":
+        print(relay_queue.drop(repo(o), p[0], o.get("--why", "")))
+    elif sub == "take":
+        if "--findings" not in o:
+            raise Usage("relay queue take <slug> -C <worktree> --findings <path>")
+        print(relay_queue.take(repo(o), p[0], o["--findings"]))
+    else:
+        if "--test" not in o or "--check" not in o:
+            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name> --check <report>")
+        print(relay_queue.done(repo(o), p[0], o["--test"], o["--check"]))
+    return 0
+
+
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "queue": cmd_queue,
 }
 
 

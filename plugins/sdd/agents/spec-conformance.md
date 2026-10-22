@@ -139,7 +139,7 @@ report, the worktree, the check to run and the full gate's log.
    file lists under `Owner: <id> is not wrong`. When the project has a work
    queue, a `Design:` finding listed under `Owner: <id> moved to queue item
    <slug>` counts under `queued`, not `open`, when `git -C <path> cat-file -e
-   <ref>:.relay/queue/<slug>.md` succeeds for the default branch; otherwise
+   <ref>:.relay/queue/<slug>.json` succeeds for the default branch; otherwise
    it stays in `open` with "queue item <slug> not found".
 What is `NOT MET` or new goes to the owner, never to another fix round.
 
@@ -269,6 +269,9 @@ run.
 5. The `kit spec-check` gaps.
 6. One line with the counts (covered / weak / missing scenarios; critical /
    warning verify issues). Nothing else.
+
+Record a verify issue with `severity=CRITICAL|WARNING|SUGGESTION` (the script
+keeps that word and stores its rank).
 
 Write items 1-6 to the report file with `mkdir -p` its directory, then
 `cat > <path> <<'EOF'`; it is the only file you write. In the reply give item

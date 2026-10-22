@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 70,
+  "time": 40,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 13",
+  "title": "Show the 5-hour and weekly limit share in the status line",
+  "what": [
+    "visible status line `5h % · week % · $` that also logs (v3 #5)"
+  ],
+  "why": [
+    "the owner ranked it 70 in the work order of 22 Oct."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

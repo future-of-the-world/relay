@@ -141,7 +141,7 @@ report, the worktree, the check to run and the full gate's log.
    file lists under `Owner: <id> is not wrong`. When the project has a work
    queue, a `Design:` finding listed under `Owner: <id> moved to queue item
    <slug>` counts under `queued`, not `open`, when `git -C <path> cat-file -e
-   <ref>:.relay/queue/<slug>.md` succeeds for the default branch; otherwise
+   <ref>:.relay/queue/<slug>.json` succeeds for the default branch; otherwise
    it stays in `open` with "queue item <slug> not found".
 What is `NOT MET` or new goes to the owner, never to another fix round.
 
@@ -337,7 +337,9 @@ kit spec-check <change>
 
 Findings are tagged `BLOCKER` (apply would build the wrong thing or fail),
 `FIX` (should change before apply) or `NIT`; they stand for `HIGH`, `MEDIUM`
-and `LOW`: BLOCKER = HIGH, FIX = MEDIUM, NIT = LOW. A finding's location is
+and `LOW`: BLOCKER = HIGH, FIX = MEDIUM, NIT = LOW. Record them with
+`severity=BLOCKER|FIX|NIT` (the script keeps your word and stores its rank). A
+finding's location is
 `artifact:line`, and its smallest fix is in the artifact's own words. Put
 decisions only the owner can make (a trade-off, a number, a scope call, how a
 screen should feel) in a separate **Questions for the owner** list, each with

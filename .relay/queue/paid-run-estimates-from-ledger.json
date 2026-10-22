@@ -1,0 +1,22 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 92,
+  "time": 20,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 4",
+  "title": "Paid run estimates come out well below the real cost",
+  "what": [
+    "Estimates for paid runs come out well below the real cost; they should come from the ledger's measured costs."
+  ],
+  "why": [
+    "Low estimates mean the daily cap is raised by hand over and over; the owner cannot plan spend."
+  ],
+  "failing_case": [
+    "estimates were low: Sonnet measure $3.02 estimated, $6.32 spent; live6 $1.90 estimated, $3.37 spent; four cap raises on 22 Oct; the judge-measure README's Sonnet figures come from two runs; should come from the ledger's measured costs (handover \"cost estimates from real numbers\", \"Sonnet measurement figures come from two runs\")"
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

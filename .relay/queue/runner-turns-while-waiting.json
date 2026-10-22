@@ -1,0 +1,22 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 93,
+  "time": 15,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 3",
+  "title": "The runner runs out of turns while it waits",
+  "what": [
+    "The runner runs out of turns while it waits on a paid run, so the front reads the results itself."
+  ],
+  "why": [
+    "The work is lost and the front spends its own context reading results the runner should report."
+  ],
+  "failing_case": [
+    "the runner ran out of turns while waiting on a paid run three times on 22 Oct (measure, live6, full run); the front read the results itself; should finish and report within its turns (handover, three notes)"
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
