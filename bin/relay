@@ -27,6 +27,7 @@
   relay migrate --all [--apply]      the migration plan (or the move) for every known project
   relay setup [<dir>] [--flow openspec|issues|none] [--product|--no-product] [--no-global]
                                      a project onto relay (new or existing; nothing deleted)
+  relay setup --relay-folder [<dir>] write .relay/README.md only (nothing else); the only form run for relay itself
   relay migrate [<dir>] [--apply]    an existing project from the old agents/skills/hooks; --apply moves them aside
   relay doctor [<dir>]               check-up of the machine, the rules, the ledger, and a project
   relay flows                        the task flows available and what each needs
@@ -301,6 +302,16 @@ def cmd_setup(args, migrate=False):
     if migrate and "--all" in args:
         args.remove("--all")
         return cmd_migrate_all(args)
+    if "--relay-folder" in args:
+        args.remove("--relay-folder")
+        if migrate or any(a.startswith("--") for a in args) or len(args) > 1:
+            raise Usage("--relay-folder takes only an optional folder: relay setup --relay-folder [<dir>]")
+        root = os.path.realpath(args[0] if args else os.getcwd())
+        if not os.path.isdir(root):
+            raise Usage(f"no such folder: {root}")
+        path, created = relay_setup.relay_folder(root)
+        print(f"{path}: " + ("written" if created else "already there, nothing changed"))
+        return 0
     apply = flag(args, "--apply", takes_value=False)
     flow = flag(args, "--flow")
     product = True if flag(args, "--product", takes_value=False) else (False if flag(args, "--no-product", takes_value=False) else None)

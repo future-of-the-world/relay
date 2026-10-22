@@ -17,7 +17,7 @@ Copies read (2026-10-19): `kartoteka-spec-review`, `clean-spec-review`
 | One author, one report, ~60 tool calls hand-back | Mind, Sight, ALIX | |
 | The sweep (all artifacts, docs outside `openspec/changes/`, `git grep` empty, validate, spec-check, commit message) | all | identical |
 | Second pass only on BLOCKER or restructure, on the fix range, last pass even if a core rule changed | Mind | strictest wording |
-| Open findings: smallest fix now, follow-up, or drop | ALIX, Glyph | |
+| Open findings: smallest fix now, a queue item (was: follow-up), or drop | ALIX, Glyph | |
 
 ## Dropped or changed
 

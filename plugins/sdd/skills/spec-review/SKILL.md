@@ -78,7 +78,7 @@ are checked by reading):
 No author fixes what it finds and there is no new open review, even when the
 fixes changed a core rule. The spec check writes no verdict (it is not a
 merge). Every finding it leaves open goes to the owner with a recommendation
-(the reviewer's smallest fix now, a follow-up, or a drop, and why); open
+(the reviewer's smallest fix now, a queue item, or a drop, and why); open
 `spec-check.md` for that list. A further fix runs only on the owner's word
 and is checked the same way.
 

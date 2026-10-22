@@ -125,7 +125,7 @@ Where findings go:
 |---|---|
 | HIGH or MEDIUM inside the change | fixed in this change |
 | LOW inside the change | fixed with its group when cheap, else listed in the report and dropped |
-| wrong outside the change | listed for the owner under Outside this change |
+| wrong outside the change | a fix item: `relay queue add --from <report> F<n>` |
 | marked `Design:` (the design itself is wrong) | stop building on that part; it stays open and goes to the owner |
 | a feature (a judge's suggestion, an out-of-scope question) | listed for the owner |
 | a question for the owner | asked with its introduction; the answer is a decision recorded in the design or brief |

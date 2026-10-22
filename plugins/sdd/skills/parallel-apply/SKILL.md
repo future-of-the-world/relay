@@ -159,7 +159,7 @@ the finished ones; it doesn't review code, write stubs or docs.
 6. **Diagnostics missing and owed work.** Each question a worker answered
    with prints, and anything it reports as owed, becomes a task when it
    concerns code the change adds or touches (a state field, an event, a
-   sharper error); otherwise a follow-up for the owner. The author adding
+   sharper error); otherwise a queue item. The author adding
    the tasks gets the list in its brief.
 
 ## Handing over
