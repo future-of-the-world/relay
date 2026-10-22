@@ -3,6 +3,7 @@
 Every repository is built in a temp directory; the gate commands are fixtures, never the real bin/ci of this repo
 except as the file the A11 fixture copies.
 """
+import json
 import os
 import shutil
 import stat
@@ -17,6 +18,7 @@ RELAY = os.path.join(ROOT, "bin", "relay")
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
 import relay_checkpage  # noqa: E402
+import relay_verdict  # noqa: E402
 import relay_marks  # noqa: E402
 
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
@@ -218,12 +220,16 @@ class Inert(Fixture):
         self.assertEqual(self.runs(), 2)
 
 
+def finding(fid, path, line, severity, summary, case, kind="inside"):
+    return {"id": fid, "path": path, "line": line, "severity": severity, "kind": kind, "summary": summary, "failing_case": [case]}
+
+
 class Page(Fixture):
     """P1 and P2 (design 12.4): `relay check page` writes one HTML file from the stored checks."""
 
     def stored(self, findings, source_lines=100, opened=1, queue_line=None):
-        """A branch with src/a.py (line 10 holds `if a < b and c & d:`), a green gate log, a review made of `findings`
-        (text), a check report for F1 MET / F2 NOT MET, and the mark; returns (reviewed sha, checked sha)."""
+        """A branch with src/a.py (line 10 holds `if a < b and c & d:`), a green gate log, a review set made of `findings`
+        (finding dicts), a check with F1 MET tests/t.py:5 / F2 NOT MET no test, and the mark; returns the reviewed sha."""
         self.repo()
         code = ["line %d" % n for n in range(1, source_lines + 1)]
         code[9] = "if a < b and c & d:"
@@ -234,10 +240,17 @@ class Page(Fixture):
         log = os.path.join(self.wt, ".relay", "checks", reviewed + ".gate.log")
         write(log, "head %s\ncmd fixture\nci: tests ok (1s)\nexit 0\n" % reviewed)
         relay_marks.commit_file(self.wt, log, "relay: gate of " + reviewed)
-        report = "# Check\nF1 MET tests/t.py:5\nF2 NOT MET no test\n## Verdict\nhead %s\nreviewed %s\nopen %d\nqueued 0\n" % (reviewed, reviewed, opened)
+        review = {"schema": relay_verdict.REVIEW_SCHEMA, "reviewed": reviewed, "base": "master", "findings": findings, "file": "findings.md"}
+        check = {"schema": relay_verdict.CHECK_SCHEMA, "head": reviewed, "reviewed": reviewed, "gate": None, "review": [reviewed + ".review.json"],
+                 "findings": [{"id": "F1", "verdict": "MET", "note": "tests/t.py:5"}, {"id": "F2", "verdict": "NOT MET", "note": "no test"}],
+                 "new": [], "open": opened, "queued": 0}
         mark = {"commit": reviewed, "verdict": {"open": opened, "queued": 0, "reviewed": reviewed},
-                "review": reviewed + ".review.md", "check": reviewed + ".check.md", "gate": None, "time": "2026-10-22T10:00:00Z"}
-        relay_marks.put(self.wt, reviewed, mark, {reviewed + ".review.md": findings, reviewed + ".check.md": report})
+                "review": reviewed + ".review.md", "review_data": reviewed + ".review.json",
+                "check": reviewed + ".check.md", "check_data": reviewed + ".check.json", "gate": None, "time": "2026-10-22T10:00:00Z"}
+        relay_marks.put(self.wt, reviewed, mark, {
+            reviewed + ".review.md": "# findings.md\n", reviewed + ".check.md": "# Check\n",
+            reviewed + ".review.json": json.dumps(relay_verdict.stored_set([review], reviewed)),
+            reviewed + ".check.json": json.dumps(check)})
         if queue_line:
             write(os.path.join(self.main, ".relay", "queue", "foo.md"), "---\nkind: fix\n---\n# Foo\n%s\n" % queue_line)
             git(self.main, "add", "-A")
@@ -254,10 +267,9 @@ class Page(Fixture):
         """P1: each linter line, its status line and the five code lines around it at the reviewed commit; no script, no
         link; `<` and `&` of a code line shown as &lt; and &amp;; the outside finding shows its queue item's slug."""
         outside = "src/a.py:30: LOW: F3 an outside thing"
-        review = ("# findings.md\nReviewed: x\n"
-                  "src/a.py:10: HIGH: F1 comparison a < b & c drops rows\nFailing case: a=1 gives 0 rows, should give 1.\nPass-cases: 1\n"
-                  "src/a.py:20: MEDIUM: F2 second thing\nFailing case: input y.\n"
-                  "## Outside this change\n" + outside + "\nFailing case: z.\n")
+        review = [finding("F1", "src/a.py", 10, "HIGH", "comparison a < b & c drops rows", "a=1 gives 0 rows, should give 1."),
+                  finding("F2", "src/a.py", 20, "MEDIUM", "second thing", "input y."),
+                  finding("F3", "src/a.py", 30, "LOW", "an outside thing", "z.", kind="outside")]
         self.stored(review, queue_line=outside)
         path, page = self.page()
         self.assertEqual(path, os.path.join(self.main, ".ci", "page-x.html"))
@@ -287,13 +299,31 @@ class Page(Fixture):
         """P2: 75 findings of 8 content lines each (linter, status, five code lines, failing case) = 600 lines. By hand:
         400 / 8 = 50 fit, so F1..F50 are shown and 25 are cut with the 'more' line naming the review file."""
         self.assertEqual(relay_checkpage.PAGE_MAX_LINES, 400)
-        review = "# many.md\n" + "".join("src/a.py:%d: MEDIUM: F%d thing %d\nFailing case: case %d.\n" % (n + 2, n, n, n) for n in range(1, 76))
+        review = [finding("F%d" % n, "src/a.py", n + 2, "MEDIUM", "thing %d" % n, "case %d." % n) for n in range(1, 76)]
         reviewed = self.stored(review, opened=0)
         _, page = self.page()
         self.assertEqual(page.count('class="finding"'), 50)
         self.assertIn("src/a.py:52: MEDIUM: F50 thing 50", page)
         self.assertNotIn("F51 thing 51", page)
         self.assertIn("25 more findings in .relay/checks/%s.review.md" % reviewed, page)
+
+    def test_page_refuses_a_mark_whose_review_data_is_missing_or_invalid(self):
+        """The page reads only the stored JSON: a mark from the prose-only days (no data files) or with a broken review
+        set gives no page and a message, never a guess from the markdown."""
+        reviewed = self.stored([finding("F1", "src/a.py", 10, "HIGH", "x", "y")])
+        folder = os.path.join(self.wt, ".relay", "checks")
+        write(os.path.join(folder, reviewed + ".review.json"), "{not json")
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "break the review data")
+        run = subprocess.run([sys.executable, RELAY, "check", "page", "-C", self.main, "wt/x"], capture_output=True, text=True, env=self.env)
+        self.assertEqual(run.returncode, 1)
+        self.assertIn("the review data %s.review.json is not JSON" % reviewed, run.stderr)
+        git(self.wt, "rm", "-q", "-f", ".relay/checks/%s.review.json" % reviewed)
+        git(self.wt, "commit", "-q", "-m", "remove the review data")
+        run = subprocess.run([sys.executable, RELAY, "check", "page", "-C", self.main, "wt/x"], capture_output=True, text=True, env=self.env)
+        self.assertEqual(run.returncode, 1)
+        self.assertIn("is not stored for wt/x", run.stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.main, ".ci", "page-x.html")))
 
     def test_page_refuses_without_a_mark(self):
         """No check mark yet: no page is built, no file written, the message says what to run."""

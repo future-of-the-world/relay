@@ -4,8 +4,10 @@ This module is the only code that reads or writes the folder `.relay/checks/` on
 
     <commit>.json         the check mark: {"commit", "verdict": {"open", "queued", "reviewed"},
                           "review", "check", "gate", "time"}
-    <commit>.check.md     the checker's report
-    <reviewed>.review.md  the review's findings files, joined
+    <commit>.check.md     the checker's report (readable; no code reads it)
+    <commit>.check.json   the checker's data (relay_verdict.py: the only form code reads)
+    <reviewed>.review.md  the review's findings files, joined (readable)
+    <reviewed>.review.json  the review set: the review data of each findings file (the only form code reads)
     <commit>.gate.log     the gate log: first line `head <commit>`, last line `exit <n>`
 
 Writes are git commits made with `add` then `commit --no-verify --only -- <files>`: other staged changes stay
@@ -20,6 +22,7 @@ import subprocess
 import time
 
 import relay_git
+import relay_verdict
 
 FOLDER = ".relay/checks"
 SHA = re.compile(r"^[0-9a-f]{40}\Z")
@@ -108,9 +111,10 @@ def put(worktree, commit, mark, files, sleep=time.sleep):
 
 
 def drop(worktree, commit, sleep=time.sleep):
-    """Remove the mark and the check report of `commit` (tracked files only) in one commit; True when it removed any."""
+    """Remove the mark and the check report and data of `commit` (tracked files only) in one commit; True when it
+    removed any."""
     tracked = []
-    for name in ("%s.json" % commit, "%s.check.md" % commit):
+    for name in ("%s.json" % commit, "%s.check.md" % commit, "%s.check.json" % commit):
         rel = FOLDER + "/" + name
         if _git(worktree, "ls-files", "--error-unmatch", "--", rel)[0] == 0:
             tracked.append(rel)
@@ -196,18 +200,34 @@ def newest(repo, ref, items):
     return None
 
 
-def review_outside(repo, ref, name):
-    """Count of linter lines under `## Outside this change` in the stored review `name`; None when no such file."""
+def review_set(repo, ref, name):
+    """The stored review set `name` at `ref` (relay_verdict.load_set); None when the file is not stored; MarkError when it
+    is stored but not valid (never a guess)."""
     text = _show(repo, ref, name)
     if text is None:
         return None
-    count, inside = 0, False
-    for line in text.splitlines():
-        if line.startswith("#"):
-            inside = line.strip().lower().startswith("## outside this change")
-        elif inside and re.match(r"^\S+:\d+: [A-Z]+: F\d+ ", line):
-            count += 1
-    return count
+    try:
+        return relay_verdict.load_set(text, "the review data %s" % name)
+    except relay_verdict.VerdictError as exc:
+        raise MarkError(str(exc))
+
+
+def check_data(repo, ref, name):
+    """The stored check data `name` at `ref`; None when it is not stored; MarkError when it is not valid."""
+    text = _show(repo, ref, name)
+    if text is None:
+        return None
+    try:
+        return relay_verdict.load_check(text, "the check data %s" % name, stored=True)
+    except relay_verdict.VerdictError as exc:
+        raise MarkError(str(exc))
+
+
+def review_outside(repo, ref, name):
+    """Count of findings of kind `outside` in the stored review set `name`; None when it is not stored; MarkError when it
+    is not valid."""
+    data = review_set(repo, ref, name)
+    return None if data is None else relay_verdict.outside_count(data)
 
 
 def lock_path(worktree):
@@ -248,6 +268,9 @@ def show(repo, branch, sleep=time.sleep):
     commit, data = mark
     verdict = data["verdict"]
     lines.append("mark %s: open %d, queued %d, reviewed %s" % (commit, verdict["open"], verdict["queued"], verdict["reviewed"]))
-    outside = review_outside(repo, ref, str(data.get("review") or "%s.review.md" % verdict["reviewed"]))
-    lines.append("outside: %s" % ("review not stored" if outside is None else "%d in the review" % outside))
+    try:
+        outside = review_outside(repo, ref, str(data.get("review_data") or "%s.review.json" % verdict["reviewed"]))
+        lines.append("outside: %s" % ("review not stored" if outside is None else "%d in the review" % outside))
+    except MarkError as exc:
+        lines.append("outside: unknown (%s)" % exc)
     return lines

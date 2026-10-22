@@ -6,20 +6,17 @@ outside link or asset, code excerpts in `<pre>`. It never publishes: the front p
 
 import html
 import os
-import re
 
 import relay_git
 import relay_inert
 import relay_marks
+import relay_verdict
 
 # Lines of finding content (a linter line, a status line, a code line, a failing-case line) the page shows before the
 # rest is cut with "N more findings in ..." (bound 100-2000: at 100 about 12 findings fit, at 2000 the page costs the
 # front about five times the tokens of the 400 default to publish).
 PAGE_MAX_LINES = 400
 CONTEXT = 2          # code lines shown above and below the finding's line
-LINTER = re.compile(r"^(\S+):(\d+): ([A-Z]+): (F\d+) (.*)$")
-STATUS = re.compile(r"^(F\d+) (MET|NOT MET)\b(.*)$")
-FIELD_END = re.compile(r"^\W*(Pass-cases?|CONFIRMED|PLAUSIBLE|Size|Smallest fix|Why it matters|Design)\b", re.I)
 
 STYLE = (
     "body{font:15px/1.5 -apple-system,Helvetica,Arial,sans-serif;max-width:60em;margin:2em auto;padding:0 1em;color:#1a1a1a}"
@@ -34,54 +31,16 @@ class PageError(Exception):
     """The page could not be built; the text says why in one line."""
 
 
-def parse_review(text):
-    """[(section, finding)] from a stored review: section "inside" or "outside"; finding = dict(path, line, severity, id,
-    what, linter, case). A finding runs from its linter line to the next linter line or heading."""
-    found, section, current = [], "inside", None
-    for raw in text.splitlines():
-        line = raw.strip()
-        if line.startswith("#"):
-            current = None
-            section = "outside" if line.lstrip("#").strip().lower().startswith("outside this change") else section
-            continue
-        match = LINTER.match(line)
-        if match:
-            current = {"path": match.group(1), "line": int(match.group(2)), "severity": match.group(3), "id": match.group(4),
-                       "what": match.group(5), "linter": line, "body": []}
-            found.append((section, current))
-        elif current is not None:
-            current["body"].append(raw)
-    for _, finding in found:
-        finding["case"] = failing_case(finding.pop("body"))
-    return found
+def finding_view(finding):
+    """The page's view of a recorded finding: path, line, severity, id, what, linter, case (the failing case in one
+    paragraph)."""
+    return {"path": finding["path"], "line": finding["line"], "severity": finding["severity"], "id": finding["id"],
+            "what": finding["summary"], "linter": relay_verdict.linter(finding), "case": " ".join(finding["failing_case"])}
 
 
-def failing_case(body):
-    """The failing case in one paragraph: from the `Failing case:` line to a blank line or the next field."""
-    out, inside = [], False
-    for raw in body:
-        text = raw.strip()
-        if not inside:
-            match = re.match(r"^\W*Failing case\W*:\s*(.*)$", text, re.I)
-            if match:
-                inside = True
-                if match.group(1):
-                    out.append(match.group(1))
-            continue
-        if not text or FIELD_END.match(text):
-            break
-        out.append(text)
-    return " ".join(out)
-
-
-def parse_status(text):
-    """{F<n>: "MET tests/x.py:88" or "NOT MET why"} from the checker's report."""
-    found = {}
-    for line in text.splitlines():
-        match = STATUS.match(line.strip())
-        if match:
-            found[match.group(1)] = (match.group(2) + match.group(3)).strip()
-    return found
+def statuses_of(check):
+    """{F<n>: "MET tests/x.py:88" or "NOT MET why"} from the stored check data."""
+    return {item["id"]: (item["verdict"] + " " + item.get("note", "")).strip() for item in check["findings"]}
 
 
 def excerpt(repo, commit, finding):
@@ -148,15 +107,18 @@ def build(repo, branch):
     commit, data = mark
     reviewed = data["verdict"]["reviewed"]
     review_name = str(data.get("review") or "%s.review.md" % reviewed)
-    review = relay_marks._show(repo, ref, review_name)
-    if review is None:
-        raise PageError("the review %s is not stored for %s" % (review_name, branch))
-    check = relay_marks._show(repo, ref, str(data.get("check") or "%s.check.md" % commit)) or ""
-    statuses = parse_status(check)
-    findings = parse_review(review)
-    inside = [f for s, f in findings if s == "inside"]
-    outside = [f for s, f in findings if s == "outside"]
-    title_line = next((l.lstrip("#").strip() for l in review.splitlines() if l.startswith("#")), "") or branch
+    try:
+        review_set = relay_marks.review_set(repo, ref, str(data.get("review_data") or "%s.review.json" % reviewed))
+        check = relay_marks.check_data(repo, ref, str(data.get("check_data") or "%s.check.json" % commit))
+    except relay_marks.MarkError as exc:
+        raise PageError(str(exc))
+    if review_set is None or check is None:
+        raise PageError("the review or check data of %s is not stored for %s (the mark is from before the data form: run delegate:checker again)" % (commit, branch))
+    statuses = statuses_of(check)
+    inside = [f for r in review_set["reviews"] for f in r["findings"] if f["kind"] in ("inside", "design", "feature")]
+    inside = [finding_view(f) for f in inside]
+    outside = [finding_view(f) for r in review_set["reviews"] for f in r["findings"] if f["kind"] == "outside"]
+    title_line = branch
 
     gate = relay_marks.newest(repo, ref, relay_marks.gate_logs(repo, ref))
     if gate is None:

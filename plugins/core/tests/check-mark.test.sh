@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # The check-mark hook (hooks/check-mark.py) and the guard's .relay/checks rule (hooks/guard-main.sh): cases K1-K8,
-# K10-K12 and G1-G7 of docs/plans/review-gate.md section 12.3, on throwaway repositories under a temp dir (temp HOME).
+# K10-K12 (K4b is new) and G1-G7 of docs/plans/review-gate.md section 12.3, on throwaway repositories under a temp dir (temp HOME).
+# The reports are recorded by `relay check record` (the agents' only way to write the JSON the hook reads).
 # K9 is the live run (a real checker, paid): tests/live_k9.sh, never part of the gate.
 #   plugins/core/tests/check-mark.test.sh
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd -P)"
 hook="$here/../hooks/check-mark.py"
 guard="$here/../hooks/guard-main.sh"
+relay="$here/../../../bin/relay"
 unset CLAUDE_PROJECT_DIR
 tmp="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$tmp"' EXIT
@@ -34,13 +36,24 @@ mkrepo() {
   W="$M/.worktrees/t"
   ( cd "$W" && echo a >a.txt && git add a.txt && git commit -q -m work )
   INIT="$(git -C "$M" rev-parse master)"; HEAD0="$(git -C "$W" rev-parse HEAD)"
-  printf 'Reviewed: %s\nF1 note\n' "$INIT" >"$S/f.md"
+  review "$S/f.md" F1 note
   report 0
 }
-# report <open> [stamp]: the checker's report at $S/rep.md ending in the verdict
+# review <file.md> <id> <summary> [kind]: the review recorded beside <file.md> (prose first, then the generated block)
+review() {
+  printf '# Review\nprose\n' >"$1"
+  "$relay" check record review --report "$1" --reviewed "$INIT" --base master --finding id="$2" path=a.txt line=1 severity=HIGH kind="${4:-inside}" \
+    summary="$3" failing="x gives 1, should give 2" >/dev/null || echo "setup: review record failed" >&2
+  touch -t $NEW "${1%.md}.json" "$1"
+}
+# report <open> [stamp] [head]: the checker's report and data at $S/rep.md and $S/rep.json; REVIEWS = the review data files
+REVIEWS="" ; HEADREC=""
 report() {
-  printf '# Check\nall good\n## Verdict\nhead %s\nreviewed %s\nopen %s\nqueued 0\n' "$HEAD0" "$INIT" "$1" >"$S/rep.md"
-  touch -t "${2:-$NEW}" "$S/rep.md"
+  local revs=(${REVIEWS:-$S/f.json})
+  printf '# Check\nall good\n' >"$S/rep.md"
+  "$relay" check record check --report "$S/rep.md" --head "${3:-$HEAD0}" --reviewed "$INIT" --worktree "$W" --gate none --review "${revs[@]}" \
+    --status F1=MET --open "$1" --queued 0 >/dev/null || echo "setup: check record failed" >&2
+  touch -t "${2:-$NEW}" "$S/rep.md" "$S/rep.json"
 }
 # prompt [check files]: the delegate skill's check prompt, verbatim form (backticks, periods), as the transcript's first line
 prompt() {
@@ -56,17 +69,21 @@ stop() {
 }
 checks() { git -C "$W" ls-tree --name-only HEAD .relay/checks/ | sed 's|.*/||' | sort | tr '\n' ' '; }
 
-# K1: valid checker stop -> one commit holding only the three files; the json as 4.1; every sha 40 characters
+# K1: valid checker stop -> one commit holding only the five files; the json as 4.1; every sha 40 characters
 mkrepo; prompt; before="$(count)"; stop delegate:checker
 expect "K1 exit 0" "$([ "$rc" -eq 0 ]; echo $?)"
 expect "K1 one new commit" "$([ "$(count)" -eq $((before + 1)) ]; echo $?)"
-want="$(printf '%s\n' ".relay/checks/$HEAD0.check.md" ".relay/checks/$HEAD0.json" ".relay/checks/$INIT.review.md" | sort | tr '\n' ' ')"
+want="$(printf '%s\n' ".relay/checks/$HEAD0.check.md" ".relay/checks/$HEAD0.check.json" ".relay/checks/$HEAD0.json" ".relay/checks/$INIT.review.md" ".relay/checks/$INIT.review.json" | sort | tr '\n' ' ')"
 got="$(git -C "$W" show --name-only --format= HEAD | sort | tr '\n' ' ')"
-expect "K1 the commit holds only <head>.json, <head>.check.md, <reviewed>.review.md" "$([ "$want" = "$got" ]; echo $?)"
+expect "K1 the commit holds only the mark, the check report and data, the review and its data" "$([ "$want" = "$got" ]; echo $?)"
 j="$(git -C "$W" show "HEAD:.relay/checks/$HEAD0.json")"
-expect "K1 json fields" "$(jq -e --arg h "$HEAD0" --arg r "$INIT" '.commit==$h and .verdict=={open:0,queued:0,reviewed:$r} and .review==($r+".review.md") and .check==($h+".check.md") and (.time|type=="string")' <<<"$j" >/dev/null; echo $?)"
+expect "K1 json fields" "$(jq -e --arg h "$HEAD0" --arg r "$INIT" '.commit==$h and .verdict=={open:0,queued:0,reviewed:$r} and .review==($r+".review.md") and .review_data==($r+".review.json") and .check==($h+".check.md") and .check_data==($h+".check.json") and (.time|type=="string")' <<<"$j" >/dev/null; echo $?)"
 expect "K1 every sha is 40 hex characters" "$(jq -e '[.commit, .verdict.reviewed] | all(test("^[0-9a-f]{40}$"))' <<<"$j" >/dev/null; echo $?)"
 expect "K1 the review holds the findings under their file name" "$(git -C "$W" show "HEAD:.relay/checks/$INIT.review.md" | grep -q '^# f.md$'; echo $?)"
+cj="$(git -C "$W" show "HEAD:.relay/checks/$HEAD0.check.json")"
+expect "K1 the stored check data: head, reviewed, open, no worktree, review is the stored set" "$(jq -e --arg h "$HEAD0" --arg r "$INIT" '.head==$h and .reviewed==$r and .open==0 and .queued==0 and (has("worktree")|not) and .review==[($r+".review.json")] and .findings==[{id:"F1",verdict:"MET"}]' <<<"$cj" >/dev/null; echo $?)"
+rj="$(git -C "$W" show "HEAD:.relay/checks/$INIT.review.json")"
+expect "K1 the stored review set holds the finding under its file name" "$(jq -e '.reviews|length==1 and .[0].file=="f.md" and .[0].findings[0].id=="F1" and .[0].findings[0].kind=="inside"' <<<"$rj" >/dev/null; echo $?)"
 expect "K1 the commit message names the head" "$([ "$(git -C "$W" log -1 --format=%s)" = "relay: check of $HEAD0" ]; echo $?)"
 
 # K2: delegate:critic -> nothing; then the checker's stop -> the mark
@@ -79,24 +96,32 @@ expect "K2 then checker: the mark commit" "$([ "$(count)" -eq $((before + 1)) ];
 mkrepo; prompt; before="$(count)"; stop ""
 expect "K3 empty agent_type: no commit" "$([ "$(count)" -eq "$before" ] && [ -z "$out" ]; echo $?)"
 
-# K4: a report without ## Verdict, with an earlier clean mark on that head: no mark, the old one removed, reason named
+# K4: no check data (the old prose-only report, or the data gone), with an earlier clean mark on that head: no mark, the old one removed, reason named
 mkrepo; prompt; stop delegate:checker
 expect "K4 setup: the earlier mark exists" "$(git -C "$W" cat-file -e "HEAD:.relay/checks/$HEAD0.json"; echo $?)"
-before="$(count)"; printf '# Check\nno verdict here\n' >"$S/rep.md"; touch -t $NEW "$S/rep.md"; stop delegate:checker
+before="$(count)"; rm -f "$S/rep.json"
+printf '# Check\nF1 MET\n## Verdict\nhead %s\nreviewed %s\nopen 0\nqueued 0\n' "$HEAD0" "$INIT" >"$S/rep.md"; touch -t $NEW "$S/rep.md"; stop delegate:checker
 expect "K4 a commit removing the old mark" "$([ "$(count)" -eq $((before + 1)) ] && ! git -C "$W" cat-file -e "HEAD:.relay/checks/$HEAD0.json" 2>/dev/null; echo $?)"
-expect "K4 systemMessage names the reason" "$(has 'check mark not written for wt/t: the report has no ## Verdict block' "$msg"; echo $?)"
+expect "K4 the old prose verdict is not read: the message names the missing data" "$(has 'check mark not written for wt/t: the check data' "$msg" && has 'the checker must run relay check record check' "$msg"; echo $?)"
+# K4b: the data is not JSON, or breaks the schema: no mark, the reason names it
+mkrepo; prompt; report 0; printf 'not json' >"$S/rep.json"; touch -t $NEW "$S/rep.json"; before="$(count)"; stop delegate:checker
+expect "K4b not JSON: no commit, reason named" "$([ "$(count)" -eq "$before" ] && has 'is not JSON' "$msg"; echo $?)"
+report 0; jq '.open = "0"' "$S/rep.json" >"$S/rep2.json" && mv "$S/rep2.json" "$S/rep.json"; touch -t $NEW "$S/rep.json"; stop delegate:checker
+expect "K4b open is a string: no commit, reason names open" "$([ "$(count)" -eq "$before" ] && has 'open must be a whole number' "$msg"; echo $?)"
 
 # K5: a report older than the transcript's first timestamp
-mkrepo; prompt; report 0 $OLD; before="$(count)"; stop delegate:checker
+mkrepo; prompt; report 0 $OLD; before="$(count)"; stop delegate:checker   # the data file is older than the start
 expect "K5 old report: no commit" "$([ "$(count)" -eq "$before" ]; echo $?)"
 expect "K5 reason named" "$(has 'older than the checker' "$msg"; echo $?)"
 
-# K6: head not in the history, or abbreviated
+# K6: head not in the history; an abbreviated head is refused by the record script, and by the hook when the data was changed behind it
 mkrepo; prompt; before="$(count)"
-printf '## Verdict\nhead %s\nreviewed %s\nopen 0\nqueued 0\n' "$(printf 'ab%.0s' $(seq 20))" "$INIT" >"$S/rep.md"; touch -t $NEW "$S/rep.md"; stop delegate:checker
+report 0 $NEW "$(printf 'ab%.0s' $(seq 20))"; stop delegate:checker
 expect "K6 unknown head: no commit, reason named" "$([ "$(count)" -eq "$before" ] && has 'is not a commit of this worktree' "$msg"; echo $?)"
-printf '## Verdict\nhead %s\nreviewed %s\nopen 0\nqueued 0\n' "${HEAD0:0:7}" "$INIT" >"$S/rep.md"; touch -t $NEW "$S/rep.md"; stop delegate:checker
-expect "K6 abbreviated head: no commit, reason named" "$([ "$(count)" -eq "$before" ] && has 'is not a full sha' "$msg"; echo $?)"
+rec="$("$relay" check record check --report "$S/rep.md" --head "${HEAD0:0:7}" --reviewed "$INIT" --worktree "$W" --gate none --review "$S/f.json" --open 0 --queued 0 2>&1)"; rrc=$?
+expect "K6 the record script refuses an abbreviated head and names it" "$([ "$rrc" -ne 0 ] && has 'head must be a full 40-character sha' "$rec"; echo $?)"
+report 0; jq --arg h "${HEAD0:0:7}" '.head = $h' "$S/rep.json" >"$S/rep2.json" && mv "$S/rep2.json" "$S/rep.json"; touch -t $NEW "$S/rep.json"; stop delegate:checker
+expect "K6 abbreviated head in the data: no commit, reason named" "$([ "$(count)" -eq "$before" ] && has 'head must be a full 40-character sha' "$msg"; echo $?)"
 
 # K7: no .relay/ on the default branch -> nothing; positive control K1 (same input, with it)
 mkrepo norelay; prompt; before="$(count)"; stop delegate:checker
@@ -114,11 +139,13 @@ expect "K8 locked 2 s: the mark landed on a retry" "$([ "$(count)" -eq $((before
 expect "K8 the commit holds only the hook's files" "$(! git -C "$W" show --name-only --format= HEAD | grep -q other.txt; echo $?)"
 expect "K8 the other file stays staged" "$([ "$(git -C "$W" diff --cached --name-only)" = other.txt ]; echo $?)"
 
-# K10: Check: a.md, b.md -> one review file holding both under their headings
-mkrepo; printf 'Reviewed: %s\nF1 from a\n' "$INIT" >"$S/a.md"; printf 'Q1 question from b\n' >"$S/b.md"; prompt "\`$S/a.md\`, \`$S/b.md\`"; stop delegate:checker
+# K10: Check: a.md, b.md -> one review file holding both under their headings, one review set holding both reviews
+mkrepo; review "$S/a.md" F1 "from a"; review "$S/b.md" F2 "question from b" question; prompt "\`$S/a.md\`, \`$S/b.md\`"
+REVIEWS="$S/a.json $S/b.json" report 0; stop delegate:checker
 rev="$(git -C "$W" show "HEAD:.relay/checks/$INIT.review.md")"
-expect "K10 both headings, both bodies" "$(has '# a.md' "$rev" && has 'F1 from a' "$rev" && has '# b.md' "$rev" && has 'Q1 question from b' "$rev"; echo $?)"
+expect "K10 both headings, both bodies" "$(has '# a.md' "$rev" && has 'F1 from a' "$rev" && has '# b.md' "$rev" && has 'F2 question from b' "$rev"; echo $?)"
 expect "K10 a before b" "$([ "$(grep -n '^# a.md' <<<"$rev" | cut -d: -f1)" -lt "$(grep -n '^# b.md' <<<"$rev" | cut -d: -f1)" ]; echo $?)"
+expect "K10 the review set lists a.md then b.md" "$(git -C "$W" show "HEAD:.relay/checks/$INIT.review.json" | jq -e '[.reviews[].file]==["a.md","b.md"]' >/dev/null; echo $?)"
 
 # K11: a re-check of the same head after 'Owner: F3 is not wrong': the review file is replaced, the mark's open changes
 mkrepo; prompt; report 1; stop delegate:checker
@@ -127,12 +154,15 @@ printf 'Owner: F3 is not wrong ("fine")\n' >>"$S/f.md"; report 0; stop delegate:
 expect "K11 the review carries the Owner line" "$(git -C "$W" show "HEAD:.relay/checks/$INIT.review.md" | grep -q '^Owner: F3 is not wrong'; echo $?)"
 expect "K11 the mark's open is 0" "$([ "$(git -C "$W" show "HEAD:.relay/checks/$HEAD0.json" | jq .verdict.open)" = 0 ]; echo $?)"
 
-# K12: a prompt that is a brief file, not the check line
-mkrepo; before="$(count)"
+# K12: a prompt that is a brief file, not the check line: the report it names has no data; with no Report: label at all, the prompt is refused by name
+mkrepo; before="$(count)"; rm -f "$S/rep.json"
 jq -nc --arg t "Check the fix per the brief. Brief: $S/brief.md. Report: $S/rep.md." --arg ts "$START" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}' >"$S/agent.jsonl"
 stop delegate:checker
 expect "K12 no commit" "$([ "$(count)" -eq "$before" ]; echo $?)"
-expect "K12 systemMessage names 'no Check:/Worktree: line'" "$(has 'no Check:/Worktree: line' "$msg"; echo $?)"
+expect "K12 systemMessage names the missing check data" "$(has 'the check data' "$msg" && has 'cannot be read' "$msg"; echo $?)"
+jq -nc --arg t "Check the fix per the brief. Brief: $S/brief.md." --arg ts "$START" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}' >"$S/agent.jsonl"
+stop delegate:checker
+expect "K12 no Report: label: names 'no Report: line'" "$(has 'no Report: line' "$msg"; echo $?)"
 
 # ---- the guard (G1-G7), the real guard-main.sh with CLAUDE_PROJECT_DIR = the worktree (as in a worktree session) ----
 mkrepo; GM="$M"; GW="$W"; mkdir -p "$tmp/scratch" "$tmp/fx"

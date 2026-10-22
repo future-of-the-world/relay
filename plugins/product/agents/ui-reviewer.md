@@ -139,9 +139,9 @@ report, the worktree, the check to run and the full gate's log.
    case and pass-cases. Not `LOW`. Not a review of the rest of the change.
 6. The fixer's `Disputed:`, `Gap:` and `Outside:` lines go to the owner as
    they are, each with your view in one line.
-7. Give each finding one status line, `F2 MET tests/test_inert.py:88` or
-   `F2 NOT MET <why>`, then end the report with the verdict (format in your
-   flow part). `open` counts
+7. Give each finding one status, `F2 MET tests/test_inert.py:88` or
+   `F2 NOT MET <why>` (recorded as `--status F2=MET:tests/test_inert.py:88`), then
+   record the check with the verdict (options in your flow part). `open` counts
    the `HIGH` and `MEDIUM` findings inside the change that are `NOT MET`,
    plus the new ones and the +1s of steps 1 and 2, minus those the findings
    file lists under `Owner: <id> is not wrong`. When the project has a work
@@ -150,6 +150,28 @@ report, the worktree, the check to run and the full gate's log.
    <ref>:.relay/queue/<slug>.md` succeeds for the default branch; otherwise
    it stays in `open` with "queue item <slug> not found".
 What is `NOT MET` or new goes to the owner, never to another fix round.
+
+## Record the findings (review) and the verdict (check)
+The merge reads only JSON, and you never type JSON. Write your readable report
+(prose, `<report>.md`) as before, then record it through the script, which
+checks every field, refuses a bad value with a message (fix the value and run
+it again), writes `<report>.json` beside the report, and appends the finding
+lines (or the verdict block) to the `.md` from the same data, so the two
+cannot disagree. Do not write those lines yourself; the script replaces what
+it appended, and leaves your prose. A review:
+
+    relay check record review --report <report.md> --reviewed <full sha> --base <default branch or sha> \
+      --finding id=F1 path=<path> line=<n> severity=HIGH|MEDIUM|LOW kind=inside|outside|design|feature|question \
+      summary="<what goes wrong, one line>" failing="<failing case line>" [failing="<another line>"] \
+      --finding id=F2 ...
+
+`kind` is `inside` (the fix lies in a file the change touched), `outside`
+(under "Outside this change"), `design` (a `Design:` finding), `feature`
+(something missing the change promised) or `question` (for the owner).
+`--reviewed` is the sha of `Reviewed:` (the script refuses an abbreviated sha;
+when git cannot run, write `Reviewed: commit unknown` in your prose and give
+no recording). A review with no finding is recorded with no `--finding`. A
+check (your flow part gives its options) is recorded the same way.
 
 ## Write early
 Turn limit: you have 60 turns. Create the report file within your first 10 tool calls (a heading and

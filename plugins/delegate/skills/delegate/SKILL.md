@@ -118,7 +118,8 @@ worker's DONE on a change that will be merged:
    change; the gate log of step 3 is the gate). Its report ends with the
    verdict, and where the project has `.relay/` a hook commits the check mark,
    the review and the report. Start it with the one-line check prompt below,
-   never `Brief: <file>`: the hook reads the `Check:` and `Worktree:` labels.
+   never `Brief: <file>`: the hook reads the `Report:` label and, from the JSON the checker recorded beside that report
+   (`relay check record check`), everything else.
    Then run `relay check show <branch>` (a runner; it waits while the hook is
    committing) before the front commits the handover, so the branch carries
    the state it was merged in and the commit does not meet the hook's lock.

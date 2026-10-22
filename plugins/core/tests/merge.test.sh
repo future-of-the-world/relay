@@ -350,10 +350,12 @@ m15; commit "fix a and x" "lib/a.py=v2\n" "bin/x=1a\n2\n3\n4\n5\n6\n"; BEFORE="$
 printf '1\n2\n3\n4\n5\n6a\n' >"$M/bin/x"; git -C "$M" commit -q -am "x end"; git -C "$W" merge -q --no-edit master
 pre "$MERGE"
 expect "T15k combined file: refused, changed bin/x" "$(refused 'changed bin/x'; echo $?)"
-printf 'Reviewed: %s\nbin/x:1: MEDIUM: F1 combined with master'"'"'s change by the merge\n' "$BEFORE" >"$S/f.md"
+"$RELAY" check record review --report "$S/f.md" --reviewed "$BEFORE" --base master --finding id=F1 path=bin/x line=1 severity=MEDIUM kind=inside \
+  summary="combined with master's change by the merge" failing="the gate fails or the merge does not apply" >/dev/null
 "$RELAY" gate -C "$W" >"$tmp/gate.out" 2>&1
 HEADK="$(head_of)"
-printf '# Check\nF1 MET\n## Verdict\nhead %s\nreviewed %s\nopen 0\nqueued 0\n' "$HEADK" "$BEFORE" >"$S/rep.md"; TZ=UTC touch -t 202610221100 "$S/rep.md"
+"$RELAY" check record check --report "$S/rep.md" --head "$HEADK" --reviewed "$BEFORE" --worktree "$W" --gate none --review "$S/f.json" \
+  --status F1=MET --open 0 --queued 0 >/dev/null
 jq -nc --arg t "Check: \`$S/f.md\`. Fixes: \`none\`. Worktree: \`$W\`. Check command: \`bin/ci --quick\`. Gate: \`none\`. Report: \`$S/rep.md\`." \
   '{type:"user", timestamp:"2026-10-22T10:00:00.000Z", message:{role:"user", content:$t}}' >"$S/agent.jsonl"
 jq -n --arg cwd "$M" --arg tp "$S/agent.jsonl" '{hook_event_name:"SubagentStop", agent_type:"delegate:checker", agent_id:"a1", cwd:$cwd, agent_transcript_path:$tp}' | python3 -I "$CHECKMARK" >/dev/null 2>&1
