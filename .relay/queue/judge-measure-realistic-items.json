@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 5,
+  "time": 15,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 23",
+  "title": "Make the judge's test items more natural",
+  "what": [
+    "two \"no\" items (off-by-one 24, role-rule 13) are less natural than the rest; the \"no\" templates say \"5 problems\" with 4 listed (L2: labelled right, so not wrong)"
+  ],
+  "why": [
+    "the owner ranked it 5 in the work order of 22 Oct."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

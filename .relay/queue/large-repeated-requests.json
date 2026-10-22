@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 30,
+  "time": 30,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 18",
+  "title": "Find why sessions carry so much repeated weight",
+  "what": [
+    "carried-weight finding, including about $0.30 of session start-up (v3 #9)"
+  ],
+  "why": [
+    "the owner ranked it 30 in the work order of 22 Oct."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

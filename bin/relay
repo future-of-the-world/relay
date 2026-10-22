@@ -433,6 +433,7 @@ def cmd_changed(args):
 
 QUEUE_USAGE = """relay queue                              the ordered list: ip, kind, time, what, name
 relay queue count                        "10 fix, 12 feature; top: <slug> (fix, ip 95, 30m)"
+relay queue <view>                       a read-only view from relay's lib/queue_ext/ (also: relay queue --view <view>); `table` is the default, `json` prints the items for scripts
 relay queue add --from <report> F<n> [--why ..] [--time 20m|1h|1h30m] [--ip N]
 relay queue add --kind feature|fix --title "..." --why "..." --time 20m|1h|1h30m [--ip N] [--what ".."] [--failing ".."]
 relay queue land <slug>                  try again to land a kept wt/queue-<slug>
@@ -467,6 +468,9 @@ def _queue_options(args, spec):
     return opts, rest
 
 
+QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "done")
+
+
 def cmd_queue(args):
     sub = args[0] if args and not args[0].startswith("-") else ""
     rest = args[1:] if sub else args
@@ -474,17 +478,30 @@ def cmd_queue(args):
         print(QUEUE_USAGE)
         return 0
     common = {"-C": str}
-    if sub in ("", "count"):
+    if sub == "count":
         o, p = _queue_options(rest, common)
         if p:
             raise Usage(QUEUE_USAGE)
-        items = relay_queue.read_queue(os.path.realpath(o.get("-C", ".")))
-        if sub == "count":
-            print(relay_queue.count_text(items))
-        else:
-            for line in relay_queue.list_lines(items, header=True) or ["the queue is empty"]:
-                print(line)
+        print(relay_queue.count_text(relay_queue.read_queue(os.path.realpath(o.get("-C", ".")))))
         return 0
+    if sub not in QUEUE_WRITES:
+        # a read-only view: `relay queue [--view] <name> [args]`, the table when no name is given
+        name, extra, folder = ("table" if not sub else sub), [], "."
+        if sub == "" and rest[:1] == ["--view"]:
+            if len(rest) < 2:
+                raise Usage("--view needs a view name")
+            name, rest = rest[1], rest[2:]
+        i = 0
+        while i < len(rest):
+            if rest[i] == "-C" and i + 1 < len(rest):
+                folder, i = rest[i + 1], i + 2
+            else:
+                extra.append(rest[i])
+                i += 1
+        try:
+            return relay_queue.run_extension(name, relay_queue.read_queue(os.path.realpath(folder)), extra)
+        except relay_queue.Refused as e:
+            raise Usage(str(e))
     repo = lambda o: os.path.realpath(o.get("-C", "."))
     if sub == "add":
         o, p = _queue_options(rest, dict(common, **{"--from": str, "--kind": str, "--title": str, "--why": str, "--time": relay_queue.parse_time,
@@ -501,8 +518,6 @@ def cmd_queue(args):
         return 0
     spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--why": str}, 1),
             "take": ({"--findings": str}, 1), "done": ({"--test": str, "--check": str}, 1)}
-    if sub not in spec:
-        raise Usage(QUEUE_USAGE if sub else "relay queue ...")
     extra, count = spec[sub]
     o, p = _queue_options(rest, dict(common, **extra))
     if len(p) != count:

@@ -102,7 +102,7 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
   uses it, never an abbreviation.
 - **Behind**: a task branch is behind when the default branch's head is not
   one of its ancestors; `git merge --ff-only` then fails.
-- **Queue item**: `.relay/queue/<slug>.md`, kind `fix` (something wrong, with
+- **Queue item**: `.relay/queue/<slug>.json`, kind `fix` (something wrong, with
   its failing case) or `feature`; ordered by **ip** (important points,
   integer >= 0, highest first).
 - **The person's step**: one chat screen and one private page (a claude.ai
@@ -666,32 +666,47 @@ two kinds, ip, and `relay queue`.
 
 ### 10.2 The item file
 
-`.relay/queue/<slug>.md`, committed; `<slug>` lowercase words joined by
+`.relay/queue/<slug>.json`, committed; `<slug>` lowercase words joined by
 `-`, at most 48 characters, unique among the default branch's
 `.relay/queue/` and `done/` and the `wt/queue-*` branches. Closed items move
-to `.relay/queue/done/`.
+to `.relay/queue/done/<slug>.json`.
+
+The file is JSON, pretty-printed with indent 2, keys in this fixed order, UTF-8, a trailing newline.
+Text that can run over several lines is an array of lines, so a git diff stays line by line.
+Only `lib/relay_queue.py` writes it (`serialize`) or reads it (`parse`); nothing searches the text.
 
 ```
----
-kind: fix              # fix | feature
-state: open            # open | taken | done | dropped
-ip: 95                 # important points, integer >= 0; highest first
-time: 30               # agent minutes (whole number), the finder's estimate; shown as 30m, 1h, 1h 30m
-found: 2026-10-22, check of batch 3 part 1 (bin/ci:25)
-taken-by:              # the task branch working on it
-closed-by:             # the branch whose merge closed it
-test:                  # fix items, at close: <test file>::<test name>
----
-# Core plugin tests that never run in the gate
-
-What is wrong: ...
-Failing case: ...
-Pass-cases: (optional, 2-5)
-Why it matters: ...
+{
+  "kind": "fix",                 fix | feature
+  "state": "open",               open | taken | done | dropped
+  "ip": 95,                      important points, integer >= 0; highest first
+  "time": 30,                    agent minutes (whole number), the finder's estimate; shown as 30m, 1h, 1h 30m
+  "found": "2026-10-22",         YYYY-MM-DD
+  "found_in": "check of batch 3 part 1 (bin/ci:25)",
+  "title": "...",                one plain sentence, under 60 characters (the "what" column)
+  "what": ["..."],               lines; for a fix, what is wrong
+  "why": ["..."],                lines; why it matters
+  "failing_case": ["..."],       lines; required for a fix
+  "pass_cases": ["..."],         lines; optional (2-5)
+  "where": "bin/ci:25",          optional: path:line for the Q1 linter line
+  "taken_by": "",                the task branch working on it
+  "closed_by": "",               the branch whose merge closed it
+  "test": "",                    fix items, at close: <test file>::<test name>
+  "dropped_why": null            null until the owner drops it, then lines
+}
 ```
 
-A `fix` without `Failing case:` is refused by `relay queue add` and shown as
-"malformed" by `relay queue`. A `feature` has "What" and "Why it matters".
+The check (in `lib/relay_queue.py`, no new dependency) refuses unknown keys, a wrong type, a `fix`
+without `failing_case`, a `title` or a `what` that is only the slug's words. `relay queue add` refuses
+the same, and `relay queue` shows a file that fails the check as `malformed: <reason>` instead of
+crashing.
+
+Extensions: `relay queue <name>` (or `relay queue --view <name>`) runs `lib/queue_ext/<name>.py`, found
+in relay only (never in a project, never by a path from the command line). It exposes
+`run(items, args) -> int` and receives the parsed, checked items as plain dicts, copies, in queue
+order. `table.py` is the default view; `json.py` prints the items for scripts. Extensions live in
+relay only; they read, they never write items: the writes stay `add`, `take`, `release`, `done`,
+`drop`, `ip` in the library.
 
 ### 10.3 Order, pick-up, close (m-4 fixed)
 
@@ -804,7 +819,7 @@ The list reads as a table a person scans (the "what" is the item's `# ` title, c
 
 `add` refuses a title that only repeats the name's words.
 
-Code: `lib/relay_queue.py` (plain-text frontmatter parse, no new
+Code: `lib/relay_queue.py` (JSON parse and serialize in one place, a schema check, no new
 dependency), copied to `plugins/front/lib/` (checked by `bin/ci`),
 `cmd_queue` in `bin/relay`. The coordinator runs these through a runner
 when it should not hold the output.
@@ -814,7 +829,7 @@ when it should not hold the output.
 `plugins/front/hooks/handover.py` adds, when the default branch has
 `.relay/queue/`: "Queue: 10 fix, 12 feature; top: core-tests-not-in-gate
 (fix, ip 95, 30m). relay queue lists them." It reads the default
-branch's `.relay/queue/*.md` (not `done/`) with `git ls-tree` and one `git
+branch's `.relay/queue/*.json` (not `done/`) with `git ls-tree` and one `git
 cat-file --batch`, never the working tree, so every worktree sees the same
 queue. It goes to the model as `additionalContext` and to the owner as
 `systemMessage` (that the owner sees it is confirmed live, Q5; if not, the

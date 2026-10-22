@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 90,
+  "time": 60,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 11",
+  "title": "Merge the issues flow into the queue",
+  "what": [
+    "the issues flow (`.issues/<slug>/`, `plugins/issues`) merges into the queue; joins the shared change cycle (phase-1 decision); touches ALIX and arsenal live flows (v3 #3)"
+  ],
+  "why": [
+    "the owner ranked it 90 in the work order of 22 Oct."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

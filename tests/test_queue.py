@@ -26,12 +26,30 @@ def git(repo, *args, check=True):
     return done.stdout.strip()
 
 
-def fix_item(title="A fix", ip=91, size=10, found="2026-10-01, test", failing="the case fails"):
-    return rq.render("fix", ip, size, found, title, f"Where: lib/x.py:5\nWhat is wrong: {title}\nFailing case: {failing}\nPass-cases: the other case\nWhy it matters: it matters")
+SLUG = "item"   # the check only compares the title with the file's own name; no helper title is the words "item"
 
 
-def feature_item(title="A feature", ip=0, size=10, found="2026-10-01, test"):
-    return rq.render("feature", ip, size, found, title, f"What: {title}\nWhy it matters: it matters")
+def fix_item(title="A fix", ip=91, size=10, found="2026-10-01", failing="the case fails"):
+    return rq.serialize(SLUG, rq.new_item("fix", ip, size, found, "test", title, "what is wrong here", "it matters", failing=failing,
+                                          pass_cases="the other case", where="lib/x.py:5"))
+
+
+def feature_item(title="A feature", ip=0, size=10, found="2026-10-01"):
+    return rq.serialize(SLUG, rq.new_item("feature", ip, size, found, "test", title, "what is wanted here", "it matters"))
+
+
+def with_fields(text, **changes):
+    """The item text with these fields set, written by the library."""
+    return rq.serialize(SLUG, rq.changed(rq.parse(SLUG, text), **changes))
+
+
+def raw_item(text, drop=(), **changes):
+    """Item text edited around the library: a file as a person or a bad merge could leave it."""
+    data = json.loads(text)
+    data.update(changes)
+    for key in drop:
+        del data[key]
+    return json.dumps(data, indent=2) + "\n"
 
 
 class Base(unittest.TestCase):
@@ -54,7 +72,7 @@ class Base(unittest.TestCase):
         if relay:
             files[".relay/README.md"] = "relay folder\n"
             for slug, text in (items or {}).items():
-                files[f".relay/queue/{slug}.md"] = text
+                files[f".relay/queue/{slug}.json"] = text
         self.write_commit(path, files, "start")
         return path
 
@@ -73,7 +91,7 @@ class Base(unittest.TestCase):
         return path
 
     def item(self, slug, rev="master", sub=""):
-        out = git(self.main, "show", f"{rev}:.relay/queue/{sub}{slug}.md", check=False)
+        out = git(self.main, "show", f"{rev}:.relay/queue/{sub}{slug}.json", check=False)
         return rq.parse(slug, out) if out else None
 
     def branches(self):
@@ -109,8 +127,8 @@ class TestOrderAndParse(Base):
     def test_q1_order_ip_then_found_then_slug(self):
         # ip 90 first; the three at ip 50 go older `found` first (b, c on 2026-10-01 by slug, then a on 2026-10-02)
         items = [rq.parse(s, t) for s, t in {
-            "a": feature_item(ip=50, found="2026-10-02, x"), "c": feature_item(ip=50, found="2026-10-01, x"),
-            "b": feature_item(ip=50, found="2026-10-01, x"), "d": fix_item(ip=90)}.items()]
+            "a": feature_item(ip=50, found="2026-10-02"), "c": feature_item(ip=50, found="2026-10-01"),
+            "b": feature_item(ip=50, found="2026-10-01"), "d": fix_item(ip=90)}.items()]
         self.assertEqual([i["slug"] for i in rq.ordered(items)], ["d", "b", "c", "a"])
 
     def test_q1_cli_list_in_that_order(self):
@@ -126,10 +144,10 @@ class TestOrderAndParse(Base):
         before = git(self.main, "rev-parse", "master")
         with self.assertRaises(rq.Refused) as ctx:
             rq.add(self.main, "fix", "No case", why="w", minutes=5, **QUIET)
-        self.assertIn("Failing case", str(ctx.exception))
+        self.assertIn("failing case", str(ctx.exception))
         self.assertEqual(git(self.main, "rev-parse", "master"), before)       # nothing was written
-        bad = rq.render("fix", 10, 5, "2026-10-01, t", "Bad", "What is wrong: x")
-        self.write_commit(self.main, {".relay/queue/bad.md": bad}, "bad item")
+        bad = raw_item(fix_item("Bad"), failing_case=[])   # a fix whose failing case is empty (written by hand: the library refuses to)
+        self.write_commit(self.main, {".relay/queue/bad.json": bad}, "bad item")
         lines = rq.list_lines(rq.read_queue(self.main))
         self.assertEqual(len(lines), 1)
         self.assertIn("malformed", lines[0])
@@ -147,22 +165,23 @@ class TestOrderAndParse(Base):
         self.assertIn("queued a-merge-commit-lists-master-s-files (fix, ip 1)", message)
         item = self.item("a-merge-commit-lists-master-s-files")
         self.assertEqual((item["kind"], item["state"], item["ip"], item["time"]), ("fix", "open", 1, 25))
-        self.assertEqual(item["found"], "2026-10-22, finding F7 of review.md")
+        self.assertEqual((item["found"], item["found_in"]), ("2026-10-22", "finding F7 of review.md"))
         self.assertEqual(item["where"], "lib/relay_inert.py:51")
-        self.assertIn("lib/relay_inert.py:51: MEDIUM: F7 a merge commit lists master's files", item["body"])   # the linter line, verbatim
-        self.assertEqual(rq.field_block(item["body"], "Failing case"), "merge master into a branch;\n  changed() lists 3 files")
-        self.assertEqual(rq.field_block(item["body"], "Pass-cases"), "a branch without a merge")
-        self.assertNotIn("not this one", item["body"])
+        self.assertEqual(item["what"], ["a merge commit lists master's files"])
+        self.assertEqual(item["failing_case"], ["merge master into a branch;", "  changed() lists 3 files"])   # lines kept, indent too
+        self.assertEqual(item["pass_cases"], ["a branch without a merge"])
+        self.assertEqual(item["why"], ["the gate runs on the wrong files"])
+        self.assertNotIn("not this one", json.dumps(item))
         with self.assertRaises(rq.Refused):
             rq.add_from(self.main, report, "F9", **QUIET)
 
     def test_q4_count_ignores_done_taken_and_other_branches(self):
         # open: one fix (ip 80, 30m), one feature; ignored: a done item, a taken one, an item only on a branch
         repo = self.repo("c", items={"f1": fix_item(ip=80, size=30), "ft": feature_item(ip=3),
-                                     "tk": rq.set_fields(fix_item(ip=99), state="taken", taken_by="wt/z")})
-        self.write_commit(repo, {".relay/queue/done/old.md": rq.set_fields(fix_item(ip=95), state="done")}, "done item")
+                                     "tk": with_fields(fix_item(ip=99), state="taken", taken_by="wt/z")})
+        self.write_commit(repo, {".relay/queue/done/old.json": with_fields(fix_item(ip=95), state="done")}, "done item")
         git(repo, "checkout", "-q", "-b", "wt/side")
-        self.write_commit(repo, {".relay/queue/side.md": fix_item(ip=100)}, "only on a branch")
+        self.write_commit(repo, {".relay/queue/side.json": fix_item(ip=100)}, "only on a branch")
         git(repo, "checkout", "-q", "master")
         self.assertEqual(rq.count_text(rq.read_queue(repo)), "1 fix, 1 feature; top: f1 (fix, ip 80, 30m)")
         done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "queue", "count", "-C", repo],
@@ -187,20 +206,190 @@ class TestOrderAndParse(Base):
         self.assertIsNone(run(self.repo("q5none", relay=False)))                 # no .relay/: nothing
         self.assertIsNone(run(self.repo("q5empty")))                              # .relay/ but no queue folder: nothing
         only_done = self.repo("q5done", items={})
-        self.write_commit(only_done, {".relay/queue/x.md": rq.set_fields(fix_item(), state="taken", taken_by="wt/z")}, "taken only")
+        self.write_commit(only_done, {".relay/queue/x.json": with_fields(fix_item(), state="taken", taken_by="wt/z")}, "taken only")
         self.assertIsNone(run(only_done))                                          # zero open items: nothing
 
     def test_q8_new_fix_gets_one_more_than_top_open_feature(self):
         # open features 40 and 70; a taken feature at 90 does not count; so a fix gets 71, a feature 0
         repo = self.repo("q8", items={"fa": feature_item(ip=40), "fb": feature_item(ip=70),
-                                      "fc": rq.set_fields(feature_item(ip=90), state="taken", taken_by="wt/z")})
+                                      "fc": with_fields(feature_item(ip=90), state="taken", taken_by="wt/z")})
         rq.add(repo, "fix", "New fix", why="w", failing="f", minutes=5, **QUIET)
-        self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-fix.md"))["ip"], 71)
+        self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-fix.json"))["ip"], 71)
         rq.add(repo, "feature", "New feature", why="w", minutes=5, **QUIET)
-        self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-feature.md"))["ip"], 0)
+        self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-feature.json"))["ip"], 0)
         bare = self.repo("q8b")
         rq.add(bare, "fix", "First", why="w", failing="f", minutes=5, **QUIET)
-        self.assertEqual(rq.parse("n", git(bare, "show", "master:.relay/queue/first.md"))["ip"], 1)   # no open feature: 1 + 0
+        self.assertEqual(rq.parse("n", git(bare, "show", "master:.relay/queue/first.json"))["ip"], 1)   # no open feature: 1 + 0
+
+
+class TestSchema(Base):
+    """The check in lib/relay_queue.py: each rule refuses on its own."""
+
+    def problems(self, text, slug="some-slug"):
+        return rq.parse(slug, text)["problems"]
+
+    def test_a_well_formed_item_has_no_problems(self):
+        self.assertEqual(self.problems(fix_item()), [])
+        self.assertEqual(self.problems(feature_item()), [])
+
+    def test_each_rule_refuses(self):
+        good = fix_item()
+        cases = [
+            ("unknown key", raw_item(good, color="red"), "unknown key color"),
+            ("missing key", raw_item(good, drop=("why",)), "missing key why"),
+            ("ip as text", raw_item(good, ip="91"), "ip is not a whole number"),
+            ("ip negative", raw_item(good, ip=-1), "ip is not a whole number"),
+            ("ip true is not a number", raw_item(good, ip=True), "ip is not a whole number"),
+            ("time a float", raw_item(good, time=2.5), "time is not a whole number"),
+            ("what as a plain string", raw_item(good, what="one line"), "what is not a list of lines"),
+            ("a line that is not text", raw_item(good, why=["ok", 3]), "why is not a list of lines"),
+            ("title not a string", raw_item(good, title=5), "title is not a string"),
+            ("bad date", raw_item(good, found="22 Oct"), "found is not a date"),
+            ("bad kind", raw_item(good, kind="bug"), "kind is not fix or feature"),
+            ("bad state", raw_item(good, state="wip"), "state is not open"),
+            ("dropped_why text", raw_item(good, dropped_why="no"), "dropped_why is not null or a list"),
+            ("fix without failing_case", raw_item(good, drop=("failing_case",)), "a fix without failing_case"),
+            ("fix with an empty failing_case", raw_item(good, failing_case=["  "]), "a fix without failing_case"),
+            ("title equal to the slug words", raw_item(good, title="some slug"), "title only repeats the name"),
+            ("what equal to the slug words", raw_item(good, what=["some slug"]), "what only repeats the name"),
+            ("not json", "{ nope", "not valid JSON"),
+            ("not an object", "[1, 2]\n", "not a JSON object"),
+        ]
+        for label, text, want in cases:
+            found = self.problems(text)
+            self.assertTrue(any(want in p for p in found), f"{label}: {found}")
+
+    def test_a_feature_needs_no_failing_case(self):
+        self.assertEqual(self.problems(raw_item(feature_item(), failing_case=[])), [])
+
+    def test_a_malformed_item_is_only_its_name_and_reasons(self):
+        item = rq.parse("x", raw_item(fix_item(), ip="no"))
+        self.assertEqual(sorted(item), ["problems", "slug"])
+
+    def test_the_library_refuses_to_write_a_bad_item(self):
+        data = rq.changed(rq.parse("some-slug", fix_item()), ip=-3)
+        with self.assertRaises(rq.Refused):
+            rq.serialize("some-slug", data)
+        with self.assertRaises(rq.Refused):
+            rq.serialize("some-slug", dict(rq.changed(rq.parse("some-slug", fix_item())), surprise=1))
+
+    def test_add_refuses_a_what_equal_to_the_slug_words(self):
+        before = git(self.main, "rev-parse", "master")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.add(self.main, "fix", "A real sentence here", what="a real sentence here", why="w", failing="f", minutes=5, **QUIET)
+        self.assertIn("what only repeats the name", str(ctx.exception))
+        self.assertEqual(git(self.main, "rev-parse", "master"), before)
+
+
+class TestFormat(Base):
+    def test_round_trip_is_byte_identical_for_every_seed_item(self):
+        folder = os.path.join(ROOT, ".relay", "queue")
+        names = sorted(n for n in os.listdir(folder) if n.endswith(".json"))
+        self.assertGreaterEqual(len(names), 22)
+        for name in names:
+            with open(os.path.join(folder, name), encoding="utf-8") as handle:
+                text = handle.read()
+            item = rq.parse(name[:-5], text)
+            self.assertEqual(item["problems"], [], name)
+            self.assertEqual(rq.serialize(name[:-5], item), text, name)
+
+    def test_the_file_form_is_indent_2_fixed_order_utf8_and_lines_as_arrays(self):
+        item = rq.new_item("fix", 3, 5, "2026-10-01", "t", "Caf\u00e9 breaks", "first\nsecond", "why", failing="a\nb")
+        text = rq.serialize("cafe", item)
+        # keys in the fixed order; non-ASCII written as itself; each line its own array entry; one trailing newline
+        self.assertEqual(text.split("\n")[1:3], ['  "kind": "fix",', '  "state": "open",'])
+        self.assertIn('"title": "Caf\u00e9 breaks"', text)
+        self.assertIn('"what": [\n    "first",\n    "second"\n  ]', text)
+        self.assertTrue(text.endswith("}\n") and not text.endswith("\n\n"))
+        keys = list(json.loads(text))
+        self.assertEqual(keys, [k for k in rq.FIELD_ORDER if k in keys])
+        self.assertEqual(keys[-1], "dropped_why")
+
+    def test_a_changed_line_is_a_one_line_diff(self):
+        repo = self.repo("diff", items={"x": fix_item("Long one")})
+        rq.set_ip(repo, "x", 55, **QUIET)
+        diff = git(repo, "diff", "HEAD~1", "HEAD", "-U0", "--", ".relay/queue/x.json")
+        changed = [line for line in diff.split("\n") if line[:1] in "+-" and line[:3] not in ("+++", "---")]
+        self.assertEqual(changed, ['-  "ip": 91,', '+  "ip": 55,'])
+
+    def test_malformed_is_shown_not_crashed(self):
+        repo = self.repo("mal", items={"good": fix_item("Good one"), "broken": "{ not json", "wrong": raw_item(feature_item(), ip="x")})
+        lines = rq.list_lines(rq.read_queue(repo), header=True)
+        self.assertEqual(len(lines), 4)                                           # header, the good row, two malformed ones last
+        self.assertTrue(lines[-2].startswith("broken  malformed: not valid JSON"), lines)
+        self.assertEqual(lines[-1], "wrong  malformed: ip is not a whole number from 0")
+        done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "queue", "-C", repo], capture_output=True, text=True,
+                              env=dict(os.environ, RELAY_ROOT=ROOT))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("malformed: ip is not a whole number", done.stdout)
+        self.assertEqual(rq.count_text(rq.read_queue(repo)), "1 fix, 0 feature; top: good (fix, ip 91, 10m)")
+
+
+class TestExtensions(Base):
+    def relay(self, repo, *args, cwd=None):
+        return subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "queue", *args, "-C", repo], capture_output=True, text=True,
+                              env=dict(os.environ, RELAY_ROOT=ROOT), cwd=cwd)
+
+    def setUp(self):
+        super().setUp()
+        self.repo_q = self.repo("ext", items={"low": feature_item("Low one", ip=5), "high": fix_item("High one", ip=80)})
+
+    def test_table_is_the_default_and_a_named_view(self):
+        plain, named, flag = self.relay(self.repo_q), self.relay(self.repo_q, "table"), self.relay(self.repo_q, "--view", "table")
+        for done in (plain, named, flag):
+            self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(plain.stdout, named.stdout)
+        self.assertEqual(plain.stdout, flag.stdout)
+        self.assertEqual([x.split()[-1] for x in plain.stdout.strip().split("\n")[1:]], ["high", "low"])
+
+    def test_json_prints_the_ordered_items_for_scripts(self):
+        for args in (("json",), ("--view", "json")):
+            done = self.relay(self.repo_q, *args)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            data = json.loads(done.stdout)
+            self.assertEqual([i["slug"] for i in data], ["high", "low"])         # ip 80 before ip 5
+            self.assertEqual(data[0]["failing_case"], ["the case fails"])
+            self.assertEqual(data[0]["ip"], 80)
+
+    def test_an_unknown_name_lists_the_available_ones(self):
+        done = self.relay(self.repo_q, "nope")
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("no queue view 'nope'", done.stderr)
+        self.assertIn("available: json, table", done.stderr)
+
+    def test_a_name_with_a_path_in_it_is_refused(self):
+        for name in ("../table", "a/b", "..", "/etc/passwd", "table.py", "Table"):
+            for args in ((name,), ("--view", name)):
+                done = self.relay(self.repo_q, *args)
+                self.assertNotEqual(done.returncode, 0, name)
+                self.assertIn("no queue view", done.stderr, name)
+        with self.assertRaises(rq.Refused):
+            rq.run_extension("../table", [])
+
+    def test_a_view_in_the_project_is_never_run(self):
+        marker = os.path.join(self.tmp, "ran")
+        folder = os.path.join(self.repo_q, "lib", "queue_ext")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "evil.py"), "w") as handle:
+            handle.write(f"def run(items, args):\n    open({marker!r}, 'w').close()\n    return 0\n")
+        done = self.relay(self.repo_q, "evil", cwd=self.repo_q)   # run from inside the project, where the view lies
+        self.assertNotEqual(done.returncode, 0)
+        self.assertFalse(os.path.exists(marker))
+
+    def test_a_view_gets_copies_and_plain_data_only(self):
+        folder = os.path.join(self.tmp, "extdir")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "meddle.py"), "w") as handle:
+            handle.write("import json\n\ndef run(items, args):\n"
+                         "    json.dumps(items)\n"                               # plain data: nothing callable or opaque is inside
+                         "    items[0]['state'] = 'done'\n    items[0]['why'].append('tampered')\n    items.clear()\n    return 7\n")
+        items = rq.read_queue(self.repo_q)
+        before = json.dumps(items, sort_keys=True)
+        with mock.patch.object(rq, "EXT_DIR", folder):
+            self.assertEqual(rq.run_extension("meddle", items, []), 7)
+        self.assertEqual(json.dumps(items, sort_keys=True), before)              # what the caller holds is unchanged
+        fresh = {i["slug"]: i for i in rq.read_queue(self.repo_q)}                 # and so is the queue in git
+        self.assertEqual((fresh["high"]["state"], fresh["high"]["why"]), ("open", ["it matters"]))
 
 
 class TestTime(Base):
@@ -277,7 +466,7 @@ class TestLanding(Base):
         self.assertTrue(first.startswith("queued from-main (feature, ip 0)"))
         for slug in ("from-main", "from-worktree"):
             self.assertIsNotNone(self.item(slug))
-            self.assertTrue(os.path.exists(os.path.join(self.main, ".relay/queue", slug + ".md")))   # the main checkout followed
+            self.assertTrue(os.path.exists(os.path.join(self.main, ".relay/queue", slug + ".json")))   # the main checkout followed
         self.assertEqual(git(wt, "status", "--porcelain"), "")                      # the worktree was not touched
         self.assertEqual(git(self.main, "status", "--porcelain"), "")
         self.assertEqual(self.branches(), [])
@@ -287,9 +476,9 @@ class TestLanding(Base):
         rq.add(self.main, "feature", "Same title", why="one", minutes=5, **QUIET)
         message = rq.add(self.main, "feature", "Same title", why="two", minutes=5, **QUIET)
         self.assertIn("queued same-title-2", message)
-        self.assertIn("one", self.item("same-title")["body"])
-        self.assertIn("two", self.item("same-title-2")["body"])
-        self.write_commit(self.main, {".relay/queue/done/other.md": rq.set_fields(feature_item(), state="done")}, "done")
+        self.assertEqual(self.item("same-title")["why"], ["one"])
+        self.assertEqual(self.item("same-title-2")["why"], ["two"])
+        self.write_commit(self.main, {".relay/queue/done/other.json": with_fields(feature_item(), state="done")}, "done")
         rq.add(self.main, "feature", "Other", why="w", minutes=5, **QUIET)
         self.assertIsNotNone(self.item("other-2"))                                  # a name in done/ is taken too
 
@@ -322,7 +511,7 @@ class TestLanding(Base):
             self.assertIsInstance(a, str, a)
             self.assertIsInstance(b, str, b)
             slug = f"twin-{rnd}"
-            bodies = self.item(slug)["body"] + self.item(slug + "-2")["body"]
+            bodies = " ".join(self.item(slug)["why"] + self.item(slug + "-2")["why"])
             self.assertIn(f"text-a-{rnd}", bodies)                                  # both texts intact, one in each file
             self.assertIn(f"text-b-{rnd}", bodies)
             self.assertEqual(self.branches(), [])
@@ -365,10 +554,10 @@ class TestLanding(Base):
         text = self.item("gone")
 
         def move_head(n, plan):
-            self.write_commit(self.main, {".relay/queue/late.md": feature_item()}, "head moves")
+            self.write_commit(self.main, {".relay/queue/late.json": feature_item()}, "head moves")
         with self.assertRaises(rq.Refused):
             rq.add(self.main, "feature", "Late", why="w", minutes=5, tries=1, after_plan=move_head, **QUIET)
-        # a kept `late` branch would add late.md, which now exists on master with other content: it no longer holds
+        # a kept `late` branch would add late.json, which now exists on master with other content: it no longer holds
         with self.assertRaises(rq.Refused) as ctx:
             rq.land(self.main, "late", **QUIET)
         self.assertIn("no longer holds", str(ctx.exception))
@@ -379,8 +568,8 @@ class TestLanding(Base):
         before = git(self.main, "rev-parse", "master")
 
         def planner(reader):
-            plan = rq.Plan("sneaky", {".relay/queue/sneaky.md": feature_item(), "README.md": "changed\n"}, "feature, ip 0", "queued")
-            plan.allowed = {".relay/queue/sneaky.md"}      # what the command may touch: the one item file
+            plan = rq.Plan("sneaky", {".relay/queue/sneaky.json": feature_item(), "README.md": "changed\n"}, "feature, ip 0", "queued")
+            plan.allowed = {".relay/queue/sneaky.json"}      # what the command may touch: the one item file
             return plan
         with self.assertRaises(rq.Refused) as ctx:
             rq._land(self.main, planner, **QUIET)
@@ -392,8 +581,8 @@ class TestLanding(Base):
 class TestTake(Base):
     def setUp(self):
         super().setUp()
-        self.write_commit(self.main, {".relay/queue/job.md": fix_item("Job", ip=60, failing="line 1\nline 2"),
-                                      ".relay/queue/feat.md": feature_item("Feat", ip=20)}, "seed")
+        self.write_commit(self.main, {".relay/queue/job.json": fix_item("Job", ip=60, failing="line 1\nline 2"),
+                                      ".relay/queue/feat.json": feature_item("Feat", ip=20)}, "seed")
         self.wa, self.wb = self.worktree("a"), self.worktree("b")
 
     def findings(self, name="f.md"):
@@ -426,7 +615,7 @@ class TestTake(Base):
     def test_q10_two_takes_started_together_exactly_one_lands(self):
         for rnd in range(10):
             slug = f"race{rnd}"
-            self.write_commit(self.main, {f".relay/queue/{slug}.md": fix_item(slug)}, "item")
+            self.write_commit(self.main, {f".relay/queue/{slug}.json": fix_item(f"Race item {slug}")}, "item")
             for wt in (self.wa, self.wb):                  # worktrees follow master so the take's merge is a fast-forward
                 git(wt, "merge", "-q", "--no-edit", "master")
             hook = self.barrier()
@@ -443,15 +632,15 @@ class TestTake(Base):
     def test_q10_ip_racing_a_take_never_edits_a_taken_item(self):
         for rnd in range(10):
             slug = f"ipr{rnd}"
-            self.write_commit(self.main, {f".relay/queue/{slug}.md": fix_item(slug, ip=60)}, "item")
+            self.write_commit(self.main, {f".relay/queue/{slug}.json": fix_item(f"Ipr item {slug}", ip=60)}, "item")
             git(self.wa, "merge", "-q", "--no-edit", "master")
             hook = self.barrier()
             took, changed = self.pair(lambda: rq.take(self.wa, slug, self.findings(f"i{rnd}.md"), after_plan=hook, **QUIET),
                                       lambda: rq.set_ip(self.main, slug, 50, after_plan=hook, **QUIET))
             self.assertIsInstance(took, str, took)
             states = []                                     # the item's history on master, oldest first
-            for sha in git(self.main, "log", "--reverse", "--format=%H", "--", f".relay/queue/{slug}.md").split("\n"):
-                states.append(rq.parse(slug, git(self.main, "show", f"{sha}:.relay/queue/{slug}.md")))
+            for sha in git(self.main, "log", "--reverse", "--format=%H", "--", f".relay/queue/{slug}.json").split("\n"):
+                states.append(rq.parse(slug, git(self.main, "show", f"{sha}:.relay/queue/{slug}.json")))
             self.assertEqual(states[-1]["state"], "taken")
             if isinstance(changed, str):                    # both landed: the ip change came while the item was still open
                 self.assertEqual([s["state"] for s in states], ["open", "open", "taken"])
@@ -478,7 +667,7 @@ class TestTake(Base):
         self.assertIsNone(self.item("feat"))
         dropped = self.item("feat", sub="done/")
         self.assertEqual(dropped["state"], "dropped")
-        self.assertIn("the owner said drop it", dropped["body"])
+        self.assertEqual(dropped["dropped_why"], ["the owner said drop it"])
 
     def test_q10_later_done_on_the_task_branch_merges_without_conflict(self):
         rq.take(self.wa, "job", self.findings(), **QUIET)
@@ -524,6 +713,16 @@ class TestTake(Base):
         with self.assertRaises(rq.Refused) as ctx:
             rq.done(self.wb, "job", "tests/test_job.py::test_job_works", good)
         self.assertIn("not taken by wt/b", str(ctx.exception))
+
+
+class TestStructuredRule(unittest.TestCase):
+    def test_the_rule_has_the_shape_relay_sync_needs_and_says_the_owner_s_words(self):
+        import relay_rules
+        rule = relay_rules.rules()["structured-data"]
+        self.assertEqual(rule["title"], "Structured data")
+        self.assertTrue(rule["gist"].startswith("Information that a script, a hook or a later step reads is stored as a structured file"))
+        for phrase in ("changed only through one script", "Extensions", "relay only", "never write", "No new label or regex search over markdown"):
+            self.assertIn(phrase, rule["gist"] + rule["body"])
 
 
 if __name__ == "__main__":

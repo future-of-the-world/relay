@@ -33,7 +33,7 @@ Two folders with similar names, different jobs:
 
 - **`.relay/`** is committed in a project. `relay setup` writes its `README.md`; it turns on relay's
   hard rules, which act only where the project's default branch has the folder. In it: `queue/` (the
-  work queue: one file per item, `fix` or `feature`, highest important points first; `relay queue`),
+  work queue: one JSON file per item, `fix` or `feature`, highest important points first; `relay queue`, and read-only views in relay's `lib/queue_ext/`: extensions live in relay only, they read, they never write items),
   and `checks/` (per task branch: the gate log, the review, the check and the check mark a hook writes
   when the checker finishes). A merge into the default branch is refused until the branch's last commit
   has its gate, review and check; the pipeline is in `docs/plans/review-gate.md`.

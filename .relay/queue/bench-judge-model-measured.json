@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 25,
+  "time": 20,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 19",
+  "title": "Measure the bench judge before changing its model",
+  "what": [
+    "`relay bench`'s own judge still defaults to Haiku (`bin/relay`, `docs/benchmark.md`); the 22 Oct measurement shows Haiku misreads meaning; measure before changing (handover)"
+  ],
+  "why": [
+    "the owner ranked it 25 in the work order of 22 Oct."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

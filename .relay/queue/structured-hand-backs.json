@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 0,
+  "time": 40,
+  "found": "2026-10-22",
+  "found_in": "owner rule structured-data, 22 Oct",
+  "title": "Agents hand back a short JSON as well as the 10 lines of text",
+  "what": [
+    "Each agent hand-back also carries a short JSON beside the 10-line text (status, report path, commits), and a hook checks it, so the session reads the fields instead of the prose."
+  ],
+  "why": [
+    "The coordinating session decides from hand-backs; reading prose for the status and the report path is the label search the structured-data rule forbids."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

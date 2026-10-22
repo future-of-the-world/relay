@@ -1,0 +1,19 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 20,
+  "time": 15,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 20",
+  "title": "Measure how long the front's replies are",
+  "what": [
+    "bench reply length before any Stop hook (v3 #10)"
+  ],
+  "why": [
+    "the owner ranked it 20 in the work order of 22 Oct."
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

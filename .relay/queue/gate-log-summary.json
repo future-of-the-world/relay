@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 91,
+  "time": 20,
+  "found": "2026-10-22",
+  "found_in": "owner rule structured-data, 22 Oct",
+  "title": "Gate results are read from the first and last line of a log text",
+  "what": [
+    "A script reads the gate log by the text of its first and last line (lib/relay_marks.py:170-181, lib/relay_gate.py:69-71); store a JSON summary (head, exit, failed tests, duration) beside each log and read that."
+  ],
+  "why": [
+    "A wording change in the gate output silently changes what the merge check believes about a branch."
+  ],
+  "failing_case": [
+    "change the last line the gate prints (for example a different 'passed' wording): relay_marks reads the log as not passing though the gate exited 0, or as passing though it failed; a JSON summary beside the log would not depend on the wording"
+  ],
+  "pass_cases": [
+    "a log with the usual first and last lines is read correctly today"
+  ],
+  "where": "lib/relay_marks.py:170",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

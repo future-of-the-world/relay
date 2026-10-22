@@ -1,4 +1,7 @@
-"""The work queue: items kept as `.relay/queue/<slug>.md` on the default branch (design: docs/plans/review-gate.md, section 10).
+"""The work queue: items kept as `.relay/queue/<slug>.json` on the default branch (design: docs/plans/review-gate.md, section 10).
+
+An item is a JSON file, written only by this module (`serialize`) and read only by it (`parse`), so the format
+lives in one place. Extensions in `lib/queue_ext/` read parsed copies of the items; they never write.
 
 Everything reads the default branch through git (`ls-tree`, `cat-file --batch`), never a checkout, so
 every worktree sees the same queue. Commands that change an item land one commit on the default branch
@@ -8,7 +11,10 @@ re-reads the head and re-checks the command's precondition; after `QUEUE_LAND_TR
 branch is kept for `relay queue land`.
 """
 
+import copy
 import datetime as dt
+import importlib.util
+import json
 import os
 import re
 import shutil
@@ -22,13 +28,19 @@ QUEUE_LAND_TRIES = 5          # bound 1-20: at 20 a landing can take about 20 s
 MAX_TRIES = 20
 WAITS = (0.2, 0.4, 0.8, 1.0)  # seconds between tries; the last repeats (0.2-1 s, design 10.4)
 QDIR = ".relay/queue"
+EXT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "queue_ext")
+EXT_NAME = re.compile(r"[a-z][a-z0-9_]*")
 ZERO = "0" * 40
 KINDS = ("fix", "feature")
 STATES = ("open", "taken", "done", "dropped")
-FIELDS = ("kind", "state", "ip", "time", "found", "taken-by", "closed-by", "test")
-LABELS = ("What is wrong", "Failing case", "Pass-cases", "Why it matters", "Where", "Finding", "Size", "Smallest fix", "Design", "What")
+# The keys of an item file, in the order they are written. TEXT are lists of lines (so a git diff goes line by line).
+FIELD_ORDER = ("kind", "state", "ip", "time", "found", "found_in", "title", "what", "why", "failing_case", "pass_cases",
+               "where", "taken_by", "closed_by", "test", "dropped_why")
+TEXT = ("what", "why", "failing_case", "pass_cases")
+REQUIRED = ("kind", "state", "ip", "time", "found", "found_in", "title", "what", "why", "taken_by", "closed_by", "test", "dropped_why")
+STRINGS = ("found_in", "title", "where", "taken_by", "closed_by", "test")
+DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 LINTER = re.compile(r"^(?P<path>[^\s:]+):(?P<line>\d+): (?P<sev>[A-Z]+): (?P<id>[A-Z]\d+) (?P<what>.+)$")
-LABEL = re.compile(r"^(%s):\s*(.*)$" % "|".join(re.escape(x) for x in LABELS))
 
 
 class Refused(ValueError):
@@ -37,94 +49,111 @@ class Refused(ValueError):
 
 # ---------------------------------------------------------------- item files
 
-def _frontmatter(text):
-    """(dict of field -> string, index of the closing `---` line, lines) or (None, 0, lines) when there is no frontmatter."""
-    lines = text.split("\n")
-    if not lines or lines[0].rstrip() != "---":
-        return None, 0, lines
-    for i in range(1, len(lines)):
-        if lines[i].rstrip() == "---":
-            fields = {}
-            for raw in lines[1:i]:
-                key, sep, value = raw.partition(":")
-                if sep and key.strip():
-                    fields[key.strip()] = re.sub(r"\s{2,}#.*$", "", value).strip()
-            return fields, i, lines
-    return None, 0, lines
+def _is_int(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _is_lines(value):
+    return isinstance(value, list) and all(isinstance(x, str) for x in value)
+
+
+def _slug_words(slug):
+    return slug.replace("-", " ")
+
+
+def check(slug, data):
+    """The reasons `data` (a decoded item file) is not a well-formed item; [] when it is."""
+    if not isinstance(data, dict):
+        return ["the file is not a JSON object"]
+    problems = []
+    for key in sorted(set(data) - set(FIELD_ORDER)):
+        problems.append(f"unknown key {key}")
+    for key in REQUIRED:
+        if key not in data:
+            problems.append(f"missing key {key}")
+    if data.get("kind") == "fix" and not _nonblank(data.get("failing_case")):
+        problems.append("a fix without failing_case")
+    if "kind" in data and data["kind"] not in KINDS:
+        problems.append("kind is not fix or feature")
+    if "state" in data and data["state"] not in STATES:
+        problems.append("state is not open, taken, done or dropped")
+    for key in ("ip", "time"):
+        if key in data and not _is_int(data[key]):
+            problems.append(f"{key} is not a whole number from 0")
+    if "found" in data and not (isinstance(data["found"], str) and DATE.fullmatch(data["found"])):
+        problems.append("found is not a date YYYY-MM-DD")
+    for key in STRINGS:
+        if key in data and not isinstance(data[key], str):
+            problems.append(f"{key} is not a string")
+    for key in TEXT:
+        if key in data and not _is_lines(data[key]):
+            problems.append(f"{key} is not a list of lines")
+    if "dropped_why" in data and data["dropped_why"] is not None and not _is_lines(data["dropped_why"]):
+        problems.append("dropped_why is not null or a list of lines")
+    if isinstance(data.get("title"), str) and data["title"].strip() in ("", _slug_words(slug)):
+        problems.append("the title only repeats the name")
+    if _is_lines(data.get("what")) and "\n".join(data["what"]).strip() in ("", _slug_words(slug)):
+        problems.append("what only repeats the name")
+    return problems
+
+
+def _nonblank(lines):
+    return _is_lines(lines) and any(x.strip() for x in lines)
 
 
 def parse(slug, text):
-    """An item as a dict: the fields, `title`, `where`, `body`, and `problems` (empty when well formed)."""
-    fields, end, lines = _frontmatter(text)
-    item = {"slug": slug, "problems": [], "kind": "", "state": "", "ip": None, "time": None, "found": "",
-            "taken_by": "", "closed_by": "", "test": "", "title": slug, "where": "", "body": ""}
-    if fields is None:
-        item["problems"].append("no frontmatter")
-        return item
-    body = "\n".join(lines[end + 1:])
-    item["body"] = body
-    item["kind"], item["state"] = fields.get("kind", ""), fields.get("state", "")
-    item["found"], item["taken_by"] = fields.get("found", ""), fields.get("taken-by", "")
-    item["closed_by"], item["test"] = fields.get("closed-by", ""), fields.get("test", "")
-    if item["kind"] not in KINDS:
-        item["problems"].append("kind is not fix or feature")
-    if item["state"] not in STATES:
-        item["problems"].append("state is not open, taken, done or dropped")
-    for key in ("ip", "time"):
-        value = fields.get(key, "")
-        if re.fullmatch(r"\d+", value):
-            item[key] = int(value)
-        else:
-            item["problems"].append(f"{key} is not a whole number")
-    for raw in body.split("\n"):
-        if raw.startswith("# "):
-            item["title"] = raw[2:].strip() or slug
-            break
-    match = re.search(r"(?m)^Where:\s*(\S+)", body)
-    item["where"] = match.group(1) if match else ""
-    if item["kind"] == "fix" and not field_block(body, "Failing case"):
-        item["problems"].append("a fix without Failing case:")
+    """An item as a dict: the fields of the file plus `slug` and `problems` (empty when well formed).
+
+    A file that fails the check comes back as {"slug", "problems"} only, so nothing reads half an item."""
+    try:
+        data = json.loads(text)
+    except ValueError as exc:
+        return {"slug": slug, "problems": [f"not valid JSON: {exc}"]}
+    problems = check(slug, data)
+    if problems:
+        return {"slug": slug, "problems": problems}
+    item = {key: data[key] for key in FIELD_ORDER if key in data}
+    item["slug"], item["problems"] = slug, []
     return item
 
 
-def field_block(body, label):
-    """The text of `<label>: ...` and its continuation lines, up to the next known label; "" when absent or empty."""
-    out, inside = [], False
-    for raw in body.split("\n"):
-        match = LABEL.match(raw)
-        if match:
-            if inside:
-                break
-            inside = match.group(1) == label
-            if inside:
-                out.append(match.group(2))
-            continue
-        if inside:
-            out.append(raw)
-    return "\n".join(out).strip()
+def serialize(slug, item):
+    """The file text of an item: indent 2, fixed key order, UTF-8, a trailing newline. Refused when it fails the check."""
+    data = {key: item[key] for key in FIELD_ORDER if key in item}
+    extra = sorted(set(item) - set(FIELD_ORDER) - {"slug", "problems"})
+    problems = check(slug, data) + [f"unknown key {k}" for k in extra]
+    if problems:
+        raise Refused(f"item '{slug}' is not well formed: {'; '.join(problems)}")
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
-def set_fields(text, **changes):
-    """`text` with these frontmatter fields set (underscores stand for hyphens); the rest is kept byte for byte."""
-    fields, end, lines = _frontmatter(text)
-    if fields is None:
-        raise Refused("the item has no frontmatter")
-    for key, value in changes.items():
-        name = key.replace("_", "-")
-        line = f"{name}: {value}".rstrip()
-        for i in range(1, end):
-            if lines[i].startswith(name + ":"):
-                lines[i] = line
-                break
-        else:
-            lines.insert(end, line)
-            end += 1
-    return "\n".join(lines)
+def changed(item, **changes):
+    """The item's fields with `changes` applied (a new dict; `slug` and `problems` dropped)."""
+    out = {key: copy.deepcopy(item[key]) for key in FIELD_ORDER if key in item}
+    out.update(changes)
+    return out
 
 
-def render(kind, ip, minutes, found, title, body, state="open"):
-    return (f"---\nkind: {kind}\nstate: {state}\nip: {ip}\ntime: {minutes}\nfound: {found}\ntaken-by:\nclosed-by:\ntest:\n---\n"
-            f"# {title}\n\n{body.rstrip()}\n")
+def lines_of(text):
+    """Text as the list of its lines (surrounding blank lines dropped)."""
+    return text.strip().split("\n") if text.strip() else []
+
+
+def joined(item, key):
+    return "\n".join(item.get(key) or [])
+
+
+def new_item(kind, ip, minutes, found, found_in, title, what, why, failing="", pass_cases="", where=""):
+    item = {"kind": kind, "state": "open", "ip": ip, "time": minutes, "found": found, "found_in": found_in,
+            "title": title, "what": lines_of(what), "why": lines_of(why)}
+    if failing.strip():
+        item["failing_case"] = lines_of(failing)
+    if pass_cases.strip():
+        item["pass_cases"] = lines_of(pass_cases)
+    if where:
+        item["where"] = where
+    item.update({"taken_by": "", "closed_by": "", "test": "", "dropped_why": None})
+    return item
 
 
 def slugify(title):
@@ -190,7 +219,7 @@ def list_lines(items, header=False):
     rows = []
     for i in ordered(items):
         if i["problems"]:
-            rows.append(("malformed", f"{i['slug']}  malformed ({'; '.join(i['problems'])})"))
+            rows.append(("malformed", f"{i['slug']}  malformed: {'; '.join(i['problems'])}"))
             continue
         state = "" if i["state"] == "open" else f"  {i['state']} by {i['taken_by'] or '?'}"
         rows.append(("ok", (str(i["ip"]), i["kind"], format_time(i["time"]), _cut(i["title"]) + state, i["slug"])))
@@ -207,6 +236,31 @@ def list_lines(items, header=False):
 def _row(row, width):
     # ip and time are right-aligned so digits and units line up; the name is last and needs no padding
     return f" {row[0]:>{width[0]}}  {row[1]:<{width[1]}}  {row[2]:>{width[2]}}  {row[3]:<{width[3]}}  {row[4]}"
+
+
+# ---------------------------------------------------------------- read-only extensions
+
+def extensions():
+    """Names of the views in relay's own `lib/queue_ext/`, sorted."""
+    try:
+        names = os.listdir(EXT_DIR)
+    except OSError:
+        return []
+    return sorted(n[:-3] for n in names if n.endswith(".py") and EXT_NAME.fullmatch(n[:-3]))
+
+
+def run_extension(name, items, args=()):
+    """Run the view `lib/queue_ext/<name>.py`: `run(items, args) -> int`, on copies of the parsed items in queue order.
+
+    Only relay's own folder is searched: a name with a path in it, or one not listed, is refused. An extension
+    is given plain data and no write function; changing an item stays with add/take/release/done/drop/ip."""
+    known = extensions()
+    if not EXT_NAME.fullmatch(name) or name not in known:
+        raise Refused(f"no queue view '{name}'; available: {', '.join(known) or 'none'}")
+    spec = importlib.util.spec_from_file_location("queue_ext_" + name, os.path.join(EXT_DIR, name + ".py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return int(module.run(copy.deepcopy(ordered(items)), list(args)))
 
 
 # ---------------------------------------------------------------- reading git
@@ -254,7 +308,7 @@ class Reader:
     def names(self, sub=""):
         rc, out, _ = _git(self.main, "ls-tree", "--name-only", self.rev, f"{QDIR}/{sub}")
         names = [] if rc != 0 else _text(out).split("\n")
-        return sorted(os.path.basename(n)[:-3] for n in names if n.endswith(".md") and os.path.dirname(n) == (QDIR + "/" + sub).rstrip("/"))
+        return sorted(os.path.basename(n)[:-5] for n in names if n.endswith(".json") and os.path.dirname(n) == (QDIR + "/" + sub).rstrip("/"))
 
     def has_folder(self):
         rc, out, _ = _git(self.main, "ls-tree", "-d", "--name-only", self.rev, QDIR)
@@ -263,14 +317,9 @@ class Reader:
     def items(self):
         if self._items is None:
             slugs = self.names()
-            blobs = cat_batch(self.main, [f"{self.rev}:{QDIR}/{s}.md" for s in slugs])
+            blobs = cat_batch(self.main, [f"{self.rev}:{QDIR}/{s}.json" for s in slugs])
             self._items = {s: parse(s, b.decode("utf-8", "replace")) for s, b in zip(slugs, blobs) if b is not None}
-            self._texts = {s: b.decode("utf-8", "replace") for s, b in zip(slugs, blobs) if b is not None}
         return self._items
-
-    def text(self, slug):
-        self.items()
-        return self._texts.get(slug)
 
     def used_slugs(self):
         return set(self.names()) | set(self.names("done/"))
@@ -445,7 +494,7 @@ def _item_at(reader, slug):
 
 
 def _path(slug, sub=""):
-    return f"{QDIR}/{sub}{slug}.md"
+    return f"{QDIR}/{sub}{slug}.json"
 
 
 def _taken_by_refusal(item):
@@ -454,8 +503,29 @@ def _taken_by_refusal(item):
 
 # ---------------------------------------------------------------- commands
 
+REPORT_LABELS = ("What is wrong", "Failing case", "Pass-cases", "Why it matters", "Where", "Finding", "Size", "Smallest fix", "Design", "What")
+REPORT_LABEL = re.compile(r"^(%s):\s*(.*)$" % "|".join(re.escape(x) for x in REPORT_LABELS))
+
+
+def _report_block(body, label):
+    """The text of `<label>: ...` and its continuation lines in a findings *report* (a judge's file, not an item); "" when absent."""
+    out, inside = [], False
+    for raw in body.split("\n"):
+        match = REPORT_LABEL.match(raw)
+        if match:
+            if inside:
+                break
+            inside = match.group(1) == label
+            if inside:
+                out.append(match.group(2))
+            continue
+        if inside:
+            out.append(raw)
+    return "\n".join(out).strip()
+
+
 def find_finding(report_text, fid):
-    """The finding `fid` of a findings report: where, severity, what, and its labelled fields."""
+    """The finding `fid` of a findings report: where, what, and its labelled fields."""
     lines = report_text.split("\n")
     for i, raw in enumerate(lines):
         match = LINTER.match(raw)
@@ -466,14 +536,14 @@ def find_finding(report_text, fid):
                     break
                 block.append(nxt)
             body = "\n".join(block)
-            size = re.match(r"\d+", field_block(body, "Size"))
-            return {"linter": raw, "where": f"{match.group('path')}:{match.group('line')}", "what": match.group("what"),
-                    "failing": field_block(body, "Failing case"), "pass": field_block(body, "Pass-cases"),
-                    "why": field_block(body, "Why it matters"), "time": int(size.group()) if size else None}
+            size = re.match(r"\d+", _report_block(body, "Size"))
+            return {"where": f"{match.group('path')}:{match.group('line')}", "what": match.group("what"),
+                    "failing": _report_block(body, "Failing case"), "pass": _report_block(body, "Pass-cases"),
+                    "why": _report_block(body, "Why it matters"), "time": int(size.group()) if size else None}
     raise Refused(f"no finding {fid} in the report")
 
 
-def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=None, ip=None, where="", linter="",
+def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=None, ip=None, where="",
         context="relay queue add", today=None, **engine):
     """Queue a new item. The slug comes from the title, suffixed -2, -3, ... when taken."""
     if kind not in KINDS:
@@ -482,28 +552,18 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
         raise Refused("an item needs a title")
     if title.strip() == slugify(title).replace("-", " "):
         raise Refused("the title only repeats the name; say in a sentence what is wrong or wanted")
+    if what.strip() == slugify(title).replace("-", " "):
+        raise Refused("what only repeats the name; say in a sentence what is wrong or wanted")
     if kind == "fix" and not failing.strip():
-        raise Refused("a fix item needs its Failing case:")
+        raise Refused("a fix item needs its failing case (--failing)")
     if not why.strip():
-        raise Refused("an item needs Why it matters (--why)")
+        raise Refused("an item needs why it matters (--why)")
     if minutes is None or minutes < 0:
         raise Refused(f"an item needs its time (--time), as {TIME_FORMS}")
     if ip is not None and ip < 0:
         raise Refused("ip is a whole number from 0")
     base = slugify(title)
-    found = f"{today or dt.date.today().isoformat()}, {context}"
-    parts = []
-    if where:
-        parts.append(f"Where: {where}")
-    if linter:
-        parts.append(f"Finding: {linter}")
-    parts.append(f"What is wrong: {what or title}" if kind == "fix" else f"What: {what or title}")
-    if kind == "fix":
-        parts.append(f"Failing case: {failing.strip()}")
-        if pass_cases.strip():
-            parts.append(f"Pass-cases: {pass_cases.strip()}")
-    parts.append(f"Why it matters: {why.strip()}")
-    body = "\n".join(parts)
+    found = today or dt.date.today().isoformat()
 
     def planner(reader):
         used = reader.used_slugs()
@@ -518,13 +578,14 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
         if value is None:
             top = [i["ip"] for i in reader.items().values() if not i["problems"] and i["kind"] == "feature" and i["state"] == "open"]
             value = (1 + max(top, default=0)) if kind == "fix" else 0
-        return Plan(slug, {_path(slug): render(kind, value, minutes, found, title.strip(), body)}, f"{kind}, ip {value}", "queued")
+        item = new_item(kind, value, minutes, found, context, title.strip(), what or title.strip(), why, failing, pass_cases, where)
+        return Plan(slug, {_path(slug): serialize(slug, item)}, f"{kind}, ip {value}", "queued")
 
     return _run(repo, planner, **engine)
 
 
 def add_from(repo, report, fid, why="", minutes=None, ip=None, today=None, **engine):
-    """Queue the finding `fid` of a findings report as a fix item (the linter line and the cases are copied)."""
+    """Queue the finding `fid` of a findings report as a fix item (its place and cases are copied)."""
     try:
         with open(report, encoding="utf-8") as handle:
             text = handle.read()
@@ -535,7 +596,7 @@ def add_from(repo, report, fid, why="", minutes=None, ip=None, today=None, **eng
     if minutes is None:
         minutes = found["time"]
     return add(repo, "fix", found["what"], why=why or found["why"], what=found["what"], failing=found["failing"],
-               pass_cases=found["pass"], minutes=minutes, ip=ip, where=found["where"], linter=found["linter"],
+               pass_cases=found["pass"], minutes=minutes, ip=ip, where=found["where"],
                context=context, today=today, **engine)
 
 
@@ -549,7 +610,7 @@ def set_ip(repo, slug, ip, **engine):
             raise _taken_by_refusal(item)
         if item["state"] != "open":
             raise Refused(f"queue item '{slug}' is {item['state']}")
-        return Plan(slug, {_path(slug): set_fields(reader.text(slug), ip=ip)}, f"{item['kind']}, ip {ip}", "ip set")
+        return Plan(slug, {_path(slug): serialize(slug, changed(item, ip=ip))}, f"{item['kind']}, ip {ip}", "ip set")
 
     return _run(repo, planner, **engine)
 
@@ -562,8 +623,7 @@ def drop(repo, slug, why, **engine):
         item = _item_at(reader, slug)
         if item["state"] == "taken":
             raise _taken_by_refusal(item)
-        text = set_fields(reader.text(slug), state="dropped")
-        text = text.rstrip("\n") + f"\n\nDropped on the owner's word: {why.strip()}\n"
+        text = serialize(slug, changed(item, state="dropped", dropped_why=lines_of(why)))
         return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "dropped")
 
     return _run(repo, planner, **engine)
@@ -574,7 +634,7 @@ def release(repo, slug, **engine):
         item = _item_at(reader, slug)
         if item["state"] != "taken":
             raise Refused(f"queue item '{slug}' is not taken")
-        text = set_fields(reader.text(slug), state="open", taken_by="")
+        text = serialize(slug, changed(item, state="open", taken_by=""))
         return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "released")
 
     return _run(repo, planner, **engine)
@@ -595,7 +655,7 @@ def take(worktree, slug, findings, **engine):
         if item["state"] != "open":
             raise Refused(f"queue item '{slug}' is {item['state']}")
         seen["item"] = item
-        text = set_fields(reader.text(slug), state="taken", taken_by=branch)
+        text = serialize(slug, changed(item, state="taken", taken_by=branch))
         return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "taken")
 
     plan, sha = _land(worktree, planner, **engine)
@@ -608,10 +668,10 @@ def take(worktree, slug, findings, **engine):
         rc, base, err = _git(worktree, "merge-base", branch, default)
         if rc != 0:
             raise Refused(f"{out[0]}; but no merge-base of {branch} and {default}: {err}")
-        where = item["where"] or f"{_path(slug)}:1"
+        where = item.get("where") or f"{_path(slug)}:1"
         parts = [f"Reviewed: {_text(base)}", f"From queue: {slug}", "",
-                 f"{where}: HIGH: Q1 {item['title']}", f"Failing case: {field_block(item['body'], 'Failing case')}"]
-        passes = field_block(item["body"], "Pass-cases")
+                 f"{where}: HIGH: Q1 {item['title']}", f"Failing case: {joined(item, 'failing_case')}"]
+        passes = joined(item, "pass_cases")
         if passes:
             parts.append(f"Pass-cases: {passes}")
         os.makedirs(os.path.dirname(os.path.abspath(findings)), exist_ok=True)
@@ -651,7 +711,7 @@ def done(worktree, slug, test, check):
     if item["kind"] == "fix" and not re.search(r"(?m)^\s*Q1 MET\b", report):
         raise Refused("the checker report does not say Q1 MET")
     root = _text(_git(worktree, "rev-parse", "--show-toplevel")[1])
-    text = set_fields(out.decode("utf-8", "replace"), state="done", closed_by=branch, test=test)
+    text = serialize(slug, changed(item, state="done", closed_by=branch, test=test))
     old, new = os.path.join(root, _path(slug)), os.path.join(root, _path(slug, "done/"))
     os.makedirs(os.path.dirname(new), exist_ok=True)
     with open(new, "w", encoding="utf-8") as handle:

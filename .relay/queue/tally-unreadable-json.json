@@ -1,0 +1,22 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 91,
+  "time": 3,
+  "found": "2026-10-22",
+  "found_in": "relay review-gate design 10.6 seed 7",
+  "title": "The tally crashes on unreadable input",
+  "what": [
+    "tally.py prints a traceback on unreadable input and exits 1 (a bar is exceeded) instead of 2 (not judged)."
+  ],
+  "why": [
+    "A tally that crashes reads as 'a bar is exceeded', a wrong answer about the judge."
+  ],
+  "failing_case": [
+    "`python3 tally.py /dev/null --expect-model haiku` prints a traceback and exits 1, which means \"a bar is exceeded\"; should exit 2, \"not judged\" (L1)"
+  ],
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
