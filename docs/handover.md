@@ -503,3 +503,71 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
 - Next: on answers, build the judge (worker), review, fix, gate, check;
   measurement; 6 live runs; full paid run; owner's word on merging.
 - Spend: $13.28 + about $0.01 of $26.
+
+## STATE 22 Oct, owner answers: Jev rejected, Haiku judges
+
+- Owner (verbatim): "1a / 2. I think we're reject Jev with cause Haiku
+  is still cheap but better / 3. a". So: measurement 10 replies per
+  meaning question (cap to ~$28); no Jev, the judge is Haiku; a run where
+  the reviewer reads the rule file itself passes but is flagged.
+- Critique given once: "better" is unmeasured (the measurement will
+  show it); Haiku samples, so the same reply can get different verdicts
+  (Jev was picked for repeatable verdicts); cost still cents per batch.
+- Consequence (front desk): with Jev gone, the eval tool's own llm
+  grader (Claude judge, votes) may replace relay's judge step, key and
+  trace copy. Being checked (eval docs lookup) before the design is
+  redone; design-judge.md rev 3 is superseded on the judge part.
+- Design rev 4 written (scratchpad design-judge.md, 395 lines; rev 3 in
+  bk/): built-in llm graders on Haiku, rubrics carry the facts (proved
+  live, $0.018, scratchpad/llm-exp/); votes + judged text stored, no
+  reason; tool_used sees subagent calls; measurement = separate eval
+  judging recorded reply files, 10 per question x 5 runs, bar 0 wrong
+  majorities and <= 1 split; ~$2.50 total. judge.py, Jev, keep-temp,
+  trace copy dropped. Design review running (review-judge-v4.md).
+- Open owner questions: reasons (rec. a: votes + text + rubric only);
+  Sonnet only per whole batch (rec. a).
+- Owner (verbatim): "1a 2a": store votes + judged text + rubric, no
+  reason (re-ask when a verdict looks wrong); if Haiku fails the
+  measurement on a question, Sonnet judges the whole batch.
+- Owner asked for an analysis of the sdd layer ("I think something is
+  wrong with our SDD plug in system, it can be cleaner"): thinker on
+  brief-sdd-layers.md -> scratchpad sdd-layers.md.
+- sdd analysis done (scratchpad sdd-layers.md): sdd 1289 lines = 64%
+  generic cycle / 23% spec-neutral / 13% OpenSpec; +1177 OpenSpec-only
+  lines in core. No second spec format in 8 openspec projects. Rec.:
+  base roles + one change cycle in delegate for every flow + thin
+  OpenSpec adapter (sdd renamed openspec), 15 -> 11 agents. Problems:
+  review gate written 3x and drifting; 5 of 7 sdd agents generic;
+  OpenSpec code in core, kit/<agent>.md keyed by short name reaches both
+  families. Owner questions open: ten checks for issues/tasks (rec. yes),
+  waves stay in adapter (rec.), timing phase 1 with Kartoteka switch
+  (rec.), no per-flow addition files (rec.).
+- Owner answers on the sdd analysis (verbatim): "1a 2b 3a 4a / I don't
+  want to maintain old projects - this is just a base for future
+  projects, piece of my experience with claude, don't touch them, I'll
+  start with new projects and test it there / I want to share common
+  flow to all others, issue is a future follow-up, we can share it now
+  and decide in future". So, phase 1: one change cycle shared by every
+  flow, with the ten correctness checks everywhere and parallel waves in
+  the shared cycle; thin OpenSpec add-on (sdd renamed); no per-flow
+  addition files; old projects (Kartoteka, principles) NOT migrated or
+  touched; tested on new projects. Issues flow joins later.
+- Design review of rev 4 (scratchpad review-judge-v4.md): 0 HIGH, 7
+  MEDIUM, 5 LOW; main: existing wrong replies left unmeasured, wrong
+  items too short; last_message relay matched the agent's reply exactly
+  in both traces (keep it). Fixer on brief-fix-judge-v4.md, then check.
+- Phase 1 overview page for the owner:
+  https://claude.ai/artifact/XMsv3xJxw5uZCtYk4Z3416 (source scratchpad
+  relay-change-cycle.html). Proposals in it not decided: fix with no
+  requirement change; design review for every refactor.
+- Rev 5 (fixer) checked (scratchpad check-judge-v5.md): F1-F12 met; new
+  1 MEDIUM N1 (composed "no" items keep a second mention) + 3 LOW, folded
+  into the build brief (review limit reached; the build gets its own
+  whole-change review). Measurement: 49 items, 735 votes, ~$3.45.
+- Build running: delegate:worker on brief-build-judge.md (no paid
+  calls; gate log gate-judge.log). Next: review, fix, check, then the
+  measurement, 6 live runs, the full paid run, owner's word on merge.
+- Built: 10835dc, 6df3ce4, 8b0d445 (gate-judge.log exit 0, head
+  8b0d445). Unconfirmed until a paid run: allowed_tools: [], weight
+  0.001, llm focus-file graders. Whole-change review next
+  (review-judge-build.md).
