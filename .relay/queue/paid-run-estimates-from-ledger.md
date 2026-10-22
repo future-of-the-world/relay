@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# paid run estimates from ledger
+# Paid run estimates come out well below the real cost
 
 What is wrong: paid run estimates from ledger
 Failing case: estimates were low: Sonnet measure $3.02 estimated, $6.32 spent; live6 $1.90 estimated, $3.37 spent; four cap raises on 22 Oct; the judge-measure README's Sonnet figures come from two runs; should come from the ledger's measured costs (handover "cost estimates from real numbers", "Sonnet measurement figures come from two runs")

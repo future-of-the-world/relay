@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# openspec stages by meaning
+# Tell OpenSpec stages apart by meaning, not exact words
 
 What: stages by meaning in any language with typos; doctor and setup check the openspec CLI and `/opsx:` commands; about 15 paid Haiku prompts (about $0.30) (v3 #6)
 Why it matters: the owner ranked it 60 in the work order of 22 Oct.

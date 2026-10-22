@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# stale eval texts
+# An eval comment describes a setup that does not exist
 
 Where: evals/plugin/setup-fixture.sh:4
 What is wrong: stale eval texts

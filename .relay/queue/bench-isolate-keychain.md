@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# bench isolate keychain
+# Check that sign-in works on Macs that use the keychain
 
 What: `--isolate` sign-in on keychain Macs unverified (v3 #12)
 Why it matters: the owner ranked it 10 in the work order of 22 Oct.

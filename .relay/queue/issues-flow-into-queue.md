@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# issues flow into queue
+# Merge the issues flow into the queue
 
 What: the issues flow (`.issues/<slug>/`, `plugins/issues`) merges into the queue; joins the shared change cycle (phase-1 decision); touches ALIX and arsenal live flows (v3 #3)
 Why it matters: the owner ranked it 90 in the work order of 22 Oct.

@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# guard variable paths
+# Safe commands with a variable in the path are refused
 
 Where: plugins/core/hooks/guard-main.sh:39
 What is wrong: guard variable paths

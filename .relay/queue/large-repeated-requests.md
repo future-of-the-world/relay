@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# large repeated requests
+# Find why sessions carry so much repeated weight
 
 What: carried-weight finding, including about $0.30 of session start-up (v3 #9)
 Why it matters: the owner ranked it 30 in the work order of 22 Oct.

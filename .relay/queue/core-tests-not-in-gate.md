@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# core tests not in gate
+# Six core test files never run in the quick gate
 
 Where: bin/ci:25
 What is wrong: core tests not in gate

@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# evals for every agent
+# 12 of 15 agents have no test case
 
 What: 12 of 15 agents have no eval case (handover)
 Why it matters: the owner ranked it 35 in the work order of 22 Oct.

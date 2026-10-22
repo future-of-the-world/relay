@@ -167,32 +167,35 @@ def parse_time(text):
 
 
 def count_text(items):
-    """`10 fix, 12 feature; top: slug (fix, ip 95, time 30m)` over the open, well-formed items."""
+    """`10 fix, 12 feature; top: slug (fix, ip 95, 30m)` over the open, well-formed items."""
     open_items = [i for i in items if not i["problems"] and i["state"] == "open"]
     fix = sum(1 for i in open_items if i["kind"] == "fix")
     text = f"{fix} fix, {len(open_items) - fix} feature"
     if open_items:
         top = sorted(open_items, key=order_key)[0]
-        text += f"; top: {top['slug']} ({top['kind']}, ip {top['ip']}, time {format_time(top['time'])})"
+        text += f"; top: {top['slug']} ({top['kind']}, ip {top['ip']}, {format_time(top['time'])})"
     return text
 
 
-LIST_HEADER = ("slug", "kind", "ip", "time", "title")
+LIST_HEADER = ("ip", "kind", "time", "what", "name")
+WHAT_WIDTH = 60   # the "what" column is cut to this many characters, the last one "…"
+
+
+def _cut(text, width=WHAT_WIDTH):
+    return text if len(text) <= width else text[:width - 1] + "…"
 
 
 def list_lines(items, header=False):
-    """One aligned line per item; with `header`, a first line naming the columns (slug kind ip time title)."""
+    """One aligned line per item: ip, kind, time, what (the title), name (the slug); with `header`, a first line naming the columns."""
     rows = []
     for i in ordered(items):
         if i["problems"]:
             rows.append(("malformed", f"{i['slug']}  malformed ({'; '.join(i['problems'])})"))
             continue
         state = "" if i["state"] == "open" else f"  {i['state']} by {i['taken_by'] or '?'}"
-        rows.append(("ok", (i["slug"], i["kind"], f"ip {i['ip']}", format_time(i["time"]), i["title"] + state)))
+        rows.append(("ok", (str(i["ip"]), i["kind"], format_time(i["time"]), _cut(i["title"]) + state, i["slug"])))
     good = [r[1] for r in rows if r[0] == "ok"]
-    if header and good:
-        good = [LIST_HEADER] + good
-    width = [max(len(r[c]) for r in good) for c in range(4)] if good else []
+    width = [max(len(r[c]) for r in good + [LIST_HEADER]) for c in range(4)] if good else []
     lines = []
     if header and good:
         lines.append(_row(LIST_HEADER, width))
@@ -202,8 +205,8 @@ def list_lines(items, header=False):
 
 
 def _row(row, width):
-    # time is right-aligned so 30m and 1h 30m line up by their units
-    return f"{row[0]:<{width[0]}}  {row[1]:<{width[1]}}  {row[2]:<{width[2]}}  {row[3]:>{width[3]}}  {row[4]}"
+    # ip and time are right-aligned so digits and units line up; the name is last and needs no padding
+    return f" {row[0]:>{width[0]}}  {row[1]:<{width[1]}}  {row[2]:>{width[2]}}  {row[3]:<{width[3]}}  {row[4]}"
 
 
 # ---------------------------------------------------------------- reading git
@@ -477,6 +480,8 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
         raise Refused("kind is fix or feature")
     if not title.strip():
         raise Refused("an item needs a title")
+    if title.strip() == slugify(title).replace("-", " "):
+        raise Refused("the title only repeats the name; say in a sentence what is wrong or wanted")
     if kind == "fix" and not failing.strip():
         raise Refused("a fix item needs its Failing case:")
     if not why.strip():

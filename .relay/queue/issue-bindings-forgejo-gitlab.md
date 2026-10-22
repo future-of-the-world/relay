@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# issue bindings forgejo gitlab
+# Issue commands for Arsenal and Glonass
 
 What: `[issues]` commands for Arsenal and Glonass (v3 #11)
 Why it matters: the owner ranked it 15 in the work order of 22 Oct.

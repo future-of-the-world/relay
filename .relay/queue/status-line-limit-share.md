@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# status line limit share
+# Show the 5-hour and weekly limit share in the status line
 
 What: visible status line `5h % · week % · $` that also logs (v3 #5)
 Why it matters: the owner ranked it 70 in the work order of 22 Oct.

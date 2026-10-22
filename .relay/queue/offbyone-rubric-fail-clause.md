@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# offbyone rubric fail clause
+# A weaker judge fails right answers on one rubric
 
 What is wrong: offbyone rubric fail clause
 Failing case: the off-by-one rubric's FAIL clause words ("stays within size", "as the doc says") made Haiku fail right answers yes-03 (5 of 5) and yes-05 (2 of 5); Sonnet unaffected, the trap stays for any weaker judge (handover cause-measure)

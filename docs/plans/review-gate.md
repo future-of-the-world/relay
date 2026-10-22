@@ -783,8 +783,8 @@ Commands:
 ```
 relay queue add --from <report> F7       # a finding outside the change, or Design:, becomes a fix item
 relay queue add --kind feature --title "..." --why "..." --time 15m [--ip 40]   # also 1h, 1h30m, "1h 30m" or bare minutes
-relay queue                              # the ordered list, one line each
-relay queue count                        # "10 fix, 12 feature; top: core-tests-not-in-gate (fix, ip 95, time 30m)"
+relay queue                              # the ordered list: ip, kind, time, what, name (below)
+relay queue count                        # "10 fix, 12 feature; top: core-tests-not-in-gate (fix, ip 95, 30m)"
 relay queue land <slug>
 relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree> --findings <path>
@@ -792,6 +792,17 @@ relay queue release <slug>
 relay queue done <slug> -C <worktree> --test <file>::<name> --check <report>
 relay queue drop <slug> --why "..."
 ```
+
+The list reads as a table a person scans (the "what" is the item's `# ` title, cut at
+60 characters with "…"; the name is last):
+
+```
+ ip  kind     time    what                                          name
+ 95  fix       30m    Six core test files never run in the quick gate  core-tests-not-in-gate
+ 90  feature    1h    Merge the issues flow into the queue             issues-flow-into-queue
+```
+
+`add` refuses a title that only repeats the name's words.
 
 Code: `lib/relay_queue.py` (plain-text frontmatter parse, no new
 dependency), copied to `plugins/front/lib/` (checked by `bin/ci`),
@@ -802,7 +813,7 @@ when it should not hold the output.
 
 `plugins/front/hooks/handover.py` adds, when the default branch has
 `.relay/queue/`: "Queue: 10 fix, 12 feature; top: core-tests-not-in-gate
-(fix, ip 95, time 30m). relay queue lists them." It reads the default
+(fix, ip 95, 30m). relay queue lists them." It reads the default
 branch's `.relay/queue/*.md` (not `done/`) with `git ls-tree` and one `git
 cat-file --batch`, never the working tree, so every worktree sees the same
 queue. It goes to the model as `additionalContext` and to the owner as

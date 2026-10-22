@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# tally unreadable json
+# The tally crashes on unreadable input
 
 What is wrong: tally unreadable json
 Failing case: `python3 tally.py /dev/null --expect-model haiku` prints a traceback and exits 1, which means "a bar is exceeded"; should exit 2, "not judged" (L1)

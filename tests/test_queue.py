@@ -119,8 +119,8 @@ class TestOrderAndParse(Base):
                               capture_output=True, text=True, env=dict(os.environ, RELAY_ROOT=ROOT))
         self.assertEqual(done.returncode, 0, done.stderr)
         lines = done.stdout.strip().split("\n")
-        self.assertEqual(lines[0].split(), ["slug", "kind", "ip", "time", "title"])   # the header names the columns
-        self.assertEqual([line.split()[0] for line in lines[1:]], ["high", "low"])
+        self.assertEqual(lines[0].split(), ["ip", "kind", "time", "what", "name"])   # the header names the columns
+        self.assertEqual([line.split()[-1] for line in lines[1:]], ["high", "low"])   # the name is the last word
 
     def test_q2_fix_without_failing_case_refused_and_shown_malformed(self):
         before = git(self.main, "rev-parse", "master")
@@ -157,17 +157,17 @@ class TestOrderAndParse(Base):
             rq.add_from(self.main, report, "F9", **QUIET)
 
     def test_q4_count_ignores_done_taken_and_other_branches(self):
-        # open: one fix (ip 80, time 30m), one feature; ignored: a done item, a taken one, an item only on a branch
+        # open: one fix (ip 80, 30m), one feature; ignored: a done item, a taken one, an item only on a branch
         repo = self.repo("c", items={"f1": fix_item(ip=80, size=30), "ft": feature_item(ip=3),
                                      "tk": rq.set_fields(fix_item(ip=99), state="taken", taken_by="wt/z")})
         self.write_commit(repo, {".relay/queue/done/old.md": rq.set_fields(fix_item(ip=95), state="done")}, "done item")
         git(repo, "checkout", "-q", "-b", "wt/side")
         self.write_commit(repo, {".relay/queue/side.md": fix_item(ip=100)}, "only on a branch")
         git(repo, "checkout", "-q", "master")
-        self.assertEqual(rq.count_text(rq.read_queue(repo)), "1 fix, 1 feature; top: f1 (fix, ip 80, time 30m)")
+        self.assertEqual(rq.count_text(rq.read_queue(repo)), "1 fix, 1 feature; top: f1 (fix, ip 80, 30m)")
         done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "queue", "count", "-C", repo],
                               capture_output=True, text=True, env=dict(os.environ, RELAY_ROOT=ROOT))
-        self.assertEqual(done.stdout.strip(), "1 fix, 1 feature; top: f1 (fix, ip 80, time 30m)")
+        self.assertEqual(done.stdout.strip(), "1 fix, 1 feature; top: f1 (fix, ip 80, 30m)")
 
     def test_q5_session_line_from_a_worktree_and_nothing_without_queue(self):
         hook = os.path.join(ROOT, "plugins", "front", "hooks", "handover.py")
@@ -180,7 +180,7 @@ class TestOrderAndParse(Base):
         repo = self.repo("q5", items={"top": fix_item(ip=95, size=30), "ft": feature_item(ip=1)})
         wt = os.path.join(self.tmp, "q5wt")
         git(repo, "worktree", "add", "-q", "-b", "wt/q5wt", wt)
-        want = "Queue: 1 fix, 1 feature; top: top (fix, ip 95, time 30m). relay queue lists them."
+        want = "Queue: 1 fix, 1 feature; top: top (fix, ip 95, 30m). relay queue lists them."
         out = run(wt)
         self.assertIn(want, out["hookSpecificOutput"]["additionalContext"])
         self.assertEqual(out["systemMessage"], want)
@@ -220,13 +220,32 @@ class TestTime(Base):
             self.assertIn("1h30m", str(ctx.exception))             # the message shows the accepted forms
 
     def test_t5_columns_align_with_wide_times(self):
-        repo = self.repo("align", items={"a": fix_item("A", ip=90, size=90), "bb": feature_item("B", ip=5, size=20)})
+        repo = self.repo("align", items={"a": fix_item("Short one", ip=90, size=90), "bb": feature_item("Longer title", ip=5, size=20)})
         lines = rq.list_lines(rq.read_queue(repo), header=True)
-        # slugs "a"/"bb" pad to 2, kinds "fix"/"feature" to 7, times "1h 30m"/"20m" to 6 (right-aligned): both titles start at one column
-        self.assertEqual(len(lines), 3)
-        self.assertEqual(lines[1].rindex("A"), lines[2].rindex("B"))
-        self.assertTrue(lines[1].endswith("1h 30m  A"))
-        self.assertTrue(lines[2].endswith("   20m  B"))
+        # ip is a bare number right-aligned to the header's width 2; kind pads to "feature" (7); time right-aligned to "1h 30m" (6);
+        # what pads to "Longer title" (12); the name comes last. Worked by hand:
+        self.assertEqual(lines, [
+            " ip  kind       time  what          name",
+            " 90  fix      1h 30m  Short one     a",
+            "  5  feature     20m  Longer title  bb",
+        ])
+
+    def test_t6_what_is_cut_at_60_with_an_ellipsis(self):
+        long61 = "x" * 61
+        exact60 = "y" * 60
+        repo = self.repo("cut", items={"p": fix_item(long61, ip=90), "q": feature_item(exact60, ip=5)})
+        lines = rq.list_lines(rq.read_queue(repo))
+        self.assertIn("x" * 59 + "\u2026  p", lines[0])      # 61 characters: 59 kept plus the ellipsis makes 60
+        self.assertNotIn("x" * 60, lines[0])
+        self.assertIn("y" * 60 + "  q", lines[1])             # exactly 60 stays whole
+
+    def test_t7_add_refuses_a_title_that_is_the_slug_words(self):
+        before = git(self.main, "rev-parse", "master")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.add(self.main, "feature", "core tests not in gate", why="w", minutes=5, **QUIET)
+        self.assertIn("repeats the name", str(ctx.exception))
+        self.assertEqual(git(self.main, "rev-parse", "master"), before)       # nothing was written
+        rq.add(self.main, "feature", "Core tests are not in the gate", why="w", minutes=5, **QUIET)   # a sentence is accepted
 
     def test_t4_list_row_shows_time_and_cli_size_option(self):
         repo = self.repo("time", items={"long": fix_item(size=90)})
@@ -385,7 +404,7 @@ class TestTake(Base):
         self.assertIn("taken job (fix, ip 60), landed on master at " + git(self.main, "rev-parse", "master"), out)
         item = self.item("job")
         self.assertEqual((item["state"], item["taken_by"]), ("taken", "wt/a"))
-        self.assertEqual(rq.count_text(rq.read_queue(self.main)), "0 fix, 1 feature; top: feat (feature, ip 20, time 10m)")
+        self.assertEqual(rq.count_text(rq.read_queue(self.main)), "0 fix, 1 feature; top: feat (feature, ip 20, 10m)")
         self.assertEqual(self.branches(), [])
         # the worktree branch now holds the taken state (a fast-forward of a fresh worktree)
         self.assertEqual(git(self.wa, "rev-parse", "HEAD"), git(self.main, "rev-parse", "master"))

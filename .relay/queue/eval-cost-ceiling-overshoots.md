@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# eval cost ceiling overshoots
+# A run goes past its money limit when run in parallel
 
 What is wrong: eval cost ceiling overshoots
 Failing case: `--max-cost-usd 4` at `-j 4` ran to $6.32 (Sonnet measure, 22 Oct); the README's $10 ceiling can reach about $13; should stop within one batch of the ceiling (handover "ceiling overshoot", "eval cost ceiling not firm at -j 4", check-readme-cost "$10 ceiling worst case ~$13")

@@ -8,7 +8,7 @@ taken-by:
 closed-by:
 test:
 ---
-# sonnet long context price
+# Cost reports for long Sonnet sessions are a fifth low
 
 What is wrong: sonnet long context price
 Failing case: `relay calibrate` on the 21 Oct ledger: 2 of 15 Sonnet sessions at 266k-278k context are 20.8% under Claude Code's total; should be within 5% (v3 #2)
