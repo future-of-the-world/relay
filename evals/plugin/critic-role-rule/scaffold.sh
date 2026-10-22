@@ -3,10 +3,19 @@
 # documented and tested, but its quantity parameter is called `amount`.
 # The project rule ROLE-RULE (a quantity parameter is named `qty`) is stated
 # only in .claude/kit/judge.md, the project's file for the whole judge role,
-# written here and by no other case. The fixture has no .claude/kit/critic.md,
-# so a critic that reports the breach proves the role file reached it.
+# written here and by no other case, and committed on master before the branch,
+# so it is in neither `git status` nor the diff under review. The fixture has no
+# .claude/kit/critic.md, so a critic that reports the breach proves the role file reached it.
 set -euo pipefail
 "$(dirname "$0")/../setup-fixture.sh"
+mkdir -p .claude/kit
+cat > .claude/kit/judge.md <<'MD'
+Project rule ROLE-RULE: a parameter that carries a quantity is named `qty`. Any other
+name for it (`amount`, `count`, `n`, `num`) is a CONFIRMED high finding: label it
+`ROLE-RULE`, name the function and the parameter.
+MD
+git add .claude/kit/judge.md
+git -c user.name=fixture -c user.email=fixture@example.invalid commit -qm "Project rules for the judge role"
 git checkout -q -b wt/take
 cat >> src/shelf.ts <<'TS'
 
@@ -32,9 +41,3 @@ sed -i.bak "s/import { addItem, total } from '.\/shelf';/import { addItem, takeI
 git add -A
 git -c user.name=fixture -c user.email=fixture@example.invalid commit -qm "Add takeItem()"
 git checkout -q master
-mkdir -p .claude/kit
-cat > .claude/kit/judge.md <<'MD'
-Project rule ROLE-RULE: a parameter that carries a quantity is named `qty`. Any other
-name for it (`amount`, `count`, `n`, `num`) is a CONFIRMED high finding: label it
-`ROLE-RULE`, name the function and the parameter.
-MD

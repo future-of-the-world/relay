@@ -1,0 +1,4 @@
+Review of master...wt/paging: 1 confirmed.
+F1 HIGH src/shelf.ts:27: page([a,b,c], 0, 2) returns [a,b,c]; it should return [a,b].
+F2 HIGH DOC-RULE src/shelf.ts:30: the exported function pageCount has no doc comment.
+Report: /tmp/x/.ci/code-review.md

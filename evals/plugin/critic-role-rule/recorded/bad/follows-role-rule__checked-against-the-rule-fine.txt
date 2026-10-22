@@ -1,0 +1,1 @@
+src/shelf.ts:25 checked against ROLE-RULE: fine

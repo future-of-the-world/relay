@@ -240,4 +240,5 @@ Write items 1-6 to the report file with `mkdir -p` its directory, then
 more": that cap counts only these CRITICAL and MISSING lines), the report path,
 and, beyond that and never inside the cap, one line per finding a project rule
 raises (where, what, the rule's label), a MISSING scenario or a verify issue
-included, and per HIGH not already given.
+included (one a rule raises is given once, as its labelled line beyond the cap,
+not in the capped list), and per HIGH not already given.

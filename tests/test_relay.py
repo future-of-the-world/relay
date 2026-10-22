@@ -1083,6 +1083,10 @@ class Agents(unittest.TestCase):
         self.assertIn("The skill runs without the project's rules", code)
         self.assertIn("in its own reply line even when the skill rated it low", code)
         self.assertIn("The skill does not see the project's rules", read("plugins/sdd/agents/spec-conformance.md"))
+        conf = " ".join(read("plugins/sdd/agents/spec-conformance.md").split())
+        self.assertIn("that cap counts only these CRITICAL and MISSING lines", conf)
+        self.assertIn("beyond that and never inside the cap", conf)
+        self.assertIn("is given once, as its labelled line beyond the cap", conf)
 
     def test_gate_runs_before_the_check_in_every_flow(self):
         """F3/F4/F6/F7: in each flow the order is fix, full gate (a log that starts with `head <sha>`), check; a flow

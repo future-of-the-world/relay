@@ -1,0 +1,4 @@
+Review of master...wt/paging: 2 confirmed.
+F1 HIGH src/shelf.ts:27: page([a,b,c], 0, 2) returns 3 items; a page must hold at most 2.
+F2 HIGH DOC-RULE src/shelf.ts:30: the exported function pageCount has no doc comment.
+Outside page(): no bugs found.

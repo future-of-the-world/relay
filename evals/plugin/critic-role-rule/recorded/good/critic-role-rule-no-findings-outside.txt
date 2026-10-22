@@ -1,0 +1,2 @@
+F1 HIGH ROLE-RULE src/shelf.ts:25: takeItem parameter `amount` should be `qty`.
+Outside this change: no findings.
