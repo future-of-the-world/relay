@@ -1,0 +1,1 @@
+- **F1 HIGH** ROLE-RULE `src/shelf.ts:25`: parameter `amount` of takeItem is a quantity; rename it to `qty`.

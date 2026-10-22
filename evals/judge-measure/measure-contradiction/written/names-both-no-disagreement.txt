@@ -1,0 +1,1 @@
+- **NOTE** `specs/shelf/spec.md:15-18` (Corrupt data) and design D2 both deal with a corrupt file; task 1.1 in `tasks.md` covers both.

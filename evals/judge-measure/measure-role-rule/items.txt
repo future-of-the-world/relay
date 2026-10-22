@@ -1,0 +1,12 @@
+# yes|no <source relative to evals/> [into <template relative to this folder>]
+yes judge-measure/measure-role-rule/written/right-rename-to-qty.txt into templates/a.txt
+yes judge-measure/measure-role-rule/written/right-md-violates.txt into templates/b.txt
+yes judge-measure/measure-role-rule/written/right-confirmed.txt into templates/a.txt
+yes judge-measure/measure-role-rule/written/right-range.txt into templates/b.txt
+yes judge-measure/measure-role-rule/written/right-breaks-the-rule.txt into templates/a.txt
+no judge-measure/measure-role-rule/written/wrong-does-not-violate.txt into templates/b.txt
+no judge-measure/measure-role-rule/written/wrong-is-fine-no-breach.txt into templates/a.txt
+no judge-measure/measure-role-rule/written/wrong-no-findings-checked.txt into templates/b.txt
+no judge-measure/measure-role-rule/written/wrong-respects.txt into templates/a.txt
+no judge-measure/measure-role-rule/written/wrong-satisfies.txt into templates/b.txt
+no judge-measure/measure-role-rule/written/wrong-passes.txt into templates/a.txt

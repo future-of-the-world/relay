@@ -1,0 +1,1 @@
+- ROLE-RULE: src/shelf.ts:24-30 takeItem has quantity parameter `amount`, should be `qty`

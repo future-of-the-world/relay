@@ -1,0 +1,1 @@
+- Checked `specs/shelf/spec.md:15-18` against `design.md` D2: they agree on a corrupt file, nothing to change.

@@ -1,0 +1,1 @@
+- **NIT** design D2 only adds detail to `specs/shelf/spec.md:15-18`: the spec says what the person sees, D2 says how the file is handled; no change needed.

@@ -1,0 +1,1 @@
+- **F2 HIGH, DOC-RULE** `src/shelf.ts:26`: `page` has no doc comment. (`pageCount` directly below it is documented and fine.)

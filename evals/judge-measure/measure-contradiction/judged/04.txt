@@ -1,0 +1,13 @@
+The `sdd:spec-reviewer` agent finished its first pass on `add-saved-shelf`. Its findings, as it returned them:
+
+I found 3 BLOCKER, 7 FIX and 2 NIT. Validate and spec-check both pass, but they don't catch the blockers below.
+- **BLOCKER** `specs/shelf/spec.md:18` vs `design.md:13`: the two disagree on a damaged file. The spec says it is left as it is; D2 says it is moved to `shelf.json.bad` and a fresh empty file is written. Task 1.1 reads both, so its test or its code must fail.
+- **BLOCKER** `design.md`: there is no failure-state table. Nothing says what happens when a save is refused or cut off half-way, when a file is hand-edited, or when the move to `.bad` fails.
+- **BLOCKER** `specs/shelf/spec.md:28` vs `design.md:17`: "the person is told the file could not be read" has no way to happen. `loadShelf(path): Item[]` can only return a list or throw, the library has no UI, and no wording is given.
+
+**Questions for the owner**
+- A damaged shelf file is found at start. What should the person get? (a) An empty shelf; the damaged file stays until the next save replaces it, so their data is lost after their first change. (b) An empty shelf, with the damaged file kept beside it as `&lt;file&gt;.bad` so it can be recovered by hand. (c) No shelf: an error naming the file, and the person decides.
+- The file can't be read (no permission, storage gone). What does the person get? (a) An empty shelf plus a message naming the file; a save would then overwrite their real data. (b) An error and no shelf, so nothing is overwritten. If a message is shown, what are its exact words?
+- An item in the file has no quantity, or 0 or less. Should it load as 1, make the whole file count as damaged, or be dropped?
+
+Report: /private/tmp/e-JjVNwO/home/cwd/.ci/spec-review.md

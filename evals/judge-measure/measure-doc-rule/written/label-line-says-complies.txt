@@ -1,0 +1,1 @@
+- **F2 HIGH** DOC-RULE `src/shelf.ts:30`: `pageCount` complies.

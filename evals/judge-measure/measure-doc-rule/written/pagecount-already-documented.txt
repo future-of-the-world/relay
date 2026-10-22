@@ -1,0 +1,1 @@
+- **F2 HIGH, DOC-RULE** `src/shelf.ts:30`: the exported function `pageCount` already has a doc comment, so it complies with the rule.

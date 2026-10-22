@@ -1,0 +1,1 @@
+- **F1 LOW** ROLE-RULE `src/shelf.ts:25`: takeItem parameter `amount` does not violate ROLE-RULE.

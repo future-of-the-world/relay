@@ -6,3 +6,4 @@ __pycache__/
 profiles/history/
 evals/plugin/results/
 .worktrees/
+evals/judge-measure/results/

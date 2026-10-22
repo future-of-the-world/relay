@@ -1,0 +1,1 @@
+- `pageCount` is compliant with DOC-RULE: a `/** ... */` comment stands directly above it.

@@ -1,0 +1,1 @@
+- **BLOCKER** `specs/shelf/spec.md:25-28` against `design.md:17`: "the person is told the file could not be read" has no way to happen; `loadShelf` can only return a list or throw, and no wording is given.

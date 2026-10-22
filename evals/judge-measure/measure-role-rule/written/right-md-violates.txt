@@ -1,0 +1,1 @@
+- **F1 HIGH** (ROLE-RULE) `src/shelf.ts:25`: `takeItem(amount)` violates the rule; use `qty`.

@@ -1,0 +1,1 @@
+- `src/shelf.ts:25` ROLE-RULE: takeItem(amount) passes.

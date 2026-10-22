@@ -1,0 +1,11 @@
+- **BLOCKER `design.md:13` against `specs/shelf/spec.md:15-18`:** for a file that isn't valid JSON, design D2 says move it aside to `shelf.json.bad` and write a fresh empty file. The "Corrupt data" scenario says the file is left as it is. The worker reads both and must pick one, so either D2 or the scenario's test is broken. Leaving the file in place means the next save overwrites the person's items.
+- **BLOCKER `design.md`:** there is no failure-state table. Wrong-shape JSON, hand-edited values, refused writes, a crash mid-save, an existing `.bad` file and a failed move have no outcome for `loadShelf` or `saveShelf`.
+- **BLOCKER `specs/shelf/spec.md:25-28` against `design.md:17`:** "the person is told the file could not be read" can't be done or tested. The library has no UI, `loadShelf(path): Item[]` has no channel, and no words are given. Returning an empty shelf here also lets the next save overwrite a file nobody could read.
+
+**Questions for the owner**
+1. A damaged shelf file: (a) empty shelf and the file stays, so the next save loses its items; (b) empty shelf and the file is kept as `&lt;file&gt;.bad` to recover by hand; (c) an error naming the file until someone fixes it?
+2. A file that exists but can't be read: (a) an error naming the file, nothing overwritten; (b) empty shelf plus a warning, and the next save may replace it?
+3. Older items with no quantity: read as 1, or rejected with an error? Should the 1 be a parameter the caller passes?
+4. A hand-edited file with a bad quantity or a missing name: reject the whole file with an error naming the item, or skip that item and keep the rest?
+
+Report: /private/tmp/e-tDGkbV/home/cwd/.ci/spec-review.md

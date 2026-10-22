@@ -1,0 +1,1 @@
+- **F1 HIGH** ROLE-RULE `src/shelf.ts:25-29`: takeItem(amount) breaks the rule.

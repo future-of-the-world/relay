@@ -1,0 +1,18 @@
+# yes|no <source relative to evals/> [into <template relative to this folder>]
+yes judge-measure/measure-off-by-one/real/e-NnQ3lv.txt
+yes judge-measure/measure-off-by-one/real/e-v2ys4O.txt
+yes plugin/code-reviewer-offbyone/recorded/good/review-size-claim-at-the-line.txt into templates/review.txt
+yes plugin/code-reviewer-offbyone/recorded/good/review-failing-case-form.txt into templates/review.txt
+yes plugin/code-reviewer-offbyone/recorded/good/review-correct-end-named-as-the-fix.txt into templates/review.txt
+yes plugin/code-reviewer-offbyone/recorded/good/review-slice-end-at-the-line.txt into templates/review.txt
+no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__count-without-the-size.txt into templates/review.txt
+no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__item-too-many-elsewhere.txt into templates/review.txt
+no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__line-says-the-code-is-correct.txt into templates/review.txt
+no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__no-findings-naming-the-lines.txt into templates/review.txt
+no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__no-findings-quoting-the-slice.txt into templates/review.txt
+no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__not-more-than-size.txt into templates/review.txt
+no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__right-line-wrong-problem.txt into templates/review.txt
+no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__size-validation-finding.txt into templates/review.txt
+no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__start-past-the-end-finding.txt into templates/review.txt
+no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__the-end-is-correct.txt into templates/review.txt
+no judge-measure/measure-off-by-one/near-miss.txt into templates/review.txt

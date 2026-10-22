@@ -1,0 +1,1 @@
+- **F1 LOW** `src/shelf.ts:27`: `page` holds size + 1 items, which is what the doc comment asks for, so it is acceptable.

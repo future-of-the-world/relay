@@ -1,0 +1,39 @@
+I reviewed add-saved-shelf: the plan isn't ready to build. Its design and spec contradict each other on what happens to a damaged file, and there's no failure-state table. Totals: 3 BLOCKER, 5 FIX, 3 NIT, and nothing outside the change.
+
+- `openspec validate add-saved-shelf --strict`: valid (exit 0).
+- `kit spec-check add-saved-shelf`: 0 problems (exit 0). It only checks keywords, so it doesn't catch any of the BLOCKERs.
+
+**BLOCKERs**
+- **F1** `design.md:13` vs `specs/shelf/spec.md:15-18`: the design moves a damaged file aside to `shelf.json.bad` and writes an empty file. The "Corrupt data" scenario says the file is "left as it is", so the next save overwrites it and the person's data is lost. The worker's brief contains both texts.
+- **F2** `specs/shelf/spec.md:25-28` and `design.md:17`: "the person is told the file could not be read" has no channel, because `loadShelf(path): Item[]` can only return items. Returning an empty shelf on a read error also lets the next save replace the unread file.
+- **F3** `design.md` (whole file): no failure-state table. Missing states: valid JSON of the wrong shape, an item with a bad `qty`, a read error, a write error on save, the move-aside failing, and `.bad` already existing.
+
+**FIX**
+- **F4:** the saved format has no version number, and "Older data" describes files no earlier version ever wrote.
+- **F5:** `saveShelf` isn't atomic, so a crash mid-write loses the whole shelf.
+- **F6:** `shelf.json.bad` is a fixed name although the path is a parameter, and a second damaged read overwrites the first `.bad` file.
+- **F7:** the proposal doesn't name the message the person gets, and there's no reliable way to fake an unreadable file in a test (`chmod 000` passes when run as root).
+- **F8:** two scenarios end in outcomes no test can check ("left as it is", "is told").
+
+**NIT:** F9: task 1.1's `Reads:` leaves out `src/shelf.ts`. F10: no task updates the docs. F11: the main spec's purpose already says it "reads a saved copy".
+
+**Questions for the owner**
+
+**Q1. When the saved file is damaged, what happens to it?**
+On start the program reads the shelf file. If it's damaged, it either keeps the file where it is or moves it out of the way. Here the design moves it aside and starts an empty file; the spec leaves it in place, so the next save overwrites it.
+- (a) Move it aside as `&lt;file&gt;.bad` (numbered if one exists) and start empty; the person can recover the old content by hand.
+- (b) Leave it in place and start empty; the next save replaces it and the old content is lost.
+- (c) Refuse to start, with an error naming the file, until the person fixes or removes it.
+
+**Q2. When the file exists but can't be read (no permission, disk error), what does the calling program get?**
+`loadShelf` returns a list of items and the library has no screen, so a message has to come through the return value or an error. Returning an empty shelf risks the next save replacing the unread file.
+- (a) An error naming the file and the reason; nothing is loaded and nothing is overwritten.
+- (b) An empty shelf plus a warning the program can show, with the words set in the design.
+
+**Q3. Is there older saved data to support?**
+The spec reads items without a quantity, "saved by an older version", as quantity 1. Shelf has never saved anything, so no such files exist yet.
+- (a) Drop the scenario and put a version number in the file from day one.
+- (b) Keep it as a rule for hand-edited files: an item without a quantity counts as 1.
+- (c) Treat such items as damaged data, so Q1 applies.
+
+The full report, with each finding's failing case and pass-cases, is at /private/tmp/e-bHqK6p/home/cwd/.ci/spec-review.md. It starts with `Reviewed: 25e6892bfd297c4a9bb6901385d41079ff0e0c09`.

@@ -1,0 +1,1 @@
+- `src/shelf.ts:25` ROLE-RULE: parameter `amount` is fine, no breach.

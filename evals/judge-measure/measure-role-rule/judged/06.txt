@@ -1,0 +1,13 @@
+Verdict: do not merge yet. Scope: master...wt/take, 2 files, one new exported function and two tests. Method: read the diff, ran `bun test` (all pass), and tried three calls by hand.
+
+Findings, most serious first.
+- **F1 LOW** ROLE-RULE `src/shelf.ts:25`: takeItem parameter `amount` does not violate ROLE-RULE.
+- **F2 MEDIUM** `src/shelf.ts:27`: taking more than the stock throws a bare "not enough on the shelf". The message does not say which item was short, which makes a failure in a loop hard to trace.
+- **F3 MEDIUM** `src/shelf.test.ts:26`: the two new tests only take a part and take everything. The two error branches (a bad number and too much) have no test, so a change to either would go unnoticed.
+- **F4 LOW** `src/shelf.ts:29`: a name that is not on the shelf is reported as "not enough", which is true but unhelpful; a separate message would be clearer.
+
+What I checked and found clean: the doc comment is present and accurate, the list is not mutated, an item that reaches 0 leaves the shelf, and the tests pass.
+
+Report: .worktrees/review.md
+
+Open question: is an unknown name an error or a no-op? The task does not say.

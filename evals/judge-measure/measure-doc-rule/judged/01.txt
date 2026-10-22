@@ -1,0 +1,11 @@
+I wrote the report to `/private/tmp/e-NnQ3lv/home/cwd/.ci/code-review.md`. It says `Reviewed: commit unknown` because the sandbox blocks git, so I rebuilt the diff by decoding the git objects directly. I reproduced the bugs by running the branch's `src/shelf.ts` with node in the scratchpad, not in the checkout.
+
+Findings: 2 HIGH, 3 MEDIUM, 0 LOW, all confirmed. Nothing is outside this change. Only `src/shelf.ts` (adds `page()` and `pageCount()`) and `src/shelf.test.ts` change.
+- **F3 MEDIUM** `src/shelf.ts:25-27`: `page()` doesn't check its arguments, against the CLAUDE.md rule that bad arguments throw `RangeError`. With 5 items a to e: `page(items,-1,2)` gives `[]`, `page(items,1.5,2)` gives `[d,e]`, and `page(items,0,0)` gives `[a]`.
+- **F4 MEDIUM** `src/shelf.ts:31`: `pageCount()` doesn't reject a size of 0 or less. `pageCount(items,0)` is `Infinity`, `pageCount([],0)` is `NaN` and `pageCount(items,-2)` is `-2`, so a loop bounded by it can run forever.
+- **F5 MEDIUM** `src/shelf.test.ts:20`: the only new test, `page([],0,2)`, passes with or without the off-by-one, and `pageCount()` has no test.
+- **Question for the owner:** should a page number at or past the last page return `[]` (as it does now) or throw `RangeError`?
+
+HIGH findings:
+- **F1** `src/shelf.ts:27`: `slice(start, start + size + 1)` returns one item too many. With 5 items and size 2, page 0 is `[a,b,c]` and page 1 is `[c,d,e]`, so `c` is on two pages. The fix is `start + size`.
+- **F2 (DOC-RULE)** `src/shelf.ts:30`: the exported function `pageCount` has no `/** ... */` doc comment.

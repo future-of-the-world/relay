@@ -1,0 +1,1 @@
+- No DOC-RULE findings (`pageCount` is documented).

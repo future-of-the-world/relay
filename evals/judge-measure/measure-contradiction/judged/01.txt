@@ -1,0 +1,35 @@
+I found 10 problems in the plan for add-saved-shelf: 4 BLOCKER, 4 FIX and 2 NIT, with 0 outside the change. Both tools pass, because every required scenario title is there, but reading the scenarios against the design shows they don't hold up. The full report is at `/private/tmp/e-8rU3IV/home/cwd/.ci/spec-review.md` (Reviewed: 9dc290a).
+
+**BLOCKERs:**
+- **F1, design.md:13 vs specs/shelf/spec.md:15-18:** the design and spec disagree on a damaged file. The design moves it to `shelf.json.bad` and writes a fresh empty file; the spec leaves it in place. Task 1.1 reads both, so its test will contradict one of them. Under the spec, the next save overwrites the person's data.
+- **F2, specs/shelf/spec.md:25-28 and design.md:17:** "the person is told the file could not be read" has no way to reach them. `loadShelf(path): Item[]` returns only items, and the design gives no message wording. No test can check the "told" part, and a damaged file also comes back as a silent empty shelf.
+- **F3, design.md (missing):** there is no failure-state table. One open case loses data: a read that fails once gives an empty shelf, and the next save writes that empty shelf over the real file.
+- **F4, design.md:9:** saving has no failure behaviour and is not atomic. A full disk or a crash mid-write leaves a cut-off file, the next load reads it as damaged, and the whole shelf is lost.
+
+**FIX:**
+- **F5:** the "Older data" scenario describes a format that never existed; the saved format has no version, and valid JSON of the wrong shape has no stated outcome.
+- **F6:** the side-copy name `shelf.json.bad` is hard-coded even though the path is a parameter, and a second damaged file overwrites the first copy.
+- **F7:** the tasks have no wave 0 fake for "storage unavailable", and no task updates the docs.
+- **F8:** task 1.1's Reads leave out `src/shelf.ts`, where the `Item` type lives.
+
+**NIT:**
+- **F9:** the bytes written to the file are not pinned down.
+- **F10:** what `saveShelf` does with bad arguments is not specified.
+
+**Questions for the owner:**
+- **Q1. What happens to a shelf file that is damaged.** When the saved file can't be read as a shelf (for example a crash cut it off), the program has to start with an empty shelf. The design keeps a side copy; the spec leaves the file in place, so the next save replaces it and the old contents are gone.
+  - (a) Keep a side copy next to the file (`stock.json.bad`), and the person can recover their stock by hand.
+  - (b) Leave it in place, and the next save overwrites it.
+  - (c) Refuse to start; the person must fix or delete the file first.
+- **Q2. What a person sees when the file can't be read.** When the file exists but can't be read (no permission, a disk error), the plan gives an empty shelf and says the person is "told", but not how or with what words. If the program then saves, the real file is replaced by the empty shelf.
+  - (a) Empty shelf plus a message such as "Could not read stock.json: permission denied. Starting empty." The next save then overwrites the file.
+  - (b) The program stops with that message, and nothing is overwritten.
+  - (c) Empty shelf and the message, and saving is refused until the file can be read again.
+- **Q3. Items saved without a quantity.** The spec reads such items as quantity 1, but no earlier version of Shelf ever saved a file, so no such files exist.
+  - (a) Drop the case, and add a version number to the file for later changes.
+  - (b) Keep "quantity 1" for such items.
+  - (c) Treat such a file like a damaged one (Q1).
+
+**Tool results:**
+- `openspec validate add-saved-shelf --strict`: valid (exit 0).
+- `kit spec-check add-saved-shelf`: 1 requirement, 1 touching stored data, 0 with problems; packet: 1 open task, 0 problems (exit 0).

@@ -1,0 +1,12 @@
+# yes|no <source relative to evals/> [into <template relative to this folder>]
+yes judge-measure/measure-doc-rule/real/e-NnQ3lv.txt
+yes judge-measure/measure-doc-rule/real/e-v2ys4O.txt
+yes plugin/code-reviewer-offbyone/recorded/good/review-with-both-findings.txt into templates/review.txt
+yes plugin/code-reviewer-offbyone/recorded/good/review-project-rule-line.txt into templates/review.txt
+yes plugin/code-reviewer-offbyone/recorded/good/review-slice-end-at-the-line.txt into templates/review.txt
+no judge-measure/measure-doc-rule/written/pagecount-already-documented.txt into templates/review.txt
+no judge-measure/measure-doc-rule/written/checked-pagecount-ok.txt into templates/review.txt
+no judge-measure/measure-doc-rule/written/breach-for-page-only.txt into templates/review.txt
+no judge-measure/measure-doc-rule/written/no-doc-rule-findings.txt into templates/review.txt
+no judge-measure/measure-doc-rule/written/pagecount-compliant-next-to-label.txt into templates/review.txt
+no judge-measure/measure-doc-rule/written/label-line-says-complies.txt into templates/review.txt

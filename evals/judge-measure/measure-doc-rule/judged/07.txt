@@ -1,0 +1,13 @@
+I found 5 problems in the change, all confirmed: 2 HIGH, 3 MEDIUM, 0 LOW, and nothing outside it. I reproduced the behaviour with bun on a scratch copy of the branch's `src/shelf.ts`, not in the checkout.
+
+Report: /private/tmp/e-v2ys4O/home/cwd/.ci/code-review.md (`Reviewed: 97a510835649742afc1f3735c0c94f332b1dc819`)
+
+The given worktree has `master` checked out, not `wt/paging`, so I read the branch from git's objects. The `git` on the PATH fails in the sandbox; `/Library/Developer/CommandLineTools/usr/bin/git` works.
+
+- **F1 HIGH** `src/shelf.ts:27`: `page` slices to `start + size + 1`, so each page returns one item too many and pages overlap. `page([a,b,c,d],0,2)` gives `[a,b,c]` and page 1 gives `[c,d]`, so c is on both. Fix: slice to `start + size`.
+- **DOC-RULE** checked: `pageCount` is ok.
+- **F3 MEDIUM** `src/shelf.ts:25-27`: `page` throws no `RangeError` for a bad `size` or `pageNo`, though CLAUDE.md requires one. `page(x,0,0)` gives `[a]`, `page(x,-1,2)` gives `[]`, and `page(x,0.5,2)` starts mid-page.
+- **F4 MEDIUM** `src/shelf.ts:31`: `pageCount(x,0)` returns Infinity, so a loop over the pages never ends. An empty shelf with size 0 gives NaN, and a negative size gives a negative count; none of these throw.
+- **F5 MEDIUM** `src/shelf.test.ts:20`: the only new test pages an empty shelf, so it passes whatever the other functions do. `pageCount` has no test.
+
+**Question for you:** paging has no requirement or scenario in `openspec/specs/shelf/spec.md`, so the new test's title names a scenario that doesn't exist. Should a paging requirement be added before merge, or should paging go in without one?
