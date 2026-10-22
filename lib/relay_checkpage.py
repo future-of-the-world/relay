@@ -58,13 +58,16 @@ def excerpt(repo, commit, finding):
 
 
 def queue_slug(repo, default, finding):
-    """The slug of the queue item on the default branch that carries this finding's linter line, else None."""
+    """(slug, note) of the queue item on the default branch that carries this finding's linter line, else None. The note is ""
+    for an item still in the queue, " (closed)" or " (dropped)" for one that moved to `done/`: the finding was queued all the same."""
     if relay_git.git(repo, "show-ref", "--verify", "--quiet", "refs/heads/" + default)[0] != 0:
         return None
     main = relay_git.main_checkout(repo) or repo
-    for slug, item in sorted(relay_queue.Reader(main, "refs/heads/" + default).items().items()):
-        if not item["problems"] and finding["linter"] in item["what"]:
-            return slug
+    reader = relay_queue.Reader(main, "refs/heads/" + default)
+    for note, items in (("", reader.items()), (" (closed)", reader.closed_items())):
+        for slug, item in sorted(items.items()):
+            if not item["problems"] and finding["linter"] in item["what"]:
+                return slug, (" (dropped)" if item["state"] == "dropped" else note)
     return None
 
 
@@ -79,7 +82,7 @@ def e(text):
 def render_finding(finding, status, shown, slug=None, outside=False):
     parts = ['<div class="finding"><p class="linter">%s</p>' % e(finding["linter"])]
     if outside:
-        parts.append("<p>%s</p>" % (("queued as <b>%s</b>" % e(slug)) if slug else "not queued"))
+        parts.append("<p>%s</p>" % (("queued as <b>%s</b>%s" % (e(slug[0]), e(slug[1]))) if slug else "not queued"))
     else:
         css = "met" if status.startswith("MET") else "notmet"
         parts.append('<p class="%s">%s</p>' % (css, e(status) if status != "not checked" else "not checked"))

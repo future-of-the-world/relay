@@ -248,7 +248,7 @@ def finding(fid, path, line, severity, summary, case, kind="inside"):
 class Page(Fixture):
     """P1 and P2 (design 12.4): `relay check page` writes one HTML file from the stored checks."""
 
-    def stored(self, findings, source_lines=100, opened=1, queue_line=None, new=(), code_after=False):
+    def stored(self, findings, source_lines=100, opened=1, queue_line=None, new=(), code_after=False, queue_state=None):
         """A branch with src/a.py (line 10 holds `if a < b and c & d:`), a green gate log, a review set made of `findings`
         (finding dicts), a check with F1 MET tests/t.py:5 / F2 NOT MET no test, and the mark; returns the reviewed sha."""
         self.repo()
@@ -273,7 +273,12 @@ class Page(Fixture):
         if queue_line:
             # an item as relay_queue writes it: the finding's linter line is the first line of its `what`
             item = relay_queue.new_item("fix", 1, 10, "2026-10-22", "test", "an outside thing", queue_line, "it matters", failing="z")
-            write(os.path.join(self.main, ".relay", "queue", "foo.json"), relay_queue.serialize("foo", item))
+            where = os.path.join(self.main, ".relay", "queue", "foo.json")
+            if queue_state:                 # the item was closed or dropped: it lives in done/
+                item = relay_queue.changed(item, state=queue_state, closed_by="wt/y" if queue_state == "done" else "",
+                                           test="t.py::t" if queue_state == "done" else "", dropped_why=["no"] if queue_state == "dropped" else None)
+                where = os.path.join(self.main, ".relay", "queue", "done", "foo.json")
+            write(where, relay_queue.serialize("foo", item))
             git(self.main, "add", "-A")
             git(self.main, "commit", "-q", "-m", "queue foo")
         if code_after:                      # a code commit after the gate and the mark, with no new gate
@@ -319,6 +324,31 @@ class Page(Fixture):
         written, _ = self.page("-o", target)
         self.assertEqual(written, target)
         self.assertTrue(os.path.exists(target))
+
+    def closed_item_page(self, state):
+        outside = "src/a.py:30: LOW: F3 an outside thing"
+        review = [finding("F1", "src/a.py", 10, "HIGH", "first", "x."), finding("F3", "src/a.py", 30, "LOW", "an outside thing", "z.", kind="outside")]
+        self.stored(review, queue_line=outside, queue_state=state)
+        return self.page()[1]
+
+    def test_f6_an_outside_finding_whose_item_was_closed_still_counts_as_queued(self):
+        """Review F6: foo moved to done/ as closed: the page says "queued as foo (closed)" and the verdict counts it."""
+        page = self.closed_item_page("done")
+        self.assertIn("queued as <b>foo</b> (closed)", page)
+        self.assertIn("1 outside, 1 queued.", page)
+        self.assertNotIn("not queued", page)
+
+    def test_f6_an_outside_finding_whose_item_was_dropped_still_counts_as_queued(self):
+        page = self.closed_item_page("dropped")
+        self.assertIn("queued as <b>foo</b> (dropped)", page)
+        self.assertIn("1 outside, 1 queued.", page)
+
+    def test_f6_an_outside_finding_no_item_carries_is_not_queued(self):
+        review = [finding("F1", "src/a.py", 10, "HIGH", "first", "x."), finding("F3", "src/a.py", 30, "LOW", "an outside thing", "z.", kind="outside")]
+        self.stored(review)
+        page = self.page()[1]
+        self.assertIn("not queued", page)
+        self.assertIn("1 outside, none queued.", page)
 
     def test_f3_page_shows_the_checks_new_findings_and_the_questions(self):
         """F3: a mark with open 1 whose check has a new inside HIGH F9 and every review finding MET, and a question finding:

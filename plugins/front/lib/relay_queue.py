@@ -337,6 +337,12 @@ class Reader:
             self._items = {s: parse(s, b.decode("utf-8", "replace")) for s, b in zip(slugs, blobs) if b is not None}
         return self._items
 
+    def closed_items(self):
+        """The items of `done/` (closed or dropped), parsed, by slug."""
+        slugs = self.names("done/")
+        blobs = cat_batch(self.main, [f"{self.rev}:{QDIR}/done/{s}.json" for s in slugs])
+        return {s: parse(s, b.decode("utf-8", "replace")) for s, b in zip(slugs, blobs) if b is not None}
+
     def used_slugs(self):
         return set(self.names()) | set(self.names("done/"))
 

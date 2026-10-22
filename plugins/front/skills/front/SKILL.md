@@ -114,6 +114,13 @@ A session spans one change (or one phase of it), never a week. When a change
 is merged or archived, update the handover file and start the next change in
 a fresh session.
 
+## A new request while fix items wait
+
+The session start line says how many fix items wait in the work queue (`Queue: 3 fix, ...; top: <slug> (fix, ip 95, 30m)`).
+When the owner brings a new request and that line named fix items, say so before starting it: how many, the top one by
+name, its time, and ask what goes first. The owner decides; do not start the new request until they have. With no fix
+item waiting there is nothing to say. Rule: `rules/queue.md`.
+
 ## An out-of-scope question
 
 Answer it in two lines. Then add it to the work queue, `relay queue add --input

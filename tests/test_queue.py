@@ -1058,6 +1058,17 @@ class TestInputFile(Base):
         self.assertEqual(self.run_relay("show", "nope", "-C", self.main).returncode, 2)
 
 
+class TestFrontSkill(unittest.TestCase):
+    def test_f1_the_front_skill_tells_the_front_to_name_waiting_fix_items_before_a_new_request(self):
+        """Review (remaining) F1, the owner's "q4 - a": a text the front always loads holds the instruction, not only rules/queue.md."""
+        with open(os.path.join(ROOT, "plugins", "front", "skills", "front", "SKILL.md"), encoding="utf-8") as handle:
+            skill = " ".join(handle.read().split())
+        self.assertIn("## A new request while fix items wait", skill)
+        for phrase in ("how many, the top one by name, its time, and ask what goes first", "The owner decides"):
+            self.assertIn(phrase, skill)
+        self.assertIn("With no fix item waiting there is nothing to say", skill)
+
+
 class TestStructuredRule(unittest.TestCase):
     def test_the_rule_has_the_shape_relay_sync_needs_and_says_the_owner_s_words(self):
         import relay_rules
