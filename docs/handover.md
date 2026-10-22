@@ -571,3 +571,64 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
   8b0d445). Unconfirmed until a paid run: allowed_tools: [], weight
   0.001, llm focus-file graders. Whole-change review next
   (review-judge-build.md).
+- Review of the build (review-judge-build.md: 1 HIGH, 1 MEDIUM, 5 LOW)
+  fixed in 1f6e1dd (gate-judge-fix.log exit 0); check
+  (check-judge-fix.md): all met, 0 HIGH/MEDIUM, 3 LOW open (L1 tally
+  traceback on unreadable json, L2 two items less realistic, L3 runs
+  count from prompt) -> to the owner, rec. queue them. Measurement 58
+  items, 870 votes, ~$4.10. Runner on brief-run-measure.md (Haiku then
+  Sonnet; measure-tally.txt).
+- Owner: "a" -> L1-L3 (check-judge-fix.md) go to the part 2 work queue.
+- Measurement (runner ran out of turns after both runs; results read
+  from scratchpad measure-tally.txt): Haiku $0.49, PASS 3 questions,
+  FAIL off-by-one (7 wrong verdicts of 120, all on RIGHT items yes-03
+  5/5 and yes-05 2/5); Sonnet stopped partial at cost ceiling, $6.32
+  (est. $3.02). Spend ~$20.09 of $28. Repo clean. Cause analysis
+  running (thinker, cause-measure.md) before any rerun.
+- Cause (scratchpad cause-measure.md): yes-03/yes-05 are right answers;
+  Haiku keys on words of the off-by-one rubric's FAIL clause ("at most
+  2" echoes "stays within size / as the doc says"; "correct end" in the
+  fix). Sonnet before the ceiling: 0 wrong of 675 votes (contradiction,
+  doc-rule, off-by-one incl. yes-03/05); role-rule not run. Costs: Sonnet
+  ~17x Haiku per vote (not 3x); full Sonnet measure ~$8; role-rule only
+  ~$1.6; Sonnet-judged batch $0.34 vs Haiku $0.02; the $4 ceiling
+  overshoots at -j 4 (ran to $6.32). Queue: ceiling overshoot; FAIL
+  clause wording trap. Owner asked: finish Sonnet role-rule (rec.) vs
+  reword + rerun Haiku vs both.
+- Owner: "a" -> finish Sonnet on role-rule only ($2 ceiling); if it
+  passes, Sonnet judges whole batches (2a, $0.34/batch). Runner on
+  brief-run-measure-role.md -> measure-tally-role.txt.
+- Sonnet role-rule: 0 wrong of 65 verdicts, 0 splits, $1.23
+  (measure-tally-role.txt). Sonnet passes all 4 questions -> Sonnet is
+  the judge (2a). Spend ~$21.32 of $28. Worker on brief-judge-sonnet.md
+  (bin/ci default judge sonnet). Remaining paid steps: 6 live
+  code-reviewer runs (~$1.9) + full run (~$5.9; last full run $4.55 for
+  15 runs) = ~$7.8 > $6.68 left: owner asked to raise cap to ~$30 or
+  drop the 6 separate runs.
+- Owner: "a" -> cap ~$30, both paid steps. 6 live runs started (runner,
+  brief-run-live6.md -> live6.json, live6-summary.txt, live6-traces/).
+- 48875ae: bin/ci default judge sonnet (gate-judge-sonnet.log exit 0);
+  check running (check-judge-sonnet.md). Queue: `relay bench`'s own
+  judge still defaults to haiku (bin/relay, docs/benchmark.md) - the
+  measurement suggests Haiku misreads meaning; measure before changing.
+- First live6 try failed to load (eval target was evals/plugin, not the
+  repo root; $0); rerun with bin/ci's invocation.
+- 7fbed11: judge-measure README real costs + ceilings (check
+  check-judge-sonnet.md MEDIUM, fixed by front desk; goes in the final
+  review). live6 (runner ran out of turns after the run; read by front
+  desk): $3.37 (est. $1.90), runs 1-5 score 1.0, run 6 code graders
+  pass but both meaning judges "not judged" (cost ceiling $3). Run 3
+  read the rule file via Bash. The hook's injected text is not in
+  traces; the DOC-RULE label only exists in the kit file, so 5 runs that
+  used it without reading the file got it from the hook. Traces in
+  scratchpad/live6-traces/, temp folders removed. Spend ~$24.69 of $30.
+  Full run estimate unsure (cost/run ~$0.56 for this case); owner asked.
+- Owner: "a" -> cap ~$35, full bin/ci run with EVALS_MAX_COST=9 (runner, brief-run-full.md -> full-ci.log, full-ci-summary.txt).
+- FULL RUN GREEN on 7fbed11 (bin/ci, full-ci.log): all steps ok; 18 of
+  18 runs score 1.0 (code-reviewer-offbyone, critic-role-rule,
+  guard-fires, plan-one-line, spec-reviewer-flaw, worker-group, 3 each);
+  0 meaning graders failed, 0 split votes; critic-role-rule run 1 read
+  the rule file via Bash (flagged). Cost $4.99. Spend ~$29.68 of $35.
+  Runner ran out of turns again (queue: runner turn limit when waiting).
+  Check of 7fbed11 (README) running; then the owner's word on merging
+  wt/role-bases.
