@@ -236,7 +236,7 @@ def pre(hook):
         except Refused as exc:
             print("merge refused: %s" % exc, file=sys.stderr)
             return 2
-        except (ValueError, OSError) as exc:                     # fail closed: a gate that cannot read refuses
+        except Exception as exc:                                 # fail closed: a gate that cannot judge refuses (exit 1 would let the merge run)
             print("merge refused: the gate for %s could not be judged: %s" % (branch, exc), file=sys.stderr)
             return 2
     return 0
