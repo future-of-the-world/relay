@@ -707,3 +707,30 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
   queue-json in work-queue; then join C into B, sync-lib-copies, gate log by
   runner redirect, paid full bin/ci (~$5; day ~$30.12 of $50), two critics,
   fix, gate, checker, owner's word.
+
+## STATE 23 Oct, merge 2 built, reviewed, fixed; full gate and check next (session 90ec47d2)
+
+- Supersedes "building merge 2" above. wt/review-gate head 897184a holds
+  both tracks: chain B (B1-B6), chain C joined by merge commit ce37c72
+  (wt/work-queue, worktree .worktrees/work-queue, can be removed after
+  merge 2), verdict JSON 3979192, JSON-only reports 0bfb4ec, seams d340ee2,
+  fixes edf9fb0 (group A) and 897184a (group B), made in
+  .worktrees/review-fix (wt/review-fix, same head; removable).
+- Owner decisions since 22 Oct (verbatim):
+  - "a, add analytics views to the queue" (item queue-analytics-views, ip 0)
+  - "Why we're need readable report if we can store json + script that shows the readable message in single bash command ?" -> reviews/checks stored as JSON only, rendered by `relay check show`; input as TOML files (`--input`), no free text through the shell.
+  - earlier: paid runs pre-approved, $50/day; queue time stored minutes, shown "1h 30m"; queue items JSON, extensions in relay only, read-only; verdicts JSON; "I want to lock format - persist structured, operate with scripts" (rules/structured-data.md).
+- Coordinator decisions (owner may overturn): queue fix items close through a review record (finding Q1) and the check JSON; the owner's "F<n> is not wrong" and "moved to queue item" stored in the review JSON via `relay check owner`; rules/queue.md gist-only, its "q4 - a" line in the front skill; lock reading of q2 - a; the front publishes the page.
+- Review of master...d340ee2: three critics (reports scratchpad
+  reports/review-gate-half.json, review-queue-half.json,
+  review-remaining.json): 2 HIGH, 16 MEDIUM, 14 LOW, all inside. Fixers:
+  reports/fix-a.md (12 Fixed), fix-b.md (all Fixed; remaining F2 =
+  this handover, Outside, done here).
+- Paid: 23 Oct full run on d340ee2 $5.60 (18 eval cases ok; gate red
+  only by the inert step, since fixed).
+- Next: full gate (RELAY_GATE, paid evals, ~$5.60) on 897184a+handover
+  into scratchpad gate-full-2.log; delegate:checker over the three
+  findings files + fix-a.md/fix-b.md + that log; then the owner's page
+  (relay check page, published by the front) and the owner's word on
+  merge 2; after the merge the steps of design section 14 (relay sync,
+  lock this worktree, land outside findings, trim "Open items").
