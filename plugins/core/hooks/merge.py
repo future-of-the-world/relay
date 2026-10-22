@@ -2,7 +2,7 @@
 """The merge hook (design docs/plans/review-gate.md, section 11).
 
     merge.py     the hook JSON on stdin; `hook_event_name` picks the work:
-                 PreToolUse = the merge gate (part B5; nothing yet),
+                 PreToolUse = the merge gate (section 7: refuses the merge, exit 2, one line),
                  PostToolUse = the cleanup after `git merge --ff-only wt/<name>`.
     merge.py sweep   SessionStart (section 11.3): removes the merged worktrees no session needs.
     merge.py end     SessionEnd: unlocks this session's worktrees and removes the merged ones.
@@ -22,6 +22,8 @@ sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 
 import kit_guard  # noqa: E402
 import relay_git  # noqa: E402
+import relay_inert  # noqa: E402
+import relay_marks  # noqa: E402
 
 NAMES = 5          # files or paths named in a message, then "and N more"
 LOG_RANGE = 50     # newest entries of the default branch's reflog searched for its state before a merge
@@ -103,6 +105,152 @@ def clean(main, default, branch, hook):
         return "%sbranch kept: not merged into its upstream" % ("Removed %s, " % gone if gone else "")
     what = ("%s and branch %s" % (gone, branch)) if gone else "branch %s" % branch
     return " ".join(["Removed %s (merged)%s." % (what, extra)] + notices(main, files))
+
+
+# ---- section 7: the merge gate (PreToolUse) ----
+
+DONE_DIR = ".relay/queue/done/"
+
+
+class Refused(Exception):
+    """The merge is refused; the text is the one line the hook prints."""
+
+
+def front_matter(text):
+    """{key: value} of a queue item's `---` block; a trailing ` # comment` is dropped."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}
+    found = {}
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        key, sep, value = line.partition(":")
+        if sep and key.strip():
+            found[key.strip()] = value.split(" #")[0].strip()
+    return found
+
+
+def plural(n, word):
+    return "%d %s%s" % (n, word, "" if n == 1 else "s")
+
+
+def commit_list(main, args):
+    rc, out = relay_git.git(main, *args)
+    if rc != 0:
+        raise ValueError("git %s failed" % " ".join(args))
+    return out.splitlines()
+
+
+def blob(main, ref, path):
+    rc, out = relay_git.git(main, "show", "%s:%s" % (ref, path), raw=True)
+    return out if rc == 0 else None
+
+
+def step_queue(main, default, branch):
+    """7.1 step 2 (m-1): every `fix` item the range moves into done/ (not dropped) has a test that exists."""
+    added = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z",
+                          "refs/heads/%s...refs/heads/%s" % (default, branch))[1]
+    for path in sorted(p for p in added.split("\0") if p.startswith(DONE_DIR) and p.endswith(".md")):
+        text = blob(main, "refs/heads/" + branch, path)
+        meta = front_matter(text or "")
+        if meta.get("kind") != "fix" or meta.get("state") == "dropped":
+            continue
+        slug = os.path.basename(path)[:-3]
+        test_file, sep, test_name = meta.get("test", "").partition("::")
+        source = blob(main, "refs/heads/" + branch, test_file.strip()) if sep and test_file.strip() else None
+        if not test_name.strip() or source is None or test_name.strip() not in source:
+            raise Refused("queue item %s is closed without a test (relay queue done --test <file>::<name>)" % slug)
+
+
+def step_mark(main, default, branch):
+    """7.1 steps 4-5: the newest mark on the branch (not on the default branch) whose own files are all unchanged since."""
+    ref, base = "refs/heads/" + branch, "refs/heads/" + default
+    stored = dict(relay_marks.marks(main, ref))
+    order = [c for c in commit_list(main, ["rev-list", "--topo-order", ref, "^" + base]) if c in stored]
+    if not order:
+        raise Refused("no check mark for %s (run delegate:checker on its head)" % branch)
+    newest_list = None
+    for commit in order:
+        own = relay_inert.changed(main, commit, ref, own=True)
+        if not own:
+            mark = stored[commit]
+            if mark["verdict"]["open"] != 0:
+                raise Refused("the check of %s left %s inside the change wrong (report: .relay/checks/%s.check.md)" % (
+                    commit, plural(mark["verdict"]["open"], "thing"), commit))
+            return commit
+        if newest_list is None:
+            newest_list = (commit, own)
+    commit, own = newest_list
+    raise Refused("after the check of %s, %s changed %s, which %s not inert; check again" % (
+        commit, branch, named(own), "is" if len(own) == 1 else "are"))
+
+
+def step_gate(main, branch, where):
+    """7.1 step 6: a green gate log for code that has not changed since (every non-inert file, no --own)."""
+    ref = "refs/heads/" + branch
+    logs = dict(relay_marks.gate_logs(main, ref))
+    order = [c for c in commit_list(main, ["rev-list", "--topo-order", ref]) if c in logs]
+    reason = "no gate has run on it yet"
+    for commit in order:
+        if logs[commit] != 0:
+            if reason.startswith("no gate"):
+                reason = "last gate %s: exit %d" % (commit, logs[commit])
+            continue
+        since = relay_inert.changed(main, commit, ref)
+        if not since:
+            return
+        if reason.startswith("no gate"):                       # a red newer log is the better answer
+            reason = "code changed since: %s" % named(since)
+        break
+    raise Refused("no green gate for the code at %s's head: %s; run relay gate in %s" % (branch, reason, where))
+
+
+def judge(main, default, branch):
+    """The merge gate for one merge into the default branch; raises Refused with the line to print."""
+    ref, base = "refs/heads/" + branch, "refs/heads/" + default
+    if relay_git.git(main, "rev-parse", "--verify", "-q", ref)[0] != 0:
+        return                                                   # no such branch: git itself will say so
+    tree = next((w for w in relay_git.worktrees(main) if w["branch"] == branch), None)
+    where = rel(main, tree["path"]) if tree else "its worktree"
+    if relay_git.git(main, "merge-base", "--is-ancestor", base, ref)[0] != 0:                    # 1
+        behind = len(commit_list(main, ["rev-list", ref + ".." + base]))
+        raise Refused("%s is behind %s by %s; take %s first: git -C %s merge --no-edit %s (then relay gate if code came in)" % (
+            branch, default, plural(behind, "commit"), default, where, default))
+    step_queue(main, default, branch)                                                           # 2
+    rc, merge_base = relay_git.git(main, "merge-base", base, ref)
+    if rc != 0:
+        raise ValueError("no common commit with %s" % default)
+    if not relay_inert.changed(main, merge_base, ref):                                          # 3
+        return
+    step_mark(main, default, branch)                                                           # 4, 5
+    step_gate(main, branch, where)                                                              # 6
+
+
+def pre(hook):
+    command = (hook.get("tool_input") or {}).get("command")
+    cwd = hook.get("cwd") or os.getcwd()
+    if not isinstance(command, str) or "merge" not in command or not os.path.isdir(cwd):
+        return 0
+    for directory, branch in kit_guard.allowed_merges(command, cwd):
+        main = relay_git.main_checkout(directory) if os.path.isdir(directory) else None
+        if main is None:
+            continue
+        default = relay_git.default_branch(main)
+        if default is None or not relay_git.has_relay(main):
+            continue
+        top = relay_git.git(directory, "rev-parse", "--show-toplevel")[1]
+        if not top or os.path.realpath(top) != main or relay_git.current_branch(directory) != default:
+            continue                                             # not a merge into the default branch
+        try:
+            judge(main, default, branch)
+        except Refused as exc:
+            print("merge refused: %s" % exc, file=sys.stderr)
+            return 2
+        except (ValueError, OSError) as exc:                     # fail closed: a gate that cannot read refuses
+            print("merge refused: the gate for %s could not be judged: %s" % (branch, exc), file=sys.stderr)
+            return 2
+    return 0
 
 
 def post(hook):
@@ -290,7 +438,9 @@ def main():
         return end(hook)
     if event == "PostToolUse" and hook.get("tool_name") == "Bash":
         return post(hook)
-    return 0     # PreToolUse: the merge gate is part B5
+    if event == "PreToolUse" and hook.get("tool_name") == "Bash":
+        return pre(hook)
+    return 0
 
 
 if __name__ == "__main__":

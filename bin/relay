@@ -31,11 +31,19 @@
   relay doctor [<dir>]               check-up of the machine, the rules, the ledger, and a project
   relay flows                        the task flows available and what each needs
   relay rules                        the catalogue of rules with gists
-  relay changed [-C <repo>] <sha>    the files changed since <sha> (to HEAD) that are not on the inert list
-                                     (handover, queue and check files): what a check of a fix looks at
+  relay changed [-C <repo>] [--own] <sha> [<until>]
+                                     the files changed since <sha> (to <until>, default HEAD) that are not on the
+                                     inert list (handover, queue and check files): what a check of a fix looks at;
+                                     --own leaves out the files only the default branch changed
+  relay gate [-C <worktree>] [-- <args>]
+                                     run the project's free gate on the committed task branch and commit its log
+                                     (.relay/checks/<sha>.gate.log); exits with the gate's status
   relay check show [-C <repo>] <branch>
                                      three lines: the branch's gate, check mark and outside findings; waits (at most
                                      10 s) while the branch's worktree is committing a mark
+  relay check page [-C <repo>] <branch> [-o <file>]
+                                     one HTML file for the person's step, built from the stored checks (default
+                                     <repo>/.ci/page-<name>.html); it only writes the file, the front publishes it
 
 The repository root is this script's parent, or $RELAY_ROOT.
 """
@@ -50,7 +58,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "lib"))
 
 import relay_analyze  # noqa: E402
 import relay_bench  # noqa: E402
+import relay_checkpage  # noqa: E402
 import relay_config  # noqa: E402
+import relay_gate  # noqa: E402
 import relay_inert  # noqa: E402
 import relay_ledger  # noqa: E402
 import relay_marks  # noqa: E402
@@ -415,37 +425,80 @@ def cmd_rules(args):
 
 
 def cmd_changed(args):
-    repo = "."
-    if len(args) >= 2 and args[0] == "-C":
-        repo, args = args[1], args[2:]
-    if len(args) != 1:
-        raise Usage("relay changed [-C <repo>] <sha>")
-    for path in relay_inert.changed(os.path.realpath(repo), args[0]):
+    usage = "relay changed [-C <repo>] [--own] <sha> [<until>]"
+    repo, own, rest = ".", False, []
+    args = list(args)
+    while args:
+        arg = args.pop(0)
+        if arg == "-C" and args:
+            repo = args.pop(0)
+        elif arg == "--own":
+            own = True
+        elif arg.startswith("-"):
+            raise Usage(usage)
+        else:
+            rest.append(arg)
+    if len(rest) not in (1, 2):
+        raise Usage(usage)
+    for path in relay_inert.changed(os.path.realpath(repo), rest[0], rest[1] if len(rest) == 2 else "HEAD", own=own):
         print(path)
     return 0
 
 
-def cmd_check(args):
-    usage = "relay check show [-C <repo>] <branch>"
-    if not args or args[0] != "show":
-        raise Usage(usage)
-    args, repo = args[1:], "."
-    if len(args) >= 2 and args[0] == "-C":
-        repo, args = args[1], args[2:]
-    if len(args) != 1:
+def cmd_gate(args):
+    usage = "relay gate [-C <worktree>] [-- <args>]"
+    args, extra = list(args), []
+    if "--" in args:
+        i = args.index("--")
+        args, extra = args[:i], args[i + 1:]
+    worktree = "."
+    if len(args) == 2 and args[0] == "-C":
+        worktree = args[1]
+    elif args:
         raise Usage(usage)
     try:
-        lines = relay_marks.show(os.path.realpath(repo), args[0])
-    except relay_marks.MarkError as exc:
+        code, log, red = relay_gate.run(worktree, extra)
+    except relay_gate.GateRefused as exc:
         raise ValueError(str(exc))
-    print("\n".join(lines))
+    print("gate %s: exit %d" % (os.path.basename(log)[:-len(".gate.log")], code))
+    print(log)
+    for line in red:
+        print(line)
+    return code
+
+
+def cmd_check(args):
+    usage = "relay check show [-C <repo>] <branch>  |  relay check page [-C <repo>] <branch> [-o <file>]"
+    if not args or args[0] not in ("show", "page"):
+        raise Usage(usage)
+    verb, args, repo, out, rest = args[0], list(args[1:]), ".", None, []
+    while args:
+        arg = args.pop(0)
+        if arg == "-C" and args:
+            repo = args.pop(0)
+        elif arg == "-o" and args and verb == "page":
+            out = args.pop(0)
+        elif arg.startswith("-"):
+            raise Usage(usage)
+        else:
+            rest.append(arg)
+    if len(rest) != 1:
+        raise Usage(usage)
+    args = rest
+    try:
+        if verb == "show":
+            print("\n".join(relay_marks.show(os.path.realpath(repo), args[0])))
+        else:
+            print(relay_checkpage.write(os.path.realpath(repo), args[0], out))
+    except (relay_marks.MarkError, relay_checkpage.PageError) as exc:
+        raise ValueError(str(exc))
     return 0
 
 
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate,
 }
 
 

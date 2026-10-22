@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cleanup after the allowed merge (hooks/merge.sh -> merge.py), cases T1-T14, T16, T18-T20 of
-# docs/plans/review-gate.md section 12.1, on throwaway repositories under a temp dir (temp HOME).
+# docs/plans/review-gate.md section 12.1 and the merge gate T15 (a)-(p) of 12.2, on throwaway repositories under a temp dir (temp HOME).
 #   plugins/core/tests/merge.test.sh
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd -P)"
@@ -250,5 +250,147 @@ sweep_hook "$M" s0
 expect "T20 failing: the next sweep names the failure from the log" "$(has 'could not remove .worktrees/t: simulated refusal' "$ctx"; echo $?)"
 sweep_hook "$M" s0
 expect "T20 failing: the failure is named once (log cleared)" "$(has 'simulated refusal' "$ctx"; [ $? -ne 0 ]; echo $?)"
+
+# ---- B5: the merge gate (PreToolUse), T15 (a)-(p) of docs/plans/review-gate.md section 12.2 ----
+LIB="$here/../lib"; RELAY="$here/../../../bin/relay"; CHECKMARK="$here/../hooks/check-mark.py"
+printf '#!/bin/sh\necho "ci: fixture ok"\nexit "${FIXGATE_EXIT:-0}"\n' >"$tmp/fixgate"; chmod +x "$tmp/fixgate"
+
+# m15 [norelay]: master holds lib/a.py (v1), bin/x (six lines), .relay/queue/x.md (a taken fix item), a kit.toml whose
+# gate is the fixture gate; M = main checkout, W = .worktrees/t on wt/t (no commit yet); BASE = master's head
+m15() {
+  n=$((n + 1)); M="$tmp/g$n"; S="$tmp/gs$n"; mkdir -p "$M/lib" "$M/bin" "$M/.claude" "$S"; cd "$M" && git init -q -b master . || exit 1
+  printf '.ci/\n.worktrees/\n' >.gitignore; printf 'v1\n' >lib/a.py; printf '1\n2\n3\n4\n5\n6\n' >bin/x
+  printf '[gate]\nci = "%s"\n' "$tmp/fixgate" >.claude/kit.toml
+  [ "${1:-}" = norelay ] || { mkdir -p .relay/queue && echo x >.relay/README.md
+    printf -- '---\nkind: fix\nstate: taken\nip: 5\ntest:\n---\n# Item x\nFailing case: y\n' >.relay/queue/x.md; }
+  git add -A && git commit -q -m init; BASE="$(git rev-parse HEAD)"
+  git worktree add -q .worktrees/t -b wt/t; W="$M/.worktrees/t"
+}
+commit() { # <message> <file>=<content>...: write and commit in W
+  local msg="$1" kv; shift
+  for kv in "$@"; do mkdir -p "$W/$(dirname "${kv%%=*}")"; printf '%b' "${kv#*=}" >"$W/${kv%%=*}"; done
+  git -C "$W" add -A && git -C "$W" commit -q -m "$msg"
+}
+head_of() { git -C "$W" rev-parse HEAD; }
+# mark [open] / gate [exit]: the mark of the checked commit $X and the gate log of W's head, written and committed the way the hook and relay gate do
+mark() { python3 -I - "$LIB" "$W" "$X" "${1:-0}" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1]); import relay_marks as m
+w, c, o = sys.argv[2], sys.argv[3], int(sys.argv[4])
+m.put(w, c, {"commit": c, "verdict": {"open": o, "queued": 0, "reviewed": c}, "review": c + ".review.md", "check": c + ".check.md",
+             "gate": None, "time": "2026-10-22T10:00:00Z"}, {c + ".check.md": "report\n"})
+PY
+}
+gate() { python3 -I - "$LIB" "$W" "$(head_of)" "${1:-0}" <<'PY'
+import os, sys
+sys.path.insert(0, sys.argv[1]); import relay_marks as m
+w, c, e = sys.argv[2], sys.argv[3], sys.argv[4]
+path = os.path.join(w, ".relay", "checks", c + ".gate.log")
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, "w").write("head %s\ncmd fixture\nci: fixture\nexit %s\n" % (c, e))
+m.commit_file(w, path, "relay: gate of " + c)
+PY
+}
+# green: the case's start: a commit touching lib/a.py, a green gate log and a clean mark for it
+green() { commit "fix a" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 0; }
+# pre <command> [cwd] -> $out (stderr and stdout of the hook), $rc
+pre() {
+  out="$(jq -n --arg c "$1" --arg cwd "${2:-$M}" '{hook_event_name:"PreToolUse", tool_name:"Bash", cwd:$cwd, session_id:"s0", tool_input:{command:$c}}' | "$hook" 2>&1)"; rc=$?
+}
+MERGE="git merge --ff-only wt/t"
+refused() { [ "$rc" -eq 2 ] && has "$1" "$out"; }
+allowed() { [ "$rc" -eq 0 ] && [ -z "$out" ]; }
+
+# (a) no mark
+m15; commit "fix a" "lib/a.py=v2\n"; gate 0; pre "$MERGE"
+expect "T15a no mark: refused" "$(refused 'no check mark for wt/t'; echo $?)"
+# (b) mark open 2
+m15; commit "fix a" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 2; pre "$MERGE"
+expect "T15b open 2: refused" "$(refused 'left 2 things inside the change wrong'; echo $?)"
+expect "T15b names the report" "$(has ".relay/checks/$X.check.md" "$out"; echo $?)"
+# (c) clean mark and green gate; the merge itself then succeeds
+m15; green; pre "$MERGE"
+expect "T15c clean mark and green gate: allowed, silent" "$(allowed; echo $?)"
+expect "T15c the real fast-forward succeeds" "$(git -C "$M" merge -q --ff-only wt/t; echo $?)"
+# (d) a handover commit after
+m15; green; commit "handover" "docs/handover.md=state\n"; pre "$MERGE"
+expect "T15d handover commit after: allowed" "$(allowed; echo $?)"
+# (e) a lib/a.py commit after
+m15; green; commit "more" "lib/a.py=v3\n"; pre "$MERGE"
+expect "T15e code after the check: refused" "$(refused "after the check of $X, wt/t changed lib/a.py"; echo $?)"
+# (f) only inert files, no mark, no gate
+m15; commit "handover" "docs/handover.md=state\n"; pre "$MERGE"
+expect "T15f only inert: allowed" "$(allowed; echo $?)"
+# (g) no .relay/: silent; positive control (a)
+m15 norelay; commit "fix a" "lib/a.py=v2\n"; pre "$MERGE"
+expect "T15g no .relay/: allowed, silent" "$(allowed; echo $?)"
+m15; commit "fix a" "lib/a.py=v2\n"; pre "$MERGE"
+expect "T15g control with .relay/: refused" "$(refused 'no check mark'; echo $?)"
+# (h) M-A: a queue commit lands on master; behind, then taken, then allowed
+m15; green; echo q >"$M/.relay/queue/y.md"; git -C "$M" add -A; git -C "$M" commit -q -m "queue y"
+pre "$MERGE"
+expect "T15h behind master by 1 commit: refused" "$(refused 'wt/t is behind master by 1 commit; take master first: git -C .worktrees/t merge --no-edit master'; echo $?)"
+git -C "$W" merge -q --no-edit master; pre "$MERGE"
+expect "T15h after taking master: allowed" "$(allowed; echo $?)"
+expect "T15h and the real fast-forward succeeds" "$(git -C "$M" merge -q --ff-only wt/t; echo $?)"
+# (i) M-A: master gains lib/b.py; the branch takes it; refused until relay gate is green
+m15; green; echo b >"$M/lib/b.py"; git -C "$M" add -A; git -C "$M" commit -q -m "b"; git -C "$W" merge -q --no-edit master
+pre "$MERGE"
+expect "T15i code came in: refused, names lib/b.py" "$(refused 'code changed since: lib/b.py; run relay gate in .worktrees/t'; echo $?)"
+"$RELAY" gate -C "$W" >"$tmp/gate.out" 2>&1; grc=$?
+expect "T15i relay gate (fixture gate) is green" "$([ "$grc" -eq 0 ]; echo $?)"
+pre "$MERGE"
+expect "T15i after the gate: allowed with the same mark" "$(allowed; echo $?)"
+# (j) the checked fix reverted to master's content: still the branch's own file. The fix also adds lib/c.py, so the
+# branch still differs from master after the revert (a net-empty branch would be all inert, step 3, and rightly allowed)
+m15; commit "fix a and c" "lib/a.py=v2\n" "lib/c.py=c\n"; X="$(head_of)"; gate 0; mark 0; commit "revert" "lib/a.py=v1\n"; pre "$MERGE"
+expect "T15j reverted checked fix: refused, changed lib/a.py" "$(refused 'changed lib/a.py'; echo $?)"
+# (k) both sides changed bin/x, git combined them: refused; the one-finding check and a green gate allow it
+m15; commit "fix a and x" "lib/a.py=v2\n" "bin/x=1a\n2\n3\n4\n5\n6\n"; BEFORE="$(head_of)"; X="$BEFORE"; gate 0; mark 0
+printf '1\n2\n3\n4\n5\n6a\n' >"$M/bin/x"; git -C "$M" commit -q -am "x end"; git -C "$W" merge -q --no-edit master
+pre "$MERGE"
+expect "T15k combined file: refused, changed bin/x" "$(refused 'changed bin/x'; echo $?)"
+printf 'Reviewed: %s\nbin/x:1: MEDIUM: F1 combined with master'"'"'s change by the merge\n' "$BEFORE" >"$S/f.md"
+"$RELAY" gate -C "$W" >"$tmp/gate.out" 2>&1
+HEADK="$(head_of)"
+printf '# Check\nF1 MET\n## Verdict\nhead %s\nreviewed %s\nopen 0\nqueued 0\n' "$HEADK" "$BEFORE" >"$S/rep.md"; TZ=UTC touch -t 202610221100 "$S/rep.md"
+jq -nc --arg t "Check: \`$S/f.md\`. Fixes: \`none\`. Worktree: \`$W\`. Check command: \`bin/ci --quick\`. Gate: \`none\`. Report: \`$S/rep.md\`." \
+  '{type:"user", timestamp:"2026-10-22T10:00:00.000Z", message:{role:"user", content:$t}}' >"$S/agent.jsonl"
+jq -n --arg cwd "$M" --arg tp "$S/agent.jsonl" '{hook_event_name:"SubagentStop", agent_type:"delegate:checker", agent_id:"a1", cwd:$cwd, agent_transcript_path:$tp}' | python3 -I "$CHECKMARK" >/dev/null 2>&1
+pre "$MERGE"
+expect "T15k one-finding check by the real hook + green gate: allowed" "$(allowed; echo $?)"
+# (l) M-B: gate log for F, mark for F, then the mark commit and a handover commit
+m15; commit "fix a" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 0; commit "handover" "docs/handover.md=state\n"; pre "$MERGE"
+expect "T15l gate log of F, HEAD = F + gate + mark + handover: allowed" "$(allowed; echo $?)"
+# (m) only a red gate log
+m15; commit "fix a" "lib/a.py=v2\n"; G="$(head_of)"; X="$G"; gate 1; mark 0; pre "$MERGE"
+expect "T15m red gate log: refused, last gate exit 1" "$(refused "last gate $G: exit 1"; echo $?)"
+# (n) m-1: a fix item moved to done/ without a test; then with the test
+m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.md .relay/queue/done/x.md
+commit "fix a, close x" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n item closed without test: refused" "$(refused 'queue item x is closed without a test'; echo $?)"
+commit "test" "tests/t.sh=case_x() { :; }\n" ".relay/queue/done/x.md=---\nkind: fix\nstate: done\ntest: tests/t.sh::case_x\n---\n# Item x\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n with the test line and the test: allowed" "$(allowed; echo $?)"
+commit "name gone" "tests/t.sh=other() { :; }\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n test file lacks the name: refused" "$(refused 'closed without a test'; echo $?)"
+# (n2) m-1 before step 3 (a move alone), with a fix and a clean mark, and a dropped item that came through master
+m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.md .relay/queue/done/x.md; git -C "$W" commit -q -m "move x"; pre "$MERGE"
+expect "T15n2 only the move (all inert): refused, closed without a test" "$(refused 'queue item x is closed without a test'; echo $?)"
+m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.md .relay/queue/done/x.md; git -C "$W" commit -q -m "move x"; green; pre "$MERGE"
+expect "T15n2 the move plus a fix with clean mark and gate: refused" "$(refused 'queue item x is closed without a test'; echo $?)"
+m15; green; mkdir -p "$M/.relay/queue/done"; printf -- '---\nkind: fix\nstate: dropped\n---\n# y\n' >"$M/.relay/queue/done/y.md"; git -C "$M" add -A; git -C "$M" commit -q -m "drop y"
+git -C "$W" merge -q --no-edit master; pre "$MERGE"
+expect "T15n2 a dropped item that came through master: not judged, allowed" "$(allowed; echo $?)"
+# (o) a code file moved into an inert folder is not "all inert"; control (f)
+m15; mkdir -p "$W/.relay/queue"; git -C "$W" mv lib/a.py .relay/queue/a.py; git -C "$W" commit -q -m "move a"; pre "$MERGE"
+expect "T15o code moved into an inert folder, no mark: refused, no check mark" "$(refused 'no check mark'; echo $?)"
+m15; commit "handover" "docs/handover.md=state\n"; pre "$MERGE"
+expect "T15o control (f): only inert files allowed" "$(allowed; echo $?)"
+# (p) a merge inside a task worktree is not judged; control (a)
+m15; commit "fix a" "lib/a.py=v2\n"; git -C "$M" worktree add -q .worktrees/w -b wt/w
+pre "git -C $M/.worktrees/w merge --ff-only wt/t" "$M/.worktrees/w"
+expect "T15p merge inside a worktree: silent, exit 0" "$(allowed; echo $?)"
+pre "$MERGE"
+expect "T15p control (a): the same branch merged in main is refused" "$(refused 'no check mark'; echo $?)"
 
 echo; [ "$fails" -eq 0 ] && echo "merge.test: all passed" || { echo "merge.test: $fails failed"; exit 1; }

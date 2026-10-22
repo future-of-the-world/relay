@@ -94,25 +94,52 @@ worker's DONE on a change that will be merged:
    | planned files changed | more than 8 | 3 to 30 |
 
 2. **Build.**
-3. **One whole-change review.** Every judge the flow names runs once, in one
-   message, over `<base>...HEAD`.
-4. **Fix.** One `delegate:fixer` per group of findings; it ends with one of
+3. **Gate before the review.** Where the project has `.relay/`, a
+   `delegate:runner` runs `relay gate` (detached, with the limits recipe: it
+   takes minutes) in the worktree, with the project's arguments (relay:
+   `relay gate -- --quick`). It runs the free checks on the committed head and
+   stores the result as `.relay/checks/<G>.gate.log`. A red gate goes back to
+   the worker or a fixer, then this step again: a red build is never reviewed.
+   Elsewhere the gate is the project's own command, run by a runner into a
+   log whose first line is `head <sha>` and last `exit <code>` (`{ echo "head
+   $(git -C <wt> rev-parse HEAD)"; <gate>; echo "exit $?"; } > <log> 2>&1`);
+   a remote pipeline gives `Gate: pipeline #<n> on <full sha> passed`; a flow
+   with no gate by design (a spec review) passes `Gate: none (artifacts only)`.
+4. **One whole-change review.** Every judge the flow names runs once, in one
+   message, over `<base>...HEAD`, after a green step 3.
+5. **Fix.** One `delegate:fixer` per group of findings; it ends with one of
    four outcomes per finding (Fixed, Disputed, Gap, Outside).
-5. **Full gate.** When fix commits exist, a `delegate:runner` runs the
-   project's full gate on the fixed head (after the last fix, before the
-   check), detached, into a log whose first line is `head <sha>` and last
-   `exit <code>`; the command is `{ echo "head $(git -C <wt> rev-parse HEAD)";
-   <gate>; echo "exit $?"; } > <log> 2>&1`. A gate that is a remote pipeline
-   gives `Gate: pipeline #<n> on <full sha> passed` instead. A red gate goes
-   to a fixer, then the gate runs again, then the check. A flow with no gate
-   by design (a spec review) passes `Gate: none (artifacts only)`.
-6. **Check.** `delegate:checker` on the findings file, the fixer's report and
-   the gate log; its report ends with the verdict. Commit the handover after
-   the check, so the branch carries the state it was merged in.
-7. **To the owner.** What is NOT MET, new, Disputed, Gap or Outside comes as a
+6. **Gate again.** When fix commits exist, a `delegate:runner` runs `relay
+   gate` (or the project's gate, as in step 3) on the fixed head, after the
+   last fix and before the check. A red gate goes to a fixer, then this step
+   again.
+7. **Check.** `delegate:checker` on the findings file, the fixer's report and
+   the gate log (with `Fixes: none` after a review with nothing inside the
+   change; the gate log of step 3 is the gate). Its report ends with the
+   verdict, and where the project has `.relay/` a hook commits the check mark,
+   the review and the report. Start it with the one-line check prompt below,
+   never `Brief: <file>`: the hook reads the `Check:` and `Worktree:` labels.
+   Then run `relay check show <branch>` (a runner; it waits while the hook is
+   committing) before the front commits the handover, so the branch carries
+   the state it was merged in and the commit does not meet the hook's lock.
+8. **Take the default branch.** When the default branch has moved (the merge
+   says "behind"), a runner runs `git -C <wt> merge --no-edit <default>`: a
+   merge commit, never `git rebase` (a rebase gives every commit a new sha, and
+   the mark names the old one). When code came in, run `relay gate` again. If
+   `relay changed --own -C <wt> <checked sha>` lists a file (a conflict, or a
+   file both sides changed that git combined), that change is a fix: write a
+   findings file (`Reviewed: <head before the merge>`) with one finding per
+   file, `<file>:1: MEDIUM: F<n> combined with master's change by the merge`,
+   failing case "the gate fails or the merge does not apply", pass-case "the
+   gate passes"; a fixer resolves a conflict first (none for a clean
+   combination, `Fixes: none`); then `relay gate`, then the checker. Files that
+   only the default branch changed need no new check.
+9. **To the owner.** What is NOT MET, new, Disputed, Gap or Outside comes as a
    numbered list with a recommendation. Another fix runs on the owner's word
-   and is checked the same way (a fix, then a check). Every change that will
-   be merged gets step 3 and a verdict.
+   and is checked the same way (a fix, a gate, a check). Every change that
+   will be merged gets step 4 and a verdict. When the verdict is `open 0` the
+   front shows the person's step (the front skill's "A change ready to
+   merge"); the merge itself is the front's, on the owner's word.
 
 A judge that hands back with "remaining" is continued at once by a fresh
 judge with `Remaining: <report>` and the same range, before any triage or
@@ -138,6 +165,9 @@ Prompts:
 > Review the change. Range: `<base>...HEAD` in `<worktree>`. Report: `<path>`.
 
 > Check: `<findings file>`. Fixes: `<fixer report>`. Worktree: `<path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<path>`.
+
+This check prompt is the one line, never `Brief: <file>`. Under `relay gate`,
+`Gate:` is `<worktree>/.relay/checks/<G>.gate.log`.
 
 The review method (scope, cases, severity, the check of a fix) is the judge
 base, carried by every reviewer (relay's copy: `~/relay/roles/judge.md`).

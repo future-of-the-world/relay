@@ -10,13 +10,17 @@
 # plugin evals (full mode only; compared with evals/plugin/baseline), then the record step
 # (bin/eval-record: files .ci/evals.json under $RELAY_HOME/evals, prints failed meaning graders,
 # split votes and rule-file reads; it never changes the gate's status except when the copy fails).
+# The last step, `inert`, runs only under `relay gate` (RELAY_GATE = the commit gated): it runs this quick gate again in a
+# temporary worktree where every inert file has a line appended and probe files sit in the inert folders, and fails when a
+# step's result or the test count differs, which proves no outcome depends on an inert file (design section 12.6).
 set -uo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd -P)"; cd "$root" || exit 1
 export NO_COLOR=1 RELAY_ROOT="$root"
 quick=0; for a in "$@"; do case "$a" in --quick|--no-evals) quick=1 ;; *) echo "usage: bin/ci [--quick]" >&2; exit 2 ;; esac; done
-mkdir -p .ci/steps; : > .ci/ci.log; status=0
+mkdir -p .ci/steps; : > .ci/ci.log; : > .ci/results.txt; status=0
 step() { local name="$1"; shift; local log=".ci/steps/${name// /-}.log" start rc; start=$(date +%s)
   "$@" > "$log" 2>&1; rc=$?; { echo "==> $name"; cat "$log"; } >> .ci/ci.log
+  echo "$name $([ "$rc" -eq 0 ] && echo ok || echo FAILED)" >> .ci/results.txt
   if [ "$rc" -eq 0 ]; then echo "ci: $name ok ($(( $(date +%s) - start ))s)"
   else echo "ci: $name FAILED ($(( $(date +%s) - start ))s, log: $log)"; grep -E 'FAIL|Error|error|✗' "$log" | head -8 | sed 's/^/    /'; status=1; fi; }
 lib_tests() { python3 -W ignore::ResourceWarning -m unittest discover -s tests -p 'test_*.py'; }
@@ -33,11 +37,30 @@ lib_copies() { local rc=0 f p; for p in observe delegate front core; do for f in
 grader_tests() { bash evals/plugin/graders.test.sh; }
 validate_all() { command -v claude >/dev/null 2>&1 || { echo "skipped: claude is not on PATH (install Claude Code to validate plugins)"; return 0; }
   local d rc=0; for d in . plugins/*/; do echo "--- $d"; claude plugin validate "$d" || rc=1; done; return $rc; }
+# What a run did, as lines that must not change when an inert file does: each step's result, the library test count
+# ("Ran N tests"), and the number of passing hook-test cases.
+outcome() { cat "$1/.ci/results.txt"; grep -h '^Ran ' "$1/.ci/steps/library-tests.log" 2>/dev/null | sed -E 's/ in [0-9.]+s//'
+  echo "hook cases ok: $(grep -c '^ok' "$1/.ci/steps/hook-tests.log" 2>/dev/null)"; }
+inert_probe() { local tmpd work rc=0 f
+  tmpd="$(mktemp -d)" || return 1; work="$tmpd/wt"
+  git worktree add -q --detach "$work" "$RELAY_GATE" || { echo "FAIL inert: cannot make a worktree at $RELAY_GATE"; rm -rf "$tmpd"; return 1; }
+  mkdir -p "$work/.relay/queue" "$work/.relay/checks" "$work/docs"
+  for f in $(git -C "$work" ls-files -- docs/handover.md .relay/queue .relay/checks); do echo "inert probe line" >> "$work/$f"; done
+  echo "inert probe line" >> "$work/docs/handover.md"
+  printf 'not a queue item\n' > "$work/.relay/queue/zz-probe.md"; echo '{}' > "$work/.relay/checks/zz.json"
+  echo "# probe" > "$work/.relay/checks/zz.review.md"; printf 'head 0\nexit 0\n' > "$work/.relay/checks/zz.gate.log"
+  git -C "$work" add -A && git -C "$work" -c user.name=relay-ci -c user.email=ci@relay commit -q --no-verify -m "inert probe"
+  ( cd "$work" && env -u RELAY_GATE bash bin/ci --quick ) > "$tmpd/nested.log" 2>&1
+  if ! diff <(outcome "$root") <(outcome "$work") > "$tmpd/diff.txt"; then
+    echo "FAIL inert: a step's result or the test count changed when only inert files changed:"; sed 's/^/    /' "$tmpd/diff.txt"; rc=1
+  else echo "inert: the same results with every inert file changed"; fi
+  git worktree remove --force "$work" 2>/dev/null; git worktree prune; rm -rf "$tmpd"; return $rc; }
 step "library tests" lib_tests
 step "hook tests" hook_tests
 step "lib copies identical" lib_copies
 step "eval grader tests" grader_tests
 step "plugin validate" validate_all
+if [ -n "${RELAY_GATE:-}" ]; then step "inert" inert_probe; else echo "inert: skipped (runs under relay gate)"; fi
 if [ "$quick" = 0 ]; then
   if command -v claude >/dev/null 2>&1; then
     rm -f .ci/evals.json   # a leftover file from an earlier run must never be filed or printed as this batch

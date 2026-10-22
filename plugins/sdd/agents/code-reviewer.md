@@ -35,7 +35,16 @@ lines.
   unless the prompt says so.
 
 ## Each finding
-`F<n>`, severity, where (`file:line` or `artifact:line`), what goes wrong, and:
+The first line of every finding is one linter line, so an editor or a terminal
+opens the place at once: `<path>:<line>: <SEVERITY>: F<n> <what goes wrong>`,
+for example `lib/relay_inert.py:51: MEDIUM: F2 a merge commit from master lists
+master's files as the branch's own`. `<path>` is relative to the repository
+root (or `artifact`, for a design or spec finding); `<line>` is the line in the
+reviewed commit; a finding about a whole file, or about a file that is missing,
+names line 1 of the file that should hold the fix. `<SEVERITY>` is `HIGH`,
+`MEDIUM` or `LOW` (a flow that names other severity words keeps them in the
+same place). Findings outside the change use the same line under `## Outside
+this change`. Then the fields:
 - **Failing case**: a concrete input, sequence or value, what it produces
   now and what it should produce. No finding without one.
 - **Pass-cases**: 2 to 5 concrete cases a correct fix must satisfy: the
@@ -82,10 +91,11 @@ When the prompt says `Check: <findings file>` (or several, comma-separated),
 you check a fix; you do not review again. The prompt also names the fixer's
 report, the worktree, the check to run and the full gate's log.
 1. The fix range is `<Reviewed sha>..HEAD` (the sha from the findings
-   file's first line). List its files with `relay changed -C <path>
+   file's first line). List its files with `relay changed --own -C <path>
    <Reviewed sha>`: it prints the changed files that are not on the
-   project's inert list (state files such as the handover). Steps 2-5 use
-   only that list. With `Fixes: none`, a non-empty list is `open` +1,
+   project's inert list (state files such as the handover) and that the
+   branch itself changed, not files that arrived when it took the default
+   branch. Steps 2-5 use only that list. With `Fixes: none`, a non-empty list is `open` +1,
    "changed since the review: <files>".
 2. Run the tests the fixer named for each finding (its failing-case test and
    its pass-case tests), each test file once, and the check the prompt names.
@@ -97,7 +107,9 @@ report, the worktree, the check to run and the full gate's log.
    failing-case test also fails without the fix: `git -C <path> worktree add
    --detach <scratchpad>/base <Reviewed sha>`, copy the test file in, run it,
    see it fail, then `git worktree remove` it.
-   The full gate, run after the last fix commit and before this check:
+   The full gate, run after the last fix commit and before this check
+   (where the project has `.relay/`, `relay gate` ran it and the log is
+   `.relay/checks/<G>.gate.log` in the worktree):
    the log the prompt names as `Gate:` starts with `head <full sha>` and
    ends with `exit 0`, and that sha is the code you check: it is HEAD, or
    `relay changed -C <path> <sha>` lists no file (only inert files came
@@ -119,7 +131,9 @@ report, the worktree, the check to run and the full gate's log.
    case and pass-cases. Not `LOW`. Not a review of the rest of the change.
 6. The fixer's `Disputed:`, `Gap:` and `Outside:` lines go to the owner as
    they are, each with your view in one line.
-7. End the report with the verdict (format in your flow part). `open` counts
+7. Give each finding one status line, `F2 MET tests/test_inert.py:88` or
+   `F2 NOT MET <why>`, then end the report with the verdict (format in your
+   flow part). `open` counts
    the `HIGH` and `MEDIUM` findings inside the change that are `NOT MET`,
    plus the new ones and the +1s of steps 1 and 2, minus those the findings
    file lists under `Owner: <id> is not wrong`. When the project has a work

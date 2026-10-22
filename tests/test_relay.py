@@ -989,6 +989,27 @@ class Roles(Base):
         checker = open(os.path.join(ROOT, "plugins", "delegate", "agents", "checker.md")).read()
         self.assertIn("where the project has check marks", " ".join(checker.split()))
 
+    def test_judge_base_part2(self):
+        """A15: the judge base names `relay changed --own` in check step 1 and the linter line in "Each finding"; the
+        checker's flow part and the delegate skill name `relay gate`."""
+        judge = " ".join(open(os.path.join(ROOT, "roles", "judge.md")).read().split())
+        self.assertIn("List its files with `relay changed --own -C <path> <Reviewed sha>`", judge)
+        each = judge[judge.index("## Each finding"):judge.index("## The rating is yours")]
+        self.assertIn("<path>:<line>: <SEVERITY>: F<n> <what goes wrong>", each)
+        self.assertIn("relay changed -C <path> <sha>` lists no file", judge)     # the gate rule has no --own
+        self.assertIn("F2 MET tests/test_inert.py:88", judge)
+        checker = " ".join(open(os.path.join(ROOT, "plugins", "delegate", "agents", "checker.md")).read().split())
+        self.assertIn("written by `relay gate`", checker)
+        self.assertIn("never `Brief: <file>`", checker)
+        skill = " ".join(open(os.path.join(ROOT, "plugins", "delegate", "skills", "delegate", "SKILL.md")).read().split())
+        self.assertIn("runs `relay gate`", skill)
+        self.assertIn("never `git rebase`", skill)
+        self.assertIn("`relay check show <branch>`", skill)
+        front = " ".join(open(os.path.join(ROOT, "plugins", "front", "skills", "front", "SKILL.md")).read().split())
+        self.assertIn("## A change ready to merge", front)
+        self.assertIn("Publish the page yourself with your Artifact tool", front)
+        self.assertIn("gives the page's file path instead", front)
+
     def test_missing_base_names_the_checkout_rule(self):
         rr = self.lib()
         root = self.fixture(markers="<!-- relay:base judge -->\n<!-- relay:end judge -->\n")
@@ -1106,7 +1127,8 @@ class Agents(unittest.TestCase):
         self.assertIn("pipeline #<n> on <full sha> passed", review)
         delegate = read("plugins/delegate/skills/delegate/SKILL.md")
         self.assertIn(writer, delegate)
-        self.assertLess(delegate.index("5. **Full gate.**"), delegate.index("6. **Check.**"))
+        self.assertLess(delegate.index("6. **Gate again.**"), delegate.index("7. **Check.**"))
+        self.assertLess(delegate.index("3. **Gate before the review.**"), delegate.index("4. **One whole-change review.**"))
         # the checker side: the log form, the remote form and the no-gate form are all named, and agree with spec-review
         judge = read("roles/judge.md")
         self.assertIn("`head <full sha>`", judge)
@@ -1202,6 +1224,84 @@ class Agents(unittest.TestCase):
         self.assertFalse(relay_inert._regex("a/*/c").match("a/b/d/c"))
         self.assertTrue(relay_inert._regex("a/**/c").match("a/b/d/c"))
         self.assertTrue(relay_inert._regex("a/**/c").match("a/c"))
+
+    def test_relay_changed_own(self):
+        """A14: `relay changed --own` leaves out what only the default branch changed (design 7.2, the six rows of the
+        worked values), and plain `changed` lists master's file for the same pair.
+
+        Worked by hand. master M0 holds queue.py v1, inert.py v1, bin.txt (six lines), no foo item. The branch adds
+        marks.py and merge.py (a) and fixes inert.py and the first line of bin.txt, and is checked there: X.
+        Master then gains queue.py v2, the item foo.md and a change of bin.txt's last line. The branch edits merge.py
+        (b), reverts inert.py to v1, and merges master: Y. For the pair X..Y:
+          queue.py     v1 v1 v2 v2   only master changed it                   not own
+          foo.md       inert                                                  not listed at all
+          marks.py     not in the X..Y diff                                   not listed at all
+          merge.py     none a none b  edited after X                          own
+          inert.py     v1 fix v1 v1   at X the branch had touched it          own (a reverted checked fix)
+          bin.txt      both sides changed, git combined them                  own"""
+        tmp = tempfile.mkdtemp(prefix="relay-own-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        main = os.path.join(tmp, "main")
+        wt = os.path.join(main, ".worktrees", "x")
+        os.makedirs(main)
+
+        def git(cwd, *args):
+            return subprocess.run(["git", "-C", cwd, "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                                  capture_output=True, text=True, check=True).stdout.strip()
+
+        def write(cwd, rel, text):
+            path = os.path.join(cwd, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as handle:
+                handle.write(text)
+
+        git(main, "init", "-q", "-b", "master")
+        write(main, ".gitignore", ".worktrees/\n")
+        write(main, "lib/relay_queue.py", "v1\n")
+        write(main, "lib/relay_inert.py", "v1\n")
+        write(main, "bin/relay", "1\n2\n3\n4\n5\n6\n")
+        git(main, "add", "-A")
+        git(main, "commit", "-q", "-m", "M0")
+        m0 = git(main, "rev-parse", "HEAD")
+        git(main, "worktree", "add", "-q", wt, "-b", "wt/x")
+        write(wt, "lib/relay_marks.py", "a\n")
+        write(wt, "plugins/core/hooks/merge.py", "a\n")
+        write(wt, "lib/relay_inert.py", "v1 fixed\n")
+        write(wt, "bin/relay", "1a\n2\n3\n4\n5\n6\n")
+        git(wt, "add", "-A")
+        git(wt, "commit", "-q", "-m", "checked work")
+        x = git(wt, "rev-parse", "HEAD")
+        write(main, "lib/relay_queue.py", "v2\n")
+        write(main, ".relay/queue/foo.md", "item\n")
+        write(main, "bin/relay", "1\n2\n3\n4\n5\n6a\n")
+        git(main, "add", "-A")
+        git(main, "commit", "-q", "-m", "master moves")
+        write(wt, "plugins/core/hooks/merge.py", "b\n")
+        write(wt, "lib/relay_inert.py", "v1\n")
+        git(wt, "add", "-A")
+        git(wt, "commit", "-q", "-m", "after the check")
+        git(wt, "merge", "-q", "--no-edit", "master")
+        env = dict(os.environ, RELAY_ROOT=ROOT)
+
+        def listed(*args):
+            run = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "changed", "-C", wt, *args],
+                                 capture_output=True, text=True, env=env)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            return sorted(run.stdout.split())
+
+        self.assertEqual(listed("--own", x, "HEAD"), ["bin/relay", "lib/relay_inert.py", "plugins/core/hooks/merge.py"])
+        self.assertEqual(listed("--own", x), ["bin/relay", "lib/relay_inert.py", "plugins/core/hooks/merge.py"])   # until defaults to HEAD
+        self.assertEqual(listed(x), ["bin/relay", "lib/relay_inert.py", "lib/relay_queue.py", "plugins/core/hooks/merge.py"])
+        # without a merge from master B_U = B_S: --own lists what plain changed lists
+        self.assertEqual(listed("--own", m0, x), listed(m0, x))
+        self.assertEqual(listed(m0, x), ["bin/relay", "lib/relay_inert.py", "lib/relay_marks.py", "plugins/core/hooks/merge.py"])
+        # no default branch: --own cannot tell and says so
+        git(main, "branch", "-m", "master", "trunk2")
+        git(main, "branch", "-m", "trunk2", "other")
+        run = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "changed", "-C", wt, "--own", x],
+                             capture_output=True, text=True, env=env)
+        self.assertEqual(run.returncode, 1)
+        self.assertIn("cannot tell the default branch", run.stderr)
 
     def test_role_names_are_not_agent_or_skill_names(self):
         """A13: a role file `.claude/kit/<role>.md` must not also be the per-agent or per-skill file of a served plugin

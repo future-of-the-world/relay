@@ -1,0 +1,219 @@
+"""`relay check page`: the private page for the person's step, built as one HTML file (docs/plans/review-gate.md 8.1).
+
+Reads only the files of `.relay/checks/` at the branch head and git; writes plain HTML with a style block, no script, no
+outside link or asset, code excerpts in `<pre>`. It never publishes: the front publishes the file with its own tool.
+"""
+
+import html
+import os
+import re
+
+import relay_git
+import relay_inert
+import relay_marks
+
+# Lines of finding content (a linter line, a status line, a code line, a failing-case line) the page shows before the
+# rest is cut with "N more findings in ..." (bound 100-2000: at 100 about 12 findings fit, at 2000 the page costs the
+# front about five times the tokens of the 400 default to publish).
+PAGE_MAX_LINES = 400
+CONTEXT = 2          # code lines shown above and below the finding's line
+LINTER = re.compile(r"^(\S+):(\d+): ([A-Z]+): (F\d+) (.*)$")
+STATUS = re.compile(r"^(F\d+) (MET|NOT MET)\b(.*)$")
+FIELD_END = re.compile(r"^\W*(Pass-cases?|CONFIRMED|PLAUSIBLE|Size|Smallest fix|Why it matters|Design)\b", re.I)
+
+STYLE = (
+    "body{font:15px/1.5 -apple-system,Helvetica,Arial,sans-serif;max-width:60em;margin:2em auto;padding:0 1em;color:#1a1a1a}"
+    "h1{font-size:1.4em}h2{font-size:1.1em;margin-top:1.6em}.verdict{padding:.6em .9em;background:#eef5ee;border-left:4px solid #3a8a3a}"
+    ".verdict.bad{background:#fbeeee;border-color:#b33}.finding{margin:1em 0;padding-bottom:.6em;border-bottom:1px solid #ddd}"
+    ".linter{font-family:ui-monospace,Menlo,monospace;font-weight:600}.met{color:#2a7a2a}.notmet{color:#b33;font-weight:600}"
+    "pre{background:#f5f5f5;padding:.5em;overflow:auto}p{margin:.3em 0}"
+)
+
+
+class PageError(Exception):
+    """The page could not be built; the text says why in one line."""
+
+
+def parse_review(text):
+    """[(section, finding)] from a stored review: section "inside" or "outside"; finding = dict(path, line, severity, id,
+    what, linter, case). A finding runs from its linter line to the next linter line or heading."""
+    found, section, current = [], "inside", None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("#"):
+            current = None
+            section = "outside" if line.lstrip("#").strip().lower().startswith("outside this change") else section
+            continue
+        match = LINTER.match(line)
+        if match:
+            current = {"path": match.group(1), "line": int(match.group(2)), "severity": match.group(3), "id": match.group(4),
+                       "what": match.group(5), "linter": line, "body": []}
+            found.append((section, current))
+        elif current is not None:
+            current["body"].append(raw)
+    for _, finding in found:
+        finding["case"] = failing_case(finding.pop("body"))
+    return found
+
+
+def failing_case(body):
+    """The failing case in one paragraph: from the `Failing case:` line to a blank line or the next field."""
+    out, inside = [], False
+    for raw in body:
+        text = raw.strip()
+        if not inside:
+            match = re.match(r"^\W*Failing case\W*:\s*(.*)$", text, re.I)
+            if match:
+                inside = True
+                if match.group(1):
+                    out.append(match.group(1))
+            continue
+        if not text or FIELD_END.match(text):
+            break
+        out.append(text)
+    return " ".join(out)
+
+
+def parse_status(text):
+    """{F<n>: "MET tests/x.py:88" or "NOT MET why"} from the checker's report."""
+    found = {}
+    for line in text.splitlines():
+        match = STATUS.match(line.strip())
+        if match:
+            found[match.group(1)] = (match.group(2) + match.group(3)).strip()
+    return found
+
+
+def excerpt(repo, commit, finding):
+    """The code lines around the finding at the reviewed commit, [(number, text)]; [] when the file is not there."""
+    rc, text = relay_git.git(repo, "show", "%s:%s" % (commit, finding["path"]), raw=True)
+    if rc != 0:
+        return []
+    lines = text.splitlines()
+    first = max(1, finding["line"] - CONTEXT)
+    last = min(len(lines), finding["line"] + CONTEXT)
+    return [(n, lines[n - 1]) for n in range(first, last + 1)]
+
+
+def queue_slug(repo, default, finding):
+    """The slug of the queue item on the default branch that carries this finding's linter line, else None."""
+    rc, out = relay_git.git(repo, "grep", "-l", "-F", "-e", finding["linter"], "refs/heads/" + default, "--", ".relay/queue")
+    if rc != 0 or not out:
+        return None
+    return os.path.basename(out.splitlines()[0])[:-3]
+
+
+def cost(finding, shown):
+    return 2 + len(shown) + (1 if finding["case"] else 0)
+
+
+def e(text):
+    return html.escape(str(text), quote=True)
+
+
+def render_finding(finding, status, shown, slug=None, outside=False):
+    parts = ['<div class="finding"><p class="linter">%s</p>' % e(finding["linter"])]
+    if outside:
+        parts.append("<p>%s</p>" % (("queued as <b>%s</b>" % e(slug)) if slug else "not queued"))
+    else:
+        css = "met" if status.startswith("MET") else "notmet"
+        parts.append('<p class="%s">%s</p>' % (css, e(status) if status != "not checked" else "not checked"))
+    if shown:
+        parts.append("<pre>%s</pre>" % e("\n".join("%4d  %s" % (n, t) for n, t in shown)))
+    if finding["case"]:
+        parts.append("<p>%s</p>" % e(finding["case"]))
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def date_of(repo, commit):
+    rc, out = relay_git.git(repo, "log", "-1", "--format=%cs", commit)
+    return out if rc == 0 and out else "unknown date"
+
+
+def build(repo, branch):
+    """The page's HTML text for `branch`."""
+    repo = relay_git.main_checkout(repo)
+    if repo is None:
+        raise PageError("not a git repository")
+    default = relay_git.default_branch(repo)
+    ref = "refs/heads/" + branch
+    if default is None:
+        raise PageError("cannot tell the default branch: set project.default_branch in .claude/kit.toml")
+    if relay_git.git(repo, "rev-parse", "--verify", "-q", ref)[0] != 0:
+        raise PageError("no branch %s" % branch)
+    mark = relay_marks.newest(repo, ref, relay_marks.marks(repo, ref))
+    if mark is None:
+        raise PageError("no check mark for %s yet: run delegate:checker on its head first" % branch)
+    commit, data = mark
+    reviewed = data["verdict"]["reviewed"]
+    review_name = str(data.get("review") or "%s.review.md" % reviewed)
+    review = relay_marks._show(repo, ref, review_name)
+    if review is None:
+        raise PageError("the review %s is not stored for %s" % (review_name, branch))
+    check = relay_marks._show(repo, ref, str(data.get("check") or "%s.check.md" % commit)) or ""
+    statuses = parse_status(check)
+    findings = parse_review(review)
+    inside = [f for s, f in findings if s == "inside"]
+    outside = [f for s, f in findings if s == "outside"]
+    title_line = next((l.lstrip("#").strip() for l in review.splitlines() if l.startswith("#")), "") or branch
+
+    gate = relay_marks.newest(repo, ref, relay_marks.gate_logs(repo, ref))
+    if gate is None:
+        free = "none yet"
+    elif gate[1] == 0:
+        free = "green (gate of %s)" % date_of(repo, gate[0])
+    else:
+        free = "red (gate of %s, exit %d)" % (date_of(repo, gate[0]), gate[1])
+    met = sum(1 for f in inside if statuses.get(f["id"], "").startswith("MET"))
+    done = "all fixed and checked" if inside and met == len(inside) else "%d fixed and checked" % met
+    review_part = "%d found inside the change, %s" % (len(inside), done) if inside else "nothing found inside the change"
+    queued = sum(1 for f in outside if queue_slug(repo, default, f))
+    verdict = "Free checks: %s. Review: %s; %d outside, %s. Open: %d." % (
+        free, review_part, len(outside), "none queued" if not queued else "%d queued" % queued, data["verdict"]["open"])
+    bad = data["verdict"]["open"] != 0 or gate is None or gate[1] != 0
+
+    budget, hidden, body = PAGE_MAX_LINES, 0, []
+    for heading, group, is_outside in (("Inside the change", inside, False), ("Outside this change", outside, True)):
+        if not group:
+            continue
+        body.append("<h2>%s</h2>" % heading)
+        for finding in group:
+            shown = [] if finding["path"] == "artifact" else excerpt(repo, reviewed, finding)
+            need = cost(finding, shown)
+            if hidden or need > budget:
+                hidden += 1
+                continue
+            budget -= need
+            slug = queue_slug(repo, default, finding) if is_outside else None
+            body.append(render_finding(finding, statuses.get(finding["id"], "not checked"), shown, slug, is_outside))
+    if hidden:
+        body.append("<p>%d more finding%s in .relay/checks/%s</p>" % (hidden, "" if hidden == 1 else "s", e(review_name)))
+
+    green = relay_marks.newest(repo, ref, [(c, x) for c, x in relay_marks.gate_logs(repo, ref) if x == 0])
+    log = (relay_marks._show(repo, ref, "%s.gate.log" % green[0]) or "").splitlines()[2:-1] if green else []
+    gate_html = "<h2>The gate</h2><pre>%s</pre>" % e("\n".join(log)) if log else ""
+    rc, stat = relay_git.git(repo, "diff", "--numstat", "refs/heads/%s...%s" % (default, ref))
+    files = []
+    for line in stat.splitlines() if rc == 0 else []:
+        added, deleted, path = line.split("\t", 2)
+        if not relay_inert.matches(path):
+            files.append("%s  +%s -%s" % (path, added, deleted))
+    files_html = "<h2>The branch's own files</h2><pre>%s</pre>" % e("\n".join(files)) if files else ""
+
+    project = os.path.basename(repo)
+    return ('<!doctype html><html><head><meta charset="utf-8"><title>%s</title><style>%s</style></head><body>'
+            '<h1>%s: %s</h1><p class="verdict%s">%s</p>%s%s%s</body></html>\n') % (
+        e(project), STYLE, e(project), e(title_line), " bad" if bad else "", e(verdict), "".join(body), gate_html, files_html)
+
+
+def write(repo, branch, out=None):
+    """Build the page and write it to `out` (default `<repo>/.ci/page-<name>.html`); returns the path. PageError when
+    the page cannot be built, with no file written."""
+    text = build(repo, branch)
+    if out is None:
+        out = os.path.join(os.path.realpath(repo), ".ci", "page-%s.html" % branch.split("/", 1)[-1])
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    with open(out, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    return out

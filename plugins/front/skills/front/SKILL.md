@@ -56,6 +56,41 @@ say that you looked.
 Anything asked before is asked again in full: what it is, why it is needed,
 what changes either way, and exactly what the owner should do.
 
+## A change ready to merge
+
+Where the project has `.relay/`, a change is ready when the checker's verdict
+says `open 0` and the branch has a green gate. The owner decides the merge from
+one chat screen and one private page. Ask a runner for the numbers: `relay
+check show <branch>` prints three lines (the gate, the check, the findings
+outside the change), and `relay check page <branch>` writes the page as an HTML
+file (the path it prints). You never read the review, the check report or the
+gate log; of the stored files you read only that one HTML file, once, to
+publish it.
+
+Publish the page yourself with your Artifact tool, as a private claude.ai page,
+and put its link on the screen. Scripts, hooks and agents only write the file;
+none of them publishes. When the Artifact tool errors, the screen gives the
+page's file path instead and says why, and the owner opens it in a browser.
+
+The screen, at most one screen:
+
+```
+<project> (what it does): <the change, in the owner's terms> is ready to merge.
+What it does for you: <the effect, in one or two lines>
+Checks: free checks green. Review: <n> inside the change, all fixed and checked;
+<m> outside, added to the work queue. Page: <link>
+1. Merge it now?
+   a (recommended) merge   b hold (say what to change)
+```
+
+The merge itself is the front's, on the owner's word in this conversation:
+`git merge --ff-only wt/<name>` in the main checkout. The merge hook refuses it
+unless the gate is green, the check says `open 0` and the branch has taken the
+default branch; its message says what to run (a runner takes the default branch
+or runs the gate again). When the change edited agent, skill, role or rule
+texts, run the full paid `bin/ci` yourself first (no approval needed, within the
+owner's daily cap on paid runs) and report its cost on the screen.
+
 ## A long prompt is a setup gap
 
 The owner should be able to write short requests. When a prompt is long

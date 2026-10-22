@@ -3,10 +3,13 @@
 The list is fixed here, not a setting. A pattern matches a path relative to the repository root, with "/" as the
 separator: "*" matches inside one path part (any characters but "/"), "**" matches any number of whole parts (zero
 or more). `changed()` lists what changed since a commit and is not inert: it is the file list the checker works from.
+With `own=True` it leaves out the files that only the default branch changed (design section 7.2).
 """
 
 import re
 import subprocess
+
+import relay_git
 
 INERT = (
     "docs/handover.md",
@@ -45,11 +48,50 @@ def matches(path):
     return any(rx.match(path) for rx in _COMPILED)
 
 
-def changed(repo, since, until="HEAD"):
-    """Files changed from `since` to `until` in `repo` that are not inert. A rename or copy counts as a delete plus an
-    add (--no-renames), so a code file moved into an inert folder is still listed; -z keeps odd names unquoted."""
-    run = subprocess.run(["git", "-C", repo, "diff", "--name-only", "--no-renames", "-z", f"{since}..{until}"],
-                         capture_output=True, text=True)
+def _git(repo, *args):
+    run = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
     if run.returncode != 0:
-        raise ValueError(f"git diff {since}..{until} failed in {repo}: {run.stderr.strip()}")
-    return [line for line in run.stdout.split("\0") if line and not matches(line)]
+        raise ValueError(f"git {' '.join(args)} failed in {repo}: {run.stderr.strip()}")
+    return run.stdout
+
+
+def _blobs(repo, commit):
+    """{path: blob id} of every file at `commit` (one `git ls-tree -r` call)."""
+    out = _git(repo, "ls-tree", "-r", "-z", commit)
+    blobs = {}
+    for entry in out.split("\0"):
+        if entry:
+            meta, _, path = entry.partition("\t")
+            blobs[path] = meta.split()[2]
+    return blobs
+
+
+def _default_ref(repo):
+    """The default branch as a ref name; ValueError when it cannot be told (design section 1)."""
+    name = relay_git.default_branch(repo)
+    if name is None:
+        raise ValueError("cannot tell the default branch: set project.default_branch in .claude/kit.toml")
+    for ref in ("refs/heads/" + name, "refs/remotes/origin/" + name):
+        if relay_git.git(repo, "rev-parse", "--verify", "-q", ref)[0] == 0:
+            return ref
+    raise ValueError(f"the default branch {name} has no commit in {repo}")
+
+
+def changed(repo, since, until="HEAD", own=False):
+    """Files changed from `since` to `until` in `repo` that are not inert. A rename or copy counts as a delete plus an
+    add (--no-renames), so a code file moved into an inert folder is still listed; -z keeps odd names unquoted.
+
+    own=True (design section 7.2) leaves out a file the branch never touched at either end: with B_S the default
+    branch's merge-base with `since` and B_U its merge-base with `until`, a file is left out exactly when it is equal
+    at `since` and B_S and equal at `until` and B_U (missing on both sides counts as equal). So files that arrived
+    from the default branch are not the branch's own; a checked fix that was reverted still is."""
+    out = _git(repo, "diff", "--name-only", "--no-renames", "-z", f"{since}..{until}")
+    paths = [line for line in out.split("\0") if line and not matches(line)]
+    if not own or not paths:
+        return paths
+    default = _default_ref(repo)
+    base_since = _git(repo, "merge-base", since, default).strip()
+    base_until = _git(repo, "merge-base", until, default).strip()
+    trees = {c: _blobs(repo, c) for c in {since, until, base_since, base_until}}
+    return [p for p in paths
+            if trees[since].get(p) != trees[base_since].get(p) or trees[until].get(p) != trees[base_until].get(p)]
