@@ -47,8 +47,9 @@ inert_probe() { local tmpd work rc=0 f
   mkdir -p "$work/.relay/queue" "$work/.relay/checks" "$work/docs"
   for f in $(git -C "$work" ls-files -- docs/handover.md .relay/queue .relay/checks); do echo "inert probe line" >> "$work/$f"; done
   echo "inert probe line" >> "$work/docs/handover.md"
-  printf 'not a queue item\n' > "$work/.relay/queue/zz-probe.md"; echo '{}' > "$work/.relay/checks/zz.json"
-  echo "# probe" > "$work/.relay/checks/zz.review.md"; printf 'head 0\nexit 0\n' > "$work/.relay/checks/zz.gate.log"
+  # unknown files under the stored names (.json): a reader that lists the folders and breaks on an extra one changes the outcome
+  printf 'not a queue item\n' > "$work/.relay/queue/zz-probe.json"; echo '{}' > "$work/.relay/checks/zz.json"
+  echo '{}' > "$work/.relay/checks/zz.review.json"; echo '{}' > "$work/.relay/checks/zz.check.json"; printf 'head 0\nexit 0\n' > "$work/.relay/checks/zz.gate.log"
   git -C "$work" add -A && git -C "$work" -c user.name=relay-ci -c user.email=ci@relay commit -q --no-verify -m "inert probe"
   ( cd "$work" && env -u RELAY_GATE bash bin/ci --quick ) > "$tmpd/nested.log" 2>&1
   if ! diff <(outcome "$root") <(outcome "$work") > "$tmpd/diff.txt"; then

@@ -220,6 +220,16 @@ class Inert(Fixture):
         self.assertIn("ci: library tests ok", log)       # the outer run itself was green
         self.assertEqual(self.runs(), 2)
 
+    def test_f9_the_probe_plants_files_under_the_stored_json_names(self):
+        """F9: a test that breaks on an unknown queue item or check JSON (as a reader listing the folders would) turns
+        `inert` red: the probe planted .relay/queue/zz-probe.json, .relay/checks/zz.review.json and zz.check.json."""
+        self.project("        for rel in ('.relay/queue/zz-probe.json', '.relay/checks/zz.review.json', '.relay/checks/zz.check.json'):\n"
+                     "            self.assertFalse(os.path.exists(rel), rel)\n")
+        run = self.gate(self.wt, "--", "--quick")
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        head = git(self.wt, "rev-parse", "HEAD~1")
+        self.assertIn("ci: inert FAILED", read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
+
 
 def finding(fid, path, line, severity, summary, case, kind="inside"):
     return {"id": fid, "path": path, "line": line, "severity": severity, "rank": {"HIGH": "high", "MEDIUM": "medium", "LOW": "low"}[severity], "kind": kind, "summary": summary, "failing_case": [case]}
