@@ -633,3 +633,38 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
   Check of 7fbed11 (README) running; then the owner's word on merging
   wt/role-bases.
 - Check of 7fbed11 (check-readme-cost.md): met, 0 HIGH/MEDIUM, 3 LOW (queue: sonnet figures come from two runs; $10 ceiling worst case ~$13). Waiting for the owner's word on merging wt/role-bases.
+
+## STATE 22 Oct, batch 3 part 1 MERGED (owner: "a")
+
+- master fast-forwarded to 0538b8d (wt/role-bases, 33 commits); bin/ci
+  --quick green on master (scratchpad gate-master.log). Worktree batch3
+  and branch wt/role-bases removed. Open sessions keep the old agent
+  texts until restart or /reload-plugins.
+- Judge: code graders for facts + built-in llm graders judged by Sonnet
+  (Haiku failed the off-by-one question on wording; measured).
+- New worktree for part 2: .worktrees/review-gate, branch
+  wt/review-gate (from 0538b8d). Start part 2 in a FRESH session.
+- Next step (part 2): fix M-A and M-B in the part 2 design
+  (check-design-v3.md, session 0b953f5c scratchpad), fold in the owner's
+  pipeline (free code checks -> review stored as linter-form findings
+  .relay/checks/<sha>.review.md/.check.md/.gate.log + <sha>.json ->
+  human step: chat screen + private page -> merge refused unless gate
+  exit 0, mark open 0 and the owner's word; no Woodpecker), then build,
+  review, fix, check, gate.
+- Queue seeds for part 2 (besides earlier ones): core plugin tests not
+  in bin/ci --quick; tally.py traceback on unreadable json, two less
+  realistic items, runs count from the prompt (check-judge-fix.md L1-L3);
+  eval cost ceiling not firm at -j 4; cost estimates from real numbers
+  (four cap raises on 22 Oct); runner runs out of turns while waiting
+  (3 times on 22 Oct); off-by-one rubric FAIL clause penalises a fix's
+  words; relay bench's own judge still haiku (measure first); Sonnet
+  measurement figures come from two runs; guard-main reads `-C $VAR` as
+  a literal path (refused `git -C $G branch -d`); 12 of 15 agents have
+  no eval; stale texts (case.yaml:3, setup-fixture.sh); guard and
+  $TMPDIR.
+- Phase 1 decisions (owner, 22 Oct): one shared change cycle for every
+  flow, ten correctness checks everywhere, waves in the shared cycle,
+  thin OpenSpec add-on (sdd renamed), no per-flow addition files, old
+  projects (Kartoteka, principles) not touched. Overview page:
+  https://claude.ai/artifact/XMsv3xJxw5uZCtYk4Z3416
+- Spend 22 Oct: ~$29.68 of the owner's $35 cap.
