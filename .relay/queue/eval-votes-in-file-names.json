@@ -5,20 +5,20 @@
   "time": 20,
   "found": "2026-10-22",
   "found_in": "owner rule structured-data, 22 Oct",
-  "title": "Eval tallies read yes and no votes from file names",
+  "title": "Eval tally takes the expected answer from a name",
   "what": [
-    "bin/eval-record reads the yes/no votes of a run from the names of files (bin/eval-record:23, :92, :102); store the votes of one run in one JSON file."
+    "evals/judge-measure/tally.py decides whether a question should be judged PASS or FAIL from the name of its grader (yes--NN-... or no--NN-..., tally.py:6 and :62); store the expected answer as a field next to the grader."
   ],
   "why": [
-    "A file name that is renamed, truncated or copied changes a vote, and a tally built on it is a wrong answer about the judge."
+    "A typo in a grader name (yes-- for no--) makes the tally judge a right judge as wrong, and nothing in the result says why."
   ],
   "failing_case": [
-    "rename or copy a vote file of a run (for example give a vote file a name with an extra suffix): the tally counts it as another vote or none; votes in one JSON per run cannot be changed by a name"
+    "give a grader that should be judged FAIL a name starting yes-- in an eval's result: tally.py expects PASS, counts the judge's right FAIL votes as wrong and exits 1; the expected answer should be a stored field that a name cannot change"
   ],
   "pass_cases": [
-    "a run whose vote files carry the expected names tallies correctly today"
+    "a run whose grader names carry the right yes--/no-- prefixes tallies correctly today"
   ],
-  "where": "bin/eval-record:23",
+  "where": "evals/judge-measure/tally.py:62",
   "taken_by": "",
   "closed_by": "",
   "test": "",

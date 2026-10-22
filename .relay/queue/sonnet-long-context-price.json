@@ -5,15 +5,15 @@
   "time": 20,
   "found": "2026-10-22",
   "found_in": "relay review-gate design 10.6 seed 5",
-  "title": "Cost reports for long Sonnet sessions are a fifth low",
+  "title": "Two long Sonnet sessions are costed a fifth too low",
   "what": [
-    "relay calibrate puts long Sonnet sessions (266k-278k context) about 20.8% under Claude Code's total."
+    "relay calibrate puts two long Sonnet sessions (both 266k-278k context) about 20.8% under Claude Code's total. The cause is not known: a long-context price that prices.toml lacks is a suspicion, to be verified before any price is changed."
   ],
   "why": [
-    "Cost reports for long sessions are wrong by about a fifth."
+    "Cost reports for long sessions may be wrong by about a fifth."
   ],
   "failing_case": [
-    "`relay calibrate` on the 21 Oct ledger: 2 of 15 Sonnet sessions at 266k-278k context are 20.8% under Claude Code's total; should be within 5% (v3 #2)"
+    "`relay calibrate` on the 21 Oct ledger: 2 Sonnet sessions (of 15 sessions in all), both at 266k-278k context, are 20.8% under Claude Code's total; should be within 5% (v3 #2). First step: measure whether the gap comes from a long-context price before changing one."
   ],
   "taken_by": "",
   "closed_by": "",

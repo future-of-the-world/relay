@@ -7,7 +7,7 @@
   "found_in": "relay review-gate design 10.6 seed 2",
   "title": "A run goes past its money limit when run in parallel",
   "what": [
-    "With runs in parallel (-j 4) the money ceiling is passed: --max-cost-usd 4 ran to $6.32."
+    "With runs in parallel (-j 4) the money ceiling is passed: --max-cost-usd 4 ran to $6.32. The ceiling is enforced by `claude plugin eval` (the flag is only passed on: bin/ci:68, evals/judge-measure/README.md:27-28), so relay's lever is the number it passes: the cap minus one batch at -j 4, or -j 1 near the cap."
   ],
   "why": [
     "A cost ceiling that overshoots spends the owner's money past the number they set."
@@ -15,6 +15,7 @@
   "failing_case": [
     "`--max-cost-usd 4` at `-j 4` ran to $6.32 (Sonnet measure, 22 Oct); the README's $10 ceiling can reach about $13; should stop within one batch of the ceiling (handover \"ceiling overshoot\", \"eval cost ceiling not firm at -j 4\", check-readme-cost \"$10 ceiling worst case ~$13\")"
   ],
+  "where": "bin/ci:68",
   "taken_by": "",
   "closed_by": "",
   "test": "",

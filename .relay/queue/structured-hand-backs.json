@@ -5,7 +5,7 @@
   "time": 40,
   "found": "2026-10-22",
   "found_in": "owner rule structured-data, 22 Oct",
-  "title": "Agents hand back a short JSON as well as the 10 lines of text",
+  "title": "Agents hand back a short JSON beside the 10 lines",
   "what": [
     "Each agent hand-back also carries a short JSON beside the 10-line text (status, report path, commits), and a hook checks it, so the session reads the fields instead of the prose."
   ],

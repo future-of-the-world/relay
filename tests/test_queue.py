@@ -356,6 +356,44 @@ def committed_items(repo):
     return {os.path.basename(n): git(repo, "show", "%s:%s" % (ref, n)) + "\n" for n in sorted(names) if n.endswith(".json")}
 
 
+def committed_text(repo, path):
+    """The text of `path` as committed (the commit before an inert probe commit, see committed_items), else the checkout's."""
+    ref = "HEAD^" if git(repo, "log", "-1", "--format=%s", "HEAD", check=False) == "inert probe" else "HEAD"
+    out = git(repo, "show", "%s:%s" % (ref, path), check=False)
+    return out + "\n" if out else open(os.path.join(repo, path), encoding="utf-8").read()
+
+
+class TestSeedItems(unittest.TestCase):
+    """Review F14 and the seed-item findings: the committed items say what is true and follow the queue rule."""
+
+    def test_f14_every_seed_title_is_under_60_characters_and_a_one_line_text(self):
+        for name, text in committed_items(ROOT).items():
+            title = rq.parse(name[:-5], text)["title"]
+            self.assertLess(len(title), rq.TITLE_MAX, name)
+            self.assertNotIn("\n", title, name)
+
+    def test_f14_setups_readme_text_is_relays_own_readme(self):
+        import relay_setup
+        self.assertEqual(relay_setup.RELAY_README, committed_text(ROOT, ".relay/README.md"))
+
+    def test_f14_a_where_line_names_the_line_the_item_talks_about(self):
+        # core-tests-not-in-gate: the skip list of bin/ci is on the line `where` gives
+        item = rq.parse("core-tests-not-in-gate", committed_items(ROOT)["core-tests-not-in-gate.json"])
+        path, _, line = item["where"].rpartition(":")
+        self.assertIn("*inject-addition*", committed_text(ROOT, path).split("\n")[int(line) - 1])
+
+    def test_f7_gate_log_summary_is_a_feature_and_not_a_fix_with_a_failing_case_that_cannot_fail(self):
+        item = rq.parse("gate-log-summary", committed_items(ROOT)["gate-log-summary.json"])
+        self.assertEqual((item["kind"], item["ip"]), ("feature", 0))
+        self.assertNotIn("failing_case", item)
+
+    def test_f6_the_votes_item_names_the_grader_name_prefix_that_tally_reads(self):
+        item = rq.parse("eval-votes-in-file-names", committed_items(ROOT)["eval-votes-in-file-names.json"])
+        path, _, line = item["where"].rpartition(":")
+        self.assertEqual(path, "evals/judge-measure/tally.py")
+        self.assertIn("(yes|no)--", committed_text(ROOT, path).split("\n")[int(line) - 1])      # the code at `where` is what the item says
+
+
 class TestFormat(Base):
     def test_round_trip_is_byte_identical_for_every_seed_item(self):
         items = committed_items(ROOT)
