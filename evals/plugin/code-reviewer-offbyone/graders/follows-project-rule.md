@@ -1,6 +1,6 @@
 ---
 type: regex
-pattern: "^(?=[\\s\\S]*DOC-RULE)(?=[\\s\\S]*pageCount)"
+pattern: "(?:^|\\n)(?=[^\\n]*DOC-RULE)(?=[^\\n]*pageCount)"
 flags: i
 ---
-The word DOC-RULE exists only in the fixture's .claude/kit/code-reviewer.md, the project's addition for this role: a reply that labels pageCount() (the function with no doc comment) DOC-RULE proves the addition reached the agent (the hook smoke test of review 2, n7).
+The word DOC-RULE exists only in the fixture's .claude/kit/code-reviewer.md, the project's addition for this role. The rule says: label the finding `DOC-RULE` and name the function, so the label and `pageCount` stand on ONE line. Whether that line reports a breach is for the llm grader reports-doc-rule-breach.
