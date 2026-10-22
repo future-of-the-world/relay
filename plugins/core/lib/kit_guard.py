@@ -396,6 +396,17 @@ def stash_block(rest):
     return None
 
 
+def allowed_merge_branch(rest):
+    """The wt/ branch of `git merge --ff-only wt/<name>` (the arguments after `merge`), else None."""
+    texts = [w.text for w in rest]
+    if "--help" in texts or "-h" in texts:
+        return None
+    pos = [t for t in texts if not t.startswith("-")]
+    if "--ff-only" in texts and len(pos) == 1 and re.match(r"^wt/[^\s;&|)]+$", pos[0]):
+        return pos[0]
+    return None
+
+
 def git_write(sub, rest):
     """What a git subcommand writes, or None when it only reads (or writes nothing in the working tree)."""
     texts = [w.text for w in rest]
@@ -404,8 +415,7 @@ def git_write(sub, rest):
     flags = [t for t in texts if t.startswith("-")]
     if sub == "merge":
         # the one write allowed in main: the user-requested fast-forward to a finished wt/ branch
-        pos = [t for t in texts if not t.startswith("-")]
-        if "--ff-only" in texts and len(pos) == 1 and re.match(r"^wt/[^\s;&|)]+$", pos[0]):
+        if allowed_merge_branch(rest):
             return None
         return "git merge"
     if sub in GIT_WRITE:
@@ -530,7 +540,7 @@ def shell_writes(name, args, paths, cur, via_xargs):
     return []
 
 
-def analyze(cmd, cwd, flags, depth=0):
+def analyze(cmd, cwd, flags, depth=0, merges=None):
     out = []
     states = [State(cwd)]
 
@@ -558,6 +568,10 @@ def analyze(cmd, cwd, flags, depth=0):
                 why = stash_block(rest)
                 if why:
                     out.append(("B", why))
+            if sub == "merge" and merges is not None:
+                branch = allowed_merge_branch(rest)
+                if branch:
+                    merges.append((d, branch))
             what = git_write(sub, rest)
             if what:
                 out.append(("G", d, what))
@@ -585,9 +599,9 @@ def analyze(cmd, cwd, flags, depth=0):
             if name in SHELLS:
                 k = next((k for k, w in enumerate(real) if k > 0 and re.match(r"^-[A-Za-z]*c[A-Za-z]*$", w.text)), None)
                 if k is not None and k + 1 < len(real):
-                    out.extend(analyze(real[k + 1].text, cur, flags, depth + 1))
+                    out.extend(analyze(real[k + 1].text, cur, flags, depth + 1, merges))
             elif name == "eval" and len(real) > 1:
-                out.extend(analyze(" ".join(w.text for w in real[1:]), cur, flags, depth + 1))
+                out.extend(analyze(" ".join(w.text for w in real[1:]), cur, flags, depth + 1, merges))
             elif name == "xargs":
                 k = 1
                 while k < len(real) and real[k].text.startswith("-"):
@@ -618,6 +632,14 @@ def analyze(cmd, cwd, flags, depth=0):
         words, redirs, raw = payload
         simple(words, redirs, raw, states[-1])
     return out
+
+
+def allowed_merges(cmd, cwd):
+    """[(dir, branch)] for every simple command of `cmd` that is the allowed merge, `git merge --ff-only wt/<name>`:
+    the directory it acts on (`cd`, `git -C` applied) and the branch, in order, without repeats."""
+    found = []
+    analyze(cmd, os.path.realpath(cwd), [], 0, found)
+    return list(dict.fromkeys(found))
 
 
 def main(argv):

@@ -1439,5 +1439,80 @@ class Setup(Base):
         self.assertTrue(d2["has_bindings"])
 
 
+class DefaultBranch(unittest.TestCase):
+    """T18: relay_git.default_branch is never the current branch (design fact 2.8)."""
+
+    def setUp(self):
+        self.tmp = os.path.realpath(tempfile.mkdtemp(prefix="relay-git-test-"))
+        self.env = dict(os.environ, GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null", GIT_AUTHOR_NAME="t",
+                        GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        sys.modules.pop("relay_git", None)
+        import relay_git
+        self.relay_git = relay_git
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def git(self, repo, *args):
+        subprocess.run(["git", "-C", repo, *args], check=True, capture_output=True, env=self.env)
+
+    def repo(self, name, *branches):
+        """A repository whose first commit is on branches[0]; the others are local branches at the same commit."""
+        d = os.path.join(self.tmp, name)
+        os.makedirs(d)
+        subprocess.run(["git", "init", "-q", "-b", branches[0], d], check=True, env=self.env)
+        self.git(d, "commit", "-q", "--allow-empty", "-m", "init")
+        for b in branches[1:]:
+            self.git(d, "branch", b)
+        return d
+
+    def kit(self, repo, branch):
+        os.makedirs(os.path.join(repo, ".claude"))
+        with open(os.path.join(repo, ".claude", "kit.toml"), "w") as handle:
+            handle.write('[project]\ndefault_branch = "%s"\n' % branch)
+
+    def test_only_develop_with_binding(self):
+        d = self.repo("a", "develop")
+        self.assertIsNone(self.relay_git.default_branch(d))   # no binding, no master/main: none, not the current branch
+        self.kit(d, "develop")
+        self.assertEqual(self.relay_git.default_branch(d), "develop")
+
+    def test_worktree_on_task_branch_gets_master(self):
+        d = self.repo("relay-like", "master")
+        self.git(d, "worktree", "add", "-q", os.path.join(d, ".worktrees", "review-gate"), "-b", "wt/review-gate")
+        wt = os.path.join(d, ".worktrees", "review-gate")
+        self.assertEqual(self.relay_git.default_branch(wt), "master")   # setup's default_branch answers wt/review-gate here
+        self.assertEqual(self.relay_git.main_checkout(wt), d)
+
+    def test_master_and_main_prefers_master(self):
+        self.assertEqual(self.relay_git.default_branch(self.repo("b", "main", "master")), "master")
+
+    def test_main_alone(self):
+        self.assertEqual(self.relay_git.default_branch(self.repo("m", "main")), "main")
+
+    def test_binding_naming_a_task_branch_is_ignored(self):
+        d = self.repo("c", "master")
+        self.kit(d, "wt/x")
+        self.assertEqual(self.relay_git.default_branch(d), "master")
+
+    def test_origin_head_wins_over_binding(self):
+        d = self.repo("o", "master")
+        self.kit(d, "develop")
+        self.git(d, "update-ref", "refs/remotes/origin/trunk", "HEAD")
+        self.git(d, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk")
+        self.assertEqual(self.relay_git.default_branch(d), "trunk")
+
+    def test_unreadable_kit_toml_is_ignored(self):
+        d = self.repo("u", "develop")
+        os.makedirs(os.path.join(d, ".claude"))
+        with open(os.path.join(d, ".claude", "kit.toml"), "w") as handle:
+            handle.write("[project\n")
+        self.assertIsNone(self.relay_git.default_branch(d))
+
+    def test_outside_a_repository(self):
+        self.assertIsNone(self.relay_git.default_branch(self.tmp))
+        self.assertIsNone(self.relay_git.main_checkout(self.tmp))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

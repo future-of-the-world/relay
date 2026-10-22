@@ -9,6 +9,16 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/guard-main.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/merge.sh\"",
+            "timeout": 60
+          }
+        ]
       }
     ],
     "SubagentStart": [
@@ -52,8 +62,18 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/inject-addition.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/merge.sh\"",
+            "timeout": 60
+          }
+        ]
       }
     ]
   },
-  "description": "Main-checkout guard, project additions injected into shared roles, and the flow stage hook."
+  "description": "Main-checkout guard, project additions injected into shared roles, the flow stage hook, and the cleanup after a merge."
 }
