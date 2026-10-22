@@ -19,6 +19,9 @@ A template holds one line {{FINDING}}; the source's finding lines replace it. Ru
   - a template outside its slot never mentions the finding (the question's `mention` regex), so a
     "no" item cannot report the fact in a second place and be right to pass (check-judge-v5 N1)
   - every recorded bad reply named after a question's llm grader is listed in that question's items.txt
+    (an item counts only as a parsed line of items.txt, not as text in a comment)
+  - every known wrong answer (the question's `known_wrong` phrases in questions.json: wrong replies that
+    pass the code graders, so only the judge can refuse them) appears in a "no" item
 Standard library and node only; no model is called.
 """
 import argparse, glob, json, os, re, subprocess, sys
@@ -89,6 +92,7 @@ def build(root):
     files, problems, report, triples, where = {}, [], [], [], []
     for name, d in qs.items():
         q = d["q"]
+        no_texts = []
         for i, it in enumerate(d["items"], 1):
             label = f"{name} item {i:02d} ({it['want']} {os.path.basename(it['source'])})"
             sp = os.path.join(root, it["source"])
@@ -112,6 +116,8 @@ def build(root):
             else:
                 text = src
             nn = f"{i:02d}"
+            if it["want"] == "no":
+                no_texts.append(text)
             slug = re.sub(r"[^A-Za-z0-9]+", "-", os.path.splitext(os.path.basename(it["source"]))[0]).strip("-")
             files[f"{name}/judged/{nn}.txt"] = text
             files[f"{name}/graders/{it['want']}--{nn}-{slug}.md"] = (
@@ -121,8 +127,11 @@ def build(root):
                 problems.append(f"{label}: {len(text)} characters, under {MIN_LEN} (not the length of a real reply)")
             for g in d["code"]:
                 triples.append([g["pattern"], g.get("flags", ""), text]); where.append(f"{label}: code grader {g.get('pattern')[:40]}...")
+        for phrase in q.get("known_wrong", []):
+            if not any(phrase in t for t in no_texts):
+                problems.append(f"{name}: the known wrong answer {phrase!r} is in no 'no' item (add an item that says it)")
         # every recorded bad reply named after the llm grader is measured
-        listed = open(os.path.join(d["dir"], "items.txt"), encoding="utf-8").read()
+        listed = {it["source"] for it in d["items"]}
         for p in sorted(glob.glob(os.path.join(root, "plugin", q["case"], "recorded", "bad", q["grader"] + "__*.txt"))):
             rel = os.path.relpath(p, root)
             if rel not in listed:

@@ -69,6 +69,18 @@ class MakeCheck(unittest.TestCase):
         r = check(self.root)
         self.assertEqual(r.returncode, 1); self.assertIn("is in no items.txt", r.stdout)
 
+    def test_a_commented_out_items_line_does_not_count_as_listed(self):
+        self.edit("judge-measure/measure-off-by-one/items.txt",
+                  lambda t: t.replace("no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__the-end-is-correct.txt", "# no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__the-end-is-correct.txt"))
+        r = check(self.root)
+        self.assertEqual(r.returncode, 1); self.assertIn("is in no items.txt", r.stdout)
+
+    def test_a_known_wrong_answer_that_no_no_item_says_fails(self):
+        self.edit("judge-measure/measure-off-by-one/items.txt",
+                  lambda t: "\n".join(l for l in t.split("\n") if "one-parameter-too-many" not in l))
+        r = check(self.root)
+        self.assertEqual(r.returncode, 1); self.assertIn("known wrong answer", r.stdout); self.assertIn("one parameter too many", r.stdout)
+
     def test_a_no_item_without_a_template_fails(self):
         self.edit("judge-measure/measure-doc-rule/items.txt", lambda t: t.replace("no judge-measure/measure-doc-rule/written/checked-pagecount-ok.txt into templates/review.txt", "no judge-measure/measure-doc-rule/written/checked-pagecount-ok.txt"))
         r = check(self.root)
@@ -86,13 +98,24 @@ def llm_run(*grader_votes, **extra):
     return run
 
 
+def case_of(runs, name="measure-x", graders=(Y := "yes--01-a", N := "no--02-b")):
+    """A case in the eval tool's shape: graders[] with name/type/weight, runsPerCase, arms of runs."""
+    return {"name": name, "runsPerCase": 5, "maxTurns": 1,
+            "graders": [{"name": g, "type": "llm", "weight": 1, "config": {}} for g in graders], "arms": {"with": runs}}
+
+
+def errored_run():
+    """What the tool returns for a run that threw (binary: graders: [], error set; partial stays false)."""
+    return {"score": 0, "passed": False, "costUsd": 0.0, "judgeCostUsd": 0, "error": "scaffold_script failed",
+            "skippedPaidGraders": False, "graders": []}
+
+
 def result(runs, model="haiku", **top):
-    d = {"partial": False, "suite": {"judgeModel": model}, "cases": [{"name": "measure-x", "arms": {"with": runs}}]}
+    d = {"partial": False, "suite": {"judgeModel": model}, "cases": [case_of(runs)]}
     d.update(top)
     return d
 
 
-Y, N = "yes--01-a", "no--02-b"
 T, F = True, False
 
 
@@ -131,10 +154,39 @@ class Tally(unittest.TestCase):
             "skippedPaidGraders": result([llm_run((Y, [T, T, T]), (N, [F, F, F]), skippedPaidGraders=True)]),
             "another judge model": result(base, model="sonnet"),
         }
+        # base alone is 1 run of runsPerCase 5: a short sample is not a verdict either
+        full = [llm_run((Y, [T, T, T]), (N, [F, F, F])) for _ in range(5)]
+        cases.update({
+            "a short sample (1 run of 5)": result(base),
+            "every run errored (graders: [])": result([errored_run() for _ in range(5)]),
+            "one run errored, four complete": result(full[:4] + [errored_run()]),
+            "an item absent from one run": result(full[:4] + [llm_run((Y, [T, T, T]))]),
+            "no cases": result(full, cases=[]),
+            "a case without runs": result(full, cases=[case_of([])]),
+        })
         for what, data in cases.items():
             with self.subTest(what):
                 with self.assertRaises(self.t.NotJudged):
                     self.run_tally(data)
+
+    def test_a_case_missing_from_the_file_is_not_judged(self):
+        full = [llm_run((Y, [T, T, T]), (N, [F, F, F])) for _ in range(5)]
+        with self.assertRaises(self.t.NotJudged) as e:
+            self.run_tally(result(full), expected={"measure-x": 2, "measure-y": 2})
+        self.assertIn("measure-y", str(e.exception))
+
+    def test_fewer_items_than_items_txt_is_not_judged(self):
+        full = [llm_run((Y, [T, T, T]), (N, [F, F, F])) for _ in range(5)]
+        with self.assertRaises(self.t.NotJudged) as e:
+            self.run_tally(result(full), expected={"measure-x": 3})
+        self.assertIn("items.txt", str(e.exception))
+        self.assertEqual(self.run_tally(result(full), expected={"measure-x": 2})[0], 0)
+
+    def test_the_committed_item_counts_are_what_main_expects(self):
+        exp = self.t.load_expected()
+        self.assertEqual(sorted(exp), ["measure-contradiction", "measure-doc-rule", "measure-off-by-one", "measure-role-rule"])
+        for name, n in exp.items():
+            self.assertEqual(n, len([f for f in os.listdir(os.path.join(EVALS, "judge-measure", name, "graders")) if f.startswith(("yes--", "no--"))]))
 
     def test_cli_exit_codes(self):
         d = tempfile.mkdtemp(prefix="jm-")
@@ -142,9 +194,30 @@ class Tally(unittest.TestCase):
             p = os.path.join(d, "r.json")
             json.dump(result([llm_run((Y, [T, T, T]), (N, None))]), open(p, "w"))
             r = subprocess.run([sys.executable, "-I", TALLY, p, "--expect-model", "haiku"], capture_output=True, text=True)
-            self.assertEqual(r.returncode, 2); self.assertEqual(r.stdout, ""); self.assertIn("not judged", r.stderr)
-            json.dump(result([llm_run((Y, [T, T, T]), (N, [F, F, F]))]), open(p, "w"))
-            self.assertEqual(subprocess.run([sys.executable, "-I", TALLY, p, "--expect-model", "haiku"], capture_output=True, text=True).returncode, 0)
+            self.assertEqual(r.returncode, 2); self.assertEqual(r.stdout, ""); self.assertIn("NOT JUDGED", r.stderr)
+            # the crashed run of the eval tool: four cases, every run graders: [] with error; the gate must not say PASS
+            names = load_tally().load_expected()
+            gnames = lambda n: [f"yes--{i:02d}-a" if i % 2 else f"no--{i:02d}-b" for i in range(1, n + 1)]
+            json.dump(result([], cases=[case_of([errored_run() for _ in range(5)], name=k, graders=gnames(n)) for k, n in names.items()]), open(p, "w"))
+            r = subprocess.run([sys.executable, "-I", TALLY, p, "--expect-model", "haiku"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2); self.assertEqual(r.stdout, ""); self.assertIn("errored", r.stderr)
+            json.dump(result([], cases=[]), open(p, "w"))
+            self.assertEqual(subprocess.run([sys.executable, "-I", TALLY, p, "--expect-model", "haiku"], capture_output=True, text=True).returncode, 2)
+            full = [llm_run((Y, [T, T, T]), (N, [F, F, F])) for _ in range(5)]
+            json.dump(result(full, cases=[case_of(full, name="measure-doc-rule")]), open(p, "w"))
+            r = subprocess.run([sys.executable, "-I", TALLY, p, "--expect-model", "haiku"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2); self.assertIn("missing case", r.stderr)
+            # a complete run: the four real cases, every item of items.txt, 5 runs of 3 votes
+            def complete(n):
+                return [llm_run(*[(f"yes--{i:02d}-a" if i % 2 else f"no--{i:02d}-b", [T, T, T] if i % 2 else [F, F, F]) for i in range(1, n + 1)]) for _ in range(5)]
+            cases = [case_of(complete(n), name=name, graders=gnames(n)) for name, n in names.items()]
+            json.dump(result([], cases=cases), open(p, "w"))
+            r = subprocess.run([sys.executable, "-I", TALLY, p, "--expect-model", "haiku"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr); self.assertIn("PASS measure-off-by-one", r.stdout)
+            cases[1]["graders"].pop()   # the result lists one item fewer than items.txt
+            json.dump(result([], cases=cases), open(p, "w"))
+            r = subprocess.run([sys.executable, "-I", TALLY, p, "--expect-model", "haiku"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2); self.assertIn("items.txt", r.stderr)
         finally:
             shutil.rmtree(d, ignore_errors=True)
 

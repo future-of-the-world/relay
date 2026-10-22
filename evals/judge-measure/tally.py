@@ -9,20 +9,37 @@ Per question (one case each), per run, the majority of the 3 votes is the verdic
   split items      items whose votes, over all runs, are not all alike          (bar --max-split, 0-3)
   wrong votes      single votes against the expected answer (information only)
 and the cost. Exit 0: every question passes; 1: a bar is exceeded; 2: nothing is judged, no verdict
-is printed. Exit 2 when a grader was not judged (no judgeVotes, or not 3: the tool returns a skipped
-judge as passed=false, which would read as a right "no" and a wrong "yes"), when the run is partial
-or skipped a paid grader, or when suite.judgeModel is not the model asked for.
+is printed. A verdict needs every expected case, every item of it (items.txt lines, and the case's own
+graders[]) and every run (runsPerCase) present, without `error`, and judged with 3 votes. Exit 2
+otherwise: a grader not judged (no judgeVotes, or not 3: the tool returns a skipped judge as
+passed=false, which would read as a right "no" and a wrong "yes"), a run that errored (the tool returns
+`error` and `graders: []`), a missing case, item or run, a partial run, a skipped paid grader, or a
+suite.judgeModel other than the one asked for.
 Standard library only; no model is called.
 """
-import argparse, json, re, sys
+import argparse, json, os, re, sys
 
 
 class NotJudged(Exception):
     pass
 
 
-def tally(data, expect_model, max_wrong=0, max_split=1):
-    """Returns (exit code, lines)."""
+def load_expected(here=None):
+    """{case name: number of items} from questions.json (the cases) and each case's items.txt."""
+    here = here or os.path.dirname(os.path.abspath(__file__))
+    out = {}
+    with open(os.path.join(here, "questions.json"), encoding="utf-8") as f:
+        names = list(json.load(f))
+    for name in names:
+        with open(os.path.join(here, name, "items.txt"), encoding="utf-8") as f:
+            lines = f.read().split("\n")
+        out[name] = sum(1 for l in lines if l.strip() and not l.strip().startswith("#"))
+    return out
+
+
+def tally(data, expect_model, max_wrong=0, max_split=1, expected=None):
+    """Returns (exit code, lines). `expected` is {case name: item count}; None = no outside list,
+    only what each case's own graders[] and runsPerCase say."""
     suite = data.get("suite", {})
     if suite.get("judgeModel") != expect_model:
         raise NotJudged(f"suite.judgeModel is {suite.get('judgeModel')!r}, expected {expect_model!r}")
@@ -30,10 +47,34 @@ def tally(data, expect_model, max_wrong=0, max_split=1):
         raise NotJudged(f"the run is partial: {data.get('partialReason', 'no partialReason given')}")
     lines, code = [], 0
     cost = judge_cost = 0.0
-    for case in data.get("cases", []):
+    cases = data.get("cases") or []
+    if not cases:
+        raise NotJudged("the file holds no cases")
+    if expected:
+        missing = [n for n in expected if n not in {c.get("name") for c in cases}]
+        if missing:
+            raise NotJudged("missing case(s): " + ", ".join(missing))
+    for case in cases:
         items = {}   # grader name -> list of vote lists, one per run
-        for arm_name, runs in case.get("arms", {}).items():
+        arms = case.get("arms") or {}
+        if not arms or not any(arms.values()):
+            raise NotJudged(f"{case['name']}: no runs")
+        want_items = {g["name"] for g in case.get("graders", []) if re.match(r"^(yes|no)--", g.get("name", ""))}
+        if expected and case["name"] in expected and len(want_items) != expected[case["name"]]:
+            raise NotJudged(f"{case['name']}: {len(want_items)} item graders in the result, {expected[case['name']]} in items.txt")
+        if not want_items:
+            raise NotJudged(f"{case['name']}: no yes--/no-- graders listed")
+        for arm_name, runs in arms.items():
+            want_runs = case.get("runsPerCase") or len(runs)
+            if len(runs) != want_runs:
+                raise NotJudged(f"{case['name']} ({arm_name}): {len(runs)} runs of {want_runs} expected")
             for n, run in enumerate(runs, 1):
+                if run.get("error"):
+                    raise NotJudged(f"{case['name']} ({arm_name} run {n}): the run errored ({str(run['error'])[:80]}), no graders judged")
+                got = {g.get("name") for g in run.get("graders", [])}
+                absent = sorted(want_items - got)
+                if absent:
+                    raise NotJudged(f"{case['name']} ({arm_name} run {n}): {len(absent)} of {len(want_items)} items not judged (first: {absent[0]})")
                 if run.get("skippedPaidGraders"):
                     raise NotJudged(f"{case['name']} ({arm_name} run {n}): skippedPaidGraders (the cost cap stopped the judge)")
                 cost += run.get("costUsd") or 0
@@ -45,6 +86,8 @@ def tally(data, expect_model, max_wrong=0, max_split=1):
                     if not isinstance(votes, list) or len(votes) != 3:
                         raise NotJudged(f"{case['name']} {g['name']} (run {n}): not judged ({'no' if not votes else len(votes)} votes, 3 expected)")
                     items.setdefault(g["name"], []).append(votes)
+        if sorted(items) != sorted(want_items):
+            raise NotJudged(f"{case['name']}: judged items differ from the case's graders")
         wrong = split = wrong_votes = runs_total = 0
         for name, per_run in sorted(items.items()):
             want = name.startswith("yes--")
@@ -73,7 +116,7 @@ def main():
     ap.add_argument("--max-split", type=int, default=1, choices=range(0, 4))
     a = ap.parse_args()
     try:
-        code, lines = tally(json.load(open(a.json, encoding="utf-8")), a.expect_model, a.max_wrong, a.max_split)
+        code, lines = tally(json.load(open(a.json, encoding="utf-8")), a.expect_model, a.max_wrong, a.max_split, load_expected())
     except NotJudged as e:
         print(f"tally: NOT JUDGED, no verdict: {e}", file=sys.stderr)
         return 2

@@ -16,3 +16,10 @@ no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__size-validatio
 no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__start-past-the-end-finding.txt into templates/review.txt
 no plugin/code-reviewer-offbyone/recorded/bad/reports-off-by-one__the-end-is-correct.txt into templates/review.txt
 no judge-measure/measure-off-by-one/near-miss.txt into templates/review.txt
+no judge-measure/measure-off-by-one/written/one-parameter-too-many.txt into templates/review.txt
+no judge-measure/measure-off-by-one/written/add-one-more-test.txt into templates/review.txt
+no judge-measure/measure-off-by-one/written/one-additional-parameter.txt into templates/review.txt
+no judge-measure/measure-off-by-one/written/typeerror-on-undefined.txt into templates/review.txt
+no judge-measure/measure-off-by-one/written/zero-findings-as-intended.txt into templates/review.txt
+no judge-measure/measure-off-by-one/written/no-findings-reviewed.txt into templates/review.txt
+no judge-measure/measure-off-by-one/written/near-miss-doc-asks-for-it.txt into templates/review.txt

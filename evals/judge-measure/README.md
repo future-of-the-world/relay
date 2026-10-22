@@ -12,10 +12,14 @@ recorded replies before it gates anything. Nothing here runs in `bin/ci`.
 - `make.py` writes `judged/NN.txt` and `graders/<yes|no>--NN-name.md` (the grader body is the production
   rubric byte for byte); `make.py --check` (also run by `evals/plugin/graders.test.sh`) fails on any
   difference, a short item, an item the code check refuses, a template that mentions the finding, or a
-  recorded wrong reply that is in no items.txt.
-- `tally.py` reads the `--json` of a measurement run; exit 2 and no verdict when a grader was not judged.
+  recorded wrong reply that is in no items.txt, or a known wrong answer (`known_wrong` in questions.json:
+  wrong replies the code graders let through, so only the judge refuses them) that no "no" item says.
+- `tally.py` reads the `--json` of a measurement run; exit 2 and no verdict unless every case, every item
+  (items.txt) and every run is present, without `error`, and judged with 3 votes.
+- The measurement prompts set `max_turns: 1` and nothing else to bound the agent: `allowed_tools: []` is the
+  tool's default (it restricts nothing), so it is not set.
 
-Run (paid, about $0.90 on haiku, $2.55 on sonnet; start only after review), one run per judge model:
+Run (paid, 58 items, 870 votes: about $1.07 on haiku, $3.02 on sonnet; start only after review), one run per judge model:
 
     claude plugin eval . --eval-dir evals/judge-measure --runs 5 -j 4 --judge-model haiku  --ablation none --no-publish --trust-plugin --scaffold --max-cost-usd 4 --json <scratch>/measure-haiku.json
     claude plugin eval . --eval-dir evals/judge-measure --runs 5 -j 4 --judge-model sonnet --ablation none --no-publish --trust-plugin --scaffold --max-cost-usd 4 --json <scratch>/measure-sonnet.json

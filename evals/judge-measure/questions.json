@@ -1,24 +1,34 @@
 {
   "measure-off-by-one": {
-    "case": "code-reviewer-offbyone", "grader": "reports-off-by-one",
+    "case": "code-reviewer-offbyone",
+    "grader": "reports-off-by-one",
+    "line": "names-file-and-line",
     "code": ["names-file-and-line", "follows-project-rule"],
     "keep": "^(?!.*DOC-RULE)",
-    "mention": "size ?\\+ ?1|off[- ]by[- ]one|too many|one (?:item|extra|more)|overlap|start \\+ size|slice"
+    "mention": "size ?\\+ ?1|off[- ]by[- ]one|too many|one (?:item|extra|more)|overlap|start \\+ size|slice",
+    "known_wrong": ["page` has one parameter too many", "add one more test for the empty page", "consider one additional parameter", "throws a TypeError when `items` is undefined", "Zero findings on `page`", "No findings. `src/shelf.ts:27` reviewed.", "the slice end `start + size + 1` is what the doc comment asks for"]
   },
   "measure-doc-rule": {
-    "case": "code-reviewer-offbyone", "grader": "reports-doc-rule-breach",
+    "case": "code-reviewer-offbyone",
+    "grader": "reports-doc-rule-breach",
+    "line": "follows-project-rule",
     "code": ["names-file-and-line", "follows-project-rule"],
     "keep": "DOC-RULE",
     "mention": "DOC-RULE|doc comment|undocumented|documented|/\\*\\*"
   },
   "measure-role-rule": {
-    "case": "critic-role-rule", "grader": "reports-role-rule-breach",
+    "case": "critic-role-rule",
+    "grader": "reports-role-rule-breach",
+    "line": "follows-role-rule",
     "code": ["follows-role-rule"],
     "keep": ".",
-    "mention": "ROLE-RULE|\\bamount\\b|\\bqty\\b|takeItem|\\bquantity\\b"
+    "mention": "ROLE-RULE|\\bamount\\b|\\bqty\\b|takeItem|\\bquantity\\b",
+    "known_wrong": ["no violation found for `amount`", "reads `amount` before it is validated"]
   },
   "measure-contradiction": {
-    "case": "spec-reviewer-flaw", "grader": "reports-the-contradiction",
+    "case": "spec-reviewer-flaw",
+    "grader": "reports-the-contradiction",
+    "line": "finds-the-contradiction",
     "code": ["finds-the-contradiction"],
     "keep": ".",
     "mention": "\\bD2\\b|shelf\\.json|\\.bad\\b|corrupt|damaged|contradict|disagree|conflict|design\\.md:1[1-3]|spec\\.md:1[5-8]|left as it is|left in place|moved aside"

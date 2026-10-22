@@ -10,3 +10,5 @@ no judge-measure/measure-role-rule/written/wrong-no-findings-checked.txt into te
 no judge-measure/measure-role-rule/written/wrong-respects.txt into templates/a.txt
 no judge-measure/measure-role-rule/written/wrong-satisfies.txt into templates/b.txt
 no judge-measure/measure-role-rule/written/wrong-passes.txt into templates/a.txt
+no judge-measure/measure-role-rule/written/wrong-no-violation-found.txt into templates/b.txt
+no judge-measure/measure-role-rule/written/wrong-reads-before-validated.txt into templates/a.txt

@@ -563,7 +563,7 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
 - Rev 5 (fixer) checked (scratchpad check-judge-v5.md): F1-F12 met; new
   1 MEDIUM N1 (composed "no" items keep a second mention) + 3 LOW, folded
   into the build brief (review limit reached; the build gets its own
-  whole-change review). Measurement: 49 items, 735 votes, ~$3.45.
+  whole-change review). Measurement: 58 items, 870 votes, ~$4.10 (haiku 1.07 + sonnet 3.02).
 - Build running: delegate:worker on brief-build-judge.md (no paid
   calls; gate log gate-judge.log). Next: review, fix, check, then the
   measurement, 6 live runs, the full paid run, owner's word on merge.

@@ -1,0 +1,1 @@
+No findings. `src/shelf.ts:27` reviewed.

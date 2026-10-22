@@ -63,7 +63,7 @@ for case in sorted(d for d in glob.glob("*/") if os.path.isdir(d + "graders")):
         name = os.path.basename(p).split("__")[0]
         if name in judged:
             rel = f"plugin/{p}"
-            ok(f"{p}: judged by the measurement") if any(rel in open(i, encoding="utf-8").read() for i in glob.glob("../judge-measure/*/items.txt")) else bad(f"{p}: named after the llm grader {name} but in no evals/judge-measure/*/items.txt")
+            ok(f"{p}: judged by the measurement") if any(len(l.split()) > 1 and l.split()[1] == rel for i in glob.glob("../judge-measure/*/items.txt") for l in open(i, encoding="utf-8").read().split("\n") if not l.lstrip().startswith("#")) else bad(f"{p}: named after the llm grader {name} but in no evals/judge-measure/*/items.txt")
             continue
         if name not in graders:
             bad(f"{p}: no regex grader named {name}")

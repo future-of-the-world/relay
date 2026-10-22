@@ -1,0 +1,12 @@
+Review of master...wt/take: the change adds one function with a doc comment to src/shelf.ts and two tests to src/shelf.test.ts. I read the diff and ran the new tests; both pass. 4 findings: 1 high, 2 medium, 1 low.
+
+- **F1 LOW** `src/shelf.ts:27`: `takeItem` reads `amount` before it is validated; see ROLE-RULE? no.
+- **F2 MEDIUM** `src/shelf.ts:27`: the error for taking more than is on the shelf says "not enough on the shelf" and names neither the item nor how many are there, so a caller that makes several calls cannot tell which one failed.
+- **F3 MEDIUM** `src/shelf.test.ts:30`: both new tests take from an item that exists. Nothing covers an unknown name or a request larger than the stock, although the code has a branch for each.
+- **F4 LOW** `src/shelf.ts:29`: the list is rebuilt with map and then filter, two passes for one change. Not a bug, and shelves are small.
+
+Nothing outside this change. The doc comment says what the function rejects, and it matches the code.
+
+Report: .worktrees/review.md
+
+Question for the owner: should taking from a name that is not on the shelf throw, as it does now through the stock check, or return the list unchanged?

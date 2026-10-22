@@ -23,8 +23,18 @@ def votes_text(votes):
     return " ".join("PASS" if v else "FAIL" for v in votes)
 
 
+def line_checks():
+    """{meaning grader: the code check whose line shows what it judged}, from questions.json (same pairing
+    as the measurement). Empty when the file is not there."""
+    try:
+        qs = json.load(open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "evals", "judge-measure", "questions.json"), encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {q["grader"]: q["line"] for q in qs.values() if q.get("grader") and q.get("line")}
+
+
 def judged_line(evidence, patterns):
-    """The first evidence line that the case's own code check matches, else the first 200 characters."""
+    """The first evidence line that one of the given code checks matches, else the first 200 characters."""
     text = evidence or ""
     for pat, flags in patterns:
         try:
@@ -39,16 +49,30 @@ def judged_line(evidence, patterns):
 
 def report(data, record_path):
     """Returns the lines to print."""
-    notes, fails, splits = [], [], 0
+    notes, fails, splits, unjudged = [], [], 0, 0
+    pairing = line_checks()
     if data.get("partial"):
         notes.append(f"    note: partial run: {data.get('partialReason', 'no reason given')}")
     for case in data.get("cases", []):
         llm = {g["name"] for g in case.get("graders", []) if g.get("type") == "llm"}
-        patterns = [(g.get("config", {}).get("pattern", ""), g.get("config", {}).get("flags", ""))
-                    for g in case.get("graders", []) if g.get("type") == "regex" and g.get("config", {}).get("pattern")]
+        regex = {g["name"]: (g.get("config", {}).get("pattern", ""), g.get("config", {}).get("flags", ""))
+                 for g in case.get("graders", []) if g.get("type") == "regex" and g.get("config", {}).get("pattern")}
+
+        def patterns_for(grader):
+            """The grader's own code check; only when none is named, every code check of the case in order."""
+            own = regex.get(pairing.get(grader))
+            return [own] if own else list(regex.values())
         flagged = {}
         for arm, runs in case.get("arms", {}).items():
             for n, run in enumerate(runs, 1):
+                if run.get("error"):
+                    unjudged += 1
+                    notes.append(f"    note: {case['name']} run {n}: the run errored ({str(run['error'])[:80]}), its graders were not judged")
+                    continue
+                present = {g.get("name") for g in run.get("graders", [])}
+                for name in sorted(llm - present):
+                    unjudged += 1
+                    notes.append(f"    note: {case['name']} run {n} {name}: not judged (no result for it in the run)")
                 for g in run.get("graders", []):
                     name = g["name"]
                     if name in RULE_FLAGS:
@@ -59,13 +83,14 @@ def report(data, record_path):
                         continue
                     votes = g.get("judgeVotes")
                     if not isinstance(votes, list) or len(votes) != 3:
+                        unjudged += 1
                         notes.append(f"    note: {case['name']} run {n} {name}: not judged (cost ceiling)")
                         continue
                     split = len(set(votes)) > 1
                     splits += split
                     if not g.get("passed"):
                         fails.append(f"    FAIL {case['name']} run {n} {name}: votes {votes_text(votes)}")
-                        fails.append(f"         judged: \"{judged_line(g.get('evidence'), patterns)}\"")
+                        fails.append(f"         judged: \"{judged_line(g.get('evidence'), patterns_for(name))}\"")
                         fails.append(f"         record: {record_path}")
                     if split:
                         notes.append(f"    note: {case['name']} run {n} {name} {'passed' if g.get('passed') else 'failed'} on a split vote ({votes_text(votes)})")
@@ -75,6 +100,7 @@ def report(data, record_path):
             notes.append(f"    note: {case['name']}: a session in the run read the rule file in {len(flagged)} of {runs_total} runs ({where}), "
                          f"so those runs do not prove the hook delivered it")
     head = f"ci: eval record: {sum(1 for l in fails if l.startswith('    FAIL'))} meaning grader(s) failed, {splits} split vote{'s' if splits != 1 else ''}"
+    head += f", {unjudged} not judged" if unjudged else ""
     return [head] + fails + notes
 
 

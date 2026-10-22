@@ -88,6 +88,53 @@ def fixture(votes_by_run, partial=None, flagged_runs=(), no_votes=False, evidenc
     return d
 
 
+EVIDENCE = ("- **F2 HIGH, DOC-RULE** `src/shelf.ts:30`: the exported function `pageCount` has no doc comment.\n"
+            "- src/shelf.ts:27: the end is correct\nmore")
+
+
+def real_case(runs):
+    """code-reviewer-offbyone as the eval tool lists it: the case's graders in file order (regex checks
+    first, follows-project-rule before names-file-and-line), the patterns read from the committed graders."""
+    def regex(n):
+        g = grader(os.path.join(PLUGIN, "code-reviewer-offbyone", "graders", n + ".md"))
+        return {"name": n, "type": "regex", "config": {"pattern": g["pattern"], "flags": g.get("flags", "")}}
+    return {"name": "code-reviewer-offbyone", "runsPerCase": len(runs),
+            "graders": [{"name": "agent-used", "type": "tool_used"}, regex("follows-project-rule"), regex("names-file-and-line"),
+                        {"name": "reports-doc-rule-breach", "type": "llm"}, {"name": "reports-off-by-one", "type": "llm"}],
+            "arms": {"with": runs}}
+
+
+def real_run(**failed):
+    gs = [{"name": n, "passed": not failed.get(n), "weight": 1, "judgeVotes": [False] * 3 if failed.get(n) else [True] * 3,
+           "explanation": "judge votes", "evidence": EVIDENCE} for n in ("reports-doc-rule-breach", "reports-off-by-one")]
+    return {"error": None, "graders": gs}
+
+
+class RecordRealShapes(unittest.TestCase):
+    """The tool's own shapes: both code checks of one case in file order, a run that threw (graders: [])."""
+    def setUp(self):
+        self.rec = load_record()
+
+    def report(self, runs):
+        return "\n".join(self.rec.report({"cases": [real_case(runs)]}, "~/rec.json"))
+
+    def test_each_failed_meaning_grader_shows_its_own_code_checks_line(self):
+        out = self.report([real_run(**{"reports-off-by-one": True})])
+        self.assertIn('judged: "- src/shelf.ts:27: the end is correct"', out); self.assertNotIn("pageCount", out)
+        out = self.report([real_run(**{"reports-doc-rule-breach": True})])
+        self.assertIn("judged: \"- **F2 HIGH, DOC-RULE** `src/shelf.ts:30`: the exported function `pageCount`", out); self.assertNotIn("the end is correct", out)
+
+    def test_a_run_that_threw_is_counted_not_judged_and_never_silent(self):
+        crashed = {"error": "scaffold_script failed", "graders": []}
+        out = self.report([real_run(), crashed, real_run()])
+        self.assertIn("1 not judged", out.split("\n")[0]); self.assertIn("run 2: the run errored (scaffold_script failed)", out)
+
+    def test_a_meaning_grader_missing_from_a_run_is_not_judged(self):
+        short = real_run(); short["graders"] = short["graders"][:1]
+        out = self.report([real_run(), short])
+        self.assertIn("1 not judged", out.split("\n")[0]); self.assertIn("run 2 reports-off-by-one: not judged", out)
+
+
 class Record(unittest.TestCase):
     def setUp(self):
         self.rec = load_record()

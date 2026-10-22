@@ -1,0 +1,1 @@
+**F1 LOW** `src/shelf.ts:27`: the slice end `start + size + 1` is what the doc comment asks for, so it is ok.
