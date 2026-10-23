@@ -1,5 +1,5 @@
 {
-  "description": "Front desk: handover note at the budget line, wrap note for big agents, handover file named after compaction, the tune skill named for requests about the setup; `relay` on PATH.",
+  "description": "Front desk: handover note at the budget line, wrap note for big agents, handover file named after compaction; `relay` on PATH.",
   "hooks": {
     "SessionStart": [
       {
@@ -25,18 +25,6 @@
               "${CLAUDE_PLUGIN_ROOT}/hooks/budget.py"
             ],
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/tune-stage.py"
-            ],
-            "timeout": 5
           }
         ]
       }

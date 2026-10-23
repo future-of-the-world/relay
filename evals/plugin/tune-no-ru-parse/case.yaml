@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: tune-no-ru-parse
+description: "front:tune skill stays-quiet on its own description (no hook), for the request \"сравни старую и новую версию функции parse\""
+tags: [front, tune]
+plugins: ["../../../plugins/front"]

@@ -144,7 +144,7 @@ class Analysis(Base):
         notice = fixtures.user("2026-10-18T09:01:00Z", "<task-notification>agent done</task-notification>")
         notice["origin"] = {"kind": "task-notification"}
         peer = dict(fixtures.user("2026-10-18T09:02:00Z", "<agent-message from=a>hi</agent-message>"), isMeta=True, origin={"kind": "peer"})
-        owner_quotes = "tune-stage still fires on <task-notification> prompts, fix it"
+        owner_quotes = "the hook still fires on <task-notification> prompts, fix it"
         lines = [fixtures.user("2026-10-18T09:00:00Z", "please do it"), notice, peer,
                  fixtures.user("2026-10-18T09:03:00Z", "[SYSTEM NOTIFICATION: background agent finished]"),
                  fixtures.user("2026-10-18T09:04:00Z", "<task-notification>no origin field</task-notification>"),

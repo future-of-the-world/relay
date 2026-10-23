@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: tune-no-price
+description: "front:tune skill stays-quiet on its own description (no hook), for the request \"It costs about $3.50\""
+tags: [front, tune]
+plugins: ["../../../plugins/front"]
