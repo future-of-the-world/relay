@@ -22,7 +22,9 @@ does not need; and the big model only where judgment is what is being bought.
   check to loop on, the decisions verbatim, and what is not decided. A group
   of related tasks shares one brief and one agent and runs in order.
 - No command blocks over 4 minutes (Bash `timeout` at most 240000 ms); a
-  longer job runs detached with a log, waited on in calls of at most 240 s.
+  longer job runs detached with a log, waited on in calls of at most 240 s
+  (a job over about 30 minutes, the paid `bin/ci`, is the front's: Bash
+  `run_in_background`, never a runner).
   A coordinator that must wait for others is a session of its own, not an
   agent. Don't resume an agent idle over 5 minutes: start a fresh one from
   the brief and the old report.

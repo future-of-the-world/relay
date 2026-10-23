@@ -1,6 +1,6 @@
 ---
 name: runner
-description: Runs one command, test, pipeline read or API call and returns the outcome in at most 3 lines, keeping the full output out of the main session. Use for creating or merging a pull request, reading a pipeline or an issue, running a test suite, a build, a deploy script, or any call whose output is long. Never edits code.
+description: Runs one command, test, pipeline read or API call and returns the outcome in at most 3 lines, keeping the full output out of the main session. Use for creating or merging a pull request, reading a pipeline or an issue, running a test suite, a build, a deploy script, or any call whose output is long. Takes a job of at most about 30 minutes; a longer one, such as the paid bin/ci, is the front's, run in the background. Never edits code.
 relay-tier: run
 model: haiku
 effort: low

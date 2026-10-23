@@ -163,6 +163,14 @@ class Record(unittest.TestCase):
         self.assertNotIn("2026-01-01T00-00-00Z-old.json", names)
         self.assertIn("2026-10-22T14-48-17Z-wt-role-bases.json", names)
 
+    def test_the_summary_line_ends_with_the_run_cost(self):
+        d = fixture([[True] * 3]); d["costUsd"] = 9.3149  # rounds to cents: $9.31
+        _, out = self.run_step(d)
+        self.assertIn("0 meaning grader(s) failed, 0 split votes, cost $9.31", out.split("\n")[0])
+        d.pop("costUsd")
+        _, out = self.run_step(d)
+        self.assertNotIn("cost $", out)
+
     def test_a_failed_grader_prints_votes_and_the_judged_line_matching_the_code_check(self):
         _, out = self.run_step(fixture([[True] * 3, [False, False, True], [True] * 3]))
         self.assertIn("1 meaning grader(s) failed, 1 split vote", out)
