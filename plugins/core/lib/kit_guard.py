@@ -37,13 +37,14 @@ previous directory, `popd` of an empty stack); the guard counts it as the main
 checkout. `cd -`, `pushd` and `popd` are tracked otherwise. Arithmetic
 (`$(( ))`, `(( ))`) is not a command. Not seen: a write made by a program's own
 code (`python3 -c "open(p, 'w')"`, `node -e`), a path or directory held in a
-shell variable, and a tar/zip written into main (only extraction is judged).
+shell variable of unknown value, and a tar/zip written into main (only extraction is judged).
 
-Paths in shell variables are not followed. An unquoted word such as `$S/f.md`
-is taken literally, as a path under the current directory (so `touch $F` is
-refused in the main checkout). A quoted word holding `$` or a backtick
-(`"$S/f.md"`) is skipped: a write to it is not refused, even when it lands in
-main.
+Paths in shell variables are followed when the value is known: a plain `NAME=value` (or `export NAME=value`)
+earlier in the same command, set once and nowhere else in it (no `+=`, `unset`, `read`, `for`, a second
+assignment), not after `&&` or `||`, in a pipe or in the background; or HOME, TMPDIR, USER from the environment
+this runs in. `M=<main>; touch $M/x` is judged as `touch <main>/x`. A word holding a variable whose value is not
+known (set in another call, `$(...)`, `${X:-d}`, `$1`), quoted or not, is skipped: a write to it is not refused,
+even when it lands in main.
 This catches slips, not a determined bypass.
 """
 import os
@@ -56,11 +57,12 @@ ENV_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 
 class Word:
-    __slots__ = ("text", "dynamic")
+    __slots__ = ("text", "dynamic", "has_var")
 
-    def __init__(self, text, dynamic):
+    def __init__(self, text, dynamic, has_var=False):
         self.text = text
-        self.dynamic = dynamic
+        self.dynamic = dynamic  # holds a command substitution, arithmetic or a backtick: never resolved
+        self.has_var = has_var  # holds an unquoted or double-quoted `$NAME`: resolved when its value is known
 
 
 class Frame:
@@ -70,6 +72,7 @@ class Frame:
         self.buf = []
         self.has_word = False
         self.dynamic = False
+        self.has_var = False
         self.start = start
         self.pending = None  # "redir" (a write target follows) or "skip" (an input follows)
         self.masked = []  # (offset, length) of quoted spans, for masking
@@ -77,7 +80,7 @@ class Frame:
     def end_word(self):
         if not self.has_word:
             return
-        w = Word("".join(self.buf), self.dynamic)
+        w = Word("".join(self.buf), self.dynamic, self.has_var)
         if self.pending == "redir":
             self.redirs.append(w)
         elif self.pending == "skip":
@@ -85,7 +88,7 @@ class Frame:
         else:
             self.words.append(w)
         self.pending = None
-        self.buf, self.has_word, self.dynamic = [], False, False
+        self.buf, self.has_word, self.dynamic, self.has_var = [], False, False, False
 
 
 def mask_text(raw):
@@ -149,7 +152,9 @@ def parse(cmd):
     def flush(f, end):
         f.end_word()
         if f.words or f.redirs:
-            return ("cmd", (f.words, f.redirs, cmd[f.start:end]))
+            before = re.search(r"[;&|\n]*\Z", cmd[:f.start]).group(0)
+            after = re.match(r"[ \t]*([;&|\n]*)", cmd[end:]).group(1)
+            return ("cmd", (f.words, f.redirs, cmd[f.start:end], (before, after)))
         return None
 
     while i < n:
@@ -164,10 +169,14 @@ def parse(cmd):
         elif c == '"':
             j, parts = i + 1, []
             while j < n and cmd[j] != '"':
+                escaped = False
                 if cmd[j] == "\\" and j + 1 < n:
                     j += 1
-                if cmd[j] in "$`":
+                    escaped = True
+                if cmd[j] == "`" or (cmd[j] == "$" and not escaped and cmd.startswith("(", j + 1)):
                     f.dynamic = True
+                elif cmd[j] == "$" and not escaped:
+                    f.has_var = True
                 parts.append(cmd[j])
                 j += 1
             f.buf.append("".join(parts))
@@ -305,6 +314,8 @@ def parse(cmd):
                 f.pending = "redir"
                 i = j
         else:
+            if c == "$":
+                f.has_var = True
             f.buf.append(c)
             f.has_word = True
             i += 1
@@ -363,7 +374,7 @@ def strip_prefix(words):
     i = 0
     while i < len(words):
         t = words[i].text
-        if ENV_ASSIGN.match(t) and not words[i].dynamic:
+        if ENV_ASSIGN.match(t):
             i += 1
         elif t in WRAPPERS:
             i += 1
@@ -462,13 +473,38 @@ def git_write(sub, rest):
 class State:
     """The directory a shell is in, the one before it (`cd -`), and its pushd stack."""
 
-    def __init__(self, cur):
+    def __init__(self, cur, env=None):
         self.cur, self.prev, self.stack = cur, UNKNOWN, []
+        self.env = dict(env or {})  # variables assigned earlier in this command, with their literal values
 
     def copy(self):
-        c = State(self.cur)
+        c = State(self.cur, self.env)
         c.prev, c.stack = self.prev, list(self.stack)
         return c
+
+
+ENV_KNOWN = ("HOME", "TMPDIR", "USER")
+VAR_REF = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
+
+
+def expand(word, lookup):
+    """The word with its `$NAME` / `${NAME}` replaced by their known values. A word that holds a variable
+    with no known value (or a form like `${X:-d}`, `$1`, `$?`) comes back dynamic, so it is skipped."""
+    if not word.has_var:
+        return word
+    failed = []
+
+    def sub(m):
+        v = lookup(m.group(1) or m.group(2))
+        if v is None:
+            failed.append(1)
+            return ""
+        return v
+
+    text = VAR_REF.sub(sub, word.text)
+    if failed or "$" in VAR_REF.sub("", word.text):
+        return Word(word.text, True)
+    return Word(text, word.dynamic)
 
 
 def positional(name, args):
@@ -565,12 +601,43 @@ def shell_writes(name, args, paths, cur, via_xargs):
     return []
 
 
-def analyze(cmd, cwd, flags, depth=0, merges=None):
+def analyze(cmd, cwd, flags, depth=0, merges=None, env=None):
     out = []
-    states = [State(cwd)]
+    inherited = set(env or {})  # variables set by the command that runs this string
+    states = [State(cwd, env)]
 
-    def simple(words, redirs, raw, st, via_xargs=False):
+    def trusted(name):
+        """True when `name` is set once, by a plain `NAME=value` and nowhere else in this command (no `+=`,
+        `unset`, `read`, `for`, `declare`, a function body, a second assignment): then the order of the parts
+        decides its value. A name held from an outer command must not appear in this one at all."""
+        hits = [m for m in re.finditer(r"(?<![A-Za-z0-9_$])(?<!\$\{)" + re.escape(name) + r"(?![A-Za-z0-9_])", cmd)]
+        if name in inherited:
+            return not hits
+        if not hits:
+            return True
+        m = hits[0]
+        return len(hits) == 1 and cmd.startswith("=", m.end()) and (m.start() == 0 or cmd[m.start() - 1] in " \t;&|(\n")
+
+    def lookup(st, name):
+        if name in st.env:
+            return st.env[name] if trusted(name) else None
+        if name in ENV_KNOWN and trusted(name):
+            return os.environ.get(name) or None
+        return None
+
+    def simple(words, redirs, raw, st, via_xargs=False, around=("", "")):
         cur = st.cur
+        words = [expand(w, lambda n: lookup(st, n)) for w in words]
+        redirs = [expand(w, lambda n: lookup(st, n)) for w in redirs]
+        # `NAME=value` and `export NAME=value` (a literal value) set a variable for the parts that follow
+        body = words[1:] if words and words[0].text == "export" else words
+        if body and all(ENV_ASSIGN.match(w.text) for w in body):
+            # an assignment that does not always run before the next part (after && or ||, in a pipe, in the
+            # background) or whose value is not a plain literal leaves the variable unknown
+            sure = around[0].strip("\n;") == "" and around[1] not in ("&", "|")
+            for w in body:
+                name, _, value = w.text.partition("=")
+                st.env[name] = value if sure and not w.dynamic and "$" not in value else None
         real = strip_prefix(words)
         name = os.path.basename(real[0].text) if real else ""
         d = cur
@@ -629,9 +696,9 @@ def analyze(cmd, cwd, flags, depth=0, merges=None):
             if name in SHELLS:
                 k = next((k for k, w in enumerate(real) if k > 0 and re.match(r"^-[A-Za-z]*c[A-Za-z]*$", w.text)), None)
                 if k is not None and k + 1 < len(real):
-                    out.extend(analyze(real[k + 1].text, cur, flags, depth + 1, merges))
+                    out.extend(analyze(real[k + 1].text, cur, flags, depth + 1, merges, st.env))
             elif name == "eval" and len(real) > 1:
-                out.extend(analyze(" ".join(w.text for w in real[1:]), cur, flags, depth + 1, merges))
+                out.extend(analyze(" ".join(w.text for w in real[1:]), cur, flags, depth + 1, merges, st.env))
             elif name == "xargs":
                 k = 1
                 while k < len(real) and real[k].text.startswith("-"):
@@ -667,8 +734,8 @@ def analyze(cmd, cwd, flags, depth=0, merges=None):
             if len(states) > 1:
                 states.pop()
             continue
-        words, redirs, raw = payload
-        simple(words, redirs, raw, states[-1])
+        words, redirs, raw, around = payload
+        simple(words, redirs, raw, states[-1], around=around)
     return out
 
 

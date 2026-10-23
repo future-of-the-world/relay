@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Differential test of hooks/guard-main.sh: every command in guard-diff.golden.jsonl must get the verdict the guard
-# at master 6a4b713 gave it (the "was" field: block or allow). That guard does not follow paths in shell variables, so
-# a command holding $VAR, $(...) or a backtick is judged by the directory it runs in; this test fails if a variable
-# is ever followed again (a command that was refused starts to pass, or the reverse).
+# at master 6a4b713 gave it (the "was" field: block or allow), except for the 37 commands whose variable has a known
+# value (guard-variable-paths): "was" holds the verdict of the guard that follows a variable set once by a plain
+# assignment. Any other command holding $VAR, $(...) or a backtick is judged by the directory it runs in; this test
+# fails if a variable is followed in any other case (a command that was refused starts to pass, or the reverse).
 # The commands: the 28-command list of review 1, review 2's R1/R2 cases, review 3's M1/M2/S3 cases, and every
 # Bash input of the guard-main suite (before the variable tests were dropped). Placeholders in cwd and cmd:
 # @M@ the main checkout, @W@ its worktree .worktrees/any-change, @A@ its worktree .worktrees/a, @T@ a temp dir.

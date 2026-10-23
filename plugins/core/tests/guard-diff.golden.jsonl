@@ -18,21 +18,21 @@
 {"cwd":"@A@","cmd":"W=@M@; unset W; git -C \"$W\" commit -m x","was":"allow"}
 {"cwd":"@M@","cmd":"git -C \"${W:-.}\" commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"mkdir -p \"$S\" && touch \"$S/file\"","was":"allow"}
-{"cwd":"@M@","cmd":"bash -c 'W=@A@; git -C $W commit -m x'","was":"block"}
+{"cwd":"@M@","cmd":"bash -c 'W=@A@; git -C $W commit -m x'","was":"allow"}
 {"cwd":"@M@","cmd":"W=@A@ bash -c 'git -C $W commit -m x'","was":"block"}
-{"cwd":"@M@","cmd":"export W=@A@; bash -c 'git -C $W commit -m x'","was":"block"}
+{"cwd":"@M@","cmd":"export W=@A@; bash -c 'git -C $W commit -m x'","was":"allow"}
 {"cwd":"@M@","cmd":"cd @A@ && W2=$PWD && cd @M@ && git -C $W2 commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"W=\"@A@\" && git -C \"$W\" commit -m x","was":"block"}
-{"cwd":"@A@","cmd":"W='@M@' && git -C \"$W\" commit -m x","was":"allow"}
-{"cwd":"@A@","cmd":"W=\"@M@\" && git -C \"$W\" commit -m x","was":"allow"}
+{"cwd":"@M@","cmd":"W=\"@A@\" && git -C \"$W\" commit -m x","was":"allow"}
+{"cwd":"@A@","cmd":"W='@M@' && git -C \"$W\" commit -m x","was":"block"}
+{"cwd":"@A@","cmd":"W=\"@M@\" && git -C \"$W\" commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"git -C $W commit -m x # W unset at runtime, cwd main","was":"block"}
-{"cwd":"@M@","cmd":"cd .worktrees/$NAME && git commit -m x","was":"allow"}
+{"cwd":"@M@","cmd":"cd .worktrees/$NAME && git commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"git -C \".worktrees/$T\" commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"git -C .worktrees/a/$(echo ../..) commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"cd \".worktrees/a/$(printf ../..)\" && git reset --hard","was":"block"}
-{"cwd":"@M@","cmd":"git -C .worktrees/${T:-a} commit -m x","was":"allow"}
+{"cwd":"@M@","cmd":"git -C .worktrees/${T:-a} commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"cd .worktrees/a`echo /../..` && git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"echo hi > .worktrees/$N/../../README.md","was":"block"}
+{"cwd":"@M@","cmd":"echo hi > .worktrees/$N/../../README.md","was":"allow"}
 {"cwd":"@M@","cmd":"echo hi > .worktrees/a/$(echo ../..)/README.md","was":"allow"}
 {"cwd":"@M@","cmd":"cp x .worktrees/$N","was":"allow"}
 {"cwd":"@M@","cmd":"rm -rf .worktrees/a/$X/../../src","was":"allow"}
@@ -47,8 +47,8 @@
 {"cwd":"@M@","cmd":"export W=@A@; export -n W; git -C $W commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"W=@A@; f() { W=.; }; f; git -C $W commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"W=@A@; W=. true; git -C $W commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"W=@A@; cd $W; git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"W=@A@; cd \"$W\" && git commit -m x","was":"block"}
+{"cwd":"@M@","cmd":"W=@A@; cd $W; git commit -m x","was":"allow"}
+{"cwd":"@M@","cmd":"W=@A@; cd \"$W\" && git commit -m x","was":"allow"}
 {"cwd":"@M@","cmd":"declare W=@A@; git -C $W commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"W=@A@; export W=. ; git -C $W commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"W=@A@; eval W=.; git -C $W commit -m x","was":"block"}
@@ -68,30 +68,30 @@
 {"cwd":"@M@","cmd":"echo hi > \"$TMPDIR/x.log\"","was":"allow"}
 {"cwd":"@M@","cmd":"make 2> \"$(mktemp)\"","was":"allow"}
 {"cwd":"@M@","cmd":"echo x >> \"$CLAUDE_ENV_FILE\"","was":"allow"}
-{"cwd":"@M@","cmd":"S=@T@; echo hi > $S/f.txt","was":"block"}
+{"cwd":"@M@","cmd":"S=@T@; echo hi > $S/f.txt","was":"allow"}
 {"cwd":"@M@","cmd":"S=@T@; echo hi > \"$S/f.txt\" 2>&1","was":"allow"}
 {"cwd":"@M@","cmd":"wc -l < \"$F\"","was":"allow"}
 {"cwd":"@M@","cmd":"tee \"$F\" < /dev/null","was":"allow"}
-{"cwd":"@M@","cmd":"tee .worktrees/$N/../../README.md < /dev/null","was":"block"}
+{"cwd":"@M@","cmd":"tee .worktrees/$N/../../README.md < /dev/null","was":"allow"}
 {"cwd":"@M@","cmd":"sed -i s/a/b/ \"$F\"","was":"allow"}
-{"cwd":"@A@","cmd":"M2=@M@; eval \"echo $M2\"; git -C $M2 commit -m x","was":"allow"}
-{"cwd":"@A@","cmd":"M2=@M@; git -C $M2 commit -m x","was":"allow"}
+{"cwd":"@A@","cmd":"M2=@M@; eval \"echo $M2\"; git -C $M2 commit -m x","was":"block"}
+{"cwd":"@A@","cmd":"M2=@M@; git -C $M2 commit -m x","was":"block"}
 {"cwd":"@A@","cmd":"M2=@M@; git config --unset M2; git -C $M2 commit -m x","was":"allow"}
 {"cwd":"@A@","cmd":"M2=@M@; ls ~/.local M2; git -C $M2 commit -m x","was":"allow"}
 {"cwd":"@A@","cmd":"M2=@M@; declare M2; git -C $M2 commit -m x","was":"allow"}
 {"cwd":"@A@","cmd":"echo hi > \"$HOME/x\"","was":"allow"}
-{"cwd":"@M@","cmd":"rm -rf $X/a","was":"block"}
-{"cwd":"@M@","cmd":"cp a $X/","was":"block"}
-{"cwd":"@M@","cmd":"touch $F","was":"block"}
-{"cwd":"@M@","cmd":"tee $F < /dev/null","was":"block"}
-{"cwd":"@M@","cmd":"mkdir -p $D/sub","was":"block"}
-{"cwd":"@M@","cmd":"rm -rf ${X}/src","was":"block"}
-{"cwd":"@M@","cmd":"dd if=/dev/zero of=$F count=1","was":"block"}
-{"cwd":"@M@","cmd":"echo hi > $F","was":"block"}
-{"cwd":"@M@","cmd":"rm -rf $X","was":"block"}
-{"cwd":"@M@","cmd":"rm -rf $PWD/src","was":"block"}
-{"cwd":"@M@","cmd":"cp new.md $PWD/README.md","was":"block"}
-{"cwd":"@M@","cmd":"tee $PWD/README.md < /dev/null","was":"block"}
+{"cwd":"@M@","cmd":"rm -rf $X/a","was":"allow"}
+{"cwd":"@M@","cmd":"cp a $X/","was":"allow"}
+{"cwd":"@M@","cmd":"touch $F","was":"allow"}
+{"cwd":"@M@","cmd":"tee $F < /dev/null","was":"allow"}
+{"cwd":"@M@","cmd":"mkdir -p $D/sub","was":"allow"}
+{"cwd":"@M@","cmd":"rm -rf ${X}/src","was":"allow"}
+{"cwd":"@M@","cmd":"dd if=/dev/zero of=$F count=1","was":"allow"}
+{"cwd":"@M@","cmd":"echo hi > $F","was":"allow"}
+{"cwd":"@M@","cmd":"rm -rf $X","was":"allow"}
+{"cwd":"@M@","cmd":"rm -rf $PWD/src","was":"allow"}
+{"cwd":"@M@","cmd":"cp new.md $PWD/README.md","was":"allow"}
+{"cwd":"@M@","cmd":"tee $PWD/README.md < /dev/null","was":"allow"}
 {"cwd":"@A@","cmd":"rm -rf $PWD/src","was":"allow"}
 {"cwd":"@A@","cmd":"touch $F","was":"allow"}
 {"cwd":"@M@","cmd":"touch \"$F\"","was":"allow"}
@@ -100,7 +100,7 @@
 {"cwd":"@M@","cmd":"acton build","was":"allow"}
 {"cwd":"@M@","cmd":"ALIX_EXCHANGE_KEY=x mix test --only venue","was":"allow"}
 {"cwd":"@M@","cmd":"bash -c 'git status'","was":"allow"}
-{"cwd":"@M@","cmd":"bash -c 'V=@W@; git -C $V commit -m x'","was":"block"}
+{"cwd":"@M@","cmd":"bash -c 'V=@W@; git -C $V commit -m x'","was":"allow"}
 {"cwd":"@M@","cmd":"bash -c \"git commit -m x\"","was":"block"}
 {"cwd":"@M@","cmd":"bin/ci --check","was":"allow"}
 {"cwd":"@M@","cmd":"bin/wt new foo master","was":"allow"}
@@ -151,11 +151,11 @@
 {"cwd":"@M@","cmd":"echo 'a > b' && grep -n \"x > y\" README.md","was":"allow"}
 {"cwd":"@M@","cmd":"echo $(( 3 > 2 ))","was":"allow"}
 {"cwd":"@M@","cmd":"echo $(git -C @W@ rev-parse HEAD) && git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"echo hi > .worktree/$N/../../README.md","was":"block"}
+{"cwd":"@M@","cmd":"echo hi > .worktree/$N/../../README.md","was":"allow"}
 {"cwd":"@M@","cmd":"echo hi > src/x.ts","was":"block"}
 {"cwd":"@M@","cmd":"echo hi >> README.md","was":"block"}
 {"cwd":"@M@","cmd":"echo hi | tee notes.md","was":"block"}
-{"cwd":"@M@","cmd":"export V=@W@; bash -c 'git -C $V commit -m x'","was":"block"}
+{"cwd":"@M@","cmd":"export V=@W@; bash -c 'git -C $V commit -m x'","was":"allow"}
 {"cwd":"@M@","cmd":"find src -delete","was":"block"}
 {"cwd":"@M@","cmd":"find src -name '*.ts' -print","was":"allow"}
 {"cwd":"@M@","cmd":"for ((i=0;i<3;i++)); do echo $i; done","was":"allow"}
@@ -223,7 +223,7 @@
 {"cwd":"@M@","cmd":"rsync -a @W@/ src/","was":"block"}
 {"cwd":"@M@","cmd":"rsync -a src/ @W@/src/","was":"allow"}
 {"cwd":"@M@","cmd":"RUST_BACKTRACE=1 cargo test","was":"allow"}
-{"cwd":"@M@","cmd":"S=@W@/out; mkdir -p ${S}/x","was":"block"}
+{"cwd":"@M@","cmd":"S=@W@/out; mkdir -p ${S}/x","was":"allow"}
 {"cwd":"@M@","cmd":"sed -i '' 's/a/b/' README.md","was":"block"}
 {"cwd":"@M@","cmd":"sh -c 'cd . && git reset --hard HEAD~1'","was":"block"}
 {"cwd":"@M@","cmd":"T=any-change && cd .worktree/${T} && git commit -m x","was":"block"}
@@ -241,7 +241,7 @@
 {"cwd":"@M@","cmd":"unzip -l x.zip","was":"allow"}
 {"cwd":"@M@","cmd":"unzip -o x.zip -d @W@","was":"allow"}
 {"cwd":"@M@","cmd":"unzip -o x.zip","was":"block"}
-{"cwd":"@M@","cmd":"V=@W@ && git -C $V add -A","was":"block"}
+{"cwd":"@M@","cmd":"V=@W@ && git -C $V add -A","was":"allow"}
 {"cwd":"@M@","cmd":"V=@W@; bash -c 'unset V; git -C $V commit -m x'","was":"block"}
 {"cwd":"@M@","cmd":"V=@W@; declare V=.; git -C $V commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"V=@W@; eval V=.; git -C $V commit -m x","was":"block"}
@@ -252,12 +252,12 @@
 {"cwd":"@M@","cmd":"V=@W@; printf -v V .; git -C $V commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"V=@W@; read V <<< .; git -C $V commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"V=@W@; typeset V=.; git -C $V commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"V=@W@; unset U; git -C $V commit -m x","was":"block"}
+{"cwd":"@M@","cmd":"V=@W@; unset U; git -C $V commit -m x","was":"allow"}
 {"cwd":"@M@","cmd":"V=@W@; unset V; git -C $V commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"V=@W@; V+=/../..; git -C $V commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"V=@W@; while true; do V=.; break; done; git -C $V commit -m x","was":"block"}
 {"cwd":"@W@","cmd":"(cd @M@ && git status); git commit -m x","was":"allow"}
-{"cwd":"@W@","cmd":"A=@M@; B=$A; git -C $B commit -m x","was":"allow"}
+{"cwd":"@W@","cmd":"A=@M@; B=$A; git -C $B commit -m x","was":"block"}
 {"cwd":"@W@","cmd":"bash -x scripts/release.sh","was":"block"}
 {"cwd":"@W@","cmd":"bun add --cwd @M@ zod","was":"block"}
 {"cwd":"@W@","cmd":"bun add @tauri-apps/api","was":"allow"}
@@ -276,14 +276,14 @@
 {"cwd":"@W@","cmd":"curl -v -H \"X-BAPI-API-KEY: $ALIX_EXCHANGE_KEY\" https://api-demo.bybit.com/v5/account","was":"block"}
 {"cwd":"@W@","cmd":"curl -v https://api-demo.bybit.com/v5/market/time","was":"allow"}
 {"cwd":"@W@","cmd":"curl -v https://registry.npmjs.org/preact","was":"allow"}
-{"cwd":"@W@","cmd":"D=@M@; echo hi > $D/x.txt","was":"allow"}
+{"cwd":"@W@","cmd":"D=@M@; echo hi > $D/x.txt","was":"block"}
 {"cwd":"@W@","cmd":"echo \"home is $HOME\"","was":"allow"}
 {"cwd":"@W@","cmd":"echo hi > @M@/src/x.ts","was":"block"}
 {"cwd":"@W@","cmd":"echo hi > src/x.ts && rm -f src/x.ts","was":"allow"}
 {"cwd":"@W@","cmd":"env | sort","was":"block"}
 {"cwd":"@W@","cmd":"env FOO=1 ls","was":"allow"}
 {"cwd":"@W@","cmd":"export -p","was":"block"}
-{"cwd":"@W@","cmd":"export R=@M@; cd $R && git commit -m x","was":"allow"}
+{"cwd":"@W@","cmd":"export R=@M@; cd $R && git commit -m x","was":"block"}
 {"cwd":"@W@","cmd":"git -C @M@ merge wt/foo","was":"block"}
 {"cwd":"@W@","cmd":"git -C @W@ stash","was":"block"}
 {"cwd":"@W@","cmd":"git -C \"$W\" commit -m x && cd $X && git commit -m y","was":"allow"}
@@ -303,7 +303,7 @@
 {"cwd":"@W@","cmd":"popd; git commit -m x","was":"block"}
 {"cwd":"@W@","cmd":"printenv","was":"block"}
 {"cwd":"@W@","cmd":"rsync -a host:/data/ out/","was":"allow"}
-{"cwd":"@W@","cmd":"S=@M@/src && mkdir -p $S/x","was":"allow"}
+{"cwd":"@W@","cmd":"S=@M@/src && mkdir -p $S/x","was":"block"}
 {"cwd":"@W@","cmd":"set -euxo pipefail; curl -s https://example.com","was":"block"}
 {"cwd":"@W@","cmd":"set -x; ./probe.sh","was":"block"}
-{"cwd":"@W@","cmd":"V=@M@ && git -C \"$V\" add -A","was":"allow"}
+{"cwd":"@W@","cmd":"V=@M@ && git -C \"$V\" add -A","was":"block"}

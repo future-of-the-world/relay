@@ -92,8 +92,19 @@ EOF"
   t allow "redirect to /dev/null"      Bash "$M" command "ls > /dev/null 2>&1"
   t allow "stderr to stdout"           Bash "$M" command "ls 2>&1 | head -3"
   t allow "git-ignored log in main"    Bash "$M" command "mkdir -p .ci && echo ok > .ci/ci.log"
-  t block "unquoted \$F is a literal path under main"  Bash "$M" command 'touch $F'
-  t allow "quoted \$F is skipped"                      Bash "$M" command 'touch "$F"'
+  t allow "unquoted unknown \$F is skipped"            Bash "$M" command 'touch $F'
+  t allow "quoted unknown \$F is skipped"              Bash "$M" command 'touch "$F"'
+  # variables with a known value are judged by where they point
+  t allow "variable path outside main (brief case)"    Bash "$M" command "S=$tmp/scratch; mkdir -p \$S/briefs \$S/reports; cat > \$S/drop.toml <<'EOF'
+x = 1
+EOF"
+  t block "variable pointing into main, from a worktree"  Bash "$W"   command "X=$M; touch \$X/x"
+  t block "quoted variable pointing into main"         Bash "$W"   command "X=$M; touch \"\$X/x\""
+  t block "export and braces, path in main" Bash "$W"   command "export X=$M && touch \${X}/x"
+  t allow "git -C var to a worktree, relative"         Bash "$M" command "G=$WD/any-change; git -C \$G commit -m x"
+  t block "git -C var to main"                         Bash "$W" command "G=$M; git -C \$G commit -m x"
+  t allow "TMPDIR from the hook environment"           Bash "$M" command 'touch $TMPDIR/x'
+  t allow "variable assigned twice is not followed"      Bash "$tmp" command "X=$tmp/ok; X=$M; touch \$X/x"
   t allow "redirect in a worktree"     Bash "$W" command "echo hi > src/x.ts && rm -f src/x.ts"
   t allow "redirect into a worktree from main" Bash "$M" command "cp README.md $W/README.copy"
   t allow "quoted > is no redirect"    Bash "$M" command "echo 'a > b' && grep -n \"x > y\" README.md"
