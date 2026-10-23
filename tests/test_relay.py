@@ -1729,12 +1729,25 @@ class TestTasteRule(unittest.TestCase):
         import relay_config
         return relay_config.read_toml(os.path.join(ROOT, "projects.toml"))
 
-    def test_rule_has_the_shape_and_the_counting_marker(self):
+    def test_rule_has_the_shape(self):
         import relay_rules
-        rule = relay_rules.rules()["taste"]
-        self.assertEqual(rule["title"], "Taste (experimental)")
-        for phrase in ("Waste is wrong", "the reviewer lists the waste", "the front lists the waste", "`taste: <change>`", "5 distinct"):
-            self.assertIn(phrase, rule["gist"] + rule["body"])
+        self.assertEqual(relay_rules.rules()["taste"]["title"], "Taste (experimental)")
+
+    def test_global_file_does_not_list_taste_but_still_lists_the_others(self):
+        # F2: a rule only relay loads stays out of the global read list; the rest of the list is unchanged
+        import relay_rules, relay_config
+        text = relay_rules.render_target("global", self._targets()["global"], relay_rules.rules(), relay_config.active_profile())
+        self.assertNotIn("Taste", text)
+        for title in ("OpenSpec", "Product work", "Quality gate", "Work queue", "Structured data"):
+            self.assertIn(f"**{title}", text)
+
+    def test_a_new_rule_still_reaches_the_global_read_list(self):
+        import relay_rules
+        rules = {"a": {"title": "A", "gist": "g.", "body": "b", "path": "/x/a.md"},
+                 "b": {"title": "B", "gist": "g.", "body": "b", "path": "/x/b.md"}}
+        text = relay_rules.render_target("global", {"load": [], "skip": ["b"]}, rules, {})
+        self.assertIn("**A**", text)
+        self.assertNotIn("**B**", text)
 
     def test_only_the_relay_target_loads_it(self):
         # relay is the one project target whose load names taste; the global profile loads none of it

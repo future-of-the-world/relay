@@ -63,7 +63,7 @@ def render_target(name, spec, all_rules, profile):
             raise Fail(f"{name}: unknown rule '{r}'")
     read = spec.get("read")
     if read is None:
-        read = [r for r in all_rules if r not in load]
+        read = [r for r in all_rules if r not in load and r not in spec.get("skip", [])]
     out = [MARK, "", f"# {spec.get('title', 'Rules this project loads')}", ""]
     if spec.get("intro"):
         out += [spec["intro"].strip(), ""]
