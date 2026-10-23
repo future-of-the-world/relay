@@ -90,7 +90,7 @@ default branch; its message says what to run (a runner takes the default branch
 or runs the gate again). When the change edited agent, skill, role or rule
 texts, run the full paid `bin/ci` yourself first (no approval needed, within the
 owner's daily cap on paid runs) and report its cost on the screen. It takes
-about 45-50 minutes, more than a runner's turns cover, so never a runner: start it
+longer than the ~40 minutes a runner's turns cover, so never a runner: start it
 with Bash `run_in_background` into a log in the scratchpad (no `&`, no polling;
 the harness tells you when it exits) and, when told, read only the log's last lines.
 
