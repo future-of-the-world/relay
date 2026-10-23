@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 95,
+  "time": 60,
+  "found": "2026-10-24",
+  "found_in": "relay queue add",
+  "title": "Queue items store state instead of dated events",
+  "what": [
+    "An item's state is kept three times (the state field, the done/ folder, the filled fields) and nothing checks they agree; closed_by always equals taken_by (done refuses another branch); no field says when an item was taken, closed or dropped, and release erases who took it. Replace state and closed_by with taken_at/taken_by, closed_at (+ test), dropped_at (+ dropped_why), UTC timestamps; state is computed (dropped_at -> dropped, closed_at -> done, taken_at -> taken, else open). Rules: found <= taken_at <= closed_at; closed_at needs a test; dropped_at needs dropped_why and no closed_at; a file is in done/ exactly when closed_at or dropped_at is set. A one-time script fills the dates of the existing items from git history."
+  ],
+  "why": [
+    "The owner, 24 Oct: \"Я мыслю категорией - если мы можем предотватить сценарий где оно ломается, то лучше это сделать\"; \"При проектировании баз данных я сам категорически против полей status, они ничего не дают и их легко посчитать исходя из \"реального\" состояния объекта\"; \"Вместо updated_at я помечаю событийно - closed_at, taken_at, dropped_at, у полей так же есть правила валидации\"; \"Мы конечно всё ещё сможем найти дату изменения по git - но это неудобно делать с помощью аналитических скриптов\". Picks: \"а а\" (event fields with the done/ folder kept and checked; ip 95)."
+  ],
+  "failing_case": [
+    "A file with \"state\": \"open\" and \"taken_by\": \"wt/x\" passes check() today (lib/relay_queue.py:60-96 checks only that state is one of four words), so `relay queue` lists it as open while a branch holds it; and \"how long did runner-turns-while-waiting wait between found and taken\" cannot be answered from its file (no taken_at), only by parsing git log."
+  ],
+  "pass_cases": [
+    "check() refuses an item whose fields contradict (closed_at without a test, closed_at before taken_at, dropped_at with closed_at, a done/ file without closed_at or dropped_at); take, release, done and drop write the matching *_at field; every existing item after migration carries the dates git gives; queue views compute state from the fields; no file holds a state key."
+  ],
+  "where": "lib/relay_queue.py, lib/queue_ext/, tests/test_queue.py, .relay/queue/",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
