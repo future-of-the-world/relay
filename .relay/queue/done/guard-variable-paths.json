@@ -1,6 +1,6 @@
 {
   "kind": "fix",
-  "state": "taken",
+  "state": "done",
   "ip": 99,
   "time": 15,
   "found": "2026-10-22",
@@ -17,7 +17,7 @@
   ],
   "where": "plugins/core/hooks/guard-main.sh:39",
   "taken_by": "wt/guard-batch",
-  "closed_by": "",
-  "test": "",
+  "closed_by": "wt/guard-batch",
+  "test": "plugins/core/tests/guard-main.test.sh::git -C var to a worktree, relative",
   "dropped_why": null
 }
