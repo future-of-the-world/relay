@@ -1,0 +1,20 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 0,
+  "time": 20,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Replies in the owner's native language",
+  "what": [
+    "The \"Working with me\" text in relay says, softly, that the front answers the owner in the owner's native language; the model detects it or asks once directly. Code, file names, commits and project docs stay English; the owner's words are recorded verbatim. Where the native language is known it is kept as a user fact so detection does not depend on the language of each message."
+  ],
+  "why": [
+    "The owner, verbatim: \"My native lang is russian - I don't like speak in English\"; then \"a - can we fix this in relay, but not hard rules, use native language term for this, model can detect or ask directly\"."
+  ],
+  "where": "rules/ (the \"Working with me\" rule), memory",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
