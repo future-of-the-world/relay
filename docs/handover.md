@@ -736,3 +736,8 @@ STATE 22 Oct, part 1 built and checked (session 0b953f5c):
 - Worktrees work-queue and review-fix removed; `.worktrees/review-gate`
   stays locked for the running session.
 - The to-do list is `relay queue`.
+
+Owner decisions, 23 Oct after the merge ("1a 2c"):
+- 1a: before the owner's new relay + OpenSpec project, a trial run of one tiny OpenSpec change from setup to merge, in a fresh session (queue item `trial-run-one-openspec-change-from-setup-to-merg`, ip 99). Reason: nobody checked that the OpenSpec reviews produce the checker mark the merge now needs.
+- 2c: leave ALIX's `CLAUDE.local.md` as it is; `relay sync` skips it with a warning, which is expected. Do not ask again.
+- NEXT: a fresh relay session takes the trial-run queue item.
