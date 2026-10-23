@@ -1,6 +1,6 @@
 {
   "kind": "fix",
-  "state": "open",
+  "state": "dropped",
   "ip": 96,
   "time": 30,
   "found": "2026-10-23",
@@ -22,5 +22,7 @@
   "taken_by": "",
   "closed_by": "",
   "test": "",
-  "dropped_why": null
+  "dropped_why": [
+    "\"a\" (owner, 23 Oct, choosing: replace the three patch items with one redesign: one record per change, one reader)"
+  ]
 }
