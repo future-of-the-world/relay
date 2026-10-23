@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 98,
+  "time": 20,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "A new OpenSpec project silently has no OpenSpec skills",
+  "what": [
+    "relay setup installs the flow plugins it enables (claude plugin install sdd@relay --scope project) or says plainly what to run; relay doctor <project> checks that the plugins the project enables are installed."
+  ],
+  "why": [
+    "relay setup --flow openspec switches sdd@relay on in the project settings but nothing installs it, so the owner opens the new project and the plan, spec-review, apply and archive skills are missing with no message."
+  ],
+  "failing_case": [
+    "Trial 2026-10-23: on this Mac only sdd@principles was installed (no sdd@relay in the installed plugins); relay setup <folder> --flow openspec ended with Done and no warning, and a session in the folder had no sdd skills until claude plugin install sdd@relay --scope project was run. relay doctor <folder> checks only the user-level core/observe/delegate/front plugins."
+  ],
+  "pass_cases": [
+    "After setup --flow openspec the project has sdd@relay installed; if the install cannot run, the todo list names the exact command; doctor <project> reports FIX when an enabled plugin is not installed."
+  ],
+  "where": "lib/relay_setup.py:159, lib/relay_setup.py:302-346 (todo at 345), lib/relay_setup.py:398-452",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
