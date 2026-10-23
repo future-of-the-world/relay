@@ -1,5 +1,5 @@
 ---
-max_turns: 3
+max_turns: 10
 timeout_seconds: 180
 runs: 3
 model: opus
