@@ -1,6 +1,6 @@
 {
   "kind": "fix",
-  "state": "open",
+  "state": "taken",
   "ip": 95,
   "time": 60,
   "found": "2026-10-24",
@@ -19,7 +19,7 @@
     "check() refuses an item whose fields contradict (closed_at without a test, closed_at before taken_at, dropped_at with closed_at, a done/ file without closed_at or dropped_at); take, release, done and drop write the matching *_at field; every existing item after migration carries the dates git gives; queue views compute state from the fields; no file holds a state key."
   ],
   "where": "lib/relay_queue.py, lib/queue_ext/, tests/test_queue.py, .relay/queue/",
-  "taken_by": "",
+  "taken_by": "wt/queue-events",
   "closed_by": "",
   "test": "",
   "dropped_why": null
