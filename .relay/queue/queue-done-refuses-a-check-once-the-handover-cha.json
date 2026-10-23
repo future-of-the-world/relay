@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 96,
+  "time": 30,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Queue done refuses a check once the handover changed",
+  "what": [
+    "`relay queue done` allows after the check exactly the files the gate treats as inert (docs/handover.md with .relay/), from one shared list."
+  ],
+  "why": [
+    "The delegate skill says to commit the handover after the check, and the gate treats docs/handover.md as inert, but `relay queue done` refuses the check when any file outside .relay/ changed after it; closing needed the handover commit reverted and reapplied (core-tests-not-in-gate, 23 Oct)."
+  ],
+  "failing_case": [
+    "Check of 1a68931, then a commit to docs/handover.md, then `relay queue done ... --check <q1-check.json>` refuses at lib/relay_queue.py:755 \"docs/handover.md changed after it: check the fix again\"."
+  ],
+  "pass_cases": [
+    "After a handover-only commit `done` accepts the check; after a change to any non-inert file it still refuses."
+  ],
+  "where": "lib/relay_queue.py:755",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
