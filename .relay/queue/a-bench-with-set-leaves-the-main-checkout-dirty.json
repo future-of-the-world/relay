@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 90,
+  "time": 20,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "A bench with --set leaves the main checkout dirty",
+  "what": [
+    "A profile derived by `relay bench --set` is written outside the repository (under ~/.relay/bench/<ts>/ beside its report), or the bench removes it when it ends; `relay improve adopt` of a derived candidate still works."
+  ],
+  "why": [
+    "`relay bench --set` writes its derived candidate profile into the main checkout's profiles/candidates/, untracked; guard-main then refuses to remove it, so the owner must delete it by hand and the primary checkout is not clean meanwhile (23 Oct, build-haiku)."
+  ],
+  "failing_case": [
+    "`relay bench active --set models.build=haiku --tag cheap --runs 1` in /Users/amidman/relay leaves `?? profiles/candidates/build-haiku.toml` in `git status`; `rm` of it is refused by guard-main."
+  ],
+  "pass_cases": [
+    "After the same bench, `git status --short` in the main checkout is empty, and the derived profile is found beside the bench report."
+  ],
+  "where": "lib/relay_bench.py",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
