@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_relay.py:1752 asserts the line appears for global when the key is set, not when absent, not for a project target, and projects.toml holds Russian; test passed. Rule text says \"native language\", not Russian."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "rules/working-with-me.md:33-38 now says code, docs, commits and tool/agent text keep the project's language (English unless the project says otherwise)."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/native-language/.relay/checks/972d07a50fc0488debbcad67d81f89100e767c49.gate.log",
+  "head": "54de0895a202b9411eda913bf20e1df8a3b1296f",
+  "new": [],
+  "notes": [
+    "Fixer chose option a (native_language in projects.toml, rendered by sync). Not re-run without the fix; fixer reports it failed once with rendering disabled."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "2e60669963467cf26795fdf7b085b3f122fc7323.review.json"
+  ],
+  "reviewed": "2e60669963467cf26795fdf7b085b3f122fc7323",
+  "schema": 1,
+  "scope": [
+    "Fix range 2e60669..HEAD: own files lib/relay_rules.py, projects.toml, rules/working-with-me.md, tests/test_relay.py, all in scope. Gate log head 972d07a, exit 0; relay changed since 972d07a lists nothing. Ran python3 -m unittest tests.test_relay tests.test_queue: 169 OK. Caller of render_target (sync, check) unchanged; the line is only in the global block."
+  ],
+  "type": "check"
+}
