@@ -765,7 +765,7 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
   tune-hook-false-trigger), then the gate batch (core-tests-not-in-gate,
   runner-turns-while-waiting).
 
-## STATE 23 Oct, core-tests-not-in-gate fixed, checked, waiting for the owner's merge word (session 0879ab20)
+## STATE 23 Oct, core-tests-not-in-gate MERGED (session 0879ab20)
 
 - Branch wt/core-tests-not-in-gate in .worktrees/core-tests: `bin/ci --quick` runs inject-addition, packet,
   check-contract, shim, spec-check (about +13 s; quick gate is about 3m46s, not 3 s); hooks-live (paid) only in full
@@ -774,7 +774,11 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
   plugins/core/tests/profiles/kartoteka.toml and evals/plugin/fixture.
 - Review: F1 (MEDIUM, hooks-live twice in a release gate) and F2 fixed; F3 disputed (a skip would be silent), checker
   agreed. Checks: open 0. Item closed on the branch (`queue: done`); the merge lands it.
-- To queue after the merge (fix): `relay check record check` refuses reviews of different shas, so a taken item's Q1
-  (reviewed at the take sha) and the whole-change review never fit one check; Q1 needed a second check record.
+- Merged by the owner's word ("1a, merge"), fast-forward. Three fix items queued at ip 96 from closing it:
+  a-taken-fix-needs-two-check-records-to-close, queue-done-and-the-merge-guard-read-test-names-d,
+  queue-done-refuses-a-check-once-the-handover-cha (the close was reverted and redone to get past the last two).
+- .worktrees/core-tests stays until session 0879ab20 ends (locked by the hook); `relay doctor` lists it after.
 - Open for the owner: mock hooks-live's paid call so it can run in the quick gate (not decided).
-- NEXT: on the owner's word, merge wt/core-tests-not-in-gate into master; then runner-turns-while-waiting (gate batch).
+- Owner, verbatim (earlier): "ok, guard and gate first after the trial".
+- NEXT: a fresh session takes guard-variable-paths and tune-hook-false-trigger (guard batch), then
+  runner-turns-while-waiting (gate batch).
