@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 91,
+  "time": 20,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Closing a fix proved by an eval takes guesses",
+  "what": [
+    "`relay queue done --test` accepts an eval case (evals/plugin/<case>) or <case>::<grader> as the proof, and its refusal names the forms it accepts."
+  ],
+  "why": [
+    "Closing tune-hook-false-trigger took 4 tries (3 refusals that found nothing wrong) because `relay queue done --test` wants a file whose text holds the test name, and an eval case's grader file does not name itself."
+  ],
+  "failing_case": [
+    "23 Oct: `--test evals/plugin/tune-no-change-compare::tune-skill-not-loaded` refused \"not in the last commit\"; `.../prompt.md::tune-skill-not-loaded` and `.../graders/tune-skill-not-loaded.md::tune-skill-not-loaded` refused \"does not hold a test named\"; only `.../case.yaml::tune-no-change-compare` passed."
+  ],
+  "pass_cases": [
+    "`--test evals/plugin/<case>::<grader>` closes an item when the grader file exists at HEAD; a missing grader is refused with the accepted forms listed."
+  ],
+  "where": "lib/relay_queue.py:742 (_holds_test), :787",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
