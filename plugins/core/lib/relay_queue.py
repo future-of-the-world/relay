@@ -140,9 +140,11 @@ def check_new(slug, data, where=None):
         problems.append("dropped_why without dropped_at")
     if dropped is not None and (taken is not None or closed is not None):
         problems.append("dropped_at together with taken_at or closed_at")
-    stamps = [t for t in (found, taken, closed) if _timestamp(t)]
-    if stamps != sorted(stamps):
-        problems.append("the times are not in order: found_at <= taken_at <= closed_at")
+    for chain in ((found, taken, closed), (found, dropped)):
+        stamps = [t for t in chain if _timestamp(t)]
+        if stamps != sorted(stamps):
+            problems.append("the times are not in order: found_at <= taken_at <= closed_at, found_at <= dropped_at")
+            break
     if where is not None:
         ended = closed is not None or dropped is not None
         if ended != (where == "done"):

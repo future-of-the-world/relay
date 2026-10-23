@@ -18,7 +18,7 @@ The queue is `.relay/queue/` on the project's default branch, one JSON file per 
 start one in a worktree, `relay queue done` to close one with its test; `relay
 queue -h` shows the rest. A view is a read-only script in relay's own `lib/queue_ext/`
 (`relay queue json` prints the items for scripts); extensions live in relay only, they read and
-never write items. An item file is read in either of two shapes: the stored `state`, or dated events (`found_at`, `taken_at`, `closed_at`, `dropped_at`; the state is computed). Only in a project whose default branch has `.relay/`.
+never write items. Only in a project whose default branch has `.relay/`.
 
 An out-of-scope question from the owner is answered in two lines and becomes a
 `feature` item, built later in a fresh session. When a new request arrives while

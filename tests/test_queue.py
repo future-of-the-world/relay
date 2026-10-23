@@ -384,7 +384,8 @@ class TestNewShape(unittest.TestCase):
 
     def test_each_of_the_four_states_is_computed_from_the_events(self):
         # open: no event; taken: taken_at; done: closed_at (and taken_at); dropped: dropped_at wins
-        cases = [("open", {}, "open"), ("taken", TAKEN, "open"), ("done", CLOSED, "done"), ("dropped", DROPPED, "done")]
+        same_second = dict(DROPPED, dropped_at="2026-10-23T21:16:10Z")      # found_at == dropped_at is in order
+        cases = [("open", {}, "open"), ("taken", TAKEN, "open"), ("done", CLOSED, "done"), ("dropped", DROPPED, "done"), ("dropped", same_second, "done")]
         for state, fields, where in cases:
             item = self.parse(new_shape(**fields), where)
             self.assertEqual((item["problems"], item["state"]), ([], state))
@@ -418,6 +419,7 @@ class TestNewShape(unittest.TestCase):
             ("impossible time", new_shape(found_at="2026-13-45T00:00:00Z"), None, "found_at is not null or a UTC time"),
             ("found_at null", new_shape(found_at=None), None, "found_at is null"),
             ("missing key", json.dumps({k: v for k, v in json.loads(new_shape()).items() if k != "taken_at"}), None, "missing key taken_at"),
+            ("dropped before found", new_shape(dropped_at="2026-10-01T00:00:00Z", dropped_why=["no"]), "done", "not in order"),
             ("mixed shapes", new_shape(state="open"), None, "mixed shapes"),
             ("mixed shapes by found", new_shape(found="2026-10-23"), None, "mixed shapes"),
         ]
@@ -427,11 +429,6 @@ class TestNewShape(unittest.TestCase):
 
     def test_old_shape_is_not_judged_by_folder(self):
         self.assertEqual(self.parse(fix_item(), "done")["problems"], [])
-
-    def test_a_writer_does_not_rewrite_a_new_shape_item(self):
-        item = self.parse(new_shape())
-        with self.assertRaises(rq.Refused):
-            rq._refuse_new_shape(item)
 
 
 class TestSeedItems(unittest.TestCase):
@@ -893,6 +890,27 @@ class TestTake(Base):
         with open(path, "w") as handle:
             json.dump(data, handle)
         return path
+
+    def test_q10_writers_refuse_a_new_shape_item_and_change_nothing(self):
+        # a writer that rewrote a new-shape item in the old shape would lose found_at / taken_at / closed_at
+        self.write_commit(self.main, {".relay/queue/neu.json": new_shape(title="Neu item here")}, "a new-shape item")
+        head = git(self.main, "rev-parse", "master")
+        for name, call in (("set_ip", lambda: rq.set_ip(self.main, "neu", 5, **QUIET)),
+                           ("drop", lambda: rq.drop(self.main, "neu", "no longer wanted", **QUIET)),
+                           ("release", lambda: rq.release(self.main, "neu", **QUIET)),
+                           ("take", lambda: rq.take(self.wa, "neu", self.findings(), **QUIET))):
+            with self.assertRaises(rq.Refused, msg=name) as ctx:
+                call()
+            self.assertIn("new shape", str(ctx.exception), name)
+            self.assertEqual(git(self.main, "rev-parse", "master"), head, name)
+        self.assertFalse(os.path.exists(self.findings()))
+        # done: the item is taken by this branch, in the new shape
+        self.write_commit(self.wa, {".relay/queue/neu.json": new_shape(title="Neu item here", **TAKEN | {"taken_by": "wt/a"}),
+                                    "tests/test_neu.py": "def test_neu():\n    pass\n"}, "taken, new shape")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.done(self.wa, "neu", "tests/test_neu.py::test_neu", self.check_json("c.json"))
+        self.assertIn("new shape", str(ctx.exception))
+        self.assertFalse(os.path.exists(os.path.join(self.wa, ".relay", "queue", "done", "neu.json")))
 
     def test_q10_later_done_on_the_task_branch_merges_without_conflict(self):
         rq.take(self.wa, "job", self.findings(), **QUIET)
