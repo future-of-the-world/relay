@@ -38,6 +38,14 @@ STATES = ("open", "taken", "done", "dropped")
 FIELD_ORDER = ("kind", "state", "ip", "time", "found", "found_in", "title", "what", "why", "failing_case", "pass_cases",
                "where", "taken_by", "closed_by", "test", "dropped_why")
 TEXT = ("what", "why", "failing_case", "pass_cases")
+# The new shape (dated events instead of `state`, `found`, `closed_by`): read and checked here, not yet written (step 2 switches the writers).
+NEW_ORDER = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "failing_case", "pass_cases", "where",
+             "taken_at", "taken_by", "closed_at", "test", "dropped_at", "dropped_why")
+NEW_ONLY = ("found_at", "taken_at", "closed_at", "dropped_at")
+OLD_ONLY = ("state", "found", "closed_by")
+NEW_REQUIRED = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "taken_at", "taken_by", "closed_at", "test",
+                "dropped_at", "dropped_why")
+TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 REQUIRED = ("kind", "state", "ip", "time", "found", "found_in", "title", "what", "why", "taken_by", "closed_by", "test", "dropped_why")
 STRINGS = ("found_in", "title", "where", "taken_by", "closed_by", "test")
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -58,10 +66,112 @@ def _is_lines(value):
     return isinstance(value, list) and all(isinstance(x, str) for x in value)
 
 
-def check(slug, data):
-    """The reasons `data` (a decoded item file) is not a well-formed item; [] when it is."""
+def is_new(item):
+    """Whether an item (a decoded file or a parsed item) has the new, event-based shape."""
+    return "found_at" in item
+
+
+def state_of(item):
+    """open, taken, done or dropped: computed from the events of a new-shape item, the stored `state` of an old-shape one."""
+    if not is_new(item):
+        return item["state"]
+    if item.get("dropped_at"):
+        return "dropped"
+    if item.get("closed_at"):
+        return "done"
+    if item.get("taken_at"):
+        return "taken"
+    return "open"
+
+
+def _timestamp(value):
+    if not (isinstance(value, str) and TIMESTAMP.fullmatch(value)):
+        return False
+    try:
+        dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return False
+    return True
+
+
+def check_new(slug, data, where=None):
+    """The reasons `data` (a new-shape item file) is not well formed. `where` is "open" (the queue folder) or "done" (its done/ folder), or None."""
+    problems = []
+    for key in sorted(set(data) - set(NEW_ORDER)):
+        problems.append(f"unknown key {key}")
+    for key in NEW_REQUIRED:
+        if key not in data:
+            problems.append(f"missing key {key}")
+    if data.get("kind") == "fix" and not _nonblank(data.get("failing_case")):
+        problems.append("a fix without failing_case")
+    if "kind" in data and data["kind"] not in KINDS:
+        problems.append("kind is not fix or feature")
+    for key in ("ip", "time"):
+        if key in data and not _is_int(data[key]):
+            problems.append(f"{key} is not a whole number from 0")
+    for key in NEW_ONLY:
+        if key in data and data[key] is not None and not _timestamp(data[key]):
+            problems.append(f"{key} is not null or a UTC time YYYY-MM-DDTHH:MM:SSZ")
+    if "found_at" in data and data["found_at"] is None:
+        problems.append("found_at is null")
+    for key in ("found_in", "title", "where"):
+        if key in data and not isinstance(data[key], str):
+            problems.append(f"{key} is not a string")
+    for key in ("taken_by", "test"):
+        if key in data and data[key] is not None and not isinstance(data[key], str):
+            problems.append(f"{key} is not null or a string")
+    for key in TEXT:
+        if key in data and not _is_lines(data[key]):
+            problems.append(f"{key} is not a list of lines")
+    if "dropped_why" in data and data["dropped_why"] is not None and not _is_lines(data["dropped_why"]):
+        problems.append("dropped_why is not null or a list of lines")
+    found, taken, closed, dropped = (data.get(k) for k in ("found_at", "taken_at", "closed_at", "dropped_at"))
+    if bool(data.get("taken_by")) != (taken is not None):
+        problems.append("taken_by is set exactly when taken_at is set")
+    if closed is not None and taken is None:
+        problems.append("closed_at without taken_at")
+    if closed is not None and not data.get("test"):
+        problems.append("closed_at without a test")
+    if data.get("test") and closed is None:
+        problems.append("a test without closed_at")
+    if dropped is not None and not data.get("dropped_why"):
+        problems.append("dropped_at without dropped_why")
+    if data.get("dropped_why") and dropped is None:
+        problems.append("dropped_why without dropped_at")
+    if dropped is not None and (taken is not None or closed is not None):
+        problems.append("dropped_at together with taken_at or closed_at")
+    stamps = [t for t in (found, taken, closed) if _timestamp(t)]
+    if stamps != sorted(stamps):
+        problems.append("the times are not in order: found_at <= taken_at <= closed_at")
+    if where is not None:
+        ended = closed is not None or dropped is not None
+        if ended != (where == "done"):
+            problems.append("an item under done/ needs closed_at or dropped_at" if where == "done" else "an item with closed_at or dropped_at belongs under done/")
+    _title_problems(slug, data, problems)
+    return problems
+
+
+def _title_problems(slug, data, problems):
+    # "repeats the name" means typed as the slug itself (hyphens): a lowercase sentence is a title, and its slug is its words
+    if isinstance(data.get("title"), str):
+        if "\n" in data["title"]:
+            problems.append("the title is not one line")
+        if data["title"].strip() in ("", slug):
+            problems.append("the title only repeats the name")
+    if _is_lines(data.get("what")) and "\n".join(data["what"]).strip() in ("", slug):
+        problems.append("what only repeats the name")
+
+
+def check(slug, data, where=None):
+    """The reasons `data` (a decoded item file) is not a well-formed item; [] when it is.
+
+    `where` is "open" or "done" when the folder of the file is known (only a new-shape item is checked against it)."""
     if not isinstance(data, dict):
         return ["the file is not a JSON object"]
+    if any(k in data for k in NEW_ONLY):
+        if any(k in data for k in OLD_ONLY):
+            return [f"mixed shapes: {', '.join(k for k in OLD_ONLY if k in data)} (old) with {', '.join(k for k in NEW_ONLY if k in data)} (new)"]
+        return check_new(slug, data, where)
     problems = []
     for key in sorted(set(data) - set(FIELD_ORDER)):
         problems.append(f"unknown key {key}")
@@ -87,14 +197,7 @@ def check(slug, data):
             problems.append(f"{key} is not a list of lines")
     if "dropped_why" in data and data["dropped_why"] is not None and not _is_lines(data["dropped_why"]):
         problems.append("dropped_why is not null or a list of lines")
-    # "repeats the name" means typed as the slug itself (hyphens): a lowercase sentence is a title, and its slug is its words
-    if isinstance(data.get("title"), str):
-        if "\n" in data["title"]:
-            problems.append("the title is not one line")
-        if data["title"].strip() in ("", slug):
-            problems.append("the title only repeats the name")
-    if _is_lines(data.get("what")) and "\n".join(data["what"]).strip() in ("", slug):
-        problems.append("what only repeats the name")
+    _title_problems(slug, data, problems)
     return problems
 
 
@@ -102,17 +205,27 @@ def _nonblank(lines):
     return _is_lines(lines) and any(x.strip() for x in lines)
 
 
-def parse(slug, text):
+def parse(slug, text, where=None):
     """An item as a dict: the fields of the file plus `slug` and `problems` (empty when well formed).
+
+    One form for both shapes: an old-shape item keeps its stored values; a new-shape item also gets the computed `state`,
+    `found` (the date of found_at), and `taken_by`, `test` as text ("" for null) and `closed_by` (taken_by once closed), so readers
+    do not branch on the shape. `where` is "open" or "done" when the folder of the file is known.
 
     A file that fails the check comes back as {"slug", "problems"} only, so nothing reads half an item."""
     try:
         data = json.loads(text)
     except ValueError as exc:
         return {"slug": slug, "problems": [f"not valid JSON: {exc}"]}
-    problems = check(slug, data)
+    problems = check(slug, data, where)
     if problems:
         return {"slug": slug, "problems": problems}
+    if is_new(data):
+        item = {key: data[key] for key in NEW_ORDER if key in data}
+        item.update(state=state_of(data), found=data["found_at"][:10], taken_by=data["taken_by"] or "", test=data["test"] or "",
+                    closed_by=(data["taken_by"] or "") if data["closed_at"] else "")
+        item["slug"], item["problems"] = slug, []
+        return item
     item = {key: data[key] for key in FIELD_ORDER if key in data}
     item["slug"], item["problems"] = slug, []
     return item
@@ -334,14 +447,14 @@ class Reader:
         if self._items is None:
             slugs = self.names()
             blobs = cat_batch(self.main, [f"{self.rev}:{QDIR}/{s}.json" for s in slugs])
-            self._items = {s: parse(s, b.decode("utf-8", "replace")) for s, b in zip(slugs, blobs) if b is not None}
+            self._items = {s: parse(s, b.decode("utf-8", "replace"), "open") for s, b in zip(slugs, blobs) if b is not None}
         return self._items
 
     def closed_items(self):
         """The items of `done/` (closed or dropped), parsed, by slug."""
         slugs = self.names("done/")
         blobs = cat_batch(self.main, [f"{self.rev}:{QDIR}/done/{s}.json" for s in slugs])
-        return {s: parse(s, b.decode("utf-8", "replace")) for s, b in zip(slugs, blobs) if b is not None}
+        return {s: parse(s, b.decode("utf-8", "replace"), "done") for s, b in zip(slugs, blobs) if b is not None}
 
     def used_slugs(self):
         return set(self.names()) | set(self.names("done/"))
@@ -512,7 +625,14 @@ def _item_at(reader, slug):
         raise Refused(f"no open queue item '{slug}'")
     if item["problems"]:
         raise Refused(f"queue item '{slug}' is malformed ({'; '.join(item['problems'])})")
+    _refuse_new_shape(item)
     return item
+
+
+def _refuse_new_shape(item):
+    # the writers still write the old shape; they must not rewrite a new-shape item as one (until the writers switch)
+    if is_new(item):
+        raise Refused(f"queue item '{item['slug']}' has the new shape, which this relay can read but not change yet")
 
 
 def _path(slug, sub=""):
@@ -780,9 +900,10 @@ def done(worktree, slug, test, check):
     rc, out, _ = _git(worktree, "cat-file", "blob", f"HEAD:{_path(slug)}")
     if rc != 0:
         raise Refused(f"no queue item '{slug}' on this branch (take it first)")
-    item = parse(slug, out.decode("utf-8", "replace"))
+    item = parse(slug, out.decode("utf-8", "replace"), "open")
     if item["problems"]:
         raise Refused(f"queue item '{slug}' is malformed ({'; '.join(item['problems'])})")
+    _refuse_new_shape(item)
     if item["state"] != "taken" or item["taken_by"] != branch:
         raise Refused(f"queue item '{slug}' is not taken by {branch}")
     rc, source, _ = _git(worktree, "cat-file", "blob", f"HEAD:{path}")

@@ -362,6 +362,77 @@ def committed_text(repo, path):
     out = git(repo, "show", "%s:%s" % (ref, path), check=False)
     return out + "\n" if out else open(os.path.join(repo, path), encoding="utf-8").read()
 
+def new_shape(**changes):
+    """A new-shape (event-based) item file as step 2 will write it; `changes` set or replace keys."""
+    data = {"kind": "feature", "ip": 0, "time": 10, "found_at": "2026-10-23T21:16:10Z", "found_in": "test",
+            "title": "A new shape", "what": ["what is wanted here"], "why": ["it matters"],
+            "taken_at": None, "taken_by": None, "closed_at": None, "test": None, "dropped_at": None, "dropped_why": None}
+    data.update(changes)
+    return json.dumps(data, indent=2) + "\n"
+
+
+TAKEN = {"taken_at": "2026-10-23T21:47:35Z", "taken_by": "wt/x"}
+CLOSED = dict(TAKEN, closed_at="2026-10-24T01:00:00Z", test="tests/t.py::test_x")
+DROPPED = {"dropped_at": "2026-10-24T01:00:00Z", "dropped_why": ["not wanted"]}
+
+
+class TestNewShape(unittest.TestCase):
+    """Step 1: both item shapes are read and checked; the old one is unchanged."""
+
+    def parse(self, text, where=None):
+        return rq.parse("some-slug", text, where)
+
+    def test_each_of_the_four_states_is_computed_from_the_events(self):
+        # open: no event; taken: taken_at; done: closed_at (and taken_at); dropped: dropped_at wins
+        cases = [("open", {}, "open"), ("taken", TAKEN, "open"), ("done", CLOSED, "done"), ("dropped", DROPPED, "done")]
+        for state, fields, where in cases:
+            item = self.parse(new_shape(**fields), where)
+            self.assertEqual((item["problems"], item["state"]), ([], state))
+        taken = self.parse(new_shape(**TAKEN))
+        self.assertEqual((taken["taken_by"], taken["found"], taken["test"]), ("wt/x", "2026-10-23", ""))
+        self.assertEqual(self.parse(new_shape(**CLOSED), "done")["closed_by"], "wt/x")
+
+    def test_state_of_old_shape_is_its_stored_state(self):
+        self.assertEqual(rq.state_of(self.parse(fix_item())), "open")
+        self.assertEqual(rq.state_of({"state": "taken"}), "taken")
+
+    def test_f2_utc_found_before_taken_across_midnight_is_accepted(self):
+        # found 21:16 UTC and taken 21:47 UTC of the same day are in order; the old local-date pair was not
+        self.assertEqual(self.parse(new_shape(**TAKEN))["problems"], [])
+
+    def test_each_new_rule_refuses(self):
+        cases = [
+            ("taken_by without taken_at", new_shape(taken_by="wt/x"), None, "taken_by is set exactly when taken_at"),
+            ("taken_at without taken_by", new_shape(taken_at=TAKEN["taken_at"]), None, "taken_by is set exactly when taken_at"),
+            ("closed before taken", new_shape(**dict(CLOSED, closed_at="2026-10-23T21:00:00Z")), "done", "not in order"),
+            ("found after taken", new_shape(**dict(TAKEN, found_at="2026-10-24T00:00:00Z")), None, "not in order"),
+            ("test without closed_at", new_shape(test="t.py::x"), None, "a test without closed_at"),
+            ("closed_at without a test", new_shape(**dict(CLOSED, test=None)), "done", "closed_at without a test"),
+            ("closed_at without taken_at", new_shape(closed_at=CLOSED["closed_at"], test="t.py::x"), "done", "closed_at without taken_at"),
+            ("dropped with closed", new_shape(**dict(CLOSED, **DROPPED)), "done", "dropped_at together with"),
+            ("dropped_at without why", new_shape(dropped_at=DROPPED["dropped_at"]), "done", "dropped_at without dropped_why"),
+            ("why without dropped_at", new_shape(dropped_why=["x"]), None, "dropped_why without dropped_at"),
+            ("done/ file with no end", new_shape(), "done", "needs closed_at or dropped_at"),
+            ("ended item outside done/", new_shape(**CLOSED), "open", "belongs under done/"),
+            ("bad time", new_shape(found_at="2026-10-23"), None, "found_at is not null or a UTC time"),
+            ("impossible time", new_shape(found_at="2026-13-45T00:00:00Z"), None, "found_at is not null or a UTC time"),
+            ("found_at null", new_shape(found_at=None), None, "found_at is null"),
+            ("missing key", json.dumps({k: v for k, v in json.loads(new_shape()).items() if k != "taken_at"}), None, "missing key taken_at"),
+            ("mixed shapes", new_shape(state="open"), None, "mixed shapes"),
+            ("mixed shapes by found", new_shape(found="2026-10-23"), None, "mixed shapes"),
+        ]
+        for name, text, where, expected in cases:
+            problems = self.parse(text, where)["problems"]
+            self.assertTrue(any(expected in p for p in problems), f"{name}: {problems}")
+
+    def test_old_shape_is_not_judged_by_folder(self):
+        self.assertEqual(self.parse(fix_item(), "done")["problems"], [])
+
+    def test_a_writer_does_not_rewrite_a_new_shape_item(self):
+        item = self.parse(new_shape())
+        with self.assertRaises(rq.Refused):
+            rq._refuse_new_shape(item)
+
 
 class TestSeedItems(unittest.TestCase):
     """Review F14 and the seed-item findings: the committed items say what is true and follow the queue rule."""

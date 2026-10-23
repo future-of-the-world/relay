@@ -428,6 +428,17 @@ expect "T15n2 the move plus a fix with clean mark and gate: refused" "$(refused 
 m15; green; mkdir -p "$M/.relay/queue/done"; qjson dropped "" >"$M/.relay/queue/done/y.json"; git -C "$M" add -A; git -C "$M" commit -q -m "drop y"
 git -C "$W" merge -q --no-edit master; pre "$MERGE"
 expect "T15n2 a dropped item that came through master: not judged, allowed" "$(allowed; echo $?)"
+# (n3) step 1 of dated events: a new-shape done/ file is judged by the same rule; a malformed one is refused
+newq() { # newq <extra json fields>: a closed new-shape fix item named x
+  printf '{"kind": "fix", "ip": 5, "time": 10, "found_at": "2026-10-23T21:16:10Z", "found_in": "fixture", "title": "Item x loses a row", "what": ["x loses a row"], "why": ["a row is lost"], "failing_case": ["y"], "taken_at": "2026-10-23T21:47:35Z", "taken_by": "wt/t", %s, "dropped_at": null, "dropped_why": null}' "$1"
+}
+m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json
+commit "fix a, close x" "lib/a.py=v2\n" "tests/t.sh=case_x() { :; }\n" ".relay/queue/done/x.json=$(newq '"closed_at": "2026-10-24T01:00:00Z", "test": "tests/t.sh::case_x"')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n3 a well-formed new-shape done/ file: allowed" "$(allowed; echo $?)"
+commit "closed_at before taken_at" ".relay/queue/done/x.json=$(newq '"closed_at": "2026-10-23T20:00:00Z", "test": "tests/t.sh::case_x"')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n3 a malformed new-shape done/ file: refused as malformed" "$(refused 'queue item x is malformed'; echo $?)"
+commit "no end event" ".relay/queue/done/x.json=$(newq '"closed_at": null, "test": null')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n3 a done/ file with neither closed_at nor dropped_at: refused" "$(refused 'needs closed_at or dropped_at'; echo $?)"
 # (o) a code file moved into an inert folder is not "all inert"; control (f)
 m15; mkdir -p "$W/.relay/queue"; git -C "$W" mv lib/a.py .relay/queue/a.py; git -C "$W" commit -q -m "move a"; pre "$MERGE"
 expect "T15o code moved into an inert folder, no mark: refused, no check mark" "$(refused 'no check mark'; echo $?)"
