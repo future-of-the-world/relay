@@ -806,3 +806,29 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
   the-bench-never-starts-a-worker-so-it-measures-n, ip 92); stop long sessions; start fresh per task.
 - NEXT (fresh session): the structured-data rule rewording + drop structured-hand-backs; then the guard batch
   (guard-variable-paths, tune-hook-false-trigger), then runner-turns-while-waiting.
+
+## STATE 23 Oct, structured-data rule MERGED; guard batch in its full paid run (session 0cc68fe0)
+
+- structured-hand-backs dropped from the queue (owner's words as `why`).
+- rules/structured-data.md reworded (repeated-records test; hand-backs, agent reports, the handover stay prose; verdicts
+  are structured) on wt/structured-reword: review 1 MEDIUM + 3 LOW all MET, open 0; merged on the owner's "a" (ff, master
+  72a3143). `relay sync` NOT yet run: held until the guard batch's full paid bin/ci ends (its live sessions read the
+  synced instructions). Owner chose that order: "a" (merge now, sync after the guard's paid run).
+- Full paid bin/ci on the rule branch: evals ok (2197 s), one hooks-live case failed once ("sdd:worker gets the
+  project's worker addition: NONE") and passed in two re-runs (both branches): queued
+  live-hook-test-sometimes-misses-the-worker-addit (ip 91). Also queued a-rules-text-only-change-pays-the-full-quick-gat
+  (ip 91, the inert probe reruns the quick gate: 520 s for a markdown edit). Paid-run cost not printed anywhere.
+- Guard batch on wt/guard-batch (.worktrees/guard-batch): guard follows a shell variable only when set once by a plain
+  assignment earlier in the same command (else an unquoted unknown word is literal, as before; quoted skipped; $PWD =
+  tracked dir); tune-stage keyword hook removed, front:tune description states intent in any language, 9 tune evals
+  (RU/EN, typos, negatives) at runs 3 (~$2.85 per full gate; runs 1 was refused by the grader rule). Review 1 HIGH
+  (front's design skipped unknown vars: `rm -rf $PWD/src` allowed) + 2 MEDIUM + 2 LOW + Q1, all MET, open 0, gate green
+  b67e710. Owner on Q1 (reverses 21 Oct "1. a"), verbatim: "a" to "Follow variables with the strict rules, after the
+  fixes above." Owner on the tune hook: "a" to "Remove the hook and rely on Claude's reading, proven with test requests in
+  both languages, with typos, including ones that should not trigger."
+- The owner asked what relay is for; answered (goal: short requests in, checked results out, lowest cost in money and
+  attention; rules, tiered agents, guards, one review + check, queue, cost ledger + bench, handover).
+- Running: full paid bin/ci in .worktrees/guard-batch, log in the session scratchpad, ci-full-guard.out.
+- NEXT: when it ends: `relay sync`; guard branch takes master (merge commit), `relay gate -- --quick` again (test_queue.py
+  came in), close both queue items on the branch (`relay queue take/done`), `relay check page`, merge question to the
+  owner; then runner-turns-while-waiting (seen live again today: the runner hit its 12-turn limit waiting on bin/ci).
