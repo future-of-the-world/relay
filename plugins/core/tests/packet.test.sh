@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for `kit packet` over a small synthetic change in a temporary repo, with
-# Kartoteka's real bindings (migration/kartoteka/kit.toml), then the Rust and
+# Kartoteka's real bindings (tests/profiles/kartoteka.toml), then the Rust and
 # Elixir module refs, smoke tests and fenced code with profiles of their own.
 #   plugins/core/tests/packet.test.sh     prints each case and exits 1 on any failure
 #
@@ -15,7 +15,7 @@ set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd -P)"
 kit="$here/../bin/kit"
 packet=("$kit" packet)
-bindings="$here/../../../migration/kartoteka/kit.toml"
+bindings="$here/profiles/kartoteka.toml"
 modules="${KIT_TEST_NODE_MODULES:-$here/ts-deps/node_modules}"
 if [ ! -x "$modules/.bin/tsc" ] && [ -z "${KIT_TEST_NODE_MODULES:-}" ]; then
   (cd "$here/ts-deps" && bun install --frozen-lockfile >/dev/null 2>&1)

@@ -14,7 +14,7 @@
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd -P)"
-fixture="$here/../../../evals/fixture"
+fixture="$here/../../../evals/plugin/fixture"
 fails=0
 ck() { [ "$2" = "$3" ] && echo "ok   $1" || { echo "FAIL $1: got [$2] want [$3]"; fails=$((fails + 1)); }; }
 has() { grep -qE -- "$2" <<<"$3" && echo "ok   $1" || { echo "FAIL $1: expected /$2/ in: $3"; fails=$((fails + 1)); }; }

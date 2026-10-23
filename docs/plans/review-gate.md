@@ -150,8 +150,8 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
    Sonnet). The last full run cost $4.99 (18 runs). Hook tests run every
    `plugins/*/tests/*.test.sh` except a deny list (`bin/ci:25`):
    `hooks-live`, `packet`, `check-contract`, `shim`, `spec-check` and
-   `inject-addition`, which run only with `RELAY_CORE_TESTS=1`. So part 1's
-   per-role tests I1-I9 (in `inject-addition.test.sh`) are not in the gate.
+   `inject-addition`, which ran only with `RELAY_CORE_TESTS=1` (now in the quick gate; hooks-live in the full gate). So part 1's
+   per-role tests I1-I9 (in `inject-addition.test.sh`) were not in the gate (fixed: `core-tests-not-in-gate`).
    New `merge.test.sh` and `check-mark.test.sh` run in every gate unless
    added to that list. `lib copies identical` checks every
    `plugins/<p>/lib/relay_*.py` against `lib/` automatically.

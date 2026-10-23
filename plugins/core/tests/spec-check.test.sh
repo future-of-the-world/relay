@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for `kit spec-check` over synthetic spec deltas in a temporary git repo whose
-# .claude/kit.toml is Kartoteka's (migration/kartoteka/kit.toml). Ported from
+# .claude/kit.toml is Kartoteka's (tests/profiles/kartoteka.toml). Ported from
 # ~/kartoteka/bin/spec-check.test.sh.
 #   plugins/core/tests/spec-check.test.sh     prints each case and exits 1 on any failure
 set -uo pipefail
@@ -11,7 +11,7 @@ check=("$kit" spec-check)
 tmp="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$tmp"' EXIT
 cd "$tmp" && git init -q .
-mkdir -p .claude && cp "$here/../../../migration/kartoteka/kit.toml" .claude/kit.toml
+mkdir -p .claude && cp "$here/profiles/kartoteka.toml" .claude/kit.toml
 mkdir -p "$tmp/specs/settings" "$tmp/specs/shell" "$tmp/specs/dial" "$tmp/specs/main"
 
 cat >"$tmp/specs/settings/spec.md" <<'EOF'
