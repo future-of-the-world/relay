@@ -1084,9 +1084,14 @@ class TestStructuredRule(unittest.TestCase):
         import relay_rules
         rule = relay_rules.rules()["structured-data"]
         self.assertEqual(rule["title"], "Structured data")
-        self.assertTrue(rule["gist"].startswith("Information that a script, a hook or a later step reads is stored as a structured file"))
-        for phrase in ("changed only through one script", "Extensions", "relay only", "never write", "No new label or regex search over markdown"):
+        self.assertTrue(rule["gist"].startswith("Information that a script, a hook or a later step reads, when it is one of many records of the same shape, is stored as a structured file"))
+        for phrase in ("one of many records of the same shape", "changed only through one script", "Extensions", "relay only", "never write", "No new label or regex search over markdown"):
             self.assertIn(phrase, rule["gist"] + rule["body"])
+        counts = [l for l in rule["body"].splitlines() if l.startswith("- What counts")]
+        self.assertEqual(len(counts), 1)
+        for word in ("hand-backs", "state"):
+            self.assertNotIn(word, counts[0])
+        self.assertIn("agent reports", rule["body"])
 
 
 if __name__ == "__main__":
