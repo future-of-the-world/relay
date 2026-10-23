@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 90,
+  "time": 15,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "A project from relay setup is dirty after its first check",
+  "what": [
+    "relay setup adds .ci/ and the worktrees folder from kit.toml (and the stack's caches) to .gitignore, keeping lines that exist."
+  ],
+  "why": [
+    "relay setup writes no .gitignore: .ci/, .worktrees/, __pycache__ and .pytest_cache show as untracked, so the primary checkout, which the rules say must stay clean, is dirty after bin/wt new and after the first check."
+  ],
+  "failing_case": [
+    "Trial: after bin/wt new add-count-unique-words, git status on master showed '?? .worktrees/'; after bin/check it showed .ci/, __pycache__/, .pytest_cache/."
+  ],
+  "pass_cases": [
+    "Fresh setup, one check, one bin/wt new: git status --short on the default branch is empty; an existing .gitignore keeps its lines."
+  ],
+  "where": "lib/relay_setup.py:302-346, templates/ (no gitignore template)",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
