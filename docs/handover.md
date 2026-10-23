@@ -782,3 +782,24 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
 - Owner, verbatim (earlier): "ok, guard and gate first after the trial".
 - NEXT: a fresh session takes guard-variable-paths and tune-hook-false-trigger (guard batch), then
   runner-turns-while-waiting (gate batch).
+
+## STATE 23 Oct, taste rule built and checked, waiting for the owner's merge word (session 0879ab20)
+
+- Owner's idea, verbatim: "Let's create a taste section, experimental. You feel discomfort when you recognize - you're used
+  not effectively, you want to detect this and fix ... find similiar problems before you merge them to the repo, and find it
+  after"; then "Taste this is something like instruction prompt, signal source, switcher, decider, I want to try bring it to models".
+- Built on wt/taste (.worktrees/taste): rules/taste.md as a prompt (signals, stop-say-switch, severity: repeating waste
+  MEDIUM fixed before merge, one-off LOW; the front's severity call, owner: "your decision is right"); loaded only in relay
+  (projects.toml [relay] target, [global] skip = ["taste"]). Counting machinery built then removed on the owner's words.
+  Review 0 HIGH / 3 MEDIUM / 2 LOW, all MET; gate green at 2e2a017.
+- After the merge: `relay sync` (writes ~/relay/CLAUDE.local.md; the global CLAUDE.md must not list taste).
+- Experiment: after 5 merges from this one the front asks the owner whether to keep taste, listing what it flagged.
+- Owner decisions this session: "a" one redesign item (checks-keep-two-finding-lists-and-three-rule-set, ip 96) replaces
+  three patch items; structured data narrowed, verbatim: "We should store only structured data that can be splitted into
+  repeated domain data, if this unstructured instructions or plain text - you don't need to store it in structured format";
+  "a": reword rules/structured-data.md (drop "hand-backs" from its examples, add the repeated-records test) and drop the
+  feature structured-hand-backs; "ok, finish taste here", then close this session.
+- Usage hints from Claude (23 Oct): worker on cheaper model (bench could not measure: queued
+  the-bench-never-starts-a-worker-so-it-measures-n, ip 92); stop long sessions; start fresh per task.
+- NEXT (fresh session): the structured-data rule rewording + drop structured-hand-backs; then the guard batch
+  (guard-variable-paths, tune-hook-false-trigger), then runner-turns-while-waiting.
