@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 60,
+  "time": 20,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Setup docs and todo list name steps not needed",
+  "what": [
+    "Fix the docs/setup.md bullets and the --relay-folder note; flag the empty principles at the end of setup; skip the bin/wt TODO when nothing needs preparing; relay gate help names bin/ci and the committed .relay/checks/<sha>.gate.log."
+  ],
+  "why": [
+    "docs/setup.md lists the setup writes without .relay/ and never says --relay-folder does nothing after plain setup; setup leaves a bin/wt worktree-prep TODO that a pure-Python project does not need, leaves CLAUDE.md principles and openspec/config.yaml empty (a reviewer had no promise to check against); relay gate --help prints only its usage line, not that it runs bin/ci and commits the log."
+  ],
+  "failing_case": [
+    "Trial: the reviewer noted CLAUDE.md principles are TODO; relay setup --relay-folder after setup printed 'nothing changed'; relay gate committed its own log to the branch, moving the head."
+  ],
+  "pass_cases": [
+    "docs/setup.md matches what setup writes; relay gate --help names bin/ci and the committed log."
+  ],
+  "where": "docs/setup.md:11-24,42, lib/relay_setup.py:325-333, bin/relay:478-480",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
