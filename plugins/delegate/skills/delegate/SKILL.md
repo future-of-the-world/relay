@@ -23,6 +23,10 @@ with one brief, and comes back as at most 10 lines.
 | a review before merge, a design critique | `delegate:critic` | adversarial, read-only, findings with cases |
 | the check of a fix against the review's cases | `delegate:checker` | reads the findings, the fixer's report and the gate log; ends with a verdict |
 
+A job longer than about 30 minutes, such as the full paid `bin/ci`, is not a
+runner's (its turns end mid-wait): the front starts it in the background (see
+the front skill).
+
 Never `general-purpose` (every tool, 30k tokens re-read each request) and
 never `fork` from a session over 100k tokens: the routing guard refuses both.
 A worker or fixer gets `model: opus` only with a line `Escalated: <reason>` in

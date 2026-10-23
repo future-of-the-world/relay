@@ -1019,6 +1019,17 @@ class Roles(Base):
         self.assertIn("Publish the page yourself with your Artifact tool", front)
         self.assertIn("gives the page's file path instead", front)
 
+    def test_a_job_longer_than_a_runner_s_turns_runs_in_the_front_s_background(self):
+        """A runner (12 turns, waits of at most 230 s) covers about 40 min; the full paid bin/ci takes 38-47 min and
+        the runner ran out of turns mid-wait four times. The front starts such a job itself, in the background."""
+        front = " ".join(open(os.path.join(ROOT, "plugins", "front", "skills", "front", "SKILL.md")).read().split())
+        self.assertIn("`run_in_background`", front)
+        self.assertIn("full paid `bin/ci`", front)
+        self.assertIn("never a runner", front)
+        delegate = " ".join(open(os.path.join(ROOT, "plugins", "delegate", "skills", "delegate", "SKILL.md")).read().split())
+        self.assertIn("longer than about 30 minutes", delegate)
+        self.assertIn("is not a runner's", delegate)
+
     def test_missing_base_names_the_checkout_rule(self):
         rr = self.lib()
         root = self.fixture(markers="<!-- relay:base judge -->\n<!-- relay:end judge -->\n")
