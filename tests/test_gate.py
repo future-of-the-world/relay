@@ -288,13 +288,14 @@ class Page(Fixture):
             reviewed + ".check.json": json.dumps(check)})
         if queue_line:
             # an item as relay_queue writes it: the finding's linter line is the first line of its `what`
-            item = relay_queue.new_item("fix", 1, 10, "2026-10-22", "test", "an outside thing", queue_line, "it matters", failing="z")
+            item = relay_queue.new_item("fix", 1, 10, "2026-10-22T08:00:00Z", "test", "an outside thing", queue_line, "it matters", failing="z")
             where = os.path.join(self.main, ".relay", "queue", "foo.json")
             if queue_state:                 # the item was closed or dropped: it lives in done/
-                item = relay_queue.changed(item, state=queue_state, closed_by="wt/y" if queue_state == "done" else "",
-                                           test="t.py::t" if queue_state == "done" else "", dropped_why=["no"] if queue_state == "dropped" else None)
+                ended = ({"taken_at": "2026-10-22T09:00:00Z", "taken_by": "wt/y", "closed_at": "2026-10-22T10:00:00Z", "test": "t.py::t"} if queue_state == "done"
+                         else {"dropped_at": "2026-10-22T10:00:00Z", "dropped_why": ["no"]})
+                item = relay_queue.changed(item, **ended)
                 where = os.path.join(self.main, ".relay", "queue", "done", "foo.json")
-            write(where, relay_queue.serialize("foo", item))
+            write(where, relay_queue.serialize("foo", item, "done" if queue_state else "open"))
             git(self.main, "add", "-A")
             git(self.main, "commit", "-q", "-m", "queue foo")
         if code_after:                      # a code commit after the gate and the mark, with no new gate

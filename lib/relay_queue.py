@@ -33,22 +33,17 @@ EXT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "queue_ext")
 EXT_NAME = re.compile(r"[a-z][a-z0-9_]*")
 ZERO = "0" * 40
 KINDS = ("fix", "feature")
-STATES = ("open", "taken", "done", "dropped")
-# The keys of an item file, in the order they are written. TEXT are lists of lines (so a git diff goes line by line).
-FIELD_ORDER = ("kind", "state", "ip", "time", "found", "found_in", "title", "what", "why", "failing_case", "pass_cases",
-               "where", "taken_by", "closed_by", "test", "dropped_why")
+# The keys of an item file, in the order they are written. An item keeps dated events, never a stored state: `state_of` computes it.
+# TEXT are lists of lines (so a git diff goes line by line).
+ORDER = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "failing_case", "pass_cases", "where",
+         "taken_at", "taken_by", "closed_at", "test", "dropped_at", "dropped_why")
 TEXT = ("what", "why", "failing_case", "pass_cases")
-# The new shape (dated events instead of `state`, `found`, `closed_by`): read and checked here, not yet written (step 2 switches the writers).
-NEW_ORDER = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "failing_case", "pass_cases", "where",
-             "taken_at", "taken_by", "closed_at", "test", "dropped_at", "dropped_why")
-NEW_ONLY = ("found_at", "taken_at", "closed_at", "dropped_at")
-OLD_ONLY = ("state", "found", "closed_by")
-NEW_REQUIRED = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "taken_at", "taken_by", "closed_at", "test",
-                "dropped_at", "dropped_why")
+EVENTS = ("found_at", "taken_at", "closed_at", "dropped_at")
+OLD_ONLY = ("state", "found", "closed_by")    # the keys of the shape before dated events; `relay queue migrate` rewrites them
+REQUIRED = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "taken_at", "taken_by", "closed_at", "test",
+            "dropped_at", "dropped_why")
 TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
-REQUIRED = ("kind", "state", "ip", "time", "found", "found_in", "title", "what", "why", "taken_by", "closed_by", "test", "dropped_why")
-STRINGS = ("found_in", "title", "where", "taken_by", "closed_by", "test")
-DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+MIGRATE_HINT = "run `relay queue migrate` on this branch"
 TITLE_MAX = 60                # a title is under this many characters (rules/queue.md)
 
 
@@ -66,15 +61,8 @@ def _is_lines(value):
     return isinstance(value, list) and all(isinstance(x, str) for x in value)
 
 
-def is_new(item):
-    """Whether an item (a decoded file or a parsed item) has the new, event-based shape."""
-    return "found_at" in item
-
-
 def state_of(item):
-    """open, taken, done or dropped: computed from the events of a new-shape item, the stored `state` of an old-shape one."""
-    if not is_new(item):
-        return item["state"]
+    """open, taken, done or dropped, computed from the events: dropped_at, then closed_at, then taken_at; none is open."""
     if item.get("dropped_at"):
         return "dropped"
     if item.get("closed_at"):
@@ -82,6 +70,11 @@ def state_of(item):
     if item.get("taken_at"):
         return "taken"
     return "open"
+
+
+def utcnow():
+    """The time now as the UTC timestamp an event is stored as (tests replace this function)."""
+    return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _timestamp(value):
@@ -94,12 +87,19 @@ def _timestamp(value):
     return True
 
 
-def check_new(slug, data, where=None):
-    """The reasons `data` (a new-shape item file) is not well formed. `where` is "open" (the queue folder) or "done" (its done/ folder), or None."""
+def check(slug, data, where=None):
+    """The reasons `data` (a decoded item file) is not a well-formed item; [] when it is.
+
+    `where` is "open" (the queue folder) or "done" (its done/ folder) when the folder of the file is known."""
+    if not isinstance(data, dict):
+        return ["the file is not a JSON object"]
+    old = [k for k in OLD_ONLY if k in data]
+    if old:
+        return [f"old shape ({', '.join(old)}): {MIGRATE_HINT}"]
     problems = []
-    for key in sorted(set(data) - set(NEW_ORDER)):
+    for key in sorted(set(data) - set(ORDER)):
         problems.append(f"unknown key {key}")
-    for key in NEW_REQUIRED:
+    for key in REQUIRED:
         if key not in data:
             problems.append(f"missing key {key}")
     if data.get("kind") == "fix" and not _nonblank(data.get("failing_case")):
@@ -109,7 +109,7 @@ def check_new(slug, data, where=None):
     for key in ("ip", "time"):
         if key in data and not _is_int(data[key]):
             problems.append(f"{key} is not a whole number from 0")
-    for key in NEW_ONLY:
+    for key in EVENTS:
         if key in data and data[key] is not None and not _timestamp(data[key]):
             problems.append(f"{key} is not null or a UTC time YYYY-MM-DDTHH:MM:SSZ")
     if "found_at" in data and data["found_at"] is None:
@@ -164,57 +164,15 @@ def _title_problems(slug, data, problems):
         problems.append("what only repeats the name")
 
 
-def check(slug, data, where=None):
-    """The reasons `data` (a decoded item file) is not a well-formed item; [] when it is.
-
-    `where` is "open" or "done" when the folder of the file is known (only a new-shape item is checked against it)."""
-    if not isinstance(data, dict):
-        return ["the file is not a JSON object"]
-    if any(k in data for k in NEW_ONLY):
-        if any(k in data for k in OLD_ONLY):
-            return [f"mixed shapes: {', '.join(k for k in OLD_ONLY if k in data)} (old) with {', '.join(k for k in NEW_ONLY if k in data)} (new)"]
-        return check_new(slug, data, where)
-    problems = []
-    for key in sorted(set(data) - set(FIELD_ORDER)):
-        problems.append(f"unknown key {key}")
-    for key in REQUIRED:
-        if key not in data:
-            problems.append(f"missing key {key}")
-    if data.get("kind") == "fix" and not _nonblank(data.get("failing_case")):
-        problems.append("a fix without failing_case")
-    if "kind" in data and data["kind"] not in KINDS:
-        problems.append("kind is not fix or feature")
-    if "state" in data and data["state"] not in STATES:
-        problems.append("state is not open, taken, done or dropped")
-    for key in ("ip", "time"):
-        if key in data and not _is_int(data[key]):
-            problems.append(f"{key} is not a whole number from 0")
-    if "found" in data and not (isinstance(data["found"], str) and DATE.fullmatch(data["found"])):
-        problems.append("found is not a date YYYY-MM-DD")
-    for key in STRINGS:
-        if key in data and not isinstance(data[key], str):
-            problems.append(f"{key} is not a string")
-    for key in TEXT:
-        if key in data and not _is_lines(data[key]):
-            problems.append(f"{key} is not a list of lines")
-    if "dropped_why" in data and data["dropped_why"] is not None and not _is_lines(data["dropped_why"]):
-        problems.append("dropped_why is not null or a list of lines")
-    _title_problems(slug, data, problems)
-    return problems
-
-
 def _nonblank(lines):
     return _is_lines(lines) and any(x.strip() for x in lines)
 
 
 def parse(slug, text, where=None):
-    """An item as a dict: the fields of the file plus `slug` and `problems` (empty when well formed).
+    """An item as a dict: the fields of the file, the computed `state`, `slug` and `problems` (empty when well formed).
 
-    One form for both shapes: an old-shape item keeps its stored values; a new-shape item also gets the computed `state`,
-    `found` (the date of found_at), and `taken_by`, `test` as text ("" for null) and `closed_by` (taken_by once closed), so readers
-    do not branch on the shape. `where` is "open" or "done" when the folder of the file is known.
-
-    A file that fails the check comes back as {"slug", "problems"} only, so nothing reads half an item."""
+    `where` is "open" or "done" when the folder of the file is known. A file that fails the check (an old-shape one
+    too) comes back as {"slug", "problems"} only, so nothing reads half an item."""
     try:
         data = json.loads(text)
     except ValueError as exc:
@@ -222,30 +180,25 @@ def parse(slug, text, where=None):
     problems = check(slug, data, where)
     if problems:
         return {"slug": slug, "problems": problems}
-    if is_new(data):
-        item = {key: data[key] for key in NEW_ORDER if key in data}
-        item.update(state=state_of(data), found=data["found_at"][:10], taken_by=data["taken_by"] or "", test=data["test"] or "",
-                    closed_by=(data["taken_by"] or "") if data["closed_at"] else "")
-        item["slug"], item["problems"] = slug, []
-        return item
-    item = {key: data[key] for key in FIELD_ORDER if key in data}
-    item["slug"], item["problems"] = slug, []
+    item = {key: data[key] for key in ORDER if key in data}
+    item.update(state=state_of(data), slug=slug, problems=[])
     return item
 
 
-def serialize(slug, item):
-    """The file text of an item: indent 2, fixed key order, UTF-8, a trailing newline. Refused when it fails the check."""
-    data = {key: item[key] for key in FIELD_ORDER if key in item}
-    extra = sorted(set(item) - set(FIELD_ORDER) - {"slug", "problems"})
-    problems = check(slug, data) + [f"unknown key {k}" for k in extra]
+def serialize(slug, item, where=None):
+    """The file text of an item: indent 2, fixed key order, UTF-8, a trailing newline. Refused when it fails the check
+    (`where` is "open" or "done": the folder the file is written to)."""
+    data = {key: item[key] for key in ORDER if key in item}
+    extra = sorted(set(item) - set(ORDER) - {"slug", "problems", "state"})
+    problems = check(slug, data, where) + [f"unknown key {k}" for k in extra]
     if problems:
         raise Refused(f"item '{slug}' is not well formed: {'; '.join(problems)}")
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
 def changed(item, **changes):
-    """The item's fields with `changes` applied (a new dict; `slug` and `problems` dropped)."""
-    out = {key: copy.deepcopy(item[key]) for key in FIELD_ORDER if key in item}
+    """The item's fields with `changes` applied (a new dict; `slug`, `problems` and the computed `state` dropped)."""
+    out = {key: copy.deepcopy(item[key]) for key in ORDER if key in item}
     out.update(changes)
     return out
 
@@ -259,8 +212,8 @@ def joined(item, key):
     return "\n".join(item.get(key) or [])
 
 
-def new_item(kind, ip, minutes, found, found_in, title, what, why, failing="", pass_cases="", where=""):
-    item = {"kind": kind, "state": "open", "ip": ip, "time": minutes, "found": found, "found_in": found_in,
+def new_item(kind, ip, minutes, found_at, found_in, title, what, why, failing="", pass_cases="", where=""):
+    item = {"kind": kind, "ip": ip, "time": minutes, "found_at": found_at, "found_in": found_in,
             "title": title, "what": lines_of(what), "why": lines_of(why)}
     if failing.strip():
         item["failing_case"] = lines_of(failing)
@@ -268,7 +221,7 @@ def new_item(kind, ip, minutes, found, found_in, title, what, why, failing="", p
         item["pass_cases"] = lines_of(pass_cases)
     if where:
         item["where"] = where
-    item.update({"taken_by": "", "closed_by": "", "test": "", "dropped_why": None})
+    item.update({"taken_at": None, "taken_by": None, "closed_at": None, "test": None, "dropped_at": None, "dropped_why": None})
     return item
 
 
@@ -280,11 +233,11 @@ def slugify(title):
 
 
 def order_key(item):
-    return (-item["ip"], item["found"], item["slug"])
+    return (-item["ip"], item["found_at"], item["slug"])
 
 
 def ordered(items):
-    """Well-formed items by ip (highest first), then older `found`, then slug; malformed ones last, by slug."""
+    """Well-formed items by ip (highest first), then older `found_at`, then slug; malformed ones last, by slug."""
     good = sorted((i for i in items if not i["problems"]), key=order_key)
     bad = sorted((i for i in items if i["problems"]), key=lambda i: i["slug"])
     return good + bad
@@ -326,11 +279,14 @@ def show_text(item):
     """One well-formed item in full, as the person reads it (a read-only view of the stored JSON)."""
     state = item["state"] + (f" by {item['taken_by']}" if item["taken_by"] else "")
     out = [f"{item['slug']}: {item['title']}", f"{item['kind']}, ip {item['ip']}, {format_time(item['time'])}, {state}",
-           f"found {item['found']} in {item['found_in']}"]
+           f"found {item['found_at']} in {item['found_in']}"]
     if item.get("where"):
         out.append(f"where {item['where']}")
-    if item["closed_by"]:
-        out.append(f"closed by {item['closed_by']} with test {item['test']}")
+    for label, key in (("taken", "taken_at"), ("closed", "closed_at"), ("dropped", "dropped_at")):
+        if item[key]:
+            out.append(f"{label} {item[key]}")
+    if item["test"]:
+        out.append(f"test {item['test']}")
     for title, key in (("What", "what"), ("Why", "why"), ("Failing case", "failing_case"), ("Pass cases", "pass_cases"), ("Dropped because", "dropped_why")):
         if item.get(key):
             out += [f"{title}:"] + ["  " + line for line in item[key]]
@@ -492,14 +448,35 @@ def _head(main, default):
     return _text(out)
 
 
-def read_queue(repo):
-    """Every item (parsed) of the default branch, read from git; [] when there is no queue folder."""
+def read_queue(repo, closed=False):
+    """Every item (parsed) of the default branch, read from git; [] when there is no queue folder.
+    With `closed`, the items of `done/` (closed and dropped) too."""
     main, default = _context(repo)
     rc, out, _ = _git(main, "rev-parse", "--verify", "-q", f"refs/heads/{default}")
     if rc != 0:
         return []
     reader = Reader(main, _text(out))
-    return list(reader.items().values()) if reader.has_folder() else []
+    if not reader.has_folder():
+        return []
+    return list(reader.items().values()) + (list(reader.closed_items().values()) if closed else [])
+
+
+def check_files(root):
+    """(path, reasons) for each item file under `root`/.relay/queue and its done/ folder that is not well formed, sorted by path.
+    Reads the checkout's files, so a branch is checked before its merge. Raises Refused when there is no queue folder."""
+    problems = []
+    base = os.path.join(root, QDIR)
+    if not os.path.isdir(base):
+        raise Refused(f"no {QDIR} folder under {root}")
+    for sub, where in (("", "open"), ("done", "done")):
+        folder = os.path.join(base, sub)
+        for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
+            if name.endswith(".json"):
+                with open(os.path.join(folder, name), encoding="utf-8") as handle:
+                    item = parse(name[:-5], handle.read(), where)
+                if item["problems"]:
+                    problems.append((f"{QDIR}/{sub + '/' if sub else ''}{name}", item["problems"]))
+    return problems
 
 
 def session_line(cwd):
@@ -627,14 +604,7 @@ def _item_at(reader, slug):
         raise Refused(f"no open queue item '{slug}'")
     if item["problems"]:
         raise Refused(f"queue item '{slug}' is malformed ({'; '.join(item['problems'])})")
-    _refuse_new_shape(item)
     return item
-
-
-def _refuse_new_shape(item):
-    # the writers still write the old shape; they must not rewrite a new-shape item as one (until the writers switch)
-    if is_new(item):
-        raise Refused(f"queue item '{item['slug']}' has the new shape, which this relay can read but not change yet")
 
 
 def _path(slug, sub=""):
@@ -709,7 +679,7 @@ def read_add_input(path, keys, required, done="queued"):
 
 
 def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=None, ip=None, where="",
-        context="relay queue add", today=None, **engine):
+        context="relay queue add", now=None, **engine):
     """Queue a new item. The slug comes from the title, suffixed -2, -3, ... when taken."""
     if kind not in KINDS:
         raise Refused("kind is fix or feature")
@@ -732,7 +702,7 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
     if ip is not None and ip < 0:
         raise Refused("ip is a whole number from 0")
     base = slugify(title)
-    found = today or dt.date.today().isoformat()
+    found = now or utcnow()
 
     def planner(reader):
         used = reader.used_slugs()
@@ -753,7 +723,7 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
     return _run(repo, planner, **engine)
 
 
-def add_from(repo, report, fid, why="", minutes=None, ip=None, today=None, **engine):
+def add_from(repo, report, fid, why="", minutes=None, ip=None, now=None, **engine):
     """Queue the finding `fid` recorded beside `report` as a fix item: its place and failing case are copied, its
     linter line (relay_verdict.linter) is the item's `what`, so the check page can tell which item carries it."""
     found = find_finding(report, fid)
@@ -763,7 +733,7 @@ def add_from(repo, report, fid, why="", minutes=None, ip=None, today=None, **eng
     if len(title) >= TITLE_MAX:                   # a title is the "what" column: cut a long summary at a word (the linter line in `what` holds all of it)
         title = title[:TITLE_MAX - 2].rsplit(" ", 1)[0].rstrip(" ,;:.-") + "…"
     return add(repo, "fix", title, why=why, what=relay_verdict.linter(found), failing="\n".join(found["failing_case"]),
-               pass_cases="\n".join(found.get("pass_cases") or []), minutes=minutes, ip=ip, where=f"{found['path']}:{found['line']}", context=context, today=today, **engine)
+               pass_cases="\n".join(found.get("pass_cases") or []), minutes=minutes, ip=ip, where=f"{found['path']}:{found['line']}", context=context, now=now, **engine)
 
 
 def set_ip(repo, slug, ip, **engine):
@@ -791,7 +761,7 @@ def drop(repo, slug, why, **engine):
         item = _item_at(reader, slug)
         if item["state"] == "taken":
             raise _taken_by_refusal(item)
-        text = serialize(slug, changed(item, state="dropped", dropped_why=lines_of(why)))
+        text = serialize(slug, changed(item, dropped_at=utcnow(), dropped_why=lines_of(why)), "done")
         return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "dropped")
 
     return _run(repo, planner, **engine)
@@ -802,7 +772,7 @@ def release(repo, slug, **engine):
         item = _item_at(reader, slug)
         if item["state"] != "taken":
             raise Refused(f"queue item '{slug}' is not taken")
-        text = serialize(slug, changed(item, state="open", taken_by=""))
+        text = serialize(slug, changed(item, taken_at=None, taken_by=None))
         return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "released")
 
     return _run(repo, planner, **engine)
@@ -839,7 +809,7 @@ def take(worktree, slug, findings, **engine):
             errors = relay_verdict.finding_errors(_q1(item), "finding Q1 of the item")
             if errors:
                 raise Refused(f"queue item '{slug}' cannot become finding Q1, nothing taken: {'; '.join(errors[:3])}")
-        text = serialize(slug, changed(item, state="taken", taken_by=branch))
+        text = serialize(slug, changed(item, taken_at=utcnow(), taken_by=branch))
         return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "taken")
 
     plan, sha = _land(worktree, planner, **engine)
@@ -905,7 +875,6 @@ def done(worktree, slug, test, check):
     item = parse(slug, out.decode("utf-8", "replace"), "open")
     if item["problems"]:
         raise Refused(f"queue item '{slug}' is malformed ({'; '.join(item['problems'])})")
-    _refuse_new_shape(item)
     if item["state"] != "taken" or item["taken_by"] != branch:
         raise Refused(f"queue item '{slug}' is not taken by {branch}")
     rc, source, _ = _git(worktree, "cat-file", "blob", f"HEAD:{path}")
@@ -932,7 +901,7 @@ def done(worktree, slug, test, check):
             raise Refused(f"the check data {check} says Q1 {verdict}, not MET")
         _check_is_of_this_item(worktree, slug, check, data)
     root = _text(_git(worktree, "rev-parse", "--show-toplevel")[1])
-    text = serialize(slug, changed(item, state="done", closed_by=branch, test=test))
+    text = serialize(slug, changed(item, closed_at=utcnow(), test=test), "done")
     old, new = os.path.join(root, _path(slug)), os.path.join(root, _path(slug, "done/"))
     os.makedirs(os.path.dirname(new), exist_ok=True)
     with open(new, "w", encoding="utf-8") as handle:
@@ -969,6 +938,10 @@ def land(repo, slug, **engine):
 
     def planner(reader):
         for p in paths:
+            if texts[p] is not None:         # a kept change of the old shape (made before the migration) is refused, not landed
+                bad = parse(slug, texts[p].decode("utf-8", "replace"), "done" if "/done/" in p else "open")["problems"]
+                if bad:
+                    raise Refused(f"{p} on {branch} is not well formed ({'; '.join(bad)}); branch {branch} kept")
             if reader.blob(p) != old.blob(p):
                 raise Refused(f"{p} changed on {default} since this change was made; it no longer holds (branch {branch} kept)")
         return Plan(slug, {p: (t.decode("utf-8", "replace") if t is not None else None) for p, t in texts.items()}, "kept change", verb)

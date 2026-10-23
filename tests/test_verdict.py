@@ -471,8 +471,9 @@ class OwnerMoved(RecordBase):
         super().setUp()
         self.repo = os.path.join(self.tmp, "proj")
         os.makedirs(os.path.join(self.repo, ".relay", "queue"))
-        item = {"kind": "fix", "state": "open", "ip": 91, "time": 10, "found": "2026-10-23", "found_in": "test", "title": "Redo the part",
-                "what": ["the part"], "why": ["it matters"], "failing_case": ["it fails"], "taken_by": "", "closed_by": "", "test": "", "dropped_why": None}
+        item = {"kind": "fix", "ip": 91, "time": 10, "found_at": "2026-10-23T08:00:00Z", "found_in": "test", "title": "Redo the part",
+                "what": ["the part"], "why": ["it matters"], "failing_case": ["it fails"], "taken_at": None, "taken_by": None, "closed_at": None,
+                "test": None, "dropped_at": None, "dropped_why": None}
         with open(os.path.join(self.repo, ".relay", "queue", "redo-x.json"), "w") as handle:
             json.dump(item, handle)
         env = {**os.environ, "GIT_AUTHOR_NAME": "T", "GIT_AUTHOR_EMAIL": "t@e.x", "GIT_COMMITTER_NAME": "T", "GIT_COMMITTER_EMAIL": "t@e.x"}

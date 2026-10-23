@@ -266,10 +266,13 @@ expect "T20 failing: the failure is named once (log cleared)" "$(has 'simulated 
 LIB="$here/../lib"; RELAY="$here/../../../bin/relay"; CHECKMARK="$here/../hooks/check-mark.py"
 printf '#!/bin/sh\necho "ci: fixture ok"\nexit "${FIXGATE_EXIT:-0}"\n' >"$tmp/fixgate"; chmod +x "$tmp/fixgate"
 
-# qjson <state> <test>: a queue item file as lib/relay_queue.py writes it (a fix item named x; the hook reads it through relay_queue)
+# qjson <state> <test>: a queue item file as lib/relay_queue.py writes it, with dated events (a fix item named x; the hook reads it through relay_queue).
+# taken: taken_at and taken_by; done: also closed_at and the test; dropped: dropped_at and why, never taken
 qjson() {
-  local why=null; [ "$1" = dropped ] && why='["not wanted"]'
-  printf '{\n  "kind": "fix",\n  "state": "%s",\n  "ip": 5,\n  "time": 10,\n  "found": "2026-10-22",\n  "found_in": "fixture",\n  "title": "Item x loses a row",\n  "what": ["x loses a row"],\n  "why": ["a row is lost"],\n  "failing_case": ["y"],\n  "taken_by": "wt/t",\n  "closed_by": "",\n  "test": "%s",\n  "dropped_why": %s\n}' "$1" "$2" "$why"
+  local ev='"taken_at": "2026-10-22T10:00:00Z", "taken_by": "wt/t", "closed_at": null, "test": null, "dropped_at": null, "dropped_why": null'
+  [ "$1" = done ] && ev='"taken_at": "2026-10-22T10:00:00Z", "taken_by": "wt/t", "closed_at": "2026-10-22T12:00:00Z", "test": "'"$2"'", "dropped_at": null, "dropped_why": null'
+  [ "$1" = dropped ] && ev='"taken_at": null, "taken_by": null, "closed_at": null, "test": null, "dropped_at": "2026-10-22T12:00:00Z", "dropped_why": ["not wanted"]'
+  printf '{\n  "kind": "fix",\n  "ip": 5,\n  "time": 10,\n  "found_at": "2026-10-22T08:00:00Z",\n  "found_in": "fixture",\n  "title": "Item x loses a row",\n  "what": ["x loses a row"],\n  "why": ["a row is lost"],\n  "failing_case": ["y"],\n  %s\n}' "$ev"
 }
 # m15 [norelay]: master holds lib/a.py (v1), bin/x (six lines), .relay/queue/x.json (a taken fix item, JSON as relay_queue writes it), a kit.toml whose
 # gate is the fixture gate; M = main checkout, W = .worktrees/t on wt/t (no commit yet); BASE = master's head
@@ -415,16 +418,16 @@ expect "T15m2 green again after the red, same code: allowed" "$(allowed; echo $?
 # (n) m-1: a fix item moved to done/ without a test; then with the test
 m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json
 commit "fix a, close x" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
-expect "T15n item closed without test: refused" "$(refused 'queue item x is closed without a test'; echo $?)"
+expect "T15n item moved to done/ with no closed_at: refused as malformed" "$(refused 'needs closed_at or dropped_at'; echo $?)"
 commit "test" "tests/t.sh=case_x() { :; }\n" ".relay/queue/done/x.json=$(qjson done tests/t.sh::case_x)\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n with the test line and the test: allowed" "$(allowed; echo $?)"
 commit "name gone" "tests/t.sh=other() { :; }\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n test file lacks the name: refused" "$(refused 'closed without a test'; echo $?)"
 # (n2) m-1 before step 3 (a move alone), with a fix and a clean mark, and a dropped item that came through master
 m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json; git -C "$W" commit -q -m "move x"; pre "$MERGE"
-expect "T15n2 only the move (all inert): refused, closed without a test" "$(refused 'queue item x is closed without a test'; echo $?)"
+expect "T15n2 only the move (all inert): refused, no closed_at" "$(refused 'needs closed_at or dropped_at'; echo $?)"
 m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json; git -C "$W" commit -q -m "move x"; green; pre "$MERGE"
-expect "T15n2 the move plus a fix with clean mark and gate: refused" "$(refused 'queue item x is closed without a test'; echo $?)"
+expect "T15n2 the move plus a fix with clean mark and gate: refused" "$(refused 'needs closed_at or dropped_at'; echo $?)"
 m15; green; mkdir -p "$M/.relay/queue/done"; qjson dropped "" >"$M/.relay/queue/done/y.json"; git -C "$M" add -A; git -C "$M" commit -q -m "drop y"
 git -C "$W" merge -q --no-edit master; pre "$MERGE"
 expect "T15n2 a dropped item that came through master: not judged, allowed" "$(allowed; echo $?)"
@@ -439,6 +442,10 @@ commit "closed_at before taken_at" ".relay/queue/done/x.json=$(newq '"closed_at"
 expect "T15n3 a malformed new-shape done/ file: refused as malformed" "$(refused 'queue item x is malformed'; echo $?)"
 commit "no end event" ".relay/queue/done/x.json=$(newq '"closed_at": null, "test": null')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n3 a done/ file with neither closed_at nor dropped_at: refused" "$(refused 'needs closed_at or dropped_at'; echo $?)"
+commit "old shape" ".relay/queue/done/x.json={\"kind\": \"fix\", \"state\": \"done\", \"found\": \"2026-10-22\", \"closed_by\": \"wt/t\"}\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n3 a done/ file in the old shape (a branch started before the migration): refused, names the migration command" "$(refused 'relay queue migrate'; echo $?)"
+m15; commit "old shape in the open folder" ".relay/queue/z.json={\"kind\": \"feature\", \"state\": \"open\", \"found\": \"2026-10-22\"}\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n3 an old-shape item added in the open folder: refused, names the migration command" "$(refused 'relay queue migrate'; echo $?)"
 # (o) a code file moved into an inert folder is not "all inert"; control (f)
 m15; mkdir -p "$W/.relay/queue"; git -C "$W" mv lib/a.py .relay/queue/a.py; git -C "$W" commit -q -m "move a"; pre "$MERGE"
 expect "T15o code moved into an inert folder, no mark: refused, no check mark" "$(refused 'no check mark'; echo $?)"

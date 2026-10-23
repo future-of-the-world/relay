@@ -58,7 +58,7 @@
   relay check page [-C <repo>] <branch> [-o <file>]
                                      one HTML file for the person's step, built from the stored checks (default
                                      <repo>/.ci/page-<name>.html); it only writes the file, the front publishes it
-  relay queue [count|show|land|ip|take|release|done|drop|add] ...
+  relay queue [count|show|check|migrate|land|ip|take|release|done|drop|add] ...
                                      the work queue (.relay/queue/ on the default branch): `relay queue` lists it,
                                      `relay queue count` gives the one-line count; see `relay queue -h`
 
@@ -84,6 +84,7 @@ import relay_ledger  # noqa: E402
 import relay_marks  # noqa: E402
 import relay_verdict  # noqa: E402
 import relay_queue  # noqa: E402
+import relay_queue_migrate  # noqa: E402
 import relay_rules  # noqa: E402
 import relay_setup  # noqa: E402
 import relay_tidy  # noqa: E402
@@ -584,6 +585,8 @@ QUEUE_USAGE = """relay queue                              the ordered list: ip, 
 relay queue count                        "10 fix, 12 feature; top: <slug> (fix, ip 95, 30m)"
 relay queue <view>                       a read-only view from relay's lib/queue_ext/ (also: relay queue --view <view>); `table` is the default, `json` prints the items for scripts
 relay queue show <slug>                  one item in full
+relay queue check                        every item file of this checkout (done/ too) is well formed; lists the ones that are not
+relay queue migrate                      rewrite item files of the old shape (`state`) to dated events from git history; safe to run again
 relay queue add --input <file.toml> [--time 20m|1h|1h30m] [--ip N]
                                          the TOML holds kind, title, why, time, what, failing_case, pass_cases, where (text in '''...''')
 relay queue add --from <report.json> F<n> --input <file.toml> [--time ..] [--ip N]
@@ -648,6 +651,25 @@ def cmd_queue(args):
             raise Usage(f"queue item '{p[0]}' is malformed ({'; '.join(item['problems'])})")
         print(relay_queue.show_text(item))
         return 0
+    if sub in ("check", "migrate"):
+        o, p = _queue_options(rest, common)
+        if p:
+            raise Usage(QUEUE_USAGE)
+        folder = os.path.realpath(o.get("-C", "."))
+        try:
+            root = relay_queue._text(relay_queue._git(folder, "rev-parse", "--show-toplevel")[1]) or folder
+            if sub == "migrate":
+                done = relay_queue_migrate.migrate(root)
+                print(f"migrated {len(done)} item file(s) to dated events" + "".join(f"\n  {x}" for x in done) if done else "nothing to migrate: every item file has dated events")
+                return 0
+            bad = relay_queue.check_files(root)
+        except relay_queue.Refused as e:
+            raise Usage(str(e))
+        for path, reasons in bad:
+            print(f"{path}: {'; '.join(reasons)}")
+        if not bad:
+            print("every queue item file is well formed")
+        return 1 if bad else 0
     if sub not in QUEUE_WRITES:
         # a read-only view: `relay queue [--view] <name> [args]`, the table when no name is given
         name, extra, folder = ("table" if not sub else sub), [], "."
@@ -663,7 +685,8 @@ def cmd_queue(args):
                 extra.append(rest[i])
                 i += 1
         try:
-            return relay_queue.run_extension(name, relay_queue.read_queue(os.path.realpath(folder)), extra)
+            # `json` is the one view that lists the closed and dropped items too, with all their dates
+            return relay_queue.run_extension(name, relay_queue.read_queue(os.path.realpath(folder), closed=(name == "json")), extra)
         except relay_queue.Refused as e:
             raise Usage(str(e))
     repo = lambda o: os.path.realpath(o.get("-C", "."))

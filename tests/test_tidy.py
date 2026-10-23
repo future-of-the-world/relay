@@ -38,8 +38,10 @@ def commit_file(cwd, name, text="x", message="work"):
 
 def item_text(slug, state, taken_by):
     """A queue item file as relay_queue writes it (JSON), a fix item in the given state."""
-    item = relay_queue.new_item("fix", 1, 10, "2026-10-22", "test", "%s loses a row" % slug, "it loses a row", "a row is lost", failing="one row in, none out")
-    return relay_queue.serialize(slug, relay_queue.changed(item, state=state, taken_by=taken_by))
+    item = relay_queue.new_item("fix", 1, 10, "2026-10-22T08:00:00Z", "test", "%s loses a row" % slug, "it loses a row", "a row is lost", failing="one row in, none out")
+    events = {"open": {}, "taken": {"taken_at": "2026-10-22T09:00:00Z", "taken_by": taken_by},
+              "done": {"taken_at": "2026-10-22T09:00:00Z", "taken_by": taken_by, "closed_at": "2026-10-22T10:00:00Z", "test": "t.py::t"}}[state]
+    return relay_queue.serialize(slug, relay_queue.changed(item, **events), "done" if state == "done" else "open")
 
 
 class Tidy(unittest.TestCase):

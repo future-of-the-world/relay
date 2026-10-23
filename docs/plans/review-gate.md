@@ -700,10 +700,9 @@ Only `lib/relay_queue.py` writes it (`serialize`) or reads it (`parse`); nothing
 ```
 {
   "kind": "fix",                 fix | feature
-  "state": "open",               open | taken | done | dropped
   "ip": 95,                      important points, integer >= 0; highest first
   "time": 30,                    agent minutes (whole number), the finder's estimate; shown as 30m, 1h, 1h 30m
-  "found": "2026-10-22",         YYYY-MM-DD
+  "found_at": "2026-10-22T08:30:00Z",   UTC time, YYYY-MM-DDTHH:MM:SSZ
   "found_in": "check of batch 3 part 1 (bin/ci:25)",
   "title": "...",                one plain sentence, under 60 characters (the "what" column)
   "what": ["..."],               lines; for a fix, what is wrong
@@ -711,12 +710,22 @@ Only `lib/relay_queue.py` writes it (`serialize`) or reads it (`parse`); nothing
   "failing_case": ["..."],       lines; required for a fix
   "pass_cases": ["..."],         lines; optional (2-5)
   "where": "bin/ci:25",          optional: path:line for the Q1 linter line
-  "taken_by": "",                the task branch working on it
-  "closed_by": "",               the branch whose merge closed it
-  "test": "",                    fix items, at close: <test file>::<test name>
+  "taken_at": null,              UTC time the item was taken, else null
+  "taken_by": null,              the task branch working on it (it stays as the closing branch); set exactly when taken_at is
+  "closed_at": null,             UTC time the closing branch recorded the close, else null
+  "test": null,                  at close: <test file>::<test name>
+  "dropped_at": null,            UTC time the owner dropped it, else null
   "dropped_why": null            null until the owner drops it, then lines
 }
 ```
+
+There is no stored state. `state_of` computes it: `dropped_at` set is dropped, else `closed_at` set is done, else
+`taken_at` set is taken, else open; every reader goes through it. The check also refuses `taken_by` without
+`taken_at` (and the converse), `closed_at` without `taken_at` or a test, `dropped_at` without `dropped_why` or
+together with `taken_at` / `closed_at`, times out of order (`found_at` <= `taken_at` <= `closed_at`), and a file under
+`done/` without `closed_at` or `dropped_at` (or one with them outside `done/`). A file of the earlier shape
+(`state`, `found`, `closed_by`) is refused with the message to run `relay queue migrate`, which rewrites such files
+from the dates in git; `relay queue check` runs the whole check over the files of a checkout.
 
 The check (in `lib/relay_queue.py`, no new dependency) refuses unknown keys, a wrong type, a `fix`
 without `failing_case`, a `title` or a `what` that is only the slug's words. `relay queue add` refuses
@@ -726,13 +735,13 @@ crashing.
 Extensions: `relay queue <name>` (or `relay queue --view <name>`) runs `lib/queue_ext/<name>.py`, found
 in relay only (never in a project, never by a path from the command line). It exposes
 `run(items, args) -> int` and receives the parsed, checked items as plain dicts, copies, in queue
-order. `table.py` is the default view; `json.py` prints the items for scripts. Extensions live in
+order. `table.py` is the default view; `json.py` prints every item for scripts, `done/` ones included, with all dates. Extensions live in
 relay only; they read, they never write items: the writes stay `add`, `take`, `release`, `done`,
 `drop`, `ip` in the library.
 
 ### 10.3 Order, pick-up, close (m-4 fixed)
 
-- Order: ip descending; equal ip, older `found` first, then slug.
+- Order: ip descending; equal ip, older `found_at` first, then slug.
 - A new `fix` gets ip = 1 + the highest ip among open features (0 when
   none) unless `--ip` is given; a new `feature` gets the owner's ip, default
   0. `relay queue ip <slug> <n>` changes it.
@@ -740,7 +749,7 @@ relay only; they read, they never write items: the writes stay `add`, `take`, `r
   1. refuses when the item is `taken` on the default branch ("taken by
      wt/other"), read again at the head of every landing try (10.4 step 2),
      so of two `take`s at once exactly one lands;
-  2. lands `state: taken`, `taken_by: wt/<branch>` on the default branch
+  2. lands `taken_at` (now, UTC) and `taken_by: wt/<branch>` on the default branch
      through the landing path of 10.4 (the code check then allows exactly a
      change of that one file); this is the m-4 fix: a second session sees
      the item as taken at once, not after the first branch merges;
@@ -751,18 +760,18 @@ relay only; they read, they never write items: the writes stay `add`, `take`, `r
      <merge-base of the branch and the default branch>`, `From queue:
      <slug>`, finding `Q1` (HIGH) with the item's failing case and
      pass-cases, its linter line naming the place the item names.
-- `relay queue release <slug>` lands `state: open` again (a task branch that
+- `relay queue release <slug>` clears `taken_at` and `taken_by` again (a task branch that
   was abandoned); `relay doctor` lists items taken by a branch that no longer
   exists. `ip` and `drop` refuse a taken item ("taken by wt/x; release it
   first"), so master never edits a file a task branch is about to move.
 - Close: `relay queue done <slug> -C <worktree> --test <file>::<name>
   --check <checker report>` refuses unless the test file exists at HEAD and
   holds `<name>` and the report's verdict names `Q1 MET`; then moves the
-  file to `done/` with `state: done`, `closed_by`, `test`, and commits on
+  file to `done/` with `closed_at` (now, UTC) and `test`, and commits on
   the task branch. The item is closed by the merge; the merge hook refuses a
   close without the test (7.5).
 - Drop: only on the owner's word, `relay queue drop <slug> --input <file.toml>`
-  (the TOML holds `why`, the owner's words), landed like `add`, moved to `done/` with `state: dropped`.
+  (the TOML holds `why`, the owner's words), landed like `add`, moved to `done/` with `dropped_at` (now, UTC).
 
 ### 10.4 Landing on the default branch (v3 8.4, unchanged in method)
 

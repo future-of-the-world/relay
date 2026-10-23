@@ -1,4 +1,4 @@
-"""`relay queue json`: the ordered items as one JSON list, for scripts. A queue extension reads items and prints; it never writes them."""
+"""`relay queue json`: the ordered items (closed and dropped ones too, with all their dates) as one JSON list, for scripts. A queue extension reads items and prints; it never writes them."""
 
 import json as jsonlib
 

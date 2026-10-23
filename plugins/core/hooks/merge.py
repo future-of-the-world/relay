@@ -110,7 +110,8 @@ def clean(main, default, branch, hook):
 
 # ---- section 7: the merge gate (PreToolUse) ----
 
-DONE_DIR = ".relay/queue/done/"
+QUEUE_DIR = ".relay/queue/"
+DONE_DIR = QUEUE_DIR + "done/"
 
 
 class Refused(Exception):
@@ -134,15 +135,19 @@ def blob(main, ref, path):
 
 
 def step_queue(main, default, branch):
-    """7.1 step 2 (m-1): every `fix` item the range moves into done/ (not dropped) has a test that exists."""
-    added = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z",
-                          "refs/heads/%s...refs/heads/%s" % (default, branch))[1]
-    for path in sorted(p for p in added.split("\0") if p.startswith(DONE_DIR) and p.endswith(".json")):
+    """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
+    `relay queue migrate`); every `fix` item it moves into done/ (not dropped) has a test that exists."""
+    changed_files = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=AM", "-z",
+                                  "refs/heads/%s...refs/heads/%s" % (default, branch))[1]
+    added = set(relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z",
+                              "refs/heads/%s...refs/heads/%s" % (default, branch))[1].split("\0"))
+    for path in sorted(p for p in changed_files.split("\0") if p.endswith(".json") and os.path.dirname(p) in (QUEUE_DIR.rstrip("/"), DONE_DIR.rstrip("/"))):
         slug = os.path.basename(path)[:-5]
-        meta = relay_queue.parse(slug, blob(main, "refs/heads/" + branch, path) or "", "done")
+        in_done = path.startswith(DONE_DIR)
+        meta = relay_queue.parse(slug, blob(main, "refs/heads/" + branch, path) or "", "done" if in_done else "open")
         if meta["problems"]:
             raise Refused("queue item %s is malformed (%s); fix it before the merge" % (slug, "; ".join(meta["problems"])))
-        if meta["kind"] != "fix" or meta["state"] == "dropped":
+        if not in_done or path not in added or meta["kind"] != "fix" or meta["state"] == "dropped":
             continue
         test_file, sep, test_name = meta["test"].partition("::")
         source = blob(main, "refs/heads/" + branch, test_file.strip()) if sep and test_file.strip() else None
