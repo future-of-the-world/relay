@@ -996,23 +996,6 @@ class TestInputFile(Base):
         self.assertEqual(item["time"], 90)
         self.assertEqual(item["kind"], "feature")
 
-    def test_found_in_is_stored_and_defaults_to_relay_queue_add(self):
-        # a given found_in is the item's found_in, why untouched; without it the default stays
-        path = self.toml("title = 'Marked'\ntime = '5m'\nwhy = 'taste: demo is only prose'\nfound_in = 'taste: demo'\n")
-        done = self.run_relay("add", "--input", path, "-C", self.main)
-        self.assertEqual(done.returncode, 0, done.stderr)
-        item = self.item("marked")
-        self.assertEqual((item["found_in"], item["why"]), ("taste: demo", ["taste: demo is only prose"]))
-        done = self.run_relay("add", "--input", self.toml("title = 'Plain'\ntime = '5m'\nwhy = 'w'\n", "p.toml"), "-C", self.main)
-        self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertEqual(self.item("plain")["found_in"], "relay queue add")
-
-    def test_found_in_that_is_not_a_text_is_refused_naming_it(self):
-        for value in ("['a']", "3"):
-            done = self.run_relay("add", "--input", self.toml(f"title = 'T'\ntime = '5m'\nwhy = 'w'\nfound_in = {value}\n"), "-C", self.main)
-            self.assertEqual(done.returncode, 2, value)
-            self.assertIn("`found_in` must be a text", done.stderr)
-
     def test_each_refusal_names_the_key_and_queues_nothing(self):
         before = git(self.main, "rev-parse", "master")
         cases = [("title = 'T'\nwhy = 'w'\ntime = '5m'\ncolour = 'red'\n", "unknown key `colour`"),

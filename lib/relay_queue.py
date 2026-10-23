@@ -547,7 +547,7 @@ def find_finding(report, fid):
     raise Refused(f"no finding {fid} in {report}")
 
 
-ADD_KEYS = ("kind", "title", "why", "what", "failing_case", "pass_cases", "time", "ip", "where", "found_in")
+ADD_KEYS = ("kind", "title", "why", "what", "failing_case", "pass_cases", "time", "ip", "where")
 FROM_KEYS = ("why", "time", "ip")
 
 
@@ -563,10 +563,10 @@ def read_add_input(path, keys, required, done="queued"):
         raise Refused(f"nothing {done}: " + "; ".join(problems))
     out = {}
     for key, value in raw.items():
-        if key in ("kind", "title", "where", "found_in"):
+        if key in ("kind", "title", "where"):
             if not isinstance(value, str):
                 problems.append(f"`{key}` must be a text")
-            out["context" if key == "found_in" else key] = value
+            out[key] = value
         elif key == "ip":
             if not _is_int(value):
                 problems.append("`ip` must be a whole number from 0")

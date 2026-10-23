@@ -585,7 +585,7 @@ relay queue count                        "10 fix, 12 feature; top: <slug> (fix, 
 relay queue <view>                       a read-only view from relay's lib/queue_ext/ (also: relay queue --view <view>); `table` is the default, `json` prints the items for scripts
 relay queue show <slug>                  one item in full
 relay queue add --input <file.toml> [--time 20m|1h|1h30m] [--ip N]
-                                         the TOML holds kind, title, why, time, what, failing_case, pass_cases, where, found_in (text in '''...''')
+                                         the TOML holds kind, title, why, time, what, failing_case, pass_cases, where (text in '''...''')
 relay queue add --from <report.json> F<n> --input <file.toml> [--time ..] [--ip N]
                                          the finding F<n> of a recorded review or check; the TOML holds why, time, ip
 relay queue land <slug>                  try again to land a kept wt/queue-<slug>
