@@ -764,17 +764,3 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
 - NEXT: a fresh session takes the guard batch (guard-variable-paths,
   tune-hook-false-trigger), then the gate batch (core-tests-not-in-gate,
   runner-turns-while-waiting).
-
-## STATE 23 Oct, core-tests-not-in-gate fixed, checked, waiting for the owner's merge word (session 0879ab20)
-
-- Branch wt/core-tests-not-in-gate in .worktrees/core-tests: `bin/ci --quick` runs inject-addition, packet,
-  check-contract, shim, spec-check (about +13 s; quick gate is about 3m46s, not 3 s); hooks-live (paid) only in full
-  bin/ci and never in the inert probe's nested run; a missing bun/node/jq/git/python3 fails the step naming it.
-  packet, spec-check and check-contract were red unseen (fixture paths never in git); now read
-  plugins/core/tests/profiles/kartoteka.toml and evals/plugin/fixture.
-- Review: F1 (MEDIUM, hooks-live twice in a release gate) and F2 fixed; F3 disputed (a skip would be silent), checker
-  agreed. Checks: open 0. Item closed on the branch (`queue: done`); the merge lands it.
-- To queue after the merge (fix): `relay check record check` refuses reviews of different shas, so a taken item's Q1
-  (reviewed at the take sha) and the whole-change review never fit one check; Q1 needed a second check record.
-- Open for the owner: mock hooks-live's paid call so it can run in the quick gate (not decided).
-- NEXT: on the owner's word, merge wt/core-tests-not-in-gate into master; then runner-turns-while-waiting (gate batch).
