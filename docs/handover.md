@@ -891,3 +891,21 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
   cost 2 extra check rounds (one-off, my order, not queued).
 - The stale tune-stage hook error in sessions started before 23 Oct goes away with /reload-plugins or a restart.
 - NEXT: step 1 hand-back -> quick gate -> review -> fix -> gate -> check -> page -> merge question; then step 2.
+
+## STATE 24 Oct, queue step 1 MERGED; step 2 building; portability recorded (session 0cc68fe0)
+
+- Step 1 (wt/queue-read-both: read and check both item shapes, writers unchanged) merged on the owner's "Можешь слить шаг 1
+  про даты событий". Review 2 LOW, both MET.
+- Owner on taste/memory, verbatim: "Вкусом к трате, здесь я имел ввиду обычный вкус как систему принятия решений,
+  приоритетов"; "Трата лишь одна из секцих "вкуса""; then "заменять память не стоит - лучше научиться ей управлять";
+  "память лишь записывает, из памяти в дальнейшем мы собираем функциональные компоненты системы, каким может стать
+  "вкус""; "Те разделы вкуса что ты привел, назовем их принципами - паттерны поведения и принятия решений, они мне по
+  душе"; "relay - переносимая утилита ... без ссылок на другие проекты"; "Правила glonass мы оставляем вне, по старому,
+  для всем моих личных проектах твои правила вполне, glonass также остается вне relay"; "запиши сейчас куда-нибудь,
+  чтобы после уже на этапе полного изолирования утилиты (когда я начну её активно применять) мы смогли это восстановить".
+- Recorded: queue feature relay-as-a-portable-tool-project-data-out-of-rel (ip 0, the owner's to set); the principles
+  draft page is kept at docs/notes/principles-draft-2026-10-24.html (published: https://claude.ai/artifact/NQRwk9vQKBpbuP43kEEosu).
+  rules/taste.md (waste only) stays until that work; the taste experiment count is moot (owner redefined it).
+- Building: step 2 on wt/queue-events (brief briefs/queue-events.md + UPDATE + STEP 2 sections).
+- NEXT: step 2 build -> gate -> review -> fix -> gate -> check (+ Q1) -> close the item with the worktree's own
+  bin/relay -> paid bin/ci only if rules/ text changes (the rules/queue.md line) -> page -> merge question.

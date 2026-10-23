@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вкус: черновик</title><style>
+:root{--bg:#fbfaf7;--surface:#fff;--text:#1d1d1f;--muted:#5c5c63;--border:#dedbd3;--head:#f1efe9;--quote:#f6f3ea;--accent:#2f5fb3;--warn-bg:#fdf0d5;--warn-fg:#7a4d00;--kV:#e4ecfb;--kP:#e4f2e6;--kF:#f1efe9;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#17171a;--surface:#1f1f23;--text:#ececef;--muted:#a5a5ad;--border:#3a3a41;--head:#2a2a30;--quote:#26262c;--accent:#8db3f5;--warn-bg:#3d3018;--warn-fg:#f3cf86;--kV:#22304a;--kP:#1f3a25;--kF:#2a2a30;}}
+:root[data-theme="dark"]{--bg:#17171a;--surface:#1f1f23;--text:#ececef;--muted:#a5a5ad;--border:#3a3a41;--head:#2a2a30;--quote:#26262c;--accent:#8db3f5;--warn-bg:#3d3018;--warn-fg:#f3cf86;--kV:#22304a;--kP:#1f3a25;--kF:#2a2a30;}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;padding:24px 16px 48px;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;font-size:16px;line-height:1.55}
+main{max-width:960px;margin:0 auto}h1{font-size:1.6rem;margin:0 0 8px}h2{font-size:1.3rem;margin:40px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px}h3{font-size:1.1rem;margin:0 0 6px}
+a{color:var(--accent)}.muted{color:var(--muted)}code{font-size:.9em;background:var(--head);padding:1px 4px;border-radius:4px;word-break:break-word}
+.box,.taste{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin:14px 0}
+.rule{font-weight:600;margin:4px 0 8px}dl{margin:0}dt{font-weight:600;margin-top:10px;color:var(--muted);font-size:.92em}dd{margin:2px 0 0}
+blockquote{margin:6px 0;padding:6px 10px;background:var(--quote);border-left:3px solid var(--accent);border-radius:4px}
+.badge{display:inline-block;background:var(--warn-bg);color:var(--warn-fg);font-size:.8em;padding:1px 8px;border-radius:10px;font-weight:600;vertical-align:middle}
+.guess{background:var(--warn-bg);color:var(--text);padding:8px 10px;border-radius:6px}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:8px;background:var(--surface);margin:10px 0}
+table{border-collapse:collapse;min-width:720px;width:100%;font-size:.93em}th,td{text-align:left;vertical-align:top;padding:7px 10px;border-bottom:1px solid var(--border)}th{background:var(--head);position:sticky;top:0}
+.kind{font-size:.82em;padding:1px 7px;border-radius:10px;white-space:nowrap}.kВ{background:var(--kV)}.kП{background:var(--kP)}.kФ{background:var(--kF);border:1px solid var(--border)}
+ol.prio li{margin:4px 0}.q h3{margin-top:4px}.opt{margin:4px 0}
+</style></head>
+<body><main>
+<h1>Вкус relay — черновик</h1>
+<p><b>relay</b> — ваша надстройка над Claude Code: она раздаёт работу агентам нужного уровня, охраняет git, ведёт очередь работ и пишет общие правила во все проекты. Эта страница — черновик «вкуса» relay и план, как вкус заменит встроенную память Claude.</p>
+<div class="box">
+<p><b>Что такое вкус здесь.</b> Правила говорят, <i>что</i> делать. Вкус говорит, <i>что хорошо и что идёт первым</i>: у каждого раздела есть сигнал (момент, когда он срабатывает), действие и ваши слова как доказательство. Так вкус работает как «signal source, switcher, decider» из вашей первой формулировки 23.10. Трата — один из разделов, как вы поправили 24.10.</p>
+<p><b>Память Claude</b> (auto-memory) — заметки, которые Claude Code сам пишет в <code>~/.claude/projects/&lt;папка&gt;/memory/</code> посреди сессии и сам подгружает в следующие сессии той же папки. Она живёт вне relay, на одной машине, без проверки формата.</p>
+<p><b>Как ответить:</b> напишите номер раздела и что не так, например «3 — не так, я имел в виду …»; если всё верно — «всё так». Вопросы внизу (раздел 4 страницы) — отдельно, по буквам.</p>
+</div>
+
+<div class="box"><p><b>Где выбор, данный мне, слаб (сказано один раз, дальше строю как решено).</b></p>
+<ol>
+<li><b>«Заменить память, чтобы relay был переносимым».</b> relay сам стоит на Claude Code (крючки, агенты, CLAUDE.md), поэтому переносимость — между машинами, а не между инструментами. Между машинами память можно перенести и без кода: в установленном Claude Code (2.1.309) есть настройка <code>autoMemoryDirectory</code> — папку памяти можно указать внутри репозитория relay. Настоящий выигрыш замены в другом: один источник вместо двух. Сейчас они расходятся: две из 13 заметок relay сами пишут «queued in relay» и «пример в правиле устарел». Цена замены — нужен новый путь записи, иначе каждое новое решение ждёт ветку, рецензию и платный прогон (~$9). Этот путь описан в разделе 3.</li>
+<li><b>«Разделы — из прошлых решений владельца».</b> Из 71 решения на странице решений около 33 — одни буквы («1a 2a»): их смысл держится на текстах вопросов, а не на ваших словах. Поэтому вкус из одних этих решений получился бы тонким. Я добавил принципы из заметок других проектов (ALIX, arsenal, SIGHT, общие); у каждого раздела указано, откуда он.</li>
+</ol></div>
+
+<h2>1. Разделы вкуса</h2>
+<p>9 разделов. Пометка <span class="badge">предположение</span> — меньше двух ваших решений в основании. Целых разделов с ней нет; одно правило внутри раздела 9 помечено. Номера «№ N» — строки страницы решений (21–23.10).</p>
+<section class="taste" id="t1">
+<h3>1. Порядок: что идёт первым </h3>
+<p class="rule">Сначала правильность, потом исправление найденного, потом дешёвое раньше дорогого при равной пользе, и только потом новое; новое не тащит за собой старое.</p>
+<ol class="prio">
+<li><b>Правильность и проверка.</b> Рецензию не пропускают ради экономии: экономят на её форме (одна хорошая вместо нескольких), а не на её наличии.</li>
+<li><b>Найденная ошибка не откладывается.</b> Ошибка внутри ветки исправляется до слияния; ошибка в другом месте встаёт в очередь выше всех новых возможностей. «Технического долга» нет.</li>
+<li><b>Бесплатное раньше платного.</b> Сначала проверки кодом (они ничего не стоят), потом рецензия моделью, потом платные прогоны.</li>
+<li><b>Новое не тащит старое.</b> Старые проекты и старые форматы не поддерживаются ради совместимости, если владелец единственный пользователь.</li>
+<li><b>Новые возможности — по числу важности (IP),</b> которое задаёт владелец; IP, выбранный агентом, помечается как выбранный агентом.</li>
+</ol>
+<dl>
+<dt>Когда срабатывает</dt><dd>Два дела спорят за очередь; хочется отложить найденную ошибку «на потом»; хочется сэкономить, пропустив проверку; порядок, названный владельцем, расходится с тем, что делается.</dd>
+<dt>Что делать</dt><dd>Назвать оба дела и пункт порядка, который ставит одно выше. Если порядок не решает (два новых дела без IP), это вопрос владельцу.</dd>
+<dt>Слова владельца</dt><dd><blockquote lang='en'>«our review - fix - review flow is wrong we move in cycle fixing the same problems. One good review is better than several bad reviews, and cheaper» <span class=muted>— 21.10</span></blockquote><blockquote lang='en'>«Code checks run first - it&#x27;s free / Then they passes - run review step, that have result and can store artifacts» <span class=muted>— 22.10</span></blockquote><blockquote lang='en'>«ok, guard and gate first after the trial» <span class=muted>— 23.10</span></blockquote></dd>
+<dt>Где изменило бы решение</dt><dd>23.10 владелец сказал «guard and gate first after the trial», но первыми слились правило вкуса и правило о данных, а охранник — третьим (решение № 58 на странице решений). С этим разделом ведущая сессия назвала бы расхождение до того, как брать вкус, и спросила бы, обгоняет ли он охранника.</dd>
+<dt>Основание</dt><dd class="muted">№ 11, 19, 24, 39, 43, 58 на странице решений; 24.10 о старом формате очереди; в arsenal — пять мерил потока (15.10)</dd>
+</dl>
+
+</section><section class="taste" id="t2">
+<h3>2. Трата </h3>
+<p class="rule">Каждая работа делается один раз и нужна кому-то; повтор, пустой отказ и вывод, который никто не читает, — сигнал остановиться.</p>
+<p>Суть нынешнего правила <code>rules/taste.md</code> сохраняется целиком: серьёзность — повторяющаяся трата (на каждом прогоне или изменении) средняя и чинится до слияния, разовая — низкая; рецензент ищет трату, которую добавляет ветка; после слияния ведущая сессия называет встреченную трату и ставит её причины в очередь.</p>
+<dl>
+<dt>Когда срабатывает</dt><dd>Та же работа второй раз (проверка без изменений, второй агент читает уже прочитанное, шаг повторён после отказа); отказ или красный шаг, не нашедший ничего плохого; вывод, который никто не читает; шаг, который нужен только другому скрипту; то, что уже покрыто более простым; часовое задание агенту ради мелкой правки.</dd>
+<dt>Что делать</dt><dd>Остановиться до следующего шага и сказать одной строкой с числом (прогоны, минуты). Взять более дешёвый путь, если он есть; если трата встроена в устройство — её причина становится пунктом исправления, а не обходом, который повторяют каждый раз.</dd>
+<dt>Слова владельца</dt><dd><blockquote lang='en'>«Let&#x27;s create a taste section, experimental. You feel discomfort when you recognize - you&#x27;re used not effectively, you want to detect this and fix ... find similiar problems before you merge them to the repo, and find it after» <span class=muted>— 23.10</span></blockquote><blockquote lang='ru'>«Трата лишь одна из секцих &quot;вкуса&quot;» <span class=muted>— 24.10</span></blockquote></dd>
+<dt>Где изменило бы решение</dt><dd>23.10, ветка «тесты core в быстрой проверке»: 3 отказа на пути слияния, не нашедшие ничего плохого, проверяющий запущен дважды, ~8 минут полной проверки потрачены, потому что исправитель доложил «зелёно» до коммита. 24.10: запись очереди не взята до рецензии — 2 лишних круга проверки.</dd>
+<dt>Основание</dt><dd class="muted">23.10 (правило вкуса), 21.10 «cheaper», в arsenal — «меньше, но длиннее агенты» (13–15.10), в общих — «макет за минуты» (19.10)</dd>
+</dl>
+
+</section><section class="taste" id="t3">
+<h3>3. Выводимое не хранится </h3>
+<p class="rule">Хранится только то, что нельзя вычислить; состояние выводится из событий с датой и из фактов (git, очередь, отчёты), а не записывается отдельным полем.</p>
+
+<dl>
+<dt>Когда срабатывает</dt><dd>Поле, которое повторяет то, что уже видно из других данных (status, state, updated_at, счётчик); журнал, написанный от руки, пересказывает то, что знает git; собранный файл (видео, рендер) кладётся в git рядом с исходником.</dd>
+<dt>Что делать</dt><dd>Заменить поле событием с датой и правилом проверки (closed_at, taken_at, dropped_at); состояние считать при чтении; в git хранить только воспроизводимые исходники.</dd>
+<dt>Слова владельца</dt><dd><blockquote lang='ru'>«При проектировании баз данных я сам категорически против полей status, они ничего не дают и их легко посчитать исходя из &quot;реального&quot; состояния объекта» <span class=muted>— 24.10</span></blockquote><blockquote lang='ru'>«Вместо updated_at я помечаю событийно - closed_at, taken_at, dropped_at, у полей так же есть правила валидации» <span class=muted>— 24.10</span></blockquote></dd>
+<dt>Где изменило бы решение</dt><dd>Все 48 записей очереди relay хранят поле <code>state</code> (open, taken, done), хотя его можно вычислить из taken_by и closed_by. Владелец заметил это 24.10; с этим разделом рецензия формата очереди 22.10 нашла бы его до того, как поле появилось в каждой записи, и не понадобилась бы миграция в два шага.</dd>
+<dt>Основание</dt><dd class="muted">24.10 (status и событийные поля); № 28 «состояние из фактов» (22.10, не доверяет журналу от руки); в blogger — «только воспроизводимые исходники в git»; в ALIX — «статусы выводятся из вторичных меток» (16.10)</dd>
+</dl>
+
+</section><section class="taste" id="t4">
+<h3>4. Для скрипта — структура, для человека — вид </h3>
+<p class="rule">Повторяющиеся записи, поля которых извлекает скрипт, лежат в JSON/TOML со схемой и меняются одним скриптом; текст для людей и моделей остаётся прозой; числа хранятся простыми, показываются красиво.</p>
+
+<dl>
+<dt>Когда срабатывает</dt><dd>Скрипт ищет метку или число регуляркой в прозе; текст, который никто не разбирает, переводится в JSON; в хранилище лежит «1h 30m»; рецензия судит показ по удобству арифметики.</dd>
+<dt>Что делать</dt><dd>Задать вопрос-проверку: «это повторяющаяся запись, поле которой скрипт извлекает, считает или меняет?» Да — структура, схема, один пишущий скрипт. Нет — проза. Показ судить по читаемости.</dd>
+<dt>Слова владельца</dt><dd><blockquote lang='en'>«I want to lock format - persist structured, operate with scripts» <span class=muted>— 22.10</span></blockquote><blockquote lang='en'>«We should store only structured data that can be splitted into repeated domain data, if this unstructured instructions or plain text - you don&#x27;t need to store it in structured format» <span class=muted>— 23.10</span></blockquote><blockquote lang='en'>«My head can calc this, I care about your calculation, store in minutes plain numbers, show pretty format for me» <span class=muted>— 22.10</span></blockquote></dd>
+<dt>Где изменило бы решение</dt><dd>22.10 проверка перед слиянием считала «open n», ища слова в прозе проверяющего; теперь итоги лежат в JSON. В обратную сторону: задача «отчёты агентов в JSON» снята 23.10 — их читают люди и модели, скрипт полей не извлекает.</dd>
+<dt>Основание</dt><dd class="muted">№ 50, 51, 53, 55, 63 на странице решений</dd>
+</dl>
+
+</section><section class="taste" id="t5">
+<h3>5. Факт — коду, смысл — модели </h3>
+<p class="rule">То, что можно проверить точно, проверяет код (жёсткий список, тест); то, что требует понимания (намерение во фразе, верность ответа по смыслу, содержание картинки), решает модель, а код её только проверяет и измеряет.</p>
+
+<dl>
+<dt>Когда срабатывает</dt><dd>Модель сама решает правило безопасности или что считать «безвредным»; регулярка или список слов пытается поймать намерение владельца; код пытается сочинить то, что должна написать модель.</dd>
+<dt>Что делать</dt><dd>Факт — в код или жёсткий список. Смысл — в описание намерения для модели и в платные тесты на двух языках, с опечатками и с фразами, которые не должны срабатывать.</dd>
+<dt>Слова владельца</dt><dd><blockquote lang='en'>«model shouldn&#x27;t decide by self» <span class=muted>— 22.10</span></blockquote><blockquote lang='en'>«a, model should recognize it, I can typo text in many languages, with misstypings and common language errors» <span class=muted>— 21.10</span></blockquote></dd>
+<dt>Где изменило бы решение</dt><dd>23.10 убран крючок, ловивший слова о расходах: навык настройки теперь запускается по пониманию модели. До сужения описания — 2 ложных срабатывания из 15, после — 27 из 27 ($3.14). И наоборот: что сохраняет метку проверки после новых коммитов, решает жёсткий список файлов, а не модель (22.10).</dd>
+<dt>Основание</dt><dd class="muted">№ 9, 23, 38, 39, 67 на странице решений; в SIGHT — «правила не рисуют картинку» (10.02)</dd>
+</dl>
+
+</section><section class="taste" id="t6">
+<h3>6. Причина, а не симптом </h3>
+<p class="rule">Когда беда повторяется, ищут причину и чинят правило за находкой, а не один пример; повторные прогоны только доказывают исправление.</p>
+
+<dl>
+<dt>Когда срабатывает</dt><dd>Тот же вид сбоя второй раз; предложение «прогнать ещё раз»; заплатка рядом с прошлой заплаткой; три мелких исправления одного места.</dd>
+<dt>Что делать</dt><dd>Перечислить гипотезы (общее состояние нескольких участников, медленная среда, гонки, сменилась форма ответа) и собрать улики на каждую; одна переделка вместо серии заплаток; исправление доказать случаями рецензента.</dd>
+<dt>Слова владельца</dt><dd><blockquote lang='en'>«agent is not deterministic, you need more analysis of cause rather than more runs, common cause of flakiness in the code - shared state, slowness of environment, races» <span class=muted>— 22.10</span></blockquote><blockquote lang='en'>«our review - fix - review flow is wrong we move in cycle fixing the same problems» <span class=muted>— 21.10</span></blockquote></dd>
+<dt>Где изменило бы решение</dt><dd>21.10 охранник: рецензии, смотревшие только на последнее исправление, находили следующую дыру рядом с прошлой — 20 обходов, потом 4, потом 2. 23.10 вместо трёх заплаток на проверку взята одна переделка (№ 62).</dd>
+<dt>Основание</dt><dd class="muted">№ 11, 35, 62 на странице решений; в ALIX — «повторяющиеся сбои значат устройство» (13.10)</dd>
+</dl>
+
+</section><section class="taste" id="t7">
+<h3>7. Просто и без лишних частей </h3>
+<p class="rule">Из двух путей выбирают тот, где меньше частей; не добавляют сервер, формат или слой, если хватает git и скрипта; новое встраивают в своё место, а не прикручивают сбоку.</p>
+
+<dl>
+<dt>Когда срабатывает</dt><dd>Отдельный сервис там, где хватит локального скрипта; второй формат «для совместимости»; более дорогой инструмент при равном качестве; опция, прикрученная к одному экрану или шагу.</dd>
+<dt>Что делать</dt><dd>Предложить путь без лишней части и назвать, что он теряет, числом или примером.</dd>
+<dt>Слова владельца</dt><dd><blockquote lang='en'>«just git ... agent can manage scripts and run it» <span class=muted>— 22.10</span></blockquote><blockquote lang='en'>«I think we&#x27;re reject Jev with cause Haiku is still cheap but better» <span class=muted>— 22.10</span></blockquote><blockquote lang='ru'>«После миграции нам уже не нужно будет поддерживать старый формат, relay никем кроме меня не используется так что проблем не будет» <span class=muted>— 24.10</span></blockquote></dd>
+<dt>Где изменило бы решение</dt><dd>22.10 отказ от отдельного сервера проверок (Woodpecker): проверка — локальные скрипты, их итоги лежат в git рядом с меткой. 24.10 второй шаг миграции очереди убирает чтение старого формата вместо того, чтобы держать оба.</dd>
+<dt>Основание</dt><dd class="muted">№ 37, 40, 43 на странице решений; 24.10; общее правило «Keep it simple»; в общих — «перестраивать, а не прикручивать» (UI)</dd>
+</dl>
+
+</section><section class="taste" id="t8">
+<h3>8. Владелец читает, а не вспоминает </h3>
+<p class="rule">Каждое сообщение понятно через два дня без разговора: на родном языке владельца, простыми словами, с живым примером; время — в минутах работы агентов и доле лимита.</p>
+<p>Почти всё это уже записано в правиле «Как со мной работать». Раздел вкуса добавляет сигнал: момент, когда сообщение вот-вот уйдёт тонким.</p>
+<dl>
+<dt>Когда срабатывает</dt><dd>Вопрос в одну-две фразы без вступления; в ответе внутреннее имя (ветка, файл, команда) вместо того, что это делает; оценка в человеко-часах; термин без определения; ответ на английском.</dd>
+<dt>Что делать</dt><dd>Дописать вступление (механизм, живой пример, что меняет ответ), заменить имена на действия, перевести оценку в минуты агентов и % лимита.</dd>
+<dt>Слова владельца</dt><dd><blockquote lang='en'>«what if I return to this session after the 2 days, you put a single or two sentences in question now, why you cut this, I can read more, I need to read more» <span class=muted>— 22.10</span></blockquote><blockquote lang='en'>«My native lang is russian - I don&#x27;t like speak in English» <span class=muted>— 23.10</span></blockquote><blockquote lang='ru'>«Всё это время я общался с тобой на ломанном английском, у меня есть опасения, понимал ли ты меня так как этого хотел» <span class=muted>— 23.10</span></blockquote></dd>
+<dt>Где изменило бы решение</dt><dd>21.10 оценки «5–7 ч» оказались непроверенными человеко-часами; замер того же дня: полный цикл «сборка — рецензия — исправление — проверка» около 30 минут агентов и 2% пятичасового лимита.</dd>
+<dt>Основание</dt><dd class="muted">№ 6, 27, 33, 69, 71 на странице решений</dd>
+</dl>
+
+</section><section class="taste" id="t9">
+<h3>9. Решай сам внутри принципов </h3>
+<p class="rule">Решение, которое следует из принципов и записанных решений, принимается и сообщается после; владельцу идёт только его выбор: компромисс, число, срез объёма, то, что увидит человек. Редкие крайние случаи не выносятся.</p>
+
+<dl>
+<dt>Когда срабатывает</dt><dd>Вопрос, на который уже отвечает принцип или прошлое решение; вопрос о редком крайнем случае; ожидание согласия на уже разрешённое (платные проверки до $50 в день).</dd>
+<dt>Что делать</dt><dd>Найти записанное решение; решить; записать с пометкой «владелец может отменить»; сообщить после.</dd>
+<dt>Слова владельца</dt><dd><blockquote lang='en'>«a, you can run paid checks without my approve, increase limit to 50$» <span class=muted>— 22.10</span></blockquote><blockquote lang='ru'>«Меня устраивают твои рекомендации» <span class=muted>— 24.10</span></blockquote></dd>
+<dt>Где изменило бы решение</dt><dd>24.10 устройство «долгое задание запускает ведущая сессия в фоне, а не ожидающий агент» решено без вопроса: его решает принцип «никакого агента, который ждёт». Владелец принял слияние словами «Да, можешь слить».</dd>
+<dt>Основание</dt><dd class="muted">№ 49, 57 (2c «больше не спрашивать»), 24.10; в ALIX — «решаю всё внутри принципов» (12.10); в arsenal — «владелец смотрит принципы, а не отдельные решения» (15.10); в общих — «не выносить редкие случаи»</dd>
+</dl>
+<p class='guess'><span class='badge'>предположение</span> Вопрос владельца вида «почему бы не…» (№ 29, 51, 55) — это вопрос, а не указание: сначала ответ с рекомендацией, действие — после его слова. Опирается на 0 решений владельца: это мой вывод из того, что такие вопросы трижды выполнялись как указания. Страница решений уже спросила об этом; ваш ответ там решает и этот пункт.</p>
+</section>
+
+<h2>2. Память Claude → relay</h2>
+<p>В 82 папках памяти лежат 150 заметок (не считая файлов-оглавлений MEMORY.md); заметки есть в 21 папках, остальные пусты; без копий из рабочих папок веток — 141 разных заметок: 13 у relay и 128 в других проектах. Вид: <span class="kind kВ">вкус</span> — как решать; <span class="kind kП">правило</span> — уже есть в правилах relay или станет строкой в них; <span class="kind kФ">факт</span> — знание о владельце, машине или проекте, не вкус.</p>
+<div class="box"><p><b>Факты — не вкус.</b> Оплата (подписка с лимитами), замер цен (relay на 36% ниже /cost 21.10), родной язык, юрисдикция — это сведения, а не способ решать. Они идут туда, где relay уже хранит сведения о владельце: ключ в <code>projects.toml [global]</code>, который <code>relay sync</code> превращает в одну строку общих инструкций (так уже сделано с родным языком: <code>native_language = "Russian"</code> → «My native language: Russian.»). Замеры и история — в документы relay. Сведения о машине (VPN, DNS) — в заметки о машине в документах relay. Состояние и решения конкретного проекта — в документы этого проекта.</p></div>
+<h3>Память relay (все 13)</h3>
+<p class="muted">Куда: вкус — 3, правило — 6, [global] — 3, документы проекта — 1, удалить — 0.</p>
+<div class="table-wrap"><table><thead><tr><th>Заметка</th><th>Вид</th><th>Куда в relay</th><th>Почему</th></tr></thead><tbody>
+<tr><td><code>taste-means-judgement</code></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 1. Порядок: что идёт первым и вводная часть правила вкуса</td><td>Само определение вкуса; станет первой строкой rules/taste.md.</td></tr>
+<tr><td><code>always-review-fixes</code></td><td><span class='kind kП'>правило</span></td><td>Правило rules/delegation.md; пример для Вкус: 6. Причина, а не симптом</td><td>Форма рецензии уже в правиле («One good review, not several»); память хранит историю 20→4→2.</td></tr>
+<tr><td><code>display-pretty-store-plain</code></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 4. Для скрипта — структура, для человека — вид</td><td>Принцип владельца о хранении и показе.</td></tr>
+<tr><td><code>persist-structured-operate-scripts</code></td><td><span class='kind kП'>правило</span></td><td>Правило rules/structured-data.md; Вкус: 4. Для скрипта — структура, для человека — вид</td><td>Правило уже есть; в памяти пометка, что пример «hand-backs» в правиле устарел — это пункт исправления правила.</td></tr>
+<tr><td><code>natural-language-triggers</code></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 5. Факт — коду, смысл — модели</td><td>Смысл фразы — модели, а не регулярке.</td></tr>
+<tr><td><code>flaky-means-find-the-cause</code></td><td><span class='kind kП'>правило</span></td><td>Правило rules/quality-gate.md; Вкус: 6. Причина, а не симптом</td><td>Правило о нестабильных тестах уже есть; причина-сначала — вкус.</td></tr>
+<tr><td><code>questions-carry-context</code></td><td><span class='kind kП'>правило</span></td><td>Правило rules/working-with-me.md</td><td>Формат вопросов уже закреплён в правиле дословно.</td></tr>
+<tr><td><code>estimates-in-agent-time</code></td><td><span class='kind kП'>правило</span></td><td>Правило rules/working-with-me.md (новая строка); Вкус: 8. Владелец читает, а не вспоминает</td><td>В правиле нет строки об оценках в минутах агентов и % лимита; замеры 21.10 — в документы relay.</td></tr>
+<tr><td><code>stop-agents-after-handback</code></td><td><span class='kind kП'>правило</span></td><td>Правило rules/working-with-me.md (уже: «prune idle agents at once») и навык delegate</td><td>Правило есть; память добавляет точное действие (TaskStop сразу после отчёта) — оно идёт в навык ведущей сессии.</td></tr>
+<tr><td><code>paid-checks-preapproved</code></td><td><span class='kind kФ'>факт</span></td><td>projects.toml [global] paid_checks_daily_cap_usd = 50; пример для Вкус: 9. Решай сам внутри принципов</td><td>Число — настройка, не принцип; разрешение без вопроса — пример вкуса 9.</td></tr>
+<tr><td><code>owner-billing-subscription</code></td><td><span class='kind kФ'>факт</span></td><td>projects.toml [global] billing = &quot;subscription&quot; → строка в общих инструкциях</td><td>Факт о владельце, как родной язык: от него зависит, как говорить о цене (доля лимита, а не доллары).</td></tr>
+<tr><td><code>owner-native-language</code></td><td><span class='kind kФ'>факт</span></td><td>projects.toml [global] native_language (уже есть)</td><td>relay уже хранит язык и пишет строку «My native language: Russian.»; память дублирует.</td></tr>
+<tr><td><code>relay-cost-calibration</code></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: relay (docs/, история замеров)</td><td>Замер 21.10 (relay на 36% ниже /cost) устарел как живое знание: после исправления расхождение 4,5%. Остаётся историей.</td></tr>
+</tbody></table></div>
+<h3>Память других проектов (128, без повторов)</h3>
+<p class="muted">Куда: вкус — 16, правило — 23, [global] — 1, документы проекта — 74, удалить — 14. Под именем — проект(ы), где заметка лежит.</p>
+<div class="table-wrap"><table><thead><tr><th>Заметка</th><th>Вид</th><th>Куда</th><th>Почему</th></tr></thead><tbody>
+<tr><td><code>add-diagnostics-review-3</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Удалить: устарело</td><td>Находки рецензии 28.09, изменение слито.</td></tr>
+<tr><td><code>after-add-backtest-merge</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Удалить: устарело</td><td>Состояние на 28–29.09.</td></tr>
+<tr><td><code>alix-project</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Что такое проект.</td></tr>
+<tr><td><code>approval-section-in-reports</code><br><span class=muted>alix</span></td><td><span class='kind kП'>правило</span></td><td>Удалить: устарело</td><td>Сам помечен SUPERSEDED.</td></tr>
+<tr><td><code>autonomy-and-decider</code><br><span class=muted>alix</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 9. Решай сам внутри принципов</td><td>Решать внутри принципов, сообщать после.</td></tr>
+<tr><td><code>breadth-of-trials</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Направление проекта.</td></tr>
+<tr><td><code>bybit-demo-key-env</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Справка об окружении.</td></tr>
+<tr><td><code>config-over-runtime</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX (docs/principles.md)</td><td>Принцип одного проекта.</td></tr>
+<tr><td><code>continue-past-handover</code><br><span class=muted>alix</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/openspec.md</td><td>Не прерывать применение изменения ради передачи сессии — касается любого проекта с OpenSpec.</td></tr>
+<tr><td><code>decision-maker-research-direction</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Направление исследований.</td></tr>
+<tr><td><code>demo-mainnet-naming</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Словарь проекта.</td></tr>
+<tr><td><code>demo-only-until-proven</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Правило проекта о деньгах.</td></tr>
+<tr><td><code>document-knowledge-gaps</code><br><span class=muted>alix</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/working-with-me.md (уже есть)</td><td>«Record domain knowledge I lacked in the project docs».</td></tr>
+<tr><td><code>fast-backtests-principle</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX (уже правило 15 docs/principles.md)</td><td>Уже записано в проекте.</td></tr>
+<tr><td><code>flaky-tests-unacceptable</code><br><span class=muted>alix, sight</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/quality-gate.md (уже есть)</td><td>max(20, ⌈3/p⌉) уже в правиле.</td></tr>
+<tr><td><code>keep-trading-through-db-failure</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Правило проекта.</td></tr>
+<tr><td><code>kill-switch-marker-race</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX (очередь работ)</td><td>Открытая работа проекта.</td></tr>
+<tr><td><code>living-docs</code><br><span class=muted>alix, sight</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: SIGHT</td><td>Перешло в SIGHT.</td></tr>
+<tr><td><code>monitor-every-run</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Правило проекта.</td></tr>
+<tr><td><code>no-global-state</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Принцип проекта; общий смысл уже в Вкус: 6. Причина, а не симптом (общее состояние как причина).</td></tr>
+<tr><td><code>no-versioning-before-trading</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Правило проекта.</td></tr>
+<tr><td><code>observability-core</code><br><span class=muted>alix, sight</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Требование проекта.</td></tr>
+<tr><td><code>observability-roadmap</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Планы проекта.</td></tr>
+<tr><td><code>outbound-writes-outbox</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Правило проекта.</td></tr>
+<tr><td><code>parallel-apply-deps</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Приём для рабочих папок проекта.</td></tr>
+<tr><td><code>parallel-ci-plan</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX (очередь работ)</td><td>Открытая работа.</td></tr>
+<tr><td><code>perpetuals-decision</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Решение по продукту.</td></tr>
+<tr><td><code>post-fill-failure-policy</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Решение по продукту.</td></tr>
+<tr><td><code>principles-not-numbers</code><br><span class=muted>alix</span></td><td><span class='kind kВ'>вкус</span></td><td>Роль thinker в relay (уже: «каждое число — настройка»)</td><td>Уже в общей основе мыслителя.</td></tr>
+<tr><td><code>profit-first-priority</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Приоритет проекта.</td></tr>
+<tr><td><code>project-lead-flow</code><br><span class=muted>alix</span></td><td><span class='kind kП'>правило</span></td><td>Удалить: устарело; довод для Вкус: 3. Выводимое не хранится</td><td>Поток с ведущими отменён 16.10; «статусы выводятся из меток» — довод раздела 3.</td></tr>
+<tr><td><code>repeated-failures-mean-structure</code><br><span class=muted>alix</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 6. Причина, а не симптом</td><td>Повтор сбоя — искать устройство.</td></tr>
+<tr><td><code>return-target-and-autonomy</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Цель проекта.</td></tr>
+<tr><td><code>scoped-tests-local-gate-remote</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Порядок проверок проекта (relay выбрал локальные скрипты).</td></tr>
+<tr><td><code>self-healing-principle</code><br><span class=muted>alix, sight</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Принцип проекта.</td></tr>
+<tr><td><code>session-handover</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Удалить: устарело</td><td>Состояние 16.10, поток с ведущими отменён.</td></tr>
+<tr><td><code>shadow-virtual-account</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ALIX</td><td>Ожидание владельца по продукту.</td></tr>
+<tr><td><code>sight-project</code><br><span class=muted>alix, sight</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: SIGHT</td><td>Что такое проект.</td></tr>
+<tr><td><code>surface-hidden-gaps</code><br><span class=muted>alix</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 8. Владелец читает, а не вспоминает</td><td>Показывать расхождение между тем, что владелец думает, и тем, что делает код.</td></tr>
+<tr><td><code>tech-debt-program</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>Удалить: устарело</td><td>Программа 29.09; теперь «долга нет» — Вкус: 1. Порядок: что идёт первым.</td></tr>
+<tr><td><code>tigerstyle-principles</code><br><span class=muted>alix</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 1. Порядок: что идёт первым; Документы проекта: ALIX</td><td>TigerStyle — источник «найденное не откладывается».</td></tr>
+<tr><td><code>tree-orchestration</code><br><span class=muted>alix</span></td><td><span class='kind kП'>правило</span></td><td>Удалить: устарело</td><td>Отменено 16.10 (откат к чистому потоку).</td></tr>
+<tr><td><code>typesafe-key-env</code><br><span class=muted>alix</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/shell.md (уже есть)</td><td>«zsh -ic» для переменных из ~/.zshrc.</td></tr>
+<tr><td><code>user-jurisdiction</code><br><span class=muted>alix</span></td><td><span class='kind kФ'>факт</span></td><td>projects.toml [global] jurisdiction</td><td>Факт о владельце; ограничивает выбор сервисов в любом проекте.</td></tr>
+<tr><td><code>user-role-and-communication</code><br><span class=muted>alix, sight</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 8. Владелец читает, а не вспоминает; Вкус: 9. Решай сам внутри принципов</td><td>Владелец держит принципы, а не механизмы.</td></tr>
+<tr><td><code>worktree-only-workflow</code><br><span class=muted>alix</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/git.md (уже есть)</td><td>Работа только в рабочих папках веток.</td></tr>
+<tr><td><code>zsh-path-variable</code><br><span class=muted>alix, sight</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/shell.md (уже есть)</td><td>Переменная path.</td></tr>
+<tr><td><code>adopt-linter-tool-handover</code><br><span class=muted>arsenal</span></td><td><span class='kind kФ'>факт</span></td><td>Удалить: устарело</td><td>Состояние на 11.10.</td></tr>
+<tr><td><code>arsenal-daemon-mode-decider</code><br><span class=muted>arsenal</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 9. Решай сам внутри принципов</td><td>Принципы и направление — от владельца, остальное решается.</td></tr>
+<tr><td><code>arsenal-direction</code><br><span class=muted>arsenal</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: arsenal</td><td>Направление проекта.</td></tr>
+<tr><td><code>arsenal-future-picture</code><br><span class=muted>arsenal</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: arsenal</td><td>Где лежит разбор.</td></tr>
+<tr><td><code>arsenal-issue-create-no-propose-gate</code><br><span class=muted>arsenal</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: arsenal</td><td>Разрешение проекта.</td></tr>
+<tr><td><code>context-budget-settings-plan</code><br><span class=muted>arsenal</span></td><td><span class='kind kП'>правило</span></td><td>Удалить: устарело</td><td>План 05.10; бюджет теперь в Правило rules/front.md (400k).</td></tr>
+<tr><td><code>fewer-longer-agents</code><br><span class=muted>arsenal</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/delegation.md (уже есть); Вкус: 2. Трата</td><td>«fewer, longer agents» уже в правиле.</td></tr>
+<tr><td><code>flow-quality-metrics</code><br><span class=muted>arsenal</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 1. Порядок: что идёт первым</td><td>Пять мерил потока владельца — порядок ценностей.</td></tr>
+<tr><td><code>orchestrator-context-budget</code><br><span class=muted>arsenal</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/front.md (уже есть, новее)</td><td>600k устарело, правило держит 400k.</td></tr>
+<tr><td><code>proactive-improvement</code><br><span class=muted>arsenal</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 2. Трата</td><td>Замечать трение без просьбы — сигнал вкуса.</td></tr>
+<tr><td><code>review-principles-not-decisions</code><br><span class=muted>arsenal</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 9. Решай сам внутри принципов</td><td>Владелец смотрит принципы.</td></tr>
+<tr><td><code>rollback-to-clean-flow</code><br><span class=muted>arsenal</span></td><td><span class='kind kП'>правило</span></td><td>Удалить: устарело</td><td>История 16.10; теперь поток — relay.</td></tr>
+<tr><td><code>woodpecker-pr-edit-cancels-pipeline</code><br><span class=muted>arsenal</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: arsenal</td><td>Справка о CI.</td></tr>
+<tr><td><code>judge-motion-from-video</code><br><span class=muted>blogger</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/product-work.md</td><td>Судить движение по ролику — частный случай «показать в настоящей среде».</td></tr>
+<tr><td><code>media-are-build-artifacts</code><br><span class=muted>blogger</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 3. Выводимое не хранится</td><td>В git только воспроизводимые исходники.</td></tr>
+<tr><td><code>drawing-quality</code><br><span class=muted>cartoons</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: cartoons</td><td>Планка качества проекта.</td></tr>
+<tr><td><code>project-start</code><br><span class=muted>cartoons</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: cartoons</td><td>Состояние проекта на 18.10.</td></tr>
+<tr><td><code>glonass-tooling-quirks</code><br><span class=muted>glonass/common</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/glonass.md</td><td>Ограничения инструментов glonass_* касаются всех задач Glonass.</td></tr>
+<tr><td><code>kiask-trolleybus-les-12726-state</code><br><span class=muted>glonass/common</span></td><td><span class='kind kФ'>факт</span></td><td>Удалить: устарело</td><td>Состояние на 08.10.</td></tr>
+<tr><td><code>tracker-task-orchestrator-workflow</code><br><span class=muted>glonass/common</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/glonass.md</td><td>Как вести задачи Tracker.</td></tr>
+<tr><td><code>go-codegen-tool-directives</code><br><span class=muted>glonass/common-dwh-adapter-dwh-gateway</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Glonass Go-репозитории (AGENTS.md)</td><td>Привычка в Go-коде.</td></tr>
+<tr><td><code>fnis-dev-testing-via-pi-daemon</code><br><span class=muted>glonass/common-fnis-adapter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: fnis-adapter</td><td>Справка.</td></tr>
+<tr><td><code>secret-exposure-notices-conversation-only</code><br><span class=muted>glonass/common-fnis-adapter</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/secrets.md</td><td>Новая строка: сообщение об утечке — только в разговоре.</td></tr>
+<tr><td><code>etl-engine-plan</code><br><span class=muted>glonass/common-ksim-ksim-adapter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ksim-adapter / etl</td><td>Решения по задаче.</td></tr>
+<tr><td><code>les-12996-research</code><br><span class=muted>glonass/common-ksim-ksim-adapter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: ksim-adapter</td><td>Исследование задачи.</td></tr>
+<tr><td><code>dwh-dev-only</code><br><span class=muted>glonass/common-sorm-sorm-adapter</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/glonass.md</td><td>Запрет на прод-DWH — правило безопасности для всех репозиториев Glonass.</td></tr>
+<tr><td><code>les-12990-links</code><br><span class=muted>glonass/common-sorm-sorm-adapter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: sorm-adapter</td><td>Ссылки задачи.</td></tr>
+<tr><td><code>les-12990-status</code><br><span class=muted>glonass/common-sorm-sorm-adapter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: sorm-adapter</td><td>Состояние задачи на 22.10.</td></tr>
+<tr><td><code>glonass-common-env-access</code><br><span class=muted>glonass/common-temporal-workflow-temporal-workflow-doc-billing</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Glonass common</td><td>Справка о стендах.</td></tr>
+<tr><td><code>doc-as-code-update-flow</code><br><span class=muted>glonass/doc-documentation</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: doc/documentation</td><td>Справка.</td></tr>
+<tr><td><code>glonass-gitlab-push-over-direct-ssh</code><br><span class=muted>glonass/doc-documentation</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/glonass.md</td><td>Как пушить в GitLab Glonass — для всех репозиториев.</td></tr>
+<tr><td><code>bun-not-node</code><br><span class=muted>humar</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Glyph</td><td>Выбор инструментов проекта.</td></tr>
+<tr><td><code>glyph-buyer-questions</code><br><span class=muted>humar</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Glyph</td><td>Правило проекта.</td></tr>
+<tr><td><code>glyph-hosting</code><br><span class=muted>humar</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Glyph</td><td>Справка.</td></tr>
+<tr><td><code>glyph-lead-merges</code><br><span class=muted>humar</span></td><td><span class='kind kП'>правило</span></td><td>Документы проекта: Glyph — проверить</td><td>Ведущие отменены 16.10, а общее правило git требует слова владельца; оставить только после его подтверждения.</td></tr>
+<tr><td><code>glyph-project</code><br><span class=muted>humar</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Glyph</td><td>Что такое проект.</td></tr>
+<tr><td><code>glyph-run-as-lead</code><br><span class=muted>humar</span></td><td><span class='kind kП'>правило</span></td><td>Удалить: устарело</td><td>Ведущие отменены 16.10.</td></tr>
+<tr><td><code>glyph-testnet-wallet</code><br><span class=muted>humar</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Glyph</td><td>Где лежит ключ (без самого ключа).</td></tr>
+<tr><td><code>glyph-visual-questions</code><br><span class=muted>humar</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/product-work.md (уже есть)</td><td>«что увидит человек».</td></tr>
+<tr><td><code>vpn-fake-dns</code><br><span class=muted>humar</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: relay: заметки о машине</td><td>Факт о машине, не о проекте.</td></tr>
+<tr><td><code>arsenal-bug-fix-authority</code><br><span class=muted>linter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: linter</td><td>Разрешение проекта.</td></tr>
+<tr><td><code>arsenal-measurement-setup</code><br><span class=muted>linter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: linter</td><td>Справка.</td></tr>
+<tr><td><code>autofix-system-direction</code><br><span class=muted>linter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: linter</td><td>Направление; «система, а не перебор токенами» — довод для Вкус: 6. Причина, а не симптом.</td></tr>
+<tr><td><code>autonomous-issue-workflow</code><br><span class=muted>linter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: linter</td><td>Разрешение проекта.</td></tr>
+<tr><td><code>config-migration-style</code><br><span class=muted>linter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: linter</td><td>Решения проекта.</td></tr>
+<tr><td><code>linter-kb-pipeline-direction</code><br><span class=muted>linter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: linter</td><td>Решения проекта.</td></tr>
+<tr><td><code>nilaway-upstream-issue</code><br><span class=muted>linter</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: linter (очередь работ)</td><td>Открытое дело.</td></tr>
+<tr><td><code>carry-app-store-plan</code><br><span class=muted>mind</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Carry (mind)</td><td>План проекта.</td></tr>
+<tr><td><code>carry-handover-pointer</code><br><span class=muted>mind</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Carry (mind)</td><td>Указатель на файл передачи.</td></tr>
+<tr><td><code>carry-owner-working-style</code><br><span class=muted>mind</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/product-work.md</td><td>Показывать макет и ждать «lock it» — уже в правиле о продукте.</td></tr>
+<tr><td><code>check-decisions-before-advising</code><br><span class=muted>noisegate</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 9. Решай сам внутри принципов</td><td>Сначала найти записанное решение.</td></tr>
+<tr><td><code>interactive-samples</code><br><span class=muted>noisegate, storyteller</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Storyteller</td><td>Предпочтение по образцам.</td></tr>
+<tr><td><code>plain-language-for-readers</code><br><span class=muted>noisegate, storyteller</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Storyteller</td><td>Частности общего правила.</td></tr>
+<tr><td><code>previews-keep-formatting</code><br><span class=muted>noisegate</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: NOISEGATE</td><td>Правило проекта.</td></tr>
+<tr><td><code>blender-video-pipeline</code><br><span class=muted>shu</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: shu</td><td>Справка.</td></tr>
+<tr><td><code>philosophy-notes-verbatim</code><br><span class=muted>shu</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: shu</td><td>Куда записывать заметки.</td></tr>
+<tr><td><code>shu-project</code><br><span class=muted>shu</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: shu</td><td>Что такое проект.</td></tr>
+<tr><td><code>guard-main-literal-paths</code><br><span class=muted>sight</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: SIGHT</td><td>Особенность его крючка.</td></tr>
+<tr><td><code>rules-cannot-write-the-picture</code><br><span class=muted>sight</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 5. Факт — коду, смысл — модели</td><td>Модель пишет картинку, код проверяет.</td></tr>
+<tr><td><code>sight-direction</code><br><span class=muted>sight</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: SIGHT</td><td>Направление проекта.</td></tr>
+<tr><td><code>target-is-the-prototype-form</code><br><span class=muted>sight</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: SIGHT</td><td>Правило проекта.</td></tr>
+<tr><td><code>chatbattle-decisions</code><br><span class=muted>strategy</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: strategy</td><td>Решения по игре.</td></tr>
+<tr><td><code>chatbattle-idea-and-jev-probe</code><br><span class=muted>strategy</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: strategy</td><td>Идея и замер.</td></tr>
+<tr><td><code>ai-code-quality-bar</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 1. Порядок: что идёт первым</td><td>Настоящая архитектура и хорошие тесты, а не «работает».</td></tr>
+<tr><td><code>arbitrage-project</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: research</td><td>Что за проект.</td></tr>
+<tr><td><code>carry-game-project</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Carry (mind)</td><td>Что за проект.</td></tr>
+<tr><td><code>clean-project</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: clean</td><td>Что за проект.</td></tr>
+<tr><td><code>default-branch-naming</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/git.md</td><td>Новая строка: главная ветка master, у Glonass — develop.</td></tr>
+<tr><td><code>fast-mockups-for-decisions</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 2. Трата</td><td>Часовое задание ради мелкой правки — трата.</td></tr>
+<tr><td><code>improve-on-leaders</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/product-work.md (уже есть)</td><td>«starts from the leading apps» + где мы лучше.</td></tr>
+<tr><td><code>never-tell-user-what-they-know</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/product-work.md</td><td>Новая строка о подписях в интерфейсе.</td></tr>
+<tr><td><code>ngate-v2box-network-setup</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: relay: заметки о машине</td><td>Факт о машине.</td></tr>
+<tr><td><code>no-rare-case-choices</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 9. Решай сам внутри принципов</td><td>Редкие случаи не выносить.</td></tr>
+<tr><td><code>own-product-goal</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: relay (цели владельца)</td><td>Цель владельца, к которой относится relay.</td></tr>
+<tr><td><code>principles-library</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kФ'>факт</span></td><td>Удалить: устарело</td><td>~/principles заменён relay.</td></tr>
+<tr><td><code>relay-project</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kФ'>факт</span></td><td>Удалить: устарело</td><td>relay знает себя сам.</td></tr>
+<tr><td><code>reorganize-ux-not-bolt-on</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kВ'>вкус</span></td><td>Вкус: 7. Просто и без лишних частей</td><td>Встраивать, а не прикручивать.</td></tr>
+<tr><td><code>show-ui-decisions-as-mockups</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/product-work.md (уже есть)</td><td>Показывать в настоящей среде.</td></tr>
+<tr><td><code>storyteller-project</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kФ'>факт</span></td><td>Документы проекта: Storyteller</td><td>Что за проект.</td></tr>
+<tr><td><code>study-reference-design-first</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/product-work.md</td><td>Новая строка: сначала прочесть стили образца.</td></tr>
+<tr><td><code>visible-probes-need-short-guards</code><br><span class=muted>домашняя папка</span></td><td><span class='kind kП'>правило</span></td><td>Правило rules/verify.md</td><td>Новая строка: замер с окном на экране — секунды, не минуты.</td></tr>
+</tbody></table></div>
+
+<h2>3. Как relay запоминает новое без памяти Claude</h2>
+<div class="box">
+<p><b>Сейчас.</b> Заметка памяти пишется сразу, посреди сессии, без кода и без проверки. Изменение правила relay — отдельная ветка, рецензия и платный прогон (последний — $8.61, 37 минут). Если просто выключить память, каждое ваше новое предпочтение ждало бы такого цикла: за 21–24.10 появилось 13 заметок, около 3 в день, то есть около $27 в день только на прогоны.</p>
+<p><b>Предлагаемый путь: запись решения.</b> Одна команда relay (скажем, <code>relay decide</code>) пишет ваше решение отдельным файлом в <code>.relay/decisions/</code> репозитория relay. Поля: дата, ваши слова дословно (на языке оригинала), где действует (всё или один проект), вид (вкус / факт / указание), раздел вкуса, если есть, и <code>folded_at</code> — дата, когда решение вошло в правило. Поля «состояние» нет: «ещё не вошло» — это просто отсутствие <code>folded_at</code> (раздел 3 вкуса).</p>
+<ul>
+<li><b>Как попадает в главную ветку.</b> Тем же путём, что запись очереди: если меняется только файл в <code>.relay/decisions/</code>, код сливает его сразу, без рецензии и прогона. Цена одного решения — один коммит, секунды.</li>
+<li><b>Как его видит следующая сессия.</b> <code>relay sync</code> (команда тоже запускает его сама) дописывает в созданные relay инструкции раздел «Решения, ещё не вошедшие в правила»: общие — в <code>~/.claude/CLAUDE.md</code>, проектные — в <code>CLAUDE.local.md</code> проекта. Это тот же путь, которым relay уже доставляет правила и родной язык (<code>render_target</code>), — без крючков и без памяти Claude.</li>
+<li><b>Как оно становится вкусом.</b> Когда записей без <code>folded_at</code> накапливается много, ведущая сессия предлагает одну ветку «вписать решения в правила»: одна рецензия, один платный прогон на пачку, а не на каждое. Настройка <code>decisions_unfolded_max</code>: по умолчанию 15, предел 30. На пределе общие инструкции вырастают примерно на 3 тыс. токенов в начале каждой сессии во всех проектах, а решения работают без проверки прогоном дольше.</li>
+<li><b>Чем проверяется «только одна команда пишет».</b> Крючок отказывает в любой другой записи в <code>.relay/decisions/</code>, как сейчас с меткой проверки, плюс тест на это. Если тест сломан, запись мимо команды пройдёт молча.</li>
+<li><b>Связь с очередью.</b> Задача «состояние из фактов» (IP 80) уже просит «дословный датированный журнал ваших решений». Эта запись — её первая половина; сделав её сейчас, мы не строим два журнала.</li>
+</ul>
+<p><b>Цена.</b> Одно небольшое изменение: команда, схема, раздел в <code>relay sync</code>, исключение для слияния. По замерам 21.10 полный цикл занимает около 30–45 минут агентов, плюс один платный прогон, около $9.</p>
+<p><b>Что теряется.</b> (1) Память Claude модель пишет сама, когда сочтёт нужным; здесь она должна вызвать команду. Правило ведущей сессии назовёт момент: вы сказали принцип, предпочтение, поправку или факт о себе. Риск — забыть; дешёвая страховка — после слияния ведущая сессия сверяет ваши дословные слова из журнала передачи с записями. (2) Решение, записанное посреди сессии, попадает в инструкции только следующих сессий; в текущей оно уже есть в разговоре. (3) Запись — коммит в relay; это и выигрыш: видно в истории, переносится с репозиторием.</p>
+<p><b>Как выключить память Claude.</b> В установленном Claude Code 2.1.309 есть настройка <code>autoMemoryEnabled</code> («When false, Claude will not read from or write to the auto-memory directory») для <code>settings.json</code> (общий <code>~/.claude/settings.json</code> или проектный <code>.claude/settings.json</code>) и переменная окружения <code>CLAUDE_CODE_DISABLE_AUTO_MEMORY</code>. Я видел их в строках самой программы, а не в документации: <b>надо проверить</b> в живой сессии, что после выключения заметки не подгружаются. relay может сам ставить эту настройку при <code>relay sync</code>, когда придёт время (вопрос 2).</p>
+</div>
+<div class="table-wrap"><table><thead><tr><th>Путь</th><th>Цена одного решения</th><th>Цена постройки</th><th>Переносимость</th><th>Проверка формата</th><th>Что теряется</th></tr></thead><tbody>
+<tr><td><b>А. Запись решения в relay</b></td><td>1 коммит, секунды</td><td>~30–45 мин агентов + ~$9</td><td>с репозиторием relay, любая машина</td><td>схема, одна команда</td><td>модель должна вызвать команду</td></tr>
+<tr><td>Б. Папку памяти Claude перенести в relay (<code>autoMemoryDirectory</code>)</td><td>0</td><td>одна настройка</td><td>с репозиторием, но только Claude Code</td><td>нет</td><td>два источника остаются; проза вперемешку: факты, вкус, состояние</td></tr>
+<tr><td>В. Без записи: каждое решение — сразу в правило</td><td>ветка + рецензия + ~$9</td><td>0</td><td>полная</td><td>рецензия</td><td>~$27 в день при 3 решениях в день; решение ждёт часы</td></tr>
+</tbody></table></div>
+
+<h2>4. Вопросы владельцу</h2>
+<section class="box q">
+<h3>Вопрос 1. Как relay запоминает ваши новые решения</h3>
+<p>Сейчас каждое ваше предпочтение Claude сам записывает в свою память, и она подгружается в следующих сессиях. Это бесплатно и сразу, но живёт вне relay, и две из 13 заметок relay уже расходятся с правилами. Если выключить память, нужен другой путь записи. Пример: 24.10 вы сказали о полях status. Это попало в память Claude и в журнал передачи, но не в правила: правило о данных до сих пор об этом молчит. Путь А пишет такую фразу файлом в relay за секунды и показывает её всем следующим сессиям; путь Б оставляет память Claude, только хранит её в репозитории relay; путь В вписывает каждое решение прямо в правило (ветка, рецензия, ~$9). Таблица выше сравнивает их.</p>
+<p class="opt"><b>а)</b> Запись решения в relay (А), вписывать в правила пачками. <i>Рекомендую.</i></p>
+<p class="opt"><b>б)</b> Перенести папку памяти Claude в репозиторий relay (Б).</p>
+<p class="opt"><b>в)</b> Каждое решение сразу в правило (В).</p>
+</section>
+<section class="box q">
+<h3>Вопрос 2. Сколько памяти переносить и когда её выключать</h3>
+<p>Кроме 13 заметок relay, есть 128 заметок в других проектах (ALIX, arsenal, Glonass, Glyph и др.). Из них 16 — ваши общие принципы для разделов вкуса и 23 — строки правил relay (большинство уже есть), 14 устарели, остальные 75 — сведения и состояние конкретного проекта. Например, «les-12990-status» описывает, где стоит задача Glonass на 22.10. Выключатель <code>autoMemoryEnabled</code> можно поставить на всю машину или на один проект. Если выключить память на всей машине сразу, ALIX, Glonass и другие проекты потеряют свои заметки о состоянии до того, как те переедут в документы проектов. Вы также говорили «don't touch» о старых проектах (22.10), а перенос во все проекты — это правки в их репозиториях.</p>
+<div class="table-wrap"><table><thead><tr><th></th><th>Что переносится сейчас</th><th>Когда выключить память</th><th>Риск</th></tr></thead><tbody>
+<tr><td>а</td><td>13 заметок relay + 16 принципов во вкус и 23 строк правил; сведения проекта — в его документы, когда в проекте снова идёт работа</td><td>в relay — сразу после пути записи; на всей машине — когда в проекте нет непереехавших заметок</td><td>две системы живут бок о бок неделями</td></tr>
+<tr><td>б</td><td>все 141 заметок сейчас, по агенту на проект</td><td>сразу на всей машине</td><td>правки в старых проектах, которые вы просили не трогать; ~13 проектов работы</td></tr>
+<tr><td>в</td><td>только 13 заметок relay</td><td>только в relay</td><td>общие принципы из ALIX и arsenal не попадают во вкус</td></tr>
+</tbody></table></div>
+<p class="opt"><b>а)</b> Принципы — сейчас, сведения проектов — по мере работы в них. <i>Рекомендую.</i></p>
+<p class="opt"><b>б)</b> Всё сразу и выключить везде.</p>
+<p class="opt"><b>в)</b> Только relay.</p>
+</section>
+<section class="box q">
+<h3>Вопрос 3. Где действует вкус</h3>
+<p>Сейчас правило вкуса подгружается только в сессиях relay: в <code>projects.toml</code> общий набор пропускает его (<code>skip = ["taste"]</code>). Это эксперимент: после 5 слияний я спрошу, оставлять ли его (сейчас 4 из 5). Чтобы вкус заменил память Claude, он должен действовать везде, где вы работаете: принцип «выводимое не хранится» нужен в ALIX так же, как в relay. Цена — текст в начале каждой сессии каждого проекта: девять разделов в сжатом виде правила — около 650 слов, примерно 900 токенов (сейчас правило — 272 слова). Цитаты и примеры с этой страницы в правило не входят, они остаются в документах.</p>
+<p class="opt"><b>а)</b> Везде — после проверки эксперимента на 5-м слиянии, если вы его оставите. <i>Рекомендую.</i></p>
+<p class="opt"><b>б)</b> Везде — сразу, вместе с новым текстом.</p>
+<p class="opt"><b>в)</b> Только relay; в других проектах остаётся память Claude.</p>
+</section>
+<p class="muted">Черновик собран 24.10 из журнала передачи relay, страницы решений (71 решение 21–23.10), решений 24.10 и 150 файлов памяти Claude. Само правило будет построено позже, отдельным изменением.</p>
+</main></body></html>
