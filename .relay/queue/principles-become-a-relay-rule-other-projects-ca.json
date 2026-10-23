@@ -1,0 +1,20 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 0,
+  "time": 60,
+  "found": "2026-10-24",
+  "found_in": "relay queue add",
+  "title": "Principles become a relay rule other projects can load",
+  "what": [
+    "Replace rules/taste.md (waste only) with a principles rule: the 9 sections of docs/notes/principles-draft-2026-10-24.html (order, waste, derivable data is not stored, structure for scripts / view for people, fact to code / meaning to the model, cause not symptom, simple without extra parts, the owner reads instead of remembering, decide within principles), each as signal -> what to do, in compact form (~900 tokens), with no project names; quotes and examples stay in relay docs. Waste keeps today's severity rule. relay loads it now; any other project can load it through its `load` list (not global by default: ~900 tokens per session). Rule text change: review, full paid bin/ci."
+  ],
+  "why": [
+    "Owner, 24 Oct, verbatim: \"Те разделы вкуса что ты привел, назовем их принципами - паттерны поведения и принятия решений, они мне по душе\"; \"а, включай после шага 2\" (to: make them effective now, loaded in relay only, after queue step 2); \"Давай сделаем эти правила частью relay, часть из этих принципов могут быть переиспользованы другими проектами\". Order: build right after queue-items-store-state-instead-of-dated-events (step 2), by the owner's word."
+  ],
+  "where": "rules/taste.md -> rules/principles.md, projects.toml ([relay] load, [global] skip), lib/relay_rules.py, tests/test_relay.py, docs/",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
