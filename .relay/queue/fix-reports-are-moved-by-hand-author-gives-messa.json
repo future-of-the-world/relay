@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 90,
+  "time": 30,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Fix reports are moved by hand: author gives message only",
+  "what": [
+    "Brief the author to write its report to a given path; align the author definition and the spec-review skill on triage; add a Wave line check to kit packet --check."
+  ],
+  "why": [
+    "The spec-review checker line wants 'Fixes: <author report>' as a path, but sdd:author replies only by message and said it wrote no triage file; the coordinator saves hand-backs as files itself. Also kit packet --check does not check the Wave line that parallel-apply needs, so the first author omitted it and only the reviewer caught it."
+  ],
+  "failing_case": [
+    "Trial: the author said 'I wrote no triage file because the brief asked for fixes only'; the coordinator saved the report as spec-fix-report.md; F2 (no Wave 1 line) passed openspec validate --strict, kit spec-check and kit packet --check."
+  ],
+  "pass_cases": [
+    "The spec-review skill passes a report path to the author and the file exists afterwards; kit packet --check reports a tasks.md with no Wave line when the tasks run in waves."
+  ],
+  "where": "plugins/sdd/skills/spec-review/SKILL.md:72-76, plugins/sdd/agents/author.md, plugins/core/lib/kit_packet.py:77",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
