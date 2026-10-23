@@ -377,10 +377,20 @@ class TestSeedItems(unittest.TestCase):
         self.assertEqual(relay_setup.RELAY_README, committed_text(ROOT, ".relay/README.md"))
 
     def test_f14_a_where_line_names_the_line_the_item_talks_about(self):
-        # core-tests-not-in-gate: the skip list of bin/ci is on the line `where` gives
-        item = rq.parse("core-tests-not-in-gate", committed_items(ROOT)["core-tests-not-in-gate.json"])
+        # core-tests-not-in-gate: when the item was filed, the skip list of bin/ci was on the line `where` gives. Read at the
+        # commit that first added the item (in .relay/queue/ or, once done, .relay/queue/done/), not at HEAD: the fix the
+        # item asks for removes that skip, so HEAD no longer holds the line.
+        name = "core-tests-not-in-gate.json"
+        added = git(ROOT, "log", "--diff-filter=A", "--format=%H", "--", ".relay/queue/" + name, ".relay/queue/done/" + name).split("\n")
+        self.assertTrue(added[-1], "the commit that added the item is not in the history")
+        filed = added[-1]
+        for folder in (".relay/queue/", ".relay/queue/done/"):
+            text = git(ROOT, "show", "%s:%s%s" % (filed, folder, name), check=False)
+            if text:
+                break
+        item = rq.parse("core-tests-not-in-gate", text + "\n")
         path, _, line = item["where"].rpartition(":")
-        self.assertIn("*inject-addition*", committed_text(ROOT, path).split("\n")[int(line) - 1])
+        self.assertIn("*inject-addition*", git(ROOT, "show", "%s:%s" % (filed, path)).split("\n")[int(line) - 1])
 
     def test_f7_gate_log_summary_is_a_feature_and_not_a_fix_with_a_failing_case_that_cannot_fail(self):
         item = rq.parse("gate-log-summary", committed_items(ROOT)["gate-log-summary.json"])
