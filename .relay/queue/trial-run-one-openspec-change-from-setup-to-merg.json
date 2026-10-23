@@ -1,0 +1,26 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 99,
+  "time": 40,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Trial run: one OpenSpec change from setup to merge",
+  "what": [
+    "In a fresh session (so the merge-2 hooks are loaded): `relay setup <scratch project> --flow openspec`, add `--relay-folder` so the hard rules apply, then one tiny OpenSpec change through propose, spec review, apply, apply review, checker, gate and `--ff-only` merge. Record each refusal or gap; fix relay where it breaks (its own change, reviewed). Afterwards remove the scratch project and its projects.toml entry."
+  ],
+  "why": [
+    "The owner wants to start a new project with relay and OpenSpec (owner, 2026-10-23: \"I want to start build new project with relay\", then picked 1a: trial run first). Since merge 2 a merge needs a green gate log and a checker mark; nobody checked that the OpenSpec (sdd) flow's reviews lead to that mark, and no test runs an OpenSpec change to a merge."
+  ],
+  "failing_case": [
+    "Today unknown: the merge hook (plugins/core/hooks/merge.py:159) refuses without a checker mark; the sdd review agents may never produce one, so the first OpenSpec merge in a new project would be refused with \"no check mark\"."
+  ],
+  "pass_cases": [
+    "The tiny change merges with the gate and the mark in place, or every gap found is queued or fixed before the owner's real project starts."
+  ],
+  "where": "plugins/sdd, plugins/core/hooks/merge.py, lib/relay_setup.py, docs/setup.md",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
