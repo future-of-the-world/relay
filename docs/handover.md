@@ -741,3 +741,26 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
 - 1a: before the owner's new relay + OpenSpec project, a trial run of one tiny OpenSpec change from setup to merge, in a fresh session (queue item `trial-run-one-openspec-change-from-setup-to-merg`, ip 99). Reason: nobody checked that the OpenSpec reviews produce the checker mark the merge now needs.
 - 2c: leave ALIX's `CLAUDE.local.md` as it is; `relay sync` skips it with a warning, which is expected. Do not ask again.
 - NEXT: a fresh relay session takes the trial-run queue item.
+
+## STATE 23 Oct, OpenSpec trial run DONE (session d7c03a85)
+
+- Scratch project `tally` (session scratchpad, trial/tally) set up with
+  `relay setup --flow openspec --no-global`; a headless Claude session in it
+  (auto mode, $25 cap, started by the owner with `!`: the auto-mode classifier
+  refuses the front starting it) took one change (count_unique_words) through
+  plan, spec review, apply, gate, apply review, checker, archive and
+  `--ff-only` merge: merged at 19c02df after one refusal (archive after the
+  check mark). 9 min, $6.28. Log: scratchpad trial/trial-log.md.
+- 14 fix items queued from it (3 at ip 98: sdd@relay enabled but never
+  installed; bin/check templates call `timeout`, missing on macOS; the
+  archive-before-merge refusal). Overlaps kept on the existing items
+  tune-hook-false-trigger and guard-variable-paths.
+- Open: the trial feature item cannot be closed (no command closes a
+  feature; queued as a fix). `projects.toml` in the main checkout still has
+  the uncommitted `[tally]` entry: guard-main refuses `git restore` there and
+  no command removes it (queued as a fix); the owner removes it with `!`.
+- Owner, verbatim: "ok, guard and gate first after the trial" (the next fix
+  batches: guard, then gate; then the 98s from the trial).
+- NEXT: a fresh session takes the guard batch (guard-variable-paths,
+  tune-hook-false-trigger), then the gate batch (core-tests-not-in-gate,
+  runner-turns-while-waiting).
