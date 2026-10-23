@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 91,
+  "time": 60,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Live hook test sometimes misses the worker addition",
+  "what": [
+    "plugins/core/tests/hooks-live.test.sh case \"sdd:worker gets the project's worker addition at its start\" reported NONE in one full bin/ci run and passed in two later runs. Find the cause (shared state, timing, the live session not starting sdd:worker, output form) before more runs."
+  ],
+  "why": [
+    "A full paid gate goes red for no change of its own (23 Oct: a rules-only branch, 1 of 3 runs red), so a merge waits on a re-run and its cause is unknown."
+  ],
+  "failing_case": [
+    "23 Oct, wt/structured-reword at a6e379d, full bin/ci: hook-tests step \"FAIL sdd:worker gets the project's worker addition at its start: NONE\" (.ci/steps/hook-tests.log:785); re-runs of hooks-live.test.sh in that worktree and in wt/guard-batch passed."
+  ],
+  "pass_cases": [
+    "hooks-live.test.sh passes max(20, ceil(3/p)) clean runs in a row once the cause is fixed (rules/quality-gate.md)."
+  ],
+  "where": "plugins/core/tests/hooks-live.test.sh",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
