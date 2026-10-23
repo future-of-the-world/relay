@@ -11,7 +11,9 @@
 - A session spans one change or one phase of it, never a week: after a merge
   or an archive, update the handover file and start the next change fresh.
 - Large results stay out of the session: a pull request, a pipeline, an
-  issue, a test run go to a runner that replies in 3 lines.
+  issue, a test run go to a runner that replies in 3 lines. A job over about
+  30 minutes (the paid `bin/ci`) is the front's: Bash `run_in_background` into
+  a scratchpad log, read by its last lines when it exits.
 - Use `git -C <worktree>`, not `cd`, so the project's instruction files are
   not loaded again.
 - Every reply stands alone: the project and what it does first; outcomes in

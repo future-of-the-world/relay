@@ -856,3 +856,17 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
 - Taste experiment: 2 merges since taste (structured-reword, guard-batch); ask the owner after 5.
 - NEXT: native-language: gate, one review, check, page, merge question (in Russian), `relay sync`; then
   runner-turns-while-waiting.
+
+## STATE 24 Oct, native-language MERGED; runner-turns-while-waiting building (session 0cc68fe0)
+
+- Native-language rule merged on the owner's "a" (ff, master 808d1ea); `relay sync` wrote "My native language: Russian."
+  into ~/.claude/CLAUDE.md (ALIX skipped, expected). Full paid bin/ci green (plugin evals 2837 s, 0 not judged). Its queue
+  item stays open: no command closes a feature yet (queued as a fix). Taste: 3 merges since taste; ask the owner after 5.
+- Owner, verbatim, on the language: "a, пусть relay хранит язык" (relay keeps it once in projects.toml [global]).
+- Building: wt/runner-turns (.worktrees/runner-turns), fix runner-turns-while-waiting (ip 99). Front's design (no owner
+  question: the principle "no agent that waits" decides): a job longer than a runner's turns cover (12 turns x 230 s,
+  about 40 min; the paid bin/ci takes 38-47 min) is not given to a runner; the front starts it with Bash
+  run_in_background into a scratchpad log (no tokens while it runs, notified on exit) and reads only its last lines.
+  Brief: session scratchpad briefs/runner-turns.md.
+- NEXT: worker builds; quick gate; one review; fix; check; full paid bin/ci (skill text changed), run by the front in
+  the background; page; merge question to the owner in Russian.

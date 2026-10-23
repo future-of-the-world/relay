@@ -101,6 +101,8 @@ def report(data, record_path):
                          f"so those runs do not prove the hook delivered it")
     head = f"ci: eval record: {sum(1 for l in fails if l.startswith('    FAIL'))} meaning grader(s) failed, {splits} split vote{'s' if splits != 1 else ''}"
     head += f", {unjudged} not judged" if unjudged else ""
+    cost = data.get("costUsd")
+    head += f", cost ${cost:.2f}" if isinstance(cost, (int, float)) and not isinstance(cost, bool) else ""
     return [head] + fails + notes
 
 

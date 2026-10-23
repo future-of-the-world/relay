@@ -1019,6 +1019,21 @@ class Roles(Base):
         self.assertIn("Publish the page yourself with your Artifact tool", front)
         self.assertIn("gives the page's file path instead", front)
 
+    def test_a_job_longer_than_a_runner_s_turns_runs_in_the_front_s_background(self):
+        """A runner (12 turns, waits of at most 230 s) covers about 40 min; the full paid bin/ci takes 38-47 min and
+        the runner ran out of turns mid-wait four times. The front starts such a job itself, in the background."""
+        front = " ".join(open(os.path.join(ROOT, "plugins", "front", "skills", "front", "SKILL.md")).read().split())
+        self.assertIn("`run_in_background`", front)
+        self.assertIn("full paid `bin/ci`", front)
+        self.assertIn("never a runner", front)
+        delegate = " ".join(open(os.path.join(ROOT, "plugins", "delegate", "skills", "delegate", "SKILL.md")).read().split())
+        self.assertIn("longer than about 30 minutes", delegate)
+        self.assertIn("is not a runner's", delegate)
+        for name in ("delegation", "front"):
+            rule = " ".join(open(os.path.join(ROOT, "rules", name + ".md")).read().split())
+            self.assertIn("is the front's: Bash `run_in_background`", rule, name)
+            self.assertIn("a job over about 30 minutes", rule if name == "delegation" else rule.replace("A job", "a job"), name)
+
     def test_missing_base_names_the_checkout_rule(self):
         rr = self.lib()
         root = self.fixture(markers="<!-- relay:base judge -->\n<!-- relay:end judge -->\n")
@@ -1740,6 +1755,13 @@ class TestTasteRule(unittest.TestCase):
         self.assertNotIn("Taste", text)
         for title in ("OpenSpec", "Product work", "Quality gate", "Work queue", "Structured data"):
             self.assertIn(f"**{title}", text)
+
+    def test_global_file_carries_the_long_job_exception(self):
+        # `relay sync` writes the rendered global target to ~/.claude/CLAUDE.md; it must carry the delegation line
+        import relay_rules, relay_config
+        text = relay_rules.render_target("global", self._targets()["global"], relay_rules.rules(), relay_config.active_profile())
+        text = " ".join(text.split())
+        self.assertIn("a job over about 30 minutes, the paid `bin/ci`, is the front's: Bash `run_in_background`, never a runner", text)
 
     def test_a_new_rule_still_reaches_the_global_read_list(self):
         import relay_rules

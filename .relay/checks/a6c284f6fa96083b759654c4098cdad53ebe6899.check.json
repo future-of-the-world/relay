@@ -1,0 +1,56 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "rules/front.md:14 and rules/delegation.md:26 carry the exception (cases 1, 2). Case 4 not met: no test asserts the rule lines (tests/test_relay.py unchanged by the fix). relay sync of ~/.claude/CLAUDE.md not verified."
+      ],
+      "verdict": "NOT MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_eval_record.py:166 asserts head line ends \"cost $9.31\" and no cost without costUsd; passes. Skill sentence unchanged but the last log line now holds the cost."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "Fixer says the front handles it; item is taken by wt/runner-turns, but Q1 is not checked and done is not run. The front must run the checker for Q1 and relay queue done before merge."
+      ],
+      "verdict": "GAP"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "Skill now says \"about 45-50 minutes\"; case 1 needs the figure to cover 52 minutes (last run 2837 s of evals). LOW."
+      ],
+      "verdict": "NOT MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "plugins/delegate/agents/runner.md:3 description now bounds a job at about 30 minutes; frontmatter, outside the sync-written body."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/runner-turns/.relay/checks/6c29a63ebe778c567f492a1d3f742fddd07e1027.gate.log",
+  "head": "a6c284f6fa96083b759654c4098cdad53ebe6899",
+  "new": [],
+  "notes": [
+    "Fixer F3: item is now \"taken by wt/runner-turns\" but no Q1 finding was in the files given and relay queue done has not run; the front must take/check/done it. Counted as open."
+  ],
+  "open": 2,
+  "queued": 0,
+  "review": [
+    "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0.review.json"
+  ],
+  "reviewed": "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0",
+  "schema": 1,
+  "scope": [
+    "Fix range fdcf2bb..HEAD (a6c284f). Gate log head 6c29a63, exit 0 (quick mode); only the inert gate-log commit came after. Own changed files: bin/eval-record, runner.md, front SKILL.md, rules/delegation.md, rules/front.md, tests/test_eval_record.py: all in scope. Ran tests/test_eval_record.py and tests/test_relay.py: 113 passed. Callers of report(): only bin/ci output, unchanged shape."
+  ],
+  "type": "check"
+}
