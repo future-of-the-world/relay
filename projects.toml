@@ -4,6 +4,7 @@
 [global]
 file = "~/.claude/CLAUDE.md"
 title = "Defaults for all projects"
+native_language = "Russian"   # the owner's native language; sync writes one line, the "Working with me" rule uses the term
 intro = """A project's own CLAUDE.md, skills, and hooks override anything here. These
 rules come from the relay repository (`rules/`, one file per rule); each project
 adds the ones it needs through its `CLAUDE.local.md`. Change a rule there and

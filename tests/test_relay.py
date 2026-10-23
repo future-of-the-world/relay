@@ -1749,6 +1749,17 @@ class TestTasteRule(unittest.TestCase):
         self.assertIn("**A**", text)
         self.assertNotIn("**B**", text)
 
+    def test_global_target_writes_the_native_language_line_only_when_the_key_is_set(self):
+        import relay_rules
+        rules = {"a": {"title": "A", "gist": "g.", "body": "b", "path": "/x/a.md"}}
+        with_key = relay_rules.render_target("global", {"load": [], "native_language": "Russian"}, rules, {})
+        self.assertIn("My native language: Russian.\n", with_key)
+        without = relay_rules.render_target("global", {"load": []}, rules, {})
+        self.assertNotIn("native language", without)
+        # a project target never carries it, and relay's own projects.toml sets it for the real global target
+        self.assertNotIn("native language", relay_rules.render_target("demo", {"load": [], "native_language": "Russian"}, rules, {}))
+        self.assertEqual(self._targets()["global"]["native_language"], "Russian")
+
     def test_only_the_relay_target_loads_it(self):
         # relay is the one project target whose load names taste; the global profile loads none of it
         loaders = sorted(name for name, spec in self._targets().items() if "taste" in spec.get("load", []))

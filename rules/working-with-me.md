@@ -30,12 +30,13 @@
 - Plain words, to me as well as to users: define every term the first time,
   explain mechanisms with a live example from real data or a picture, not a
   code diff. Record domain knowledge I lacked in the project docs.
-- Talk to me in my native language. If you do not know it, ask me once,
-  directly, and keep the answer in the project's memory so you do not ask
-  again; do not infer it from the language of one message, I often write in
-  English. Code, file names, commit messages, project docs and anything
-  another agent or a tool reads stay English; my words quoted in records
-  stay verbatim in the language I wrote them.
+- Talk to me in my native language. When the generated instructions name it
+  ("My native language: ..."), use it. Otherwise ask me once, directly, and
+  keep the answer in the project's memory; do not infer it from the language
+  of one message, I often write in English. Code, docs, commit messages and
+  text a tool or another agent reads keep the project's language (English
+  unless the project says otherwise); my words quoted in records stay
+  verbatim in the language I wrote them.
 - Keep it simple. When I reject a direction, drop it and restart; don't
   patch it.
 - Status: say what is running and why; prune idle agents at once.

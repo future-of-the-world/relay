@@ -71,6 +71,9 @@ def render_target(name, spec, all_rules, profile):
         out += [f"Active relay profile: **{profile.get('profile', {}).get('name', 'active')}** "
                 f"({profile.get('profile', {}).get('description', '')}). Models by tier: "
                 + ", ".join(f"{k} {v}" for k, v in profile.get("models", {}).items()) + ".", ""]
+        language = spec.get("native_language")
+        if isinstance(language, str) and language.strip():
+            out += [f"My native language: {language.strip()}.", ""]
     for r in load:
         rule = all_rules[r]
         out += [f"## {rule['title']}", "", rule["body"], ""]
