@@ -1,9 +1,8 @@
 {
   "kind": "feature",
-  "state": "open",
   "ip": 0,
   "time": 60,
-  "found": "2026-10-24",
+  "found_at": "2026-10-23T22:57:58Z",
   "found_in": "relay queue add",
   "title": "Principles become a relay rule other projects can load",
   "what": [
@@ -13,8 +12,10 @@
     "Owner, 24 Oct, verbatim: \"Те разделы вкуса что ты привел, назовем их принципами - паттерны поведения и принятия решений, они мне по душе\"; \"а, включай после шага 2\" (to: make them effective now, loaded in relay only, after queue step 2); \"Давай сделаем эти правила частью relay, часть из этих принципов могут быть переиспользованы другими проектами\". Order: build right after queue-items-store-state-instead-of-dated-events (step 2), by the owner's word."
   ],
   "where": "rules/taste.md -> rules/principles.md, projects.toml ([relay] load, [global] skip), lib/relay_rules.py, tests/test_relay.py, docs/",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }
