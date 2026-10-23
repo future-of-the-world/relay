@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 90,
+  "time": 30,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "A spec fix is marked met by reading, not by running",
+  "what": [
+    "In spec-review step 4 and judge.md: when a finding carries a failing case that a sketch can run, the checker runs it (a scratch script outside the repo) and says so in the verdict."
+  ],
+  "why": [
+    "The check of spec-review fixes reads artifacts only, so a finding whose failing case a few lines of code can run is marked MET after a fix that only narrowed it; the same defect came back as MEDIUM in the apply review and cost a second fix round."
+  ],
+  "failing_case": [
+    "Trial spec review F1: scenarios did not cover brackets, underscore, backtick, so a 9-mark strip passes; the fix added 8 marks of 32; delegate:checker marked F1 MET by reading; sdd:reviewer then found that a mutant stripping 14 of the 32 ASCII marks passes all 15 tests."
+  ],
+  "pass_cases": [
+    "The same F1 after a partial fix is reported open by the checker because its sketch still passes; a complete fix is MET."
+  ],
+  "where": "plugins/sdd/skills/spec-review/SKILL.md:72-84, roles/judge.md (step 1)",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
