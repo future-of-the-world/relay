@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 90,
+  "time": 20,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "A project added by setup cannot be removed again",
+  "what": [
+    "Give the project list one writer for both directions: `relay setup` records the entry through a path that commits it (as `relay queue add` lands a queue item), and a `relay forget <name>` (or `relay setup --undo <dir>`) removes it the same way. Docs/setup.md names both."
+  ],
+  "why": [
+    "relay setup writes the new project into relay's own projects.toml in the main checkout and leaves it uncommitted; no relay command removes an entry, and relay's guard refuses `git restore` in the main checkout, so a trial or mistaken setup leaves relay's checkout dirty with no allowed way back."
+  ],
+  "failing_case": [
+    "Trial 2026-10-23: `relay setup <scratch>/tally --flow openspec --no-global` left ` M projects.toml` ([tally] entry) in /Users/amidman/relay; `git -C /Users/amidman/relay restore projects.toml` was refused by guard-main (\"mutating git command in the main checkout\"); bin/relay has no command that removes an entry."
+  ],
+  "pass_cases": [
+    "After setup the relay checkout is clean (entry committed); one relay command removes the entry and leaves the checkout clean; the guard still refuses hand edits in the main checkout."
+  ],
+  "where": "lib/relay_setup.py:250-268, bin/relay (setup, projects), plugins/core/hooks/guard-main.sh",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
