@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 92,
+  "time": 60,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "The bench never starts a worker, so it measures nothing",
+  "what": [
+    "In the bench scenarios the session delegates to a worker (as the delegate rule requires), so a change to the build tier changes what runs; add-function and small-script pass under the active setup."
+  ],
+  "why": [
+    "Claude's usage advice (23 Oct) said give workers a cheaper model; the bench of workers on Haiku could not answer it: no scenario started a worker under either setup, so both setups did the same work and cost the same ($0.95 vs $0.93). Every model or effort change for build/fix tiers is unmeasurable until this is fixed."
+  ],
+  "failing_case": [
+    "`relay bench active --set models.build=haiku --tag cheap --runs 1` (report ~/.relay/bench/2026-10-23T13-31-54Z/report.md): grader delegated-to-a-worker fails \"started: none\" in all 3 scenarios under both setups; add-function 0.40 and small-script 0.33 under both (function-exists, test-written, script-runs fail)."
+  ],
+  "pass_cases": [
+    "The same bench shows a worker started in add-function and small-script under both setups, both scenarios pass under the active setup, and the two setups' worker model differs in the report's model usage."
+  ],
+  "where": "evals/scenarios",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
