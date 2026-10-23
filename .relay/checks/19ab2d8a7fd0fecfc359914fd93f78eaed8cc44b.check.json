@@ -1,0 +1,56 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "Owner's word recorded on F1: counting and marker removed; rules/taste.md has no marker or count, and relay_queue.py equals master. Moot."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "projects.toml [global] skip=[\"taste\"], lib/relay_rules.py:66; tests/test_relay.py:1736-1740 asserts no \"Taste\" in global and the others still listed; passed."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "Owner's word recorded on F3: counting removed; rules/taste.md ends \"after 5 merges the front asks the owner\". Moot."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "tests/test_relay.py:1734 checks the title only plus one rendered line at 1766; the phrase loop is gone."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "rules/taste.md: \"waste that repeats on every run or every change is MEDIUM and is fixed before the merge; a one-off is LOW.\""
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/taste/.relay/checks/2e2a017826d8b9f47c459ccc1e2fd1d71f8d4e95.gate.log",
+  "head": "19ab2d8a7fd0fecfc359914fd93f78eaed8cc44b",
+  "new": [],
+  "notes": [
+    "Minor: test_relay.py:1766 still pins one phrase (\"You have taste for waste.\") of the rule; LOW, not a finding."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "d92b078fb5cbd733b3510586a1950e52ccb42e5f.review.json"
+  ],
+  "reviewed": "d92b078fb5cbd733b3510586a1950e52ccb42e5f",
+  "schema": 1,
+  "scope": [
+    "Fix range d92b078..HEAD: own files lib/relay_rules.py, projects.toml, rules/taste.md, tests/test_relay.py (all in scope). Gate log head 2e2a017, exit 0; relay changed since 2e2a017 lists nothing. Ran python3 -m unittest tests.test_relay.TestTasteRule: 5 tests OK. lib/relay_queue.py, tests/test_queue.py, bin/relay, plugins equal master (no diff). Caller of render_target skip: only the global spec uses it; other targets unchanged."
+  ],
+  "type": "check"
+}
