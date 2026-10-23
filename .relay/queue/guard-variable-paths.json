@@ -1,7 +1,7 @@
 {
   "kind": "fix",
   "state": "open",
-  "ip": 91,
+  "ip": 99,
   "time": 15,
   "found": "2026-10-22",
   "found_in": "relay review-gate design 10.6 seed 6",
