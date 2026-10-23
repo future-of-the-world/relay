@@ -1,6 +1,6 @@
 {
   "kind": "fix",
-  "state": "taken",
+  "state": "done",
   "ip": 99,
   "time": 30,
   "found": "2026-10-22",
@@ -17,7 +17,7 @@
   ],
   "where": "bin/ci:29",
   "taken_by": "wt/core-tests-not-in-gate",
-  "closed_by": "",
-  "test": "",
+  "closed_by": "wt/core-tests-not-in-gate",
+  "test": "tests/test_ci_hook_tests.py::HookTestsStep::test_quick_runs_the_free_core_tests",
   "dropped_why": null
 }
