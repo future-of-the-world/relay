@@ -1,0 +1,13 @@
+head 4311c9f01de60bed34615947f17fcf4d80ef309f
+cmd bin/ci --quick
+ci: library tests FAILED (122s, log: .ci/steps/library-tests.log)
+    FAIL: test_f14_a_where_line_names_the_line_the_item_talks_about (test_queue.TestSeedItems.test_f14_a_where_line_names_the_line_the_item_talks_about)
+    AssertionError: '*inject-addition*' not found in '  # the tools the free tests run on: a missing one FAILS the step (a skipped test would pass a gate that checked nothing)'
+    FAILED (failures=1)
+ci: hook tests ok (91s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (4s)
+ci: plugin validate ok (5s)
+ci: inert ok (234s)
+ci: RED
+exit 1
