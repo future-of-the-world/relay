@@ -1,6 +1,6 @@
 ---
 name: tune
-description: Turn a request about the setup itself into a measured comparison - "try Haiku instead of Sonnet for workers", "lower the effort", "make workers plan more and take smaller tasks", "which setup is cheaper", "compare", "adopt it", "what did this week cost". Load, in any language and despite typos, whenever the owner talks about the setup itself: models, effort, what the setup or sessions cost, how agents work, comparing two setups or profiles, adopting a candidate. Not for a question about the project's own work, a change's content, or comparing code or documents. The owner never types relay commands; this skill runs them.
+description: Turn a request about the setup itself into a measured comparison - "try Haiku instead of Sonnet for workers", "lower the effort", "which setup is cheaper", "what did this week cost". Use only when the owner wants to change or compare how agents, models, effort or profiles are set up, or asks what the setup or its sessions cost, in any language and despite typos. Not for a price, number or cost that appears inside the project's own work, and not for comparing versions of code, documents or a change. The owner never types relay commands; this skill runs them.
 argument-hint: "<what to try>"
 ---
 
