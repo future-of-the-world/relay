@@ -14,7 +14,7 @@
 #   heredoc, tee, sed -i, perl -i, cp, mv, rm, touch, mkdir, ln, install,
 #   truncate, find -delete, xargs rm, rsync, patch, tar -x, unzip, curl -o,
 #   wget -O, dd of=). Not seen: a program's own code (python3 -c, node -e)
-#   and a path held in a shell variable;
+#   and a path held in a shell variable of unknown value (see below);
 # - an anonymous `git stash` (bare, -u, push without -m) and any `git stash
 #   pop`, anywhere (the stash is shared);
 # - shell tracing (set -x, bash -x), verbose curl on an authenticated request,
@@ -44,8 +44,8 @@
 # the same command, set once and nowhere else in it (no `+=`, `unset`, `read`, `for`, a second assignment), not after
 # `&&` or `||`, in a pipe or in the background; or HOME, TMPDIR, USER from the hook's own environment. The resolved
 # path is judged like a literal one (`M=<main>; touch $M/x` is refused from a worktree). A variable whose value is not
-# known (set in another call, `$(...)`, `${X:-d}`, `$1`) makes its word skipped, quoted or not: a write to it is not
-# refused, even when it lands in main. Tests: tests/guard-diff.test.sh.
+# known (set in another call, `$(...)`, `${X:-d}`, `$1`) is read literally when unquoted (a path under the current
+# directory, refused in main) and skipped inside double quotes; `$PWD` is the directory tracked for that part. Tests: tests/guard-diff.test.sh.
 # This catches slips, not a determined bypass.
 #
 # Tests: plugins/core/tests/guard-main.test.sh

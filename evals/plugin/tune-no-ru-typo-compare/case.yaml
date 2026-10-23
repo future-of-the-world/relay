@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: tune-no-ru-typo-compare
+description: "front:tune skill stays-quiet on its own description (no hook), for the request \"сравни до и после в текущем изменени\""
+tags: [front, tune]
+plugins: ["../../../plugins/front"]

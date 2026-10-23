@@ -32,7 +32,7 @@
 {"cwd":"@M@","cmd":"cd \".worktrees/a/$(printf ../..)\" && git reset --hard","was":"block"}
 {"cwd":"@M@","cmd":"git -C .worktrees/${T:-a} commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"cd .worktrees/a`echo /../..` && git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"echo hi > .worktrees/$N/../../README.md","was":"allow"}
+{"cwd":"@M@","cmd":"echo hi > .worktrees/$N/../../README.md","was":"block"}
 {"cwd":"@M@","cmd":"echo hi > .worktrees/a/$(echo ../..)/README.md","was":"allow"}
 {"cwd":"@M@","cmd":"cp x .worktrees/$N","was":"allow"}
 {"cwd":"@M@","cmd":"rm -rf .worktrees/a/$X/../../src","was":"allow"}
@@ -72,26 +72,26 @@
 {"cwd":"@M@","cmd":"S=@T@; echo hi > \"$S/f.txt\" 2>&1","was":"allow"}
 {"cwd":"@M@","cmd":"wc -l < \"$F\"","was":"allow"}
 {"cwd":"@M@","cmd":"tee \"$F\" < /dev/null","was":"allow"}
-{"cwd":"@M@","cmd":"tee .worktrees/$N/../../README.md < /dev/null","was":"allow"}
+{"cwd":"@M@","cmd":"tee .worktrees/$N/../../README.md < /dev/null","was":"block"}
 {"cwd":"@M@","cmd":"sed -i s/a/b/ \"$F\"","was":"allow"}
 {"cwd":"@A@","cmd":"M2=@M@; eval \"echo $M2\"; git -C $M2 commit -m x","was":"block"}
 {"cwd":"@A@","cmd":"M2=@M@; git -C $M2 commit -m x","was":"block"}
-{"cwd":"@A@","cmd":"M2=@M@; git config --unset M2; git -C $M2 commit -m x","was":"allow"}
-{"cwd":"@A@","cmd":"M2=@M@; ls ~/.local M2; git -C $M2 commit -m x","was":"allow"}
+{"cwd":"@A@","cmd":"M2=@M@; git config --unset M2; git -C $M2 commit -m x","was":"block"}
+{"cwd":"@A@","cmd":"M2=@M@; ls ~/.local M2; git -C $M2 commit -m x","was":"block"}
 {"cwd":"@A@","cmd":"M2=@M@; declare M2; git -C $M2 commit -m x","was":"allow"}
 {"cwd":"@A@","cmd":"echo hi > \"$HOME/x\"","was":"allow"}
-{"cwd":"@M@","cmd":"rm -rf $X/a","was":"allow"}
-{"cwd":"@M@","cmd":"cp a $X/","was":"allow"}
-{"cwd":"@M@","cmd":"touch $F","was":"allow"}
-{"cwd":"@M@","cmd":"tee $F < /dev/null","was":"allow"}
-{"cwd":"@M@","cmd":"mkdir -p $D/sub","was":"allow"}
-{"cwd":"@M@","cmd":"rm -rf ${X}/src","was":"allow"}
-{"cwd":"@M@","cmd":"dd if=/dev/zero of=$F count=1","was":"allow"}
-{"cwd":"@M@","cmd":"echo hi > $F","was":"allow"}
-{"cwd":"@M@","cmd":"rm -rf $X","was":"allow"}
-{"cwd":"@M@","cmd":"rm -rf $PWD/src","was":"allow"}
-{"cwd":"@M@","cmd":"cp new.md $PWD/README.md","was":"allow"}
-{"cwd":"@M@","cmd":"tee $PWD/README.md < /dev/null","was":"allow"}
+{"cwd":"@M@","cmd":"rm -rf $X/a","was":"block"}
+{"cwd":"@M@","cmd":"cp a $X/","was":"block"}
+{"cwd":"@M@","cmd":"touch $F","was":"block"}
+{"cwd":"@M@","cmd":"tee $F < /dev/null","was":"block"}
+{"cwd":"@M@","cmd":"mkdir -p $D/sub","was":"block"}
+{"cwd":"@M@","cmd":"rm -rf ${X}/src","was":"block"}
+{"cwd":"@M@","cmd":"dd if=/dev/zero of=$F count=1","was":"block"}
+{"cwd":"@M@","cmd":"echo hi > $F","was":"block"}
+{"cwd":"@M@","cmd":"rm -rf $X","was":"block"}
+{"cwd":"@M@","cmd":"rm -rf $PWD/src","was":"block"}
+{"cwd":"@M@","cmd":"cp new.md $PWD/README.md","was":"block"}
+{"cwd":"@M@","cmd":"tee $PWD/README.md < /dev/null","was":"block"}
 {"cwd":"@A@","cmd":"rm -rf $PWD/src","was":"allow"}
 {"cwd":"@A@","cmd":"touch $F","was":"allow"}
 {"cwd":"@M@","cmd":"touch \"$F\"","was":"allow"}
@@ -151,7 +151,7 @@
 {"cwd":"@M@","cmd":"echo 'a > b' && grep -n \"x > y\" README.md","was":"allow"}
 {"cwd":"@M@","cmd":"echo $(( 3 > 2 ))","was":"allow"}
 {"cwd":"@M@","cmd":"echo $(git -C @W@ rev-parse HEAD) && git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"echo hi > .worktree/$N/../../README.md","was":"allow"}
+{"cwd":"@M@","cmd":"echo hi > .worktree/$N/../../README.md","was":"block"}
 {"cwd":"@M@","cmd":"echo hi > src/x.ts","was":"block"}
 {"cwd":"@M@","cmd":"echo hi >> README.md","was":"block"}
 {"cwd":"@M@","cmd":"echo hi | tee notes.md","was":"block"}

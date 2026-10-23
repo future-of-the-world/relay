@@ -92,7 +92,12 @@ EOF"
   t allow "redirect to /dev/null"      Bash "$M" command "ls > /dev/null 2>&1"
   t allow "stderr to stdout"           Bash "$M" command "ls 2>&1 | head -3"
   t allow "git-ignored log in main"    Bash "$M" command "mkdir -p .ci && echo ok > .ci/ci.log"
-  t allow "unquoted unknown \$F is skipped"            Bash "$M" command 'touch $F'
+  t block "unquoted unknown \$F is read literally"     Bash "$M" command 'touch $F'
+  t block "\$PWD is the tracked directory"             Bash "$M" command 'rm -rf $PWD/src'
+  t block "\$PWD after cd to main, from a worktree"    Bash "$W" command "cd $M && rm -rf \$PWD/src"
+  t allow "\$PWD in a worktree"                        Bash "$W" command 'rm -rf $PWD/src'
+  t block "unknown variable in a path under main"      Bash "$M" command 'echo hi > .worktrees/$N/../../README.md'
+  t block "cd to an unknown variable stays in main"    Bash "$M" command 'cd .worktrees/$NAME && git commit -m x'
   t allow "quoted unknown \$F is skipped"              Bash "$M" command 'touch "$F"'
   # variables with a known value are judged by where they point
   t allow "variable path outside main (brief case)"    Bash "$M" command "S=$tmp/scratch; mkdir -p \$S/briefs \$S/reports; cat > \$S/drop.toml <<'EOF'
@@ -104,7 +109,14 @@ EOF"
   t allow "git -C var to a worktree, relative"         Bash "$M" command "G=$WD/any-change; git -C \$G commit -m x"
   t block "git -C var to main"                         Bash "$W" command "G=$M; git -C \$G commit -m x"
   t allow "TMPDIR from the hook environment"           Bash "$M" command 'touch $TMPDIR/x'
-  t allow "variable assigned twice is not followed"      Bash "$tmp" command "X=$tmp/ok; X=$M; touch \$X/x"
+  # F4: from a worktree, so the hook runs; an untrusted X is read literally (under the worktree), a followed X is main
+  t allow "variable assigned twice is not followed"      Bash "$W" command "X=$tmp/ok; X=$M; touch \$X/x"
+  # F2: the name in a message or an echo is no use of the variable
+  t allow "name in a commit message"                   Bash "$M" command "G=$WD/any-change; git -C \$G commit -m 'G fix'"
+  t allow "name in a later echo"                       Bash "$M" command "wt=$WD/any-change; git -C \$wt branch -d x && echo wt gone"
+  t block "name in a later echo, main target"          Bash "$W" command "M=$M; touch \$M/x && echo M done"
+  t block "unset makes the name unknown"               Bash "$M" command "W=$WD/any-change; unset W; git -C \$W commit -m x"
+  t block "+= makes the name unknown"                  Bash "$M" command "W=$WD/any-change; W+=/..; git -C \$W commit -m x"
   t allow "redirect in a worktree"     Bash "$W" command "echo hi > src/x.ts && rm -f src/x.ts"
   t allow "redirect into a worktree from main" Bash "$M" command "cp README.md $W/README.copy"
   t allow "quoted > is no redirect"    Bash "$M" command "echo 'a > b' && grep -n \"x > y\" README.md"

@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: tune-no-en-typo-compare
+description: "front:tune skill stays-quiet on its own description (no hook), for the request \"waht does this chnage migrate, compare befor and after\""
+tags: [front, tune]
+plugins: ["../../../plugins/front"]

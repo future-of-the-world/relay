@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: tune-ru-typo-week-cost
+description: "front:tune skill loads on its own description (no hook), for the request \"скока стоила неделя по токенм?\""
+tags: [front, tune]
+plugins: ["../../../plugins/front"]
