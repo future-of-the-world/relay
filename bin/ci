@@ -33,7 +33,8 @@ hook_tests() { local f rc=0 t; [ "$quick" = 1 ] && [ -z "${RELAY_INERT_FULL_HOOK
   for f in plugins/*/tests/*.test.sh; do [ -e "$f" ] || continue
   case "$f" in *hooks-live*)
     # hooks-live runs a real Claude Code session (claude -p, Haiku, a few cents): the full gate only
-    if [ "$quick" = 1 ] && [ -z "${RELAY_INERT_FULL_HOOKS:-}" ]; then echo "--- $f (left for the full bin/ci: it makes a paid claude call)"; continue; fi
+    # every --quick run leaves it, the inert probe's nested run too: a second paid call, and a model-dependent count in the comparison
+    if [ "$quick" = 1 ]; then echo "--- $f (left for the full bin/ci: it makes a paid claude call)"; continue; fi
     command -v claude >/dev/null 2>&1 || { echo "FAIL $f needs claude on PATH: install Claude Code"; rc=1; continue; }
     echo "--- $f"; HOOKS_LIVE=1 bash "$f" || { echo "FAIL $f"; rc=1; }; continue ;; esac
   echo "--- $f"; bash "$f" || { echo "FAIL $f"; rc=1; }; done; return $rc; }
@@ -46,7 +47,8 @@ validate_all() { command -v claude >/dev/null 2>&1 || { echo "skipped: claude is
 # What a run did, as lines that must not change when an inert file does: each step's result, the library test count
 # ("Ran N tests"), and the number of passing hook-test cases.
 outcome() { cat "$1/.ci/results.txt"; grep -h '^Ran ' "$1/.ci/steps/library-tests.log" 2>/dev/null | sed -E 's/ in [0-9.]+s//'
-  echo "hook cases ok: $(grep -c '^ok' "$1/.ci/steps/hook-tests.log" 2>/dev/null)"; }
+  # not hooks-live's lines: only a full run runs it (a live model), so they would differ from the nested quick run's
+  echo "hook cases ok: $(awk '/^--- /{skip = ($0 ~ /hooks-live/)} !skip && /^ok/{n++} END{print n+0}' "$1/.ci/steps/hook-tests.log" 2>/dev/null)"; }
 inert_probe() { local tmpd work rc=0 f
   tmpd="$(mktemp -d)" || return 1; work="$tmpd/wt"
   git worktree add -q --detach "$work" "$RELAY_GATE" || { echo "FAIL inert: cannot make a worktree at $RELAY_GATE"; rm -rf "$tmpd"; return 1; }
