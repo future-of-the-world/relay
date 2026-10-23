@@ -1,0 +1,27 @@
+{
+  "kind": "feature",
+  "state": "open",
+  "ip": 0,
+  "time": 180,
+  "found": "2026-10-24",
+  "found_in": "relay queue add",
+  "title": "relay as a portable tool, project data out of relay",
+  "what": [
+    "Front's proposal (24 Oct), accepted for the owner's personal projects; Glonass stays outside relay as before (its rule and its projects are not moved in or out by this item; decide its place at build time with the owner).",
+    "- Which rules a project loads: today relay's projects.toml lists 13 projects with this machine's paths; becomes a relay settings file inside each project's repo.",
+    "- The list of projects on a machine: not stored in relay; derived from the folders where `relay setup` ran (machine-local, not in git).",
+    "- A project's Claude memory (raw notes): a folder in the project's own repo; `relay sync` writes `autoMemoryDirectory` into the project's .claude/settings.local.json (Claude Code 2.1.309 ignores that key in the checked-in .claude/settings.json, allows it in settings.local.json or user settings; verified in the binary's schema text 24 Oct). A note written mid-session must land in git at once without dirtying the main checkout (like `relay queue` items land) and the main-checkout guard must allow it. A project whose repo is shared can set \"memory local\" (stays in ~/.claude).",
+    "- The owner's facts (native language, subscription, paid-run cap): a personal file outside the relay repo; relay asks once on a new machine.",
+    "- Project names in relay's rules (ALIX bin/wt, arsenal .worktrees) move to those projects' settings.",
+    "- Principles (the 9 sections drafted 24 Oct, called \"principles\" by the owner: \"Те разделы вкуса что ты привел, назовем их принципами - паттерны поведения и принятия решений, они мне по душе\"): a generic part of relay with no project references; the examples go to relay's docs. Built from memory notes, not replacing them. Draft page: https://claude.ai/artifact/NQRwk9vQKBpbuP43kEEosu (generator: the 0cc68fe0 session scratchpad gen_taste.py).",
+    "Rough cost: 3-4 changes of 30-60 agent minutes, 2-3 paid runs (~$9 each)."
+  ],
+  "why": [
+    "Owner, 24 Oct, verbatim: \"моя цель - свежая копия relay + <project> работает одинаково на всех машинах\"; \"relay - переносимая утилита, пусть она и базируется на моем опыте, но она должна остаться переносимой, без ссылок на другие проекты\"; \"заменять память не стоит - лучше научиться ей управлять, почему мы не можем хранить память о всех проектах в самих проектах, сохранять их в гит и легко переносить между машинами\"; \"память лишь записывает, из памяти в дальнейшем мы собираем функциональные компоненты системы, каким может стать \"вкус\", память это заметки, claude уже умеет с этим работать, мы лишь управляем\"; \"Правила glonass мы оставляем вне, по старому, для всем моих личных проектах твои правила вполне, glonass также остается вне relay\"; \"запиши сейчас куда-нибудь, чтобы после уже на этапе полного изолирования утилиты (когда я начну её активно применять) мы смогли это восстановить из заметок\". Timing: later, when the owner starts using relay actively; ip is the owner's (default 0)."
+  ],
+  "where": "projects.toml, lib/relay_rules.py, bin/relay (setup, sync), rules/*.md, rules/taste.md, plugins/core/hooks/guard-main.sh",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
