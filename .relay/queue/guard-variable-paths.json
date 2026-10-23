@@ -1,6 +1,6 @@
 {
   "kind": "fix",
-  "state": "open",
+  "state": "taken",
   "ip": 99,
   "time": 15,
   "found": "2026-10-22",
@@ -16,7 +16,7 @@
     "from the main checkout `git -C $G branch -d x` (a worktree in `$G`) is refused: the guard takes an unquoted `$NAME/...` word as a path under the current folder (`guard-main.sh:39-41`); the same mechanism refuses writes to `$TMPDIR/...` and `mkdir -p $S` (handover \"guard-main reads -C $VAR as a literal path\", \"guard and $TMPDIR\", earlier note at handover:144; the `$TMPDIR` case is the coordinator's shorthand, confirmed by the taker)"
   ],
   "where": "plugins/core/hooks/guard-main.sh:39",
-  "taken_by": "",
+  "taken_by": "wt/guard-batch",
   "closed_by": "",
   "test": "",
   "dropped_why": null
