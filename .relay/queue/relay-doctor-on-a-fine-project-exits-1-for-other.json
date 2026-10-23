@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 90,
+  "time": 20,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "relay doctor on a fine project exits 1 for other projects",
+  "what": [
+    "Split the output: project checks decide the exit code of doctor <project>; machine-wide ones print under their own heading."
+  ],
+  "why": [
+    "relay doctor <project> mixes machine-wide results into a project check: its one FIX was 'rules in sync' for ten other projects, so a good new project looks broken."
+  ],
+  "failing_case": [
+    "Trial: relay doctor <tally> printed 21 ok and 1 FIX (rules in sync for alix; arsenal; ... noisegate), exit 1, nothing about tally."
+  ],
+  "pass_cases": [
+    "doctor <project> exits 0 when the project is fine, and the machine-wide FIX is shown separately."
+  ],
+  "where": "bin/relay:424-431, lib/relay_setup.py:398-452",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
