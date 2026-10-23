@@ -832,3 +832,27 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
 - NEXT: when it ends: `relay sync`; guard branch takes master (merge commit), `relay gate -- --quick` again (test_queue.py
   came in), close both queue items on the branch (`relay queue take/done`), `relay check page`, merge question to the
   owner; then runner-turns-while-waiting (seen live again today: the runner hit its 12-turn limit waiting on bin/ci).
+
+## STATE 23 Oct, guard batch MERGED; native-language rule building (session 0cc68fe0)
+
+- `relay sync` ran after the rule merge (ALIX skipped, expected). Guard batch merged on the owner's "Хорошо, можешь слить"
+  (ff, master 10c69bb): guard-variable-paths and tune-hook-false-trigger closed. Its full paid bin/ci was "green" with 19
+  of 27 tune runs not judged (max_turns 3): fixed (max_turns 10), and the judged runs showed 2/15 false loads of
+  front:tune; description narrowed, tune-only run 27/27 ($3.14). Full bin/ci not re-run after those two commits (front's
+  call: only eval headers and one SKILL.md line changed; the tune-only run covers them).
+- Queued today from this work (all fix, ip 91): full-gate-stays-green-when-eval-runs-are-not-jud,
+  closing-a-fix-proved-by-an-eval-takes-guesses, live-hook-test-sometimes-misses-the-worker-addit,
+  a-rules-text-only-change-pays-the-full-quick-gat.
+- Waste met (taste): a gate refused for an uncommitted handover edit (1 run); the merge refused once because one checker
+  was given three checks and the mark hook reads one Report: label (one more checker); the runner hit its turn limit
+  waiting on bin/ci (runner-turns-while-waiting, still queued at ip 99); 9 min quick gate repeated per rule edit (queued).
+- Owner's language, verbatim: "My native lang is russian - I don't like speak in English"; "a - can we fix this in relay,
+  but not hard rules, use native language term for this, model can detect or ask directly"; order: "a, я думаю
+  критического влияния это не возымеет, ведь ты уже общаешься по-русски" (build it right after the guard merge). The front
+  now replies in Russian. Memory owner-native-language saved.
+- Building: wt/native-language (.worktrees/native-language): one bullet in rules/working-with-me.md (talk in the owner's
+  native language, by that term; ask once if unknown and keep it; code/docs/commits stay English). Brief and report in
+  the session scratchpad (briefs/native-language.md).
+- Taste experiment: 2 merges since taste (structured-reword, guard-batch); ask the owner after 5.
+- NEXT: native-language: gate, one review, check, page, merge question (in Russian), `relay sync`; then
+  runner-turns-while-waiting.
