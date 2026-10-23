@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "tests/test_relay.py:1022 asserts front skill says run_in_background and never a runner for the paid bin/ci, and delegate skill says a job over 30 min is not a runner's; passes, fails on base."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/runner-turns/.relay/checks/6c29a63ebe778c567f492a1d3f742fddd07e1027.gate.log",
+  "head": "298577921a2933ea04a02bb931fbb7365f16830d",
+  "new": [],
+  "notes": [
+    "Changed files also include bin/eval-record, tests/test_eval_record.py, rules/delegation.md, rules/front.md and runner.md: fixes of the separate code review of this branch (commit 6c29a63 names F1 F2 F4 F5), not of Q1; not counted as scope violations. The test checks wording only, a text-rule fix; no caller broke."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "45337406fc3c7a436873bc7c18aae3d467b193af.review.json"
+  ],
+  "reviewed": "45337406fc3c7a436873bc7c18aae3d467b193af",
+  "schema": 1,
+  "scope": [
+    "Range 4533740..HEAD. Gate log head 6c29a63 exit 0; later commits only inert files. Ran the named test: passes; fails on base 4533740 with the new test copied in (queue-item rule satisfied)."
+  ],
+  "type": "check"
+}
