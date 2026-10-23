@@ -1,8 +1,12 @@
 # Structured data
-> Information that a script, a hook or a later step reads is stored as a structured file (JSON, TOML or YAML) with a schema check, and changed only through one script; prose stays only where only people or models read it.
+> Information that a script, a hook or a later step reads, when it is one of many records of the same shape, is stored as a structured file (JSON, TOML or YAML) with a schema check, and changed only through one script; instructions and prose stay text.
 
-- What counts as read by a script: state, verdicts, items, logs, votes, hand-backs. Each is a structured
-  file, not prose with labels.
+- The test: a value goes into a structured file when it is one of many records of the same shape (queue
+  items, verdicts, ledger lines, votes) whose fields a script reads or writes. Instructions, rules,
+  briefs, agent reports, hand-backs and a single state file like the handover are text for people and
+  models and stay prose. A review or check verdict is one record per review: structured.
+- What counts: queue items, verdicts, log lines, votes. Each is a structured file, not prose with
+  labels.
 - One writer: a single library parses, checks and writes the file. Nothing else edits it by hand or by
   string replacement; a file that fails the check is shown as malformed, never guessed at.
 - When a person reads it, the readable form is a view made from the data (a table, a list, a

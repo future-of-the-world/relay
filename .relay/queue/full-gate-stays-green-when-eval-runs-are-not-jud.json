@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 91,
+  "time": 45,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Full gate stays green when eval runs are not judged",
+  "what": [
+    "bin/eval-record only prints \"not judged\" notes and failed meaning graders and never changes the gate status; the plugin-evals step in bin/ci fails only on claude's exit code. Errored (not judged) runs and failed graders should at least fail the full gate, or the gate's last line should say it is not a pass for those cases."
+  ],
+  "why": [
+    "A paid 38-minute gate said green while 19 of 27 runs of the change's own new evals errored and were never judged, so the gate proved nothing about the change and nobody would have noticed without reading the notes."
+  ],
+  "failing_case": [
+    "23 Oct, wt/guard-batch, full bin/ci: \"ci: eval record: 0 meaning grader(s) failed, 0 split votes, 19 not judged\" followed by \"ci: green\"; the 19 were tune-* runs hitting max_turns 3."
+  ],
+  "pass_cases": [
+    "A full bin/ci with any run not judged, or any grader failed, does not end \"ci: green\"; a run with all judged and passing still ends green."
+  ],
+  "where": "bin/eval-record, bin/ci (plugin evals step)",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}

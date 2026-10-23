@@ -1,0 +1,56 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "rules/structured-data.md:8 What counts line lists queue items, verdicts, log lines, votes; handover named as prose (line 6); asserted tests/test_queue.py:1092-1095."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "Gist line 2 puts the condition before \"is stored as a structured file\"; tests/test_queue.py:1087 asserts it."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "Line 6 says \"agent reports\", and a verdict is one structured record; tests/test_queue.py:1096."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "tests/test_queue.py:1088-1096 pins the phrase and excludes hand-backs/state from the What counts line."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "bin/ci not touched; for a queue item (rules-only change pays the full gate)."
+      ],
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/structured-reword/.relay/checks/a6e379d2e0b8e95c160014c62ff3871920e794e8.gate.log",
+  "head": "288c811a83c56a942eb743701bd27a07b912e8cf",
+  "new": [],
+  "notes": [
+    "Fix diff read; no callers (rule text, one test). F5 is outside, left for a queue item."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "8b09ae2e9c10a26cbe6c2f9faec24f145e961e7c.review.json"
+  ],
+  "reviewed": "8b09ae2e9c10a26cbe6c2f9faec24f145e961e7c",
+  "schema": 1,
+  "scope": [
+    "Fix range 8b09ae2..288c811: own files rules/structured-data.md and tests/test_queue.py only. Ran python3 -m unittest tests.test_queue: 75 OK. Gate log head a6e379d, exit 0; relay changed since that sha lists no file."
+  ],
+  "type": "check"
+}
