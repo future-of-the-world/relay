@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 85,
+  "time": 30,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "A check over many reviews matches findings by number only",
+  "what": [
+    "A check over several reviews must name each finding with its review, for example `<review>:F2`, so two reviews that both have an F2 get two verdicts."
+  ],
+  "why": [
+    "The checker of merge 2 recorded one verdict per finding id across three review files that each number from F1, so two findings can share an id. Merge 2 was unaffected (all 32 fixed)."
+  ],
+  "failing_case": [
+    "Two review files each hold a finding F2; a check over both records one verdict for \"F2\" and cannot say which review it belongs to."
+  ],
+  "pass_cases": [
+    "A check over two reviews that both have F2 records two verdicts, `<review-a>:F2` and `<review-b>:F2`."
+  ],
+  "where": "lib/relay_verdict.py",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
