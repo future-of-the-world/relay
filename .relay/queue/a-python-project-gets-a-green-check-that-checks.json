@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 90,
+  "time": 30,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "A Python project gets a green check that checks nothing",
+  "what": [
+    "Detect python from *.py or test_*.py as well; and make an unfilled TODO placeholder step fail (or print NOT CONFIGURED and exit 1) until it is replaced."
+  ],
+  "why": [
+    "relay setup recognises Python only by pyproject.toml, so a project of plain .py files gets bin/check and bin/ci with placeholder steps that pass, and the owner believes the gate is on."
+  ],
+  "failing_case": [
+    "Trial: tally.py + test_tally.py, no pyproject.toml: detect() gave stack unknown; bin/check and bin/ci ran 'run_step placeholder true' and printed passed/green."
+  ],
+  "pass_cases": [
+    "A folder with test_*.py is detected as python with a pytest step; a folder with an unfilled placeholder gets a failing check that says what to fill in."
+  ],
+  "where": "lib/relay_setup.py:22,28-35, templates/bin-check:30, templates/bin-ci",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
