@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 90,
+  "time": 15,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Agents call timeout, which macOS lacks; recipe unnamed",
+  "what": [
+    "State the recipe once in the delegate skill and the runner definition: a portable bound (nohup + log + a wait loop, no timeout program) and where the log goes."
+  ],
+  "why": [
+    "The delegate skill says a runner runs relay gate detached 'with the limits recipe', but no file names or links that recipe; and the rule 'no command over 4 minutes' invites timeout."
+  ],
+  "failing_case": [
+    "Trial: delegate:runner wrapped relay check show in timeout and got exit 127 on macOS."
+  ],
+  "pass_cases": [
+    "The skill names the recipe with a command that runs on macOS; a runner following it never calls timeout."
+  ],
+  "where": "plugins/delegate/skills/delegate/SKILL.md:100, plugins/delegate/agents/runner.md:22-45",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
