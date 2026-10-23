@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "tests/test_queue.py:388-446 (state computed from events, every contradiction refused: closed before taken, closed without test, dropped with closed, done/ without end), :949 done writes closed_at, :1305 check refuses done/ file without end; migration tests TestMigrate:1213. All pass; the new-shape tests fail on the reviewed sha."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/queue-events/.relay/checks/6e2b5c0f8d9f4f6a6a2f516a886fb34a07f20d5f.gate.log",
+  "head": "bc0ac31aedf37b9652a4a0ee3ae3d8286192fb9d",
+  "new": [],
+  "notes": [
+    "Scope: own-changed list includes docs/notes/principles-draft* from handover commit 0051c0e (not the fix; notes only). Other files are the ones the report names."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "69c2641f0c7ed3f00d8af528303517ae211b78a5.review.json"
+  ],
+  "reviewed": "69c2641f0c7ed3f00d8af528303517ae211b78a5",
+  "schema": 1,
+  "scope": [
+    "Range 69c2641..HEAD. Check command: tests/test_queue.py 88 passed. Gate log head 6e2b5c0 exit 0; relay changed from that sha lists no file. TestNewShape run on the reviewed sha with the new test file: 4 failed (fails without the fix). No state key left in .relay/queue files."
+  ],
+  "type": "check"
+}
