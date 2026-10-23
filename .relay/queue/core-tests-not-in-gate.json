@@ -1,6 +1,6 @@
 {
   "kind": "fix",
-  "state": "open",
+  "state": "taken",
   "ip": 99,
   "time": 30,
   "found": "2026-10-22",
@@ -16,7 +16,7 @@
     "`bin/ci:29-32` skips `inject-addition`, `packet`, `check-contract`, `shim`, `spec-check`, `hooks-live` unless `RELAY_CORE_TESTS=1`; part 1's per-role tests I1-I9 live in `inject-addition.test.sh`, so a regression in role injection passes `bin/ci --quick` (v3 #1; handover \"core plugin tests not in bin/ci --quick\")"
   ],
   "where": "bin/ci:29",
-  "taken_by": "",
+  "taken_by": "wt/core-tests-not-in-gate",
   "closed_by": "",
   "test": "",
   "dropped_why": null
