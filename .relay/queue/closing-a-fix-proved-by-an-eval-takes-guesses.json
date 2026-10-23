@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 91,
   "time": 20,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T16:05:08Z",
   "found_in": "relay queue add",
   "title": "Closing a fix proved by an eval takes guesses",
   "what": [
@@ -19,8 +18,10 @@
     "`--test evals/plugin/<case>::<grader>` closes an item when the grader file exists at HEAD; a missing grader is refused with the accepted forms listed."
   ],
   "where": "lib/relay_queue.py:742 (_holds_test), :787",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

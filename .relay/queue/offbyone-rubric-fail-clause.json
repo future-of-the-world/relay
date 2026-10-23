@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 91,
   "time": 10,
-  "found": "2026-10-22",
+  "found_at": "2026-10-22T19:21:47Z",
   "found_in": "relay review-gate design 10.6 seed 9",
   "title": "A weaker judge fails right answers on one rubric",
   "what": [
@@ -15,8 +14,10 @@
   "failing_case": [
     "the off-by-one rubric's FAIL clause words (\"stays within size\", \"as the doc says\") made Haiku fail right answers yes-03 (5 of 5) and yes-05 (2 of 5); Sonnet unaffected, the trap stays for any weaker judge (handover cause-measure)"
   ],
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

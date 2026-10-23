@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 90,
   "time": 20,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T01:16:25Z",
   "found_in": "relay queue add",
   "title": "relay doctor on a fine project exits 1 for other projects",
   "what": [
@@ -19,8 +18,10 @@
     "doctor <project> exits 0 when the project is fine, and the machine-wide FIX is shown separately."
   ],
   "where": "bin/relay:424-431, lib/relay_setup.py:398-452",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

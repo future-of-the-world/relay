@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 90,
   "time": 30,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T01:16:25Z",
   "found_in": "relay queue add",
   "title": "Fix reports are moved by hand: author gives message only",
   "what": [
@@ -19,8 +18,10 @@
     "The spec-review skill passes a report path to the author and the file exists afterwards; kit packet --check reports a tasks.md with no Wave line when the tasks run in waves."
   ],
   "where": "plugins/sdd/skills/spec-review/SKILL.md:72-76, plugins/sdd/agents/author.md, plugins/core/lib/kit_packet.py:77",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

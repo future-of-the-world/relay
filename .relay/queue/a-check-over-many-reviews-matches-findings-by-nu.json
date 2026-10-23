@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 85,
   "time": 30,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T00:26:43Z",
   "found_in": "relay queue add",
   "title": "A check over many reviews matches findings by number only",
   "what": [
@@ -19,8 +18,10 @@
     "A check over two reviews that both have F2 records two verdicts, `<review-a>:F2` and `<review-b>:F2`."
   ],
   "where": "lib/relay_verdict.py",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

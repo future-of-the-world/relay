@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 90,
   "time": 15,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T01:16:24Z",
   "found_in": "relay queue add",
   "title": "Agents call timeout, which macOS lacks; recipe unnamed",
   "what": [
@@ -19,8 +18,10 @@
     "The skill names the recipe with a command that runs on macOS; a runner following it never calls timeout."
   ],
   "where": "plugins/delegate/skills/delegate/SKILL.md:100, plugins/delegate/agents/runner.md:22-45",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

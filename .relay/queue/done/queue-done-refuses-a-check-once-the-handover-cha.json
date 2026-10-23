@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "dropped",
   "ip": 96,
   "time": 30,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T12:18:08Z",
   "found_in": "relay queue add",
   "title": "Queue done refuses a check once the handover changed",
   "what": [
@@ -19,9 +18,11 @@
     "After a handover-only commit `done` accepts the check; after a change to any non-inert file it still refuses."
   ],
   "where": "lib/relay_queue.py:755",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-23T12:37:45Z",
   "dropped_why": [
     "\"a\" (owner, 23 Oct, choosing: replace the three patch items with one redesign: one record per change, one reader)"
   ]

@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 90,
   "time": 20,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T01:16:23Z",
   "found_in": "relay queue add",
   "title": "A refused merge does not say what to rerun",
   "what": [
@@ -19,8 +18,10 @@
     "The refusal text contains both gate and check; check show on a branch with a non-inert change after the mark prints the count and names the files; on a clean branch the output is unchanged."
   ],
   "where": "plugins/core/hooks/merge.py:172, lib/relay_marks.py:280-302",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

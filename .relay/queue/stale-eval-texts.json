@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 91,
   "time": 5,
-  "found": "2026-10-22",
+  "found_at": "2026-10-22T19:21:47Z",
   "found_in": "relay review-gate design 10.6 seed 10",
   "title": "An eval comment describes a setup that does not exist",
   "what": [
@@ -16,8 +15,10 @@
     "evals/plugin/setup-fixture.sh:4-5 says bin/ci puts core's bin/ and a git shim (.ci/evalbin) first on PATH. bin/ci:50 puts only plugins/core/bin first, which holds only kit, and no .ci/evalbin or shim exists anywhere in the repository (git grep evalbin finds nothing outside the plans). The handover's other pointer, case.yaml:3, is the description line of every case and none of them was found wrong; if one is, name it here. Should describe what bin/ci really does"
   ],
   "where": "evals/plugin/setup-fixture.sh:4",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

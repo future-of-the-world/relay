@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 90,
   "time": 20,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T13:49:21Z",
   "found_in": "relay queue add",
   "title": "A bench with --set leaves the main checkout dirty",
   "what": [
@@ -19,8 +18,10 @@
     "After the same bench, `git status --short` in the main checkout is empty, and the derived profile is found beside the bench report."
   ],
   "where": "lib/relay_bench.py",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

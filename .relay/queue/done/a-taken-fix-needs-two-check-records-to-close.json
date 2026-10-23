@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "dropped",
   "ip": 96,
   "time": 30,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T12:18:07Z",
   "found_in": "relay queue add",
   "title": "A taken fix needs two check records to close",
   "what": [
@@ -19,9 +18,11 @@
     "One check over a take findings file and a later whole-change review records verdicts for Q1 and F1..Fn, and `relay queue done` accepts it."
   ],
   "where": "lib/relay_verdict.py:550",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-23T12:37:44Z",
   "dropped_why": [
     "\"a\" (owner, 23 Oct, choosing: replace the three patch items with one redesign: one record per change, one reader)"
   ]

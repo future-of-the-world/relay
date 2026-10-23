@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 98,
   "time": 30,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T01:16:23Z",
   "found_in": "relay queue add",
   "title": "Following the OpenSpec flow in order gets the merge refused",
   "what": [
@@ -19,8 +18,10 @@
     "A change archived per sdd:archive, with a green gate and a check mark from before the archive, merges on the first try (or the skill says exactly which re-runs are needed and they are enough); a code change after the mark is still refused."
   ],
   "where": "lib/relay_inert.py:14-18, plugins/core/hooks/merge.py:172, plugins/sdd/skills/archive/SKILL.md:20-25,73-75",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

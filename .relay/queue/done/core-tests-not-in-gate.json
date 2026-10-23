@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "done",
   "ip": 99,
   "time": 30,
-  "found": "2026-10-22",
+  "found_at": "2026-10-22T19:21:47Z",
   "found_in": "relay review-gate design 10.6 seed 1",
   "title": "Six core test files never run in the quick gate",
   "what": [
@@ -16,8 +15,10 @@
     "`bin/ci:29-32` skips `inject-addition`, `packet`, `check-contract`, `shim`, `spec-check`, `hooks-live` unless `RELAY_CORE_TESTS=1`; part 1's per-role tests I1-I9 live in `inject-addition.test.sh`, so a regression in role injection passes `bin/ci --quick` (v3 #1; handover \"core plugin tests not in bin/ci --quick\")"
   ],
   "where": "bin/ci:29",
+  "taken_at": "2026-10-23T01:23:29Z",
   "taken_by": "wt/core-tests-not-in-gate",
-  "closed_by": "wt/core-tests-not-in-gate",
+  "closed_at": "2026-10-23T12:17:31Z",
   "test": "tests/test_ci_hook_tests.py::test_quick_runs_the_free_core_tests",
+  "dropped_at": null,
   "dropped_why": null
 }

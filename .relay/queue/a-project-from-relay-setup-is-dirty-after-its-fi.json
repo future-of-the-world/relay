@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 90,
   "time": 15,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T01:16:24Z",
   "found_in": "relay queue add",
   "title": "A project from relay setup is dirty after its first check",
   "what": [
@@ -19,8 +18,10 @@
     "Fresh setup, one check, one bin/wt new: git status --short on the default branch is empty; an existing .gitignore keeps its lines."
   ],
   "where": "lib/relay_setup.py:302-346, templates/ (no gitignore template)",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

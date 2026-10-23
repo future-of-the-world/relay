@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 98,
   "time": 20,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T01:16:12Z",
   "found_in": "relay queue add",
   "title": "A new OpenSpec project silently has no OpenSpec skills",
   "what": [
@@ -19,8 +18,10 @@
     "After setup --flow openspec the project has sdd@relay installed; if the install cannot run, the todo list names the exact command; doctor <project> reports FIX when an enabled plugin is not installed."
   ],
   "where": "lib/relay_setup.py:159, lib/relay_setup.py:302-346 (todo at 345), lib/relay_setup.py:398-452",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

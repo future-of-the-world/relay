@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 91,
   "time": 20,
-  "found": "2026-10-22",
+  "found_at": "2026-10-22T19:56:57Z",
   "found_in": "owner rule structured-data, 22 Oct",
   "title": "Eval tally takes the expected answer from a name",
   "what": [
@@ -19,8 +18,10 @@
     "a run whose grader names carry the right yes--/no-- prefixes tallies correctly today"
   ],
   "where": "evals/judge-measure/tally.py:62",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

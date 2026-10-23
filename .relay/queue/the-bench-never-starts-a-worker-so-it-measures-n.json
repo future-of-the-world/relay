@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 92,
   "time": 60,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T13:36:07Z",
   "found_in": "relay queue add",
   "title": "The bench never starts a worker, so it measures nothing",
   "what": [
@@ -19,8 +18,10 @@
     "The same bench shows a worker started in add-function and small-script under both setups, both scenarios pass under the active setup, and the two setups' worker model differs in the report's model usage."
   ],
   "where": "evals/scenarios",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

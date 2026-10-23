@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 91,
   "time": 45,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T15:48:13Z",
   "found_in": "relay queue add",
   "title": "Full gate stays green when eval runs are not judged",
   "what": [
@@ -19,8 +18,10 @@
     "A full bin/ci with any run not judged, or any grader failed, does not end \"ci: green\"; a run with all judged and passing still ends green."
   ],
   "where": "bin/eval-record, bin/ci (plugin evals step)",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

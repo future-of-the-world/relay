@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 91,
   "time": 60,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T15:00:26Z",
   "found_in": "relay queue add",
   "title": "Live hook test sometimes misses the worker addition",
   "what": [
@@ -19,8 +18,10 @@
     "hooks-live.test.sh passes max(20, ceil(3/p)) clean runs in a row once the cause is fixed (rules/quality-gate.md)."
   ],
   "where": "plugins/core/tests/hooks-live.test.sh",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

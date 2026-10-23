@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 91,
   "time": 30,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T14:05:46Z",
   "found_in": "finding F5 of review-structured-reword.json",
   "title": "A rules-text-only change pays the full quick gate twice…",
   "what": [
@@ -23,8 +22,10 @@
     "- A change touching rules/ plus code runs the full gate."
   ],
   "where": "bin/ci:14",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

@@ -1,9 +1,8 @@
 {
   "kind": "feature",
-  "state": "open",
   "ip": 0,
   "time": 20,
-  "found": "2026-10-22",
+  "found_at": "2026-10-22T19:56:57Z",
   "found_in": "owner rule structured-data, 22 Oct",
   "title": "Gate logs get a JSON summary beside them",
   "what": [
@@ -13,8 +12,10 @@
     "The structured-data rule: what a later step reads is a structured file. Today the two lines are written by the gate itself, so this is a cleanup of the format, not a defect."
   ],
   "where": "lib/relay_marks.py:170",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

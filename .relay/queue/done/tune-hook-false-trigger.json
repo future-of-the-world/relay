@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "done",
   "ip": 99,
   "time": 20,
-  "found": "2026-10-23",
+  "found_at": "2026-10-22T20:31:54Z",
   "found_in": "owner session, 23 Oct",
   "title": "Setup-tuning hook fires on ordinary words",
   "what": [
@@ -16,8 +15,10 @@
     "The UserPromptSubmit hook told the session to load front:tune on \"What we're migrating in current change, compare - before and after\" (a question about a change's content; pattern 4, \\bcompare\\b, matches); it is not a request about the setup. (An earlier example, \"It costs about $3.50\", does not trigger today.)"
   ],
   "where": "plugins/front/hooks/tune-stage.py:13",
+  "taken_at": "2026-10-23T15:53:54Z",
   "taken_by": "wt/guard-batch",
-  "closed_by": "wt/guard-batch",
+  "closed_at": "2026-10-23T16:04:58Z",
   "test": "evals/plugin/tune-no-change-compare/case.yaml::tune-no-change-compare",
+  "dropped_at": null,
   "dropped_why": null
 }

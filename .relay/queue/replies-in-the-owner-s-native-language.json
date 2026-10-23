@@ -1,9 +1,8 @@
 {
   "kind": "feature",
-  "state": "open",
   "ip": 0,
   "time": 20,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T16:03:04Z",
   "found_in": "relay queue add",
   "title": "Replies in the owner's native language",
   "what": [
@@ -13,8 +12,10 @@
     "The owner, verbatim: \"My native lang is russian - I don't like speak in English\"; then \"a - can we fix this in relay, but not hard rules, use native language term for this, model can detect or ask directly\"."
   ],
   "where": "rules/ (the \"Working with me\" rule), memory",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 90,
   "time": 20,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T01:17:28Z",
   "found_in": "relay queue add",
   "title": "A project added by setup cannot be removed again",
   "what": [
@@ -19,8 +18,10 @@
     "After setup the relay checkout is clean (entry committed); one relay command removes the entry and leaves the checkout clean; the guard still refuses hand edits in the main checkout."
   ],
   "where": "lib/relay_setup.py:250-268, bin/relay (setup, projects), plugins/core/hooks/guard-main.sh",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

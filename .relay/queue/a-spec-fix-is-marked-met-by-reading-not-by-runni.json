@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 90,
   "time": 30,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T01:16:24Z",
   "found_in": "relay queue add",
   "title": "A spec fix is marked met by reading, not by running",
   "what": [
@@ -19,8 +18,10 @@
     "The same F1 after a partial fix is reported open by the checker because its sketch still passes; a complete fix is MET."
   ],
   "where": "plugins/sdd/skills/spec-review/SKILL.md:72-84, roles/judge.md (step 1)",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

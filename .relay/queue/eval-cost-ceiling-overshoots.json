@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 93,
   "time": 20,
-  "found": "2026-10-22",
+  "found_at": "2026-10-22T19:21:47Z",
   "found_in": "relay review-gate design 10.6 seed 2",
   "title": "A run goes past its money limit when run in parallel",
   "what": [
@@ -16,8 +15,10 @@
     "`--max-cost-usd 4` at `-j 4` ran to $6.32 (Sonnet measure, 22 Oct); the README's $10 ceiling can reach about $13; should stop within one batch of the ceiling (handover \"ceiling overshoot\", \"eval cost ceiling not firm at -j 4\", check-readme-cost \"$10 ceiling worst case ~$13\")"
   ],
   "where": "bin/ci:68",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "dropped",
   "ip": 96,
   "time": 30,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T12:18:07Z",
   "found_in": "relay queue add",
   "title": "Queue done and the merge guard read test names differently",
   "what": [
@@ -19,9 +18,11 @@
     "A test name `done` accepts is accepted by the merge guard, and one `done` refuses is refused by both; `<file>::<Class>::<method>` and `<file>::<method>` behave the same in both."
   ],
   "where": "plugins/core/hooks/merge.py:149",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-23T12:37:44Z",
   "dropped_why": [
     "\"a\" (owner, 23 Oct, choosing: replace the three patch items with one redesign: one record per change, one reader)"
   ]

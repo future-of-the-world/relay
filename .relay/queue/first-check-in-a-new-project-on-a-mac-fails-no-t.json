@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 98,
   "time": 20,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T01:16:22Z",
   "found_in": "relay queue add",
   "title": "First check in a new project on a Mac fails: no timeout",
   "what": [
@@ -19,8 +18,10 @@
     "On a machine with no timeout or gtimeout, bin/check on a green project prints passed (exit 0) and on a hanging step prints HUNG within CHECK_TIMEOUT."
   ],
   "where": "templates/bin-check:19-21, templates/bin-check (md5sum use)",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

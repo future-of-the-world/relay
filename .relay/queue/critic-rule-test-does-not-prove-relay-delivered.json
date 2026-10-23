@@ -1,9 +1,8 @@
 {
   "kind": "fix",
-  "state": "open",
   "ip": 60,
   "time": 20,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T00:26:39Z",
   "found_in": "relay queue add",
   "title": "Critic-rule test does not prove relay delivered the rule",
   "what": [
@@ -19,8 +18,10 @@
     "The rule file is not readable by the agent, and the case passes only when relay's delivery carries the rule."
   ],
   "where": "evals/plugin/critic-role-rule/scaffold.sh",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
   "dropped_why": null
 }

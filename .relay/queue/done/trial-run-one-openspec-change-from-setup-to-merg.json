@@ -1,9 +1,8 @@
 {
   "kind": "feature",
-  "state": "dropped",
   "ip": 99,
   "time": 40,
-  "found": "2026-10-23",
+  "found_at": "2026-10-23T00:30:54Z",
   "found_in": "relay queue add",
   "title": "Trial run: one OpenSpec change from setup to merge",
   "what": [
@@ -19,9 +18,11 @@
     "The tiny change merges with the gate and the mark in place, or every gap found is queued or fixed before the owner's real project starts."
   ],
   "where": "plugins/sdd, plugins/core/hooks/merge.py, lib/relay_setup.py, docs/setup.md",
-  "taken_by": "",
-  "closed_by": "",
-  "test": "",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-23T01:21:44Z",
   "dropped_why": [
     "done: merged at 19c02df, findings queued (owner picked \"a\": close the finished trial with drop, since no command closes a feature)"
   ]
