@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 96,
+  "time": 30,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Queue done and the merge guard read test names differently",
+  "what": [
+    "`relay queue done` and the merge guard use one function to decide whether `<file>::<name>` names a test in the file."
+  ],
+  "why": [
+    "`relay queue done` accepted a test the merge guard then refused, so the merge stopped after the item was closed and the close had to be reverted and redone (core-tests-not-in-gate, 23 Oct)."
+  ],
+  "failing_case": [
+    "`relay queue done --test tests/test_ci_hook_tests.py::HookTestsStep::test_quick_runs_the_free_core_tests` passes (lib/relay_queue.py:791 checks only the last `::` part), and `git merge --ff-only` is then refused at plugins/core/hooks/merge.py:149 \"closed without a test\", because \"HookTestsStep::test_quick...\" is not literally in the source."
+  ],
+  "pass_cases": [
+    "A test name `done` accepts is accepted by the merge guard, and one `done` refuses is refused by both; `<file>::<Class>::<method>` and `<file>::<method>` behave the same in both."
+  ],
+  "where": "plugins/core/hooks/merge.py:149",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
