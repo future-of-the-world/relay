@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 96,
+  "time": 30,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "A taken fix needs two check records to close",
+  "what": [
+    "`relay check record check` accepts reviews of different reviewed shas (each finding judged against its own review), or `relay queue done` accepts a check whose Q1 verdict is in a second record of the same head."
+  ],
+  "why": [
+    "Every queue fix runs take (Q1 reviewed at the take sha), then a whole-change review at a later sha; one check cannot hold both, so closing is refused until a second check is run (core-tests-not-in-gate, 23 Oct)."
+  ],
+  "failing_case": [
+    "A check over core-tests.json (reviewed 4522dcb, Q1) and core-tests-review.json (reviewed 54c5dca, F1-F3) is refused at lib/relay_verdict.py:550 \"the review data ... is of 4522dcb..., not of the reviewed sha 54c5dca...\"; the checker drops Q1 to the notes and `relay queue done` then refuses for lack of a Q1 verdict."
+  ],
+  "pass_cases": [
+    "One check over a take findings file and a later whole-change review records verdicts for Q1 and F1..Fn, and `relay queue done` accepts it."
+  ],
+  "where": "lib/relay_verdict.py:550",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
