@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 98,
+  "time": 30,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Following the OpenSpec flow in order gets the merge refused",
+  "what": [
+    "Make the flow and the hook agree: either treat an archive-only commit (openspec/changes/archive/**, openspec/specs/**) as inert in relay_inert, or have sdd:archive say to run relay gate and delegate:checker again after archiving, and give the checker a prompt form for re-checking an archive commit (judge.md step 1 counts the archive files as open unless passed as a fix)."
+  ],
+  "why": [
+    "sdd:archive says archive in the change worktree before the merge and that an openspec/docs-only archive needs no new gate, but the merge hook counts openspec/ and docs changes as not inert, so the first merge is refused and costs an extra gate run and an extra checker run."
+  ],
+  "failing_case": [
+    "Trial: after the archive commit, git merge --ff-only wt/add-count-unique-words was refused: 'after the check of ..., wt/... changed openspec/specs/word-counting/spec.md, openspec/changes/add-count-unique-words/tasks.md and 6 more, which are not inert; check again'. Cost: 1 refused merge, 1 extra gate, 1 extra checker."
+  ],
+  "pass_cases": [
+    "A change archived per sdd:archive, with a green gate and a check mark from before the archive, merges on the first try (or the skill says exactly which re-runs are needed and they are enough); a code change after the mark is still refused."
+  ],
+  "where": "lib/relay_inert.py:14-18, plugins/core/hooks/merge.py:172, plugins/sdd/skills/archive/SKILL.md:20-25,73-75",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
