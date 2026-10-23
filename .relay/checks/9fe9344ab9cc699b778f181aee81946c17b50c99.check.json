@@ -1,0 +1,63 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "guard-main.test.sh unquoted-unknown, PWD and cd-unknown cases pass; guard-diff golden passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "guard-main.test.sh name-in-commit-message cases pass."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "Typo cases exist in evals/plugin (tune-ru-typo-week-cost, tune-no-ru-typo-compare, tune-no-en-typo-compare); 3/3 in recorded run."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "assigned-twice case runs from the worktree; suite passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "guard-main.sh header reworded."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "Q1",
+      "reason": [
+        "Owner answered a; recorded on the finding earlier."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/guard-batch/.relay/checks/f23b546ce35e56bb11b14dce046467dc30a8420f.gate.log",
+  "head": "9fe9344ab9cc699b778f181aee81946c17b50c99",
+  "new": [],
+  "notes": [
+    "Code unchanged since the earlier checker's verdict; statuses carried over."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "d925caedc4854447ab5907b51da7d71e6a70d185.review.json"
+  ],
+  "reviewed": "d925caedc4854447ab5907b51da7d71e6a70d185",
+  "schema": 1,
+  "scope": [
+    "Confirmation of the earlier check (d93684a, all MET). Gate log head f23b546 exit 0; relay changed -C . f23b546 lists no file, so only inert files came after. Re-ran guard-main.test.sh, guard-diff.test.sh, graders.test.sh: all pass."
+  ],
+  "type": "check"
+}
