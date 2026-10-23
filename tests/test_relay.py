@@ -1722,5 +1722,37 @@ class DefaultBranch(unittest.TestCase):
         self.assertIsNone(self.relay_git.main_checkout(self.tmp))
 
 
+class TestTasteRule(unittest.TestCase):
+    """The experimental taste rule is loaded by the relay project's CLAUDE.local.md and by no other target."""
+
+    def _targets(self):
+        import relay_config
+        return relay_config.read_toml(os.path.join(ROOT, "projects.toml"))
+
+    def test_rule_has_the_shape_and_the_counting_marker(self):
+        import relay_rules
+        rule = relay_rules.rules()["taste"]
+        self.assertEqual(rule["title"], "Taste (experimental)")
+        for phrase in ("Waste is wrong", "the reviewer lists the waste", "the front lists the waste", "`taste: <change>`", "5 distinct"):
+            self.assertIn(phrase, rule["gist"] + rule["body"])
+
+    def test_only_the_relay_target_loads_it(self):
+        # relay is the one project target whose load names taste; the global profile loads none of it
+        loaders = sorted(name for name, spec in self._targets().items() if "taste" in spec.get("load", []))
+        self.assertEqual(loaders, ["relay"])
+        import relay_config
+        for profile in sorted(n for n in os.listdir(os.path.join(ROOT, "profiles")) if n.endswith(".toml")):
+            data = relay_config.read_toml(os.path.join(ROOT, "profiles", profile))
+            self.assertNotIn("taste", data.get("rules", {}).get("load", []), profile)
+
+    def test_relay_target_renders_the_rule_in_full_and_nothing_else(self):
+        import relay_rules
+        spec = self._targets()["relay"]
+        text = relay_rules.render_target("relay", spec, relay_rules.rules(), {})
+        self.assertIn("## Taste (experimental)", text)
+        self.assertIn("Waste is wrong.", text)
+        self.assertNotIn("Rules to read when they apply", text)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

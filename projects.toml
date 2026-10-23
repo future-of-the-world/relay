@@ -10,6 +10,12 @@ adds the ones it needs through its `CLAUDE.local.md`. Change a rule there and
 run `relay sync`."""
 load = []
 
+[relay]
+file = "~/relay/CLAUDE.local.md"
+title = "Principles this project loads"
+load = ["taste"]
+read = []
+
 [alix]
 file = "~/alix/CLAUDE.local.md"
 title = "Principles this project loads"
