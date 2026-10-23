@@ -1763,7 +1763,7 @@ class TestTasteRule(unittest.TestCase):
         spec = self._targets()["relay"]
         text = relay_rules.render_target("relay", spec, relay_rules.rules(), {})
         self.assertIn("## Taste (experimental)", text)
-        self.assertIn("Waste is wrong.", text)
+        self.assertIn("You have taste for waste.", text)
         self.assertNotIn("Rules to read when they apply", text)
 
 
