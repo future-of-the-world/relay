@@ -783,7 +783,7 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
 - NEXT: a fresh session takes guard-variable-paths and tune-hook-false-trigger (guard batch), then
   runner-turns-while-waiting (gate batch).
 
-## STATE 23 Oct, taste rule built and checked, waiting for the owner's merge word (session 0879ab20)
+## STATE 23 Oct, taste rule MERGED and synced (session 0879ab20)
 
 - Owner's idea, verbatim: "Let's create a taste section, experimental. You feel discomfort when you recognize - you're used
   not effectively, you want to detect this and fix ... find similiar problems before you merge them to the repo, and find it
@@ -792,7 +792,10 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
   MEDIUM fixed before merge, one-off LOW; the front's severity call, owner: "your decision is right"); loaded only in relay
   (projects.toml [relay] target, [global] skip = ["taste"]). Counting machinery built then removed on the owner's words.
   Review 0 HIGH / 3 MEDIUM / 2 LOW, all MET; gate green at 2e2a017.
-- After the merge: `relay sync` (writes ~/relay/CLAUDE.local.md; the global CLAUDE.md must not list taste).
+- Merged on the owner's "a" (fast-forward); `relay sync` ran: ~/relay/CLAUDE.local.md carries taste, ~/.claude/CLAUDE.md
+  does not (checked). ALIX skipped with the expected warning (owner decision 2c).
+- The Haiku bench left untracked profiles/candidates/build-haiku.toml in the main checkout; guard-main refuses its removal;
+  the owner removes it. Queued a-bench-with-set-leaves-the-main-checkout-dirty (ip 90).
 - Experiment: after 5 merges from this one the front asks the owner whether to keep taste, listing what it flagged.
 - Owner decisions this session: "a" one redesign item (checks-keep-two-finding-lists-and-three-rule-set, ip 96) replaces
   three patch items; structured data narrowed, verbatim: "We should store only structured data that can be splitted into
