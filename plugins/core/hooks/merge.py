@@ -136,12 +136,15 @@ def blob(main, ref, path):
 
 def step_queue(main, default, branch):
     """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
-    `relay queue migrate`); every `fix` item it moves into done/ (not dropped) has a test that exists."""
+    `relay queue migrate`); every queue file at the branch tip, whether the range touched it or not (one that came in by taking the
+    default branch included), is well formed too; every `fix` item it moves into done/ (not dropped) has a test that exists."""
     changed_files = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=AM", "-z",
                                   "refs/heads/%s...refs/heads/%s" % (default, branch))[1]
     added = set(relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z",
                               "refs/heads/%s...refs/heads/%s" % (default, branch))[1].split("\0"))
-    for path in sorted(p for p in changed_files.split("\0") if p.endswith(".json") and os.path.dirname(p) in (QUEUE_DIR.rstrip("/"), DONE_DIR.rstrip("/"))):
+    tip = relay_git.git(main, "ls-tree", "-r", "--name-only", "-z", "refs/heads/" + branch, "--", QUEUE_DIR)[1]
+    files = set(changed_files.split("\0")) | set(tip.split("\0"))
+    for path in sorted(p for p in files if p.endswith(".json") and os.path.dirname(p) in (QUEUE_DIR.rstrip("/"), DONE_DIR.rstrip("/"))):
         slug = os.path.basename(path)[:-5]
         in_done = path.startswith(DONE_DIR)
         meta = relay_queue.parse(slug, blob(main, "refs/heads/" + branch, path) or "", "done" if in_done else "open")

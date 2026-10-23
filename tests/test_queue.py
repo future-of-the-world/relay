@@ -425,6 +425,9 @@ class TestNewShape(unittest.TestCase):
             ("found_at null", new_shape(found_at=None), None, "found_at is null"),
             ("missing key", json.dumps({k: v for k, v in json.loads(new_shape()).items() if k != "taken_at"}), None, "missing key taken_at"),
             ("dropped before found", new_shape(dropped_at="2026-10-01T00:00:00Z", dropped_why=["no"]), "done", "not in order"),
+            ("taken_by empty string", new_shape(taken_by=""), None, "taken_by is null or a non-empty string"),
+            ("test empty string", new_shape(test=""), None, "test is null or a non-empty string"),
+            ("dropped_why empty list", new_shape(dropped_why=[]), None, "dropped_why is null or a non-empty list"),
             ("old shape keys beside the new ones", new_shape(state="open"), None, "run `relay queue migrate`"),
             ("old shape found beside found_at", new_shape(found="2026-10-23"), None, "run `relay queue migrate`"),
         ]

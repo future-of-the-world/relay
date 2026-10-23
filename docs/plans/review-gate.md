@@ -32,7 +32,7 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
 | 6 | The mark search is a list of marks, not v3's walk (a walk stops at the first merge commit from the default branch) | follows from 4 | 7.1 |
 | 7 | m-1 fixed: the merge hook refuses a branch that closes a `fix` queue item without a test | cheap: the hook already lists the range | 7.5 |
 | 8 | m-3 fixed: the guard's text rule on `.relay/checks` covers writes and inline code only; reading the stored review with `cat` or `grep` is allowed | reviewers must read stored reviews now | 9 |
-| 9 | m-4 fixed: `relay queue take` lands `state: taken` on the default branch | cheap: reuses the landing path | 10.3 |
+| 9 | m-4 fixed: `relay queue take` lands `taken_at` and `taken_by` on the default branch | cheap: reuses the landing path | 10.3 |
 | 10 | The person's step: one chat screen plus a private page built by code from the stored files | owner | 8 |
 | 11 | Seeds: v3's 12 plus the handover's later list and check-judge-fix L1-L3, deduplicated: 22 items | owner "a" | 10.6 |
 | 12 | Phase-1 seed texts follow the owner's 22 Oct phase-1 decisions (old projects not touched, thin OpenSpec add-on, one shared cycle) | owner | 10.6 |
@@ -518,7 +518,7 @@ as "another head" (the judge base text, unchanged).
 
 v3 enforced the test only in `relay queue done`. A hand move of the item
 file into `done/` (`git mv .relay/queue/x.json .relay/queue/done/`, which
-leaves `state: taken`) skipped it. Step 2 of 7.1 closes that: every `fix`
+leaves `closed_at` empty) skipped it. Step 2 of 7.1 closes that: every `fix`
 item the range adds under `done/`, whatever its state except `dropped`,
 needs the `test:` line and the test name present at the branch head; it
 runs before the all-inert step, since a branch whose only change is the
@@ -1101,7 +1101,7 @@ gate log and a clean mark for that commit, unless the case says otherwise.
 | (l) M-B | gate log for `F`; mark for `F` with `open 0`; HEAD = `F` + mark commit + handover commit | allowed |
 | (m) | only a red gate log (`exit 1`) for head | refused, "last gate <G>: exit 1" |
 | (n) m-1 | the range moves `fix` item `x` to `done/` with no `test:` line; then with `test: tests/t.sh::case_x` present in `tests/t.sh` | refused, "closed without a test"; then allowed |
-| (n2) m-1 | the range is only `git mv .relay/queue/x.json .relay/queue/done/` (`state: taken`, no test, no mark); the same move plus a `lib/a.py` fix with a clean mark and green gate; a `done/y.json` with `state: dropped` that arrived through a merge of master | refused, "closed without a test"; refused, same; not judged (allowed with (c)'s mark) |
+| (n2) m-1 | the range is only `git mv .relay/queue/x.json .relay/queue/done/` (no `closed_at`, no test, no mark); the same move plus a `lib/a.py` fix with a clean mark and green gate; a `done/y.json` with `dropped_at` that arrived through a merge of master | refused, "needs closed_at or dropped_at"; refused, same; not judged (allowed with (c)'s mark) |
 | (o) | the range is only `git mv lib/a.py .relay/queue/a.py`, no mark | refused, "no check mark" (not all inert); positive controls (d) and (f) |
 | (p) | `git -C .worktrees/w merge --ff-only wt/t` (a merge inside a task worktree), no mark | no output, exit 0; positive control (a) in the same run |
 
@@ -1115,7 +1115,7 @@ removed: (h) first half; `--own` replaced by plain `changed` in step 4: (i)
 second half; the `since` half of the own rule removed: (j); step 6 compared
 by equality instead of `changed`: (l); step 6 removed: (i) first half and
 (m); step 2 removed: (n) first half; step 2 moved after step 3, or limited
-to `state: done`: (n2) first or second case; step 3 with rename detection:
+to `closed_at` set: (n2) first or second case; step 3 with rename detection:
 (o); the main-checkout test removed: (p); the merge commit handled as in
 v3's walk: (h) second half.
 
@@ -1187,7 +1187,7 @@ rounds: `<slug>.json` and `<slug>-2.json`, both texts intact; with
 `index.lock` held 2 s it still lands; with `QUEUE_LAND_TRIES` = 1 and a
 moved head it reports "not landed" and keeps the branch; a queue branch
 touching a second file is refused and deleted; Q10 (m-4) `take` lands
-`state: taken` on the default branch; a second `take` from another worktree
+`taken_at` and `taken_by` on the default branch; a second `take` from another worktree
 is refused "taken by wt/a"; two `take`s of one item started together
 (barrier), 10 rounds: exactly one lands, the other exits non-zero with
 "taken by wt/<first>", and master's item names the first; `ip <slug> 50`

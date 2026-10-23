@@ -120,11 +120,15 @@ def check(slug, data, where=None):
     for key in ("taken_by", "test"):
         if key in data and data[key] is not None and not isinstance(data[key], str):
             problems.append(f"{key} is not null or a string")
+        elif data.get(key) == "":
+            problems.append(f"{key} is null or a non-empty string")
     for key in TEXT:
         if key in data and not _is_lines(data[key]):
             problems.append(f"{key} is not a list of lines")
     if "dropped_why" in data and data["dropped_why"] is not None and not _is_lines(data["dropped_why"]):
         problems.append("dropped_why is not null or a list of lines")
+    elif data.get("dropped_why") == []:
+        problems.append("dropped_why is null or a non-empty list of lines")
     found, taken, closed, dropped = (data.get(k) for k in ("found_at", "taken_at", "closed_at", "dropped_at"))
     if bool(data.get("taken_by")) != (taken is not None):
         problems.append("taken_by is set exactly when taken_at is set")

@@ -446,6 +446,10 @@ commit "old shape" ".relay/queue/done/x.json={\"kind\": \"fix\", \"state\": \"do
 expect "T15n3 a done/ file in the old shape (a branch started before the migration): refused, names the migration command" "$(refused 'relay queue migrate'; echo $?)"
 m15; commit "old shape in the open folder" ".relay/queue/z.json={\"kind\": \"feature\", \"state\": \"open\", \"found\": \"2026-10-22\"}\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n3 an old-shape item added in the open folder: refused, names the migration command" "$(refused 'relay queue migrate'; echo $?)"
+# (n4) F1: an old-shape item that reached the branch by taking the default branch (not in the range) is still refused
+m15; green; printf '{"kind": "feature", "state": "open", "found": "2026-10-22"}\n' >"$M/.relay/queue/late.json"; git -C "$M" add -A; git -C "$M" commit -q -m "late old-shape item"
+git -C "$W" merge -q --no-edit master; pre "$MERGE"
+expect "T15n4 an old-shape item that came in through master: refused, names the migration command" "$(refused 'relay queue migrate'; echo $?)"
 # (o) a code file moved into an inert folder is not "all inert"; control (f)
 m15; mkdir -p "$W/.relay/queue"; git -C "$W" mv lib/a.py .relay/queue/a.py; git -C "$W" commit -q -m "move a"; pre "$MERGE"
 expect "T15o code moved into an inert folder, no mark: refused, no check mark" "$(refused 'no check mark'; echo $?)"
