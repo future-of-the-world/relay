@@ -1,0 +1,13 @@
+{
+  "check": "ccbcf6db4ea5480438f2a995ea408bd1fd6095a0.check.json",
+  "commit": "ccbcf6db4ea5480438f2a995ea408bd1fd6095a0",
+  "gate": "6e2b5c0f8d9f4f6a6a2f516a886fb34a07f20d5f.gate.log",
+  "review": "b2fbb15125ec59b6232afe74d8023289c3e204d2.review.json",
+  "schema": 1,
+  "time": "2026-10-23T23:45:49Z",
+  "verdict": {
+    "open": 0,
+    "queued": 0,
+    "reviewed": "b2fbb15125ec59b6232afe74d8023289c3e204d2"
+  }
+}

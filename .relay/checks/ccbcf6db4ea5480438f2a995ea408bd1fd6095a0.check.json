@@ -1,0 +1,42 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "plugins/core/tests/merge.test.sh T15n4 passed (old-shape item via master refused naming migration); T15n2 dropped-via-master allowed, T15n3 old-shape refused still pass; step_queue now ls-tree's the tip."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_queue.py TestNewShape test_each_new_rule_refuses rows for taken_by \"\", test \"\", dropped_why [] pass; check() diff in lib/relay_queue.py:120-130; copies identical."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "git grep for \"state: taken|state: done\" in docs/plans/review-gate.md is empty; (n2) line updated."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/queue-events/.relay/checks/6e2b5c0f8d9f4f6a6a2f516a886fb34a07f20d5f.gate.log",
+  "head": "ccbcf6db4ea5480438f2a995ea408bd1fd6095a0",
+  "new": [],
+  "notes": [
+    "F1 second half (front runs bin/relay queue check before git merge) is a procedure step, not code; the fixer states it. The master-side step-1 hook at this one merge cannot be stopped by code, so that step matters for this merge."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "b2fbb15125ec59b6232afe74d8023289c3e204d2.review.json"
+  ],
+  "reviewed": "b2fbb15125ec59b6232afe74d8023289c3e204d2",
+  "schema": 1,
+  "scope": [
+    "Range b2fbb15..HEAD; changed files are the findings' files and their tests (merge.py, relay_queue.py and two copies, merge.test.sh, test_queue.py, review-gate.md). Gate log head 6e2b5c0, exit 0, relay changed lists no file after it. Ran tests/test_queue.py (88 passed) and merge.test.sh (all passed, T15n2/n3/n4 ok). Did not run the without-fix base check (no queue item scope)."
+  ],
+  "type": "check"
+}

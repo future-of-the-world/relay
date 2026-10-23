@@ -1,0 +1,174 @@
+{
+  "reviewed": "b2fbb15125ec59b6232afe74d8023289c3e204d2",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-queue-events.json",
+      "findings": [
+        {
+          "details": [
+            "CONFIRMED by reading and reproduced. In a scratch clone at b2fbb15 with one old-shape item committed on top:",
+            "test_round_trip fails (AssertionError at tests/test_queue.py:491) and `bin/relay queue check` exits 1 naming the file.",
+            "The UPDATE answered design F4 with \"rerun the migration after taking master\", but the rerun is a manual step with no reminder:",
+            "taking master with only inert files needs no new gate or mark, and the hook at this merge is master's old code, so no code in",
+            "this change can stop this one merge; it needs a step in the front's merge procedure (run `bin/relay queue check` in the worktree",
+            "right after the last take of master, immediately before `git merge`). For every later merge, the new step_queue could parse all",
+            "queue files at the branch tip (about 60 small files), which turns a red round-trip test into a refusal that names the command.",
+            "MIGRATE_HINT \"on this branch\" is also misleading when `relay queue` shows the residue on master.",
+            "Size: 15."
+          ],
+          "evidence": [
+            "git log --oneline HEAD..master -> (empty today; the window opens with any queue write on master before the merge)",
+            "git show --stat 7329fb0 -> .relay/queue/principles-become-a-relay-rule-other-projects-ca.json | 11 (migrated a second time)",
+            "plugins/core/hooks/merge.py:142-146 diff --diff-filter=AM master...branch (range only)",
+            "scratch clone + old-shape late-old-item.json committed:",
+            "  FAILED tests/test_queue.py::TestFormat::test_round_trip_is_byte_identical_for_every_seed_item",
+            "  .relay/queue/late-old-item.json: old shape (state, found, closed_by): run `relay queue migrate` on this branch ; check exit 1"
+          ],
+          "failing_case": [
+            "Until this branch merges, master's queue code is step 1, whose `relay queue add` writes the old shape (\"state\": \"open\", \"found\",",
+            "\"closed_by\"). Sequence: the branch is migrated, gated and checked; the front runs `relay queue add` on master (old shape, x.json);",
+            "the merge hook says \"behind master, take master first\"; `git merge master` brings x.json in; .relay/queue/** is inert, so mark and",
+            "gate stay valid and nobody reruns the migration; the merge hook at this merge is master's step-1 code, which accepts both shapes",
+            "and only looks at the range anyway. After the merge, master holds x.json in the old shape:",
+            "- `relay queue` lists it as \"malformed: old shape ...: run `relay queue migrate` on this branch\" (there is no branch: migrate only",
+            "  rewrites a checkout, nothing lands it on master);",
+            "- take/ip/drop/release of x refuse;",
+            "- tests/test_queue.py::TestFormat::test_round_trip_is_byte_identical_for_every_seed_item reads the committed queue files, so the",
+            "  gate of every branch that takes master fails \"library tests\" for a reason outside its change;",
+            "- the new step_queue checks only files the range adds or modifies, so later merges do not name the cause either.",
+            "It is not hypothetical: commit 7329fb0 on this branch (\"migrate items landed on master\") had to convert",
+            "principles-become-a-relay-rule-other-projects-ca, landed on master in the old shape after the first migration.",
+            "Expected: the merge does not happen while the branch tip holds an old-shape file, or the residue is converted and named at once."
+          ],
+          "fix_hint": [
+            "Write the pre-merge step into the front's procedure for this merge (after the last `git merge master`: `bin/relay queue check -C",
+            "<worktree>`; on failure `bin/relay queue migrate` and commit). In step_queue, also parse every .relay/queue/*.json and done/*.json",
+            "at the branch tip (not only the range) and refuse an old-shape one with MIGRATE_HINT; a merge.test.sh case with an old-shape file",
+            "arriving through master. Optionally say \"on a branch, then merge it\" in MIGRATE_HINT."
+          ],
+          "id": "F1",
+          "kind": "inside",
+          "line": 137,
+          "pass_cases": [
+            "- Branch tip with one old-shape .relay/queue/x.json that came from master (not in the range): the step that runs before the",
+            "  merge (the front's `bin/relay queue check -C <worktree>`, written into the merge procedure, or the new step_queue checking every",
+            "  queue file at the branch tip) refuses, naming x.json and `relay queue migrate`; after `bin/relay queue migrate` + commit it passes.",
+            "- Branch tip where every queue file has the new shape (today's HEAD): allowed, `relay queue check` prints \"every queue item file is",
+            "  well formed\", exit 0.",
+            "- A dropped done/ file in the new shape that arrived through master (merge.test.sh T15n2): still not judged, allowed.",
+            "- An old-shape done/ file added by the range (T15n3): still refused naming `relay queue migrate`."
+          ],
+          "path": "plugins/core/hooks/merge.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "an old-shape item written on master after the last migrate run reaches master unconverted at the merge; nothing refuses it and every later gate turns red"
+        },
+        {
+          "details": [
+            "CONFIRMED by running check() on queue-analytics-views.json with taken_by=\"\", test=\"\" and dropped_why=[]: each returns [].",
+            "The rules use bool(...) where the design asks for null. Size: 5."
+          ],
+          "evidence": [
+            "python3 -I -c '... rq.check(slug, dict(base, taken_by=\"\"), \"open\")' -> []",
+            "same with test=\"\" -> [] ; dropped_why=[] -> []"
+          ],
+          "failing_case": [
+            "An open item with \"taken_at\": null, \"taken_by\": \"\" (or \"test\": \"\" with \"closed_at\": null, or \"dropped_why\": [] with",
+            "\"dropped_at\": null): check(slug, data, \"open\") returns [] today. The brief: \"taken_by, test, dropped_why become null when absent",
+            "(no more \"\")\". Writers write null, so only a hand edit or a stray tool produces it; readers that test `is None` would differ from",
+            "those that test truthiness."
+          ],
+          "fix_hint": [
+            "Refuse a str key (\"taken_by\", \"test\") that is \"\" and a dropped_why that is [] (null when absent), with one table row each in the",
+            "existing check test."
+          ],
+          "id": "F2",
+          "kind": "inside",
+          "line": 120,
+          "pass_cases": [
+            "- taken_at null, taken_by \"\" -> refused (\"taken_by is null or a branch name\").",
+            "- closed_at null, test \"\" -> refused; dropped_at null, dropped_why [] -> refused.",
+            "- An open item from `relay queue add` (all null) -> accepted.",
+            "- A taken item with taken_by \"wt/x\" and taken_at set -> accepted."
+          ],
+          "path": "lib/relay_queue.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "check() accepts \"\" for taken_by and test and [] for dropped_why when the event is absent; the design says null"
+        },
+        {
+          "details": [
+            "CONFIRMED by git grep \"state: taken|state: done\" docs/plans/review-gate.md. Text only; the plan is the reference a reader uses for",
+            "the merge tests. Size: 5."
+          ],
+          "evidence": [
+            "git grep -n \"state: taken\" -> docs/plans/review-gate.md:35, 521, 1104, 1118, 1190",
+            "plugins/core/tests/merge.test.sh T15n2: refused 'needs closed_at or dropped_at'"
+          ],
+          "failing_case": [
+            "docs/plans/review-gate.md:1104 says case (n2) (a bare `git mv` to done/) is \"refused, \\\"closed without a test\\\"\"; merge.test.sh now",
+            "expects \"needs closed_at or dropped_at\". Lines 35, 521, 1118 and 1190 still say take lands `state: taken` / moves to `state: done`,",
+            "while section 10 of the same file was updated to dated events."
+          ],
+          "fix_hint": [
+            "Edit those five lines."
+          ],
+          "id": "F3",
+          "kind": "inside",
+          "line": 1104,
+          "pass_cases": [
+            "- Line 1104's (n2) outcome reads \"refused, needs closed_at or dropped_at\" (as T15n2 expects).",
+            "- Lines 35, 521, 1118, 1190 name taken_at / closed_at instead of `state: ...`.",
+            "- Section 10.2 stays as updated."
+          ],
+          "path": "docs/plans/review-gate.md",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "the plan's merge-test table and lines 35, 521, 1118, 1190 still describe `state: taken` and the old (n2) outcome"
+        }
+      ],
+      "notes": [
+        "Checked and fine:",
+        "- Design review F5 values all hold on the migrated data: core-tests-not-in-gate taken 01:23:29Z / closed 12:17:31Z (the revert",
+        "  is not a take), guard-variable-paths 15:53:53Z / 16:04:28Z, structured-hand-backs dropped 13:52:14Z with no take,",
+        "  runner-turns-while-waiting 21:04:25Z / 21:20:47Z. Every old found date equals found_at's date in the owner's timezone (+04:00).",
+        "- F2 (local date vs UTC) is gone: found_at is a UTC instant from the add commit, add() writes utcnow().",
+        "- F3: real-data validation is `relay queue check`; the new tests use fixtures; the gate's inert step passed.",
+        "- F6: wt/runner-turns landed first; its done/ file is migrated. F7: land() parses kept texts (test_f7_land...). F8: the",
+        "  converse rules (test without closed_at, dropped_why without dropped_at) are in check() and tested.",
+        "- F9 / owner 2a: `relay queue json` lists done/ items with dates; the table does not (tested).",
+        "- Old-shape reading is removed from parse/check; writers, done and land refuse an old-shape file naming the migration;",
+        "  the merge hook now checks every queue file the range adds or modifies (root and done/) and names the migration.",
+        "- Lib copies identical (cmp). No caller passes the removed `today=` argument.",
+        "- Closing this branch's own item: done() reads HEAD (migrated, new shape) and master's step-1 hook reads both shapes,",
+        "  so the close and the merge work as the UPDATE planned.",
+        "Remark: tests/test_queue.py TestFormat.test_round_trip_is_byte_identical_for_every_seed_item (pre-existing, from master)",
+        "checks the real committed queue files; with the strict check it is now the thing that turns red when an old-shape item",
+        "reaches master (F1).",
+        "I would merge once F1's pre-merge step is in place; F2 and F3 are cheap."
+      ],
+      "reviewed": "b2fbb15125ec59b6232afe74d8023289c3e204d2",
+      "schema": 1,
+      "scope": [
+        "Whole change master...HEAD (merge-base 3c8f99b, head b2fbb15) in /Users/amidman/relay/.worktrees/queue-events, against",
+        "the brief briefs/queue-events.md (STEP 2 and UPDATE win), the queue item's failing and pass cases, and the design review",
+        "design-queue-events.json (F1-F9).",
+        "Read in full: the diff of lib/relay_queue.py (check, parse, serialize, new_item, show_text, read_queue, check_files, add,",
+        "drop, release, take, done, land), lib/relay_queue_migrate.py, bin/relay cmd_queue, plugins/core/hooks/merge.py step_queue,",
+        "lib/queue_ext/json.py, rules/queue.md, docs/plans/review-gate.md section 10, the test diffs (test_queue.py incl. TestMigrate,",
+        "test_gate.py, test_tidy.py, test_verdict.py, merge.test.sh T15n/T15n3).",
+        "Readers of the item fields grepped across lib, bin, plugins: relay_checkpage, relay_tidy, handover.py session_line,",
+        "bin/relay owner check, merge.py; none reads a removed key.",
+        "Ran: bin/relay queue check (exit 0 on HEAD); bin/relay queue migrate (nothing to migrate, tree clean: idempotent);",
+        "compared migrated dates with the design review's F5 worked values; compared every old found date with found_at;",
+        "cmp of the three relay_queue.py copies; read the gate log of 7329fb0 (exit 0, inert ok); check() edge probes;",
+        "a scratch clone with one old-shape item committed on top of HEAD (reproduces F1).",
+        "Not reviewed: docs/handover.md and docs/notes/ (the front's records, per the prompt)."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}
