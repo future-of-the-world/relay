@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 98,
+  "time": 20,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "First check in a new project on a Mac fails: no timeout",
+  "what": [
+    "The template bounds a run without the timeout program: use timeout, else gtimeout, else a python or perl wrapper that kills the process after N seconds (exit 124 as now); also check md5sum (used for --tests) exists or use a portable hash."
+  ],
+  "why": [
+    "bin/check calls timeout, which macOS does not have, so the first check fails as if a test failed and a round of the 3-round budget is spent; with a local shim there is no hang bound at all."
+  ],
+  "failing_case": [
+    "Trial: in a fresh project made by relay setup, bin/check printed 'timeout: command not found' and exited 1 on the first run; the trial had to patch in a shim that removes the hang bound."
+  ],
+  "pass_cases": [
+    "On a machine with no timeout or gtimeout, bin/check on a green project prints passed (exit 0) and on a hanging step prints HUNG within CHECK_TIMEOUT."
+  ],
+  "where": "templates/bin-check:19-21, templates/bin-check (md5sum use)",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
