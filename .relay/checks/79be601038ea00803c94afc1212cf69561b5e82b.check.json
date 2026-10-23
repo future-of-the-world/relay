@@ -1,0 +1,56 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "rules/front.md and rules/delegation.md carry the exception; tests in tests/test_relay.py (Roles long-job test, TestTasteRule rendered-global test) pass."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "bin/eval-record report() adds \", cost $x.xx\" only for a numeric costUsd; tests/test_eval_record.py test_the_summary_line_ends_with_the_run_cost passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "Item taken and closed by relay queue done (c3f9d21); its check check-queue-runner-turns.json has Q1 MET, failing on base."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "front SKILL.md no longer gives the 38-47 minute range; run_in_background and never a runner remain."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "plugins/delegate/agents/runner.md description now bounds the job to about 30 minutes."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/runner-turns/.relay/checks/a23671a1eaf4b88c7437be8a6ca20bb41e202127.gate.log",
+  "head": "79be601038ea00803c94afc1212cf69561b5e82b",
+  "new": [],
+  "notes": [
+    "Minor wording: the front skill now says \"the ~40 minutes a runner's turns cover\" while the rules and runner.md say about 30 minutes; harmless, not a finding."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0.review.json"
+  ],
+  "reviewed": "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0",
+  "schema": 1,
+  "scope": [
+    "Fix range fdcf2bb..HEAD; relay changed --own lists bin/eval-record, runner.md, front SKILL.md, rules/delegation.md, rules/front.md, tests/test_eval_record.py, tests/test_relay.py (all named by findings or their tests). Gate log head a23671a (HEAD is that plus the inert gate log), exit 0. Ran the cost and long-job tests: 6 passed. Read the fix diff."
+  ],
+  "type": "check"
+}
