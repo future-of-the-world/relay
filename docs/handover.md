@@ -870,3 +870,24 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
   Brief: session scratchpad briefs/runner-turns.md.
 - NEXT: worker builds; quick gate; one review; fix; check; full paid bin/ci (skill text changed), run by the front in
   the background; page; merge question to the owner in Russian.
+
+## STATE 24 Oct, runner-turns MERGED; queue events in two steps (session 0cc68fe0)
+
+- runner-turns-while-waiting merged on the owner's "Да, можешь слить" (ff); `relay sync` ran (ALIX skipped). A job over
+  ~30 min (the paid bin/ci) is the front's: Bash run_in_background into a scratchpad log, last lines on the notification;
+  bin/ci's eval-record line now ends with the run cost ($8.61 on its own run, 37 min). Review 5 inside, all MET.
+- Owner on the queue (24 Oct), verbatim: "При проектировании баз данных я сам категорически против полей status, они
+  ничего не дают и их легко посчитать исходя из "реального" состояния объекта"; "Вместо updated_at я помечаю событийно -
+  closed_at, taken_at, dropped_at, у полей так же есть правила валидации"; picks "а а" (event fields, done/ kept and
+  checked; ip 95); "Меня устраивают твои рекомендации" (two merges; `relay queue json` lists all items with dates);
+  "После миграции нам уже не нужно будет поддерживать старый формат, relay никем кроме меня не используется так что
+  проблем не будет" (step 2 removes old-shape reading; the migration stays a rerunnable command).
+- Item queue-items-store-state-instead-of-dated-events (fix, ip 95) taken by wt/queue-events. Design review (3 HIGH:
+  old master code refuses the new shape; local found vs UTC taken_at; a real-data unit test breaks the inert probe):
+  scratchpad reports/design-queue-events.json, owner words recorded on F1 and F9.
+- Step 1 building: wt/queue-read-both (.worktrees/queue-read-both), brief briefs/queue-read-both.md: read and check both
+  shapes, writes unchanged. Step 2 after its merge: wt/queue-events, brief briefs/queue-events.md (UPDATE section).
+- Taste: 4 merges since taste; ask the owner after 5. Waste met: the queue item was not taken before the review, which
+  cost 2 extra check rounds (one-off, my order, not queued).
+- The stale tune-stage hook error in sessions started before 23 Oct goes away with /reload-plugins or a restart.
+- NEXT: step 1 hand-back -> quick gate -> review -> fix -> gate -> check -> page -> merge question; then step 2.
