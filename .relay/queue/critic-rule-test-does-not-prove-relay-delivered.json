@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 60,
+  "time": 20,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "Critic-rule test does not prove relay delivered the rule",
+  "what": [
+    "The case must make the rule reachable only through relay's delivery."
+  ],
+  "why": [
+    "The paid case for a project rule reaching the reviewer passed, but in 2 of 3 runs the agent read the rule file itself, so a pass does not show relay delivered the rule."
+  ],
+  "failing_case": [
+    "In 2 of 3 runs of the paid critic-rule case the agent opened the rule file itself and still passed."
+  ],
+  "pass_cases": [
+    "The rule file is not readable by the agent, and the case passes only when relay's delivery carries the rule."
+  ],
+  "where": "evals/plugin/critic-role-rule/scaffold.sh",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
