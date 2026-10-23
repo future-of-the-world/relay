@@ -1,0 +1,26 @@
+{
+  "kind": "fix",
+  "state": "open",
+  "ip": 90,
+  "time": 40,
+  "found": "2026-10-23",
+  "found_in": "relay queue add",
+  "title": "The flow's skills give a session opposite orders",
+  "what": [
+    "One answer per question, written once and pointed to from the others; the profile decides models; the orchestrator skill loses ALIX-only wording."
+  ],
+  "why": [
+    "Skills disagree, so a session picks by guess: model: for agents (delegate: never unless escalating; sdd skills: pass sonnet); who runs the wave check (parallel-apply: coordinator runs ci; delegate: runner runs relay gate); stop between phases and suggest /clear (openspec-apply-orchestrator section 5) vs never ask for /clear (global rules); max agents 6 (orchestrator) vs 4 (kit.toml, global); bin/packet (orchestrator) vs kit packet; always a research agent (sdd:plan section 2) vs do small work yourself (global delegation); loading the delegate skill before the first agent is not enforced by any hook."
+  ],
+  "failing_case": [
+    "Trial log sections 3-4: each conflict above was hit and settled by the coordinator's judgment; under a profile other than active the sdd skills would override the profile's model."
+  ],
+  "pass_cases": [
+    "A search for each topic finds one rule and references to it; no two skills state different numbers or orders."
+  ],
+  "where": "plugins/sdd/skills/spec-review/SKILL.md:63, plugins/sdd/skills/apply-review/SKILL.md:63,110, plugins/sdd/skills/parallel-apply/SKILL.md:54, plugins/delegate/skills/delegate/SKILL.md, plugins/sdd/skills/plan/SKILL.md:42, ~/.claude/skills/openspec-apply-orchestrator/SKILL.md",
+  "taken_by": "",
+  "closed_by": "",
+  "test": "",
+  "dropped_why": null
+}
