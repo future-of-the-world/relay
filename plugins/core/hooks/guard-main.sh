@@ -43,7 +43,7 @@
 # in shell variables are followed when the value is known: a plain `NAME=value` (or `export NAME=value`) earlier in
 # the same command, set once and nowhere else in it (no `+=`, `unset`, `read`, `for`, a second assignment), not after
 # `&&` or `||`, in a pipe or in the background; or HOME, TMPDIR, USER from the hook's own environment. The resolved
-# path is judged like a literal one (`M=<main>; touch $M/x` is refused from anywhere). A variable whose value is not
+# path is judged like a literal one (`M=<main>; touch $M/x` is refused from a worktree). A variable whose value is not
 # known (set in another call, `$(...)`, `${X:-d}`, `$1`) makes its word skipped, quoted or not: a write to it is not
 # refused, even when it lands in main. Tests: tests/guard-diff.test.sh.
 # This catches slips, not a determined bypass.
