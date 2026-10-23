@@ -909,3 +909,8 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
 - Building: step 2 on wt/queue-events (brief briefs/queue-events.md + UPDATE + STEP 2 sections).
 - NEXT: step 2 build -> gate -> review -> fix -> gate -> check (+ Q1) -> close the item with the worktree's own
   bin/relay -> paid bin/ci only if rules/ text changes (the rules/queue.md line) -> page -> merge question.
+- Owner, 24 Oct: "Хорошо, оставляем одно правило principles, зарезервируй taste на будущее": one rule `principles`
+  replaces rules/taste.md; the name "taste" is reserved for a future component (from memory notes). Principles are
+  built after step 2 (queue item principles-become-a-relay-rule-other-projects-ca), loaded by relay, any project opts in.
+- Step 2 review: 1 MEDIUM (an old-shape item landing on master between the last migrate and the merge) + 2 LOW, fixed
+  117669a. Before THIS merge the front runs `bin/relay queue check` (and migrate + commit if it fails) in the worktree.
