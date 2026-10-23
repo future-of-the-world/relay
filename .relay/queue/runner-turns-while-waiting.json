@@ -1,6 +1,6 @@
 {
   "kind": "fix",
-  "state": "open",
+  "state": "taken",
   "ip": 99,
   "time": 15,
   "found": "2026-10-22",
@@ -15,7 +15,7 @@
   "failing_case": [
     "the runner ran out of turns while waiting on a paid run three times on 22 Oct (measure, live6, full run); the front read the results itself; should finish and report within its turns (handover, three notes)"
   ],
-  "taken_by": "",
+  "taken_by": "wt/runner-turns",
   "closed_by": "",
   "test": "",
   "dropped_why": null
