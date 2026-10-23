@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_queue.py:894 drives set_ip, drop, release, take and done through the writers on a new-shape item; each refuses \"new shape\" and master is unchanged; old-shape Q10 test still passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_queue.py:422 \"dropped before found\" refused as not in order; same-second and later dropped accepted in the four-states test."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/queue-read-both/.relay/checks/d1a408ae50d69bbd288b9636c7dca49cd87a0996.gate.log",
+  "head": "15f47a82d0c215fc85911b47541216db4ee6f69d",
+  "new": [],
+  "notes": [
+    "No scope or caller problems seen."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "e1f714e9132e6709d344b8ce69a5c1b497da2596.review.json"
+  ],
+  "reviewed": "e1f714e9132e6709d344b8ce69a5c1b497da2596",
+  "schema": 1,
+  "scope": [
+    "Fix range e1f714e..HEAD: lib/relay_queue.py (+2 plugin copies), tests/test_queue.py, rules/queue.md (reverted to master's text, no diff vs master). Ran tests/test_queue.py: 81 passed. Gate log head d1a408a, exit 0; HEAD adds only the gate log. Read the new writer test and the dropped-order case."
+  ],
+  "type": "check"
+}

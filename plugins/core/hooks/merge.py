@@ -139,7 +139,7 @@ def step_queue(main, default, branch):
                           "refs/heads/%s...refs/heads/%s" % (default, branch))[1]
     for path in sorted(p for p in added.split("\0") if p.startswith(DONE_DIR) and p.endswith(".json")):
         slug = os.path.basename(path)[:-5]
-        meta = relay_queue.parse(slug, blob(main, "refs/heads/" + branch, path) or "")
+        meta = relay_queue.parse(slug, blob(main, "refs/heads/" + branch, path) or "", "done")
         if meta["problems"]:
             raise Refused("queue item %s is malformed (%s); fix it before the merge" % (slug, "; ".join(meta["problems"])))
         if meta["kind"] != "fix" or meta["state"] == "dropped":
