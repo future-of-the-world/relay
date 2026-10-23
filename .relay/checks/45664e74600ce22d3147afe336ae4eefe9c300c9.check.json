@@ -1,0 +1,63 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "plugins/core/tests/guard-main.test.sh cases for unquoted unknown, PWD, cd unknown; golden re-recorded; probes above confirm."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "guard-main.test.sh name-in-message and later-echo cases pass; probe G fix commit allowed in worktree."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "evals/plugin/tune-ru-typo-week-cost, tune-no-ru-typo-compare, tune-no-en-typo-compare exist; graders.test passes; fixer reports 9/9."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "guard-main.test.sh assigned-twice case now runs from the worktree; suite passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "guard-main.sh header reworded per the fixer; reading not repeated in detail."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "Q1",
+      "reason": [
+        "Owner answered a (follow variables with strict rules after the fixes); the fixes are in."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/guard-batch/.relay/checks/b67e710c7851de4c91cd8fb51fbc2e0440cd5b63.gate.log",
+  "head": "45664e74600ce22d3147afe336ae4eefe9c300c9",
+  "new": [],
+  "notes": [
+    "Gate was QUICK mode (paid steps skipped); the fixer's own tune-* run was 9/9 pass. All 9 tune cases are runs: 3 (project rule), about 2.85 USD per full gate. No new problems seen."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "d925caedc4854447ab5907b51da7d71e6a70d185.review.json"
+  ],
+  "reviewed": "d925caedc4854447ab5907b51da7d71e6a70d185",
+  "schema": 1,
+  "scope": [
+    "Range d925caedc4854447ab5907b51da7d71e6a70d185..HEAD. Ran guard-main.test.sh, guard-diff.test.sh, graders.test.sh: all pass. Gate log head b67e710, exit 0, only the gate commit follows. Probed kit_guard.py: rm -rf $PWD/src and touch $F give write rows in main; quoted \"$F\" allowed; S=/private/tmp/x; mkdir -p $S/b resolves outside main; cd .worktrees/$N && git commit refused; G=<wt>; git -C $G commit -m \"G fix\" judged in the worktree. Changed files are only guard, its tests, golden and tune evals. Did not re-run paid evals or the disabled-fix runs (fixer reports them)."
+  ],
+  "type": "check"
+}
