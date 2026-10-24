@@ -16,7 +16,7 @@ import os
 try:
     import fcntl
 except ImportError:      # not on Windows
-    fcntl = None
+    fcntl = None  # type: ignore[assignment]
 
 from relay_config import claude_json, ledger_dir
 

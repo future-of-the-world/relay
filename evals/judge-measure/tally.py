@@ -18,7 +18,7 @@ passed=false, which would read as a right "no" and a wrong "yes"), a run that er
 suite.judgeModel other than the one asked for.
 Standard library only; no model is called.
 """
-import argparse, json, os, re, sys
+import argparse, json, os, sys
 
 
 class NotJudged(Exception):

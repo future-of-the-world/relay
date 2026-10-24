@@ -7,8 +7,13 @@ run under whichever `python3` the harness finds, so they read TOML through here:
 Dates and times are not supported by the fallback and raise ValueError.
 """
 
-import re
+from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
 
+import re
+from types import ModuleType
+from typing import Any, BinaryIO, NoReturn
+
+_tomllib: ModuleType | None
 try:
     import tomllib as _tomllib
 except ImportError:  # Python < 3.11
@@ -19,26 +24,26 @@ _NUM = re.compile(r"[+-]?(inf|nan|\d[\d_]*(\.\d[\d_]*)?([eE][+-]?\d+)?|0x[0-9A-F
 _ESC = {"b": "\b", "t": "\t", "n": "\n", "f": "\f", "r": "\r", '"': '"', "\\": "\\"}
 
 
-def load(handle):
+def load(handle: BinaryIO) -> dict[str, Any]:
     """Like tomllib.load: `handle` is a file opened in binary mode."""
-    data = handle.read()
+    return loads(handle.read().decode("utf-8"))
+
+
+def loads(text: str) -> dict[str, Any]:
     if _tomllib is not None:
-        return _tomllib.loads(data.decode("utf-8"))
-    return _loads(data.decode("utf-8"))
-
-
-def loads(text):
-    return _tomllib.loads(text) if _tomllib is not None else _loads(text)
+        parsed: dict[str, Any] = _tomllib.loads(text)
+        return parsed
+    return _loads(text)
 
 
 class _P:
-    def __init__(self, text):
+    def __init__(self, text: str) -> None:
         self.s, self.i = text, 0
 
-    def fail(self, why):
+    def fail(self, why: str) -> NoReturn:
         raise ValueError(f"TOML: {why} at offset {self.i}")
 
-    def ws(self, newlines=False):
+    def ws(self, newlines: bool = False) -> None:
         while self.i < len(self.s):
             c = self.s[self.i]
             if c in " \t" or (newlines and c in "\r\n"):
@@ -49,8 +54,8 @@ class _P:
             else:
                 break
 
-    def key(self):
-        parts = []
+    def key(self) -> list[str]:
+        parts: list[str] = []
         while True:
             self.ws()
             c = self.s[self.i:self.i + 1]
@@ -68,11 +73,11 @@ class _P:
                 continue
             return parts
 
-    def string(self):
+    def string(self) -> str:
         q = self.s[self.i]
         triple = self.s.startswith(q * 3, self.i)
         self.i += 3 if triple else 1
-        out = []
+        out: list[str] = []
         if triple and self.s[self.i:self.i + 1] == "\n":
             self.i += 1
         while self.i < len(self.s):
@@ -103,14 +108,14 @@ class _P:
             self.i += 1
         self.fail("unterminated string")
 
-    def value(self):
+    def value(self) -> Any:
         self.ws()
         c = self.s[self.i:self.i + 1]
         if c in ('"', "'"):
             return self.string()
         if c == "[":
             self.i += 1
-            items = []
+            items: list[Any] = []
             while True:
                 self.ws(True)
                 if self.s[self.i:self.i + 1] == "]":
@@ -122,7 +127,7 @@ class _P:
                     self.i += 1
         if c == "{":
             self.i += 1
-            table = {}
+            table: dict[str, Any] = {}
             while True:
                 self.ws()
                 if self.s[self.i:self.i + 1] == "}":
@@ -153,7 +158,7 @@ class _P:
         return float(raw)
 
 
-def _put(table, path, value):
+def _put(table: dict[str, Any], path: list[str], value: Any) -> None:
     for part in path[:-1]:
         table = table.setdefault(part, {})
         if isinstance(table, list):
@@ -161,9 +166,9 @@ def _put(table, path, value):
     table[path[-1]] = value
 
 
-def _loads(text):
+def _loads(text: str) -> dict[str, Any]:
     p = _P(text)
-    root = {}
+    root: dict[str, Any] = {}
     cur = root
     while True:
         p.ws(True)

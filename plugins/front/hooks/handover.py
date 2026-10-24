@@ -14,7 +14,7 @@ import handover_path  # noqa: E402
 try:
     import relay_queue  # noqa: E402
 except ImportError:   # a copy of the plugin without the queue module: no queue line
-    relay_queue = None
+    relay_queue = None  # type: ignore[assignment]
 
 TEXT = {
     "compact": "The conversation was just compacted. The project's handover file is {path}: the record of where the work stands. Read it before acting, continue from it and from the summary, and do not ask the owner to repeat anything.",
