@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 99,
+  "time": 45,
+  "found_at": "2026-10-24T10:20:55Z",
+  "found_in": "relay queue add",
+  "title": "Three ledger tests fail on unchanged code",
+  "what": [
+    "Find what the three Numbers tests read besides their fixture (the real clock, $HOME/.relay, the live ledger or index, the environment) and make them hermetic: fixed time and a temporary RELAY_HOME/HOME, so the result does not depend on the day or the machine's state."
+  ],
+  "why": [
+    "24 Oct: test_a_restarted_counter_that_grows_past_the_old_total_stays_an_estimate, test_capture_does_not_write_a_total_smaller_than_the_recorded_one and test_capture_with_a_readable_index_never_reads_the_ledger fail on master at 489bc9d and also at ae88c19, a commit whose gate passed this morning: the code did not change, the surroundings did. Every gate in relay is red until this is fixed (it stopped the check-record change's gate)."
+  ],
+  "failing_case": [
+    "On ae88c19, `pytest tests/test_relay.py -k Numbers` now gives 3 failed; test_relay.py:483 capture(\"2026-10-21T10:02:00Z\") returns ['s-trust'] instead of []."
+  ],
+  "pass_cases": [
+    "The three tests pass on the fixed head; they still pass with the clock moved a week ahead (faketime or a patched now) and with HOME pointed at an empty folder; with the fix disabled at least one of them fails the same way again."
+  ],
+  "where": "tests/test_relay.py class Numbers (:483 and two more), lib/relay_ledger.py capture",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
