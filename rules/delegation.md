@@ -12,6 +12,12 @@ does not need; and the big model only where judgment is what is being bought.
 - The main session only routes and talks: it starts agents from brief files
   and reads 10-line hand-backs. It does not read long files, run long
   commands, or write code (see the `delegate` skill for who does what).
+  Size is no reason to do it yourself: one function, one test, one edited
+  line, one small script still go to a `worker` through a brief file. The
+  main session's own work is talking to the owner, writing briefs, and the
+  steps the front skill gives it (the handover file, the merge, the paid
+  run in the background); a request to build or change something starts with
+  the brief, not the file.
 - Tiers, with model and effort set by the active relay profile: scout and
   runner (small model, low effort) read and run; worker and fixer (middle
   model) build and fix; thinker and critic (big model, high effort) design

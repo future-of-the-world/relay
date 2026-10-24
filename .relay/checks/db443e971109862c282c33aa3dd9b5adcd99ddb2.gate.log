@@ -1,0 +1,13 @@
+head db443e971109862c282c33aa3dd9b5adcd99ddb2
+cmd bin/ci --quick
+ci: library tests FAILED (183s, log: .ci/steps/library-tests.log)
+    FAIL: test_f6_the_votes_item_names_the_grader_name_prefix_that_tally_reads (test_queue.TestSeedItems.test_f6_the_votes_item_names_the_grader_name_prefix_that_tally_reads)
+    AssertionError: '(yes|no)--' not found in ''
+    FAILED (failures=1)
+ci: hook tests ok (133s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (4s)
+ci: plugin validate ok (5s)
+ci: inert ok (300s)
+ci: RED
+exit 1

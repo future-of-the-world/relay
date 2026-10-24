@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "tests/test_gate_not_judged.py: test_a_failed_meaning_grader_exits_2_naming_the_case, test_an_errored_run_exits_2 (not judged -> exit 2), test_all_judged_and_passing_exits_0 (still green), test_bin_ci_does_not_end_green_on_a_non_zero_record_step. Fail at base, pass at head."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/gate-not-judged/.relay/checks/7edd1f5bc2bd22297232265c061c91fcbd1817f9.gate.log",
+  "head": "501a2e5630ce12ee79dac68b9da7df4a94cb7adc",
+  "new": [],
+  "notes": [
+    "Fixer report at the named path was absent; read fix-gate-not-judged.md instead. bin/ci now maps record exit 2 to status=1."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "95b48ea7e3ab449026ed6155f7bcdea1d750b272.review.json"
+  ],
+  "reviewed": "95b48ea7e3ab449026ed6155f7bcdea1d750b272",
+  "schema": 1,
+  "scope": [
+    "Range 95b48ea..HEAD; files bin/ci, bin/eval-record, tests/test_eval_record.py, tests/test_gate_not_judged.py. Ran both test files at head (32 passed). Gate log is for 7edd1f5, ends exit 0; relay changed since it lists nothing. Ran the new test file at base 95b48ea: 10 of 14 fail there."
+  ],
+  "type": "check"
+}

@@ -18,10 +18,10 @@
     "A full bin/ci with any run not judged, or any grader failed, does not end \"ci: green\"; a run with all judged and passing still ends green."
   ],
   "where": "bin/eval-record, bin/ci (plugin evals step)",
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-24T07:30:32Z",
+  "taken_by": "wt/gate-not-judged",
+  "closed_at": "2026-10-24T08:05:02Z",
+  "test": "tests/test_gate_not_judged.py::GateNotJudged::test_an_errored_run_exits_2",
   "dropped_at": null,
   "dropped_why": null
 }

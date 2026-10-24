@@ -1,0 +1,40 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_delegate_small_builds.py test_skill_gives_no_false_cost_reason; fails on old text, passes now; SKILL.md says long session."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_delegate_small_builds.py test_rule_keeps_the_fronts_own_duties; fails on old text; size-is-no-reason test still passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "test_rule_says_size_is_no_reason asserts key phrases (passes on old and new text by design, a LOW robustness change)."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/small-builds/.relay/checks/dda44557de651494ed1b777a9eabaa628f1d3048.gate.log",
+  "head": "bcfa62367a20e464073ac4a6709f82859bede9ce",
+  "new": [],
+  "notes": [],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "c38c16c3ae1595b3e4e214a69bf6eb58955606d6.review.json"
+  ],
+  "reviewed": "c38c16c3ae1595b3e4e214a69bf6eb58955606d6",
+  "schema": 1,
+  "scope": [
+    "Fix range c38c16c..HEAD; own files: SKILL.md, rules/delegation.md, the test file only. Gate log head dda4455 exit 0; relay changed after it lists nothing. Ran the test file (4 passed). Ran it at c38c16c: 2 of 4 fail (the two new tests)."
+  ],
+  "type": "check"
+}

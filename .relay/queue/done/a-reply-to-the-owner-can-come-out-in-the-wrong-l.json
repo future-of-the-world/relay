@@ -20,8 +20,8 @@
   "where": "plugins/front/hooks (a new Stop hook), projects.toml [global] native_language",
   "taken_at": "2026-10-24T05:45:30Z",
   "taken_by": "wt/reply-lang",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T06:25:54Z",
+  "test": "tests/test_reply_language.py::ReplyLanguage::test_english_reply_is_blocked_once_with_rewrite_request",
   "dropped_at": null,
   "dropped_why": null
 }

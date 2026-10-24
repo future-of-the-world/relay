@@ -1,0 +1,149 @@
+{
+  "reviewed": "80138fc5c40432b7fee75d15c1cd03d387b86a76",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-gate-not-judged.json",
+      "findings": [
+        {
+          "details": [
+            "The brief decides \"any run not judged ... makes the plugin-evals step fail\". A run the ceiling stopped before it",
+            "started is a run not judged, but report() counts only runs that are present: it walks case[\"arms\"] and never compares",
+            "with case[\"runsPerCase\"] (every real case carries it, e.g. 3 in the guard-batch record), and data[\"partial\"] only adds",
+            "a note. evals/judge-measure/tally.py, the project's other reader of the same --json, already treats both as NOT JUDGED",
+            "(tally.py:67 \"the run is partial\", tally.py:94 want_runs = runsPerCase), and its README says \"a run stopped at the",
+            "ceiling is partial, so tally answers NOT JUDGED\". Reachable: bin/ci passes --max-cost-usd (cap minus (jobs-1) x the",
+            "largest run) precisely so that the ceiling can trip, and a full batch costs about $8-9 against the default cap 15.",
+            "CONFIRMED for bin/eval-record (reproduced, outputs below). PLAUSIBLE end to end: whether claude plugin eval itself exits",
+            "non-zero on a ceiling stop is not known (no record of one in ~/.relay/evals; finding it out is a paid run). If it does",
+            "exit non-zero the step is red already, but the record line still says nothing is wrong.",
+            "Size: 15 agent minutes."
+          ],
+          "evidence": [
+            "$ python3 -I (fixture from tests/test_eval_record.py, rec.main on each)",
+            "partial, 1 of 3 runs: exit 0 |     note: partial run: cost ceiling reached",
+            "runsPerCase 3, 1 run present: exit 0 | ci: eval record: 0 meaning grader(s) failed, 0 split votes",
+            "case with 0 runs: exit 0 | ci: eval record: 0 meaning grader(s) failed, 0 split votes",
+            "$ grep -n \"partial\\|runsPerCase\" evals/judge-measure/tally.py",
+            "67:    if data.get(\"partial\"):",
+            "68:        raise NotJudged(f\"the run is partial: ...\")",
+            "94:            want_runs = case.get(\"runsPerCase\") or len(runs)"
+          ],
+          "failing_case": [
+            "A record with \"partial\": true, \"partialReason\": \"cost ceiling reached\" and a case whose runsPerCase is 3 but holds",
+            "1 judged passing run: bin/eval-record exits 0, last line \"    note: partial run: cost ceiling reached\".",
+            "The same record with partial false and runsPerCase 3 / 1 run, and a case with runsPerCase 3 and 0 runs: both exit 0,",
+            "last line \"ci: eval record: 0 meaning grader(s) failed, 0 split votes\".",
+            "If claude plugin eval exits 0 on a ceiling stop, bin/ci then ends \"ci: green\" with 2 of 3 runs never judged.",
+            "Should: exit 2 with the NOT A PASS line naming the case (2 not judged), as the project's own tally.py does."
+          ],
+          "fix_hint": [
+            "In report(): for each case, count max(0, runsPerCase - len(runs)) per arm as not judged (add the case to bad, one note",
+            "\"N of M runs missing\"); when data[\"partial\"] is true, count it as not a pass too (e.g. unjudged at least 1, or a",
+            "separate \"partial\" reason in the NOT A PASS line). Tests in tests/test_gate_not_judged.py."
+          ],
+          "id": "F1",
+          "kind": "inside",
+          "line": 55,
+          "pass_cases": [
+            "1. fixture([[True]*3], partial=\"cost ceiling reached\") with runsPerCase 3: main() returns 2; the last line starts",
+            "   \"ci: eval record: NOT A PASS\" and names code-reviewer-offbyone.",
+            "2. fixture([[True]*3]) with runsPerCase 3 (1 run present), partial false: returns 2, \"2 not judged\".",
+            "3. fixture([[True]*3]*3) with runsPerCase 3, partial false: returns 0, no \"NOT A PASS\" (today's green case).",
+            "4. The stored record 2026-10-24T04-41-52Z-wt-archive-inert.json (15 cases x 3 runs, partial false): still returns 0."
+          ],
+          "path": "bin/eval-record",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "a batch stopped at the cost ceiling (partial) or a case with fewer runs than runsPerCase exits 0, so runs that never ran are not counted as not judged"
+        },
+        {
+          "details": [
+            "PLAUSIBLE: today claude writes the file whenever it exits 0 in every stored run, and a non-zero claude exit already",
+            "makes the step red, so this needs claude to exit 0 without a record. Under the brief's rule (nothing judged is not a",
+            "pass) \"no record\" is the extreme of \"not judged\"; the docstring keeps exit 0 on purpose, from before the change.",
+            "Cheap to fix with the same exit 2. Size: 5 agent minutes."
+          ],
+          "evidence": [
+            "bin/eval-record:139-141: if not os.path.exists(a.json): print(\"    plugin evals wrote no record\"); return 0",
+            "bin/ci:77 rm -f .ci/evals.json before the eval"
+          ],
+          "failing_case": [
+            "bin/ci deletes .ci/evals.json, then claude plugin eval exits 0 without writing --json (a tool change, a crash after",
+            "exit status, a wrong path): bin/eval-record prints \"    plugin evals wrote no record\" and exits 0; bin/ci ends",
+            "\"ci: green\" with nothing judged. Should: exit 2 (not a pass: no record)."
+          ],
+          "fix_hint": [
+            "Return 2 with \"ci: eval record: NOT A PASS: plugin evals wrote no record\"; update the docstring line."
+          ],
+          "id": "F2",
+          "kind": "inside",
+          "line": 141,
+          "pass_cases": [
+            "1. main([\"--json\", \"<missing path>\"]) returns 2 and prints a line holding \"NOT A PASS\" and \"no record\".",
+            "2. An all-judged passing record still returns 0.",
+            "3. A record that cannot be copied (unreadable JSON) still returns 1."
+          ],
+          "path": "bin/eval-record",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "no record file at all still exits 0, so a full gate whose eval wrote nothing can end green"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading: the tests cover an errored run, a grader without votes and a failed grader, not the third",
+            "not-judged path. Size: 5 agent minutes."
+          ],
+          "evidence": [
+            "tests/test_gate_not_judged.py: test_an_errored_run_exits_2, test_a_grader_without_votes_exits_2,",
+            "test_a_failed_meaning_grader_exits_2_naming_the_case; none drops a meaning grader from a run."
+          ],
+          "failing_case": [
+            "Delete `bad.add(case[\"name\"])` on bin/eval-record:75 (the llm - present branch): all 6 new tests still pass, though",
+            "the NOT A PASS line would then name no case for a run whose meaning grader is missing. Should: a test fails."
+          ],
+          "fix_hint": [
+            "Add test_a_missing_meaning_grader_exits_2 to tests/test_gate_not_judged.py."
+          ],
+          "id": "F3",
+          "kind": "inside",
+          "line": 43,
+          "pass_cases": [
+            "1. fixture([[True]*3]*3) with the reports-off-by-one grader removed from run 2's graders: main() returns 2 and the last",
+            "   line ends \"1 not judged, in code-reviewer-offbyone\".",
+            "2. The unchanged all-judged fixture still returns 0."
+          ],
+          "path": "tests/test_gate_not_judged.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "the 'no result for it in the run' not-judged path (a meaning grader missing from a run) has no exit-code test"
+        }
+      ],
+      "notes": [
+        "Fine: the 23 Oct failing case reproduces and is fixed: the stored record 2026-10-23T15-05-07Z-wt-guard-batch.json now",
+        "exits 2 with \"NOT A PASS: 0 meaning grader(s) failed, 19 not judged, in tune-en-try-haiku, ...\" while the other 10",
+        "stored records (all judged, only rule-file-read notes) still exit 0, so the brief's \"notes stay notes\" holds on real data.",
+        "Exit 1 (copy failed) and exit 2 (not a pass) give two plain lines in bin/ci; either sets status=1, so \"ci: green\" is",
+        "not printed. The old `|| {...}` already turned any non-zero exit red, so the bin/ci edit is for the message.",
+        "The quick gate log heads 2ccddd0 and ends exit 0; only the gate log came after it.",
+        "The bin/ci test only checks strings in the script (it does fail on master); acceptable since bin/ci full mode is paid.",
+        "An uncaught exception inside report() exits 1 and bin/ci says \"could not be stored\" though the copy was made:",
+        "still red, wording only, not raised."
+      ],
+      "reviewed": "80138fc5c40432b7fee75d15c1cd03d387b86a76",
+      "schema": 1,
+      "scope": [
+        "Range master...80138fc (2ccddd0 the fix, 80138fc its quick gate log). Read the brief, the whole of bin/eval-record,",
+        "bin/ci (header and the steps around the plugin evals, lines 1-90), tests/test_gate_not_judged.py, the fixture in",
+        "tests/test_eval_record.py, evals/judge-measure/tally.py and README (the project's own \"not judged\" rule).",
+        "Ran: pytest tests/test_gate_not_judged.py tests/test_eval_record.py (24 passed); the new bin/eval-record on all 11",
+        "stored records in ~/.relay/evals/relay (RELAY_HOME pointed at the scratchpad); the new test file against master code",
+        "in a scratch worktree (4 failed, 2 passed: the two that must stay green); hand-made records for partial batches and",
+        "missing runs."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}

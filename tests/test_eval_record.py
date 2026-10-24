@@ -193,9 +193,9 @@ class Record(unittest.TestCase):
         _, out = self.run_step(fixture([[True] * 3] * 3, flagged_runs=(2,)))
         self.assertIn("a session in the run read the rule file in 1 of 3 runs (run 2, Bash), so those runs do not prove the hook delivered it", out)
 
-    def test_no_file_prints_no_record_and_exits_0(self):
+    def test_no_file_prints_no_record_and_exits_2(self):
         code, out = self.run_step(None)
-        self.assertEqual(code, 0); self.assertIn("plugin evals wrote no record", out); self.assertFalse(os.path.exists(self.home))
+        self.assertEqual(code, 2); self.assertIn("plugin evals wrote no record", out); self.assertFalse(os.path.exists(self.home))
 
     def test_partial_prints_the_reason_once(self):
         _, out = self.run_step(fixture([[True] * 3] * 2, partial="cost ceiling reached"))

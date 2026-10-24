@@ -1,0 +1,42 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_gate_not_judged.py:50,58,63,68 (partial, fewer runs, no runs) pass and fail on old code; :73 keeps green case."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_gate_not_judged.py:77 and tests/test_eval_record.py test_no_file_prints_no_record_and_exits_2 fail on old code; :83 unreadable still 1."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "tests/test_gate_not_judged.py:87 drops the meaning grader and asserts exit 2 and the case named; passes (fixer showed it fails with bad.add removed)."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/gate-not-judged/.relay/checks/7edd1f5bc2bd22297232265c061c91fcbd1817f9.gate.log",
+  "head": "6b86fea13bcfceb04fd51471c750bc497a8c720f",
+  "new": [],
+  "notes": [
+    "Callers of eval-record: bin/ci treats any non-zero as red; no-record now exit 2 also red. Diff read, no new problem."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "80138fc5c40432b7fee75d15c1cd03d387b86a76.review.json"
+  ],
+  "reviewed": "80138fc5c40432b7fee75d15c1cd03d387b86a76",
+  "schema": 1,
+  "scope": [
+    "Fix range 80138fc..HEAD; own files bin/eval-record and two test files, all in scope. Ran both test files: 32 passed. Gate log heads 7edd1f5, exit 0; relay changed lists no file after it. Against 80138fc code the new tests give 6 failed (F1 four, F2 two); F3 test passes there by design (guards a branch already present)."
+  ],
+  "type": "check"
+}

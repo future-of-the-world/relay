@@ -1,0 +1,63 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_reply_language.py:76 passes, fails at base"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_reply_language.py:83 passes, fails at base"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "tests/test_reply_language.py:93 passes, fails at base"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "tests/test_reply_language.py:101 passes, fails at base"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "tests/test_reply_language.py:107 passes, fails at base"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F6",
+      "reason": [
+        "tests/test_reply_language.py:71 asserts agent_id skip and the block without it; passes (test-only finding, base code already has the skip)"
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/reply-lang/.relay/checks/3fcb938e338bfeb58297411bcdf2963b28388204.gate.log",
+  "head": "775b9deef2e6fb3a33cb7c966ecb7c57bf172d3d",
+  "new": [],
+  "notes": [
+    "No transcript fallback for F1 (env only); accepted since the hint allowed env. Clean."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "10f8255064f1d05ea7572aa991d4dee0bf5bc484.review.json"
+  ],
+  "reviewed": "10f8255064f1d05ea7572aa991d4dee0bf5bc484",
+  "schema": 1,
+  "scope": [
+    "Fix range 10f8255..HEAD; own files: reply_language.py and tests/test_reply_language.py only. Gate log head 3fcb938, exit 0; relay changed lists no file after it. 13 tests pass. Ran the test file at 10f8255 in a throwaway worktree: 5 of the new tests fail there (F1-F5), F6 passes by design (test-only). Read hook and tests; callers: hooks.json unchanged."
+  ],
+  "type": "check"
+}

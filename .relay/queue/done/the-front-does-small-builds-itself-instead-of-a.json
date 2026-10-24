@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 60,
+  "found_at": "2026-10-24T07:10:22Z",
+  "found_in": "relay queue add",
+  "title": "The front does small builds itself instead of a worker",
+  "what": [
+    "Under the active setup the bench session builds a small function itself instead of handing it to a worker, although the delegation rule says the main session does not write code. Find why (the rule's wording for small jobs, the skill's routing table, the session's own judgement of \"a handful of tool calls\") and fix the rule behind it; measure with the bench, without telling the session in the task text to use a worker."
+  ],
+  "why": [
+    "Bench of 24 Oct after the bench fix (owner's \"1. a\": no \"use a worker\" sentence in the task text): add-function under active and build-haiku, and small-script under build-haiku, started no worker. Until the setup delegates by its own rules, the bench cannot measure a cheaper build tier and the front spends Opus on builds."
+  ],
+  "failing_case": [
+    "~/.relay/bench/2026-10-24T07-03-23Z/report.md: add-function delegated-to-a-worker \"started: none\" for active and build-haiku (score 0.80); small-script build-haiku \"started: none\" (0.67), active passed."
+  ],
+  "pass_cases": [
+    "`relay bench active --set models.build=haiku --tag cheap --runs 1` with the unchanged task texts: delegated-to-a-worker passes in add-function and small-script under both setups, and the worker model differs between them in the report."
+  ],
+  "where": "rules/ (the delegation rule), plugins/delegate/skills/delegate/SKILL.md, evals/scenarios/add-function",
+  "taken_at": "2026-10-24T07:30:31Z",
+  "taken_by": "wt/small-builds",
+  "closed_at": "2026-10-24T08:08:18Z",
+  "test": "tests/test_delegate_small_builds.py::SmallBuildsGoToAWorker::test_rule_says_size_is_no_reason",
+  "dropped_at": null,
+  "dropped_why": null
+}

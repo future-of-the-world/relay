@@ -1021,3 +1021,60 @@ same way (its own checkers' real prompt lines), recorded here; (2) keep the guar
 Merged since: guard-test-name, mac-timeout, eval-cost (both items closed), mark-attach (marks written per the owner's
 one-time "a"). Left: archive-inert (paid run green $8.58), then wave 2: a-reply-to-the-owner-can-come-out-in-the-wrong-l
 (95), the-bench-never-starts-a-worker (92), then the check-record redesign (design ready, ~220 agent min).
+Owner (verbatim, later 24 Oct): "подними предел до 100$" (paid-run cap per day $100; still only in Claude memory).
+Owner on bench Q1 (verbatim): "1. a" = drop the "hand it to a worker" sentence from the bench prompts; one paid bench to see whether the rules alone delegate.
+Bench result after "1. a" (report ~/.relay/bench/2026-10-24T07-03-23Z, $1.80): without the sentence the active setup
+does not reliably delegate (add-function: no worker under either setup). Front decided (owner can reverse): merge the
+bench fixes (working copy, plugin copy with profile models), RELEASE the-bench-never-starts-a-worker (its pass case
+needs delegation), queue the-front-does-small-builds-itself-instead-of-a (fix, ip 92). Merged: reply-lang (language
+check hook). In flight: eval-tally finish (gate, check), bench-worker finish (gate, check), checks-record build (2nd worker
+on WIP 21c5046).
+Merged after: eval-tally (both tally items closed), bench-worker (bench item released). Left: checks-record (2nd worker on WIP 21c5046), its paid run (cap now $100), then the migration change and dropping the 2 items per the owner's "1. a".
+Owner on bench Q1 (verbatim): "1. a" = drop the "hand it to a worker" sentence from the bench prompts; one paid bench to see whether the rules alone delegate.
+Bench result after "1. a" (report ~/.relay/bench/2026-10-24T07-03-23Z, $1.80): without the sentence the active setup
+does not reliably delegate (add-function: no worker under either setup). Front decided (owner can reverse): merge the
+bench fixes (working copy, plugin copy with profile models), RELEASE the-bench-never-starts-a-worker (its pass case
+needs delegation), queue the-front-does-small-builds-itself-instead-of-a (fix, ip 92). Merged: reply-lang (language
+check hook). In flight: eval-tally finish (gate, check), bench-worker finish (gate, check), checks-record build (2nd worker
+on WIP 21c5046).
+Owner (verbatim): "Давай удвоим лимиты на проверки ещё раз, до 200$, этого хватит чтобы продолжить далее" (cap $200/day).
+Owner (verbatim): "1. a, заведи пункт про перенос bash в python, какие правила мы используем для написания кода на python, какие ты посоветуешь, добавь эти проверки типов в python". 1. a = small builds always go to a worker. Queued hook-tests-and-wrappers-are-bash-not-portable-py (fix 90), python-code-gets-type-checks-and-a-bug-lint-in-t (feature 95, building as wt/py-types: mypy+ruff F via uv, gradual).
+Owner on the Python rule advice (verbatim): "1. Согласен, инструменты можно скачивать автоматически, обычно существуют публичные .sh скрипты для установки, мы тоже можем экспортировать такой с установкой всех необходимых зависимостей 2. Не до конца понял ... 3. Я думаю будет эффективным использовать инструменты автоматического форматирования кода, инструменты автоматического исправления кода сэкономят приличное количество токенов 4. Согласен 5. Проблема наблюдается 6. Думаю в будущем мы полностью перейдём на python". "У меня нет проектов на python". Queued one-install-script (feature 90), python-is-formatted-and-auto-fixed (feature 89, one reformat commit when no branch is open).
+Owner: "1. a" (Python rule loaded by relay only; building as wt/py-rule, paid run after). "Добавил ли ты скрипты установки и проверки зависимостей - такие обычно называются установщиками и докторами" -> queued relay-doctor-checks-every-dependency-the-install (90); building installer + doctor together as wt/installer from one deps list. Doctor FIX: leftover branch wt/queue-read-both (guard blocks git branch -d in main; not bypassed).
+Owner: "Удали оставшуюся ветку сам, разрешаю" -> deleted wt/queue-read-both (merged; from a worktree, owner-permitted); doctor 12 ok, 0 to fix. Owner: "Я ставлю официальные установщики вперед homebrew ..." -> added to the installer brief.
+Owner (verbatim): "Хорошо, действуй по этому плану". The plan: merge checks-record first (base for queue/check fixes; then
+owner /reload-plugins, migration change, drop the 2 items, check whether the bench item can close), then waves by area:
+wave 4 queue (a-finished-feature-cannot-be-closed, fix-reports-are-moved-by-hand, a-refused-merge-does-not-say-what-to-rerun)
++ the-day-s-paid-run-cap; wave 5 judge/paid (offbyone-rubric, stale-eval-texts, closing-a-fix-proved-by-an-eval);
+wave 6 setup/doctor (relay-doctor-on-a-fine-project-exits-1, a-project-added-by-setup-cannot-be-removed,
+a-project-from-relay-setup-is-dirty, setup-docs-and-todo-list); later one-shared-test-file, bash->python, formatter
+(only when no branch is open).
+
+## STATE 24 Oct ~late, session 3207dc59 at the 350k line
+
+Merged today in this session: guard-test-name, mac-timeout, eval-cost, mark-attach, archive-inert, reply-lang,
+eval-tally, bench-worker (item released), sync-refused, gate-not-judged, small-builds (relay sync ran: global CLAUDE.md
+now says size is no reason to build yourself). Paid runs today ~$97 by estimate (cap $200, owner).
+In flight:
+- wt/checks-record (the check-record redesign): check open 0, queue item closed on the branch, paid run GREEN ($9.04).
+  Next: take master (code came in), combined-file record if `relay changed --own` lists files, gate, checker, merge LAST
+  of the in-flight changes; then ask the owner for /reload-plugins (new merge guard), then a migration change
+  (`relay check migrate` on wt/checks-migrate, gate + one check), then drop combined-by-merge-finding-is-written-by-hand-eac
+  and a-check-over-many-reviews-matches-findings-by-nu with the owner's "1. a" words naming tests T6/T7, then check
+  whether the-bench-never-starts-a-worker can close (small-builds bench 2026-10-24T07-33-20Z showed workers start).
+  py-types and installer marks written before the redesign need a re-check with the new tools.
+- wt/py-rule (rules/python.md, relay loads it): check open 0; paid run running (scratchpad ci-full-py-rule.log); then
+  take master, gate, merge, relay sync.
+- wt/py-types (mypy + ruff F gate step, gradual annotations): workflow wf_4aad75b3-bbe running.
+- wt/installer (install.sh + relay doctor from one deps list; official installers before Homebrew, owner): workflow
+  wf_3888b2d3-8d5 running; brief has the owner's change appended after the build started: the review must catch it.
+Plan (owner: "Хорошо, действуй по этому плану"): after checks-record merges, waves by area: 4 queue + day cap, 5 judge/paid,
+6 setup/doctor, later one-shared-test-file, bash->python, formatter (only with no branch open).
+Owner's latest question (verbatim): "На сколько оценочное время совпадает с реальным временем выполнения, проведи анализ,
+возможно тебе следует скорректировать модель оценки времени, как ты вообще это делаешь, что стоит за этой оценкой, "на
+глаз" или здесь существует система оценки".
+Workflow scripts: ~/.claude/projects/-Users-amidman-relay/3207dc59-.../workflows/scripts/relay-change-cycle-wf_f39d3f1b-fd6.js
+(build..check) and relay-fix-cycle-wf_bab65864-8fd.js (fix, gate, queue check, check). Briefs/reports: that session's
+scratchpad briefs/ and reports/.
+Lessons: merge ready changes before gating the next (each merge makes the others take master and gate again, ~9 min);
+a worker given a 220-min task ran out of context without committing: save its work with a WIP commit, start a fresh one.

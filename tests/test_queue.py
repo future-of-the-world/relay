@@ -479,10 +479,13 @@ class TestSeedItems(unittest.TestCase):
         self.assertNotIn("failing_case", item)
 
     def test_f6_the_votes_item_names_the_grader_name_prefix_that_tally_reads(self):
-        item = rq.parse("eval-votes-in-file-names", committed_items(ROOT)["eval-votes-in-file-names.json"])
-        path, _, line = item["where"].rpartition(":")
+        # Read the item and tally.py at b176e6d, the commit that set the item's `where`, never at HEAD: the live queue is
+        # inert (bin/ci's inert probe appends a line to every item), and the change the item asks for removes that regex.
+        name = "eval-votes-in-file-names.json"
+        text = git(ROOT, "show", "b176e6d:.relay/queue/" + name)
+        path, _, line = json.loads(text)["where"].rpartition(":")
         self.assertEqual(path, "evals/judge-measure/tally.py")
-        self.assertIn("(yes|no)--", committed_text(ROOT, path).split("\n")[int(line) - 1])      # the code at `where` is what the item says
+        self.assertIn("(yes|no)--", git(ROOT, "show", "b176e6d:%s" % path).split("\n")[int(line) - 1])
 
 
 class TestFormat(Base):

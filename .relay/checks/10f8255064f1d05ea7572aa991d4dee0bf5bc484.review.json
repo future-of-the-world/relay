@@ -1,0 +1,225 @@
+{
+  "reviewed": "10f8255064f1d05ea7572aa991d4dee0bf5bc484",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-reply-lang.json",
+      "findings": [
+        {
+          "details": [
+            "CONFIRMED for the block: the hook's only skips are stop_hook_active and agent_id (line 72); a headless main session has",
+            "neither. I ran the hook with HOME=/Users/amidman on a grader-style PASS line and got the block. The brief promises",
+            "\"Only the front's reply to the owner\"; a headless session's reply goes to a program, and the global rule says \"text a tool",
+            "or another agent reads keep the project's language (English)\". The consequence for each consumer (grader verdict flipped,",
+            "max-turns error, extra paid turn per eval session) is PLAUSIBLE until a live run shows it, but the extra rewrite turn on",
+            "every headless English reply over 40 letters is certain and repeats on every paid run (principle 2: repeating waste is at",
+            "least MEDIUM); the grader breakage makes it HIGH (fails on ordinary use: every paid eval, every bench).",
+            "relay already tells program-started sessions apart: lib/relay_transcripts.py:223 treats entrypoint \"sdk*\" as scripted;",
+            "this session's own environment shows CLAUDE_CODE_ENTRYPOINT=cli for an interactive one.",
+            "Size: 15 minutes."
+          ],
+          "evidence": [
+            "printf '{\"last_assistant_message\":\"PASS: the reply names the changed file and gives the next step in plain words.\"}' | HOME=/Users/amidman python3 plugins/front/hooks/reply_language.py",
+            "-> {\"decision\": \"block\", \"reason\": \"Rewrite the reply in Russian, the owner's native language (only 0% of its words are in Russian); ...\"}",
+            "python3 -c ... ~/.claude/settings.json enabledPlugins -> {... 'front@relay': True}",
+            "find ~/.claude/projects -name '*.jsonl' -mtime -3 | xargs grep -ho '\"entrypoint\":\"[^\"]*\"' | sort | uniq -c -> 37423 cli, 2788 sdk-cli",
+            "measure.py on trial-tally / tmp-repo sessions -> \"0% ... 'The trial on tally ... finished'\", \"0% ... 'The command was blocked before it ran.'\"",
+            "lib/relay_bench.py:323 llm_grade: claude -p ... --max-turns 1 --tools \"\" ; verdict must start with PASS"
+          ],
+          "failing_case": [
+            "front@relay is enabled in ~/.claude/settings.json and ~/.claude/CLAUDE.md says \"My native language: Russian.\".",
+            "lib/relay_bench.py llm_grade runs `claude -p <rubric> --max-turns 1 --tools \"\"` under that config; the grader answers",
+            "\"PASS: the reply names the changed file and gives the next step in plain words.\" The Stop input has no agent_id and no",
+            "stop_hook_active, so the hook prints {\"decision\":\"block\",\"reason\":\"Rewrite the reply in Russian ...\"}. The session is",
+            "pushed into a second turn (past --max-turns 1, or a Russian rewrite that may not start with PASS), so the grade the",
+            "script reads changes. The same happens to every plugin-eval, hooks-live and trial session (entrypoint sdk-cli; 2788 such",
+            "transcript entries in the last 3 days, replies like \"The command was blocked before it ran ...\" at 0% Cyrillic).",
+            "Expected: a session started by a program (not the owner) is not checked; nothing printed."
+          ],
+          "fix_hint": [
+            "In main(), return early when the session was started by a program: os.environ.get(\"CLAUDE_CODE_ENTRYPOINT\", \"\").startswith(\"sdk\")",
+            "or os.environ.get(\"RELAY_BENCH\"); as a fallback, the transcript's first entry with an \"entrypoint\" field starting with \"sdk\"",
+            "(the rule relay_transcripts already uses). Add the three tests above to tests/test_reply_language.py."
+          ],
+          "id": "F1",
+          "kind": "inside",
+          "line": 72,
+          "pass_cases": [
+            "1. Stop input {\"last_assistant_message\": \"<the ENGLISH fixture>\"} with CLAUDE_CODE_ENTRYPOINT=sdk-cli in the environment (or the transcript's entries carrying \"entrypoint\":\"sdk-cli\") and native language Russian -> no output, exit 0.",
+            "2. Same input with CLAUDE_CODE_ENTRYPOINT=cli (the owner's interactive session) -> {\"decision\":\"block\", ...} as today.",
+            "3. Same input with RELAY_BENCH=1 (bench runs set it) -> no output.",
+            "4. The Russian fixture in an interactive session -> no output (unchanged)."
+          ],
+          "path": "plugins/front/hooks/reply_language.py",
+          "rank": "high",
+          "severity": "HIGH",
+          "summary": "every headless claude -p session (evals, bench graders, trials) is checked too: its English reply to a script is blocked and rewritten in Russian"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading: native_language(home) joins HOME/.claude/CLAUDE.md; plugins/front/lib/relay_config.py already has",
+            "claude_dir() honouring CLAUDE_CONFIG_DIR, and the brief asked to reuse what relay already reads with. F1's fix covers bench",
+            "only if it keys on RELAY_BENCH; any other run with its own config dir (a second account, a test) stays wrong.",
+            "Size: 5 minutes."
+          ],
+          "evidence": [
+            "grep -n \"def claude_dir\" -A 2 lib/relay_config.py -> return os.path.expanduser(os.environ.get(\"CLAUDE_CONFIG_DIR\") or \"~/.claude\")",
+            "reply_language.py:28 open(os.path.join(home, \".claude\", \"CLAUDE.md\")) with home = os.environ[\"HOME\"]",
+            "lib/relay_bench.py:368 \"A throwaway CLAUDE_CONFIG_DIR: credentials copied, nothing else (no user CLAUDE.md ...)\""
+          ],
+          "failing_case": [
+            "relay bench --isolate sets CLAUDE_CONFIG_DIR to a throwaway folder with \"no user CLAUDE.md\" (lib/relay_bench.py:368) and",
+            "passes the front plugin with --plugin-dir (profiles/active.toml plugins enabled = [..., \"front\"]). HOME is unchanged, so the",
+            "hook reads the real ~/.claude/CLAUDE.md (\"Russian\") and blocks the bench session's English reply, though the session",
+            "itself was given no native language. Isolated profiles then differ by a hidden rewrite turn.",
+            "Expected: the hook reads <CLAUDE_CONFIG_DIR or ~/.claude>/CLAUDE.md, as relay_config.claude_dir() does; there it finds no",
+            "native-language line and checks nothing."
+          ],
+          "fix_hint": [
+            "Read os.path.join(os.path.expanduser(os.environ.get(\"CLAUDE_CONFIG_DIR\") or \"~/.claude\"), \"CLAUDE.md\") (or import",
+            "relay_config.claude_dir from plugins/front/lib as budget.py imports its helpers); tests set CLAUDE_CONFIG_DIR."
+          ],
+          "id": "F2",
+          "kind": "inside",
+          "line": 28,
+          "pass_cases": [
+            "1. CLAUDE_CONFIG_DIR=<dir without CLAUDE.md>, HOME with a Russian CLAUDE.md, ENGLISH fixture -> no output.",
+            "2. CLAUDE_CONFIG_DIR=<dir whose CLAUDE.md says Russian>, ENGLISH fixture -> block.",
+            "3. CLAUDE_CONFIG_DIR unset, HOME/.claude/CLAUDE.md Russian, ENGLISH fixture -> block (today's behaviour)."
+          ],
+          "path": "plugins/front/hooks/reply_language.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "the language is read from $HOME/.claude/CLAUDE.md, not the CLAUDE_CONFIG_DIR the session actually uses"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading. Owner-facing setting with no validation; the brief says the threshold is \"60%\", so a person is likely to",
+            "write 60. Size: 5 minutes."
+          ],
+          "evidence": [],
+          "failing_case": [
+            "RELAY_REPLY_LANG_SHARE=60 and the RUSSIAN fixture (97%): 0.97 >= 60 is false -> blocked with \"only 97% ... in Russian\".",
+            "RELAY_REPLY_LANG_SHARE=abc: float() raises, the outer except swallows it -> no check at all, no message.",
+            "Expected: a value above 1 is read as a percent (or refused once on stderr); a bad value falls back to 0.60."
+          ],
+          "fix_hint": [
+            "Parse once at start: try float, divide by 100 when > 1, fall back to THRESHOLD on error."
+          ],
+          "id": "F3",
+          "kind": "inside",
+          "line": 79,
+          "pass_cases": [
+            "1. RELAY_REPLY_LANG_SHARE=60, RUSSIAN fixture -> no output.",
+            "2. RELAY_REPLY_LANG_SHARE=0.6, ENGLISH fixture -> block.",
+            "3. RELAY_REPLY_LANG_SHARE=abc, ENGLISH fixture -> block (default 0.60 used)."
+          ],
+          "path": "plugins/front/hooks/reply_language.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "RELAY_REPLY_LANG_SHARE=60 (a percent) blocks every reply once; a non-number silently turns the check off"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading line 82 against share(). Small, but the model reading it may \"fix\" the wrong thing. Size: 5 minutes."
+          ],
+          "evidence": [],
+          "failing_case": [
+            "A Russian reply with long English terms measuring 55% of letters is told \"only 55% of its words are in Russian\", though",
+            "most of its words may be Russian. Expected: \"of its letters\" (or \"of its text\")."
+          ],
+          "fix_hint": [
+            "Change \"of its words\" to \"of its letters\"."
+          ],
+          "id": "F4",
+          "kind": "inside",
+          "line": 82,
+          "pass_cases": [
+            "1. The ENGLISH fixture's block reason names letters, not words.",
+            "2. The reason still contains \"Rewrite the reply in Russian\" and \"code, paths and names stay as they are\"."
+          ],
+          "path": "plugins/front/hooks/reply_language.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "the block message says 'of its words' but the share is of letters"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading the FENCE regex. Rare in the front's replies (none in the live session), so LOW; the second stop is let",
+            "through, so the cost is one wasted rewrite. Size: 5 minutes."
+          ],
+          "evidence": [],
+          "failing_case": [
+            "A Russian reply of 60 Cyrillic letters plus a ~~~ fenced English log of 200 letters: share about 23% -> blocked, though the",
+            "prose is all Russian. Expected: the ~~~ block is removed like a ``` block; share 100% -> passes."
+          ],
+          "fix_hint": [
+            "FENCE = re.compile(r\"(```|~~~).*?(\\1|\\Z)\", re.S)."
+          ],
+          "id": "F5",
+          "kind": "inside",
+          "line": 20,
+          "pass_cases": [
+            "1. The case above -> no output.",
+            "2. The same English log inside ``` -> no output (today).",
+            "3. The ENGLISH fixture -> block (today)."
+          ],
+          "path": "plugins/front/hooks/reply_language.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "only ``` fences are removed: a ~~~ fence or an indented code block counts as prose"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading the tests: none passes agent_id. The brief's \"agents' replies are not checked\" rests on hooks.json",
+            "registering Stop only, so this is a belt with no test. Size: 5 minutes."
+          ],
+          "evidence": [],
+          "failing_case": [
+            "Delete \"or data.get('agent_id')\" on reply_language.py:72; all 7 tests still pass. A Stop input with agent_id and the ENGLISH",
+            "reply then blocks. Expected: a test sends {\"last_assistant_message\": ENGLISH, \"agent_id\": \"a1\"} and asserts no output."
+          ],
+          "fix_hint": [
+            "Add one test beside test_second_stop_after_a_block_is_let_through."
+          ],
+          "id": "F6",
+          "kind": "inside",
+          "line": 66,
+          "pass_cases": [
+            "1. ENGLISH with agent_id=\"a1\", native Russian -> no output.",
+            "2. ENGLISH without agent_id -> block."
+          ],
+          "path": "tests/test_reply_language.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "the agent_id skip has no test: removing it keeps every test green"
+        }
+      ],
+      "notes": [
+        "Fine: share of letters, not per character (owner's words met); code fences, inline code, URLs and slash-words removed;",
+        "under 40 prose letters skipped; stop_hook_active lets the second stop through; Stop only, not SubagentStop; fails open",
+        "(any exception -> exit 0, no output); the language comes from the \"My native language:\" line relay sync writes; the",
+        "script table holds only Russian and Ukrainian. On the live session's 16 replies the check separates the two cases cleanly",
+        "(0% vs 94%+), so the 60% threshold has a wide margin. Tests are in a new file, unittest style, and each fails without the hook.",
+        "Design remark: the block arrives after the owner has already seen the wrong-language reply; the rewrite is a second",
+        "message. That is what was decided (block once), noted only so the owner knows what they will see."
+      ],
+      "reviewed": "10f8255064f1d05ea7572aa991d4dee0bf5bc484",
+      "schema": 1,
+      "scope": [
+        "Range master...HEAD in /Users/amidman/relay/.worktrees/reply-lang: b62887b (the hook, hooks.json, tests) and 10f8255 (gate log).",
+        "Read in full: plugins/front/hooks/reply_language.py, plugins/front/hooks/hooks.json, tests/test_reply_language.py,",
+        "plugins/front/hooks/budget.py (how front hooks tell agents apart), lib/relay_rules.py:74 (native_language render),",
+        "lib/relay_config.py claude_dir, lib/relay_bench.py (headless claude -p runs: llm_grade, claude_command, isolated_config_dir),",
+        "lib/relay_transcripts.py (entrypoint \"sdk-*\" = scripted session), plugins/core/tests/hooks-live.test.sh, bin/ci eval step.",
+        "Ran: pytest tests/test_reply_language.py (7 passed); the hook's share() over every final reply of the live session",
+        "3207dc59 (16 replies: English 0%, all Russian 94-100%, so no false block on real data); the hook on a grader-style",
+        "English line; entrypoint counts in recent transcripts under ~/.claude/projects (2788 sdk-cli entries in 3 days).",
+        "Gate log .relay/checks/b62887bc...gate.log: head b62887b, bin/ci --quick, exit 0; HEAD adds only that log."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}

@@ -235,7 +235,7 @@ def cmd_improve(args):
         for n, path, state in results:
             print(f"  {n}: {state} ({path})")
         print("Restart Claude Code sessions for the new agent models to apply.")
-        return 0
+        return report_refused(results)
     if sub == "log":
         path = os.path.join(ROOT, "improve", "log.md")
         print(open(path, encoding="utf-8").read() if os.path.isfile(path) else "No adoptions yet.")
@@ -324,6 +324,16 @@ def cmd_sync(args):
     results = relay_rules.sync(relay_config.active_profile(), only=only, adopt=adopt, dry=bool(dry))
     for name, path, state in results:
         print(f"{name}: {state} ({path})")
+    return report_refused(results)
+
+
+def report_refused(results):
+    """Exit status for a sync: 1 and the refused targets named when any was refused."""
+    names = relay_rules.refused(results)
+    if names:
+        print("relay sync: refused " + ", ".join(names) + "; every other target was written. "
+              "Take one over with `relay sync --adopt <target>`.", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -376,7 +386,7 @@ def cmd_setup(args, migrate=False):
     results = relay_rules.sync(relay_config.active_profile(), only={d["name"], "global"} if not no_global else {d["name"]}, adopt=d["name"])
     print("\nSynced: " + "; ".join(f"{n} {state}" for n, _, state in results))
     print("\nCheck: relay doctor " + root)
-    return 0
+    return report_refused(results)
 
 
 def cmd_install(args):

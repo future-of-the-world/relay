@@ -1521,8 +1521,9 @@ class Rules(Base):
         import relay_rules
         with open(os.path.join(self.claude, "CLAUDE.md"), "w") as handle:
             handle.write("mine\n")
-        with self.assertRaises(relay_rules.Fail):
-            relay_rules.sync(relay_config.active_profile(), only={"global"})
+        refused = relay_rules.sync(relay_config.active_profile(), only={"global"})
+        self.assertEqual(relay_rules.refused(refused), ["global"])
+        self.assertEqual(open(os.path.join(self.claude, "CLAUDE.md")).read(), "mine\n")
         relay_rules.sync(relay_config.active_profile(), only={"global"}, adopt="global")
         self.assertTrue(os.path.isfile(os.path.join(self.claude, "CLAUDE.md.before-relay")))
 

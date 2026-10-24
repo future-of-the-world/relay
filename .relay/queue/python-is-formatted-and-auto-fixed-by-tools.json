@@ -1,0 +1,21 @@
+{
+  "kind": "feature",
+  "ip": 89,
+  "time": 60,
+  "found_at": "2026-10-24T08:24:32Z",
+  "found_in": "relay queue add",
+  "title": "Python is formatted and auto-fixed by tools",
+  "what": [
+    "Adopt ruff format and ruff check --fix (pinned): one commit reformats every Python file, done when no other branch is open; .git-blame-ignore-revs names it; the gate checks formatting; agents run the formatter and the auto-fix before committing instead of fixing style by hand."
+  ],
+  "why": [
+    "Owner, verbatim: \"Я думаю будет эффективным использовать инструменты автоматического форматирования кода, инструменты автоматического исправления кода сэкономят приличное количество токенов\". Today 2,230 lines are longer than the default and ruff finds 2,755 style and bug items under a wider rule set; agents spend turns on hand edits a tool makes in a second."
+  ],
+  "where": "pyproject.toml, bin/ci, all *.py",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

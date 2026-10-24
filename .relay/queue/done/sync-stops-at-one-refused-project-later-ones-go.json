@@ -18,10 +18,10 @@
     "Same setup: `relay sync` writes B, leaves A untouched, exits non-zero naming A and the --adopt command. A file with the old ~/principles header is rewritten without --adopt."
   ],
   "where": "lib/relay_rules.py:89 write_target, lib/relay_rules.py:189 sync",
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-24T07:30:32Z",
+  "taken_by": "wt/sync-refused",
+  "closed_at": "2026-10-24T08:07:20Z",
+  "test": "tests/test_sync_refused.py::SyncRefused::test_a_refused_target_does_not_stop_the_later_ones",
   "dropped_at": null,
   "dropped_why": null
 }
