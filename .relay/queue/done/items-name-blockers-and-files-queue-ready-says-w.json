@@ -27,6 +27,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-24T18:39:47Z",
+  "dropped_why": [
+    "Owner, 24 Oct: \"Да, думаю именно в этом и проблема - в одном механизме ты объединил ответственность древа зависимостей и планировщика задач\". Split into two items: the dependency tree (blocked_by) and the scheduler (which unblocked items start together)."
+  ]
 }
