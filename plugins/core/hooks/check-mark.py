@@ -72,10 +72,10 @@ def entry_start(entry):
 
 
 def first_entry(path):
-    """(prompt text, start time as epoch seconds or None) of the first user entry that carries a `Report:` label among
+    """(prompt text, start time as epoch seconds or None) of the last user entry that carries a `Report:` label among
     the transcript's leading user entries (before the first assistant entry): a workflow puts its own relayed request
     first and the checker's prompt next. With no label there, the first user entry (its prompt has no label)."""
-    first = None
+    first = labelled = None
     try:
         with open(path, encoding="utf-8") as handle:
             for line in handle:
@@ -95,14 +95,15 @@ def first_entry(path):
                         raise Fail("the checker's transcript does not start with a prompt")
                     continue
                 if report_label(text):
-                    return text, entry_start(entry)
+                    labelled = (text, entry_start(entry))  # the last one wins: the workflow's first line may quote "Report:"
+                    continue
                 if first is None:
                     first = (text, entry_start(entry))
     except OSError:
         raise Fail("the checker's transcript cannot be read")
-    if first is None:
+    if first is None and labelled is None:
         raise Fail("the checker's transcript does not start with a prompt")
-    return first
+    return labelled or first
 
 
 def clean_value(text):
