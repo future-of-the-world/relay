@@ -1,0 +1,69 @@
+{
+  "branch": "wt/spec-flaw",
+  "findings": [
+    {
+      "details": [
+        "The paid run of the Python rule change, 24 Oct (record ~/.relay/evals/relay/2026-10-24T09-07-34Z-wt-py-rule.json) went RED on this one grader (\"pattern not found in last_message\"); 0 of the 42 earlier runs of this case in the 13 records since 22 Oct failed. Under the owner's 24 Oct order (\"a\": one paid run per wave, a red run is a fix item at the top) the change merged and the failure is this item."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Record 2026-10-24T09-07-34Z-wt-py-rule.json: spec-reviewer-flaw, finds-the-contradiction passed false in 1 of 3 runs."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The cause is named with evidence from that run's transcript; after the fix the case passes in the next wave's paid run; a reviewer reply that names the contradiction in other words still passes the grader."
+      ],
+      "path": "evals/plugin/spec-reviewer-flaw (case, grader finds-the-contradiction), the spec reviewer's role text",
+      "rank": "high",
+      "reason": [
+        "Cause named from the run transcript; grader now checks both sides anywhere in the reply; evals/plugin/graders.test.sh passes with run-spec-in-prose.txt as good, and fails (4 failed) on the base with those fixtures copied in."
+      ],
+      "severity": "HIGH",
+      "since": "7a4d5f6480584607778bb2f557689bc0565cfe82",
+      "source": "queue",
+      "summary": "spec-reviewer-flaw missed the contradiction in 1 of 3 runs",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "The paid run of the Python rule change, 24 Oct (record ~/.relay/evals/relay/2026-10-24T09-07-34Z-wt-py-rule.json) went RED on this one grader (\"pattern not found in last_message\"); 0 of the 42 earlier runs of this case in the 13 records since 22 Oct failed. Under the owner's 24 Oct order (\"a\": one paid run per wave, a red run is a fix item at the top) the change merged and the failure is this item."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Record 2026-10-24T09-07-34Z-wt-py-rule.json: spec-reviewer-flaw, finds-the-contradiction passed false in 1 of 3 runs."
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The cause is named with evidence from that run's transcript; after the fix the case passes in the next wave's paid run; a reviewer reply that names the contradiction in other words still passes the grader."
+      ],
+      "path": "evals/plugin/spec-reviewer-flaw (case, grader finds-the-contradiction), the spec reviewer's role text",
+      "rank": "high",
+      "reason": [
+        "Cause named from the run transcript; grader now checks both sides anywhere in the reply; evals/plugin/graders.test.sh passes with run-spec-in-prose.txt as good, and fails (4 failed) on the base with those fixtures copied in."
+      ],
+      "severity": "HIGH",
+      "since": "7a4d5f6480584607778bb2f557689bc0565cfe82",
+      "source": "q-spec-flaw.json",
+      "source_id": "Q1",
+      "summary": "spec-reviewer-flaw missed the contradiction in 1 of 3 runs",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b0c83f8e8382168ff02d8da300e5f830127f7d4f.gate.log",
+  "head": "b79f1d0de5db3b1ed3ba2e8795f2b5f6944f4092",
+  "item": "spec-reviewer-flaw-missed-the-contradiction-in-1",
+  "notes": [
+    "Judge-measure files and tests/test_judge_tally.py (count 58 to 59) changed with the new grader; consistent with make.py --check passing."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 7a4d5f6..HEAD. Ran evals/plugin/graders.test.sh at head: all passed (good fixtures incl. run-spec-in-prose pass, bad fixtures fail). Same fixtures against the pre-fix base: 4 failed. pytest tests: 425 passed. Gate log head b0c83f8 exit 0; only the gate-log commit followed."
+  ],
+  "type": "check"
+}

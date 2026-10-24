@@ -1,0 +1,1 @@
+Started sdd:spec-reviewer on design.md and the rest; no findings.

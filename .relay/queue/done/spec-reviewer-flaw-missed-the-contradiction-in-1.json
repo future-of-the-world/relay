@@ -20,8 +20,8 @@
   "where": "evals/plugin/spec-reviewer-flaw (case, grader finds-the-contradiction), the spec reviewer's role text",
   "taken_at": "2026-10-24T11:35:15Z",
   "taken_by": "wt/spec-flaw",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T12:54:20Z",
+  "test": "tests/test_spec_flaw.py::FindsTheContradiction::test_failing_run_reply_passes",
   "dropped_at": null,
   "dropped_why": null
 }

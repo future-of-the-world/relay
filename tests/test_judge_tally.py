@@ -155,7 +155,7 @@ class GraderFilesLoadInTheEvalTool(unittest.TestCase):
             keys = {l.partition(":")[0].strip() for l in front if l.strip()}
             self.assertLessEqual(keys, self.ALLOWED, os.path.relpath(fn, JM))
             seen += 1
-        self.assertEqual(seen, 58)
+        self.assertEqual(seen, 59)
 
 
 if __name__ == "__main__":

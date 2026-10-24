@@ -1,0 +1,13 @@
+head 69a7873001abcd3668c9f4df3edfe34646f7e8de
+cmd bin/ci --quick
+ci: library tests ok (179s)
+ci: types and lint FAILED (1s, log: .ci/steps/types-and-lint.log)
+    FAIL ruff 0.13.3 (pyflakes rules):
+    Found 1 error.
+ci: hook tests ok (115s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (4s)
+ci: plugin validate ok (5s)
+ci: inert ok (321s)
+ci: RED
+exit 1

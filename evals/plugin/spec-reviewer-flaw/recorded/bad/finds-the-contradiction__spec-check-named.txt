@@ -1,0 +1,1 @@
+kit spec-check passes; design.md reads fine. No findings.
