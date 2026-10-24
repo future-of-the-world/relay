@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 94,
+  "time": 30,
+  "found_at": "2026-10-24T15:54:26Z",
+  "found_in": "relay queue add",
+  "title": "Replies translate IT terms literally instead of using them",
+  "what": [
+    "The \"Plain words\" and native-language lines say to define every term and to name things by what they do; models read that as \"translate every technical word\" and write calques. Say instead: standard IT terms stay in their English form (merge, branch, commit, fast-forward, hook, CI, review, eval, worktree, flaky, lint), the prose around them is in the owner's language; relay's internal names (branches, files, slugs) still stay out; a relay-specific term gets its English name and a one-line definition the first time."
+  ],
+  "why": [
+    "Owner, verbatim, 24 Oct: \"Стиль твоего повествования кажется черезчур славянским, ты слишком отдаляешься от используемых технологических терминов, и некоторые из них ты переводишь прямо, при этом техническое значение они имеют только при употреблении в английском языке - и то среди IT специалистов\". The front had written \"перемотка\" for fast-forward, \"поезд\" for merge train, \"страховка слияния\" for the merge hook, \"платный прогон\" for the paid eval run."
+  ],
+  "failing_case": [
+    "24 Oct front replies: \"основная ветка просто перематывается\", \"страховка слияния откажет\", \"бесплатная проверка\" for the gate."
+  ],
+  "pass_cases": [
+    "The rule text says to keep standard IT terms in English and still keeps relay's internal names out; a paid check (several languages) shows a reply about a merge using \"merge\", \"branch\", \"hook\" in a Russian reply, and still defining a relay-only term once."
+  ],
+  "where": "the rule that holds 'Working with me' (rules/*.md: Plain words, native language), roles that write to the owner",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
