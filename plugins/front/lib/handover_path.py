@@ -4,13 +4,15 @@ docs/handover.md under the session's working directory, else under the git top
 level of that directory. Returns the path as a string, or None.
 """
 
+from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
+
 import os
 import subprocess
 
 RELATIVE = os.path.join("docs", "handover.md")
 
 
-def resolve(cwd):
+def resolve(cwd: str | None) -> str | None:
     if not cwd or not os.path.isdir(cwd):
         return None
     candidate = os.path.join(cwd, RELATIVE)

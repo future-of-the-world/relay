@@ -1,6 +1,6 @@
 """Free tests of the eval record step (bin/eval-record), the rule-file flag patterns and bin/ci's eval lines.
 No test calls a model."""
-import importlib.util, io, json, os, re, shutil, subprocess, tempfile, unittest
+import importlib.util, io, json, os, shutil, subprocess, tempfile, unittest
 from contextlib import redirect_stdout
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

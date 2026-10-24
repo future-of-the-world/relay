@@ -701,7 +701,7 @@ class Numbers(Base):
         self._agent_session(None)
         # Claude Code's total for the session with an agent: the transcripts-only estimate is far below it
         self._claude_json("s-snap")
-        text = relay_analyze.calibrate(self.claude, "2026-10-21T12:00:00Z")
+        relay_analyze.calibrate(self.claude, "2026-10-21T12:00:00Z")
         stored = relay_analyze.load_calibration()["estimate"]
         self.assertEqual(list(stored), ["with_agents"])             # the session has an agent: it is not filed as without
         mains = relay_analyze.collect(self.claude, dt.datetime(2026, 10, 20, tzinfo=dt.timezone.utc), dt.datetime(2026, 10, 22, tzinfo=dt.timezone.utc))
@@ -1077,7 +1077,6 @@ class Agents(unittest.TestCase):
         """A6 (part 1): the review is one review and a checked fix. No rule, base, skill or agent says the old loop
         (two passes, a third pass, debt), and each of the five review places names roles/judge.md."""
         import glob
-        import re
         banned = ["over the fix range", "at most twice", "no third pass", "second pass", "tech debt", "technical debt",
                   "follow-up with an id", "follow-up id"]
         files = []
@@ -1343,7 +1342,6 @@ class Agents(unittest.TestCase):
         """A13: a role file `.claude/kit/<role>.md` must not also be the per-agent or per-skill file of a served plugin
         (one file would serve both); the map plugins/core/lib/agent-roles.tsv is what the agents' base markers say."""
         import glob
-        import re
         sys.path.insert(0, os.path.join(ROOT, "lib"))
         import relay_roles
         roles = {os.path.basename(f)[:-3] for f in glob.glob(os.path.join(ROOT, "roles", "*.md"))}
@@ -1440,7 +1438,6 @@ class Bench(Base):
         self.assertIn("Read", agents["scout"]["tools"])
 
     def test_derive_profile_with_set(self):
-        import relay_bench as rb
         os.environ["RELAY_ROOT"] = self.tmp   # candidates are written under the root
         os.makedirs(os.path.join(self.tmp, "profiles", "candidates"))
         for m in list(sys.modules):
@@ -1458,7 +1455,6 @@ class Bench(Base):
         self.assertEqual(again["rules"]["load"], base["rules"]["load"])
 
     def test_candidate_with_plugin_copy_drives_agents_and_plugin_dir(self):
-        import relay_bench as rb
         root = os.path.join(self.tmp, "root")
         shutil.copytree(os.path.join(ROOT, "plugins", "delegate"), os.path.join(root, "plugins", "delegate"))
         shutil.copytree(os.path.join(ROOT, "profiles"), os.path.join(root, "profiles"))
@@ -1528,7 +1524,6 @@ class Rules(Base):
         self.assertTrue(os.path.isfile(os.path.join(self.claude, "CLAUDE.md.before-relay")))
 
     def test_profile_rewrites_tiered_agents_in_a_copy(self):
-        import relay_rules
         copy = os.path.join(self.tmp, "agents")
         shutil.copytree(os.path.join(ROOT, "plugins", "sdd", "agents"), copy)
         os.environ["RELAY_ROOT"] = os.path.join(self.tmp, "empty-root")   # no plugins/ there: only extra_dirs are touched

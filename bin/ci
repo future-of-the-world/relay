@@ -5,7 +5,7 @@
 #   bin/ci              every step, the paid ones included (plugin evals need `claude`)
 #   bin/ci --quick      the free steps only; ends "QUICK MODE" and never releases
 #
-# Steps: library tests (python), hook tests (bash: every plugins/*/tests/*.test.sh runs in quick mode too, bun/jq
+# Steps: library tests (python), types and lint (mypy + ruff pyflakes rules through uv; needs uv and, the first time, the network), hook tests (bash: every plugins/*/tests/*.test.sh runs in quick mode too, bun/jq
 # must be on PATH or the step FAILS naming the tool; only hooks-live, which makes a paid claude call, is left for the full run), lib copies identical, plugin
 # evals' grader tests, `claude plugin validate` (skipped loudly without claude),
 # plugin evals (full mode only; compared with evals/plugin/baseline), then the record step
@@ -67,6 +67,7 @@ inert_probe() { local tmpd work rc=0 f
   else echo "inert: the same results with every inert file changed"; fi
   git worktree remove --force "$work" 2>/dev/null; git worktree prune; rm -rf "$tmpd"; return $rc; }
 step "library tests" lib_tests
+step "types and lint" bash bin/types-lint   # mypy and ruff F, pinned, through uv (bin/types-lint, pyproject.toml)
 step "hook tests" hook_tests
 step "lib copies identical" lib_copies
 step "eval grader tests" grader_tests

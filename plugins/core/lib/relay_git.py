@@ -8,15 +8,24 @@ be read); `master` if it is a local branch; `main` likewise; else None. None mea
 `.relay/`": the hooks then do nothing.
 """
 
+from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
+
 import os
 import subprocess
+from typing import TypedDict
 
 import relay_toml
 
 TIMEOUT = 20
 
 
-def git(repo, *args, timeout=TIMEOUT, raw=False):
+class Worktree(TypedDict):
+    path: str              # real path
+    branch: str | None     # short name, None when detached
+    locked: str | None     # the reason ("" if none given); None when not locked
+
+
+def git(repo: str, *args: str, timeout: float = TIMEOUT, raw: bool = False) -> tuple[int, str]:
     """(exit code, stdout stripped unless raw) of `git -C repo args`; (127, "") when git cannot run."""
     try:
         done = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, timeout=timeout)
@@ -25,7 +34,7 @@ def git(repo, *args, timeout=TIMEOUT, raw=False):
     return done.returncode, done.stdout if raw else done.stdout.strip()
 
 
-def main_checkout(repo):
+def main_checkout(repo: str) -> str | None:
     """The folder holding the repository's `.git` (parent of the git common dir), real path; None outside a repository."""
     rc, out = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
     if rc != 0 or not out:
@@ -33,7 +42,7 @@ def main_checkout(repo):
     return os.path.realpath(os.path.join(out, ".."))
 
 
-def _binding(main):
+def _binding(main: str) -> str | None:
     path = os.path.join(main, ".claude", "kit.toml")
     try:
         with open(path, "rb") as handle:
@@ -44,7 +53,7 @@ def _binding(main):
     return value if isinstance(value, str) and value and not value.startswith("wt/") else None
 
 
-def default_branch(repo):
+def default_branch(repo: str) -> str | None:
     """The branch merges go into, or None when it cannot be told (see the module text)."""
     main = main_checkout(repo)
     if main is None:
@@ -63,17 +72,17 @@ def default_branch(repo):
     return None
 
 
-def current_branch(directory):
+def current_branch(directory: str) -> str | None:
     """The branch checked out in `directory`, None when detached or not a repository."""
     rc, out = git(directory, "symbolic-ref", "--short", "-q", "HEAD")
     return out if rc == 0 and out else None
 
 
-def has_relay(repo):
+def has_relay(repo: str) -> bool:
     """True when the default branch's committed tree holds a `.relay/` folder."""
     main = main_checkout(repo)
     branch = default_branch(repo) if main else None
-    if branch is None:
+    if main is None or branch is None:
         return False
     for ref in ("refs/heads/" + branch, "refs/remotes/origin/" + branch):
         rc, out = git(main, "ls-tree", "-d", "--name-only", ref, ".relay")
@@ -82,12 +91,13 @@ def has_relay(repo):
     return False
 
 
-def worktrees(repo):
+def worktrees(repo: str) -> list[Worktree]:
     """Every worktree: dicts with path (real), branch (short name or None), locked (reason, "" if none given; None if not locked)."""
     rc, out = git(repo, "worktree", "list", "--porcelain")
     if rc != 0:
         return []
-    result, cur = [], None
+    result: list[Worktree] = []
+    cur: Worktree | None = None
     for line in out.splitlines() + [""]:
         if not line:
             if cur:
@@ -104,7 +114,7 @@ def worktrees(repo):
     return result
 
 
-def has_own_commits(repo, branch):
+def has_own_commits(repo: str, branch: str) -> bool:
     """The branch's reflog holds an entry other than its creation, a fast-forward or a reset (a fresh worktree has none)."""
     rc, out = git(repo, "reflog", "show", "--format=%gs", "refs/heads/" + branch)
     if rc != 0:

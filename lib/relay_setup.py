@@ -17,7 +17,7 @@ import sys
 import tomllib
 
 import relay_config
-from relay_config import ROOT, bindings_path, claude_dir, load_bindings, read_toml, main_checkout
+from relay_config import ROOT, bindings_path, claude_dir, load_bindings, read_toml
 
 STACKS = [
     ("bun.lock", "typescript", "bun"), ("bun.lockb", "typescript", "bun"), ("pnpm-lock.yaml", "typescript", "pnpm"),
@@ -97,7 +97,7 @@ def backup(path):
 
 def bindings_text(d, flow, product):
     """A kit.toml for a new project; sections relay needs, with the detected values."""
-    name, stack, tool = d["name"], d["stack"], d["tool"]
+    name, stack = d["name"], d["stack"]
     skills = {"typescript": '["ts-dev"]', "rust": '["rust-dev"]', "elixir": '["elixir-dev"]', "go": '["go-dev"]'}.get(stack, "[]")
     lines = [
         f"# {name}: bindings for the relay plugins (written by `relay setup`, {dt.date.today()}).",
