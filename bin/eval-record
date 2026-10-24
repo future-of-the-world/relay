@@ -3,7 +3,8 @@
 
   bin/eval-record [--json .ci/evals.json] [--repo NAME] [--branch NAME] [--keep 30]
 
-Reads the eval's --json file (never changes the gate's status except when the copy fails: exit 1).
+Reads the eval's --json file. Exit 1 when the copy fails; exit 2 (with a "NOT A PASS" line naming the cases) when
+any meaning grader failed or any run was not judged, so the gate is not green; notes alone never change it.
   - no file: prints "plugin evals wrote no record" and exits 0 (bin/ci deletes the old file before the
     eval, so a leftover from yesterday is never filed as today's batch)
   - copies the file to $RELAY_HOME/evals/<repo>/<startedAt>-<branch>.json (RELAY_HOME defaults to ~/.relay)
@@ -49,7 +50,7 @@ def judged_line(evidence, patterns):
 
 def report(data, record_path):
     """Returns the lines to print."""
-    notes, fails, splits, unjudged = [], [], 0, 0
+    notes, fails, splits, unjudged, bad = [], [], 0, 0, set()
     pairing = line_checks()
     if data.get("partial"):
         notes.append(f"    note: partial run: {data.get('partialReason', 'no reason given')}")
@@ -66,12 +67,12 @@ def report(data, record_path):
         for arm, runs in case.get("arms", {}).items():
             for n, run in enumerate(runs, 1):
                 if run.get("error"):
-                    unjudged += 1
+                    unjudged += 1; bad.add(case["name"])
                     notes.append(f"    note: {case['name']} run {n}: the run errored ({str(run['error'])[:80]}), its graders were not judged")
                     continue
                 present = {g.get("name") for g in run.get("graders", [])}
                 for name in sorted(llm - present):
-                    unjudged += 1
+                    unjudged += 1; bad.add(case["name"])
                     notes.append(f"    note: {case['name']} run {n} {name}: not judged (no result for it in the run)")
                 for g in run.get("graders", []):
                     name = g["name"]
@@ -83,12 +84,13 @@ def report(data, record_path):
                         continue
                     votes = g.get("judgeVotes")
                     if not isinstance(votes, list) or len(votes) != 3:
-                        unjudged += 1
+                        unjudged += 1; bad.add(case["name"])
                         notes.append(f"    note: {case['name']} run {n} {name}: not judged (cost ceiling)")
                         continue
                     split = len(set(votes)) > 1
                     splits += split
                     if not g.get("passed"):
+                        bad.add(case["name"])
                         fails.append(f"    FAIL {case['name']} run {n} {name}: votes {votes_text(votes)}")
                         fails.append(f"         judged: \"{judged_line(g.get('evidence'), patterns_for(name))}\"")
                         fails.append(f"         record: {record_path}")
@@ -103,7 +105,12 @@ def report(data, record_path):
     head += f", {unjudged} not judged" if unjudged else ""
     cost = data.get("costUsd")
     head += f", cost ${cost:.2f}" if isinstance(cost, (int, float)) and not isinstance(cost, bool) else ""
-    return [head] + fails + notes
+    out = [head] + fails + notes
+    failed = sum(1 for l in fails if l.startswith("    FAIL"))
+    if failed or unjudged:
+        cases = sorted(bad)
+        out.append(f"ci: eval record: NOT A PASS: {failed} meaning grader(s) failed, {unjudged} not judged, in {', '.join(cases)}")
+    return out
 
 
 def store(src, data, home, repo, branch, keep):
@@ -143,8 +150,9 @@ def main(argv=None):
     except (OSError, ValueError) as e:
         print(f"ci: could not store the eval record: {e}")
         return 1
-    print("\n".join(report(data, dest.replace(os.path.expanduser("~"), "~", 1))))
-    return 0
+    lines = report(data, dest.replace(os.path.expanduser("~"), "~", 1))
+    print("\n".join(lines))
+    return 2 if "NOT A PASS" in lines[-1] else 0
 
 
 if __name__ == "__main__":
