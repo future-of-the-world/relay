@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "Gate green on the reviewed code (exit 0) and 353 tests pass."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/archive-inert/.relay/checks/890c37fe0d5dea992349536e64159ae91e89bb4b.gate.log",
+  "head": "6e9e381a0dd25862b348cc38c54fcb00b08b88c9",
+  "new": [],
+  "notes": [
+    "Merge of master into the branch combined without conflict; gate and tests pass."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "890c37fe0d5dea992349536e64159ae91e89bb4b.review.json"
+  ],
+  "reviewed": "890c37fe0d5dea992349536e64159ae91e89bb4b",
+  "schema": 1,
+  "scope": [
+    "Fixes: none. relay changed --own after the reviewed sha lists no file (HEAD adds only the gate log commit). Gate log starts with head 890c37f, ends exit 0 (ci green, quick mode). Ran pytest tests -q -x: 353 passed."
+  ],
+  "type": "check"
+}
