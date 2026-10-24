@@ -1,0 +1,49 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "Sentence gone from both prompts; tests/test_bench_worker.py:24 test_prompt_does_not_order_a_worker passes, fails at baseline; linked-worktree test at :39 passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_bench_worker.py:51-66 builds the profile by deepcopy, no write; git status clean after run; sonnet/haiku asserts hold."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "tests/test_bench_worker.py:70 test_every_agent_of_a_copied_plugin_takes_its_own_tier passes, fails at baseline (opus != sonnet); :83 no-agents case passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "tests/test_bench_worker.py:32 test_docs_and_scaffolds_name_the_core_guard passes, fails at baseline; docs/benchmark.md:65 and both scaffold comments rewritten."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/bench-worker/.relay/checks/436ce08bb316b24d149c81452e99f1b0da0a7c9d.gate.log",
+  "head": "b4d085f0498f32e8ced0364e8d90f17b37af04f5",
+  "new": [],
+  "notes": [
+    "Q1 answered (a) by the owner; paid bench showed the rules alone do not delegate, queued separately by the front; the grader keeps its meaning. Callers of plugin_for_run unchanged in signature."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "2373c2fbfdfac2f5fbff02eaae54257f91b07089.review.json"
+  ],
+  "reviewed": "2373c2fbfdfac2f5fbff02eaae54257f91b07089",
+  "schema": 1,
+  "scope": [
+    "Fix range 2373c2f..HEAD (b4d085f). Own changed files: docs/benchmark.md, both scenario prompts and scaffolds, lib/relay_bench.py, tests/test_bench_worker.py; all named by the findings. Gate log head 436ce08 exit 0; only the gate commit came after (relay changed lists no file). Ran tests/test_bench_worker.py: 6 passed, tree clean. Baseline worktree at 2373c2f with the head test file: 3 failed (prompt has worker, docs say front's guard, old plugin_for_run keeps opus), removed afterwards."
+  ],
+  "type": "check"
+}

@@ -1,0 +1,145 @@
+{
+  "reviewed": "2373c2fbfdfac2f5fbff02eaae54257f91b07089",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-bench-worker.json",
+      "findings": [
+        {
+          "details": [
+            "PLAUSIBLE (not run: a paid bench). The brief allowed \"the scenario/fixture text that makes a worker start\", and the queue item's \"What\" says \"the session delegates to a worker (as the delegate rule requires)\"; the brief also says the graders' meaning is not decided. The fix changes the meaning of delegated-to-a-worker without changing its code: the prompt now does what the rule was supposed to. No run tried the scaffold fix alone (05-47 already had the prompt sentence), so it is not known whether the sentence is needed at all: the original \"started: none\" may have come from the session being blocked in a primary checkout and doing the job in its own worktree.",
+            "Size: (a) 15 minutes plus about $1.50 of bench; (b) 10 minutes.",
+            "",
+            "Question for the owner. The bench runs a scenario under two setups and grades the result; one grader, \"delegated to a worker\", checks that the main session handed the job to a cheaper builder agent. Until today no scenario ever did, partly because the test project was set up so that nobody could write in it. The fix does two things: it sets the test project up as a proper working copy (that alone lets files land), and it adds to the task text \"hand the building to a worker agent\". With that sentence, any setup, even the old one without the delegation rule, will likely hand the job over because it is told to; the grader then tells nothing about whether a setup's rules make it delegate. It still works for what the queue item wanted: comparing the builder's model (Sonnet $0.07 vs Haiku $0.01 in today's run).",
+            "(a) Recommended: drop the sentence, keep the working-copy fix, one paid run (about $1.50) to see whether the rules alone make it delegate; the grader keeps its meaning.",
+            "(b) Keep the sentence; the scenarios measure the builder's model and cost, and their comments say delegation is ordered, not measured."
+          ],
+          "evidence": [
+            "git diff master...HEAD -- evals/scenarios/*/prompt.md: both gain \"Hand the ... to a worker agent (typed, with a brief file) and have it work right here in this working copy, not in another worktree; no spec change or review is wanted here.\"",
+            "evals/scenarios/add-function/scenario.toml:1-2 \"Measures whether the front delegates to a worker (not Opus itself)\"",
+            "profiles/baseline-old.toml:30,33 rules without delegation; plugins core, observe",
+            "lib/relay_bench.py:299-313 agent_used: regex search over agent_type, so \"worker\" matches an unprefixed --agents worker",
+            "~/.relay/bench/2026-10-24T05-47-12Z results: prompt sentence already present in the first run; no scaffold-only run exists"
+          ],
+          "failing_case": [
+            "Both prompts now say \"Hand the building/writing to a worker agent (typed, with a brief file) ... not in another worktree; no spec change or review is wanted here\".",
+            "`relay bench active baseline-old --tag cheap`: baseline-old loads no delegation rule and no delegate plugin, but the bench still passes --agents with an unprefixed `worker`; told by the prompt to use one, its session would pass `delegated-to-a-worker` (agent_type regex \"worker\") just like active. Before the change this grader was meant to show the difference (\"Measures whether the front delegates to a worker (not Opus itself)\", add-function/scenario.toml:1-2; \"The right setup sends it to a worker\", small-script/scenario.toml:1-2). The same holds for docs/benchmark.md:33, a rules.load bench that could drop the delegation rule.",
+            "Expected (owner's choice): either the grader keeps telling a delegating setup from a non-delegating one, or the scenario comments say it no longer does."
+          ],
+          "fix_hint": [
+            "Owner's choice; see the pass cases for each answer."
+          ],
+          "id": "Q1",
+          "kind": "question",
+          "line": 1,
+          "pass_cases": [
+            "- Answer (a): add-function and small-script prompts carry no \"worker agent\" sentence; a paid bench `relay bench active --set models.build=haiku --tag cheap --runs 1` with only the scaffold fix shows delegate:worker started and both scenarios at 1.00 under active (if it does not, the delegation rule is what needs fixing, a queue item).",
+            "- Answer (b): the prompts keep the sentence; scenario.toml header comments of both scenarios say the worker is requested by the prompt and the grader checks it ran, not that the setup chose it; docs/benchmark.md says the bench cannot compare delegation between setups.",
+            "- Either way: tests/test_bench_worker.py asserts the chosen prompt text and the linked-worktree scaffold."
+          ],
+          "path": "evals/scenarios/add-function/prompt.md",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "the prompts now order a worker, so delegated-to-a-worker measures obedience to the prompt, not whether the setup delegates"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading lib/relay_bench.py:105-139 (derive_profile writes to ROOT/profiles/candidates). Correct today only because the committed build-haiku.toml equals what the test writes. Size: 5 minutes (build the derived dict with copy.deepcopy and set models.build directly, or point the write elsewhere)."
+          ],
+          "evidence": [
+            "pytest tests/test_bench_worker.py -q: 3 passed; git status --short empty (file identical today)",
+            "lib/relay_bench.py derive_profile: folder = os.path.join(ROOT, \"profiles\", \"candidates\"); writes <name>.toml"
+          ],
+          "failing_case": [
+            "Change profiles/active.toml (e.g. effort.build = \"low\"), run `pytest tests/test_bench_worker.py`: the test rewrites profiles/candidates/build-haiku.toml (derive_profile writes ROOT/profiles/candidates/<name>.toml) and `git status` shows it modified. Expected: a test leaves the repository as it found it."
+          ],
+          "fix_hint": [
+            "In the test: derived = copy.deepcopy(base); derived[\"models\"][\"build\"] = \"haiku\"; derived[\"profile\"] = {\"name\": \"test-build-haiku\"}."
+          ],
+          "id": "F2",
+          "kind": "inside",
+          "line": 47,
+          "pass_cases": [
+            "- After a change to profiles/active.toml, running tests/test_bench_worker.py leaves `git status --short` empty.",
+            "- test_plugin_copy_carries_the_profile_models still asserts sonnet for active and haiku for a profile with models.build=haiku, and the repository's plugins/delegate/agents/worker.md still says model: sonnet.",
+            "- Today (active unchanged) the test passes and the tree stays clean (it does now)."
+          ],
+          "path": "tests/test_bench_worker.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "the test calls derive_profile, which writes the tracked profiles/candidates/build-haiku.toml on every run"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading: the loop is over agent_definitions(profile), which reads agent_definitions_dir (delegate's agents). sdd's worker/fixer happen to share delegate's tiers (build/fix), so the result is right today; no profile enables sdd or product. Size: 10 minutes."
+          ],
+          "evidence": [
+            "lib/relay_bench.py:352-361; plugins/sdd/agents/{worker,fixer}.md relay-tier build/fix; profiles/*.toml plugins.enabled never lists sdd or product"
+          ],
+          "failing_case": [
+            "A profile that enables \"sdd\" with models.judge=sonnet: plugin_for_run copies plugins/sdd and rewrites only worker.md and fixer.md (names it takes from delegate's agents); sdd's reviewer, code-reviewer, spec-reviewer keep their own model line, so the change does not reach them. Expected: each agent file of a copied plugin takes the profile's model and effort for its own relay-tier."
+          ],
+          "fix_hint": [
+            "Loop over the copied plugin's agents/*.md, read relay-tier from each front matter, and set model/effort from profile models/effort for that tier."
+          ],
+          "id": "F3",
+          "kind": "inside",
+          "line": 352,
+          "pass_cases": [
+            "- active profile, plugins/delegate: worker.md copy says model: sonnet; with models.build=haiku it says haiku (as the test checks today).",
+            "- A plugin folder whose agent foo.md has relay-tier: judge, profile models.judge=sonnet: the copy's foo.md says model: sonnet.",
+            "- A plugin folder with no agents/ folder is returned unchanged (no copy)."
+          ],
+          "path": "lib/relay_bench.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "plugin_for_run rewrites any plugin's agents by the delegate agents' names, not by each file's own relay-tier"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading plugins/core/hooks/guard-main.sh:1-6,60-71 and ls plugins/front/hooks. Size: 5 minutes."
+          ],
+          "evidence": [
+            "ls plugins/front/hooks: budget.py handover.py hooks.json",
+            "guard-main.sh: \"Blocks ... Edit/Write/MultiEdit/NotebookEdit on a path inside the main checkout\"; main = parent of --git-common-dir"
+          ],
+          "failing_case": [
+            "docs/benchmark.md:65 and both scaffold.sh comments say \"the front's guard keeps agents out of a primary checkout\". The guard is plugins/core/hooks/guard-main.sh, and it blocks Edit/Write by anyone (the session itself too) in the main checkout. A reader looking in plugins/front/hooks (budget.py, handover.py) finds nothing."
+          ],
+          "fix_hint": [
+            "Replace \"the front's guard keeps agents out of\" with \"the core plugin's main-checkout guard blocks every write in\"."
+          ],
+          "id": "F4",
+          "kind": "inside",
+          "line": 65,
+          "pass_cases": [
+            "- docs/benchmark.md names the core plugin's main-checkout guard and says it blocks every write in a primary checkout.",
+            "- The two scaffold.sh comments say the same."
+          ],
+          "path": "docs/benchmark.md",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "docs and scaffold comments name 'the front's guard' that keeps 'agents' out; it is core's guard-main and it blocks every write, the session's too"
+        }
+      ],
+      "notes": [
+        "Pass cases of the brief hold in a real report, ~/.relay/bench/2026-10-24T05-53-03Z/report.md: delegate:worker started in all four rows; add-function and small-script score 1.00 under both setups; model usage differs (active: sonnet $0.07/$0.06; build-haiku: haiku $0.01/$0.01, no sonnet). Run costs: $0.43+$0.37+$0.40+$0.32 = $1.52 for the fixing run, $1.85 for the earlier 05-47 run.",
+        "The earlier run (05-47, prompt + scaffold, no plugin copy) shows build-haiku still spending on sonnet: this confirms the plugin-copy cause (the session starts delegate:worker from the plugin, and --agents only adds an unprefixed worker).",
+        "Cause of files landing elsewhere confirmed in guard-main.sh: main = parent of the git common dir; a workspace that is its own primary checkout blocks every Edit/Write, so the scaffold making it a linked worktree (primary at <ws>.main) is the right fix. run_one removes <ws>.main when not --keep.",
+        "The tests fail with the fix disabled by construction: the old scaffold gives a .git folder; the old prompts lack the phrases; plugin_for_run did not exist.",
+        "tests/test_relay.py:1479 calls claude_command without out_dir: unchanged path, fine. No lib copy of relay_bench.py in plugins, so no sync needed.",
+        "Not verified (paid): whether the scaffold fix alone, without the new prompt sentence, makes the active setup delegate (see Q1)."
+      ],
+      "reviewed": "2373c2fbfdfac2f5fbff02eaae54257f91b07089",
+      "schema": 1,
+      "scope": [
+        "Range master...HEAD in /Users/amidman/relay/.worktrees/bench-worker (3b28fbf + gate commit 2373c2f; .relay/ and docs/handover.md are the front's record).",
+        "Files read in full or in the touched parts: lib/relay_bench.py (profiles, agent_definitions, make_workspace, agent_used, claude_command, run_one, run_bench), evals/scenarios/{add-function,small-script}/{prompt.md,scaffold.sh,scenario.toml}, evals/scenarios/review-offbyone/scaffold.sh, evals/plugin/fixture (CLAUDE.md, .gitignore), plugins/delegate (agents front matter, hooks, route-guard.py), plugins/sdd/agents front matter, plugins/core/hooks/guard-main.sh (main-checkout detection), profiles/*.toml, docs/benchmark.md, tests/test_bench_worker.py, the brief.",
+        "Ran: pytest tests/test_bench_worker.py (3 passed, tree clean after); read bench results ~/.relay/bench/2026-10-24T05-47-12Z and 2026-10-24T05-53-03Z (results.json, report.md); gate log .relay/checks/3b28fbf...gate.log (head 3b28fbf, exit 0)."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}
