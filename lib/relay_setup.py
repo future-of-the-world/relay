@@ -540,7 +540,7 @@ def install(run_claude=True):
     import relay_config
     done, todo = [], []
     profile = relay_config.active_profile()
-    results = relay_rules.sync(profile, only={"global", "agents"}, adopt="global")
+    results = relay_rules.sync(profile, only={"global", "agents"}, adopt="global", wait=False)   # install renders the head the owner chose; a fresh machine has no green record
     for name, path, state in results:
         done.append(f"{name}: {state} ({path})")
     path, changed, removed = merge_user_settings(["core", "observe", "delegate", "front"])

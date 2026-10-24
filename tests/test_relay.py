@@ -1497,6 +1497,12 @@ class Bench(Base):
 
 
 class Rules(Base):
+    def setUp(self):
+        super().setUp()
+        # these tests sync into temporary targets; the wait for a green paid run is tested in test_paid_batch.py
+        old = os.environ.get("RELAY_SKIP_PAID_DUE"); os.environ["RELAY_SKIP_PAID_DUE"] = "1"
+        self.addCleanup(lambda: os.environ.__setitem__("RELAY_SKIP_PAID_DUE", old) if old is not None else os.environ.pop("RELAY_SKIP_PAID_DUE", None))
+
     def test_sync_writes_global_and_project_files(self):
         import relay_config
         import relay_rules

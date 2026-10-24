@@ -16,6 +16,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 
 import relay_roles
 from relay_config import ROOT, claude_dir, projects_file, read_toml
@@ -210,7 +211,26 @@ def refused(results):
     return [name for name, _, state in results if state.startswith((REFUSED, WOULD_REFUSE))]
 
 
-def sync(profile, only=None, adopt=None, dry=False):
+class Held(Exception):
+    """A sync that waits for the wave's green paid run; the text is the `bin/paid-cost due` list."""
+
+
+def paid_due():
+    """The `bin/paid-cost due` list when anything is due or it cannot be told, else None."""
+    done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "paid-cost"), "due", "--repo", ROOT], capture_output=True, text=True)
+    if done.returncode != 0:
+        return done.stderr.strip() or "bin/paid-cost due failed"
+    return done.stdout.strip() or None
+
+
+def sync(profile, only=None, adopt=None, dry=False, wait=True):
+    """Raises Held when a target outside the checkout would be written before the paid run is green.
+    `only` limited to agents writes nothing outside the checkout, so it never waits; the env name is for
+    tests that sync into temporary targets; install passes wait=False (a fresh machine has no record)."""
+    if wait and not dry and (not only or only - {"agents"}) and not os.environ.get("RELAY_SKIP_PAID_DUE"):
+        held = paid_due()
+        if held is not None:
+            raise Held(held)
     all_rules = rules()
     results = []
     for name, spec in targets().items():

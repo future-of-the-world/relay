@@ -124,6 +124,22 @@ class Due(unittest.TestCase):
         self.assertIn("paid-cost:", done.stderr)
 
 
+class CodeGrader(unittest.TestCase):
+    def data(self, passed):
+        return {"startedAt": "x", "costUsd": 1, "cases": [{"name": "c", "graders": [{"name": "rx", "type": "regex", "config": {"pattern": "p"}}],
+                "arms": {"with": [{"graders": [{"name": "rx", "passed": passed}]}]}}]}
+
+    def test_failed_regex_grader_is_not_green_and_exits_nonzero(self):
+        # the only failure is a code grader with passed false: not a pass, in both is_green and the report's last line
+        m = load_record()
+        self.assertFalse(m.is_green(self.data(False)))
+        self.assertIn("NOT A PASS", m.report(self.data(False), "")[-1])
+
+    def test_passing_regex_grader_is_green(self):
+        m = load_record()
+        self.assertTrue(m.is_green(self.data(True)))
+
+
 class RecordHead(unittest.TestCase):
     def test_store_writes_head_and_branch(self):
         m = load_record()
@@ -160,11 +176,41 @@ class SyncWaits(unittest.TestCase):
         self.assertIn("no green run recorded", done.stderr)
         self.assertFalse(written)
 
+    def test_sync_agents_only_does_not_wait(self):
+        # agents are assembled inside the checkout, so a due list does not hold them (the worker's step in a worktree);
+        # --dry would skip the wait anyway, so run it for real into an empty copy of the machine state
+        t = tempfile.TemporaryDirectory(); self.addCleanup(t.cleanup)
+        env = {k: v for k, v in os.environ.items() if k != "RELAY_SKIP_PAID_DUE"}
+        env.update(RELAY_HOME=os.path.join(t.name, "home"), CLAUDE_CONFIG_DIR=os.path.join(t.name, "claude"), RELAY_ROOT=ROOT)
+        done = subprocess.run(["python3", os.path.join(ROOT, "bin", "relay"), "sync", "agents"], env=env, capture_output=True, text=True)
+        self.assertNotIn("waits for a green paid run", done.stderr)
+
     def test_sync_dry_still_prints_its_plan(self):
         done, written = self.run_sync("--dry")
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertIn("a: would write", done.stdout)
         self.assertFalse(written)
+
+
+class OtherCallersWait(unittest.TestCase):
+    def test_rules_sync_raises_held_for_global_but_not_for_agents(self):
+        # relay_rules.sync is the one place every caller (setup, adopt, sync) passes; with a due list it refuses a
+        # target outside the checkout; dry and wait=False (install) go through
+        import sys
+        lib = os.path.join(ROOT, "lib")
+        sys.path.insert(0, lib); self.addCleanup(sys.path.remove, lib)
+        import relay_rules
+        saved = os.environ.pop("RELAY_SKIP_PAID_DUE", None)
+        if saved is not None:
+            self.addCleanup(os.environ.__setitem__, "RELAY_SKIP_PAID_DUE", saved)
+        self.addCleanup(setattr, relay_rules, "paid_due", relay_rules.paid_due)
+        relay_rules.paid_due = lambda: "abc1234 a rule"
+        with self.assertRaises(relay_rules.Held):
+            relay_rules.sync({}, only={"global"})
+        with self.assertRaises(relay_rules.Held):
+            relay_rules.sync({})
+        relay_rules.sync({}, only={"global"}, dry=True)
+        relay_rules.sync({}, only={"global"}, dry=True, wait=False)
 
 
 if __name__ == "__main__":

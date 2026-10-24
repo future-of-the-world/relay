@@ -112,8 +112,8 @@ same procedure written for the session that runs it.
 A worker in a worktree assembles the agent files with `<worktree>/bin/relay
 sync agents` only: never the `relay` on PATH (it is the main checkout's), never
 a full `relay sync` (it would render the unmerged `rules/` into
-`~/.claude/CLAUDE.md`), and it never sets `RELAY_ROOT`. After the owner-approved
-merge, the coordinator runs the full `relay sync` once from the main checkout.
+`~/.claude/CLAUDE.md`), and it never sets `RELAY_ROOT`. The coordinator runs the full `relay sync` once from the main checkout
+after the wave's paid run is green (it waits until `bin/paid-cost due` prints nothing).
 
 ## Rollback of the whole thing
 

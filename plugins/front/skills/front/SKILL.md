@@ -103,7 +103,7 @@ longer than the ~40 minutes a runner's turns cover, so never a runner: start it
 with Bash `run_in_background` into a log in the scratchpad (no `&`, no polling;
 the harness tells you when it exits) and, when told, read only the log's last lines.
 A red run is one fix item at the top of the queue (`relay queue add`, kind fix)
-naming each failing eval and the changes `due` listed; the next wave's run
+naming each failing eval and the changes `due` listed; when an open fix item already names that eval, add none (only the record path, if `relay queue` can); the next wave's run
 proves the fix. A run that is not a pass without a failing eval (money ceiling,
 runs not judged, the day's cap) adds no item: tell the owner in one line and run
 it again after the next wave. `relay sync` waits until `bin/paid-cost due` prints

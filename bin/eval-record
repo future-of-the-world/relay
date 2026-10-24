@@ -50,7 +50,7 @@ def judged_line(evidence, patterns):
 
 def report(data, record_path):
     """Returns the lines to print."""
-    notes, fails, splits, unjudged, bad = [], [], 0, 0, set()
+    notes, fails, splits, unjudged, bad, code_failed = [], [], 0, 0, set(), 0
     pairing = line_checks()
     if data.get("partial"):
         notes.append(f"    note: partial run: {data.get('partialReason', 'no reason given')}")
@@ -86,6 +86,9 @@ def report(data, record_path):
                         if m and int(m.group(1)) > 0:
                             flagged.setdefault(n, []).append(name.rsplit("-", 1)[1].capitalize())
                     if name not in llm:
+                        if g.get("passed") is False:   # a failed code (regex) grader fails the batch too
+                            code_failed += 1; bad.add(case["name"])
+                            fails.append(f"    FAIL {case['name']} run {n} {name}: code grader failed")
                         continue
                     votes = g.get("judgeVotes")
                     if not isinstance(votes, list) or len(votes) != 3:
@@ -106,7 +109,7 @@ def report(data, record_path):
             where = ", ".join(f"run {n}, {'/'.join(t)}" for n, t in sorted(flagged.items()))
             notes.append(f"    note: {case['name']}: a session in the run read the rule file in {len(flagged)} of {runs_total} runs ({where}), "
                          f"so those runs do not prove the hook delivered it")
-    head = f"ci: eval record: {sum(1 for l in fails if l.startswith('    FAIL'))} meaning grader(s) failed, {splits} split vote{'s' if splits != 1 else ''}"
+    head = f"ci: eval record: {sum(1 for l in fails if l.startswith('    FAIL')) - code_failed} meaning grader(s) failed, {splits} split vote{'s' if splits != 1 else ''}"
     head += f", {unjudged} not judged" if unjudged else ""
     cost = data.get("costUsd")
     head += f", cost ${cost:.2f}" if isinstance(cost, (int, float)) and not isinstance(cost, bool) else ""
@@ -114,7 +117,7 @@ def report(data, record_path):
     failed = sum(1 for l in fails if l.startswith("    FAIL"))
     if failed or unjudged or data.get("partial"):
         cases = sorted(bad)
-        out.append(f"ci: eval record: NOT A PASS: {failed} meaning grader(s) failed, {unjudged} not judged, in {', '.join(cases) or 'a partial run'}")
+        out.append(f"ci: eval record: NOT A PASS: {failed - code_failed} meaning grader(s) failed, {str(code_failed) + ' code grader(s) failed, ' if code_failed else ''}{unjudged} not judged, in {', '.join(cases) or 'a partial run'}")
     return out
 
 
