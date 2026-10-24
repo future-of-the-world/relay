@@ -14,7 +14,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
-import relay_checkpage  # noqa: E402
 import relay_verdict as rv  # noqa: E402
 
 RELAY = os.path.join(ROOT, "bin", "relay")
@@ -448,17 +447,13 @@ class Owner(RecordBase):
         self.assertEqual(rv.count_open(review, statuses), 1)           # the owner's word takes F1 out: only F2 is left
         self.assertEqual(rv.count_open(review, [dict(s, verdict="MET") for s in statuses]), 0)
 
-    def test_show_and_the_page_print_the_words_under_the_finding(self):
+    def test_show_prints_the_words_under_the_finding(self):
         self.assertEqual(self.record_review().returncode, 0)
         self.assertEqual(self.owner("F1", ["not wrong, because it is by design"]).returncode, 0)
         data = self.load()
         date = data["owner"][0]["date"]
         shown = self.relay("check", "show", self.report).stdout
         self.assertIn("  Owner (%s) says not wrong:\n    not wrong, because it is by design\n" % date, shown)
-        view = relay_checkpage.finding_view(data["findings"][0], rv.owner_of(data, "F1"))
-        self.assertIn("Owner: not wrong: not wrong, because it is by design (%s)" % date, relay_checkpage.render_finding(view, "not checked", []))
-        plain = relay_checkpage.render_finding(relay_checkpage.finding_view(data["findings"][0]), "not checked", [])
-        self.assertNotIn("Owner", plain)
 
 
 class OwnerMoved(RecordBase):
@@ -489,7 +484,7 @@ class OwnerMoved(RecordBase):
         text = "words = '''the owner: put it in the queue, $HOME'''\nqueue = \"%s\"\n" % slug
         return self.relay("check", "owner", self.report, fid, "--input", self.write_input(text, "move.toml"), cwd=self.repo)
 
-    def test_a_move_is_an_owner_entry_with_the_item_and_show_and_the_page_print_it(self):
+    def test_a_move_is_an_owner_entry_with_the_item_and_show_prints_it(self):
         done = self.move()
         self.assertEqual(done.returncode, 0, done.stderr)
         data = self.load()
@@ -498,9 +493,6 @@ class OwnerMoved(RecordBase):
         self.assertEqual(rv.review_errors(data), [])
         shown = self.relay("check", "show", self.report).stdout
         self.assertIn("  Owner (%s) moved to queue item redo-x:\n    the owner: put it in the queue, $HOME\n" % entry["date"], shown)
-        view = relay_checkpage.finding_view(data["findings"][1], rv.owner_of(data, "F3"))
-        self.assertIn("Owner: moved to queue item redo-x: the owner: put it in the queue, $HOME (%s)" % entry["date"],
-                      relay_checkpage.render_finding(view, "not checked", []))
 
     def test_a_slug_that_is_not_on_the_default_branch_is_refused_and_the_review_is_unchanged(self):
         before = self.read_report()

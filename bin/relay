@@ -52,12 +52,9 @@
   relay check owner <review.json> <id> --input <file.toml>
                                      keep the owner's word that finding <id> is not wrong: the TOML holds `words` (the owner's
                                      words as said, '''...''' for several lines); appended with the date to the review's
-                                     `owner` list; a checker counts that finding as not wrong; show and the page print it.
+                                     `owner` list; a checker counts that finding as not wrong; show prints it.
                                      With `queue = "<slug>"` in the TOML the word is that the finding moved to that queue
                                      item (it must be on the default branch): it counts under `queued`, not `open`
-  relay check page [-C <repo>] <branch> [-o <file>]
-                                     one HTML file for the person's step, built from the stored checks (default
-                                     <repo>/.ci/page-<name>.html); it only writes the file, the front publishes it
   relay queue [count|show|check|migrate|land|ip|take|release|done|drop|add] ...
                                      the work queue (.relay/queue/ on the default branch): `relay queue` lists it,
                                      `relay queue count` gives the one-line count; see `relay queue -h`
@@ -75,7 +72,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "lib"))
 
 import relay_analyze  # noqa: E402
 import relay_bench  # noqa: E402
-import relay_checkpage  # noqa: E402
 import relay_config  # noqa: E402
 import relay_gate  # noqa: E402
 import relay_git  # noqa: E402
@@ -536,23 +532,21 @@ def cmd_check_record(args):
 
 
 def cmd_check(args):
-    usage = ("relay check show [-C <repo>] [--brief] <branch | report.json | sha>  |  relay check page [-C <repo>] <branch> [-o <file>]  |  "
+    usage = ("relay check show [-C <repo>] [--brief] <branch | report.json | sha>  |  "
              "relay check record review|check --input <file.toml>  |  " + OWNER_USAGE)
     if args and args[0] == "record":
         return cmd_check_record(args[1:])
     if args and args[0] == "owner":
         return cmd_check_owner(args[1:])
-    if not args or args[0] not in ("show", "page"):
+    if not args or args[0] not in ("show",):
         raise Usage(usage)
-    verb, args, repo, out, rest, brief = args[0], list(args[1:]), ".", None, [], False
+    args, repo, rest, brief = list(args[1:]), ".", [], False
     while args:
         arg = args.pop(0)
         if arg == "-C" and args:
             repo = args.pop(0)
-        elif arg == "--brief" and verb == "show":
+        elif arg == "--brief":
             brief = True
-        elif arg == "-o" and args and verb == "page":
-            out = args.pop(0)
         elif arg.startswith("-"):
             raise Usage(usage)
         else:
@@ -561,11 +555,8 @@ def cmd_check(args):
         raise Usage(usage)
     args = rest
     try:
-        if verb == "show":
-            print(show_check(os.path.realpath(repo), args[0], brief), end="")
-        else:
-            print(relay_checkpage.write(os.path.realpath(repo), args[0], out))
-    except (relay_marks.MarkError, relay_checkpage.PageError, relay_verdict.VerdictError) as exc:
+        print(show_check(os.path.realpath(repo), args[0], brief), end="")
+    except (relay_marks.MarkError, relay_verdict.VerdictError) as exc:
         raise ValueError(str(exc))
     return 0
 

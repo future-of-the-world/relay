@@ -729,7 +729,7 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
 
 def add_from(repo, report, fid, why="", minutes=None, ip=None, now=None, **engine):
     """Queue the finding `fid` recorded beside `report` as a fix item: its place and failing case are copied, its
-    linter line (relay_verdict.linter) is the item's `what`, so the check page can tell which item carries it."""
+    linter line (relay_verdict.linter) is the item's `what`."""
     found = find_finding(report, fid)
     context = f"finding {fid} of {os.path.basename(report)}"
     summary = found["summary"]

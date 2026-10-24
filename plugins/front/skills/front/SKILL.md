@@ -60,25 +60,19 @@ what changes either way, and exactly what the owner should do.
 
 Where the project has `.relay/`, a change is ready when the checker's verdict
 says `open 0` and the branch has a green gate. The owner decides the merge from
-one chat screen and one private page. Ask a runner for the numbers: `relay
-check show <branch>` prints three lines (the gate, the check, the findings
-outside the change), and `relay check page <branch>` writes the page as an HTML
-file (the path it prints). You never read the review, the check report or the
-gate log; of the stored files you read only that one HTML file, once, to
-publish it.
+one chat screen. Ask a runner for the numbers: `relay check show <branch>`
+prints three lines (the gate, the check, the findings outside the change); the
+main review point is the critic's hand-back line on the finding that matters most, in plain words. You never read the review, the check report or the gate log. No page and no
+Artifact: the owner reads this screen and nothing else.
 
-Publish the page yourself with your Artifact tool, as a private claude.ai page,
-and put its link on the screen. Scripts, hooks and agents only write the file;
-none of them publishes. When the Artifact tool errors, the screen gives the
-page's file path instead and says why, and the owner opens it in a browser.
-
-The screen, at most one screen:
+The screen, at most one screen (the change, what it does for the owner, the
+checks, the question):
 
 ```
 <project> (what it does): <the change, in the owner's terms> is ready to merge.
 What it does for you: <the effect, in one or two lines>
 Checks: free checks green. Review: <n> inside the change, all fixed and checked;
-<m> outside, added to the work queue. Page: <link>
+<m> outside, added to the work queue. Main review point: <one plain line>.
 1. Merge it now?
    a (recommended) merge   b hold (say what to change)
 ```
