@@ -3,7 +3,35 @@
     {
       "id": "F1",
       "reason": [
-        "tests/test_relay.py:1971 and :1977 both exist and pass; gate green on d45ca21."
+        "rules/git.md:10-14 scopes to .relay/, elsewhere and Glonass ask; tests/test_relay.py:1982 passes. Issues merge skill step 4 now agrees."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "Owner answered a (only .relay/ projects); recorded by the F1 scope in rules/git.md."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "plugins/delegate/skills/delegate/SKILL.md:147-150 names readiness with paid run; tests/test_relay.py:1988 passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "front SKILL.md:69-70 template has the paid-run slot; review-gate.md example matches; tests/test_relay.py:1995 passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "review-gate.md person's-step definition, row 4 text, rows 1 and 10 superseded; core README:163 reworded."
       ],
       "verdict": "MET"
     }
@@ -12,17 +40,17 @@
   "head": "8726e88c0b1c12d3bd65bac1a4c025004070940d",
   "new": [],
   "notes": [
-    "none"
+    "Gate is QUICK MODE (paid steps skipped); the paid run for this text change remains the front's before merge. Rows 27/36 cited in F5 are rows 1 and 10 after renumbering; both marked superseded."
   ],
   "open": 0,
   "queued": 0,
   "review": [
-    "d45ca2196c6698217de182384a20cbe91b3ba4f3.review.json"
+    "307b15cda3d562ecf705f14209d51da9d659cb47.review.json"
   ],
-  "reviewed": "d45ca2196c6698217de182384a20cbe91b3ba4f3",
+  "reviewed": "307b15cda3d562ecf705f14209d51da9d659cb47",
   "schema": 1,
   "scope": [
-    "Fixes none. relay changed lists no file after the reviewed sha (only the gate log commit). Gate log head d45ca21, exit 0. No conflict markers in tests/test_relay.py; ran the 4 tests of AutoMergeTextsTest and TestPrinciplesRule.test_a_project_with_load_principles_carries_it: pass."
+    "Fix range 307b15c..HEAD; own files: review-gate.md, core README, delegate and front skills, rules/git.md, tests/test_relay.py (all named by findings). Gate log head d45ca21, exit 0, no code files after it (8726e88 is the gate commit). Ran AutoMergeTextsTest: 3 passed. Read the fix diff."
   ],
   "type": "check"
 }
