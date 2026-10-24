@@ -1,0 +1,60 @@
+{
+  "reviewed": "37445178198a80de95c66e79a73496457a061875",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "merge-projects-out.json",
+      "findings": [
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F1",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes",
+            "projects.toml holds only [global] and [relay], and [relay] loads principles"
+          ],
+          "path": "projects.toml",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "combined with master's change by the merge"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails, a conflict marker remains, or a test class of either side is lost"
+          ],
+          "fix_hint": [],
+          "id": "F2",
+          "kind": "inside",
+          "line": 1863,
+          "pass_cases": [
+            "the gate passes",
+            "TestNoOwnerProjects, TestInstallRegistersNoProject and TestPrinciplesRule all exist and pass; TestTasteRule is gone as on master"
+          ],
+          "path": "tests/test_relay.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "conflict with master's change resolved in the merge by keeping both test classes"
+        }
+      ],
+      "notes": [
+        "Fixes: none beyond the conflict resolution in the merge commit itself."
+      ],
+      "reviewed": "37445178198a80de95c66e79a73496457a061875",
+      "schema": 1,
+      "scope": [
+        "The merge of master (the principles rule) into wt/projects-out; relay changed --own lists projects.toml (combined by git) and tests/test_relay.py (a conflict: both sides added a test class at the same place; resolved by the front by keeping both, TestNoOwnerProjects and TestInstallRegistersNoProject before TestPrinciplesRule, which replaces TestTasteRule)."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}

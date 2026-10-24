@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "gate green on reviewed sha; projects.toml has only [global], [relay]"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_relay.py:1863,1878,1905 classes exist and pass; TestTasteRule gone; no markers"
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/projects-out/.relay/checks/37445178198a80de95c66e79a73496457a061875.gate.log",
+  "head": "36572e126adc3c8b0893343e544c9b7489254740",
+  "new": [],
+  "notes": [
+    "none"
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "37445178198a80de95c66e79a73496457a061875.review.json"
+  ],
+  "reviewed": "37445178198a80de95c66e79a73496457a061875",
+  "schema": 1,
+  "scope": [
+    "Fixes none. relay changed --own since reviewed sha lists no file; HEAD only adds the gate commit. Gate log head is the reviewed sha, ends exit 0. Ran the three test classes (11 passed); no conflict markers; projects.toml holds [global] and [relay]."
+  ],
+  "type": "check"
+}

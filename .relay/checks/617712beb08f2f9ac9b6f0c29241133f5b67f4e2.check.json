@@ -1,0 +1,42 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "README.md, START_HERE.md steps 2 and 5, docs/setup.md and the bin/relay Next line no longer mention the import; grep empty."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_relay.py:1878 test_install_does_not_import_principles_projects: tmp HOME with principles/projects.toml, install(run_claude=False), projects.toml bytes compared; passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "Question; owner answered a (leave as is). No change required."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/projects-out/.relay/checks/9a1f055edc04d5f656836f49fd0623a85c1b1a15.gate.log",
+  "head": "617712beb08f2f9ac9b6f0c29241133f5b67f4e2",
+  "new": [],
+  "notes": [
+    "The fixer says the new test fails with the import injected; I read the test and it encodes the case. The fix to the Next line in bin/relay has no other caller."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "fe04fc411af2d1f9e02fdbd70107465646d87e1e.review.json"
+  ],
+  "reviewed": "fe04fc411af2d1f9e02fdbd70107465646d87e1e",
+  "schema": 1,
+  "scope": [
+    "Fix range fe04fc4..HEAD. Changed own files: README.md, START_HERE.md, bin/relay, docs/setup.md, tests/test_relay.py (all in scope). Gate log head 9a1f055, exit 0; HEAD adds only the gate log. Ran TestNoOwnerProjects and TestInstallRegistersNoProject (2 passed). grep for principles/projects.toml in the three docs is empty."
+  ],
+  "type": "check"
+}

@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "gate log exit 0 on reviewed sha"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "gate log exit 0 on reviewed sha"
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/principles/.relay/checks/f7bb444d66cb0dec4a5e5825263b7b8815bf578f.gate.log",
+  "head": "2922fd936bf4fc938cf3326414639f6d532c57f8",
+  "new": [],
+  "notes": [
+    "Merge-only review; the gate passing is the pass-case."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "f7bb444d66cb0dec4a5e5825263b7b8815bf578f.review.json"
+  ],
+  "reviewed": "f7bb444d66cb0dec4a5e5825263b7b8815bf578f",
+  "schema": 1,
+  "scope": [
+    "Fixes none. relay changed --own after the reviewed sha lists no file (only the gate commit). Gate log starts with head f7bb444, ends exit 0."
+  ],
+  "type": "check"
+}

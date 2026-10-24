@@ -21,9 +21,8 @@
   relay profile [<name>]             show the active profile, or a candidate
   relay sync [--dry] [--adopt <target>]
                                      write ~/.claude/CLAUDE.md, each project's CLAUDE.local.md, agent models
-  relay install [--principles ~/principles] [--no-claude]
-                                     this machine onto relay: global CLAUDE.md, user settings, plugins, the
-                                     projects the principles library knew
+  relay install [--no-claude]
+                                     this machine onto relay: global CLAUDE.md, user settings, plugins
   relay migrate --all [--apply]      the migration plan (or the move) for every known project
   relay setup [<dir>] [--flow openspec|issues|none] [--product|--no-product] [--no-global]
                                      a project onto relay (new or existing; nothing deleted)
@@ -378,9 +377,8 @@ def cmd_setup(args, migrate=False):
 
 
 def cmd_install(args):
-    principles = flag(args, "--principles", "~/principles")
     no_claude = flag(args, "--no-claude", takes_value=False)
-    done, todo = relay_setup.install(principles=principles, run_claude=not no_claude)
+    done, todo = relay_setup.install(run_claude=not no_claude)
     print("# relay install\n\nDone:")
     for d in done:
         print(f"- {d}")
@@ -388,7 +386,7 @@ def cmd_install(args):
         print("\nYours to do:")
         for n, t in enumerate(todo, 1):
             print(f"{n}. {t}")
-    print("\nNext: `relay migrate --all` (the plan for every project), then `relay doctor`.")
+    print("\nNext: `relay setup <dir>` to add a project, then `relay doctor`.")
     return 0
 
 
@@ -397,7 +395,7 @@ def cmd_migrate_all(args):
     principles = flag(args, "--principles", "~/principles")
     projects = relay_setup.known_projects()
     if not projects:
-        print("No projects registered (relay install imports them from ~/principles/projects.toml; relay setup <dir> adds one).")
+        print("No projects registered (relay setup <dir> adds one).")
         return 0
     for name, root, exists in projects:
         print(f"\n==== {name} ({root})")

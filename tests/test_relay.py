@@ -1860,8 +1860,50 @@ class DefaultBranch(unittest.TestCase):
         self.assertIsNone(self.relay_git.main_checkout(self.tmp))
 
 
-class TestTasteRule(unittest.TestCase):
-    """The experimental taste rule is loaded by the relay project's CLAUDE.local.md and by no other target."""
+class TestNoOwnerProjects(unittest.TestCase):
+    """relay is portable: its own projects.toml names only global and relay, and install imports nothing."""
+
+    def test_projects_toml_has_only_global_and_relay(self):
+        import relay_config
+        data = relay_config.read_toml(os.path.join(ROOT, "projects.toml"))
+        self.assertEqual(sorted(data), ["global", "relay"])
+
+    def test_install_has_no_import_from_a_principles_library(self):
+        import inspect
+        import relay_setup
+        self.assertFalse(hasattr(relay_setup, "import_principles_projects"))
+        self.assertNotIn("principles", inspect.signature(relay_setup.install).parameters)
+
+
+class TestInstallRegistersNoProject(Base):
+    """install leaves projects.toml as it is even when a principles library with projects.toml sits in HOME."""
+
+    def test_install_does_not_import_principles_projects(self):
+        old_home = os.environ.get("HOME")
+        home = os.path.join(self.tmp, "home")
+        os.makedirs(os.path.join(home, "principles"))
+        with open(os.path.join(home, "principles", "projects.toml"), "w") as handle:
+            handle.write('[alix]\nfile = "~/alix/CLAUDE.local.md"\n\n[arsenal]\nfile = "~/arsenal/CLAUDE.local.md"\n')
+        os.environ["HOME"] = home
+        try:
+            projects = os.environ["RELAY_PROJECTS"]
+            with open(projects, "rb") as handle:
+                before = handle.read()
+            import relay_setup
+            done, _ = relay_setup.install(run_claude=False)
+            with open(projects, "rb") as handle:
+                after = handle.read()
+        finally:
+            if old_home is None:
+                os.environ.pop("HOME", None)
+            else:
+                os.environ["HOME"] = old_home
+        self.assertEqual(before, after)
+        self.assertFalse([line for line in done if "imported" in line.lower()])
+
+
+class TestPrinciplesRule(unittest.TestCase):
+    """The principles rule is carried by the targets that load it (relay, any opting-in project) and not by the global file."""
 
     def _targets(self):
         import relay_config
@@ -1869,13 +1911,13 @@ class TestTasteRule(unittest.TestCase):
 
     def test_rule_has_the_shape(self):
         import relay_rules
-        self.assertEqual(relay_rules.rules()["taste"]["title"], "Taste (experimental)")
+        self.assertEqual(relay_rules.rules()["principles"]["title"], "Principles")
 
-    def test_global_file_does_not_list_taste_but_still_lists_the_others(self):
+    def test_global_file_does_not_list_principles_but_still_lists_the_others(self):
         # F2: a rule only relay loads stays out of the global read list; the rest of the list is unchanged
         import relay_rules, relay_config
         text = relay_rules.render_target("global", self._targets()["global"], relay_rules.rules(), relay_config.active_profile())
-        self.assertNotIn("Taste", text)
+        self.assertNotIn("Principles", text)
         for title in ("OpenSpec", "Product work", "Quality gate", "Work queue", "Structured data"):
             self.assertIn(f"**{title}", text)
 
@@ -1905,22 +1947,31 @@ class TestTasteRule(unittest.TestCase):
         self.assertNotIn("native language", relay_rules.render_target("demo", {"load": [], "native_language": "Russian"}, rules, {}))
         self.assertEqual(self._targets()["global"]["native_language"], "Russian")
 
-    def test_only_the_relay_target_loads_it(self):
-        # relay is the one project target whose load names taste; the global profile loads none of it
-        loaders = sorted(name for name, spec in self._targets().items() if "taste" in spec.get("load", []))
-        self.assertEqual(loaders, ["relay"])
+    def test_relay_loads_it_and_the_global_profile_does_not(self):
+        # relay opts in by load; the global profile loads none of it (other projects opt in the same way)
+        loaders = sorted(name for name, spec in self._targets().items() if "principles" in spec.get("load", []))
+        self.assertIn("relay", loaders)
         import relay_config
         for profile in sorted(n for n in os.listdir(os.path.join(ROOT, "profiles")) if n.endswith(".toml")):
             data = relay_config.read_toml(os.path.join(ROOT, "profiles", profile))
-            self.assertNotIn("taste", data.get("rules", {}).get("load", []), profile)
+            self.assertNotIn("principles", data.get("rules", {}).get("load", []), profile)
 
     def test_relay_target_renders_the_rule_in_full_and_nothing_else(self):
         import relay_rules
         spec = self._targets()["relay"]
         text = relay_rules.render_target("relay", spec, relay_rules.rules(), {})
-        self.assertIn("## Taste (experimental)", text)
-        self.assertIn("You have taste for waste.", text)
+        self.assertIn("## Principles", text)
+        for n in range(1, 10):
+            self.assertIn(f"## {n}. ", text)
+        self.assertIn("waste that repeats on every run or every change is MEDIUM", text)
+        self.assertNotIn("aste (experimental)", text)
         self.assertNotIn("Rules to read when they apply", text)
+
+
+    def test_a_project_with_load_principles_carries_it(self):
+        import relay_rules
+        text = relay_rules.render_target("demo", {"load": ["principles"]}, relay_rules.rules(), {})
+        self.assertIn("## 9. Decide inside the principles", text)
 
 
 class AutoMergeTextsTest(unittest.TestCase):
