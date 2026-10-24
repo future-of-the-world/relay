@@ -18,6 +18,11 @@ ENGLISH = ("Done. The workflow finished and the change is complete. I merged the
            "branch, the gate is green and the paid run cost nine dollars. Next I will start the next item.")
 # English clause with one Russian word next to it: still not an IT term run.
 ENGLISH_WITH_ONE_RUSSIAN_WORD = ENGLISH + " Готово."
+# F1: a comma list of terms is not one English clause; punctuation splits the run into segments of at most three.
+TERM_LIST = "Что сделано: merge, branch, commit, fast-forward, hook теперь пишутся по-английски."
+TERM_LIST_2 = "Готово: merge прошёл, CI green, review OK, paid eval run запущен, flaky test fixed."
+# Short English sentences with no native word at all: nothing to skip.
+ENGLISH_SHORT = "Done. Merged the branch. Gate is green. Paid run done. Next item starts now. Ok then."
 
 
 class ItTerms(unittest.TestCase):
@@ -43,6 +48,19 @@ class ItTerms(unittest.TestCase):
     def test_q1_a_reply_really_in_english_is_still_refused(self):
         self.assertEqual(self.run_hook(ENGLISH)["decision"], "block")
         self.assertEqual(self.run_hook(ENGLISH_WITH_ONE_RUSSIAN_WORD)["decision"], "block")
+
+    def test_f1_comma_list_of_it_terms_is_not_refused(self):
+        # share is 0.50 and 0.42 with the old run counting (one run of 5 Latin words); every segment is at most 3 words
+        self.assertIsNone(self.run_hook(TERM_LIST))
+        self.assertIsNone(self.run_hook(TERM_LIST_2))
+
+    def test_f1_short_english_sentences_are_still_refused(self):
+        self.assertEqual(self.run_hook(ENGLISH_SHORT)["decision"], "block")
+
+    def test_f4_refusal_says_it_terms_stay_in_english(self):
+        reason = self.run_hook(ENGLISH)["reason"]
+        self.assertIn("IT terms", reason)
+        self.assertIn("English", reason)
 
     def test_q1_rule_text_keeps_it_terms_in_english_and_internal_names_out(self):
         with open(os.path.join(ROOT, "rules", "working-with-me.md"), encoding="utf-8") as f:
