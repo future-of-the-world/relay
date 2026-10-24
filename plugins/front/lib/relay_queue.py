@@ -913,15 +913,9 @@ def _holds_test(path, name, source):
     return re.search(pattern, source) is not None
 
 
-def close_refusal(repo, ref, slug, test):
-    """None when the item `slug` may be closed with `test` at `ref` of `repo`, else the refusal line. The one rule of
-    `relay queue done` (ref HEAD of the task worktree) and of the merge guard (ref the branch): what may change after the check.
-
-    The test is `<file>::<name>` or `<file>::<Class>::<name>`: the file is in the tree at `ref` and defines the test (`holds_test`).
-    For a fix item, the newest check mark of the branch with no file of the branch's own changed since (the inert files do not
-    count: `relay_inert`) must be of this item and its finding Q1 must be MET."""
-    import relay_inert
-    import relay_marks
+def test_refusal(repo, ref, test):
+    """None when the test named by `test` (`<file>::<name>` or `<file>::<Class>::<name>`) is in the tree at `ref` of `repo` and
+    defined there (`holds_test`), else the refusal line."""
     path, _, rest = test.strip().partition("::")
     name = rest.split("::")[-1].strip()
     if not path.strip() or not name:
@@ -931,6 +925,25 @@ def close_refusal(repo, ref, slug, test):
         return f"the test file {path.strip()} is not in the last commit of the branch"
     if not holds_test(test, source.decode("utf-8", "replace")):
         return f"{path.strip()} does not hold a test named {name}"
+    return None
+
+
+def close_refusal(repo, ref, slug, test):
+    """None when the item `slug` may be closed with `test` at `ref` of `repo`, else the refusal line. The one rule of
+    `relay queue done` (ref HEAD of the task worktree) and of the merge guard (ref the branch): what may change after the check.
+    It is `test_refusal` and `check_refusal` at one ref; the merge guard of a train asks them at different refs.
+
+    The test is `<file>::<name>` or `<file>::<Class>::<name>`: the file is in the tree at `ref` and defines the test (`holds_test`).
+    For a fix item, the newest check mark of the branch with no file of the branch's own changed since (the inert files do not
+    count: `relay_inert`) must be of this item and its finding Q1 must be MET."""
+    return test_refusal(repo, ref, test) or check_refusal(repo, ref, slug)
+
+
+def check_refusal(repo, ref, slug):
+    """The check part of `close_refusal`: None when the item is not a fix, or the newest usable check at `ref` is of it with Q1 MET;
+    else the refusal line."""
+    import relay_inert
+    import relay_marks
     kind = None
     for sub in ("", "done/"):
         rc, out, _ = _git(repo, "cat-file", "blob", f"{ref}:{_path(slug, sub)}")

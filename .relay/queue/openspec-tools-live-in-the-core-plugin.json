@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 60,
+  "time": 30,
+  "found_at": "2026-10-24T16:55:55Z",
+  "found_in": "relay queue add",
+  "title": "OpenSpec tools live in the core plugin",
+  "what": [
+    "Move kit packet and kit spec-check, which only serve OpenSpec, from the core plugin into the openspec plugin, so core carries nothing spec-specific."
+  ],
+  "why": [
+    "Proposed by the OpenSpec design (reports/design-openspec.md rev 2, 24 Oct) as a LOW follow-up, after the owner's decision that spec writing is an opt-in method beside relay's own cycle."
+  ],
+  "failing_case": [
+    "plugins/core/lib/kit_packet.py and kit_spec_check.py are OpenSpec tools in core (design, facts list)."
+  ],
+  "pass_cases": [
+    "core has no OpenSpec-only code; kit packet and kit spec-check work from the openspec plugin; their tests pass."
+  ],
+  "where": "plugins/core/lib/kit_packet.py, plugins/core/lib/kit_spec_check.py, plugins/openspec/",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

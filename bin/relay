@@ -45,9 +45,10 @@
   relay check show [-C <repo>] [--brief] <report.json | sha>
                                      a recorded review or check printed as readable text (all of it, or with --brief
                                      the 10-line summary); a sha shows the stored check record of that commit
-  relay check findings [-C <worktree>] --review <review.json> [--review <review.json> ...]
+  relay check findings [-C <worktree>] [--review <review.json> ...]
                                      the findings a check must give a verdict for, with their ids (Q1 the queue item, F the
-                                     reviews' findings, M merges of the default branch since the last check)
+                                     reviews' findings, M merges of the default branch since the last check); a merge train
+                                     (a branch that holds ready changes) needs no review: only its M findings
   relay check record review|check --input <file.toml>
                                      a judge's way to write its verdict (a check is ONE record: see roles/judge.md): the TOML input names the report (a .json path)
                                      and holds the fields and prose; validated, then written as JSON (agents never type
@@ -505,7 +506,9 @@ def cmd_changed(args):
             rest.append(arg)
     if len(rest) not in (1, 2):
         raise Usage(usage)
-    for path in relay_inert.changed(os.path.realpath(repo), rest[0], rest[1] if len(rest) == 2 else "HEAD", own=own):
+    repo, until = os.path.realpath(repo), rest[1] if len(rest) == 2 else "HEAD"
+    held = relay_inert.absorbed(repo, until) if own else None        # the ready changes a train holds are not its own files
+    for path in relay_inert.changed(repo, rest[0], until, own=own, absorbed=held):
         print(path)
     return 0
 
@@ -574,7 +577,7 @@ def cmd_check_record(args):
     return 0
 
 
-FINDINGS_USAGE = "relay check findings [-C <worktree>] --review <review.json> [--review <review.json> ...]"
+FINDINGS_USAGE = "relay check findings [-C <worktree>] [--review <review.json> ...]"
 
 
 def cmd_check_findings(args):
@@ -588,8 +591,6 @@ def cmd_check_findings(args):
             reviews.append(os.path.abspath(args.pop(0)))
         else:
             raise Usage(FINDINGS_USAGE)
-    if not reviews:
-        raise Usage(FINDINGS_USAGE)
     try:
         print("\n".join(relay_verdict.finding_list(os.path.realpath(wt), reviews)))
     except relay_verdict.VerdictError as exc:

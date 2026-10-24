@@ -20,8 +20,8 @@
   "where": "rules/git.md (ready to merge), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md step 8, plugins/core/hooks/merge.py",
   "taken_at": "2026-10-24T15:18:32Z",
   "taken_by": "wt/regate",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T17:38:41Z",
+  "test": "tests/test_merge_train.py::TheTrainLands::test_q1_ready_changes_merge_with_one_gate_for_the_wave",
   "dropped_at": null,
   "dropped_why": null
 }

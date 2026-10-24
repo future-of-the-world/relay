@@ -1,0 +1,27 @@
+{
+  "kind": "feature",
+  "ip": 40,
+  "time": 120,
+  "found_at": "2026-10-24T16:55:55Z",
+  "found_in": "relay queue add",
+  "title": "The change cycle builds independent groups in parallel",
+  "what": [
+    "A change whose tasks split into independent groups (no shared files) builds them with parallel workers, then one gate; for every project, not only spec projects (the OpenSpec waves were dropped in favour of one cycle)."
+  ],
+  "why": [
+    "Proposed by the OpenSpec design (24 Oct): dropping the OpenSpec waves costs about twice the wall time on a 6-group change; the owner's standing order is speed. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "After spec-writing-leaves-the-main-pipeline-sdd-become, a 6-group change builds its groups one after another."
+  ],
+  "pass_cases": [
+    "Groups with no shared file build in parallel; groups that share a file go in order; one gate after all."
+  ],
+  "where": "plugins/delegate/skills/delegate/SKILL.md (Build step), the workflow scripts",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

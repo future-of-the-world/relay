@@ -153,6 +153,16 @@ be merged:
    checker's `relay check findings` lists it as `M<n>` (one for each such file), so nothing is written
    by hand; a fixer resolves a conflict first (none for a clean combination, `Fixes: none`); then
    `relay gate`, then the checker. Files that only the default branch changed need no new check.
+   When several ready changes wait, take the default branch only into the change
+   that merges next, or build a train (the front skill says who rides): a runner
+   adds the worktree `.worktrees/train-<n>` on branch `wt/train-<n>` from the
+   default branch, runs `git -C <train> merge --no-ff --no-edit wt/<change>`
+   once for each rider (a conflict: `git merge --abort`, and that change merges
+   alone after the train), then `relay gate -- --quick` in the train. `relay
+   changed --own <base> -C <train>` (the train's merge-base with the default
+   branch) lists the files both riders changed; with none, the train needs no
+   check (each rider's own check covers its files); with some, start a merge
+   check (Prompts).
 9. **To the owner.** What is NOT MET, new, Disputed, Gap or Outside comes as a
    numbered list with a recommendation. Another fix runs on the owner's word
    and is checked the same way (a fix, a gate, a check). Every change that
@@ -195,6 +205,12 @@ Prompts:
 > Review the change. Range: `<base>...HEAD` in `<worktree>`. Report: `<path>.json`.
 
 > Check: `<findings file>`. Fixes: `<fixer report>`. Worktree: `<path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<path>.json`.
+
+> Merge check: `<train worktree>`. Findings: `relay check findings -C <train>` (M only, no review). Gate: `<train gate log>`. Report: `<path>.json`.
+
+The merge check is a check with `review = []` in its input; `relay` allows it only
+on a branch that holds ready changes (a train). It gives a verdict for each
+combined file and no other finding.
 
 This check prompt is the one line, never `Brief: <file>`. Under `relay gate`,
 `Gate:` is `<worktree>/.relay/checks/<G>.gate.log`.
