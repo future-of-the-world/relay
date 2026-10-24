@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "tests/test_archive_inert.py::ArchiveAfterTheMark::test_an_archive_only_commit_after_the_mark_is_allowed passes, fails at base (Refused); code-after-mark still refused (test_the_same_commit_plus_a_code_line_is_refused)."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/archive-inert/.relay/checks/521704a985d8005dfc5afedd0624f469a40f2957.gate.log",
+  "head": "7f7d037f661fc00afa2d44f92b28f0cd240fa2cb",
+  "new": [],
+  "notes": [
+    "Tests test_an_archive_only_commit_after_the_mark_is_allowed and test_a_failing_git_is_an_error_not_an_allowed_merge fail at the base commit; the other four are guards that pass both ways."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "b12b74967d2fc1199174845df8e6540b08090bfe.review.json"
+  ],
+  "reviewed": "b12b74967d2fc1199174845df8e6540b08090bfe",
+  "schema": 1,
+  "scope": [
+    "Range b12b749..HEAD; own files: lib/relay_inert.py, its plugin copy, merge.py, archive SKILL.md, tests/test_archive_inert.py. Ran the new test file (6 pass) and full tests (323 pass). Gate log head 521704a exit 0; relay changed since it lists nothing. Callers of changed() in merge.py pass archive=True; others default False."
+  ],
+  "type": "check"
+}

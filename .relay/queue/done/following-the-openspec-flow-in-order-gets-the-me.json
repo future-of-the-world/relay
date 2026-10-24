@@ -20,8 +20,8 @@
   "where": "lib/relay_inert.py:14-18, plugins/core/hooks/merge.py:172, plugins/sdd/skills/archive/SKILL.md:20-25,73-75",
   "taken_at": "2026-10-24T03:53:51Z",
   "taken_by": "wt/archive-inert",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T04:33:24Z",
+  "test": "tests/test_archive_inert.py::ArchiveAfterTheMark::test_an_archive_only_commit_after_the_mark_is_allowed",
   "dropped_at": null,
   "dropped_why": null
 }
