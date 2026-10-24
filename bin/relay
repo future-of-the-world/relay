@@ -679,6 +679,7 @@ relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree>   (a branch holds one fix item; the check states its problem as finding Q1)
 relay queue release <slug>
 relay queue done <slug> -C <worktree> --test <file>::<name>   (a fix: the branch's newest check, with no own file changed since, has Q1 MET)
+relay queue done <slug> --evidence <merge sha or report path>   (a feature finished without a branch of relay's own; a fix is refused: it needs --test)
 relay queue drop <slug> --input <file.toml>
                                          the TOML holds `why`: the owner's words (text in '''...''')
 Every form takes [-C <repo>] (default: the current folder)."""
@@ -798,7 +799,7 @@ def cmd_queue(args):
             raise Usage(str(e))
         return 0
     spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--input": str}, 1),
-            "take": ({}, 1), "done": ({"--test": str}, 1)}
+            "take": ({}, 1), "done": ({"--test": str, "--evidence": str}, 1)}
     extra, count = spec[sub]
     o, p = _queue_options(rest, dict(common, **extra))
     if len(p) != count:
@@ -823,8 +824,16 @@ def cmd_queue(args):
     elif sub == "take":
         print(relay_queue.take(repo(o), p[0]))
     else:
+        if "--evidence" in o:
+            if "--test" in o:
+                raise Usage("--test and --evidence do not go together: a fix has a test, a feature a merge sha or report")
+            try:
+                print(relay_queue.close_with_evidence(repo(o), p[0], o["--evidence"]))
+            except relay_queue.Refused as e:
+                raise Usage(str(e))
+            return 0
         if "--test" not in o:
-            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name>")
+            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name>   |   relay queue done <slug> --evidence <merge sha or report path>")
         print(relay_queue.done(repo(o), p[0], o["--test"]))
     return 0
 

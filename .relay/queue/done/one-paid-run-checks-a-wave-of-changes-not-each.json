@@ -20,8 +20,9 @@
   "where": "rules/git.md (ready to merge), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md (step 9), bin/paid-cost",
   "taken_at": null,
   "taken_by": null,
-  "closed_at": null,
+  "closed_at": "2026-10-24T15:43:54Z",
   "test": null,
+  "evidence": "e861e61",
   "dropped_at": null,
   "dropped_why": null
 }
