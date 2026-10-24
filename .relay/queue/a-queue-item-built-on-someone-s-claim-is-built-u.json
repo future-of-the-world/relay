@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 95,
+  "time": 45,
+  "found_at": "2026-10-24T16:41:02Z",
+  "found_in": "relay queue add",
+  "title": "A queue item built on someone's claim is built unchecked",
+  "what": [
+    "Before the build of a queue item whose failing case is a claim (a reviewer's, a scout's, the front's) and not a failing test or a recorded run, a cheap agent (scout or runner) reproduces the failing case on the live system: reproduced -> build; not reproduced -> no build, the item goes to the owner with what the check showed. Only when reproducing is cheap (a command, a read, a test); an expensive one (a paid run) stays the build's first step. Items whose failing case is a failing test or a recorded red run go as today."
+  ],
+  "why": [
+    "Owner, verbatim, 24 Oct: \"1. a\" to: add the premise check only for items whose failing case is someone's claim, not a failing test. Live case: installed-relay-plugins-are-a-cached-copy-from-2 (a design reviewer's conditional claim, F12) went through build, review, 4 fixes and a hand-resolved merge conflict (about 200k agent tokens) before one 30-second command showed sessions load ~/relay/plugins directly; dropped with the owner's \"1. a\"."
+  ],
+  "failing_case": [
+    "24 Oct: the plugin-cache item was built although its premise (\"sessions load the stale copy\") was never reproduced; a fresh `claude -p` session disproved it in 30 s after the build."
+  ],
+  "pass_cases": [
+    "The skills say: an item whose failing case is a claim gets the reproduce step before its build; a non-reproduced claim stops the build and reaches the owner; an item with a failing test skips the step; relay queue add records which kind the failing case is."
+  ],
+  "where": "plugins/delegate/skills/delegate/SKILL.md (review loop, before step 2 Build), plugins/front/skills/front/SKILL.md, rules/queue.md, relay queue add (a field saying whether the failing case is a failing test or a claim)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
