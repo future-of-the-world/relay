@@ -62,7 +62,7 @@ Where the project has `.relay/`, a change is ready when the checker's verdict
 says `open 0` and the branch has a green gate. The owner decides the merge from
 one chat screen. Ask a runner for the numbers: `relay check show <branch>`
 prints three lines (the gate, the check, the findings outside the change); the
-runner also names the main review point in plain words. You never read the review, the check report or the gate log. No page and no
+main review point is the critic's hand-back line on the finding that matters most, in plain words. You never read the review, the check report or the gate log. No page and no
 Artifact: the owner reads this screen and nothing else.
 
 The screen, at most one screen (the change, what it does for the owner, the
