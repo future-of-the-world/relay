@@ -13,6 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
+import relay_marks  # noqa: E402
 import relay_queue as rq  # noqa: E402
 import relay_verdict as rv  # noqa: E402
 
@@ -204,9 +205,8 @@ class TestOrderAndParse(Base):
         self.assertEqual(self.item("the-thing-breaks")["pass_cases"], ["call c(), get d", "call e(), get f"])
         self.assertNotIn("pass_cases", self.item("the-other-thing-breaks"))          # without the key, as before
         wa = self.worktree("w4")
-        rq.take(wa, "the-thing-breaks", os.path.join(self.tmp, "q.json"), **QUIET)
-        with open(os.path.join(self.tmp, "q.json")) as handle:
-            self.assertEqual(rv.load_review(handle.read())["findings"][0]["pass_cases"], ["call c(), get d", "call e(), get f"])
+        rq.take(wa, "the-thing-breaks", **QUIET)
+        self.assertEqual(rq.record_item(wa)[1]["pass_cases"], ["call c(), get d", "call e(), get f"])
 
     def test_title_under_60_and_a_long_summary_is_cut_at_a_word(self):
         with self.assertRaises(rq.Refused) as ctx:
@@ -220,15 +220,15 @@ class TestOrderAndParse(Base):
         self.assertEqual(titles, ["Queue add --from takes a summary longer than sixty…"])
 
     def test_q3_add_from_a_checks_new_finding_and_a_flows_own_severity_word(self):
-        new = {"id": "F9", "path": "lib/x.py", "line": 3, "severity": "BLOCKER", "rank": "high", "kind": "inside",
+        new = {"id": "N1", "path": "lib/x.py", "line": 3, "severity": "BLOCKER", "rank": "high", "kind": "inside",
                "summary": "drops a row on empty input", "failing_case": ["a=1 gives none"]}
-        check = {"schema": 1, "type": "check", "head": "b" * 40, "reviewed": "a" * 40, "gate": None, "worktree": "/w", "review": ["/r.json"],
-                 "findings": [], "new": [new], "open": 1, "queued": 0}
+        check = {"schema": 2, "type": "check", "head": "b" * 40, "branch": "wt/x", "item": None, "gate": None, "worktree": "/w",
+                 "findings": [dict(new, source="check", since="a" * 40, verdict="NOT MET", reason=[])]}
         report = os.path.join(self.tmp, "chk.json")
         with open(report, "w") as handle:
             json.dump(check, handle)
-        rq.add_from(self.main, report, "F9", why="w", minutes=5, **QUIET)
-        self.assertEqual(self.item("drops-a-row-on-empty-input")["what"], ["lib/x.py:3: BLOCKER: F9 drops a row on empty input"])
+        rq.add_from(self.main, report, "N1", why="w", minutes=5, **QUIET)
+        self.assertEqual(self.item("drops-a-row-on-empty-input")["what"], ["lib/x.py:3: BLOCKER: N1 drops a row on empty input"])
 
     def test_q3_add_from_refuses_a_missing_or_broken_json_naming_the_file(self):
         missing = os.path.join(self.tmp, "none.json")
@@ -803,12 +803,9 @@ class TestTake(Base):
                                       ".relay/queue/feat.json": feature_item("Feat", ip=20)}, "seed")
         self.wa, self.wb = self.worktree("a"), self.worktree("b")
 
-    def findings(self, name="f.json"):
-        return os.path.join(self.tmp, name)
-
-    def test_q10_take_lands_taken_on_default_and_writes_the_findings(self):
+    def test_q10_take_lands_taken_on_default_and_the_check_states_the_item_as_q1(self):
         with mock.patch.object(rq, "utcnow", return_value="2026-10-05T12:00:00Z"):
-            out = rq.take(self.wa, "job", self.findings(), **QUIET)
+            out = rq.take(self.wa, "job", **QUIET)
         self.assertIn("taken job (fix, ip 60), landed on master at " + git(self.main, "rev-parse", "master"), out)
         item = self.item("job")
         # take writes taken_at (the time then, UTC) and taken_by; no stored state: it is computed from taken_at
@@ -818,14 +815,10 @@ class TestTake(Base):
         self.assertEqual(self.branches(), [])
         # the worktree branch now holds the taken state (a fast-forward of a fresh worktree)
         self.assertEqual(git(self.wa, "rev-parse", "HEAD"), git(self.main, "rev-parse", "master"))
-        with open(self.findings()) as handle:
-            data = rv.load_review(handle.read())          # the file is valid review JSON
-        self.assertEqual(data["reviewed"], git(self.main, "rev-parse", "master"))   # merge-base = the head it merged
-        self.assertEqual(data["base"], "master")
-        self.assertIn("From queue item job", data["scope"][0])
+        slug, q1 = rq.record_item(self.wa)               # take writes no findings file: the check states the item's problem as Q1
+        self.assertEqual(slug, "job")
+        self.assertEqual(q1["since"], git(self.main, "rev-parse", "master"))      # stated at the commit that landed `taken`
         # one finding Q1 built from the item (fix_item: where lib/x.py:5, failing "line 1\nline 2", pass case, why "it matters")
-        self.assertEqual(len(data["findings"]), 1)
-        q1 = data["findings"][0]
         self.assertEqual((q1["id"], q1["path"], q1["line"], q1["severity"], q1["kind"], q1["summary"]), ("Q1", "lib/x.py", 5, "HIGH", "inside", "Job"))
         self.assertEqual(q1["failing_case"], ["line 1", "line 2"])
         self.assertEqual(q1["pass_cases"], ["the other case"])
@@ -833,21 +826,20 @@ class TestTake(Base):
         self.assertEqual(rv.linter(q1), "lib/x.py:5: HIGH: Q1 Job")
 
     def test_q10_second_take_from_another_worktree_is_refused(self):
-        rq.take(self.wa, "job", self.findings(), **QUIET)
+        rq.take(self.wa, "job", **QUIET)
         with self.assertRaises(rq.Refused) as ctx:
-            rq.take(self.wb, "job", self.findings("g.json"), **QUIET)
+            rq.take(self.wb, "job", **QUIET)
         self.assertIn("taken by wt/a", str(ctx.exception))
-        self.assertFalse(os.path.exists(self.findings("g.json")))
 
     def test_q10_two_takes_started_together_exactly_one_lands(self):
         for rnd in range(10):
             slug = f"race{rnd}"
-            self.write_commit(self.main, {f".relay/queue/{slug}.json": fix_item(f"Race item {slug}")}, "item")
+            self.write_commit(self.main, {f".relay/queue/{slug}.json": feature_item(f"Race item {slug}")}, "item")
             for wt in (self.wa, self.wb):                  # worktrees follow master so the take's merge is a fast-forward
                 git(wt, "merge", "-q", "--no-edit", "master")
             hook = self.barrier()
-            a, b = self.pair(lambda: rq.take(self.wa, slug, self.findings(f"fa{rnd}.json"), after_plan=hook, **QUIET),
-                             lambda: rq.take(self.wb, slug, self.findings(f"fb{rnd}.json"), after_plan=hook, **QUIET))
+            a, b = self.pair(lambda: rq.take(self.wa, slug, after_plan=hook, **QUIET),
+                             lambda: rq.take(self.wb, slug, after_plan=hook, **QUIET))
             winners = [r for r in (a, b) if isinstance(r, str)]
             losers = [r for r in (a, b) if isinstance(r, rq.Refused)]
             self.assertEqual((len(winners), len(losers)), (1, 1), (a, b))
@@ -859,10 +851,10 @@ class TestTake(Base):
     def test_q10_ip_racing_a_take_never_edits_a_taken_item(self):
         for rnd in range(10):
             slug = f"ipr{rnd}"
-            self.write_commit(self.main, {f".relay/queue/{slug}.json": fix_item(f"Ipr item {slug}", ip=60)}, "item")
+            self.write_commit(self.main, {f".relay/queue/{slug}.json": feature_item(f"Ipr item {slug}", ip=60)}, "item")
             git(self.wa, "merge", "-q", "--no-edit", "master")
             hook = self.barrier()
-            took, changed = self.pair(lambda: rq.take(self.wa, slug, self.findings(f"i{rnd}.json"), after_plan=hook, **QUIET),
+            took, changed = self.pair(lambda: rq.take(self.wa, slug, after_plan=hook, **QUIET),
                                       lambda: rq.set_ip(self.main, slug, 50, after_plan=hook, **QUIET))
             self.assertIsInstance(took, str, took)
             states = []                                     # the item's history on master, oldest first
@@ -878,7 +870,7 @@ class TestTake(Base):
                 self.assertEqual(states[-1]["ip"], 60)
 
     def test_q10_ip_and_drop_refuse_a_taken_item_and_release_opens_it(self):
-        rq.take(self.wa, "job", self.findings(), **QUIET)
+        rq.take(self.wa, "job", **QUIET)
         head = git(self.main, "rev-parse", "master")
         for call in (lambda: rq.set_ip(self.main, "job", 5, **QUIET), lambda: rq.drop(self.main, "job", "no longer wanted", **QUIET)):
             with self.assertRaises(rq.Refused) as ctx:
@@ -898,16 +890,14 @@ class TestTake(Base):
         self.assertEqual((dropped["state"], dropped["dropped_at"], dropped["taken_at"]), ("dropped", "2026-10-06T08:00:00Z", None))
         self.assertEqual(dropped["dropped_why"], ["the owner said drop it"])
 
-    def check_json(self, name, verdict="MET", ids=("Q1",), head=None, review=None):
-        """Check data as `relay check record check` writes it, with these ids at this verdict; returns its path. By default it is
-        the check of the fix: its head is the commit wt/a is at and its review is the findings file `take` wrote."""
-        data = {"schema": 1, "type": "check", "head": head or git(self.wa, "rev-parse", "HEAD"), "reviewed": "a" * 40, "gate": None,
-                "worktree": "/w", "review": [review or self.findings()],
-                "findings": [{"id": i, "verdict": verdict, "reason": ["tests/test_job.py:1"]} for i in ids], "new": [], "open": 0, "queued": 0}
-        path = os.path.join(self.tmp, name)
-        with open(path, "w") as handle:
-            json.dump(data, handle)
-        return path
+    def checked(self, verdict="MET", item="job", ids=("Q1",)):
+        """A check mark for the commit wt/a is at, as the hook commits it, with these ids at this verdict in its record."""
+        head = git(self.wa, "rev-parse", "HEAD")
+        findings = [{"id": i, "path": "lib/x.py", "line": 5, "severity": "HIGH", "rank": "high", "kind": "inside", "summary": "Job",
+                     "failing_case": ["line 1"], "source": "queue", "since": head, "verdict": verdict, "reason": ["tests/test_job.py:1"]} for i in ids]
+        record = {"schema": 2, "type": "check", "head": head, "branch": "wt/a", "item": item, "gate": None, "scope": [], "notes": [], "findings": findings}
+        mark = {"schema": 2, "commit": head, "verdict": {"open": 0, "queued": 0}, "check": head + ".check.json", "gate": None, "time": "t"}
+        relay_marks.put(self.wa, head, mark, {head + ".check.json": json.dumps(record) + "\n"})
 
     def test_q10_writers_refuse_an_old_shape_item_naming_the_migration_and_change_nothing(self):
         # a branch started before the migration can carry an item with `state`; no writer may rewrite it
@@ -918,18 +908,17 @@ class TestTake(Base):
         for name, call in (("set_ip", lambda: rq.set_ip(self.main, "old", 5, **QUIET)),
                            ("drop", lambda: rq.drop(self.main, "old", "no longer wanted", **QUIET)),
                            ("release", lambda: rq.release(self.main, "old", **QUIET)),
-                           ("take", lambda: rq.take(self.wa, "old", self.findings(), **QUIET))):
+                           ("take", lambda: rq.take(self.wa, "old", **QUIET))):
             with self.assertRaises(rq.Refused, msg=name) as ctx:
                 call()
             self.assertIn("run `relay queue migrate`", str(ctx.exception), name)
             self.assertEqual(git(self.main, "rev-parse", "master"), head, name)
-        self.assertFalse(os.path.exists(self.findings()))
         # done: the item taken by this branch is still in the old shape
         taken = json.loads(old)
         taken.update(state="taken", taken_by="wt/a")
         self.write_commit(self.wa, {".relay/queue/old.json": json.dumps(taken) + "\n", "tests/test_old.py": "def test_old():\n    pass\n"}, "taken, old shape")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.done(self.wa, "old", "tests/test_old.py::test_old", self.check_json("c.json"))
+            rq.done(self.wa, "old", "tests/test_old.py::test_old")
         self.assertIn("run `relay queue migrate`", str(ctx.exception))
         self.assertFalse(os.path.exists(os.path.join(self.wa, ".relay", "queue", "done", "old.json")))
 
@@ -948,21 +937,22 @@ class TestTake(Base):
 
     def test_done_writes_closed_at_and_keeps_the_taking_branch(self):
         with mock.patch.object(rq, "utcnow", return_value="2026-10-05T12:00:00Z"):
-            rq.take(self.wa, "job", self.findings(), **QUIET)
+            rq.take(self.wa, "job", **QUIET)
         self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "the fix and its test")
+        self.checked()
         with mock.patch.object(rq, "utcnow", return_value="2026-10-05T13:30:00Z"):
-            rq.done(self.wa, "job", "tests/test_job.py::test_job_works", self.check_json("check.json"))
+            rq.done(self.wa, "job", "tests/test_job.py::test_job_works")
         data = json.loads(git(self.wa, "show", "HEAD:.relay/queue/done/job.json"))
         self.assertEqual((data["taken_at"], data["taken_by"], data["closed_at"], data["test"]),
                          ("2026-10-05T12:00:00Z", "wt/a", "2026-10-05T13:30:00Z", "tests/test_job.py::test_job_works"))
         self.assertTrue(set(data).isdisjoint(rq.OLD_ONLY))
 
     def test_q10_later_done_on_the_task_branch_merges_without_conflict(self):
-        rq.take(self.wa, "job", self.findings(), **QUIET)
+        rq.take(self.wa, "job", **QUIET)
         rq.add(self.main, "feature", "Meanwhile", why="w", minutes=5, **QUIET)        # master moves on
         self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "the fix and its test")
-        report = self.check_json("check.json")
-        message = rq.done(self.wa, "job", "tests/test_job.py::test_job_works", report)
+        self.checked()
+        message = rq.done(self.wa, "job", "tests/test_job.py::test_job_works")
         self.assertIn("closed job", message)
         self.assertEqual(git(self.wa, "log", "-1", "--format=%s"), "queue: done job")
         self.assertEqual(git(self.wa, "status", "--porcelain"), "")
@@ -975,92 +965,75 @@ class TestTake(Base):
         self.assertIsNotNone(self.item("meanwhile"))
 
     def test_q7_done_refusals(self):
-        rq.take(self.wa, "job", self.findings(), **QUIET)
+        rq.take(self.wa, "job", **QUIET)
         self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "test")
-        good = self.check_json("good.json")
+        self.checked()
         head = git(self.wa, "rev-parse", "HEAD")
-        cases = [("", good, "--test"),                                              # no --test
-                 ("tests/test_job.py::test_other", good, "does not hold a test named"),   # a name the file lacks
-                 ("tests/missing.py::test_job_works", good, "is not in the last commit")]
-        for test, report, expect in cases:
+        cases = [("", "--test"),                                                    # no --test
+                 ("tests/test_job.py::test_other", "does not hold a test named"),   # a name the file lacks
+                 ("tests/missing.py::test_job_works", "is not in the last commit")]
+        for test, expect in cases:
             with self.assertRaises(rq.Refused, msg=test) as ctx:
-                rq.done(self.wa, "job", test, report)
+                rq.done(self.wa, "job", test)
             self.assertIn(expect, str(ctx.exception))
             self.assertEqual(git(self.wa, "rev-parse", "HEAD"), head)               # nothing committed
         git(self.wb, "merge", "-q", "--no-edit", "master")                           # wt/b sees the item, but wt/a took it
         self.write_commit(self.wb, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "test")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.done(self.wb, "job", "tests/test_job.py::test_job_works", good)
+            rq.done(self.wb, "job", "tests/test_job.py::test_job_works")
         self.assertIn("not taken by wt/b", str(ctx.exception))
 
-    def test_done_refuses_check_data_it_cannot_read(self):
-        """A check path that is missing, or is a folder, is refused with "cannot read the check data" and commits nothing."""
-        rq.take(self.wa, "job", self.findings(), **QUIET)
-        self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "test")
-        head = git(self.wa, "rev-parse", "HEAD")
-        for report in (os.path.join(self.tmp, "none.json"), self.tmp):
-            with self.assertRaises(rq.Refused, msg=report) as ctx:
-                rq.done(self.wa, "job", "tests/test_job.py::test_job_works", report)
-            self.assertTrue(str(ctx.exception).startswith("cannot read the check data "), str(ctx.exception))
-            self.assertEqual(git(self.wa, "rev-parse", "HEAD"), head)
-
-    def test_done_reads_the_check_json_for_q1(self):
-        """A fix closes only when the check data says Q1 MET: no file, a prose file, Q1 NOT MET, no verdict for Q1 and a
-        review (not a check) are refused with the reason and commit nothing; Q1 MET is accepted."""
-        rq.take(self.wa, "job", self.findings(), **QUIET)
+    def test_done_reads_the_record_of_the_branchs_newest_check_for_q1(self):
+        """A fix closes only when the branch's newest check, with no own file changed since it, has Q1 MET: no check, Q1 NOT MET
+        and a record with no verdict for Q1 are refused with the reason and commit nothing; Q1 MET is accepted."""
+        rq.take(self.wa, "job", **QUIET)
         self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "test")
         test = "tests/test_job.py::test_job_works"
-        prose = os.path.join(self.tmp, "prose.json")
-        with open(prose, "w") as handle:
-            handle.write("Q1 MET tests/test_job.py:1\n")                            # the old grep would have accepted this text
-        cases = [(os.path.join(self.tmp, "none.json"), "cannot read the check data"), (prose, "is not JSON"),
-                 (self.check_json("notmet.json", "NOT MET"), "says Q1 NOT MET, not MET"),
-                 (self.check_json("other.json", ids=("F2",)), "gives no verdict for Q1"),
-                 (self.findings(), "is a review, not the check data")]
         head = git(self.wa, "rev-parse", "HEAD")
-        for report, expect in cases:
-            with self.assertRaises(rq.Refused, msg=report) as ctx:
-                rq.done(self.wa, "job", test, report)
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.done(self.wa, "job", test)
+        self.assertIn("no check of this fix", str(ctx.exception))
+        for make, expect in ((lambda: self.checked("NOT MET"), "says Q1 NOT MET, not MET"), (lambda: self.checked(ids=("F2",)), "gives no verdict for Q1")):
+            make()
+            with self.assertRaises(rq.Refused, msg=expect) as ctx:
+                rq.done(self.wa, "job", test)
             self.assertIn(expect, str(ctx.exception))
-            self.assertEqual(git(self.wa, "rev-parse", "HEAD"), head)
-        self.assertIn("closed job", rq.done(self.wa, "job", test, self.check_json("met.json")))
+        self.assertEqual(git(self.wa, "diff", "--name-only", head, "HEAD").count("\n") + 1, 4)       # only the marks and records were committed
+        self.checked()
+        self.assertIn("closed job", rq.done(self.wa, "job", test))
 
-    def test_f3_done_refuses_a_check_that_is_not_of_this_fix(self):
-        """Review F3: Q1 MET in a check of another review, or of another head, or of code changed since, closes nothing."""
-        rq.take(self.wa, "job", self.findings(), **QUIET)
+    def test_f3_done_refuses_a_check_that_is_not_of_this_fix_or_not_of_this_code(self):
+        """Review F3: Q1 MET in a check of another item, or of code changed since, closes nothing."""
+        rq.take(self.wa, "job", **QUIET)
         self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "test")
         test = "tests/test_job.py::test_job_works"
-        other = os.path.join(self.tmp, "other-review.json")                 # an unrelated review, as a fixer's scratchpad may hold
-        with open(other, "w") as handle:
-            json.dump(rv.review_data("a" * 40, "master", [{"id": "Q1", "path": "x.py", "line": 1, "severity": "HIGH", "rank": "high", "kind": "inside",
-                                                         "summary": "some other item", "failing_case": ["x"]}], scope=["From queue item another-thing: ..."]), handle)
-        wrong_head = git(self.wa, "rev-parse", "HEAD~1")                     # the commit before the test file: the test is newer than the check
-        cases = [(self.check_json("c1.json", review=other), "does not check the findings file"),
-                 (self.check_json("c2.json", head="c" * 40), "not in this branch's history"),
-                 (self.check_json("c3.json", head=wrong_head), "changed after it")]
-        head = git(self.wa, "rev-parse", "HEAD")
-        for report, expect in cases:
-            with self.assertRaises(rq.Refused, msg=report) as ctx:
-                rq.done(self.wa, "job", test, report)
-            self.assertIn(expect, str(ctx.exception))
-            self.assertEqual(git(self.wa, "rev-parse", "HEAD"), head)
-        self.assertIn("closed job", rq.done(self.wa, "job", test, self.check_json("good.json")))   # the check of this branch's own Q1
+        self.checked(item="another-thing")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.done(self.wa, "job", test)
+        self.assertIn("is of another-thing, not of 'job'", str(ctx.exception))
+        self.write_commit(self.wa, {"lib/x.py": "changed\n"}, "code after the check")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.done(self.wa, "job", test)
+        self.assertIn("lib/x.py changed", str(ctx.exception))
+        self.checked()                                                           # the check of this branch's own Q1, at this code
+        self.assertIn("closed job", rq.done(self.wa, "job", test))
 
     def test_f3_a_check_from_before_a_queue_only_commit_still_closes(self):
-        rq.take(self.wa, "job", self.findings(), **QUIET)
+        rq.take(self.wa, "job", **QUIET)
         self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works():\n    pass\n"}, "test")
-        report = self.check_json("c.json")
+        self.checked()
         self.write_commit(self.wa, {".relay/queue/zzz-note.json": feature_item("Zzz note")}, "a queue-only commit")
-        self.assertIn("closed job", rq.done(self.wa, "job", "tests/test_job.py::test_job_works", report))
+        self.assertIn("closed job", rq.done(self.wa, "job", "tests/test_job.py::test_job_works"))
 
     def test_f15_done_wants_the_test_name_whole(self):
-        rq.take(self.wa, "job", self.findings(), **QUIET)
+        rq.take(self.wa, "job", **QUIET)
         self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works_twice():\n    pass\n"}, "test")
         with self.assertRaises(rq.Refused) as ctx:                                  # the file holds test_job_works_twice only
-            rq.done(self.wa, "job", "tests/test_job.py::test_job_works", self.check_json("c.json"))
+            rq.done(self.wa, "job", "tests/test_job.py::test_job_works")
         self.assertIn("does not hold a test named test_job_works", str(ctx.exception))
         self.write_commit(self.wa, {"tests/test_job.py": "def test_job_works_twice():\n    pass\n\n\nclass T:\n    def test_job_works(self):\n        pass\n"}, "t2")
-        self.assertIn("closed job", rq.done(self.wa, "job", "tests/test_job.py::T::test_job_works", self.check_json("d.json")))
+        self.checked()
+        self.assertIn("closed job", rq.done(self.wa, "job", "tests/test_job.py::T::test_job_works"))
 
     def test_f2_take_refuses_before_landing_when_q1_cannot_be_built(self):
         """Review F2: an item whose title cannot be a one-line summary is not left taken with no findings."""
@@ -1070,7 +1043,7 @@ class TestTake(Base):
         # the file is malformed to the reader, so take refuses it; and `add` refuses to create one (the finding's failing case)
         before = git(self.main, "rev-parse", "master")
         with self.assertRaises(rq.Refused):
-            rq.take(self.wa, "two-lines-title", self.findings(), **QUIET)
+            rq.take(self.wa, "two-lines-title", **QUIET)
         with self.assertRaises(rq.Refused) as ctx:
             rq.add(self.main, "fix", "Two\nlines title", why="w", failing="f", minutes=5, **QUIET)
         self.assertIn("one line", str(ctx.exception))
@@ -1084,11 +1057,10 @@ class TestTake(Base):
         real = rq._q1
         with mock.patch.object(rq, "_q1", lambda item: dict(real(item), summary="a\nb")):
             with self.assertRaises(rq.Refused) as ctx:
-                rq.take(self.wa, "job", self.findings(), **QUIET)
+                rq.take(self.wa, "job", **QUIET)
         self.assertIn("cannot become finding Q1, nothing taken", str(ctx.exception))
         self.assertEqual(git(self.main, "rev-parse", "master"), before)
         self.assertEqual(self.item("job")["state"], "open")
-        self.assertFalse(os.path.exists(self.findings()))
 
     def test_f12_ip_to_its_own_value_is_a_plain_refusal(self):
         before = git(self.main, "rev-parse", "master")

@@ -27,6 +27,13 @@ def finding(fid="F1", **over):
     return base
 
 
+def record_finding(fid="F1", **over):
+    """A finding of a check record: a review finding with its source, the commit it was stated at, and its verdict."""
+    out = finding(fid, source="a.json", since=SHA_A, verdict="MET", reason=["t.py:5"])
+    out.update(over)
+    return out
+
+
 class Schema(unittest.TestCase):
     def review(self, **over):
         data = {"schema": 1, "type": "review", "reviewed": SHA_A, "base": "master", "findings": [finding()]}
@@ -64,44 +71,72 @@ class Schema(unittest.TestCase):
         self.assertEqual(rv.review_errors([]), ["the review data is not an object"])
 
     def check(self, **over):
-        data = {"schema": 1, "type": "check", "head": SHA_B, "reviewed": SHA_A, "gate": None, "worktree": "/w", "review": ["/r.json"],
-                "findings": [{"id": "F1", "verdict": "MET", "reason": ["t.py:5"]}], "new": [], "open": 0, "queued": 0}
+        """A recorded check record (schema 2) with one finding."""
+        data = {"schema": 2, "type": "check", "head": SHA_B, "branch": "wt/x", "item": None, "gate": None, "worktree": "/w",
+                "findings": [record_finding("F1")]}
         data.update(over)
         return data
 
     def test_a_whole_check_and_each_broken_field(self):
-        self.assertEqual(rv.check_errors(self.check()), [])
-        cases = [({"head": SHA_B[:7]}, "head must be a full 40-character sha"), ({"open": -1}, "open must be a whole number of 0 or more"),
-                 ({"queued": "1"}, "queued must be"), ({"findings": [{"id": "F1", "verdict": "FINE"}]}, "verdict must be one of"),
-                 ({"findings": [{"id": "F1", "verdict": "MET", "reason": "t"}]}, "reason must be a list"),
-                 ({"review": []}, "review must be a list of at least one"), ({"new": [finding(severity="x")]}, "new[0]: severity"),
-                 ({"gate": ""}, "gate must be a log path or null"), ({"worktree": None}, "worktree must be a path"),
-                 ({"type": "review"}, "type must be check")]
+        self.assertEqual(rv.record_errors(self.check()), [])
+        cases = [({"head": SHA_B[:7]}, "head must be a full 40-character sha"), ({"item": "Bad Name"}, "item must be null or the name of a queue item"),
+                 ({"findings": [record_finding("F1", verdict="FINE")]}, "verdict must be one of"),
+                 ({"findings": [record_finding("F1", reason="t")]}, "reason must be a list"),
+                 ({"findings": [record_finding("F1", since="abc")]}, "since must be a full 40-character sha"),
+                 ({"findings": [record_finding("F1", source="")]}, "source must be a one-line text"),
+                 ({"findings": [record_finding("F1", severity="x")]}, "findings[0]: severity"),
+                 ({"findings": [record_finding("F1"), record_finding("F1")]}, "id F1 is used twice"),
+                 ({"findings": [record_finding("F1", owner=[{"words": [], "date": "2026-10-24"}])]}, "words must hold at least one"),
+                 ({"gate": "x.log"}, "gate must be null or a gate log file name"), ({"worktree": None}, "worktree must be a path"),
+                 ({"open": 0}, "unknown field open"), ({"type": "review"}, "type must be check")]
         for over, word in cases:
-            errors = rv.check_errors(self.check(**over))
+            errors = rv.record_errors(self.check(**over))
             self.assertTrue(any(word in e for e in errors), (over, errors))
 
     def test_every_verdict_word_is_accepted(self):
         for word in ("MET", "NOT MET", "DISPUTED", "GAP", "OUTSIDE", "QUEUED"):
-            self.assertEqual(rv.check_errors(self.check(findings=[{"id": "F1", "verdict": word}])), [], word)
+            self.assertEqual(rv.record_errors(self.check(findings=[record_finding("F1", verdict=word)])), [], word)
+
+    def test_every_finding_source_has_its_id_letter(self):
+        ids = [record_finding(i) for i in ("Q1", "F1", "M1", "N1")]
+        self.assertEqual(rv.record_errors(self.check(findings=ids)), [])
+        self.assertTrue(rv.record_errors(self.check(findings=[record_finding("X1")])))
 
     def test_stored_copy_has_no_worktree(self):
-        stored = rv.stored_check(self.check(), "A.review.json")
-        self.assertEqual(rv.check_errors(stored, stored=True), [])
+        stored = rv.stored_record(self.check())
+        self.assertEqual(rv.record_errors(stored, stored=True), [])
         self.assertNotIn("worktree", stored)
-        self.assertEqual(stored["review"], ["A.review.json"])
-        self.assertTrue(rv.check_errors(self.check(), stored=True))     # a worktree in a stored copy is refused
+        self.assertTrue(rv.record_errors(self.check(), stored=True))     # a worktree in a stored copy is refused
+
+    def test_counts_are_derived_from_the_findings(self):
+        high, med, low = record_finding("F1", verdict="NOT MET"), record_finding("F2", verdict="NOT MET", severity="FIX", rank="medium"), \
+            record_finding("F3", verdict="NOT MET", severity="NIT", rank="low")
+        outside = record_finding("F4", verdict="NOT MET", kind="outside")
+        data = self.check(findings=[high, med, low, outside])
+        # high and medium inside the change and not MET: F1 and F2 (F3 is low, F4 is outside) -> 2
+        self.assertEqual(rv.open_of(data), 2)
+        high["owner"] = [{"words": ["not wrong"], "date": "2026-10-23"}]      # the owner's word takes F1 out
+        self.assertEqual(rv.open_of(data), 1)
+        med["owner"] = [{"words": ["later"], "date": "2026-10-23", "queue": "redo-x"}]       # a move answers F2 and counts as queued
+        self.assertEqual((rv.open_of(data), rv.queued_of(data)), (0, 1))
+        self.assertEqual(rv.open_of(self.check(findings=[dict(f, verdict="MET") for f in (high, med)])), 0)
 
     def test_load_names_what_is_wrong(self):
         with self.assertRaises(rv.VerdictError) as caught:
             rv.load_review("not json", "the review data x")
         self.assertIn("the review data x is not JSON", str(caught.exception))
         with self.assertRaises(rv.VerdictError) as caught:
-            rv.load_check(json.dumps(self.check(open="0")), "the check data y")
-        self.assertIn("open must be a whole number", str(caught.exception))
+            rv.load_record(json.dumps(self.check(head="1")), "the check data y")
+        self.assertIn("head must be a full 40-character sha", str(caught.exception))
         with self.assertRaises(rv.VerdictError) as caught:
             rv.load_any(json.dumps({"type": "report"}), "z")
-        self.assertIn("is not a review, a check or a stored review", str(caught.exception))
+        self.assertIn("is not a review or a check", str(caught.exception))
+
+    def test_a_schema_1_check_is_refused_naming_the_migration(self):
+        old = {"schema": 1, "type": "check", "head": SHA_B, "reviewed": SHA_A, "gate": None, "review": ["/r"], "findings": [], "new": [], "open": 0, "queued": 0}
+        with self.assertRaises(rv.VerdictError) as caught:
+            rv.load_any(json.dumps(old), "the old check")
+        self.assertIn("relay check migrate", str(caught.exception))
 
 
 def lit(lines):
@@ -149,13 +184,6 @@ class RecordBase(unittest.TestCase):
         fields.update(top)
         return self.relay("check", "record", "review", "--input", self.write_input(toml_input(fields, [("finding", f) for f in findings])))
 
-    def record_check(self, statuses=(), new=(), review=None, name="chk.json", **top):
-        fields = {"report": os.path.join(self.tmp, name), "head": SHA_B, "reviewed": SHA_A, "worktree": self.tmp, "gate": "none",
-                  "review": [review or self.report], "open": 1, "queued": 0}
-        fields.update(top)
-        tables = [("status", s) for s in statuses] + [("new", f) for f in new]
-        return self.relay("check", "record", "check", "--input", self.write_input(toml_input(fields, tables), "chk.toml"))
-
     def load(self, name="rev.json"):
         with open(os.path.join(self.tmp, name), encoding="utf-8") as handle:
             return json.load(handle)
@@ -173,7 +201,7 @@ class Record(RecordBase):
         self.assertEqual(sorted(os.listdir(self.tmp)), ["in.toml", "rev.json"])
         self.assertEqual(done.stdout.strip(), "recorded " + self.report)
 
-    def test_every_prose_field_of_a_review_and_a_check_round_trips(self):
+    def test_every_prose_field_of_a_review_round_trips(self):
         f = dict(IN_FINDING, details=["why it happens", "", "second paragraph"], pass_cases=["a=2 gives 2"], evidence=["$ python t.py", "AssertionError"],
                  fix_hint=["sort before comparing"])
         done = self.record_review([f], scope=["reviewed lib/x.py against master", "ran the tests"], notes=["lib/y.py is fine", "design: ok"])
@@ -184,12 +212,6 @@ class Record(RecordBase):
         stored = data["findings"][0]
         for key in ("details", "pass_cases", "evidence", "fix_hint", "failing_case"):
             self.assertEqual(stored[key], f[key], key)          # lines as written, the empty line between paragraphs kept
-        done = self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET", "reason": ["no test", "see t.py"]}], new=[dict(IN_FINDING, id="F5", details=["d"])],
-                                 scope=["rechecked F1"], notes=["gate was red"], open=2)
-        self.assertEqual(done.returncode, 0, done.stderr)
-        check = self.load("chk.json")
-        self.assertEqual(check["findings"], [{"id": "F1", "verdict": "NOT MET", "reason": ["no test", "see t.py"]}])
-        self.assertEqual((check["scope"], check["notes"], check["new"][0]["details"]), (["rechecked F1"], ["gate was red"], ["d"]))
 
     def test_text_with_shell_characters_is_stored_byte_identical(self):
         # a line a shell would change: a variable, backticks, a substitution, quotes of both kinds, a backslash, leading spaces
@@ -226,69 +248,6 @@ class Record(RecordBase):
         self.assertEqual(self.relay("check", "record", "review", "--input", os.path.join(self.tmp, "none.toml")).returncode, 1)
         for bad_args in (("review",), ("review", "--report", self.report), ("other", "--input", "x"), ("review", "--input", "a", "b")):
             self.assertEqual(self.relay("check", "record", *bad_args).returncode, 2, bad_args)     # the old option form is gone
-
-    def test_check_refuses_an_open_below_what_the_verdicts_say(self):
-        # F1 is HIGH inside. NOT MET with open 0 hides it; a new inside HIGH adds a second (hand count: floor 2 with F2 new)
-        self.assertEqual(self.record_review().returncode, 0)
-        done = self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET"}], new=[dict(IN_FINDING, id="F2")], open=0)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertIn("open is 0 but 2 findings inside the change are not met: F1, F2", done.stderr)
-        self.assertFalse(os.path.exists(os.path.join(self.tmp, "chk.json")))
-        # no status at all for F1 counts as not met
-        done = self.record_check(open=0)
-        self.assertIn("open is 0 but 1 findings inside the change are not met: F1", done.stderr)
-        self.assertFalse(os.path.exists(os.path.join(self.tmp, "chk.json")))
-
-    def test_check_accepts_an_open_at_or_above_the_floor(self):
-        self.assertEqual(self.record_review().returncode, 0)
-        met = [{"id": "F1", "verdict": "MET"}]
-        for statuses, open_, label in (
-                (met, 0, "met, open 0"),
-                ([{"id": "F1", "verdict": "NOT MET"}], 1, "not met, open 1"),
-                ([{"id": "F1", "verdict": "NOT MET"}], 2, "open above the floor (the checker's +1)")):
-            done = self.record_check(statuses=statuses, open=open_)
-            self.assertEqual(done.returncode, 0, label + done.stderr)
-        # the owner's word that F1 is not wrong takes it out of the floor
-        owner = self.write_input('words = ["not wrong, the owner said so"]\n', "owner.toml")
-        self.assertEqual(self.relay("check", "owner", self.report, "F1", "--input", owner).returncode, 0)
-        done = self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET"}], open=0)
-        self.assertEqual(done.returncode, 0, done.stderr)
-
-    def test_check_data_is_stored_with_its_verdicts_and_new_problems(self):
-        self.assertEqual(self.record_review().returncode, 0)
-        done = self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET", "reason": ["no test"]}], new=[dict(IN_FINDING, id="F5", path="lib/z.py", line=2, severity="MEDIUM", summary="a new problem")], open=2)
-        self.assertEqual(done.returncode, 0, done.stderr)
-        data = self.load("chk.json")
-        self.assertEqual((data["schema"], data["type"], data["open"], data["queued"], data["gate"]), (1, "check", 2, 0, None))
-        self.assertEqual(data["new"][0]["id"], "F5")
-        self.assertEqual(data["new"][0]["rank"], "medium")
-        self.assertEqual(data["review"], [self.report])
-        self.assertEqual(sorted(os.listdir(self.tmp)), ["chk.json", "chk.toml", "in.toml", "rev.json"])
-
-    def test_check_refuses_what_the_review_data_contradicts(self):
-        # no review data yet
-        done = self.record_check()
-        self.assertIn("the review data", done.stderr)
-        self.assertIn("record the review first", done.stderr)
-        self.assertEqual(self.record_review().returncode, 0)
-        # a different reviewed sha than the review's
-        done = self.record_check(reviewed=SHA_B)
-        self.assertIn("is of %s, not of the reviewed sha %s" % (SHA_A, SHA_B), done.stderr)
-        # a status for a finding nobody made
-        done = self.record_check(statuses=[{"id": "F9", "verdict": "MET"}])
-        self.assertIn("F9 is not a finding of the reviews or a new one", done.stderr)
-        # an abbreviated head
-        done = self.record_check(head=SHA_B[:7])
-        self.assertIn("head must be a full 40-character sha", done.stderr)
-        # a missing key and an unknown one, named
-        done = self.relay("check", "record", "check", "--input", self.write_input(toml_input({"report": os.path.join(self.tmp, "chk.json"), "head": SHA_B, "extra": 1})))
-        self.assertIn("unknown key `extra`", done.stderr)
-        self.assertIn("missing required key `worktree`", done.stderr)
-        # a corrupt review data file
-        broken = os.path.join(self.tmp, "broken.json")
-        open(broken, "w").write("{")
-        self.assertIn("is not JSON", self.record_check(review=broken).stderr)
-        self.assertFalse(os.path.exists(os.path.join(self.tmp, "chk.json")))
 
 
 class Views(RecordBase):
@@ -328,25 +287,28 @@ class Views(RecordBase):
         self.assertEqual(lines[1], "lib/x.py:1: HIGH: F1 drops a row")
         self.assertEqual(lines[-1], "... 4 more lines: relay check show %s" % self.report)
 
-    def test_show_of_a_check_lists_verdicts_with_their_reasons(self):
-        self.recorded()
-        self.assertEqual(self.record_check(statuses=[{"id": "F1", "verdict": "NOT MET", "reason": ["no test", "see t.py"]}, {"id": "F2", "verdict": "OUTSIDE"}],
-                                           new=[dict(IN_FINDING, id="F5", summary="fresh")], notes=["gate red"], open=2).returncode, 0)
+    def test_show_of_a_check_lists_findings_with_their_verdicts_and_sources(self):
+        data = {"schema": 2, "type": "check", "head": SHA_B, "branch": "wt/x", "item": "redo-x", "gate": SHA_A + ".gate.log", "scope": [], "notes": ["gate red"],
+                "findings": [record_finding("Q1", source="queue", verdict="MET", reason=["t.py:1"]),
+                             record_finding("F1", verdict="NOT MET", reason=["no test", "see t.py"], source_id="F1"),
+                             record_finding("N1", source="check", verdict="NOT MET", kind="inside", summary="fresh")]}
         path = os.path.join(self.tmp, "chk.json")
+        with open(path, "w") as handle:
+            json.dump(dict(data, worktree="/w"), handle)
         full = self.relay("check", "show", path).stdout
-        for line in ("Check of %s" % SHA_B, "Reviewed: %s" % SHA_A, "Gate: none", "Open: 2  Queued: 0", "Notes:", "  gate red", "Findings checked: 2",
-                     "F1 NOT MET", "  no test", "  see t.py", "F2 OUTSIDE", "New problems: 1", "lib/x.py:12: HIGH: F5 fresh"):
+        # open: F1 (high, inside, not met) and N1 -> 2; Q1 is MET
+        for line in ("Check of %s on wt/x" % SHA_B, "Item: redo-x", "Gate: %s.gate.log" % SHA_A, "Open: 2  Queued: 0", "Notes:", "  gate red", "Findings: 3",
+                     "  Source: queue, since %s" % SHA_A[:12], "  Verdict: NOT MET", "    no test", "    see t.py", "lib/x.py:12: HIGH: N1 fresh"):
             self.assertIn(line + "\n", full)
         brief = self.relay("check", "show", "--brief", path).stdout.splitlines()
-        self.assertEqual(brief, ["Check of %s (reviewed %s): open 2, queued 0, gate none" % (SHA_B[:12], SHA_A[:12]), "F1 NOT MET no test", "F2 OUTSIDE",
-                                 "new: lib/x.py:12: HIGH: F5 fresh"])
+        self.assertEqual(brief, ["Check of %s: open 2, queued 0, gate %s" % (SHA_B[:12], SHA_A[:12]), "Q1 MET t.py:1", "F1 NOT MET no test", "N1 NOT MET t.py:5"])
 
     def test_show_refuses_what_is_not_a_report(self):
         path = os.path.join(self.tmp, "other.json")
         open(path, "w").write('{"type": "report"}')
         done = self.relay("check", "show", path)
         self.assertEqual(done.returncode, 1)
-        self.assertIn("is not a review, a check or a stored review", done.stderr)
+        self.assertIn("is not a review or a check", done.stderr)
 
 
 class FlowWords(RecordBase):
@@ -436,17 +398,6 @@ class Owner(RecordBase):
         errors = rv.review_errors(data)
         self.assertTrue(any("words must be a list of lines" in e for e in errors) and any("date must look like" in e for e in errors), errors)
 
-    def test_the_checker_count_leaves_out_a_finding_with_an_owner_entry(self):
-        high, medium, low = finding("F1"), finding("F2", severity="FIX", rank="medium"), finding("F3", severity="NIT", rank="low")
-        outside = finding("F4", kind="outside")
-        review = {"schema": 1, "type": "review", "reviewed": SHA_A, "base": "master", "findings": [high, medium, low, outside]}
-        statuses = [{"id": i, "verdict": "NOT MET"} for i in ("F1", "F2", "F3", "F4")]
-        # high and medium inside the change and NOT MET: F1 and F2 (F3 is low, F4 is outside) -> 2
-        self.assertEqual(rv.count_open(review, statuses), 2)
-        review["owner"] = [{"id": "F1", "words": ["not wrong"], "date": "2026-10-23"}]
-        self.assertEqual(rv.count_open(review, statuses), 1)           # the owner's word takes F1 out: only F2 is left
-        self.assertEqual(rv.count_open(review, [dict(s, verdict="MET") for s in statuses]), 0)
-
     def test_show_prints_the_words_under_the_finding(self):
         self.assertEqual(self.record_review().returncode, 0)
         self.assertEqual(self.owner("F1", ["not wrong, because it is by design"]).returncode, 0)
@@ -508,20 +459,6 @@ class OwnerMoved(RecordBase):
         self.assertEqual(self.relay("check", "owner", self.report, "F1", "--input", self.write_input(text, "o.toml"), cwd=self.repo).returncode, 0)
         data = self.load()
         self.assertNotIn("queue", data["owner"][0])
-        self.assertEqual(rv.owner_ids(data), {"F1"})
-        self.assertEqual(rv.moved_ids(data), set())
-
-    def test_a_moved_entry_is_not_the_not_wrong_word_and_the_checker_must_count_it_under_queued(self):
-        self.assertEqual(self.move().returncode, 0)
-        data = self.load()
-        self.assertEqual((rv.owner_ids(data), rv.moved_ids(data)), (set(), {"F3"}))
-        # F1 is not met (open 1); F3 moved: queued must be at least 1
-        statuses = [{"id": "F1", "verdict": "NOT MET"}]
-        done = self.record_check(statuses=statuses, open=1, queued=0)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertIn("queued is 0 but the owner moved 1 findings to queue items: F3", done.stderr)
-        self.assertFalse(os.path.exists(os.path.join(self.tmp, "chk.json")))
-        self.assertEqual(self.record_check(statuses=statuses, open=1, queued=1).returncode, 0)
 
 
 class ApplyReviewHandoff(RecordBase):
@@ -530,7 +467,7 @@ class ApplyReviewHandoff(RecordBase):
 
     SKILL = os.path.join(ROOT, "plugins", "sdd", "skills", "apply-review", "SKILL.md")
 
-    def test_a_triage_recorded_as_a_review_is_what_a_check_records_against(self):
+    def test_a_triage_recorded_as_a_review_is_the_review_the_checker_names(self):
         triage = os.path.join(self.tmp, "triage.json")
         finding_in = dict(IN_FINDING, evidence=["screenshot: shots/home.png"], pass_cases=["a=2 gives 1 row"])
         fields = {"report": triage, "reviewed": SHA_A, "base": "master", "notes": ["Group A: lib/x.py (F1)", "For the owner: none"]}
@@ -539,18 +476,6 @@ class ApplyReviewHandoff(RecordBase):
         data = self.load("triage.json")
         self.assertEqual(data["type"], "review")
         self.assertEqual(data["notes"][0], "Group A: lib/x.py (F1)")
-        checked = self.record_check(statuses=[{"id": "F1", "verdict": "MET", "reason": ["tests/test_x.py:4"]}], review=triage, open=0)
-        self.assertEqual(checked.returncode, 0, checked.stderr)
-        self.assertEqual(self.load("chk.json")["review"], [triage])
-        self.assertIn("F1 MET", self.relay("check", "show", os.path.join(self.tmp, "chk.json")).stdout)
-
-    def test_the_checker_refuses_a_markdown_triage(self):
-        old = os.path.join(self.tmp, "triage.md")
-        with open(old, "w") as handle:
-            handle.write("## Group A\nF1\n")
-        done = self.record_check(statuses=[{"id": "F1", "verdict": "MET"}], review=old)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertIn("is not JSON", done.stderr)
 
     def test_the_skill_hands_the_json_over_and_names_no_triage_markdown(self):
         with open(self.SKILL, encoding="utf-8") as handle:

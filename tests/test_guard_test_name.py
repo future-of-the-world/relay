@@ -1,6 +1,4 @@
 """The merge guard and `relay queue done` judge a recorded test name the same way (one function, relay_queue.holds_test)."""
-import importlib.util
-import json
 import os
 import sys
 import unittest
@@ -11,6 +9,7 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 sys.path.insert(0, HERE)
 
 import relay_queue as rq  # noqa: E402
+import test_check_record as cr  # noqa: E402
 import test_queue as tq  # noqa: E402
 
 SOURCE = "class Suite:\n    def test_hangs_within_bound(self):\n        pass\n\n\ndef test_plain():\n    pass\n"
@@ -29,13 +28,6 @@ CASES = [
 ]
 
 
-def load_hook():
-    spec = importlib.util.spec_from_file_location("merge_hook_for_test_name", os.path.join(ROOT, "plugins", "core", "hooks", "merge.py"))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 class TestHoldsTest(unittest.TestCase):
     def test_the_shared_function_judges_the_whole_recorded_name(self):
         for test, accepted in CASES:
@@ -43,42 +35,40 @@ class TestHoldsTest(unittest.TestCase):
             self.assertEqual(rq.holds_test(test, source), accepted, test)
 
 
-class TestDoneJudges(tq.Base):
-    def setUp(self):
-        super().setUp()
-        self.write_commit(self.main, {".relay/queue/job.json": tq.fix_item("Job", ip=60, failing="line 1\nline 2")}, "seed")
-        self.wa = self.worktree("a")
-
+class TestDoneJudges(cr.Flow):
     def test_done_accepts_and_refuses_the_same_names(self):
-        findings = os.path.join(self.tmp, "f.json")
-        rq.take(self.wa, "job", findings, **tq.QUIET)
         self.write_commit(self.wa, {"tests/t.py": SOURCE}, "test")
-        check = os.path.join(self.tmp, "c.json")
-        with open(check, "w") as handle:
-            json.dump({"schema": 1, "type": "check", "head": tq.git(self.wa, "rev-parse", "HEAD"), "reviewed": "a" * 40, "gate": None,
-                       "worktree": "/w", "review": [findings], "findings": [{"id": "Q1", "verdict": "MET", "reason": ["tests/t.py:1"]}],
-                       "new": [], "open": 0, "queued": 0}, handle)
+        review = self.review("r.json", self.took, [cr.review_finding(1)])
+        self.checked([review], cr.met("Q1", "F1"))
         for test, accepted in CASES:
             if "::" not in test or test.endswith("::"):
                 continue                                                    # refused earlier, by the shape of --test
             if accepted:
                 continue
             with self.assertRaises(rq.Refused, msg=test):
-                rq.done(self.wa, "job", test, check)
+                rq.done(self.wa, "job", test)
         for test, accepted in CASES:
             if accepted:
-                self.assertIn("closed job", rq.done(self.wa, "job", test, check), test)
-                tq.git(self.wa, "reset", "-q", "--hard", "HEAD~1")        # back to the taken item, to try the next name
+                self.assertIn("closed job", rq.done(self.wa, "job", test), test)
+                tq.git(self.wa, "reset", "-q", "--hard", "HEAD~1")        # back to the checked state, to try the next name
 
 
-class TestMergeJudges(tq.Base):
+class TestMergeJudges(cr.Flow):
     def merge_accepts(self, n, test):
-        """Whether the merge guard lets through branch wt/m<n>, which closes a fix item with `test` and holds tests/t.py with SOURCE."""
-        hook = load_hook()
-        wt = self.worktree("m%d" % n)
-        done = tq.new_shape(kind="fix", title="Job", failing_case=["it fails"], taken_at="2026-10-23T21:47:35Z", taken_by="wt/m%d" % n,
+        """Whether the merge guard lets through branch wt/m<n>, which took a fix item, was checked with Q1 MET, holds tests/t.py with
+        SOURCE and closes the item with `test`."""
+        slug = "job%d" % n
+        self.write_commit(self.main, {".relay/queue/%s.json" % slug: tq.fix_item("Job %d" % n)}, "item %d" % n)
+        self.wa = self.worktree("m%d" % n)
+        rq.take(self.wa, slug, **tq.QUIET)
+        self.write_commit(self.wa, {"tests/t.py": SOURCE}, "test")
+        review = self.review("r%d.json" % n, self.head(), [cr.review_finding(1)])
+        self.checked([review], cr.met("Q1", "F1"))
+        done = tq.new_shape(kind="fix", title="Job %d" % n, failing_case=["it fails"], taken_at="2026-10-23T21:47:35Z", taken_by="wt/m%d" % n,
                             closed_at="2026-10-24T01:00:00Z", test=test)
-        self.write_commit(wt, {"tests/t.py": SOURCE, ".relay/queue/done/job.json": done}, "close job")
+        tq.git(self.wa, "rm", "-q", ".relay/queue/%s.json" % slug)
+        self.write_commit(self.wa, {".relay/queue/done/%s.json" % slug: done}, "close %s" % slug)
+        hook = cr.merge_hook
         try:
             hook.step_queue(self.main, "master", "wt/m%d" % n)
         except hook.Refused as exc:

@@ -43,9 +43,12 @@
                                      10 s) while the branch's worktree is committing a mark
   relay check show [-C <repo>] [--brief] <report.json | sha>
                                      a recorded review or check printed as readable text (all of it, or with --brief
-                                     the 10-line summary); a sha shows the stored check of that commit and its review
+                                     the 10-line summary); a sha shows the stored check record of that commit
+  relay check findings [-C <worktree>] --review <review.json> [--review <review.json> ...]
+                                     the findings a check must give a verdict for, with their ids (Q1 the queue item, F the
+                                     reviews' findings, M merges of the default branch since the last check)
   relay check record review|check --input <file.toml>
-                                     a judge's way to write its verdict: the TOML input names the report (a .json path)
+                                     a judge's way to write its verdict (a check is ONE record: see roles/judge.md): the TOML input names the report (a .json path)
                                      and holds the fields and prose; validated, then written as JSON (agents never type
                                      JSON and pass no text through the shell); see roles/judge.md for the template
   relay check owner <review.json> <id> --input <file.toml>
@@ -523,19 +526,49 @@ def cmd_check_record(args):
     try:
         record = relay_verdict.record_review if args[0] == "review" else relay_verdict.record_check
         path = record(args[2])
+        counts = ""
+        if args[0] == "check":
+            with open(path, encoding="utf-8") as handle:
+                data = relay_verdict.load_record(handle.read(), "the check record")
+            counts = " (open %d, queued %d)" % (relay_verdict.open_of(data), relay_verdict.queued_of(data))
+    except (relay_verdict.VerdictError, OSError) as exc:
+        raise ValueError(str(exc))
+    print("recorded %s%s" % (path, counts))
+    return 0
+
+
+FINDINGS_USAGE = "relay check findings [-C <worktree>] --review <review.json> [--review <review.json> ...]"
+
+
+def cmd_check_findings(args):
+    """relay check findings: the findings the check must give a verdict for, built by the same code that records the check."""
+    wt, reviews, args = ".", [], list(args)
+    while args:
+        arg = args.pop(0)
+        if arg == "-C" and args:
+            wt = args.pop(0)
+        elif arg == "--review" and args and not args[0].startswith("--"):
+            reviews.append(os.path.abspath(args.pop(0)))
+        else:
+            raise Usage(FINDINGS_USAGE)
+    if not reviews:
+        raise Usage(FINDINGS_USAGE)
+    try:
+        print("\n".join(relay_verdict.finding_list(os.path.realpath(wt), reviews)))
     except relay_verdict.VerdictError as exc:
         raise ValueError(str(exc))
-    print("recorded %s" % path)
     return 0
 
 
 def cmd_check(args):
     usage = ("relay check show [-C <repo>] [--brief] <branch | report.json | sha>  |  "
-             "relay check record review|check --input <file.toml>  |  " + OWNER_USAGE)
+             "relay check record review|check --input <file.toml>  |  " + FINDINGS_USAGE + "  |  " + OWNER_USAGE)
     if args and args[0] == "record":
         return cmd_check_record(args[1:])
     if args and args[0] == "owner":
         return cmd_check_owner(args[1:])
+    if args and args[0] == "findings":
+        return cmd_check_findings(args[1:])
     if not args or args[0] not in ("show",):
         raise Usage(usage)
     args, repo, rest, brief = list(args[1:]), ".", [], False
@@ -582,9 +615,9 @@ relay queue add --from <report.json> F<n> --input <file.toml> [--time ..] [--ip 
                                          the finding F<n> of a recorded review or check; the TOML holds why, time, ip
 relay queue land <slug>                  try again to land a kept wt/queue-<slug>
 relay queue ip <slug> <n>
-relay queue take <slug> -C <worktree> --findings <review.json>   (a fix: writes the review JSON with finding Q1)
+relay queue take <slug> -C <worktree>   (a branch holds one fix item; the check states its problem as finding Q1)
 relay queue release <slug>
-relay queue done <slug> -C <worktree> --test <file>::<name> --check <check.json>   (a fix: the check's verdict for Q1 is MET)
+relay queue done <slug> -C <worktree> --test <file>::<name>   (a fix: the branch's newest check, with no own file changed since, has Q1 MET)
 relay queue drop <slug> --input <file.toml>
                                          the TOML holds `why`: the owner's words (text in '''...''')
 Every form takes [-C <repo>] (default: the current folder)."""
@@ -704,7 +737,7 @@ def cmd_queue(args):
             raise Usage(str(e))
         return 0
     spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--input": str}, 1),
-            "take": ({"--findings": str}, 1), "done": ({"--test": str, "--check": str}, 1)}
+            "take": ({}, 1), "done": ({"--test": str}, 1)}
     extra, count = spec[sub]
     o, p = _queue_options(rest, dict(common, **extra))
     if len(p) != count:
@@ -727,13 +760,11 @@ def cmd_queue(args):
         except relay_queue.Refused as e:
             raise Usage(str(e))
     elif sub == "take":
-        if "--findings" not in o:
-            raise Usage("relay queue take <slug> -C <worktree> --findings <review.json>")
-        print(relay_queue.take(repo(o), p[0], o["--findings"]))
+        print(relay_queue.take(repo(o), p[0]))
     else:
-        if "--test" not in o or "--check" not in o:
-            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name> --check <check.json>")
-        print(relay_queue.done(repo(o), p[0], o["--test"], o["--check"]))
+        if "--test" not in o:
+            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name>")
+        print(relay_queue.done(repo(o), p[0], o["--test"]))
     return 0
 
 

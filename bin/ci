@@ -57,7 +57,7 @@ inert_probe() { local tmpd work rc=0 f
   echo "inert probe line" >> "$work/docs/handover.md"
   # unknown files under the stored names (.json): a reader that lists the folders and breaks on an extra one changes the outcome
   printf 'not a queue item\n' > "$work/.relay/queue/zz-probe.json"; echo '{}' > "$work/.relay/checks/zz.json"
-  echo '{}' > "$work/.relay/checks/zz.review.json"; echo '{}' > "$work/.relay/checks/zz.check.json"; printf 'head 0\nexit 0\n' > "$work/.relay/checks/zz.gate.log"
+  echo '{}' > "$work/.relay/checks/zz.check.json"; printf 'head 0\nexit 0\n' > "$work/.relay/checks/zz.gate.log"
   git -C "$work" add -A && git -C "$work" -c user.name=relay-ci -c user.email=ci@relay commit -q --no-verify -m "inert probe"
   # a full outer run ran the hook suites in full (guard-main repeats its shared cases per profile); the nested run is quick
   # for the paid steps only, so its hook tests run in full too, or the case counts differ by mode, not by an inert file

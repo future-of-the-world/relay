@@ -296,8 +296,13 @@ mark() { python3 -I - "$LIB" "$W" "$X" "${1:-0}" <<'PY'
 import sys
 sys.path.insert(0, sys.argv[1]); import relay_marks as m
 w, c, o = sys.argv[2], sys.argv[3], int(sys.argv[4])
-m.put(w, c, {"schema": 1, "commit": c, "verdict": {"open": o, "queued": 0, "reviewed": c}, "review": c + ".review.json", "check": c + ".check.json",
-             "gate": None, "time": "2026-10-22T10:00:00Z"}, {c + ".check.json": "{}\n"})
+import json
+q1 = {"id": "Q1", "path": "lib/a.py", "line": 1, "severity": "HIGH", "rank": "high", "kind": "inside", "summary": "x loses a row", "failing_case": ["y"],
+      "source": "queue", "since": c, "verdict": "MET", "reason": ["tests/t.sh:1"]}
+f1 = dict(q1, id="F1", source="a.json", verdict="NOT MET", summary="a finding")
+record = {"schema": 2, "type": "check", "head": c, "branch": "wt/t", "item": "x", "gate": None, "scope": [], "notes": [], "findings": [q1] + ([f1] * o)[:1]}
+m.put(w, c, {"schema": 2, "commit": c, "verdict": {"open": o, "queued": 0}, "check": c + ".check.json", "gate": None, "time": "2026-10-22T10:00:00Z"},
+      {c + ".check.json": json.dumps(record) + "\n"})
 PY
 }
 gate() { python3 -I - "$LIB" "$W" "$(head_of)" "${1:-0}" <<'PY'
@@ -364,7 +369,7 @@ expect "T15i after the gate: allowed with the same mark" "$(allowed; echo $?)"
 # branch still differs from master after the revert (a net-empty branch would be all inert, step 3, and rightly allowed)
 m15; commit "fix a and c" "lib/a.py=v2\n" "lib/c.py=c\n"; X="$(head_of)"; gate 0; mark 0; commit "revert" "lib/a.py=v1\n"; pre "$MERGE"
 expect "T15j reverted checked fix: refused, changed lib/a.py" "$(refused 'changed lib/a.py'; echo $?)"
-# (k) both sides changed bin/x, git combined them: refused; the one-finding check and a green gate allow it
+# (k) both sides changed bin/x, git combined them: refused; the check (the script writes M1 for bin/x itself) and a green gate allow it
 m15; commit "fix a and x" "lib/a.py=v2\n" "bin/x=1a\n2\n3\n4\n5\n6\n"; BEFORE="$(head_of)"; X="$BEFORE"; gate 0; mark 0
 printf '1\n2\n3\n4\n5\n6a\n' >"$M/bin/x"; git -C "$M" commit -q -am "x end"; git -C "$W" merge -q --no-edit master
 pre "$MERGE"
@@ -383,19 +388,22 @@ summary = "combined with master's change by the merge"
 failing_case = "the gate fails or the merge does not apply"
 EOF
 "$RELAY" check record review --input "$S/review.toml" >/dev/null
-"$RELAY" gate -C "$W" >"$tmp/gate.out" 2>&1
+HEADG="$(head_of)"; "$RELAY" gate -C "$W" >"$tmp/gate.out" 2>&1
 HEADK="$(head_of)"
 cat >"$S/check.toml" <<EOF
 report = "$S/rep.json"
 head = "$HEADK"
-reviewed = "$BEFORE"
 worktree = "$W"
-gate = "none"
+gate = "$HEADG.gate.log"
 review = ["$S/f.json"]
-open = 0
-queued = 0
+[[status]]
+id = "Q1"
+verdict = "MET"
 [[status]]
 id = "F1"
+verdict = "MET"
+[[status]]
+id = "M1"
 verdict = "MET"
 EOF
 "$RELAY" check record check --input "$S/check.toml" >/dev/null
@@ -403,7 +411,7 @@ jq -nc --arg t "Check: \`$S/f.json\`. Fixes: \`none\`. Worktree: \`$W\`. Check c
   '{type:"user", timestamp:"2026-10-22T10:00:00.000Z", message:{role:"user", content:$t}}' >"$S/agent.jsonl"
 jq -n --arg cwd "$M" --arg tp "$S/agent.jsonl" '{hook_event_name:"SubagentStop", agent_type:"delegate:checker", agent_id:"a1", cwd:$cwd, agent_transcript_path:$tp}' | python3 -I "$CHECKMARK" >/dev/null 2>&1
 pre "$MERGE"
-expect "T15k one-finding check by the real hook + green gate: allowed" "$(allowed; echo $?)"
+expect "T15k check with the script-made merge finding by the real hook + green gate: allowed" "$(allowed; echo $?)"
 # (l) M-B: gate log for F, mark for F, then the mark commit and a handover commit
 m15; commit "fix a" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 0; commit "handover" "docs/handover.md=state\n"; pre "$MERGE"
 expect "T15l gate log of F, HEAD = F + gate + mark + handover: allowed" "$(allowed; echo $?)"
