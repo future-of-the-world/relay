@@ -18,8 +18,8 @@
     "That English reply is blocked once with the rewrite instruction; the Russian reply that followed (Cyrillic share 97%, with terms like workflow, OpenSpec, $9 and file paths) passes; a reply that is almost all code or paths (under ~40 prose letters) passes; with native_language unset or English nothing is checked; a second stop after one block is let through (no loop)."
   ],
   "where": "plugins/front/hooks (a new Stop hook), projects.toml [global] native_language",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T05:45:30Z",
+  "taken_by": "wt/reply-lang",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
