@@ -20,8 +20,8 @@
   "where": "lib/relay_bench.py",
   "taken_at": "2026-10-24T19:45:14Z",
   "taken_by": "wt/bench-set",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T21:28:31Z",
+  "test": "tests/test_bench_set_clean.py::DerivedProfileLivesBesideTheReport::test_q1_set_writes_nothing_into_the_checkout_and_the_profile_sits_beside_the_report",
   "dropped_at": null,
   "dropped_why": null
 }
