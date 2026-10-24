@@ -20,8 +20,9 @@
   "where": "rules/openspec.md and the global rules list, plugins/sdd (rename to plugins/openspec), plugins/delegate and front skills, evals/plugin, docs/variants, ~/.claude/skills/openspec-apply-orchestrator, lib/relay_setup.py, projects.toml",
   "taken_at": "2026-10-24T16:55:15Z",
   "taken_by": "wt/openspec-optional",
-  "closed_at": null,
+  "closed_at": "2026-10-24T19:45:59Z",
   "test": null,
+  "evidence": "93b742ba0bb5f976e02cd0aa1b3d7550d3cd3227",
   "dropped_at": null,
   "dropped_why": null
 }
