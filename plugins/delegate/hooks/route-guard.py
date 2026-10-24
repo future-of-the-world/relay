@@ -111,7 +111,7 @@ def skill_evidence(transcript_path):
         elif isinstance(node, str):
             if "load the delegate skill first" in node:
                 refused = True
-            if node.lstrip().startswith(("/delegate:delegate", "<command-name>/delegate:delegate")):
+            if node.lstrip().startswith("/delegate:delegate") or "<command-name>/delegate:delegate</command-name>" in node:
                 loaded = True
 
     for line in lines:
@@ -159,6 +159,8 @@ def decide(data):
                         "`Escalated: <reason>` to the prompt and keep the same brief.")
     notes = []
     mode = str(cfg["require_skill"])
+    if mode not in ("deny", "note", "off"):
+        mode = "deny"   # an unknown value takes the default
     if mode != "off" and not data.get("agent_id") and sub != "general-purpose":
         loaded, refused = skill_evidence(data.get("transcript_path") or "")
         if loaded is False:

@@ -507,6 +507,46 @@ class Packet(Scratch):
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
 
 
+class ReviewFixes(unittest.TestCase):
+    def read(self, *parts):
+        return open(os.path.join(ROOT, *parts), encoding="utf-8").read()
+
+    def test_F2_the_packet_rules_carry_the_removed_workers_build_rules(self):
+        text = self.read("plugins", "core", "lib", "kit_packet_rules.md")
+        self.assertIn("black-box", text)
+        self.assertIn("same-process test does not count", text)
+        self.assertIn("whole", text)
+        self.assertIn("incomplete `Reads:` line", text)
+
+    def test_F3_no_interfaces_requirement_and_no_wave_plan_in_the_openspec_agents(self):
+        reviewer = self.read("plugins", "openspec", "agents", "spec-reviewer.md")
+        self.assertNotIn("Interfaces", reviewer)
+        self.assertNotIn("wave plan", reviewer)
+        self.assertNotIn("Interfaces", self.read("plugins", "openspec", "agents", "author.md"))
+
+    def test_F4_no_look_line_and_no_lead_under_openspec(self):
+        for base, _d, files in os.walk(os.path.join(ROOT, "plugins", "openspec")):
+            for name in files:
+                if not name.endswith(".md"):
+                    continue
+                text = open(os.path.join(base, name), encoding="utf-8").read()
+                for phrase in ("the lead", "lead's", "`Look:`"):
+                    self.assertNotIn(phrase, text, "%s: %s" % (os.path.join(base, name), phrase))
+        self.assertIn("every task in `tasks.md` is ticked", self.read("plugins", "openspec", "skills", "archive", "SKILL.md"))
+
+    def test_F6_no_alias_table_and_no_wave_in_kit_packet(self):
+        self.assertNotIn("ALIASES", self.read("plugins", "core", "hooks", "flow-stage.py"))
+        self.assertNotIn("wave", self.read("plugins", "core", "lib", "kit_packet.py").lower())
+
+    def test_F5_the_spec_step_twins_carry_the_same_request(self):
+        for suffix in ("en", "ru", "typo"):
+            on = self.read("evals", "plugin", "spec-step-on-" + suffix, "prompt.md")
+            off = self.read("evals", "plugin", "no-spec-step" + ("" if suffix == "en" else "-" + suffix), "prompt.md")
+            self.assertEqual(on.split("---\n", 2)[2], off.split("---\n", 2)[2], suffix)
+            for word in ("plan", "spec", "no code"):
+                self.assertNotIn(word, on.split("---\n", 2)[2].lower(), suffix)
+
+
 # --- case 15: the route guard --------------------------------------------------------------------------------------
 
 class RouteGuard(Scratch):
@@ -545,6 +585,23 @@ class RouteGuard(Scratch):
         self.assertIsNone(self.call(self.project("rg3"), self.transcript(self.USER, call)))
         typed = {"type": "user", "message": {"role": "user", "content": "/delegate:delegate"}}
         self.assertIsNone(self.call(self.project("rg3b"), self.transcript(typed)))
+
+    def test_F1_a_slash_command_as_claude_code_stores_it_counts_as_loaded(self):
+        # the real shape: <command-message> first, then <command-name>
+        real = {"type": "user", "message": {"role": "user", "content": "<command-message>delegate:delegate</command-message>\n<command-name>/delegate:delegate</command-name>\n<command-args></command-args>"}}
+        self.assertIsNone(self.call(self.project("rg8"), self.transcript(real)))
+        other = {"type": "user", "message": {"role": "user", "content": "<command-message>front:front</command-message>\n<command-name>/front:front</command-name>"}}
+        out = self.call(self.project("rg9"), self.transcript(other))
+        self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
+
+    def test_F7_an_unknown_require_skill_value_denies_like_deny(self):
+        bad = self.project("rg10", extra='\n[delegate]\nrequire_skill = "Bogus"\n')
+        out = self.call(bad, self.transcript(self.USER))
+        self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
+
+    def test_F7_the_docs_table_has_the_require_skill_row(self):
+        text = open(os.path.join(ROOT, "docs", "delegation.md"), encoding="utf-8").read()
+        self.assertIn("require_skill = deny|note|off", text)
 
     def test_the_setting_off_and_note_and_a_subagent_and_an_unreadable_transcript(self):
         off = self.project("rg4", extra='\n[delegate]\nrequire_skill = "off"\n')

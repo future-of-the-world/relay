@@ -26,7 +26,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 import relay_toml  # noqa: E402
 KIT = os.path.join(HERE, "..", "bin", "kit")
-ALIASES = {"openspec": "openspec"}
 
 
 def project_root(cwd):

@@ -130,7 +130,7 @@ openspec/skills/<skill>/SKILL.md` prints where it is; `openspec:plan` is the ski
   and the outcome at the bound.
 - A new change, and any task you add, follows `openspec:plan` "Writing the
   artifacts" in full: the failure-state table, absolutes tested,
-  `Interfaces`, the four task fields `kit packet --check` wants, fakes
+  the four task fields `kit packet --check` wants, fakes
   first, parity lists, caller sweeps. An empty cell of the table is a
   question in your reply, never a guess.
 - A revision sweeps every place the old wording lives: proposal, design,

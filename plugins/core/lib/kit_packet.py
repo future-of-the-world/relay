@@ -46,7 +46,7 @@ Which files are source files is the project's binding (`source`,
                                                 module <crate::a::b>
                                     elixir      module <App.Module.Name>
                                   The module must exist when the plan is
-                                  checked: a wave-0 stub or existing code
+                                  checked: a stub from an earlier group or existing code
     file <path>                   a file under the repo, whole
     file <path> "<heading>"       one section of a Markdown file
     file <path>:<from>-<to>       lines <from> to <to> of a file, counted from
@@ -74,8 +74,8 @@ for a kind with `waiver`, `<kind> none (<reason>)`).
 that doesn't resolve, a required test missing, more than `max_source_files`
 source files without `Size: mechanical`, an artifact over its budget
 (design.md ~60 KB, tasks.md ~40 KB, a task's prose ~1 KB, group notes
-~2 KB). Groups run one after another in tasks.md order, so there is no wave
-check; every packet ends with the text of kit_packet_rules.md.
+~2 KB). Groups run one after another in tasks.md order, so there is no
+ordering check; every packet ends with the text of kit_packet_rules.md.
 """
 import atexit
 import os
@@ -93,7 +93,7 @@ QUOTED = re.compile(r'"([^"]+)"')
 LINE_RANGE = re.compile(r"^(.+):(\d+)-(\d+)$")
 NONE = re.compile(r"^none \((.+)\)$", re.S)
 DEFAULT_MAX_SOURCE_FILES = 4
-# Artifact budgets: a wave-plan author reads design.md and tasks.md whole, and
+# Artifact budgets: a task-group author reads design.md and tasks.md whole, and
 # every section a task names lands in its brief.
 DESIGN_BUDGET = 60 * 1024
 TASKS_BUDGET = 40 * 1024
@@ -286,7 +286,7 @@ def declarations(root):
     """A directory holding the declaration output (.d.ts) of the whole project.
 
     The compiler runs once per process. Its exit status is ignored: it emits
-    declarations even with type errors, and a wave-0 stub may not type-check yet.
+    declarations even with type errors, and a stub from an earlier group may not type-check yet.
     """
     if root in _declarations:
         return _declarations[root]
@@ -331,7 +331,7 @@ def ts_contract(root, module):
     if not os.path.exists(os.path.join(root, module)):
         raise RefError(
             f"no file for module {module}; a module ref names a file that exists when the plan "
-            "is checked (a wave-0 stub or existing code)"
+            "is checked (a stub from an earlier group or existing code)"
         )
     emitted = os.path.join(declarations(root), re.sub(r"\.tsx?$", ".d.ts", os.path.normpath(module)))
     if not os.path.exists(emitted):
@@ -373,7 +373,7 @@ def rust_path(root, module):
                 return path
     raise RefError(
         f"no file for module {module} (looked under src/ and crates/*/src/); a module ref names "
-        "a module that exists when the plan is checked (a wave-0 stub or existing code)"
+        "a module that exists when the plan is checked (a stub from an earlier group or existing code)"
     )
 
 
@@ -507,7 +507,7 @@ def elixir_path(root, module):
                     return path
     raise RefError(
         f"no file for module {module} (looked under {', '.join(b + '/' for b in bases)}); a module ref names "
-        "a module that exists when the plan is checked (a wave-0 stub or existing code)"
+        "a module that exists when the plan is checked (a stub from an earlier group or existing code)"
     )
 
 
@@ -859,14 +859,14 @@ def check(root, change):
     tasks_text = open(path, encoding="utf-8").read()
     if len(tasks_text) > TASKS_BUDGET:
         print(f"tasks.md: {len(tasks_text) // 1024} KB, over the ~{TASKS_BUDGET // 1024} KB budget: "
-              "the wave plan reads it whole; detail lives in the design sections the tasks name")
+              "a task-group author reads it whole; detail lives in the design sections the tasks name")
         bad += 1
     design = os.path.join(change_dir, "design.md")
     if os.path.exists(design):
         size = os.path.getsize(design)
         if size > DESIGN_BUDGET:
             print(f"design.md: {size // 1024} KB, over the ~{DESIGN_BUDGET // 1024} KB budget: a design is "
-                  "decisions, not reference (a wave-plan author reads it whole; contracts live in modules)")
+                  "decisions, not reference (a task-group author reads it whole; contracts live in modules)")
             bad += 1
     for task in open_tasks:
         for problem in problems(root, change_dir, task):

@@ -1,6 +1,6 @@
 ---
 name: spec-reviewer
-description: Read-only review of an OpenSpec change's planning artifacts (proposal, spec deltas, design, tasks) before any code is written - coherence, scenarios with worked values a test could fail on, failure scenarios and the failure-state table, the project's principles, settings over constants, what a person will see against the decisions the owner locked, modules that exist, and a wave plan whose briefs a worker can build from. Used by the openspec:spec-review skill after /opsx:propose or /opsx:update.
+description: Read-only review of an OpenSpec change's planning artifacts (proposal, spec deltas, design, tasks) before any code is written - coherence, scenarios with worked values a test could fail on, failure scenarios and the failure-state table, the project's principles, settings over constants, what a person will see against the decisions the owner locked, modules that exist, and a task list whose briefs a worker can build from. Used by the openspec:spec-review skill after /opsx:propose or /opsx:update.
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
@@ -373,10 +373,6 @@ kit spec-check <change>
     about one module and its tests) is a FIX. What a person runs, or what
     runs outside the test process (a screen, a command, a spawned process),
     has its end-to-end or smoke entry; an `e2e none` reason must be true.
-14. **Interfaces.** `design.md`'s `Interfaces` section names the shape and
-    owning task of every value one task produces and another reads: types,
-    signatures, stored fields, events, messages, sort keys. A value two
-    tasks could shape differently is a BLOCKER.
 
 ## Reply, in addition
 

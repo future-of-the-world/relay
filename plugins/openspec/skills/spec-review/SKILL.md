@@ -9,7 +9,7 @@ argument-hint: "<change>"
 The project's rules for this stage arrive with this skill; they add to it and
 win where they differ.
 
-The coordinator (the main session, or the lead) only dispatches. The review
+The coordinator (the main session) only dispatches. The review
 runs in **`openspec:spec-reviewer`** (Opus, read-only), which starts fresh and
 reads only the artifacts, as a worker will: what it can't understand from
 them, a worker won't either. Fixes are written by an **`openspec:author`**. Each

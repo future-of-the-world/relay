@@ -37,6 +37,7 @@ one whole-change review, no agent that only waits.
 | `subagent_type: fork` with the session over `fork_limit` | deny: write a brief, start a typed agent |
 | worker/fixer/scout/runner with `model: opus` | deny unless the prompt has a line `Escalated: <reason>` (`build_tier_opus = allow|deny|escalate`) |
 | prompt over 3,000 characters without `Brief:` | a note: put it in a brief file |
+| main-session Agent call before the delegate skill was loaded | deny once, then a note (`require_skill = deny|note|off`) |
 | `max_parallel` agents already running | a note |
 
 Settings per project in `.claude/kit.toml [delegate]`; per shell with

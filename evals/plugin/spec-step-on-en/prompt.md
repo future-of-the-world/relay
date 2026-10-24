@@ -5,4 +5,4 @@ runs: 3
 model: sonnet
 allowed_tools: [Agent, Bash, Read, Write, Edit, Glob, Grep, Skill]
 ---
-Make the stock list sort by name. There is no one to ask: decide every detail yourself. The change's worktree already exists at `.worktrees/sort-by-name` (branch `wt/sort-by-name`). Plan only, no code: stop when the spec step has written the change.
+Make the stock list sort by name. There is no one to ask: decide every detail yourself. The change's worktree already exists at `.worktrees/sort-by-name` under the current directory (branch `wt/sort-by-name`), as the coordinator makes it. Start the work the way this project's rules say, and stop at the first agent's reply.

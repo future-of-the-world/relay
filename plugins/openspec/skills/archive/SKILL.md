@@ -24,9 +24,9 @@ all of these hold, or stop and say which does not:
 
 - the change cycle's check (step 7) passed with `open 0` for this branch;
 - when `kit get --default false product.look_review` is `true` and the change touches what a
-  person sees: the report's `Look:` line has no open defect and no matter of
-  taste waiting for the owner; "not run" carries its reason and "skipped" its
-  count of identical shots, or the look review runs first;
+  person sees: the look review of step 4 ran (or its report says "not run"
+  with its reason, or "skipped" with its count of identical shots), and the
+  check of step 7 has `open 0`, so no defect or matter of taste is left waiting;
 - every task in `tasks.md` is ticked;
 - the full gate passed: `kit get gate.ci` in the worktree when
   `kit get --default local gate.final` is `local`; when `remote`, the pipeline on the pushed
@@ -89,5 +89,5 @@ Commit on `wt/<change>` (openspec-only, see step 4):
 `Archive <change>: main specs synced (<capabilities added / amended>)`.
 Report `wt/<change>, archived, ready to merge` (with the gate's pipeline
 number when remote). Don't merge and don't remove the worktree: the merge is
-the owner's, or the lead's where the project's rules grant it. An agent that
+the owner's. An agent that
 archives never merges.
