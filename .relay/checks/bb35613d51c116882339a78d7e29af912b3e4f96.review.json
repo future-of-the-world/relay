@@ -1,0 +1,130 @@
+{
+  "reviewed": "bb35613d51c116882339a78d7e29af912b3e4f96",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "merge-checks-record.json",
+      "findings": [
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F1",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "bin/ci",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "combined with master's change by the merge"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F2",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "bin/relay",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "combined with master's change by the merge"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F3",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "plugins/core/hooks/merge.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "combined with master's change by the merge"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F4",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "plugins/delegate/skills/delegate/SKILL.md",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "combined with master's change by the merge"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F5",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "tests/test_queue.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "combined with master's change by the merge"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F6",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "tests/test_relay.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "combined with master's change by the merge"
+        }
+      ],
+      "notes": [
+        "Combined by git without a conflict; no fixer needed (Fixes: none)."
+      ],
+      "reviewed": "bb35613d51c116882339a78d7e29af912b3e4f96",
+      "schema": 1,
+      "scope": [
+        "The merge of master into wt/checks-record; relay changed --own lists bin/ci, bin/relay, plugins/core/hooks/merge.py, plugins/delegate/skills/delegate/SKILL.md, tests/test_queue.py, tests/test_relay.py (both sides changed them)."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}
