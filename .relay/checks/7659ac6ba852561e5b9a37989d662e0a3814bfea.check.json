@@ -1,0 +1,49 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_python_rule.py:44 passes, fails on old rule; rules/python.md lines 4-5, 11-12 say \"to be pinned\", \"will run\", \"until that step exists, do not reformat files by hand\", auto-fix defined."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_python_rule.py:54 AST check passes; all functions annotated (read)."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "tests/test_python_rule.py:39 loops profiles/*.toml; passes. Not mutation-tested by the fixer, but read as correct."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "tests/test_python_rule.py:50 passes, fails on old rule; line removed; test_only_relay_loads_it passes."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/py-rule/.relay/checks/4cd1784eae179e7628a75659e9dda72fd6b88c0c.gate.log",
+  "head": "7659ac6ba852561e5b9a37989d662e0a3814bfea",
+  "new": [],
+  "notes": [
+    "Rule is 259 words, keeps title/gist. No callers changed."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "95c125ab1a510869a3d8714f0653f0a3d0e1aca6.review.json"
+  ],
+  "reviewed": "95c125ab1a510869a3d8714f0653f0a3d0e1aca6",
+  "schema": 1,
+  "scope": [
+    "Fix range 95c125a..HEAD; own files: rules/python.md, tests/test_python_rule.py only (in scope). Gate log head 4cd1784, exit 0; HEAD adds only the gate log. test_python_rule.py: 7 passed. Old-rule worktree with new test file: 2 failed (F1, F4 tests), 5 passed."
+  ],
+  "type": "check"
+}
