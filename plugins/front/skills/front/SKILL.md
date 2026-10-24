@@ -90,6 +90,21 @@ Why I ask: <which case (a)-(d)>
    a (recommended) merge   b hold (say what to change)
 ```
 
+Ready changes that wait together ride one train, so the wave pays one gate
+instead of one per change. Riders are the ready changes that need no question
+for the owner, in queue order, at most `TRAIN_MAX` = 4 (bound 2-8). With one
+ready change there is no train: it takes the default branch and merges as
+above. A runner builds the train (delegate skill, step 8); one landing at a
+time: while a train is open (built, not yet landed or dropped) no other change
+lands, and a change that becomes ready meanwhile waits for it (two or more
+waiting form the next train; `relay queue` commits are inert and only need the
+train to take the default branch again). When the train's gate is green and
+`relay changed --own <base>` in the train lists no file, merge it with
+`git merge --ff-only wt/train-<n>`; with files, start the merge check first.
+When the gate is red, drop the train (a runner removes its worktree and
+branch; the riders are untouched) and merge the riders one at a time. Say one
+`merged:` line per rider. The wave's paid run (below) follows the train.
+
 The merge itself is the front's, in the main checkout:
 `git merge --ff-only wt/<name>` in the main checkout. The merge hook refuses it
 unless the gate is green, the check says `open 0` and the branch has taken the

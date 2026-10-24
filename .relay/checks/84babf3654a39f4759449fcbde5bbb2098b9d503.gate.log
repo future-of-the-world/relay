@@ -1,0 +1,14 @@
+head 84babf3654a39f4759449fcbde5bbb2098b9d503
+cmd bin/ci --quick
+ci: library tests ok (423s)
+ci: types and lint FAILED (1s, log: .ci/steps/types-and-lint.log)
+    FAIL mypy 1.18.2:
+    lib/relay_inert.py:59: error: Need type annotation for "_TREES" (hint: "_TREES: dict[<type>, <type>] = ...")  [var-annotated]
+    Found 1 error in 1 file (checked 32 source files)
+ci: hook tests ok (144s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert ok (630s)
+ci: RED
+exit 1

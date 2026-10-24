@@ -50,35 +50,35 @@ fi
 plugins="$(cd "$here/../.." && pwd -P)"
 ck "path, sibling plugin" "$("$kit" path product/scripts/measure.mjs)" "$plugins/product/scripts/measure.mjs"
 ck "path, core itself" "$("$kit" path core/lib/kit_packet.py)" "$plugins/core/lib/kit_packet.py"
-ck "path, missing file" "$("$kit" path sdd/nope 2>&1 | head -c 20)" "kit: no file 'sdd/no"
-ck "path, no escape" "$("$kit" path 'sdd/../core/bin/kit' >/dev/null 2>&1; echo $?)" "1"
+ck "path, missing file" "$("$kit" path openspec/nope 2>&1 | head -c 20)" "kit: no file 'opensp"
+ck "path, no escape" "$("$kit" path 'openspec/../core/bin/kit' >/dev/null 2>&1; echo $?)" "1"
 # kit path in the installed layout (<market>/<plugin>/<version>/): the version
 # installed for THIS project, never "the newest".
-inst="$tmp/market"; mkdir -p "$inst/core/0.1.0" "$inst/sdd/0.1.0/skills/x" "$inst/sdd/0.2.0/skills/x" "$inst/sdd/0.10.0/skills/x"
+inst="$tmp/market"; mkdir -p "$inst/core/0.1.0" "$inst/openspec/0.1.0/skills/x" "$inst/openspec/0.2.0/skills/x" "$inst/openspec/0.10.0/skills/x"
 cp -R "$here/../bin" "$here/../lib" "$inst/core/0.1.0/"
-for v in 0.1.0 0.2.0 0.10.0; do echo "$v" >"$inst/sdd/$v/skills/x/SKILL.md"; done
+for v in 0.1.0 0.2.0 0.10.0; do echo "$v" >"$inst/openspec/$v/skills/x/SKILL.md"; done
 ikit="$inst/core/0.1.0/bin/kit"
 real() { (cd "$1" && pwd -P); }
-ck "path, no registry: the same version as the running core" "$("$ikit" path sdd/skills/x/SKILL.md)" "$(real "$inst")/sdd/0.1.0/skills/x/SKILL.md"
+ck "path, no registry: the same version as the running core" "$("$ikit" path openspec/skills/x/SKILL.md)" "$(real "$inst")/openspec/0.1.0/skills/x/SKILL.md"
 reg="$tmp/installed_plugins.json"; export KIT_INSTALLED_PLUGINS="$reg"
 other="$tmp/other-project"; mkdir -p "$other"
 cat >"$reg" <<JSON
-{"version": 2, "plugins": {"sdd@market": [
-  {"scope": "user", "installPath": "$inst/sdd/0.2.0", "version": "0.2.0"},
-  {"scope": "project", "projectPath": "$other", "installPath": "$inst/sdd/0.10.0", "version": "0.10.0"},
-  {"scope": "project", "projectPath": "$tmp", "installPath": "$inst/sdd/0.1.0", "version": "0.1.0"}]}}
+{"version": 2, "plugins": {"openspec@market": [
+  {"scope": "user", "installPath": "$inst/openspec/0.2.0", "version": "0.2.0"},
+  {"scope": "project", "projectPath": "$other", "installPath": "$inst/openspec/0.10.0", "version": "0.10.0"},
+  {"scope": "project", "projectPath": "$tmp", "installPath": "$inst/openspec/0.1.0", "version": "0.1.0"}]}}
 JSON
-ck "path, project-scope install of this project wins over newer ones" "$("$ikit" path sdd/skills/x/SKILL.md)" "$(real "$inst")/sdd/0.1.0/skills/x/SKILL.md"
-ck "path, from a worktree of the project, the same" "$(cd "$tmp/.wt/a" && "$ikit" path sdd/skills/x/SKILL.md)" "$(real "$inst")/sdd/0.1.0/skills/x/SKILL.md"
+ck "path, project-scope install of this project wins over newer ones" "$("$ikit" path openspec/skills/x/SKILL.md)" "$(real "$inst")/openspec/0.1.0/skills/x/SKILL.md"
+ck "path, from a worktree of the project, the same" "$(cd "$tmp/.wt/a" && "$ikit" path openspec/skills/x/SKILL.md)" "$(real "$inst")/openspec/0.1.0/skills/x/SKILL.md"
 cat >"$reg" <<JSON
-{"version": 2, "plugins": {"sdd@market": [
-  {"scope": "project", "projectPath": "$other", "installPath": "$inst/sdd/0.10.0", "version": "0.10.0"},
-  {"scope": "user", "installPath": "$inst/sdd/0.2.0", "version": "0.2.0"}]}}
+{"version": 2, "plugins": {"openspec@market": [
+  {"scope": "project", "projectPath": "$other", "installPath": "$inst/openspec/0.10.0", "version": "0.10.0"},
+  {"scope": "user", "installPath": "$inst/openspec/0.2.0", "version": "0.2.0"}]}}
 JSON
-ck "path, another project's install is not used; the user-scope one is" "$("$ikit" path sdd/skills/x/SKILL.md)" "$(real "$inst")/sdd/0.2.0/skills/x/SKILL.md"
+ck "path, another project's install is not used; the user-scope one is" "$("$ikit" path openspec/skills/x/SKILL.md)" "$(real "$inst")/openspec/0.2.0/skills/x/SKILL.md"
 printf '{"version": 2, "plugins": {}}' >"$reg"
-ck "path, empty registry: the core's own version" "$("$ikit" path sdd/skills/x/SKILL.md)" "$(real "$inst")/sdd/0.1.0/skills/x/SKILL.md"
-rm -rf "$inst/sdd/0.1.0"
-ck "path, nothing for this version: an error, not the newest" "$("$ikit" path sdd/skills/x/SKILL.md 2>&1 | head -c 20)" "kit: no file 'sdd/sk"
-ck "path, that error exits 1" "$(rc "$ikit" path sdd/skills/x/SKILL.md)" "1"
+ck "path, empty registry: the core's own version" "$("$ikit" path openspec/skills/x/SKILL.md)" "$(real "$inst")/openspec/0.1.0/skills/x/SKILL.md"
+rm -rf "$inst/openspec/0.1.0"
+ck "path, nothing for this version: an error, not the newest" "$("$ikit" path openspec/skills/x/SKILL.md 2>&1 | head -c 20)" "kit: no file 'opensp"
+ck "path, that error exits 1" "$(rc "$ikit" path openspec/skills/x/SKILL.md)" "1"
 [ "$fails" -eq 0 ] && echo "kit.test: all passed" || { echo "kit.test: $fails failed"; exit 1; }

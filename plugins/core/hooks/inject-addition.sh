@@ -5,7 +5,7 @@
 # A project keeps its rules for an agent in `.claude/kit/<name>.md`. When
 # an agent `<plugin>:<name>` starts, the skill `<plugin>:<role>` has just been
 # loaded with the Skill tool, or the owner has typed the stage as a slash
-# command (`/sdd:archive ...`: then no Skill call happens, the skill comes in
+# command (`/openspec:archive ...`: then no Skill call happens, the skill comes in
 # with the prompt), this hook hands that file to the agent or session as
 # additional context, so the project's rules are always there and no
 # instruction has to be obeyed first. No file, nothing is injected.
@@ -20,7 +20,7 @@
 # stages have no role. With no role file the output is what it was before
 # role files existed (test I4).
 #
-# Only the framework's own plugins are served (core, sdd, product, delegate,
+# Only the framework's own plugins are served (core, openspec, product, delegate,
 # issues, front): another plugin's `code-reviewer` must not receive a
 # project's `code-reviewer.md`.
 #
@@ -53,7 +53,7 @@ cwd="$(jq -r '.cwd // empty' <<<"$input")"
 [ -n "$cwd" ] || cwd="$PWD"
 
 # <plugin>:<role> of a framework plugin, nothing else (no path can leave .claude/kit/).
-[[ "$name" =~ ^(core|sdd|product|delegate|issues|front):([a-z][a-z0-9-]*)$ ]] || exit 0
+[[ "$name" =~ ^(core|openspec|product|delegate|issues|front):([a-z][a-z0-9-]*)$ ]] || exit 0
 role="${BASH_REMATCH[2]}"
 
 root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" || root="$cwd"

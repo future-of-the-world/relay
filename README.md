@@ -97,7 +97,7 @@ bin/relay            the command           lib/                 the library (pyt
 profiles/            active + candidates   rules/               one rule per file -> CLAUDE.md
 plugins/core         kit, guard, flow hook plugins/observe      the ledger hook
 plugins/delegate     agents + route guard  plugins/front        budget + handover hooks, front skill
-plugins/sdd          OpenSpec flow         plugins/issues       issue flow
+plugins/openspec       OpenSpec spec steps   plugins/issues       issue flow
 plugins/product      look review           evals/plugin         `claude plugin eval` cases (regression)
 evals/scenarios      bench scenarios       templates/           files a new project gets
 docs/                design and manuals    improve/log.md       every adopted change and why

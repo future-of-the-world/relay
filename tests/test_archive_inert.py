@@ -58,7 +58,7 @@ class ArchiveAfterTheMark(unittest.TestCase):
         self.git("commit", "-q", "-m", message)
 
     def archive(self):
-        """What sdd:archive does: sync the main spec, move the change folder into the archive."""
+        """What openspec:archive does: sync the main spec, move the change folder into the archive."""
         self.write("openspec/specs/word/spec.md", "spec\n")
         self.write("openspec/changes/archive/2026-x/tasks.md", "- [x] one\n")
         self.write("openspec/changes/archive/2026-x/proposal.md", "why\n")

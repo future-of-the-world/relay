@@ -18,8 +18,8 @@
     "After the same bench, `git status --short` in the main checkout is empty, and the derived profile is found beside the bench report."
   ],
   "where": "lib/relay_bench.py",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T19:45:14Z",
+  "taken_by": "wt/bench-set",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

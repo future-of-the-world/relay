@@ -314,8 +314,8 @@ class Views(RecordBase):
 class FlowWords(RecordBase):
     """A flow's own severity words are accepted: the finding keeps the word and stores its rank beside it."""
 
-    # the sets named in the flows: roles/judge.md (default), sdd spec-reviewer ("BLOCKER = HIGH, FIX = MEDIUM, NIT = LOW"),
-    # sdd spec-conformance (CRITICAL / WARNING / SUGGESTION, worked as high / medium / low in that order)
+    # the sets named in the flows: roles/judge.md (default), openspec spec-reviewer ("BLOCKER = HIGH, FIX = MEDIUM, NIT = LOW"),
+    # openspec spec-conformance (CRITICAL / WARNING / SUGGESTION, worked as high / medium / low in that order)
     SETS = {"default": [("HIGH", "high"), ("MEDIUM", "medium"), ("LOW", "low")],
             "spec-reviewer": [("BLOCKER", "high"), ("FIX", "medium"), ("NIT", "low")],
             "spec-conformance": [("CRITICAL", "high"), ("WARNING", "medium"), ("SUGGESTION", "low")]}
@@ -461,11 +461,11 @@ class OwnerMoved(RecordBase):
         self.assertNotIn("queue", data["owner"][0])
 
 
-class ApplyReviewHandoff(RecordBase):
-    """sdd:apply-review hands the triage to the checker as a review record: the author writes the TOML input and records it,
-    the checker's `Check:` names that JSON. The fixture runs both record steps with no live agent."""
+class ReviewHandoff(RecordBase):
+    """A review is recorded as a review record with the TOML input and the checker's `Check:` names that JSON (the delegate
+    skill, step 7; the apply-review skill and its triage author are gone). The fixture runs the record step with no live agent."""
 
-    SKILL = os.path.join(ROOT, "plugins", "sdd", "skills", "apply-review", "SKILL.md")
+    SKILL = os.path.join(ROOT, "plugins", "delegate", "skills", "delegate", "SKILL.md")
 
     def test_a_triage_recorded_as_a_review_is_the_review_the_checker_names(self):
         triage = os.path.join(self.tmp, "triage.json")
@@ -481,10 +481,10 @@ class ApplyReviewHandoff(RecordBase):
         with open(self.SKILL, encoding="utf-8") as handle:
             text = handle.read()
         self.assertNotIn("review/triage.md", text)
-        self.assertIn("relay check record review --input", text)
+        self.assertIn("relay check record check", text)
         checks = [l for l in text.splitlines() if l.startswith("> Check:")]
         self.assertEqual(len(checks), 1)
-        self.assertIn("Check: `<scratchpad>/review/triage.json`", checks[0])
+        self.assertIn("Report: `<path>.json`", checks[0])
 
 
 if __name__ == "__main__":

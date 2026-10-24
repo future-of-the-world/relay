@@ -1,0 +1,28 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 120,
+  "found_at": "2026-10-24T16:19:49Z",
+  "found_in": "relay queue add",
+  "title": "Spec writing leaves the main pipeline; sdd becomes openspec",
+  "what": [
+    "relay's own change cycle (queue, worktree, build, gate, review, fix, check, merge) is the pipeline; writing a spec is an opt-in set of extra steps a project turns on. The OpenSpec rule stops being global and is loaded only where spec steps are on. The plugin `sdd` is renamed `openspec` (it is OpenSpec); another way of writing specs would be a plugin beside it. The flow skills stop contradicting each other and the delegate skill: one answer per question in one place (folds in the-flow-s-skills-give-a-session-opposite-orders)."
+  ],
+  "why": [
+    "Owner, verbatim, 24 Oct: \"Меня не устраивает эта путаница с openspec, кажется что это артефакт прошлого, категорически расходится с теми инструкциями что я прилагая - openspec лишь дополнительная обертка в виде поддержки документации проекта, relay - уже много перенял от sdd и от openspec в частности, мы изымаем написание спецификаций из общего пайплайна и даем опцию включить дополнительные шаги для написания спецификации, так же то что это называется sdd меня тоже не устраивает - это фактически openspec, если мы придумаем новый способ писать спецификации и захотим добавить его в relay мы добавим его рядом с openspec\"."
+  ],
+  "failing_case": [
+    "Today ~/.claude/CLAUDE.md tells every project \"A behaviour change goes through an OpenSpec change before code\"; the sdd skills and the delegate skill disagree on models, wave checks, /clear, agent count and small work (queue item the-flow-s-skills-give-a-session-opposite-orders)."
+  ],
+  "pass_cases": [
+    "A project without spec steps gets no OpenSpec rule and no spec step in its cycle; a project that turns them on gets the openspec plugin's steps; no file says sdd; the skills give one answer per question; the paid eval run is green."
+  ],
+  "where": "rules/openspec.md and the global rules list, plugins/sdd (rename to plugins/openspec), plugins/delegate and front skills, evals/plugin, docs/variants, ~/.claude/skills/openspec-apply-orchestrator, lib/relay_setup.py, projects.toml",
+  "taken_at": "2026-10-24T16:55:15Z",
+  "taken_by": "wt/openspec-optional",
+  "closed_at": "2026-10-24T19:45:59Z",
+  "test": null,
+  "evidence": "93b742ba0bb5f976e02cd0aa1b3d7550d3cd3227",
+  "dropped_at": null,
+  "dropped_why": null
+}

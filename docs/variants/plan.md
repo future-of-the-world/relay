@@ -1,4 +1,4 @@
-# Variants: plan (`sdd:plan`)
+# Variants: plan (`openspec:plan`)
 
 Copies read (2026-10-19): `kartoteka-plan`, `clean-plan`, `carry-plan` (Mind),
 `sight-plan`, `alix-plan`, `glyph-plan`. Kartoteka and Clean are the same text

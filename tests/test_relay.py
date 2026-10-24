@@ -257,7 +257,7 @@ class Analysis(Base):
 
     def test_classify(self):
         import relay_analyze as ra
-        self.assertEqual(ra.classify("sdd:worker"), "build")
+        self.assertEqual(ra.classify("delegate:worker"), "build")
         self.assertEqual(ra.classify("delegate:scout"), "look")
         self.assertEqual(ra.classify("general-purpose"), "general")
         self.assertEqual(ra.classify("delegate:critic"), "think")
@@ -960,7 +960,7 @@ class Roles(Base):
 
     def test_every_real_agent_has_one_base(self):
         """A2 on the real tree: every agent file of every plugin has exactly one relay:base region, known parts and the tools
-        its base needs; the bases of the 15 agents are the ones the design names (the checker is a judge)."""
+        its base needs; the bases of the 11 agents are the ones the design names (the checker is a judge)."""
         rr = self.lib()
         self.assertEqual(rr.problems(ROOT, require_base=True), [])
         by_base = {}
@@ -971,12 +971,12 @@ class Roles(Base):
         self.assertEqual(by_base, {
             "lookup": ["plugins/delegate/agents/scout.md"],
             "run": ["plugins/delegate/agents/runner.md"],
-            "build": ["plugins/delegate/agents/worker.md", "plugins/sdd/agents/worker.md"],
-            "fix": ["plugins/delegate/agents/fixer.md", "plugins/sdd/agents/fixer.md"],
-            "think": ["plugins/delegate/agents/thinker.md", "plugins/sdd/agents/author.md"],
-            "judge": ["plugins/delegate/agents/checker.md", "plugins/delegate/agents/critic.md", "plugins/product/agents/ui-reviewer.md",
-                      "plugins/sdd/agents/code-reviewer.md", "plugins/sdd/agents/reviewer.md", "plugins/sdd/agents/spec-conformance.md",
-                      "plugins/sdd/agents/spec-reviewer.md"]})
+            "build": ["plugins/delegate/agents/worker.md"],
+            "fix": ["plugins/delegate/agents/fixer.md"],
+            "think": ["plugins/delegate/agents/thinker.md", "plugins/openspec/agents/author.md"],
+            "judge": ["plugins/delegate/agents/checker.md", "plugins/delegate/agents/critic.md",
+                      "plugins/openspec/agents/spec-conformance.md", "plugins/openspec/agents/spec-reviewer.md",
+                      "plugins/product/agents/ui-reviewer.md"]})
 
     def test_judges_cannot_edit_and_check_mode_does_not_need_part_two(self):
         """The judge base forbids Edit tools (A3) and names no part-2 thing as a given: marks, merge refusal and queue
@@ -1063,7 +1063,7 @@ class Agents(unittest.TestCase):
         import glob
         import re
         files = sorted(glob.glob(os.path.join(ROOT, "plugins", "*", "agents", "*.md")))
-        self.assertGreaterEqual(len(files), 14)
+        self.assertGreaterEqual(len(files), 11)
         for path in files:
             with open(path, encoding="utf-8") as handle:
                 text = handle.read()
@@ -1096,7 +1096,7 @@ class Agents(unittest.TestCase):
             for phrase in banned:
                 self.assertNotIn(phrase, text, "%s still says %r" % (os.path.relpath(path, ROOT), phrase))
         places = ["rules/delegation.md", "plugins/delegate/skills/delegate/SKILL.md", "plugins/issues/skills/implement/SKILL.md",
-                  "plugins/sdd/skills/apply-review/SKILL.md", "plugins/sdd/skills/spec-review/SKILL.md"]
+                  "plugins/openspec/skills/spec-review/SKILL.md"]
         for place in places:
             with open(os.path.join(ROOT, place), encoding="utf-8") as handle:
                 self.assertIn("roles/judge.md", handle.read(), place + " does not name roles/judge.md")
@@ -1112,8 +1112,8 @@ class Agents(unittest.TestCase):
                 return " ".join(handle.read().split())
         agents = [p for p in sorted(glob.glob(os.path.join(ROOT, "plugins/*/agents/*.md")))
                   if "<!-- relay:base judge -->" in open(p, encoding="utf-8").read()]
-        self.assertGreaterEqual(len(agents), 7)
-        own_list_flows = ("plugins/sdd/agents/spec-reviewer.md", "plugins/sdd/agents/spec-conformance.md",
+        self.assertGreaterEqual(len(agents), 5)
+        own_list_flows = ("plugins/openspec/agents/spec-reviewer.md", "plugins/openspec/agents/spec-conformance.md",
                           "plugins/product/agents/ui-reviewer.md")
         for path in agents:
             text = read(os.path.relpath(path, ROOT))
@@ -1134,14 +1134,11 @@ class Agents(unittest.TestCase):
                     self.assertTrue(has_own_list, name + ": the flow's own reply list cannot be found")
                 if has_own_list:
                     self.assertRegex(own, r"project rule\s+raises \(where, what, the rule's label\)", name + " own reply list")
-        for flow in ("plugins/sdd/agents/spec-reviewer.md", "plugins/sdd/agents/spec-conformance.md",
+        for flow in ("plugins/openspec/agents/spec-reviewer.md", "plugins/openspec/agents/spec-conformance.md",
                      "plugins/product/agents/ui-reviewer.md"):
             self.assertIn("## Reply, in addition", read(flow), flow)
-        code = read("plugins/sdd/agents/code-reviewer.md")
-        self.assertIn("The skill runs without the project's rules", code)
-        self.assertIn("in its own reply line even when the skill rated it low", code)
-        self.assertIn("The skill does not see the project's rules", read("plugins/sdd/agents/spec-conformance.md"))
-        conf = " ".join(read("plugins/sdd/agents/spec-conformance.md").split())
+        self.assertIn("The skill does not see the project's rules", read("plugins/openspec/agents/spec-conformance.md"))
+        conf = " ".join(read("plugins/openspec/agents/spec-conformance.md").split())
         self.assertIn("that cap counts only these CRITICAL and MISSING lines", conf)
         self.assertIn("beyond that and never inside the cap", conf)
         self.assertIn("is given once, as its labelled line beyond the cap", conf)
@@ -1158,12 +1155,9 @@ class Agents(unittest.TestCase):
         self.assertIn(writer, implement)
         self.assertLess(implement.index("delegate:fixer"), implement.index("runs `gate.ci`"))
         self.assertLess(implement.index("runs `gate.ci`"), implement.index("`delegate:checker` with `Gate: <log>`"))
-        review = read("plugins/sdd/skills/apply-review/SKILL.md")
-        self.assertIn(writer, review)
-        self.assertLess(review.index("## 4. Close: the final gate"), review.index("## 5. Check of the fixes"))
-        self.assertIn("pipeline #<n> on <full sha> passed", review)
         delegate = read("plugins/delegate/skills/delegate/SKILL.md")
         self.assertIn(writer, delegate)
+        self.assertIn("pipeline #<n> on <full sha> passed", delegate)
         self.assertLess(delegate.index("6. **Gate again.**"), delegate.index("7. **Check.**"))
         self.assertLess(delegate.index("3. **Gate before the review.**"), delegate.index("4. **One whole-change review.**"))
         # the checker side: the log form, the remote form and the no-gate form are all named, and agree with spec-review
@@ -1173,7 +1167,7 @@ class Agents(unittest.TestCase):
         self.assertIn("`Gate: none (artifacts only)`", judge)
         self.assertIn("outside `openspec/`", judge)   # a code fix with no gate is still open +1
         checker = read("plugins/delegate/agents/checker.md")
-        spec = read("plugins/sdd/skills/spec-review/SKILL.md")
+        spec = read("plugins/openspec/skills/spec-review/SKILL.md")
         self.assertIn("Gate: none (artifacts only)", spec)
         self.assertIn("writes no verdict", spec)
         self.assertIn("writes no verdict", checker)
@@ -1184,13 +1178,10 @@ class Agents(unittest.TestCase):
         self.assertIn("plain text file", checker)
         # F6: the global rule and the skills that run in other projects give relay's path, never a bare roles/judge.md
         for rel in ("rules/delegation.md", "plugins/delegate/skills/delegate/SKILL.md",
-                    "plugins/issues/skills/implement/SKILL.md", "plugins/sdd/skills/spec-review/SKILL.md"):
+                    "plugins/issues/skills/implement/SKILL.md", "plugins/openspec/skills/spec-review/SKILL.md"):
             text = read(rel)
             self.assertIn("~/relay/roles/judge.md", text, rel)
             self.assertEqual(text.count("roles/judge.md"), text.count("~/relay/roles/judge.md"), rel)
-        # F7: no deferral of an open HIGH or MEDIUM inside the change
-        self.assertNotIn("follow-up with an id", review)
-        self.assertIn("never a follow-up", review)
 
     def test_relay_changed(self):
         """A12: `relay changed -C <repo> <sha>` lists the changed files that are not inert, and follows the matcher:
@@ -1353,7 +1344,7 @@ class Agents(unittest.TestCase):
         import relay_roles
         roles = {os.path.basename(f)[:-3] for f in glob.glob(os.path.join(ROOT, "roles", "*.md"))}
         self.assertEqual(roles, {"lookup", "run", "build", "fix", "think", "judge"})
-        served = {"core", "sdd", "product", "delegate", "issues", "front"}
+        served = {"core", "openspec", "product", "delegate", "issues", "front"}
         names = {}
         for kind, pattern in (("agent", "plugins/*/agents/*.md"), ("skill", "plugins/*/skills/*/SKILL.md")):
             for path in glob.glob(os.path.join(ROOT, pattern)):
@@ -1538,7 +1529,7 @@ class Rules(Base):
 
     def test_profile_rewrites_tiered_agents_in_a_copy(self):
         copy = os.path.join(self.tmp, "agents")
-        shutil.copytree(os.path.join(ROOT, "plugins", "sdd", "agents"), copy)
+        shutil.copytree(os.path.join(ROOT, "plugins", "delegate", "agents"), copy)
         os.environ["RELAY_ROOT"] = os.path.join(self.tmp, "empty-root")   # no plugins/ there: only extra_dirs are touched
         os.makedirs(os.path.join(self.tmp, "empty-root", "plugins"))
         for m in list(sys.modules):
@@ -1547,12 +1538,12 @@ class Rules(Base):
         import relay_rules
         changed = relay_rules.sync_agents({"models": {"build": "haiku", "judge": "sonnet"}, "effort": {"judge": "xhigh"}}, extra_dirs=[copy])
         worker = open(os.path.join(copy, "worker.md")).read()
-        reviewer = open(os.path.join(copy, "reviewer.md")).read()
+        reviewer = open(os.path.join(copy, "critic.md")).read()
         self.assertIn("model: haiku", worker)
         self.assertIn("model: sonnet", reviewer)
         self.assertIn("effort: xhigh", reviewer)
         self.assertTrue(any(p.endswith("worker.md") for p in changed))
-        self.assertIn("model: sonnet", open(os.path.join(ROOT, "plugins", "sdd", "agents", "worker.md")).read())  # source untouched
+        self.assertIn("model: sonnet", open(os.path.join(ROOT, "plugins", "delegate", "agents", "worker.md")).read())  # source untouched
 
     def test_set_frontmatter(self):
         import relay_rules
@@ -1604,7 +1595,7 @@ class PluginInstall(Base):
                 os.environ["CLAUDE_CONFIG_DIR"] = old
         self.addCleanup(restore)
 
-    def test_setup_openspec_installs_sdd_at_project_scope(self):
+    def test_setup_openspec_installs_openspec_at_project_scope(self):
         import relay_setup
         self._registry({})
         proj = self._proj()
@@ -1612,38 +1603,38 @@ class PluginInstall(Base):
         def runner(root, key):
             calls.append((root, key))
             return True, ""
-        _, _, _, done, todo = relay_setup.setup(proj, flow="openspec", product=False, apply_global=False, install_runner=runner)
-        # only the flow plugin sdd is project-scope; core/observe/delegate/front are user-level
-        self.assertEqual(calls, [(os.path.realpath(proj), "sdd@relay")])
-        self.assertIn("installed sdd@relay at project scope", done)
-        self.assertFalse([t for t in todo if "sdd@relay" in t])
+        _, _, _, done, todo = relay_setup.setup(proj, specs="openspec", product=False, apply_global=False, install_runner=runner)
+        # only the flow plugin openspec is project-scope; core/observe/delegate/front are user-level
+        self.assertEqual(calls, [(os.path.realpath(proj), "openspec@relay")])
+        self.assertIn("installed openspec@relay at project scope", done)
+        self.assertFalse([t for t in todo if "openspec@relay" in t])
 
     def test_setup_install_failure_todo_names_the_command(self):
         import relay_setup
         self._registry({})
         proj = self._proj()
-        _, _, _, done, todo = relay_setup.setup(proj, flow="openspec", product=False, apply_global=False,
+        _, _, _, done, todo = relay_setup.setup(proj, specs="openspec", product=False, apply_global=False,
                                                 install_runner=lambda root, key: (False, "no claude"))
-        self.assertTrue([t for t in todo if "claude plugin install sdd@relay --scope project" in t])
-        self.assertFalse([d for d in done if "installed sdd@relay" in d])
+        self.assertTrue([t for t in todo if "claude plugin install openspec@relay --scope project" in t])
+        self.assertFalse([d for d in done if "installed openspec@relay" in d])
 
     def test_doctor_fixes_enabled_but_not_installed(self):
         import relay_setup
         self._registry({})
         proj = self._proj()
-        relay_setup.setup(proj, flow="openspec", product=False, apply_global=False, install_runner=lambda r, k: (False, ""))
+        relay_setup.setup(proj, specs="openspec", product=False, apply_global=False, install_runner=lambda r, k: (False, ""))
         names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
-        self.assertFalse(names["sdd@relay installed"])
-        self._registry({"sdd@relay": [{"scope": "project", "projectPath": proj}]})
+        self.assertFalse(names["openspec@relay installed"])
+        self._registry({"openspec@relay": [{"scope": "project", "projectPath": proj}]})
         names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
-        self.assertTrue(names["sdd@relay installed"])
+        self.assertTrue(names["openspec@relay installed"])
 
     def test_doctor_checks_plugins_of_any_marketplace(self):
         import relay_setup
         self._registry({"other@mk": [{"scope": "user"}]})
         proj = self._proj()
         os.makedirs(os.path.join(proj, ".claude"))
-        json.dump({"enabledPlugins": {"sdd@relay": True, "superpowers@official": True, "other@mk": True, "x@y": False}},
+        json.dump({"enabledPlugins": {"openspec@relay": True, "superpowers@official": True, "other@mk": True, "x@y": False}},
                   open(os.path.join(proj, ".claude", "settings.json"), "w"))
         names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
         self.assertFalse(names["superpowers@official installed"])
@@ -1654,9 +1645,9 @@ class PluginInstall(Base):
         import relay_setup
         self._registry({})
         proj = self._proj()
-        _, _, _, _, todo = relay_setup.setup(proj, flow="openspec", product=False, apply_global=False,
+        _, _, _, _, todo = relay_setup.setup(proj, specs="openspec", product=False, apply_global=False,
                                              install_runner=lambda r, k: (False, "marketplace relay not found"))
-        line = [i for i, t in enumerate(todo) if "claude plugin install sdd@relay --scope project" in t]
+        line = [i for i, t in enumerate(todo) if "claude plugin install openspec@relay --scope project" in t]
         market = [i for i, t in enumerate(todo) if "/plugin marketplace add" in t]
         self.assertTrue(line and market)
         self.assertIn("marketplace relay not found", todo[line[0]])
@@ -1665,11 +1656,11 @@ class PluginInstall(Base):
     def test_already_installed_does_not_call_runner(self):
         import relay_setup
         proj = self._proj()
-        self._registry({"sdd@relay": [{"scope": "project", "projectPath": os.path.realpath(proj)}]})
+        self._registry({"openspec@relay": [{"scope": "project", "projectPath": os.path.realpath(proj)}]})
         def boom(r, k):
             raise AssertionError("runner called")
-        _, _, _, done, _ = relay_setup.setup(proj, flow="openspec", product=False, apply_global=False, install_runner=boom)
-        self.assertIn("sdd@relay already installed", done)
+        _, _, _, done, _ = relay_setup.setup(proj, specs="openspec", product=False, apply_global=False, install_runner=boom)
+        self.assertIn("openspec@relay already installed", done)
 
     def _fake_claude(self, body):
         script = os.path.join(self.tmp, "fakeclaude")
@@ -1689,15 +1680,15 @@ class PluginInstall(Base):
         root = os.path.realpath(self._proj())
         out = os.path.join(self.tmp, "argv")
         self._fake_claude(f'echo "$@" > {out}; pwd >> {out}\nexit 0\n')
-        ok, _ = relay_setup.run_plugin_install(root, "sdd@relay")
+        ok, _ = relay_setup.run_plugin_install(root, "openspec@relay")
         self.assertTrue(ok)
         lines = open(out).read().split("\n")
-        self.assertEqual(lines[0], "plugin install sdd@relay --scope project")
+        self.assertEqual(lines[0], "plugin install openspec@relay --scope project")
         self.assertEqual(os.path.realpath(lines[1]), root)
         self._fake_claude("echo boom >&2\nexit 1\n")
-        self.assertEqual(relay_setup.run_plugin_install(root, "sdd@relay"), (False, "boom"))
+        self.assertEqual(relay_setup.run_plugin_install(root, "openspec@relay"), (False, "boom"))
         os.environ["RELAY_CLAUDE_BIN"] = os.path.join(self.tmp, "missing")
-        ok, why = relay_setup.run_plugin_install(root, "sdd@relay")
+        ok, why = relay_setup.run_plugin_install(root, "openspec@relay")
         self.assertFalse(ok)
         self.assertTrue(why)
 
@@ -1927,7 +1918,8 @@ class TestPrinciplesRule(unittest.TestCase):
         import relay_rules, relay_config
         text = relay_rules.render_target("global", self._targets()["global"], relay_rules.rules(), relay_config.active_profile())
         self.assertNotIn("Principles", text)
-        for title in ("OpenSpec", "Product work", "Quality gate", "Work queue", "Structured data"):
+        self.assertNotIn("**OpenSpec", text)   # a spec method's rule is carried by a project that turns the method on, never by the global file
+        for title in ("Product work", "Quality gate", "Work queue", "Structured data"):
             self.assertIn(f"**{title}", text)
 
     def test_global_file_carries_the_long_job_exception(self):

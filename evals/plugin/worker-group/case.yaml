@@ -1,7 +1,7 @@
 schema_version: "1.1"
 name: worker-group
-description: sdd:worker implements one task group in its change worktree; bin/check passes there and the new test fails, on an assertion, against the base stub.
-tags: [sdd, worker]
-plugins: ["../../../plugins/core", "../../../plugins/sdd"]
+description: a plain delegate:worker implements one task group from its packet (`kit packet`, which carries the OpenSpec building rules) in its change worktree; bin/check passes there and the new test fails, on an assertion, against the base stub.
+tags: [openspec, delegate, worker]
+plugins: ["../../../plugins/core", "../../../plugins/openspec", "../../../plugins/delegate"]
 context:
   scaffold_script: scaffold.sh

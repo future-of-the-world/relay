@@ -36,10 +36,12 @@ the front skill).
 Never `general-purpose` (every tool, 30k tokens re-read each request) and
 never `fork` from a session over 100k tokens: the routing guard refuses both.
 A worker or fixer gets `model: opus` only with a line `Escalated: <reason>` in
-its prompt, after a Sonnet agent failed the same brief.
+its prompt, after a middle-model agent failed the same brief.
 
 Each agent's model and effort come from the active profile (`relay profile`);
-do not set `model:` on a call unless escalating.
+never set `model:` on a call. The one exception is the escalation above.
+At most `[delegate] max_parallel` agents run at once (default 4, bound 1 to 8);
+the route guard notes the cap.
 
 ## The brief file
 
@@ -90,8 +92,10 @@ brief and the old report.
 
 ## Review loop
 
-One good review, then a checked fix; never a new open review. After a
-worker's DONE on a change that will be merged:
+One good review, then a checked fix; never a new open review. When this
+project's rules carry a list "Spec steps in the change cycle", each listed step
+runs at the step number it names. After a worker's DONE on a change that will
+be merged:
 
 1. **Design review before a risky build.** A `delegate:critic` reviews the
    design or plan before a worker starts, when a trigger holds or the owner
@@ -117,8 +121,10 @@ worker's DONE on a change that will be merged:
    $(git -C <wt> rev-parse HEAD)"; <gate>; echo "exit $?"; } > <log> 2>&1`);
    a remote pipeline gives `Gate: pipeline #<n> on <full sha> passed`; a flow
    with no gate by design (a spec review) passes `Gate: none (artifacts only)`.
-4. **One whole-change review.** Every judge the flow names runs once, in one
-   message, over `<base>...HEAD`, after a green step 3.
+4. **One whole-change review.** Every judge runs once, in one message, over
+   `<base>...HEAD`, after a green step 3: `delegate:critic`, plus
+   `product:ui-reviewer` when the project is person-facing (`product:look-review`
+   says when the look review applies), plus the judges the spec steps add.
 5. **Fix.** One `delegate:fixer` per group of findings; it ends with one of
    four outcomes per finding (Fixed, Disputed, Gap, Outside).
 6. **Gate again.** When fix commits exist, a `delegate:runner` runs `relay
@@ -147,6 +153,16 @@ worker's DONE on a change that will be merged:
    checker's `relay check findings` lists it as `M<n>` (one for each such file), so nothing is written
    by hand; a fixer resolves a conflict first (none for a clean combination, `Fixes: none`); then
    `relay gate`, then the checker. Files that only the default branch changed need no new check.
+   When several ready changes wait, take the default branch only into the change
+   that merges next, or build a train (the front skill says who rides): a runner
+   adds the worktree `.worktrees/train-<n>` on branch `wt/train-<n>` from the
+   default branch, runs `git -C <train> merge --no-ff --no-edit wt/<change>`
+   once for each rider (a conflict: `git merge --abort`, and that change merges
+   alone after the train), then `relay gate -- --quick` in the train. `relay
+   changed --own <base> -C <train>` (the train's merge-base with the default
+   branch) lists the files both riders changed; with none, the train needs no
+   check (each rider's own check covers its files); with some, start a merge
+   check (Prompts).
 9. **To the owner.** What is NOT MET, new, Disputed, Gap or Outside comes as a
    numbered list with a recommendation. Another fix runs on the owner's word
    and is checked the same way (a fix, a gate, a check). Every change that
@@ -189,6 +205,12 @@ Prompts:
 > Review the change. Range: `<base>...HEAD` in `<worktree>`. Report: `<path>.json`.
 
 > Check: `<findings file>`. Fixes: `<fixer report>`. Worktree: `<path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<path>.json`.
+
+> Merge check: `<train worktree>`. Findings: `relay check findings -C <train>` (M only, no review). Gate: `<train gate log>`. Report: `<path>.json`.
+
+The merge check is a check with `review = []` in its input; `relay` allows it only
+on a branch that holds ready changes (a train). It gives a verdict for each
+combined file and no other finding.
 
 This check prompt is the one line, never `Brief: <file>`. Under `relay gate`,
 `Gate:` is `<worktree>/.relay/checks/<G>.gate.log`.

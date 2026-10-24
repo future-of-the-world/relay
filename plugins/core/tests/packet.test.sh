@@ -299,7 +299,7 @@ printf '## 1. G\n\nWave 1 · depends on: none\n\n- [ ] 1.1 X. Reads: file docs/g
   >openspec/changes/bare/tasks.md
 printf '# Design\n' >openspec/changes/bare/design.md
 out="$("${packet[@]}" --check bare)"
-expect 'design.md: no "Interfaces" section'
+refute 'no "Interfaces" section'   # the design drops the Interfaces check: a bare design.md passes
 printf '# Design\n\n## Interfaces\n\nNone.\n' >openspec/changes/bare/design.md
 out="$("${packet[@]}" --check bare)"
 status=$?

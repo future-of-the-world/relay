@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 60,
+  "found_at": "2026-10-24T11:36:08Z",
+  "found_in": "relay queue add",
+  "title": "Each merge makes every waiting change gate again",
+  "what": [
+    "When several ready changes wait, each merge puts the others behind master; each must take master, gate again (~10 min) and get a checker, one after another. Find the cheapest safe order: e.g. a merge train (take master once into the last change after the others merged and gate only the combined head), or skip the re-gate when master's new commits and the branch share no file and the earlier gate covered both sides (a fact code can check), and keep the combined-by-merge check only for files both sides changed."
+  ],
+  "why": [
+    "24 Oct: four changes were ready at once (py-rule, installer, checks-record, paid-batch); every merge forced the next ones to take master, gate and check again, about 10-15 agent minutes and one runner + one checker per change per merge; the same day checks-record took master three times. Principle 2: waste built into the setup."
+  ],
+  "failing_case": [
+    "24 Oct: after py-rule merged, paid-batch (no shared file but tests/test_relay.py) had to gate again before its merge; checks-record will gate a fourth time after paid-batch merges."
+  ],
+  "pass_cases": [
+    "With N ready changes, the rules and hook let them merge with at most one extra gate in total, or skip it when code shows no overlap; a merge whose branch and master's new commits share a file still gets the combined-by-merge check and a gate."
+  ],
+  "where": "rules/git.md (ready to merge), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md step 8, plugins/core/hooks/merge.py",
+  "taken_at": "2026-10-24T15:18:32Z",
+  "taken_by": "wt/regate",
+  "closed_at": "2026-10-24T17:38:41Z",
+  "test": "tests/test_merge_train.py::TheTrainLands::test_q1_ready_changes_merge_with_one_gate_for_the_wave",
+  "dropped_at": null,
+  "dropped_why": null
+}

@@ -1,0 +1,173 @@
+{
+  "branch": "wt/regate",
+  "findings": [
+    {
+      "details": [
+        "24 Oct: four changes were ready at once (py-rule, installer, checks-record, paid-batch); every merge forced the next ones to take master, gate and check again, about 10-15 agent minutes and one runner + one checker per change per merge; the same day checks-record took master three times. Principle 2: waste built into the setup."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "24 Oct: after py-rule merged, paid-batch (no shared file but tests/test_relay.py) had to gate again before its merge; checks-record will gate a fourth time after paid-batch merges."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "With N ready changes, the rules and hook let them merge with at most one extra gate in total, or skip it when code shows no overlap; a merge whose branch and master's new commits share a file still gets the combined-by-merge check and a gate."
+      ],
+      "path": "rules/git.md (ready to merge), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md step 8, plugins/core/hooks/merge.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_merge_train.py:181 test_q1_ready_changes_merge_with_one_gate_for_the_wave passes and fails at 58c0447."
+      ],
+      "severity": "HIGH",
+      "since": "58c044731667b8f091d545f1c3220b870884e7a5",
+      "source": "queue",
+      "summary": "Each merge makes every waiting change gate again",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced). build_findings (lib/relay_verdict.py:784) lets review_paths be empty whenever",
+        "relay_inert.absorbed(wt, head) is non-empty. With no review, the only findings are Q1 (if the branch took an item) and",
+        "_merge_findings, which (line 680-690) only names own files that some merge commit's diff (merge^1..merge) touched.",
+        "A file the branch changed in an ordinary commit is in `own` but in no merge diff, so it gets no M finding. record_check",
+        "then accepts an empty status list, the verdict is open 0, and step_mark accepts the mark (no own file changed since it).",
+        "Design 3.3 says the merge check is for a train and its findings are \"one per combined file\"; it assumed the train's own",
+        "files are exactly the combined files. That holds only while the train has no commit of its own, and never holds for a",
+        "stacked branch, which is the commonest branch with an absorbed branch (T12). The owner's rule \"Never no review\" and the",
+        "design's \"A change to a file is never dropped without a check\" are both broken: any agent on a stacked branch can now",
+        "land its own code by recording an empty check. Severity HIGH: breaks a promise of the review gate on ordinary use",
+        "(stacked branches exist today; a train fixer committing a gate fix on the train is the design's own red-train path).",
+        "Size: 30 agent minutes (the rule plus two tests)."
+      ],
+      "evidence": [
+        "python3 scratchpad/probe/test_probe.py (TrainCase fixtures from tests/test_merge_train.py):",
+        "  test_stacked_branch_skips_review:",
+        "    findings: ['Check of 4a02bee0...', 'Item: none']",
+        "    recorded findings: []",
+        "    verdict S: None",
+        "  test_train_direct_commit_skips_check:",
+        "    findings: ['Check of f3518f59...', 'Item: none']",
+        "    recorded findings: []",
+        "    verdict train: None"
+      ],
+      "failing_case": [
+        "1. Stacked: wt/p ready (lib/f.py, gate, mark open 0); wt/s made from wt/p commits lib/g.py (\"unreviewed\"), gates it.",
+        "   `relay check findings -C <s>` with no --review prints only \"Check of <sha>\" and \"Item: none\" (no finding at all);",
+        "   `record_check` with `review = []` and no [[status]] records a mark with open 0; merge.judge(\"wt/s\") returns None",
+        "   (allowed). lib/g.py lands on master with no review and no verdict on it.",
+        "2. Train: wt/a and wt/b ready with disjoint files; train-1 merges both, then a plain commit on the train adds lib/new.py.",
+        "   Same: findings list empty, `review = []` records open 0, the train is allowed. lib/new.py was never reviewed or checked.",
+        "Expected: a merge check lists every own file of the branch that no absorbed branch covers (lib/g.py, lib/new.py) as a",
+        "finding the checker must give MET to, or `review = []` is refused when the branch has own non-inert files that came from",
+        "its own (non-merge) commits; the stacked branch S needs its review as today (design 3.2 T12: \"S still needs a mark for",
+        "its own file\", reached by a real review, not an empty check)."
+      ],
+      "fix_hint": [
+        "In build_findings, when review_paths is empty: compute own = relay_inert.changed(wt, fork, head, own=True,",
+        "absorbed=ab) and refuse (\"a merge check is only for a branch whose own files all come from merging ready changes\") when",
+        "any file of own is not touched by a merge whose second parent is an absorbed tip or the default branch; or emit an M",
+        "finding for every file of own (not only those a merge touched) when no review is given. Add the two probe cases to",
+        "tests/test_merge_train.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 784,
+      "pass_cases": [
+        "- Stacked S on ready P, S commits lib/g.py: `relay check findings -C <s>` with no --review is refused (\"at least one review\")",
+        "  or lists lib/g.py as a finding; a record with `review = []` and no status for it is not open 0 / is refused.",
+        "- Train of a and b plus a direct train commit adding lib/new.py: the merge check lists lib/new.py (or is refused); a mark",
+        "  with no verdict on it does not let the train land.",
+        "- T14 as today: a train with only the combined file lib/shared.py lists exactly M1 for it; M1 MET with `review = []`",
+        "  records a mark the hook accepts.",
+        "- T1 as today: a train with no combined file and no own commits needs no mark at all.",
+        "- A normal branch with no absorbed branch: `review = []` refused as today."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_merge_train.py:479 and :491 pass (empty check refused for stacked and train direct commits); both fail at dd1b136; T14/T1 tests still pass."
+      ],
+      "severity": "HIGH",
+      "since": "dd1b1362be2cec3fe0de9929bb46a7af72a90c6e",
+      "source": "review-regate.json",
+      "source_id": "F1",
+      "summary": "a check with no review is allowed on any branch that holds a ready branch, and lists only files a merge touched, so code committed directly on that branch lands with no review and no check",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced). The design's answer to the design review's F1 (HIGH) was the covered-file conditions plus test",
+        "T10 \"Refused, naming lib/f.py\". The build delivers only condition 2 in the file list (relay_inert.changed shows lib/f.py",
+        "against master), not the refusal: step_mark (merge.py:196) compares each mark with the head, and lib/f.py at S's mark",
+        "already equals the head, so no own file changed since the mark and the mark passes. _merge_findings only lists files the",
+        "merge's diff merge^1..merge touched, and a resolution that keeps \"ours\" leaves lib/f.py out of that diff, so the",
+        "checker is never asked either. docs/plans/review-gate.md 7.7 now records this as \"Known gap, from before the train\",",
+        "and the test T10 asserts only the list (\"only the list shows it here\"). The gap is older than the change, but the",
+        "design promised to close it (\"A change to a file is never dropped without a check\": T10) and the brief said to build",
+        "the design exactly and to ask about anything it leaves open; dropping a promised test case was not raised as a",
+        "question. Master's change to a file can be lost with no verdict on it, which a person reaches by any hand resolution.",
+        "Size: 30-45 agent minutes (an M finding for a file the merged side changed whose result differs from the merged side,",
+        "and a step_mark rule that a merge after the mark that drops the other side's change needs a newer check)."
+      ],
+      "evidence": [
+        "python3 -m unittest test_probe.ProbeT10 (fixtures of tests/test_merge_train.py, the T10 sequence plus self.gate(s)):",
+        "  T10 verdict S: None",
+        "  T10 findings: ['Check of 13b28ac7...', 'Item: none']",
+        "docs/plans/review-gate.md (7.7): \"Known gap, from before the train: ... a hand-resolved merge that drops master's change",
+        "to it in a stacked branch is not refused by the mark step\"",
+        "tests/test_merge_train.py:293: \"(The hook compares with the mark's tree, where lib/f.py is already P's version, so only",
+        "the list shows it here.)\""
+      ],
+      "failing_case": [
+        "wt/p ready (lib/f.py line 1 -> \"P one\", gate, mark open 0); wt/s from wt/p, ready with lib/g.py (gate, mark open 0).",
+        "Master commits Q (lib/f.py line 1 -> \"Q one\"). S takes master, the conflict is resolved with `checkout --ours lib/f.py`",
+        "(Q's change gone), S is gated. Now: merge.judge(\"wt/s\") returns None (allowed) and `relay check findings -C <s>` lists",
+        "no M finding for lib/f.py. Expected (design 3.2, 3.6 and T10): refused, naming lib/f.py; after a check of S with M1 for",
+        "lib/f.py MET, allowed."
+      ],
+      "fix_hint": [
+        "In _merge_findings, for each merge of the default branch (or of an absorbed tip), list a file the second parent changed",
+        "since the merge-base (merge-base(merge^1, merge^2)..merge^2) whose result at the merge differs from merge^2's version",
+        "and is own: that is a dropped or combined change, an M finding. In step_mark, after the chosen mark, refuse when such",
+        "a merge exists after it with no newer mark. Then make T10 assert the refusal and the allow after M1 MET. Or ask the",
+        "owner to accept the gap and say so in the report."
+      ],
+      "id": "F2",
+      "kind": "feature",
+      "line": 196,
+      "pass_cases": [
+        "- The T10 sequence above: judge(\"wt/s\") refuses naming lib/f.py; `relay check findings -C <s>` lists M1 for lib/f.py;",
+        "  after a mark of S whose check has M1 MET, judge allows.",
+        "- The same sequence where S's merge of master combines lib/f.py cleanly (Q changed another line): allowed with S's",
+        "  mark as today, or with the M1 the merge produces as today (no new refusal for a clean take).",
+        "- T12 as today: stacked S on ready P, nobody else changed lib/f.py: S's mark for lib/g.py alone lets it land.",
+        "- T11 as today: a train commit setting a combined file to one rider's version is refused."
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_merge_train.py:319 test_t10_the_drop_is_refused... passes (M1 listed, refused, allowed after newer mark), fails at dd1b136; clean take test :328 passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "dd1b1362be2cec3fe0de9929bb46a7af72a90c6e",
+      "source": "review-regate.json",
+      "source_id": "F2",
+      "summary": "the design's T10 promise is not built: a stacked branch that hand-resolves a merge by dropping master's change still lands, and the doc now calls it a known gap instead of asking",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "f10aed741676327704fe7cf99f1fd8e8781eadae.gate.log",
+  "head": "ae43fe8a54aae57899bc0362fe6dd2a7c402ba57",
+  "item": "each-merge-makes-every-waiting-change-gate-again",
+  "notes": [
+    "Gate was bin/ci --quick (paid steps skipped); rules/git.md and skill texts changed, so the wave's paid run is due before the merge. Fixer's Deviations (T10 as library test, T11 own_marks) are covered by passing tests."
+  ],
+  "schema": 2,
+  "scope": [
+    "Q1 since 58c0447, F1/F2 since dd1b136. Ran tests/test_merge_train.py (28 passed). Gate log head f10aed7, exit 0; HEAD only adds the gate-log commit. Files since dd1b136 are the finding files, their lib copies, docs 7.7 and the test file. Base proofs: Q1 test fails at 58c0447; F1 and T10 tests fail at dd1b136."
+  ],
+  "type": "check"
+}

@@ -1,6 +1,6 @@
 # core
 
-Part of the relay repository (`~/relay`), unchanged from the principles library except for the flow stage hook (`hooks/flow-stage.py`, see `docs/flows.md`) and the addition injection, which serves the agents and skills of `core`, `sdd`, `product`, `delegate`, `issues` and `front` (`.claude/kit/<name>.md`) and, at an agent's start, the project's rules for its role (`.claude/kit/<role>.md`, role one of lookup, run, build, fix, think, judge; the agent's own file wins where they differ). The text below is the original reference.
+Part of the relay repository (`~/relay`), unchanged from the principles library except for the flow stage hook (`hooks/flow-stage.py`, see `docs/flows.md`) and the addition injection, which serves the agents and skills of `core`, `openspec`, `product`, `delegate`, `issues` and `front` (`.claude/kit/<name>.md`) and, at an agent's start, the project's rules for its role (`.claude/kit/<role>.md`, role one of lookup, run, build, fix, think, judge; the agent's own file wins where they differ). The text below is the original reference.
 
 
 **How shared agents and skills run the plugin's scripts (tested 2026-10-19,
@@ -18,7 +18,7 @@ Claude Code 2.1.302, project-scope install from a local directory marketplace,
   `../bin/kit` from their own folder.
 
 Install (from the local marketplace; the owner's `claude plugin marketplace add ~/principles` first):
-`/plugin install core --marketplace ~/principles`. Also `sdd` and `product`;
+`/plugin install core --marketplace ~/principles`. Also `openspec` and `product`;
 both need `core` (their agents and skills start with `kit get ...`, which exists
 only while core is enabled), so enable core wherever you enable them.
 
@@ -33,7 +33,7 @@ missing key in an existing file, never a missing file.
 waits on a permission prompt (a background agent stops there).
 
 `kit path <plugin>/<file>` prints the absolute path of a file shipped in a
-plugin (`kit path product/scripts/measure.mjs`, `kit path sdd/skills/plan/SKILL.md`).
+plugin (`kit path product/scripts/measure.mjs`, `kit path openspec/skills/plan/SKILL.md`).
 It resolves the version this project runs, never "the newest": a source
 checkout beside core first; then Claude Code's `installed_plugins.json` (the
 `project`/`local` entry whose `projectPath` is this project or its main
@@ -45,13 +45,13 @@ registry's location, for tests.)
 
 Core is for every project: the `kit` helper, the main-checkout guard and the addition
 injection. It ships no agents. The generic `worker` and `reviewer` (for projects
-that do not enable the `sdd` plugin; they take a brief file and reply in a few lines,
+that do not enable the `openspec` plugin; they take a brief file and reply in a few lines,
 and know nothing of OpenSpec) are personal agents: one source in the library's
 `agents/`, written to `~/.claude/agents/` by `bin/principles sync` (with the
 generated-file marker; a hand-written file there is never overwritten without
-`--adopt agents`). A project on `sdd` uses `sdd:worker` and `sdd:reviewer`. The
-OpenSpec stage hook (`/opsx:*` names its stage skill) is SDD-only and lives in
-`plugins/sdd/hooks/`.
+`--adopt agents`). A project with spec steps on uses `delegate:worker` and
+`delegate:critic` like any other. The stage hook (`/opsx:*` names its stage
+skill or note) is core's and reads `[flow] kind` and `[specs] method`.
 
 **The name `kit`.** `kit` is a common command name (KitOps ships a `kit` CLI). Claude
 Code puts a plugin's `bin/` on the Bash tool's PATH after the user's own entries
@@ -73,11 +73,11 @@ no agent has to obey a "read your addition" line:
   (`tool_input.skill`), the file reaches the session right after the skill loads
   through the Skill tool;
 - `UserPromptSubmit`: for a stage the owner types as a slash command
-  (`/sdd:archive ...`: the prompt starts with `/<plugin>:<role>`). No Skill call
+  (`/openspec:archive ...`: the prompt starts with `/<plugin>:<role>`). No Skill call
   happens then, so the second hook never fires; this one covers it. (Verified
-  live 2026-10-19: without it a typed `/sdd:archive` returned no addition.)
+  live 2026-10-19: without it a typed `/openspec:archive` returned no addition.)
 
-Only the framework's own plugins are served: `core:`, `sdd:` and `product:`
+Only the framework's own plugins are served: `core:`, `openspec:` and `product:`
 names. Another plugin's `code-reviewer` never receives a project's
 `code-reviewer.md`. The hooks reach Claude Code's sessions; one thing is not
 verified: whether the text survives an automatic compaction of a long session.
@@ -102,7 +102,7 @@ It needs Python 3.9+ on PATH (the `relay` command itself needs 3.11+). Tested by
 ## The check-script contract
 
 `gate.check` is the project's own script (the stack differs), but the shared
-`sdd:worker` and `sdd:fixer` rely on all of the following. A project's script
+`delegate:worker` and `delegate:fixer` rely on all of the following. A project's script
 follows it, and `tests/check-contract.test.sh` proves it (the eval fixture's
 `bin/check` is the reference implementation; run the test against a project's own
 script with `KIT_CONTRACT_PROJECT=<clean checkout>`).
@@ -226,7 +226,7 @@ path (write `^` to anchor it); `files` and `files_exclude` work the same way.
 `ci: green (QUICK MODE: evals skipped, not a release gate)`; only the full gate,
 with the evals, may release). `tests/hooks-live.test.sh` is the hook smoke test: four
 `claude -p --model haiku` calls (about 10 s, a few cents) prove in a real session that a
-typed `/sdd:archive` and the `sdd:worker` agent get the project's additions and that the
+typed `/openspec:archive` and the `openspec:author` agent get the project's additions and that the
 guard refuses a shell write in main but not in a worktree; it is skipped, loudly, when
 `claude` is missing or `HOOKS_LIVE=0`. `tests/packet.test.sh` installs its own TypeScript
 compiler from `tests/ts-deps/` (pinned by `bun.lock`) on first run.

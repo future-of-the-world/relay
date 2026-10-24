@@ -11,7 +11,7 @@ rules come from the relay repository (`rules/`, one file per rule); each project
 adds the ones it needs through its `CLAUDE.local.md`. Change a rule there and
 run `relay sync`."""
 load = []
-skip = ["principles", "python"]   # a rule projects opt into by load stays out of the global "read when they apply" list
+skip = ["principles", "python", "openspec"]   # a rule projects opt into by load stays out of the global "read when they apply" list
 
 [relay]
 file = "~/relay/CLAUDE.local.md"
