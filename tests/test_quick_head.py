@@ -27,6 +27,21 @@ class TestQuickReadsTheWorkingTree(Base):
         self.assertEqual(committed_items(repo), {"x.json": good})
         self.assertEqual(committed_text(repo, ".relay/README.md"), "relay folder\n")
 
+    def test_f1_a_probe_commit_reads_the_exact_bytes_the_tree_would(self):
+        # A file ending "\n\n" must read the same in the probe path (git show) as in the tree path: git() strips, so a
+        # stripped-plus-one-newline read would give "...\n" in the probe run and "...\n\n" in the outer run.
+        repo = self.repo("bytes", items={"x": fix_item("Long one")})
+        readme = os.path.join(repo, ".relay", "README.md")
+        with open(readme, "w", encoding="utf-8") as handle:
+            handle.write("two newlines\n\n")
+        git(repo, "commit", "-aqm", "readme")
+        tree = committed_text(repo, ".relay/README.md")
+        with open(readme, "a", encoding="utf-8") as handle:
+            handle.write("inert probe line\n")
+        git(repo, "commit", "-aqm", "inert probe")
+        self.assertEqual(tree, "two newlines\n\n")
+        self.assertEqual(committed_text(repo, ".relay/README.md"), tree)
+
 
 if __name__ == "__main__":
     unittest.main()

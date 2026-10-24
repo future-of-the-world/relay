@@ -357,6 +357,12 @@ def read_ref(repo):
     return "HEAD^" if git(repo, "log", "-1", "--format=%s", "HEAD", check=False) == "inert probe" else None
 
 
+def show_raw(repo, ref, path):
+    """The exact text of `path` at `ref` (git() strips; the working-tree read does not, so the two must agree), or None."""
+    done = subprocess.run(["git", "-C", repo, "show", "%s:%s" % (ref, path)], capture_output=True, text=True)
+    return done.stdout if done.returncode == 0 else None
+
+
 def committed_items(repo):
     """{file name: text} of the .relay/queue items. The queue folder is inert (bin/ci's inert probe appends a line to every
     item and commits it as "inert probe"), so in a probe commit the items are read from git, from the commit before it. Anywhere
@@ -366,14 +372,14 @@ def committed_items(repo):
     if names == [""]:
         folder = os.path.join(repo, ".relay", "queue")
         return {n: open(os.path.join(folder, n), encoding="utf-8").read() for n in sorted(os.listdir(folder)) if n.endswith(".json")}
-    return {os.path.basename(n): git(repo, "show", "%s:%s" % (ref, n)) + "\n" for n in sorted(names) if n.endswith(".json")}
+    return {os.path.basename(n): show_raw(repo, ref, n) for n in sorted(names) if n.endswith(".json")}
 
 
 def committed_text(repo, path):
     """The text of `path`: the working tree's, except in an inert probe commit, where it is the commit before it (see committed_items)."""
     ref = read_ref(repo)
-    out = git(repo, "show", "%s:%s" % (ref, path), check=False) if ref else ""
-    return out + "\n" if out else open(os.path.join(repo, path), encoding="utf-8").read()
+    out = show_raw(repo, ref, path) if ref else None
+    return out if out else open(os.path.join(repo, path), encoding="utf-8").read()
 
 
 def new_shape(**changes):
