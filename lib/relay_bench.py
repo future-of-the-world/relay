@@ -338,7 +338,31 @@ def score(graders):
 
 # --- running ----------------------------------------------------------------
 
-def claude_command(profile, scenario, prompt, agents_json_path, rules_path):
+def plugin_for_run(profile, folder, out_dir):
+    """The folder `--plugin-dir` gets for one plugin. A plugin that carries agents (delegate) is copied
+    with each agent's model and effort set to the profile's for its tier: the session starts the plugin's
+    own `delegate:worker`, and `--agents` only adds an unprefixed `worker` it never picks, so without the
+    copy a change to models.build would not reach the worker that runs."""
+    source = os.path.join(folder, "agents")
+    if not os.path.isdir(source):
+        return folder
+    dest = os.path.join(out_dir, f"plugin-{profile['profile']['name']}-{os.path.basename(folder)}")
+    shutil.rmtree(dest, ignore_errors=True)
+    shutil.copytree(folder, dest, symlinks=True)
+    for name, agent in agent_definitions(profile).items():
+        path = os.path.join(dest, "agents", f"{name}.md")
+        if not os.path.isfile(path):
+            continue
+        text = open(path, encoding="utf-8").read()
+        for key in ("model", "effort"):
+            if agent.get(key):
+                text = re.sub(rf"^{key}:.*$", f"{key}: {agent[key]}", text, count=1, flags=re.M)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(text)
+    return dest
+
+
+def claude_command(profile, scenario, prompt, agents_json_path, rules_path, out_dir=None):
     session = profile.get("session", {})
     cmd = [os.environ.get("RELAY_CLAUDE_BIN", "claude"), "-p", prompt, "--output-format", "json",
            "--max-turns", str(scenario.get("max_turns", 30))]
@@ -356,7 +380,7 @@ def claude_command(profile, scenario, prompt, agents_json_path, rules_path):
     for plugin in profile.get("plugins", {}).get("enabled", []):
         folder = plugin_dir(profile, plugin)
         if folder:
-            cmd += ["--plugin-dir", folder]
+            cmd += ["--plugin-dir", plugin_for_run(profile, folder, out_dir) if out_dir else folder]
     if scenario.get("max_cost_usd"):
         cmd += ["--max-budget-usd", str(scenario["max_cost_usd"])]
     for extra in profile.get("session", {}).get("extra_args", []):
@@ -394,7 +418,7 @@ def run_one(profile, scenario, run_index, out_dir, judge_model, keep=False, conf
     env["RELAY_BENCH"] = "1"
     if config_dir:
         env["CLAUDE_CONFIG_DIR"] = config_dir
-    cmd = claude_command(profile, scenario, scenario["_prompt"], agents_path, rules_path)
+    cmd = claude_command(profile, scenario, scenario["_prompt"], agents_path, rules_path, out_dir)
     started = dt.datetime.now(dt.timezone.utc)
     row = {"profile": profile["profile"]["name"], "scenario": scenario["name"], "run": run_index,
            "started": started.isoformat(), "workspace": ws if keep else None}
@@ -427,6 +451,7 @@ def run_one(profile, scenario, run_index, out_dir, judge_model, keep=False, conf
             handle.write("\n--- stderr ---\n" + proc.stderr[-5000:])
     if not keep:
         shutil.rmtree(ws, ignore_errors=True)
+        shutil.rmtree(ws + ".main", ignore_errors=True)   # the primary checkout a scaffold may leave beside the workspace
     return row
 
 

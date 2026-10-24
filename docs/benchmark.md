@@ -62,6 +62,8 @@ Graders (free unless noted):
 | `agent_used` | the ledger shows an agent whose type matches `agent_type` started in the run's session (`exists = false` inverts; the observe plugin must be in the profile) |
 | `llm` | a cheap model says PASS to `rubric` over the reply (paid) |
 
+`add-function` and `small-script` ask for a worker in their prompt and start in a linked worktree (their scaffold), because the session otherwise does the job itself and the front's guard keeps agents out of a primary checkout. The bench runs a copy of the delegate plugin with the profile's model and effort per tier, since the session starts the plugin's own `delegate:worker`.
+
 Four ship: `add-function` (a feature with tests), `small-script` (the "Opus
 wrote a simple script" case), `lookup` (a question), `review-offbyone` (a
 review with a planted bug). Tag `cheap` selects the first three.
