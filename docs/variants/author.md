@@ -1,19 +1,19 @@
-# Variants: `sdd:author`
+# Variants: `openspec:author`
 
 Built 2026-10-19 from the six copies of the author agent:
 `kartoteka-author` (6.4 KB), `clean-author` (6.5 KB), `carry-author` (Mind,
 6.5 KB), `sight-author` (6.4 KB), `alix-author` (7.0 KB), `glyph-author`
-(3.2 KB). Shared file: `plugins/sdd/agents/author.md`.
+(3.2 KB). Shared file: `plugins/openspec/agents/author.md`.
 
 ## What came from where
 
 | Part | Source | Note |
 |---|---|---|
 | Skeleton (brief, write, check and commit, budget, rules, reply) | Kartoteka = Clean | the common version |
-| Description: never builds or continues a build; wave plans and triage on Sonnet | Mind, ALIX | later; matches the global model rule and how `sdd:plan`, `sdd:spec-review`, `sdd:parallel-apply` and `sdd:apply-review` spawn it |
+| Description: never builds or continues a build; wave plans and triage on Sonnet | Mind, ALIX | later; matches the global model rule and how `openspec:plan`, `openspec:spec-review`, `openspec:parallel-apply` and `openspec:apply-review` spawn it |
 | Read one skill *section*, not the whole skill | Mind, Sight, ALIX, Glyph | section numbers dropped: the brief names the heading, so the agent survives renumbering |
 | Every interval, timeout, limit and tunable number is configuration with a bound and an outcome at the bound | Sight, ALIX, Glyph, Mind (`rules.ts`) | stricter, general |
-| Failure-state table, absolutes tested, test level in `Tests:`, fakes first, parity list, caller sweep | ALIX ("First time right" in `alix-plan` section 4) | measured 12–13 Oct: the design's silence on a failure state gave 7 of 12 high findings of one change; the rules live in `sdd:plan` "Writing the artifacts", the author points to them (one source) |
+| Failure-state table, absolutes tested, test level in `Tests:`, fakes first, parity list, caller sweep | ALIX ("First time right" in `alix-plan` section 4) | measured 12–13 Oct: the design's silence on a failure state gave 7 of 12 high findings of one change; the rules live in `openspec:plan` "Writing the artifacts", the author points to them (one source) |
 | Person-facing wording only from quoted locked decisions | Glyph | matches the global product-work rule |
 | Options given as what a person sees or what it costs | Mind ("what the player will see or feel") | general form |
 | Reply note that the coordinator keeps every reply | Mind, Sight, ALIX | |
@@ -63,7 +63,7 @@ Drafts: `migration/<project>/kit/author.md`.
 
 ## Weak points
 
-- The failure-state table and its companions (from `sdd:plan`) now apply
+- The failure-state table and its companions (from `openspec:plan`) now apply
   to every project's new change, including Kartoteka's static site, where
   most cells will be "cannot happen": extra Opus output per plan, with the
   saving measured only on ALIX.

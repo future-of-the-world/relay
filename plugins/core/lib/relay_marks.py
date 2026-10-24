@@ -270,4 +270,13 @@ def show(repo, branch, sleep=time.sleep):
         lines.append("outside: %s" % ("check not stored" if record is None else "%d in the check" % relay_verdict.outside_of(record)))
     except MarkError as exc:
         lines.append("outside: unknown (%s)" % exc)
+    import relay_inert
+    try:
+        later = relay_inert.changed(repo, commit, ref, own=True, archive=True, absorbed=relay_inert.absorbed(repo, ref))
+    except ValueError as exc:
+        lines.append("files changed after the mark: unknown (%s)" % exc)
+        later = []
+    if later:
+        lines.append("%d non-inert file%s changed after the mark: %s; run relay gate, then delegate:checker" % (
+            len(later), "" if len(later) == 1 else "s", ", ".join(later[:5]) + (" and %d more" % (len(later) - 5) if len(later) > 5 else "")))
     return lines

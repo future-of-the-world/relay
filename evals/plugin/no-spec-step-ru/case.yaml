@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: no-spec-step-ru
+description: "a project with an openspec/ folder and no [specs] setting goes straight to a worker for a plain request (Russian): no openspec command, skill or agent"
+tags: [delegate, openspec]
+plugins: ["../../../plugins/core", "../../../plugins/openspec", "../../../plugins/delegate"]
+context:
+  scaffold_script: scaffold.sh

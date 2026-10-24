@@ -18,8 +18,8 @@
     "The refusal text contains both gate and check; check show on a branch with a non-inert change after the mark prints the count and names the files; on a clean branch the output is unchanged."
   ],
   "where": "plugins/core/hooks/merge.py:172, lib/relay_marks.py:280-302",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T19:45:15Z",
+  "taken_by": "wt/merge-msg",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

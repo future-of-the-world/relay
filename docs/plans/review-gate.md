@@ -553,6 +553,34 @@ where the default branch has none. Read-only commands (`relay changed`,
 work everywhere. In batch 3 only relay gets `.relay/` (part C2); ALIX, the
 Glonass repositories and the old projects (Kartoteka, principles) do not.
 
+### 7.7 Train: ready changes gated once and landed once
+
+Guarantee: what lands on master passed the gate as it lands. When several ready changes wait, each merge used to put the
+others behind master, so each took master and gated again (about 9.4 min each). A **train** is one throwaway branch
+`wt/train-<n>` that merges the ready changes (its riders) one by one with `--no-ff`, is gated once and lands with one
+`--ff-only`. One landing at a time while a train is open; a red train is dropped and the riders merge one at a time.
+`TRAIN_MAX` is 4 (front skill; bound 2-8).
+
+- **Absorbed branch** of T: a local `wt/*` branch (not `wt/queue-*`, not at T's tip) whose tip is an ancestor of T and not of
+  master, and that would pass the mark step on its own (its newest mark outside the branches inside it, with no own file
+  changed since, says `open 0`). Computed from git each time, once per judge, inner branches first
+  (`relay_inert.absorbed`), with each commit's tree read once.
+- **Covered file**: a file p of T is covered by absorbed X when X changed p, T[p] == X[p], master's p is what it was at
+  X's merge-base, and every other absorbed branch either left p alone or holds the same content. A covered file is not T's
+  own. A file both riders changed, or one the train rewrote, is T's own: it needs a **merge check**.
+- The hook (`merge.py`): step 1 (behind) and step 6 (gate) apply to T only; step 2 judges a closed fix's test at T and its
+  check at the absorbed branch whose range adds the `done/` file; step 3 leaves covered files out, needs no mark when
+  nothing is left, and never lets a rider's own mark vouch for the combined tree.
+- **Merge check**: `relay check findings -C <train>` and a check with `review = []` are allowed only on a branch with
+  absorbed branches; they hold only the M findings of the combined files. `relay changed --own <base>` in the train lists
+  those files.
+- After the land, the post hook cleans the train and every `wt/*` branch whose tip is inside it (`clean()`'s guards decide).
+- Every refusal of step 3 names the steps in order (`relay gate`, then `delegate:checker`); `relay check show` adds
+  `<N> non-inert files changed after the mark: <files>` when the newest mark no longer covers the head.
+- A hand-resolved merge into a stacked branch that drops master's (or an absorbed branch's) change to a file is refused by
+  the mark step when the newest mark is older than the merge, naming the file; the merge check lists it as an M finding.
+- A merge check (no review) is refused when the branch has an own file that no merge brought: its own commits need a review.
+
 ## 8. The person's step: one chat screen and a private page
 
 > Superseded 24 Oct: the private page and `relay check page` were removed (the owner does not read them); the person's step is the chat screen alone.

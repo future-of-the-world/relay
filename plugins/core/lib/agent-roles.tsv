@@ -5,11 +5,7 @@ delegate:runner	run
 delegate:scout	lookup
 delegate:thinker	think
 delegate:worker	build
+openspec:author	think
+openspec:spec-conformance	judge
+openspec:spec-reviewer	judge
 product:ui-reviewer	judge
-sdd:author	think
-sdd:code-reviewer	judge
-sdd:fixer	fix
-sdd:reviewer	judge
-sdd:spec-conformance	judge
-sdd:spec-reviewer	judge
-sdd:worker	build

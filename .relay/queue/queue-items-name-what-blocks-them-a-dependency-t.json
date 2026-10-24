@@ -1,0 +1,30 @@
+{
+  "kind": "feature",
+  "ip": 85,
+  "time": 45,
+  "found_at": "2026-10-24T18:39:48Z",
+  "found_in": "relay queue add",
+  "title": "Queue items name what blocks them: a dependency tree",
+  "what": [
+    "An optional field blocked_by on a queue item: the slugs whose result this item needs (its name is the item file's name without .json). The model writes it when it adds the item (`blocked_by` in the add TOML) and later with `relay queue block <slug> --by <slug>` when a dependency is found after the item was added. Code checks facts only: each slug exists (open items or done/), no cycle; otherwise the write is refused and nothing changes. Whether an item is blocked is computed when reading (a blocker not yet in done/), never stored. `relay queue` marks blocked items with their open blockers; `relay queue tree` shows the tree; `relay queue take` refuses a blocked item, naming the blocker; a dropped blocker is shown as \"blocker dropped: reconsider\". The field is optional: the existing item files stay valid unchanged; the known links are then set with `block`. Not in this item: choosing which unblocked items start together (the scheduler, its own item)."
+  ],
+  "why": [
+    "Owner's proposal, 24 Oct: \"blocked_by - поле которое поддерживается моделью, обычно на момент создания изменения мы можем заранее сказать чем оно блокируется\"; \"под блокер я имел ввиду мой proposal касательно изменений blocked_by и внедрения древа зависимостей в нашу очередь\". Today dependencies live in prose and in the front's head, and were lost at a compaction. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "openspec-tools-live-in-the-core-plugin needs spec-writing-leaves-the-main-pipeline-sdd-become merged first, but nothing in the queue says so: `relay queue take openspec-tools-live-in-the-core-plugin` succeeds while the OpenSpec item is still open."
+  ],
+  "pass_cases": [
+    "With blocked_by = [\"spec-writing-leaves-the-main-pipeline-sdd-become\"], take of openspec-tools-live-in-the-core-plugin is refused naming the blocker; after the blocker is in done/ the take succeeds.",
+    "add or block with an unknown slug, or one that makes a cycle, is refused and writes nothing.",
+    "relay queue tree shows the three links spec-writing-leaves-the-main-pipeline-sdd-become -> openspec-tools-live-in-the-core-plugin, the-change-cycle-builds-independent-groups-in-pa, a-spec-fix-is-marked-met-by-reading-not-by-runni.",
+    "every existing item file passes relay queue check without being rewritten."
+  ],
+  "where": "lib/relay_queue.py (schema, parse, add, take, a block command; lib copies), lib/queue_ext/ (a tree view), bin/relay (queue help), rules/queue.md (name blockers when adding)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

@@ -1,6 +1,6 @@
 ---
 name: ui-reviewer
-description: Read-only look review of a branch, done by looking and measuring - it builds the branch into the scratchpad, shoots every screen and state the change touches in Chromium and WebKit, light and dark, at every width the project ships, measures each page, reads the screenshots, compares them with the sample the owner locked, and reports defects to fix (text cut, overlap, jumps, marks nobody can read, words unlike the locked ones) and matters of taste as A beside B for the owner. Used in the sdd:apply-review gate (the whole-change review and its check) and after any work that touches what a person sees. Not needed when the look check against the base found every shot identical.
+description: Read-only look review of a branch, done by looking and measuring - it builds the branch into the scratchpad, shoots every screen and state the change touches in Chromium and WebKit, light and dark, at every width the project ships, measures each page, reads the screenshots, compares them with the sample the owner locked, and reports defects to fix (text cut, overlap, jumps, marks nobody can read, words unlike the locked ones) and matters of taste as A beside B for the owner. Used in the change cycle (step 4, the whole-change review, and its check) and after any work that touches what a person sees. Not needed when the look check against the base found every shot identical.
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high

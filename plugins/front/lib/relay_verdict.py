@@ -652,7 +652,7 @@ def _review_findings(wt, head, paths):
 
 def _merge_findings(wt, head, anchors):
     """One M finding for each file the branch changed (`relay_inert.changed(..., own=True)`) that a merge of the default
-    branch changed after the anchor, the newest of `anchors` (the branch's last mark and its newest review); with none, the
+    branch (or of a branch it absorbs: a train's merge of a ready change) changed after the anchor, the newest of `anchors` (the branch's last mark and its newest review); with none, the
     point the branch left the default branch. Its `since` is the newest such merge."""
     import relay_inert
     default = relay_git.default_branch(wt)
@@ -668,7 +668,8 @@ def _merge_findings(wt, head, anchors):
             raise VerdictError("nothing recorded: no common commit of %s and %s" % (default, head))
         anchor = out
     try:
-        own = set(relay_inert.changed(wt, anchor, head, own=True))
+        ab = relay_inert.absorbed(wt, head)
+        own = set(relay_inert.changed(wt, anchor, head, own=True, absorbed=ab))
     except ValueError as exc:
         raise VerdictError("nothing recorded: %s" % exc)
     if not own:
@@ -676,12 +677,17 @@ def _merge_findings(wt, head, anchors):
     rc, out = relay_git.git(wt, "rev-list", "--merges", "--reverse", "%s..%s" % (anchor, head))
     newest = {}
     for merge in (out.splitlines() if rc == 0 else []):
-        if not _ok(wt, "rev-parse", "--verify", "-q", merge + "^2") or not _is_ancestor(wt, merge + "^2", base):
-            continue                                                  # not a merge of the default branch
+        if not _ok(wt, "rev-parse", "--verify", "-q", merge + "^2"):
+            continue
+        second = relay_git.git(wt, "rev-parse", merge + "^2")[1]
+        if not _is_ancestor(wt, second, base) and second not in ab.values():
+            continue                                                  # not a merge of the default branch or of an absorbed branch
         rc, names = relay_git.git(wt, "diff", "--name-only", "--no-renames", "-z", merge + "^1", merge)
         for name in names.split("\0") if rc == 0 else []:
             if name in own:
                 newest[name] = merge
+        for name in relay_inert.dropped(wt, merge, own):                  # a hand-resolved merge that threw the other side's change away
+            newest[name] = merge
     found = []
     for number, name in enumerate(sorted(newest), 1):
         merge = newest[name]
@@ -772,11 +778,35 @@ def build_findings(wt, head, review_paths):
     if held:
         item = held[0]
         found.append(held[1])
+    import relay_inert
+    try:
+        ab = relay_inert.absorbed(wt, head)
+    except ValueError as exc:
+        raise VerdictError("nothing recorded: %s" % exc)
+    if not review_paths and not ab:
+        raise VerdictError("nothing recorded: `review` must be a list of at least one review JSON path")     # a merge check is only for a branch that holds ready changes
     reviews = _review_findings(wt, head, review_paths)
     found += reviews
+    if not review_paths:             # no review: every own file must be one a merge of a ready change or of the default branch brought
+        default = relay_git.default_branch(wt)
+        rc, fork = relay_git.git(wt, "merge-base", "refs/heads/%s" % (default or ""), head)
+        if rc != 0:
+            raise VerdictError("nothing recorded: no common commit of %s and %s" % (default, head))
+        try:
+            own_files = relay_inert.changed(wt, fork, head, own=True, absorbed=ab)
+        except ValueError as exc:
+            raise VerdictError("nothing recorded: %s" % exc)
+        merged = {f["path"] for f in _merge_findings(wt, head, [])}
+        loose = [n for n in own_files if n not in merged]
+        if loose:
+            raise VerdictError("nothing recorded: `review` must be a list of at least one review JSON path: %s changed on this branch "
+                               "outside a merge of a ready change, and a merge check covers only files a merge combined" % ", ".join(loose[:3]))
     default = relay_git.default_branch(wt)
     rc, out = relay_git.git(wt, "rev-list", head, "^refs/heads/%s" % default) if default else (1, "")
     own = set(out.splitlines()) if rc == 0 else set()
+    for tip in ab.values():                      # the marks of branches inside this one are theirs, not this branch's own
+        inside = relay_git.git(wt, "rev-list", tip)[1].split()
+        own -= set(inside)
     def kept(commit, mark):            # a mark whose check left an M finding not MET does not move the anchor: it is judged again
         try:
             data = relay_marks.check_data(wt, head, mark.get("check", ""))
@@ -816,7 +846,7 @@ def record_check(input_path):
     if errors:
         raise VerdictError("nothing recorded: " + "; ".join(errors))
     review_paths = raw["review"]
-    if not (isinstance(review_paths, list) and review_paths and all(_text(p) for p in review_paths)):
+    if not (isinstance(review_paths, list) and all(_text(p) for p in review_paths)):
         raise VerdictError("nothing recorded: `review` must be a list of at least one review JSON path")
     if not (_text(raw["worktree"]) and os.path.isdir(raw["worktree"])):
         raise VerdictError("nothing recorded: `worktree` must be the path of a worktree")
@@ -826,7 +856,7 @@ def record_check(input_path):
         raise VerdictError("nothing recorded: head %s is not a commit of this worktree" % (head,))
     if not _is_ancestor(wt, head, "HEAD"):
         raise VerdictError("nothing recorded: head %s is not the worktree's head or an ancestor of it" % head)
-    branch, item, found = build_findings(wt, head, [os.path.abspath(p) for p in review_paths])
+    branch, item, found = build_findings(wt, head, [os.path.abspath(p) for p in review_paths])    # no review: only a merge check
     said = {}
     for status in statuses:
         if status.get("id") in said:

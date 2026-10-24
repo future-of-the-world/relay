@@ -1,0 +1,192 @@
+{
+  "branch": "wt/regate",
+  "findings": [
+    {
+      "details": [
+        "24 Oct: four changes were ready at once (py-rule, installer, checks-record, paid-batch); every merge forced the next ones to take master, gate and check again, about 10-15 agent minutes and one runner + one checker per change per merge; the same day checks-record took master three times. Principle 2: waste built into the setup."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "24 Oct: after py-rule merged, paid-batch (no shared file but tests/test_relay.py) had to gate again before its merge; checks-record will gate a fourth time after paid-batch merges."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "With N ready changes, the rules and hook let them merge with at most one extra gate in total, or skip it when code shows no overlap; a merge whose branch and master's new commits share a file still gets the combined-by-merge check and a gate."
+      ],
+      "path": "rules/git.md (ready to merge), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md step 8, plugins/core/hooks/merge.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_merge_train.py:181 passes; fails at base 58c044731667 (AssertionError line 191)."
+      ],
+      "severity": "HIGH",
+      "since": "58c044731667b8f091d545f1c3220b870884e7a5",
+      "source": "queue",
+      "summary": "Each merge makes every waiting change gate again",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "Merge combined without conflict; gate green on fe14a1db (exit 0), no file changed after it."
+      ],
+      "severity": "MEDIUM",
+      "since": "fe14a1db0cf698e2f7fd3fffd9767926b452132b",
+      "source": "m1-regate.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "docs/plans/review-gate.md",
+      "rank": "medium",
+      "reason": [
+        "Merge combined without conflict; gate green on fe14a1db (exit 0), no file changed after it."
+      ],
+      "severity": "MEDIUM",
+      "since": "fe14a1db0cf698e2f7fd3fffd9767926b452132b",
+      "source": "m1-regate.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "Merge combined without conflict; gate green on fe14a1db (exit 0), no file changed after it."
+      ],
+      "severity": "MEDIUM",
+      "since": "fe14a1db0cf698e2f7fd3fffd9767926b452132b",
+      "source": "m1-regate.json",
+      "source_id": "F3",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/core/lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "Merge combined without conflict; gate green on fe14a1db (exit 0), no file changed after it."
+      ],
+      "severity": "MEDIUM",
+      "since": "fe14a1db0cf698e2f7fd3fffd9767926b452132b",
+      "source": "m1-regate.json",
+      "source_id": "F4",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/front/lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "Merge combined without conflict; gate green on fe14a1db (exit 0), no file changed after it."
+      ],
+      "severity": "MEDIUM",
+      "since": "fe14a1db0cf698e2f7fd3fffd9767926b452132b",
+      "source": "m1-regate.json",
+      "source_id": "F5",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "Merge combined without conflict; gate green on fe14a1db (exit 0), no file changed after it."
+      ],
+      "severity": "MEDIUM",
+      "since": "fe14a1db0cf698e2f7fd3fffd9767926b452132b",
+      "source": "m1-regate.json",
+      "source_id": "F6",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "fe14a1db0cf698e2f7fd3fffd9767926b452132b.gate.log",
+  "head": "6b7e6a718079124a0532ce0f57de08d255188a82",
+  "item": "each-merge-makes-every-waiting-change-gate-again",
+  "notes": [
+    "Q1 test tests/test_merge_train.py::TheTrainLands::test_q1_ready_changes_merge_with_one_gate_for_the_wave passes at head and fails at 58c044731667 with the test file copied in."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merge-of-master check, Fixes none. Gate log starts head fe14a1db..., ends exit 0 (bin/ci --quick); only the gate-log commit 6b7e6a7 follows, relay changed lists no file. Q1 test run with and without the base. Full pytest exceeded the time limit and was not completed; the green gate stands in."
+  ],
+  "type": "check"
+}

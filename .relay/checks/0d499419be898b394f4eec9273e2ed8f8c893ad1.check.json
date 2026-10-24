@@ -1,0 +1,297 @@
+{
+  "branch": "wt/openspec-optional",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading the transcript shape on disk and the check at route-guard.py:113 (startswith on the whole string).",
+        "Effect: one wasted refused request per session that loaded the skill by slash command, then a wrong note on every Agent call",
+        "for the rest of the session, which tells the model the skill is missing when it is loaded. Size: 10 minutes."
+      ],
+      "evidence": [
+        "python3 over a real transcript printed: '<command-message>sdd:archive</command-message>\\n<command-name>/sdd:archive</command-name>\\n<command-args>...'",
+        "route-guard.py:113: if node.lstrip().startswith((\"/delegate:delegate\", \"<command-name>/delegate:delegate\")):"
+      ],
+      "failing_case": [
+        "The owner types `/delegate:delegate` in a session. Claude Code stores that user message as the string",
+        "'<command-message>delegate:delegate</command-message>\\n<command-name>/delegate:delegate</command-name>\\n...'",
+        "(seen in a real transcript under ~/.claude/projects: '<command-message>sdd:archive</command-message>\\n<command-name>/sdd:archive</command-name>...').",
+        "skill_evidence() only accepts a string that starts with \"/delegate:delegate\" or \"<command-name>/delegate:delegate\", so loaded stays False:",
+        "the session's first Agent call is denied with \"load the delegate skill first\", and every later Agent call gets",
+        "\"Routing note: the delegate skill was not loaded in this session\". Expected: allowed silently, as for a Skill tool call.",
+        "The test (tests/test_spec_steps.py:546) writes the content as the bare string \"/delegate:delegate\", a shape Claude Code does not write, so it passes."
+      ],
+      "fix_hint": [
+        "Match `<command-name>/delegate:delegate</command-name>` anywhere in a user message string (re.search), keep the bare \"/delegate:delegate\" start;",
+        "change the test fixture at tests/test_spec_steps.py:546 to the real shape."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 113,
+      "pass_cases": [
+        "1. transcript user message content '<command-message>delegate:delegate</command-message>\\n<command-name>/delegate:delegate</command-name>\\n<command-args></command-args>' then an Agent call from the main session -> decide() returns None (allowed, no note).",
+        "2. transcript with a Skill tool_use input {\"skill\": \"delegate:delegate\"} -> None (works today, keeps working).",
+        "3. transcript with only an ordinary user prompt \"do it\" -> deny with \"load the delegate skill first\" (works today).",
+        "4. transcript whose user prompt merely mentions \"<command-name>/delegate:delegate\" in the middle of prose after other text -> still counted as loaded or not, as the fix decides, but a prompt \"/front:front\" must not count as loaded."
+      ],
+      "path": "plugins/delegate/hooks/route-guard.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_spec_steps.py:589 real command-message shape passes; /front:front still denied; fails on a1ea8c2"
+      ],
+      "severity": "MEDIUM",
+      "since": "a1ea8c2aaea14c262fb23ef01ea2803b82f7a87f",
+      "source": "review-openspec-optional.json",
+      "source_id": "F1",
+      "summary": "a typed /delegate:delegate is not seen as the skill loaded: real transcripts start the message with <command-message>, so the first agent is refused and every later one carries a false note",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by diff: master:plugins/sdd/agents/worker.md section \"OpenSpec flow\" vs plugins/core/lib/kit_packet_rules.md (9 lines). grep for e2e/smoke/black-box in",
+        "plugins/delegate/agents/worker.md and kit_packet.py's packet output finds nothing. The design (section 1) promises the agent's \"OpenSpec flow\"",
+        "section becomes the packet part; the brief also asks to compare with the orchestrator's worker.md and list what was added. Size: 10 minutes."
+      ],
+      "evidence": [
+        "git show master:plugins/sdd/agents/worker.md | sed -n '/OpenSpec flow/,/^## /p'  -> \"An **e2e** or **smoke** line is black-box through the real outside ... a same-process test doesn't count.\"",
+        "grep -n \"e2e\\|smoke\\|black-box\" plugins/delegate/agents/worker.md -> nothing"
+      ],
+      "failing_case": [
+        "A spec-on project's task has `Tests: ... ; e2e \"the panel shows its title\"`. Today the packet goes to a plain delegate:worker",
+        "whose only OpenSpec build rules are kit_packet_rules.md (design section 1: \"the one place those rules live\"). Neither it nor",
+        "delegate:worker says that an e2e or smoke entry is black-box through the real outside and imports no internals (\"a same-process",
+        "test doesn't count\", master:plugins/sdd/agents/worker.md \"Tests, then code\"). A worker can now meet the e2e entry with an",
+        "in-process unit test and report it as proof. Expected: the packet part carries that rule, as the removed agent did.",
+        "Also dropped: \"Don't read tasks.md, design.md, proposal.md or the spec deltas whole; if the brief lacks something, stop: the task's Reads: line is incomplete\"",
+        "and the per-task check `<check> <change> <task>` / `--failed`."
+      ],
+      "fix_hint": [
+        "Add the three lines to kit_packet_rules.md (the e2e/smoke rule, the no-whole-artifact-read rule, the scoped check with --failed when gate.check takes a change and task)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. kit_packet_rules.md has a line saying an e2e or smoke entry is a black-box test through the real outside (the built program or screen) that imports no internals; a same-process test does not count.",
+        "2. kit_packet_rules.md has a line: do not read tasks.md, design.md, proposal.md or the spec deltas whole; a missing input is reported as an incomplete Reads: line.",
+        "3. tests/test_spec_steps.py Packet: every packet still ends with the text of kit_packet_rules.md (passes today, keeps passing)."
+      ],
+      "path": "plugins/core/lib/kit_packet_rules.md",
+      "rank": "medium",
+      "reason": [
+        "plugins/core/lib/kit_packet_rules.md e2e/smoke, no-whole-read and --failed lines; tests/test_spec_steps.py test_F2 fails before, passes now"
+      ],
+      "severity": "MEDIUM",
+      "since": "a1ea8c2aaea14c262fb23ef01ea2803b82f7a87f",
+      "source": "review-openspec-optional.json",
+      "source_id": "F2",
+      "summary": "build rules of the removed sdd:worker are lost: the packet part drops the e2e/smoke black-box rule, the scoped check loop and 'do not read tasks.md/design.md whole'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep: \"Interfaces\" appears in plugins/openspec/agents/author.md:133 and spec-reviewer.md:376 and nowhere in plugins/openspec/skills/plan/SKILL.md;",
+        "spec-reviewer.md:3 still says \"a wave plan\". This is the kind of contradiction the folded queue item (the flow's skills give a session opposite orders) is about.",
+        "If the owner wants the Interfaces section kept for sequential groups, the plan skill must say it instead; either way one text. Size: 10 minutes."
+      ],
+      "evidence": [
+        "git grep -n \"Interfaces\\|wave\" -- plugins: author.md:133 \"`Interfaces`, the four task fields\"; spec-reviewer.md:3 \"a wave plan\"; spec-reviewer.md:376 \"14. **Interfaces.** ... BLOCKER\""
+      ],
+      "failing_case": [
+        "openspec:plan writes a change per its trimmed rules: groups in order, no Wave lines, no `Interfaces` section (the design: \"Its tasks.md rules drop the",
+        "Wave N lines and the 'Interfaces' requirement\"); `kit packet --check` passes it. openspec:spec-review then starts openspec:spec-reviewer, whose check 14",
+        "says a value two tasks could shape differently with no Interfaces entry is a BLOCKER, and whose description still promises \"a wave plan whose briefs a",
+        "worker can build from\". The author (plugins/openspec/agents/author.md:133) is told to follow plan \"in full: ... `Interfaces`\", a part plan no longer has.",
+        "Result: one spec review round spent on a requirement the change removed. Expected: one answer, written once."
+      ],
+      "fix_hint": [
+        "Drop check 14 (or reword it as a FIX only when two tasks share a value with no owner named in the design), drop \"a wave plan\" from the description, and drop `Interfaces` from author.md:133."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 376,
+      "pass_cases": [
+        "1. plugins/openspec/agents/spec-reviewer.md has no check that makes a missing `Interfaces` section a finding, and its description does not say \"wave plan\".",
+        "2. plugins/openspec/agents/author.md does not list `Interfaces` among what openspec:plan \"Writing the artifacts\" asks for.",
+        "3. kit packet --check still passes a tasks.md without Wave lines and a design.md without Interfaces (tests/test_spec_steps.py Packet, passes today)."
+      ],
+      "path": "plugins/openspec/agents/spec-reviewer.md",
+      "rank": "medium",
+      "reason": [
+        "Interfaces check 14 and 'wave plan' removed from spec-reviewer, Interfaces removed from author.md; test_F3 fails before, passes now"
+      ],
+      "severity": "MEDIUM",
+      "since": "a1ea8c2aaea14c262fb23ef01ea2803b82f7a87f",
+      "source": "review-openspec-optional.json",
+      "source_id": "F3",
+      "summary": "spec-reviewer still blocks a change with no design.md Interfaces section and the author still writes one, while plan and kit packet --check dropped that requirement: two texts, opposite orders",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep: git grep -n \"Look:\" -- plugins rules finds only archive/SKILL.md:27; master's only writer of that line was apply-review/SKILL.md:179, removed here.",
+        "git grep \"the lead\\|lead's\" finds spec-review/SKILL.md:12 and archive/SKILL.md:92. Size: 10 minutes."
+      ],
+      "evidence": [
+        "git grep -n \"Look:\\|lead's\\|the lead\" -- plugins rules -> plugins/openspec/skills/archive/SKILL.md:27, :92; plugins/openspec/skills/spec-review/SKILL.md:12",
+        "git grep -n \"Look:\" master -- plugins/sdd -> apply-review/SKILL.md:179 \"Look: <D> defects (...)\" (the report line)"
+      ],
+      "failing_case": [
+        "Spec-on product project with product.look_review = true; a change that touches a screen passes step 7 (open 0). The front starts one delegate:worker",
+        "\"load openspec:archive and follow it\". Its precondition (archive/SKILL.md:26-29) asks that \"the report's `Look:` line has no open defect ... or the look",
+        "review runs first\". No report of the change cycle has a `Look:` line any more (it was apply-review's report format, master:plugins/sdd/skills/apply-review/SKILL.md:179),",
+        "and a worker cannot start product:ui-reviewer, so it stops (\"or stop and say which does not\") or guesses. Expected: the precondition names what the cycle",
+        "produces (the step-4 look review report, or the check's open 0 which already covers its findings).",
+        "Same family: spec-review/SKILL.md:12 \"The coordinator (the main session, or the lead)\" and archive/SKILL.md:92 \"the merge is the owner's, or the lead's\",",
+        "while the design's answer 13 is \"relay has no leads ... nowhere in relay\"; the case-11 test checks only `alix-lead` and `coordination.mode`, so it misses these."
+      ],
+      "fix_hint": [
+        "Reword the archive precondition to \"the look review of step 4 ran (or its report says not run / skipped with its reason) and the check of step 7 has open 0\";",
+        "drop \"or the lead\" and \"or the lead's ...\" in the two skills; add \"the lead\" to the case-11 phrase list in tests/test_spec_steps.py."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 27,
+      "pass_cases": [
+        "1. plugins/openspec/skills/archive/SKILL.md names no `Look:` line of a report that no relay step writes; its look condition points at the step-4 look review (product:look-review / product:ui-reviewer report) or is covered by the step-7 open 0.",
+        "2. No file under plugins/openspec/ says \"the lead\" or \"lead's\" (git grep -n \"the lead\\|lead's\" -- plugins/openspec returns nothing).",
+        "3. archive/SKILL.md keeps \"every task in tasks.md is ticked\" and the scenario-count check (unchanged)."
+      ],
+      "path": "plugins/openspec/skills/archive/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "archive Look: line reworded, 'the lead' removed in archive and spec-review; test_F4 fails before, passes now"
+      ],
+      "severity": "MEDIUM",
+      "since": "a1ea8c2aaea14c262fb23ef01ea2803b82f7a87f",
+      "source": "review-openspec-optional.json",
+      "source_id": "F4",
+      "summary": "archive still waits on 'the report's Look: line', a line only the removed apply-review wrote, and archive and spec-review still name 'the lead' (contradiction 13 left in two skills)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: a paid run is needed to show the pass without the table; by reading, the prompt alone names the plan step and the skill's description matches it.",
+        "Principle 5 asks meaning to be tested with paid checks in several languages and with phrases that must not trigger; a check that the prompt answers for itself",
+        "measures nothing. Size: 15 minutes (prompts and one grader; no paid run here)."
+      ],
+      "evidence": [
+        "cat evals/plugin/spec-step-on-ru/prompt.md -> \"\u0421\u0434\u0435\u043b\u0430\u0439 \u0442\u0430\u043a, \u0447\u0442\u043e\u0431\u044b \u0441\u043f\u0438\u0441\u043e\u043a \u0442\u043e\u0432\u0430\u0440\u043e\u0432 \u0441\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u043b\u0441\u044f \u043f\u043e \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u044e. ... Plan only, no code: stop when the spec step has written the change.\"",
+        "cat evals/plugin/no-spec-step/prompt.md -> \"... Start the work through the project's usual agents and stop once a worker has been started and has replied.\"",
+        "evals/plugin/spec-step-on/graders/no-worker-before-plan.md: tool Agent, input_match delegate:worker, max 0"
+      ],
+      "failing_case": [
+        "spec-step-on-en, -ru, -typo are meant to measure that a plain request (\"\u0441\u0434\u0435\u043b\u0430\u0439 \u0441\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u043a\u0443 \u043f\u043e \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u044e\") meets openspec:plan through the project's rules alone",
+        "(design section 2: \"no slash command is needed ... The paid case spec-step-on measures that\"). Each prompt adds \"Plan only, no code: stop when the spec step has",
+        "written the change.\" openspec:plan's own description (\"Use ... when the user asks to research, plan, design, or propose a change\") then matches the prompt itself,",
+        "so the case passes with the [specs] setting and the steps table removed from CLAUDE.local.md. \"Plan only, no code\" also forbids any worker, so",
+        "no-worker-before-plan (max 0 delegate:worker) holds whatever happens. The control no-spec-step says \"stop once a worker has been started\", so the pair differ",
+        "in what the prompt asks, not only in the setting. Expected: the same plain request in both fixtures, the setting the only difference."
+      ],
+      "fix_hint": [
+        "Give both twins one ending, for example \"Start the work the way this project's rules say and stop at the first agent's reply\"; grade spec-on by plan loaded and the off twin by worker started."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 8,
+      "pass_cases": [
+        "1. spec-step-on-en/-ru/-typo prompts carry the feature request and the no-one-to-ask line only: no \"plan\", \"spec\" or \"spec step\" words, no \"no code\".",
+        "2. no-spec-step(-ru,-typo) prompts carry the same request text as their spec-step-on twin; the fixtures differ only in [specs] method and the rendered CLAUDE.local.md.",
+        "3. spec-step-on graders: openspec:plan loaded (min 1), and a grader that fails when a delegate:worker starts before the Skill call (or the run is capped before the build, stated in the case).",
+        "4. spec-step-on-bugfix keeps: no openspec:plan, a delegate:worker started."
+      ],
+      "path": "evals/plugin/spec-step-on-ru/prompt.md",
+      "rank": "medium",
+      "reason": [
+        "twin prompts identical, graders reworded; test_F5 fails before, passes now"
+      ],
+      "severity": "MEDIUM",
+      "since": "a1ea8c2aaea14c262fb23ef01ea2803b82f7a87f",
+      "source": "review-openspec-optional.json",
+      "source_id": "F5",
+      "summary": "the plain-words spec-step-on eval prompts name the answer ('Plan only ... stop when the spec step has written the change'), so they pass with the rendered steps table removed; the 'no worker before plan' grader is vacuous",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep. No behaviour changes; cheap to fix while the files are open. Size: 10 minutes."
+      ],
+      "evidence": [
+        "git grep -n ALIASES -> plugins/core/hooks/flow-stage.py:29 only",
+        "git grep -n wave -- plugins/core/lib/kit_packet.py -> lines 49, 96, 289, 334, 376, 510, 862, 869"
+      ],
+      "failing_case": [
+        "plugins/core/hooks/flow-stage.py:29 defines ALIASES = {\"openspec\": \"openspec\"}; nothing reads it. A reader takes it for a live mapping.",
+        "plugins/core/lib/kit_packet.py:49, 96, 289, 334, 376, 510, 862, 869 still say \"a wave-0 stub\", \"a wave-plan author reads design.md whole\", which the change removed.",
+        "Expected: no alias table; the comments and messages speak of groups built in order."
+      ],
+      "fix_hint": [
+        "Delete the line; reword the comments and the two messages at 862 and 869 (\"a task-group author reads it whole\")."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 29,
+      "pass_cases": [
+        "1. git grep -n ALIASES -- plugins/core/hooks returns nothing; tests/test_spec_steps.py StageHook still passes.",
+        "2. git grep -n \"wave\" -- plugins/core/lib/kit_packet.py returns nothing; plugins/core/tests/kit.test.sh still passes."
+      ],
+      "path": "plugins/core/hooks/flow-stage.py",
+      "rank": "low",
+      "reason": [
+        "ALIASES deleted, wave wording gone from kit_packet.py; test_F6 fails before, passes now"
+      ],
+      "severity": "LOW",
+      "since": "a1ea8c2aaea14c262fb23ef01ea2803b82f7a87f",
+      "source": "review-openspec-optional.json",
+      "source_id": "F6",
+      "summary": "dead ALIASES = {'openspec': 'openspec'} left in the stage hook (the design deletes the alias tables), and kit_packet.py comments still describe wave plans and wave-0 stubs",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading route-guard.py:161-167. The design gives the setting a bound (deny / note / off). Size: 10 minutes."
+      ],
+      "evidence": [
+        "route-guard.py:161 mode = str(cfg[\"require_skill\"]); :162 if mode != \"off\" ...; :165 if mode == \"deny\" and not refused: return deny(...)",
+        "sed -n 28,46p docs/delegation.md -> five rows, none for require_skill"
+      ],
+      "failing_case": [
+        "kit.toml [delegate] require_skill = \"Deny\" (or \"yes\") -> mode is neither \"off\" nor \"deny\", so the guard only notes; nothing says the value was not understood.",
+        "docs/delegation.md:34-40, the table of what the guard decides, has no row for an Agent call before the delegate skill was loaded.",
+        "Expected: an unknown value falls back to the default \"deny\" (or doctor names it), and the table has the row."
+      ],
+      "fix_hint": [
+        "mode = mode if mode in (\"deny\", \"note\", \"off\") else \"deny\"; add the table row."
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 161,
+      "pass_cases": [
+        "1. require_skill = \"Deny\" or \"bogus\", no skill in the transcript -> denied as with \"deny\" (or relay doctor names the bad value).",
+        "2. require_skill = \"note\" -> allowed with the note; \"off\" -> allowed silently (tests/test_spec_steps.py:549 keeps passing).",
+        "3. docs/delegation.md routing-guard table has a row: main-session Agent call before the delegate skill -> deny once, then a note (`require_skill = deny|note|off`)."
+      ],
+      "path": "plugins/delegate/hooks/route-guard.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_spec_steps.py:597 and :602 (bound + docs row); both fail before, pass now"
+      ],
+      "severity": "LOW",
+      "since": "a1ea8c2aaea14c262fb23ef01ea2803b82f7a87f",
+      "source": "review-openspec-optional.json",
+      "source_id": "F7",
+      "summary": "[delegate] require_skill has no bound check (any other word acts as note) and is missing from the routing-guard table in docs/delegation.md",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "cfe83642811c72d07993e814ce9190dde31aa491.gate.log",
+  "head": "0d499419be898b394f4eec9273e2ed8f8c893ad1",
+  "item": null,
+  "notes": [
+    "Paid eval run not done (F5 changes are prompts/graders only, checked by reading: twins now carry identical request text)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range a1ea8c2..HEAD (fix commit cfe8364 plus gate-log commit). Gate log is for cfe8364 (QUICK MODE, exit 0); relay changed after it lists no file. Ran tests/test_spec_steps.py on head (all pass); the 8 new F tests all fail on a1ea8c2 with the head test file. Full tests/ not finished within the time limit here; the gate covers it. Read the fix diff; files changed are only those the findings name, plus tests and eval twins."
+  ],
+  "type": "check"
+}

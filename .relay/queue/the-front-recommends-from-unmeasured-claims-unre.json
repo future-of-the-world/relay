@@ -1,0 +1,29 @@
+{
+  "kind": "fix",
+  "ip": 93,
+  "time": 45,
+  "found_at": "2026-10-24T18:33:35Z",
+  "found_in": "relay queue add",
+  "title": "The front recommends from unmeasured claims, unreviewed",
+  "what": [
+    "Two changes. (1) Rule: a recommendation to the owner names what it rests on (\"measured: 17 of 28 overlap\" or \"not measured: a guess\"); when a cheap measurement exists (a script over the queue, git, the ledger) it is run before the reply; a view changes on new evidence, not on the owner's push. \"Verify against the real system\" covers replies to the owner, not only docs and code. (2) Routing: an owner question about a NEW mechanism (a field, a command, a step: \"can we / would X help / how should we\") goes to the design track (thinker with the owner's words verbatim, measurement of live data first, at least two distinct approaches plus \"do nothing\" and how leading tools solve it; then critic; then the revision) before the front brings the owner a table. Explaining what already exists stays with the front."
+  ],
+  "why": [
+    "Owner, 24 Oct: \"как мы можем улучшить relay чтобы следуя его инструкциям ты предлагал более сильное решение\", then \"1. a / 2. a\". Live case: the blocked_by / queue ready proposal was designed inline by the front, with one idea and no measurement, and took 6 owner rounds; the front changed its view three times without evidence, and a one-minute dry run made only on the 6th round disproved its premise (it claimed conflicts come from tests/test_relay.py; 17 of 28 open items overlapped a running branch through bin/relay, setup and skills). The OpenSpec design, which went thinker -> critic -> revision, was settled in one owner reply. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "Owner asks \"would a dependency field in the queue be useful?\": the front answers inline with one design and a recommendation that rests on a claim about the queue it did not measure, and names no alternative."
+  ],
+  "pass_cases": [
+    "The same question starts the design track (a thinker brief with the owner's words verbatim and a measurement step), and the reply to the owner names the measured numbers and at least two approaches plus \"do nothing\".",
+    "A question explaining an existing mechanism (\"what does relay queue take do?\") is answered by the front directly, with no design track.",
+    "A recommendation in a reply says what it rests on: a measured number, or \"not measured\"."
+  ],
+  "where": "the rule that holds \"Working with me\" and \"Working style\" (rules/*.md, \"Verify against the real system\"), rules/delegation.md (routing), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md (routing table), an eval case for the front",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

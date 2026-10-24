@@ -1,4 +1,4 @@
-# Variants: spec-review (`sdd:spec-review`)
+# Variants: spec-review (`openspec:spec-review`)
 
 Copies read (2026-10-19): `kartoteka-spec-review`, `clean-spec-review`
 (identical but for names), `carry-spec-review` (Mind) and `sight-spec-review`
