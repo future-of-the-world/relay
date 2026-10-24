@@ -36,7 +36,7 @@ def day_file(when: dt.datetime | None = None) -> str:
 
 def append(event: Event) -> None:
     os.makedirs(ledger_dir(), exist_ok=True)
-    with open(day_file(), "a", encoding="utf-8") as handle:
+    with open(day_file(parse_ts(event.get("ts"))), "a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=False) + "\n")
 
 

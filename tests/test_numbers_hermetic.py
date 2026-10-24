@@ -44,6 +44,18 @@ class NumbersHermetic(unittest.TestCase):
         os.remove(os.path.join(os.environ["RELAY_HOME"], "ledger", "usage-index.json"))
         self.assertEqual(relay_ledger.capture("2020-03-04T12:00:00Z"), [])
 
+    def test_future_given_time_files_and_windows_by_the_same_time(self):
+        import relay_ledger
+        models = {"claude-opus-5-5": {"inputTokens": 1, "outputTokens": 5, "costUSD": 1.0}}
+        with open(os.path.join(os.environ["CLAUDE_CONFIG_DIR"], ".claude.json"), "w") as handle:
+            json.dump({"projects": {"/p": {"lastSessionId": "s1", "lastModelUsage": models}}}, handle)
+        # 2030 is ahead of the clock: the line must go to the 2030-03-04 day file (its own ts), or the window
+        # (from 2030-03-01) would skip a file named for the real date and capture would record s1 twice.
+        self.assertEqual(relay_ledger.capture("2030-03-04T09:00:00Z"), ["s1"])
+        self.assertTrue(os.path.exists(os.path.join(os.environ["RELAY_HOME"], "ledger", "2030-03-04.jsonl")))
+        os.remove(os.path.join(os.environ["RELAY_HOME"], "ledger", "usage-index.json"))
+        self.assertEqual(relay_ledger.capture("2030-03-04T12:00:00Z"), [])
+
 
 if __name__ == "__main__":
     unittest.main()
