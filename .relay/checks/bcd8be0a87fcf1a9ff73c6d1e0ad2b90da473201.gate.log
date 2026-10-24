@@ -1,0 +1,19 @@
+head bcd8be0a87fcf1a9ff73c6d1e0ad2b90da473201
+cmd bin/ci --quick
+ci: library tests FAILED (290s, log: .ci/steps/library-tests.log)
+        raise ValueError(f"{KEY} is missing or not above 0 in [global] of {path}")
+    ValueError: paid_cap_usd_per_day is missing or not above 0 in [global] of /var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-test-1a12roze/projects.toml
+        raise ValueError(f"{KEY} is missing or not above 0 in [global] of {path}")
+    ValueError: paid_cap_usd_per_day is missing or not above 0 in [global] of /var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-test-tb2ta_w1/projects.toml
+        raise ValueError(f"{KEY} is missing or not above 0 in [global] of {path}")
+    ValueError: paid_cap_usd_per_day is missing or not above 0 in [global] of /var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-test-kjwua5mo/projects.toml
+    FAILED (errors=3)
+ci: types and lint ok (0s)
+ci: hook tests ok (151s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (5s)
+ci: plugin validate ok (5s)
+ci: inert FAILED (466s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed:
+ci: RED
+exit 1
