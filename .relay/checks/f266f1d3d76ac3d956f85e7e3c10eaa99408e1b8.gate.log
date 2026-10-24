@@ -1,0 +1,13 @@
+head f266f1d3d76ac3d956f85e7e3c10eaa99408e1b8
+cmd bin/ci --quick
+ci: library tests ok (173s)
+ci: types and lint ok (1s)
+ci: hook tests ok (113s)
+ci: lib copies identical FAILED (0s, log: .ci/steps/lib-copies-identical.log)
+    FAIL plugins/observe/lib/relay_ledger.py differs from lib/ (run bin/sync-lib-copies)
+    FAIL plugins/delegate/lib/relay_ledger.py differs from lib/ (run bin/sync-lib-copies)
+ci: eval grader tests ok (4s)
+ci: plugin validate ok (5s)
+ci: inert ok (295s)
+ci: RED
+exit 1
