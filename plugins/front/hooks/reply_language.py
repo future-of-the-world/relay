@@ -24,6 +24,8 @@ FENCE = re.compile(r"(```|~~~).*?(\1|\Z)", re.S)
 INLINE = re.compile(r"`[^`\n]*`")
 URL = re.compile(r"\w+://\S+")
 PATHLIKE = re.compile(r"\S*/\S*")
+WORD = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*")   # a hyphenated term (opt-in) is one word
+TERM_RUN = 3         # longest run of Latin words next to native words that is taken for IT terms
 
 
 def native_language() -> str:
@@ -40,14 +42,34 @@ def native_language() -> str:
     return ""
 
 
-def prose_letters(text: str) -> list[str]:
+def prose_letters(text: str, script: str = "") -> list[str]:
     for rx in (FENCE, INLINE, URL, PATHLIKE):
         text = rx.sub(" ", text)
-    return [ch for ch in text if ch.isalpha()]
+    if not script:
+        return [ch for ch in text if ch.isalpha()]
+    # English IT terms (merge, branch, hook) inside native prose are the rule, not a lapse: a run of at most
+    # TERM_RUN Latin words that touches a native word does not count. A whole English clause still counts.
+    words = [w for w in WORD.findall(text)]
+    native = [unicodedata.name(w[0], "").startswith(script) for w in words]
+    latin = [unicodedata.name(w[0], "").startswith("LATIN") for w in words]
+    skip = [False] * len(words)
+    i = 0
+    while i < len(words):
+        if not latin[i]:
+            i += 1
+            continue
+        j = i
+        while j < len(words) and latin[j]:
+            j += 1
+        touches = (i > 0 and native[i - 1]) or (j < len(words) and native[j])
+        if j - i <= TERM_RUN and touches:
+            skip[i:j] = [True] * (j - i)
+        i = j
+    return [ch for w, k in zip(words, skip) if not k for ch in w]
 
 
 def share(text: str, script: str) -> float | None:
-    letters = prose_letters(text)
+    letters = prose_letters(text, script)
     if len(letters) < MIN_LETTERS:
         return None
     native = sum(1 for ch in letters if unicodedata.name(ch, "").startswith(script))
