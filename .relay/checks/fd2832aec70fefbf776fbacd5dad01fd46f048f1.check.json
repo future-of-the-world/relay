@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_installer_doctor.py (dry runs have no node line, doctor has no node check, bun checked) and tests/test_ci_hook_tests.py; all pass and fail on the old commit; gate green."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/installer/.relay/checks/287aff5c087bc42b70c0f6accfaea0ac7f813ffd.gate.log",
+  "head": "fd2832aec70fefbf776fbacd5dad01fd46f048f1",
+  "new": [],
+  "notes": [
+    "Tests that failed without the fix include test_macos_with_homebrew_goes_official_first, test_linux_apt_as_root_updates_once_without_sudo, test_doctor_names_the_same_route, test_bun_is_checked_and_node_is_not, test_full_without_claude_fails_hooks_live."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "d327e8dc4933c2035cb01d2e477c46aede39e88e.review.json"
+  ],
+  "reviewed": "d327e8dc4933c2035cb01d2e477c46aede39e88e",
+  "schema": 1,
+  "scope": [
+    "Range d327e8d..HEAD, own files: bin/ci, deps.toml, graders.test.sh, judge-measure/make.py, install.sh, three test files. Full pytest: 438 passed. Gate log starts head 287aff5, ends exit 0, no file changed since. install.sh --dry without node on PATH prints no node line; git grep finds no node dependency left (only a function name node_test in make.py and guard-text matches). bin/ci checks git, jq, python3, bun only. Changed tests run on the old commit: 11 failed, 42 passed."
+  ],
+  "type": "check"
+}

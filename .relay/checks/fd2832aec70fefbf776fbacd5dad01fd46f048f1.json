@@ -1,0 +1,13 @@
+{
+  "check": "fd2832aec70fefbf776fbacd5dad01fd46f048f1.check.json",
+  "commit": "fd2832aec70fefbf776fbacd5dad01fd46f048f1",
+  "gate": "287aff5c087bc42b70c0f6accfaea0ac7f813ffd.gate.log",
+  "review": "d327e8dc4933c2035cb01d2e477c46aede39e88e.review.json",
+  "schema": 1,
+  "time": "2026-10-24T10:03:01Z",
+  "verdict": {
+    "open": 0,
+    "queued": 0,
+    "reviewed": "d327e8dc4933c2035cb01d2e477c46aede39e88e"
+  }
+}
