@@ -1,0 +1,49 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_relay.py:1627 covers pass cases 1-3; case 4 is the existing doctor test."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_relay.py:1639 asserts reason in todo and marketplace step before the install line."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "docs/setup.md bullet lines 23-26 covers install and doctor."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "tests/test_relay.py:1651 (runner not called) and :1673 (fake claude: argv, cwd, exit 1, missing binary)."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/openspec-install/.relay/checks/722ebc6abcd01df632b076acb7ecb5972f533e65.gate.log",
+  "head": "3e311d6b3927710b2e0997a8fa6fe0e82520d419",
+  "new": [],
+  "notes": [
+    "Fix moved the marketplace todo before the install todo, as asked. Callers of doctor/setup unchanged in signature."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "52b56a19f944071c0dc44f48fcc32d90cbd027a7.review.json"
+  ],
+  "reviewed": "52b56a19f944071c0dc44f48fcc32d90cbd027a7",
+  "schema": 1,
+  "scope": [
+    "Fix range 52b56a1..HEAD; own files docs/setup.md, lib/relay_setup.py, tests/test_relay.py. Ran pytest -k PluginInstall (7 passed). Gate log is for 722ebc6, exit 0; HEAD only adds the gate log. Read the fix diff and the new tests."
+  ],
+  "type": "check"
+}
