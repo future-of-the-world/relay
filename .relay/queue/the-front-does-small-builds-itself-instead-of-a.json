@@ -18,8 +18,8 @@
     "`relay bench active --set models.build=haiku --tag cheap --runs 1` with the unchanged task texts: delegated-to-a-worker passes in add-function and small-script under both setups, and the worker model differs between them in the report."
   ],
   "where": "rules/ (the delegation rule), plugins/delegate/skills/delegate/SKILL.md, evals/scenarios/add-function",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T07:30:31Z",
+  "taken_by": "wt/small-builds",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
