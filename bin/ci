@@ -77,6 +77,7 @@ if [ "$quick" = 0 ]; then
   if command -v claude >/dev/null 2>&1; then
     rm -f .ci/evals.json   # a leftover file from an earlier run must never be filed or printed as this batch
     # the eval tool lets runs already started finish after the ceiling trips: pass the cap minus (jobs - 1) x the largest run, which keeps the batch within one run of the cap (bin/paid-cost)
+    python3 bin/paid-cost guard eval || { echo "ci: RED (the day's paid-run cap)"; exit 1; }   # the owner's daily cap, projects.toml [global]
     read -r eval_jobs eval_ceiling < <(python3 bin/paid-cost ceiling --cap "${EVALS_MAX_COST:-15}" --jobs "${EVALS_JOBS:-1}") || { echo "ci: RED (no money ceiling for the plugin evals)"; exit 1; }
     echo "plugin evals: estimate $(python3 bin/paid-cost estimate); -j $eval_jobs, ceiling \$$eval_ceiling (cap ${EVALS_MAX_COST:-15})"
     step "plugin evals" env root="$root" eval_jobs="$eval_jobs" eval_ceiling="$eval_ceiling" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none -j "$eval_jobs" --judge-model "${EVALS_JUDGE_MODEL:-sonnet}" --no-publish --max-cost-usd "$eval_ceiling" --json "$root/.ci/evals.json"'

@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import tempfile
 
+import relay_paidcap
 from relay_config import ROOT, bench_dir, read_toml
 
 GRADER_TYPES = ("regex", "file_exists", "command", "llm", "agent_used")
@@ -486,8 +487,16 @@ def parse_result(stdout):
     return {}
 
 
+class PaidCapReached(RuntimeError):
+    """The day's paid-run cap would be passed by this run."""
+
+
 def run_bench(profiles, scenarios, runs=None, judge_model="haiku", keep=False, out_root=None, max_cost_usd=None, isolate=False):
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    sessions = len(profiles) * sum(runs or s.get("runs", 1) for s in scenarios)
+    refusal = relay_paidcap.check(stamp[:10], relay_paidcap.bench_estimate(sessions, out_root), "bench", bench=out_root)
+    if refusal:
+        raise PaidCapReached(refusal)
     out_dir = os.path.join(out_root or bench_dir(), stamp)
     os.makedirs(out_dir, exist_ok=True)
     config_dir = isolated_config_dir(out_dir) if isolate else None

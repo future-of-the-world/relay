@@ -282,8 +282,12 @@ def cmd_bench(args):
         raise Usage("no scenarios: add evals/scenarios/<name>/scenario.toml or pass --scenario")
     est = len(profiles) * sum(int(runs) if runs else s.get("runs", 1) for s in chosen)
     print(f"Running {len(chosen)} scenario(s) x {len(profiles)} profile(s): {est} headless sessions (each a real model call).")
-    out_dir, doc, text = relay_bench.run_bench(profiles, chosen, runs=int(runs) if runs else None, judge_model=judge,
-                                               keep=bool(keep), out_root=out_root, max_cost_usd=float(max_cost) if max_cost else None, isolate=bool(isolate))
+    try:
+        out_dir, doc, text = relay_bench.run_bench(profiles, chosen, runs=int(runs) if runs else None, judge_model=judge,
+                                                   keep=bool(keep), out_root=out_root, max_cost_usd=float(max_cost) if max_cost else None, isolate=bool(isolate))
+    except (relay_bench.PaidCapReached, ValueError) as exc:
+        print(f"relay: {exc}", file=sys.stderr)
+        return 1
     print(text)
     print(f"\nSaved: {out_dir}/report.md and results.json")
     return 0
