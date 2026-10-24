@@ -109,7 +109,24 @@ be merged:
    | a shared base (`roles/`) or a rule (`rules/`) | on | on/off |
    | planned files changed | more than 8 | 3 to 30 |
 
-2. **Build.**
+2. **Build.** Before it, the reproduce step for a queue item whose `failing_kind` is
+   `claim` (`relay queue show` prints it as "Failing case (claim)"): the failing
+   case is someone's word (a reviewer's, a scout's, the front's), not a failing
+   test or a recorded red run. A `delegate:runner` or `delegate:scout` reproduces
+   it on the live system, when that is cheap (a command, a read, a test; a paid
+   run is not: it stays the build's first step) and reports reproduced or not,
+   with what it showed. Reproduced: the build starts. Not reproduced, either
+   because the claim never held or because the failing case no longer fails
+   (already fixed): no build; the item is held for the front, who brings all
+   such items to the owner in one message with a recommendation (drop it, or
+   close it as already fixed once `relay queue` can). The front decides this
+   and the owner can reverse it; the owner is not asked one item at a time.
+   Items with `failing_kind` `test` or `run`, and features, go straight to the
+   build. Live cases, 24 Oct: the plugin-cache item (a reviewer's claim that
+   sessions load a stale copy; a 30-second `claude -p` run disproved it after
+   about 200k tokens of build and review), and the bench item (already fixed on
+   the default branch that morning; one change cycle spent about 34 minutes and
+   123k tokens before finding nothing to do).
 3. **Gate before the review.** Where the project has `.relay/`, a
    `delegate:runner` runs `relay gate` (detached, with the limits recipe: it
    takes minutes) in the worktree, with the project's arguments (relay:

@@ -33,9 +33,11 @@ EXT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "queue_ext")
 EXT_NAME = re.compile(r"[a-z][a-z0-9_]*")
 ZERO = "0" * 40
 KINDS = ("fix", "feature")
+# What the failing case of a fix rests on. A "claim" (a reviewer's, a scout's, the front's) is reproduced before the build.
+FAILING_KINDS = ("test", "run", "claim")
 # The keys of an item file, in the order they are written. An item keeps dated events, never a stored state: `state_of` computes it.
 # TEXT are lists of lines (so a git diff goes line by line).
-ORDER = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "failing_case", "pass_cases", "where",
+ORDER = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "failing_case", "failing_kind", "pass_cases", "where",
          "taken_at", "taken_by", "closed_at", "test", "evidence", "dropped_at", "dropped_why")
 TEXT = ("what", "why", "failing_case", "pass_cases")
 EVENTS = ("found_at", "taken_at", "closed_at", "dropped_at")
@@ -106,6 +108,8 @@ def check(slug, data, where=None):
         problems.append("a fix without failing_case")
     if "kind" in data and data["kind"] not in KINDS:
         problems.append("kind is not fix or feature")
+    if "failing_kind" in data and data["failing_kind"] not in FAILING_KINDS:
+        problems.append("failing_kind is not test, run or claim")
     for key in ("ip", "time"):
         if key in data and not _is_int(data[key]):
             problems.append(f"{key} is not a whole number from 0")
@@ -223,11 +227,13 @@ def joined(item, key):
     return "\n".join(item.get(key) or [])
 
 
-def new_item(kind, ip, minutes, found_at, found_in, title, what, why, failing="", pass_cases="", where=""):
+def new_item(kind, ip, minutes, found_at, found_in, title, what, why, failing="", pass_cases="", where="", failing_kind=""):
     item = {"kind": kind, "ip": ip, "time": minutes, "found_at": found_at, "found_in": found_in,
             "title": title, "what": lines_of(what), "why": lines_of(why)}
     if failing.strip():
         item["failing_case"] = lines_of(failing)
+    if failing_kind:
+        item["failing_kind"] = failing_kind
     if pass_cases.strip():
         item["pass_cases"] = lines_of(pass_cases)
     if where:
@@ -300,7 +306,7 @@ def show_text(item):
         out.append(f"test {item['test']}")
     if item.get("evidence"):
         out.append(f"evidence {item['evidence']}")
-    for title, key in (("What", "what"), ("Why", "why"), ("Failing case", "failing_case"), ("Pass cases", "pass_cases"), ("Dropped because", "dropped_why")):
+    for title, key in (("What", "what"), ("Why", "why"), ("Failing case" + (f" ({item['failing_kind']})" if item.get("failing_kind") else ""), "failing_case"), ("Pass cases", "pass_cases"), ("Dropped because", "dropped_why")):
         if item.get(key):
             out += [f"{title}:"] + ["  " + line for line in item[key]]
     return "\n".join(out)
@@ -649,7 +655,7 @@ def find_finding(report, fid):
     raise Refused(f"no finding {fid} in {report}")
 
 
-ADD_KEYS = ("kind", "title", "why", "what", "failing_case", "pass_cases", "time", "ip", "where")
+ADD_KEYS = ("kind", "title", "why", "what", "failing_case", "failing_kind", "pass_cases", "time", "ip", "where")
 FROM_KEYS = ("why", "time", "ip")
 
 
@@ -665,7 +671,7 @@ def read_add_input(path, keys, required, done="queued"):
         raise Refused(f"nothing {done}: " + "; ".join(problems))
     out = {}
     for key, value in raw.items():
-        if key in ("kind", "title", "where"):
+        if key in ("kind", "title", "where", "failing_kind"):
             if not isinstance(value, str):
                 problems.append(f"`{key}` must be a text")
             out[key] = value
@@ -689,7 +695,7 @@ def read_add_input(path, keys, required, done="queued"):
 
 
 def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=None, ip=None, where="",
-        context="relay queue add", now=None, **engine):
+        context="relay queue add", now=None, failing_kind="", **engine):
     """Queue a new item. The slug comes from the title, suffixed -2, -3, ... when taken."""
     if kind not in KINDS:
         raise Refused("kind is fix or feature")
@@ -705,6 +711,10 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
         raise Refused("what only repeats the name; say in a sentence what is wrong or wanted")
     if kind == "fix" and not failing.strip():
         raise Refused("a fix item needs its failing case (`failing_case` in the input)")
+    if kind == "fix" and failing_kind not in FAILING_KINDS:
+        raise Refused("a fix item says what its failing case is (`failing_kind` in the input): test (a failing test), run (a recorded red run) or claim (someone's word, reproduced before the build)")
+    if kind == "feature" and failing_kind:
+        raise Refused("only a fix item has a failing_kind")
     if not why.strip():
         raise Refused("an item needs why it matters (`why` in the input)")
     if minutes is None or minutes < 0:
@@ -727,7 +737,7 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
         if value is None:
             top = [i["ip"] for i in reader.items().values() if not i["problems"] and i["kind"] == "feature" and i["state"] == "open"]
             value = (1 + max(top, default=0)) if kind == "fix" else 0
-        item = new_item(kind, value, minutes, found, context, title.strip(), what or title.strip(), why, failing, pass_cases, where)
+        item = new_item(kind, value, minutes, found, context, title.strip(), what or title.strip(), why, failing, pass_cases, where, failing_kind)
         return Plan(slug, {_path(slug): serialize(slug, item)}, f"{kind}, ip {value}", "queued")
 
     return _run(repo, planner, **engine)
@@ -743,7 +753,8 @@ def add_from(repo, report, fid, why="", minutes=None, ip=None, now=None, **engin
     if len(title) >= TITLE_MAX:                   # a title is the "what" column: cut a long summary at a word (the linter line in `what` holds all of it)
         title = title[:TITLE_MAX - 2].rsplit(" ", 1)[0].rstrip(" ,;:.-") + "…"
     return add(repo, "fix", title, why=why, what=relay_verdict.linter(found), failing="\n".join(found["failing_case"]),
-               pass_cases="\n".join(found.get("pass_cases") or []), minutes=minutes, ip=ip, where=f"{found['path']}:{found['line']}", context=context, now=now, **engine)
+               pass_cases="\n".join(found.get("pass_cases") or []), minutes=minutes, ip=ip, where=f"{found['path']}:{found['line']}", context=context, now=now,
+               failing_kind="claim", **engine)     # a review's finding is its reviewer's claim
 
 
 def set_ip(repo, slug, ip, **engine):

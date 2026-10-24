@@ -4,7 +4,10 @@
 Something found during a change is one of four things:
 
 1. Wrong inside the change: fixed in this change. The merge is refused until it is.
-2. Wrong elsewhere: a queue item of kind `fix`, with its failing case. A new fix
+2. Wrong elsewhere: a queue item of kind `fix`, with its failing case and what that
+   case is (`failing_kind`: `test`, `run` for a recorded red run, or `claim` for
+   someone's word). A claim is reproduced by a cheap agent before the build; one that
+   does not reproduce is not built (the delegate skill, step 2). A new fix
    goes above every open feature.
 3. The design itself is wrong (a finding marked `Design:`): stop building on that
    part. The redesign is a `fix` item and the next change. The current change

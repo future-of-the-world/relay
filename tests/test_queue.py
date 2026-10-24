@@ -282,12 +282,12 @@ class TestOrderAndParse(Base):
         # open features 40 and 70; a taken feature at 90 does not count; so a fix gets 71, a feature 0
         repo = self.repo("q8", items={"fa": feature_item(ip=40), "fb": feature_item(ip=70),
                                       "fc": with_fields(feature_item(ip=90), **taken_fields())})
-        rq.add(repo, "fix", "New fix", why="w", failing="f", minutes=5, **QUIET)
+        rq.add(repo, "fix", "New fix", why="w", failing="f", failing_kind="test", minutes=5, **QUIET)
         self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-fix.json"))["ip"], 71)
         rq.add(repo, "feature", "New feature", why="w", minutes=5, **QUIET)
         self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-feature.json"))["ip"], 0)
         bare = self.repo("q8b")
-        rq.add(bare, "fix", "First", why="w", failing="f", minutes=5, **QUIET)
+        rq.add(bare, "fix", "First", why="w", failing="f", failing_kind="test", minutes=5, **QUIET)
         self.assertEqual(rq.parse("n", git(bare, "show", "master:.relay/queue/first.json"))["ip"], 1)   # no open feature: 1 + 0
 
 
@@ -346,7 +346,7 @@ class TestSchema(Base):
     def test_add_refuses_a_what_equal_to_the_slug_words(self):
         before = git(self.main, "rev-parse", "master")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.add(self.main, "fix", "A real sentence here", what="a-real-sentence-here", why="w", failing="f", minutes=5, **QUIET)
+            rq.add(self.main, "fix", "A real sentence here", what="a-real-sentence-here", why="w", failing="f", failing_kind="test", minutes=5, **QUIET)
         self.assertIn("what only repeats the name", str(ctx.exception))
         self.assertEqual(git(self.main, "rev-parse", "master"), before)
 
@@ -662,7 +662,7 @@ class TestTime(Base):
 
     def test_f13_a_lowercase_sentence_is_a_title_only_the_slug_typed_is_refused(self):
         # review F13: "tally crashes on bad input" is a sentence, though its slug words are the same words
-        rq.add(self.main, "fix", "tally crashes on bad input", why="w", failing="f", minutes=5, **QUIET)
+        rq.add(self.main, "fix", "tally crashes on bad input", why="w", failing="f", failing_kind="test", minutes=5, **QUIET)
         item = self.item("tally-crashes-on-bad-input")
         self.assertEqual(item["title"], "tally crashes on bad input")
         self.assertEqual(rq.parse("tally-crashes-on-bad-input", git(self.main, "show", "master:.relay/queue/tally-crashes-on-bad-input.json"))["problems"], [])
@@ -1059,7 +1059,7 @@ class TestTake(Base):
         with self.assertRaises(rq.Refused):
             rq.take(self.wa, "two-lines-title", **QUIET)
         with self.assertRaises(rq.Refused) as ctx:
-            rq.add(self.main, "fix", "Two\nlines title", why="w", failing="f", minutes=5, **QUIET)
+            rq.add(self.main, "fix", "Two\nlines title", why="w", failing="f", failing_kind="test", minutes=5, **QUIET)
         self.assertIn("one line", str(ctx.exception))
         self.assertEqual(git(self.main, "rev-parse", "master"), before)
         self.assertEqual(self.item("job")["state"], "open")
