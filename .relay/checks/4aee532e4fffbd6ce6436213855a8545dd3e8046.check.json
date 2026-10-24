@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "tests/test_numbers_hermetic.py::NumbersHermetic::test_fallback_window_follows_the_given_time_not_the_clock (2020 time, empty HOME) passes at head and fails at 51a50a3; Numbers tests pass; gate green."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/numbers-clock/.relay/checks/581879adbf66bbafa21fbb71b7e9486a7f241e62.gate.log",
+  "head": "4aee532e4fffbd6ce6436213855a8545dd3e8046",
+  "new": [],
+  "notes": [],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "51a50a3cac3890c32d13f783850a4dbb0aca8335.review.json"
+  ],
+  "reviewed": "51a50a3cac3890c32d13f783850a4dbb0aca8335",
+  "schema": 1,
+  "scope": [
+    "Fix range 51a50a3..HEAD: ledger window from given now (3 lib copies) and tests/test_numbers_hermetic.py. Gate log is for 581879a, exit 0, only inert commit after. Ran Numbers plus hermetic tests: 25 passed. Hermetic file in a throwaway worktree at 51a50a3: 2 failed."
+  ],
+  "type": "check"
+}
