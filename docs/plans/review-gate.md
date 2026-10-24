@@ -323,9 +323,10 @@ core's `hooks.json`, timeout 10 s, always exit 0 (it never blocks):
 1. Does nothing unless `agent_type` is exactly `delegate:checker` and the
    worktree's repository has `.relay/` on its default branch (untyped stops,
    fact 2.11, are ignored by this rule).
-2. Finds the agent's transcript as `ledger.py:90-96` (fact 2.9) and reads its first line (the prompt). The prompt gives
-   one thing, the `Report: <path>` label (backticks and a final period stripped), which names the check's JSON file
-   (the report itself); that line's `timestamp` is the agent's start. A prompt without a
+2. Finds the agent's transcript as `ledger.py:90-96` (fact 2.9) and reads its leading user entries (those before the first
+   assistant entry; a workflow puts its relayed request first). The prompt is the last of them that carries a
+   `Report:` label, which gives one thing, the `<path>` (backticks and a final period stripped) that names the check's
+   JSON file (the report itself); that entry's `timestamp` is the agent's start. A prompt without a
    `Report:` label (a checker started from a brief file) gives no mark and the `systemMessage` "the checker's prompt has no
    Report: line; start it with the delegate skill's check prompt, never a brief file" (C21). The facts (worktree, `head`,
    `reviewed`, gate log, review data files, `open`, `queued`) come only from the JSON; the prompt's other labels are never parsed.
@@ -1136,6 +1137,11 @@ v3's walk: (h) second half.
 | K10 | `Check: a.json, b.json` (review and a `Q1` file) | `<reviewed>.review.json` holds both under their file names |
 | K11 | re-check of the same head after `Owner: F3 is not wrong` was appended | the review file is replaced with the new content; the mark's `open` changes |
 | K12 | first line `Check the fix per the brief. Brief: <path>. Report: <path>.` | no commit; `systemMessage` names "no Check:/Worktree: line" |
+| K13 | workflow transcript: a harness line (no label), then the check prompt | the mark commit |
+| K13b | harness line, then an entry with no `Report:` label | no commit; `systemMessage` names "no Report: line" |
+| K13c | `Report:` label only after the first assistant entry | no commit; "no Report: line" |
+| K13d | harness line 09:00, prompt 10:00, report stamped 09:30 | no commit; "older than the checker's start" |
+| K13e | harness line quotes `Report: <old path>`, then the check prompt | the mark commit, from the prompt's label |
 | K9 | live, once (paid, 13.2): a real `delegate:checker` on a fixture repo with the worktree's plugins | the mark commit exists when the hand-back arrives, or the delay is measured; whether `agent_transcript_path` is in the input, recorded |
 | G1 | Write/Edit on `<worktree>/.relay/checks/x.json` and on main's | refused, the guard's message |
 | G2 | `printf x > .relay/checks/a.json` in a worktree, `cp a .relay/checks/`, `git add .relay/checks`, `git checkout other -- .relay/checks` | refused |

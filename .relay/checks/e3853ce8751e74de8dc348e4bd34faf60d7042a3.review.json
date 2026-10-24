@@ -1,0 +1,132 @@
+{
+  "reviewed": "e3853ce8751e74de8dc348e4bd34faf60d7042a3",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-wf-mark.json",
+      "findings": [
+        {
+          "details": [
+            "CONFIRMED by reading. Documentation drift only; the code is right. Size: 5 minutes."
+          ],
+          "evidence": [
+            "git grep -n \"first line\" docs/plans/review-gate.md",
+            "docs/plans/review-gate.md:326: ... reads its first line (the prompt) ...",
+            "git diff --stat master...HEAD : no docs file touched"
+          ],
+          "failing_case": [
+            "docs/plans/review-gate.md:326 reads \"Finds the agent's transcript ... and reads its first line (the prompt) ... that",
+            "line's timestamp is the agent's start\". After this change the hook takes the first leading user entry (before the first",
+            "assistant entry) that carries a Report: label, and that entry's timestamp. A reader of the design is told the",
+            "workflow-started checker gets no mark. The brief's Files line asks for docs that describe first-line reading."
+          ],
+          "fix_hint": [
+            "Reword step 2 at review-gate.md:326-328 and add three rows K13/K13b/K13c after K12 (line 1136)."
+          ],
+          "id": "F1",
+          "kind": "inside",
+          "line": 326,
+          "pass_cases": [
+            "1. review-gate.md section 6 step 2 names \"the first user entry before the first assistant entry that carries a",
+            "   Report: label (a workflow puts its relayed request first)\" and \"that entry's timestamp is the agent's start\".",
+            "2. The 12.3 test table lists K13 (harness line then the prompt -> mark), K13b (no label in leading entries -> no mark,",
+            "   \"no Report: line\"), K13c (a label after an assistant entry is not read).",
+            "3. The rest of step 2 (the facts come only from the JSON; C21 message) stays as is."
+          ],
+          "path": "docs/plans/review-gate.md",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "the design still says the hook reads the transcript's first line as the prompt; K13 is not in the 12.3 test table"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading: the code is correct today (check-mark.py:99 returns entry_start(entry) of the labelled entry);",
+            "only the test does not hold it. The brief named \"its timestamp for the start time\". Size: 5 minutes."
+          ],
+          "evidence": [
+            "plugins/core/tests/check-mark.test.sh:196-197: harness and prompt both use --arg ts \"$START\""
+          ],
+          "failing_case": [
+            "K13 gives the harness line and the prompt the same timestamp ($START). If first_entry returned the harness entry's",
+            "timestamp (e.g. first[1]) with the prompt's text, every test still passes, and a report written between the harness",
+            "line and the prompt (a stale check data) would be accepted instead of refused \"older than the checker's start\"."
+          ],
+          "fix_hint": [
+            "Add K13d: harness ts 2026-10-22T09:00Z, prompt ts START, report stamped 202610220930 (between) -> no commit, \"older\"."
+          ],
+          "id": "F2",
+          "kind": "inside",
+          "line": 196,
+          "pass_cases": [
+            "1. Harness line at 10:00, prompt at 10:30, rep.json mtime 10:10 -> no commit, message names \"older than the checker's start\".",
+            "2. Harness line at 10:00, prompt at 10:30, rep.json mtime 11:00 -> the mark commit.",
+            "3. K5 (plain transcript, report older than the first timestamp) -> no commit, unchanged."
+          ],
+          "path": "plugins/core/tests/check-mark.test.sh",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "no test pins that the start time comes from the labelled entry, not the harness line"
+        },
+        {
+          "details": [
+            "PLAUSIBLE: the harness relays the owner's own words verbatim; none of the 17 real harness lines holds \"Report:\", and",
+            "the owner writes short replies, so it is rare. The brief chose \"the first user entry that carries a Report: label\";",
+            "taking the last labelled leading user entry meets the brief's cases too and puts the computed task (always after the",
+            "relayed request) first. Size: 5 minutes."
+          ],
+          "evidence": [
+            "real transcript agent-a8741a534b89bd764.jsonl: line 1 \"[Workflow harness \u2014 user request] ... verbatim ...\", line 2",
+            "\"[Workflow harness \u2014 computed task] ... Report: `.../check-openspec-install.json`.\"",
+            "grep over all 17 harness first lines: 0 contain \"Report:\""
+          ],
+          "failing_case": [
+            "Workflow transcript: line 1 \"[Workflow harness \u2014 user request] ... \\n  \u043f\u043e\u0441\u043c\u043e\u0442\u0440\u0438 Report: /x/old-check.json\", line 2",
+            "\"[Workflow harness \u2014 computed task] ... Report: `/x/check-new.json`.\" first_entry returns line 1 (first labelled",
+            "entry), so the hook reads /x/old-check.json: most often \"cannot be read\" or \"older than the checker's start\" (no mark,",
+            "the bug this change fixes, back), at worst another checker's newer data. It should read /x/check-new.json."
+          ],
+          "fix_hint": [
+            "Keep scanning the leading user entries and return the last one with a label (labelled = (text, start) and continue;",
+            "return labelled or first after the loop)."
+          ],
+          "id": "F3",
+          "kind": "inside",
+          "line": 98,
+          "pass_cases": [
+            "1. Harness line with a Report: label, then the check prompt with its own label -> the mark from the prompt's label.",
+            "2. K13 (harness with no label, then the prompt) -> the mark.",
+            "3. K13b (no label in any leading entry) -> no mark, \"no Report: line\".",
+            "4. K1 (plain one-line prompt) -> the mark."
+          ],
+          "path": "plugins/core/hooks/check-mark.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "a Report: in the owner's relayed request wins over the computed task's label"
+        }
+      ],
+      "notes": [
+        "Fine: the loop stops at the first assistant entry; attachment entries (no message) after the prompt are skipped; an",
+        "empty, unreadable or non-JSON first line still fails as before; a prompt without a label still gives \"no Report: line\"",
+        "(K12, K13b); the harness text is not parsed beyond the Report: regex the prompt already used. K13c discriminates (a",
+        "hook that read past the assistant entry would report \"cannot be read\" for rep.json, not \"no Report: line\").",
+        "The start time comes from the labelled entry (code line 99), as the brief asked.",
+        "No waste added: the hook reads at most the leading entries; no extra run or step."
+      ],
+      "reviewed": "e3853ce8751e74de8dc348e4bd34faf60d7042a3",
+      "schema": 1,
+      "scope": [
+        "Range master...HEAD in /Users/amidman/relay/.worktrees/wf-mark (e1cae5c check-mark fix, e3853ce gate log).",
+        "Read: the brief wf-mark.md, queue item no-check-mark-for-a-checker-started-by-a-workflo, plugins/core/hooks/check-mark.py",
+        "in full (first_entry and its only caller run()), plugins/core/tests/check-mark.test.sh helpers and K13-K13c,",
+        "docs/plans/review-gate.md section 6 step 2 and the 12.3 test table.",
+        "Ran: bash plugins/core/tests/check-mark.test.sh (all passed); the same test file from a git archive of HEAD with",
+        "master's check-mark.py (K13 FAILS, K13b/K13c pass: the regression test discriminates); the new first_entry over the 17",
+        "real workflow transcripts of wf_0f6e557b-2f8 (read-only): the three checkers give their check-*.json Report path and",
+        "the computed-task timestamp."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}
