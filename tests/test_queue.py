@@ -479,17 +479,12 @@ class TestSeedItems(unittest.TestCase):
         self.assertNotIn("failing_case", item)
 
     def test_f6_the_votes_item_names_the_grader_name_prefix_that_tally_reads(self):
-        # The item sits in .relay/queue/ while open and in .relay/queue/done/ once done: look it up in both, as committed.
+        # Read the item and tally.py at b176e6d, the commit that set the item's `where`, never at HEAD: the live queue is
+        # inert (bin/ci's inert probe appends a line to every item), and the change the item asks for removes that regex.
         name = "eval-votes-in-file-names.json"
-        for folder in (".relay/queue/", ".relay/queue/done/"):
-            text = git(ROOT, "show", "HEAD:%s%s" % (folder, name), check=False)
-            if text:
-                break
-        self.assertTrue(text, "the item is in neither queue folder")
+        text = git(ROOT, "show", "b176e6d:.relay/queue/" + name)
         path, _, line = json.loads(text)["where"].rpartition(":")
         self.assertEqual(path, "evals/judge-measure/tally.py")
-        # Read tally.py at the commit that set the item's `where` (b176e6d), not at HEAD: the change the item asks for removes
-        # that regex from tally.py.
         self.assertIn("(yes|no)--", git(ROOT, "show", "b176e6d:%s" % path).split("\n")[int(line) - 1])
 
 
