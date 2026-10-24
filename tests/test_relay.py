@@ -960,7 +960,7 @@ class Roles(Base):
 
     def test_every_real_agent_has_one_base(self):
         """A2 on the real tree: every agent file of every plugin has exactly one relay:base region, known parts and the tools
-        its base needs; the bases of the 15 agents are the ones the design names (the checker is a judge)."""
+        its base needs; the bases of the 11 agents are the ones the design names (the checker is a judge)."""
         rr = self.lib()
         self.assertEqual(rr.problems(ROOT, require_base=True), [])
         by_base = {}
@@ -974,8 +974,9 @@ class Roles(Base):
             "build": ["plugins/delegate/agents/worker.md"],
             "fix": ["plugins/delegate/agents/fixer.md"],
             "think": ["plugins/delegate/agents/thinker.md", "plugins/openspec/agents/author.md"],
-            "judge": ["plugins/delegate/agents/checker.md", "plugins/delegate/agents/critic.md", "plugins/product/agents/ui-reviewer.md",
-                      "plugins/openspec/agents/spec-conformance.md", "plugins/openspec/agents/spec-reviewer.md"]})
+            "judge": ["plugins/delegate/agents/checker.md", "plugins/delegate/agents/critic.md",
+                      "plugins/openspec/agents/spec-conformance.md", "plugins/openspec/agents/spec-reviewer.md",
+                      "plugins/product/agents/ui-reviewer.md"]})
 
     def test_judges_cannot_edit_and_check_mode_does_not_need_part_two(self):
         """The judge base forbids Edit tools (A3) and names no part-2 thing as a given: marks, merge refusal and queue
@@ -1062,7 +1063,7 @@ class Agents(unittest.TestCase):
         import glob
         import re
         files = sorted(glob.glob(os.path.join(ROOT, "plugins", "*", "agents", "*.md")))
-        self.assertGreaterEqual(len(files), 14)
+        self.assertGreaterEqual(len(files), 11)
         for path in files:
             with open(path, encoding="utf-8") as handle:
                 text = handle.read()
@@ -1917,7 +1918,8 @@ class TestPrinciplesRule(unittest.TestCase):
         import relay_rules, relay_config
         text = relay_rules.render_target("global", self._targets()["global"], relay_rules.rules(), relay_config.active_profile())
         self.assertNotIn("Principles", text)
-        for title in ("OpenSpec", "Product work", "Quality gate", "Work queue", "Structured data"):
+        self.assertNotIn("**OpenSpec", text)   # a spec method's rule is carried by a project that turns the method on, never by the global file
+        for title in ("Product work", "Quality gate", "Work queue", "Structured data"):
             self.assertIn(f"**{title}", text)
 
     def test_global_file_carries_the_long_job_exception(self):

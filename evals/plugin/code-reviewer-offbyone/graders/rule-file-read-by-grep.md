@@ -1,7 +1,7 @@
 ---
 type: tool_used
 tool: Grep
-input_match: "\"path\":\"[^\"]*\\.claude(?:/kit)?\"|\"pattern\":\"[^\"]*(?:DOC|ROLE)-RULE|kit/(?:critic|judge)\\.md"
+input_match: "\"path\":\"[^\"]*\\.claude(?:/kit)?\"|\"pattern\":\"[^\"]*(?:DOC|ROLE)-RULE|kit/(?:code-reviewer|critic|judge)\\.md"
 min: 0
 weight: 0.001
 ---

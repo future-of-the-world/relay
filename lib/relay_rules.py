@@ -76,6 +76,8 @@ def spec_methods():
 
 def project_spec_method(spec):
     """The `[specs] method` of the project a target writes into (its .claude/kit.toml); "none" when unset or unreadable."""
+    if "file" not in spec:
+        return "none"  # a target with no file has no project folder, so no spec method
     path = os.path.join(os.path.dirname(spec["file"]), ".claude", "kit.toml")
     try:
         with open(path, "rb") as handle:
