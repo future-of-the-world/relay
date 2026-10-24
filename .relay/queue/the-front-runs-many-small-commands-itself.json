@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 60,
+  "found_at": "2026-10-24T03:47:44Z",
+  "found_in": "relay queue add",
+  "title": "the front runs many small commands itself",
+  "what": [
+    "1) rules/delegation.md and the front skill: the front batches what it must run itself into one call (one command per step, not one per probe), and hands any sequence of 3+ probing commands to a scout or runner; the take-master + record + gate + check sequence goes into the workflow script, not the front. 2) relay report: show front requests per owner turn and front tool calls per turn, with a target, beside the existing F8 line; flag a session above it."
+  ],
+  "why": [
+    "Owner, 24 Oct: \"a, запиши правило в очередь\" (keep the front on Opus effort high; save on the number of front requests instead). Measured on session 0cc68fe0: 952 front requests, each re-reading ~170k tokens of context; context reads 60% of the front's cost, writes 19%, output incl. thinking 21%. The front's notional cost that day was $62 against $58 for all agents. Many requests were small greps, seds, merges and record commands run one by one. rules/delegation.md already says the front only routes, but nothing measures it, so it drifts. Repeats every session (MEDIUM)."
+  ],
+  "failing_case": [
+    "relay report on session 0cc68fe0 shows no front-requests-per-turn figure and no flag, though the front made ~952 requests for ~40 owner turns."
+  ],
+  "pass_cases": [
+    "relay report prints front requests per owner turn and flags a session over the target; the rule text names the batching and the 3+ probes hand-off; a session following it shows fewer front requests per turn in relay report --compare."
+  ],
+  "where": "rules/delegation.md, plugins/front/skills/front/SKILL.md, lib/relay_analyze.py (report)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
