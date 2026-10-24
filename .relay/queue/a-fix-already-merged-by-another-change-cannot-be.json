@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 30,
+  "found_at": "2026-10-24T19:02:02Z",
+  "found_in": "relay queue add",
+  "title": "A fix already merged by another change cannot be closed",
+  "what": [
+    "When a fix item's problem was already fixed on master by an earlier change (its test exists on master and failed before the fixing commit), `relay queue done` closes it naming that commit and test, without a branch of its own and without the owner; the refusal for a fix with --evidence names this form."
+  ],
+  "why": [
+    "24 Oct: the-bench-never-starts-a-worker-so-it-measures-n was fixed on master that morning (3b28fbf, 436ce08, tests/test_bench_worker.py; bench report ~/.relay/bench/2026-10-24T07-33-20Z/report.md meets every pass case), but the item stayed open; a change cycle then spent about 34 minutes and 123k tokens on it and stopped: the check cannot mark Q1 MET on a branch with no code, --evidence refuses fix items, and only a drop with the owner's words ends it. Repeats whenever a change fixes a queue item it did not take. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "`relay queue done the-bench-never-starts-a-worker-so-it-measures-n --evidence 3b28fbf` is refused (a fix needs --test), and a branch without code cannot get Q1 MET."
+  ],
+  "pass_cases": [
+    "The same item closes with the fixing commit and tests/test_bench_worker.py named, after relay checks that the test exists at master and fails at the fixing commit's parent.",
+    "A fix whose named test passes at the parent of the named commit is refused (the commit did not fix it)."
+  ],
+  "where": "lib/relay_queue.py (done, close_refusal), bin/relay queue help, rules/queue.md",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
