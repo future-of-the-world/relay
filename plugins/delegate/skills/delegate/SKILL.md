@@ -24,8 +24,9 @@ with one brief, and comes back as at most 10 lines.
 | the check of a fix against the review's cases | `delegate:checker` | reads the findings, the fixer's report and the gate log; ends with a verdict |
 
 The table has no row for "small": one function, one test or one edited line is
-still `delegate:worker`. A brief of five lines is cheaper than the front's
-own file reads and edits, which this session re-reads on every later request.
+still `delegate:worker`. The front's own file reads and edits would stay in
+this session's context and be re-read on every later request of a long
+session; a worker builds in a worktree, loops on the check and gets the review.
 The front never writes the change itself, whatever its size.
 
 A job longer than about 30 minutes, such as the full paid `bin/ci`, is not a
