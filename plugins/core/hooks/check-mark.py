@@ -84,14 +84,14 @@ def first_entry(path):
                 except ValueError:
                     entry = None
                 if not isinstance(entry, dict) or not isinstance(entry.get("message") or {}, dict):
-                    if first is None:
+                    if first is None and labelled is None:  # a prompt (labelled or not) was seen: skip attachments
                         raise Fail("the checker's transcript does not start with a prompt")
                     continue
                 if entry.get("type") == "assistant" or (entry.get("message") or {}).get("role") == "assistant":
                     break
                 text = entry_text(entry)
                 if not text.strip():
-                    if first is None:
+                    if first is None and labelled is None:  # a prompt (labelled or not) was seen: skip attachments
                         raise Fail("the checker's transcript does not start with a prompt")
                     continue
                 if report_label(text):
