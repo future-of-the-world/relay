@@ -67,7 +67,7 @@ check, the findings outside the change). You never read the review, the check
 report or the gate log. No page and no Artifact.
 
 Merge it, then say in your next reply, in one line: `merged: <what it does for
-the owner>`.
+the owner>`, plus `; paid run green, $<cost>` when a paid run was made.
 
 Ask the owner first, on one chat screen, only when: (a) taking the default
 branch hit a git conflict that a fixer resolved by hand; (b) a finding is open

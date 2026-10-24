@@ -1923,5 +1923,28 @@ class TestTasteRule(unittest.TestCase):
         self.assertNotIn("Rules to read when they apply", text)
 
 
+class AutoMergeTextsTest(unittest.TestCase):
+    def _read(self, rel):
+        with open(os.path.join(ROOT, rel)) as f:
+            return " ".join(f.read().split())
+
+    def test_git_rule_scopes_merge_without_asking_to_relay_projects(self):
+        """F1: the rule merges without asking only where `.relay/` is; elsewhere and for Glonass the owner is asked."""
+        text = self._read("rules/git.md")
+        self.assertIn("Where the project has `.relay/`", text)
+        self.assertIn("Elsewhere, and for merge requests on Glonass repositories, merge into the default branch only when I ask", text)
+
+    def test_delegate_step_9_names_readiness_with_paid_run(self):
+        """F3: step 9 merges on readiness (incl. the paid run), not on the verdict alone."""
+        text = self._read("plugins/delegate/skills/delegate/SKILL.md")
+        self.assertIn("When the change is ready", text)
+        self.assertIn("the paid run green when agent, skill, role or rule texts changed", text)
+        self.assertNotIn("When the verdict is `open 0` the front merges", text)
+
+    def test_merged_line_has_paid_run_slot(self):
+        """F4: front template carries the optional paid-run part."""
+        self.assertIn("`; paid run green, $<cost>`", self._read("plugins/front/skills/front/SKILL.md"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

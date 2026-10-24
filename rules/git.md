@@ -1,5 +1,5 @@
 # Git
-> One worktree and branch per task; the primary checkout stays on its default branch and clean; no bare stash; merge when ready, ask only when it needs my judgement.
+> One worktree and branch per task; the primary checkout stays on its default branch and clean; no bare stash; where the project has `.relay/` a ready change is merged without asking, elsewhere I say when to merge.
 
 - Work in a git worktree per task, on its own branch, and keep the primary
   checkout on its default branch and clean. Use the project's worktree tooling
@@ -7,8 +7,11 @@
   issue skills); otherwise `git worktree add .worktrees/<task> -b <branch>`.
 - Never use bare `git stash` / `git stash pop`: the stash is shared by all
   worktrees. Set work aside with a WIP commit instead.
-- A ready change is merged into the default branch without asking me; the
-  front reports it in one line. It is ready when the check says `open 0`, the
+- Where the project has `.relay/` (relay's merge hook guards the merge), a
+  ready change is merged into the default branch without asking me; the
+  front reports it in one line. Elsewhere, and for merge requests on Glonass
+  repositories, merge into the default branch only when I ask for that merge.
+  It is ready when the check says `open 0`, the
   gate is green on the head, the branch has taken the default branch, and the
   paid run is green when the change edited agent, skill, role or rule texts.
   Ask me before the merge only when taking the default branch hit a conflict a

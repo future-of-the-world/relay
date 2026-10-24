@@ -24,7 +24,7 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
 
 | # | Change | Why | Section |
 |---|---|---|---|
-| 1 | The owner's pipeline: free code checks first, then the review, its findings stored in git as `file:line: severity: message` lines, then the person's step, then the merge | owner, 22 Oct | 3, 4, 8 |
+| 1 | The owner's pipeline: free code checks first, then the review, its findings stored in git as `file:line: severity: message` lines, then the person's step, then the merge | owner, 22 Oct (the merge without a question: superseded 24 Oct) | 3, 4, 8 |
 | 2 | Review, check report and gate log are committed beside the mark: `.relay/checks/<sha>.review.json`, `<sha>.check.json`, `<sha>.gate.log`, `<sha>.json` | owner | 4, 6 |
 | 3 | New command `relay gate`: code, not an agent, runs the gate and commits its log; a runner only starts it | the gate log is evidence the merge trusts, so code writes it, as for marks | 5 |
 | 4 | M-A fixed: a task branch takes the default branch by a merge commit (never a rebase); `relay changed --own` leaves out files that came in from the default branch; the gate runs again (free) when such files are code; a branch behind the default is refused with a clear message | check-design-v3 M-A | 7.2, 7.3 |
@@ -33,7 +33,7 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
 | 7 | m-1 fixed: the merge hook refuses a branch that closes a `fix` queue item without a test | cheap: the hook already lists the range | 7.5 |
 | 8 | m-3 fixed: the guard's text rule on `.relay/checks` covers writes and inline code only; reading the stored review with `cat` or `grep` is allowed | reviewers must read stored reviews now | 9 |
 | 9 | m-4 fixed: `relay queue take` lands `taken_at` and `taken_by` on the default branch | cheap: reuses the landing path | 10.3 |
-| 10 | The person's step: one chat screen plus a private page built by code from the stored files | owner | 8 |
+| 10 | The person's step: one chat screen plus a private page built by code from the stored files | owner (superseded 24 Oct: the page was removed) | 8 |
 | 11 | Seeds: v3's 12 plus the handover's later list and check-judge-fix L1-L3, deduplicated: 22 items | owner "a" | 10.6 |
 | 12 | Phase-1 seed texts follow the owner's 22 Oct phase-1 decisions (old projects not touched, thin OpenSpec add-on, one shared cycle) | owner | 10.6 |
 | 13 | Shared helper `lib/relay_git.py` (default branch, main checkout, `.relay/` present): `relay_setup.default_branch` returns the worktree's own branch when run in a worktree without `origin` | fact 2.8 | 2, 7 |
@@ -105,8 +105,9 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
 - **Queue item**: `.relay/queue/<slug>.json`, kind `fix` (something wrong, with
   its failing case) or `feature`; ordered by **ip** (important points,
   integer >= 0, highest first).
-- **The person's step**: one chat screen and one private page (a claude.ai
-  artifact) from which the owner decides the merge.
+- **The person's step**: the one-line merged report, or, in the cases
+  that need the owner, one chat screen from which the owner decides the merge
+  (superseded 24 Oct: it was a chat screen plus a private page).
 - **`.relay/`** is a committed folder in a project (queue, checks); created
   only by `relay setup`. **`~/.relay`** is per machine, never committed
   (ledger, bench results). The hard rules of this design act only in a
@@ -492,7 +493,7 @@ green gate gives `open 0`. The delegate skill's step 7 says the same (C21).
 2. The checker checks `X` (`open 0`); the hook commits `X.json`, `X.check.json`,
    `R.review.json` (and the readable `.md` of both) as `X+1`; the gate log `X.gate.log` was committed before.
 3. The handover is committed: `X+2`.
-4. The owner says merge. `git merge --ff-only wt/x` in main: refused by step 1,
+4. The front merges (the owner said merge, before 24 Oct). `git merge --ff-only wt/x` in main: refused by step 1,
    "wt/x is behind master by 1 commit ...". (v3 said "the merge passes"; git
    itself would have answered "Not possible to fast-forward".)
 5. A runner: `git -C .worktrees/x merge --no-edit master` -> `Y` (brings only
@@ -595,8 +596,11 @@ section, "A change ready to merge"), one line:
 
 ```
 merged: the review gate; a merge is refused until the free checks pass and the
-review's findings are fixed and checked, and merged worktrees are removed.
+review's findings are fixed and checked, and merged worktrees are removed;
+paid run green, $4.10.
 ```
+
+With no paid run (no text edits) the line has no paid-run part.
 
 When one of the cases that need the owner applies, the front asks first, at
 most one screen:

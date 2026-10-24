@@ -160,7 +160,7 @@ keeps the main checkout clean and secrets out of the output. Tests:
   `git -c k=v commit`, `time git reset`, `nohup git checkout -b x`,
   `bash -c "git commit"`, `eval` and `... | xargs git reset` all count; also
   `branch -f/-D/-m`, `tag -d/-f`, `update-ref`. Not blocked: `git merge --ff-only
-  wt/<name>` (the merge the owner asks for), `--help`. And the project's
+  wt/<name>` (the front's merge of a ready branch), `--help`. And the project's
   `[[guard.block]]` commands.
 - **Compound commands** are split into their simple commands (`;`, `&&`, `||`,
   `|`, newlines, subshells, quotes and heredocs understood), and each part is

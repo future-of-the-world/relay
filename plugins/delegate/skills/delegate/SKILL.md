@@ -144,8 +144,10 @@ worker's DONE on a change that will be merged:
 9. **To the owner.** What is NOT MET, new, Disputed, Gap or Outside comes as a
    numbered list with a recommendation. Another fix runs on the owner's word
    and is checked the same way (a fix, a gate, a check). Every change that
-   will be merged gets step 4 and a verdict. When the verdict is `open 0` the
-   front merges the change and reports it in one line, or shows the person's
+   will be merged gets step 4 and a verdict. When the change is ready (the front
+   skill's "A change ready to merge": `open 0`, the gate green on the head, the
+   default branch taken, the paid run green when agent, skill, role or rule
+   texts changed) the front merges the change and reports it in one line, or shows the person's
    step first in the cases the front skill's "A change ready to merge" lists;
    the merge itself is the front's.
 
