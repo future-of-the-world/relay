@@ -186,7 +186,7 @@ and the owner says so.
 | 6 Check | `delegate:checker`, which records its check with `relay check record check --input <file.toml>` (`<report>.json`); the finish hook commits the mark with the check data and the review data | `<X>.json`, `<X>.check.json`, `<R>.review.json` | 3-5 |
 | 7 Take the default branch | runner, `git -C <wt> merge --no-edit <default>`, only when the branch is behind; `relay gate` again when code came in (7.3); a one-finding check when a file of the branch's own changed too (7.2) | a merge commit; maybe `<G3>.gate.log` | 1, or 5-9, or 8-14 |
 | 8 The person's step | front: one chat screen, one private page (8) | nothing | 1-2 |
-| 9 Merge | front, on the owner's word: `git merge --ff-only wt/<name>` in the main checkout; the merge hook refuses unless 7.1 holds; the cleanup hook removes the worktree | the files arrive on the default branch | 0 |
+| 9 Merge | front, as soon as the change is ready and no case that needs the owner applies (8.2): `git merge --ff-only wt/<name>` in the main checkout; the merge hook refuses unless 7.1 holds; the cleanup hook removes the worktree | the files arrive on the default branch | 0 |
 
 A review with nothing inside the change goes from step 3 to step 6 with
 `Fixes: none` (the gate log of step 2 is the gate). Step 7 can come any
@@ -392,10 +392,13 @@ worktree) is not judged: it is not a merge into the default branch.
 | 6 | a gate: among `relay_marks.gate_logs(repo, wt/x)`, one whose commit `G` is an ancestor of `wt/x`, with first line `head <G>`, last line `exit 0`, and `relay changed G wt/x` (every non-inert file, no `--own`) empty | "merge refused: no green gate for the code at wt/x's head (last gate <G>: exit 1, or: code changed since: lib/b.py); run relay gate in .worktrees/x" |
 | 7 | allow | |
 
-The owner's word is not in this table: a hook cannot tell an owner's "a" in
-answer to "merge?" from an "a" to another question, and the owner writes
-in any language (critique 16.3). It stays the rule it is today: the front
-runs step 9 of the pipeline only on the owner's word in this conversation.
+The owner's word is not in this table: a hook cannot tell an owner's "hold"
+from any other message, and the owner writes in any language (critique 16.3).
+The front runs step 9 of the pipeline when the change is ready, unless the
+owner is asked first (conflict resolved by hand; a finding open as Design,
+question, Disputed or Gap; a person-facing change; a red or skipped paid run;
+or the owner said to hold it); then it waits for the owner's word on that
+change.
 
 Step 4 replaces v3's walk. v3 walked `D..wt/x` newest first and stopped at
 the first commit touching a non-inert file without a mark; after step 7 of
@@ -587,8 +590,16 @@ about five times that.
 
 ### 8.2 The chat screen
 
-The front's reply when a branch is ready (the front skill gains this
-section, "A change ready to merge"), at most one screen:
+The front's reply after it merged a ready branch (the front skill gains this
+section, "A change ready to merge"), one line:
+
+```
+merged: the review gate; a merge is refused until the free checks pass and the
+review's findings are fixed and checked, and merged worktrees are removed.
+```
+
+When one of the cases that need the owner applies, the front asks first, at
+most one screen:
 
 ```
 relay (the owner's kit of rules and agents): the review gate is ready to merge.
@@ -821,7 +832,7 @@ landing can take about 20 s), waiting 0.2-1 s between tries:
    the next suffix and a command on that item is refused "wt/queue-<slug>
    exists (relay queue land, or relay doctor)".
 
-This is the one merge into the default branch without the owner's word; it
+This is the one merge into the default branch that is not the front's `git merge`; it
 runs inside `relay`, so the guard and the merge hook do not see it, and step
 4 is its only gate (test Q9). Every such landing makes open task branches
 behind (7.2); the cost is one runner merge per task branch before its own
@@ -1040,16 +1051,15 @@ worktree". Outside any repository it still exits 0.
 
 ### 11.4 The rule text
 
-`rules/git.md`, after "Merge into the default branch only when I ask":
+`rules/git.md`, after the paragraph on merging a ready change without asking:
 "After a merge into the default branch its worktree and branch are removed
 (the core plugin does it where the project has `.relay/`; `relay doctor`
 lists any left over). Nothing lives only in a task worktree: commit it, or
 keep it in the session scratchpad; ignored files there go with it. Before
 its merge a task branch takes the default branch by a merge commit, never a
-rebase (a rebase loses the check). One merge needs no word from me: `relay
-queue` lands a queue item on the default branch at once, and its code
-refuses when anything but that one file under `.relay/queue/` would
-change."
+rebase (a rebase loses the check). `relay queue` lands a queue item on the
+default branch at once, and its code refuses when anything but that one file
+under `.relay/queue/` would change."
 
 ## 12. Tests
 
@@ -1380,12 +1390,11 @@ picks.
 2. **Free checks before the review.** I looked for a weakness and found none
    beyond 4-8 runner minutes per change; it saves a 15-20 minute review of a
    red build.
-3. **"Merge refused unless ... the owner's word."** The first two conditions
-   are code (7.1); the owner's word cannot be: a hook sees the owner's
-   message, but an "a" that answers "merge?" looks like any other "a", and
-   the owner writes in many languages with typos, so a fixed phrase would be
-   a trigger by wording, which relay avoids. It stays the rule it is today,
-   followed by the front.
+3. **"Merge refused unless ... the owner's word."** The conditions are code
+   (7.1); a "hold" cannot be: a hook sees the owner's message, but the owner
+   writes in many languages with typos, so a fixed phrase would be a trigger
+   by wording, which relay avoids. The owner's "hold" is followed by the
+   front; the owner is asked only in the cases that need their judgement.
 4. **Queue items land on master at once (q3).** Each landing makes every
    open task branch behind, so before its merge each branch takes master
    (one runner minute), and its history gets one merge commit per such

@@ -59,31 +59,46 @@ what changes either way, and exactly what the owner should do.
 ## A change ready to merge
 
 Where the project has `.relay/`, a change is ready when the checker's verdict
-says `open 0` and the branch has a green gate. The owner decides the merge from
-one chat screen. Ask a runner for the numbers: `relay check show <branch>`
-prints three lines (the gate, the check, the findings outside the change); the
-main review point is the critic's hand-back line on the finding that matters most, in plain words. You never read the review, the check report or the gate log. No page and no
-Artifact: the owner reads this screen and nothing else.
+says `open 0`, the branch has a green gate on its head and has taken the default
+branch, and the paid run is green when the change edited agent, skill, role or
+rule texts. A ready change is merged without asking the owner. Ask a runner for
+the numbers: `relay check show <branch>` prints three lines (the gate, the
+check, the findings outside the change). You never read the review, the check
+report or the gate log. No page and no Artifact.
+
+Merge it, then say in your next reply, in one line: `merged: <what it does for
+the owner>`.
+
+Ask the owner first, on one chat screen, only when: (a) taking the default
+branch hit a git conflict that a fixer resolved by hand; (b) a finding is open
+as Design, question, Disputed or Gap, or the owner has not answered a question
+about the change; (c) the change is person-facing (rules/product-work.md: the
+owner checks it live before merge); (d) the paid run is red, or was not run
+because the day's cap on paid runs is reached; (e) the owner said to hold this
+change. The owner can say "hold" or "не сливай" at any time; then wait for
+their word on that change.
 
 The screen, at most one screen (the change, what it does for the owner, the
-checks, the question):
+checks, the question; the main review point is the critic's hand-back line on
+the finding that matters most, in plain words):
 
 ```
 <project> (what it does): <the change, in the owner's terms> is ready to merge.
 What it does for you: <the effect, in one or two lines>
 Checks: free checks green. Review: <n> inside the change, all fixed and checked;
 <m> outside, added to the work queue. Main review point: <one plain line>.
+Why I ask: <which case (a)-(e)>
 1. Merge it now?
    a (recommended) merge   b hold (say what to change)
 ```
 
-The merge itself is the front's, on the owner's word in this conversation:
+The merge itself is the front's, in the main checkout:
 `git merge --ff-only wt/<name>` in the main checkout. The merge hook refuses it
 unless the gate is green, the check says `open 0` and the branch has taken the
 default branch; its message says what to run (a runner takes the default branch
 or runs the gate again). When the change edited agent, skill, role or rule
 texts, run the full paid `bin/ci` yourself first (no approval needed, within the
-owner's daily cap on paid runs) and report its cost on the screen. It takes
+owner's daily cap on paid runs) and report its cost in the line or on the screen. It takes
 longer than the ~40 minutes a runner's turns cover, so never a runner: start it
 with Bash `run_in_background` into a log in the scratchpad (no `&`, no polling;
 the harness tells you when it exits) and, when told, read only the log's last lines.

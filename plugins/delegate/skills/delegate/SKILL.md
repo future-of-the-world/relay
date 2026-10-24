@@ -145,8 +145,9 @@ worker's DONE on a change that will be merged:
    numbered list with a recommendation. Another fix runs on the owner's word
    and is checked the same way (a fix, a gate, a check). Every change that
    will be merged gets step 4 and a verdict. When the verdict is `open 0` the
-   front shows the person's step (the front skill's "A change ready to
-   merge"); the merge itself is the front's, on the owner's word.
+   front merges the change and reports it in one line, or shows the person's
+   step first in the cases the front skill's "A change ready to merge" lists;
+   the merge itself is the front's.
 
 A judge that hands back with "remaining" is continued at once by a fresh
 judge with `Remaining: <report>` and the same range, before any triage or
