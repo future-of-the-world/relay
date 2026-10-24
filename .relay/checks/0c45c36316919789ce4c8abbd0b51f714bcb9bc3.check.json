@@ -1,33 +1,64 @@
 {
+  "branch": "wt/py-types",
   "findings": [
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
       "reason": [
         "gate green on f06dc89 (exit 0); pytest 416 passed"
       ],
+      "severity": "MEDIUM",
+      "since": "f06dc890247f51988d29a8767fb5abd164911bbe",
+      "source": "merge-py-types.json",
+      "source_id": "F1",
+      "summary": "combined with master's change by the merge",
       "verdict": "MET"
     },
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_eval_record.py",
+      "rank": "medium",
       "reason": [
         "gate green; tests/test_eval_record.py passes in the 416"
       ],
+      "severity": "MEDIUM",
+      "since": "f06dc890247f51988d29a8767fb5abd164911bbe",
+      "source": "merge-py-types.json",
+      "source_id": "F2",
+      "summary": "combined with master's change by the merge",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/py-types/.relay/checks/f06dc890247f51988d29a8767fb5abd164911bbe.gate.log",
+  "gate": "f06dc890247f51988d29a8767fb5abd164911bbe.gate.log",
   "head": "0c45c36316919789ce4c8abbd0b51f714bcb9bc3",
-  "new": [],
+  "item": null,
   "notes": [
     "Merge-combination findings; the pass case (gate passes) holds."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "f06dc890247f51988d29a8767fb5abd164911bbe.review.json"
-  ],
-  "reviewed": "f06dc890247f51988d29a8767fb5abd164911bbe",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fixes none. Gate log starts head f06dc89, ends exit 0; only a gate-log commit came after (relay changed lists no file). Ran full tests: 416 passed. No new tests relied on, so no fail-without-fix run."
   ],

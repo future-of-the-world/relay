@@ -1,0 +1,166 @@
+{
+  "branch": "wt/checks-migrate",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED. convert_check builds findings only from the sets and `new`; it never reads old[\"open\"]/old[\"queued\"] or compares them with relay_verdict.open_of(record). Schema 1 stored the step-1/2 +1 (\"changed since the review\", missing gate) only as a count; schema 2 records it as an N finding (relay_verdict.py header: \"N1.. the checker's own (new problems, a gate that is missing, red or for other code)\"). So the conversion silently rewrites a checker's verdict. Both changes are merged, so no live merge decision flips, but the stored verdicts are corrupted and the migration has no guard against the same loss in any other folder. No test asserts the old open is kept.",
+        "Size: 20 minutes (derive, add N for the gap with the note quoted, refuse otherwise, one test, re-run the migration on 669417d^ data)."
+      ],
+      "evidence": [
+        "python3 cmp.py (old mark at 669417d^ vs new at 669417d):",
+        "DIFF 367ffe31355829cd4cec0e9ceabaa7af2e2e9fdb.json old {'open': 1, 'queued': 0, ...} new {'open': 0, 'queued': 0}",
+        "DIFF a5ffb47eff57b5bbb0da0dcfbab15620bca34350.json old {'open': 1, 'queued': 0, ...} new {'open': 0, 'queued': 0}",
+        "marks diff 2",
+        "bin/relay check show --brief 367ffe31...: \"Check of 367ffe313558: open 0, queued 0, gate a81d66ff794f\""
+      ],
+      "failing_case": [
+        "Old check 367ffe31...check.json: findings F1-F6 all MET, new [], \"open\": 1 (notes: \"The open +1 is the post-review change to tests/test_archive_inert.py\"); same for a5ffb47e (notes: \"The +1 is the step-1 rule (changed since the review)\").",
+        "After the migration both records derive open 0 and both marks say {\"open\": 0, \"queued\": 0}; `relay check show 367ffe31...` prints \"open 0\". Should: the record keeps open 1 (the checker's verdict), e.g. as an N finding NOT MET."
+      ],
+      "fix_hint": [
+        "In convert_check, after building the findings: gap = old[\"open\"] - open_of(record); if gap > 0 append N findings (kind inside, severity MEDIUM, summary from the old notes/scope, reason [\"migrated: the old check counted this +1\", <note line>]); if gap < 0 or old[\"queued\"] != queued_of(record), raise MigrateError. Then re-run the migration from the 669417d^ folder."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 126,
+      "pass_cases": [
+        "1. Old check, all findings MET, new [], \"open\": 1, a note naming the +1: the record has an N1 (kind inside, rank medium, verdict NOT MET, reason \"migrated: the old check counted open +1\" plus the note line verbatim); the mark's verdict.open is 1.",
+        "2. Old check, all MET, new [], \"open\": 0: no N finding added, open 0 (today's behaviour).",
+        "3. Old check with one `new` HIGH finding and \"open\": 1: exactly one N (the old new one), open 1, no extra N.",
+        "4. Old check whose old open or queued cannot be reached by adding N findings (old open below the derived open, or queued differs): the migration refuses with a line naming the file, nothing written.",
+        "5. Re-running on the migrated real folder: every mark's open/queued equals the schema-1 mark's at 669417d^."
+      ],
+      "path": "lib/relay_checks_migrate.py",
+      "rank": "high",
+      "reason": [
+        "Code and tests pass (tests/test_check_migrate.py TestKeptCounts, fail without fix), but pass case 5 (real folder: every mark open/queued equals schema 1) is not met: .relay/checks was not regenerated, 367ffe31 and a5ffb47e still derive open 0."
+      ],
+      "severity": "HIGH",
+      "since": "fcf6392cb76d0f9ec7af3dcce18d831d8e1b2f47",
+      "source": "review-checks-migrate.json",
+      "source_id": "F1",
+      "summary": "an old check's open +1 (step-1/2 rule, no finding behind it) is dropped: two records go from open 1 to open 0",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. convert_check sends every old id starting with \"Q\" to the queue bucket regardless of kind or of whether the sets name a queue item. In these sets \"Q1\" was the critic's question id. Schema 2 reserves Q1 for the queue item (relay_verdict.py: \"Ids: Q1 the queue item\"). open counts are unaffected (kind question), but the record is mislabelled and the source is lost; relay_queue.done reads Q1 only when record[\"item\"] matches, so no merge breaks today.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "45664e74 Q1 question MEDIUM queue None MET",
+        "9fe9344a Q1 question MEDIUM queue None MET",
+        "b4d085f0 Q1 question MEDIUM queue None MET",
+        "(their sets' scope lines name no queue item; item is None in all three)"
+      ],
+      "failing_case": [
+        "Set d925caed (review-guard-batch.json) holds Q1, kind \"question\" (\"following shell variables at all reverses the owner's 21 Oct '1. a'\"), no queue item in its scope. Migrated records 45664e74 and 9fe9344a (and b4d085f0 from review-bench-worker.json) now have Q1 with source \"queue\", no source_id, item null: the record claims a queue-item finding that does not exist and no longer says which review asked the question. Should: F<n> with source \"review-guard-batch.json\" and source_id \"Q1\"."
+      ],
+      "fix_hint": [
+        "Treat an old Q id as the queue item's finding only when the sets name an item (item is not None); otherwise number it with the F findings, keeping source and source_id. Re-run the migration."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 117,
+      "pass_cases": [
+        "1. Set with a \"From queue item x:\" scope line and Q1 (kind inside): Q1, source \"queue\", item \"x\" (today's test_one_check_over_two_sets keeps passing).",
+        "2. Set with no queue item line and a Q1 of kind \"question\": F<n> in set order, source = the review file, source_id \"Q1\", verdict carried over.",
+        "3. On the real data: 45664e74, 9fe9344a, b4d085f0 have no Q finding; their question is an F with source_id Q1; every record with a Q1 has a non-null item."
+      ],
+      "path": "lib/relay_checks_migrate.py",
+      "rank": "medium",
+      "reason": [
+        "Code and test TestQuestionIds::test_a_question_q1_without_a_queue_item_is_numbered_f pass (fails without fix), but pass case 3 on real data is unmet: 45664e74 still has Q1 source queue, item null; 9fe9344a and b4d085f0 not regenerated."
+      ],
+      "severity": "MEDIUM",
+      "since": "fcf6392cb76d0f9ec7af3dcce18d831d8e1b2f47",
+      "source": "review-checks-migrate.json",
+      "source_id": "F2",
+      "summary": "a reviewer's question finding with id Q1 is turned into the queue item's Q1 (source queue), losing its review file and id",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch repro. migrate() writes and deletes, then _git add/commit raises MigrateError; bin/relay wraps every MigrateError as \"nothing changed: ...\". On re-run the checks are schema 2, so counts are (0,0,0) and no commit is attempted. relay_marks._commit retries index.lock (MARK_COMMIT_RETRIES) because relay writes do contend in a worktree; this commit does not. The folder is then stuck uncommitted with no relay command able to commit it.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "lockrepro.py (scratchpad):",
+        "1st 1  relay check: nothing changed: git add failed: [\"fatal: Unable to create '.../.git/index.lock': File exists.\"]",
+        "2nd 0 nothing to migrate",
+        "status: [' M .relay/checks/aaaa...check.json', ' M .relay/checks/aaaa...json', ' D .relay/checks/s.review.json']",
+        "log: ['seed']"
+      ],
+      "failing_case": [
+        "Committed scratch repo with one schema-1 check, mark and set; .git/index.lock present (another relay write in the same worktree). `relay check migrate -C repo` exits 1 with \"relay check: nothing changed: git add failed: ...\" although the check, mark and set were already rewritten/deleted. Lock removed, run again: exit 0 \"nothing to migrate\"; git status shows \" M ...check.json\", \" M ...json\", \" D s.review.json\" with no commit, and guard-main refuses a hand `git add .relay/checks` (\"written only by relay\"). Should: retry a locked index as relay_marks._commit does, and a re-run must still commit an uncommitted migration (or the error must not say nothing changed)."
+      ],
+      "fix_hint": [
+        "Commit through relay_marks._commit-style retry (or reuse it with the paths list), and in migrate_and_commit commit whenever `git status --porcelain -- .relay/checks` is non-empty after migrate(), not only when counts are non-zero; let bin/relay say \"nothing changed\" only for errors raised before writing."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 228,
+      "pass_cases": [
+        "1. index.lock held for the first try, gone on retry: one commit \"relay: migrate checks to schema 2\", tree clean.",
+        "2. Commit fails for good: the message does not say \"nothing changed\"; a later run with git working commits the already-rewritten .relay/checks changes (one commit, only .relay/checks).",
+        "3. Clean repo, nothing schema 1, nothing dirty in .relay/checks: no commit, \"nothing to migrate\" (today's behaviour).",
+        "4. Dirty file outside .relay/checks: refused before anything is written (today's behaviour)."
+      ],
+      "path": "lib/relay_checks_migrate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_check_migrate.py TestRun::test_a_locked_index_is_retried and test_a_failed_commit_is_not_nothing_changed_and_a_rerun_commits pass and fail at fcf6392."
+      ],
+      "severity": "MEDIUM",
+      "since": "fcf6392cb76d0f9ec7af3dcce18d831d8e1b2f47",
+      "source": "review-checks-migrate.json",
+      "source_id": "F3",
+      "summary": "a failed git add/commit after the rewrite says 'nothing changed', leaves the folder rewritten and uncommitted, and a re-run says 'nothing to migrate'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the porcelain v1 -z format (rename/copy entries carry a second, unprefixed path). Only a false refusal, never a wrong commit. Size: 5 minutes."
+      ],
+      "evidence": [
+        "lib/relay_checks_migrate.py:222-225: for entry in status.split(\"\\0\"): path = entry[3:]"
+      ],
+      "failing_case": [
+        "Staged `git mv .relay/checks/a.gate.log .relay/checks/b.gate.log`: `status -z` gives \"R  .relay/checks/b.gate.log\\0.relay/checks/a.gate.log\\0\"; the second field sliced [3:] is \"lay/checks/a.gate.log\", so the run is refused as \"changed outside .relay/checks\". Should: accepted (both paths inside)."
+      ],
+      "fix_hint": [
+        "Use `git status --porcelain=v1 -z --no-renames`, or skip the field after an R/C entry and check it unsliced."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 222,
+      "pass_cases": [
+        "1. Staged rename inside .relay/checks: not refused.",
+        "2. Staged rename from outside into .relay/checks: refused, naming the outside path.",
+        "3. Untracked other.txt: refused (today's test)."
+      ],
+      "path": "lib/relay_checks_migrate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_check_migrate.py TestRun::test_a_staged_rename_inside_the_checks_is_not_refused and test_a_staged_rename_from_outside_is_refused pass; both fail at fcf6392."
+      ],
+      "severity": "LOW",
+      "since": "fcf6392cb76d0f9ec7af3dcce18d831d8e1b2f47",
+      "source": "review-checks-migrate.json",
+      "source_id": "F4",
+      "summary": "the dirty check misreads a staged rename in `status -z` (the old path is a bare NUL field, sliced by 3)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "dffa956d2d1831fd74aa3faf8fcfe002469db717.gate.log",
+  "head": "9a003356ed64e5b4302741c84731f835e064cca0",
+  "item": null,
+  "notes": [
+    "Code and tests for F1-F4 are good; the migrated real data was not regenerated, so the real-data pass cases of F1 (case 5) and F2 (case 3) are unmet. Fixer admitted this (left to coordinator). 45664e74 still has Q1 source queue, item null; 367ffe31 and a5ffb47e still open 0."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range fcf6392..HEAD; files bin/relay, lib/relay_checks_migrate.py, tests/test_check_migrate.py (all in scope). Gate log head dffa956, exit 0, only the inert gate-log commit after it. test_check_migrate.py: 20 passed; run at fcf6392 with the head test file: 8 failed, 12 passed (the 8 new tests fail without the fix). Checked the migrated .relay/checks data: unchanged by the fix commit."
+  ],
+  "type": "check"
+}

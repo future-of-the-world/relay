@@ -1,0 +1,67 @@
+{
+  "branch": "wt/queue-close",
+  "findings": [
+    {
+      "details": [
+        "`relay queue done` needs a taken wt/ branch and a --test (written for fixes), and `relay queue drop` records the owner's words for work not done; a feature finished without a branch of relay's own (the OpenSpec trial run) has no way to leave the queue, so it stays at the top as if open."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Trial 2026-10-23: `trial-run-one-openspec-change-from-setup-to-merg` (feature, ip 99) finished (scratch project merged at 19c02df, 13 fix items queued from it), but no queue command closes it; it still heads `relay queue`."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "`relay queue done <feature> --evidence <sha or report>` moves it to done and off the list; a fix without --test is still refused."
+      ],
+      "path": "bin/relay (queue done, queue drop), lib/ queue module",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue_close.py:20 test_q1_a_feature_closes_with_a_merge_sha_and_leaves_the_list passes, fails at the base commit."
+      ],
+      "severity": "HIGH",
+      "since": "f1f05904d3058aab56e4d890d38cb29d01a6766c",
+      "source": "queue",
+      "summary": "A finished feature cannot be closed in the queue",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "Gate green on 50fc8d1 (bin/ci --quick, exit 0) after the merge; no file changed after it."
+      ],
+      "severity": "MEDIUM",
+      "since": "50fc8d10c620b0464138d3d433ef747afb1d95cc",
+      "source": "merge9-queue-close.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "50fc8d10c620b0464138d3d433ef747afb1d95cc.gate.log",
+  "head": "5d06a414e4dae0c2df205aa4210c063a3c0d82dc",
+  "item": "a-finished-feature-cannot-be-closed-in-the-queue",
+  "notes": [
+    "Merge combined without conflict; gate green on merged code."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log is for 50fc8d1 (merge); HEAD only adds the gate log, relay changed lists no file; exit 0. tests/test_queue_close.py passes (5); all 5 fail on f1f05904d305 (no close_with_evidence)."
+  ],
+  "type": "check"
+}

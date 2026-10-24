@@ -1,26 +1,40 @@
 {
+  "branch": "wt/reply-lang",
   "findings": [
     {
+      "details": [
+        "The rule \"talk to me in my native language\" is text only and failed: on 24 Oct (session 3207dc59) the full report after a long English tool stretch came out in English. Owner, verbatim: \"\u0422\u044b \u043e\u0442\u0432\u0435\u0442\u0438\u043b \u043c\u043d\u0435 \u043d\u0430 \u0430\u043d\u0433\u043b\u0438\u0439\u0441\u043a\u043e\u043c - \u0447\u0442\u043e-\u0442\u043e \u0437\u0434\u0435\u0441\u044c \u043d\u0435 \u0442\u0430\u043a\"; then \"1. a, \u043d\u043e \u044d\u0442\u043e \u043d\u0435 \u0434\u043e\u043b\u0436\u043d\u0430 \u0431\u044b\u0442\u044c \u0441\u0442\u0440\u043e\u0433\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u043d\u0430 \u0442\u043e \u0447\u0442\u043e\u0431\u044b \u043a\u0430\u0436\u0434\u044b\u0439 \u0441\u0438\u043c\u0432\u043e\u043b \u0441\u043e\u043e\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u043e\u0432\u0430\u043b \u044f\u0437\u044b\u043a\u0443, \u044d\u0442\u043e \u043f\u0440\u0438\u0432\u0435\u0434\u0435\u0442 \u043a \u043b\u043e\u0436\u043d\u043e\u043c\u0443 \u0441\u0440\u0430\u0431\u0430\u0442\u044b\u0432\u0430\u043d\u0438\u044e, \u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u043f\u0440\u043e\u0446\u0435\u043d\u0442\u043d\u043e\u0433\u043e \u043f\u043e\u043a\u0440\u044b\u0442\u0438\u044f\"."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "The front's English report of 24 Oct (3038 chars, Cyrillic share of prose letters 0%) reached the owner unchanged."
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "That English reply is blocked once with the rewrite instruction; the Russian reply that followed (Cyrillic share 97%, with terms like workflow, OpenSpec, $9 and file paths) passes; a reply that is almost all code or paths (under ~40 prose letters) passes; with native_language unset or English nothing is checked; a second stop after one block is let through (no loop)."
+      ],
+      "path": "plugins/front/hooks (a new Stop hook), projects.toml [global] native_language",
+      "rank": "high",
       "reason": [
         "tests/test_reply_language.py:49 English blocked (0%), :57 Russian with terms passes, :61 mostly-code passes, :65 unset/English unchecked, :72 stop_hook_active passes; all pass, all fail at base."
       ],
+      "severity": "HIGH",
+      "since": "294b0e68475dbd5cd4685acd127b8c0d856d3d1b",
+      "source": "queue",
+      "summary": "A reply to the owner can come out in the wrong language",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/reply-lang/.relay/checks/3fcb938e338bfeb58297411bcdf2963b28388204.gate.log",
+  "gate": "3fcb938e338bfeb58297411bcdf2963b28388204.gate.log",
   "head": "262109c8137b1bbfa677df41f5669b11e1981b73",
-  "new": [],
+  "item": "a-reply-to-the-owner-can-come-out-in-the-wrong-l",
   "notes": [
     "Fixer chose the language from the CLAUDE.md line, not projects.toml; env override RELAY_REPLY_LANG_SHARE. Fails open on any error."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "294b0e68475dbd5cd4685acd127b8c0d856d3d1b.review.json"
-  ],
-  "reviewed": "294b0e68475dbd5cd4685acd127b8c0d856d3d1b",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range 294b0e6..HEAD; files: hooks.json, reply_language.py, test_reply_language.py (all in scope). Ran tests/test_reply_language.py: 13 passed. Gate log head 3fcb938, exit 0; only the gate commit came after. Base worktree at 294b0e6 with the head test file: 13 failed."
   ],

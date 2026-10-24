@@ -1,24 +1,38 @@
 {
+  "branch": "wt/sync-refused",
   "findings": [
     {
+      "details": [
+        "Found 24 Oct after a merge: sync refused alix (its file carries the header of relay's old name, ~/principles) and exited 1, so arsenal, testenv, cartoons, clean, kartoteka, mind, sight, glyph and noisegate were not written either, silently, on every sync since the rename. Repeats on every sync (MEDIUM by the waste principle)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A projects.toml with targets A (file has a foreign header), then B (relay's header, stale): `relay sync` exits 1 and B is unchanged."
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "Same setup: `relay sync` writes B, leaves A untouched, exits non-zero naming A and the --adopt command. A file with the old ~/principles header is rewritten without --adopt."
+      ],
+      "path": "lib/relay_rules.py:89 write_target, lib/relay_rules.py:189 sync",
+      "rank": "high",
       "reason": [
         "tests/test_sync_refused.py::SyncRefused::test_a_refused_target_does_not_stop_the_later_ones (A foreign, B stale: B written, A untouched, exit 1, names A and --adopt) and test_the_old_principles_header_is_rewritten_without_adopt; both fail at 74b3ff4."
       ],
+      "severity": "HIGH",
+      "since": "74b3ff4e15754a8380daccfefa9ffb3f31ab15a4",
+      "source": "queue",
+      "summary": "sync stops at one refused project; later ones go stale",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/sync-refused/.relay/checks/297b72dbd43611d5f64c91fa1bc90f192b0ff7a8.gate.log",
+  "gate": "297b72dbd43611d5f64c91fa1bc90f192b0ff7a8.gate.log",
   "head": "68f1787d85370107e9af4212ffca974c24190b2f",
-  "new": [],
+  "item": "sync-stops-at-one-refused-project-later-ones-go",
   "notes": [],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "74b3ff4e15754a8380daccfefa9ffb3f31ab15a4.review.json"
-  ],
-  "reviewed": "74b3ff4e15754a8380daccfefa9ffb3f31ab15a4",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range 74b3ff4..HEAD; files bin/relay, lib/relay_rules.py, tests. Ran test_sync_refused.py and test_relay.py (117 pass). Gate log head 297b72d, exit 0, only gate commit after. Base-worktree run: 5 of 7 new tests fail without fix."
   ],

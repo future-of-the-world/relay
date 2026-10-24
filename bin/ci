@@ -5,7 +5,7 @@
 #   bin/ci              every step, the paid ones included (plugin evals need `claude`)
 #   bin/ci --quick      the free steps only; ends "QUICK MODE" and never releases
 #
-# Steps: library tests (python), types and lint (mypy + ruff pyflakes rules through uv; needs uv and, the first time, the network), hook tests (bash: every plugins/*/tests/*.test.sh runs in quick mode too, bun/node/jq
+# Steps: library tests (python), types and lint (mypy + ruff pyflakes rules through uv; needs uv and, the first time, the network), hook tests (bash: every plugins/*/tests/*.test.sh runs in quick mode too, bun/jq
 # must be on PATH or the step FAILS naming the tool; only hooks-live, which makes a paid claude call, is left for the full run), lib copies identical, plugin
 # evals' grader tests, `claude plugin validate` (skipped loudly without claude),
 # plugin evals (full mode only; compared with evals/plugin/baseline), then the record step
@@ -27,7 +27,7 @@ step() { local name="$1"; shift; local log=".ci/steps/${name// /-}.log" start rc
 lib_tests() { python3 -W ignore::ResourceWarning -m unittest discover -s tests -p 'test_*.py'; }
 hook_tests() { local f rc=0 t; [ "$quick" = 1 ] && [ -z "${RELAY_INERT_FULL_HOOKS:-}" ] && export RELAY_QUICK=1   # the guard suite runs its shared cases once in quick mode (not in the inert probe of a full run: see inert_probe)
   # the tools the free tests run on: a missing one FAILS the step (a skipped test would pass a gate that checked nothing)
-  for t in "git:install git" "jq:brew install jq" "python3:install python3" "bun:curl -fsSL https://bun.sh/install | bash (the packet and check-contract tests run on it)" "node:brew install node"; do
+  for t in "git:install git" "jq:brew install jq" "python3:install python3" "bun:curl -fsSL https://bun.sh/install | bash (the packet and check-contract tests run on it)"; do
     command -v "${t%%:*}" >/dev/null 2>&1 || { echo "FAIL hook tests need ${t%%:*} on PATH: ${t#*:}"; rc=1; }; done
   [ "$rc" = 0 ] || return 1
   for f in plugins/*/tests/*.test.sh; do [ -e "$f" ] || continue

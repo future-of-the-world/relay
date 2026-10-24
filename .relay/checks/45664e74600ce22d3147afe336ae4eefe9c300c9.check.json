@@ -1,61 +1,248 @@
 {
+  "branch": "wt/guard-batch",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by running kit_guard.py of master and of HEAD on the commands above (evidence).",
+        "expand() (kit_guard.py:497-507) returns a dynamic Word for any word with a variable it cannot resolve, and dynamic write targets are dropped (`targets = [w for w in redirs if not w.dynamic ...]`, `args = [w for w in real[1:] if not w.dynamic]`). The builder recorded the effect in 23 of the 37 re-recorded golden verdicts (block -> allow for `rm -rf $PWD/src`, `cp new.md $PWD/README.md`, `tee $PWD/README.md`, `touch $F`, `echo hi > $F`, `rm -rf ${X}/src`, `.worktrees/$N/../../README.md`, ...).",
+        "This is exactly finding M1 of the third review on 21 Oct (\"file-changing commands with an unquoted variable in the path now pass in your main copy: rm -rf $PWD/src, touch $F, cp a $X/. The old guard refused these\"); G1 (43fe49f) had already reverted the same skip once, and the owner then chose \"1. a\" (drop variable-following, restore the old verdicts, proven by the golden test) on the front's argument \"a guard that keeps leaking is worse than one that's sometimes too strict\". The brief's design point 2 re-opens it.",
+        "Why it is a plausible slip, not a contrived bypass: Bash state does not carry between Claude Code calls, so a variable the guard cannot resolve is an environment name (PWD, CLAUDE_PROJECT_DIR, OLDPWD), a `$(...)` result (`$(pwd)`, `$(git rev-parse --show-toplevel)`) or a loop/read variable over files of the current folder: in the main checkout these point into main. The queue item's own failing cases (`S=...; mkdir -p $S`, `$TMPDIR/...`, `G=<wt>; git -C $G ...`) all pass by resolution and do not need the skip.",
+        "Size: 30 minutes (keep the quoted/unquoted distinction in Word, read an unresolved unquoted word literally for write targets, resolve PWD to the tracked directory, re-record the 23 golden lines back to block, tests)."
+      ],
+      "evidence": [
+        "p(){ printf '%s' \"$2\" | python3 -I plugins/core/lib/kit_guard.py \"$1\" | grep -v '^C '; echo old; printf '%s' \"$2\" | python3 -I <(git show master:plugins/core/lib/kit_guard.py) \"$1\" | grep -v '^C '; }",
+        "p /Users/amidman/relay 'rm -rf $PWD/src'                 -> new: (nothing)  old: W /Users/amidman/relay/$PWD/src",
+        "p ... 'touch $CLAUDE_PROJECT_DIR/docs/x.md'               -> new: (nothing)  old: W /Users/amidman/relay/$CLAUDE_PROJECT_DIR/docs/x.md",
+        "p ... 'D=$(git rev-parse --show-toplevel); rm -f $D/README.md' -> new: (nothing)  old: W /Users/amidman/relay/$D/README.md",
+        "p ... 'ls *.tmp | while read f; do rm $f; done'          -> new: (nothing)  old: W /Users/amidman/relay/$f",
+        "golden diff: 23 lines \"block -> allow\" with cwd @M@ for unknown variables, e.g. `block -> allow | @M@ | rm -rf $PWD/src`",
+        "transcript 0b953f5c, 2026-10-21T18:06: \"M1: ... rm -rf $PWD/src, touch $F, cp a $X/. The old guard refused these.\" then \"1. ... a) Drop it.\"; handover.md:295 \"Guard: variable-following dropped (\"1. a\")\""
+      ],
+      "failing_case": [
+        "Session in the main checkout /Users/amidman/relay, Bash: `rm -rf $PWD/src`",
+        "  master: refused (row `W /Users/amidman/relay/$PWD/src`); HEAD: allowed (no write row). It deletes main's src.",
+        "Same from main: `cp new.md $PWD/README.md`, `touch $CLAUDE_PROJECT_DIR/docs/x.md`, `D=$(git rev-parse --show-toplevel); rm -f $D/README.md`, `ls *.tmp | while read f; do rm $f; done`, `echo hi > .worktrees/$N/../../README.md`: all refused on master, all allowed now. Should stay refused."
+      ],
+      "fix_hint": [
+        "In parse(), record whether a `$` was unquoted (a separate flag from the double-quoted has_var). In expand(), when a variable is unknown: a word whose unknown variable was unquoted comes back as the literal word (old reading, so a write under main is refused); a quoted one comes back dynamic (skipped, as before). Keep git -C / cd on unknown -> current directory. Resolve PWD to st.cur when it is not assigned in the command (and CLAUDE_PROJECT_DIR from the hook env if wanted). Re-record the affected golden lines to their master verdict and fix the guard-diff header."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 505,
+      "pass_cases": [
+        "1. cwd = main, `rm -rf $PWD/src` -> refused (PWD is the tracked directory, so it can be resolved: main/src).",
+        "2. cwd = main, `touch $F` (F unknown) and `D=$(git rev-parse --show-toplevel); rm -f $D/README.md` -> refused, as on master (an unknown unquoted variable is read literally, under the current directory).",
+        "3. cwd = main, `S=/private/tmp/x; mkdir -p $S/briefs; cat > $S/a.toml <<'EOF' ... EOF` and `touch $TMPDIR/x` -> allowed (the queue item's cases still pass by resolution, not by skipping).",
+        "4. cwd = main, `touch \"$F\"` (quoted, unknown) -> allowed, unchanged (the owner's earlier choice for quoted words).",
+        "5. cwd = a worktree, `touch $F` -> allowed; cwd = main, `cd .worktrees/$NAME && git commit -m x` -> refused (git -C / cd with an unknown value stays in the current directory, as now)."
+      ],
+      "path": "plugins/core/lib/kit_guard.py",
+      "rank": "high",
       "reason": [
         "plugins/core/tests/guard-main.test.sh cases for unquoted unknown, PWD, cd unknown; golden re-recorded; probes above confirm."
       ],
+      "severity": "HIGH",
+      "since": "d925caedc4854447ab5907b51da7d71e6a70d185",
+      "source": "review-guard-batch.json",
+      "source_id": "F1",
+      "summary": "an unquoted variable of unknown value is now skipped, so `rm -rf $PWD/src` and other writes into the main checkout pass again (review M1, closed by the owner's 21 Oct '1. a')",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED (evidence). trusted() runs a regex over the whole raw command: any whole-word occurrence of the name not preceded by `$` or `${` is a \"hit\", including text inside single or double quotes and heredoc bodies; more than one hit makes the name untrusted, the variable unknown, and `git -C $G` then falls back to the current directory (main -> refused). Short names (G, W, S, M, wt) are what sessions type, and they appear in commit messages, echo lines and heredoc text. The queue item's failing case is `git -C $G branch -d x`; the fix passes it only when G is not written anywhere else.",
+        "Size: 20 minutes."
+      ],
+      "evidence": [
+        "printf '%s' \"G=$WT; git -C \\$G commit -m 'G fix'\" | python3 -I plugins/core/lib/kit_guard.py /Users/amidman/relay",
+        "  -> G /Users/amidman/relay git commit",
+        "printf '%s' \"wt=$WT; git -C \\$wt branch -d x && echo wt gone\" | python3 -I plugins/core/lib/kit_guard.py /Users/amidman/relay",
+        "  -> G /Users/amidman/relay git branch (moves or deletes a branch)",
+        "from the worktree: \"M=/Users/amidman/relay; cp x \\$M/docs/ && git -C \\$M add docs && echo M done\" -> G /Users/amidman/relay/.worktrees/guard-batch git add (no W row for main/docs)"
+      ],
+      "failing_case": [
+        "cwd = main /Users/amidman/relay:",
+        "  `G=/Users/amidman/relay/.worktrees/guard-batch; git -C $G commit -m 'G fix'` -> refused (row `G /Users/amidman/relay git commit`); should be allowed (judged in the worktree).",
+        "  `wt=/Users/amidman/relay/.worktrees/guard-batch; git -C $wt branch -d x && echo wt gone` -> refused (`G /Users/amidman/relay git branch`); should be allowed.",
+        "The other direction (no regression, but the header promises it): cwd = a worktree, `M=/Users/amidman/relay; cp x $M/docs/ && git -C $M add docs && echo M done` -> allowed; the header says `M=<main>; touch $M/x` is refused from a worktree."
+      ],
+      "fix_hint": [
+        "Count only hits that can change the variable: an assignment form (`NAME=`, `NAME+=`, `NAME[`) at a word start, or the name as an argument of unset/read/for/declare/local/typeset/export/readonly/printf -v/mapfile/readarray/getopts/let, and any hit inside an eval or bash -c string. Ignore heredoc bodies and other quoted arguments (parse() already knows the word boundaries and heredoc spans)."
+      ],
       "id": "F2",
+      "kind": "inside",
+      "line": 613,
+      "pass_cases": [
+        "1. cwd = main, `G=<wt>; git -C $G commit -m 'G fix'` -> allowed.",
+        "2. cwd = main, `wt=<wt>; git -C $wt branch -d x && echo wt gone` -> allowed.",
+        "3. cwd = a worktree, `M=<main>; touch $M/x && echo M done` -> refused.",
+        "4. cwd = main, `W=<wt>; unset W; git -C $W commit -m x` and `W=<wt>; W+=/../..; git -C $W commit -m x` -> refused (a real change of the name still untrusts it).",
+        "5. cwd = a worktree, `S=/private/tmp/x; cat > $S/a.md <<'EOF'` with a body line `S is a section` -> allowed (heredoc text is not a use of the name)."
+      ],
+      "path": "plugins/core/lib/kit_guard.py",
+      "rank": "medium",
       "reason": [
         "guard-main.test.sh name-in-message and later-echo cases pass; probe G fix commit allowed in worktree."
       ],
+      "severity": "MEDIUM",
+      "since": "d925caedc4854447ab5907b51da7d71e6a70d185",
+      "source": "review-guard-batch.json",
+      "source_id": "F2",
+      "summary": "the trust rule counts the name anywhere in the raw text (commit messages, echo, heredoc bodies), so the queue item's own case `G=<wt>; git -C $G ...` is still refused from main when G appears in a message",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading the six prompt.md files. The owner's condition names typos as part of the proof; the set covers typos for one English positive only. Russian is the owner's other working language and typos are the stated reason the hook's keyword list failed. Cheap to add (2 cases, about $0.60 of Opus runs).",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "for d in evals/plugin/tune-*; do cat $d/prompt.md; done (the six prompts quoted in the failing case)",
+        "evals/plugin/results/2026-10-23T14-09-22-890Z: 6 cases, all pass, cost 1.81"
+      ],
+      "failing_case": [
+        "Owner, verbatim: \"Remove the hook and rely on Claude's reading, proven with test requests in both languages, with typos, including ones that should not trigger.\"",
+        "The six cases: `try haiku insted of sonnet for workers` (typo), `\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0441\u0442\u043e\u0438\u043b\u0430 \u044d\u0442\u0430 \u043d\u0435\u0434\u0435\u043b\u044f \u043f\u043e \u0442\u043e\u043a\u0435\u043d\u0430\u043c?`, `\u0441\u0440\u0430\u0432\u043d\u0438 \u0434\u0432\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438: \u043e\u043f\u0443\u0441 \u0444\u0440\u043e\u043d\u0442 \u043f\u0440\u043e\u0442\u0438\u0432 \u0441\u043e\u043d\u0435\u0442 \u0444\u0440\u043e\u043d\u0442`, `What we're migrating in current change, compare - before and after`, `It costs about $3.50`, `\u0441\u0440\u0430\u0432\u043d\u0438 \u0441\u0442\u0430\u0440\u0443\u044e \u0438 \u043d\u043e\u0432\u0443\u044e \u0432\u0435\u0440\u0441\u0438\u044e \u0444\u0443\u043d\u043a\u0446\u0438\u0438 parse`: no Russian request with a typo, no negative with a typo."
+      ],
+      "fix_hint": [
+        "Add evals/plugin/tune-ru-typo-<x> (positive) and tune-no-typo-<x> (negative) in the same shape as the existing cases; run `claude plugin eval` with the tune-* filter once and quote the result."
+      ],
       "id": "F3",
+      "kind": "feature",
+      "line": 1,
+      "pass_cases": [
+        "1. An eval case with a Russian setup request carrying typos (for example `\u0441\u043a\u043e\u043a\u0430 \u0441\u0442\u043e\u0438\u043b\u0430 \u043d\u0435\u0434\u0435\u043b\u044f \u043f\u043e \u0442\u043e\u043a\u0435\u043d\u043c?` or `\u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439 \u0445\u0430\u0439\u043a\u0443 \u0432\u043c\u0435\u0441\u0442\u043e \u0441\u043e\u043d\u0435\u0442\u0430 \u0434\u043b\u044f \u0432\u043e\u0440\u043a\u0435\u0440\u043e\u0432`) expects a Skill call matching front:tune, and passes 3/3.",
+        "2. A should-not-trigger case with typos (for example `\u0441\u0440\u0430\u0432\u043d\u0438 \u0434\u043e \u0438 \u043f\u043e\u0441\u043b\u0435 \u0432 \u0442\u0435\u043a\u0443\u0449\u0435\u043c \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438` or `waht does this chnage migrate, compare befor and after`: questions about the project's work) expects 0 Skill calls matching front:tune, and passes 3/3.",
+        "3. The six existing cases still pass."
+      ],
+      "path": "evals/plugin/tune-ru-week-cost/prompt.md",
+      "rank": "medium",
       "reason": [
         "evals/plugin/tune-ru-typo-week-cost, tune-no-ru-typo-compare, tune-no-en-typo-compare exist; graders.test passes; fixer reports 9/9."
       ],
+      "severity": "MEDIUM",
+      "since": "d925caedc4854447ab5907b51da7d71e6a70d185",
+      "source": "review-guard-batch.json",
+      "source_id": "F3",
+      "summary": "the owner asked for proof 'in both languages, with typos, including ones that should not trigger'; only one English request has a typo, no Russian or should-not-trigger request has one",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading guard-main.sh:70 (`common=... || exit 0`) and the test line. Same weakness for `touch $TMPDIR/x` from main (line 106): with F1's skip it passes even when TMPDIR is not resolved; it only proves resolution once an unknown unquoted word is refused again.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "plugins/core/tests/guard-main.test.sh:10 `unset CLAUDE_PROJECT_DIR`; :107 cwd \"$tmp\"; guard-main.sh:67-70 anchor=cwd, `git -C \"$anchor\" rev-parse ... || exit 0`",
+        "builder report: \"from a cwd outside any repo the hook allows; tests use a worktree cwd\""
+      ],
+      "failing_case": [
+        "`t allow \"variable assigned twice is not followed\" Bash \"$tmp\" command \"X=$tmp/ok; X=$M; touch \\$X/x\"`: cwd $tmp is not inside the repository, CLAUDE_PROJECT_DIR is unset by the suite, so guard-main.sh exits 0 at `git rev-parse ... || exit 0` before kit_guard runs. The test passes whatever the trust rule does (the builder notes the same fact in the report)."
+      ],
+      "fix_hint": [
+        "Run the case from \"$W\" and assert the verdict; check once it fails with trusted() forced to True."
+      ],
       "id": "F4",
+      "kind": "inside",
+      "line": 107,
+      "pass_cases": [
+        "1. The case runs with cwd = the worktree $W (or with CLAUDE_PROJECT_DIR=$M) and its expected verdict follows the agreed rule for an untrusted variable.",
+        "2. With the trust rule disabled (trusted() returning True), the case fails."
+      ],
+      "path": "plugins/core/tests/guard-main.test.sh",
+      "rank": "low",
       "reason": [
         "guard-main.test.sh assigned-twice case now runs from the worktree; suite passes."
       ],
+      "severity": "LOW",
+      "since": "d925caedc4854447ab5907b51da7d71e6a70d185",
+      "source": "review-guard-batch.json",
+      "source_id": "F4",
+      "summary": "the 'variable assigned twice is not followed' test runs from a folder outside any repository, where the hook allows everything, so it passes with the behaviour removed",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading. Text only; the kit_guard.py docstring was updated, this line was not.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "sed -n 14,18p plugins/core/hooks/guard-main.sh"
+      ],
+      "failing_case": [
+        "guard-main.sh:16-17 \"Not seen: a program's own code (python3 -c, node -e) and a path held in a shell variable;\" while lines 43-48 of the same header now say variables of known value are followed and judged."
+      ],
+      "fix_hint": [
+        "Reword line 16-17 to \"a path held in a shell variable of unknown value\"."
+      ],
       "id": "F5",
+      "kind": "inside",
+      "line": 16,
+      "pass_cases": [
+        "1. Line 16-17 reads \"... and a path held in a shell variable of unknown value\" (or points to the paragraph below).",
+        "2. kit_guard.py's docstring and the header say the same thing about unknown variables (after F1, the unquoted/quoted split)."
+      ],
+      "path": "plugins/core/hooks/guard-main.sh",
+      "rank": "low",
       "reason": [
         "guard-main.sh header reworded per the fixer; reading not repeated in detail."
       ],
+      "severity": "LOW",
+      "since": "d925caedc4854447ab5907b51da7d71e6a70d185",
+      "source": "review-guard-batch.json",
+      "source_id": "F5",
+      "summary": "the header's list of what is blocked still says a path held in a shell variable is not seen",
       "verdict": "MET"
     },
     {
-      "id": "Q1",
+      "details": [
+        "Question for the owner. What it is about: the guard that keeps the main copy clean reads Bash commands. A path like `$S/briefs` holds a variable; the guard can either look up S's value when the same command sets it (`S=/private/tmp/x; mkdir -p $S/briefs` -> allowed, it is outside the main copy) or read `$S` as a folder name under the current folder (refused when you are in the main copy). Three reviews on 21 Oct found 20, then 4, then 2 holes in the look-up version; you then chose to drop it (\"1. a\"). Since then agents get refused on `mkdir -p $S/...` and `$TMPDIR/...` and work around it by writing the path out, which is the queue item this change closes. This change brings the look-up back with stricter rules (set once, not after && or ||, not in a pipe) and found no new hole of the old kinds in my probes, apart from F1 (unknown values skipped, a regression) and F2 (names repeated in a message).",
+        "Live example: `S=/private/tmp/.../scratchpad; mkdir -p $S/briefs` from the main copy: refused today, allowed with this change.",
+        "Options: a) keep the look-up, with F1 and F2 fixed (recommended: no known hole after F1, the false refusals that started the item are gone); b) keep the 21 Oct choice: revert the guard part, agents quote or write paths out."
+      ],
+      "evidence": [
+        "handover.md:295 \"Guard: variable-following dropped (\"1. a\")\"; a2b5753; transcript 0b953f5c 2026-10-21T18:09 \"a) Drop it and restore the old guard's behaviour\"; 2026-10-22T00:16 \"That's the behaviour you chose (\"1. a\", don't follow shell variables)\""
+      ],
+      "failing_case": [
+        "21 Oct the owner chose \"1. a\": drop the guard's variable-following, restore the old verdicts, \"Agents are told to write literal paths\". 22 Oct the front wrote to the owner that refusing `mkdir -p $TMPDIR/...` \"is the behaviour you chose ('1. a')\" and queued agent text telling agents to quote. This change follows variables again (the brief calls it the front's design) and rewrites the golden test that was built to prove they are not followed."
+      ],
+      "fix_hint": [
+        "Ask the owner before the merge; record the answer with relay check owner."
+      ],
+      "id": "F6",
+      "kind": "question",
+      "line": 486,
+      "owner": [
+        {
+          "date": "2026-10-23",
+          "words": [
+            "a: \"Follow variables with the strict rules, after the fixes above.\" (follow a variable only when set once, plainly, earlier in the same command; unknown variables read literally again; reverses the 21 Oct \"1. a\")"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. The owner's word on the direction is recorded (relay check owner) before the merge: either (a) keep following values set once in the same command, with F1 and F2 fixed, or (b) keep \"1. a\" and close the queue item by telling agents to quote or write literal paths."
+      ],
+      "path": "plugins/core/lib/kit_guard.py",
+      "rank": "medium",
       "reason": [
         "Owner answered a (follow variables with strict rules after the fixes); the fixes are in."
       ],
+      "severity": "MEDIUM",
+      "since": "d925caedc4854447ab5907b51da7d71e6a70d185",
+      "source": "review-guard-batch.json",
+      "source_id": "Q1",
+      "summary": "following shell variables at all reverses the owner's 21 Oct '1. a' (drop variable-following); the owner has not said so for this design",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/guard-batch/.relay/checks/b67e710c7851de4c91cd8fb51fbc2e0440cd5b63.gate.log",
+  "gate": "b67e710c7851de4c91cd8fb51fbc2e0440cd5b63.gate.log",
   "head": "45664e74600ce22d3147afe336ae4eefe9c300c9",
-  "new": [],
+  "item": null,
   "notes": [
     "Gate was QUICK mode (paid steps skipped); the fixer's own tune-* run was 9/9 pass. All 9 tune cases are runs: 3 (project rule), about 2.85 USD per full gate. No new problems seen."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "d925caedc4854447ab5907b51da7d71e6a70d185.review.json"
-  ],
-  "reviewed": "d925caedc4854447ab5907b51da7d71e6a70d185",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range d925caedc4854447ab5907b51da7d71e6a70d185..HEAD. Ran guard-main.test.sh, guard-diff.test.sh, graders.test.sh: all pass. Gate log head b67e710, exit 0, only the gate commit follows. Probed kit_guard.py: rm -rf $PWD/src and touch $F give write rows in main; quoted \"$F\" allowed; S=/private/tmp/x; mkdir -p $S/b resolves outside main; cd .worktrees/$N && git commit refused; G=<wt>; git -C $G commit -m \"G fix\" judged in the worktree. Changed files are only guard, its tests, golden and tune evals. Did not re-run paid evals or the disabled-fix runs (fixer reports them)."
   ],

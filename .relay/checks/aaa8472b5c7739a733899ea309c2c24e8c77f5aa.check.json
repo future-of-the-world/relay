@@ -1,26 +1,38 @@
 {
+  "branch": "wt/eval-cost",
   "findings": [
     {
+      "details": [
+        "A cost ceiling that overshoots spends the owner's money past the number they set."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`--max-cost-usd 4` at `-j 4` ran to $6.32 (Sonnet measure, 22 Oct); the README's $10 ceiling can reach about $13; should stop within one batch of the ceiling (handover \"ceiling overshoot\", \"eval cost ceiling not firm at -j 4\", check-readme-cost \"$10 ceiling worst case ~$13\")"
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 68,
+      "pass_cases": [],
+      "path": "bin/ci",
+      "rank": "high",
       "reason": [
         "tests/test_paid_cost_limits.py:28 (cap 4, -j 4, largest run 0.80 gives ceiling 1.6), :32 falls back to -j 1; CiWiring test checks bin/ci uses it. Fails without the fix."
       ],
+      "severity": "HIGH",
+      "since": "72605b7d57cead5703bcc4ad1bb0ba55c7460bbd",
+      "source": "queue",
+      "summary": "A run goes past its money limit when run in parallel",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/eval-cost/.relay/checks/a96dcbbfc521d53fbbba9620655f11bb314bd74f.gate.log",
+  "gate": "a96dcbbfc521d53fbbba9620655f11bb314bd74f.gate.log",
   "head": "aaa8472b5c7739a733899ea309c2c24e8c77f5aa",
-  "new": [],
+  "item": "eval-cost-ceiling-overshoots",
   "notes": [
     "Default EVALS_JOBS=1 so default runs have no overshoot; ceiling = cap - (jobs-1) x largest run keeps the batch within one run of the cap."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "72605b7d57cead5703bcc4ad1bb0ba55c7460bbd.review.json"
-  ],
-  "reviewed": "72605b7d57cead5703bcc4ad1bb0ba55c7460bbd",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range 72605b7..HEAD; files bin/ci, bin/paid-cost, judge-measure README, tests. Gate log is for a96dcbb, HEAD adds only the gate commit (relay changed lists nothing). Ran tests/test_paid_cost_limits.py: 13 passed. At 72605b7 with the test file copied in: 13 failed."
   ],

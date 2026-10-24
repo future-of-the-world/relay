@@ -1,54 +1,227 @@
 {
+  "branch": "wt/runner-turns",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by reading: rules/front.md:13-14 and rules/delegation.md:24-25 are unchanged on the branch and are the text of",
+        "the global CLAUDE.md. The global file says skills override it, so a session that loaded the front skill would follow the",
+        "skill; but the front skill's load at session start is advice, not a hook, and the open queue item",
+        "the-flow-s-skills-give-a-session-opposite-orders is about exactly this kind of disagreement; the change adds one more.",
+        "Note: rules/ is a design-review trigger in the delegate skill's table; the fix is two sentences that restate the decision",
+        "already taken, so the owner may waive it. Size: 15."
+      ],
+      "evidence": [
+        "git grep -n -E 'waited on in calls|a test run go to a runner' -> rules/delegation.md:25: longer job runs detached with a log,",
+        "waited on in calls of at most 240 s. ; rules/front.md:14: issue, a test run go to a runner that replies in 3 lines.",
+        "git diff --stat master...HEAD -> no file under rules/."
+      ],
+      "failing_case": [
+        "A relay front session after a change that edited skill texts. Its ~/.claude/CLAUDE.md (written by relay sync from rules/)",
+        "says \"a test run go to a runner that replies in 3 lines\" (rules/front.md:13-14) and \"a longer job runs detached with a log,",
+        "waited on in calls of at most 240 s\" (rules/delegation.md:24-25). The front skill now says the full paid bin/ci is \"never a",
+        "runner\", \"no `&`, no polling\". A front that follows the rules (the front skill's load is not enforced) gives the 40-52 min",
+        "paid run to a runner again, and the runner runs out of turns mid-wait: the failure this change fixes, a 5th time.",
+        "Expected: the rule texts say the same as the skill for a job longer than about 30 minutes."
+      ],
+      "fix_hint": [
+        "Add the exception to the two rule bullets (one clause each), extend the new test to assert them, run relay sync."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 13,
+      "pass_cases": [
+        "1. rules/front.md, the \"Large results stay out of the session\" bullet, names the exception: a job over about 30 minutes",
+        "   (the full paid bin/ci) the front starts itself with Bash run_in_background into a scratchpad log and reads only its end.",
+        "2. rules/delegation.md, the \"No command blocks over 4 minutes\" bullet: the 240 s polling applies to agents; a job longer",
+        "   than an agent's turns cover is started by the front in the background, not polled.",
+        "3. After `relay sync`, ~/.claude/CLAUDE.md carries both lines (relay sync writes the rules there).",
+        "4. The new test in tests/test_relay.py keeps passing; a test asserts the rule lines as it asserts the skill lines."
+      ],
+      "path": "rules/front.md",
+      "rank": "medium",
       "reason": [
         "rules/front.md and rules/delegation.md carry the exception; tests in tests/test_relay.py (Roles long-job test, TestTasteRule rendered-global test) pass."
       ],
+      "severity": "MEDIUM",
+      "since": "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0",
+      "source": "review-runner-turns.json",
+      "source_id": "F1",
+      "summary": "the rules every session loads still send a test run to a runner and the wait to 240 s polling, opposite to the new front skill",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED: bin/ci prints one line per step and eval-record's report(); report() builds the head from fails, splits and",
+        "unjudged only (bin/eval-record:101-103); the plugin-evals step log of the last full run is 3 lines with no cost; the stored",
+        "record has costUsd 9.309. Before this change the instruction \"report its cost\" did not limit what was read; the new",
+        "\"read only the log's last lines\" makes it unreachable. It recurs on every change that edits skill or rule texts.",
+        "Size: 15."
+      ],
+      "evidence": [
+        "grep -n -i -E 'cost|usd|\\$' .worktrees/native-language/.ci/steps/plugin-evals.log -> nothing (3 lines)",
+        "python3: ~/.relay/evals/relay/2026-10-23T16-45-14Z-wt-native-language.json -> {'costUsd': 9.309134910000003}",
+        "bin/eval-record:101 head = f\"ci: eval record: {...} meaning grader(s) failed, {splits} split vote...\""
+      ],
+      "failing_case": [
+        "Front runs the full paid bin/ci in the background as the skill now says, is notified, reads the log's last lines:",
+        "\"ci: plugin evals ok (2837s)\", \"ci: eval record: 0 meaning grader(s) failed, 0 split votes\", \"ci: green\". The same",
+        "paragraph orders \"report its cost on the screen\": the cost ($9.31 for the native-language run) is only in",
+        ".ci/evals.json / ~/.relay/evals/relay/<stamp>.json (costUsd), never printed. The front either breaks \"read only the last",
+        "lines\" (opens a JSON) or leaves the cost off the merge screen.",
+        "Expected: the log's last lines carry the cost, e.g. \"ci: eval record: $9.31, 0 meaning grader(s) failed, 0 split votes\"."
+      ],
+      "fix_hint": [
+        "Add the cost to report()'s head line when data has costUsd (formatted $x.xx); test it beside the existing report tests."
+      ],
       "id": "F2",
+      "kind": "inside",
+      "line": 101,
+      "pass_cases": [
+        "1. bin/eval-record on a record with costUsd 9.309 prints a head line holding \"$9.31\".",
+        "2. A record without costUsd (a partial run) prints the head line without a cost and does not fail.",
+        "3. The existing grader-tests cases on the head line (fails, splits, not judged) keep their text otherwise.",
+        "4. The front skill's sentence names where the cost is read (the eval record line), so \"read only the last lines\" and",
+        "   \"report its cost\" can both be kept."
+      ],
+      "path": "bin/eval-record",
+      "rank": "medium",
       "reason": [
         "bin/eval-record report() adds \", cost $x.xx\" only for a numeric costUsd; tests/test_eval_record.py test_the_summary_line_ends_with_the_run_cost passes."
       ],
+      "severity": "MEDIUM",
+      "since": "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0",
+      "source": "review-runner-turns.json",
+      "source_id": "F2",
+      "summary": "the front is told to read only the paid run's last lines and to report its cost, but no line of bin/ci's output holds the cost",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED: rules/queue.md says \"relay queue take to start one in a worktree, relay queue done to close one with its test\";",
+        "lib/relay_queue.py:700 take() writes the review JSON with Q1 for a fix item; done() (line 770) refuses unless state is",
+        "taken by the branch. The item's expected outcome (\"should finish and report within its turns\") was met by moving the job",
+        "off the runner, a front decision recorded in the handover; Q1's checker should judge that. Rule: rules/queue.md.",
+        "Waste that repeats (taste): an open fix at the top of the queue is picked again by the next session. Size: 5."
+      ],
+      "evidence": [
+        "relay queue show runner-turns-while-waiting -> fix, ip 99, 15m, open",
+        "git show master:.relay/queue/runner-turns-while-waiting.json -> \"state\": \"open\", \"taken_by\": \"\""
+      ],
+      "failing_case": [
+        "master and the branch: .relay/queue/runner-turns-while-waiting.json has \"state\": \"open\", \"taken_by\": \"\". The handover",
+        "names this change as the fix of that item, but `relay queue take` was never run, so no finding Q1 exists for the checker",
+        "(the \"From queue item\" rule that the failing-case test must fail without the fix never applies) and `relay queue done`",
+        "cannot run (it refuses an item not taken by the branch). After the merge `relay queue` still lists it first (fix, ip 99),",
+        "and the next session picks it up again.",
+        "Expected: the item is taken by wt/runner-turns, checked as Q1, and closed with its test before the merge."
+      ],
+      "fix_hint": [
+        "Run relay queue take now (it writes Q1 beside this review), have the checker check Q1 with the review, then relay queue done."
+      ],
       "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. `relay queue take runner-turns-while-waiting -C <wt> --findings <review.json>` lands \"taken\" by wt/runner-turns.",
+        "2. The checker's verdict lists Q1 MET at tests/test_relay.py (the new test), and that test fails at the reviewed base",
+        "   without the skill lines.",
+        "3. `relay queue done runner-turns-while-waiting -C <wt> --test tests/test_relay.py::test_a_job_longer_than_a_runner_s_turns_runs_in_the_front_s_background --check <check.json>`",
+        "   sets state done, closed_by wt/runner-turns.",
+        "4. After the merge `relay queue` no longer lists the item as open."
+      ],
+      "path": ".relay/queue/runner-turns-while-waiting.json",
+      "rank": "medium",
       "reason": [
         "Item taken and closed by relay queue done (c3f9d21); its check check-queue-runner-turns.json has Q1 MET, failing on base."
       ],
+      "severity": "MEDIUM",
+      "since": "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0",
+      "source": "review-runner-turns.json",
+      "source_id": "F3",
+      "summary": "rules/queue.md: the branch fixes queue item runner-turns-while-waiting without taking it, so its failing case is never checked and it stays open at ip 99 after the merge",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED from the native-language worktree's .ci/ci.log step lines. Harmless today (the advice is the same), but a front",
+        "that expects 47 minutes may think a 52-minute run is stuck. Size: 5."
+      ],
+      "evidence": [
+        "grep 'ci: .*ok (' .worktrees/native-language/.ci/ci.log -> plugin evals ok (2197s) / (2300s) / (2837s); library tests",
+        "ok (127-140s); hook tests ok (134-135s)"
+      ],
+      "failing_case": [
+        "The last three full runs: plugin evals alone 2197 s, 2300 s and 2837 s, plus library tests ~128 s, hook tests ~135 s and",
+        "~10 s of small steps: about 41, 43 and 52 minutes. The skill says \"38-47 minutes\". Expected: the range the runs show",
+        "(about 40-55 minutes), or no range (only \"longer than a runner's turns cover\")."
+      ],
+      "fix_hint": [
+        "Write \"about 40-55 minutes\" or drop the range."
+      ],
       "id": "F4",
+      "kind": "inside",
+      "line": 93,
+      "pass_cases": [
+        "1. The front skill's figure covers 52 minutes (the native-language run, 2837 s of evals).",
+        "2. The test still finds \"full paid `bin/ci`\", \"never a runner\" and \"`run_in_background`\"."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "low",
       "reason": [
         "front SKILL.md no longer gives the 38-47 minute range; run_in_background and never a runner remain."
       ],
+      "severity": "LOW",
+      "since": "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0",
+      "source": "review-runner-turns.json",
+      "source_id": "F4",
+      "summary": "the paid bin/ci is said to take 38-47 minutes; the last full runs took about 43-52",
       "verdict": "MET"
     },
     {
+      "details": [
+        "PLAUSIBLE: depends on whether the front reads the delegate skill before routing (it is told to, not forced). Cheap to add",
+        "beside the change. Size: 5."
+      ],
+      "evidence": [
+        "sed -n 1,8p plugins/delegate/agents/runner.md -> description: Runs one command, test, pipeline read ... running a test",
+        "suite, a build, a deploy script ...; maxTurns: 12"
+      ],
+      "failing_case": [
+        "runner.md description: \"Use for ... running a test suite, a build, a deploy script, or any call whose output is long\", with",
+        "maxTurns 12 and a limits part that says to wait until the job finishes. A front that picks the agent by its description",
+        "(the delegate skill's note is not in the agent's text) hands it the 50-minute paid bin/ci; the runner ends mid-wait.",
+        "Expected: the description says a job over about 30 minutes is not a runner's."
+      ],
+      "fix_hint": [
+        "Append to the description: \"Not for a job over about 30 minutes (the front runs it in the background).\""
+      ],
       "id": "F5",
+      "kind": "inside",
+      "line": 3,
+      "pass_cases": [
+        "1. runner.md's description or base names the bound: a job longer than about 30 minutes is the front's, in the background.",
+        "2. relay sync agents leaves the description intact (the description is outside the relay:base region)."
+      ],
+      "path": "plugins/delegate/agents/runner.md",
+      "rank": "low",
       "reason": [
         "plugins/delegate/agents/runner.md description now bounds the job to about 30 minutes."
       ],
+      "severity": "LOW",
+      "since": "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0",
+      "source": "review-runner-turns.json",
+      "source_id": "F5",
+      "summary": "the runner's own description still invites any test suite or build, with no bound, so a front routing by description gives it the paid run",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/runner-turns/.relay/checks/a23671a1eaf4b88c7437be8a6ca20bb41e202127.gate.log",
+  "gate": "a23671a1eaf4b88c7437be8a6ca20bb41e202127.gate.log",
   "head": "79be601038ea00803c94afc1212cf69561b5e82b",
-  "new": [],
+  "item": null,
   "notes": [
     "Minor wording: the front skill now says \"the ~40 minutes a runner's turns cover\" while the rules and runner.md say about 30 minutes; harmless, not a finding."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0.review.json"
-  ],
-  "reviewed": "fdcf2bb2c097bb1e62af5a3774b83a64bb829fe0",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range fdcf2bb..HEAD; relay changed --own lists bin/eval-record, runner.md, front SKILL.md, rules/delegation.md, rules/front.md, tests/test_eval_record.py, tests/test_relay.py (all named by findings or their tests). Gate log head a23671a (HEAD is that plus the inert gate log), exit 0. Ran the cost and long-job tests: 6 passed. Read the fix diff."
   ],

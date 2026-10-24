@@ -1,0 +1,279 @@
+{
+  "branch": "wt/installer",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading install_one(): the order is uv_tool, brew, apt, installer_url, manual; deps.toml entries for",
+        "python3/git/jq carry only brew/apt; claude carries only manual. The brief records the owner's change as overriding the",
+        "front's earlier \"Homebrew on macOS if present\" decision, and the change implemented the overridden one. Breaks an owner",
+        "decision: HIGH. The fix stays inside the design (new route fields in deps.toml, the installer and doctor read them).",
+        "Size: 45 agent minutes (new fields and schema, release URLs and sums for jq per platform, install_one order, hint order,",
+        "README line, tests)."
+      ],
+      "evidence": [
+        "install.sh:72-89: uv_tool branch, then `brew install \"$brew\"` (74), then `sudo apt-get install -y` (77), then installer_url.",
+        "deps.toml python3: brew = \"python@3.11\", apt = \"python3\"; jq: brew/apt only; claude: manual only.",
+        "lib/relay_setup.py:495 install_hint: uv_tool, brew (darwin), apt (linux), manual.",
+        "README.md: \"installs it (Homebrew or apt-get, uv's pinned installer with its checksum)\"."
+      ],
+      "failing_case": [
+        "macOS with Homebrew, jq and git missing, python3 3.9.6: install.sh --dry-run prints \"would run: brew install jq\",",
+        "\"would run: brew install git\", \"would run: brew install python@3.11\". The owner's decision (24 Oct, verbatim in the brief:",
+        "\"\u042f \u0441\u0442\u0430\u0432\u043b\u044e \u043e\u0444\u0438\u0446\u0438\u0430\u043b\u044c\u043d\u044b\u0435 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u0449\u0438\u043a\u0438 \u0432\u043f\u0435\u0440\u0435\u0434 homebrew\") wants: jq from its official release binary (pinned, sha256 checked),",
+        "git through `xcode-select --install` on macOS (system package manager on Linux), Python 3.11+ through `uv python install`,",
+        "Claude Code by its official installer, and the dry run saying which way each tool goes. None of these routes exist:",
+        "deps.toml has no field for them, install_one() has no branch for them, claude is \"by hand\" only, and the doctor FIX",
+        "lines (install_hint) and README (\"Homebrew or apt-get, uv's pinned installer\") repeat the Homebrew-first order."
+      ],
+      "fix_hint": [
+        "Add route fields to deps.toml (e.g. uv_python = \"3.11\", xcode_select = true, release_url_<os>_<arch> + release_sha256_...,",
+        "installer_url for claude) and reorder install_one() and install_hint() to: official route, then brew/apt as fallback.",
+        "Print the chosen route in --dry-run (\"via official release\", \"via uv python install\", \"via xcode-select\")."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 74,
+      "pass_cases": [
+        "1. Darwin, brew present, jq missing: --dry-run names the official jq release binary for the platform with its pinned",
+        "   version and sha256 (no \"brew install jq\" line).",
+        "2. Darwin, git missing: --dry-run says it would run `xcode-select --install`; Linux with apt-get: it names the apt-get",
+        "   step and says it uses sudo.",
+        "3. python3 3.9.6, uv present: --dry-run says it would run `uv python install 3.11` (or the pinned spec in deps.toml).",
+        "4. claude missing: --dry-run names the official Claude Code installer (pinned/checksummed if the installer allows it),",
+        "   not only \"by hand\".",
+        "5. A tool with only a brew entry on Darwin with brew still goes through brew (the fallback keeps working);",
+        "   relay doctor's FIX line for each tool names the same route the installer would take."
+      ],
+      "path": "install.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_installer_doctor.py Routes::test_macos_with_homebrew_goes_official_first, test_doctor_names_the_same_route: failed at base, pass at head."
+      ],
+      "severity": "HIGH",
+      "since": "21810d1d38794fa84287e2e492669e8ec394363c",
+      "source": "review-installer.json",
+      "source_id": "F1",
+      "summary": "install.sh tries Homebrew (then apt-get) first, against the owner's decision that official installers come first and Homebrew is only the fallback",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: brew info python@3.11 shows the unversioned python3 symlink lives in libexec/bin only; running bin/relay",
+        "doctor under /usr/bin/python3 (3.9.6) on this machine fails with ModuleNotFoundError: tomllib. The brief names this exact",
+        "machine (\"a fresh Mac has python3 3.9 only\") as the reason for the installer, so it fails on ordinary use: HIGH.",
+        "The owner's route (`uv python install`) has the same trap: it installs python3.11 into ~/.local/bin, not python3",
+        "(unless --default, a preview flag), so F1's fix alone does not close this. Size: 20 agent minutes."
+      ],
+      "evidence": [
+        "$ HOMEBREW_NO_AUTO_UPDATE=1 brew info python@3.11",
+        "  Python is installed as /opt/homebrew/bin/python3.11 ... `python3` ... are installed into /opt/homebrew/opt/python@3.11/libexec/bin",
+        "$ PATH=/usr/bin:/bin /usr/bin/python3 bin/relay doctor",
+        "  ModuleNotFoundError: No module named 'tomllib'",
+        "$ PATH=<fake git>:/usr/bin:/bin sh install.sh --dry-run",
+        "  install  python3 (found 3.9.6, needs 3.11+)"
+      ],
+      "failing_case": [
+        "Fresh Mac: /usr/bin/python3 is 3.9.6, Homebrew present. install.sh runs `brew install python@3.11`; Homebrew links only",
+        "/opt/homebrew/bin/python3.11 (python3 goes to /opt/homebrew/opt/python@3.11/libexec/bin, not on PATH). `python3` still",
+        "resolves to 3.9.6, then `exec bin/relay doctor` (shebang `/usr/bin/env python3`) dies with",
+        "\"ModuleNotFoundError: No module named 'tomllib'\" and the user sees a traceback instead of the doctor's report. On Linux",
+        "`apt-get install python3` gives the distro's python (3.9 on Debian 11, 3.10 on Ubuntu 22.04), the same end.",
+        "Expected: after install.sh, the doctor runs under a 3.11+ python and the output says how `python3` reaches 3.11+",
+        "(or that it does not yet, with the one line to fix it)."
+      ],
+      "fix_hint": [
+        "After the loop, find a 3.11+ interpreter (python3, then python3.11+ names, then `uv python find 3.11`) and run",
+        "\"$py\" \"$relay_dir/bin/relay\" doctor; if none, say so and exit 1. Print how to get python3 itself to 3.11+."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 127,
+      "pass_cases": [
+        "1. Fake PATH where python3 prints \"Python 3.9.6\" and a python3.11 (or `uv python find 3.11` result) exists: the final",
+        "   doctor step runs with the 3.11+ interpreter, not the 3.9 python3, and exits with doctor's own output (no traceback).",
+        "2. Same, with no 3.11+ python anywhere after the install step: install.sh prints a clear line (\"python3 is still 3.9.6;",
+        "   relay needs 3.11+: <what to do>\") and exits non-zero without running bin/relay.",
+        "3. python3 already 3.12: the doctor runs as today via bin/relay.",
+        "4. --dry-run with python3 3.9.6 still exits 0 and says which python the doctor would run under."
+      ],
+      "path": "install.sh",
+      "rank": "high",
+      "reason": [
+        "PythonStep tests (4): all failed at base, pass at head."
+      ],
+      "severity": "HIGH",
+      "since": "21810d1d38794fa84287e2e492669e8ec394363c",
+      "source": "review-installer.json",
+      "source_id": "F2",
+      "summary": "the python step never puts a python3 3.11+ on PATH, so on the brief's fresh Mac the final relay doctor crashes on tomllib under python 3.9",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading bin/ci hook_tests: it FAILS the step when git, jq, python3, bun or node is missing. deps.toml covers",
+        "git, jq, python3 only. Reachable by anyone setting up a machine to run the gate: MEDIUM. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "bin/ci:30: for t in \"git:install git\" \"jq:brew install jq\" \"python3:install python3\" \"bun:curl -fsSL https://bun.sh/install | bash ...\" \"node:brew install node\"",
+        "deps.toml: [[dep]] names python3, git, jq, uv, ruff, mypy, pytest, claude (no bun, no node)"
+      ],
+      "failing_case": [
+        "Machine with everything in deps.toml at the right version but no bun: install.sh says \"ok\" for every line and relay",
+        "doctor shows no FIX, then `bin/ci --quick` fails \"FAIL hook tests need bun on PATH: curl -fsSL https://bun.sh/install\".",
+        "Same for node. The queue item promises the installer sets up \"what relay and its gate need\"."
+      ],
+      "fix_hint": [
+        "Add bun and node entries to deps.toml (and to GOOD in the test) with their install routes."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. load_deps() lists bun and node, each with a minimum or \"on PATH\" check and an install route (official installer",
+        "   pinned with checksum where one exists).",
+        "2. Fake PATH without bun: dep_checks() has a failing \"bun ...\" entry whose detail names the install command.",
+        "3. Fake PATH with every tool including bun and node: dep_checks() has no failing entry; install.sh --dry-run prints no",
+        "   install line."
+      ],
+      "path": "deps.toml",
+      "rank": "medium",
+      "reason": [
+        "BrokenAndMissing::test_bun_and_node_are_checked_and_name_their_install_command failed at base, passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "21810d1d38794fa84287e2e492669e8ec394363c",
+      "source": "review-installer.json",
+      "source_id": "F3",
+      "summary": "bun and node, which the gate's hook tests require, are not in deps.toml: installer and doctor report all ok and bin/ci still fails",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: reproduced with a fake git (exit 1, message on stderr) on a temp PATH: install.sh \"ok       git \" and",
+        "dep_checks ('git on PATH', True, ''). The doctor code has the version in hand (dep_version runs the tool) but ignores it",
+        "when there is no min; install.sh likewise. This is the fresh-Mac case the change is for, so reachable: MEDIUM.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "$ PATH=<fk/bin with fake git>:/usr/bin:/bin /opt/homebrew/bin/python3 -c '...dep_checks()...'",
+        "  ('git on PATH', True, '')",
+        "$ PATH=<same> sh install.sh --dry-run",
+        "  ok       git"
+      ],
+      "failing_case": [
+        "Fresh Mac without the Xcode command line tools: /usr/bin/git exists but only prints \"xcode-select: note: No developer",
+        "tools were found\" and exits 1. A fake git doing exactly that on a temp PATH: install.sh --dry-run prints \"ok       git \"",
+        "(empty version) and dep_checks() returns (\"git on PATH\", True, \"\"). Expected: git is reported missing/not working and",
+        "the route to install it is named. Same for jq or claude if broken."
+      ],
+      "fix_hint": [
+        "For entries without min, require a readable version (doctor: found is not None; install.sh: [ -n \"$found\" ]),",
+        "else state \"not working\"."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 524,
+      "pass_cases": [
+        "1. Fake git that exits 1 and prints no version: dep_checks() gives (\"git on PATH\", False, \"...not working...; <install",
+        "   command>\") and install.sh --dry-run prints \"install  git (...)\".",
+        "2. Fake git printing \"git version 2.44.0\": ok in both (as today).",
+        "3. Fake claude printing \"2.1.0 (Claude Code)\": ok in both (as today)."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "BrokenAndMissing::test_a_tool_that_is_there_but_prints_no_version_is_not_ok failed at base, passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "21810d1d38794fa84287e2e492669e8ec394363c",
+      "source": "review-installer.json",
+      "source_id": "F4",
+      "summary": "a tool with no minimum counts as ok when its file is on PATH even if it cannot run (the macOS /usr/bin/git stub without the developer tools)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (not run: no container here). Common on Linux servers and CI images; the installer then prints FAILED and",
+        "moves on. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "install.sh:75-78: say \"this step uses sudo\"; run sudo apt-get install -y \"$apt\" (no update, no root check)"
+      ],
+      "failing_case": [
+        "Fresh debian:12 container as root, no sudo, empty package lists: the git step prints \"running: sudo apt-get install -y",
+        "git\" and fails (\"sudo: not found\"; with sudo, \"Unable to locate package git\"). Expected: run apt-get directly as root,",
+        "and refresh the lists once before the first install."
+      ],
+      "fix_hint": [
+        "Use sudo only when id -u is not 0; run apt-get update once before the first apt-get install."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 77,
+      "pass_cases": [
+        "1. id -u is 0 and no sudo: the dry run shows \"apt-get update\" once then \"apt-get install -y git\" without sudo.",
+        "2. Non-root user with sudo: the dry run says the step uses sudo and shows \"sudo apt-get install -y git\" as today."
+      ],
+      "path": "install.sh",
+      "rank": "low",
+      "reason": [
+        "Routes::test_linux_apt_as_root_updates_once_without_sudo failed at base, passes; sudo-as-user control passes."
+      ],
+      "severity": "LOW",
+      "since": "21810d1d38794fa84287e2e492669e8ec394363c",
+      "source": "review-installer.json",
+      "source_id": "F5",
+      "summary": "apt-get install runs without apt-get update and always through sudo, so it fails on a fresh container or as root without sudo",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the tests: both InstallScript tests put a good uv on PATH, so the installer_url branch is never",
+        "reached. Correct today, fragile: LOW. Size: 15 agent minutes. Use a temp deps.toml via RELAY_HOME or a copy of the",
+        "script so nothing real is downloaded."
+      ],
+      "evidence": [
+        "tests/test_installer_doctor.py: GOOD includes uv; fakes() always writes it unless uv=None, and no test passes uv=None."
+      ],
+      "failing_case": [
+        "Replacing the checksum compare in install.sh with `true` (run any download) leaves every test green: no test drives",
+        "install_one through the installer_url branch. Expected: a test with a fake curl on PATH that writes a file whose sum",
+        "differs from deps.toml sees \"checksum mismatch ... not run\" and the downloaded script not run."
+      ],
+      "fix_hint": [
+        "Add two InstallScript tests with a fake curl and uv=None."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. Fake curl writing a script that touches a marker file; deps.toml sum differs: install.sh (real mode, uv missing)",
+        "   prints \"checksum mismatch\" and the marker does not exist.",
+        "2. Dry run with uv missing: prints \"would download <url>, check sha256 <sum>, run it\" and \"would run: uv tool install ...\"",
+        "   for the gate tools."
+      ],
+      "path": "tests/test_installer_doctor.py",
+      "rank": "low",
+      "reason": [
+        "Checksum-refusal and dry-run-without-uv tests pass at head; they pass at base too (they cover existing behaviour); fixer reports the checksum test fails with the compare disabled. LOW test-coverage finding."
+      ],
+      "severity": "LOW",
+      "since": "21810d1d38794fa84287e2e492669e8ec394363c",
+      "source": "review-installer.json",
+      "source_id": "F6",
+      "summary": "no test covers the checksum refusal, the installer_url dry-run line or the uv-missing path of install.sh",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "c4c1cd783332624926d3081806c872dc14a46439.gate.log",
+  "head": "a251eb63d93a6e551629c9ac020ea344a67909a9",
+  "item": null,
+  "notes": [
+    "Gap from fixer for the owner: claude and bun installers run without a checksum (publisher gives no versioned asset); node on macOS has no official route (brew). Agreed, a reasonable limit that the dry run states."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 21810d1..HEAD; own files: README.md, deps.toml, install.sh, lib/relay_setup.py, tests/test_installer_doctor.py (all in scope). Gate log head c4c1cd7, exit 0; only the gate-log commit came after. Ran tests/test_installer_doctor.py at head: 29 passed. Ran the same file at 21810d1: 10 failed, 19 passed. Callers of load_deps/dep_checks/install_hint read; fine."
+  ],
+  "type": "check"
+}

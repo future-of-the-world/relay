@@ -1,0 +1,45 @@
+{
+  "branch": "wt/installer",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "deps.toml lists node (brew node / apt nodejs), install.sh installs it, relay doctor checks it, and bin/ci:30 refuses to start without node on PATH."
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 113,
+      "pass_cases": [
+        "install.sh --dry on macOS and on Linux has no node step",
+        "relay doctor lists no node",
+        "bin/ci --quick starts with no node on PATH",
+        "every hook test or script that ran node runs under bun, and the guard tests that only match the text \"node -e\" in a command stay",
+        "the gate passes"
+      ],
+      "path": "deps.toml",
+      "rank": "medium",
+      "reason": [
+        "tests/test_installer_doctor.py (dry runs have no node line, doctor has no node check, bun checked) and tests/test_ci_hook_tests.py; all pass and fail on the old commit; gate green."
+      ],
+      "severity": "MEDIUM",
+      "since": "d327e8dc4933c2035cb01d2e477c46aede39e88e",
+      "source": "owner-installer.json",
+      "source_id": "F1",
+      "summary": "Node is installed and required, though the owner wants bun and no Node",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "287aff5c087bc42b70c0f6accfaea0ac7f813ffd.gate.log",
+  "head": "fd2832aec70fefbf776fbacd5dad01fd46f048f1",
+  "item": null,
+  "notes": [
+    "Tests that failed without the fix include test_macos_with_homebrew_goes_official_first, test_linux_apt_as_root_updates_once_without_sudo, test_doctor_names_the_same_route, test_bun_is_checked_and_node_is_not, test_full_without_claude_fails_hooks_live."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range d327e8d..HEAD, own files: bin/ci, deps.toml, graders.test.sh, judge-measure/make.py, install.sh, three test files. Full pytest: 438 passed. Gate log starts head 287aff5, ends exit 0, no file changed since. install.sh --dry without node on PATH prints no node line; git grep finds no node dependency left (only a function name node_test in make.py and guard-text matches). bin/ci checks git, jq, python3, bun only. Changed tests run on the old commit: 11 failed, 42 passed."
+  ],
+  "type": "check"
+}

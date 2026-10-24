@@ -1,26 +1,40 @@
 {
+  "branch": "wt/archive-inert",
   "findings": [
     {
+      "details": [
+        "sdd:archive says archive in the change worktree before the merge and that an openspec/docs-only archive needs no new gate, but the merge hook counts openspec/ and docs changes as not inert, so the first merge is refused and costs an extra gate run and an extra checker run."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Trial: after the archive commit, git merge --ff-only wt/add-count-unique-words was refused: 'after the check of ..., wt/... changed openspec/specs/word-counting/spec.md, openspec/changes/add-count-unique-words/tasks.md and 6 more, which are not inert; check again'. Cost: 1 refused merge, 1 extra gate, 1 extra checker."
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A change archived per sdd:archive, with a green gate and a check mark from before the archive, merges on the first try (or the skill says exactly which re-runs are needed and they are enough); a code change after the mark is still refused."
+      ],
+      "path": "lib/relay_inert.py:14-18, plugins/core/hooks/merge.py:172, plugins/sdd/skills/archive/SKILL.md:20-25,73-75",
+      "rank": "high",
       "reason": [
         "tests/test_archive_inert.py::ArchiveAfterTheMark::test_an_archive_only_commit_after_the_mark_is_allowed passes, fails at base (Refused); code-after-mark still refused (test_the_same_commit_plus_a_code_line_is_refused)."
       ],
+      "severity": "HIGH",
+      "since": "b12b74967d2fc1199174845df8e6540b08090bfe",
+      "source": "queue",
+      "summary": "Following the OpenSpec flow in order gets the merge refused",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/archive-inert/.relay/checks/521704a985d8005dfc5afedd0624f469a40f2957.gate.log",
+  "gate": "521704a985d8005dfc5afedd0624f469a40f2957.gate.log",
   "head": "7f7d037f661fc00afa2d44f92b28f0cd240fa2cb",
-  "new": [],
+  "item": "following-the-openspec-flow-in-order-gets-the-me",
   "notes": [
     "Tests test_an_archive_only_commit_after_the_mark_is_allowed and test_a_failing_git_is_an_error_not_an_allowed_merge fail at the base commit; the other four are guards that pass both ways."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "b12b74967d2fc1199174845df8e6540b08090bfe.review.json"
-  ],
-  "reviewed": "b12b74967d2fc1199174845df8e6540b08090bfe",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range b12b749..HEAD; own files: lib/relay_inert.py, its plugin copy, merge.py, archive SKILL.md, tests/test_archive_inert.py. Ran the new test file (6 pass) and full tests (323 pass). Gate log head 521704a exit 0; relay changed since it lists nothing. Callers of changed() in merge.py pass archive=True; others default False."
   ],

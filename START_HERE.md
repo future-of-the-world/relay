@@ -19,6 +19,9 @@ this folder, `relay sync` writes `~/.claude/CLAUDE.md` and each project's
 
 1. Put the folder at `~/relay` (`mv`, or `git clone`). Run
    `~/relay/bin/relay doctor` to see the machine's state.
+   Then `sh ~/relay/install.sh --dry-run` shows which tools are missing or too old
+   (the list is `deps.toml`, the same one `relay doctor` checks); `sh ~/relay/install.sh`
+   installs them and ends with `relay doctor`. Safe to run again.
 2. `~/relay/bin/relay install` — writes the global CLAUDE.md (the old one
    is kept as `CLAUDE.md.before-relay`), registers the marketplace and the
    four user-scope plugins in `~/.claude/settings.json`, removes the two

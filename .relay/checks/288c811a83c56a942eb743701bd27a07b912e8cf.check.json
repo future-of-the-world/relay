@@ -1,54 +1,204 @@
 {
+  "branch": "wt/structured-reword",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by reading. The reword added a test but kept the older, wider list beside it; \"state\" is the one example that",
+        "is not a repeated record, and the project uses that word for the handover (rules/front.md:6) and for the state-from-facts",
+        "queue item. \"logs\" is fine (gate-log lines are repeated). Size: 5 min."
+      ],
+      "evidence": [
+        "rules/structured-data.md:4  \"- The test: a value goes into a structured file when it is one of many records of the same shape\"",
+        "rules/structured-data.md:7  \"- What counts as read by a script: state, verdicts, items, logs, votes. Each is a structured\"",
+        "rules/front.md:6            \"up to date (state, decisions and who made them, the owner's latest\""
+      ],
+      "failing_case": [
+        "A reviewer carrying this rule meets docs/handover.md: it holds \"state, decisions ...\" (rules/front.md:6) and a later step",
+        "(the front after compaction) reads it. Line 7 says \"What counts as read by a script: state, verdicts, items, logs, votes.",
+        "Each is a structured file\" with no condition, so the reviewer flags the handover as prose-that-must-be-JSON. Line 4-6 (the",
+        "new test) says the opposite: a single record, not one of many of the same shape, stays prose. Two answers for one file;",
+        "the owner's words were \"store ONLY structured data that can be splitted into repeated domain data\"."
+      ],
+      "fix_hint": [
+        "Fold line 7 into the test: \"What counts: queue items, verdicts, ledger lines, log lines, votes: each a structured file, not",
+        "prose with labels.\" (drop \"state\"), or condition it (\"state kept as repeated records\")."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 7,
+      "pass_cases": [
+        "- The rule text gives one answer for docs/handover.md (one prose state record, read by a model): stays prose.",
+        "- It still gives \"structured file\" for queue items, verdicts, ledger lines, votes (repeated records a script reads).",
+        "- It still gives \"structured file\" for gate-log lines (gate-log-summary queue item), which are repeated records.",
+        "- The bullet listing what counts no longer names a kind of data that is not a repeated record (no bare \"state\")."
+      ],
+      "path": "rules/structured-data.md",
+      "rank": "medium",
       "reason": [
         "rules/structured-data.md:8 What counts line lists queue items, verdicts, log lines, votes; handover named as prose (line 6); asserted tests/test_queue.py:1092-1095."
       ],
+      "severity": "MEDIUM",
+      "since": "8b09ae2e9c10a26cbe6c2f9faec24f145e961e7c",
+      "source": "review-structured-reword.json",
+      "source_id": "F1",
+      "summary": "the 'what counts' bullet still makes all state structured, which the new repeated-records test says stays prose",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading; correct for a careful reader who also reads the body, unclear for one who sees only the gist. Size: 5 min."
+      ],
+      "evidence": [
+        "lib/relay_rules.py:40 takes lines[1] as \"gist\"; render_target lists title + gist for rules not loaded in full."
+      ],
+      "failing_case": [
+        "The gist is the only line most sessions see (relay sync puts it under \"Rules to read when they apply\" in ~/.claude/CLAUDE.md).",
+        "It reads \"... is stored as a structured file (JSON, TOML or YAML) with a schema check, and changed only through one script,",
+        "when it is one of many records of the same shape; ...\". Read as written, the condition qualifies the last clause: everything",
+        "a later step reads is stored structured, and only repeated records need one writer. That reverses the owner's decision."
+      ],
+      "fix_hint": [
+        "Move the condition forward: \"Information that a script, a hook or a later step reads, when it is one of many records of the",
+        "same shape, is stored as a structured file ... and changed only through one script; instructions and prose stay text.\""
+      ],
       "id": "F2",
+      "kind": "inside",
+      "line": 2,
+      "pass_cases": [
+        "- The gist, read alone, says the condition (one of many records of the same shape) decides whether data is stored structured.",
+        "- The gist still starts \"Information that a script, a hook or a later step reads is stored as a structured file\" or the test",
+        "  at tests/test_queue.py:1087 is updated with it.",
+        "- The gist still names instructions and prose as staying text."
+      ],
+      "path": "rules/structured-data.md",
+      "rank": "low",
       "reason": [
         "Gist line 2 puts the condition before \"is stored as a structured file\"; tests/test_queue.py:1087 asserts it."
       ],
+      "severity": "LOW",
+      "since": "8b09ae2e9c10a26cbe6c2f9faec24f145e961e7c",
+      "source": "review-structured-reword.json",
+      "source_id": "F2",
+      "summary": "in the gist, 'when it is one of many records' attaches to 'changed only through one script', not to 'is stored as a structured file'",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading; no code reads this word, so correct today, unclear. Size: 5 min."
+      ],
+      "evidence": [
+        "rules/structured-data.md:6 \"briefs, reports and hand-backs are text for people and models and stay prose.\""
+      ],
+      "failing_case": [
+        "Line 6 lists \"reports\" among texts that stay prose. In relay a review report is a JSON file of [[finding]] records written by",
+        "`relay check record review` (the judge base: \"Your output is one report, stored as a JSON file\"). A reader of the rule alone",
+        "can conclude review reports should be prose; the intended meaning is agent reports for people (scout, fixer reports)."
+      ],
+      "fix_hint": [
+        "\"agent reports\" or \"fixer and scout reports\" instead of \"reports\"."
+      ],
       "id": "F3",
+      "kind": "inside",
+      "line": 6,
+      "pass_cases": [
+        "- The rule names which reports stay prose (agent reports read by a person or a model) so review/check reports (repeated",
+        "  findings, verdicts) are plainly on the structured side.",
+        "- Hand-backs, briefs, rules, instructions still stay prose."
+      ],
+      "path": "rules/structured-data.md",
+      "rank": "low",
       "reason": [
         "Line 6 says \"agent reports\", and a verdict is one structured record; tests/test_queue.py:1096."
       ],
+      "severity": "LOW",
+      "since": "8b09ae2e9c10a26cbe6c2f9faec24f145e961e7c",
+      "source": "review-structured-reword.json",
+      "source_id": "F3",
+      "summary": "'reports ... stay prose' collides with review reports, which relay stores as JSON findings",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading the assertions. Correct today, fragile; cheap. Size: 5 min."
+      ],
+      "evidence": [
+        "tests/test_queue.py:1088 for phrase in (\"changed only through one script\", \"Extensions\", \"relay only\", \"never write\", \"No new label or regex search over markdown\")"
+      ],
+      "failing_case": [
+        "TestStructuredRule (\"... says the owner's words\") checks \"changed only through one script\", \"Extensions\", \"relay only\",",
+        "\"never write\", \"No new label or regex search over markdown\". A later edit that drops \"one of many records of the same shape\"",
+        "or puts \"hand-backs\" back in the structured list keeps the test green."
+      ],
+      "fix_hint": [
+        "Add \"one of many records of the same shape\" to the phrase list and assert \"hand-backs\" is not in the \"What counts\" line."
+      ],
       "id": "F4",
+      "kind": "inside",
+      "line": 1088,
+      "pass_cases": [
+        "- With the current text, the test passes.",
+        "- With \"one of many records of the same shape\" removed from gist and body, the test fails.",
+        "- With \"hand-backs\" added back to the \"What counts as read by a script\" line, the test fails."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "low",
       "reason": [
         "tests/test_queue.py:1088-1096 pins the phrase and excludes hand-backs/state from the What counts line."
       ],
+      "severity": "LOW",
+      "since": "8b09ae2e9c10a26cbe6c2f9faec24f145e961e7c",
+      "source": "review-structured-reword.json",
+      "source_id": "F4",
+      "summary": "the rule test pins the owner's earlier words but not the new repeated-records decision",
       "verdict": "MET"
     },
     {
+      "details": [
+        "Taste: waste that repeats on every text-only change, so MEDIUM per the project's taste rule; outside, since bin/ci is not",
+        "touched here. Whether a reduced gate is allowed is the owner's call under the quality-gate rule (full gate green before",
+        "done). PLAUSIBLE that rules are read only by relay_rules and their tests; needs a grep of rules/ readers. Size: 30 min."
+      ],
+      "evidence": [
+        ".relay/checks/5901fbd...gate.log: library tests ok (136s), hook tests ok (108s), inert ok (267s), exit 0",
+        "bin/ci:14-16 the inert step reruns the quick gate in a temporary worktree"
+      ],
+      "failing_case": [
+        "This change edits 5 lines of rules/structured-data.md. The gate log shows library tests 136 s, hook tests 108 s, inert 267 s",
+        "(the inert probe reruns the quick gate in a second worktree): 520 s, about 8.7 min. The tests that can see a rules/*.md edit",
+        "(relay_rules parsing, TestStructuredRule, the rule-title tests) run in seconds. Every rule or doc rewording pays the same."
+      ],
+      "fix_hint": [
+        "Queue item: in bin/ci, when the gated diff touches only rules/, docs/ and inert files, run the rule tests and skip the",
+        "library/hook suites and the inert probe; or ask the owner first."
+      ],
       "id": "F5",
+      "kind": "outside",
+      "line": 14,
+      "pass_cases": [
+        "- A change touching only rules/*.md runs the checks that read rules (rule parsing, rule tests, relay sync dry-run) and is green in under a minute.",
+        "- A change touching lib/, bin/, plugins/ or hooks still runs the full quick gate and the inert probe.",
+        "- A change touching rules/ plus code runs the full gate."
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
       "reason": [
         "bin/ci not touched; for a queue item (rules-only change pays the full gate)."
       ],
+      "severity": "MEDIUM",
+      "since": "8b09ae2e9c10a26cbe6c2f9faec24f145e961e7c",
+      "source": "review-structured-reword.json",
+      "source_id": "F5",
+      "summary": "a rules-text-only change pays the full quick gate twice (inert probe): 520 s for 5 lines of markdown",
       "verdict": "OUTSIDE"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/structured-reword/.relay/checks/a6e379d2e0b8e95c160014c62ff3871920e794e8.gate.log",
+  "gate": "a6e379d2e0b8e95c160014c62ff3871920e794e8.gate.log",
   "head": "288c811a83c56a942eb743701bd27a07b912e8cf",
-  "new": [],
+  "item": null,
   "notes": [
     "Fix diff read; no callers (rule text, one test). F5 is outside, left for a queue item."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "8b09ae2e9c10a26cbe6c2f9faec24f145e961e7c.review.json"
-  ],
-  "reviewed": "8b09ae2e9c10a26cbe6c2f9faec24f145e961e7c",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range 8b09ae2..288c811: own files rules/structured-data.md and tests/test_queue.py only. Ran python3 -m unittest tests.test_queue: 75 OK. Gate log head a6e379d, exit 0; relay changed since that sha lists no file."
   ],

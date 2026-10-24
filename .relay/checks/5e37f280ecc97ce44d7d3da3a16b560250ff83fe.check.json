@@ -1,0 +1,133 @@
+{
+  "branch": "wt/queue-close",
+  "findings": [
+    {
+      "details": [
+        "`relay queue done` needs a taken wt/ branch and a --test (written for fixes), and `relay queue drop` records the owner's words for work not done; a feature finished without a branch of relay's own (the OpenSpec trial run) has no way to leave the queue, so it stays at the top as if open."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Trial 2026-10-23: `trial-run-one-openspec-change-from-setup-to-merg` (feature, ip 99) finished (scratch project merged at 19c02df, 13 fix items queued from it), but no queue command closes it; it still heads `relay queue`."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "`relay queue done <feature> --evidence <sha or report>` moves it to done and off the list; a fix without --test is still refused."
+      ],
+      "path": "bin/relay (queue done, queue drop), lib/ queue module",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue_close.py:20,31,66,80 pass and all 5 fail at the item's since f1f0590."
+      ],
+      "severity": "HIGH",
+      "since": "f1f05904d3058aab56e4d890d38cb29d01a6766c",
+      "source": "queue",
+      "summary": "A finished feature cannot be closed in the queue",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch test: seed a feature with taken_fields(\"wt/py-types\"); close_with_evidence -> REFUSED \"taken by",
+        "wt/py-types; release it first\"; release then close_with_evidence -> state done, taken_at None, taken_by None, evidence abc1234.",
+        "The brief names these merged-branch features as the cases the front must close \"with its merge sha\"; today it can, but only by",
+        "recording a release that did not happen and dropping the dated take event (principle 3: state comes from dated events; the take",
+        "time and the branch are facts the done record should keep). The refusal of a taken item is right while its branch is live (that",
+        "branch's own `done` would then find no item); it is wrong once the branch is merged. relay_tidy._merged already tells merged",
+        "branches. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "$ pytest -q -s scratchpad/t/test_live.py",
+        "REFUSED: queue item 'job' is taken by wt/py-types; release it first",
+        "DONE: done None None abc1234",
+        "$ relay queue -C /Users/amidman/relay   ->  \"Python code gets type checks and a bug lint in the gate  taken by wt/py-types\"",
+        "$ git -C /Users/amidman/relay branch --list 'wt/py-*'   ->  (nothing)"
+      ],
+      "failing_case": [
+        "The brief's live cases: python-code-gets-type-checks-and-a-bug-lint-in-t is \"taken by wt/py-types\" on master and wt/py-types is",
+        "merged and deleted (git branch --list 'wt/py-*' prints nothing). `relay queue done <slug> --evidence <merge sha>` is refused:",
+        "\"queue item ... is taken by wt/py-types; release it first\". The only way is `relay queue release` then `done --evidence`: two",
+        "commits on master, and the done file ends with taken_at null and taken_by null, so the record says the feature was never taken",
+        "by the branch that built it. Should: close the taken feature with its merge sha in one step, keeping taken_at and taken_by."
+      ],
+      "fix_hint": [
+        "In close_with_evidence, refuse a taken item only while refs/heads/<taken_by> exists and is not an ancestor of the default branch",
+        "(the test relay_tidy._merged makes); otherwise close it keeping taken_at/taken_by. Add the merged-branch case to",
+        "tests/test_queue_close.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 791,
+      "pass_cases": [
+        "1. feature taken by wt/x, branch wt/x merged into master (or gone): close_with_evidence(main, slug, \"abc1234\") -> done/ file with",
+        "   closed_at, evidence \"abc1234\", taken_at and taken_by unchanged (\"wt/x\"), problems [] ; one queue commit on master.",
+        "2. feature taken by wt/x, branch wt/x exists and is not merged: refused, \"taken by wt/x\" (as today, test_queue_close.py test 2).",
+        "3. open feature (never taken): closes with evidence, taken_at null (as today, test 1).",
+        "4. fix item, taken or not: refused, \"is a fix\" (as today, test 3)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_close.py:45 covers merged, gone, live-unmerged and keeps taken_by; fails at 89058d2; fix is _branch_live in lib/relay_queue.py:780."
+      ],
+      "severity": "MEDIUM",
+      "since": "89058d250a8bbbd8aa63a6f0d2183677a32a3994",
+      "source": "review-queue-close.json",
+      "source_id": "F1",
+      "summary": "a feature taken by a branch that has since merged can only be closed after release, which erases taken_at and taken_by",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the change edits no doc; `relay queue -h` does show the new form, so the command is findable, hence LOW.",
+        "Editing rules/queue.md is a rule text: per the owner's merge rule it needs the paid run, which is the cost to weigh. Size: 5."
+      ],
+      "evidence": [
+        "rules/queue.md:18 \"`relay queue done` to close one with its test and the branch's check\"",
+        "rules/queue.md:21 \"`closed_at` and `test`, `dropped_at` and `dropped_why`\"",
+        "git diff --stat master...HEAD: no file under rules/ or docs/"
+      ],
+      "failing_case": [
+        "An agent reading rules/queue.md (loaded into every relay project) learns \"`relay queue done` to close one with its test and the",
+        "branch's check\" and that an item keeps \"closed_at and test\"; nothing says a finished feature closes with --evidence, so the front",
+        "keeps a finished feature open or drops it with invented owner words. docs/plans/review-gate.md (item shape, line ~742) still lists",
+        "\"closed_at without taken_at or a test\" as malformed. Should: name `done <feature> --evidence <merge sha or report>` and the",
+        "`evidence` field."
+      ],
+      "fix_hint": [
+        "One clause in rules/queue.md line 18 and \"closed_at and test or evidence\" on line 21; the same word in docs/plans/review-gate.md."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 18,
+      "pass_cases": [
+        "1. rules/queue.md names `relay queue done <slug> --evidence <merge sha or report path>` for a feature, and keeps --test for a fix.",
+        "2. rules/queue.md's event list reads \"closed_at and test or evidence\" (or equivalent).",
+        "3. docs/plans/review-gate.md item shape lists \"evidence\" beside \"test\"."
+      ],
+      "path": "rules/queue.md",
+      "rank": "low",
+      "reason": [
+        "rules/queue.md:18,21 and docs/plans/review-gate.md:734,743 name --evidence and evidence (read)."
+      ],
+      "severity": "LOW",
+      "since": "89058d250a8bbbd8aa63a6f0d2183677a32a3994",
+      "source": "review-queue-close.json",
+      "source_id": "F2",
+      "summary": "the queue rule still says an item closes only with its test and lists closed_at and test as the close events, not evidence",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "58161f706a1c07211c882b4f65b0b86941c55f3a.gate.log",
+  "head": "5e37f280ecc97ce44d7d3da3a16b560250ff83fe",
+  "item": "a-finished-feature-cannot-be-closed-in-the-queue",
+  "notes": [
+    "Gate was bin/ci --quick (paid steps skipped); rules/queue.md was edited, so the owner's merge rule needs the paid run."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 89058d2..HEAD; own changed files: the finding files, three lib copies, tests/test_queue_close.py, rules/queue.md, docs/plans/review-gate.md. Ran tests/test_queue_close.py (5 passed). Gate log head 58161f7, exit 0, relay changed lists no file after it. F1 test fails at 89058d2; all Q1 tests fail at f1f0590."
+  ],
+  "type": "check"
+}

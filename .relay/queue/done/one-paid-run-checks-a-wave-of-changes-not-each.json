@@ -1,0 +1,28 @@
+{
+  "kind": "feature",
+  "ip": 96,
+  "time": 60,
+  "found_at": "2026-10-24T09:23:13Z",
+  "found_in": "relay queue add",
+  "title": "One paid run checks a wave of changes, not each",
+  "what": [
+    "A change that edits agent, skill, role or rule texts merges on the free gate, review and check, without waiting for the paid run. The front runs one paid run on the default branch's head after a wave (when any change merged since the last green run on the default branch edited such texts); a red run becomes one fix item at the top of the queue naming the failing evals, fixed in one go for the whole batch; relay sync waits for a green run."
+  ],
+  "why": [
+    "Owner, verbatim: \"a / Нам не обязательно обновлять все проекты из этой директории, есть ли у нас релизы ? Сейчас это наш рабочий репозиторий, ни один проект сейчас нас не использует в полной мере, мы никого не ломаем / Нам не важно откуда пришли эти изменения, мы жертвуем этим во имя скорости разработки, зачастую мы можем это отследить по истории git если нам это так необходимо, к тому же исправление обычно занимают меньше времени, к тому же что если несколько изменений содержат ошибки, делать проверки после волны изменений позволяет править их скопом, один раз на пачку\". 24 Oct: 4 per-change paid runs, ~$35, each change waited ~45 min to merge."
+  ],
+  "failing_case": [
+    "Today the rule makes every text-editing change wait ~45 min and ~$9 for its own paid run before its merge (archive-inert, small-builds, checks-record, py-rule on 24 Oct)."
+  ],
+  "pass_cases": [
+    "The rules and skills say a text-editing change is ready without its own paid run; a command lists the changes merged on the default branch since its last green paid run that edited agent, skill, role or rule texts (empty right after a green run); the front skill says when the wave's run starts, that a red run is one fix item at the top, and that relay sync waits for green."
+  ],
+  "where": "rules/git.md (ready to merge), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md (step 9), bin/paid-cost",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": "2026-10-24T15:43:54Z",
+  "test": null,
+  "evidence": "e861e61",
+  "dropped_at": null,
+  "dropped_why": null
+}

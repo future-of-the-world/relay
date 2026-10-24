@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 20,
+  "found_at": "2026-10-23T01:17:28Z",
+  "found_in": "relay queue add",
+  "title": "A finished feature cannot be closed in the queue",
+  "what": [
+    "Let `relay queue done` close a feature with the evidence that fits it (a merge sha in relay or another repo, or a report path) instead of a --test; keep the --test requirement for fixes."
+  ],
+  "why": [
+    "`relay queue done` needs a taken wt/ branch and a --test (written for fixes), and `relay queue drop` records the owner's words for work not done; a feature finished without a branch of relay's own (the OpenSpec trial run) has no way to leave the queue, so it stays at the top as if open."
+  ],
+  "failing_case": [
+    "Trial 2026-10-23: `trial-run-one-openspec-change-from-setup-to-merg` (feature, ip 99) finished (scratch project merged at 19c02df, 13 fix items queued from it), but no queue command closes it; it still heads `relay queue`."
+  ],
+  "pass_cases": [
+    "`relay queue done <feature> --evidence <sha or report>` moves it to done and off the list; a fix without --test is still refused."
+  ],
+  "where": "bin/relay (queue done, queue drop), lib/ queue module",
+  "taken_at": "2026-10-24T13:42:21Z",
+  "taken_by": "wt/queue-close",
+  "closed_at": "2026-10-24T14:46:22Z",
+  "test": "tests/test_queue_close.py::TestCloseWithEvidence::test_q1_a_feature_closes_with_a_merge_sha_and_leaves_the_list",
+  "dropped_at": null,
+  "dropped_why": null
+}
