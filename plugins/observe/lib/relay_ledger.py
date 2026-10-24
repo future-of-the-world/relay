@@ -36,7 +36,7 @@ def day_file(when: dt.datetime | None = None) -> str:
 
 def append(event: Event) -> None:
     os.makedirs(ledger_dir(), exist_ok=True)
-    with open(day_file(), "a", encoding="utf-8") as handle:
+    with open(day_file(parse_ts(event.get("ts"))), "a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=False) + "\n")
 
 
@@ -256,24 +256,30 @@ def record_restart(session_id: str, folder: str, now: str) -> None:
     _update_index(change)
 
 
-def _recorded(session_id: str, index: Index) -> Models | None:
+def _window_start(now: str) -> dt.datetime:
+    """The start of the fallback window: 3 days before the moment capture was given, not before the machine's clock."""
+    moment = parse_ts(now)
+    if moment is None:
+        raise ValueError("capture needs an ISO time, got %r" % (now,))
+    return moment - dt.timedelta(days=3)
+
+
+def _recorded(session_id: str, index: Index, now: str) -> Models | None:
     """The total the ledger holds for a session, without reading the ledger: the small index file, else the
     last few days' lines when there is no usable index. An index that was read is trusted: a session not in it
     is not recorded (no ledger read, whose cost grows with how busy the last days were)."""
     if session_id in index["sessions"] or index["usable"]:
         recorded: Models | None = index["sessions"].get(session_id)
         return recorded
-    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=3)
-    return usage_sessions(since=since).get(session_id)
+    return usage_sessions(since=_window_start(now)).get(session_id)
 
 
-def _is_restarted(session_id: str, index: Index) -> bool:
+def _is_restarted(session_id: str, index: Index, now: str) -> bool:
     if session_id in index["restarted"]:
         return True
     if index["usable"]:
         return False
-    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=3)
-    return session_id in restarted_sessions(since=since)
+    return session_id in restarted_sessions(since=_window_start(now))
 
 
 def _shrank(old: Models, new: Models) -> bool:
@@ -307,9 +313,9 @@ def capture(now: str, folder: str | None = None, skip_session: str | None = None
         if index is None:
             index, usable = _load_index()
             index["usable"] = usable        # in memory only: _write_index is never given this copy
-        if _is_restarted(sid, index):
+        if _is_restarted(sid, index, now):
             continue
-        have = _recorded(sid, index)
+        have = _recorded(sid, index, now)
         if have == models:
             continue
         if have is not None and _shrank(have, models):
