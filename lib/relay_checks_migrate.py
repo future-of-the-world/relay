@@ -19,6 +19,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 
 import relay_marks
 import relay_verdict
@@ -246,21 +247,77 @@ def _git(repo, *args):
     return done.stdout
 
 
-def migrate_and_commit(repo):
+REDO_MESSAGE = "relay: redo migrate checks"
+
+
+def _git_bytes(repo, *args):
+    try:
+        done = subprocess.run(["git", "-C", repo, *args], capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise MigrateError("git failed: %s" % exc)
+    if done.returncode != 0:
+        raise MigrateError("git %s failed: %s" % (args[0], done.stderr.decode("utf-8", "replace").strip().splitlines()[:1]))
+    return done.stdout
+
+
+def redo(repo):
+    """Convert again from the folder as it was before this branch's migration commit (the parent of the oldest commit with
+    COMMIT_MESSAGE as subject), for a conversion that was fixed after it ran. Writes only the files whose converted bytes differ
+    from the working ones; files the branch added since are never touched. Returns (checks rewritten, marks rewritten, 0).
+    MigrateError, with nothing written, when no migration commit is on the branch or a check cannot be converted."""
+    rel = FOLDER.replace(os.sep, "/")
+    log = _git_bytes(repo, "log", "--format=%H%x09%s", "--reverse").decode("utf-8", "replace").splitlines()
+    found = [line.split("\t", 1)[0] for line in log if line.split("\t", 1)[1:] == [COMMIT_MESSAGE]]
+    if not found:
+        raise MigrateError("no commit %r on this branch to redo from" % COMMIT_MESSAGE)
+    parent = found[0] + "^"
+    names = [n for n in _git_bytes(repo, "ls-tree", "-r", "--name-only", "-z", parent, "--", rel).decode("utf-8").split("\0") if n]
+    folder = os.path.join(repo, FOLDER)
+    with tempfile.TemporaryDirectory() as scratch:
+        old = os.path.join(scratch, FOLDER)
+        os.makedirs(old)
+        before = {}
+        for path in names:
+            before[os.path.basename(path)] = _git_bytes(repo, "show", "%s:%s" % (parent, path))
+            with open(os.path.join(old, os.path.basename(path)), "wb") as handle:
+                handle.write(before[os.path.basename(path)])
+        migrate(scratch)
+        writes = {}
+        for name in sorted(os.listdir(old)):
+            with open(os.path.join(old, name), "rb") as handle:
+                data = handle.read()
+            if data == before[name]:
+                continue
+            try:
+                with open(os.path.join(folder, name), "rb") as handle:
+                    if handle.read() == data:
+                        continue
+            except OSError:
+                pass
+            writes[name] = data
+    os.makedirs(folder, exist_ok=True)
+    for name, data in writes.items():
+        with open(os.path.join(folder, name), "wb") as handle:
+            handle.write(data)
+    checks = sum(1 for n in writes if n.endswith(".check.json"))
+    return checks, len(writes) - checks, 0
+
+
+def migrate_and_commit(repo, again=False):
     """migrate(), then commit exactly the `.relay/checks` changes in one commit. Refuses, with nothing written, when anything
-    outside `.relay/checks` is dirty (the commit must hold nothing else). Nothing to migrate makes no commit.
+    outside `.relay/checks` is dirty (the commit must hold nothing else). Nothing to migrate makes no commit. `again` is redo().
     Returns migrate()'s counts."""
     status = _git(repo, "status", "--porcelain=v1", "--no-renames", "--untracked-files=all", "-z")
     for entry in status.split("\0"):
         path = entry[3:]
         if entry and not path.startswith(FOLDER.replace(os.sep, "/") + "/"):
             raise MigrateError("%s is changed outside %s; commit or set it aside first" % (path, FOLDER))
-    counts = migrate(repo)
+    counts = redo(repo) if again else migrate(repo)
     rel = FOLDER.replace(os.sep, "/")
     # Commit whatever is dirty in the folder, not only what this run changed: a run whose commit failed left it rewritten.
     if _git(repo, "status", "--porcelain", "--untracked-files=all", "--", rel).strip():
         try:
-            relay_marks._commit(repo, [rel], COMMIT_MESSAGE)
+            relay_marks._commit(repo, [rel], REDO_MESSAGE if again else COMMIT_MESSAGE)
         except relay_marks.MarkError as exc:
             raise CommitError("the checks are converted but not committed (%s); run it again" % exc)
     return counts

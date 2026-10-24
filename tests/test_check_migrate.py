@@ -306,6 +306,43 @@ class TestRun(Folder):
         self.assertEqual((second.returncode, second.stdout.strip()), (0, "nothing to migrate"))
         self.record(HEAD_A)       # loads
 
+    def test_redo_after_a_fixed_conversion_changes_the_records_and_a_second_redo_changes_nothing(self):
+        self.committed_repo()
+        mig.migrate_and_commit(self.repo)
+        # An unchanged conversion: redo rebuilds the same bytes, so it makes no commit.
+        self.assertEqual(mig.migrate_and_commit(self.repo, again=True), (0, 0, 0))
+        self.assertEqual(len(self.git("log", "--format=%s").splitlines()), 2)
+        # The conversion is fixed (here: every converted record gains a note): redo rewrites the check and its mark is unchanged.
+        real = mig.convert_check
+
+        def fixed(old, sets, name):
+            return dict(real(old, sets, name), notes=["fixed conversion"])
+        mig.convert_check = fixed
+        self.addCleanup(setattr, mig, "convert_check", real)
+        self.assertEqual(mig.migrate_and_commit(self.repo, again=True), (1, 0, 0))
+        self.assertEqual(self.git("log", "--format=%s").splitlines(), [mig.REDO_MESSAGE, mig.COMMIT_MESSAGE, "seed"])
+        self.assertEqual(self.git("show", "--name-only", "--format=", "HEAD").split(), [".relay/checks/" + HEAD_A + ".check.json"])
+        self.assertEqual(self.get(HEAD_A + ".check.json")["notes"], ["fixed conversion"])
+        self.assertEqual(self.git("status", "--porcelain"), "")
+        # Second redo: same bytes again, no new commit; the gate log and newer files are never touched.
+        self.assertEqual(mig.migrate_and_commit(self.repo, again=True), (0, 0, 0))
+        self.assertEqual(len(self.git("log", "--format=%s").splitlines()), 3)
+
+    def test_redo_refuses_when_no_migration_commit_is_on_the_branch(self):
+        self.committed_repo()
+        before = self.snapshot()
+        with self.assertRaises(mig.MigrateError) as caught:
+            mig.migrate_and_commit(self.repo, again=True)
+        self.assertIn("redo", str(caught.exception))
+        self.assertEqual(self.snapshot(), before)
+
+    def test_the_command_redo_reports(self):
+        self.committed_repo()
+        mig.migrate_and_commit(self.repo)
+        cmd = [sys.executable, os.path.join(ROOT, "bin", "relay"), "check", "migrate", "--redo", "-C", self.repo]
+        done = subprocess.run(cmd, capture_output=True, text=True)
+        self.assertEqual((done.returncode, done.stdout.strip()), (0, "nothing to migrate"))
+
 
 if __name__ == "__main__":
     unittest.main()
