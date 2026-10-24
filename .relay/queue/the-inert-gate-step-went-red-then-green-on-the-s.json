@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 60,
+  "found_at": "2026-10-24T23:23:19Z",
+  "found_in": "relay queue add",
+  "title": "The inert gate step went red, then green on the same code",
+  "what": [
+    "Find why the inert probe failed once and passed on the next run of the same code (shared state between the two runs, the probe worktree, timing, the eval grader step reading files that the probe commit changes), fix the cause, and prove it with max(20, ceil(3/p)) clean runs (rules/quality-gate.md)."
+  ],
+  "why": [
+    "25 Oct, wt/it-terms: the gate of 93e522d (finished 02:11, before the Mac slept) was red only in the inert step (\"a step's result or the test count changed when only inert files changed\": \"< inert FAILED\", \"> eval grader tests FAILED\"); the next gate, of 785ae3e (93e522d plus only its gate log), was green, inert ok in 604 s. A flaky gate step costs a fixer round or a rerun of a 10-25 minute gate. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "wt/it-terms .relay/checks/93e522dd1fb82c0c48e1da7465fa18875fa7f7fc.gate.log: exit 1 in inert only; .relay/checks/785ae3ebf9e4323d027ad98afa90756dcee29544.gate.log: exit 0 on the same code."
+  ],
+  "pass_cases": [
+    "The cause is named with evidence, and the inert step passes max(20, ceil(3/p)) runs in a row on an unchanged tree."
+  ],
+  "where": "bin/ci (inert step), lib/relay_inert.py, the eval grader tests step, .ci/steps/inert.log",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
