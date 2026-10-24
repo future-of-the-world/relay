@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: spec-step-on-bugfix
+description: "a project with spec steps on does not load openspec:plan for a plain bug fix; a delegate:worker is started"
+tags: [delegate, openspec]
+plugins: ["../../../plugins/core", "../../../plugins/openspec", "../../../plugins/delegate"]
+context:
+  scaffold_script: scaffold.sh
