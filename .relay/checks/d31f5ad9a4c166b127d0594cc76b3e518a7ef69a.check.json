@@ -1,0 +1,171 @@
+{
+  "branch": "wt/bench-set",
+  "findings": [
+    {
+      "details": [
+        "`relay bench --set` writes its derived candidate profile into the main checkout's profiles/candidates/, untracked; guard-main then refuses to remove it, so the owner must delete it by hand and the primary checkout is not clean meanwhile (23 Oct, build-haiku)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`relay bench active --set models.build=haiku --tag cheap --runs 1` in /Users/amidman/relay leaves `?? profiles/candidates/build-haiku.toml` in `git status`; `rm` of it is refused by guard-main."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After the same bench, `git status --short` in the main checkout is empty, and the derived profile is found beside the bench report."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_bench_set_clean.py DerivedProfileLivesBesideTheReport::test_q1_... passes and fails at cde10ab."
+      ],
+      "severity": "HIGH",
+      "since": "cde10abfc6878518128c33e0b861c40e85dfd819",
+      "source": "queue",
+      "summary": "A bench with --set leaves the main checkout dirty",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. verdict() (line 660) prints `relay improve adopt {b}` with b = the profile name. The queue item and the brief require",
+        "that `relay improve adopt` of a derived candidate still works (\"it must still find a derived candidate\"). load_profile(name) looks",
+        "only in profiles/ and profiles/candidates/, where the derived file no longer is; the path exists only in the TOML file's header",
+        "comment and in results.json. The --set flow ends at that verdict line, so the instruction it prints fails on ordinary use.",
+        "The docstring at line 109 (\"so the bench table and `relay improve adopt` can name it\") is now stale too.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "scratchpad/repro/r.py (ROOT patched to a temp folder, run_one mocked):",
+        "  adopt by name: no profile 'build-haiku' (profiles/<name>.toml or profiles/candidates/<name>.toml)",
+        "lib/relay_bench.py:660: return f\"Verdict: {b} wins: ... Adopt with `relay improve adopt {b}`.\"",
+        "The new test mocks render, so the verdict is not covered."
+      ],
+      "failing_case": [
+        "`relay bench active --set models.build=haiku`, the derived profile is cheaper at same quality. report.md and the terminal print",
+        "\"Verdict: build-haiku wins ... Adopt with `relay improve adopt build-haiku`.\" Running that gives",
+        "\"no profile 'build-haiku' (profiles/<name>.toml or profiles/candidates/<name>.toml)\". Before the change it adopted the profile.",
+        "Should: the verdict names a command that works, `relay improve adopt <out_dir>/build-haiku.toml`."
+      ],
+      "fix_hint": [
+        "In verdict(), take the adopt argument from doc[\"profiles\"][1][\"path\"] when it is outside profiles/ (or when the profile was derived),",
+        "else the name. Add a test of verdict for a derived profile."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 660,
+      "pass_cases": [
+        "1. doc with profiles [{name: active, path: .../profiles/active.toml}, {name: build-haiku, path: <out_dir>/build-haiku.toml}], rows where build-haiku is cheaper at equal score: verdict(doc, aggregate(doc)) contains \"relay improve adopt <out_dir>/build-haiku.toml\", and load_profile of that argument succeeds.",
+        "2. doc comparing active with a candidate `x` in profiles/candidates/x.toml, x cheaper: verdict still says \"relay improve adopt x\" (a named candidate keeps its short name).",
+        "3. verdict where the derived profile is worse in quality: \"Verdict: keep active ...\" unchanged.",
+        "4. The derive_profile docstring no longer says `relay improve adopt` can name it by its name."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_bench_set_clean.py:61 test_f1_derived_profile_is_adopted_by_its_path; fails at 4ff4d45; named-candidate and worse-quality cases pass."
+      ],
+      "severity": "HIGH",
+      "since": "4ff4d455234cecd00207af9aadf88410ab60405a",
+      "source": "review-bench-set.json",
+      "source_id": "F1",
+      "summary": "the bench verdict for a --set profile says `relay improve adopt build-haiku`, which now fails: no profile by that name exists",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by repro. plugin_dir resolves an entry with \"/\" relative to os.path.dirname(profile[\"_path\"]). Moving the derived file",
+        "from profiles/candidates/ to the bench folder changed that base for every relative entry the base profile carries. Reachable by",
+        "benching any candidate made with `relay candidate --copy` against a --set change of it, and by adopting the result.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/repro/r.py:",
+        "  candidate enabled: ['core', 'observe', 'x/plugins/delegate', 'front']",
+        "  candidate resolves: <tmp>/profiles/candidates/x/plugins/delegate",
+        "  derived _path: <out_root>/2026-10-24T20-58-18Z/build-haiku.toml",
+        "  derived resolves: None",
+        "  agents dir derived: <tmp>/plugins/delegate/agents"
+      ],
+      "failing_case": [
+        "`relay candidate x --copy delegate` (enabled has \"x/plugins/delegate\"), then `relay bench x --set models.build=haiku`.",
+        "The derived profile's _path is now ~/.relay/bench/<ts>/build-haiku.toml, so plugin_dir(derived, \"x/plugins/delegate\") looks in",
+        "~/.relay/bench/<ts>/x/plugins/delegate, ROOT/x/plugins/delegate and ./x/plugins/delegate and returns None. The derived side runs",
+        "without the edited delegate plugin (agent_definitions_dir falls back to plugins/delegate/agents) and no message says so; the",
+        "comparison measures two changes at once. `relay improve adopt <that file>` then finds no folder, leaves \"x/plugins/delegate\" in",
+        "the new active.toml, and does not copy the edited plugin in. Before the change the derived file sat in profiles/candidates and",
+        "the entry resolved. Should: the derived profile resolves its plugins as its base does."
+      ],
+      "fix_hint": [
+        "In derive_profile, rewrite each relative plugin entry that resolves for the base into its absolute folder (plugin_dir(base, e)),",
+        "so the written file carries absolute paths; adopt's startswith(profiles/candidates) check then still matches."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 504,
+      "pass_cases": [
+        "1. Candidate x made with --copy delegate under a temp ROOT; d = derive_profile(load_profile(\"x\"), [\"models.build=haiku\"]); after run_bench (run_one mocked): plugin_dir(d, <x's delegate entry>) is ROOT/profiles/candidates/x/plugins/delegate and agent_definitions_dir(d) is its agents folder.",
+        "2. load_profile(<out_dir>/build-haiku.toml) for that derived profile: each enabled plugin entry resolves (plugin_dir is not None) to the same folder as for x.",
+        "3. derive_profile of \"active\" (plain names core, observe, delegate, front): every entry resolves to ROOT/plugins/<name>, as today.",
+        "4. The checkout stays clean: profiles/candidates lists the same files before and after the bench (the Q1 test keeps passing)."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_bench_set_clean.py:~85 test_f2_relative_plugin_entry_resolves_after_the_file_moves; fails at 4ff4d45; plain names stay names."
+      ],
+      "severity": "MEDIUM",
+      "since": "4ff4d455234cecd00207af9aadf88410ab60405a",
+      "source": "review-bench-set.json",
+      "source_id": "F2",
+      "summary": "a --set profile derived from a candidate with copied plugins loses those plugins: relative entries now resolve against the bench folder",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_paidcap.py:143-176. Read-only today, so no damage; the brief says tests never use the live ~/.relay.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "lib/relay_paidcap.py:145 default = os.path.join(home, \"bench\") if home else bench_dir()",
+        "tests/test_bench_set_clean.py:36-39 mocks run_one, render, check, link_out only."
+      ],
+      "failing_case": [
+        "run_bench calls relay_paidcap.bench_estimate(sessions, out_root), which reads bench_dir() (~/.relay/bench) and the bench-out links",
+        "under ~/.relay. The test mocks check but not bench_estimate, so every run of the test reads the owner's live bench results; a",
+        "malformed file there could make it fail. Should: the test reads nothing under ~/.relay."
+      ],
+      "fix_hint": [
+        "Add mock.patch.object(relay_paidcap, \"bench_estimate\", return_value=0.0) to the test's with-block."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 36,
+      "pass_cases": [
+        "1. With bench_estimate also mocked (or the home pointed at a temp folder), the test passes and opens no file under ~/.relay.",
+        "2. With the fix disabled (derive_profile writing into profiles/candidates) the test still fails."
+      ],
+      "path": "tests/test_bench_set_clean.py",
+      "rank": "low",
+      "reason": [
+        "bench_estimate mocked in the q1 test (mock.patch.object relay_paidcap bench_estimate)."
+      ],
+      "severity": "LOW",
+      "since": "4ff4d455234cecd00207af9aadf88410ab60405a",
+      "source": "review-bench-set.json",
+      "source_id": "F3",
+      "summary": "the new test reads the live ~/.relay/bench through an unmocked bench_estimate, against the brief's rule",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "636cff092343e839f34f16908cb626d7521ed696.gate.log",
+  "head": "d31f5ad9a4c166b127d0594cc76b3e518a7ef69a",
+  "item": "a-bench-with-set-leaves-the-main-checkout-dirty",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Files changed: lib/relay_bench.py and tests/test_bench_set_clean.py only. Ran tests/test_bench_set_clean.py (5 pass). Gate on 636cff0 exit 0; later commits are inert. Failing without fix verified at cde10ab (3 fail) and 4ff4d45 (2 fail)."
+  ],
+  "type": "check"
+}
