@@ -1,0 +1,71 @@
+{
+  "branch": "wt/rules-gate",
+  "findings": [
+    {
+      "details": [
+        "Every rule or doc rewording pays an 8.7-minute gate (the inert step runs the quick gate a second time); measured 520 s on a 13-line markdown change, 23 Oct."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "This change edits 5 lines of rules/structured-data.md. The gate log shows library tests 136 s, hook tests 108 s, inert 267 s",
+        "(the inert probe reruns the quick gate in a second worktree): 520 s, about 8.7 min. The tests that can see a rules/*.md edit",
+        "(relay_rules parsing, TestStructuredRule, the rule-title tests) run in seconds. Every rule or doc rewording pays the same."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 14,
+      "pass_cases": [
+        "- A change touching only rules/*.md runs the checks that read rules (rule parsing, rule tests, relay sync dry-run) and is green in under a minute.",
+        "- A change touching lib/, bin/, plugins/ or hooks still runs the full quick gate and the inert probe.",
+        "- A change touching rules/ plus code runs the full gate."
+      ],
+      "path": "bin/ci",
+      "rank": "high",
+      "reason": [
+        "tests/test_rules_gate.py passes; the file fails at the base f613047 (module missing) and the F1 guard test fails at ae396ac."
+      ],
+      "severity": "HIGH",
+      "since": "f613047947c8184612c8c77be016f7aec13233cb",
+      "source": "queue",
+      "summary": "A rules-text-only change pays the full quick gate twice\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "README.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_rules_gate.py:106 passes with RenderedRules listed in RULE_TESTS; it fails at ae396ac. Gate green on e7e9a93."
+      ],
+      "severity": "MEDIUM",
+      "since": "ae396acc1ef436c6be771fbdc1e4030e38a14b5d",
+      "source": "m3-rules-gate.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "e7e9a9346033407dc4192be56a33abca28487f34.gate.log",
+  "head": "d93f1d24a529554cf045620691610f089ed37fe1",
+  "item": "a-rules-text-only-change-pays-the-full-quick-gat",
+  "notes": [
+    "Test fails at ae396ac (before the fix): 1 failure in test_every_test_class_reading_rules_is_listed."
+  ],
+  "schema": 2,
+  "scope": [
+    "Ran tests.test_rules_gate and tests.test_spec_steps (53 OK). Gate log is for e7e9a93; only the gate-log commit follows. Only lib/relay_textonly.py changed since the review."
+  ],
+  "type": "check"
+}
