@@ -8,9 +8,11 @@ replaces it; `--apply` moves the replaced files to .claude/relay-migration/
 import datetime as dt
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
+import sys
 import tomllib
 
 import relay_config
@@ -433,6 +435,107 @@ def migrate(root, apply=False, **kw):
     return d, items, moved, flow, product, done, todo
 
 
+# --- dependencies: deps.toml is read here and by install.sh ------------------
+
+DEPS_FILE = os.path.join(ROOT, "deps.toml")
+DEP_STRINGS = ("name", "command", "min", "version_arg", "brew", "apt", "uv_tool", "installer_url", "installer_sha256", "manual", "why")
+DEP_ROUTES = ("brew", "apt", "uv_tool", "installer_url", "manual")   # at least one way to install it
+
+
+def load_deps(path=None):
+    """The entries of deps.toml, checked; a file that does not fit raises ValueError naming the entry."""
+    with open(path or DEPS_FILE, "rb") as handle:
+        data = tomllib.load(handle)
+    entries = data.get("dep")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("deps.toml: no [[dep]] entries")
+    seen = set()
+    for n, dep in enumerate(entries, 1):
+        label = f"deps.toml entry {n} ({dep.get('name', '?')})"
+        for key in dep:
+            if key not in DEP_STRINGS and key != "exact":
+                raise ValueError(f"{label}: unknown field '{key}'")
+        for key in ("name", "command", "version_arg"):
+            if not isinstance(dep.get(key), str) or not dep[key]:
+                raise ValueError(f"{label}: '{key}' must be a non-empty string")
+        for key in DEP_STRINGS:
+            if key in dep and not isinstance(dep[key], str):
+                raise ValueError(f"{label}: '{key}' must be a string")
+        if "min" in dep and not re.fullmatch(r"\d+(\.\d+)*", dep["min"]):
+            raise ValueError(f"{label}: 'min' must be dotted numbers")
+        if "exact" in dep and (dep["exact"] is not True or "min" not in dep):
+            raise ValueError(f"{label}: 'exact' is true and needs 'min'")
+        if ("installer_url" in dep) != ("installer_sha256" in dep):
+            raise ValueError(f"{label}: 'installer_url' and 'installer_sha256' go together")
+        if not any(r in dep for r in DEP_ROUTES):
+            raise ValueError(f"{label}: no way to install it ({', '.join(DEP_ROUTES)})")
+        if dep["name"] in seen:
+            raise ValueError(f"{label}: name listed twice")
+        seen.add(dep["name"])
+    return entries
+
+
+def version_tuple(text):
+    return tuple(int(x) for x in text.split("."))
+
+
+def dep_version(dep):
+    """The version the tool prints, as a tuple; None when it prints none or cannot run."""
+    exe = shutil.which(dep["command"])
+    if exe is None:
+        return None
+    try:
+        done = subprocess.run([exe, dep["version_arg"]], capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    found = re.search(r"\d+(?:\.\d+)+", done.stdout + done.stderr)
+    return version_tuple(found.group(0)) if found else None
+
+
+def install_hint(dep, system=None):
+    system = system or sys.platform
+    if "uv_tool" in dep:
+        return "uv tool install " + dep["uv_tool"]
+    if "brew" in dep and system == "darwin":
+        return "brew install " + dep["brew"]
+    if "apt" in dep and system.startswith("linux"):
+        return "sudo apt-get install -y " + dep["apt"]
+    if "manual" in dep:
+        return dep["manual"]
+    return "sh " + os.path.join(ROOT, "install.sh")
+
+
+def dep_checks(deps=None):
+    """One (name, good, detail) per entry of deps.toml: on PATH, and the version at least the minimum (exactly it for a pin)."""
+    try:
+        deps = deps if deps is not None else load_deps()
+    except (OSError, ValueError, tomllib.TOMLDecodeError) as exc:
+        return [("deps.toml readable", False, str(exc))]
+    checks = []
+    for dep in deps:
+        exact = dep.get("exact") is True
+        if "min" not in dep:
+            name = f"{dep['name']} on PATH"
+        else:
+            name = f"{dep['name']} {dep['min']}" + (" (pinned)" if exact else "+")
+        found = dep_version(dep)
+        if shutil.which(dep["command"]) is None:
+            good, why = False, "not found"
+        elif "min" not in dep:
+            good, why = True, ""
+        elif found is None:
+            good, why = False, "version not readable"
+        else:
+            want = version_tuple(dep["min"])
+            good = found == want if exact else found >= want
+            why = "found " + ".".join(map(str, found))
+        detail = ""
+        if not good:
+            detail = f"{why}; {install_hint(dep)}" + (f"; {dep['why']}" if dep.get("why") else "")
+        checks.append((name, good, detail))
+    return checks
+
+
 # --- doctor -----------------------------------------------------------------
 
 def doctor(root=None, profile=None):
@@ -441,9 +544,7 @@ def doctor(root=None, profile=None):
     def ok(name, good, detail=""):
         checks.append((name, bool(good), detail))
 
-    ok("python3 3.11+", True, "")
-    ok("jq on PATH", shutil.which("jq") is not None, "brew install jq" if not shutil.which("jq") else "")
-    ok("claude on PATH", shutil.which("claude") is not None, "benches and evals need it" if not shutil.which("claude") else "")
+    checks.extend(dep_checks())
     user = read_json(os.path.join(claude_dir(), "settings.json"))
     ok("relay marketplace in ~/.claude/settings.json", "relay" in user.get("extraKnownMarketplaces", {}), "relay setup --global")
     for p in ("observe", "delegate", "front", "core"):

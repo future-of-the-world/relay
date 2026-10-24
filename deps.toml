@@ -1,0 +1,81 @@
+# relay's dependencies: the one list that install.sh installs from and `relay doctor` checks against.
+# Keep every value a one-line string or a boolean: install.sh reads this file with awk, before python exists.
+#   name       what the tool is called in messages
+#   command    the program looked for on PATH
+#   min        the version needed at least (dotted numbers); with exact = true it is the one pinned version
+#   exact      true for a pinned gate tool: any other version is a FIX
+#   version_arg  the argument that makes the program print its version
+#   brew / apt   package names for Homebrew (macOS) and apt-get (Linux)
+#   uv_tool    the spec `uv tool install` takes (a gate tool, pinned)
+#   installer_url + installer_sha256  a published installer script, downloaded and checked against this checksum before it runs
+#   manual     what to do by hand when relay installs nothing for it
+#   why        what needs it, shown in the FIX line
+# The pins of ruff and mypy live here; bin/types-lint and pyproject.toml should read them from this file.
+
+[[dep]]
+name = "python3"
+command = "python3"
+min = "3.11"
+version_arg = "--version"
+brew = "python@3.11"
+apt = "python3"
+why = "relay itself"
+
+[[dep]]
+name = "git"
+command = "git"
+version_arg = "--version"
+brew = "git"
+apt = "git"
+why = "worktrees, merges, the gate"
+
+[[dep]]
+name = "jq"
+command = "jq"
+version_arg = "--version"
+brew = "jq"
+apt = "jq"
+why = "the hooks"
+
+[[dep]]
+name = "uv"
+command = "uv"
+min = "0.8.24"
+version_arg = "--version"
+installer_url = "https://github.com/astral-sh/uv/releases/download/0.8.24/uv-installer.sh"
+installer_sha256 = "4a697a13c999c910a271e4dad74a59856f762e5d1ded38f34d7ab7e3538821e4"
+why = "runs the gate tools"
+
+[[dep]]
+name = "ruff"
+command = "ruff"
+min = "0.13.3"
+exact = true
+version_arg = "--version"
+uv_tool = "ruff==0.13.3"
+why = "the gate's lint step"
+
+[[dep]]
+name = "mypy"
+command = "mypy"
+min = "1.18.2"
+exact = true
+version_arg = "--version"
+uv_tool = "mypy==1.18.2"
+why = "the gate's types step"
+
+[[dep]]
+name = "pytest"
+command = "pytest"
+min = "8.4.2"
+exact = true
+version_arg = "--version"
+uv_tool = "pytest==8.4.2"
+why = "the gate's library tests"
+
+[[dep]]
+name = "claude"
+command = "claude"
+version_arg = "--version"
+manual = "install Claude Code from https://claude.com/claude-code"
+why = "benches and evals need it"

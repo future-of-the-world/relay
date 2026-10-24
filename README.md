@@ -41,7 +41,7 @@ Everything else is `relay doctor` when something feels off, and `relay help`.
 ## What it is, physically
 
 One folder, meant to live at `~/relay`: a Python command (`bin/relay`;
-needs `python3` 3.11+, `jq`, `git`, nothing to pip-install), the rules
+needs `python3` 3.11+, `jq`, `git`, nothing to pip-install; the gate adds `uv` and pinned `ruff`, `mypy`, `pytest`: all listed in `deps.toml`), the rules
 (`rules/`), the profiles (`profiles/`), and a Claude Code plugin
 marketplace (`plugins/`). Nothing is copied elsewhere: Claude Code loads
 the plugins from here; `relay sync` writes `~/.claude/CLAUDE.md` and each
@@ -53,6 +53,8 @@ Put the folder at `~/relay`, open a Claude Code session there and say
 "install relay" — `START_HERE.md` is written for that session. By hand:
 
 ```sh
+sh ~/relay/install.sh --dry-run    # what is missing or too old, from deps.toml; changes nothing
+sh ~/relay/install.sh              # installs it (Homebrew or apt-get, uv's pinned installer with its checksum), then runs `relay doctor`
 ~/relay/bin/relay install          # global CLAUDE.md, user settings, plugins (registers no project; `relay setup <dir>` adds one)
 ln -s ~/relay/bin/relay /usr/local/bin/relay
 relay migrate --all                # the plan for every project; then per project: relay migrate <dir> --apply
