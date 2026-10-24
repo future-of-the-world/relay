@@ -37,7 +37,7 @@ class ArchiveAfterTheMark(unittest.TestCase):
         self.write("openspec/changes/x/proposal.md", "why\n")
         self.commit("change")
         head = self.git("rev-parse", "HEAD")
-        mark = {"commit": head, "verdict": {"open": 0, "queued": 0, "reviewed": head}}
+        mark = {"schema": 2, "commit": head, "check": head + ".check.json", "verdict": {"open": 0, "queued": 0}}
         self.write(".relay/checks/%s.json" % head, json.dumps(mark))
         self.write(".relay/checks/%s.gate.log" % head, "head %s\nexit 0\n" % head)
         self.commit("relay: check")
