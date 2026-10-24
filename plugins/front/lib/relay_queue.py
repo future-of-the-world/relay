@@ -839,9 +839,14 @@ def holds_test(test, source):
     """Whether `source`, the text of the test file named in `test` (`<file>::<name>` or `<file>::<Class>::<name>`), defines the test.
     The one rule of `relay queue done` and of the merge guard. `source` is None when the file is not there."""
     path, _, rest = test.strip().partition("::")
-    name = rest.split("::")[-1].strip()
+    parts = [p.strip() for p in rest.split("::")]
+    name = parts[-1]
     if not path.strip() or not name or source is None:
         return False
+    if path.strip().endswith(".py") and len(parts) > 1:
+        # pytest collects file::Class::name only when the class is defined in the file
+        if not all(re.search(r"\bclass\s+" + re.escape(c) + r"\b", source) for c in parts[:-1]):
+            return False
     return _holds_test(path.strip(), name, source)
 
 

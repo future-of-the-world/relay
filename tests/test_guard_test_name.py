@@ -19,7 +19,9 @@ CASES = [
     ("tests/t.py::Suite::test_hangs_within_bound", True),    # file::Class::function
     ("tests/t.py::test_hangs_within_bound", True),           # file::function
     ("tests/t.py::test_plain", True),
+    ("tests/t.py::test_hangs_within_bound", True),           # file::method of a class (class part optional)
     ("tests/t.py::Suite::test_missing", False),              # a name the file does not define
+    ("tests/t.py::NoSuchClass::test_hangs_within_bound", False),  # a class the file does not define: pytest cannot collect it
     ("tests/t.py::test_hangs", False),                       # only a part of a name
     ("tests/gone.py::test_plain", False),                    # a file that does not exist
     ("tests/t.py::", False),
