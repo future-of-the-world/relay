@@ -1,0 +1,20 @@
+{
+  "findings": [],
+  "gate": "/Users/amidman/relay/.worktrees/mark-attach/.relay/checks/33351391f257881b859e3bd66990ea4232a1008c.gate.log",
+  "head": "8268ffbadcbd77bae7b6ce7bcd38520235d0e2d8",
+  "new": [],
+  "notes": [
+    "No findings to check."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "e3f8c34a74eaffcb7b842ece8d1459ab207bc63c.review.json"
+  ],
+  "reviewed": "e3f8c34a74eaffcb7b842ece8d1459ab207bc63c",
+  "schema": 1,
+  "scope": [
+    "Fixes: none, review had no findings. relay changed --own since the reviewed sha lists no files (only a queue file arrived). Gate log head 33351391, exit 0, and no non-inert file changed after it. tests/test_mark_attach.py re-run: 4 passed. The reviewer recorded that the new tests fail against master's hook (2 failed); I did not repeat it."
+  ],
+  "type": "check"
+}
