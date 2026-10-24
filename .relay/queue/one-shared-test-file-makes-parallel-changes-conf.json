@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 60,
+  "found_at": "2026-10-24T03:45:13Z",
+  "found_in": "relay queue add",
+  "title": "one shared test file makes parallel changes conflict",
+  "what": [
+    "Split tests/test_relay.py (~2000 lines, ~100 classes) into files by subject (tests/test_rules.py, test_setup.py, test_check.py, ...), so changes to different areas touch different files; new tests go to the file of their area. Keep one runner command (pytest tests) unchanged."
+  ],
+  "why": [
+    "24 Oct: 3 of 5 merges either conflicted or were combined in tests/test_relay.py (no-merge-page, principles, projects-out, auto-merge). Every parallel change appends a test class at its end, so each take-master costs a gate (~9 min), a recorded finding and a checker. Repeats on every parallel change (MEDIUM by the waste principle)."
+  ],
+  "failing_case": [
+    "Two branches from the same master each add a test class for different areas: merging the second into master after the first conflicts in tests/test_relay.py."
+  ],
+  "pass_cases": [
+    "The same two branches add their tests to different files and merge without a conflict or a combined file; pytest tests runs the same number of tests as before the split."
+  ],
+  "where": "tests/test_relay.py",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
