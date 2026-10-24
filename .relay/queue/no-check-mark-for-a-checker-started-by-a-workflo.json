@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 97,
+  "time": 20,
+  "found_at": "2026-10-24T01:08:33Z",
+  "found_in": "relay queue add",
+  "title": "No check mark for a checker started by a workflow",
+  "what": [
+    "plugins/core/hooks/check-mark.py reads the Report: label from the transcript's FIRST line; a workflow agent's first line is the harness relay of the user's request (\"[Workflow harness — user request] ...\"), and the real prompt is the next user entry, so the hook says \"the checker's prompt has no Report: line\" and writes no mark."
+  ],
+  "why": [
+    "The owner chose background workflows for parallel changes (24 Oct, \"а, давай пробу сценариями после шага 2\"); every workflow-run change then needs the front to write its mark by hand, or its merge is refused."
+  ],
+  "failing_case": [
+    "Trial 24 Oct (workflow wf_0f6e557b-2f8): checkers for wt/openspec-install and wt/no-merge-page finished with open 0, but no \"relay: check of\" commit appeared; feeding the hook the second user entry of the same transcript wrote the marks (c3aea5f, bb5c586)."
+  ],
+  "pass_cases": [
+    "A checker whose transcript starts with the workflow harness relay gets its mark; a plain Agent-tool checker still does; a transcript with no Report: label in any of its first user entries still writes nothing and says why."
+  ],
+  "where": "plugins/core/hooks/check-mark.py:57-95, plugins/core/tests/",
+  "taken_at": "2026-10-24T01:37:05Z",
+  "taken_by": "wt/wf-mark",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
