@@ -6,11 +6,14 @@ script among the reply's prose letters (code blocks, inline code, URLs and paths
 removed) is measured; under the threshold the stop is blocked once with a rewrite
 request. A share, never a per-character check. Fails open."""
 
+from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
+
 import json
 import os
 import re
 import sys
 import unicodedata
+from typing import Any
 
 # language -> Unicode name prefix of its script; extend only with scripts that are tested
 SCRIPTS = {"russian": "CYRILLIC", "ukrainian": "CYRILLIC"}
@@ -23,7 +26,7 @@ URL = re.compile(r"\w+://\S+")
 PATHLIKE = re.compile(r"\S*/\S*")
 
 
-def native_language():
+def native_language() -> str:
     # the config folder the session uses, as relay_config.claude_dir() reads it
     folder = os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude")
     try:
@@ -37,13 +40,13 @@ def native_language():
     return ""
 
 
-def prose_letters(text):
+def prose_letters(text: str) -> list[str]:
     for rx in (FENCE, INLINE, URL, PATHLIKE):
         text = rx.sub(" ", text)
     return [ch for ch in text if ch.isalpha()]
 
 
-def share(text, script):
+def share(text: str, script: str) -> float | None:
     letters = prose_letters(text)
     if len(letters) < MIN_LETTERS:
         return None
@@ -51,7 +54,7 @@ def share(text, script):
     return native / len(letters)
 
 
-def last_reply(data):
+def last_reply(data: dict[str, Any]) -> str:
     if isinstance(data.get("last_assistant_message"), str):
         return data["last_assistant_message"]
     last = ""
@@ -69,7 +72,7 @@ def last_reply(data):
     return last
 
 
-def threshold():
+def threshold() -> float:
     try:
         value = float(os.environ.get("RELAY_REPLY_LANG_SHARE") or THRESHOLD)
     except ValueError:
@@ -77,7 +80,7 @@ def threshold():
     return value / 100 if value > 1 else value
 
 
-def main():
+def main() -> None:
     data = json.load(sys.stdin)
     if data.get("stop_hook_active") or data.get("agent_id"):
         return
