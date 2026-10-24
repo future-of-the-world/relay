@@ -1,0 +1,31 @@
+# Gate tools only (mypy and ruff, run through uv by bin/types-lint); the runtime stays standard library.
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "lib"
+explicit_package_bases = true
+ignore_missing_imports = true
+# Gradual: default strictness checks only annotated functions; a fully annotated module is listed below with strict = true.
+
+[tool.ruff]
+target-version = "py311"
+extend-exclude = [".worktrees", ".ci"]
+
+[tool.ruff.lint]
+select = ["F"]
+
+# Fully annotated modules: the flags of `mypy --strict`, spelled out because strict itself is not allowed per module.
+# Add a module here when it is annotated; never remove one.
+[[tool.mypy.overrides]]
+module = ["relay_toml", "relay_config", "relay_git", "relay_prices", "relay_ledger", "handover_path", "plugins.front.hooks.handover", "plugins.front.hooks.reply_language", "plugins.front.hooks.budget"]
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+warn_return_any = true
+warn_unused_ignores = true
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true

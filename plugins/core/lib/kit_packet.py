@@ -85,6 +85,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from typing import Any
 
 TASK = re.compile(r"^- \[( |x)\] (\d+\.\d+) ")
 GROUP = re.compile(r"^## (\d+)\. (.+)$")
@@ -100,7 +101,7 @@ TASKS_BUDGET = 40 * 1024
 TASK_BUDGET = 1024
 GROUP_BUDGET = 2 * 1024
 
-CFG = {}  # the [packet] table of .claude/kit.toml
+CFG: dict[str, Any] = {}  # the [packet] table of .claude/kit.toml
 
 
 class RefError(Exception):
@@ -279,7 +280,7 @@ def scenario_lines(change_dir, cap, req, scen):
 
 # ---------------------------------------------------------------- modules: typescript
 
-_declarations = {}
+_declarations: dict[str, Any] = {}
 
 
 def declarations(root):

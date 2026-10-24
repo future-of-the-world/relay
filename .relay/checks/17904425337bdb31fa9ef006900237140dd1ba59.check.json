@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "tests/test_delegate_small_builds.py (4 tests fail on aa09f9c, pass now). Bench 07-33-20Z with unchanged tasks: add-function, small-script quality 1.00 under active and build-haiku, sonnet/haiku spend differs between setups."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/small-builds/.relay/checks/dda44557de651494ed1b777a9eabaa628f1d3048.gate.log",
+  "head": "17904425337bdb31fa9ef006900237140dd1ba59",
+  "new": [],
+  "notes": [
+    "The fixer report lists no bench run; I found one in ~/.relay/bench that postdates the fix. Texts are only guidance, tests check wording not behaviour."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "aa09f9c3484ce0539387d846139fb5f9352f9a6e.review.json"
+  ],
+  "reviewed": "aa09f9c3484ce0539387d846139fb5f9352f9a6e",
+  "schema": 1,
+  "scope": [
+    "Range aa09f9c..HEAD; files: SKILL.md, rules/delegation.md, new test file only. Gate log head dda4455, exit 0, only gate-log commit after. Ran tests/test_delegate_small_builds.py (4 pass); at aa09f9c all 4 fail. Read bench 2026-10-24T07-33-20Z (rules contain the new text)."
+  ],
+  "type": "check"
+}

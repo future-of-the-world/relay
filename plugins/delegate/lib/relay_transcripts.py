@@ -9,6 +9,7 @@ counted once. Tool calls are `tool_use` blocks in assistant content.
 
 Nothing here reads prompt or reply text beyond its length.
 """
+from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
 
 import glob
 import json
@@ -367,7 +368,7 @@ def session_path_for(claude_dir, session_id):
     return hits[0] if hits else None
 
 
-def context_tokens_of(session_path):
+def context_tokens_of(session_path: str) -> int | None:
     """Context size of the last main-thread request of a session, read from the file's tail."""
     size = os.path.getsize(session_path)
     tail = 8_000_000

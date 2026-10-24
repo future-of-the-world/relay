@@ -20,8 +20,8 @@
   "where": "rules/ (the delegation rule), plugins/delegate/skills/delegate/SKILL.md, evals/scenarios/add-function",
   "taken_at": "2026-10-24T07:30:31Z",
   "taken_by": "wt/small-builds",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T08:08:18Z",
+  "test": "tests/test_delegate_small_builds.py::SmallBuildsGoToAWorker::test_rule_says_size_is_no_reason",
   "dropped_at": null,
   "dropped_why": null
 }

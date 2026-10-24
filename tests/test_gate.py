@@ -181,6 +181,10 @@ class Inert(Fixture):
         write(os.path.join(main, "evals", "plugin", "graders.test.sh"), "exit 0\n")
         os.makedirs(os.path.join(main, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(main, "bin", "ci"))
+        # the "types and lint" step of the copied gate: its script, its config and one python file to check
+        shutil.copy(os.path.join(ROOT, "bin", "types-lint"), os.path.join(main, "bin", "types-lint"))
+        shutil.copy(os.path.join(ROOT, "pyproject.toml"), main)
+        write(os.path.join(main, "lib", "relay_x.py"), "X = 1\n")
         git(main, "add", "-A")
         git(main, "commit", "-q", "-m", "init")
         self.wt = os.path.join(main, ".worktrees", "x")
@@ -230,7 +234,6 @@ class Inert(Fixture):
         only, so it must count 2 as well, else `inert` was red with 932 against 448 cases. The full outer run ends red
         here (the fixture has no eval-record); only the `inert` line is asserted."""
         self.project()
-        main = os.path.dirname(os.path.dirname(self.wt))
         write(os.path.join(self.wt, "plugins", "x", "tests", "a.test.sh"),
               'echo "ok   one"\n[ "${RELAY_QUICK:-0}" = 1 ] || echo "ok   two"\n')
         git(self.wt, "add", "-A")

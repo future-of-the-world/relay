@@ -1,0 +1,148 @@
+{
+  "reviewed": "c38c16c3ae1595b3e4e214a69bf6eb58955606d6",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-small-builds.json",
+      "findings": [
+        {
+          "details": [
+            "CONFIRMED from the two bench reports and results.json (cost_usd per row). The rule behind the line is the owner's",
+            "(\"the main session ... does not write code\"), so the behaviour is right; only the stated reason is wrong. In a",
+            "one-shot session there are few later requests to re-read the front's context, while the worker, critic and",
+            "checker each pay their own first read (the delegation rule's own cost model). The user's rule \"verify against the",
+            "real system before writing a claim into docs or code\" applies. Size: 5 agent minutes."
+          ],
+          "evidence": [
+            "sed -n 1,20p ~/.relay/bench/2026-10-24T07-03-23Z/report.md",
+            "  cost $ (Claude's own figure)  $0.31   $0.38  ; delegated-to-a-worker: run 0: started: none",
+            "sed -n 1,20p ~/.relay/bench/2026-10-24T07-33-20Z/report.md",
+            "  cost $ (Claude's own figure)  $0.88   $0.89 ; time 153s 195s",
+            "results.json row active/add-function: started: delegate:worker, delegate:runner, delegate:critic, delegate:checker"
+          ],
+          "failing_case": [
+            "SKILL.md:27-28 now says: \"A brief of five lines is cheaper than the front's own file reads and edits, which this",
+            "session re-reads on every later request.\" The bench of this change measures the opposite for the case the line is",
+            "about: add-function under active cost $0.31 (23 s, 10 turns) when the front built it itself",
+            "(2026-10-24T07-03-23Z) and $0.88 (153 s, 15 turns, 4 agents) when it handed it to a worker",
+            "(2026-10-24T07-33-20Z); build-haiku $0.38 -> $0.89. A reader (the owner, or a model weighing the rule) is",
+            "given a false reason. It should give the reason that holds: the front's context stays small for the rest of a",
+            "long session, and a build gets a worktree, a check and a review; or state the cost honestly."
+          ],
+          "fix_hint": [
+            "Replace the sentence with the reason that holds, e.g. \"Its file reads and edits would stay in this session's",
+            "context and be re-read on every later request; a worker builds in a worktree, loops on the check and gets the",
+            "review.\" Drop \"cheaper\" or scope it to a long session."
+          ],
+          "id": "F1",
+          "kind": "inside",
+          "line": 27,
+          "pass_cases": [
+            "1. SKILL.md has no sentence claiming that delegating a small build is cheaper in total than the front doing it.",
+            "2. SKILL.md still says that one function, one test or one edited line goes to delegate:worker (the line",
+            "   \"The table has no row for \"small\"\" and \"The front never writes the change itself, whatever its size.\" stay,",
+            "   so tests/test_delegate_small_builds.py keeps passing).",
+            "3. Any cost reason given names its scope (a long session that re-reads the front's context), matching the",
+            "   measured numbers of ~/.relay/bench/2026-10-24T07-33-20Z/report.md."
+          ],
+          "path": "plugins/delegate/skills/delegate/SKILL.md",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "the new cost reason (a brief is cheaper than the front's own edit) is contradicted by the change's own bench"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading both texts side by side. Correct for the bench case; unclear for a real front session.",
+            "Size: 5 agent minutes."
+          ],
+          "evidence": [
+            "sed -n 90,121p plugins/front/skills/front/SKILL.md: \"The merge itself is the front's ... run the full paid bin/ci",
+            "yourself first ... docs/handover.md of the project is the record ... Bring it up to date after a merge\""
+          ],
+          "failing_case": [
+            "rules/delegation.md:17-18: \"The main session's own work is answering from the conversation and talking to the",
+            "owner\". The front skill (plugins/front/skills/front/SKILL.md:95-104, 118-121) makes the merge, the paid bin/ci",
+            "in the background and docs/handover.md the front's own, and the delegate skill has the front write brief files and",
+            "owner TOML files. Read as a full list, the new sentence tells a session to hand a handover update or the merge to a",
+            "worker; it should read as the rule for builds only, or name those duties too."
+          ],
+          "fix_hint": [
+            "\"The main session's own work is talking to the owner, writing briefs, and the steps the front skill gives it",
+            "(the handover, the merge); a request to build or change something starts with the brief, not the file.\""
+          ],
+          "id": "F2",
+          "kind": "inside",
+          "line": 17,
+          "pass_cases": [
+            "1. rules/delegation.md still says size is no reason: one function, one test, one edited line, one small script go",
+            "   to a worker (tests/test_delegate_small_builds.py passes).",
+            "2. The sentence on the main session's own work does not contradict the front skill: it either names writing briefs,",
+            "   the handover file, the merge and the background paid run, or is limited to requests to build or change the",
+            "   project's code, docs or scripts."
+          ],
+          "path": "rules/delegation.md",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "the new list of the main session's own work leaves out what the front skill gives it (merge, paid bin/ci, handover)"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading. Fragile, not wrong: the brief asked for these tests and the bench is the real measure.",
+            "Size: 5 agent minutes, or drop it."
+          ],
+          "evidence": [],
+          "failing_case": [
+            "Rewording \"one function, one test, one edited line, one small script still go to a `worker`\" to",
+            "\"one function or one small script still goes to a worker\" (same rule) fails test_rule_says_size_is_no_reason;",
+            "deleting the delegate skill's routing row for delegate:worker passes both tests. The behaviour itself (the session",
+            "starts a worker) is measured only by the bench grader delegated-to-a-worker."
+          ],
+          "fix_hint": [
+            "Assert on a few key phrases (\"Size is no reason\", \"still go\", \"worker\") instead of the full sentence."
+          ],
+          "id": "F3",
+          "kind": "inside",
+          "line": 21,
+          "pass_cases": [
+            "1. With the paragraph removed from rules/delegation.md, a test fails (as now).",
+            "2. With the paragraph removed from SKILL.md, a test fails (as now).",
+            "3. A test names a small build (one function, one script) as going to a worker by key words, not one exact sentence."
+          ],
+          "path": "tests/test_delegate_small_builds.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "the tests pin exact sentences, so a rewording breaks them while a regression in behaviour is caught only by the paid bench"
+        }
+      ],
+      "notes": [
+        "Fine: the bench after the change used the new texts (rules-active.md and rules-build-haiku.md contain",
+        "\"Size is no reason\"; both plugin-*-delegate copies carry the new SKILL.md paragraph). Every brief pass case holds:",
+        "delegated-to-a-worker passed in add-function and small-script under both setups (started: delegate:worker, ...;",
+        "worker, critic, fixer, checker; delegate:worker; worker), and the worker model differs (small-script: active",
+        "sonnet $0.07, build-haiku haiku $0.01 with no sonnet). Bench cost $2.93, under the $6 bound. Task texts,",
+        "graders and profiles untouched, as the brief required. No lib/ file touched.",
+        "",
+        "For the owner (a number, not a defect): with the rule working, the add-function scenario (one small function",
+        "and its test) went from $0.31 / 23 s / 0 agents to $0.88 / 153 s / 4 agents (worker, runner, critic, checker)",
+        "under active; most of the growth is the whole review loop the front now runs for a one-function change.",
+        "This is what the owner's decisions (\"does not write code\", \"never no review\") cost on a tiny build;",
+        "it is not changed here."
+      ],
+      "reviewed": "c38c16c3ae1595b3e4e214a69bf6eb58955606d6",
+      "schema": 1,
+      "scope": [
+        "Range master...HEAD in /Users/amidman/relay/.worktrees/small-builds (150548b the change, c38c16c its gate log).",
+        "Read in full: rules/delegation.md, plugins/delegate/skills/delegate/SKILL.md, tests/test_delegate_small_builds.py,",
+        "the front skill's merge and handover sections (what the front does itself), the brief and its queue item.",
+        "Read the bench reports before (~/.relay/bench/2026-10-24T07-03-23Z/report.md) and after",
+        "(~/.relay/bench/2026-10-24T07-33-20Z/report.md, results.json, rules-*.md, plugin-*-delegate/).",
+        "Searched rules/, plugins/, roles/, profiles/ for other wording that lets the front build small jobs itself",
+        "(\"handful\", \"yourself\", \"small task\", \"trivial\", \"few lines\"): none left.",
+        "Gate log .relay/checks/150548b....gate.log: head 150548b, bin/ci --quick green, exit 0; HEAD only adds that log."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}

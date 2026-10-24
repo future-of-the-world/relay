@@ -1,0 +1,49 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_py39_hooks.py test_lib_modules_import and test_hooks_survive_an_empty_event pass; both fail on the reviewed commit. Future import present in all copies."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_types_step.py test_front_hooks_are_strict (three hooks, no-untyped-def) and test_unannotated_hook_keeps_default_strictness pass; the strict test fails without the fix. bin/types-lint is clean in the gate."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "profiles/candidates/build-haiku.toml restored; git diff master...HEAD --name-status -- profiles/ prints nothing."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "test_tree_passes removed from tests/test_types_step.py; test_clean_copy_passes and the planted-error cases remain and pass."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/py-types/.relay/checks/daaafc34039a3f27cec5fc9e5b3c703fb425206e.gate.log",
+  "head": "029d97ba00dc6276e5149359d4d690a365325000",
+  "new": [],
+  "notes": [
+    "Strict hooks exposed two no-any-return fixes (budget.py, reply_language.py): isinstance narrowing, behaviour unchanged. git diff master...HEAD -- profiles/ is empty."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "eee0e88a97e9f67ddf9bfc11c87eda6a619202f1.review.json"
+  ],
+  "reviewed": "eee0e88a97e9f67ddf9bfc11c87eda6a619202f1",
+  "schema": 1,
+  "scope": [
+    "Range eee0e88..HEAD; files listed by relay changed are all the findings' files and tests. Gate log head daaafc3 exit 0, only the gate log after it. Ran tests/test_py39_hooks.py and tests/test_types_step.py: 7 passed. On the reviewed commit with the new tests copied in: 3 failed (both py39 tests, test_front_hooks_are_strict)."
+  ],
+  "type": "check"
+}
