@@ -167,7 +167,7 @@ def step_mark(main, default, branch):
         raise Refused("no check mark for %s (run delegate:checker on its head)" % branch)
     newest_list = None
     for commit in order:
-        own = relay_inert.changed(main, commit, ref, own=True)
+        own = relay_inert.changed(main, commit, ref, own=True, archive=True)
         if not own:
             mark = stored[commit]
             if mark["verdict"]["open"] != 0:
@@ -188,7 +188,7 @@ def step_gate(main, branch, where):
     order = [c for c in commit_list(main, ["rev-list", "--topo-order", ref]) if c in logs]
     reason = "no gate has run on it yet"
     for commit in order:                                        # newest first: the newest gate on unchanged code decides
-        since = relay_inert.changed(main, commit, ref)
+        since = relay_inert.changed(main, commit, ref, archive=True)
         if logs[commit] != 0:
             if reason.startswith("no gate"):
                 reason = "last gate %s: exit %d" % (commit, logs[commit])

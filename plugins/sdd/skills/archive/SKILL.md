@@ -74,6 +74,13 @@ When `gate.final` is `remote`, the archive changes only `openspec/` and docs,
 so it needs no new pipeline: run the tests that read docs. If it must change
 anything else, the gate runs again before the branch is reported ready.
 
+Archive after the check of the change, in its own commit. The merge guard
+treats a commit that only archives as inert: every path it touches is under
+`openspec/changes/archive/` or `openspec/specs/`, or is a deletion under
+`openspec/changes/<change>/` (the move into the archive). That commit needs no
+new gate and no new check. Any other file in it (code, docs, an edit of the
+change's own folder) makes the merge ask for both again.
+
 ## 5. Commit and report
 
 Commit on `wt/<change>`:
