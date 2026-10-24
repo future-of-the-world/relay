@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_judge_tally.py GraderFilesLoadInTheEvalTool::test_every_front_matter_key_is_one_the_eval_tool_accepts (fails at 8e0799a), test_the_stored_field_decides_not_the_name, test_a_grader_missing_from_answers_json_is_not_judged_and_named pass; make.py --check ok."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_judge_tally.py ExpectedAnswerIsAField::test_a_broken_eval_folder_is_not_blamed_on_the_input_file passes, fails at 8e0799a; test_an_empty_file and test_json_of_another_shape pass."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/eval-tally/.relay/checks/6c7e4f291daf272a738732421bd527d13a69e638.gate.log",
+  "head": "074ecec5ed1e217d3d1598d9020d1c1546488066",
+  "new": [],
+  "notes": [
+    "F1 grader files back to master keys; answers.json per case written and checked by make.py. F3 (new finding of check 1) covered by the green gate. Eval-tool probe was done by the fixer, not repeated."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "8e0799aacc0d5a16ab0e7bee76b8bb09a10f6a47.review.json"
+  ],
+  "reviewed": "8e0799aacc0d5a16ab0e7bee76b8bb09a10f6a47",
+  "schema": 1,
+  "scope": [
+    "Range 8e0799a..074ecec. Ran test_judge_tally, test_judge_measure, test_queue (119 passed), make.py --check ok. Gate log head 6c7e4f2 ends exit 0; only the gate-log commit follows. Fail-without-fix: tally tests at 8e0799a fail (3: broken eval folder, missing answers, front-matter key test). F3 test_f6 passes at the pre-fix commit in a plain tree: it fails only under the inert probe, which the gate ran (inert ok)."
+  ],
+  "type": "check"
+}

@@ -1,0 +1,13 @@
+{
+ "no--06-pagecount-already-documented": "FAIL",
+ "no--07-checked-pagecount-ok": "FAIL",
+ "no--08-breach-for-page-only": "FAIL",
+ "no--09-no-doc-rule-findings": "FAIL",
+ "no--10-pagecount-compliant-next-to-label": "FAIL",
+ "no--11-label-line-says-complies": "FAIL",
+ "yes--01-e-NnQ3lv": "PASS",
+ "yes--02-e-v2ys4O": "PASS",
+ "yes--03-review-with-both-findings": "PASS",
+ "yes--04-review-project-rule-line": "PASS",
+ "yes--05-review-slice-end-at-the-line": "PASS"
+}

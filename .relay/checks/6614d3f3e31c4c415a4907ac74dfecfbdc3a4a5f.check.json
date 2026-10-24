@@ -1,0 +1,60 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_judge_tally.py:149 test_every_front_matter_key_is_one_the_eval_tool_accepts passes, fails at 8e0799a (expect key in front matter); test_the_stored_field_decides_not_the_name and test_a_grader_missing_from_answers_json_is_not_judged_and_named (line 99) pass; make.py --check exit 0; grep shows no expect: in graders."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_judge_tally.py:119 test_a_broken_eval_folder_is_not_blamed_on_the_input_file passes and fails at 8e0799a; test_an_empty_file and test_json_of_another_shape still pass."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/eval-tally/.relay/checks/c29755468e0bcc6158b6a83f53d9488d505f25cd.gate.log",
+  "head": "6614d3f3e31c4c415a4907ac74dfecfbdc3a4a5f",
+  "new": [
+    {
+      "details": [
+        "CONFIRMED by running the test. Size: 5 agent minutes (read the item from done/ too, or from git history at the filing commit)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "pytest tests/test_queue.py -k f6_the_votes at HEAD 6614d3f: KeyError 'eval-votes-in-file-names.json' in committed_items(ROOT)[...]. The gate ran before the \"queue: done\" commit, so it did not see this. Should pass."
+      ],
+      "fix_hint": [
+        "In test_f6, find the item text in queue/ or queue/done/ (git show of the filed commit) instead of committed_items()[name]."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 481,
+      "pass_cases": [
+        "1. test_f6 passes at HEAD with the item under .relay/queue/done/.",
+        "2. Other seed-item tests (test_f7 gate-log-summary, round trip) keep passing.",
+        "3. Full tests/test_queue.py is green at HEAD."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "medium",
+      "severity": "MEDIUM",
+      "summary": "test_f6 reads eval-votes-in-file-names.json from queue/, but the item is now in queue/done/, so the test fails at HEAD"
+    }
+  ],
+  "notes": [
+    "F1 and F2 are met. One new problem: the post-gate commit \"queue: done eval-votes-in-file-names\" moved the item to queue/done/, and tests/test_queue.py::test_f6 still reads it from queue/ via committed_items, so it fails at HEAD (gate ran before the move)."
+  ],
+  "open": 1,
+  "queued": 0,
+  "review": [
+    "8e0799aacc0d5a16ab0e7bee76b8bb09a10f6a47.review.json"
+  ],
+  "reviewed": "8e0799aacc0d5a16ab0e7bee76b8bb09a10f6a47",
+  "schema": 1,
+  "scope": [
+    "Fix range 8e0799a..HEAD; files within scope (judge-measure make.py, tally.py, README, answers.json, grader files restored, tests/test_judge_tally.py, queue files). Gate log is for c297554, the last code commit; later commits are inert only (relay changed lists none). Ran test_judge_tally, test_judge_measure, test_queue; make.py --check ok. Ran the new tally tests in a throwaway worktree at 8e0799a: the 3 new tests fail there, the 9 others pass."
+  ],
+  "type": "check"
+}

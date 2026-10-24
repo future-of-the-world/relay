@@ -124,7 +124,9 @@ class Tally(unittest.TestCase):
         self.t = load_tally()
 
     def run_tally(self, data, **kw):
-        return self.t.tally(copy.deepcopy(data), kw.pop("model", "haiku"), **kw)
+        # the synthetic graders are named yes--/no-- by this test only; the answers are handed in as the stored field
+        ans = {c["name"]: {g["name"]: g["name"].startswith("yes--") for g in c["graders"]} for c in data["cases"]}
+        return self.t.tally(copy.deepcopy(data), kw.pop("model", "haiku"), answers=kw.pop("answers", ans), **kw)
 
     def test_a_clean_run_passes(self):
         code, lines = self.run_tally(result([llm_run((Y, [T, T, T]), (N, [F, F, F])) for _ in range(5)]))
@@ -197,8 +199,9 @@ class Tally(unittest.TestCase):
             self.assertEqual(r.returncode, 2); self.assertEqual(r.stdout, ""); self.assertIn("NOT JUDGED", r.stderr)
             # the crashed run of the eval tool: four cases, every run graders: [] with error; the gate must not say PASS
             names = load_tally().load_expected()
-            gnames = lambda n: [f"yes--{i:02d}-a" if i % 2 else f"no--{i:02d}-b" for i in range(1, n + 1)]
-            json.dump(result([], cases=[case_of([errored_run() for _ in range(5)], name=k, graders=gnames(n)) for k, n in names.items()]), open(p, "w"))
+            real = load_tally().load_answers()   # the committed graders and their stored expected answers
+            gnames = lambda k: sorted(real[k])
+            json.dump(result([], cases=[case_of([errored_run() for _ in range(5)], name=k, graders=gnames(k)) for k, n in names.items()]), open(p, "w"))
             r = subprocess.run([sys.executable, "-I", TALLY, p, "--expect-model", "haiku"], capture_output=True, text=True)
             self.assertEqual(r.returncode, 2); self.assertEqual(r.stdout, ""); self.assertIn("errored", r.stderr)
             json.dump(result([], cases=[]), open(p, "w"))
@@ -208,9 +211,9 @@ class Tally(unittest.TestCase):
             r = subprocess.run([sys.executable, "-I", TALLY, p, "--expect-model", "haiku"], capture_output=True, text=True)
             self.assertEqual(r.returncode, 2); self.assertIn("missing case", r.stderr)
             # a complete run: the four real cases, every item of items.txt, 5 runs of 3 votes
-            def complete(n):
-                return [llm_run(*[(f"yes--{i:02d}-a" if i % 2 else f"no--{i:02d}-b", [T, T, T] if i % 2 else [F, F, F]) for i in range(1, n + 1)]) for _ in range(5)]
-            cases = [case_of(complete(n), name=name, graders=gnames(n)) for name, n in names.items()]
+            def complete(k):
+                return [llm_run(*[(g, [real[k][g]] * 3) for g in gnames(k)]) for _ in range(5)]
+            cases = [case_of(complete(name), name=name, graders=gnames(name)) for name in names]
             json.dump(result([], cases=cases), open(p, "w"))
             r = subprocess.run([sys.executable, "-I", TALLY, p, "--expect-model", "haiku"], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stderr); self.assertIn("PASS measure-off-by-one", r.stdout)
