@@ -135,7 +135,7 @@ expect "T14 removed, message names .ci/" "$(gone && has 'with 1 ignored path gon
 mkrepo; mkdir -p "$W/plugins/p/agents" "$W/rules" && echo x >"$W/plugins/p/agents/a.md" && echo y >"$W/rules/r.md"
 git -C "$W" add -A && git -C "$W" commit -q -m texts; mkdir -p "$M/bin"; : >"$M/bin/relay"; git -C "$M" add bin; git -C "$M" commit -q -m relay
 git -C "$W" merge -q --no-edit master; merge_and_hook
-expect "N1 agent-text and sync notices" "$(has 'open sessions keep the old texts' "$ctx" && has 'Run relay sync once from the main checkout.' "$ctx"; echo $?)"
+expect "N1 agent-text and sync notices" "$(has 'open sessions keep the old texts' "$ctx" && has 'once the wave'"'"'s paid run is green' "$ctx"; echo $?)"
 
 # T18: default branch (relay_git.default_branch) through the hook: unknown default branch = silent
 mkdefault() { # <dir> <branch>: a repo whose only branch is <branch>, with .relay/ and a worktree on wt/t

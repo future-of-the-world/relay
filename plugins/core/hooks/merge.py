@@ -60,7 +60,7 @@ def notices(main, files):
     if any((f.startswith("plugins/") and ("/agents/" in f or "/skills/" in f)) or f.startswith("roles/") for f in files):
         out.append("Agent and skill texts changed: open sessions keep the old texts until restarted or /reload-plugins.")
     if os.path.isfile(os.path.join(main, "bin", "relay")) and any(f.startswith(("rules/", "roles/")) for f in files):
-        out.append("Run relay sync once from the main checkout.")
+        out.append("Run relay sync from the main checkout once the wave's paid run is green (it waits for it).")
     return out
 
 

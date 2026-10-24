@@ -25,7 +25,7 @@ class SyncRefused(unittest.TestCase):
             for n, path in (("a", self.a), ("b", self.b)):
                 handle.write('[%s]\nfile = "%s"\nload = ["quality-gate"]\nread = []\n\n' % (n, path))
         self.env = dict(os.environ, RELAY_PROJECTS=projects, RELAY_HOME=os.path.join(self.tmp, "home"),
-                        CLAUDE_CONFIG_DIR=os.path.join(self.tmp, "claude"), RELAY_ROOT=ROOT)
+                        CLAUDE_CONFIG_DIR=os.path.join(self.tmp, "claude"), RELAY_ROOT=ROOT, RELAY_SKIP_PAID_DUE="1")
 
     def sync(self):
         # Named targets only (a and b): the agents are not touched.

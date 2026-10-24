@@ -397,6 +397,13 @@ class Numbers(Base):
         self.assertIn("$8.42", text)            # 6.99 + 1.43 + 0.00313 = 8.42313; /cost rounds its unrounded sums to 8.43
         self.assertIn("Claude Code helpers (no transcript)", text)
 
+    @staticmethod
+    def _recent(clock):
+        """A time on yesterday's date: the ledger fallback reads only the last 3 days of the real clock, so a
+        literal date would stop being found 3 days after it (these tests failed from 2026-10-24 10:00 on)."""
+        day = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)
+        return "%sT%sZ" % (day.strftime("%Y-%m-%d"), clock)
+
     def test_capture_does_not_write_a_total_smaller_than_the_recorded_one(self):
         """If Claude Code restarts its counter on resume, the new total covers only the resumed part: it must
         not replace the bigger one already recorded (it would be labelled exact for the whole session)."""
@@ -406,12 +413,12 @@ class Numbers(Base):
             self._claude_json("s-r")
         finally:
             self.SESSION_8_43["claude-opus-5-5"]["cost"] = 6.99
-        self.assertEqual(relay_ledger.capture("2026-10-21T09:00:00Z"), ["s-r"])
+        self.assertEqual(relay_ledger.capture(self._recent("09:00:00")), ["s-r"])
         self._claude_json("s-r")                                   # now 6.99: smaller than the 9.00 recorded
-        self.assertEqual(relay_ledger.capture("2026-10-21T10:00:00Z"), [])
+        self.assertEqual(relay_ledger.capture(self._recent("10:00:00")), [])
         self.assertEqual(relay_ledger.usage_sessions()["s-r"]["claude-opus-5-5"]["cost_usd"], 9.0)
         os.remove(os.path.join(self.home, "ledger", "usage-index.json"))     # the index is a shortcut, not the truth
-        self.assertEqual(relay_ledger.capture("2026-10-21T10:01:00Z"), [])
+        self.assertEqual(relay_ledger.capture(self._recent("10:01:00")), [])
 
     def test_a_restarted_counter_that_grows_past_the_old_total_stays_an_estimate(self):
         """First part 9.00; the resumed part restarts at 0, is seen at 4.00 (smaller: not written, session marked),
@@ -423,12 +430,12 @@ class Numbers(Base):
                 self._claude_json("s-g")
             finally:
                 self.SESSION_8_43["claude-opus-5-5"]["cost"] = 6.99
-            written = relay_ledger.capture("2026-10-21T%s:00Z" % when)
+            written = relay_ledger.capture(self._recent("%s:00" % when))
             self.assertEqual(written, ["s-g"] if cost == 9.0 else [])
         self.assertEqual(relay_ledger.usage_sessions()["s-g"]["claude-opus-5-5"]["cost_usd"], 9.0)
         self.assertNotIn("s-g", relay_ledger.exact_sessions())          # never exact again, not even the 12.00 in the file
         os.remove(os.path.join(self.home, "ledger", "usage-index.json"))
-        self.assertEqual(relay_ledger.capture("2026-10-21T12:00:00Z"), [])
+        self.assertEqual(relay_ledger.capture(self._recent("12:00:00")), [])
 
     def test_the_usage_index_keeps_every_entry_under_concurrent_writers(self):
         """30 SessionEnd hooks at once used to keep 12 to 26 of 30 index entries (read-modify-write, shared temp)."""
@@ -475,12 +482,12 @@ class Numbers(Base):
             return real(since=since, until=until)
         relay_ledger.read = guarded
         try:
-            self.assertEqual(relay_ledger.capture("2026-10-21T10:00:00Z"), ["s-trust"])   # new session
-            self.assertEqual(relay_ledger.capture("2026-10-21T10:01:00Z"), [])            # recorded session
+            self.assertEqual(relay_ledger.capture(self._recent("10:00:00")), ["s-trust"])   # new session
+            self.assertEqual(relay_ledger.capture(self._recent("10:01:00")), [])            # recorded session
             with open(index_file, "w") as handle:
                 handle.write("{not json")                                                  # corrupt: ledger fallback
             relay_ledger.read = real
-            self.assertEqual(relay_ledger.capture("2026-10-21T10:02:00Z"), [])
+            self.assertEqual(relay_ledger.capture(self._recent("10:02:00")), [])
         finally:
             relay_ledger.read = real
 
@@ -1493,6 +1500,12 @@ class Bench(Base):
 
 
 class Rules(Base):
+    def setUp(self):
+        super().setUp()
+        # these tests sync into temporary targets; the wait for a green paid run is tested in test_paid_batch.py
+        old = os.environ.get("RELAY_SKIP_PAID_DUE"); os.environ["RELAY_SKIP_PAID_DUE"] = "1"
+        self.addCleanup(lambda: os.environ.__setitem__("RELAY_SKIP_PAID_DUE", old) if old is not None else os.environ.pop("RELAY_SKIP_PAID_DUE", None))
+
     def test_sync_writes_global_and_project_files(self):
         import relay_config
         import relay_rules
@@ -1985,12 +1998,13 @@ class AutoMergeTextsTest(unittest.TestCase):
         """F3: step 9 merges on readiness (incl. the paid run), not on the verdict alone."""
         text = self._read("plugins/delegate/skills/delegate/SKILL.md")
         self.assertIn("When the change is ready", text)
-        self.assertIn("the paid run green when agent, skill, role or rule texts changed", text)
+        self.assertNotIn("the paid run green when agent, skill, role or rule texts changed", text)
+        self.assertIn("default branch taken)", text)
         self.assertNotIn("When the verdict is `open 0` the front merges", text)
 
     def test_merged_line_has_paid_run_slot(self):
-        """F4: front template carries the optional paid-run part."""
-        self.assertIn("`; paid run green, $<cost>`", self._read("plugins/front/skills/front/SKILL.md"))
+        """The merged line no longer carries a per-change paid-run part: the paid run is per wave."""
+        self.assertNotIn("`; paid run green, $<cost>`", self._read("plugins/front/skills/front/SKILL.md"))
 
 
 if __name__ == "__main__":

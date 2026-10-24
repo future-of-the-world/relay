@@ -18,8 +18,8 @@
     "The cause is named with evidence from that run's transcript; after the fix the case passes in the next wave's paid run; a reviewer reply that names the contradiction in other words still passes the grader."
   ],
   "where": "evals/plugin/spec-reviewer-flaw (case, grader finds-the-contradiction), the spec reviewer's role text",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T11:35:15Z",
+  "taken_by": "wt/spec-flaw",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

@@ -1,0 +1,56 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_paid_batch.py SyncWaits::test_sync_agents_only_does_not_wait, fails at base; refusal and dry tests pass."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_paid_batch.py CodeGrader::test_failed_regex_grader_is_not_green_and_exits_nonzero, fails at base; green, partial, not-judged tests pass."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "OtherCallersWait::test_rules_sync_raises_held_for_global_but_not_for_agents, fails at base; wait now in relay_rules.sync, callers catch Held."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "plugins/front/skills/front/SKILL.md red-run sentence now says an open item naming that eval adds none; the red-run item sentence kept."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "docs/setup.md now says the full sync runs after the wave's paid run is green; sync agents instruction kept."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/paid-batch/.relay/checks/4c34f90e653290ed8609af1e242fd82ff5b11628.gate.log",
+  "head": "802a3565e510e59fc1abac7cedb116d70c4efabc",
+  "new": [],
+  "notes": [
+    "Fixer decision: install is exempt from the wait (wait=False); reasonable, owner can reverse. Callers setup, improve adopt, cmd_sync catch Held and exit 1; their printing is not unit-tested, only relay_rules.sync raising."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "174c6111f7de23ac773d76ac5e99b4bb0a9576df.review.json"
+  ],
+  "reviewed": "174c6111f7de23ac773d76ac5e99b4bb0a9576df",
+  "schema": 1,
+  "scope": [
+    "Range 174c611..HEAD, own files: bin/ci bin/eval-record bin/relay docs/setup.md lib/relay_rules.py lib/relay_setup.py front SKILL.md tests/test_paid_batch.py tests/test_relay.py. Ran tests/test_paid_batch.py (18 passed) and full tests (436 passed). Gate log head 4c34f90, exit 0 (quick mode), only the gate-log commit after it. The three new tests fail at 174c611 with the head test file."
+  ],
+  "type": "check"
+}
