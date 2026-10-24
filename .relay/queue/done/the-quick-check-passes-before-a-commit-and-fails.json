@@ -20,8 +20,8 @@
   "where": "tests/test_queue.py",
   "taken_at": "2026-10-24T17:52:11Z",
   "taken_by": "wt/quick-head",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T19:25:28Z",
+  "test": "tests/test_quick_head.py::TestQuickReadsTheWorkingTree::test_q1_an_uncommitted_edit_is_what_the_committed_text_helpers_read",
   "dropped_at": null,
   "dropped_why": null
 }
