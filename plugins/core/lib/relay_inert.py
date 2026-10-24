@@ -56,7 +56,7 @@ def _git(repo, *args):
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
-_TREES = {}      # (repo, commit sha) -> {path: blob id}: a commit's tree never changes, so one read serves a whole judge
+_TREES: dict[tuple[str, str], dict[str, str]] = {}      # (repo, commit sha) -> {path: blob id}: a commit's tree never changes, so one read serves a whole judge
 
 
 def _blobs(repo, commit):
