@@ -16,8 +16,8 @@
   ],
   "taken_at": "2026-10-24T19:01:32Z",
   "taken_by": "wt/sonnet-price",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T21:16:41Z",
+  "test": "tests/test_sonnet_price_history.py::SonnetPriceHistory::test_calibration_prices_an_early_session_at_the_earlier_rate",
   "dropped_at": null,
   "dropped_why": null
 }
