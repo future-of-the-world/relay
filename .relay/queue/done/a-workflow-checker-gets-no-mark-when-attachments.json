@@ -20,8 +20,8 @@
   "where": "plugins/core/hooks/check-mark.py:92-95",
   "taken_at": "2026-10-24T05:14:10Z",
   "taken_by": "wt/mark-attach",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T05:30:39Z",
+  "test": "tests/test_mark_attach.py::MarkAttach::test_labelled_prompt_then_attachments",
   "dropped_at": null,
   "dropped_why": null
 }
