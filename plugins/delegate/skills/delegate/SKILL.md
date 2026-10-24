@@ -169,7 +169,7 @@ checker again. Write a TOML file with `words = '''<the owner's words, verbatim>'
 and run `relay check owner <review.json> F3 --input <file.toml>`: it appends the
 words and the date to the `owner` list of that review's JSON, and refuses an id
 the review does not have. The checker counts a finding with an owner entry as
-not wrong; `relay check show` and the page print the words under the finding.
+not wrong; `relay check show` prints the words under the finding.
 
 When the owner moves a finding (a `Design:` one, say) to a queue item, keep that as
 data too: the same TOML with `queue = "<slug>"` beside `words`. The item must be on the
