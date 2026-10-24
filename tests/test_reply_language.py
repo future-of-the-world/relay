@@ -126,7 +126,8 @@ class ReplyLanguage(unittest.TestCase):
         with open(path, "w", encoding="utf-8") as f:
             f.write(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": RUSSIAN}]}}) + "\n")
             f.write(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": ENGLISH}]}}) + "\n")
-        env = dict(os.environ, HOME=self.home.name)
+        drop = ("RELAY_REPLY_LANG_SHARE", "CLAUDE_CODE_ENTRYPOINT", "RELAY_BENCH", "CLAUDE_CONFIG_DIR")
+        env = dict({k: v for k, v in os.environ.items() if k not in drop}, HOME=self.home.name)
         done = subprocess.run([sys.executable, HOOK], input=json.dumps({"transcript_path": path}), capture_output=True, text=True, env=env)
         self.assertEqual(json.loads(done.stdout)["decision"], "block")
 
