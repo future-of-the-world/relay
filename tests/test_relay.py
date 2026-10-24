@@ -1570,6 +1570,61 @@ class Setup(Base):
         self.assertTrue(d2["has_bindings"])
 
 
+class PluginInstall(Base):
+    def _proj(self):
+        proj = os.path.join(self.tmp, "ip")
+        os.makedirs(proj)
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        return proj
+
+    def _registry(self, entries):
+        cdir = os.path.join(self.tmp, "cdir")
+        os.makedirs(os.path.join(cdir, "plugins"), exist_ok=True)
+        json.dump({"version": 2, "plugins": entries}, open(os.path.join(cdir, "plugins", "installed_plugins.json"), "w"))
+        old = os.environ.get("CLAUDE_CONFIG_DIR")
+        os.environ["CLAUDE_CONFIG_DIR"] = cdir
+        def restore():
+            if old is None:
+                os.environ.pop("CLAUDE_CONFIG_DIR", None)
+            else:
+                os.environ["CLAUDE_CONFIG_DIR"] = old
+        self.addCleanup(restore)
+
+    def test_setup_openspec_installs_sdd_at_project_scope(self):
+        import relay_setup
+        self._registry({})
+        proj = self._proj()
+        calls = []
+        def runner(root, key):
+            calls.append((root, key))
+            return True, ""
+        _, _, _, done, todo = relay_setup.setup(proj, flow="openspec", product=False, apply_global=False, install_runner=runner)
+        # only the flow plugin sdd is project-scope; core/observe/delegate/front are user-level
+        self.assertEqual(calls, [(os.path.realpath(proj), "sdd@relay")])
+        self.assertIn("installed sdd@relay at project scope", done)
+        self.assertFalse([t for t in todo if "sdd@relay" in t])
+
+    def test_setup_install_failure_todo_names_the_command(self):
+        import relay_setup
+        self._registry({})
+        proj = self._proj()
+        _, _, _, done, todo = relay_setup.setup(proj, flow="openspec", product=False, apply_global=False,
+                                                install_runner=lambda root, key: (False, "no claude"))
+        self.assertTrue([t for t in todo if "claude plugin install sdd@relay --scope project" in t])
+        self.assertFalse([d for d in done if "installed sdd@relay" in d])
+
+    def test_doctor_fixes_enabled_but_not_installed(self):
+        import relay_setup
+        self._registry({})
+        proj = self._proj()
+        relay_setup.setup(proj, flow="openspec", product=False, apply_global=False, install_runner=lambda r, k: (False, ""))
+        names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
+        self.assertFalse(names["sdd@relay installed"])
+        self._registry({"sdd@relay": [{"scope": "project", "projectPath": proj}]})
+        names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
+        self.assertTrue(names["sdd@relay installed"])
+
+
 class RelayFolder(Base):
     """S1-S3 (design 12.7): `relay setup --relay-folder` writes `.relay/README.md` and nothing else."""
 

@@ -299,7 +299,33 @@ def relay_folder(root):
     return path, True
 
 
-def setup(root, flow=None, product=None, apply_global=True, relay_dir=True):
+USER_SCOPE_PLUGINS = ("core", "observe", "delegate", "front")
+
+
+def installed_for(root, key):
+    """Is plugin `key` (name@marketplace) installed for the user, or for the project at `root`? Reads Claude's own registry."""
+    reg = read_json(os.path.join(relay_config.claude_dir(), "plugins", "installed_plugins.json"))
+    entries = reg.get("plugins", {}).get(key, [])
+    root = os.path.realpath(root)
+    for e in entries if isinstance(entries, list) else []:
+        if e.get("scope") == "user":
+            return True
+        if e.get("projectPath") and os.path.realpath(e["projectPath"]) == root:
+            return True
+    return False
+
+
+def run_plugin_install(root, key):
+    """Real install runner: (ok, detail). The binary is RELAY_CLAUDE_BIN or `claude`."""
+    cmd = [os.environ.get("RELAY_CLAUDE_BIN") or "claude", "plugin", "install", key, "--scope", "project"]
+    try:
+        proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, str(exc)
+    return proc.returncode == 0, (proc.stderr or proc.stdout).strip()
+
+
+def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, install_runner=None):
     """Set one project up. `relay_dir=False` leaves `.relay/` out: `migrate` (even as a plan) must not turn the work queue and the
     merge checks on in a project the owner has not chosen (docs/setup.md: old projects are not given a .relay/ folder)."""
     root = os.path.realpath(root)
@@ -334,6 +360,18 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True):
         done.append("wrote docs/handover.md")
     if register_project(d["name"], root, flow, product):
         done.append(f"registered {d['name']} in projects.toml (loads: {flow} flow rules)")
+    runner = install_runner or run_plugin_install
+    for p in plugins:
+        if p in USER_SCOPE_PLUGINS:
+            continue
+        key = f"{p}@relay"
+        cmd = f"claude plugin install {key} --scope project"
+        if installed_for(root, key):
+            done.append(f"{key} already installed")
+        elif runner(root, key)[0]:
+            done.append(f"installed {key} at project scope")
+        else:
+            todo.append(f"{key} is enabled but not installed, so its skills are missing: run `{cmd}` in {root}")
     if apply_global:
         path, changed, removed = merge_user_settings(["core", "observe", "delegate", "front"])
         done.append(f"{path}: relay marketplace registered, user-scope plugins enabled" + ("" if changed else " (already)"))
@@ -443,6 +481,9 @@ def doctor(root=None, profile=None):
                 enabled = d["settings"].get("enabledPlugins", {})
                 not_on = [p for p in manifest.get("requires_plugins", []) if not enabled.get(f"{p}@relay")]
                 ok("flow plugins enabled in .claude/settings.json", not not_on, "enable: " + ", ".join(not_on) if not_on else "")
+        enabled = d["settings"].get("enabledPlugins", {})
+        for key in sorted(k for k, v in enabled.items() if v and k.endswith("@relay")):
+            ok(f"{key} installed", installed_for(root, key), f"claude plugin install {key} --scope project")
         for s in ("check", "ci", "wt"):
             path = os.path.join(root, cfg.get("gate", {}).get(s, f"bin/{s}"))
             ok(f"gate.{s} exists and is executable", os.path.isfile(path) and os.access(path, os.X_OK), path)
