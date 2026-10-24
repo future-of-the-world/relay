@@ -18,8 +18,8 @@
     "Take, build, gate, one review, fix, gate, ONE checker run, done, merge: no refusal; master holds the item's problem, every finding's verdict and the gate log in one record; a test name or a later file is judged the same by done and by the merge guard (one function, tested from both callers)."
   ],
   "where": "lib/relay_verdict.py:550",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T05:45:33Z",
+  "taken_by": "wt/checks-record",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
