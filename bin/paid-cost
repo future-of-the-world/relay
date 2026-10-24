@@ -2,10 +2,11 @@
 """Money limits and estimates of paid runs (`claude plugin eval`), from the costs relay measured itself.
 
   bin/paid-cost ceiling --cap USD --jobs N [--dir DIR]   prints "<jobs> <ceiling>": what to pass as -j and --max-cost-usd
+  bin/paid-cost ceiling ... --within-day                 the same, with --cap lowered to what is left of the day's cap
   bin/paid-cost estimate [--dir DIR]                     prints the mean and max cost of a stored batch, or "not measured yet"
   bin/paid-cost due [--dir DIR] [--repo REPO]            prints the merged changes no green paid run covers yet; nothing when none
   bin/paid-cost today                                    prints the day's spend, the owner's daily cap and the run count (UTC day)
-  bin/paid-cost cap [USD]                                prints the daily cap from projects.toml [global]; with USD it changes it
+  bin/paid-cost cap [USD]                                prints the daily cap from projects.toml [global]; with USD it lands the change as one commit on the default branch
   bin/paid-cost guard eval                               exits 1 with a refusal line when the next plugin eval batch (the largest stored one) would pass the day's cap
 
 DIR holds the eval records bin/eval-record stores ($RELAY_HOME/evals/<repo>/*.json, RELAY_HOME defaults to ~/.relay).
@@ -157,7 +158,8 @@ def money_command(a):
     bench = os.path.join(home, "bench") if home else None
     try:
         if a.cmd == "cap" and a.arg is not None:
-            relay_paidcap.set_cap(float(a.arg))
+            print(relay_paidcap.land_cap(float(a.arg)))   # one commit on the default branch; the value just landed, not this checkout's file
+            return 0
         if a.cmd == "guard":
             if a.arg != "eval":
                 print("paid-cost: guard takes: eval", file=sys.stderr)
@@ -186,6 +188,7 @@ def main(argv=None):
     ap.add_argument("--today", help="the UTC day as YYYY-MM-DD (default: now)")
     ap.add_argument("--cap", type=float)
     ap.add_argument("--jobs", type=int, default=1)
+    ap.add_argument("--within-day", action="store_true", help="ceiling: cap the --cap at what is left of the day's cap")
     ap.add_argument("--dir")
     ap.add_argument("--repo", default=".")
     a = ap.parse_args(argv)
@@ -207,6 +210,18 @@ def main(argv=None):
     if a.cap is None or a.cap <= 0 or a.jobs < 1:
         print("paid-cost: ceiling needs --cap above 0 and --jobs of 1 or more", file=sys.stderr)
         return 2
+    if a.within_day:   # the batch may not push the day past the cap: its ceiling is at most the room the day has left
+        today = a.today or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+        home = os.path.dirname(os.path.dirname(a.dir)) if a.dir else None
+        try:
+            room = relay_paidcap.cap() - relay_paidcap.spend_today(today, home)[0]
+        except (ValueError, OSError) as e:
+            print(f"paid-cost: {e}", file=sys.stderr)
+            return 2
+        a.cap = min(a.cap, round(room, 2))
+        if a.cap <= 0:
+            print("paid-cost: the day's cap leaves no room for a batch", file=sys.stderr)
+            return 2
     jobs, c = ceiling(a.cap, a.jobs, records)
     print(jobs, f"{c:g}")
     return 0

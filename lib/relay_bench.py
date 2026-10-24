@@ -499,6 +499,8 @@ def run_bench(profiles, scenarios, runs=None, judge_model="haiku", keep=False, o
         raise PaidCapReached(refusal)
     out_dir = os.path.join(out_root or bench_dir(), stamp)
     os.makedirs(out_dir, exist_ok=True)
+    if out_root and os.path.realpath(out_root) != os.path.realpath(bench_dir()):
+        relay_paidcap.link_out(out_dir, stamp)   # the day's spend (bin/paid-cost today, the cap) counts a run kept outside ~/.relay/bench
     config_dir = isolated_config_dir(out_dir) if isolate else None
     rows = []
     spent = 0.0

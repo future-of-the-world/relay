@@ -97,7 +97,7 @@ default branch; its message says what to run (a runner takes the default branch
 or runs the gate again). Texts get one paid run per wave: after the last merge of a wave of 3-4
 changes (not while it is half-merged), when `bin/paid-cost due` lists a change
 and no paid run is going, run the full paid `bin/ci` yourself (no approval
-needed, within the owner's daily cap) in a detached worktree of the default
+needed, within the owner's daily cap: `bin/paid-cost today` prints the spend and the cap, bin/ci refuses past it) in a detached worktree of the default
 branch's head, so the primary checkout stays clean, and report its cost. It takes
 longer than the ~40 minutes a runner's turns cover, so never a runner: start it
 with Bash `run_in_background` into a log in the scratchpad (no `&`, no polling;
