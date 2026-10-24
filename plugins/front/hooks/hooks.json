@@ -1,5 +1,5 @@
 {
-  "description": "Front desk: handover note at the budget line, wrap note for big agents, handover file named after compaction; `relay` on PATH.",
+  "description": "Front desk: handover note at the budget line, wrap note for big agents, handover file named after compaction; the reply to the owner checked for the native language; `relay` on PATH.",
   "hooks": {
     "SessionStart": [
       {
@@ -39,6 +39,20 @@
               "${CLAUDE_PLUGIN_ROOT}/hooks/budget.py"
             ],
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/reply_language.py"
+            ],
+            "timeout": 5
           }
         ]
       }

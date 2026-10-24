@@ -18,8 +18,8 @@
     "a run whose grader names carry the right yes--/no-- prefixes tallies correctly today"
   ],
   "where": "evals/judge-measure/tally.py:62",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T05:45:32Z",
+  "taken_by": "wt/eval-tally",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

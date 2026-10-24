@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "tests/test_reply_language.py:49 English blocked (0%), :57 Russian with terms passes, :61 mostly-code passes, :65 unset/English unchecked, :72 stop_hook_active passes; all pass, all fail at base."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/reply-lang/.relay/checks/3fcb938e338bfeb58297411bcdf2963b28388204.gate.log",
+  "head": "262109c8137b1bbfa677df41f5669b11e1981b73",
+  "new": [],
+  "notes": [
+    "Fixer chose the language from the CLAUDE.md line, not projects.toml; env override RELAY_REPLY_LANG_SHARE. Fails open on any error."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "294b0e68475dbd5cd4685acd127b8c0d856d3d1b.review.json"
+  ],
+  "reviewed": "294b0e68475dbd5cd4685acd127b8c0d856d3d1b",
+  "schema": 1,
+  "scope": [
+    "Range 294b0e6..HEAD; files: hooks.json, reply_language.py, test_reply_language.py (all in scope). Ran tests/test_reply_language.py: 13 passed. Gate log head 3fcb938, exit 0; only the gate commit came after. Base worktree at 294b0e6 with the head test file: 13 failed."
+  ],
+  "type": "check"
+}

@@ -1,0 +1,49 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "SKILL.md step 4 now runs before the check, the archive commit is openspec-only, no \"no new pipeline\" sentence remains, step 5 says openspec-only. Tests tests/test_archive_inert.py:70 and :76 pass."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_archive_inert.py:91 and :97 pass and fail at 309b1cf; :70 (archive allowed) still passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "tests/test_archive_inert.py:103 passes (ValueError on failing ls-tree) and fails at 309b1cf."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "Fixer lists it as Outside (relay changed --archive option, judge base step 1); agreed, it is a queue item, not for this change."
+      ],
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/archive-inert/.relay/checks/521704a985d8005dfc5afedd0624f469a40f2957.gate.log",
+  "head": "fe706f838134e4c7aca53b494c144c5d0d401468",
+  "new": [],
+  "notes": [
+    "F1 is a skill text fix, checked by reading: docs sweep moved before the check, archive commit openspec-only, old \"needs no new pipeline\" sentence gone, step 5 matches. Pass cases 4/5 are kept by the existing tests (code line refused, archive-only allowed)."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "309b1cfbfe8be2db4e4632ea04104c729bdac3ee.review.json"
+  ],
+  "reviewed": "309b1cfbfe8be2db4e4632ea04104c729bdac3ee",
+  "schema": 1,
+  "scope": [
+    "Range 309b1cf..HEAD. Own changed files: lib/relay_inert.py, its plugin copy (identical, cmp), SKILL.md, tests/test_archive_inert.py: all in scope. Gate log head 521704a, exit 0; relay changed since 521704a lists nothing. tests/test_archive_inert.py 6 passed. In a throwaway worktree at 309b1cf with the head test file, 3 new tests fail (F2 x2, F3), the 3 older ones pass. Read SKILL.md diff for F1 and relay_inert diff for callers (judge step 3 and cmd_changed keep archive=False)."
+  ],
+  "type": "check"
+}
