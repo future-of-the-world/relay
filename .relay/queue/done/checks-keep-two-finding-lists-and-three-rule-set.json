@@ -20,8 +20,8 @@
   "where": "lib/relay_verdict.py:550",
   "taken_at": "2026-10-24T05:45:33Z",
   "taken_by": "wt/checks-record",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T08:14:45Z",
+  "test": "tests/test_check_record.py::TestEndToEnd::test_t5_t4_take_review_fix_gate_one_check_done_take_master_recheck_merge_and_master_holds_the_record",
   "dropped_at": null,
   "dropped_why": null
 }
