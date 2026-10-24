@@ -20,8 +20,8 @@
   "where": "lib/relay_setup.py:159, lib/relay_setup.py:302-346 (todo at 345), lib/relay_setup.py:398-452",
   "taken_at": "2026-10-24T00:30:49Z",
   "taken_by": "wt/openspec-install",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T01:07:24Z",
+  "test": "tests/test_relay.py::test_setup_install_failure_todo_names_the_command",
   "dropped_at": null,
   "dropped_why": null
 }
