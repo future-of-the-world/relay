@@ -19,7 +19,7 @@ FINDING:      {"id": "F<n>", "path", "line": int >= 1, "severity": a word of WOR
 The check record (schema 2): ONE file per change, `.relay/checks/<head>.check.json`, built in one order by
 `build_record` and written by `relay check record check --input <file.toml>`; every reader (the check hook, `relay queue
 done`, the merge guard) loads it with `load_record`. Counts are never stored: `open_of` and `queued_of` derive them.
-    {"schema": 2, "type": "check", "head": <sha>, "branch", "item": <queue item name or null>, "gate": <log file name or null>,
+    {"schema": 2, "type": "check", "head": <sha>, "branch", "item": <queue item name or null>, "gate": <log file name, `log <path>`, pipeline line or null>,
      "worktree": <path> (left out of the stored copy), "scope": [...], "notes": [...],
      "findings": [RECORD FINDING, ...]}
 RECORD FINDING: a FINDING plus {"source": "queue"|<review file name>|"merge"|"check", "source_id" (a review's own id),
@@ -50,6 +50,7 @@ VERDICTS = ("MET", "NOT MET", "DISPUTED", "GAP", "OUTSIDE", "QUEUED")
 SHA = re.compile(r"^[0-9a-f]{40}\Z")
 FINDING_ID = re.compile(r"^[FQMN]\d+\Z")
 GATE_NAME = re.compile(r"^[0-9a-f]{40}\.gate\.log\Z")
+PIPELINE = re.compile(r"^pipeline #[0-9]+ on ([0-9a-f]{40}) passed\Z")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*\Z")
 PROSE = ("details", "pass_cases", "evidence", "fix_hint")       # a finding's optional prose, as lists of lines
@@ -250,8 +251,9 @@ def record_errors(data, stored=False):
         errors.append("branch must be a one-line text")
     if data.get("item") is not None and not (isinstance(data["item"], str) and SLUG.match(data["item"])):
         errors.append("item must be null or the name of a queue item, got %r" % (data.get("item"),))
-    if data.get("gate") is not None and not (isinstance(data["gate"], str) and GATE_NAME.match(data["gate"])):
-        errors.append("gate must be null or a gate log file name, got %r" % (data.get("gate"),))
+    gate = data.get("gate")
+    if gate is not None and not (_text(gate) and (GATE_NAME.match(gate) or PIPELINE.match(gate) or gate.startswith("log "))):
+        errors.append("gate must be null, a gate log file name, a pipeline line or `log <path>`, got %r" % (gate,))
     if stored:
         if "worktree" in data:
             errors.append("a stored check has no worktree")
@@ -690,39 +692,53 @@ def _merge_findings(wt, head, anchors):
     return found
 
 
-def _gate(wt, head, gate):
-    """(the log name the record keeps or None, [N problems as (path, summary, failing_case lines)]) for the `gate` input: a log
-    file name, a path to one, or "none". The log's head and exit are read from the log, never copied."""
+def _gate(wt, head, gate, since=None):
+    """(the gate the record keeps or None, [N problems as (path, summary, failing_case lines)]) for the `gate` input: a log
+    file name in .relay/checks, a path to a log anywhere (absolute or relative to the worktree), a line
+    "pipeline #<n> on <sha> passed", or "none". The log's head and exit are read from the log, never copied. `since` is the
+    newest commit a review was of: with "none", only own code changed after it counts as code with no gate."""
     import relay_inert
     problems = []
     if gate in (None, "none"):
         default = relay_git.default_branch(wt)
-        rc, base = relay_git.git(wt, "merge-base", "refs/heads/%s" % default, head) if default else (1, "")
+        if since is None:
+            rc, since = relay_git.git(wt, "merge-base", "refs/heads/%s" % default, head) if default else (1, "")
+            if rc != 0:
+                return None, problems
         try:
-            moved = relay_inert.changed(wt, base, head) if rc == 0 else []
+            moved = relay_inert.changed(wt, since, head, own=True)
         except ValueError:
             moved = []
+        moved = [m for m in moved if not (m.startswith("openspec/") or m.startswith("docs/"))]   # specs and docs are no code
         if moved:
             problems.append((".relay/checks", "no gate result for the code of this change",
-                             ["The check was given Gate: none, but %s changed on this branch." % ", ".join(moved[:3]),
+                             ["The check was given Gate: none, but %s changed on this branch after the review." % ", ".join(moved[:3]),
                               "No gate ran on the code at head, so nothing shows the whole test suite passes."]))
         return None, problems
-    name = os.path.basename(str(gate))
-    if not GATE_NAME.match(name):
-        raise VerdictError("nothing recorded: `gate` must be \"none\" or a <sha>.gate.log file name, got %r" % (gate,))
-    path = os.path.join(wt, ".relay", "checks", name)
-    try:
-        with open(path, encoding="utf-8") as handle:
-            lines = handle.read().splitlines()
-    except OSError:
-        return None, [(".relay/checks/" + name, "the gate log is missing", ["The check names the gate log %s but it is not in .relay/checks." % name])]
-    shown = ".relay/checks/" + name
-    logged = lines[0].strip()[len("head "):] if lines and lines[0].strip().startswith("head ") else None
-    code = lines[-1].strip() if lines else ""
-    if logged != name[:-len(".gate.log")] or not code.startswith("exit ") or not code[5:].isdigit():
-        return None, [(shown, "the gate log is not in the gate's form", ["%s must start with `head <sha>` of its own name and end with `exit <n>`." % name])]
-    if int(code[5:]) != 0:
-        problems.append((shown, "the gate is red", ["The gate for %s ended with `%s`." % (logged[:12], code)]))
+    gate = str(gate)
+    piped = PIPELINE.match(gate)
+    if piped:
+        logged, shown, kept, lines = piped.group(1), gate, gate, None
+    else:
+        base = os.path.basename(gate)
+        checks = os.path.join(wt, ".relay", "checks", base)
+        if "/" not in gate and not GATE_NAME.match(gate):
+            raise VerdictError("nothing recorded: `gate` must be \"none\", a pipeline line or the path of a gate log, got %r" % (gate,))
+        path = gate if os.path.isabs(gate) else os.path.join(wt, gate) if "/" in gate else checks
+        inside = GATE_NAME.match(base) and os.path.realpath(path) == os.path.realpath(checks)
+        shown = ".relay/checks/" + base if inside else path
+        kept = base if inside else "log " + path
+        try:
+            with open(path, encoding="utf-8") as handle:
+                lines = handle.read().splitlines()
+        except OSError:
+            return None, [(shown, "the gate log is missing", ["The check names the gate log %s but it cannot be read." % shown])]
+        logged = lines[0].strip()[len("head "):] if lines and lines[0].strip().startswith("head ") else None
+        code = lines[-1].strip() if lines else ""
+        if (inside and logged != base[:-len(".gate.log")]) or not is_sha(logged) or not code.startswith("exit ") or not code[5:].isdigit():
+            return None, [(shown, "the gate log is not in the gate's form", ["%s must start with `head <sha>` (of its own name, in .relay/checks) and end with `exit <n>`." % shown])]
+        if int(code[5:]) != 0:
+            problems.append((shown, "the gate is red", ["The gate for %s ended with `%s`." % (logged[:12], code)]))
     try:
         moved = relay_inert.changed(wt, logged, head) if _is_commit(wt, logged) else None
     except ValueError:
@@ -731,7 +747,7 @@ def _gate(wt, head, gate):
         problems.append((shown, "the gate log is for a commit this worktree does not have", ["Gate commit %s is not a commit of this worktree." % logged[:12]]))
     elif moved:
         problems.append((shown, "the gate log is for other code than head", ["%s changed after the gate ran at %s." % (", ".join(moved[:3]), logged[:12])]))
-    return name, problems
+    return kept, problems
 
 
 def _n_finding(number, path, summary, failing, head, severity="HIGH"):
@@ -761,7 +777,13 @@ def build_findings(wt, head, review_paths):
     default = relay_git.default_branch(wt)
     rc, out = relay_git.git(wt, "rev-list", head, "^refs/heads/%s" % default) if default else (1, "")
     own = set(out.splitlines()) if rc == 0 else set()
-    mark = relay_marks.newest(wt, head, [(c, m) for c, m in relay_marks.marks(wt, head) if c in own])
+    def kept(commit, mark):            # a mark whose check left an M finding not MET does not move the anchor: it is judged again
+        try:
+            data = relay_marks.check_data(wt, head, mark.get("check", ""))
+        except relay_marks.MarkError:
+            return True
+        return data is None or all(f["verdict"] == "MET" for f in data["findings"] if f["id"].startswith("M"))
+    mark = relay_marks.newest(wt, head, [(c, m) for c, m in relay_marks.marks(wt, head) if c in own and kept(c, m)])
     anchors = [mark[0] if mark else None] + [f["since"] for f in reviews]
     found += _merge_findings(wt, head, anchors)
     return branch, item, found
@@ -813,7 +835,10 @@ def record_check(input_path):
     ids = [f["id"] for f in found]
     errors += ["findings: %s is not a finding of this check (relay check findings lists them)" % i for i in said if i not in ids]
     errors += ["findings: no verdict for %s" % i for i in ids if i not in said]
-    name, gate_problems = _gate(wt, head, raw["gate"])
+    newest_review = None
+    for path in review_paths:
+        newest_review = _newer(wt, newest_review, load_review(open(os.path.abspath(path), encoding="utf-8").read(), path)["reviewed"])
+    name, gate_problems = _gate(wt, head, raw["gate"], newest_review)
     problems = [_n_finding(n, *p, head) for n, p in enumerate(gate_problems, len(new) + 1)]
     news = []
     for n, f in enumerate(new, 1):

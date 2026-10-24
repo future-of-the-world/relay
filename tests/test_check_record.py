@@ -22,8 +22,8 @@ import test_queue as tq  # noqa: E402
 
 git, QUIET = tq.git, tq.QUIET
 TEST_FILE = "tests/test_job.py"
-TEST_NAME = TEST_FILE + "::test_job_works"
-TEST_SOURCE = "def test_job_works():\n    pass\n"
+TEST_NAME = TEST_FILE + "::TestJob::test_job_works"
+TEST_SOURCE = "class TestJob:\n    def test_job_works(self):\n        pass\n"
 SPREAD = "one\n" + "pad\n" * 6 + "end\n"      # edits to the first and the last line merge without a conflict
 
 
@@ -350,12 +350,14 @@ class TestOneFunction(Flow):
 
     def test_t2_done_and_the_guard_judge_a_test_name_by_the_same_function(self):
         self.after_check()
-        wrong = TEST_FILE + "::test_job"                                # only a part of the name
+        wrong = TEST_FILE + "::TestJob::test_job"                       # only a part of the name
         self.assertIn("does not hold a test named test_job", rq.close_refusal(self.wa, "HEAD", "job", wrong))
-        rq.done(self.wa, "job", TEST_FILE + "::test_job_works")
+        with self.assertRaises(rq.Refused):
+            rq.done(self.wa, "job", wrong)
+        # the name written as file::Class::function is the same test to both (the last part is looked up)
+        rq.done(self.wa, "job", TEST_FILE + "::TestJob::test_job_works")
         self.assertIsNone(merge_hook.step_queue(self.main, "master", "wt/a"))
-        # the same name written as file::Class::function is the same test to both (the last part is looked up)
-        self.assertIsNone(rq.close_refusal(self.wa, "HEAD", "job", TEST_FILE + "::test_job_works"))
+        self.assertIsNone(rq.close_refusal(self.wa, "HEAD", "job", TEST_FILE + "::TestJob::test_job_works"))
 
     def test_the_merge_guard_refuses_a_closed_item_whose_check_is_of_another_item_or_says_q1_is_not_met(self):
         self.fix()
@@ -466,6 +468,114 @@ class TestEndToEnd(Flow):
         with self.assertRaises(merge_hook.Refused) as ctx:
             merge_hook.judge(self.main, "master", "wt/a")
         self.assertIn("lib/w.py", str(ctx.exception))
+
+
+
+
+
+class TestGateForms(Flow):
+    """F1 and F2 of the review of the check record: any gate the judge text names, and Gate: none with no fix after the review."""
+
+    def _review(self, severity="LOW"):
+        self.fix()
+        return self.review("a.json", self.head(), [review_finding(1, severity=severity)])
+
+    def _noted(self, record):
+        return [(f["id"], f["summary"]) for f in record["findings"] if f["id"].startswith("N")]
+
+    def test_f1_a_green_log_at_any_path_is_a_gate(self):
+        # Pass 1: head <HEAD> / exit 0 in a scratch file, code unchanged since: no N finding, open 0.
+        review = self._review()
+        log = os.path.join(self.tmp, "gate.log")
+        with open(log, "w") as handle:
+            handle.write("head %s\nexit 0\n" % self.head())
+        record = self.record([review], met("Q1", "F1"), log)
+        self.assertEqual(self._noted(record), [])
+        self.assertEqual(rv.open_of(record), 0)
+
+    def test_f1_a_passed_pipeline_line_is_a_gate(self):
+        review = self._review()
+        record = self.record([review], met("Q1", "F1"), "pipeline #12 on %s passed" % self.head())
+        self.assertEqual(self._noted(record), [])
+        self.assertEqual(rv.open_of(record), 0)
+        # a pipeline of older code, with code changed since, is the same problem as a log of older code
+        old = self.head()
+        self.commit({"lib/w.py": SPREAD.replace("one", "new")}, message="code after the pipeline")
+        later = self.record([review], met("Q1", "F1"), "pipeline #12 on %s passed" % old)
+        self.assertEqual(self._noted(later), [("N1", "the gate log is for other code than head")])
+
+    def test_f1_relays_own_log_is_kept_by_name(self):
+        review = self._review()
+        reviewed = self.head()                                              # the gate is made for this commit, then committed on top
+        record = self.record([review], met("Q1", "F1"))
+        self.assertEqual(record["gate"], "%s.gate.log" % reviewed)
+        self.assertEqual(self._noted(record), [])
+
+    def test_f1_a_red_scratch_log_and_a_log_of_other_code_are_n_findings(self):
+        review = self._review()
+        red = os.path.join(self.tmp, "red.log")
+        with open(red, "w") as handle:
+            handle.write("head %s\nexit 1\n" % self.head())
+        self.assertEqual(self._noted(self.record([review], met("Q1", "F1"), red)), [("N1", "the gate is red")])
+        old = os.path.join(self.tmp, "old.log")
+        with open(old, "w") as handle:
+            handle.write("head %s\nexit 0\n" % self.head())
+        self.commit({"lib/w.py": SPREAD.replace("one", "new")}, message="code after the gate")
+        self.assertEqual(self._noted(self.record([review], met("Q1", "F1"), old)), [("N1", "the gate log is for other code than head")])
+
+    def test_f2_gate_none_with_no_fix_after_the_review_is_open_0(self):
+        # Pass 1: the review is of HEAD, nothing after it: no code ran unchecked, so no N finding.
+        review = self._review()
+        record = self.record([review], met("Q1", "F1"), "none")
+        self.assertEqual(self._noted(record), [])
+        self.assertEqual(rv.open_of(record), 0)
+
+    def test_f2_gate_none_after_a_fix_commit_is_still_open(self):
+        # Pass 2: reviewed at the take commit, the fix (lib/y.py) came after it.
+        self.fix()
+        review = self.review("a.json", self.took, [review_finding(1, severity="LOW")])
+        record = self.record([review], met("Q1", "F1"), "none")
+        self.assertEqual(self._noted(record), [("N1", "no gate result for the code of this change")])
+        self.assertEqual(rv.open_of(record), 1)
+
+    def test_f2_inert_files_docs_specs_and_master_files_after_the_review_do_not_count(self):
+        review = self._review()
+        self.commit({"docs/handover.md": "state\n", ".relay/queue/x.txt": "q\n"}, message="state")     # passes 3
+        self.commit({"openspec/changes/x/proposal.md": "spec\n", "docs/x.md": "doc\n"}, message="spec")  # pass 5
+        self.master_changes({"lib/z.py": SPREAD.replace("one", "master")})
+        self.take_master()                                                                               # pass 4
+        record = self.record([review], met("Q1", "F1"), "none")
+        self.assertEqual(self._noted(record), [])
+
+
+class TestMergeKeptUntilMet(Flow):
+    def test_f3_a_merge_finding_not_met_is_listed_again_by_the_next_check(self):
+        # Check 1: master changed lib/y.py which the branch changed too: M1 NOT MET, open 1. A fix that only touches
+        # lib/w.py does not answer it: check 2 must list M1 again, and with it MET the record is open 0 (pass 1).
+        self.fix()
+        review = self.review("a.json", self.took, [review_finding(1)])
+        self.master_changes({"lib/y.py": SPREAD.replace("end", "END")})
+        self.take_master()
+        first = self.checked([review], {"Q1": ("MET", "x"), "F1": ("MET", "x"), "M1": ("NOT MET", "merge broke y")})
+        self.assertEqual(rv.open_of(first), 1)
+        self.commit({"lib/w.py": SPREAD.replace("one", "fixed")}, message="a fix that does not touch y.py")
+        second = self.record([review], met("Q1", "F1", "M1"))
+        self.assertEqual([f["id"] for f in second["findings"]], ["Q1", "F1", "M1"])
+        self.assertEqual(rv.open_of(second), 0)
+        # without a verdict for M1 the record is refused: the finding is back in the list
+        with self.assertRaises(rv.VerdictError):
+            self.record([review], met("Q1", "F1"))
+
+    def test_f3_a_merge_finding_met_is_not_listed_again(self):
+        # Pass 2: check 1 has M1 MET; after more fixes and no new merge, no M finding.
+        self.fix()
+        review = self.review("a.json", self.took, [review_finding(1)])
+        self.master_changes({"lib/y.py": SPREAD.replace("end", "END")})
+        self.take_master()
+        self.checked([review], met("Q1", "F1", "M1"))
+        self.commit({"lib/w.py": SPREAD.replace("one", "fixed")}, message="more")
+        second = self.record([review], met("Q1", "F1"))
+        self.assertEqual([f["id"] for f in second["findings"]], ["Q1", "F1"])
 
 
 if __name__ == "__main__":
