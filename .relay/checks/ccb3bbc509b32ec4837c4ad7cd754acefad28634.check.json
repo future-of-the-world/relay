@@ -1,0 +1,160 @@
+{
+  "branch": "wt/eval-close",
+  "findings": [
+    {
+      "details": [
+        "Closing tune-hook-false-trigger took 4 tries (3 refusals that found nothing wrong) because `relay queue done --test` wants a file whose text holds the test name, and an eval case's grader file does not name itself."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "23 Oct: `--test evals/plugin/tune-no-change-compare::tune-skill-not-loaded` refused \"not in the last commit\"; `.../prompt.md::tune-skill-not-loaded` and `.../graders/tune-skill-not-loaded.md::tune-skill-not-loaded` refused \"does not hold a test named\"; only `.../case.yaml::tune-no-change-compare` passed."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 787,
+      "pass_cases": [
+        "`--test evals/plugin/<case>::<grader>` closes an item when the grader file exists at HEAD; a missing grader is refused with the accepted forms listed."
+      ],
+      "path": "lib/relay_queue.py:742 (_holds_test), ",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_close.py:17 passes and fails at 48f301c."
+      ],
+      "severity": "HIGH",
+      "since": "48f301cde676f67685a6cbcbe53f53d365ad2f51",
+      "source": "queue",
+      "summary": "Closing a fix proved by an eval takes guesses",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running test_refusal on the worktree's HEAD with the item's failing-case inputs: try 1 now passes, tries 2 and 3",
+        "return the unchanged refusal with no forms. Only the new eval-case refusal and the empty-name refusal carry TEST_FORMS.",
+        "The item's What (\"its refusal names the forms it accepts\") covers every refusal of --test, and the Why is exactly these",
+        "refusals \"that found nothing wrong\". Reachable on ordinary use: a person who reads the case folder sees graders/<x>.md and",
+        "names it as a file. Size: 10 minutes."
+      ],
+      "evidence": [
+        "python3 -I -c '... rq.test_refusal(\".\", \"HEAD\", t) ...' in the worktree:",
+        "'evals/plugin/tune-no-change-compare/graders/tune-skill-not-loaded.md::tune-skill-not-loaded' -> evals/plugin/tune-no-change-compare/graders/tune-skill-not-loaded.md does not hold a test named tune-skill-not-loaded",
+        "'evals/judge-measure/measure-off-by-one::x' -> the test file evals/judge-measure/measure-off-by-one is not in the last commit of the branch"
+      ],
+      "failing_case": [
+        "--test evals/plugin/tune-no-change-compare/graders/tune-skill-not-loaded.md::tune-skill-not-loaded",
+        "now: \"evals/plugin/tune-no-change-compare/graders/tune-skill-not-loaded.md does not hold a test named tune-skill-not-loaded\"",
+        "(same for .../prompt.md::tune-skill-not-loaded, and \"the test file evals/judge-measure/measure-off-by-one is not in the last",
+        "commit of the branch\" for a path that is not a file). The item's What says the refusal names the forms it accepts; the person",
+        "who tried these on 23 Oct gets the same dead-end line as before and still has to guess.",
+        "should: the refusal also names the accepted forms, e.g. \"... does not hold a test named tune-skill-not-loaded (--test is",
+        "<test file>::<test name>, or evals/plugin/<case>::<grader> for an eval case)\"."
+      ],
+      "fix_hint": [
+        "Append f\" ({TEST_FORMS})\" to the two remaining refusals in test_refusal (not in the last commit, does not hold a test named);",
+        "sync the lib copies; add the cases to tests/test_eval_close.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 935,
+      "pass_cases": [
+        "1. test_refusal(repo, \"HEAD\", \"evals/plugin/c/graders/g.md::g\") with graders/g.md text \"no name\" -> a line containing",
+        "   \"does not hold a test named g\" and \"evals/plugin/<case>::<grader>\".",
+        "2. test_refusal(repo, \"HEAD\", \"tests/missing.py::test_x\") -> a line containing \"is not in the last commit\" and",
+        "   \"<test file>::<test name>\".",
+        "3. test_refusal(repo, \"HEAD\", \"evals/plugin/c::g\") with graders/g.md present -> None (as now).",
+        "4. test_refusal(repo, \"HEAD\", \"tests/test_relay.py::test_nope\") still contains \"does not hold a test named\"",
+        "   (tests/test_merge_train.py:407 keeps passing)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_eval_close.py:33 passes; failed at 91e1751."
+      ],
+      "severity": "MEDIUM",
+      "since": "91e1751fa6a1fe5e98eb82bfebcdc288aa965af1",
+      "source": "review-eval-close.json",
+      "source_id": "F1",
+      "summary": "the item's own failing tries 2 and 3 (a grader or prompt file named as a test file) are still refused without the accepted forms",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Correct today, unclear for the next change. Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "lib/relay_queue.py:920 and :946 describe the accepted test forms without the new evals/plugin/<case>::<grader> form; a reader",
+        "of close_refusal (the rule of done and of the merge guard) learns a rule that is no longer the whole rule.",
+        "should: both docstrings name the eval-case form and that its proof is the grader file graders/<grader>.md at the ref."
+      ],
+      "fix_hint": [
+        "One clause in each docstring; sync the lib copies."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 920,
+      "pass_cases": [
+        "1. The docstring of test_refusal names evals/plugin/<case>::<grader> and graders/<grader>.md.",
+        "2. The docstring of close_refusal names the same form."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "docstrings of test_refusal and close_refusal name the eval form and graders/<grader>.md (lib/relay_queue.py:922,947)."
+      ],
+      "severity": "LOW",
+      "since": "91e1751fa6a1fe5e98eb82bfebcdc288aa965af1",
+      "source": "review-eval-close.json",
+      "source_id": "F2",
+      "summary": "the docstrings of test_refusal and close_refusal still say the test is only <file>::<name> or <file>::<Class>::<name>",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probing. The item names evals/plugin/<case> only, so the change meets its letter; the judge-measure cases share the",
+        "graders/*.md layout (4 cases, 24 graders in one). Low because no recorded fix has needed it yet. Size: 5 minutes",
+        "(regex evals/(plugin|judge-measure)/[^/]+, or evals/[^/]+/[^/]+ with a graders/ folder)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "--test evals/judge-measure/measure-off-by-one::yes--03-review-size-claim-at-the-line",
+        "now: \"the test file evals/judge-measure/measure-off-by-one is not in the last commit of the branch\"",
+        "the grader evals/judge-measure/measure-off-by-one/graders/yes--03-review-size-claim-at-the-line.md exists, same layout.",
+        "should (if judge-measure cases are meant to prove fixes): None."
+      ],
+      "fix_hint": [
+        "Widen the case regex to evals/[^/]+/[^/]+ and update TEST_FORMS and the help line to evals/<suite>/<case>::<grader>."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 926,
+      "pass_cases": [
+        "1. test_refusal(repo, \"HEAD\", \"evals/judge-measure/c::g\") with evals/judge-measure/c/graders/g.md present -> None.",
+        "2. test_refusal(repo, \"HEAD\", \"evals/plugin/c::g\") with graders/g.md present -> None (as now).",
+        "3. test_refusal(repo, \"HEAD\", \"lib/x.py::g\") -> the file-form rule (as now)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_close.py:44 passes; failed at 91e1751."
+      ],
+      "severity": "LOW",
+      "since": "91e1751fa6a1fe5e98eb82bfebcdc288aa965af1",
+      "source": "review-eval-close.json",
+      "source_id": "F3",
+      "summary": "only evals/plugin/ cases are accepted; a fix proved by an evals/judge-measure/<case> grader still has no form",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b83ccc74ef716dcf34dee0ed6ec999342a61a1ae.gate.log",
+  "head": "ccb3bbc509b32ec4837c4ad7cd754acefad28634",
+  "item": "closing-a-fix-proved-by-an-eval-takes-guesses",
+  "notes": [
+    "Callers of test_refusal/close_refusal only see longer refusal text; merge_train test still passes."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix diff 91e1751..HEAD (b83ccc7): lib/relay_queue.py and two copies, bin/relay, tests/test_eval_close.py. Ran tests/test_eval_close.py and tests/test_merge_train.py (31 passed). Gate log starts head b83ccc7, exit 0; no file changed after it. Ran the test file in throwaway worktrees at 91e1751 (F1, F3 tests fail) and 48f301c (all three fail)."
+  ],
+  "type": "check"
+}

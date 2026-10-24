@@ -913,18 +913,29 @@ def _holds_test(path, name, source):
     return re.search(pattern, source) is not None
 
 
+TEST_FORMS = "--test is <test file>::<test name>, or evals/plugin/<case>::<grader> (or evals/judge-measure/<case>::<grader>) for an eval case"
+
+
 def test_refusal(repo, ref, test):
     """None when the test named by `test` (`<file>::<name>` or `<file>::<Class>::<name>`) is in the tree at `ref` of `repo` and
-    defined there (`holds_test`), else the refusal line."""
+    defined there (`holds_test`), else the refusal line. An eval case form `evals/plugin/<case>::<grader>` (or `evals/judge-measure/...`)
+    is proved by the grader file `graders/<grader>.md` at `ref`."""
     path, _, rest = test.strip().partition("::")
     name = rest.split("::")[-1].strip()
     if not path.strip() or not name:
-        return "--test is <test file>::<test name>"
+        return TEST_FORMS
+    case = re.fullmatch(r"(evals/(?:plugin|judge-measure)/[^/]+)/?", path.strip())
+    if case:                                        # an eval case: the proof is the grader file, which need not name itself
+        grader = f"{case.group(1)}/graders/{name}.md"
+        rc, _, _ = _git(repo, "cat-file", "blob", f"{ref}:{grader}")
+        if rc != 0:
+            return f"the grader {grader} is not in the last commit of the branch ({TEST_FORMS})"
+        return None
     rc, source, _ = _git(repo, "cat-file", "blob", f"{ref}:{path.strip()}")
     if rc != 0:
-        return f"the test file {path.strip()} is not in the last commit of the branch"
+        return f"the test file {path.strip()} is not in the last commit of the branch ({TEST_FORMS})"
     if not holds_test(test, source.decode("utf-8", "replace")):
-        return f"{path.strip()} does not hold a test named {name}"
+        return f"{path.strip()} does not hold a test named {name} ({TEST_FORMS})"
     return None
 
 
@@ -933,7 +944,8 @@ def close_refusal(repo, ref, slug, test):
     `relay queue done` (ref HEAD of the task worktree) and of the merge guard (ref the branch): what may change after the check.
     It is `test_refusal` and `check_refusal` at one ref; the merge guard of a train asks them at different refs.
 
-    The test is `<file>::<name>` or `<file>::<Class>::<name>`: the file is in the tree at `ref` and defines the test (`holds_test`).
+    The test is `<file>::<name>` or `<file>::<Class>::<name>`: the file is in the tree at `ref` and defines the test (`holds_test`);
+    or `evals/plugin/<case>::<grader>` (also `evals/judge-measure/<case>`): the grader file `graders/<grader>.md` is in the tree at `ref`.
     For a fix item, the newest check mark of the branch with no file of the branch's own changed since (the inert files do not
     count: `relay_inert`) must be of this item and its finding Q1 must be MET."""
     return test_refusal(repo, ref, test) or check_refusal(repo, ref, slug)
@@ -996,7 +1008,7 @@ def done(worktree, slug, test):
         raise Refused("done runs in the worktree of the task branch that took the item")
     path, _, name = test.partition("::")
     if not path or not name:
-        raise Refused("--test is <test file>::<test name>")
+        raise Refused(TEST_FORMS)
     rc, out, _ = _git(worktree, "cat-file", "blob", f"HEAD:{_path(slug)}")
     if rc != 0:
         raise Refused(f"no queue item '{slug}' on this branch (take it first)")
