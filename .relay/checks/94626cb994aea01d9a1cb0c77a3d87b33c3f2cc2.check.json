@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_numbers_hermetic.py::test_future_given_time_files_and_windows_by_the_same_time passes, fails without the fix; the 2020 test still passes (pass case 2); gate green."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/numbers-clock/.relay/checks/581879adbf66bbafa21fbb71b7e9486a7f241e62.gate.log",
+  "head": "94626cb994aea01d9a1cb0c77a3d87b33c3f2cc2",
+  "new": [],
+  "notes": [
+    "append() callers: parse_ts(None) returns None, so day_file falls back to the clock; production ts is the real now, unchanged."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "41ca9d487b2ba43fbec6e8fd3f4b6b1bb3faac39.review.json"
+  ],
+  "reviewed": "41ca9d487b2ba43fbec6e8fd3f4b6b1bb3faac39",
+  "schema": 1,
+  "scope": [
+    "Fix range 41ca9d4..HEAD; own files: the three relay_ledger.py copies (identical one-line change) and tests/test_numbers_hermetic.py. Gate log is for the fix commit 581879a, exit 0; later commits are inert only. Ran test_numbers_hermetic.py (2 passed); on 41ca9d4 with the new test copied in, the future-time test fails at :55."
+  ],
+  "type": "check"
+}

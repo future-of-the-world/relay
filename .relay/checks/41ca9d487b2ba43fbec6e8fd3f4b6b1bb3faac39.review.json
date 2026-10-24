@@ -1,0 +1,54 @@
+{
+  "reviewed": "41ca9d487b2ba43fbec6e8fd3f4b6b1bb3faac39",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-numbers-clock.json",
+      "findings": [
+        {
+          "details": [
+            "CONFIRMED by a probe (the hermetic test with 2020 replaced by 2030). Not reachable in production: the hook and calibrate pass the real clock's time, so day file and window agree. It is a fragility the fix introduced: half of the ledger path (the window) follows the given time, the other half (append -> day_file()) follows the machine clock, so a test dated in the future breaks the same way the Numbers tests broke, mirrored. Size: 10 minutes."
+          ],
+          "evidence": [
+            "sed 's/2020-03-04/2030-03-04/g' tests/test_numbers_hermetic.py > scratch/test_future_date.py; pytest it:",
+            "E AssertionError: Lists differ: ['s1'] != []",
+            "test_future_date.py:45: AssertionError",
+            "1 failed",
+            "lib/relay_ledger.py:31-39: day_file(when=None) uses dt.datetime.now; append() calls day_file() with no time.",
+            "lib/relay_ledger.py:58: if since and day_dt + dt.timedelta(days=1) < since: continue"
+          ],
+          "failing_case": [
+            "Hermetic setup (empty HOME, temp RELAY_HOME), capture(\"2030-03-04T09:00:00Z\") returns ['s1'] and writes its line into <today's real date>.jsonl; remove usage-index.json; capture(\"2030-03-04T12:00:00Z\") returns ['s1'] (written twice) instead of []. read() drops the whole day file because day_dt + 1 day < since (2030-03-01). On master the same sequence returns [] (window from the real clock includes today's file and the 2030 line)."
+          ],
+          "fix_hint": [
+            "In append(), file the line by its own time: day_file(parse_ts(event.get(\"ts\")) or None). Production is unchanged (ts is the real now); the given time then decides both the file and the window."
+          ],
+          "id": "F1",
+          "kind": "inside",
+          "line": 259,
+          "pass_cases": [
+            "1. capture(\"2030-03-04T09:00:00Z\") then index removed then capture(\"2030-03-04T12:00:00Z\") returns [].",
+            "2. The existing tests/test_numbers_hermetic.py (2020 dates) still returns [] on the second capture.",
+            "3. tests/test_relay.py -k Numbers stays 23 passed.",
+            "4. A hook capture with now() of the real clock still writes its line into today's day file."
+          ],
+          "path": "lib/relay_ledger.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "the window now follows the given time, but lines still go to the real clock's day file: a given time over a day ahead of the clock skips that file"
+        }
+      ],
+      "notes": [
+        "Cause and fix check out: before the change the fallback window (no usable index) was the machine clock minus 3 days, so the Numbers tests dated 2026-10-21 lost their own ledger lines once the real date passed 2026-10-24. The window now counts from the `now` capture is given. In production every caller passes the real clock's time, so behaviour there is unchanged. No other datetime.now sits in the capture path except day_file (F1). The three lib copies are identical; gate log of 04ee9fe ends exit 0 and HEAD 41ca9d4 adds only gate logs. _window_start raises ValueError on a non-ISO `now`; no caller passes one (hook and calibrate both build ISO Z, and the hook swallows exceptions), so that is not a finding. A naive ISO `now` (no zone) would make read() compare naive and aware times and raise TypeError; no caller reaches it. Q1 pass cases: the three tests pass on the head, pass with HOME empty, and fail with the fix disabled (hermetic test on master code fails; the Numbers tests failed on master per Q1). A clock moved a week ahead could not be run (no faketime), but the code no longer reads the clock for the window, and the hermetic test uses a given time six years behind the clock, which covers it."
+      ],
+      "reviewed": "41ca9d487b2ba43fbec6e8fd3f4b6b1bb3faac39",
+      "schema": 1,
+      "scope": [
+        "Range master...41ca9d4 in .worktrees/numbers-clock (queue item three-ledger-tests-fail-on-unchanged-code, Q1). Read the full diff: lib/relay_ledger.py (_window_start, _recorded, _is_restarted, capture), the two plugin copies (identical to lib, diffed), tests/test_numbers_hermetic.py, the gate logs. Read what capture relies on (parse_ts, read() day-file and ts filters, append/day_file, record_usage, record_restart, _load_index) and its callers: lib/relay_analyze.py calibrate (now from bin/relay cmd_calibrate, ISO Z), plugins/observe/hooks/ledger.py SessionStart/SessionEnd (now() ISO Z, all exceptions swallowed). Ran: pytest tests/test_relay.py -k Numbers (23 passed), the same with HOME at an empty folder (23 passed), tests/test_numbers_hermetic.py (1 passed), the hermetic test copied onto a master worktree (fails: ['s1'] != [] at :45, so it is a real regression test), and a probe of the same test with a given time in 2030 (fails, F1)."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}

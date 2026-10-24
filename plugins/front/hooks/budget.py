@@ -14,9 +14,12 @@ RELAY_CTX_HANDOVER_AT (350000), RELAY_CTX_WRAP_AT (200000), RELAY_CTX_STEP (3000
 Fails open. Tests: plugins/front/tests/budget.test.sh
 """
 
+from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
+
 import json
 import os
 import sys
+from typing import Any
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
@@ -29,18 +32,18 @@ STEP = int(os.environ.get("RELAY_CTX_STEP", "30000"))
 STATE_DIR = os.path.join(os.path.expanduser(os.environ.get("RELAY_HOME") or "~/.relay"), "state")
 
 
-def k(n):
+def k(n: int) -> str:
     return f"{n // 1000}k"
 
 
-def marker(name):
+def marker(name: object) -> str | None:
     safe = "".join(ch for ch in str(name) if ch.isalnum() or ch in "-_")
     return os.path.join(STATE_DIR, f"budget-{safe}") if safe else None
 
 
-def agent_transcript(data):
+def agent_transcript(data: dict[str, Any]) -> str | None:
     path = data.get("agent_transcript_path")
-    if path and os.path.isfile(path):
+    if isinstance(path, str) and os.path.isfile(path):
         return path
     agent_id = "".join(ch for ch in str(data.get("agent_id") or "") if ch.isalnum() or ch in "-_")
     transcript = data.get("transcript_path") or ""
@@ -50,7 +53,7 @@ def agent_transcript(data):
     return candidate if os.path.isfile(candidate) else None
 
 
-def agent_note(data):
+def agent_note(data: dict[str, Any]) -> dict[str, Any] | None:
     path = agent_transcript(data)
     if not path:
         return None
@@ -70,7 +73,7 @@ def agent_note(data):
     return {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": text}}
 
 
-def prompt_note(data):
+def prompt_note(data: dict[str, Any]) -> dict[str, Any] | None:
     path = data.get("transcript_path")
     if not path or not os.path.isfile(path):
         return None
@@ -97,7 +100,7 @@ def prompt_note(data):
     return {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": text}}
 
 
-def main():
+def main() -> None:
     data = json.load(sys.stdin)
     event = data.get("hook_event_name")
     out = None
