@@ -176,8 +176,39 @@ class TestRun(Folder):
         self.assertIn("F2", str(caught.exception))
         self.assertEqual(self.snapshot(), before)
 
-    def test_the_command_migrates_and_reports(self):
+    def git(self, *args):
+        return subprocess.run(["git", "-C", self.repo, "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                              capture_output=True, text=True, check=True).stdout
+
+    def committed_repo(self):
         self.seed()
+        self.git("init", "-q")
+        self.git("add", "-A")
+        self.git("commit", "-q", "--no-verify", "-m", "seed")
+
+    def test_the_command_commits_only_the_checks_and_a_second_run_makes_no_commit(self):
+        self.committed_repo()
+        mig.migrate_and_commit(self.repo)
+        self.assertEqual(self.git("log", "--format=%s").splitlines(), [mig.COMMIT_MESSAGE, "seed"])
+        # The commit holds the converted check and mark and the deleted set, all under .relay/checks, and nothing else.
+        names = sorted(self.git("show", "--name-only", "--format=", "HEAD").split())
+        self.assertEqual(names, sorted(".relay/checks/" + n for n in (HEAD_A + ".check.json", HEAD_A + ".json", "s.review.json")))
+        self.assertEqual(self.git("status", "--porcelain"), "")
+        mig.migrate_and_commit(self.repo)
+        self.assertEqual(len(self.git("log", "--format=%s").splitlines()), 2)
+
+    def test_the_command_refuses_when_something_outside_the_checks_is_dirty(self):
+        self.committed_repo()
+        with open(os.path.join(self.repo, "other.txt"), "w", encoding="utf-8") as handle:
+            handle.write("x")
+        before = self.snapshot()
+        with self.assertRaises(mig.MigrateError) as caught:
+            mig.migrate_and_commit(self.repo)
+        self.assertIn("other.txt", str(caught.exception))
+        self.assertEqual(self.snapshot(), before)
+
+    def test_the_command_migrates_and_reports(self):
+        self.committed_repo()
         cmd = [sys.executable, os.path.join(ROOT, "bin", "relay"), "check", "migrate", "-C", self.repo]
         first = subprocess.run(cmd, capture_output=True, text=True)
         self.assertEqual((first.returncode, first.stdout.strip()), (0, "migrated 1 checks and 1 marks; deleted 1 review sets"))

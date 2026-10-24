@@ -18,6 +18,7 @@ A second run finds no schema-1 check and changes nothing.
 import json
 import os
 import re
+import subprocess
 
 import relay_verdict
 
@@ -202,3 +203,33 @@ def migrate(repo):
 def _is_set(path):
     data = _read(path)
     return isinstance(data, dict) and data.get("type") == "review-set"
+
+
+COMMIT_MESSAGE = "relay: migrate checks to schema 2"
+
+
+def _git(repo, *args):
+    try:
+        done = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise MigrateError("git failed: %s" % exc)
+    if done.returncode != 0:
+        raise MigrateError("git %s failed: %s" % (args[0], (done.stderr or done.stdout).strip().splitlines()[:1]))
+    return done.stdout
+
+
+def migrate_and_commit(repo):
+    """migrate(), then commit exactly the `.relay/checks` changes in one commit. Refuses, with nothing written, when anything
+    outside `.relay/checks` is dirty (the commit must hold nothing else). Nothing to migrate makes no commit.
+    Returns migrate()'s counts."""
+    status = _git(repo, "status", "--porcelain", "--untracked-files=all", "-z")
+    for entry in status.split("\0"):
+        path = entry[3:]
+        if entry and not path.startswith(FOLDER.replace(os.sep, "/") + "/"):
+            raise MigrateError("%s is changed outside %s; commit or set it aside first" % (path, FOLDER))
+    counts = migrate(repo)
+    if any(counts):
+        rel = FOLDER.replace(os.sep, "/")
+        _git(repo, "add", "-A", "--", rel)
+        _git(repo, "commit", "-q", "--no-verify", "--only", "-m", COMMIT_MESSAGE, "--", rel)
+    return counts
