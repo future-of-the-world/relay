@@ -25,7 +25,10 @@
   lists any left over). Nothing lives only in a task worktree: commit it, or
   keep it in the session scratchpad; ignored files there go with it. Before
   its merge a task branch takes the default branch by a merge commit, never a
-  rebase (a rebase loses the check). `relay queue` lands a queue item on the
+  rebase (a rebase loses the check). Ready changes that wait together land as
+  one train: a throwaway branch `wt/train-<n>` that merges them, is gated once
+  and lands with one fast-forward; only one landing at a time while a train is
+  open, and a red train falls back to one change at a time. `relay queue` lands a queue item on the
   default branch at once, and its code refuses when anything but that one file
   under `.relay/queue/` would change.
 
