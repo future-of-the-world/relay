@@ -1,4 +1,4 @@
-# Variants: sdd:spec-reviewer
+# Variants: openspec:spec-reviewer
 
 Built from six copies (2026-10-19): `kartoteka-`, `clean-`, `carry-` (Mind),
 `sight-`, `alix-` and `glyph-spec-reviewer`. Kartoteka, Clean and Mind are
@@ -14,13 +14,13 @@ weaker scenario rules; Glyph is a short rewrite.
 | 2 Requirements: worked values, redo two or three scenarios | Clean, Mind | stricter than Sight, ALIX, Glyph ("a THEN no test could fail on" only) |
 | 2 "No scenario looser than the design section it cites" | ALIX "First time right" | measured: half of ~380 kept findings were scenario clauses no test asserted |
 | 3 Failure scenarios (missing, corrupt, older, slow, unavailable) | Clean 3, Kartoteka 3, Sight 3, ALIX 3, Glyph 3 | merged to the generic cases; each project's named cases stay in its addition |
-| 4 Failure-state table, never/only/first sentences, parity list, caller sweep | ALIX 13, Glyph 8 | later measurement (outbox-sqlite: 7 of 12 high findings came from the design's silence); `sdd:plan` now asks for the table |
+| 4 Failure-state table, never/only/first sentences, parity list, caller sweep | ALIX 13, Glyph 8 | later measurement (outbox-sqlite: 7 of 12 high findings came from the design's silence); `openspec:plan` now asks for the table |
 | 5 Principles: departure needs the owner's written decision | Clean 4, Kartoteka 4 | |
 | 5 Bounds, checked reads, visible causes, left-out work as a queue item (was: deferred work with id/owner/deadline) | ALIX 12 | the strictest; Glyph 4 has the same bound rule |
 | 6 Settings, not constants; how the default was chosen | Mind 5, ALIX 4, Sight 5, Glyph 4 | four of six had it; Mind's "what a person would notice" is the strongest form |
 | 7 What a person sees, BLOCKER for a busier screen | Clean 5, Kartoteka 5 | |
 | 7 Quotes the locked words exactly; no internal terms | Glyph 6 | matches the product-work rule ("quoted exactly by the specs") |
-| 7 Locked sketch saved in `sketch/` | Mind 4 | later improvement; `sdd:plan` now saves it |
+| 7 Locked sketch saved in `sketch/` | Mind 4 | later improvement; `openspec:plan` now saves it |
 | 8 Time, chance, order; deterministic written output | Clean 6, Mind 6, Kartoteka 6, Sight 6 | merged |
 | 9 Layers, and modules that exist (BLOCKER) | Clean 7, Kartoteka 7 | |
 | 10 Terms | all | |
@@ -47,7 +47,7 @@ weaker scenario rules; Glyph is a short rewrite.
   table, bounds and settings rules will add findings to plans that passed
   before. That is the intent, but the first migrated plans will cost an
   extra fix round. The parity cases should show it.
-- Item 7 (sketch saved in the change) relies on `sdd:plan` saving it; a
+- Item 7 (sketch saved in the change) relies on `openspec:plan` saving it; a
   project that shapes in another medium (Glyph: a Telegram Mini App) needs
   its own picture convention or the check is a recurring FIX.
 - At 14 checks the agent is longer than any copy but ALIX's; nothing was cut

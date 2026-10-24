@@ -17,14 +17,12 @@ Below, `wt`, `check` and `ci` are the commands `kit get gate.wt`,
 `kit get gate.check` and `kit get gate.ci` name; `<base>` is
 `kit get project.default_branch`; `<worktrees>` is `kit get project.worktrees`.
 
-**Who runs it.** The coordinator plans: the main session, or the lead when
-`kit get --default leadless coordination.mode` is not `leadless` (it talks to the owner through
-the main session). It keeps the decisions and the conversation, not the
-documents: an `Explore` agent answers questions with conclusions and
-`file:line`; an `sdd:author` writes the artifacts. Every role goes to a typed
-agent, never a fork or a `general-purpose` agent. Leadless: the apply needs
-nothing from this conversation, so it may start in a fresh session
-(`/opsx:apply <change>`). With a lead: the same lead carries on to apply.
+**Who runs it.** The front plans, as step "before 1" of the change cycle: it
+keeps the decisions and the conversation, not the documents. Research goes to
+`delegate:scout` (the delegate skill's table says when a scout is worth it);
+an `openspec:author` writes the artifacts. Every role goes to a typed agent,
+never a fork or a `general-purpose` agent. The build needs nothing from this
+conversation, so it may start in a fresh session (`/opsx:apply <change>`).
 
 ## 1. Worktree first
 
@@ -35,13 +33,13 @@ owner asks to capture the result as a change.
 
 ## 2. Research: repo first, subagents, the network last
 
-1. **The repo knows most of it.** An `Explore` agent reads what bears on the
-   change in `openspec/specs/` (current behaviour), `docs/handover.md`, and
-   the docs the project's rules list, and answers with `file:line`. Ask
-   what exists; never assume a module.
-2. **Broad sweeps go to subagents**: `Explore` with `model: "sonnet"` for
-   "where is X / what reads Y / which specs mention Z". Independent sweeps go
-   in one message. Ask for conclusions, not file dumps.
+1. **The repo knows most of it.** A scout reads what bears on the change in
+   `openspec/specs/` (current behaviour), `docs/handover.md`, and the docs the
+   project's rules list, and answers with `file:line`. Ask what exists; never
+   assume a module.
+2. **Broad sweeps go to a scout**: "where is X / what reads Y / which specs
+   mention Z". Independent sweeps go in one message. Ask for conclusions, not
+   file dumps.
 3. **The network last.** A library, platform or domain fact is checked
    against the installed version and the real source before a design relies
    on it; what can only be measured (what a runtime really does) is measured
@@ -89,13 +87,12 @@ decided under the principles, with no live example.
 Write the brief first: `<scratchpad>/briefs/<change>-plan.md` holds the
 settled approach, every owner decision word for word, the artifacts to write,
 the locked sample files, and the exact files and sections to read (the
-`Explore` answers, not whole documents). Then one `sdd:author`
-(`subagent_type: "sdd:author"`; its default model, Opus, is right for a first
-draft) gets one line:
+scout's answers, not whole documents). Then one `openspec:author`
+(`subagent_type: "openspec:author"`) gets one line:
 
 > Write the artifacts of change <change> in `<abs change worktree path>`. Brief: `<brief path>`.
 
-It commits and replies in at most 10 lines: artifacts, waves and task count,
+It commits and replies in at most 10 lines: artifacts, group and task count,
 check results, open questions, sha, what remains. It hands back when done or
 after about 60 tool calls at the end of an artifact; a fresh author continues
 from the same brief and the "remaining" line. Later decisions go to a new
@@ -121,18 +118,15 @@ The author applies, beyond `openspec instructions`:
   that adds no failure state says so in one line.
 - **Absolutes are tested.** For every "X never happens", "only X" or "X comes
   first", `design.md` names the task and the test that fails when it is false.
-- **Interfaces.** `design.md` has an `Interfaces` section: the shape and
-  owner (the task that writes it) of every value that crosses a task
-  boundary (types, signatures, stored fields, messages, events, sort keys).
-- **Tasks for `sdd:parallel-apply`**: waves, a wave-0 stub list, each task
-  sized for one fresh worker (about one module and its tests, at most 4
+- **Tasks** in groups numbered in build order (the groups are built one after
+  another, in `tasks.md` order), each task sized for one fresh worker (about one module and its tests, at most 4
   source files; more only as `Size: mechanical (<reason>)`). Every task ends
   with four fields that `kit packet` turns into the worker's brief (its
   header has the ref syntax):
   - `Reads:` the design sections, requirements, module contracts and doc
     sections the task needs, nothing else. A `module` ref names a file that
-    exists when the plan is checked (a wave-0 stub or existing code); a
-    module an earlier task creates is described in `Interfaces`. A frozen
+    exists when the plan is checked (existing code); a module an earlier
+    task creates is described in `design.md`. A frozen
     record with no headings (a prototype) is named by line range, never
     whole;
   - `Tests:` the scenarios it must test, or `none (<reason>)`, with the level
@@ -143,7 +137,7 @@ The author applies, beyond `openspec instructions`:
     reason;
   - `Files:` the paths it creates or edits, tests included;
   - `Check:` a focused command that runs in under about 30 s.
-- **Fakes first.** A wave-0 task makes the test fakes able to script every
+- **Fakes first.** The first group makes the test fakes able to script every
   failure the deltas use, named by scenario.
 - **Second paths.** A task that adds a path beside an existing one carries a
   parity list: the old path's guards, locks, checks, alerts and retries by
@@ -152,7 +146,7 @@ The author applies, beyond `openspec instructions`:
   becomes a raise, a write may now be refused) lists its callers in `Files:`,
   or gets a caller-sweep task: one line per caller, what it does and why.
 - **Decisions** the owner makes go into `design.md` as they are made, marked
-  as theirs with the date. A worker sees only the artifacts.
+  as theirs with the date. A worker sees only its packet.
 - Build one brief (`kit packet <change> <task>`) for the largest task and read
   it as a worker would: if the task can't be done from it, `Reads:` is
   incomplete.
@@ -161,7 +155,7 @@ The author applies, beyond `openspec instructions`:
 
 ## 5. Hand over to spec review
 
-When `openspec-propose` would stop, run `sdd:spec-review` on the change before
+When `openspec-propose` would stop, run `openspec:spec-review` on the change before
 presenting it. The owner sees the plan with the review's result and its
 questions. Reviewing and fixing the plan is still planning; code is written
 only after the owner says apply.

@@ -34,8 +34,7 @@ fenced code block is never a heading or a scenario.
 Exits 1 and lists the gaps. For a change (not --path), it then runs
 `kit packet --check <change>`: every open task has `Reads:`, `Tests:`,
 `Files:`, and `Check:`, its refs resolve, it stays within the task size, its
-required tests are named, and a wave plan has design.md's `Interfaces`
-section, and every group with open tasks has a Wave line. See `kit packet`.
+required tests are named. See `kit packet`.
 """
 import glob
 import os

@@ -1,0 +1,25 @@
+{
+  "kind": "openspec",
+  "slot": "specs",
+  "description": "OpenSpec spec steps: a behaviour change is a proposal, spec deltas, design and tasks before code; the spec is reviewed, the build is checked against its scenarios, and the spec is archived into openspec/specs/. The build and the fixes are the change cycle's own.",
+  "detect": { "dirs": ["openspec"] },
+  "requires_plugins": ["core", "openspec"],
+  "bindings_required": ["project.default_branch", "project.worktrees", "gate.wt", "gate.check", "gate.ci", "gate.ci_log"],
+  "steps": [
+    { "at": "before 1", "does": "write the spec",                                            "skill": "openspec:plan" },
+    { "at": "1",        "does": "review the spec; it takes the place of the design review", "skill": "openspec:spec-review" },
+    { "at": "2",        "does": "each group's brief is `kit packet <change> <group>`; groups in tasks.md order" },
+    { "at": "4",        "does": "one more judge: every scenario mapped to a test",           "agent": "openspec:spec-conformance" },
+    { "at": "5",        "does": "a Gap whose cause is the spec goes to the author first",    "agent": "openspec:author" },
+    { "at": "after 7",  "does": "archive the spec",                                          "skill": "openspec:archive" }
+  ],
+  "stages": [
+    { "name": "plan",        "skill": "openspec:plan",        "triggers": ["/opsx:explore", "/opsx:propose", "/opsx:new"] },
+    { "name": "spec-review", "skill": "openspec:spec-review", "triggers": ["/opsx:update"] },
+    { "name": "apply",       "triggers": ["/opsx:apply"],
+      "note": "Build it as step 2 of the change cycle: one `delegate:worker` per group, brief `kit packet <change> <group>`, groups in tasks.md order." },
+    { "name": "verify",      "triggers": ["/opsx:verify"],
+      "note": "Run step 4 of the change cycle; `openspec:spec-conformance` is among the judges." },
+    { "name": "archive",     "skill": "openspec:archive",     "triggers": ["/opsx:archive", "/opsx:sync"] }
+  ]
+}

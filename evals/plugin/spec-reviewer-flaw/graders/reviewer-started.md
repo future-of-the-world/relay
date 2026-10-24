@@ -1,5 +1,5 @@
 ---
 type: tool_used
 tool: Agent
-input_match: "sdd:spec-reviewer"
+input_match: "openspec:spec-reviewer"
 ---

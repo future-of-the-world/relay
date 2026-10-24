@@ -3,7 +3,7 @@
 ## A new project
 
 ```sh
-relay setup ~/new-project [--flow openspec|issues|none] [--product|--no-product] [--no-global]
+relay setup ~/new-project [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--no-global]
 ```
 
 Detects the stack (bun, pnpm, mix, cargo, go, python), the default branch,
@@ -13,14 +13,14 @@ never overwrites:
 - `.claude/kit.toml` with `[project]`, `[gate]`, `[flow]`, `[delegate]`,
   `[observe]` (and `[issues]` or `[product]` when they apply);
 - `.claude/settings.json`: the relay marketplace and the plugins for the
-  flow (`core`, `observe`, `delegate`, `front`, + `sdd` / `issues` /
+  flow (`core`, `observe`, `delegate`, `front`, + `openspec` / `issues` /
   `product`), `Bash(kit:*)` allowed; a backup beside it;
 - `bin/check`, `bin/ci`, `bin/wt` from templates that follow the contract,
   with `TODO` where the stack's commands go;
 - `CLAUDE.md` skeleton and `docs/handover.md`;
 - the project in `projects.toml`, then `relay sync` writes its
   `CLAUDE.local.md` (never committed);
-- the flow plugins (`sdd`, `issues`, `product`) installed at project scope
+- the flow plugins (`openspec`, `issues`, `product`) installed at project scope
   with `claude plugin install <name>@relay --scope project`; when that cannot
   run, the command is in the to-do list. `relay doctor <dir>` reports FIX for
   every plugin the project enables that is not installed;
@@ -60,8 +60,8 @@ What migration recognises from the principles era:
 
 | old | replaced by |
 |---|---|
-| `.claude/agents/<project>-worker.md` etc. | `sdd:<role>` (OpenSpec) or `delegate:<tier>`; project-only rules into `.claude/kit/<role>.md` |
-| `.claude/skills/<project>-plan` etc. | `sdd:<stage>`; project-only rules into `.claude/kit/<stage>.md` |
+| `.claude/agents/<project>-worker.md` etc. | `openspec:<role>` (OpenSpec) or `delegate:<tier>`; project-only rules into `.claude/kit/<role>.md` |
+| `.claude/skills/<project>-plan` etc. | `openspec:<stage>`; project-only rules into `.claude/kit/<stage>.md` |
 | `.claude/hooks/guard-main.sh`, `opsx-stage.sh` + their settings entries | the core plugin (entries removed) |
 | `bin/packet`, `bin/spec-check` | `kit packet`, `kit spec-check`; `bin/kit` shim written |
 | `*@principles` plugins, the principles marketplace | `*@relay`, the relay marketplace |

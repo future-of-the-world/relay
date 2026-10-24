@@ -1,7 +1,7 @@
 schema_version: "1.1"
 name: plan-one-line
-description: the sdd:plan skill turns a one-line request into a change (in the worktree the case makes) that passes openspec validate --strict and kit spec-check.
-tags: [sdd, plan]
-plugins: ["../../../plugins/core", "../../../plugins/sdd"]
+description: the openspec:plan skill turns a one-line request into a change (in the worktree the case makes) that passes openspec validate --strict and kit spec-check.
+tags: [openspec, plan]
+plugins: ["../../../plugins/core", "../../../plugins/openspec"]
 context:
   scaffold_script: scaffold.sh

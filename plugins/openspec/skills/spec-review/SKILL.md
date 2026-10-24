@@ -1,6 +1,6 @@
 ---
 name: spec-review
-description: Review and fix an OpenSpec change's planning artifacts before apply. Use after /opsx:propose (sdd:plan calls it), when the user asks to review a spec, proposal or plan, and together with openspec-update-change whenever /opsx:update revises a change. Runs sdd:spec-reviewer, fixes findings through one sdd:author with the full sweep, one check of the fixes, and asks the owner only for real decisions.
+description: Review and fix an OpenSpec change's planning artifacts before apply. Use after /opsx:propose (openspec:plan calls it), when the user asks to review a spec, proposal or plan, and together with openspec-update-change whenever /opsx:update revises a change. Runs openspec:spec-reviewer, fixes findings through one openspec:author with the full sweep, one check of the fixes, and asks the owner only for real decisions.
 argument-hint: "<change>"
 ---
 
@@ -10,9 +10,9 @@ The project's rules for this stage arrive with this skill; they add to it and
 win where they differ.
 
 The coordinator (the main session, or the lead) only dispatches. The review
-runs in **`sdd:spec-reviewer`** (Opus, read-only), which starts fresh and
+runs in **`openspec:spec-reviewer`** (Opus, read-only), which starts fresh and
 reads only the artifacts, as a worker will: what it can't understand from
-them, a worker won't either. Fixes are written by an **`sdd:author`**. Each
+them, a worker won't either. Fixes are written by an **`openspec:author`**. Each
 pass and each fix is a fresh typed agent; never resume one idle over 5
 minutes. Work in `<worktrees>/<change>` (`kit get project.worktrees`) on
 `wt/<change>`.
@@ -34,7 +34,7 @@ a plan that contradicts itself is a fix for the author, not a question. Ask
 the rest as numbered questions with lettered options, your recommendation
 first, the difference made visible. A question about what a person sees is
 shown, not described: a picture of the screen as specified beside the other
-way (`sdd:plan` section 3). Don't pick a scope cut, a change of feel, a busier
+way (`openspec:plan` section 3). Don't pick a scope cut, a change of feel, a busier
 screen, or a departure from a principle or the approved look yourself. Work
 that does not depend on an answer carries on.
 
@@ -42,9 +42,8 @@ that does not depend on an answer carries on.
 
 The coordinator doesn't read the report or the artifacts. Write
 `<scratchpad>/briefs/<change>-spec-fix.md`: the report path, the owner's
-answers word for word, and this section as the job. One `sdd:author`
-(`subagent_type: "sdd:author"`, `model: "sonnet"`: fixes after review are not
-an Opus job) gets one line:
+answers word for word, and this section as the job. One `openspec:author`
+(`subagent_type: "openspec:author"`) gets one line:
 
 > Fix the spec review findings of change <change> in `<abs change worktree path>`. Brief: `<brief path>`. Report: `<scratchpad>/review/spec-fix.md`.
 

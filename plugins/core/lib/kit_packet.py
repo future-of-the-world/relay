@@ -74,11 +74,8 @@ for a kind with `waiver`, `<kind> none (<reason>)`).
 that doesn't resolve, a required test missing, more than `max_source_files`
 source files without `Size: mechanical`, an artifact over its budget
 (design.md ~60 KB, tasks.md ~40 KB, a task's prose ~1 KB, group notes
-~2 KB), or, when the tasks run in waves, a design.md without an `Interfaces`
-section (the shape and owner of every value that crosses a task boundary:
-types, function signatures, stored-data fields, event and prop shapes).
-When some group has a `Wave N` line, every group with open tasks needs one and
-one of them must be `Wave 1`.
+~2 KB). Groups run one after another in tasks.md order, so there is no wave
+check; every packet ends with the text of kit_packet_rules.md.
 """
 import atexit
 import os
@@ -833,6 +830,13 @@ def problems(root, change_dir, task):
     return found
 
 
+def packet_rules():
+    """The fixed part every packet ends with: how to build from a packet (kit_packet_rules.md)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kit_packet_rules.md")
+    with open(path, encoding="utf-8") as handle:
+        return "\n" + handle.read().rstrip("\n") + "\n"
+
+
 def check(root, change):
     change_dir = os.path.join(root, "openspec", "changes", change)
     path = os.path.join(change_dir, "tasks.md")
@@ -842,25 +846,6 @@ def check(root, change):
     _notes, _groups, tasks = parse_tasks(path)
     open_tasks = [t for t in tasks if not t["done"]]
     bad = 0
-    if open_tasks and re.search(r"(?m)^Wave [1-9]", open(path, encoding="utf-8").read()):
-        design = os.path.join(change_dir, "design.md")
-        text = open(design, encoding="utf-8").read() if os.path.exists(design) else ""
-        if not re.search(r"(?m)^#{2,4} Interfaces\b", mask_fences(text)):
-            print("design.md: no \"Interfaces\" section: tasks run in parallel waves, so every value that "
-                  "crosses a task boundary needs its shape and owner written there first")
-            bad += 1
-    wave_line = re.compile(r"(?m)^Wave \d")
-    wave_groups = {n: bool(wave_line.search("\n".join(g[1]))) for n, g in _groups.items()}
-    if open_tasks:
-        # The tasks run in waves: sdd:parallel-apply reads each group's `Wave N · depends on:` line.
-        for number in sorted({t["group"] for t in open_tasks if t["group"]}, key=int):
-            if not wave_groups.get(number):
-                print(f"group {number}: no Wave line: the tasks run in waves, so write `Wave N · depends on: ...` under its heading")
-                bad += 1
-        waves = [int(m) for g in _groups.values() for m in re.findall(r"(?m)^Wave (\d+)", "\n".join(g[1]))]
-        if any(w > 1 for w in waves) and 1 not in waves:
-            print("tasks.md: no Wave 1 line: the first wave after wave 0 is Wave 1")
-            bad += 1
     for task in open_tasks:
         if len(task["text"]) > TASK_BUDGET:
             print(f"task {task['id']}: {len(task['text']) // 1024} KB of prose and fields, over the ~{TASK_BUDGET // 1024} KB budget: "
@@ -934,7 +919,7 @@ def brief(root, change, task_id):
     for ref in split_refs(f["Reads"]):
         title, text = resolve(root, change_dir, ref)
         out += ["", f"### {title}", "", text]
-    text = "\n".join(out).rstrip() + "\n"
+    text = "\n".join(out).rstrip() + "\n" + packet_rules()
     sys.stdout.write(text)
     sys.stdout.write(f"\n(brief: {len(text) // 1024} KB, about {len(text) // 4000}k tokens)\n")
     return 0
@@ -1003,7 +988,7 @@ def brief_group(root, change, group_id):
     out += ["", "## What the brief reads"]
     for title, text in shared:
         out += ["", f"### {title}", "", text]
-    text = "\n".join(out).rstrip() + "\n"
+    text = "\n".join(out).rstrip() + "\n" + packet_rules()
     sys.stdout.write(text)
     sys.stdout.write(f"\n(brief: {len(text) // 1024} KB, about {len(text) // 4000}k tokens)\n")
     return 0

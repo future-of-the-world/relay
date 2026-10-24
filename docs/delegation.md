@@ -17,10 +17,15 @@ context; the hand-back is ten lines. The economics are in
 | judge | `delegate:critic` | opus, high | Read Grep Glob Bash Write | ≤10 lines + findings file |
 
 The models and efforts come from `profiles/active.toml` and are written
-into the agent files by `relay sync`. An OpenSpec project's flow maps its
-own roles (`sdd:worker`, `sdd:author`, ...) onto the same tiers in
-`plugins/sdd/flow.json`; their frontmatter is not profile-driven yet
-(see docs/handover.md, open items).
+into the agent files by `relay sync`. The OpenSpec agents (`openspec:author`,
+`openspec:spec-reviewer`, `openspec:spec-conformance`) carry a `relay-tier`
+and are set from the same profile; building and fixing are always
+`delegate:worker` and `delegate:fixer`.
+
+Measured 2026-10-12 on a dispatcher run of an OpenSpec change: 13% of the time
+went to waits, 53% to review loops and 81% of the cost to first reads. That is
+the evidence for "fewer, longer agents": one agent per group of related tasks,
+one whole-change review, no agent that only waits.
 
 ## The routing guard
 

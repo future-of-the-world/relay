@@ -20,7 +20,7 @@ reruns and colour meaning. Model Opus; tools Read, Grep, Glob, Bash.
 | 3 Two engines, two themes, every width; reach states by roles | all; Kartoteka for "by what a person does" | |
 | 4 Measure: `cut`, `off`, `sideways`, `overlap`, `scrolls`, `moved` | Mind (`measure.mjs`, now `plugins/product/scripts/measure.mjs`) | the only copy that measures overlap and jumps; Clean's `e2e/layout.ts` stays in its addition |
 | 5 Contact sheets, read every sheet, `index.html` | all | |
-| 6 Compare with the locked sketch, every difference | Mind 6 | later improvement, matches `sdd:plan` |
+| 6 Compare with the locked sketch, every difference | Mind 6 | later improvement, matches `openspec:plan` |
 | 6 Departure from a reference app without a reason is a question | Kartoteka 5 | |
 | Look for 4: real controls, 44 px, focus visible | Clean, Kartoteka | Mind lacks it |
 | Look for 6: each colour keeps its meaning | Mind 4 | generalised from red/yellow |

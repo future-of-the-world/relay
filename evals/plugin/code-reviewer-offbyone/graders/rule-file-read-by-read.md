@@ -1,7 +1,7 @@
 ---
 type: tool_used
 tool: Read
-input_match: "kit/(?:code-reviewer|judge)\\.md"
+input_match: "kit/(?:critic|judge)\\.md"
 min: 0
 weight: 0.001
 ---

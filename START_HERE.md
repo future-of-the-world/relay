@@ -48,7 +48,7 @@ this folder, `relay sync` writes `~/.claude/CLAUDE.md` and each project's
    them into `.claude/kit/<role>.md` by hand (a worker from a brief).
 7. `relay sync`. Open the project in Claude Code, run one small real
    change through its flow (`/opsx:propose` or "#123"), confirm the stage
-   line appears and agents are `sdd:*` / `delegate:*`.
+   line appears and agents are `openspec:*` / `delegate:*`.
 
 ## Ask the owner
 

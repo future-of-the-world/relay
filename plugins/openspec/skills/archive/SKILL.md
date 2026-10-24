@@ -10,8 +10,9 @@ The project's rules for this stage arrive with this skill; they add to it and
 win where they differ.
 
 This skill adds to `openspec-archive-change` (and `openspec-sync-specs`);
-where it says more, it wins. Archiving is mechanical, so the coordinator does it (in a Sonnet session
-when the owner starts one for it; this skill never switches the model). The
+where it says more, it wins. Archiving is mechanical, and the front writes no files: one `delegate:worker`
+whose brief is "load `openspec:archive` and follow it" does it, after step 7 of the change cycle
+(an archive-only commit after the check mark is inert for the merge guard). The
 one risky step, the main-spec merge, is checked by a count (step 3).
 
 ## 1. Where and when
@@ -21,8 +22,7 @@ Archive in `<worktrees>/<change>` (`kit get project.worktrees`) on
 `<base>` (`kit get project.default_branch`) in one merge. Before starting,
 all of these hold, or stop and say which does not:
 
-- the `sdd:apply-review` gate ran with no open high finding (its report is in
-  this session or in a `Review fixes` commit on the branch);
+- the change cycle's check (step 7) passed with `open 0` for this branch;
 - when `kit get --default false product.look_review` is `true` and the change touches what a
   person sees: the report's `Look:` line has no open defect and no matter of
   taste waiting for the owner; "not run" carries its reason and "skipped" its
@@ -58,8 +58,8 @@ fix the main spec from the delta and
 ## 4. Docs sweep
 
 The change is now current behaviour, so the docs say so. Do this sweep
-before the check of the change (as the last apply task, committed before
-`sdd:apply-review` runs), so the docs are reviewed and gated with the code. If
+before the check of the change (as the last build task, committed before
+the review of step 4), so the docs are reviewed and gated with the code. If
 the check already passed and the sweep is still undone, do it now and run the
 gate and the review again: a docs edit after the check is not inert.
 
