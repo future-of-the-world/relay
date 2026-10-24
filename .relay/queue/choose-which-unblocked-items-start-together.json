@@ -1,0 +1,27 @@
+{
+  "kind": "feature",
+  "ip": 84,
+  "time": 60,
+  "found_at": "2026-10-24T18:39:48Z",
+  "found_in": "relay queue add",
+  "title": "Choose which unblocked items start together",
+  "what": [
+    "Decide, from the real state, which unblocked queue items to start when slots are free, so that parallel changes do not pay for colliding (take-master, gate reruns, conflicts resolved by hand) and slots do not stand idle. Design first: measure the last days (merges git combined or that conflicted and what each cost, idle slots, how well items' where lines matched the files their branches changed), compare at least: predicting overlap from the files items name plus the real diffs of running branches; starting any unblocked item and letting the merge train absorb collisions; what merge queues and build tools do (GitHub merge queue, bors, Nx/Turborepo affected, Bazel); and doing nothing. Uses the dependency tree (blocked_by) only as input."
+  ],
+  "why": [
+    "Owner, 24 Oct: \"в одном механизме ты объединил ответственность древа зависимостей и планировщика задач\"; \"Лучше делать выбор на основе реального положения вещей\". A dry run (scratchpad reports/ready-dryrun.txt) found 17 of 28 open items with ip >= 88 overlapping a running branch; after a compaction the front ran 2 of 4 slots. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "On 24 Oct with three branches running, the front picked the next items by reading 40 where lines by hand, and earlier left 2 of 4 slots idle."
+  ],
+  "pass_cases": [
+    "A design with the measured numbers and at least three approaches plus doing nothing, reviewed, and the owner's pick recorded before any build."
+  ],
+  "where": "to be designed (design track first): the front skill, the change-cycle workflow, possibly a queue view",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
