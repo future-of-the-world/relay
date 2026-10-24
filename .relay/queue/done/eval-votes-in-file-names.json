@@ -20,8 +20,8 @@
   "where": "evals/judge-measure/tally.py:62",
   "taken_at": "2026-10-24T05:45:32Z",
   "taken_by": "wt/eval-tally",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T06:42:52Z",
+  "test": "tests/test_judge_tally.py::ExpectedAnswerIsAField::test_the_stored_field_decides_not_the_name",
   "dropped_at": null,
   "dropped_why": null
 }
