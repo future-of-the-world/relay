@@ -1016,8 +1016,8 @@ class Roles(Base):
         self.assertIn("`relay check show <branch>`", skill)
         front = " ".join(open(os.path.join(ROOT, "plugins", "front", "skills", "front", "SKILL.md")).read().split())
         self.assertIn("## A change ready to merge", front)
-        self.assertIn("Publish the page yourself with your Artifact tool", front)
-        self.assertIn("gives the page's file path instead", front)
+        self.assertIn("No page and no Artifact", front)
+        self.assertNotIn("relay check page", front)
 
     def test_a_job_longer_than_a_runner_s_turns_runs_in_the_front_s_background(self):
         """A runner (12 turns, waits of at most 230 s) covers about 40 min; the full paid bin/ci takes 38-47 min and

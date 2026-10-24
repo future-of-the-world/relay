@@ -550,6 +550,8 @@ Glonass repositories and the old projects (Kartoteka, principles) do not.
 
 ## 8. The person's step: one chat screen and a private page
 
+> Superseded 24 Oct: the private page and `relay check page` were removed (the owner does not read them); the person's step is the chat screen alone.
+
 Owner: "one chat screen + a private page (claude.ai artifact)".
 
 ### 8.1 The page, built by code
