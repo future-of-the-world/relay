@@ -18,8 +18,8 @@
     "That transcript shape (labelled prompt, then attachment entries, then assistant) writes the mark; a transcript with no prompt at all still says \"does not start with a prompt\"; the harness-relay-first case of the earlier fix still picks the labelled entry."
   ],
   "where": "plugins/core/hooks/check-mark.py:92-95",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T05:14:10Z",
+  "taken_by": "wt/mark-attach",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
