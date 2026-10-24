@@ -75,7 +75,7 @@ def cost(model: str | None, usage: Mapping[str, Any], early_share: float = 0.0) 
     output_tokens). When usage.cache_creation splits the writes, 1-hour writes are priced at the
     1-hour rate; every other written token at the 5-minute rate. `early_share` (0-1) is the part of
     the usage from before the model's [before] date: its rates are blended with the earlier ones."""
-    rates = dict(table()["models"][tier(model)])
+    rates: dict[str, Any] = dict(table()["models"][tier(model)])
     earlier = rates.pop("before", None)
     if earlier and early_share:
         for key, old in earlier.items():
