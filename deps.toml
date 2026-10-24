@@ -8,34 +8,16 @@
 #   brew / apt   package names for Homebrew (macOS) and apt-get (Linux)
 #   uv_tool    the spec `uv tool install` takes (a gate tool, pinned)
 #   installer_url + installer_sha256  a published installer script, downloaded and checked against this checksum before it runs
+#   uv_python  the Python version `uv python install` fetches (the official route for python3)
+#   darwin_run the macOS command that installs it (git: xcode-select --install)
+#   release_url_<os>_<arch> + release_sha256_<os>_<arch>  the publisher's pinned release binary for darwin/linux and
+#              arm64/x86_64/aarch64, downloaded, checked against the checksum and put in ~/.local/bin
+#   official_url + official_shell  the publisher's own installer, which is not versioned and so has no checksum
+#   Order of routes (official first, Homebrew/apt only as the fallback): uv_tool, uv_python, darwin_run, release binary,
+#   installer_url, official_url, apt (Linux), brew (macOS), manual.
 #   manual     what to do by hand when relay installs nothing for it
 #   why        what needs it, shown in the FIX line
 # The pins of ruff and mypy live here; bin/types-lint and pyproject.toml should read them from this file.
-
-[[dep]]
-name = "python3"
-command = "python3"
-min = "3.11"
-version_arg = "--version"
-brew = "python@3.11"
-apt = "python3"
-why = "relay itself"
-
-[[dep]]
-name = "git"
-command = "git"
-version_arg = "--version"
-brew = "git"
-apt = "git"
-why = "worktrees, merges, the gate"
-
-[[dep]]
-name = "jq"
-command = "jq"
-version_arg = "--version"
-brew = "jq"
-apt = "jq"
-why = "the hooks"
 
 [[dep]]
 name = "uv"
@@ -45,6 +27,41 @@ version_arg = "--version"
 installer_url = "https://github.com/astral-sh/uv/releases/download/0.8.24/uv-installer.sh"
 installer_sha256 = "4a697a13c999c910a271e4dad74a59856f762e5d1ded38f34d7ab7e3538821e4"
 why = "runs the gate tools"
+
+[[dep]]
+name = "python3"
+command = "python3"
+min = "3.11"
+version_arg = "--version"
+uv_python = "3.11"
+brew = "python@3.11"
+apt = "python3"
+why = "relay itself"
+
+[[dep]]
+name = "git"
+command = "git"
+version_arg = "--version"
+darwin_run = "xcode-select --install"
+brew = "git"
+apt = "git"
+why = "worktrees, merges, the gate"
+
+[[dep]]
+name = "jq"
+command = "jq"
+version_arg = "--version"
+release_url_darwin_arm64 = "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-macos-arm64"
+release_sha256_darwin_arm64 = "0bbe619e663e0de2c550be2fe0d240d076799d6f8a652b70fa04aea8a8362e8a"
+release_url_darwin_x86_64 = "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-macos-amd64"
+release_sha256_darwin_x86_64 = "4155822bbf5ea90f5c79cf254665975eb4274d426d0709770c21774de5407443"
+release_url_linux_x86_64 = "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64"
+release_sha256_linux_x86_64 = "5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5"
+release_url_linux_aarch64 = "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-arm64"
+release_sha256_linux_aarch64 = "4dd2d8a0661df0b22f1bb9a1f9830f06b6f3b8f7d91211a1ef5d7c4f06a8b4a5"
+brew = "jq"
+apt = "jq"
+why = "the hooks"
 
 [[dep]]
 name = "ruff"
@@ -77,5 +94,26 @@ why = "the gate's library tests"
 name = "claude"
 command = "claude"
 version_arg = "--version"
+official_url = "https://claude.ai/install.sh"
+official_shell = "bash"
 manual = "install Claude Code from https://claude.com/claude-code"
 why = "benches and evals need it"
+
+[[dep]]
+name = "bun"
+command = "bun"
+version_arg = "--version"
+official_url = "https://bun.sh/install"
+official_shell = "bash"
+brew = "oven-sh/bun/bun"
+manual = "curl -fsSL https://bun.sh/install | bash"
+why = "the gate's hook tests"
+
+[[dep]]
+name = "node"
+command = "node"
+version_arg = "--version"
+brew = "node"
+apt = "nodejs"
+manual = "install Node.js from https://nodejs.org"
+why = "the gate's hook tests"

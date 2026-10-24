@@ -8,6 +8,7 @@ replaces it; `--apply` moves the replaced files to .claude/relay-migration/
 import datetime as dt
 import json
 import os
+import platform
 import re
 import shutil
 import stat
@@ -438,8 +439,16 @@ def migrate(root, apply=False, **kw):
 # --- dependencies: deps.toml is read here and by install.sh ------------------
 
 DEPS_FILE = os.path.join(ROOT, "deps.toml")
-DEP_STRINGS = ("name", "command", "min", "version_arg", "brew", "apt", "uv_tool", "installer_url", "installer_sha256", "manual", "why")
-DEP_ROUTES = ("brew", "apt", "uv_tool", "installer_url", "manual")   # at least one way to install it
+DEP_STRINGS = ("name", "command", "min", "version_arg", "brew", "apt", "uv_tool", "uv_python", "darwin_run", "installer_url",
+               "installer_sha256", "official_url", "official_shell", "manual", "why")
+DEP_ROUTES = ("brew", "apt", "uv_tool", "uv_python", "darwin_run", "installer_url", "official_url", "manual")   # at least one way to install it
+RELEASE_KEY = re.compile(r"release_(url|sha256)_(darwin|linux)_(arm64|x86_64|aarch64)")
+
+
+def platform_key(system=None, machine=None):
+    """'darwin_arm64', 'linux_x86_64': the suffix of the release_* fields for this machine."""
+    system = system or sys.platform
+    return ("darwin" if system == "darwin" else "linux") + "_" + (machine or platform.machine())
 
 
 def load_deps(path=None):
@@ -453,13 +462,13 @@ def load_deps(path=None):
     for n, dep in enumerate(entries, 1):
         label = f"deps.toml entry {n} ({dep.get('name', '?')})"
         for key in dep:
-            if key not in DEP_STRINGS and key != "exact":
+            if key not in DEP_STRINGS and key != "exact" and not RELEASE_KEY.fullmatch(key):
                 raise ValueError(f"{label}: unknown field '{key}'")
         for key in ("name", "command", "version_arg"):
             if not isinstance(dep.get(key), str) or not dep[key]:
                 raise ValueError(f"{label}: '{key}' must be a non-empty string")
-        for key in DEP_STRINGS:
-            if key in dep and not isinstance(dep[key], str):
+        for key in dep:
+            if key != "exact" and not isinstance(dep[key], str):
                 raise ValueError(f"{label}: '{key}' must be a string")
         if "min" in dep and not re.fullmatch(r"\d+(\.\d+)*", dep["min"]):
             raise ValueError(f"{label}: 'min' must be dotted numbers")
@@ -467,8 +476,14 @@ def load_deps(path=None):
             raise ValueError(f"{label}: 'exact' is true and needs 'min'")
         if ("installer_url" in dep) != ("installer_sha256" in dep):
             raise ValueError(f"{label}: 'installer_url' and 'installer_sha256' go together")
-        if not any(r in dep for r in DEP_ROUTES):
-            raise ValueError(f"{label}: no way to install it ({', '.join(DEP_ROUTES)})")
+        for key in dep:
+            m = RELEASE_KEY.fullmatch(key)
+            if m and m.group(1) == "url" and "release_sha256_" + key[len("release_url_"):] not in dep:
+                raise ValueError(f"{label}: '{key}' needs its release_sha256 checksum")
+            if m and m.group(1) == "sha256" and "release_url_" + key[len("release_sha256_"):] not in dep:
+                raise ValueError(f"{label}: '{key}' needs its release_url")
+        if not any(r in dep for r in DEP_ROUTES) and not any(RELEASE_KEY.fullmatch(k) for k in dep):
+            raise ValueError(f"{label}: no way to install it ({', '.join(DEP_ROUTES)}, release_url_*)")
         if dep["name"] in seen:
             raise ValueError(f"{label}: name listed twice")
         seen.add(dep["name"])
@@ -492,14 +507,26 @@ def dep_version(dep):
     return version_tuple(found.group(0)) if found else None
 
 
-def install_hint(dep, system=None):
+def install_hint(dep, system=None, machine=None):
+    """The route install.sh takes, in its order: the official one first, Homebrew/apt only as the fallback."""
     system = system or sys.platform
     if "uv_tool" in dep:
         return "uv tool install " + dep["uv_tool"]
-    if "brew" in dep and system == "darwin":
-        return "brew install " + dep["brew"]
+    if "uv_python" in dep:
+        return "uv python install " + dep["uv_python"]
+    if "darwin_run" in dep and system == "darwin":
+        return dep["darwin_run"]
+    key = platform_key(system, machine)
+    if "release_url_" + key in dep:
+        return f"sh {os.path.join(ROOT, 'install.sh')} (downloads {dep['release_url_' + key]}, checks its sha256)"
+    if "installer_url" in dep:
+        return f"sh {os.path.join(ROOT, 'install.sh')} (downloads {dep['installer_url']}, checks its sha256)"
+    if "official_url" in dep:
+        return f"curl -fsSL {dep['official_url']} | {dep.get('official_shell', 'sh')}"
     if "apt" in dep and system.startswith("linux"):
         return "sudo apt-get install -y " + dep["apt"]
+    if "brew" in dep and system == "darwin":
+        return "brew install " + dep["brew"]
     if "manual" in dep:
         return dep["manual"]
     return "sh " + os.path.join(ROOT, "install.sh")
@@ -521,10 +548,10 @@ def dep_checks(deps=None):
         found = dep_version(dep)
         if shutil.which(dep["command"]) is None:
             good, why = False, "not found"
+        elif found is None:   # on PATH but it prints no version: a stub (macOS git without the developer tools) or broken
+            good, why = False, "version not readable" if "min" in dep else "found but not working (prints no version)"
         elif "min" not in dep:
             good, why = True, ""
-        elif found is None:
-            good, why = False, "version not readable"
         else:
             want = version_tuple(dep["min"])
             good = found == want if exact else found >= want

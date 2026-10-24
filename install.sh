@@ -1,9 +1,10 @@
 #!/bin/sh
 # Installs what relay needs, from deps.toml (the list `relay doctor` checks against): python3 3.11+, git, jq, uv,
-# the pinned gate tools (ruff, mypy, pytest) and, by hand, claude. Plain POSIX sh: it runs before python exists.
+# the pinned gate tools (ruff, mypy, pytest), claude, and bun and node for the gate's hook tests.
+# Official installers come first; Homebrew and apt-get are only the fallback. Plain POSIX sh: it runs before python exists.
 #   sh install.sh [--dry-run]
-# Safe to run again: what is present at the right version is left alone. Every download is pinned to a version and
-# checked against the checksum written in deps.toml before it runs. Nothing runs under sudo without a line saying so.
+# Safe to run again: what is present at the right version is left alone. Every download is pinned and checked against the
+# checksum in deps.toml before it runs, except claude's and bun's own installers, which their publishers do not version. Nothing runs under sudo without a line saying so.
 # --dry-run prints what would be done and changes nothing.
 set -u
 
@@ -11,7 +12,7 @@ dry=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run) dry=1 ;;
-    -h|--help) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n "2,9p" "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "install.sh: unknown argument $arg (only --dry-run)" >&2; exit 2 ;;
   esac
 done
@@ -25,6 +26,9 @@ done
 [ -n "$deps" ] || { echo "install.sh: deps.toml not found next to this script or in $home; put the relay folder at ~/relay first (or set RELAY_HOME)" >&2; exit 1; }
 
 os="$(uname -s)"
+case "$os" in Darwin) plat="darwin" ;; *) plat="linux" ;; esac
+plat="${plat}_$(uname -m)"
+apt_updated=0
 
 say() { printf '%s\n' "$*"; }
 run() {   # run a command, or only print it under --dry-run
@@ -33,17 +37,21 @@ run() {   # run a command, or only print it under --dry-run
   "$@"
 }
 
-# one "name|command|min|exact|version_arg|brew|apt|uv_tool|installer_url|installer_sha256|manual" line per entry
+# one "name|command|min|exact|version_arg|brew|apt|uv_tool|uv_python|darwin_run|installer_url|installer_sha256|release_url|release_sha256|official_url|official_shell|manual"
+# line per entry; release_* is the one for this machine's os and architecture
 entries() {
-  awk '
-    function flush() { if (name != "") print name "|" command "|" min "|" exact "|" varg "|" brew "|" apt "|" uvt "|" url "|" sha "|" manual }
-    /^\[\[dep\]\]/ { flush(); name=command=min=exact=varg=brew=apt=uvt=url=sha=manual=""; name="?"; next }
+  awk -v plat="$plat" '
+    function flush() { if (name != "") print name "|" command "|" min "|" exact "|" varg "|" brew "|" apt "|" uvt "|" uvp "|" drun "|" url "|" sha "|" rurl "|" rsha "|" ourl "|" oshell "|" manual }
+    /^\[\[dep\]\]/ { flush(); name=command=min=exact=varg=brew=apt=uvt=uvp=drun=url=sha=rurl=rsha=ourl=oshell=manual=""; name="?"; next }
     /^[a-z_0-9]+ *=/ {
       key=$1; sub(/^[a-z_0-9]+ *= */, ""); val=$0; gsub(/^"|"$/, "", val)
       if (key=="name") name=val; else if (key=="command") command=val; else if (key=="min") min=val
       else if (key=="exact") exact=val; else if (key=="version_arg") varg=val; else if (key=="brew") brew=val
-      else if (key=="apt") apt=val; else if (key=="uv_tool") uvt=val; else if (key=="installer_url") url=val
+      else if (key=="apt") apt=val; else if (key=="uv_tool") uvt=val; else if (key=="uv_python") uvp=val
+      else if (key=="darwin_run") drun=val; else if (key=="installer_url") url=val
       else if (key=="installer_sha256") sha=val; else if (key=="manual") manual=val
+      else if (key=="official_url") ourl=val; else if (key=="official_shell") oshell=val
+      else if (key=="release_url_" plat) rurl=val; else if (key=="release_sha256_" plat) rsha=val
     }
     END { flush() }
   ' "$deps"
@@ -65,29 +73,95 @@ sha256_of() {
   else echo ""; fi
 }
 
-install_one() {   # install_one NAME BREW APT UVTOOL URL SHA MANUAL; returns 0 when it did (or would do) the install
-  name="$1"; brew="$2"; apt="$3"; uvt="$4"; url="$5"; sha="$6"; man="$7"
+download_checked() {   # download_checked URL SHA FILE: fetch, refuse unless the sha256 is the pinned one
+  if ! curl -fsSL "$1" -o "$3"; then say "  download failed: $1"; return 1; fi
+  got="$(sha256_of "$3")"
+  if [ -z "$got" ] || [ "$got" != "$2" ]; then
+    say "  checksum mismatch for $1 (wanted $2, got ${got:-none}); not run"; return 1
+  fi
+  say "  checksum ok"
+}
+
+apt_install() {   # apt_install PACKAGE: root runs apt-get itself, others use sudo; the lists are refreshed once
+  sudo_=""
+  if [ "$(id -u)" != 0 ]; then
+    command -v sudo >/dev/null 2>&1 || { say "  not root and no sudo: run as root or install sudo"; return 1; }
+    sudo_="sudo"; say "  this step uses sudo (apt-get install $1)"
+  fi
+  if [ "$apt_updated" != 1 ]; then run $sudo_ apt-get update || return 1; apt_updated=1; fi
+  run $sudo_ apt-get install -y "$1"
+}
+
+# install_one NAME COMMAND BREW APT UVTOOL UVPY DRUN URL SHA RURL RSHA OURL OSHELL
+# Routes, official first and Homebrew/apt only as the fallback (the owner's order); returns 0 when it did (or would do)
+# the install, 2 when this machine has no route. The same order is relay_setup.install_hint, which doctor prints.
+install_one() {
+  name="$1"; cmd="$2"; brew="$3"; apt="$4"; uvt="$5"; uvp="$6"; drun="$7"; url="$8"; sha="$9"
+  shift 9; rurl="$1"; rsha="$2"; ourl="$3"; oshell="${4:-sh}"
   if [ -n "$uvt" ]; then
+    say "  via uv tool install"
     if command -v uv >/dev/null 2>&1 || [ "$dry" = 1 ]; then run uv tool install "$uvt"; return $?; fi
     say "  needs uv first; it was not installed"; return 1
   fi
-  if [ -n "$brew" ] && [ "$os" = Darwin ] && command -v brew >/dev/null 2>&1; then run brew install "$brew"; return $?; fi
-  if [ -n "$apt" ] && [ "$os" = Linux ] && command -v apt-get >/dev/null 2>&1; then
-    say "  this step uses sudo (apt-get install $apt)"
-    run sudo apt-get install -y "$apt"; return $?
+  if [ -n "$uvp" ]; then
+    say "  via uv python install (python3.11 lands in ~/.local/bin; python3 itself is not replaced)"
+    if command -v uv >/dev/null 2>&1 || [ "$dry" = 1 ]; then run uv python install "$uvp"; return $?; fi
+    say "  needs uv first; it was not installed"; return 1
+  fi
+  if [ -n "$drun" ] && [ "$os" = Darwin ]; then
+    say "  via the macOS installer ($drun)"
+    run $drun; rc=$?
+    [ "$rc" = 0 ] && [ "$dry" != 1 ] && say "  a macOS window opens: finish it, then run install.sh again"
+    return $rc
+  fi
+  if [ -n "$rurl" ]; then
+    say "  via the official release binary (pinned, sha256 $rsha)"
+    if [ "$dry" = 1 ]; then say "  would download $rurl, check sha256 $rsha, put it at $HOME/.local/bin/$cmd"; return 0; fi
+    tmp="$(mktemp "${TMPDIR:-/tmp}/relay-release.XXXXXX")" || return 1
+    if ! download_checked "$rurl" "$rsha" "$tmp"; then rm -f "$tmp"; return 1; fi
+    mkdir -p "$HOME/.local/bin" && chmod 755 "$tmp" && mv "$tmp" "$HOME/.local/bin/$cmd"; rc=$?
+    [ "$rc" = 0 ] || rm -f "$tmp"
+    return $rc
   fi
   if [ -n "$url" ]; then
+    say "  via the official installer (pinned, sha256 $sha)"
     if [ "$dry" = 1 ]; then say "  would download $url, check sha256 $sha, run it"; return 0; fi
     tmp="$(mktemp "${TMPDIR:-/tmp}/relay-installer.XXXXXX")" || return 1
-    if ! curl -fsSL "$url" -o "$tmp"; then say "  download failed: $url"; rm -f "$tmp"; return 1; fi
-    got="$(sha256_of "$tmp")"
-    if [ -z "$got" ] || [ "$got" != "$sha" ]; then
-      say "  checksum mismatch for $url (wanted $sha, got ${got:-none}); not run"; rm -f "$tmp"; return 1
-    fi
-    say "  checksum ok; running the installer"
+    if ! download_checked "$url" "$sha" "$tmp"; then rm -f "$tmp"; return 1; fi
+    say "  running the installer"
     sh "$tmp"; rc=$?; rm -f "$tmp"; return $rc
   fi
+  if [ -n "$ourl" ]; then
+    say "  via the official installer (the publisher does not version it, so there is no checksum)"
+    if [ "$dry" = 1 ]; then say "  would download $ourl and run it with $oshell"; return 0; fi
+    tmp="$(mktemp "${TMPDIR:-/tmp}/relay-installer.XXXXXX")" || return 1
+    if ! curl -fsSL "$ourl" -o "$tmp"; then say "  download failed: $ourl"; rm -f "$tmp"; return 1; fi
+    "$oshell" "$tmp"; rc=$?; rm -f "$tmp"; return $rc
+  fi
+  if [ -n "$apt" ] && [ "$os" = Linux ] && command -v apt-get >/dev/null 2>&1; then
+    say "  via apt-get (the system package manager)"
+    apt_install "$apt"; return $?
+  fi
+  if [ -n "$brew" ] && [ "$os" = Darwin ] && command -v brew >/dev/null 2>&1; then
+    say "  via Homebrew (fallback)"
+    run brew install "$brew"; return $?
+  fi
   return 2
+}
+
+find_python() {   # the first python that is 3.11+ (python3, then versioned names, then the one uv holds); prints its path
+  for c in python3 python3.14 python3.13 python3.12 python3.11; do
+    v="$(version_of "$c" --version)"
+    if [ -n "$v" ] && at_least "$v" "$pymin"; then command -v "$c"; return 0; fi
+  done
+  if command -v uv >/dev/null 2>&1; then
+    c="$(uv python find "$pymin" 2>/dev/null)"
+    if [ -n "$c" ] && [ -x "$c" ]; then
+      v="$(version_of "$c" --version)"
+      if [ -n "$v" ] && at_least "$v" "$pymin"; then echo "$c"; return 0; fi
+    fi
+  fi
+  return 1
 }
 
 say "relay installer ($os), reading $deps"
@@ -96,21 +170,24 @@ say "ok = already there, install = missing or too old, installed = done now"
 # local bin of uv and its tools, so the checks below see what was just installed
 PATH="$HOME/.local/bin:$PATH"; export PATH
 
-entries | while IFS='|' read -r name cmd min exact varg brew apt uvt url sha man; do
+pymin="$(entries | awk -F'|' '$1=="python3" { print $3 }')"; pymin="${pymin:-3.11}"
+
+entries | while IFS='|' read -r name cmd min exact varg brew apt uvt uvp drun url sha rurl rsha ourl oshell man; do
   found="$(version_of "$cmd" "$varg")"
   state=""
   if ! command -v "$cmd" >/dev/null 2>&1; then state="missing"
+  elif [ -z "$found" ]; then
+    if [ -n "$min" ]; then state="version not readable"; else state="found but not working (prints no version)"; fi
   elif [ -n "$min" ]; then
-    if [ -z "$found" ]; then state="version not readable"
-    elif [ "$exact" = true ] && [ "$found" != "$min" ]; then state="found $found, pinned $min"
+    if [ "$exact" = true ] && [ "$found" != "$min" ]; then state="found $found, pinned $min"
     elif [ "$exact" != true ] && ! at_least "$found" "$min"; then state="found $found, needs $min+"
     fi
   fi
   if [ -z "$state" ]; then say "ok       $name ${found:+$found}"; continue; fi
   say "install  $name ($state)"
-  install_one "$name" "$brew" "$apt" "$uvt" "$url" "$sha" "$man"; rc=$?
+  install_one "$name" "$cmd" "$brew" "$apt" "$uvt" "$uvp" "$drun" "$url" "$sha" "$rurl" "$rsha" "$ourl" "$oshell"; rc=$?
   if [ "$rc" = 2 ]; then
-    say "  by hand: ${man:-no automatic way on this machine (no Homebrew or apt-get); install $name with your package manager}"
+    say "  by hand: ${man:-no automatic way on this machine; install $name with your package manager}"
   elif [ "$rc" != 0 ]; then
     say "  FAILED: $name"
   elif [ "$dry" != 1 ]; then
@@ -119,9 +196,22 @@ entries | while IFS='|' read -r name cmd min exact varg brew apt uvt url sha man
 done
 
 say ""
+py="$(find_python)"
+pyfound="$(version_of python3 --version)"
 if [ "$dry" = 1 ]; then
-  say "dry run done: would then run $relay_dir/bin/relay doctor"
+  if [ -n "$py" ]; then
+    say "dry run done: would then run $py $relay_dir/bin/relay doctor"
+  else
+    say "dry run done: python3 is ${pyfound:-missing}; after the python step the doctor would run under the python3.11 that uv installs in $HOME/.local/bin"
+  fi
   exit 0
 fi
+if [ -z "$py" ]; then
+  say "python3 is still ${pyfound:-missing}; relay needs $pymin+: run  uv python install $pymin  and put $HOME/.local/bin first on PATH (or install a newer python3), then run install.sh again"
+  exit 1
+fi
+if [ "$(command -v python3)" != "$py" ]; then
+  say "python3 on PATH is ${pyfound:-missing}; the doctor runs under $py. To make python3 itself $pymin+, put its folder first on PATH"
+fi
 say "checking the result with relay doctor"
-exec "$relay_dir/bin/relay" doctor
+exec "$py" "$relay_dir/bin/relay" doctor

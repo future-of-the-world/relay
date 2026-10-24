@@ -5,6 +5,7 @@ PATH, HOME and relay settings are put back after each test.
 """
 import os
 import shutil
+import hashlib
 import subprocess
 import sys
 import tempfile
@@ -19,7 +20,8 @@ import relay_setup  # noqa: E402
 ENV_KEYS = ("PATH", "HOME", "CLAUDE_CONFIG_DIR", "RELAY_HOME")
 # what every tool of deps.toml prints for --version when it is at the right version
 GOOD = {"python3": "Python 3.12.1", "git": "git version 2.44.0", "jq": "jq-1.7.1", "uv": "uv 0.8.24 (abc 2025-10-07)",
-        "ruff": "ruff 0.13.3", "mypy": "mypy 1.18.2 (compiled: yes)", "pytest": "pytest 8.4.2", "claude": "2.1.0 (Claude Code)"}
+        "ruff": "ruff 0.13.3", "mypy": "mypy 1.18.2 (compiled: yes)", "pytest": "pytest 8.4.2", "claude": "2.1.0 (Claude Code)",
+        "bun": "1.2.0", "node": "v22.1.0"}
 
 
 class Fakes(unittest.TestCase):
@@ -60,7 +62,7 @@ class DepsFile(unittest.TestCase):
     def test_list_parses_and_every_entry_has_its_fields(self):
         deps = relay_setup.load_deps()
         names = [d["name"] for d in deps]
-        # the brief's list: python3, git, jq, claude, uv, and the gate tools ruff, mypy, pytest
+        # the brief's list: python3, git, jq, claude, uv, the gate tools ruff, mypy, pytest, and bun and node (bin/ci hook tests)
         self.assertEqual(sorted(names), sorted(GOOD))
         for dep in deps:
             self.assertTrue(dep["command"] and dep["version_arg"], dep["name"])
@@ -137,10 +139,43 @@ class InstallScript(Fakes):
     def setUp(self):
         super().setUp()
         # the only real programs the script may use; no real jq, brew or apt-get can be found
-        for util in ("awk", "grep", "head", "uname", "dirname", "sed", "cat", "mktemp", "rm", "sort", "tr"):
+        for util in ("awk", "grep", "head", "uname", "dirname", "sed", "cat", "mktemp", "rm", "sort", "tr", "id", "mkdir",
+                     "chmod", "mv", "sh", "shasum", "sha256sum"):
             real = shutil.which(util, path=self.saved["PATH"])
-            self.assertTrue(real, util)
+            if real is None:
+                self.assertIn(util, ("shasum", "sha256sum"))   # one of the two sum tools exists per OS
+                continue
             os.symlink(real, os.path.join(self.bin, util))
+
+    def script(self, name, body):
+        """A fake program on PATH with a shell body (replaces a symlink of the same name)."""
+        path = os.path.join(self.bin, name)
+        if os.path.lexists(path):
+            os.remove(path)
+        with open(path, "w") as handle:
+            handle.write("#!/bin/sh\n" + body + "\n")
+        os.chmod(path, 0o755)
+
+    def machine(self, system, arch):
+        self.script("uname", f'case "$1" in -s) echo {system};; -m) echo {arch};; *) echo {system};; esac')
+
+    def dry(self, script=None):
+        done = subprocess.run(["/bin/sh", script or os.path.join(ROOT, "install.sh"), "--dry-run"], capture_output=True, text=True,
+                              env=dict(os.environ), cwd=self.tmp)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return done.stdout.splitlines()
+
+    def relay_copy(self, deps_text):
+        """A copy of install.sh next to a deps.toml of the test's own, so a real run touches nothing real."""
+        folder = os.path.join(self.tmp, "relay-copy")
+        os.makedirs(os.path.join(folder, "bin"), exist_ok=True)
+        shutil.copy(os.path.join(ROOT, "install.sh"), folder)
+        with open(os.path.join(folder, "deps.toml"), "w") as handle:
+            handle.write(deps_text)
+        return os.path.join(folder, "install.sh")
+
+    def real(self, script):
+        return subprocess.run(["/bin/sh", script], capture_output=True, text=True, env=dict(os.environ), cwd=self.tmp)
 
     def snapshot(self):
         out = {}
@@ -176,6 +211,168 @@ class InstallScript(Fakes):
                               env=dict(os.environ), cwd=self.tmp)
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertEqual([ln for ln in done.stdout.splitlines() if ln.startswith(("install", "  would"))], [])
+
+
+class Routes(InstallScript):
+    """F1/F5: official installers first, Homebrew/apt only the fallback; the dry run names each route."""
+
+    JQ_MAC = "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-macos-arm64"
+    JQ_MAC_SUM = "0bbe619e663e0de2c550be2fe0d240d076799d6f8a652b70fa04aea8a8362e8a"
+
+    def test_macos_with_homebrew_goes_official_first(self):
+        self.fakes(jq=None, git=None, claude=None, bun=None, node=None, python3="Python 3.9.6")
+        self.machine("Darwin", "arm64")
+        self.fake("brew", "brew")   # Homebrew is there, and must not be used where an official route exists
+        lines = self.dry()
+        self.assertNotIn("  would run: brew install jq", lines)
+        self.assertNotIn("  would run: brew install git", lines)
+        self.assertNotIn("  would run: brew install python@3.11", lines)
+        # jq: the pinned release binary for darwin/arm64 with its sha256 (the publisher's sha256sum.txt value)
+        self.assertIn(f"  would download {self.JQ_MAC}, check sha256 {self.JQ_MAC_SUM}, put it at {self.home}/.local/bin/jq", lines)
+        self.assertIn("  would run: xcode-select --install", lines)   # git on macOS
+        self.assertIn("  would run: uv python install 3.11", lines)   # python 3.9.6 -> 3.11 through uv
+        self.assertIn("  would download https://claude.ai/install.sh and run it with bash", lines)
+        self.assertIn("  would download https://bun.sh/install and run it with bash", lines)
+        # node has only a Homebrew entry on macOS: the fallback still works
+        self.assertIn("  would run: brew install node", lines)
+        self.assertIn("  via Homebrew (fallback)", lines)
+
+    def test_linux_apt_as_root_updates_once_without_sudo(self):
+        self.fakes(git=None, node=None)
+        self.machine("Linux", "x86_64")
+        self.fake("apt-get", "apt")
+        self.script("id", "echo 0")
+        lines = self.dry()
+        self.assertEqual(lines.count("  would run: apt-get update"), 1)   # once, before the first install
+        self.assertLess(lines.index("  would run: apt-get update"), lines.index("  would run: apt-get install -y git"))
+        self.assertIn("  would run: apt-get install -y nodejs", lines)
+        self.assertFalse([ln for ln in lines if "sudo" in ln])
+
+    def test_linux_apt_as_a_user_says_it_uses_sudo(self):
+        self.fakes(git=None)
+        self.machine("Linux", "x86_64")
+        self.fake("apt-get", "apt")
+        self.fake("sudo", "sudo")
+        self.script("id", "echo 1000")
+        lines = self.dry()
+        self.assertIn("  this step uses sudo (apt-get install git)", lines)
+        self.assertIn("  would run: sudo apt-get install -y git", lines)
+
+    def test_doctor_names_the_same_route(self):
+        by = {d["name"]: d for d in relay_setup.load_deps()}
+        hint = relay_setup.install_hint
+        self.assertIn(self.JQ_MAC, hint(by["jq"], "darwin", "arm64"))
+        self.assertEqual(hint(by["git"], "darwin", "arm64"), "xcode-select --install")
+        self.assertEqual(hint(by["python3"], "darwin", "arm64"), "uv python install 3.11")
+        self.assertEqual(hint(by["claude"], "darwin", "arm64"), "curl -fsSL https://claude.ai/install.sh | bash")
+        self.assertEqual(hint(by["node"], "darwin", "arm64"), "brew install node")   # the fallback, no official route
+        self.assertEqual(hint(by["git"], "linux", "x86_64"), "sudo apt-get install -y git")
+
+
+class PythonStep(InstallScript):
+    """F2: the doctor runs under a 3.11+ python, or the installer says there is none."""
+
+    DEPS = '[[dep]]\nname = "python3"\ncommand = "python3"\nmin = "3.11"\nversion_arg = "--version"\nmanual = "get python"\n'
+
+    def python(self, name, version):
+        self.script(name, f'case "$1" in --version) echo "Python {version}";; *) echo "RAN {name} $*";; esac')
+
+    def test_doctor_runs_under_the_311_python_when_python3_is_old(self):
+        self.python("python3", "3.9.6")
+        self.python("python3.11", "3.11.9")
+        done = self.real(self.relay_copy(self.DEPS))
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertRegex(done.stdout, r"RAN python3\.11 \S+/relay-copy/bin/relay doctor")
+        self.assertNotIn("RAN python3 ", done.stdout)
+        self.assertIn("python3 on PATH is 3.9.6; the doctor runs under", done.stdout)
+
+    def test_no_311_python_stops_with_a_clear_line(self):
+        self.python("python3", "3.9.6")
+        done = self.real(self.relay_copy(self.DEPS))
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("python3 is still 3.9.6; relay needs 3.11+:", done.stdout)
+        self.assertNotIn("RAN", done.stdout)
+
+    def test_a_new_python3_runs_the_doctor_as_before(self):
+        self.python("python3", "3.12.1")
+        done = self.real(self.relay_copy(self.DEPS))
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertRegex(done.stdout, r"RAN python3 \S+/relay-copy/bin/relay doctor")
+        self.assertNotIn("python3 on PATH is", done.stdout)
+
+    def test_dry_run_with_old_python_exits_zero_and_names_the_python(self):
+        self.fakes(python3="Python 3.9.6")
+        lines = self.dry()
+        self.assertTrue(lines[-1].startswith("dry run done: python3 is 3.9.6;"), lines[-1])
+        self.assertIn("python3.11", lines[-1])
+
+
+class BrokenAndMissing(InstallScript):
+    """F3/F4/F6."""
+
+    def test_bun_and_node_are_checked_and_name_their_install_command(self):
+        self.fakes(bun=None, node=None)
+        got = {n: (g, d) for n, g, d in relay_setup.dep_checks()}
+        self.assertFalse(got["bun on PATH"][0])
+        self.assertIn("https://bun.sh/install", got["bun on PATH"][1])
+        self.assertFalse(got["node on PATH"][0])
+        self.assertIn("node", got["node on PATH"][1])
+
+    def test_a_tool_that_is_there_but_prints_no_version_is_not_ok(self):
+        # the macOS /usr/bin/git stub without the developer tools: a file on PATH that exits 1 and prints a note
+        self.fakes()
+        self.script("git", "echo 'xcode-select: note: No developer tools were found' >&2; exit 1")
+        got = {n: (g, d) for n, g, d in relay_setup.dep_checks()}
+        good, detail = got["git on PATH"]
+        self.assertFalse(good)
+        self.assertIn("not working", detail)
+        self.assertIn("xcode-select --install", detail)   # the route the installer takes on macOS
+        self.machine("Darwin", "arm64")
+        lines = self.dry()
+        self.assertIn("install  git (found but not working (prints no version))", lines)
+        self.assertIn("  would run: xcode-select --install", lines)
+
+    def test_a_working_git_and_claude_stay_ok(self):
+        self.fakes()
+        lines = self.dry()
+        self.assertIn("ok       git 2.44.0", lines)
+        self.assertIn("ok       claude 2.1.0", lines)
+        got = {n: g for n, g, _ in relay_setup.dep_checks()}
+        self.assertTrue(got["git on PATH"] and got["claude on PATH"])
+
+    def uv_only(self, sha):
+        return ('[[dep]]\nname = "uv"\ncommand = "uv"\nversion_arg = "--version"\n'
+                f'installer_url = "https://example.invalid/uv-installer.sh"\ninstaller_sha256 = "{sha}"\n')
+
+    def fake_curl(self):
+        self.marker = os.path.join(self.tmp, "ran-marker")
+        self.payload = f": > {self.marker}\n"
+        self.script("curl", 'out=""; while [ $# -gt 0 ]; do [ "$1" = -o ] && out="$2"; shift; done\n'
+                    f"printf '%s' ': > {self.marker}' > \"$out\"")
+        self.payload_sum = hashlib.sha256(f": > {self.marker}".encode()).hexdigest()
+
+    def test_a_download_with_the_wrong_checksum_is_not_run(self):
+        self.fakes(uv=None)
+        self.fake_curl()
+        done = self.real(self.relay_copy(self.uv_only("0" * 64)))
+        self.assertIn("checksum mismatch for https://example.invalid/uv-installer.sh", done.stdout)
+        self.assertIn("not run", done.stdout)
+        self.assertFalse(os.path.exists(self.marker))
+
+    def test_a_download_with_the_right_checksum_is_run(self):
+        # the control for the test above: the same flow with the matching sum does run the script
+        self.fakes(uv=None)
+        self.fake_curl()
+        done = self.real(self.relay_copy(self.uv_only(self.payload_sum)))
+        self.assertIn("checksum ok", done.stdout)
+        self.assertTrue(os.path.exists(self.marker), done.stdout)
+
+    def test_dry_run_without_uv_says_what_it_would_download_and_run(self):
+        self.fakes(uv=None, ruff=None)
+        lines = self.dry()
+        sha = {d["name"]: d for d in relay_setup.load_deps()}["uv"]["installer_sha256"]
+        self.assertIn(f"  would download https://github.com/astral-sh/uv/releases/download/0.8.24/uv-installer.sh, check sha256 {sha}, run it", lines)
+        self.assertIn("  would run: uv tool install ruff==0.13.3", lines)
 
 
 if __name__ == "__main__":
