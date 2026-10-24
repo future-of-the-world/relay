@@ -20,8 +20,8 @@
   "where": "lib/relay_queue.py:742 (_holds_test), :787",
   "taken_at": "2026-10-24T19:01:31Z",
   "taken_by": "wt/eval-close",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T20:37:41Z",
+  "test": "tests/test_eval_close.py::TestEvalCaseAsTest::test_q1_an_eval_case_and_grader_at_head_is_accepted_and_a_missing_grader_is_refused_with_the_forms",
   "dropped_at": null,
   "dropped_why": null
 }
