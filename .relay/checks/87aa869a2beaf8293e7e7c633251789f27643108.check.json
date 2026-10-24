@@ -1,0 +1,61 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F6",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/checks-record/.relay/checks/b373f23a1639b21fd85b79de2642748ece24434d.gate.log",
+  "head": "87aa869a2beaf8293e7e7c633251789f27643108",
+  "new": [],
+  "notes": [],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "b373f23a1639b21fd85b79de2642748ece24434d.review.json"
+  ],
+  "reviewed": "b373f23a1639b21fd85b79de2642748ece24434d",
+  "schema": 1,
+  "scope": [
+    "Fixes none. Only commit after the reviewed sha is the gate log. Gate log starts with head b373f23 and ends exit 0. Ran tests: 481 passed. No new tests, so no fail-without-fix proof needed."
+  ],
+  "type": "check"
+}
