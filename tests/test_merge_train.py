@@ -290,7 +290,7 @@ class StackedBranches(TrainCase):
         # P changed line 1 of lib/f.py; master merged Q, which changed the same line; S (made from P) took master and kept P's side
         # by hand, so Q's change is gone from S. lib/f.py at S equals P's tip (condition 1) but master changed it after P left
         # (condition 2 fails), so it is S's own file: listed for the checker and for the mark step, not covered by P.
-        # (The hook compares with the mark's tree, where lib/f.py is already P's version, so only the list shows it here.)
+        # The mark step refuses it (test_t10_the_drop_is_refused_...), though the mark's tree already holds P's version.
         p, s = self.stacked()
         self.ready(s, {"lib/g.py": "g1\n"})
         self.commit(self.main, {"lib/f.py": SHARED.replace("line 1\n", "Q one\n")}, "Q")
@@ -304,6 +304,40 @@ class StackedBranches(TrainCase):
         held = ri.absorbed(self.main, tip)
         self.assertEqual(sorted(held), ["wt/p"])
         self.assertEqual(ri.changed(self.main, "master", tip, own=True, absorbed=held), ["lib/f.py", "lib/g.py"])
+
+    def drop_sequence(self):
+        p, s = self.stacked()
+        self.ready(s, {"lib/g.py": "g1\n"})
+        self.commit(self.main, {"lib/f.py": SHARED.replace("line 1\n", "Q one\n")}, "Q")
+        self.git(s, "merge", "--no-edit", "master", check=False)
+        self.git(s, "checkout", "--ours", "--", "lib/f.py")
+        self.git(s, "add", "-A")
+        self.git(s, "commit", "-q", "--no-edit")
+        self.gate(s)
+        return s
+
+    def test_t10_the_drop_is_refused_naming_the_file_listed_as_m1_and_allowed_after_a_newer_check(self):
+        s = self.drop_sequence()
+        self.assertIn("lib/f.py", self.verdict("wt/s"))
+        head = self.git(s, "rev-parse", "HEAD")
+        listed = rv._merge_findings(s, head, [])
+        self.assertEqual([(f["id"], f["path"]) for f in listed], [("M1", "lib/f.py")])
+        self.mark(s, head)                                    # a check made after the merge
+        self.assertIsNone(self.verdict("wt/s"))
+
+    def test_t10_a_clean_take_of_master_is_not_refused(self):
+        # Q changed line 10, P line 1: git combines lib/f.py cleanly, nothing is dropped. As before the change, the combined
+        # file is S's own file changed since its mark (the old refusal), not the new "dropped" one; a newer mark lets it land.
+        p, s = self.stacked()
+        self.ready(s, {"lib/g.py": "g1\n"})
+        self.commit(self.main, {"lib/f.py": SHARED.replace("line 10\n", "Q ten\n")}, "Q")
+        self.git(s, "merge", "--no-edit", "master")
+        self.gate(s)
+        reason = self.verdict("wt/s")
+        self.assertIn("lib/f.py", reason)
+        self.assertNotIn("dropped", reason)
+        self.mark(s, self.git(s, "rev-parse", "HEAD"))
+        self.assertIsNone(self.verdict("wt/s"))
 
     def test_t12_a_stacked_branch_is_checked_for_its_own_files_only(self):
         # P has a usable check and nobody else changed lib/f.py: S's checker is not asked about it again
@@ -432,6 +466,43 @@ class MergeCheck(TrainCase):
         with self.assertRaises(rv.VerdictError) as ctx:
             rv.record_check(toml)
         self.assertIn("at least one review", str(ctx.exception))
+
+
+class MergeCheckNeedsReviewForOwnCode(TrainCase):
+    def toml(self, wt, name="in.toml"):
+        path = os.path.join(self.tmp, name)
+        with open(path, "w") as handle:
+            handle.write("report = '%s'\nhead = '%s'\nworktree = '%s'\ngate = 'none'\nreview = []\n" % (
+                os.path.join(self.tmp, "r-" + name), self.git(wt, "rev-parse", "HEAD"), wt))
+        return path
+
+    def test_f1_a_stacked_branch_with_its_own_commit_cannot_record_an_empty_check(self):
+        p = self.tree("p")
+        self.ready(p, {"lib/f.py": "f1\n"})
+        s = self.tree("s", "wt/p")
+        self.commit(s, {"lib/g.py": "unreviewed\n"})
+        self.gate(s)
+        with self.assertRaises(rv.VerdictError) as ctx:
+            rv.finding_list(s, [])
+        self.assertIn("lib/g.py", str(ctx.exception))
+        with self.assertRaises(rv.VerdictError):
+            rv.record_check(self.toml(s))
+
+    def test_f1_a_train_with_a_direct_commit_cannot_record_an_empty_check(self):
+        self.two_riders()
+        train = self.train("a", "b")
+        self.commit(train, {"lib/new.py": "new\n"})
+        self.gate(train)
+        with self.assertRaises(rv.VerdictError) as ctx:
+            rv.finding_list(train, [])
+        self.assertIn("lib/new.py", str(ctx.exception))
+        with self.assertRaises(rv.VerdictError):
+            rv.record_check(self.toml(train))
+
+    def test_f1_a_train_with_no_own_commit_and_no_combined_file_lists_nothing(self):
+        self.two_riders()
+        train = self.train("a", "b")
+        self.assertEqual(len(rv.finding_list(train, [])), 2)      # t14 covers the combined-file case
 
 
 class Absorbed(TrainCase):

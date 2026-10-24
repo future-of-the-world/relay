@@ -182,6 +182,19 @@ def absorbed(repo, ref):
     return accepted
 
 
+def dropped(repo, merge, names):
+    """The files of `names` that the second parent of `merge` changed (since its merge-base with the first parent) and that the
+    merge left exactly as the first parent had them: the other side's change thrown away, by a hand-resolved merge."""
+    merge = _sha(repo, merge)
+    first, second = _sha(repo, merge + "^1"), _sha(repo, merge + "^2")
+    rc, fork = relay_git.git(repo, "merge-base", first, second)
+    if rc != 0:
+        return []
+    t_fork, t_first, t_second = _blobs(repo, fork), _blobs(repo, first), _blobs(repo, second)
+    t_merge = _blobs(repo, merge)
+    return sorted(n for n in names if t_second.get(n) != t_fork.get(n) and t_merge.get(n) == t_first.get(n) != t_second.get(n))
+
+
 def changed(repo, since, until="HEAD", own=False, archive=False, absorbed=None):
     """Files changed from `since` to `until` in `repo` that are not inert. A rename or copy counts as a delete plus an
     add (--no-renames), so a code file moved into an inert folder is still listed; -z keeps odd names unquoted.

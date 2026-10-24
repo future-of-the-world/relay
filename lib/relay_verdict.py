@@ -686,6 +686,8 @@ def _merge_findings(wt, head, anchors):
         for name in names.split("\0") if rc == 0 else []:
             if name in own:
                 newest[name] = merge
+        for name in relay_inert.dropped(wt, merge, own):                  # a hand-resolved merge that threw the other side's change away
+            newest[name] = merge
     found = []
     for number, name in enumerate(sorted(newest), 1):
         merge = newest[name]
@@ -785,6 +787,20 @@ def build_findings(wt, head, review_paths):
         raise VerdictError("nothing recorded: `review` must be a list of at least one review JSON path")     # a merge check is only for a branch that holds ready changes
     reviews = _review_findings(wt, head, review_paths)
     found += reviews
+    if not review_paths:             # no review: every own file must be one a merge of a ready change or of the default branch brought
+        default = relay_git.default_branch(wt)
+        rc, fork = relay_git.git(wt, "merge-base", "refs/heads/%s" % (default or ""), head)
+        if rc != 0:
+            raise VerdictError("nothing recorded: no common commit of %s and %s" % (default, head))
+        try:
+            own_files = relay_inert.changed(wt, fork, head, own=True, absorbed=ab)
+        except ValueError as exc:
+            raise VerdictError("nothing recorded: %s" % exc)
+        merged = {f["path"] for f in _merge_findings(wt, head, [])}
+        loose = [n for n in own_files if n not in merged]
+        if loose:
+            raise VerdictError("nothing recorded: `review` must be a list of at least one review JSON path: %s changed on this branch "
+                               "outside a merge of a ready change, and a merge check covers only files a merge combined" % ", ".join(loose[:3]))
     default = relay_git.default_branch(wt)
     rc, out = relay_git.git(wt, "rev-list", head, "^refs/heads/%s" % default) if default else (1, "")
     own = set(out.splitlines()) if rc == 0 else set()

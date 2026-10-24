@@ -172,6 +172,25 @@ def step_queue(main, default, branch, ab=None):
             raise Refused("queue item %s is closed without a test or a check: %s" % (slug, reason))
 
 
+def _dropped_after(main, default, commit, ref, ab):
+    """The own files that a merge of the default branch (or of an absorbed branch) after `commit` threw the other side's change
+    away from: a mark made before it did not see that."""
+    fork = relay_git.git(main, "merge-base", "refs/heads/" + default, ref)[1]
+    out = relay_git.git(main, "rev-list", "--merges", "%s..%s" % (commit, ref))[1].split()
+    lost = set()
+    own = None
+    for merge in out:
+        if relay_git.git(main, "rev-parse", "--verify", "-q", merge + "^2")[0] != 0:
+            continue
+        second = relay_git.git(main, "rev-parse", merge + "^2")[1]
+        if relay_git.git(main, "merge-base", "--is-ancestor", second, "refs/heads/" + default)[0] != 0 and second not in ab.values():
+            continue
+        if own is None:
+            own = relay_inert.changed(main, fork, ref, own=True, archive=True, absorbed=ab)
+        lost.update(relay_inert.dropped(main, merge, own))
+    return sorted(lost)
+
+
 def step_mark(main, default, branch, ab=None):
     """7.1 steps 4-5: the newest mark on the branch (not on the default branch) whose own files are all unchanged since. `ab` is
     the branches the branch absorbs (`relay_inert.absorbed`): the files they cover are not the branch's own, and a branch whose
@@ -195,6 +214,10 @@ def step_mark(main, default, branch, ab=None):
     for commit in order:
         own = relay_inert.changed(main, commit, ref, own=True, archive=True, absorbed=ab)
         if not own:
+            lost = _dropped_after(main, default, commit, ref, ab)
+            if lost:
+                raise Refused("after the check of %s, a merge into %s dropped the change a merged branch made to %s; "
+                              "run relay gate, then delegate:checker" % (commit, branch, named(lost)))
             mark = stored[commit]
             if mark["verdict"]["open"] != 0:
                 raise Refused("the check of %s left %s inside the change wrong (report: .relay/checks/%s.check.json; relay check show prints it); "

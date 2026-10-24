@@ -577,9 +577,9 @@ others behind master, so each took master and gated again (about 9.4 min each). 
 - After the land, the post hook cleans the train and every `wt/*` branch whose tip is inside it (`clean()`'s guards decide).
 - Every refusal of step 3 names the steps in order (`relay gate`, then `delegate:checker`); `relay check show` adds
   `<N> non-inert files changed after the mark: <files>` when the newest mark no longer covers the head.
-- Known gap, from before the train: a file whose version at the head equals the version at a mark is not seen as
-  changed since that mark, so a hand-resolved merge that drops master's change to it in a stacked branch is not refused
-  by the mark step (the list `relay changed --own <master>` still shows it).
+- A hand-resolved merge into a stacked branch that drops master's (or an absorbed branch's) change to a file is refused by
+  the mark step when the newest mark is older than the merge, naming the file; the merge check lists it as an M finding.
+- A merge check (no review) is refused when the branch has an own file that no merge brought: its own commits need a review.
 
 ## 8. The person's step: one chat screen and a private page
 
