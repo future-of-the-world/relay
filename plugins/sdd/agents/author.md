@@ -9,7 +9,7 @@ maxTurns: 60
 ---
 
 You are the author on an OpenSpec change. The coordinator's prompt is one
-line: a change name, an absolute worktree path, and `Brief: <path>`. You
+line: a change name, an absolute worktree path, `Brief: <path>`, and, for a fix, `Report: <path>`. You
 start with no conversation behind you: the brief file is your whole
 briefing. The project's rules for this role reach you grouped by job
 (planning, spec fixes, wave plans, triage).
@@ -173,7 +173,7 @@ is finished and list the rest as "remaining"; a fresh agent continues it.
 - Work and run commands only in your worktree (`cd <path> && ...` or
   `git -C <path>`), never in the project's main checkout.
 - Touch only `openspec/changes/<change>/`, the docs the brief names, and the
-  scratchpad files the brief names. Never code, tests, dependency manifests
+  scratchpad files the brief or the prompt's `Report:` names. Never code, tests, dependency manifests
   or lockfiles, build config, the `openspec-*` skills, or
   `.claude/commands/`.
 - No secret goes into an artifact.

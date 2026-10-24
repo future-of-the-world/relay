@@ -69,8 +69,32 @@ class WaveLineCheck(unittest.TestCase):
         waves = ("## 1. A\n\nWave 0 · depends on: none\n\n" + TASK % "1.1"
                  + "\n## 2. B\n\nWave 1 · depends on: 1\n\n" + TASK % "2.1")
         self.assertEqual(self.check(waves)[0], 0)
-        # No Wave line anywhere: the plan applies in sequence, nothing to check.
-        self.assertEqual(self.check("## 1. A\n\n" + TASK % "1.1")[0], 0)
+        self.assertEqual(self.check("## 1. A\n\nWave 1 · depends on: none\n\n" + TASK % "1.1")[0], 0)
+
+    def test_no_wave_line_anywhere_is_reported(self):
+        # The trial's shape: one group, one open task, no Wave line (rule 12 wants one per group).
+        code, out = self.check("## 1. A\n\n" + TASK % "1.1")
+        self.assertEqual(code, 1, out)
+        self.assertIn("group 1: no Wave line", out)
+
+    def test_done_groups_and_empty_plans_need_no_wave_line(self):
+        done = TASK.replace("[ ]", "[x]")
+        tasks = ("## 1. A\n\n" + done % "1.1" + "\n## 2. B\n\n" + done % "2.1"
+                 + "\n## 3. C\n\nWave 1 · depends on: none\n\n" + TASK % "3.1")
+        self.assertEqual(self.check(tasks)[0], 0)
+        self.assertEqual(self.check("## 1. A\n\n" + done % "1.1")[0], 0)
+
+    def test_single_wave_0_plan_does_not_ask_for_wave_1(self):
+        code, out = self.check("## 1. A\n\nWave 0 · depends on: none\n\n" + TASK % "1.1")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("no Wave 1", out)
+
+    def test_docs_name_the_wave_line_check(self):
+        self.assertIn("Wave line", read(os.path.join(ROOT, "plugins", "core", "lib", "kit_spec_check.py")))
+        self.assertIn("Wave lines", read(os.path.join(ROOT, "plugins", "sdd", "skills", "parallel-apply", "SKILL.md")))
+        text = read(AUTHOR)
+        self.assertIn("for a fix, `Report: <path>`", text)
+        self.assertIn("or the prompt's `Report:` names", text)
 
 
 if __name__ == "__main__":

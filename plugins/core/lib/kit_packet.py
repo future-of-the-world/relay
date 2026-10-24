@@ -851,13 +851,14 @@ def check(root, change):
             bad += 1
     wave_line = re.compile(r"(?m)^Wave \d")
     wave_groups = {n: bool(wave_line.search("\n".join(g[1]))) for n, g in _groups.items()}
-    if open_tasks and any(wave_groups.values()):
+    if open_tasks:
         # The tasks run in waves: sdd:parallel-apply reads each group's `Wave N · depends on:` line.
         for number in sorted({t["group"] for t in open_tasks if t["group"]}, key=int):
             if not wave_groups.get(number):
                 print(f"group {number}: no Wave line: the tasks run in waves, so write `Wave N · depends on: ...` under its heading")
                 bad += 1
-        if not any(re.search(r"(?m)^Wave 1\b", "\n".join(g[1])) for g in _groups.values()):
+        waves = [int(m) for g in _groups.values() for m in re.findall(r"(?m)^Wave (\d+)", "\n".join(g[1]))]
+        if any(w > 1 for w in waves) and 1 not in waves:
             print("tasks.md: no Wave 1 line: the first wave after wave 0 is Wave 1")
             bad += 1
     for task in open_tasks:
