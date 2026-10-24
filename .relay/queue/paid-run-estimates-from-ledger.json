@@ -14,8 +14,8 @@
   "failing_case": [
     "estimates were low: Sonnet measure $3.02 estimated, $6.32 spent; live6 $1.90 estimated, $3.37 spent; four cap raises on 22 Oct; the judge-measure README's Sonnet figures come from two runs; should come from the ledger's measured costs (handover \"cost estimates from real numbers\", \"Sonnet measurement figures come from two runs\")"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T03:53:52Z",
+  "taken_by": "wt/eval-cost",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
