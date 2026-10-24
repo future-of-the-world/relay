@@ -20,8 +20,8 @@
   "where": "plugins/core/hooks/check-mark.py:57-95, plugins/core/tests/",
   "taken_at": "2026-10-24T01:37:05Z",
   "taken_by": "wt/wf-mark",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T02:11:08Z",
+  "test": "plugins/core/tests/check-mark.test.sh::K13",
   "dropped_at": null,
   "dropped_why": null
 }
