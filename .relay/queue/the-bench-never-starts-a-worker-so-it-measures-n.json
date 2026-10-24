@@ -18,8 +18,8 @@
     "The same bench shows a worker started in add-function and small-script under both setups, both scenarios pass under the active setup, and the two setups' worker model differs in the report's model usage."
   ],
   "where": "evals/scenarios",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T18:26:54Z",
+  "taken_by": "wt/bench-worker",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
