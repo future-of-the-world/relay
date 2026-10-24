@@ -983,7 +983,7 @@ class Roles(Base):
                     self.assertNotIn(tool, [x.strip() for x in meta["tools"].split(",")], path)
         judge = open(os.path.join(ROOT, "roles", "judge.md")).read()
         flat = " ".join(judge.split())
-        self.assertIn("When the project has a work queue, a finding from a findings file", flat)
+        self.assertIn("When the record has a `Q1`, it is `MET` only when", flat)   # the queue appears only as a record's Q1, never as a given
         # review F8: the owner's move is data (an owner entry with `queue`), not a `Owner: <id> moved to queue item` prompt line
         self.assertIn("a finding the owner moved to a queue item is data: an `owner` entry with `queue`", flat)
         self.assertNotIn("Owner: <id> moved to queue item", flat)
@@ -995,7 +995,7 @@ class Roles(Base):
         """A15: the judge base names `relay changed --own` in check step 1 and the linter line in "Each finding"; the
         checker's flow part and the delegate skill name `relay gate`."""
         judge = " ".join(open(os.path.join(ROOT, "roles", "judge.md")).read().split())
-        self.assertIn("List its files with `relay changed --own -C <path> <Reviewed sha>`", judge)
+        self.assertIn("List the files with `relay changed --own -C <path> <since>`", judge)
         each = judge[judge.index("## Each finding"):judge.index("## The rating is yours")]
         self.assertIn("<path>:<line>: <SEVERITY>: F<n> <what goes wrong>", each)
         self.assertIn("relay changed -C <path> <sha>` lists no file", judge)     # the gate rule has no --own
