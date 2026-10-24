@@ -1,0 +1,42 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_bin_check_portable.py:101,104,108 pass and the two signal tests fail on the old template."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_bin_check_portable.py:122,128,137 pass; signal and hang tests fail on the old template."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "tests/test_bin_check_portable.py:115 passes, fails on old template (HUNG: ok exceeded 0s)."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/mac-timeout/.relay/checks/48ab8f5352766cfb30afa88cdac113761b59e287.gate.log",
+  "head": "886130116bb99324668fdc0a2325bb70baf66545",
+  "new": [],
+  "notes": [
+    "Fixer's CHECK_TIMEOUT=5m left as is (off-contract): agreed. Outside lines (fixture with_timeout, check-contract.test.sh not run against template): agreed, queue items."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "a9aa5342cddc4c9baf13945049a749c8cd6721e1.review.json"
+  ],
+  "reviewed": "a9aa5342cddc4c9baf13945049a749c8cd6721e1",
+  "schema": 1,
+  "scope": [
+    "Fix range a9aa534..HEAD; own files: templates/bin-check, tests/test_bin_check_portable.py only. Ran test file: 10 passed. Same test file against a9aa534 template in a throwaway worktree: 5 failed (perl hang, perl signal, sigint, sigterm, timeout zero), 5 passed; worktree removed. Gate log head 48ab8f5, exit 0; later commits are inert files only. Diff read: handlers, rc mapping 128-rc, perl waitpid loop fine."
+  ],
+  "type": "check"
+}

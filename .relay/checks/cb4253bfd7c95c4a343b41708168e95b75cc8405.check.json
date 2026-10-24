@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "tests/test_bin_check_portable.py test_green_step_passes_without_timeout and test_hanging_step_is_hung_within_bound: PATH without timeout/gtimeout, green gives passed exit 0, hang gives HUNG exceeded 1s exit 1. Both fail at the base commit."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/mac-timeout/.relay/checks/48ab8f5352766cfb30afa88cdac113761b59e287.gate.log",
+  "head": "cb4253bfd7c95c4a343b41708168e95b75cc8405",
+  "new": [],
+  "notes": [
+    "bin-check now falls back timeout, gtimeout, python3, perl; md5sum, md5, python3 for the hash. Signals forwarded to the step, CHECK_TIMEOUT=0 means no bound."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "fa587db2febbbbc57d2293db5df849aef8358788.review.json"
+  ],
+  "reviewed": "fa587db2febbbbc57d2293db5df849aef8358788",
+  "schema": 1,
+  "scope": [
+    "Range fa587db..HEAD; changed files templates/bin-check and tests/test_bin_check_portable.py only. Ran the new test file (10 passed) and tests/ (327 passed). Gate log is for 48ab8f5 and exit 0; only the inert gate commit follows. Base run at fa587db with the head test file: 9 failed, 1 passed."
+  ],
+  "type": "check"
+}
