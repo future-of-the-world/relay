@@ -1,0 +1,21 @@
+{
+  "kind": "feature",
+  "ip": 90,
+  "time": 30,
+  "found_at": "2026-10-24T08:33:01Z",
+  "found_in": "relay queue add",
+  "title": "relay doctor checks every dependency the installer sets up",
+  "what": [
+    "One list of relay's dependencies (name, minimum version, how to check it, how the installer installs it) in a structured file; the installer installs from it and `relay doctor` checks from it: python3 3.11+, git, jq, claude, uv, and the gate tools at their pinned versions (ruff, mypy, pytest); each missing or old one is a FIX line naming the install command."
+  ],
+  "why": [
+    "Owner, verbatim: \"Добавил ли ты скрипты установки и проверки зависимостей - такие обычно называются установщиками и докторами\". relay doctor today checks python3 3.11+, jq and claude, but not git, uv or the gate tools the gate now needs."
+  ],
+  "where": "lib/relay_setup.py doctor, a dependency list file (new)",
+  "taken_at": "2026-10-24T08:33:18Z",
+  "taken_by": "wt/installer",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

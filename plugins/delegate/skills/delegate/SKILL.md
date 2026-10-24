@@ -23,6 +23,12 @@ with one brief, and comes back as at most 10 lines.
 | a review before merge, a design critique | `delegate:critic` | adversarial, read-only, findings with cases |
 | the check of a fix against the review's cases | `delegate:checker` | reads the findings, the fixer's report and the gate log; ends with a verdict |
 
+The table has no row for "small": one function, one test or one edited line is
+still `delegate:worker`. The front's own file reads and edits would stay in
+this session's context and be re-read on every later request of a long
+session; a worker builds in a worktree, loops on the check and gets the review.
+The front never writes the change itself, whatever its size.
+
 A job longer than about 30 minutes, such as the full paid `bin/ci`, is not a
 runner's (its turns end mid-wait): the front starts it in the background (see
 the front skill).

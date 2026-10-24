@@ -10,7 +10,7 @@
 # evals' grader tests, `claude plugin validate` (skipped loudly without claude),
 # plugin evals (full mode only; compared with evals/plugin/baseline), then the record step
 # (bin/eval-record: files .ci/evals.json under $RELAY_HOME/evals, prints failed meaning graders,
-# split votes and rule-file reads; it never changes the gate's status except when the copy fails).
+# split votes and rule-file reads; it fails the gate when the copy fails, when a meaning grader failed, or when a run was not judged).
 # The last step, `inert`, runs only under `relay gate` (RELAY_GATE = the commit gated): it runs this quick gate again in a
 # temporary worktree where every inert file has a line appended and probe files sit in the inert folders, and fails when a
 # step's result or the test count differs, which proves no outcome depends on an inert file (design section 12.6).
@@ -80,7 +80,9 @@ if [ "$quick" = 0 ]; then
     read -r eval_jobs eval_ceiling < <(python3 bin/paid-cost ceiling --cap "${EVALS_MAX_COST:-15}" --jobs "${EVALS_JOBS:-1}") || { echo "ci: RED (no money ceiling for the plugin evals)"; exit 1; }
     echo "plugin evals: estimate $(python3 bin/paid-cost estimate); -j $eval_jobs, ceiling \$$eval_ceiling (cap ${EVALS_MAX_COST:-15})"
     step "plugin evals" env root="$root" eval_jobs="$eval_jobs" eval_ceiling="$eval_ceiling" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none -j "$eval_jobs" --judge-model "${EVALS_JUDGE_MODEL:-sonnet}" --no-publish --max-cost-usd "$eval_ceiling" --json "$root/.ci/evals.json"'
-    python3 bin/eval-record --json .ci/evals.json || { echo "ci: RED (the eval record could not be stored)"; status=1; }
+    python3 bin/eval-record --json .ci/evals.json; rec_rc=$?
+    if [ "$rec_rc" -eq 1 ]; then echo "ci: RED (the eval record could not be stored)"; status=1
+    elif [ "$rec_rc" -ne 0 ]; then echo "ci: RED (eval runs were not judged or a meaning grader failed: not a pass)"; status=1; fi
   else
     echo "ci: plugin evals skipped: claude is not on PATH"; status=1
   fi
