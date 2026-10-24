@@ -14,8 +14,9 @@
   "where": "pyproject.toml (new), bin/ci, lib/, plugins/*/hooks/*.py, bin/relay",
   "taken_at": "2026-10-24T08:16:39Z",
   "taken_by": "wt/py-types",
-  "closed_at": null,
+  "closed_at": "2026-10-24T15:43:53Z",
   "test": null,
+  "evidence": "f3eb1f8",
   "dropped_at": null,
   "dropped_why": null
 }
