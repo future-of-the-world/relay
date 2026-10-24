@@ -12,8 +12,8 @@
     "Owner, verbatim: \"добавь эти проверки типов в python\". Today 0 of 371 functions in lib/ carry type hints, and ruff's pyflakes rules find 14 real defects (unused imports and variables, redefined names); today's bugs were mostly a value of the wrong shape passed between modules (a test name form, a transcript entry kind)."
   ],
   "where": "pyproject.toml (new), bin/ci, lib/, plugins/*/hooks/*.py, bin/relay",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T08:16:39Z",
+  "taken_by": "wt/py-types",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
