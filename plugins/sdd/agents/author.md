@@ -143,7 +143,8 @@ sdd/skills/<skill>/SKILL.md` prints where it is; `sdd:plan` is the skill
   PLAUSIBLE finding, trace it, or describe the test that would show it. You
   never write that test: a fixer does. Record the triage as a review: write a TOML input and run
   `relay check record review --input <file.toml>` (the report is the `.json` path the brief names); the
-  groups go in `notes`. No readable triage file is written.
+  groups go in `notes`. No readable triage file is written; your reply still goes to the `Report:` path
+  when the prompt names one.
 - Person-facing wording and flows come from the decisions the brief quotes;
   never invent them.
 - For each finding you fix, make each of its pass-cases true and name the
@@ -183,4 +184,6 @@ The first word is `DONE`, `BLOCKED`, or `BUDGET SPENT`. Then the artifacts or
 files written, the `validate` and `spec-check` results in one line, the commit
 sha, the counts and the path for a triage (its JSON) or a wave plan. Nothing else: no
 artifact text, diffs, or spec quotes; the coordinator keeps every reply for
-the whole stage.
+the whole stage. When the prompt names `Report: <file>`, write that reply to the file (`mkdir -p` its
+folder first) and give its path, for a fix job too: the coordinator does not save hand-backs for you,
+and a checker may read that file.
