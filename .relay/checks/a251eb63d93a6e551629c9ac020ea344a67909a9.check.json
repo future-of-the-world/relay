@@ -1,0 +1,63 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_installer_doctor.py Routes::test_macos_with_homebrew_goes_official_first, test_doctor_names_the_same_route: failed at base, pass at head."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "PythonStep tests (4): all failed at base, pass at head."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "BrokenAndMissing::test_bun_and_node_are_checked_and_name_their_install_command failed at base, passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "BrokenAndMissing::test_a_tool_that_is_there_but_prints_no_version_is_not_ok failed at base, passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "Routes::test_linux_apt_as_root_updates_once_without_sudo failed at base, passes; sudo-as-user control passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F6",
+      "reason": [
+        "Checksum-refusal and dry-run-without-uv tests pass at head; they pass at base too (they cover existing behaviour); fixer reports the checksum test fails with the compare disabled. LOW test-coverage finding."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/installer/.relay/checks/c4c1cd783332624926d3081806c872dc14a46439.gate.log",
+  "head": "a251eb63d93a6e551629c9ac020ea344a67909a9",
+  "new": [],
+  "notes": [
+    "Gap from fixer for the owner: claude and bun installers run without a checksum (publisher gives no versioned asset); node on macOS has no official route (brew). Agreed, a reasonable limit that the dry run states."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "21810d1d38794fa84287e2e492669e8ec394363c.review.json"
+  ],
+  "reviewed": "21810d1d38794fa84287e2e492669e8ec394363c",
+  "schema": 1,
+  "scope": [
+    "Range 21810d1..HEAD; own files: README.md, deps.toml, install.sh, lib/relay_setup.py, tests/test_installer_doctor.py (all in scope). Gate log head c4c1cd7, exit 0; only the gate-log commit came after. Ran tests/test_installer_doctor.py at head: 29 passed. Ran the same file at 21810d1: 10 failed, 19 passed. Callers of load_deps/dep_checks/install_hint read; fine."
+  ],
+  "type": "check"
+}
