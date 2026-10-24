@@ -1,26 +1,40 @@
 {
+  "branch": "wt/small-builds",
   "findings": [
     {
+      "details": [
+        "Bench of 24 Oct after the bench fix (owner's \"1. a\": no \"use a worker\" sentence in the task text): add-function under active and build-haiku, and small-script under build-haiku, started no worker. Until the setup delegates by its own rules, the bench cannot measure a cheaper build tier and the front spends Opus on builds."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "~/.relay/bench/2026-10-24T07-03-23Z/report.md: add-function delegated-to-a-worker \"started: none\" for active and build-haiku (score 0.80); small-script build-haiku \"started: none\" (0.67), active passed."
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "`relay bench active --set models.build=haiku --tag cheap --runs 1` with the unchanged task texts: delegated-to-a-worker passes in add-function and small-script under both setups, and the worker model differs between them in the report."
+      ],
+      "path": "rules/ (the delegation rule), plugins/delegate/skills/delegate/SKILL.md, evals/scenarios/add-function",
+      "rank": "high",
       "reason": [
         "tests/test_delegate_small_builds.py (4 tests fail on aa09f9c, pass now). Bench 07-33-20Z with unchanged tasks: add-function, small-script quality 1.00 under active and build-haiku, sonnet/haiku spend differs between setups."
       ],
+      "severity": "HIGH",
+      "since": "aa09f9c3484ce0539387d846139fb5f9352f9a6e",
+      "source": "queue",
+      "summary": "The front does small builds itself instead of a worker",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/small-builds/.relay/checks/dda44557de651494ed1b777a9eabaa628f1d3048.gate.log",
+  "gate": "dda44557de651494ed1b777a9eabaa628f1d3048.gate.log",
   "head": "17904425337bdb31fa9ef006900237140dd1ba59",
-  "new": [],
+  "item": "the-front-does-small-builds-itself-instead-of-a",
   "notes": [
     "The fixer report lists no bench run; I found one in ~/.relay/bench that postdates the fix. Texts are only guidance, tests check wording not behaviour."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "aa09f9c3484ce0539387d846139fb5f9352f9a6e.review.json"
-  ],
-  "reviewed": "aa09f9c3484ce0539387d846139fb5f9352f9a6e",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range aa09f9c..HEAD; files: SKILL.md, rules/delegation.md, new test file only. Gate log head dda4455, exit 0, only gate-log commit after. Ran tests/test_delegate_small_builds.py (4 pass); at aa09f9c all 4 fail. Read bench 2026-10-24T07-33-20Z (rules contain the new text)."
   ],

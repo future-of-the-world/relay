@@ -1,33 +1,112 @@
 {
+  "branch": "wt/eval-tally",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by a free probe of the installed eval tool (claude 2.1.310) on a scratch copy: with the expect: lines it refuses the case",
+        "with \"Unrecognized key(s) in object: 'expect'\" for every grader; the same copy with the expect: lines removed passes the schema",
+        "and stops at the next check (\"execution.prompt is required\"). Read in the tool's loader: ou(name, frontmatter, body) returns",
+        "{name, ...frontmatter, criteria: body}; the llm grader schema ends .strict(). No test loads the cases with the eval tool, so the",
+        "29 tally tests and make.py --check pass while the paid run is broken; it would show up only as a failed paid run (cost, time) or,",
+        "worse, a tally of a run where every case failed to load.",
+        "Size: 30 agent minutes (move the field to a sidecar file written by make.py, read it in load_answers, revert the 58 grader edits,",
+        "add the key test, probe the tool once)."
+      ],
+      "evidence": [
+        "$ claude plugin eval <scratch>/probe --case measure-off-by-one --runs 1 --ablation none --no-publish --trust-plugin --max-cost-usd 0.01 ...",
+        "x .../measure-off-by-one/case.yaml: invalid case.yaml:   graders.0: Unrecognized key(s) in object: 'expect'   graders.1: Unrecognized key(s) in object: 'expect' ...",
+        "0 case(s) \u00b7 0s \u00b7 $0.00",
+        "1 case file(s) failed to load",
+        "(control, expect: lines removed)",
+        "x .../measure-off-by-one/case.yaml: execution.prompt is required (a prompt.md body, or execution.prompt in case.yaml)",
+        "binary strings: function ou(e,n,r){let a={name:e,...n},...a[s]=r;return a}",
+        "binary strings: Ct({type:kf(\"llm\"),name:ge(),criteria:ge(),focus:Es().default(\"last_message\"),weight:...,arm:Mn()}).strict()"
+      ],
+      "failing_case": [
+        "The README's run command, `claude plugin eval . --eval-dir evals/judge-measure ...`, on this branch: the eval tool builds each",
+        "grader as {name, ...front matter, criteria: body} and checks it with a strict schema (llm: type, name, criteria, focus, weight,",
+        "arm). Now it prints \"invalid case.yaml: graders.0: Unrecognized key(s) in object: 'expect' ...\" for each case, \"0 case(s)\" and",
+        "\"case file(s) failed to load\". tally.py then answers NOT JUDGED \"missing case\". The owner can never measure a judge again.",
+        "It should load all four cases as on master, while tally.py still reads the stored expected answer."
+      ],
+      "fix_hint": [
+        "Keep the grader files as on master and store the answers beside them, outside graders/ (the tool reads graders/ as graders):",
+        "make.py writes <case>/answers.json, {\"<grader name>\": \"PASS\"|\"FAIL\"} from items.txt, and checks it under --check; load_answers",
+        "reads that file; a grader missing from it stays NOT JUDGED. Add the front-matter key test, update README and the docstrings, and",
+        "probe one case with the eval tool as in pass-case 1."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 125,
+      "pass_cases": [
+        "1. A scratch copy of measure-off-by-one, with its prompt.md body emptied so nothing runs: `claude plugin eval <copy> --case",
+        "   measure-off-by-one --runs 1 --ablation none --no-publish --trust-plugin` reports \"execution.prompt is required\" (the case passed",
+        "   the schema), not \"Unrecognized key(s) ... 'expect'\". Same for the other three cases.",
+        "2. A free test: every front-matter key of every evals/judge-measure/*/graders/*.md is one of type, focus, weight, arm (the keys the",
+        "   eval tool accepts besides name and criteria), so a new key fails the test, not a paid run.",
+        "3. tally.py still reads the expected answer from a stored field, never the name: a grader named yes--01-a stored as FAIL, judged",
+        "   F,F,F in 5 runs, gives exit 0 (test_the_stored_field_decides_not_the_name keeps passing).",
+        "4. A grader in the result with no stored answer exits 2 and names the grader; removing one stored answer from the committed files",
+        "   makes load_answers (or its successor) raise NotJudged naming that grader.",
+        "5. make.py --check exits 0 and fails when the stored answer of one grader is changed by hand."
+      ],
+      "path": "evals/judge-measure/make.py",
+      "rank": "high",
       "reason": [
         "tests/test_judge_tally.py GraderFilesLoadInTheEvalTool::test_every_front_matter_key_is_one_the_eval_tool_accepts (fails at 8e0799a), test_the_stored_field_decides_not_the_name, test_a_grader_missing_from_answers_json_is_not_judged_and_named pass; make.py --check ok."
       ],
+      "severity": "HIGH",
+      "since": "8e0799aacc0d5a16ab0e7bee76b8bb09a10f6a47",
+      "source": "review-eval-tally.json",
+      "source_id": "F1",
+      "summary": "the new expect: key in every grader's front matter makes the eval tool refuse all four measure cases, so the measurement run loads 0 cases",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading main(): the try around json.load also holds load_expected() and load_answers(), whose OSError and",
+        "ValueError fall into \"cannot read {a.json}\". Correct exit code today, misleading message. Size: 5 agent minutes (load the",
+        "expected counts and answers before the try that reads the input, with their own message)."
+      ],
+      "evidence": [
+        "tally.py main(): try: open(a.json) / json.load / tally(..., load_expected(), load_answers()) except (OSError, ValueError): \"cannot read {a.json}\""
+      ],
+      "failing_case": [
+        "A case folder without graders/ (or questions.json unreadable): os.listdir raises FileNotFoundError in load_answers, and the line",
+        "says \"cannot read <eval.json>: [Errno 2] ... graders\", blaming the result file. A KeyError from a bug in tally() reads",
+        "\"<eval.json> does not have the shape of an eval result\". Exit 2 is right; the cause named is wrong."
+      ],
+      "fix_hint": [
+        "Call load_expected() and load_answers() before the input try, letting their NotJudged or OSError produce a message naming the eval folder."
+      ],
       "id": "F2",
+      "kind": "inside",
+      "line": 151,
+      "pass_cases": [
+        "1. /dev/null still exits 2 with \"cannot read /dev/null\" (test_an_empty_file).",
+        "2. A copy of the eval folder with one graders/ directory removed: exit 2, one line that names that folder, not the --json file.",
+        "3. JSON of another shape still exits 2 with \"does not have the shape of an eval result\" (test_json_of_another_shape)."
+      ],
+      "path": "evals/judge-measure/tally.py",
+      "rank": "low",
       "reason": [
         "tests/test_judge_tally.py ExpectedAnswerIsAField::test_a_broken_eval_folder_is_not_blamed_on_the_input_file passes, fails at 8e0799a; test_an_empty_file and test_json_of_another_shape pass."
       ],
+      "severity": "LOW",
+      "since": "8e0799aacc0d5a16ab0e7bee76b8bb09a10f6a47",
+      "source": "review-eval-tally.json",
+      "source_id": "F2",
+      "summary": "main() wraps load_expected/load_answers and tally() in the input-error catch, so a broken eval folder or a tally bug is reported as an unreadable or misshapen input file",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/eval-tally/.relay/checks/6c7e4f291daf272a738732421bd527d13a69e638.gate.log",
+  "gate": "6c7e4f291daf272a738732421bd527d13a69e638.gate.log",
   "head": "074ecec5ed1e217d3d1598d9020d1c1546488066",
-  "new": [],
+  "item": null,
   "notes": [
     "F1 grader files back to master keys; answers.json per case written and checked by make.py. F3 (new finding of check 1) covered by the green gate. Eval-tool probe was done by the fixer, not repeated."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "8e0799aacc0d5a16ab0e7bee76b8bb09a10f6a47.review.json"
-  ],
-  "reviewed": "8e0799aacc0d5a16ab0e7bee76b8bb09a10f6a47",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range 8e0799a..074ecec. Ran test_judge_tally, test_judge_measure, test_queue (119 passed), make.py --check ok. Gate log head 6c7e4f2 ends exit 0; only the gate-log commit follows. Fail-without-fix: tally tests at 8e0799a fail (3: broken eval folder, missing answers, front-matter key test). F3 test_f6 passes at the pre-fix commit in a plain tree: it fails only under the inert probe, which the gate ran (inert ok)."
   ],

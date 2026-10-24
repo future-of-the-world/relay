@@ -51,7 +51,7 @@ class FlagPatterns(unittest.TestCase):
 
     def js(self, rx, text):
         code = "const [p,t]=JSON.parse(require('fs').readFileSync(0,'utf8'));process.stdout.write(String(new RegExp(p).test(t)))"
-        return subprocess.run(["node", "-e", code], input=json.dumps([rx, text]), capture_output=True, text=True, check=True).stdout == "true"
+        return subprocess.run(["bun", "-e", code], input=json.dumps([rx, text]), capture_output=True, text=True, check=True).stdout == "true"
 
     def test_every_case(self):
         tool = {"Bash": "bash", "Read": "read", "Grep": "grep"}

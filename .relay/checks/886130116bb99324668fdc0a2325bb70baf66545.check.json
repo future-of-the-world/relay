@@ -1,40 +1,153 @@
 {
+  "branch": "wt/mac-timeout",
   "findings": [
     {
+      "details": [
+        "CONFIRMED (reproduced). The wrapper starts the step with start_new_session=True so it can killpg it on",
+        "timeout, but only the timeout path kills the group. python3 itself stays in bin/check's group, so a",
+        "signal to that group kills python (default SIGTERM action / KeyboardInterrupt) and never reaches the",
+        "step's session. This is the very case the queue item names (\"with a local shim there is no hang bound",
+        "at all\"): the bound exists only as long as nobody stops the check. Under timeout/gtimeout the behaviour",
+        "is different (signals are forwarded, the timer survives), so the Mac path is weaker than the Linux one.",
+        "Size: 15 min."
+      ],
+      "evidence": [
+        "python3 Popen(bash bin/check c 1, start_new_session=True); killpg(SIGTERM) after 1.5 s:",
+        "  check rc -15",
+        "  ps: 89070 89070 sleep 177        (still running, own pgid)",
+        "Same with SIGINT:",
+        "  check rc -2",
+        "  pgrep: 16245 sleep 178",
+        "  .ci/check/task-int.log ends: KeyboardInterrupt"
+      ],
+      "failing_case": [
+        "macOS, no timeout/gtimeout, step `run_step sleeper sleep 177`, CHECK_TIMEOUT=100. Start bin/check in its",
+        "own process group and send SIGINT (Ctrl-C in a terminal) or SIGTERM (a runner killing the group, e.g. an",
+        "agent's Bash call hitting its 2-4 min limit, which is below the default CHECK_TIMEOUT of 300 s) to that",
+        "group after 1.5 s. Now: bin/check exits (-15 / -2, python prints a KeyboardInterrupt traceback), and",
+        "`sleep 177` keeps running in its own pgid, unbounded; a real hung test would run forever and hold its",
+        "port and CPU. Should: the step's process group is killed too (as GNU timeout does, by forwarding the",
+        "signal; GNU timeout also keeps its own timer when its parent group is killed)."
+      ],
+      "fix_hint": [
+        "In the python wrapper, after Popen install a handler for SIGTERM, SIGINT and SIGHUP that does",
+        "os.killpg(p.pid, SIGTERM), waits up to 5 s, then SIGKILL, and exits 128+signum. Add a test in",
+        "tests/test_bin_check_portable.py that signals the check's group and asserts the step is gone (and that",
+        "the HUNG test leaves no sleeper behind)."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 30,
+      "pass_cases": [
+        "1. No timeout/gtimeout, step `sleep 177`, CHECK_TIMEOUT=100: SIGTERM to bin/check's process group after 1.5 s -> within 2 s no process `sleep 177` is left.",
+        "2. Same with SIGINT -> no `sleep 177` left, and no python traceback in the log.",
+        "3. CHECK_TIMEOUT=1, step `sleep 30` (no signal) -> prints \"HUNG: sleeper exceeded 1s\", exit 1, and no `sleep 30` is left afterwards.",
+        "4. Green step `true` -> \"passed\", exit 0 (the existing test)."
+      ],
+      "path": "templates/bin-check",
+      "rank": "medium",
       "reason": [
         "tests/test_bin_check_portable.py:101,104,108 pass and the two signal tests fail on the old template."
       ],
+      "severity": "MEDIUM",
+      "since": "a9aa5342cddc4c9baf13945049a749c8cd6721e1",
+      "source": "review-mac-timeout.json",
+      "source_id": "F1",
+      "summary": "when bin/check itself is interrupted or killed, the python bound dies and the step, in its own session, runs on with no bound at all",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED (reproduced). `exit($? >> 8)` drops the signal part of $?: a child killed by a signal has",
+        "$? & 127 set and $? >> 8 == 0. An error answered as success. Reachable only where python3 is missing",
+        "(the brief keeps perl for that case), e.g. a project's slim CI image. The branch is untested: the new",
+        "test file always has python3 on PATH. Minor in the same handler: `sleep 5` after TERM is unconditional,",
+        "so every perl HUNG takes N+5 s. Size: 15 min."
+      ],
+      "evidence": [
+        "tools PATH without python3; run_step crash sh -c \"kill -SEGV \\$\\$\":",
+        "  passed (0 min since the first check of this task)",
+        "  perl rc=0",
+        "same with python3 back:",
+        "  FAILED at crash (round 1 of 3; log: .ci/check/task-p2.log)",
+        "  python rc=1",
+        "perl hang, CHECK_TIMEOUT=1: \"HUNG: sleeper exceeded 1s\", perl hang rc=1 in 7s"
+      ],
+      "failing_case": [
+        "No timeout, gtimeout or python3 (perl branch). Step `run_step crash sh -c \"kill -SEGV \\$\\$\"`.",
+        "Now: \"passed (0 min ...)\", exit 0. Should: \"FAILED at crash (round 1 of 3; ...)\", exit 1, as the python",
+        "branch already gives (verified: python branch prints FAILED, exit 1)."
+      ],
+      "fix_hint": [
+        "exit(($? & 127) ? 128 + ($? & 127) : $? >> 8); in the ALRM handler wait up to 5 s with waitpid WNOHANG",
+        "before KILL. Add perl-branch tests (drop python3 from the tool PATH) for crash, green and hang."
+      ],
       "id": "F2",
+      "kind": "inside",
+      "line": 47,
+      "pass_cases": [
+        "1. perl branch, step killed by SIGSEGV -> FAILED at crash, exit 1.",
+        "2. perl branch, step `true` -> passed, exit 0.",
+        "3. perl branch, step `false` -> FAILED, exit 1.",
+        "4. perl branch, CHECK_TIMEOUT=1, step `sleep 30` -> \"HUNG: sleeper exceeded 1s\", exit 1, within 3 s (today 7 s: the handler sleeps 5 s after TERM even when the step is already dead)."
+      ],
+      "path": "templates/bin-check",
+      "rank": "medium",
       "reason": [
         "tests/test_bin_check_portable.py:122,128,137 pass; signal and hang tests fail on the old template."
       ],
+      "severity": "MEDIUM",
+      "since": "a9aa5342cddc4c9baf13945049a749c8cd6721e1",
+      "source": "review-mac-timeout.json",
+      "source_id": "F2",
+      "summary": "perl bound reports a step killed by a signal as exit 0, so a crashed step prints passed; the branch has no test",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED. The README contract says CHECK_TIMEOUT is seconds, so 5m is off-contract; 0 is not named.",
+        "Correct for the documented values today, but the three branches disagree on the edges. Size: 5 min."
+      ],
+      "evidence": [
+        "env -i PATH=tools CHECK_TIMEOUT=0 bash bin/check c z  -> HUNG: ok exceeded 0s / FAILED / rc=1",
+        "CHECK_TIMEOUT=5m -> ValueError: could not convert string to float: '5m' / FAILED / rc=1"
+      ],
+      "failing_case": [
+        "No timeout/gtimeout, green step `true`. CHECK_TIMEOUT=0: now \"HUNG: ok exceeded 0s\", exit 1 (GNU timeout",
+        "treats 0 as no bound and passes). CHECK_TIMEOUT=5m: now a ValueError traceback and FAILED, exit 1 (GNU",
+        "timeout accepts 5m; perl reads it as 5 s)."
+      ],
+      "fix_hint": [
+        "In python: secs = float(...) or None (0 -> wait without timeout); in perl alarm 0 already means none."
+      ],
       "id": "F3",
+      "kind": "inside",
+      "line": 29,
+      "pass_cases": [
+        "1. python branch, CHECK_TIMEOUT=0, step `true` -> passed, exit 0 (no bound, as timeout).",
+        "2. python branch, CHECK_TIMEOUT=1, step `sleep 30` -> HUNG, exit 1.",
+        "3. python branch, CHECK_TIMEOUT=300, step `true` -> passed, exit 0."
+      ],
+      "path": "templates/bin-check",
+      "rank": "low",
       "reason": [
         "tests/test_bin_check_portable.py:115 passes, fails on old template (HUNG: ok exceeded 0s)."
       ],
+      "severity": "LOW",
+      "since": "a9aa5342cddc4c9baf13945049a749c8cd6721e1",
+      "source": "review-mac-timeout.json",
+      "source_id": "F3",
+      "summary": "python bound reads CHECK_TIMEOUT differently from timeout: 0 makes every step HUNG, 5m crashes with a traceback",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/mac-timeout/.relay/checks/48ab8f5352766cfb30afa88cdac113761b59e287.gate.log",
+  "gate": "48ab8f5352766cfb30afa88cdac113761b59e287.gate.log",
   "head": "886130116bb99324668fdc0a2325bb70baf66545",
-  "new": [],
+  "item": null,
   "notes": [
     "Fixer's CHECK_TIMEOUT=5m left as is (off-contract): agreed. Outside lines (fixture with_timeout, check-contract.test.sh not run against template): agreed, queue items."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "a9aa5342cddc4c9baf13945049a749c8cd6721e1.review.json"
-  ],
-  "reviewed": "a9aa5342cddc4c9baf13945049a749c8cd6721e1",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range a9aa534..HEAD; own files: templates/bin-check, tests/test_bin_check_portable.py only. Ran test file: 10 passed. Same test file against a9aa534 template in a throwaway worktree: 5 failed (perl hang, perl signal, sigint, sigterm, timeout zero), 5 passed; worktree removed. Gate log head 48ab8f5, exit 0; later commits are inert files only. Diff read: handlers, rc mapping 128-rc, perl waitpid loop fine."
   ],

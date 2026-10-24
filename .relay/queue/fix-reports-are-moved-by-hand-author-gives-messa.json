@@ -18,8 +18,8 @@
     "The spec-review skill passes a report path to the author and the file exists afterwards; kit packet --check reports a tasks.md with no Wave line when the tasks run in waves."
   ],
   "where": "plugins/sdd/skills/spec-review/SKILL.md:72-76, plugins/sdd/agents/author.md, plugins/core/lib/kit_packet.py:77",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T13:42:22Z",
+  "taken_by": "wt/fix-reports",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

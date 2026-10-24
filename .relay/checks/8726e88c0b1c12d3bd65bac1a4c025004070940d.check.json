@@ -1,54 +1,248 @@
 {
+  "branch": "wt/auto-merge",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by reading. The front skill already scopes readiness to \".relay/\" (\"Where the project has",
+        "`.relay/`, a change is ready when...\"), but rules/git.md drops the scope: \"A ready change is merged into the",
+        "default branch without asking me ... It is ready when the check says `open 0`, the gate is green on the head\".",
+        "In a project without .relay/ those words name nothing a hook verifies, and the brief's premise \"The merge hook",
+        "stays the guard\" is false there. The brief also lists Glonass repos as not decided, yet the global rule now",
+        "covers them. It also contradicts the unchanged issues plugin merge skill (step 4 and the implement skill's",
+        "description: \"merge on the owner's word\"), which arsenal uses. Breaks a brief constraint on ordinary use in",
+        "8 of 9 projects, hence HIGH. If the owner wants auto-merge everywhere, that is their decision (see F2); the fix",
+        "inside the change is the scope line. Size: 10 minutes."
+      ],
+      "evidence": [
+        "$ grep -n git profiles/active.toml",
+        "32:load = [\"working-with-me\", \"front\", \"delegation\", \"git\", \"secrets\", \"shell\", \"verify\", \"glonass\"]",
+        "$ for d in ~/alix ~/glyph ~/mind ~/sight ~/clean ~/kartoteka ~/cartoons ~/noisegate; do ... [ -d $d/.relay ]",
+        "all: .relay=no",
+        "docs/setup.md:38: \"it turns on relay's hard rules, which act only where the project's default branch has the folder\"",
+        "plugins/front/skills/front/SKILL.md:61: \"Where the project has `.relay/`, a change is ready when ...\"",
+        "plugins/issues/skills/merge/SKILL.md:31: \"4. **Merge only when the owner asks for this merge**\""
+      ],
+      "failing_case": [
+        "rules/git.md is loaded by the global profile (profiles/active.toml: load = [..., \"git\", ...]) into",
+        "~/.claude/CLAUDE.md, so it applies in every project. Only relay has a .relay/ folder; ~/alix, ~/glyph,",
+        "~/mind, ~/sight, ~/clean, ~/kartoteka, ~/cartoons, ~/noisegate have none, and the Glonass repos are not set up",
+        "at all. In ~/glyph after the next relay sync: a worker reports DONE, a critic reviews, the front judges the",
+        "change \"ready\" and runs `git merge` into master without asking. There is no merge hook there (docs/setup.md:",
+        "relay's hard rules \"act only where the project's default branch has the folder\"), no `relay check` verdict,",
+        "no gate log. Today: the owner is asked. Should be: in a project without .relay/ (and for Glonass merge",
+        "requests, which the brief keeps manual: \"Not decided: anything about Glonass repos\") the merge still waits for",
+        "the owner's word, or the rule says explicitly what \"ready\" means there and the owner chose that."
+      ],
+      "fix_hint": [
+        "In rules/git.md, open the bullet with the scope: \"Where the project has `.relay/`, a ready change is merged",
+        "... Elsewhere, and for merge requests on Glonass repositories, merge into the default branch only when I ask",
+        "for that merge.\" Mirror the scope in the one-line summary at the top of the file."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 10,
+      "pass_cases": [
+        "1. rules/git.md states that merging a ready change without asking holds where the project has `.relay/` (the",
+        "   check and gate are recorded and the merge hook guards the merge); this line exists.",
+        "2. rules/git.md states that elsewhere, and for Glonass merge requests, a merge into the default branch waits",
+        "   for the owner's word (or names the owner's explicit other choice); this line exists.",
+        "3. The relay case is unchanged: in relay (.relay/ present), check open 0 + green gate on head + taken master +",
+        "   paid run green, no case (a)-(e): the front merges and reports one line, as plugins/front/skills/front/SKILL.md",
+        "   lines 60-78 say.",
+        "4. plugins/issues/skills/merge/SKILL.md step 4 (\"Merge only when the owner asks for this merge\", used by",
+        "   arsenal, which has no .relay/) no longer contradicts rules/git.md."
+      ],
+      "path": "rules/git.md",
+      "rank": "high",
       "reason": [
         "rules/git.md:10-14 scopes to .relay/, elsewhere and Glonass ask; tests/test_relay.py:1982 passes. Issues merge skill step 4 now agrees."
       ],
+      "severity": "HIGH",
+      "since": "307b15cda3d562ecf705f14209d51da9d659cb47",
+      "source": "review-auto-merge.json",
+      "source_id": "F1",
+      "summary": "the merge-without-asking rule is global, but its guard and its readiness data exist only where the project has .relay/ (relay alone today), so ALIX, Glyph, Mind and Glonass repos now merge with no check, no hook and no question",
       "verdict": "MET"
     },
     {
+      "details": [
+        "About: who may merge without a question. Mechanism: in relay a hook refuses a merge unless the gate, the",
+        "review and the check are recorded, so a merge without a question is still guarded; in ALIX, Glyph, Mind,",
+        "Sight, Clean, Kartoteka, Cartoons, Noisegate and arsenal there is no such hook, only the front's own judgement",
+        "and the project's tests. Live example: this change's rule, once synced, would let the front merge in Glyph on",
+        "its own reading of \"ready\". Answers: (a, recommended) only projects with relay's review gate merge without",
+        "asking; the others ask until they get the gate (relay setup), so the owner gets the gate as the price of no",
+        "question; (b) every project merges without asking once its own gate and a review are green; the guard there is",
+        "the front's discipline only; (c) as (b) but Glonass repositories keep asking (their merge requests are shared",
+        "with colleagues). Size: 10 minutes once answered."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Today, after this change, the text says merge without asking everywhere, while the only place where a hook",
+        "checks the review and the gate is relay itself. Once F1 is fixed, the other projects keep asking \"merge?\".",
+        "The owner's sarcasm (\"\u043c\u044b \u0436\u0435 \u0438\u0445 \u0442\u0430\u043a \u043f\u043e \u043f\u0440\u0438\u043a\u043e\u043b\u0443 \u0434\u0435\u043b\u0430\u043b\u0438\") applies there too, so the owner may want them covered."
+      ],
+      "fix_hint": [
+        "Ask the owner; write the answer into rules/git.md and the issues merge skill."
+      ],
       "id": "F2",
+      "kind": "question",
+      "line": 10,
+      "owner": [
+        {
+          "date": "2026-10-24",
+          "words": [
+            "2. a"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. The owner's answer is recorded in rules/git.md: either \"only where .relay/ exists\" or the list of other",
+        "   projects and what counts as ready there (their own gate log green, a critic review with no open finding).",
+        "2. plugins/issues/skills/merge/SKILL.md step 4 says the same as rules/git.md."
+      ],
+      "path": "rules/git.md",
+      "rank": "medium",
       "reason": [
         "Owner answered a (only .relay/ projects); recorded by the F1 scope in rules/git.md."
       ],
+      "severity": "MEDIUM",
+      "since": "307b15cda3d562ecf705f14209d51da9d659cb47",
+      "source": "review-auto-merge.json",
+      "source_id": "F2",
+      "summary": "owner: should projects without relay's review gate (ALIX, Glyph, Mind, arsenal's pull requests) also merge without asking?",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading. Before this change the owner saw the paid run's cost on the screen before saying",
+        "merge, so a skipped run was visible. Now the only places that keep it are the front skill's readiness",
+        "sentence and a later paragraph; the delegate skill, which is the flow the front actually walks step by step,",
+        "says open 0 is enough. A reachable wrong merge on the ordinary path, hence MEDIUM. Size: 5 minutes."
+      ],
+      "evidence": [
+        "plugins/delegate/skills/delegate/SKILL.md:147-149: \"When the verdict is `open 0` the front merges the change",
+        "and reports it in one line, or shows the person's step first in the cases ...\"",
+        ".relay/checks/b788f8e...gate.log: \"ci: green (QUICK MODE: paid steps skipped, not a release gate)\""
+      ],
+      "failing_case": [
+        "A relay change that edits plugins/*/skills/*.md (most relay changes, this one included) reaches step 9 with",
+        "the check `open 0` and a `bin/ci --quick` gate (paid steps skipped). Step 9 reads: \"When the verdict is `open 0`",
+        "the front merges the change and reports it in one line\". The front follows its delegate flow and merges; the",
+        "merge hook does not check the paid run (the brief keeps the hook as is), and the owner is no longer asked, so",
+        "nobody notices the eval was skipped. Should be: no merge until the paid run is green (or case (d) asks the",
+        "owner)."
+      ],
+      "fix_hint": [
+        "Replace \"When the verdict is `open 0`\" with \"When the change is ready (the front skill's 'A change ready to",
+        "merge': `open 0`, the gate green on the head, the default branch taken, the paid run green when agent, skill,",
+        "role or rule texts changed)\"."
+      ],
       "id": "F3",
+      "kind": "inside",
+      "line": 148,
+      "pass_cases": [
+        "1. Delegate step 9 names readiness, not just the verdict: \"When the change is ready (the front skill's 'A",
+        "   change ready to merge': open 0, green gate on the head, the default branch taken, the paid run green when",
+        "   agent, skill, role or rule texts changed)\"; this line exists.",
+        "2. A change that edits only lib/*.py: open 0 + green gate + taken master: step 9 still merges at once (no paid",
+        "   run needed).",
+        "3. The front skill's readiness list (SKILL.md lines 61-64) is unchanged and matches step 9."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
       "reason": [
         "plugins/delegate/skills/delegate/SKILL.md:147-150 names readiness with paid run; tests/test_relay.py:1988 passes."
       ],
+      "severity": "MEDIUM",
+      "since": "307b15cda3d562ecf705f14209d51da9d659cb47",
+      "source": "review-auto-merge.json",
+      "source_id": "F3",
+      "summary": "delegate step 9 says the front merges as soon as the verdict is open 0, leaving out the paid run that readiness requires for rule, skill, role and agent edits; nothing else enforces it",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading. Correct today if the front improvises, but the template and the instruction disagree.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A rule-text change merged after a green paid run costing $4.10 and a lib-only change merged with no paid run",
+        "both produce \"merged: <what it does>\". Line 101 asks to \"report its cost in the line or on the screen\", but the",
+        "template on line 69-70 has no slot, so the front either drops the cost or improvises the format."
+      ],
+      "fix_hint": [
+        "Add the optional paid-run part to the template on line 69-70 and to review-gate.md 8.2's example."
+      ],
       "id": "F4",
+      "kind": "inside",
+      "line": 69,
+      "pass_cases": [
+        "1. The template reads e.g. `merged: <what it does for the owner>` plus `; paid run green, $<cost>` when one ran.",
+        "2. A merge with no paid run (no text edits) keeps the plain one-line form.",
+        "3. docs/plans/review-gate.md 8.2's example matches the template."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "low",
       "reason": [
         "front SKILL.md:69-70 template has the paid-run slot; review-gate.md example matches; tests/test_relay.py:1995 passes."
       ],
+      "severity": "LOW",
+      "since": "307b15cda3d562ecf705f14209d51da9d659cb47",
+      "source": "review-auto-merge.json",
+      "source_id": "F4",
+      "summary": "the one-line merged report has no place for the paid run, though line 101 says to report its cost 'in the line'",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by grep. No behaviour depends on these lines; they mislead a later reader or agent. Size: 10 minutes."
+      ],
+      "evidence": [
+        "$ grep -n -i -E \"owner.{0,40}merge|merge.{0,40}owner\" docs/plans/review-gate.md",
+        "108:- **The person's step**: one chat screen and one private page (a claude.ai",
+        "109:  artifact) from which the owner decides the merge.",
+        "495:4. The owner says merge. `git merge --ff-only wt/x` in main: refused by step 1,",
+        "plugins/core/README.md:163: wt/<name>` (the merge the owner asks for), `--help`."
+      ],
+      "failing_case": [
+        "A reader of review-gate.md section 1 reads \"The person's step: one chat screen ... from which the owner decides",
+        "the merge\", while 8.2 now says the front merges and reports one line. plugins/core/README.md:163 calls",
+        "`git merge --ff-only wt/<name>` \"the merge the owner asks for\"."
+      ],
+      "fix_hint": [
+        "Reword 108-109 and README 163; add \"superseded 24 Oct\" to rows 27 and 36."
+      ],
       "id": "F5",
+      "kind": "inside",
+      "line": 108,
+      "pass_cases": [
+        "1. review-gate.md 108-109 defines the person's step as the one-line merged report, or the question screen in the",
+        "   cases that need the owner.",
+        "2. plugins/core/README.md:163 reads \"(the front's merge of a ready branch)\" or similar.",
+        "3. Historical decision rows (27, 36) may stay as records if marked superseded 24 Oct, as 8 already is."
+      ],
+      "path": "docs/plans/review-gate.md",
+      "rank": "low",
       "reason": [
         "review-gate.md person's-step definition, row 4 text, rows 1 and 10 superseded; core README:163 reworded."
       ],
+      "severity": "LOW",
+      "since": "307b15cda3d562ecf705f14209d51da9d659cb47",
+      "source": "review-auto-merge.json",
+      "source_id": "F5",
+      "summary": "stale texts still say the owner decides each merge: review-gate.md 27, 36, 108-109 ('from which the owner decides the merge'), 495 ('The owner says merge'); plugins/core/README.md:163 ('the merge the owner asks for')",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/auto-merge/.relay/checks/d45ca2196c6698217de182384a20cbe91b3ba4f3.gate.log",
+  "gate": "d45ca2196c6698217de182384a20cbe91b3ba4f3.gate.log",
   "head": "8726e88c0b1c12d3bd65bac1a4c025004070940d",
-  "new": [],
+  "item": null,
   "notes": [
     "Gate is QUICK MODE (paid steps skipped); the paid run for this text change remains the front's before merge. Rows 27/36 cited in F5 are rows 1 and 10 after renumbering; both marked superseded."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "307b15cda3d562ecf705f14209d51da9d659cb47.review.json"
-  ],
-  "reviewed": "307b15cda3d562ecf705f14209d51da9d659cb47",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range 307b15c..HEAD; own files: review-gate.md, core README, delegate and front skills, rules/git.md, tests/test_relay.py (all named by findings). Gate log head d45ca21, exit 0, no code files after it (8726e88 is the gate commit). Ran AutoMergeTextsTest: 3 passed. Read the fix diff."
   ],

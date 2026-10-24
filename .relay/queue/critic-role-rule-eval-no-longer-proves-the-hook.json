@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 45,
+  "found_at": "2026-10-24T15:08:48Z",
+  "found_in": "relay queue add",
+  "title": "critic-role-rule eval no longer proves the hook delivers",
+  "what": [
+    "The case checks that the role rule reaches the critic through the hook; the record step notes when a session read the rule file itself (Bash/Read), because such a run does not prove the hook delivered it. Make the case prove delivery even when a session reads files: e.g. a fact only the hook's text carries (a marker absent from the rule file), or a grader that fails a run that read the file before acting."
+  ],
+  "why": [
+    "Every paid run on 24 Oct printed the note: 2 of 3 runs in archive-inert, small-builds, checks-record and py-rule, and 3 of 3 in the wave run on 9cbb147 (record 24 Oct, $8.52, green). With 3 of 3 the case passes while proving nothing about the hook; principle 2 (output nobody reads) and principle 5."
+  ],
+  "failing_case": [
+    "Wave paid run 24 Oct on 9cbb147: \"critic-role-rule: a session in the run read the rule file in 3 of 3 runs (run 1, Bash, run 2, Bash, run 3, Bash), so those runs do not prove the hook delivered it\", and the case is green."
+  ],
+  "pass_cases": [
+    "A run where the hook did not deliver the rule fails the case even if the session read the rule file; a run where the hook delivered it passes; the grader tests show both with recorded fixtures."
+  ],
+  "where": "evals/plugin/critic-role-rule (case and graders), the role-rule hook it tests (inject-addition.sh)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

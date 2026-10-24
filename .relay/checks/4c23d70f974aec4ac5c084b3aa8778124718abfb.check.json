@@ -1,26 +1,39 @@
 {
+  "branch": "wt/wf-mark",
   "findings": [
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "docs/plans/review-gate.md",
+      "rank": "medium",
       "reason": [
         "Gate log exit 0 on d55c35d; check-mark.test.sh passes."
       ],
+      "severity": "MEDIUM",
+      "since": "d55c35dadce38597ff7f3cba8e97284de2317e35",
+      "source": "merge-wf-mark.json",
+      "source_id": "F1",
+      "summary": "combined with master's change by the merge",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/wf-mark/.relay/checks/d55c35dadce38597ff7f3cba8e97284de2317e35.gate.log",
+  "gate": "d55c35dadce38597ff7f3cba8e97284de2317e35.gate.log",
   "head": "4c23d70f974aec4ac5c084b3aa8778124718abfb",
-  "new": [],
+  "item": null,
   "notes": [
     "F1 is a placeholder merge finding; its pass case (gate passes) holds."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "d55c35dadce38597ff7f3cba8e97284de2317e35.review.json"
-  ],
-  "reviewed": "d55c35dadce38597ff7f3cba8e97284de2317e35",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fixes: none. relay changed --own since the reviewed sha lists no file. Gate log starts with head d55c35d..., ends exit 0; only the gate-log commit came after. Ran check-mark.test.sh: all passed."
   ],

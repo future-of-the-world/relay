@@ -1,33 +1,66 @@
 {
+  "branch": "wt/projects-out",
   "findings": [
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes",
+        "projects.toml holds only [global] and [relay], and [relay] loads principles"
+      ],
+      "path": "projects.toml",
+      "rank": "medium",
       "reason": [
         "gate green on reviewed sha; projects.toml has only [global], [relay]"
       ],
+      "severity": "MEDIUM",
+      "since": "37445178198a80de95c66e79a73496457a061875",
+      "source": "merge-projects-out.json",
+      "source_id": "F1",
+      "summary": "combined with master's change by the merge",
       "verdict": "MET"
     },
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails, a conflict marker remains, or a test class of either side is lost"
+      ],
+      "fix_hint": [],
       "id": "F2",
+      "kind": "inside",
+      "line": 1863,
+      "pass_cases": [
+        "the gate passes",
+        "TestNoOwnerProjects, TestInstallRegistersNoProject and TestPrinciplesRule all exist and pass; TestTasteRule is gone as on master"
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "medium",
       "reason": [
         "tests/test_relay.py:1863,1878,1905 classes exist and pass; TestTasteRule gone; no markers"
       ],
+      "severity": "MEDIUM",
+      "since": "37445178198a80de95c66e79a73496457a061875",
+      "source": "merge-projects-out.json",
+      "source_id": "F2",
+      "summary": "conflict with master's change resolved in the merge by keeping both test classes",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/projects-out/.relay/checks/37445178198a80de95c66e79a73496457a061875.gate.log",
+  "gate": "37445178198a80de95c66e79a73496457a061875.gate.log",
   "head": "36572e126adc3c8b0893343e544c9b7489254740",
-  "new": [],
+  "item": null,
   "notes": [
     "none"
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "37445178198a80de95c66e79a73496457a061875.review.json"
-  ],
-  "reviewed": "37445178198a80de95c66e79a73496457a061875",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fixes none. relay changed --own since reviewed sha lists no file; HEAD only adds the gate commit. Gate log head is the reviewed sha, ends exit 0. Ran the three test classes (11 passed); no conflict markers; projects.toml holds [global] and [relay]."
   ],

@@ -1,47 +1,114 @@
 {
+  "branch": "wt/py-rule",
   "findings": [
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "projects.toml",
+      "rank": "medium",
       "reason": [
         "gate green on reviewed sha, exit 0"
       ],
+      "severity": "MEDIUM",
+      "since": "3f2a5e4537c00749cc36d895a5ef42ecc4556b2f",
+      "source": "merge3-py-rule.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
       "verdict": "MET"
     },
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "rules/python.md",
+      "rank": "medium",
       "reason": [
         "gate green on reviewed sha, exit 0"
       ],
+      "severity": "MEDIUM",
+      "since": "3f2a5e4537c00749cc36d895a5ef42ecc4556b2f",
+      "source": "merge3-py-rule.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
       "verdict": "MET"
     },
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_python_rule.py",
+      "rank": "medium",
       "reason": [
         "gate green on reviewed sha, exit 0"
       ],
+      "severity": "MEDIUM",
+      "since": "3f2a5e4537c00749cc36d895a5ef42ecc4556b2f",
+      "source": "merge3-py-rule.json",
+      "source_id": "F3",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
       "verdict": "MET"
     },
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "medium",
       "reason": [
         "gate green on reviewed sha, exit 0"
       ],
+      "severity": "MEDIUM",
+      "since": "3f2a5e4537c00749cc36d895a5ef42ecc4556b2f",
+      "source": "merge3-py-rule.json",
+      "source_id": "F4",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/py-rule/.relay/checks/3f2a5e4537c00749cc36d895a5ef42ecc4556b2f.gate.log",
+  "gate": "3f2a5e4537c00749cc36d895a5ef42ecc4556b2f.gate.log",
   "head": "4ac0e6dcc79b8a7b9c132bb95f8fde6915e93825",
-  "new": [],
+  "item": null,
   "notes": [
     "Merge-only findings; the gate passing is their pass case."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "3f2a5e4537c00749cc36d895a5ef42ecc4556b2f.review.json"
-  ],
-  "reviewed": "3f2a5e4537c00749cc36d895a5ef42ecc4556b2f",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fixes: none. relay changed --own since reviewed sha lists nothing; only the gate commit came after. Gate log head is the reviewed sha, ends exit 0. tests/test_python_rule.py ran: 7 passed. No new tests, so no fail-without-fix run."
   ],
