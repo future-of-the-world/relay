@@ -134,11 +134,24 @@ def blob(main, ref, path):
     return out if rc == 0 else None
 
 
-def step_queue(main, default, branch):
+def closing_ref(main, default, ab, path):
+    """The commit of the innermost absorbed branch whose range default...branch adds `path`, or None: the ref where a rider's own
+    check is judged, the way merging that rider alone would."""
+    adding = []
+    for name, tip in ab.items():
+        added = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", "refs/heads/%s...%s" % (default, tip))[1]
+        if path in added.split("\0"):
+            adding.append((int(relay_git.git(main, "rev-list", "--count", tip)[1]), name, tip))
+    return min(adding)[2] if adding else None
+
+
+def step_queue(main, default, branch, ab=None):
     """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
     `relay queue migrate`); every queue file at the branch tip, whether the range touched it or not (one that came in by taking the
     default branch included), is well formed too; every `fix` item it moves into done/ (not dropped) passes `relay_queue.close_refusal`: its test exists and the branch's newest check
-    with no own file changed since is of that item with Q1 MET."""
+    with no own file changed since is of that item with Q1 MET. For a train (`ab`, the absorbed branches) the test is judged at the
+    branch, the tree that lands, and the check at the absorbed branch whose range adds the item's done/ file."""
+    ab = ab or {}
     changed_files = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=AM", "-z",
                                   "refs/heads/%s...refs/heads/%s" % (default, branch))[1]
     added = set(relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z",
@@ -153,31 +166,39 @@ def step_queue(main, default, branch):
             raise Refused("queue item %s is malformed (%s); fix it before the merge" % (slug, "; ".join(meta["problems"])))
         if not in_done or path not in added or meta["kind"] != "fix" or meta["state"] == "dropped":
             continue
-        reason = relay_queue.close_refusal(main, "refs/heads/" + branch, slug, meta["test"])    # the one rule `relay queue done` uses
+        closer = closing_ref(main, default, ab, path) or "refs/heads/" + branch
+        reason = relay_queue.test_refusal(main, "refs/heads/" + branch, meta["test"]) or relay_queue.check_refusal(main, closer, slug)
         if reason:
             raise Refused("queue item %s is closed without a test or a check: %s" % (slug, reason))
 
 
-def step_mark(main, default, branch):
-    """7.1 steps 4-5: the newest mark on the branch (not on the default branch) whose own files are all unchanged since."""
+def step_mark(main, default, branch, ab=None):
+    """7.1 steps 4-5: the newest mark on the branch (not on the default branch) whose own files are all unchanged since. `ab` is
+    the branches the branch absorbs (`relay_inert.absorbed`): the files they cover are not the branch's own, and a branch whose
+    own files are all covered (a train of ready changes with no shared file) needs no mark."""
+    ab = ab or {}
     ref, base = "refs/heads/" + branch, "refs/heads/" + default
+    if ab:
+        fork = relay_git.git(main, "merge-base", base, ref)[1]
+        if not relay_inert.changed(main, fork, ref, own=True, archive=True, absorbed=ab):
+            return
     stored = dict(relay_marks.marks(main, ref))
     order = [c for c in commit_list(main, ["rev-list", "--topo-order", ref, "^" + base]) if c in stored]
     if not order:
-        raise Refused("no check mark for %s (run delegate:checker on its head)" % branch)
+        raise Refused("no check mark for %s (run relay gate, then delegate:checker on its head)" % branch)
     newest_list = None
     for commit in order:
-        own = relay_inert.changed(main, commit, ref, own=True, archive=True)
+        own = relay_inert.changed(main, commit, ref, own=True, archive=True, absorbed=ab)
         if not own:
             mark = stored[commit]
             if mark["verdict"]["open"] != 0:
-                raise Refused("the check of %s left %s inside the change wrong (report: .relay/checks/%s.check.json; relay check show prints it)" % (
-                    commit, plural(mark["verdict"]["open"], "thing"), commit))
+                raise Refused("the check of %s left %s inside the change wrong (report: .relay/checks/%s.check.json; relay check show prints it); "
+                              "fix them, run relay gate, then delegate:checker" % (commit, plural(mark["verdict"]["open"], "thing"), commit))
             return commit
         if newest_list is None:
             newest_list = (commit, own)
     commit, own = newest_list
-    raise Refused("after the check of %s, %s changed %s, which %s not inert; check again" % (
+    raise Refused("after the check of %s, %s changed %s, which %s not inert; run relay gate, then delegate:checker" % (
         commit, branch, named(own), "is" if len(own) == 1 else "are"))
 
 
@@ -214,13 +235,14 @@ def judge(main, default, branch):
         behind = len(commit_list(main, ["rev-list", ref + ".." + base]))
         raise Refused("%s is behind %s by %s; take %s first: git -C %s merge --no-edit %s (then relay gate if code came in)" % (
             branch, default, plural(behind, "commit"), default, where, default))
-    step_queue(main, default, branch)                                                           # 2
+    ab = relay_inert.absorbed(main, ref)                                                        # the ready changes it holds
+    step_queue(main, default, branch, ab)                                                       # 2
     rc, merge_base = relay_git.git(main, "merge-base", base, ref)
     if rc != 0:
         raise ValueError("no common commit with %s" % default)
     if not relay_inert.changed(main, merge_base, ref):                                          # 3
         return
-    step_mark(main, default, branch)                                                           # 4, 5
+    step_mark(main, default, branch, ab)                                                       # 4, 5
     step_gate(main, branch, where)                                                              # 6
 
 
@@ -250,6 +272,16 @@ def pre(hook):
     return 0
 
 
+def riders(main, branch):
+    """The other task branches whose tip is inside `branch` (now on the default branch with it: the ready changes a train held,
+    or the branch a stacked one was made from). `clean` and its guards decide each removal; a branch with no commits of its
+    own is left out, so an idle one is not named."""
+    rc, out = relay_git.git(main, "for-each-ref", "--format=%(refname:short)", "refs/heads/wt/")
+    return [b for b in (out.splitlines() if rc == 0 else [])
+            if b != branch and not b.startswith("wt/queue-") and has_own_commits(main, b)
+            and relay_git.git(main, "merge-base", "--is-ancestor", "refs/heads/" + b, "refs/heads/" + branch)[0] == 0]
+
+
 def post(hook):
     command = (hook.get("tool_input") or {}).get("command")
     cwd = hook.get("cwd") or os.getcwd()
@@ -267,9 +299,10 @@ def post(hook):
         top = relay_git.git(directory, "rev-parse", "--show-toplevel")[1]
         if not top or os.path.realpath(top) != main or relay_git.current_branch(directory) != default:
             continue
-        line = clean(main, default, branch, hook)
-        if line:
-            lines.append(line)
+        for name in [branch] + riders(main, branch):
+            line = clean(main, default, name, hook)
+            if line:
+                lines.append(line)
     if lines:
         print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": "\n".join(lines)}}))
     return 0
