@@ -1,6 +1,6 @@
 #!/bin/sh
 # Installs what relay needs, from deps.toml (the list `relay doctor` checks against): python3 3.11+, git, jq, uv,
-# the pinned gate tools (ruff, mypy, pytest), claude, and bun and node for the gate's hook tests.
+# the pinned gate tools (ruff, mypy, pytest), claude, and bun for the gate's hook tests.
 # Official installers come first; Homebrew and apt-get are only the fallback. Plain POSIX sh: it runs before python exists.
 #   sh install.sh [--dry-run]
 # Safe to run again: what is present at the right version is left alone. Every download is pinned and checked against the

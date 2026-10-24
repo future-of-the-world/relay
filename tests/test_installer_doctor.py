@@ -21,7 +21,7 @@ ENV_KEYS = ("PATH", "HOME", "CLAUDE_CONFIG_DIR", "RELAY_HOME")
 # what every tool of deps.toml prints for --version when it is at the right version
 GOOD = {"python3": "Python 3.12.1", "git": "git version 2.44.0", "jq": "jq-1.7.1", "uv": "uv 0.8.24 (abc 2025-10-07)",
         "ruff": "ruff 0.13.3", "mypy": "mypy 1.18.2 (compiled: yes)", "pytest": "pytest 8.4.2", "claude": "2.1.0 (Claude Code)",
-        "bun": "1.2.0", "node": "v22.1.0"}
+        "bun": "1.2.0"}
 
 
 class Fakes(unittest.TestCase):
@@ -62,7 +62,7 @@ class DepsFile(unittest.TestCase):
     def test_list_parses_and_every_entry_has_its_fields(self):
         deps = relay_setup.load_deps()
         names = [d["name"] for d in deps]
-        # the brief's list: python3, git, jq, claude, uv, the gate tools ruff, mypy, pytest, and bun and node (bin/ci hook tests)
+        # the brief's list: python3, git, jq, claude, uv, the gate tools ruff, mypy, pytest, and bun (bin/ci hook tests); no node
         self.assertEqual(sorted(names), sorted(GOOD))
         for dep in deps:
             self.assertTrue(dep["command"] and dep["version_arg"], dep["name"])
@@ -220,7 +220,7 @@ class Routes(InstallScript):
     JQ_MAC_SUM = "0bbe619e663e0de2c550be2fe0d240d076799d6f8a652b70fa04aea8a8362e8a"
 
     def test_macos_with_homebrew_goes_official_first(self):
-        self.fakes(jq=None, git=None, claude=None, bun=None, node=None, python3="Python 3.9.6")
+        self.fakes(jq=None, git=None, claude=None, bun=None, python3="Python 3.9.6")
         self.machine("Darwin", "arm64")
         self.fake("brew", "brew")   # Homebrew is there, and must not be used where an official route exists
         lines = self.dry()
@@ -233,19 +233,18 @@ class Routes(InstallScript):
         self.assertIn("  would run: uv python install 3.11", lines)   # python 3.9.6 -> 3.11 through uv
         self.assertIn("  would download https://claude.ai/install.sh and run it with bash", lines)
         self.assertIn("  would download https://bun.sh/install and run it with bash", lines)
-        # node has only a Homebrew entry on macOS: the fallback still works
-        self.assertIn("  would run: brew install node", lines)
-        self.assertIn("  via Homebrew (fallback)", lines)
+        # no node step on macOS (the owner wants bun, no Node)
+        self.assertFalse([l for l in lines if "node" in l.lower()], lines)
 
     def test_linux_apt_as_root_updates_once_without_sudo(self):
-        self.fakes(git=None, node=None)
+        self.fakes(git=None)
         self.machine("Linux", "x86_64")
         self.fake("apt-get", "apt")
         self.script("id", "echo 0")
         lines = self.dry()
         self.assertEqual(lines.count("  would run: apt-get update"), 1)   # once, before the first install
         self.assertLess(lines.index("  would run: apt-get update"), lines.index("  would run: apt-get install -y git"))
-        self.assertIn("  would run: apt-get install -y nodejs", lines)
+        self.assertFalse([l for l in lines if "node" in l.lower()], lines)   # no node step on Linux either
         self.assertFalse([ln for ln in lines if "sudo" in ln])
 
     def test_linux_apt_as_a_user_says_it_uses_sudo(self):
@@ -265,7 +264,7 @@ class Routes(InstallScript):
         self.assertEqual(hint(by["git"], "darwin", "arm64"), "xcode-select --install")
         self.assertEqual(hint(by["python3"], "darwin", "arm64"), "uv python install 3.11")
         self.assertEqual(hint(by["claude"], "darwin", "arm64"), "curl -fsSL https://claude.ai/install.sh | bash")
-        self.assertEqual(hint(by["node"], "darwin", "arm64"), "brew install node")   # the fallback, no official route
+        self.assertNotIn("node", by)
         self.assertEqual(hint(by["git"], "linux", "x86_64"), "sudo apt-get install -y git")
 
 
@@ -310,13 +309,12 @@ class PythonStep(InstallScript):
 class BrokenAndMissing(InstallScript):
     """F3/F4/F6."""
 
-    def test_bun_and_node_are_checked_and_name_their_install_command(self):
-        self.fakes(bun=None, node=None)
+    def test_bun_is_checked_and_node_is_not(self):
+        self.fakes(bun=None)
         got = {n: (g, d) for n, g, d in relay_setup.dep_checks()}
         self.assertFalse(got["bun on PATH"][0])
         self.assertIn("https://bun.sh/install", got["bun on PATH"][1])
-        self.assertFalse(got["node on PATH"][0])
-        self.assertIn("node", got["node on PATH"][1])
+        self.assertNotIn("node on PATH", got)
 
     def test_a_tool_that_is_there_but_prints_no_version_is_not_ok(self):
         # the macOS /usr/bin/git stub without the developer tools: a file on PATH that exits 1 and prints a note

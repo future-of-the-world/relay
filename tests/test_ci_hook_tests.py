@@ -17,7 +17,7 @@ def run_ci(args, drop=(), env_extra=None):
         env = dict(os.environ); env.pop("RELAY_GATE", None); env.pop("RELAY_INERT_FULL_HOOKS", None); env.update(env_extra or {})
         if drop:  # hide tools by shadowing them with a PATH that lacks their directories' copies
             bindir = os.path.join(tmp, "fakebin"); os.makedirs(bindir)
-            for tool in ("bash", "env", "dirname", "mkdir", "date", "cat", "grep", "head", "sed", "python3", "git", "jq", "node", "claude", "bun", "cmp", "rm", "sort", "diff", "mktemp"):
+            for tool in ("bash", "env", "dirname", "mkdir", "date", "cat", "grep", "head", "sed", "python3", "git", "jq", "claude", "bun", "cmp", "rm", "sort", "diff", "mktemp"):
                 if tool in drop: continue
                 p = shutil.which(tool)
                 if p: os.symlink(p, os.path.join(bindir, tool))

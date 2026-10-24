@@ -108,12 +108,3 @@ official_shell = "bash"
 brew = "oven-sh/bun/bun"
 manual = "curl -fsSL https://bun.sh/install | bash"
 why = "the gate's hook tests"
-
-[[dep]]
-name = "node"
-command = "node"
-version_arg = "--version"
-brew = "node"
-apt = "nodejs"
-manual = "install Node.js from https://nodejs.org"
-why = "the gate's hook tests"
