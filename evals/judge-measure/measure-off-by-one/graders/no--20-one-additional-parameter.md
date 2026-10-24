@@ -1,6 +1,5 @@
 ---
 type: llm
-expect: FAIL
 focus: {source: file, path: judged/20.txt}
 ---
 The agent reviewed branch wt/paging, which adds page() and pageCount() to src/shelf.ts.

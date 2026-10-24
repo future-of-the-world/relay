@@ -5,9 +5,10 @@ Each measure-<question>/ case judges recorded replies from files. This script
 writes, from items.txt and the production rubric, the files the eval reads:
 
   judged/<NN>.txt                    the reply of item NN, composed into a real full reply
-  graders/<yes|no>--<NN>-<name>.md   one llm grader per item, with `expect: PASS|FAIL` (yes|no) in its
-                                     front matter; its body is the production rubric
-                                     (evals/plugin/<case>/graders/<grader>.md) byte for byte
+  graders/<yes|no>--<NN>-<name>.md   one llm grader per item; its body is the production rubric
+                                     (evals/plugin/<case>/graders/<grader>.md) byte for byte. The eval tool
+                                     refuses a grader file with a key it does not know, so nothing else goes in it
+  answers.json                       {grader name: "PASS"|"FAIL"} (yes|no): the expected answer tally.py reads
 
   python3 evals/judge-measure/make.py           write the files, print every item's length
   python3 evals/judge-measure/make.py --check   write nothing; exit 1 when a committed file
@@ -93,7 +94,7 @@ def build(root):
     files, problems, report, triples, where = {}, [], [], [], []
     for name, d in qs.items():
         q = d["q"]
-        no_texts = []
+        no_texts, answers = [], {}
         for i, it in enumerate(d["items"], 1):
             label = f"{name} item {i:02d} ({it['want']} {os.path.basename(it['source'])})"
             sp = os.path.join(root, it["source"])
@@ -121,13 +122,15 @@ def build(root):
                 no_texts.append(text)
             slug = re.sub(r"[^A-Za-z0-9]+", "-", os.path.splitext(os.path.basename(it["source"]))[0]).strip("-")
             files[f"{name}/judged/{nn}.txt"] = text
+            answers[f"{it['want']}--{nn}-{slug}"] = "PASS" if it["want"] == "yes" else "FAIL"
             files[f"{name}/graders/{it['want']}--{nn}-{slug}.md"] = (
-                f"---\ntype: llm\nexpect: {'PASS' if it['want'] == 'yes' else 'FAIL'}\nfocus: {{source: file, path: judged/{nn}.txt}}\n---\n" + d["rubric"])
+                f"---\ntype: llm\nfocus: {{source: file, path: judged/{nn}.txt}}\n---\n" + d["rubric"])
             report.append(f"{name} {nn} {it['want']:3} {len(text):5} chars  {os.path.basename(it['source'])}")
             if len(text) < MIN_LEN:
                 problems.append(f"{label}: {len(text)} characters, under {MIN_LEN} (not the length of a real reply)")
             for g in d["code"]:
                 triples.append([g["pattern"], g.get("flags", ""), text]); where.append(f"{label}: code grader {g.get('pattern')[:40]}...")
+        files[f"{name}/answers.json"] = json.dumps(answers, indent=1, sort_keys=True) + "\n"
         for phrase in q.get("known_wrong", []):
             if not any(phrase in t for t in no_texts):
                 problems.append(f"{name}: the known wrong answer {phrase!r} is in no 'no' item (add an item that says it)")
@@ -156,6 +159,8 @@ def main():
         for sub in ("judged", "graders"):
             for p in glob.glob(os.path.join(q, sub, "*")):
                 owned.add(os.path.relpath(p, here))
+        if os.path.exists(os.path.join(q, "answers.json")):
+            owned.add(os.path.relpath(os.path.join(q, "answers.json"), here))
     if a.check:
         for rel, text in sorted(files.items()):
             p = os.path.join(here, rel)

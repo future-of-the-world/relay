@@ -1,0 +1,12 @@
+{
+ "no--06-reports-the-contradiction-lines-paired-but-agree": "FAIL",
+ "no--07-they-agree": "FAIL",
+ "no--08-different-matter": "FAIL",
+ "no--09-names-both-no-disagreement": "FAIL",
+ "no--10-d2-only-refines": "FAIL",
+ "yes--01-branch-run-8rU3IV": "PASS",
+ "yes--02-branch-run-bHqK6p": "PASS",
+ "yes--03-branch-run-ctXoF2": "PASS",
+ "yes--04-master-run-2": "PASS",
+ "yes--05-master-wording-outside-lists": "PASS"
+}

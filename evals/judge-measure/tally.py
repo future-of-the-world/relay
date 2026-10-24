@@ -3,8 +3,8 @@
 
   python3 evals/judge-measure/tally.py <eval.json> --expect-model haiku|sonnet [--max-wrong 0] [--max-split 1]
 
-The expected answer is the `expect: PASS|FAIL` line in each grader file's front matter (make.py writes it
-from items.txt); the grader's name is never read for it. A grader file without it is not judged (exit 2).
+The expected answer is the grader's entry in <case>/answers.json (make.py writes it from items.txt); the
+grader's name is never read for it. A grader with no entry is not judged (exit 2).
 Per question (one case each), per run, the majority of the 3 votes is the verdict. Printed:
   wrong verdicts   runs whose majority verdict is not the expected answer      (bar --max-wrong, 0-2)
   split items      items whose votes, over all runs, are not all alike          (bar --max-split, 0-3)
@@ -39,25 +39,19 @@ def load_expected(here=None):
 
 
 def load_answers(here=None):
-    """{case name: {grader name: True for PASS, False for FAIL}} from the `expect:` line in the front
-    matter of each grader file under <case>/graders/. A grader without a valid line is not judged."""
+    """{case name: {grader name: True for PASS, False for FAIL}} from <case>/answers.json (make.py writes it).
+    It is not in the grader files: the eval tool refuses a grader file with a key it does not know."""
     here = here or os.path.dirname(os.path.abspath(__file__))
     out = {}
     with open(os.path.join(here, "questions.json"), encoding="utf-8") as f:
         names = list(json.load(f))
     for name in names:
-        out[name] = {}
-        gdir = os.path.join(here, name, "graders")
-        for fn in sorted(os.listdir(gdir)):
-            if not fn.endswith(".md"):
-                continue
-            with open(os.path.join(gdir, fn), encoding="utf-8") as f:
-                lines = f.read().split("\n")
-            front = lines[1:lines.index("---", 1)] if lines[0] == "---" and "---" in lines[1:] else []
-            vals = [l.partition(":")[2].strip() for l in front if l.partition(":")[0].strip() == "expect"]
-            if len(vals) != 1 or vals[0] not in ("PASS", "FAIL"):
-                raise NotJudged(f"{name}/graders/{fn}: no `expect: PASS` or `expect: FAIL` line in the front matter")
-            out[name][fn[:-3]] = vals[0] == "PASS"
+        with open(os.path.join(here, name, "answers.json"), encoding="utf-8") as f:
+            stored = json.load(f)
+        for g, v in stored.items():
+            if v not in ("PASS", "FAIL"):
+                raise NotJudged(f"{name}/answers.json: grader {g} is {v!r}, expected PASS or FAIL")
+        out[name] = {g: v == "PASS" for g, v in stored.items()}
     return out
 
 
@@ -66,7 +60,7 @@ def tally(data, expect_model, max_wrong=0, max_split=1, expected=None, answers=N
     only what each case's own graders[] and runsPerCase say. `answers` is {case name: {grader name:
     expected verdict, True = PASS}} (load_answers); without it nothing says what is right."""
     if answers is None:
-        raise NotJudged("no expected answers given (the `expect:` lines of the grader files)")
+        raise NotJudged("no expected answers given (<case>/answers.json)")
     suite = data.get("suite", {})
     if suite.get("judgeModel") != expect_model:
         raise NotJudged(f"suite.judgeModel is {suite.get('judgeModel')!r}, expected {expect_model!r}")
@@ -148,10 +142,14 @@ def main():
     ap.add_argument("--max-split", type=int, default=1, choices=range(0, 4))
     a = ap.parse_args()
     try:
+        try:   # the eval folder's own files first: a broken folder is not blamed on the input file
+            expected, answers = load_expected(), load_answers()
+        except (OSError, ValueError) as e:
+            raise NotJudged(f"cannot read the eval folder's own files: {e}")
         try:
             with open(a.json, encoding="utf-8") as f:
                 data = json.load(f)
-            code, lines = tally(data, a.expect_model, a.max_wrong, a.max_split, load_expected(), load_answers())
+            code, lines = tally(data, a.expect_model, a.max_wrong, a.max_split, expected, answers)
         except (OSError, ValueError) as e:   # unreadable file, bad UTF-8 or bad JSON (UnicodeDecodeError is a ValueError)
             raise NotJudged(f"cannot read {a.json}: {e}")
         except (KeyError, TypeError, AttributeError) as e:   # JSON of another shape than the eval tool writes

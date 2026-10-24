@@ -1,0 +1,15 @@
+{
+ "no--06-wrong-does-not-violate": "FAIL",
+ "no--07-wrong-is-fine-no-breach": "FAIL",
+ "no--08-wrong-no-findings-checked": "FAIL",
+ "no--09-wrong-respects": "FAIL",
+ "no--10-wrong-satisfies": "FAIL",
+ "no--11-wrong-passes": "FAIL",
+ "no--12-wrong-no-violation-found": "FAIL",
+ "no--13-wrong-reads-before-validated": "FAIL",
+ "yes--01-right-rename-to-qty": "PASS",
+ "yes--02-right-md-violates": "PASS",
+ "yes--03-right-confirmed": "PASS",
+ "yes--04-right-range": "PASS",
+ "yes--05-right-breaks-the-rule": "PASS"
+}

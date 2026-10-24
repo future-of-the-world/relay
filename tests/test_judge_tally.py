@@ -1,6 +1,6 @@
 """Free tests of tally.py: unreadable input exits 2, and the expected answer is a stored field, not a name.
 No test calls a model."""
-import importlib.util, json, os, shutil, subprocess, sys, tempfile, unittest
+import glob, importlib.util, json, os, shutil, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JM = os.path.join(ROOT, "evals", "judge-measure")
@@ -96,19 +96,38 @@ class ExpectedAnswerIsAField(unittest.TestCase):
         with self.assertRaises(self.t.NotJudged):
             self.tally(result({"yes--01-a": [T, T, T]}), None)
 
-    def test_a_grader_file_without_the_field_is_not_judged_and_named(self):
+    def test_a_grader_missing_from_answers_json_is_not_judged_and_named(self):
         d = tempfile.mkdtemp(prefix="jt-")
         try:
             shutil.copytree(JM, os.path.join(d, "jm"), ignore=shutil.ignore_patterns("results", "__pycache__"))
             here = os.path.join(d, "jm")
-            g = os.path.join(here, "measure-doc-rule", "graders", "no--06-pagecount-already-documented.md")
+            g = os.path.join(here, "measure-doc-rule", "answers.json")
             with open(g, encoding="utf-8") as f:
-                text = f.read()
+                stored = json.load(f)
+            del stored["no--06-pagecount-already-documented"]
             with open(g, "w", encoding="utf-8") as f:
-                f.write(text.replace("expect: FAIL\n", ""))
+                json.dump(stored, f)
+            answers = self.t.load_answers(here)
+            data = result({k: [T, T, T] for k in stored} | {"no--06-pagecount-already-documented": [F, F, F]})
+            data["cases"][0]["name"] = "measure-doc-rule"
             with self.assertRaises(self.t.NotJudged) as e:
-                self.t.load_answers(here)
-            self.assertIn("no--06-pagecount-already-documented.md", str(e.exception))
+                self.t.tally(data, "haiku", answers=answers)
+            self.assertIn("no--06-pagecount-already-documented", str(e.exception))
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_a_broken_eval_folder_is_not_blamed_on_the_input_file(self):
+        d = tempfile.mkdtemp(prefix="jt-")
+        try:
+            here = os.path.join(d, "jm")
+            shutil.copytree(JM, here, ignore=shutil.ignore_patterns("results", "__pycache__"))
+            os.remove(os.path.join(here, "measure-doc-rule", "answers.json"))
+            r = cli("/dev/null", os.path.join(here, "tally.py"))
+            self.assertEqual(r.returncode, 2, r.stderr)
+            self.assertIn("eval folder", r.stderr)
+            self.assertIn("answers.json", r.stderr)
+            self.assertNotIn("/dev/null", r.stderr)
+            self.assertEqual(len(r.stderr.strip().split("\n")), 1)
         finally:
             shutil.rmtree(d, ignore_errors=True)
 
@@ -120,6 +139,23 @@ class ExpectedAnswerIsAField(unittest.TestCase):
             self.assertTrue(gs, case)
             for name, want in gs.items():
                 self.assertEqual(want, name.startswith("yes--"), name)
+
+
+class GraderFilesLoadInTheEvalTool(unittest.TestCase):
+    # the eval tool (claude plugin eval) builds a grader from {name, ...front matter, criteria: body} and
+    # checks it with a strict schema: type, name, criteria, focus, weight, arm. Any other key refuses the case.
+    ALLOWED = {"type", "focus", "weight", "arm"}
+
+    def test_every_front_matter_key_is_one_the_eval_tool_accepts(self):
+        seen = 0
+        for fn in sorted(glob.glob(os.path.join(JM, "measure-*", "graders", "*.md"))):
+            with open(fn, encoding="utf-8") as f:
+                lines = f.read().split("\n")
+            front = lines[1:lines.index("---", 1)]
+            keys = {l.partition(":")[0].strip() for l in front if l.strip()}
+            self.assertLessEqual(keys, self.ALLOWED, os.path.relpath(fn, JM))
+            seen += 1
+        self.assertEqual(seen, 58)
 
 
 if __name__ == "__main__":
