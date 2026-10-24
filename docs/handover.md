@@ -950,3 +950,40 @@ another gate + check; recording the "combined by the merge" finding by hand took
 Paid runs today ~$36 of the $50 cap.
 NEXT: finish the three merges (each: take master, check show, chat screen, owner's word); then queue the two waste
 causes; then improve the workflow script (test function name; checkers run fail-without-fix) and use it by default.
+
+## STATE 24 Oct ~03:50Z, wave merged; merge without asking lands now (session 0cc68fe0)
+
+Merged today after 02:30Z (all checked, open 0): the merge page removed (chat screen only); the check-mark hook
+reads the workflow checker's prompt (workflows write their own mark now); the `principles` rule (replaces taste,
+relay loads it; paid run $8.39); the owner's projects out of projects.toml and `relay install` no longer imports
+from ~/principles (fix F3 left as is, owner's word); and, with this commit, merge without asking (paid run $8.80).
+
+Owner's words (verbatim, this stretch):
+- "Слей" (no-merge-page) · "Слей, думаю стоит исключить этот вопрос из алгоритма, если нет явных конфликтов с
+  паралельными изменениями то вопрос бессмысленнен"
+- "Ты можешь перезаписать, однако сейчас я ими не занимаюсь вовсе, я оставил их как мой опыт работы с claude"
+  (relay sync --adopt all ran: 10 old-header CLAUDE.local.md rewritten, backups kept)
+- "Убери мои проекты из списка relay сейчас, мы уже запускали workflow и кажется он отлично себя показал -
+  дешевле, быстрее, автономнее" (workflows are now the default way to run a change)
+- "можешь превысить лимит, давай повысим его до 75$" (paid-run cap $75/day; it lives only in Claude memory, not
+  in relay: a portability gap)
+- F3 of projects-out: "а, оставь как есть" (the 10 projects keep their CLAUDE.local.md; recorded in that review)
+- "1. разрешаю сделать самому 2. a": (1) the front deleted 5 stray files a critic's `relay migrate --all` wrote
+  into the main checkout (guard-main blocked rm; done with python, on the owner's word); (2) merge without asking
+  only where the project has .relay/ (relay today); elsewhere and Glonass the owner is asked.
+
+New rule in force (rules/git.md, front + delegate skills): a ready change in a .relay/ project is merged by the
+front and reported in one line; the owner is asked only for a hand-resolved conflict of meaning, an open
+Design/question/Disputed/Gap finding, a person-facing change, a red or capped paid run, or "hold".
+
+Queued today in this stretch: sync-stops-at-one-refused-project-later-ones-go (fix 91);
+a-reviewer-ran-relay-migrate-all-and-wrote-into (fix 91).
+
+Next step:
+1. Queue the waste causes (MEDIUM, repeat every change): one shared tests/test_relay.py made 3 of today's 5
+   merges conflict or combine (each costs a gate ~9 min + a check); the "combined by the merge" finding is written
+   by hand each time (5 today), it should be one command; delegate step 8 says reviewed = the head before the
+   merge, but the checker needs the merge commit sha.
+2. Workflow script: ask the queue checker for a test FUNCTION name; have the take-master + combined-file record +
+   gate + checker step inside the workflow; checkers run the fail-without-fix check.
+3. Start the next change fresh (session rule): top fix items by ip.
