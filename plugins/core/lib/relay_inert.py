@@ -196,6 +196,7 @@ def changed(repo, since, until="HEAD", own=False, archive=False, absorbed=None):
 
     absorbed (with own=True): the {branch: tip} that `absorbed()` returned for `until`; a file one of them covers is left
     out as well (`_covered`)."""
+    since, until = _sha(repo, since), _sha(repo, until)
     out = _git(repo, "diff", "--name-only", "--no-renames", "-z", f"{since}..{until}")
     paths = [line for line in out.split("\0") if line and not matches(line)]
     if archive:
@@ -204,7 +205,6 @@ def changed(repo, since, until="HEAD", own=False, archive=False, absorbed=None):
     if not own or not paths:
         return paths
     default = _default_ref(repo)
-    since, until = _sha(repo, since), _sha(repo, until)
     base_since = _git(repo, "merge-base", since, default).strip()
     base_until = _git(repo, "merge-base", until, default).strip()
     trees = {c: _blobs(repo, c) for c in {since, until, base_since, base_until}}
