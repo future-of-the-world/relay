@@ -3,46 +3,6 @@
   "findings": [
     {
       "details": [
-        "Question for the owner. What it is about: the guard that keeps the main copy clean reads Bash commands. A path like `$S/briefs` holds a variable; the guard can either look up S's value when the same command sets it (`S=/private/tmp/x; mkdir -p $S/briefs` -> allowed, it is outside the main copy) or read `$S` as a folder name under the current folder (refused when you are in the main copy). Three reviews on 21 Oct found 20, then 4, then 2 holes in the look-up version; you then chose to drop it (\"1. a\"). Since then agents get refused on `mkdir -p $S/...` and `$TMPDIR/...` and work around it by writing the path out, which is the queue item this change closes. This change brings the look-up back with stricter rules (set once, not after && or ||, not in a pipe) and found no new hole of the old kinds in my probes, apart from F1 (unknown values skipped, a regression) and F2 (names repeated in a message).",
-        "Live example: `S=/private/tmp/.../scratchpad; mkdir -p $S/briefs` from the main copy: refused today, allowed with this change.",
-        "Options: a) keep the look-up, with F1 and F2 fixed (recommended: no known hole after F1, the false refusals that started the item are gone); b) keep the 21 Oct choice: revert the guard part, agents quote or write paths out."
-      ],
-      "evidence": [
-        "handover.md:295 \"Guard: variable-following dropped (\"1. a\")\"; a2b5753; transcript 0b953f5c 2026-10-21T18:09 \"a) Drop it and restore the old guard's behaviour\"; 2026-10-22T00:16 \"That's the behaviour you chose (\"1. a\", don't follow shell variables)\""
-      ],
-      "failing_case": [
-        "21 Oct the owner chose \"1. a\": drop the guard's variable-following, restore the old verdicts, \"Agents are told to write literal paths\". 22 Oct the front wrote to the owner that refusing `mkdir -p $TMPDIR/...` \"is the behaviour you chose ('1. a')\" and queued agent text telling agents to quote. This change follows variables again (the brief calls it the front's design) and rewrites the golden test that was built to prove they are not followed."
-      ],
-      "fix_hint": [
-        "Ask the owner before the merge; record the answer with relay check owner."
-      ],
-      "id": "Q1",
-      "kind": "question",
-      "line": 486,
-      "owner": [
-        {
-          "date": "2026-10-23",
-          "words": [
-            "a: \"Follow variables with the strict rules, after the fixes above.\" (follow a variable only when set once, plainly, earlier in the same command; unknown variables read literally again; reverses the 21 Oct \"1. a\")"
-          ]
-        }
-      ],
-      "pass_cases": [
-        "1. The owner's word on the direction is recorded (relay check owner) before the merge: either (a) keep following values set once in the same command, with F1 and F2 fixed, or (b) keep \"1. a\" and close the queue item by telling agents to quote or write literal paths."
-      ],
-      "path": "plugins/core/lib/kit_guard.py",
-      "rank": "medium",
-      "reason": [
-        "Owner answered a; recorded on the finding earlier."
-      ],
-      "severity": "MEDIUM",
-      "since": "d925caedc4854447ab5907b51da7d71e6a70d185",
-      "source": "queue",
-      "summary": "following shell variables at all reverses the owner's 21 Oct '1. a' (drop variable-following); the owner has not said so for this design",
-      "verdict": "MET"
-    },
-    {
-      "details": [
         "CONFIRMED by running kit_guard.py of master and of HEAD on the commands above (evidence).",
         "expand() (kit_guard.py:497-507) returns a dynamic Word for any word with a variable it cannot resolve, and dynamic write targets are dropped (`targets = [w for w in redirs if not w.dynamic ...]`, `args = [w for w in real[1:] if not w.dynamic]`). The builder recorded the effect in 23 of the 37 re-recorded golden verdicts (block -> allow for `rm -rf $PWD/src`, `cp new.md $PWD/README.md`, `tee $PWD/README.md`, `touch $F`, `echo hi > $F`, `rm -rf ${X}/src`, `.worktrees/$N/../../README.md`, ...).",
         "This is exactly finding M1 of the third review on 21 Oct (\"file-changing commands with an unquoted variable in the path now pass in your main copy: rm -rf $PWD/src, touch $F, cp a $X/. The old guard refused these\"); G1 (43fe49f) had already reverted the same skip once, and the owner then chose \"1. a\" (drop variable-following, restore the old verdicts, proven by the golden test) on the front's argument \"a guard that keeps leaking is worse than one that's sometimes too strict\". The brief's design point 2 re-opens it.",
@@ -232,6 +192,47 @@
       "source": "review-guard-batch.json",
       "source_id": "F5",
       "summary": "the header's list of what is blocked still says a path held in a shell variable is not seen",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Question for the owner. What it is about: the guard that keeps the main copy clean reads Bash commands. A path like `$S/briefs` holds a variable; the guard can either look up S's value when the same command sets it (`S=/private/tmp/x; mkdir -p $S/briefs` -> allowed, it is outside the main copy) or read `$S` as a folder name under the current folder (refused when you are in the main copy). Three reviews on 21 Oct found 20, then 4, then 2 holes in the look-up version; you then chose to drop it (\"1. a\"). Since then agents get refused on `mkdir -p $S/...` and `$TMPDIR/...` and work around it by writing the path out, which is the queue item this change closes. This change brings the look-up back with stricter rules (set once, not after && or ||, not in a pipe) and found no new hole of the old kinds in my probes, apart from F1 (unknown values skipped, a regression) and F2 (names repeated in a message).",
+        "Live example: `S=/private/tmp/.../scratchpad; mkdir -p $S/briefs` from the main copy: refused today, allowed with this change.",
+        "Options: a) keep the look-up, with F1 and F2 fixed (recommended: no known hole after F1, the false refusals that started the item are gone); b) keep the 21 Oct choice: revert the guard part, agents quote or write paths out."
+      ],
+      "evidence": [
+        "handover.md:295 \"Guard: variable-following dropped (\"1. a\")\"; a2b5753; transcript 0b953f5c 2026-10-21T18:09 \"a) Drop it and restore the old guard's behaviour\"; 2026-10-22T00:16 \"That's the behaviour you chose (\"1. a\", don't follow shell variables)\""
+      ],
+      "failing_case": [
+        "21 Oct the owner chose \"1. a\": drop the guard's variable-following, restore the old verdicts, \"Agents are told to write literal paths\". 22 Oct the front wrote to the owner that refusing `mkdir -p $TMPDIR/...` \"is the behaviour you chose ('1. a')\" and queued agent text telling agents to quote. This change follows variables again (the brief calls it the front's design) and rewrites the golden test that was built to prove they are not followed."
+      ],
+      "fix_hint": [
+        "Ask the owner before the merge; record the answer with relay check owner."
+      ],
+      "id": "F6",
+      "kind": "question",
+      "line": 486,
+      "owner": [
+        {
+          "date": "2026-10-23",
+          "words": [
+            "a: \"Follow variables with the strict rules, after the fixes above.\" (follow a variable only when set once, plainly, earlier in the same command; unknown variables read literally again; reverses the 21 Oct \"1. a\")"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. The owner's word on the direction is recorded (relay check owner) before the merge: either (a) keep following values set once in the same command, with F1 and F2 fixed, or (b) keep \"1. a\" and close the queue item by telling agents to quote or write literal paths."
+      ],
+      "path": "plugins/core/lib/kit_guard.py",
+      "rank": "medium",
+      "reason": [
+        "Owner answered a; recorded on the finding earlier."
+      ],
+      "severity": "MEDIUM",
+      "since": "d925caedc4854447ab5907b51da7d71e6a70d185",
+      "source": "review-guard-batch.json",
+      "source_id": "Q1",
+      "summary": "following shell variables at all reverses the owner's 21 Oct '1. a' (drop variable-following); the owner has not said so for this design",
       "verdict": "MET"
     }
   ],

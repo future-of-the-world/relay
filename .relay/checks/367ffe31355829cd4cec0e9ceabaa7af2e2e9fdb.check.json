@@ -150,6 +150,25 @@
       "source_id": "F6",
       "summary": "combined with master's change by the merge",
       "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "migrated: schema 1 kept this only as a count"
+      ],
+      "id": "N1",
+      "kind": "inside",
+      "line": 1,
+      "path": ".relay/checks/367ffe31355829cd4cec0e9ceabaa7af2e2e9fdb.check.json",
+      "rank": "medium",
+      "reason": [
+        "migrated: the old check counted open +1 with no finding behind it",
+        "Merge findings F1-F6 are met by the green gate on a81d66f. The open +1 is the post-review change to tests/test_archive_inert.py."
+      ],
+      "severity": "MEDIUM",
+      "since": "367ffe31355829cd4cec0e9ceabaa7af2e2e9fdb",
+      "source": "check",
+      "summary": "The old check counted open +1 with no finding behind it",
+      "verdict": "NOT MET"
     }
   ],
   "gate": "a81d66ff794f51056ac9473eb965c09e65a7efd9.gate.log",

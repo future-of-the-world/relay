@@ -25,7 +25,7 @@
       "fix_hint": [
         "Owner's choice; see the pass cases for each answer."
       ],
-      "id": "Q1",
+      "id": "F1",
       "kind": "question",
       "line": 1,
       "pass_cases": [
@@ -40,7 +40,8 @@
       ],
       "severity": "MEDIUM",
       "since": "2373c2fbfdfac2f5fbff02eaae54257f91b07089",
-      "source": "queue",
+      "source": "review-bench-worker.json",
+      "source_id": "Q1",
       "summary": "the prompts now order a worker, so delegated-to-a-worker measures obedience to the prompt, not whether the setup delegates",
       "verdict": "MET"
     },
@@ -58,7 +59,7 @@
       "fix_hint": [
         "In the test: derived = copy.deepcopy(base); derived[\"models\"][\"build\"] = \"haiku\"; derived[\"profile\"] = {\"name\": \"test-build-haiku\"}."
       ],
-      "id": "F1",
+      "id": "F2",
       "kind": "inside",
       "line": 47,
       "pass_cases": [
@@ -91,7 +92,7 @@
       "fix_hint": [
         "Loop over the copied plugin's agents/*.md, read relay-tier from each front matter, and set model/effort from profile models/effort for that tier."
       ],
-      "id": "F2",
+      "id": "F3",
       "kind": "inside",
       "line": 352,
       "pass_cases": [
@@ -125,7 +126,7 @@
       "fix_hint": [
         "Replace \"the front's guard keeps agents out of\" with \"the core plugin's main-checkout guard blocks every write in\"."
       ],
-      "id": "F3",
+      "id": "F4",
       "kind": "inside",
       "line": 65,
       "pass_cases": [

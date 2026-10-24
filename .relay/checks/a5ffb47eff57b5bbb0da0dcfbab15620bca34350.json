@@ -5,7 +5,7 @@
   "schema": 2,
   "time": "2026-10-24T02:01:01Z",
   "verdict": {
-    "open": 0,
+    "open": 1,
     "queued": 0
   }
 }

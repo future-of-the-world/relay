@@ -25,6 +25,25 @@
       "source_id": "F1",
       "summary": "combined with master's change by the merge",
       "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "migrated: schema 1 kept this only as a count"
+      ],
+      "id": "N1",
+      "kind": "inside",
+      "line": 1,
+      "path": ".relay/checks/a5ffb47eff57b5bbb0da0dcfbab15620bca34350.check.json",
+      "rank": "medium",
+      "reason": [
+        "migrated: the old check counted open +1 with no finding behind it",
+        "The only listed file is the merge-combined test file; the gate and test run are green. The +1 is the step-1 rule (changed since the review), not a defect."
+      ],
+      "severity": "MEDIUM",
+      "since": "a5ffb47eff57b5bbb0da0dcfbab15620bca34350",
+      "source": "check",
+      "summary": "The old check counted open +1 with no finding behind it",
+      "verdict": "NOT MET"
     }
   ],
   "gate": "9209e3f6cfb8334c51c761012fb3bb92e311c500.gate.log",
