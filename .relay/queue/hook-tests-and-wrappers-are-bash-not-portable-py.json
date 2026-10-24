@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 180,
+  "found_at": "2026-10-24T08:16:18Z",
+  "found_in": "relay queue add",
+  "title": "Hook tests and wrappers are bash, not portable Python",
+  "what": [
+    "Move the bash that holds logic into Python (stdlib, unittest): the hook test suites (plugins/core/tests/*.test.sh, about 2,560 lines) become tests/ or plugins/core/tests/ Python files run by the same gate step; hook wrappers (*.sh, 331 lines) keep at most a few lines of `exec python3 ...`; bin/ci and templates/bin-check keep only what a shell must do. Keep the test cases and their names; one suite per commit, each green before the next."
+  ],
+  "why": [
+    "Owner, verbatim: \"заведи пункт про перенос bash в python\". Bash behaves differently on macOS (bash 3.2, BSD tools): on 24 Oct the project template's check failed on a Mac because it called `timeout` and `md5sum`, which macOS lacks. Two languages also mean two ways to test and two sets of traps."
+  ],
+  "failing_case": [
+    "24 Oct: templates/bin-check called `timeout`/`md5sum` (GNU-only), so the first check of a new project on a Mac failed; relay has 3,438 lines of bash, 2,564 of them hook test suites."
+  ],
+  "pass_cases": [
+    "After the move, the gate runs the same cases (same count) from Python; no .sh file under plugins/ holds more than a few lines of wrapper; the gate passes on macOS with no GNU tools on PATH."
+  ],
+  "where": "plugins/core/tests/*.test.sh, plugins/core/hooks/*.sh, evals/plugin/*.sh, bin/ci, templates/bin-check",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
