@@ -5,9 +5,10 @@
   bin/paid-cost estimate [--dir DIR]                     prints the mean and max cost of a stored batch, or "not measured yet"
 
 DIR holds the eval records bin/eval-record stores ($RELAY_HOME/evals/<repo>/*.json, RELAY_HOME defaults to ~/.relay).
-The eval tool enforces the ceiling itself but lets the runs already started finish, so a ceiling can be passed by up
-to (jobs - 1) runs. The number passed is therefore the owner's cap minus (jobs - 1) x the largest cost of one run
-measured so far. When that leaves less than one run, or no run was measured, it is -j 1 and the cap itself.
+The eval tool enforces the ceiling itself but lets the runs in flight finish, so a batch can end up to one run per
+job above the ceiling. Passing the owner's cap minus (jobs - 1) x the largest cost of one run measured so far keeps
+the batch within one run of the cap. When that leaves less than one run, or no run was measured, it is -j 1 and the
+cap itself. Only full batches count in the estimate; the finished runs of a partial batch still count for the ceiling.
 """
 import argparse, json, os, subprocess, sys
 
@@ -19,7 +20,8 @@ def _num(v):
 
 
 def stored(folder):
-    """[(batch cost, number of runs)] of the stored records that have both; unreadable files are skipped."""
+    """[(batch cost, partial, [cost of each run])] of the stored records that have a batch cost and runs; unreadable files are skipped.
+    A run costs its costUsd + judgeCostUsd; a run with no numeric costUsd is left out."""
     out = []
     try:
         names = sorted(os.listdir(folder))
@@ -30,18 +32,20 @@ def stored(folder):
             continue
         try:
             d = json.load(open(os.path.join(folder, name), encoding="utf-8"))
-            runs = sum(len(r) for c in d["cases"] for r in c["arms"].values())
+            runs = [r for c in d["cases"] for rs in c["arms"].values() for r in rs]
             cost = d["costUsd"]
+            partial = d.get("partial") is True
+            costs = [r["costUsd"] + (r["judgeCostUsd"] if _num(r.get("judgeCostUsd")) else 0) for r in runs if _num(r.get("costUsd"))]
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             continue
-        if _num(cost) and runs > 0:
-            out.append((float(cost), runs))
+        if _num(cost) and runs:
+            out.append((float(cost), partial, costs))
     return out
 
 
 def ceiling(cap, jobs, records):
     """(jobs, ceiling) to pass to the eval tool."""
-    per_run = max((c / n for c, n in records), default=None)
+    per_run = max((c for _, _, cs in records for c in cs), default=None)
     if jobs <= 1 or per_run is None:
         return 1, cap
     room = cap - (jobs - 1) * per_run
@@ -51,10 +55,10 @@ def ceiling(cap, jobs, records):
 
 
 def estimate(records):
-    """One line: the mean and max cost of a batch over the stored runs, with their count."""
-    if len(records) < MIN_RUNS:
+    """One line: the mean and max cost of a full batch over the stored runs, with their count."""
+    costs = [c for c, partial, _ in records if not partial]
+    if len(costs) < MIN_RUNS:
         return "not measured yet"
-    costs = [c for c, _ in records]
     return f"mean ${sum(costs) / len(costs):.2f}, max ${max(costs):.2f} over {len(costs)} stored runs"
 
 

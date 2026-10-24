@@ -20,14 +20,16 @@ recorded replies before it gates anything. Nothing here runs in `bin/ci`.
   tool's default (it restricts nothing), so it is not set.
 
 Run (paid, 58 items, 870 votes; start only after review), one run per judge model. Cost: not measured yet in
-relay's own records (`bin/paid-cost estimate` reads the stored batches of `bin/ci`, not these runs); the two runs of
-2026-10-22 cost $0.49 on haiku and $6.32 on sonnet. The ceiling is not hard: runs already started finish after it
-trips (a $4 ceiling at `-j 4` ran to $6.32), and a run stopped at the ceiling is partial, so tally answers NOT JUDGED.
-So pass `bin/paid-cost ceiling --cap <your cap> --jobs 4` the owner's cap and use the `-j` and ceiling it prints
-(with no measured run it prints `1 <cap>`, one job). Set the cap above the expected cost:
+relay's own records (`bin/paid-cost` reads only the stored batches of `bin/ci`, a different eval set at about 30
+times the cost per run, so do not use it for these runs). Real figures of 2026-10-22: $0.49 on haiku (one full
+run) and $6.32 on sonnet for a run stopped partial at a $4 ceiling at `-j 4`; a full sonnet run costs more
+(about $7.5-8, not measured in full). The ceiling is not hard: runs in flight finish after it trips, and a run
+stopped at the ceiling is partial, so tally answers NOT JUDGED. With no stored record of these runs, use `-j 1`
+and set the ceiling (`--max-cost-usd`) at your cap, above the expected cost (the overshoot is then one run, about
+$0.03):
 
-    claude plugin eval . --eval-dir evals/judge-measure --runs 5 -j 4 --judge-model haiku  --ablation none --no-publish --trust-plugin --scaffold --max-cost-usd 2 --json <scratch>/measure-haiku.json
-    claude plugin eval . --eval-dir evals/judge-measure --runs 5 -j 4 --judge-model sonnet --ablation none --no-publish --trust-plugin --scaffold --max-cost-usd 10 --json <scratch>/measure-sonnet.json
+    claude plugin eval . --eval-dir evals/judge-measure --runs 5 -j 1 --judge-model haiku  --ablation none --no-publish --trust-plugin --scaffold --max-cost-usd <cap, above 0.5> --json <scratch>/measure-haiku.json
+    claude plugin eval . --eval-dir evals/judge-measure --runs 5 -j 1 --judge-model sonnet --ablation none --no-publish --trust-plugin --scaffold --max-cost-usd <cap, above 8> --json <scratch>/measure-sonnet.json
     python3 evals/judge-measure/tally.py <scratch>/measure-haiku.json --expect-model haiku
 
 A question passes when wrong verdicts <= 0 and split items <= 1 (`--max-wrong`, `--max-split`).
