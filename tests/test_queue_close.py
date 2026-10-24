@@ -35,9 +35,33 @@ class TestCloseWithEvidence(tq.Base):
             rq.close_with_evidence(self.main, "feat", "docs/reports/trial.md", **tq.QUIET)
         self.assertEqual(self.item("feat", sub="done/")["evidence"], "docs/reports/trial.md")
         self.assertEqual(self.item("feat", sub="done/")["closed_at"], "2026-10-24T08:00:00Z")
-        with self.assertRaises(rq.Refused) as ctx:          # a taken item is its branch's: release it first
+        tq.git(self.main, "checkout", "-q", "-b", "wt/x")      # its branch is live and not merged
+        tq.git(self.main, "commit", "-q", "--allow-empty", "-m", "work")
+        tq.git(self.main, "checkout", "-q", "master")
+        with self.assertRaises(rq.Refused) as ctx:          # a taken item is its branch's while it lives
             rq.close_with_evidence(self.main, "job", "abc1234", **tq.QUIET)
         self.assertIn("taken by wt/x", str(ctx.exception))
+
+    def test_f1_a_feature_taken_by_a_merged_or_gone_branch_closes_keeping_its_take(self):
+        self.write_commit(self.main, {".relay/queue/job.json": tq.with_fields(tq.feature_item("Job"), **tq.taken_fields("wt/x")),
+                                      ".relay/queue/live.json": tq.with_fields(tq.feature_item("Live"), **tq.taken_fields("wt/y"))}, "seed")
+        # wt/x is merged into master (a branch at an ancestor commit); wt/y has a commit master lacks
+        tq.git(self.main, "branch", "wt/x")
+        tq.git(self.main, "branch", "wt/y")
+        tq.git(self.main, "checkout", "-q", "wt/y")
+        tq.git(self.main, "commit", "-q", "--allow-empty", "-m", "unmerged")
+        tq.git(self.main, "checkout", "-q", "master")
+        with self.assertRaises(rq.Refused) as ctx:          # live and not merged: its taker closes it
+            rq.close_with_evidence(self.main, "live", "abc1234", **tq.QUIET)
+        self.assertIn("taken by wt/y", str(ctx.exception))
+        rq.close_with_evidence(self.main, "job", "abc1234", **tq.QUIET)
+        closed = self.item("job", sub="done/")
+        self.assertEqual((closed["state"], closed["evidence"], closed["taken_by"], closed["problems"]), ("done", "abc1234", "wt/x", []))
+        self.assertIsNotNone(closed["taken_at"])
+        # a branch that is gone altogether is the same
+        tq.git(self.main, "branch", "-D", "wt/y")
+        rq.close_with_evidence(self.main, "live", "def5678", **tq.QUIET)
+        self.assertEqual(self.item("live", sub="done/")["taken_by"], "wt/y")
 
     def test_q1_a_fix_without_a_test_is_still_refused(self):
         self.write_commit(self.main, {".relay/queue/job.json": tq.fix_item("Job")}, "seed")

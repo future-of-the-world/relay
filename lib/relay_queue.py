@@ -777,6 +777,15 @@ def drop(repo, slug, why, **engine):
     return _run(repo, planner, **engine)
 
 
+def _branch_live(repo, branch):
+    """True while refs/heads/<branch> exists and is not yet part of the default branch (its own `done` still has to find the item)."""
+    main, default = _context(repo)
+    ref = "refs/heads/" + branch
+    if relay_git.git(main, "show-ref", "--verify", "--quiet", ref)[0] != 0:
+        return False
+    return relay_git.git(main, "merge-base", "--is-ancestor", ref, "refs/heads/" + default)[0] != 0
+
+
 def close_with_evidence(repo, slug, evidence, **engine):
     """Close a feature that was finished without a branch of this repo's own: `evidence` is a merge sha (of this or another
     repo) or a report path, one line. A fix is closed with a test (`done`), never with this."""
@@ -788,7 +797,7 @@ def close_with_evidence(repo, slug, evidence, **engine):
         item = _item_at(reader, slug)
         if item["kind"] == "fix":
             raise Refused(f"'{slug}' is a fix: close it with --test on the branch that took it")
-        if item["state"] == "taken":
+        if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
             raise _taken_by_refusal(item)
         text = serialize(slug, changed(item, closed_at=utcnow(), evidence=evidence), "done")
         return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "closed")
