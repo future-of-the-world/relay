@@ -18,8 +18,8 @@
     "A change archived per sdd:archive, with a green gate and a check mark from before the archive, merges on the first try (or the skill says exactly which re-runs are needed and they are enough); a code change after the mark is still refused."
   ],
   "where": "lib/relay_inert.py:14-18, plugins/core/hooks/merge.py:172, plugins/sdd/skills/archive/SKILL.md:20-25,73-75",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T03:53:51Z",
+  "taken_by": "wt/archive-inert",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
