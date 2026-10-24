@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 30,
+  "found_at": "2026-10-24T03:46:28Z",
+  "found_in": "relay queue add",
+  "title": "profile [session] model/effort is never applied",
+  "what": [
+    "relay sync (and install) write the active profile's [session] model and effort into the user settings (~/.claude/settings.json keys model and effortLevel), merging like merge_user_settings does; relay doctor reports a mismatch."
+  ],
+  "why": [
+    "24 Oct, owner asked how to record the front's effort in relay. profiles/active.toml has [session] model = \"opus\", effort = \"high\" and calls itself \"the setup every session runs\", but only lib/relay_bench.py reads [session]; relay sync never writes them, and ~/.claude/settings.json holds effortLevel \"high\" set by hand. A change to [session] (an adopted candidate, say) silently does nothing for real sessions."
+  ],
+  "failing_case": [
+    "Set [session] effort = \"medium\" in profiles/active.toml and run `relay sync`: ~/.claude/settings.json still says effortLevel \"high\"."
+  ],
+  "pass_cases": [
+    "After `relay sync` the settings carry the profile's model and effortLevel, other keys untouched; `relay sync --dry` names the change; a second sync is unchanged."
+  ],
+  "where": "lib/relay_rules.py sync, lib/relay_setup.py merge_user_settings, profiles/active.toml [session]",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
