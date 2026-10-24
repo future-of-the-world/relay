@@ -349,14 +349,17 @@ def plugin_for_run(profile, folder, out_dir):
     dest = os.path.join(out_dir, f"plugin-{profile['profile']['name']}-{os.path.basename(folder)}")
     shutil.rmtree(dest, ignore_errors=True)
     shutil.copytree(folder, dest, symlinks=True)
-    for name, agent in agent_definitions(profile).items():
-        path = os.path.join(dest, "agents", f"{name}.md")
-        if not os.path.isfile(path):
+    models, efforts = profile.get("models", {}), profile.get("effort", {})
+    for file in sorted(os.listdir(os.path.join(dest, "agents"))):
+        if not file.endswith(".md"):
             continue
+        path = os.path.join(dest, "agents", file)
         text = open(path, encoding="utf-8").read()
-        for key in ("model", "effort"):
-            if agent.get(key):
-                text = re.sub(rf"^{key}:.*$", f"{key}: {agent[key]}", text, count=1, flags=re.M)
+        front, _ = split_frontmatter(text)
+        tier = front.get("relay-tier") or ""
+        for key, table in (("model", models), ("effort", efforts)):
+            if table.get(tier):
+                text = re.sub(rf"^{key}:.*$", f"{key}: {table[tier]}", text, count=1, flags=re.M)
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(text)
     return dest
