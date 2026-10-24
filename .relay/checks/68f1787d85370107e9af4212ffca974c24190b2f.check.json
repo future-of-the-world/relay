@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "tests/test_sync_refused.py::SyncRefused::test_a_refused_target_does_not_stop_the_later_ones (A foreign, B stale: B written, A untouched, exit 1, names A and --adopt) and test_the_old_principles_header_is_rewritten_without_adopt; both fail at 74b3ff4."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/sync-refused/.relay/checks/297b72dbd43611d5f64c91fa1bc90f192b0ff7a8.gate.log",
+  "head": "68f1787d85370107e9af4212ffca974c24190b2f",
+  "new": [],
+  "notes": [],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "74b3ff4e15754a8380daccfefa9ffb3f31ab15a4.review.json"
+  ],
+  "reviewed": "74b3ff4e15754a8380daccfefa9ffb3f31ab15a4",
+  "schema": 1,
+  "scope": [
+    "Fix range 74b3ff4..HEAD; files bin/relay, lib/relay_rules.py, tests. Ran test_sync_refused.py and test_relay.py (117 pass). Gate log head 297b72d, exit 0, only gate commit after. Base-worktree run: 5 of 7 new tests fail without fix."
+  ],
+  "type": "check"
+}
