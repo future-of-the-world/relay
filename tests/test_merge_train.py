@@ -483,8 +483,8 @@ class Bounded(TrainCase):
         real = subprocess.run
 
         def counting(args, *rest, **more):
-            if "ls-tree" in args:
-                reads.append((args[2], args[-1]))             # (repo, commit) of `git -C <repo> ls-tree -r -z <commit>`
+            if "ls-tree" in args and "--name-only" not in args:     # a whole tree: `git -C <repo> ls-tree -r -z <commit>`
+                reads.append((args[2], args[-1]))
             return real(args, *rest, **more)
         with mock.patch.object(subprocess, "run", counting):
             self.assertIsNone(self.verdict("wt/train-1"))
