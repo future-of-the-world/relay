@@ -18,8 +18,8 @@
     "`relay queue done <feature> --evidence <sha or report>` moves it to done and off the list; a fix without --test is still refused."
   ],
   "where": "bin/relay (queue done, queue drop), lib/ queue module",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T13:42:21Z",
+  "taken_by": "wt/queue-close",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
