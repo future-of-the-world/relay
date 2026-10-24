@@ -95,6 +95,7 @@ def new_candidate(name, base_name="active", copy_plugins=(), sets=()):
         copied.append(dst)
     out.setdefault("plugins", {})["enabled"] = enabled
     out["profile"] = {"name": name, "description": f"{base['profile']['name']} with " + (", ".join(sets) if sets else "") + (("; edited copies of " + ", ".join(copy_plugins)) if copy_plugins else "")}
+    out.pop("_derived", None)
     out["_path"] = os.path.join(ROOT, "profiles", "candidates", f"{name}.toml")
     os.makedirs(os.path.dirname(out["_path"]), exist_ok=True)
     with open(out["_path"], "w", encoding="utf-8") as handle:
@@ -106,7 +107,8 @@ def new_candidate(name, base_name="active", copy_plugins=(), sets=()):
 def derive_profile(base, sets):
     """A profile that is `base` with dotted keys changed: ["models.build=haiku", "effort.build=low"].
     Its name lists the changes, so the bench table and `relay improve adopt` can name it; it is also
-    written to profiles/candidates/<name>.toml so adopting it later works."""
+    marked `_derived`: run_bench writes it beside the bench report (never into the repository), and
+    `relay improve adopt <path to that file>` adopts it."""
     import copy
     out = copy.deepcopy(base)
     parts = []
@@ -129,12 +131,8 @@ def derive_profile(base, sets):
         parts.append(f"{path[-1]}-{value}".replace(",", "+"))
     name = "-".join(parts)[:60]
     out["profile"] = {"name": name, "description": f"{base['profile']['name']} with " + ", ".join(sets)}
-    folder = os.path.join(ROOT, "profiles", "candidates")
-    os.makedirs(folder, exist_ok=True)
-    out["_path"] = os.path.join(folder, f"{name}.toml")
-    with open(out["_path"], "w", encoding="utf-8") as handle:
-        handle.write(f"# Derived by `relay bench --set`: {out['profile']['description']}\n\n")
-        handle.write(to_toml(out))
+    out["_derived"] = True
+    out["_path"] = None
     return out
 
 
@@ -501,6 +499,12 @@ def run_bench(profiles, scenarios, runs=None, judge_model="haiku", keep=False, o
     os.makedirs(out_dir, exist_ok=True)
     if out_root and os.path.realpath(out_root) != os.path.realpath(bench_dir()):
         relay_paidcap.link_out(out_dir, stamp)   # the day's spend (bin/paid-cost today, the cap) counts a run kept outside ~/.relay/bench
+    for profile in profiles:
+        if profile.get("_derived"):
+            profile["_path"] = os.path.join(out_dir, f"{profile['profile']['name']}.toml")
+            with open(profile["_path"], "w", encoding="utf-8") as handle:
+                handle.write(f"# Derived by `relay bench --set`: {profile['profile']['description']}\n# Adopt with `relay improve adopt {profile['_path']}`.\n\n")
+                handle.write(to_toml(profile))
     config_dir = isolated_config_dir(out_dir) if isolate else None
     rows = []
     spent = 0.0
