@@ -1,0 +1,42 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_sync_refused.py:103 (+111, 116 pass cases); fails at base."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "tests/test_sync_refused.py:64; fails at base."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "tests/test_sync_refused.py:78; fails at base."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/sync-refused/.relay/checks/297b72dbd43611d5f64c91fa1bc90f192b0ff7a8.gate.log",
+  "head": "44a81fe44ac656f6b5ed1b7a07aeda7000d49bcc",
+  "new": [],
+  "notes": [
+    "refusal() shared by dry and write paths; render_target moved inside try. No new problems seen."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "5d046900fd2e5a54442834907c08e9f5dcda2e88.review.json"
+  ],
+  "reviewed": "5d046900fd2e5a54442834907c08e9f5dcda2e88",
+  "schema": 1,
+  "scope": [
+    "Fix range 5d04690..HEAD: bin/relay, lib/relay_rules.py, tests/test_sync_refused.py only. Ran tests/test_sync_refused.py (7 passed). Gate log for 297b72d exit 0, later commits only logs/queue state. Copied the test file into a base worktree at 5d04690: 3 failed (F1, F2, F3 tests), 4 pass-case tests passed. Callers of refused/report_refused read: cmd_sync, improve adopt, setup consistent."
+  ],
+  "type": "check"
+}
