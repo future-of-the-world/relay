@@ -2,10 +2,10 @@
 
 This module is the only code that reads or writes the folder `.relay/checks/` on a task branch:
 
-    <commit>.json         the check mark: {"schema": 1, "commit", "verdict": {"open", "queued", "reviewed"},
-                          "review", "check", "gate", "time"}; review and check name the two files below
-    <commit>.check.json   the checker's data (relay_verdict.py; the only stored form of the check)
-    <reviewed>.review.json  the review set: the review data of each findings file (the only stored form of the review)
+    <commit>.json         the check mark: {"schema": 2, "commit", "verdict": {"open", "queued"}, "check", "gate", "time"};
+                          check names the record below; the counts are the record's own (relay_verdict.open_of)
+    <commit>.check.json   the check record (relay_verdict.py): the item's problem, the reviews' findings, one verdict for
+                          each, the gate; the only stored form of a check, read by `relay_verdict.load_record`
     <commit>.gate.log     the gate log: first line `head <commit>`, last line `exit <n>`
 
 Writes are git commits made with `add` then `commit --no-verify --only -- <files>`: other staged changes stay
@@ -133,14 +133,18 @@ def _names(repo, ref):
     return sorted(os.path.basename(line) for line in out.splitlines())
 
 
+MARK_SCHEMA = 2
+
+
 def _valid(mark, commit):
     verdict = mark.get("verdict") if isinstance(mark, dict) else None
     return (
         isinstance(verdict, dict)
+        and mark.get("schema") == MARK_SCHEMA
         and mark.get("commit") == commit
+        and isinstance(mark.get("check"), str)
         and isinstance(verdict.get("open"), int) and not isinstance(verdict.get("open"), bool)
         and isinstance(verdict.get("queued"), int) and not isinstance(verdict.get("queued"), bool)
-        and is_sha(verdict.get("reviewed"))
     )
 
 
@@ -197,63 +201,30 @@ def newest(repo, ref, items):
     return None
 
 
-def review_set(repo, ref, name):
-    """The stored review set `name` at `ref` (relay_verdict.load_set); None when the file is not stored; MarkError when it
-    is stored but not valid (never a guess)."""
-    text = _show(repo, ref, name)
-    if text is None:
-        return None
-    try:
-        return relay_verdict.load_set(text, "the review data %s" % name)
-    except relay_verdict.VerdictError as exc:
-        raise MarkError(str(exc))
-
-
 def check_data(repo, ref, name):
-    """The stored check data `name` at `ref`; None when it is not stored; MarkError when it is not valid."""
+    """The stored check record `name` at `ref`; None when it is not stored; MarkError when it is not valid (a schema-1 check
+    is refused with a line that names `relay check migrate`)."""
     text = _show(repo, ref, name)
     if text is None:
         return None
     try:
-        return relay_verdict.load_check(text, "the check data %s" % name, stored=True)
+        return relay_verdict.load_record(text, "the check data %s" % name, stored=True)
     except relay_verdict.VerdictError as exc:
         raise MarkError(str(exc))
-
-
-def review_outside(repo, ref, name):
-    """Count of findings of kind `outside` in the stored review set `name`; None when it is not stored; MarkError when it
-    is not valid."""
-    data = review_set(repo, ref, name)
-    return None if data is None else relay_verdict.outside_count(data)
 
 
 def stored_texts(repo, sha):
-    """The JSON texts stored for commit `sha` (an abbreviation will do), found at HEAD or any local branch: the check of
-    that commit and the review set it covers; or, when no check is stored, the review set of that reviewed commit.
+    """The JSON text stored for commit `sha` (an abbreviation will do), found at HEAD or any local branch: its check record.
     MarkError when there is none (never a guess)."""
     rc, full = relay_git.git(repo, "rev-parse", "--verify", "-q", "%s^{commit}" % sha)
     if rc != 0 or not is_sha(full):
         raise MarkError("no commit %s" % sha)
     rc, out = relay_git.git(repo, "for-each-ref", "--format=%(refname)", "refs/heads/")
-    refs = ["HEAD"] + (out.splitlines() if rc == 0 else [])
-    for name in ("%s.check.json" % full, "%s.review.json" % full):
-        for ref in refs:
-            text = _show(repo, ref, name)
-            if text is None:
-                continue
-            if not name.endswith(".check.json"):
-                return [text]
-            texts = [text]
-            try:
-                review = json.loads(text).get("review")
-            except ValueError:
-                review = None
-            if isinstance(review, list) and review and isinstance(review[0], str):
-                more = _show(repo, ref, os.path.basename(review[0]))
-                if more is not None:
-                    texts.append(more)
-            return texts
-    raise MarkError("no stored check or review for %s" % full)
+    for ref in ["HEAD"] + (out.splitlines() if rc == 0 else []):
+        text = _show(repo, ref, "%s.check.json" % full)
+        if text is not None:
+            return [text]
+    raise MarkError("no stored check for %s" % full)
 
 
 def lock_path(worktree):
@@ -293,10 +264,10 @@ def show(repo, branch, sleep=time.sleep):
         return lines + ["mark: no mark yet", "outside: unknown (no mark yet)"]
     commit, data = mark
     verdict = data["verdict"]
-    lines.append("mark %s: open %d, queued %d, reviewed %s" % (commit, verdict["open"], verdict["queued"], verdict["reviewed"]))
+    lines.append("mark %s: open %d, queued %d" % (commit, verdict["open"], verdict["queued"]))
     try:
-        outside = review_outside(repo, ref, str(data.get("review") or "%s.review.json" % verdict["reviewed"]))
-        lines.append("outside: %s" % ("review not stored" if outside is None else "%d in the review" % outside))
+        record = check_data(repo, ref, data["check"])
+        lines.append("outside: %s" % ("check not stored" if record is None else "%d in the check" % relay_verdict.outside_of(record)))
     except MarkError as exc:
         lines.append("outside: unknown (%s)" % exc)
     return lines

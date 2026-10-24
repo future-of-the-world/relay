@@ -1,33 +1,94 @@
 {
+  "branch": "wt/no-merge-page",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by reading. The brief named this file and asked that no text describe the removed page; this line was missed",
+        "(the same wording was fixed in bin/relay's help). It tells no one to build the page, so it misleads only a little: LOW, cheap.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "git grep -n -w page -- rules roles plugins ...",
+        "plugins/delegate/skills/delegate/SKILL.md:172:not wrong; `relay check show` and the page print the words under the finding."
+      ],
+      "failing_case": [
+        "plugins/delegate/skills/delegate/SKILL.md:172 reads \"not wrong; `relay check show` and the page print the words under the finding.\"",
+        "There is no page any more (relay check page and lib/relay_checkpage.py are gone). It should name only `relay check show`."
+      ],
+      "fix_hint": [
+        "\"`relay check show` prints the words under the finding.\""
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 172,
+      "pass_cases": [
+        "- git grep -n -w page plugins/delegate/skills/delegate/SKILL.md prints nothing.",
+        "- The same paragraph still says `relay check show` prints the owner's words under the finding (true: test_verdict.py Owner.test_show_prints_the_words_under_the_finding).",
+        "- The bin/relay help for `check owner` already says \"show prints it\" (unchanged)."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "low",
       "reason": [
         "tests/test_relay.py:1022 asserts the old wording is gone; passes; git grep -w page in the delegate skill is empty."
       ],
+      "severity": "LOW",
+      "since": "e97dae75c90969cd0d510d378dd2030a639fe37c",
+      "source": "review-no-merge-page.json",
+      "source_id": "F1",
+      "summary": "the delegate skill still says the page prints the owner's words, after the page was removed",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading lib/relay_marks.show (bin/relay show_check falls to it for a branch): gate, mark, outside; no",
+        "finding summary. The judge base's reply carries the most important finding for this flow, so the front already has",
+        "the point without another runner read; naming it avoids an extra read per merge and a guessed line. The same gap holds",
+        "for \"<n> inside the change\" (show prints open/queued/outside, not the inside count), which predates this change.",
+        "LOW: the screen can still be made; the instruction is unclear, not wrong. Size: 5 minutes."
+      ],
+      "evidence": [
+        "lib/relay_marks.py:291-301 builds only \"gate ...\", \"mark ...: open %d, queued %d, reviewed %s\", \"outside: ...\".",
+        "plugins/front/skills/front/SKILL.md:62-65 \"Ask a runner for the numbers: `relay check show <branch>` prints three lines ...; the runner also names the main review point in plain words.\""
+      ],
+      "failing_case": [
+        "The front follows the skill: it asks a runner for `relay check show wt/no-merge-page`. That prints three lines",
+        "(\"gate <sha>: exit 0\", \"mark <sha>: open 0, queued 0, reviewed <sha>\", \"outside: 2 in the review\") and no finding text.",
+        "The skill then says \"the runner also names the main review point in plain words\" without saying from where, so the",
+        "runner must guess a command (or the front fills the line from memory). The line should come from a named source:",
+        "the critic's hand-back (it already gives \"the one finding that matters most\") or `relay check show <reviewed sha> --brief`."
+      ],
+      "fix_hint": [
+        "Replace \"the runner also names the main review point in plain words\" with \"the main review point is the critic's",
+        "hand-back line on the finding that matters most, in plain words\"."
+      ],
       "id": "F2",
+      "kind": "inside",
+      "line": 64,
+      "pass_cases": [
+        "- The merge section names one source for \"Main review point\": e.g. \"the critic's hand-back line on the finding that matters most\" (the front already holds it), or the runner command `relay check show <reviewed sha> --brief`.",
+        "- The section still says the front never reads the review, the check report or the gate log itself.",
+        "- The section still names `relay check show <branch>` for the three lines (tests/test_relay.py Roles test)."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "low",
       "reason": [
         "tests/test_relay.py:1024-1025 assert the new source and the old wording gone; passes; front SKILL.md line 62-65 names the critic's hand-back."
       ],
+      "severity": "LOW",
+      "since": "e97dae75c90969cd0d510d378dd2030a639fe37c",
+      "source": "review-no-merge-page.json",
+      "source_id": "F2",
+      "summary": "the screen asks for a main review point, but the named source cannot give it: `relay check show <branch>` prints no finding",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/no-merge-page/.relay/checks/75a716855ad6beb5dc350f35f1d0ca9c1a296ed8.gate.log",
+  "gate": "75a716855ad6beb5dc350f35f1d0ca9c1a296ed8.gate.log",
   "head": "429f2b2345f62131c88357177201b7d129c721a7",
-  "new": [],
+  "item": null,
   "notes": [
     "Full-suite run was not awaited; the gate is green on the same code."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "e97dae75c90969cd0d510d378dd2030a639fe37c.review.json"
-  ],
-  "reviewed": "e97dae75c90969cd0d510d378dd2030a639fe37c",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range e97dae7..HEAD; files: delegate SKILL.md, front SKILL.md, tests/test_relay.py (all named by findings). Gate log head 75a7168 exit 0; only the gate commit came after. Ran test_relay.py -k judge_base_part2: passed. Delegate skill has no word page left."
   ],

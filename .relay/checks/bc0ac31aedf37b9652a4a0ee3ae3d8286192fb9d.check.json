@@ -1,26 +1,40 @@
 {
+  "branch": "wt/queue-events",
   "findings": [
     {
+      "details": [
+        "The owner, 24 Oct: \"\u042f \u043c\u044b\u0441\u043b\u044e \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0435\u0439 - \u0435\u0441\u043b\u0438 \u043c\u044b \u043c\u043e\u0436\u0435\u043c \u043f\u0440\u0435\u0434\u043e\u0442\u0432\u0430\u0442\u0438\u0442\u044c \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0439 \u0433\u0434\u0435 \u043e\u043d\u043e \u043b\u043e\u043c\u0430\u0435\u0442\u0441\u044f, \u0442\u043e \u043b\u0443\u0447\u0448\u0435 \u044d\u0442\u043e \u0441\u0434\u0435\u043b\u0430\u0442\u044c\"; \"\u041f\u0440\u0438 \u043f\u0440\u043e\u0435\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0438 \u0431\u0430\u0437 \u0434\u0430\u043d\u043d\u044b\u0445 \u044f \u0441\u0430\u043c \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u0440\u043e\u0442\u0438\u0432 \u043f\u043e\u043b\u0435\u0439 status, \u043e\u043d\u0438 \u043d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u0434\u0430\u044e\u0442 \u0438 \u0438\u0445 \u043b\u0435\u0433\u043a\u043e \u043f\u043e\u0441\u0447\u0438\u0442\u0430\u0442\u044c \u0438\u0441\u0445\u043e\u0434\u044f \u0438\u0437 \"\u0440\u0435\u0430\u043b\u044c\u043d\u043e\u0433\u043e\" \u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u044f \u043e\u0431\u044a\u0435\u043a\u0442\u0430\"; \"\u0412\u043c\u0435\u0441\u0442\u043e updated_at \u044f \u043f\u043e\u043c\u0435\u0447\u0430\u044e \u0441\u043e\u0431\u044b\u0442\u0438\u0439\u043d\u043e - closed_at, taken_at, dropped_at, \u0443 \u043f\u043e\u043b\u0435\u0439 \u0442\u0430\u043a \u0436\u0435 \u0435\u0441\u0442\u044c \u043f\u0440\u0430\u0432\u0438\u043b\u0430 \u0432\u0430\u043b\u0438\u0434\u0430\u0446\u0438\u0438\"; \"\u041c\u044b \u043a\u043e\u043d\u0435\u0447\u043d\u043e \u0432\u0441\u0451 \u0435\u0449\u0451 \u0441\u043c\u043e\u0436\u0435\u043c \u043d\u0430\u0439\u0442\u0438 \u0434\u0430\u0442\u0443 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f \u043f\u043e git - \u043d\u043e \u044d\u0442\u043e \u043d\u0435\u0443\u0434\u043e\u0431\u043d\u043e \u0434\u0435\u043b\u0430\u0442\u044c \u0441 \u043f\u043e\u043c\u043e\u0449\u044c\u044e \u0430\u043d\u0430\u043b\u0438\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u0441\u043a\u0440\u0438\u043f\u0442\u043e\u0432\". Picks: \"\u0430 \u0430\" (event fields with the done/ folder kept and checked; ip 95)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A file with \"state\": \"open\" and \"taken_by\": \"wt/x\" passes check() today (lib/relay_queue.py:60-96 checks only that state is one of four words), so `relay queue` lists it as open while a branch holds it; and \"how long did runner-turns-while-waiting wait between found and taken\" cannot be answered from its file (no taken_at), only by parsing git log."
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "check() refuses an item whose fields contradict (closed_at without a test, closed_at before taken_at, dropped_at with closed_at, a done/ file without closed_at or dropped_at); take, release, done and drop write the matching *_at field; every existing item after migration carries the dates git gives; queue views compute state from the fields; no file holds a state key."
+      ],
+      "path": "lib/relay_queue.py, lib/queue_ext/, tests/test_queue.py, .relay/queue/",
+      "rank": "high",
       "reason": [
         "tests/test_queue.py:388-446 (state computed from events, every contradiction refused: closed before taken, closed without test, dropped with closed, done/ without end), :949 done writes closed_at, :1305 check refuses done/ file without end; migration tests TestMigrate:1213. All pass; the new-shape tests fail on the reviewed sha."
       ],
+      "severity": "HIGH",
+      "since": "69c2641f0c7ed3f00d8af528303517ae211b78a5",
+      "source": "queue",
+      "summary": "Queue items store state instead of dated events",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/queue-events/.relay/checks/6e2b5c0f8d9f4f6a6a2f516a886fb34a07f20d5f.gate.log",
+  "gate": "6e2b5c0f8d9f4f6a6a2f516a886fb34a07f20d5f.gate.log",
   "head": "bc0ac31aedf37b9652a4a0ee3ae3d8286192fb9d",
-  "new": [],
+  "item": "queue-items-store-state-instead-of-dated-events",
   "notes": [
     "Scope: own-changed list includes docs/notes/principles-draft* from handover commit 0051c0e (not the fix; notes only). Other files are the ones the report names."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "69c2641f0c7ed3f00d8af528303517ae211b78a5.review.json"
-  ],
-  "reviewed": "69c2641f0c7ed3f00d8af528303517ae211b78a5",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range 69c2641..HEAD. Check command: tests/test_queue.py 88 passed. Gate log head 6e2b5c0 exit 0; relay changed from that sha lists no file. TestNewShape run on the reviewed sha with the new test file: 4 failed (fails without the fix). No state key left in .relay/queue files."
   ],

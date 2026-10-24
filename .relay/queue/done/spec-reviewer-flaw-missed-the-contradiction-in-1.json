@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 97,
+  "time": 45,
+  "found_at": "2026-10-24T09:54:00Z",
+  "found_in": "relay queue add",
+  "title": "spec-reviewer-flaw missed the contradiction in 1 of 3 runs",
+  "what": [
+    "Find why one run's last message did not match finds-the-contradiction (the run's transcript in the 24 Oct wt-py-rule record and evals/plugin/results/2026-10-24T09-07-34-394Z of that worktree, copied to the scratchpad before the worktree goes): the reviewer missed the flaw, or found it in words the pattern does not match. Fix the cause (the role text, or the grader if it judges wording instead of meaning: principle 5), not the one run."
+  ],
+  "why": [
+    "The paid run of the Python rule change, 24 Oct (record ~/.relay/evals/relay/2026-10-24T09-07-34Z-wt-py-rule.json) went RED on this one grader (\"pattern not found in last_message\"); 0 of the 42 earlier runs of this case in the 13 records since 22 Oct failed. Under the owner's 24 Oct order (\"a\": one paid run per wave, a red run is a fix item at the top) the change merged and the failure is this item."
+  ],
+  "failing_case": [
+    "Record 2026-10-24T09-07-34Z-wt-py-rule.json: spec-reviewer-flaw, finds-the-contradiction passed false in 1 of 3 runs."
+  ],
+  "pass_cases": [
+    "The cause is named with evidence from that run's transcript; after the fix the case passes in the next wave's paid run; a reviewer reply that names the contradiction in other words still passes the grader."
+  ],
+  "where": "evals/plugin/spec-reviewer-flaw (case, grader finds-the-contradiction), the spec reviewer's role text",
+  "taken_at": "2026-10-24T11:35:15Z",
+  "taken_by": "wt/spec-flaw",
+  "closed_at": "2026-10-24T12:54:20Z",
+  "test": "tests/test_spec_flaw.py::FindsTheContradiction::test_failing_run_reply_passes",
+  "dropped_at": null,
+  "dropped_why": null
+}

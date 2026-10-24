@@ -1,0 +1,199 @@
+{
+  "branch": "wt/checks-record",
+  "findings": [
+    {
+      "details": [
+        "_gate takes os.path.basename(gate), requires GATE_NAME (^<40 hex>.gate.log$) and reads only",
+        "<wt>/.relay/checks/<name>. The judge base (synced into every project's checker) still promises a runner log or a",
+        "pipeline gate for projects without relay's gate. Since the counts are now derived and the gate problems are N findings,",
+        "those projects can never record open 0. CONFIRMED (reproduced). Size: 30."
+      ],
+      "evidence": [
+        "scratchpad/repro/test_repro_record.py::Repro::test_gate_log_outside_relay_checks",
+        "  scratch log refused: nothing recorded: `gate` must be \"none\" or a <sha>.gate.log file name, got '/private/var/.../gate.log'",
+        "  pipeline refused: nothing recorded: `gate` must be \"none\" or a <sha>.gate.log file name, got 'pipeline #12 on 13b15f99... passed'",
+        "git show master:lib/relay_verdict.py:195  gate must be a log path or null   (any path accepted before)",
+        "roles/judge.md:120 and plugins/delegate/skills/delegate/SKILL.md:108-112 name runner logs and pipelines as gates."
+      ],
+      "failing_case": [
+        "A project without .relay/ (the delegate skill step 3: \"Elsewhere the gate is the project's own command, run by a runner",
+        "into a log\"), or one whose gate is a remote pipeline (judge step 2: \"Gate: pipeline #<n> on <full sha> passed\").",
+        "The checker writes gate = \"<scratchpad>/gate.log\" (first line head <sha>, last exit 0) or gate = \"pipeline #12 on <sha> passed\".",
+        "Now: `relay check record check` refuses: gate must be \"none\" or a <sha>.gate.log file name. Writing gate = \"none\" instead",
+        "records N1 HIGH \"no gate result for the code of this change\", so open is 1 on every check of every such project.",
+        "Before this change master accepted any gate text (relay_verdict.py record_errors: \"gate must be a log path or null\").",
+        "Expected: a green log at any path whose first line is head <checked code> and last line exit 0, or a passed pipeline line",
+        "for that sha, records with no N finding and open 0."
+      ],
+      "fix_hint": [
+        "In _gate: accept a path (absolute or relative to the worktree) and read the log there; keep the head/exit/later-change",
+        "checks; accept \"pipeline #<n> on <sha> passed\" as a gate whose sha follows the same later-change rule. The mark keeps",
+        "only a gate under .relay/checks (write_mark already checks the file exists there)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 711,
+      "pass_cases": [
+        "1. gate = \"<scratch>/gate.log\" holding \"head <HEAD>\" ... \"exit 0\", code unchanged since: recorded, no N finding, open 0.",
+        "2. gate = \"pipeline #12 on <HEAD> passed\": recorded, no N finding (record keeps the line or a pipeline field).",
+        "3. gate = \"<wt>/.relay/checks/<HEAD>.gate.log\" green (today's relay case): recorded, gate = its name, no N (works today).",
+        "4. the same scratch log ending \"exit 1\": recorded with N1 \"the gate is red\", open 1.",
+        "5. a scratch log whose head is an older commit with code changed since: N1 \"for other code than head\"."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_check_record.py:486,496,507,514 pass; first three fail at afc8e0b."
+      ],
+      "severity": "HIGH",
+      "since": "afc8e0b76f3208fb461454b867d745dda5f36d87",
+      "source": "review-checks-record.json",
+      "source_id": "F1",
+      "summary": "a check can no longer name a gate that is not <wt>/.relay/checks/<sha>.gate.log: runner logs and remote pipelines are refused, and `none` adds an open HIGH",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "_gate(\"none\") takes base = merge-base(default, head) and relay_inert.changed(wt, base, head) without own=True, so the",
+        "whole change (and anything a merge from the default branch brought) counts as \"code changed with no gate\". The judge",
+        "text keeps the exemption for a review with no fix commits and for openspec/ and docs files; the script now adds the N",
+        "finding itself and the checker cannot answer it (N findings take no status). In the issues flow every review with",
+        "nothing to fix ends with open 1. CONFIRMED (reproduced). Size: 20."
+      ],
+      "evidence": [
+        "scratchpad/repro/test_repro_record.py::ReproNone::test_fixes_none_gate_none_no_fix_commits",
+        "  fixes-none open 1 [('N1', 'no gate result for the code of this change')]",
+        "scratchpad/repro/test_repro_record.py::Repro::test_artifacts_only_gate_none",
+        "  artifacts open 1 [('N1', 'no gate result for the code of this change')]",
+        "git show master:roles/judge.md step 2: \"Otherwise a missing log (with fix commits), a red one, or one for other code is open +1\"."
+      ],
+      "failing_case": [
+        "plugins/issues/skills/implement/SKILL.md:62 (and checker.md:16): \"with no fix commits, `Fixes: none` and `Gate: none`\".",
+        "A branch changed lib/y.py; the review is of HEAD and found only a LOW; no fix follows. The checker records gate = \"none\"",
+        "and MET for every finding.",
+        "Now: the record gets N1 HIGH \"no gate result for the code of this change\", open 1, because _gate lists every non-inert",
+        "file changed since the merge-base with the default branch, the whole change, not the fix commits.",
+        "Old rule (judge text on master): \"a missing log (with fix commits) ... is open +1\"; with no fix commit nothing counted.",
+        "Expected: no N finding and open 0 when no own non-inert file changed after the newest review's since."
+      ],
+      "fix_hint": [
+        "In _gate's \"none\" branch: list relay_inert.changed(wt, <newest review since>, head, own=True) (build_findings already has",
+        "the reviews' since), drop openspec/** and docs/**, and add the N finding only when something is left."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 698,
+      "pass_cases": [
+        "1. review of HEAD, no commit after it, gate \"none\": no N finding, open 0.",
+        "2. review of the take commit, a fix commit to lib/y.py after it, gate \"none\": N1 \"no gate result\", open 1 (works today).",
+        "3. review of HEAD, then only docs/handover.md or .relay/ commits, gate \"none\": no N finding.",
+        "4. review of HEAD, then a merge of the default branch bringing only master's files, gate \"none\": no N finding (own files only).",
+        "5. review of HEAD, then only openspec/** or docs/** changed, gate \"none\": no N finding (the judge text's exemption, step 2)."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_check_record.py:526,541 pass and fail at afc8e0b; :533 keeps open after a fix commit."
+      ],
+      "severity": "HIGH",
+      "since": "afc8e0b76f3208fb461454b867d745dda5f36d87",
+      "source": "review-checks-record.json",
+      "source_id": "F2",
+      "summary": "Gate: none with Fixes: none records an open HIGH 'no gate result' for every code change, though no fix commit came after the review",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "build_findings sets the anchors to the newest mark on the branch's own commits and the reviews' since; _merge_findings",
+        "only looks at merges in anchor..head. A mark is written for every check, also one with open > 0, so a NOT MET M of that",
+        "check is before the anchor of the next one. F findings survive because the review files are passed again; M findings",
+        "have no file to be passed again. The design text says \"the newer of the branch's last mark and the newest F since\",",
+        "but its intent (the merge check, one checker run) is to judge each combination; the fix stays inside the design by",
+        "taking the newest mark whose record holds no M that is not MET (or open 0). CONFIRMED (reproduced). Size: 20."
+      ],
+      "evidence": [
+        "scratchpad/repro/test_repro_record.py::Repro::test_m_not_met_is_lost_on_recheck",
+        "  first open 1 ['Q1', 'F1', 'M1']",
+        "  second open 0 ['Q1', 'F1']"
+      ],
+      "failing_case": [
+        "The branch is reviewed, takes master (master changed lib/y.py, which the branch also changed), gate, check 1: M1 NOT MET,",
+        "open 1, mark written. The owner says fix it; the fixer commits lib/w.py (not y.py); gate; check 2 with Q1 and F1 MET.",
+        "Now: check 2's record holds only Q1 and F1 (no M1), open 0, so the merge goes on with the merge combination never MET.",
+        "Expected: M1 is listed again (or open stays above 0) until a check gives it MET."
+      ],
+      "fix_hint": [
+        "In build_findings, pick as the mark anchor the newest own mark whose stored record has every M finding MET (read with",
+        "relay_marks.check_data); a record with an M not MET does not move the anchor."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 765,
+      "pass_cases": [
+        "1. Check 1 has M1 NOT MET; a fix that does not touch the file; check 2: `relay check findings` lists M1 again and the record needs its verdict.",
+        "2. Check 1 has M1 MET; check 2 after more fixes and no new merge: no M finding (works today).",
+        "3. Check 1 with no M; a later merge of the default branch changes a file the branch changed: M1 at that merge (works today).",
+        "4. Check 1 has M1 NOT MET, then a new merge brings another file: check 2 lists both files."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_check_record.py:552 passes, fails at afc8e0b; :569 keeps the MET case."
+      ],
+      "severity": "MEDIUM",
+      "since": "afc8e0b76f3208fb461454b867d745dda5f36d87",
+      "source": "review-checks-record.json",
+      "source_id": "F3",
+      "summary": "an M finding judged NOT MET disappears from the next check: the anchor is the last mark, whatever its verdicts",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Correct today (close_refusal takes the last :: part), but the test named for case 2 would pass with that handling removed",
+        "for the class form. CONFIRMED by reading. Size: 5."
+      ],
+      "evidence": [
+        "sed -n 351,358p tests/test_check_record.py"
+      ],
+      "failing_case": [
+        "test_t2_done_and_the_guard_judge_a_test_name_by_the_same_function, last lines: the comment says \"the same name written",
+        "as file::Class::function is the same test to both\" and the assertion passes TEST_FILE + \"::test_job_works\" (no class).",
+        "The brief's case 2 (tests/x.py::HookTestsStep::test_quick_runs_the_free_core_tests) is not exercised here; it stays",
+        "covered only by tests/test_guard_test_name.py on master.",
+        "Expected: the assertion uses a Class::function name, from both done and the merge guard."
+      ],
+      "fix_hint": [
+        "Give TEST_SOURCE a class, or add one class-form assertion through done and step_queue."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 357,
+      "pass_cases": [
+        "1. TEST_SOURCE with class TestJob and def test_job_works; close_refusal(..., \"tests/test_job.py::TestJob::test_job_works\") is None, and step_queue after done with that name is None.",
+        "2. \"tests/test_job.py::TestJob::test_job\" (a part of the name): both refuse with \"does not hold a test named test_job\"."
+      ],
+      "path": "tests/test_check_record.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_check_record.py test_t2 now uses the TestJob class form; passes."
+      ],
+      "severity": "LOW",
+      "since": "afc8e0b76f3208fb461454b867d745dda5f36d87",
+      "source": "review-checks-record.json",
+      "source_id": "F4",
+      "summary": "the T2 test says it checks the file::Class::function form but passes the plain file::function name",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "1b3449bbfe7e4e309a712469e4d448517c8e2777.gate.log",
+  "head": "8b3be0766fafa91369850a078e26db3f8558d8ea",
+  "item": null,
+  "notes": [
+    "F3 pass case 4 (a new merge after NOT MET M1 lists both) has no dedicated test; the anchor logic is exercised by the two f3 tests. F4 test passes before and after by design (guards behaviour)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range afc8e0b..HEAD. Gate log head 1b3449b, exit 0; relay changed lists no file after it (only inert). Ran tests/test_check_record.py (41 passed) and full tests (385 passed). In a throwaway worktree at afc8e0b with the head test file: 6 tests failed (F1 x3, F2 x2, F3 x1), removed after. Files changed: lib/relay_verdict.py and its two synced copies, tests/test_check_record.py, plus tests/test_verdict.py and plugins/core/tests/check-mark.test.sh (error wording follows the widened gate rule, disclosed by the fixer)."
+  ],
+  "type": "check"
+}

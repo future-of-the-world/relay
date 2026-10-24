@@ -97,24 +97,31 @@ fields (failing case, pass-cases, why it matters, size). It is never fixed in th
 When the prompt says `Check: <findings file>` (or several, comma-separated),
 you check a fix; you do not review again. A findings file is a review's JSON:
 read it with `relay check show <path>`. The prompt also names the fixer's
-report, the worktree, the check to run and the full gate's log.
-1. The fix range is `<Reviewed sha>..HEAD` (the `reviewed` sha of the findings
-   file). List its files with `relay changed --own -C <path>
-   <Reviewed sha>`: it prints the changed files that are not on the
-   project's inert list (state files such as the handover) and that the
-   branch itself changed, not files that arrived when it took the default
-   branch. Steps 2-5 use only that list. With `Fixes: none`, a non-empty list is `open` +1,
-   "changed since the review: <files>".
+report, the worktree, the check to run and the full gate's log. The check is
+ONE record. Run `relay check findings -C <path> --review <findings file> ...`
+first: it lists every finding you give a verdict for, each with its id and
+the commit it was stated against (`since`). `Q1` is the queue item's problem
+(the fix item this branch took, stated when it was taken). `F1`, `F2`, ... are
+the findings of the findings files in the order given (a second file's first
+finding is numbered after the last of the first file). `M1`, ... are files this
+branch changed that a merge of the default branch changed after the last
+review or check. Use these ids, not the files' own.
+1. A finding is judged over `<since>..HEAD`, its own `since`. List the
+   files with `relay changed --own -C <path> <since>`: it prints the changed
+   files that are not on the project's inert list (state files such as the
+   handover) and that the branch itself changed, not files that arrived when it
+   took the default branch. Steps 2-5 use only that list. With `Fixes: none`, a
+   non-empty list for an `F` finding is a new problem, "changed since the
+   review: <files>".
 2. Run the tests the fixer named for each finding (its failing-case test and
    its pass-case tests), each test file once, and the check the prompt names.
    A case is `MET` when a test asserts it (`file:line`), you saw that test
    pass, and reading it shows it encodes that case (its inputs and expected
    outcome); an artifact case is `MET` when the line exists. Otherwise
-   `NOT MET`, with why. When the project has a work queue, a finding from a
-   findings file whose scope says `From queue item <slug>` is `MET` only when its
-   failing-case test also fails without the fix: `git -C <path> worktree add
-   --detach <scratchpad>/base <Reviewed sha>`, copy the test file in, run it,
-   see it fail, then `git worktree remove` it.
+   `NOT MET`, with why. When the record has a `Q1`, it is `MET` only when its failing-case test
+   also fails without the fix: `git -C <path> worktree add --detach
+   <scratchpad>/base <Q1's since>`, copy the test file in, run it, see it fail,
+   then `git worktree remove` it.
    The full gate, run after the last fix commit and before this check
    (where the project has `.relay/`, `relay gate` ran it and the log is
    `.relay/checks/<G>.gate.log` in the worktree):
@@ -125,9 +132,10 @@ report, the worktree, the check to run and the full gate's log.
    result instead, `Gate: pipeline #<n> on <full sha> passed`, and the same
    sha rule holds. `Gate: none (artifacts only)` means the flow has no gate
    by design (a spec review): a missing log is then not counted, but a file
-   of step 1 outside `openspec/` and docs is `open` +1, "code changed with
-   no gate". Otherwise a missing log (with fix commits), a red one, or one
-   for other code is `open` +1, named.
+   of step 1 outside `openspec/` and docs is a new problem, "code changed with
+   no gate". Otherwise a missing log, a red one, or one for other code is not yours to
+   count: `relay check record check` adds it to the record as a finding of the
+   check (`N<n>`), which counts as open. Name the gate in your reply.
 3. Scope: the files of step 1 are only those the findings name and their
    tests. Any other file is `NOT MET (scope)`, named.
 4. Callers: for each function, key, setting or message whose behaviour the
@@ -140,18 +148,19 @@ report, the worktree, the check to run and the full gate's log.
 6. The fixer's `Disputed:`, `Gap:` and `Outside:` lines go to the owner as
    they are, each with your view in one line.
 7. Give each finding one status, `F2 MET tests/test_inert.py:88` or
-   `F2 NOT MET <why>` (recorded as a `[[status]]` table, its `reason` the rest), then
-   record the check with the verdict (options in your flow part). `open` counts
-   the `HIGH` and `MEDIUM` findings inside the change that are `NOT MET`,
-   plus the new ones and the +1s of steps 1 and 2, minus those that
-   have an `owner` entry in the review data (the owner's word, kept by `relay
-   check owner`; `relay check show` prints it under the finding). When the project has a work
-   queue, a finding the owner moved to a queue item is data: an `owner` entry
-   with `queue` (the item's name), kept by `relay check owner` from a TOML with
-   `queue = "<slug>"` beside `words`. It counts under `queued`, not `open`;
-   `relay check owner` refuses a name that is not on the default branch, and
-   then the finding stays in `open`. `relay check record check` refuses a
-   `queued` below the number of such entries.
+   `F2 NOT MET <why>` (recorded as a `[[status]]` table, its `reason` the rest;
+   one for every id `relay check findings` listed, no more), then record the
+   check (options in your flow part). A new problem of yours from steps 3-5 is
+   a `[[new]]` table; the script numbers it `N<n>`. You type no `open` or
+   `queued`: the script derives `open` from the record (the `HIGH` and
+   `MEDIUM` findings inside the change that are not `MET` and have no `owner`
+   entry), so a red or missing gate counts too. An `owner` entry is the owner's
+   word, kept by `relay check owner` (`relay check show` prints it under the
+   finding). When the project has a work queue, a finding the owner moved to a
+   queue item is data: an `owner` entry with `queue` (the item's name), kept by
+   `relay check owner` from a TOML with `queue = "<slug>"` beside `words`. It
+   counts under `queued`, not `open`; `relay check owner` refuses a name that is
+   not on the default branch, and then the finding stays in `open`.
 What is `NOT MET` or new goes to the owner, never to another fix round.
 
 ## Record the findings (review) and the verdict (check)

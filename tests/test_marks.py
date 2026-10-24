@@ -16,7 +16,6 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
 import relay_marks  # noqa: E402
-import relay_verdict  # noqa: E402
 
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
@@ -52,10 +51,9 @@ class Marks(unittest.TestCase):
         git(self.wt, "commit", "-q", "-m", "work")
         self.head = git(self.wt, "rev-parse", "HEAD")
 
-    def mark(self, commit=None, open_=0, queued=0, reviewed=None):
+    def mark(self, commit=None, open_=0, queued=0):
         commit = commit or self.head
-        return {"schema": 1, "commit": commit, "verdict": {"open": open_, "queued": queued, "reviewed": reviewed or commit},
-                "review": "%s.review.json" % (reviewed or commit), "check": "%s.check.json" % commit, "gate": None, "time": "t"}
+        return {"schema": 2, "commit": commit, "verdict": {"open": open_, "queued": queued}, "check": "%s.check.json" % commit, "gate": None, "time": "t"}
 
     def lock(self):
         return relay_marks.lock_path(self.wt)
@@ -64,13 +62,13 @@ class Marks(unittest.TestCase):
 
     def test_put_get_marks_roundtrip_and_one_commit(self):
         before = git(self.wt, "rev-list", "--count", "HEAD")
-        relay_marks.put(self.wt, self.head, self.mark(), {"%s.check.json" % self.head: "{}\n", "%s.review.json" % self.head: "{}\n"})
-        # three files in exactly one new commit (hand-counted: the mark, the check data, the review data; no .md)
+        relay_marks.put(self.wt, self.head, self.mark(), {"%s.check.json" % self.head: "{}\n"})
+        # two files in exactly one new commit (hand-counted: the mark and the check record; no .md)
         self.assertEqual(int(git(self.wt, "rev-list", "--count", "HEAD")), int(before) + 1)
         self.assertEqual(sorted(git(self.wt, "show", "--name-only", "--format=", "HEAD").split()),
-                         sorted([".relay/checks/%s.%s" % (self.head, e) for e in ("json", "check.json", "review.json")]))
+                         sorted([".relay/checks/%s.%s" % (self.head, e) for e in ("json", "check.json")]))
         got = relay_marks.get(self.main, "wt/x", self.head)
-        self.assertEqual(got["verdict"], {"open": 0, "queued": 0, "reviewed": self.head})
+        self.assertEqual(got["verdict"], {"open": 0, "queued": 0})
         self.assertEqual([c for c, _ in relay_marks.marks(self.main, "wt/x")], [self.head])
         self.assertEqual(relay_marks.marks(self.main, "master"), [])
 
@@ -152,17 +150,19 @@ class Marks(unittest.TestCase):
             handle.write("head %s\ncmd bin/ci --quick\nci: green\nexit 0\n" % self.head)
         relay_marks.commit_file(self.wt, log, "relay: gate of %s" % self.head)
 
-    def stored(self, review_data="default"):
-        """A gate log, then a mark whose review set holds three findings, two of kind outside (hand-written), a question
-        and one inside. `review_data` replaces the stored review set's text (None: not stored)."""
+    def record(self, *kinds):
+        """A stored check record whose findings have these kinds (hand-written: Fn, the n-th kind)."""
+        findings = [dict(self.finding("F%d" % n, kind), source="a.json", since=self.head, verdict="MET") for n, kind in enumerate(kinds, 1)]
+        return {"schema": 2, "type": "check", "head": self.head, "branch": "wt/x", "item": None, "gate": None, "scope": [], "notes": [], "findings": findings}
+
+    def stored(self, record="default"):
+        """A gate log, then a mark whose check record holds four findings, two of kind outside (hand-written), a question
+        and one inside. `record` replaces the stored record's text (None: not stored)."""
         self.gate_log()
-        review = {"schema": 1, "type": "review", "reviewed": self.head, "base": "master", "file": "f.json",
-                  "findings": [self.finding("F1", "inside"), self.finding("F2", "outside", "lib/b.py", 7),
-                               self.finding("F3", "outside", "lib/c.py"), self.finding("F4", "question")]}
-        text = json.dumps(relay_verdict.stored_set([review], self.head)) if review_data == "default" else review_data
+        text = json.dumps(self.record("inside", "outside", "outside", "question")) if record == "default" else record
         files = {}
         if text is not None:
-            files["%s.review.json" % self.head] = text
+            files["%s.check.json" % self.head] = text
         relay_marks.put(self.wt, self.head, self.mark(queued=1), files)
 
     def test_P3_prints_exactly_three_lines(self):
@@ -170,31 +170,37 @@ class Marks(unittest.TestCase):
         done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "check", "show", "-C", self.main, "wt/x"],
                               capture_output=True, text=True, env={**os.environ, "RELAY_ROOT": ROOT})
         self.assertEqual(done.returncode, 0, done.stderr)
-        # worked by hand: gate exit 0; mark open 0 queued 1 reviewed = the head; the review set has two findings of kind outside
+        # worked by hand: gate exit 0; mark open 0 queued 1 reviewed = the head; the check record has two findings of kind outside
         # (F2, F3); the inside finding and the question do not count
         self.assertEqual(done.stdout.splitlines(), [
             "gate %s: exit 0" % self.head,
-            "mark %s: open 0, queued 1, reviewed %s" % (self.head, self.head),
-            "outside: 2 in the review",
+            "mark %s: open 0, queued 1" % self.head,
+            "outside: 2 in the check",
         ])
 
     def test_outside_is_counted_from_the_json(self):
-        """The set holds two findings, one outside and one inside: the count is 1 (hand: one finding of kind outside)."""
-        self.gate_log()
-        review = {"schema": 1, "type": "review", "reviewed": self.head, "base": "master",
-                  "findings": [self.finding("F1", "outside"), self.finding("F2", "inside")]}
-        relay_marks.put(self.wt, self.head, self.mark(), {"%s.review.json" % self.head: json.dumps(relay_verdict.stored_set([review], self.head))})
-        self.assertEqual(relay_marks.show(self.main, "wt/x", sleep=lambda s: None)[2], "outside: 1 in the review")
+        """The record holds two findings, one outside and one inside: the count is 1 (hand: one finding of kind outside)."""
+        self.stored(json.dumps(self.record("outside", "inside")))
+        self.assertEqual(relay_marks.show(self.main, "wt/x", sleep=lambda s: None)[2], "outside: 1 in the check")
 
-    def test_a_mark_without_a_stored_review_gives_no_count_and_says_so(self):
-        self.stored(review_data=None)
-        self.assertEqual(relay_marks.show(self.main, "wt/x", sleep=lambda s: None)[2], "outside: review not stored")
+    def test_a_mark_without_a_stored_check_gives_no_count_and_says_so(self):
+        self.stored(record=None)
+        self.assertEqual(relay_marks.show(self.main, "wt/x", sleep=lambda s: None)[2], "outside: check not stored")
 
-    def test_an_invalid_review_json_gives_a_message_not_a_count(self):
-        bad = json.dumps({"schema": 1, "type": "review-set", "reviewed": self.head, "reviews": [{"schema": "x"}]})
-        self.stored(review_data=bad)
+    def test_an_invalid_check_json_gives_a_message_not_a_count(self):
+        self.stored(record=json.dumps({"schema": 2, "type": "check", "head": "x"}))
         line = relay_marks.show(self.main, "wt/x", sleep=lambda s: None)[2]
-        self.assertTrue(line.startswith("outside: unknown (the review data %s.review.json is not valid: " % self.head), line)
+        self.assertTrue(line.startswith("outside: unknown (the check data %s.check.json is not valid: " % self.head), line)
+
+    def test_a_schema_1_check_is_reported_with_the_migration_line(self):
+        self.stored(record=json.dumps({"schema": 1, "type": "check", "head": self.head}))
+        self.assertIn("relay check migrate", relay_marks.show(self.main, "wt/x", sleep=lambda s: None)[2])
+
+    def test_a_schema_1_mark_is_not_a_mark(self):
+        old = {"schema": 1, "commit": self.head, "verdict": {"open": 0, "queued": 0, "reviewed": self.head}, "review": "r.review.json",
+               "check": "%s.check.json" % self.head, "gate": None, "time": "t"}
+        relay_marks.put(self.wt, self.head, old, {})
+        self.assertIsNone(relay_marks.get(self.main, "wt/x", self.head))      # a guard of the new code fails closed on it
 
     def test_P3_without_a_mark_is_still_three_lines(self):
         lines = relay_marks.show(self.main, "wt/x", sleep=lambda s: None)
@@ -212,7 +218,7 @@ class Marks(unittest.TestCase):
 
         lines = relay_marks.show(self.main, "wt/x", sleep=sleep)
         self.assertEqual(len(polls), 10)
-        self.assertEqual(lines[1], "mark %s: open 2, queued 0, reviewed %s" % (self.head, self.head))
+        self.assertEqual(lines[1], "mark %s: open 2, queued 0" % self.head)
 
     def test_P4_a_lock_held_past_the_bound_prints_no_mark_yet_within_it(self):
         open(self.lock(), "w").close()

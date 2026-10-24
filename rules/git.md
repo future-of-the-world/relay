@@ -12,13 +12,14 @@
   front reports it in one line. Elsewhere, and for merge requests on Glonass
   repositories, merge into the default branch only when I ask for that merge.
   It is ready when the check says `open 0`, the
-  gate is green on the head, the branch has taken the default branch, and the
-  paid run is green when the change edited agent, skill, role or rule texts.
+  gate is green on the head and the branch has taken the default branch. Agent,
+  skill, role and rule texts get one paid run on the default branch after a wave
+  of merges, not one per change; `relay sync` waits for it, and a red run is one
+  fix item at the top of the queue.
   Ask me before the merge only when taking the default branch hit a conflict a
   fixer resolved by hand; a finding is open as Design, question, Disputed or
   Gap, or I have not answered a question about the change; the change is
-  person-facing; the paid run is red or was not run for the day's cap; or I
-  said to hold it. When I say "hold", wait for my word on that change.
+  person-facing; or I said to hold it. When I say "hold", wait for my word on that change.
   After a merge into the default branch its worktree and branch are removed
   (the core plugin does it where the project has `.relay/`; `relay doctor`
   lists any left over). Nothing lives only in a task worktree: commit it, or

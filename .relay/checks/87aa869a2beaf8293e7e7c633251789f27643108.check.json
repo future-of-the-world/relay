@@ -1,0 +1,164 @@
+{
+  "branch": "wt/checks-record",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "b373f23a1639b21fd85b79de2642748ece24434d",
+      "source": "merge5-checks-record.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "b373f23a1639b21fd85b79de2642748ece24434d",
+      "source": "merge5-checks-record.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "b373f23a1639b21fd85b79de2642748ece24434d",
+      "source": "merge5-checks-record.json",
+      "source_id": "F3",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/core/tests/merge.test.sh",
+      "rank": "medium",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "b373f23a1639b21fd85b79de2642748ece24434d",
+      "source": "merge5-checks-record.json",
+      "source_id": "F4",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "b373f23a1639b21fd85b79de2642748ece24434d",
+      "source": "merge5-checks-record.json",
+      "source_id": "F5",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on reviewed sha (exit 0); pytest 481 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "b373f23a1639b21fd85b79de2642748ece24434d",
+      "source": "merge5-checks-record.json",
+      "source_id": "F6",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b373f23a1639b21fd85b79de2642748ece24434d.gate.log",
+  "head": "87aa869a2beaf8293e7e7c633251789f27643108",
+  "item": null,
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Fixes none. Only commit after the reviewed sha is the gate log. Gate log starts with head b373f23 and ends exit 0. Ran tests: 481 passed. No new tests, so no fail-without-fix proof needed."
+  ],
+  "type": "check"
+}

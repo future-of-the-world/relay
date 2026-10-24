@@ -1,0 +1,25 @@
+The agent could not write the report file, so `/private/tmp/e-tccVEa/home/cwd/.ci/spec-review.md` does not exist. Its findings:
+
+I reviewed add-saved-shelf but could not record the report. `relay check record review` stopped with "relay: repository not found": the sandbox blocks reads of `/Users/amidman/relay/bin/relay`. So nothing was written at `/private/tmp/e-tccVEa/home/cwd/.ci/spec-review.md`. The full findings, with failing cases and pass-cases, are in the TOML input `/private/tmp/e-tccVEa/home/cwd/.ci/spec-review.toml`; run the record command on it once relay is reachable. The recorder may also refuse the report path because it ends in `.md`, not `.json`. Git could not run either, so the review is marked `reviewed = "unknown"`.
+
+Counts: 3 BLOCKER, 4 FIX, 1 NIT, 0 outside the change, plus 3 questions for the owner.
+
+FIX findings:
+- **F4** `design.md:9`: `saveShelf` writes the file in place, so a crash mid-write loses the whole previous shelf.
+- **F5** `spec.md:21`: "Older data" describes a file no version ever wrote, and the saved file has no version number.
+- **F6** `design.md:13`: a file that is valid JSON but not a list of valid items (`{"a":1}`, qty -2) is never checked.
+- **F7** `tasks.md:3`: there is no wave 0 with the fake for unavailable storage, no last wave updating the handover doc, and task 1.1's Reads leaves out `src/shelf.ts`, where `Item` is defined.
+
+Questions for the owner:
+- **Q1** When the saved file is garbled, should it stay where it is, or be set aside as `&lt;name&gt;.bad` with a fresh shelf started?
+- **Q2** When the file cannot be read, should the person get an error and no shelf, or an empty shelf with a warning (which risks their old shelf being overwritten on the next save)?
+- **Q3** Should the saved file carry a version number from the start, or stay a plain list?
+
+Tool results:
+- `openspec validate add-saved-shelf --strict`: "Change 'add-saved-shelf' is valid" (exit 0).
+- `kit spec-check add-saved-shelf`: "1 requirement(s), 1 touching stored data, 0 with problems", "packet: 1 open task(s), 0 problem(s)" (exit 0). It passes on keywords alone: the scenarios that match its three stored-data checks are the ones in F1, F2 and F5.
+
+BLOCKER lines:
+- **F1** `design.md:13`: the design and the spec contradict each other on a garbled file. D2 moves it to a hard-coded `shelf.json.bad` and writes a fresh empty file; the spec's "Corrupt data" scenario says the file is left as it is. The worker's brief carries both, so one test must fail. The hard-coded name also ignores the path the caller passes.
+- **F2** `spec.md:28`: "the person is told the file could not be read" has no way to happen. The library has no screen, and `loadShelf(path): Item[]` returns only a list, so an unreadable file returns `[]`, the same as a first run. No test can check the "told" part. Worse, the caller's next save then overwrites the real shelf file.
+- **F3** `design.md:15`: `design.md` has no failure-state table. Write refused, missing directory, crash mid-write and an existing `.bad` file have no outcome, and no scenario covers a failed save.

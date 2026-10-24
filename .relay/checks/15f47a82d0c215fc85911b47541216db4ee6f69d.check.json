@@ -1,33 +1,87 @@
 {
+  "branch": "wt/queue-read-both",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by reading and by a probe: parse() of a new-shape item yields state/found/taken_by/closed_by/test, so changed(item, ip=5) picks exactly the old FIELD_ORDER keys and serialize() accepts the result; only _refuse_new_shape stands between a writer and the loss of found_at/taken_at/closed_at. The behaviour is correct today; the test would pass with it disabled, so a later edit of _item_at or done() (step 2 rewrites exactly these functions) can drop it unseen. LOW: correct today, fragile, cheap.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "grep -n \"_refuse_new_shape\\|_item_at\" tests/test_queue.py",
+        "  434:            rq._refuse_new_shape(item)        (the only reference)",
+        "python3 probe: rq.serialize(\"s\", rq.changed(rq.parse(\"s\", <new-shape open item>, \"open\"), ip=5))",
+        "  -> {\"kind\": \"feature\", \"state\": \"open\", \"ip\": 5, \"time\": 10, \"found\": \"2026-10-23\", ... \"taken_by\": \"\", \"closed_by\": \"\", \"test\": \"\", \"dropped_why\": null}   (accepted, found_at gone)"
+      ],
+      "failing_case": [
+        "Delete the line `_refuse_new_shape(item)` from _item_at (lib/relay_queue.py:628). All tests still pass (test_a_writer_does_not_rewrite_a_new_shape_item calls rq._refuse_new_shape directly). With that line gone, `relay queue ip <slug> 5` on a committed new-shape item lands an old-shape file: state \"open\", found \"2026-10-23\", found_at \"2026-10-23T21:16:10Z\" lost (probe below). It should be refused with \"has the new shape ... cannot change yet\" and master unchanged."
+      ],
+      "fix_hint": [
+        "Replace the helper-only test with one through the writers: commit a new-shape item in the existing Q10 fixture and assert set_ip/drop/release/take refuse (and done on a branch). Optionally also make changed() refuse when is_new(item), so any future writer path is guarded in one place."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 431,
+      "pass_cases": [
+        "1. Fixture repo whose master holds .relay/queue/job.json in the new shape (open): rq.set_ip(main, \"job\", 5) raises Refused containing \"new shape\"; master's sha unchanged.",
+        "2. Same for rq.drop(main, \"job\", \"why\"), rq.release(main, \"job\") and rq.take(worktree, \"job\", findings): each raises Refused \"new shape\"; master unchanged; no findings file written by take.",
+        "3. rq.done on a branch whose .relay/queue/job.json is new-shape (taken by that branch): Refused \"new shape\"; no done/ file written.",
+        "4. An old-shape item still goes through set_ip/drop/release/take/done as today (test_q10_ip_and_drop_refuse_a_taken_item_and_release_opens_it keeps passing)."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "low",
       "reason": [
         "tests/test_queue.py:894 drives set_ip, drop, release, take and done through the writers on a new-shape item; each refuses \"new shape\" and master is unchanged; old-shape Q10 test still passes."
       ],
+      "severity": "LOW",
+      "since": "e1f714e9132e6709d344b8ce69a5c1b497da2596",
+      "source": "review-queue-read-both.json",
+      "source_id": "F1",
+      "summary": "the test of the writer guard calls only the helper: removing the guard from _item_at or done() keeps every test green, and a writer then silently rewrites a new-shape item into the old shape",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by a probe. The brief names only found_at <= taken_at <= closed_at, so this is an edge it left out rather than a broken rule; the order list in check_new (`stamps = [found, taken, closed]`) simply omits dropped_at. Reachable only by a hand-edited or migrated file (step 2's migration invents times for old items, which is where a wrong dropped_at could appear). LOW: one more element in the order check.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "python3 probe: p(\"done\", dropped_at=\"2026-10-01T00:00:00Z\", dropped_why=[\"no\"]) with found_at 2026-10-23T21:16:10Z",
+        "  -> dropped     (no problems)"
+      ],
+      "failing_case": [
+        "A done/ file with found_at \"2026-10-23T21:16:10Z\", dropped_at \"2026-10-01T00:00:00Z\", dropped_why [\"no\"], taken_at/closed_at null: parse(..., \"done\") gives state \"dropped\" with no problem. It should be refused like closed_at before taken_at (\"the times are not in order\")."
+      ],
+      "fix_hint": [
+        "In check_new, also require found_at <= dropped_at when both parse (e.g. a second ordered list [found, dropped]), with a TestNewShape case."
+      ],
       "id": "F2",
+      "kind": "inside",
+      "line": 141,
+      "pass_cases": [
+        "1. found_at 2026-10-23T21:16:10Z, dropped_at 2026-10-01T00:00:00Z (done/): a problem naming the order.",
+        "2. found_at 2026-10-23T21:16:10Z, dropped_at 2026-10-23T21:16:10Z (same second, done/): accepted, state dropped.",
+        "3. found_at 2026-10-23T21:16:10Z, dropped_at 2026-10-24T01:00:00Z (done/): accepted, state dropped (the DROPPED case of TestNewShape keeps passing)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
       "reason": [
         "tests/test_queue.py:422 \"dropped before found\" refused as not in order; same-second and later dropped accepted in the four-states test."
       ],
+      "severity": "LOW",
+      "since": "e1f714e9132e6709d344b8ce69a5c1b497da2596",
+      "source": "review-queue-read-both.json",
+      "source_id": "F2",
+      "summary": "a new-shape item dropped before it was found (dropped_at < found_at) passes the check",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/queue-read-both/.relay/checks/d1a408ae50d69bbd288b9636c7dca49cd87a0996.gate.log",
+  "gate": "d1a408ae50d69bbd288b9636c7dca49cd87a0996.gate.log",
   "head": "15f47a82d0c215fc85911b47541216db4ee6f69d",
-  "new": [],
+  "item": null,
   "notes": [
     "No scope or caller problems seen."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "e1f714e9132e6709d344b8ce69a5c1b497da2596.review.json"
-  ],
-  "reviewed": "e1f714e9132e6709d344b8ce69a5c1b497da2596",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range e1f714e..HEAD: lib/relay_queue.py (+2 plugin copies), tests/test_queue.py, rules/queue.md (reverted to master's text, no diff vs master). Ran tests/test_queue.py: 81 passed. Gate log head d1a408a, exit 0; HEAD adds only the gate log. Read the new writer test and the dropped-order case."
   ],

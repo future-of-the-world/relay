@@ -1,0 +1,185 @@
+{
+  "branch": "wt/checks-record",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "severity": "MEDIUM",
+      "since": "bb35613d51c116882339a78d7e29af912b3e4f96",
+      "source": "merge-checks-record.json",
+      "source_id": "F1",
+      "summary": "combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "severity": "MEDIUM",
+      "since": "bb35613d51c116882339a78d7e29af912b3e4f96",
+      "source": "merge-checks-record.json",
+      "source_id": "F2",
+      "summary": "combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "severity": "MEDIUM",
+      "since": "bb35613d51c116882339a78d7e29af912b3e4f96",
+      "source": "merge-checks-record.json",
+      "source_id": "F3",
+      "summary": "combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "severity": "MEDIUM",
+      "since": "bb35613d51c116882339a78d7e29af912b3e4f96",
+      "source": "merge-checks-record.json",
+      "source_id": "F4",
+      "summary": "combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "severity": "MEDIUM",
+      "since": "bb35613d51c116882339a78d7e29af912b3e4f96",
+      "source": "merge-checks-record.json",
+      "source_id": "F5",
+      "summary": "combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "severity": "MEDIUM",
+      "since": "bb35613d51c116882339a78d7e29af912b3e4f96",
+      "source": "merge-checks-record.json",
+      "source_id": "F6",
+      "summary": "combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "migrated: schema 1 kept this only as a count"
+      ],
+      "id": "N1",
+      "kind": "inside",
+      "line": 1,
+      "path": ".relay/checks/367ffe31355829cd4cec0e9ceabaa7af2e2e9fdb.check.json",
+      "rank": "medium",
+      "reason": [
+        "migrated: the old check counted open +1 with no finding behind it",
+        "Merge findings F1-F6 are met by the green gate on a81d66f. The open +1 is the post-review change to tests/test_archive_inert.py."
+      ],
+      "severity": "MEDIUM",
+      "since": "367ffe31355829cd4cec0e9ceabaa7af2e2e9fdb",
+      "source": "check",
+      "summary": "The old check counted open +1 with no finding behind it",
+      "verdict": "NOT MET"
+    }
+  ],
+  "gate": "a81d66ff794f51056ac9473eb965c09e65a7efd9.gate.log",
+  "head": "367ffe31355829cd4cec0e9ceabaa7af2e2e9fdb",
+  "item": null,
+  "notes": [
+    "Merge findings F1-F6 are met by the green gate on a81d66f. The open +1 is the post-review change to tests/test_archive_inert.py."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fixes: none, yet relay changed --own bb35613 lists tests/test_archive_inert.py (commit a81d66f, one-line test fix after a gate failure). Gate log is for a81d66f, exit 0; HEAD 367ffe3 adds only the inert gate log. Ran tests/test_archive_inert.py: 6 passed. No new tests asserting merge cases, so no fail-without-fix run applies."
+  ],
+  "type": "check"
+}

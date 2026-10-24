@@ -1,26 +1,53 @@
 {
+  "branch": "wt/numbers-clock",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by a probe (the hermetic test with 2020 replaced by 2030). Not reachable in production: the hook and calibrate pass the real clock's time, so day file and window agree. It is a fragility the fix introduced: half of the ledger path (the window) follows the given time, the other half (append -> day_file()) follows the machine clock, so a test dated in the future breaks the same way the Numbers tests broke, mirrored. Size: 10 minutes."
+      ],
+      "evidence": [
+        "sed 's/2020-03-04/2030-03-04/g' tests/test_numbers_hermetic.py > scratch/test_future_date.py; pytest it:",
+        "E AssertionError: Lists differ: ['s1'] != []",
+        "test_future_date.py:45: AssertionError",
+        "1 failed",
+        "lib/relay_ledger.py:31-39: day_file(when=None) uses dt.datetime.now; append() calls day_file() with no time.",
+        "lib/relay_ledger.py:58: if since and day_dt + dt.timedelta(days=1) < since: continue"
+      ],
+      "failing_case": [
+        "Hermetic setup (empty HOME, temp RELAY_HOME), capture(\"2030-03-04T09:00:00Z\") returns ['s1'] and writes its line into <today's real date>.jsonl; remove usage-index.json; capture(\"2030-03-04T12:00:00Z\") returns ['s1'] (written twice) instead of []. read() drops the whole day file because day_dt + 1 day < since (2030-03-01). On master the same sequence returns [] (window from the real clock includes today's file and the 2030 line)."
+      ],
+      "fix_hint": [
+        "In append(), file the line by its own time: day_file(parse_ts(event.get(\"ts\")) or None). Production is unchanged (ts is the real now); the given time then decides both the file and the window."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 259,
+      "pass_cases": [
+        "1. capture(\"2030-03-04T09:00:00Z\") then index removed then capture(\"2030-03-04T12:00:00Z\") returns [].",
+        "2. The existing tests/test_numbers_hermetic.py (2020 dates) still returns [] on the second capture.",
+        "3. tests/test_relay.py -k Numbers stays 23 passed.",
+        "4. A hook capture with now() of the real clock still writes its line into today's day file."
+      ],
+      "path": "lib/relay_ledger.py",
+      "rank": "low",
       "reason": [
         "tests/test_numbers_hermetic.py::test_future_given_time_files_and_windows_by_the_same_time passes, fails without the fix; the 2020 test still passes (pass case 2); gate green."
       ],
+      "severity": "LOW",
+      "since": "41ca9d487b2ba43fbec6e8fd3f4b6b1bb3faac39",
+      "source": "review-numbers-clock.json",
+      "source_id": "F1",
+      "summary": "the window now follows the given time, but lines still go to the real clock's day file: a given time over a day ahead of the clock skips that file",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/numbers-clock/.relay/checks/581879adbf66bbafa21fbb71b7e9486a7f241e62.gate.log",
+  "gate": "581879adbf66bbafa21fbb71b7e9486a7f241e62.gate.log",
   "head": "94626cb994aea01d9a1cb0c77a3d87b33c3f2cc2",
-  "new": [],
+  "item": null,
   "notes": [
     "append() callers: parse_ts(None) returns None, so day_file falls back to the clock; production ts is the real now, unchanged."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "41ca9d487b2ba43fbec6e8fd3f4b6b1bb3faac39.review.json"
-  ],
-  "reviewed": "41ca9d487b2ba43fbec6e8fd3f4b6b1bb3faac39",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range 41ca9d4..HEAD; own files: the three relay_ledger.py copies (identical one-line change) and tests/test_numbers_hermetic.py. Gate log is for the fix commit 581879a, exit 0; later commits are inert only. Ran test_numbers_hermetic.py (2 passed); on 41ca9d4 with the new test copied in, the future-time test fails at :55."
   ],

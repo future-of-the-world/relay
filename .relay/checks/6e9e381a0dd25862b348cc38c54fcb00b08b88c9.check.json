@@ -1,26 +1,39 @@
 {
+  "branch": "wt/archive-inert",
   "findings": [
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "medium",
       "reason": [
         "Gate green on the reviewed code (exit 0) and 353 tests pass."
       ],
+      "severity": "MEDIUM",
+      "since": "890c37fe0d5dea992349536e64159ae91e89bb4b",
+      "source": "merge-archive-inert.json",
+      "source_id": "F1",
+      "summary": "combined with master's change by the merge",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/archive-inert/.relay/checks/890c37fe0d5dea992349536e64159ae91e89bb4b.gate.log",
+  "gate": "890c37fe0d5dea992349536e64159ae91e89bb4b.gate.log",
   "head": "6e9e381a0dd25862b348cc38c54fcb00b08b88c9",
-  "new": [],
+  "item": null,
   "notes": [
     "Merge of master into the branch combined without conflict; gate and tests pass."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "890c37fe0d5dea992349536e64159ae91e89bb4b.review.json"
-  ],
-  "reviewed": "890c37fe0d5dea992349536e64159ae91e89bb4b",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fixes: none. relay changed --own after the reviewed sha lists no file (HEAD adds only the gate log commit). Gate log starts with head 890c37f, ends exit 0 (ci green, quick mode). Ran pytest tests -q -x: 353 passed."
   ],

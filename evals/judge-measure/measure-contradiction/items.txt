@@ -5,6 +5,7 @@ yes plugin/spec-reviewer-flaw/recorded/good/branch-run-ctXoF2.txt
 yes plugin/spec-reviewer-flaw/recorded/good/master-run-2.txt
 yes plugin/spec-reviewer-flaw/recorded/good/master-wording-outside-lists.txt
 no plugin/spec-reviewer-flaw/recorded/bad/reports-the-contradiction__lines-paired-but-agree.txt into templates/review.txt
+no plugin/spec-reviewer-flaw/recorded/bad/reports-the-contradiction__both-sides-no-conflict.txt into templates/review.txt
 no judge-measure/measure-contradiction/written/they-agree.txt into templates/review.txt
 no judge-measure/measure-contradiction/written/different-matter.txt into templates/review.txt
 no judge-measure/measure-contradiction/written/names-both-no-disagreement.txt into templates/review.txt

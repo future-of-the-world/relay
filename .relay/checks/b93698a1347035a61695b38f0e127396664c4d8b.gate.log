@@ -1,0 +1,18 @@
+head b93698a1347035a61695b38f0e127396664c4d8b
+cmd bin/ci --quick
+ci: library tests FAILED (271s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_restarted_counter_that_grows_past_the_old_total_stays_an_estimate (test_relay.Numbers.test_a_restarted_counter_that_grows_past_the_old_total_stays_an_estimate)
+    AssertionError: Lists differ: ['s-g'] != []
+    FAIL: test_capture_does_not_write_a_total_smaller_than_the_recorded_one (test_relay.Numbers.test_capture_does_not_write_a_total_smaller_than_the_recorded_one)
+    AssertionError: Lists differ: ['s-r'] != []
+    FAIL: test_capture_with_a_readable_index_never_reads_the_ledger (test_relay.Numbers.test_capture_with_a_readable_index_never_reads_the_ledger)
+    AssertionError: Lists differ: ['s-trust'] != []
+    FAILED (failures=3)
+ci: types and lint ok (0s)
+ci: hook tests ok (141s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (4s)
+ci: plugin validate ok (5s)
+ci: inert ok (442s)
+ci: RED
+exit 1

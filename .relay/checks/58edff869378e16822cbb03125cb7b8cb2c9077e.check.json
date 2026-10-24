@@ -1,26 +1,40 @@
 {
+  "branch": "wt/eval-tally",
   "findings": [
     {
+      "details": [
+        "A typo in a grader name (yes-- for no--) makes the tally judge a right judge as wrong, and nothing in the result says why."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "give a grader that should be judged FAIL a name starting yes-- in an eval's result: tally.py expects PASS, counts the judge's right FAIL votes as wrong and exits 1; the expected answer should be a stored field that a name cannot change"
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 62,
+      "pass_cases": [
+        "a run whose grader names carry the right yes--/no-- prefixes tallies correctly today"
+      ],
+      "path": "evals/judge-measure/tally.py",
+      "rank": "high",
       "reason": [
         "tests/test_judge_tally.py:76 test_the_stored_field_decides_not_the_name (yes-- grader stored FAIL, FAIL votes pass); :83 and :87 cover the pass cases; :134 shows committed answers match the names so today's runs tally the same. Fails at b176e6d."
       ],
+      "severity": "HIGH",
+      "since": "b176e6d814683d5ad10e7a2797a8e8726ea05399",
+      "source": "queue",
+      "summary": "Eval tally takes the expected answer from a name",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/eval-tally/.relay/checks/c29755468e0bcc6158b6a83f53d9488d505f25cd.gate.log",
+  "gate": "c29755468e0bcc6158b6a83f53d9488d505f25cd.gate.log",
   "head": "58edff869378e16822cbb03125cb7b8cb2c9077e",
-  "new": [],
+  "item": "eval-votes-in-file-names",
   "notes": [
     "tally.py now reads expected answers from <case>/answers.json (make.py writes it), names never parsed; missing entry gives exit 2. test_queue change reads tally.py at the filing commit, reasonable."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "b176e6d814683d5ad10e7a2797a8e8726ea05399.review.json"
-  ],
-  "reviewed": "b176e6d814683d5ad10e7a2797a8e8726ea05399",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range b176e6d..HEAD. Gate log head c297554, exit 0; relay changed lists no file after it (only inert files). Ran test_judge_tally, test_judge_measure, test_queue: 119 passed. Fixer report file was absent; checked from the diff. Ran test_judge_tally.py at b176e6d in a throwaway worktree: 11 failed, 1 passed (removed)."
   ],

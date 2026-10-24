@@ -57,7 +57,7 @@ inert_probe() { local tmpd work rc=0 f
   echo "inert probe line" >> "$work/docs/handover.md"
   # unknown files under the stored names (.json): a reader that lists the folders and breaks on an extra one changes the outcome
   printf 'not a queue item\n' > "$work/.relay/queue/zz-probe.json"; echo '{}' > "$work/.relay/checks/zz.json"
-  echo '{}' > "$work/.relay/checks/zz.review.json"; echo '{}' > "$work/.relay/checks/zz.check.json"; printf 'head 0\nexit 0\n' > "$work/.relay/checks/zz.gate.log"
+  echo '{}' > "$work/.relay/checks/zz.check.json"; printf 'head 0\nexit 0\n' > "$work/.relay/checks/zz.gate.log"
   git -C "$work" add -A && git -C "$work" -c user.name=relay-ci -c user.email=ci@relay commit -q --no-verify -m "inert probe"
   # a full outer run ran the hook suites in full (guard-main repeats its shared cases per profile); the nested run is quick
   # for the paid steps only, so its hook tests run in full too, or the case counts differ by mode, not by an inert file
@@ -80,7 +80,9 @@ if [ "$quick" = 0 ]; then
     read -r eval_jobs eval_ceiling < <(python3 bin/paid-cost ceiling --cap "${EVALS_MAX_COST:-15}" --jobs "${EVALS_JOBS:-1}") || { echo "ci: RED (no money ceiling for the plugin evals)"; exit 1; }
     echo "plugin evals: estimate $(python3 bin/paid-cost estimate); -j $eval_jobs, ceiling \$$eval_ceiling (cap ${EVALS_MAX_COST:-15})"
     step "plugin evals" env root="$root" eval_jobs="$eval_jobs" eval_ceiling="$eval_ceiling" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none -j "$eval_jobs" --judge-model "${EVALS_JUDGE_MODEL:-sonnet}" --no-publish --max-cost-usd "$eval_ceiling" --json "$root/.ci/evals.json"'
-    python3 bin/eval-record --json .ci/evals.json; rec_rc=$?
+    # the record names the commit it ran on and the branch it counts for: a detached worktree of the default branch's head records the default branch (bin/paid-cost due)
+    rec_branch="$(git symbolic-ref --short -q HEAD || PYTHONPATH=lib python3 -c 'import os, relay_git; print(relay_git.default_branch(os.getcwd()) or "detached")')"
+    python3 bin/eval-record --json .ci/evals.json --branch "$rec_branch" --head "$(git rev-parse HEAD)"; rec_rc=$?
     if [ "$rec_rc" -eq 1 ]; then echo "ci: RED (the eval record could not be stored)"; status=1
     elif [ "$rec_rc" -ne 0 ]; then echo "ci: RED (eval runs were not judged or a meaning grader failed: not a pass)"; status=1; fi
   else

@@ -1,0 +1,239 @@
+{
+  "branch": "wt/checks-record",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "68248d7c320cfb3e50d251b41149244465450d2d",
+      "source": "merge3-checks-record.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "rules/queue.md",
+      "rank": "medium",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "68248d7c320cfb3e50d251b41149244465450d2d",
+      "source": "merge3-checks-record.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_archive_inert.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "68248d7c320cfb3e50d251b41149244465450d2d",
+      "source": "merge3-checks-record.json",
+      "source_id": "F3",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_check_record.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "68248d7c320cfb3e50d251b41149244465450d2d",
+      "source": "merge3-checks-record.json",
+      "source_id": "F4",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_guard_test_name.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "68248d7c320cfb3e50d251b41149244465450d2d",
+      "source": "merge3-checks-record.json",
+      "source_id": "F5",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_marks.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "68248d7c320cfb3e50d251b41149244465450d2d",
+      "source": "merge3-checks-record.json",
+      "source_id": "F6",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F7",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "68248d7c320cfb3e50d251b41149244465450d2d",
+      "source": "merge3-checks-record.json",
+      "source_id": "F7",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F8",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "68248d7c320cfb3e50d251b41149244465450d2d",
+      "source": "merge3-checks-record.json",
+      "source_id": "F8",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F9",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "68248d7c320cfb3e50d251b41149244465450d2d",
+      "source": "merge3-checks-record.json",
+      "source_id": "F9",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "68248d7c320cfb3e50d251b41149244465450d2d.gate.log",
+  "head": "a8973513d1d41ce370b277a38b6b87306ac715f3",
+  "item": null,
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Gate log head 68248d7, exit 0; only the gate log came after (relay changed --own lists no file). Ran full tests: 456 passed."
+  ],
+  "type": "check"
+}

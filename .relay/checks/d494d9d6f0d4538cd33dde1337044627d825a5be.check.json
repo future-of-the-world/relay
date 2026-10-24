@@ -1,24 +1,36 @@
 {
+  "branch": "wt/eval-cost",
   "findings": [
     {
+      "details": [
+        "Low estimates mean the daily cap is raised by hand over and over; the owner cannot plan spend."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "estimates were low: Sonnet measure $3.02 estimated, $6.32 spent; live6 $1.90 estimated, $3.37 spent; four cap raises on 22 Oct; the judge-measure README's Sonnet figures come from two runs; should come from the ledger's measured costs (handover \"cost estimates from real numbers\", \"Sonnet measurement figures come from two runs\")"
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [],
+      "path": ".relay/queue/paid-run-estimates-from-ledger.json",
+      "rank": "high",
       "reason": [
         "tests/test_paid_cost_limits.py Estimate::test_mean_max_and_count and Ceiling::test_cap_minus_the_largest_run_not_the_mean pass; bin/paid-cost estimates from stored costs; README points to the ledger."
       ],
+      "severity": "HIGH",
+      "since": "eb6fe7f64d9ec57d5a8ed73f02e3d18a804cc2bb",
+      "source": "queue",
+      "summary": "Paid run estimates come out well below the real cost",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/eval-cost/.relay/checks/a96dcbbfc521d53fbbba9620655f11bb314bd74f.gate.log",
+  "gate": "a96dcbbfc521d53fbbba9620655f11bb314bd74f.gate.log",
   "head": "d494d9d6f0d4538cd33dde1337044627d825a5be",
-  "new": [],
+  "item": "paid-run-estimates-from-ledger",
   "notes": [],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "eb6fe7f64d9ec57d5a8ed73f02e3d18a804cc2bb.review.json"
-  ],
-  "reviewed": "eb6fe7f64d9ec57d5a8ed73f02e3d18a804cc2bb",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range eb6fe7f..HEAD; own files bin/ci, bin/paid-cost, README, tests/test_paid_cost_limits.py. Test file: 13 passed; at the base 13 failed. Gate log is for a96dcbb, exit 0; later commits touch no file."
   ],
