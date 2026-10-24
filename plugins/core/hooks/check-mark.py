@@ -54,30 +54,55 @@ def transcript_path(hook):
     return None
 
 
-def first_entry(path):
-    """(prompt text, start time as epoch seconds or None) of the transcript's first line."""
-    try:
-        with open(path, encoding="utf-8") as handle:
-            first = handle.readline()
-    except OSError:
-        raise Fail("the checker's transcript cannot be read")
-    try:
-        entry = json.loads(first)
-    except ValueError:
-        raise Fail("the checker's transcript does not start with a prompt")
-    content = (entry.get("message") or {}).get("content") if isinstance(entry, dict) else None
+def entry_text(entry):
+    content = (entry.get("message") or {}).get("content")
     if isinstance(content, list):
         content = "\n".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
-    if not isinstance(content, str) or not content.strip():
-        raise Fail("the checker's transcript does not start with a prompt")
-    start = None
+    return content if isinstance(content, str) else ""
+
+
+def entry_start(entry):
     stamp = entry.get("timestamp")
     if isinstance(stamp, str):
         try:
-            start = dt.datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
+            return dt.datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
         except ValueError:
-            start = None
-    return content, start
+            return None
+    return None
+
+
+def first_entry(path):
+    """(prompt text, start time as epoch seconds or None) of the first user entry that carries a `Report:` label among
+    the transcript's leading user entries (before the first assistant entry): a workflow puts its own relayed request
+    first and the checker's prompt next. With no label there, the first user entry (its prompt has no label)."""
+    first = None
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    entry = None
+                if not isinstance(entry, dict) or not isinstance(entry.get("message") or {}, dict):
+                    if first is None:
+                        raise Fail("the checker's transcript does not start with a prompt")
+                    continue
+                if entry.get("type") == "assistant" or (entry.get("message") or {}).get("role") == "assistant":
+                    break
+                text = entry_text(entry)
+                if not text.strip():
+                    if first is None:
+                        raise Fail("the checker's transcript does not start with a prompt")
+                    continue
+                if report_label(text):
+                    return text, entry_start(entry)
+                if first is None:
+                    first = (text, entry_start(entry))
+    except OSError:
+        raise Fail("the checker's transcript cannot be read")
+    if first is None:
+        raise Fail("the checker's transcript does not start with a prompt")
+    return first
 
 
 def clean_value(text):

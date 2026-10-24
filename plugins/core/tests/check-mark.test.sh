@@ -191,6 +191,23 @@ jq -nc --arg t "Check the fix per the brief. Brief: $S/brief.md." --arg ts "$STA
 stop delegate:checker
 expect "K12 no Report: label: names 'no Report: line'" "$(has 'no Report: line' "$msg"; echo $?)"
 
+# K13: a workflow's checker: the first line is the harness's relayed request (no Report: label), the second the check prompt
+mkrepo; prompt; before="$(count)"
+harness() { jq -nc --arg t "[Workflow harness — user request] run the change for me" --arg ts "$START" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}'; }
+harness >"$S/wf.jsonl"
+cat "$S/wf.jsonl" "$S/agent.jsonl" >"$S/agent2.jsonl" && mv "$S/agent2.jsonl" "$S/agent.jsonl"
+stop delegate:checker
+expect "K13 workflow transcript: the mark commit" "$([ "$(count)" -eq $((before + 1)) ] && git -C "$W" cat-file -e "HEAD:.relay/checks/$HEAD0.json"; echo $?)"
+# K13b: the harness line and no Report: label in any leading user entry: no mark, named
+mkrepo; before="$(count)"
+{ harness; jq -nc --arg t "Check the fix per the brief." --arg ts "$START" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}'; } >"$S/agent.jsonl"
+stop delegate:checker
+expect "K13b no label in the leading user entries: no commit, names 'no Report: line'" "$([ "$(count)" -eq "$before" ] && has 'no Report: line' "$msg"; echo $?)"
+# K13c: a Report: label after the first assistant entry is not the prompt
+{ harness; jq -nc '{type:"assistant",message:{role:"assistant",content:"ok"}}'; jq -nc --arg t "Report: $S/rep.json." --arg ts "$START" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}'; } >"$S/agent.jsonl"
+stop delegate:checker
+expect "K13c a label after an assistant entry is not read" "$([ "$(count)" -eq "$before" ] && has 'no Report: line' "$msg"; echo $?)"
+
 # ---- the guard (G1-G7), the real guard-main.sh with CLAUDE_PROJECT_DIR = the worktree (as in a worktree session) ----
 mkrepo; GM="$M"; GW="$W"; mkdir -p "$tmp/scratch" "$tmp/fx"
 # g <expect: block|allow> <desc> <tool> <cwd> <key> <value> [anchor]
