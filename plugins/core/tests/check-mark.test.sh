@@ -131,7 +131,7 @@ expect "K4 the old prose verdict is not read: the message names the missing data
 mkrepo; prompt; report 0; printf 'not json' >"$S/rep.json"; touch -t $NEW "$S/rep.json"; before="$(count)"; stop delegate:checker
 expect "K4b not JSON: no commit, reason named" "$([ "$(count)" -eq "$before" ] && has 'is not JSON' "$msg"; echo $?)"
 report 0; jq '.gate = "x"' "$S/rep.json" >"$S/rep2.json" && mv "$S/rep2.json" "$S/rep.json"; touch -t $NEW "$S/rep.json"; stop delegate:checker
-expect "K4b gate is not a log name: no commit, reason names gate" "$([ "$(count)" -eq "$before" ] && has 'gate must be null or a gate log file name' "$msg"; echo $?)"
+expect "K4b gate is not a log name: no commit, reason names gate" "$([ "$(count)" -eq "$before" ] && has 'gate must be null, a gate log file name' "$msg"; echo $?)"
 
 # K4c: the counts are derived from the record, never typed: F1 HIGH inside NOT MET gives a mark with open 1; an `open` field in the data is refused
 mkrepo; prompt; report 1; stop delegate:checker

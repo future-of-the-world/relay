@@ -87,7 +87,7 @@ class Schema(unittest.TestCase):
                  ({"findings": [record_finding("F1", severity="x")]}, "findings[0]: severity"),
                  ({"findings": [record_finding("F1"), record_finding("F1")]}, "id F1 is used twice"),
                  ({"findings": [record_finding("F1", owner=[{"words": [], "date": "2026-10-24"}])]}, "words must hold at least one"),
-                 ({"gate": "x.log"}, "gate must be null or a gate log file name"), ({"worktree": None}, "worktree must be a path"),
+                 ({"gate": "x.log"}, "gate must be null, a gate log file name"), ({"worktree": None}, "worktree must be a path"),
                  ({"open": 0}, "unknown field open"), ({"type": "review"}, "type must be check")]
         for over, word in cases:
             errors = rv.record_errors(self.check(**over))
