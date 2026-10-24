@@ -1021,3 +1021,12 @@ same way (its own checkers' real prompt lines), recorded here; (2) keep the guar
 Merged since: guard-test-name, mac-timeout, eval-cost (both items closed), mark-attach (marks written per the owner's
 one-time "a"). Left: archive-inert (paid run green $8.58), then wave 2: a-reply-to-the-owner-can-come-out-in-the-wrong-l
 (95), the-bench-never-starts-a-worker (92), then the check-record redesign (design ready, ~220 agent min).
+Owner (verbatim, later 24 Oct): "подними предел до 100$" (paid-run cap per day $100; still only in Claude memory).
+Owner on bench Q1 (verbatim): "1. a" = drop the "hand it to a worker" sentence from the bench prompts; one paid bench to see whether the rules alone delegate.
+Bench result after "1. a" (report ~/.relay/bench/2026-10-24T07-03-23Z, $1.80): without the sentence the active setup
+does not reliably delegate (add-function: no worker under either setup). Front decided (owner can reverse): merge the
+bench fixes (working copy, plugin copy with profile models), RELEASE the-bench-never-starts-a-worker (its pass case
+needs delegation), queue the-front-does-small-builds-itself-instead-of-a (fix, ip 92). Merged: reply-lang (language
+check hook). In flight: eval-tally finish (gate, check), bench-worker finish (gate, check), checks-record build (2nd worker
+on WIP 21c5046).
+Merged after: eval-tally (both tally items closed), bench-worker (bench item released). Left: checks-record (2nd worker on WIP 21c5046), its paid run (cap now $100), then the migration change and dropping the 2 items per the owner's "1. a".
