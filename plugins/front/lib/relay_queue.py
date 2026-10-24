@@ -835,6 +835,16 @@ def take(worktree, slug, findings, **engine):
     return "\n".join(out)
 
 
+def holds_test(test, source):
+    """Whether `source`, the text of the test file named in `test` (`<file>::<name>` or `<file>::<Class>::<name>`), defines the test.
+    The one rule of `relay queue done` and of the merge guard. `source` is None when the file is not there."""
+    path, _, rest = test.strip().partition("::")
+    name = rest.split("::")[-1].strip()
+    if not path.strip() or not name or source is None:
+        return False
+    return _holds_test(path.strip(), name, source)
+
+
 def _holds_test(path, name, source):
     """Whether the test file's text defines the test `name` as a whole word (a python file: `def name`); test_xy is not test_x."""
     pattern = r"\bdef\s+" + re.escape(name) + r"\b" if path.endswith(".py") else r"(?<![\w])" + re.escape(name) + r"(?![\w])"
@@ -884,7 +894,7 @@ def done(worktree, slug, test, check):
     rc, source, _ = _git(worktree, "cat-file", "blob", f"HEAD:{path}")
     if rc != 0:
         raise Refused(f"the test file {path} is not in the last commit of {branch}")
-    if not _holds_test(path, name.split("::")[-1], source.decode("utf-8", "replace")):
+    if not holds_test(test, source.decode("utf-8", "replace")):
         raise Refused(f"{path} does not hold a test named {name}")
     try:
         with open(check, encoding="utf-8") as handle:
