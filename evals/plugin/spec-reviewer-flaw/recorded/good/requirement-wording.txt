@@ -1,0 +1,2 @@
+- **F1** `design.md:13`: the design and the requirement contradict each other on a garbled file.
+- **F2** `tasks.md:3`: nit.

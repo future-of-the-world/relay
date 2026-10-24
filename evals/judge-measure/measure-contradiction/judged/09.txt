@@ -1,7 +1,7 @@
 The `sdd:spec-reviewer` agent finished its first pass on `add-saved-shelf`. Its findings, as it returned them:
 
 I found 3 BLOCKER, 7 FIX and 2 NIT. Validate and spec-check both pass, but they don't catch the blockers below.
-- **NOTE** `specs/shelf/spec.md:15-18` (Corrupt data) and design D2 both deal with a corrupt file; task 1.1 in `tasks.md` covers both.
+- **BLOCKER** `specs/shelf/spec.md:25-28` against `design.md:17`: "the person is told the file could not be read" has no way to happen; `loadShelf` can only return a list or throw, and no wording is given.
 - **BLOCKER** `design.md`: there is no failure-state table. Nothing says what happens when a save is refused or cut off half-way, when a file is hand-edited, or when a move fails.
 - **BLOCKER** `specs/shelf/spec.md:28`: "the person is told the file could not be read" has no way to happen. `loadShelf(path): Item[]` can only return a list or throw, the library has no UI, and no wording is given.
 

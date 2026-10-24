@@ -1,0 +1,2 @@
+- **F1** `specs/shelf/spec.md:17`: the scenario contradicts the design.
+  D2 moves the file aside.
