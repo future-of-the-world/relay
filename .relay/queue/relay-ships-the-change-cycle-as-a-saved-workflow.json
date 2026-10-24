@@ -1,0 +1,27 @@
+{
+  "kind": "feature",
+  "ip": 88,
+  "time": 120,
+  "found_at": "2026-10-24T16:03:51Z",
+  "found_in": "relay queue add",
+  "title": "relay ships the change cycle as a saved workflow",
+  "what": [
+    "Move the session's two workflow scripts (change-cycle: build, gate, review, fix, gate, queue check and close, check, plus a design track; fix-cycle: fix, gate, check) into relay as saved workflows run by name, started by a relay skill (the user's opt-in), with: the take-master + combined-file record + gate + check step inside (today an ad-hoc script, mk_merge3.py); the merge step through the merge train; CLI forms read from relay itself so a CLI change cannot silently break them; a restart from a named stage (resume replays failed steps from cache); the steps taken from the delegate skill's review loop, not written twice. Copies of today's scripts: /private/tmp/claude-501/-Users-amidman-relay/3207dc59-2cc6-4cd6-9463-5c3c3c8bd504/scratchpad/workflows-keep/ (copy them into the change's worktree before the session ends)."
+  ],
+  "why": [
+    "Owner, verbatim, 24 Oct: \"Мы используем workflow, как мы к этому пришли, можем ли мы адаптировать его и сделать частью relay как инструкция для пользователей, использовать текущие workflow, можешь больше рассказать об claude workflows\", then \"a\" (queue it now, design after the merge train). Trial 24 Oct: ~165k agent tokens per change vs 236-277k by hand, ~0 front turns vs ~22, same review quality; the owner: \"дешевле, быстрее, автономнее\"."
+  ],
+  "failing_case": [
+    "24 Oct: the scripts live only in one session's folder; after the check-record redesign they passed a removed option (relay queue done --check) and every close failed; the take-master step was a hand-written script; resume replayed a gate that had been killed."
+  ],
+  "pass_cases": [
+    "A new session in relay (and in a project relay set up) runs a change from the queue through the saved workflow by name; a test fails when a command the workflow uses changes form; the merge goes through the train; the delegate skill and the workflow name the same steps."
+  ],
+  "where": ".claude/workflows/ (or what plugins can ship), plugins/delegate/skills/delegate/SKILL.md (review loop), plugins/front/skills/front/SKILL.md, a skill that starts it, bin/relay",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
