@@ -17,8 +17,8 @@
   "where": "bin/ci:68",
   "taken_at": "2026-10-24T03:53:51Z",
   "taken_by": "wt/eval-cost",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T04:31:02Z",
+  "test": "tests/test_paid_cost_limits.py::Ceiling::test_cap_minus_the_largest_run_not_the_mean",
   "dropped_at": null,
   "dropped_why": null
 }

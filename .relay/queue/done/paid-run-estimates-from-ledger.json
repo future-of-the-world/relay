@@ -16,8 +16,8 @@
   ],
   "taken_at": "2026-10-24T03:53:52Z",
   "taken_by": "wt/eval-cost",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T04:31:40Z",
+  "test": "tests/test_paid_cost_limits.py::Estimate::test_mean_max_and_count",
   "dropped_at": null,
   "dropped_why": null
 }
