@@ -26,6 +26,12 @@ RULE_TESTS = (
     "tests.test_relay.Rules",
     "tests.test_relay.Roles",
     "tests.test_relay.Agents",
+    "tests.test_relay.TestPrinciplesRule",
+    "tests.test_relay.AutoMergeTextsTest",
+    "tests.test_relay.Bench",
+    "tests.test_queue.TestFrontSkill",
+    "tests.test_bench_worker",
+    "tests.test_paid_batch",
 )
 
 _COMPILED = [relay_inert._regex(p) for p in TEXT_ONLY]
@@ -44,13 +50,31 @@ def only(paths: list[str]) -> bool:
     return bool(paths) and all(matches(p) for p in paths)
 
 
+def uncommitted(repo: str) -> list[str]:
+    """Paths with uncommitted edits (staged, unstaged, untracked; both ends of a rename) that are not inert."""
+    out = relay_inert._git(repo, "status", "--porcelain", "-z", "-uall").split("\0")
+    paths: list[str] = []
+    i = 0
+    while i < len(out):
+        entry = out[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        paths.append(entry[3:])
+        if entry[0] in "RC" or entry[1] in "RC":
+            paths.append(out[i])  # the other end of a rename or copy
+            i += 1
+    return [p for p in paths if not relay_inert.matches(p)]
+
+
 def is_text_only(repo: str, until: str = "HEAD") -> bool:
     """True when what `until` changed since the default branch (inert files left out) is text-only.
     False when it cannot be told: the full gate is the safe answer."""
     try:
         default = relay_inert._default_ref(repo)
         base = relay_inert._git(repo, "merge-base", until, default).strip()
-        return only(relay_inert.changed(repo, base, until))
+        # A hand run of bin/ci sees uncommitted edits too: one off the list means the full gate.
+        return only(relay_inert.changed(repo, base, until) + uncommitted(repo))
     except ValueError:
         return False
 
