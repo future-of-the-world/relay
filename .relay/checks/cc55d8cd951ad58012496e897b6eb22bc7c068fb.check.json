@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "Gate green on the merged code and the full test suite passes (443 passed); the merge applied cleanly."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/paid-batch/.relay/checks/800ed34c2b050c153efaaaa02ade5f4e3cf9bbc3.gate.log",
+  "head": "cc55d8cd951ad58012496e897b6eb22bc7c068fb",
+  "new": [],
+  "notes": [
+    "Gate was quick mode (paid steps skipped), as logged."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "800ed34c2b050c153efaaaa02ade5f4e3cf9bbc3.review.json"
+  ],
+  "reviewed": "800ed34c2b050c153efaaaa02ade5f4e3cf9bbc3",
+  "schema": 1,
+  "scope": [
+    "Merge-only check, Fixes none. Gate log head 800ed34 exit 0; HEAD cc55d8c adds only the inert gate log (relay changed lists no file). Ran pytest tests -q -x: 443 passed. No new tests, so no fail-without-fix proof."
+  ],
+  "type": "check"
+}
