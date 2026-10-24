@@ -18,8 +18,8 @@
     "A project without spec steps gets no OpenSpec rule and no spec step in its cycle; a project that turns them on gets the openspec plugin's steps; no file says sdd; the skills give one answer per question; the paid eval run is green."
   ],
   "where": "rules/openspec.md and the global rules list, plugins/sdd (rename to plugins/openspec), plugins/delegate and front skills, evals/plugin, docs/variants, ~/.claude/skills/openspec-apply-orchestrator, lib/relay_setup.py, projects.toml",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T16:55:15Z",
+  "taken_by": "wt/openspec-optional",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
