@@ -1,0 +1,69 @@
+{
+  "reviewed": "74b634cdb36753fe667fe8c33152f959ed3d284e",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-guard-test-name.json",
+      "findings": [
+        {
+          "details": [
+            "CONFIRMED by reading holds_test: name = rest.split(\"::\")[-1]; the middle part is dropped. Correct per the brief, which asks only that the",
+            "function be defined in the file, so this is LOW: a mistyped class name passes both gates, and the checker that later runs the recorded",
+            "test gets a collection error instead of a test. Size: 10 agent minutes (for a .py file with three parts, also require",
+            "r\"\\bclass\\s+<Class>\\b\" in source; add the case to CASES)."
+          ],
+          "evidence": [
+            "lib/relay_queue.py:841-845: path, _, rest = test.strip().partition(\"::\"); name = rest.split(\"::\")[-1].strip(); ... return _holds_test(path.strip(), name, source)"
+          ],
+          "failing_case": [
+            "SOURCE = \"class Suite:\\n    def test_hangs_within_bound(self): ...\": holds_test(\"tests/t.py::NoSuchClass::test_hangs_within_bound\", SOURCE)",
+            "returns True today (only the last :: part is matched), and both relay queue done and the merge guard accept it, while",
+            "pytest tests/t.py::NoSuchClass::test_hangs_within_bound reports \"not found\". A stricter rule would return False."
+          ],
+          "fix_hint": [
+            "In holds_test, when path ends with .py and rest has two parts, also require re.search(r\"\\bclass\\s+\" + re.escape(cls) + r\"\\b\", source)."
+          ],
+          "id": "F1",
+          "kind": "inside",
+          "line": 842,
+          "pass_cases": [
+            "holds_test(\"tests/t.py::NoSuchClass::test_hangs_within_bound\", SOURCE) -> False",
+            "holds_test(\"tests/t.py::Suite::test_hangs_within_bound\", SOURCE) -> True",
+            "holds_test(\"tests/t.py::test_hangs_within_bound\", SOURCE) -> True",
+            "holds_test(\"tests/t.sh::case_x\", \"case_x() { :; }\") -> True (non-.py files keep the whole-word rule, no class check)"
+          ],
+          "path": "lib/relay_queue.py",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "holds_test ignores the Class part, so a recorded file::WrongClass::name that pytest cannot run is accepted by both callers"
+        }
+      ],
+      "notes": [
+        "Fine: holds_test takes the whole <file>::[Class::]name, strips, refuses an empty file part, an empty name and a missing file (source None),",
+        "and delegates to the old _holds_test, so done() keeps its old verdicts and the guard now uses the same rule (whole-word def for .py,",
+        "whole word otherwise). The guard previously accepted a substring (tests/t.py::test_hangs against def test_hangs_within_bound) and refused",
+        "Class::name; both are now fixed and the merge test case table encodes both, so TestMergeJudges fails with the old substring rule",
+        "(traced: \"Suite::test_hangs_within_bound\" is not literal text of SOURCE; \"test_hangs\" is). TestDoneJudges cannot fail with the fix disabled,",
+        "because done() was already right; it is the pass-case side of the brief (\"from BOTH callers\"), which is acceptable.",
+        "meta[\"test\"] is a non-empty string whenever the guard reaches the check (parse flags closed_at without a test), so holds_test never gets None.",
+        "The guard only re-judges items the range adds to done/, so items closed earlier under the substring rule are not re-checked.",
+        "Small divergence left: done() reads the file at the unstripped path while holds_test and the guard strip it; done is the stricter side, so no",
+        "name done records is refused by the guard."
+      ],
+      "reviewed": "74b634cdb36753fe667fe8c33152f959ed3d284e",
+      "schema": 1,
+      "scope": [
+        "Range master...HEAD in /Users/amidman/relay/.worktrees/guard-test-name (8fb0781 the change, 74b634c its gate log).",
+        "Read: the brief; lib/relay_queue.py holds_test/_holds_test and done() (835-930) and parse() test/closed_at rules (112-145);",
+        "plugins/core/hooks/merge.py imports and step_queue (15-30, 120-160); lib/relay_git.git (raw returns str, text=True);",
+        "plugins/core/tests/merge.test.sh T15n cases; tests/test_guard_test_name.py in full.",
+        "Ran: cmp of the three relay_queue.py copies (identical); git grep for holds_test / _holds_test / \"closed without a test\" (no other caller);",
+        "pytest tests/test_guard_test_name.py (3 passed). Gate log .relay/checks/8fb0781...gate.log: head 8fb0781, bin/ci --quick, exit 0;",
+        "HEAD only adds that inert log."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}
