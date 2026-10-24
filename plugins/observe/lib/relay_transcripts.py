@@ -90,14 +90,18 @@ class Agg:
     cost: float = 0.0
     estimated: bool = False     # output tokens were estimated (agent transcripts hold a mid-answer snapshot)
     one_hour: int = 0           # cache-write tokens the transcript says were written for 1 hour
+    early_reads: int = 0        # cache-read tokens requested before the model's earlier-price date (prices.toml)
 
-    def add(self, model, usage, estimated=False):
+    def add(self, model, usage, estimated=False, when=""):
         self.requests += 1
+        early = relay_prices.is_before(model, when)
+        if early:
+            self.early_reads += int(usage.get("cache_read_input_tokens") or 0)
         split = usage.get("cache_creation")
         if isinstance(split, dict):
             self.one_hour += int(split.get("ephemeral_1h_input_tokens") or 0)
         _add(self.usage, usage)
-        self.cost += relay_prices.cost(model, usage)
+        self.cost += relay_prices.cost(model, usage, 1.0 if early else 0.0)
         self.estimated = self.estimated or estimated
 
     @property
@@ -201,8 +205,8 @@ def _settle_agent_requests(trace):
         guess = round(item["chars"] * relay_prices.output_per_char(item["model"]))
         usage["output_tokens"] = max(item["out"], guess)
         trace.chars_by_model[item["model"]] = trace.chars_by_model.get(item["model"], 0) + item["chars"]
-        trace.total.add(item["model"], usage, estimated=True)
-        trace.by_model.setdefault(item["model"], Agg()).add(item["model"], usage, estimated=True)
+        trace.total.add(item["model"], usage, estimated=True, when=item["when"])
+        trace.by_model.setdefault(item["model"], Agg()).add(item["model"], usage, estimated=True, when=item["when"])
     trace._pending = {}
 
 
@@ -305,10 +309,10 @@ def _absorb(trace, entry, seen_requests):
     trace.models.add(model)
     if trace.kind == "agent":
         trace._pending[request_id] = {"model": model, "usage": usage, "chars": _visible_chars(content),
-                                      "out": int(usage.get("output_tokens") or 0)}
+                                      "out": int(usage.get("output_tokens") or 0), "when": ts}
     else:
-        trace.total.add(model, usage)
-        trace.by_model.setdefault(model, Agg()).add(model, usage)
+        trace.total.add(model, usage, when=ts)
+        trace.by_model.setdefault(model, Agg()).add(model, usage, when=ts)
     context = sum(int(usage.get(k) or 0) for k in USAGE_KEYS[:3])
     trace.last_context = context
     trace.max_context = max(trace.max_context, context)

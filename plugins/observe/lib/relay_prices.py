@@ -64,11 +64,23 @@ def calibration_tolerance() -> float:
     return _bounded(table().get("estimate", {}).get("calibration_tolerance", 0.02), 0.005, 0.10, 0.02)
 
 
-def cost(model: str | None, usage: Mapping[str, Any]) -> float:
+def is_before(model: str | None, when: str | None) -> bool:
+    """True when the request time `when` (ISO text) is before the date up to which the model had earlier prices."""
+    earlier = table()["models"][tier(model)].get("before")
+    return bool(earlier and when and when[:10] < str(earlier["date"]))
+
+
+def cost(model: str | None, usage: Mapping[str, Any], early_share: float = 0.0) -> float:
     """USD for one usage dict (input_tokens, cache_creation_input_tokens, cache_read_input_tokens,
     output_tokens). When usage.cache_creation splits the writes, 1-hour writes are priced at the
-    1-hour rate; every other written token at the 5-minute rate."""
-    rates = table()["models"][tier(model)]
+    1-hour rate; every other written token at the 5-minute rate. `early_share` (0-1) is the part of
+    the usage from before the model's [before] date: its rates are blended with the earlier ones."""
+    rates = dict(table()["models"][tier(model)])
+    earlier = rates.pop("before", None)
+    if earlier and early_share:
+        for key, old in earlier.items():
+            if key != "date":
+                rates[key] = old * early_share + rates[key] * (1 - early_share)
     created = int(usage.get("cache_creation_input_tokens") or 0)
     split = usage.get("cache_creation")
     one_hour = int(split.get("ephemeral_1h_input_tokens") or 0) if isinstance(split, dict) else 0
