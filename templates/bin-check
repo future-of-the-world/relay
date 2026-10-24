@@ -26,25 +26,38 @@ bound() { # seconds cmd...: run cmd, kill it after N seconds, exit 124 (timeout,
   elif command -v python3 >/dev/null 2>&1; then
     python3 -c '
 import os, signal, subprocess, sys
-secs = float(sys.argv[1])
+secs = float(sys.argv[1]) or None  # 0 = no bound, as timeout
 p = subprocess.Popen(sys.argv[2:], start_new_session=True)
-try:
-    sys.exit(p.wait(timeout=secs))
-except subprocess.TimeoutExpired:
+def stop_step():
     os.killpg(p.pid, signal.SIGTERM)
     try:
         p.wait(timeout=5)
     except subprocess.TimeoutExpired:
         os.killpg(p.pid, signal.SIGKILL)
         p.wait()
+def forward(signum, frame):  # bin/check itself stopped: take the step down with it
+    stop_step()
+    sys.exit(128 + signum)
+for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signal.signal(s, forward)
+try:
+    rc = p.wait(timeout=secs)
+except subprocess.TimeoutExpired:
+    stop_step()
     sys.exit(124)
+sys.exit(128 - rc if rc < 0 else rc)
 ' "$secs" "$@"
   else
     perl -e '
 my $s = shift; my $pid = fork();
 if (!$pid) { setpgrp(0, 0); exec @ARGV or exit 127; }
-$SIG{ALRM} = sub { kill "TERM", -$pid; sleep 5; kill "KILL", -$pid; waitpid($pid, 0); exit 124; };
-alarm $s; waitpid($pid, 0); exit($? >> 8);
+$SIG{ALRM} = sub {
+  kill "TERM", -$pid;
+  for (1..50) { last if waitpid($pid, 1) == $pid; select(undef, undef, undef, 0.1); }
+  kill "KILL", -$pid; waitpid($pid, 0); exit 124;
+};
+alarm $s; waitpid($pid, 0);
+exit(($? & 127) ? 128 + ($? & 127) : $? >> 8);
 ' "$secs" "$@"
   fi
 }
