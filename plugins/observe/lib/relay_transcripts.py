@@ -9,6 +9,7 @@ counted once. Tool calls are `tool_use` blocks in assistant content.
 
 Nothing here reads prompt or reply text beyond its length.
 """
+from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
 
 import glob
 import json

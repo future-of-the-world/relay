@@ -43,7 +43,7 @@ def marker(name: object) -> str | None:
 
 def agent_transcript(data: dict[str, Any]) -> str | None:
     path = data.get("agent_transcript_path")
-    if path and os.path.isfile(path):
+    if isinstance(path, str) and os.path.isfile(path):
         return path
     agent_id = "".join(ch for ch in str(data.get("agent_id") or "") if ch.isalnum() or ch in "-_")
     transcript = data.get("transcript_path") or ""

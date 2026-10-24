@@ -1,5 +1,5 @@
 """The "types and lint" step (bin/types-lint): it fails on a type error in a strict module and on an unused import,
-and passes on the tree. The planted cases run in a temporary copy of the config and of one strict module."""
+and passes on the tree. The tree itself is checked by the gate step, not here. The planted cases run in a temporary copy of the config and of one strict module."""
 import os
 import shutil
 import subprocess
@@ -47,9 +47,27 @@ class TypesStep(unittest.TestCase):
         self.assertIn("F401", r.stdout)
         self.assertNotIn("FAIL mypy", r.stdout)
 
-    def test_tree_passes(self):
-        r = run(ROOT)
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+    def _plant_in_hook(self, hook):
+        # mypy names a hook by its path from the root (plugins.front.hooks.handover): the override must match that
+        shutil.copytree(os.path.join(ROOT, "lib"), os.path.join(self.tmp, "lib"), dirs_exist_ok=True)
+        d = os.path.join(self.tmp, os.path.dirname(hook))
+        os.makedirs(d, exist_ok=True)
+        shutil.copy(os.path.join(ROOT, hook), d)
+        with open(os.path.join(self.tmp, hook), "a") as f:
+            f.write("\n\ndef bare(x):\n    return x\n")
+        return run(self.tmp)
+
+    def test_front_hooks_are_strict(self):
+        for name in ("handover", "budget", "reply_language"):
+            with self.subTest(hook=name):
+                r = self._plant_in_hook("plugins/front/hooks/%s.py" % name)
+                self.assertNotEqual(r.returncode, 0, r.stdout)
+                self.assertIn("%s.py" % name, r.stdout)
+                self.assertIn("no-untyped-def", r.stdout)
+
+    def test_unannotated_hook_keeps_default_strictness(self):
+        r = self._plant_in_hook("plugins/observe/hooks/ledger.py")
+        self.assertNotIn("no-untyped-def", r.stdout)
 
 
 if __name__ == "__main__":

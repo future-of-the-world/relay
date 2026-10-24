@@ -55,8 +55,9 @@ def share(text: str, script: str) -> float | None:
 
 
 def last_reply(data: dict[str, Any]) -> str:
-    if isinstance(data.get("last_assistant_message"), str):
-        return data["last_assistant_message"]
+    message = data.get("last_assistant_message")
+    if isinstance(message, str):
+        return message
     last = ""
     try:
         with open(data.get("transcript_path") or "", encoding="utf-8") as f:
