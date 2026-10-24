@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_relay.py:1971 and :1977 both exist and pass; gate green on d45ca21."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/auto-merge/.relay/checks/d45ca2196c6698217de182384a20cbe91b3ba4f3.gate.log",
+  "head": "8726e88c0b1c12d3bd65bac1a4c025004070940d",
+  "new": [],
+  "notes": [
+    "none"
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "d45ca2196c6698217de182384a20cbe91b3ba4f3.review.json"
+  ],
+  "reviewed": "d45ca2196c6698217de182384a20cbe91b3ba4f3",
+  "schema": 1,
+  "scope": [
+    "Fixes none. relay changed lists no file after the reviewed sha (only the gate log commit). Gate log head d45ca21, exit 0. No conflict markers in tests/test_relay.py; ran the 4 tests of AutoMergeTextsTest and TestPrinciplesRule.test_a_project_with_load_principles_carries_it: pass."
+  ],
+  "type": "check"
+}
