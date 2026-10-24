@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 30,
+  "found_at": "2026-10-24T04:35:35Z",
+  "found_in": "finding F4 of review-archive-inert.json",
+  "title": "The checker's file list (`relay changed --own`) has no…",
+  "what": [
+    "bin/relay:468: MEDIUM: F4 the checker's file list (`relay changed --own`) has no archive filter, so a re-check after an archive commit counts the archive as open +1"
+  ],
+  "why": [
+    "Found outside the archive-inert change (24 Oct, wave 1): a re-check after an archive commit counts the archive as open, so the checker and the merge guard disagree on what an archive changes."
+  ],
+  "failing_case": [
+    "Mark on C, then any archive commit that the merge refuses (for example with a docs edit, F1) or any re-check for another",
+    "reason: the checker runs `relay changed --own -C <wt> <reviewed>` and gets every openspec/specs and",
+    "openspec/changes/archive path; with `Fixes: none` that is open +1 \"changed since the review\", so the new mark has open 1",
+    "and the merge stays refused. Should be: the checker and the merge guard agree on what an archive changes."
+  ],
+  "pass_cases": [
+    "1. `relay changed --own --archive -C <wt> <C>` after an archive-only commit prints nothing.",
+    "2. Same with a README.md edit in the commit prints README.md only.",
+    "3. `relay changed --own -C <wt> <C>` without the flag is unchanged."
+  ],
+  "where": "bin/relay:468",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

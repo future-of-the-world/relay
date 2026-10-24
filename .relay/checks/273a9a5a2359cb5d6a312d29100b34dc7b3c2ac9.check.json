@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_guard_test_name.py TestHoldsTest/TestDoneJudges/TestMergeJudges (CASES rows NoSuchClass -> False, Suite::name -> True, file::name -> True); failed at 74b634c, pass at head. lib/relay_queue.py:842-849 requires class for .py."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/guard-test-name/.relay/checks/ef749fb2271506aa7690f46371b93ed08b978dca.gate.log",
+  "head": "273a9a5a2359cb5d6a312d29100b34dc7b3c2ac9",
+  "new": [],
+  "notes": [],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "74b634cdb36753fe667fe8c33152f959ed3d284e.review.json"
+  ],
+  "reviewed": "74b634cdb36753fe667fe8c33152f959ed3d284e",
+  "schema": 1,
+  "scope": [
+    "Range 74b634c..HEAD; own files: three relay_queue.py copies (identical) and tests/test_guard_test_name.py. Gate log head ef749fb, exit 0, only the gate log commit after. Ran the test file (3 pass); with the head test copied onto 74b634c all 3 fail."
+  ],
+  "type": "check"
+}

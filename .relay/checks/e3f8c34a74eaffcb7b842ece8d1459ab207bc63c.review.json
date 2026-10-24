@@ -1,0 +1,42 @@
+{
+  "reviewed": "e3f8c34a74eaffcb7b842ece8d1459ab207bc63c",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-mark-attach.json",
+      "findings": [],
+      "notes": [
+        "No findings.",
+        "Replay of every real subagent transcript: 5188 give the same result under both versions; the 41 that differ all moved",
+        "from \"does not start with a prompt\" to the Report: label of the first user entry (the right prompt). No transcript changed",
+        "from a success to a different or wrong result. The 237 remaining failures are all forks (first entry fork-context-ref),",
+        "not checker transcripts, and unchanged by this fix.",
+        "Checked and fine: a transcript with no prompt at all still raises (test_no_prompt_still_fails); an attachment before any",
+        "prompt still raises, as the brief asks; an unlabelled prompt followed by attachments still returns that prompt; the",
+        "harness-relay-first case still picks the last labelled entry. No other caller of first_entry exists (git grep).",
+        "Remark, not a finding (pre-existing, outside this change and the brief's \"nothing else in the hook\"): the \"last labelled",
+        "wins\" rule can be overridden by a later leading user entry that contains \"Report:\" (46 real transcripts in other projects",
+        "have a skill expansion like \"Report: <change-name>\" before the first assistant entry). No relay checker transcript shows",
+        "this shape; the new code only lets the scan reach entries after attachments, and the replay found no case where that",
+        "changed the picked label.",
+        "The tests exercise first_entry, not the whole hook writing a mark; run() uses first_entry's result unchanged, so the unit",
+        "level covers the brief's pass case."
+      ],
+      "reviewed": "e3f8c34a74eaffcb7b842ece8d1459ab207bc63c",
+      "schema": 1,
+      "scope": [
+        "Range master...HEAD in /Users/amidman/relay/.worktrees/mark-attach (3335139 the fix, e3f8c34 the gate log of 3335139).",
+        "Read: the brief mark-attach.md; plugins/core/hooks/check-mark.py in full (first_entry, entry_text, report_label, run);",
+        "tests/test_mark_attach.py; the gate log .relay/checks/3335139...gate.log (head 3335139, bin/ci --quick, exit 0; HEAD adds",
+        "only that inert log). Inspected the real failing transcript agent-a9142df3e17c5ca29.jsonl (line 0 user prompt with Report:,",
+        "then attachment entries with no `message` key), matching the test fixture shape.",
+        "Ran: tests/test_mark_attach.py (4 passed); the same test file against master's hook (2 failed: the labelled-then-attachments",
+        "case and the harness-relay-first case; 2 pass as guards), so the new tests fail with the fix disabled.",
+        "Replayed first_entry, old (master) and new, over all 5229 real subagent transcripts under ~/.claude/projects."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}

@@ -1,0 +1,40 @@
+{
+  "reviewed": "fa587db2febbbbc57d2293db5df849aef8358788",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "queue-mac-timeout.json",
+      "findings": [
+        {
+          "details": [
+            "bin/check calls timeout, which macOS does not have, so the first check fails as if a test failed and a round of the 3-round budget is spent; with a local shim there is no hang bound at all."
+          ],
+          "evidence": [],
+          "failing_case": [
+            "Trial: in a fresh project made by relay setup, bin/check printed 'timeout: command not found' and exited 1 on the first run; the trial had to patch in a shim that removes the hang bound."
+          ],
+          "fix_hint": [],
+          "id": "Q1",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "On a machine with no timeout or gtimeout, bin/check on a green project prints passed (exit 0) and on a hanging step prints HUNG within CHECK_TIMEOUT."
+          ],
+          "path": "templates/bin-check:19-21, templates/bin-check (md5sum use)",
+          "rank": "high",
+          "severity": "HIGH",
+          "summary": "First check in a new project on a Mac fails: no timeout"
+        }
+      ],
+      "notes": [],
+      "reviewed": "fa587db2febbbbc57d2293db5df849aef8358788",
+      "schema": 1,
+      "scope": [
+        "From queue item first-check-in-a-new-project-on-a-mac-fails-no-t: the fix is checked as finding Q1."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}

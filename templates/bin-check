@@ -10,14 +10,62 @@ set -uo pipefail
 root="$(git rev-parse --show-toplevel)"; cd "$root"
 timeout_s="${CHECK_TIMEOUT:-300}"; minutes="${CHECK_WORKER_MINUTES:-40}"
 mkdir -p .ci/check
-key="task-${2:-tests}"; [ "${1:-}" = "--tests" ] && key="tests-$(printf '%s' "$*" | md5sum | cut -c1-8)"
+hash8() { # portable hash of stdin: md5sum, else md5 -q (macOS), else python3
+  if command -v md5sum >/dev/null 2>&1; then md5sum | cut -c1-8
+  elif command -v md5 >/dev/null 2>&1; then md5 -q | cut -c1-8
+  else python3 -c 'import hashlib,sys; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])'; fi
+}
+key="task-${2:-tests}"; [ "${1:-}" = "--tests" ] && key="tests-$(printf '%s' "$*" | hash8)"
 log=".ci/check/$key.log"; fails=".ci/check/$key.fails"; started=".ci/check/$key.started"
 [ -f "$started" ] || date +%s > "$started"
 elapsed=$(( ( $(date +%s) - $(cat "$started") ) / 60 ))
+bound() { # seconds cmd...: run cmd, kill it after N seconds, exit 124 (timeout, else gtimeout, else python3, else perl)
+  local secs="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then timeout -k 5 "$secs" "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout -k 5 "$secs" "$@"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c '
+import os, signal, subprocess, sys
+secs = float(sys.argv[1]) or None  # 0 = no bound, as timeout
+p = subprocess.Popen(sys.argv[2:], start_new_session=True)
+def stop_step():
+    os.killpg(p.pid, signal.SIGTERM)
+    try:
+        p.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        os.killpg(p.pid, signal.SIGKILL)
+        p.wait()
+def forward(signum, frame):  # bin/check itself stopped: take the step down with it
+    stop_step()
+    sys.exit(128 + signum)
+for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signal.signal(s, forward)
+try:
+    rc = p.wait(timeout=secs)
+except subprocess.TimeoutExpired:
+    stop_step()
+    sys.exit(124)
+sys.exit(128 - rc if rc < 0 else rc)
+' "$secs" "$@"
+  else
+    perl -e '
+my $s = shift; my $pid = fork();
+if (!$pid) { setpgrp(0, 0); exec @ARGV or exit 127; }
+$SIG{ALRM} = sub {
+  kill "TERM", -$pid;
+  for (1..50) { last if waitpid($pid, 1) == $pid; select(undef, undef, undef, 0.1); }
+  kill "KILL", -$pid; waitpid($pid, 0); exit 124;
+};
+alarm $s; waitpid($pid, 0);
+exit(($? & 127) ? 128 + ($? & 127) : $? >> 8);
+' "$secs" "$@"
+  fi
+}
 run_step() { # name cmd...
   local name="$1"; shift
-  if ! timeout -k 5 "$timeout_s" "$@" > "$log" 2>&1; then
-    local rc=$?
+  local rc=0
+  bound "$timeout_s" "$@" > "$log" 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
     [ "$rc" -eq 124 ] && echo "HUNG: $name exceeded ${timeout_s}s"
     n=$(( $(cat "$fails" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$fails"
     head -30 "$log"

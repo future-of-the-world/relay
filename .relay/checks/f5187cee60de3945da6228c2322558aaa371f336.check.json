@@ -1,0 +1,56 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "tests/test_paid_cost_limits.py test_cap_minus_the_largest_run_not_the_mean, less_than_one_run, one_job, nothing_measured, run_cost_adds_judge_cost: pass, fail on old code"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "README lines 22-32 use -j 1 and placeholders, no plugin-eval records; test_empty_dir_prints_one_job_and_the_cap passes (pass case 3)"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "README marks 6.32 as a partial run stopped at a 4 dollar ceiling, haiku 0.49 as a full run, full sonnet about 7.5-8"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "test_partial_batch_is_not_counted and test_partial_batch_runs_count_for_the_ceiling pass, fail on old code"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "bin/paid-cost docstring and bin/ci comment reworded to one run per job, within one run of the cap"
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/eval-cost/.relay/checks/a96dcbbfc521d53fbbba9620655f11bb314bd74f.gate.log",
+  "head": "f5187cee60de3945da6228c2322558aaa371f336",
+  "new": [],
+  "notes": [
+    "Ceiling now uses the largest single run (costUsd + judgeCostUsd), partial batches excluded from the estimate but their runs count for the ceiling. README no longer points at plugin-eval records, uses -j 1 with placeholders, marks the sonnet 6.32 figure as partial."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "f098ac65ceecf43fd62ba8b35535539729fb2150.review.json"
+  ],
+  "reviewed": "f098ac65ceecf43fd62ba8b35535539729fb2150",
+  "schema": 1,
+  "scope": [
+    "Fix range f098ac6..HEAD; own files: bin/ci, bin/paid-cost, evals/judge-measure/README.md, tests/test_paid_cost_limits.py (all in scope). Gate log head a96dcbb, exit 0; no non-inert file after it. Ran test file: 13 passed. In a throwaway worktree at f098ac6 with the new test file, 7 failed (the F1 and F4 tests), 6 passed. Read the new bin/paid-cost, bin/ci comment, README diff."
+  ],
+  "type": "check"
+}
