@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 95,
+  "time": 30,
+  "found_at": "2026-10-24T04:00:12Z",
+  "found_in": "relay queue add",
+  "title": "A reply to the owner can come out in the wrong language",
+  "what": [
+    "A Stop hook on the front's reply: when native_language is set and is written in a non-Latin script (Russian: Cyrillic), strip code blocks, inline code, paths and URLs, count the letters left, and if the native script's share is under a threshold (default 60%, set in config), block the stop once with \"rewrite the reply in <language>; code, paths and names stay as they are\". Measure share, never per character. Skip replies with fewer than ~40 prose letters. Agents' replies are not checked (only the front's reply to the owner)."
+  ],
+  "why": [
+    "The rule \"talk to me in my native language\" is text only and failed: on 24 Oct (session 3207dc59) the full report after a long English tool stretch came out in English. Owner, verbatim: \"Ты ответил мне на английском - что-то здесь не так\"; then \"1. a, но это не должна быть строгая проверка на то чтобы каждый символ соответствовал языку, это приведет к ложному срабатыванию, достаточно процентного покрытия\"."
+  ],
+  "failing_case": [
+    "The front's English report of 24 Oct (3038 chars, Cyrillic share of prose letters 0%) reached the owner unchanged."
+  ],
+  "pass_cases": [
+    "That English reply is blocked once with the rewrite instruction; the Russian reply that followed (Cyrillic share 97%, with terms like workflow, OpenSpec, $9 and file paths) passes; a reply that is almost all code or paths (under ~40 prose letters) passes; with native_language unset or English nothing is checked; a second stop after one block is let through (no loop)."
+  ],
+  "where": "plugins/front/hooks (a new Stop hook), projects.toml [global] native_language",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

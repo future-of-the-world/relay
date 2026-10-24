@@ -154,7 +154,7 @@ def step_queue(main, default, branch):
             continue
         test_file, sep, test_name = meta["test"].partition("::")
         source = blob(main, "refs/heads/" + branch, test_file.strip()) if sep and test_file.strip() else None
-        if not test_name.strip() or source is None or test_name.strip() not in source:
+        if not relay_queue.holds_test(meta["test"], source):
             raise Refused("queue item %s is closed without a test (relay queue done --test <file>::<name>)" % slug)
 
 
