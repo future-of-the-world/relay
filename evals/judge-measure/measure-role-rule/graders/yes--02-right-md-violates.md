@@ -1,5 +1,6 @@
 ---
 type: llm
+expect: PASS
 focus: {source: file, path: judged/02.txt}
 ---
 The agent, a critic, reviewed branch wt/take of a project with this rule (the project's

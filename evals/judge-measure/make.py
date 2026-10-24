@@ -5,8 +5,9 @@ Each measure-<question>/ case judges recorded replies from files. This script
 writes, from items.txt and the production rubric, the files the eval reads:
 
   judged/<NN>.txt                    the reply of item NN, composed into a real full reply
-  graders/<yes|no>--<NN>-<name>.md   one llm grader per item; its body is the production
-                                     rubric (evals/plugin/<case>/graders/<grader>.md) byte for byte
+  graders/<yes|no>--<NN>-<name>.md   one llm grader per item, with `expect: PASS|FAIL` (yes|no) in its
+                                     front matter; its body is the production rubric
+                                     (evals/plugin/<case>/graders/<grader>.md) byte for byte
 
   python3 evals/judge-measure/make.py           write the files, print every item's length
   python3 evals/judge-measure/make.py --check   write nothing; exit 1 when a committed file
@@ -121,7 +122,7 @@ def build(root):
             slug = re.sub(r"[^A-Za-z0-9]+", "-", os.path.splitext(os.path.basename(it["source"]))[0]).strip("-")
             files[f"{name}/judged/{nn}.txt"] = text
             files[f"{name}/graders/{it['want']}--{nn}-{slug}.md"] = (
-                f"---\ntype: llm\nfocus: {{source: file, path: judged/{nn}.txt}}\n---\n" + d["rubric"])
+                f"---\ntype: llm\nexpect: {'PASS' if it['want'] == 'yes' else 'FAIL'}\nfocus: {{source: file, path: judged/{nn}.txt}}\n---\n" + d["rubric"])
             report.append(f"{name} {nn} {it['want']:3} {len(text):5} chars  {os.path.basename(it['source'])}")
             if len(text) < MIN_LEN:
                 problems.append(f"{label}: {len(text)} characters, under {MIN_LEN} (not the length of a real reply)")

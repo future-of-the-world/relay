@@ -14,6 +14,8 @@ recorded replies before it gates anything. Nothing here runs in `bin/ci`.
   difference, a short item, an item the code check refuses, a template that mentions the finding, or a
   recorded wrong reply that is in no items.txt, or a known wrong answer (`known_wrong` in questions.json:
   wrong replies the code graders let through, so only the judge refuses them) that no "no" item says.
+- Each grader file carries `expect: PASS|FAIL` in its front matter (make.py writes it from the yes/no of items.txt);
+  `tally.py` reads that field, never the grader's name, and a grader without it is not judged.
 - `tally.py` reads the `--json` of a measurement run; exit 2 and no verdict unless every case, every item
   (items.txt) and every run is present, without `error`, and judged with 3 votes.
 - The measurement prompts set `max_turns: 1` and nothing else to bound the agent: `allowed_tools: []` is the

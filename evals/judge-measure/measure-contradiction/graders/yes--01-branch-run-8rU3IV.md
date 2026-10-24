@@ -1,5 +1,6 @@
 ---
 type: llm
+expect: PASS
 focus: {source: file, path: judged/01.txt}
 ---
 The agent reviewed OpenSpec change add-saved-shelf. Reference facts:

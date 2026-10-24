@@ -1,5 +1,6 @@
 ---
 type: llm
+expect: FAIL
 focus: {source: file, path: judged/09.txt}
 ---
 The agent reviewed branch wt/paging of a project with this rule (the project's file
