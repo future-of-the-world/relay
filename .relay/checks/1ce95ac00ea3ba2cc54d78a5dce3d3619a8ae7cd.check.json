@@ -1,0 +1,127 @@
+{
+  "branch": "wt/spec-flaw",
+  "findings": [
+    {
+      "details": [
+        "The paid run of the Python rule change, 24 Oct (record ~/.relay/evals/relay/2026-10-24T09-07-34Z-wt-py-rule.json) went RED on this one grader (\"pattern not found in last_message\"); 0 of the 42 earlier runs of this case in the 13 records since 22 Oct failed. Under the owner's 24 Oct order (\"a\": one paid run per wave, a red run is a fix item at the top) the change merged and the failure is this item."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Record 2026-10-24T09-07-34Z-wt-py-rule.json: spec-reviewer-flaw, finds-the-contradiction passed false in 1 of 3 runs."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The cause is named with evidence from that run's transcript; after the fix the case passes in the next wave's paid run; a reviewer reply that names the contradiction in other words still passes the grader."
+      ],
+      "path": "evals/plugin/spec-reviewer-flaw (case, grader finds-the-contradiction), the spec reviewer's role text",
+      "rank": "high",
+      "reason": [
+        "tests/test_spec_flaw.py::FindsTheContradiction::test_failing_run_reply_passes fails on the grader before 4d1dfad (4d1dfad^) and passes on head; cause named (grader judged wording, reviewer found the flaw). The next paid run must still confirm; not run here."
+      ],
+      "severity": "HIGH",
+      "since": "7a4d5f6480584607778bb2f557689bc0565cfe82",
+      "source": "queue",
+      "summary": "spec-reviewer-flaw missed the contradiction in 1 of 3 runs",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a node probe of the new pattern (the grader's own RegExp dialect).",
+        "This grader has now been patched for wording three times: cff3f39 (add the spec.md/design.md pair), 10835dc (reduce to the same-line pair), 4d1dfad (accept \"spec\" for \"spec.md\"). Principle 6 fires on \"the same kind of failure a second time\": the rule behind it is that a regex requires particular words on one line, and each red run teaches it one more word. The brief also named principle 5: meaning goes to a meaning grader or a looser fact check. \"Names the spec and the design on one line\" is still a wording test, not a fact every correct reply states; correct replies routinely say \"the scenario\", \"the requirement\" or split the finding over a sub-bullet. With 3 runs per case and 1 red in 43 runs so far, the next unusual wording turns the paid run red again on a correct reviewer.",
+        "Label: principle 6 (cause, not symptom); principle 5.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "git log -p -- evals/plugin/spec-reviewer-flaw/graders/finds-the-contradiction.md: three pattern changes, cff3f39, 10835dc, 4d1dfad.",
+        "node probe of the new pattern:",
+        "false \"- **F1** `design.md:13`: D2 moves the file aside; the \\\"Corrupt data\\\" s\"",
+        "false \"- **F1** `design.md:13`: the design and the requirement contradict eac\"",
+        "false \"- **F1** D2 vs the Corrupt data scenario: they disagree on a corrupt f\"",
+        "false \"- **F1** `specs/shelf/spec.md:17`: the scenario contradicts the design\""
+      ],
+      "failing_case": [
+        "Reply line: - **F1** `design.md:13`: the design and the requirement contradict each other on a garbled file.",
+        "Now: finds-the-contradiction FAILS (no word \"spec\" on the line), so the case goes red on a reviewer that found the flaw, the same false red this change was meant to end.",
+        "Should: pass, as reports-the-contradiction (the llm grader) would.",
+        "The same holds for \"- **F1** D2 vs the Corrupt data scenario: they disagree on a corrupt file.\" and for a two-line finding \"`specs/shelf/spec.md:17`: the scenario contradicts the design.\\n  D2 moves the file aside.\" (both FAIL now)."
+      ],
+      "fix_hint": [
+        "Make the code grader a fact every correct reply states, not a wording: either (a) drop finds-the-contradiction and let reports-the-contradiction (llm, already present, passed the red run) carry the meaning, keeping reviewer-started as the code fact; or (b) loosen it to the whole reply naming the design side (D2|design\\.md|shelf\\.json\\.bad|moved aside) and the spec side (spec|Corrupt data|scenario) anywhere, not on one line, and move the bad reply that names both sides to reports-the-contradiction__ with a judge-measure item. Add the three failing replies above as good fixtures."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 3,
+      "pass_cases": [
+        "1. \"- **F1** `design.md:13`: the design and the requirement contradict each other on a garbled file.\" passes finds-the-contradiction.",
+        "2. \"- **F1** D2 vs the Corrupt data scenario: they disagree on a corrupt file.\" passes.",
+        "3. \"- **F1** `specs/shelf/spec.md:17`: the scenario contradicts the design.\\n  D2 moves the file aside.\" passes.",
+        "4. Every reply in recorded/good/ (including run-spec-in-prose.txt) still passes every regex grader of the case.",
+        "5. Every finds-the-contradiction__*.txt in recorded/bad/ still fails it, or, where a looser fact check can no longer tell it apart (both-sides-no-conflict names both sides), it is renamed to reports-the-contradiction__ and listed in evals/judge-measure/*/items.txt so graders.test.sh still accounts for it."
+      ],
+      "path": "evals/plugin/spec-reviewer-flaw/graders/finds-the-contradiction.md",
+      "rank": "medium",
+      "reason": [
+        "Grader now needs design side and spec side anywhere in the reply. Fixtures good/requirement-wording.txt, scenario-wording.txt, two-line-finding.txt pass (graders.test.sh) and fail on the old grader; all old good fixtures still pass; both-sides-no-conflict moved to reports-the-contradiction__ with judge-measure item."
+      ],
+      "severity": "MEDIUM",
+      "since": "027876fc69e6b4a08c8f24a7db6e783b8be344d4",
+      "source": "review-spec-flaw.json",
+      "source_id": "F1",
+      "summary": "principle 6: third wording patch of the same regex; a correct reply that says 'the scenario'/'the requirement', or puts the pair on two lines, still fails",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the node probe: both no-findings replies return true. The case does not go green on them, because reports-the-contradiction (llm) still judges the meaning, so today this only weakens the code fact; it is LOW. If F1 is fixed by dropping the regex, this goes with it. Otherwise exclude a following hyphen, e.g. \\bspec(?:\\.md\\b|(?![-\\w])), and record such a reply under recorded/bad/finds-the-contradiction__.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "node probe of the new pattern:",
+        "true \"kit spec-check passes; design.md reads fine. No findings.\"",
+        "true \"Started sdd:spec-reviewer on design.md and the rest; no findings.\""
+      ],
+      "failing_case": [
+        "Reply: \"kit spec-check passes; design.md reads fine. No findings.\"",
+        "Now: finds-the-contradiction PASSES (the hyphen after \"spec\" is a word boundary). Before the change it failed (no \"spec.md\").",
+        "Should: fail, as it did before; it reports no contradiction. Same for \"Started sdd:spec-reviewer on design.md and the rest; no findings.\""
+      ],
+      "fix_hint": [
+        "Use \\bspec(?:\\.md\\b|(?![-\\w])) and add a bad fixture finds-the-contradiction__spec-check-named.txt with the first failing reply; or drop the regex as in F1 (a)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 3,
+      "pass_cases": [
+        "1. \"kit spec-check passes; design.md reads fine. No findings.\" fails finds-the-contradiction.",
+        "2. \"Started sdd:spec-reviewer on design.md and the rest; no findings.\" fails it.",
+        "3. recorded/good/run-spec-in-prose.txt still passes (its F1 line says \"the spec's\").",
+        "4. \"- **F1** `specs/shelf/spec.md:17` vs `design.md:13`: they contradict.\" still passes."
+      ],
+      "path": "evals/plugin/spec-reviewer-flaw/graders/finds-the-contradiction.md",
+      "rank": "low",
+      "reason": [
+        "Pattern spec(?:\\.md\\b|(?![-\\w])); bad/finds-the-contradiction__spec-check-named.txt and spec-reviewer-named.txt fail the grader now and passed the old one (graders.test.sh); run-spec-in-prose.txt still passes (tests/test_spec_flaw.py:44)."
+      ],
+      "severity": "LOW",
+      "since": "027876fc69e6b4a08c8f24a7db6e783b8be344d4",
+      "source": "review-spec-flaw.json",
+      "source_id": "F2",
+      "summary": "\\bspec\\b matches 'spec-check' and 'spec-reviewer', so a no-findings reply that names design.md now passes the code grader",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "7ed8a70d53e68aad77c8b87c8338be672ced6636.gate.log",
+  "head": "1ce95ac00ea3ba2cc54d78a5dce3d3619a8ae7cd",
+  "item": "spec-reviewer-flaw-missed-the-contradiction-in-1",
+  "notes": [
+    "test_spec_flaw.py passes at 027876f too (that commit already had the prose fix), so it only guards the earlier regression; the fixtures carry the proof for F1 and F2. The renamed reports-the-contradiction bad item has not been measured by the paid judge (fixer said so)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 027876f..HEAD. Gate log head 7ed8a70, exit 0, relay changed lists no file after it. Ran tests/test_spec_flaw.py (2 pass) and evals/plugin/graders.test.sh (all spec-reviewer-flaw lines ok). In a throwaway worktree at 027876f with the new fixtures and test copied in, graders.test.sh fails 3 good fixtures (requirement-wording, scenario-wording, two-line-finding) and 2 bad fixtures (spec-check-named, spec-reviewer-named); removed. Files changed are the grader, its fixtures, judge-measure items for the renamed bad reply, test_judge_tally count, and the new test: all in scope."
+  ],
+  "type": "check"
+}
