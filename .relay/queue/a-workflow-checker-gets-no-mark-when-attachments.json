@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 99,
+  "time": 20,
+  "found_at": "2026-10-24T05:13:42Z",
+  "found_in": "relay queue add",
+  "title": "A workflow checker gets no mark when attachments follow",
+  "what": [
+    "first_entry raises \"does not start with a prompt\" on an empty-text leading entry (an `attachment` entry) when the only earlier user entry carried the Report: label, because it tests `first is None` and the labelled entry never sets `first`. Skip entries that are not user prompts (type attachment, or no text) once a prompt (labelled or first) was seen; raise only when nothing was seen."
+  ],
+  "why": [
+    "Every workflow checker whose transcript has attachment entries after its prompt gets no mark, silently (the systemMessage is lost in a workflow); the merge is then refused \"no check mark\". The second failure of this hook on the workflow transcript shape (first: the harness relay line, fixed 24 Oct)."
+  ],
+  "failing_case": [
+    "24 Oct, wt/guard-test-name: check JSON open 0 recorded, no mark committed; replaying the hook on agent-a9142df3e17c5ca29.jsonl (line 0 the workflow prompt with Report:, lines 1-3 attachment entries) prints \"check mark not written for this worktree: the checker's transcript does not start with a prompt\"."
+  ],
+  "pass_cases": [
+    "That transcript shape (labelled prompt, then attachment entries, then assistant) writes the mark; a transcript with no prompt at all still says \"does not start with a prompt\"; the harness-relay-first case of the earlier fix still picks the labelled entry."
+  ],
+  "where": "plugins/core/hooks/check-mark.py:92-95",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
