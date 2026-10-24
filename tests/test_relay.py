@@ -1990,12 +1990,13 @@ class AutoMergeTextsTest(unittest.TestCase):
         """F3: step 9 merges on readiness (incl. the paid run), not on the verdict alone."""
         text = self._read("plugins/delegate/skills/delegate/SKILL.md")
         self.assertIn("When the change is ready", text)
-        self.assertIn("the paid run green when agent, skill, role or rule texts changed", text)
+        self.assertNotIn("the paid run green when agent, skill, role or rule texts changed", text)
+        self.assertIn("default branch taken)", text)
         self.assertNotIn("When the verdict is `open 0` the front merges", text)
 
     def test_merged_line_has_paid_run_slot(self):
-        """F4: front template carries the optional paid-run part."""
-        self.assertIn("`; paid run green, $<cost>`", self._read("plugins/front/skills/front/SKILL.md"))
+        """The merged line no longer carries a per-change paid-run part: the paid run is per wave."""
+        self.assertNotIn("`; paid run green, $<cost>`", self._read("plugins/front/skills/front/SKILL.md"))
 
 
 if __name__ == "__main__":

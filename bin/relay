@@ -20,7 +20,8 @@
                                      a candidate to edit by hand: copies of plugins whose agents or skills change
   relay profile [<name>]             show the active profile, or a candidate
   relay sync [--dry] [--adopt <target>]
-                                     write ~/.claude/CLAUDE.md, each project's CLAUDE.local.md, agent models
+                                     write ~/.claude/CLAUDE.md, each project's CLAUDE.local.md, agent models;
+                                     refuses while `bin/paid-cost due` lists changes no green paid run covers
   relay install [--no-claude]
                                      this machine onto relay: global CLAUDE.md, user settings, plugins
   relay migrate --all [--apply]      the migration plan (or the move) for every known project
@@ -64,6 +65,7 @@ The repository root is this script's parent, or $RELAY_ROOT.
 import datetime as dt
 import os
 import re
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -318,10 +320,23 @@ def cmd_sync(args):
     dry = flag(args, "--dry", takes_value=False)
     adopt = flag(args, "--adopt")
     only = set(args) or None
+    if not dry and not os.environ.get("RELAY_SKIP_PAID_DUE"):   # the env name is for tests that sync into temporary targets
+        held = paid_due()
+        if held is not None:
+            print("relay sync: waits for a green paid run; merged since the last one:\n" + held, file=sys.stderr)
+            return 1
     results = relay_rules.sync(relay_config.active_profile(), only=only, adopt=adopt, dry=bool(dry))
     for name, path, state in results:
         print(f"{name}: {state} ({path})")
     return report_refused(results)
+
+
+def paid_due():
+    """The `bin/paid-cost due` list when anything is due or it cannot be told, else None."""
+    done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "paid-cost"), "due", "--repo", ROOT], capture_output=True, text=True)
+    if done.returncode != 0:
+        return done.stderr.strip() or "bin/paid-cost due failed"
+    return done.stdout.strip() or None
 
 
 def report_refused(results):

@@ -60,21 +60,19 @@ what changes either way, and exactly what the owner should do.
 
 Where the project has `.relay/`, a change is ready when the checker's verdict
 says `open 0`, the branch has a green gate on its head and has taken the default
-branch, and the paid run is green when the change edited agent, skill, role or
-rule texts. A ready change is merged without asking the owner. Ask a runner for
+branch. A ready change is merged without asking the owner. Ask a runner for
 the numbers: `relay check show <branch>` prints three lines (the gate, the
 check, the findings outside the change). You never read the review, the check
 report or the gate log. No page and no Artifact.
 
 Merge it, then say in your next reply, in one line: `merged: <what it does for
-the owner>`, plus `; paid run green, $<cost>` when a paid run was made.
+the owner>`.
 
 Ask the owner first, on one chat screen, only when: (a) taking the default
 branch hit a git conflict that a fixer resolved by hand; (b) a finding is open
 as Design, question, Disputed or Gap, or the owner has not answered a question
 about the change; (c) the change is person-facing (rules/product-work.md: the
-owner checks it live before merge); (d) the paid run is red, or was not run
-because the day's cap on paid runs is reached; (e) the owner said to hold this
+owner checks it live before merge); (d) the owner said to hold this
 change. The owner can say "hold" or "не сливай" at any time; then wait for
 their word on that change.
 
@@ -87,7 +85,7 @@ the finding that matters most, in plain words):
 What it does for you: <the effect, in one or two lines>
 Checks: free checks green. Review: <n> inside the change, all fixed and checked;
 <m> outside, added to the work queue. Main review point: <one plain line>.
-Why I ask: <which case (a)-(e)>
+Why I ask: <which case (a)-(d)>
 1. Merge it now?
    a (recommended) merge   b hold (say what to change)
 ```
@@ -96,12 +94,20 @@ The merge itself is the front's, in the main checkout:
 `git merge --ff-only wt/<name>` in the main checkout. The merge hook refuses it
 unless the gate is green, the check says `open 0` and the branch has taken the
 default branch; its message says what to run (a runner takes the default branch
-or runs the gate again). When the change edited agent, skill, role or rule
-texts, run the full paid `bin/ci` yourself first (no approval needed, within the
-owner's daily cap on paid runs) and report its cost in the line or on the screen. It takes
+or runs the gate again). Texts get one paid run per wave: after the last merge of a wave of 3-4
+changes (not while it is half-merged), when `bin/paid-cost due` lists a change
+and no paid run is going, run the full paid `bin/ci` yourself (no approval
+needed, within the owner's daily cap) in a detached worktree of the default
+branch's head, so the primary checkout stays clean, and report its cost. It takes
 longer than the ~40 minutes a runner's turns cover, so never a runner: start it
 with Bash `run_in_background` into a log in the scratchpad (no `&`, no polling;
 the harness tells you when it exits) and, when told, read only the log's last lines.
+A red run is one fix item at the top of the queue (`relay queue add`, kind fix)
+naming each failing eval and the changes `due` listed; the next wave's run
+proves the fix. A run that is not a pass without a failing eval (money ceiling,
+runs not judged, the day's cap) adds no item: tell the owner in one line and run
+it again after the next wave. `relay sync` waits until `bin/paid-cost due` prints
+nothing; say so when you hold a sync.
 
 ## A long prompt is a setup gap
 

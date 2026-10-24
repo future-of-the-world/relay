@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The record step of bin/ci: files the plugin evals' result and prints what a person must see.
 
-  bin/eval-record [--json .ci/evals.json] [--repo NAME] [--branch NAME] [--keep 30]
+  bin/eval-record [--json .ci/evals.json] [--repo NAME] [--branch NAME] [--head SHA] [--keep 30]
 
 Reads the eval's --json file. Exit 1 when the copy fails; exit 2 (with a "NOT A PASS" line naming the cases) when
 any meaning grader failed, any run was not judged (a run missing from runsPerCase, a partial batch) or there is no record, so the gate is not green; notes alone never change it.
@@ -118,12 +118,21 @@ def report(data, record_path):
     return out
 
 
-def store(src, data, home, repo, branch, keep):
+def is_green(data):
+    """True when the batch is a pass: the same verdict `main` exits on (no failed meaning grader, nothing not judged, not partial)."""
+    return "NOT A PASS" not in report(data, "")[-1]
+
+
+def store(src, data, home, repo, branch, keep, head=None):
     stamp = re.sub(r"[^0-9A-Za-z-]", "-", re.sub(r"\.\d+Z$", "Z", data.get("startedAt", "unknown")))
     folder = os.path.join(home, "evals", repo)
     os.makedirs(folder, exist_ok=True)
     dest = os.path.join(folder, f"{stamp}-{re.sub(r'[^0-9A-Za-z._-]', '-', branch)}.json")
-    shutil.copyfile(src, dest)
+    if head:   # the record names the commit the run was made on; `bin/paid-cost due` reads it
+        with open(dest, "w", encoding="utf-8") as out:
+            json.dump(dict(data, head=head, branch=branch), out)
+    else:
+        shutil.copyfile(src, dest)
     for old in sorted(os.listdir(folder))[:-keep] if keep > 0 else []:
         os.remove(os.path.join(folder, old))
     return dest
@@ -141,6 +150,7 @@ def main(argv=None):
     ap.add_argument("--json", default=".ci/evals.json")
     ap.add_argument("--repo")
     ap.add_argument("--branch")
+    ap.add_argument("--head", help="the full sha the run was made on; stored in the record")
     ap.add_argument("--keep", type=int, default=30)
     a = ap.parse_args(argv)
     if not os.path.exists(a.json):
@@ -151,7 +161,7 @@ def main(argv=None):
         repo = a.repo or os.path.basename(os.path.dirname(os.path.abspath(git_name("rev-parse", "--git-common-dir")))) or "repo"
         branch = a.branch or git_name("rev-parse", "--abbrev-ref", "HEAD") or "detached"
         home = os.path.expanduser(os.environ.get("RELAY_HOME") or "~/.relay")
-        dest = store(a.json, data, home, repo, branch, a.keep)
+        dest = store(a.json, data, home, repo, branch, a.keep, a.head)
     except (OSError, ValueError) as e:
         print(f"ci: could not store the eval record: {e}")
         return 1
