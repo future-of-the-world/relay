@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 60,
+  "found_at": "2026-10-24T09:13:13Z",
+  "found_in": "relay queue add",
+  "title": "Queue time estimates are guesses with no model behind them",
+  "what": [
+    "Measure each merged change's agent minutes (sum of its agents' durations from the transcripts, mapped by brief or worktree) and wall minutes, as derived data (computed when read, not typed in); estimate a new item as the measured fixed cycle (median of recent changes: gates, review, checks, queue close) plus a build part, plus the paid run's wall time when the change edits agent, skill, role or rule texts; show estimate and, for closed items, the actual beside it; rules/queue.md says how to estimate."
+  ],
+  "why": [
+    "Owner, verbatim: \"На сколько оценочное время совпадает с реальным временем выполнения, проведи анализ, возможно тебе следует скорректировать модель оценки времени, как ты вообще это делаешь, что стоит за этой оценкой, \"на глаз\" или здесь существует система оценки\". No rule or code says how to estimate (lib/relay_queue.py only requires a number); 24 Oct: build agents took 3-14 min for items estimated 20-60, the whole cycle took 26-53 agent minutes whatever the estimate (20 -> 50, 60 -> 48), eval-tally 90 for an estimate of 23."
+  ],
+  "failing_case": [
+    "24 Oct sample of 12 changes: all-agents minutes / estimate median 1.2, range 0.8-3.9; build minutes / estimate about 0.2; the estimate does not order the changes by real cost (est 20 -> 50 agent min, est 60 -> 48)."
+  ],
+  "pass_cases": [
+    "On the 24 Oct sample, the new estimate (fixed cycle + build part + paid run) is within a factor of 1.5 of the measured agent minutes for at least 9 of 12 changes; `relay queue` shows actual beside estimate for closed items; the actuals are computed from transcripts, not stored by hand."
+  ],
+  "where": "lib/relay_queue.py (add, the table), rules/queue.md, a measuring script over agent transcripts",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
