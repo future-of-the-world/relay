@@ -533,9 +533,9 @@ def list_flows():
 
 # --- install and whole-machine migration --------------------------------------
 
-def install(principles=None, run_claude=True):
-    """The machine part of installing relay: global CLAUDE.md, user settings, plugins,
-    and the projects known to the principles library (its projects.toml and kit drafts)."""
+def install(run_claude=True):
+    """The machine part of installing relay: global CLAUDE.md, user settings, plugins.
+    It registers no project; `relay setup <dir>` adds one."""
     import relay_rules
     import relay_config
     done, todo = [], []
@@ -547,12 +547,6 @@ def install(principles=None, run_claude=True):
     done.append(f"{path}: relay marketplace + user-scope plugins" + ("" if changed else " (already)"))
     for r in removed:
         done.append(f"  removed a user hook the front plugin now provides: {r}")
-    principles = os.path.expanduser(principles or "~/principles")
-    imported = import_principles_projects(principles)
-    if imported:
-        done.append(f"imported {len(imported)} projects from {principles}/projects.toml: " + ", ".join(imported))
-    elif os.path.isdir(principles):
-        done.append(f"{principles}: no projects to import (already registered)")
     if run_claude and shutil.which("claude"):
         cmds = [["claude", "plugin", "marketplace", "add", ROOT]] + [["claude", "plugin", "install", f"{p}@relay", "--scope", "user"] for p in ("core", "observe", "delegate", "front")]
         for cmd in cmds:
@@ -567,25 +561,6 @@ def install(principles=None, run_claude=True):
     if not shutil.which("relay"):
         todo.append(f"put relay on your PATH: ln -s {os.path.join(ROOT, 'bin', 'relay')} {link} (or add {os.path.join(ROOT, 'bin')} to PATH)")
     return done, todo
-
-
-def import_principles_projects(principles):
-    """Register the principles library's project targets in relay's projects.toml (same shape)."""
-    src = os.path.join(principles, "projects.toml")
-    if not os.path.isfile(src):
-        return []
-    data = read_toml(src)
-    dst = relay_config.projects_file()
-    current = read_toml(dst) if os.path.isfile(dst) else {}
-    imported = []
-    with open(dst, "a", encoding="utf-8") as handle:
-        for name, spec in data.items():
-            if name == "global" or name in current:
-                continue
-            load = [m for m in spec.get("load", []) if m not in ("agents", "context-budget")]
-            handle.write(f'\n[{name}]\nfile = "{spec["file"]}"\ntitle = "{spec.get("title", "Rules this project loads")}"\nload = {json.dumps(load)}\nread = []\n')
-            imported.append(name)
-    return imported
 
 
 def known_projects():

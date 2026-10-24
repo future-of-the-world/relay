@@ -1860,6 +1860,21 @@ class DefaultBranch(unittest.TestCase):
         self.assertIsNone(self.relay_git.main_checkout(self.tmp))
 
 
+class TestNoOwnerProjects(unittest.TestCase):
+    """relay is portable: its own projects.toml names only global and relay, and install imports nothing."""
+
+    def test_projects_toml_has_only_global_and_relay(self):
+        import relay_config
+        data = relay_config.read_toml(os.path.join(ROOT, "projects.toml"))
+        self.assertEqual(sorted(data), ["global", "relay"])
+
+    def test_install_has_no_import_from_a_principles_library(self):
+        import inspect
+        import relay_setup
+        self.assertFalse(hasattr(relay_setup, "import_principles_projects"))
+        self.assertNotIn("principles", inspect.signature(relay_setup.install).parameters)
+
+
 class TestTasteRule(unittest.TestCase):
     """The experimental taste rule is loaded by the relay project's CLAUDE.local.md and by no other target."""
 
