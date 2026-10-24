@@ -22,6 +22,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-24T12:10:30Z",
+  "dropped_why": [
+    "Owner, verbatim, 24 Oct, on the check-record design's open question: \"1. a\" (drop this item once the redesign merges). The redesign merged 24 Oct; its test T7 covers this case (a check over many reviews matches findings by review and id, not by number)."
+  ]
 }
