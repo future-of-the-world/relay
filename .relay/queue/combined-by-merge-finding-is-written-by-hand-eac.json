@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 45,
+  "found_at": "2026-10-24T03:45:14Z",
+  "found_in": "relay queue add",
+  "title": "combined-by-merge finding is written by hand each time",
+  "what": [
+    "One command, e.g. `relay check record merge -C <wt> <checked sha> --report <path>.json`, that runs `relay changed --own`, writes one finding per listed file (conflict or combined, line 1, MEDIUM, kind inside, the standard failing/pass cases) with reviewed = HEAD (the merge commit), and prints the path; fix delegate step 8 to name it and to say reviewed = the merge commit."
+  ],
+  "why": [
+    "24 Oct: 5 times today the front wrote a review TOML by hand after taking master (one finding per file from `relay changed --own`, reviewed = the merge commit sha); twice it guessed wrong first (short sha, head before the merge), and delegate step 8 says reviewed = the head before the merge, which makes the checker count the file as open. Repeats on every take-master that combines a file (MEDIUM)."
+  ],
+  "failing_case": [
+    "After `git merge master` combines tests/test_relay.py, there is no command that records the finding; following delegate step 8 literally (reviewed = head before the merge) makes the checker report open 1."
+  ],
+  "pass_cases": [
+    "The command writes a review JSON the checker accepts with Fixes: none and reports open 0 when the gate is green; delegate step 8 matches the checker."
+  ],
+  "where": "bin/relay (check record), lib/relay_verdict.py or relay_check, plugins/delegate/skills/delegate/SKILL.md step 8",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
