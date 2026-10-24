@@ -11,7 +11,6 @@ Patterns are the ones of `relay_inert` ("*" inside one path part, "**" any numbe
 import os
 import sys
 
-import relay_git
 import relay_inert
 
 TEXT_ONLY = (
