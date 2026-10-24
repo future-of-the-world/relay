@@ -360,6 +360,7 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
         done.append("wrote docs/handover.md")
     if register_project(d["name"], root, flow, product):
         done.append(f"registered {d['name']} in projects.toml (loads: {flow} flow rules)")
+    todo.append("in Claude Code, run `/plugin marketplace add " + ROOT + "` once, then `/reload-plugins` (or restart) so the plugins load")
     runner = install_runner or run_plugin_install
     for p in plugins:
         if p in USER_SCOPE_PLUGINS:
@@ -368,10 +369,12 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
         cmd = f"claude plugin install {key} --scope project"
         if installed_for(root, key):
             done.append(f"{key} already installed")
-        elif runner(root, key)[0]:
-            done.append(f"installed {key} at project scope")
         else:
-            todo.append(f"{key} is enabled but not installed, so its skills are missing: run `{cmd}` in {root}")
+            ok, why = runner(root, key)
+            if ok:
+                done.append(f"installed {key} at project scope")
+            else:
+                todo.append(f"{key} is enabled but not installed, so its skills are missing: after the marketplace step above, run `{cmd}` in {root}" + (f" (claude said: {why})" if why else ""))
     if apply_global:
         path, changed, removed = merge_user_settings(["core", "observe", "delegate", "front"])
         done.append(f"{path}: relay marketplace registered, user-scope plugins enabled" + ("" if changed else " (already)"))
@@ -379,7 +382,6 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
             done.append(f"  removed a user hook the front plugin now provides: {r}")
     if relay_dir and relay_folder(root)[1]:
         done.append("wrote .relay/README.md (turns on the work queue and the merge checks once it is on the default branch)")
-    todo.append("in Claude Code, run `/plugin marketplace add " + ROOT + "` once, then `/reload-plugins` (or restart) so the plugins load")
     return d, flow, product, done, todo
 
 
@@ -482,7 +484,7 @@ def doctor(root=None, profile=None):
                 not_on = [p for p in manifest.get("requires_plugins", []) if not enabled.get(f"{p}@relay")]
                 ok("flow plugins enabled in .claude/settings.json", not not_on, "enable: " + ", ".join(not_on) if not_on else "")
         enabled = d["settings"].get("enabledPlugins", {})
-        for key in sorted(k for k, v in enabled.items() if v and k.endswith("@relay")):
+        for key in sorted(k for k, v in enabled.items() if v):
             ok(f"{key} installed", installed_for(root, key), f"claude plugin install {key} --scope project")
         for s in ("check", "ci", "wt"):
             path = os.path.join(root, cfg.get("gate", {}).get(s, f"bin/{s}"))

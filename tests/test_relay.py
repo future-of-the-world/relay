@@ -1624,6 +1624,69 @@ class PluginInstall(Base):
         names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
         self.assertTrue(names["sdd@relay installed"])
 
+    def test_doctor_checks_plugins_of_any_marketplace(self):
+        import relay_setup
+        self._registry({"other@mk": [{"scope": "user"}]})
+        proj = self._proj()
+        os.makedirs(os.path.join(proj, ".claude"))
+        json.dump({"enabledPlugins": {"sdd@relay": True, "superpowers@official": True, "other@mk": True, "x@y": False}},
+                  open(os.path.join(proj, ".claude", "settings.json"), "w"))
+        names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
+        self.assertFalse(names["superpowers@official installed"])
+        self.assertTrue(names["other@mk installed"])  # listed with user scope
+        self.assertNotIn("x@y installed", names)  # disabled: no check
+
+    def test_failure_todo_carries_reason_and_follows_marketplace_step(self):
+        import relay_setup
+        self._registry({})
+        proj = self._proj()
+        _, _, _, _, todo = relay_setup.setup(proj, flow="openspec", product=False, apply_global=False,
+                                             install_runner=lambda r, k: (False, "marketplace relay not found"))
+        line = [i for i, t in enumerate(todo) if "claude plugin install sdd@relay --scope project" in t]
+        market = [i for i, t in enumerate(todo) if "/plugin marketplace add" in t]
+        self.assertTrue(line and market)
+        self.assertIn("marketplace relay not found", todo[line[0]])
+        self.assertLess(market[0], line[0])
+
+    def test_already_installed_does_not_call_runner(self):
+        import relay_setup
+        proj = self._proj()
+        self._registry({"sdd@relay": [{"scope": "project", "projectPath": os.path.realpath(proj)}]})
+        def boom(r, k):
+            raise AssertionError("runner called")
+        _, _, _, done, _ = relay_setup.setup(proj, flow="openspec", product=False, apply_global=False, install_runner=boom)
+        self.assertIn("sdd@relay already installed", done)
+
+    def _fake_claude(self, body):
+        script = os.path.join(self.tmp, "fakeclaude")
+        open(script, "w").write("#!/bin/sh\n" + body)
+        os.chmod(script, 0o755)
+        old = os.environ.get("RELAY_CLAUDE_BIN")
+        os.environ["RELAY_CLAUDE_BIN"] = script
+        def restore():
+            if old is None:
+                os.environ.pop("RELAY_CLAUDE_BIN", None)
+            else:
+                os.environ["RELAY_CLAUDE_BIN"] = old
+        self.addCleanup(restore)
+
+    def test_run_plugin_install_real_runner(self):
+        import relay_setup
+        root = os.path.realpath(self._proj())
+        out = os.path.join(self.tmp, "argv")
+        self._fake_claude(f'echo "$@" > {out}; pwd >> {out}\nexit 0\n')
+        ok, _ = relay_setup.run_plugin_install(root, "sdd@relay")
+        self.assertTrue(ok)
+        lines = open(out).read().split("\n")
+        self.assertEqual(lines[0], "plugin install sdd@relay --scope project")
+        self.assertEqual(os.path.realpath(lines[1]), root)
+        self._fake_claude("echo boom >&2\nexit 1\n")
+        self.assertEqual(relay_setup.run_plugin_install(root, "sdd@relay"), (False, "boom"))
+        os.environ["RELAY_CLAUDE_BIN"] = os.path.join(self.tmp, "missing")
+        ok, why = relay_setup.run_plugin_install(root, "sdd@relay")
+        self.assertFalse(ok)
+        self.assertTrue(why)
+
 
 class RelayFolder(Base):
     """S1-S3 (design 12.7): `relay setup --relay-folder` writes `.relay/README.md` and nothing else."""

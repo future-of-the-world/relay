@@ -20,6 +20,10 @@ never overwrites:
 - `CLAUDE.md` skeleton and `docs/handover.md`;
 - the project in `projects.toml`, then `relay sync` writes its
   `CLAUDE.local.md` (never committed);
+- the flow plugins (`sdd`, `issues`, `product`) installed at project scope
+  with `claude plugin install <name>@relay --scope project`; when that cannot
+  run, the command is in the to-do list. `relay doctor <dir>` reports FIX for
+  every plugin the project enables that is not installed;
 - `~/.claude/settings.json`: the marketplace and the user-scope plugins
   (skip with `--no-global`).
 
