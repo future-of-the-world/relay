@@ -1,0 +1,32 @@
+{
+  "kind": "feature",
+  "ip": 85,
+  "time": 60,
+  "found_at": "2026-10-24T18:26:38Z",
+  "found_in": "relay queue add",
+  "title": "Items name blockers and files; queue ready says what starts",
+  "what": [
+    "Two optional fields on a queue item, both written by the model when it adds the item: blocked_by (a list of slugs whose result this item needs) and files (paths or globs it expects to touch; empty means unknown). The writer refuses an unknown slug (checked in the open items and done/) and a cycle; `relay queue block <slug> --by <slug>` adds a blocker to an existing item. `relay queue ready [--slots N]`: (1) open, untaken items; (2) drop those with an open blocker; (3) files of each running branch = `git diff --name-status master...<branch>` (both names of a rename) plus that item's own files; (4) drop candidates whose files overlap a running branch; (5) pick N in order ip, then fix before feature, then the one that unblocks more items, then shorter time, then slug, skipping a candidate that overlaps one already picked; (6) print START lines and WAIT lines with the reason (the blocker, or the branch and the file). A dropped blocker shows the dependent as START with a note \"blocker dropped, reconsider\". Migration: both fields optional, no rewrite needed; one pass moves the paths of each item's where into files (extracted, then checked by the model) and sets the known blocked_by links."
+  ],
+  "why": [
+    "Owner, 24 Oct: \"1. a\" (blocker field kept by the model plus the file-overlap check in one item). The front ran 2 of 4 slots after a compaction because dependencies lived only in its head; a dry run on 24 Oct found 17 of 28 open items with ip >= 88 overlapping a running branch (16 with the OpenSpec branch's 153 files), which the front had picked around by reading 40 where lines. The blocker field is the owner's design (\"blocked_by - поле которое поддерживается моделью, обычно на момент создания изменения мы можем заранее сказать чем оно блокируется\"). IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "On 24 Oct with wt/openspec-optional, wt/rules-gate and wt/quick-head running, nothing tells the front which items can start: a-project-added-by-setup-cannot-be-removed-a would be started beside the OpenSpec branch (both change bin/relay and lib/relay_setup.py), and openspec-tools-live-in-the-core-plugin could be taken before spec-writing-leaves-the-main-pipeline-sdd-become is merged. The dry run also missed a-spec-fix-is-marked-met-by-reading-not-by-runni, because git shows the renamed plugins/sdd files only under their new names."
+  ],
+  "pass_cases": [
+    "relay queue ready with those three branches running prints a-project-added-by-setup-cannot-be-removed-a as WAIT naming the OpenSpec branch and lib/relay_setup.py, and a-bench-with-set-leaves-the-main-checkout-dirty as START",
+    "an item with blocked_by = [an open slug] is WAIT naming the blocker; after the blocker moves to done/ it is START",
+    "add or block with an unknown slug, or one that makes a cycle, is refused and writes nothing",
+    "a file renamed on a running branch counts under its old and its new name",
+    "two candidates that share a file and overlap no running branch: --slots 2 picks the higher one and shows the other as WAIT naming it",
+    "every existing item file passes relay queue check without being rewritten"
+  ],
+  "where": "lib/relay_queue.py (schema, add, a new block command, a new ready view; lib copies), bin/relay (queue help), rules/queue.md (name blockers and files when adding), lib/queue_ext/, the item files under .relay/queue/ (migration)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
