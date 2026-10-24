@@ -35,6 +35,7 @@ class DerivedProfileLivesBesideTheReport(unittest.TestCase):
             with mock.patch.object(relay_bench, "run_one", return_value={"cost_usd": 0.0}), \
                  mock.patch.object(relay_bench, "render", return_value="report"), \
                  mock.patch.object(relay_paidcap, "check", return_value=None), \
+                 mock.patch.object(relay_paidcap, "bench_estimate", return_value=0.0), \
                  mock.patch.object(relay_paidcap, "link_out"):
                 out_dir, doc, _ = relay_bench.run_bench([base, derived], [scenario], out_root=out_root)
             self.assertEqual(candidates(), before)
@@ -45,6 +46,57 @@ class DerivedProfileLivesBesideTheReport(unittest.TestCase):
             # `relay improve adopt <path>` loads it with load_profile: the model change is there.
             adopted = relay_bench.load_profile(beside)
             self.assertEqual(adopted["models"]["build"], "haiku")
+
+
+def _cheaper_doc(path_b, name_b):
+    # active costs 2.0, the other 1.0, equal score: the other wins by $1.00.
+    doc = {"profiles": [{"name": "active", "path": os.path.join(ROOT, "profiles", "active.toml")},
+                        {"name": name_b, "path": path_b}], "scenarios": ["s"]}
+    agg = {("active", "s"): {"score_min": 1, "cost_mean": 2.0, "duration_mean": 10},
+           (name_b, "s"): {"score_min": 1, "cost_mean": 1.0, "duration_mean": 10}}
+    return doc, agg
+
+
+class VerdictNamesAWorkingAdoptArgument(unittest.TestCase):
+    def test_f1_derived_profile_is_adopted_by_its_path(self):
+        with tempfile.TemporaryDirectory() as out:
+            path = os.path.join(out, "build-haiku.toml")
+            with open(path, "w") as h:
+                h.write('[profile]\nname = "build-haiku"\n')
+            doc, agg = _cheaper_doc(path, "build-haiku")
+            self.assertIn(f"relay improve adopt {path}`", relay_bench.verdict(doc, agg))
+            self.assertEqual(relay_bench.load_profile(path)["profile"]["name"], "build-haiku")
+
+    def test_f1_named_candidate_keeps_its_short_name(self):
+        path = os.path.join(CANDIDATES, "x.toml")
+        doc, agg = _cheaper_doc(path, "x")
+        self.assertIn("relay improve adopt x`", relay_bench.verdict(doc, agg))
+
+    def test_f1_worse_quality_keeps_active(self):
+        doc, agg = _cheaper_doc("/elsewhere/d.toml", "d")
+        agg[("d", "s")]["score_min"] = 0
+        self.assertTrue(relay_bench.verdict(doc, agg).startswith("Verdict: keep active"))
+
+
+class DerivedProfileKeepsCopiedPlugins(unittest.TestCase):
+    def test_f2_relative_plugin_entry_resolves_after_the_file_moves(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cand = os.path.join(tmp, "profiles", "candidates")
+            plug = os.path.join(cand, "x", "plugins", "delegate")
+            os.makedirs(os.path.join(plug, ".claude-plugin"))
+            os.makedirs(os.path.join(plug, "agents"))
+            open(os.path.join(plug, ".claude-plugin", "plugin.json"), "w").write("{}")
+            with open(os.path.join(cand, "x.toml"), "w") as h:
+                h.write('[profile]\nname = "x"\n[plugins]\nenabled = ["core", "x/plugins/delegate"]\n')
+            with mock.patch.object(relay_bench, "ROOT", tmp):
+                base = relay_bench.load_profile("x")
+                self.assertEqual(relay_bench.plugin_dir(base, "x/plugins/delegate"), os.path.realpath(plug))
+                d = relay_bench.derive_profile(base, ["models.build=haiku"])
+                d["_path"] = os.path.join(tmp, "bench", "ts", "build-haiku.toml")   # as run_bench does
+                entries = d["plugins"]["enabled"]
+                self.assertEqual(entries[0], "core")   # plain names stay names
+                self.assertEqual(relay_bench.plugin_dir(d, entries[1]), os.path.realpath(plug))
+                self.assertEqual(relay_bench.agent_definitions_dir(d), os.path.join(os.path.realpath(plug), "agents"))
 
 
 if __name__ == "__main__":

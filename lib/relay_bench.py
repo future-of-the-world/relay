@@ -106,11 +106,16 @@ def new_candidate(name, base_name="active", copy_plugins=(), sets=()):
 
 def derive_profile(base, sets):
     """A profile that is `base` with dotted keys changed: ["models.build=haiku", "effort.build=low"].
-    Its name lists the changes, so the bench table and `relay improve adopt` can name it; it is also
+    Its name lists the changes, so the bench table can name it; it is also
     marked `_derived`: run_bench writes it beside the bench report (never into the repository), and
     `relay improve adopt <path to that file>` adopts it."""
     import copy
     out = copy.deepcopy(base)
+    # The derived file moves to the bench folder: keep relative plugin paths pointing where the base's do.
+    enabled = out.get("plugins", {}).get("enabled")
+    if enabled:
+        out["plugins"]["enabled"] = [
+            (plugin_dir(base, e) or e) if ("/" in e or e.startswith(".")) else e for e in enabled]
     parts = []
     for item in sets:
         key, _, value = item.partition("=")
@@ -640,6 +645,18 @@ def render(doc):
     return "\n".join(lines)
 
 
+def _adopt_arg(entry):
+    """The argument `relay improve adopt` can load: the bare name for a profile under profiles/, else its path."""
+    path = entry.get("path")
+    if not path:
+        return entry["name"]
+    folder = os.path.realpath(os.path.dirname(path))
+    profiles = os.path.realpath(os.path.join(ROOT, "profiles"))
+    if folder in (profiles, os.path.join(profiles, "candidates")):
+        return entry["name"]
+    return path
+
+
 def verdict(doc, agg):
     """One paragraph: which profile wins, by the rule 'no scenario worse in quality; then cheaper; then faster'."""
     names = [p["name"] for p in doc["profiles"]]
@@ -657,7 +674,7 @@ def verdict(doc, agg):
     if worse:
         return f"Verdict: keep {a}. {b} is worse in quality on: {', '.join(worse)}. (A cheaper run that fails is not cheaper.)"
     if cheaper > 0.005:
-        return f"Verdict: {b} wins: same or better quality on every scenario, ${cheaper:.2f} cheaper per scenario set, {faster:+.0f}s faster. Adopt with `relay improve adopt {b}`."
+        return f"Verdict: {b} wins: same or better quality on every scenario, ${cheaper:.2f} cheaper per scenario set, {faster:+.0f}s faster. Adopt with `relay improve adopt {_adopt_arg(doc['profiles'][1])}`."
     if cheaper < -0.005:
         return f"Verdict: keep {a}. {b} is not worse in quality but costs ${-cheaper:.2f} more per scenario set."
     return f"Verdict: a tie on quality and cost; {b} is {faster:+.0f}s faster. Decide on speed, or add a scenario that separates them."
