@@ -484,11 +484,12 @@ class Bounded(TrainCase):
 
         def counting(args, *rest, **more):
             if "ls-tree" in args:
-                reads.append(args)
+                reads.append((args[2], args[-1]))             # (repo, commit) of `git -C <repo> ls-tree -r -z <commit>`
             return real(args, *rest, **more)
         with mock.patch.object(subprocess, "run", counting):
             self.assertIsNone(self.verdict("wt/train-1"))
         self.assertLess(len(reads), 100)
+        self.assertEqual(len(reads), len(set(reads)))              # a commit's tree is read once per judge, not once per question
 
 
 if __name__ == "__main__":
