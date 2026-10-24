@@ -255,9 +255,9 @@ class CombinedFiles(TrainCase):
         # the file is A's version (condition 1) and master did not touch it (condition 2), but B also changed it (condition 3).
         a, b = self.shared_riders()
         train = self.train("a", "b")
-        self.commit(train, {"lib/shared.py": self.git(self.main, "show", "wt/a:lib/shared.py") + ""})
+        self.commit(train, {"lib/shared.py": self.git(self.main, "show", "wt/a:lib/shared.py") + "\n"})        # git() strips the last newline
         self.gate(train)
-        self.assertEqual(self.git(train, "show", "HEAD:lib/shared.py"), self.git(self.main, "show", "wt/a:lib/shared.py"))
+        self.assertEqual(self.git(train, "rev-parse", "HEAD:lib/shared.py"), self.git(self.main, "rev-parse", "wt/a:lib/shared.py"))   # same blob
         self.assertIn("lib/shared.py", self.verdict("wt/train-1"))
         tip = self.git(train, "rev-parse", "HEAD")
         base = self.git(train, "merge-base", "master", tip)
