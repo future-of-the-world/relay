@@ -1,0 +1,206 @@
+{
+  "reviewed": "174c6111f7de23ac773d76ac5e99b4bb0a9576df",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-paid-batch.json",
+      "findings": [
+        {
+          "details": [
+            "CONFIRMED. cmd_sync checks paid_due() for every non-dry sync regardless of the targets; `only={\"agents\"}` only assembles the",
+            "checkout's own agent files from roles/ (relay_rules.sync -> relay_roles.assemble_detail(ROOT)) and writes nothing the paid run",
+            "guards (~/.claude/CLAUDE.md, projects' CLAUDE.local.md). With no record carrying a head yet, due always lists commits, so every",
+            "job that touches roles/ or agents is blocked: ordinary use. Size: 15."
+          ],
+          "evidence": [
+            "git clone --no-local /Users/amidman/relay <scratch>/clone; checkout -B master origin/master; checkout -b wt/x 174c611",
+            "RELAY_HOME=<empty> CLAUDE_CONFIG_DIR=<scratch> RELAY_PROJECTS=<empty> python3 bin/relay sync agents",
+            "-> relay sync: waits for a green paid run; merged since the last one:",
+            "   no green run recorded",
+            "   104 commits in all, the newest 50 listed ...",
+            "   exit 1"
+          ],
+          "failing_case": [
+            "A worker edits roles/judge.md in a worktree and runs `<worktree>/bin/relay sync agents`, as the delegate skill's brief line",
+            "\"Assembly:\" (SKILL.md:54), docs/setup.md:112 and relay_roles' own messages (\"run bin/relay sync agents from this checkout\")",
+            "tell it to. Now: exit 1, \"relay sync: waits for a green paid run; merged since the last one: no green run recorded ...\" and the",
+            "agent files are not assembled, so the role edit cannot reach the agents and the roles check stays red. Should: assemble the",
+            "worktree's agent files (they go nowhere outside the worktree), exit 0."
+          ],
+          "fix_hint": [
+            "Hold only when the sync would write a target outside the checkout: skip paid_due() when `only` is {\"agents\"} (or a subset of",
+            "in-repo targets). Add the agents-only case to tests/test_paid_batch.py SyncWaits."
+          ],
+          "id": "F1",
+          "kind": "inside",
+          "line": 323,
+          "pass_cases": [
+            "1. Repo with checked-path commits and no green record: `bin/relay sync agents` -> exit 0, agents assembled, no \"waits for\" line.",
+            "2. Same repo: `bin/relay sync` (no target) -> exit 1 with the due list, nothing written (test_sync_refuses_with_the_due_list... keeps passing).",
+            "3. Same repo: `bin/relay sync a` (a project target) -> exit 1 with the due list, target not written.",
+            "4. `bin/relay sync --dry` -> exit 0, plan printed (test_sync_dry_still_prints_its_plan keeps passing)."
+          ],
+          "path": "bin/relay",
+          "rank": "high",
+          "severity": "HIGH",
+          "summary": "relay sync agents, the worker's assembly step in a worktree, is refused whenever anything is due (today always)"
+        },
+        {
+          "details": [
+            "CONFIRMED for the verdict: report() counts only llm meaning graders as FAIL lines; a failed regex grader or a failed case",
+            "(aggregates casesPassed < casesTotal) never reaches \"NOT A PASS\". In the old flow that gap was masked because the run's verdict",
+            "was bin/ci's status (step \"plugin evals\" and the gate), not the record. The new `due` reads only the record, so the record's",
+            "verdict is now the gate for relay sync and for \"is the wave covered\". The brief's F4 says green is eval-record's own verdict;",
+            "the fix stays inside that decision by making the verdict complete (one function, used by main and due). PLAUSIBLE only for",
+            "whether `claude plugin eval` itself exits non-zero on that case (bin/ci then says red while due says green). Size: 15."
+          ],
+          "evidence": [
+            "python3 (load bin/eval-record, is_green) over the six newest records:",
+            "2026-10-24T09-07-34Z-wt-py-rule.json is_green True code-grader fails 1 aggregates {\"casesTotal\": 15, \"casesPassed\": 14, ...}",
+            "2026-10-24T08-27-06Z-wt-checks-record.json is_green True code-grader fails 0 ... casesPassed 15",
+            "failing grader: spec-reviewer-flaw with finds-the-contradiction ['regex']"
+          ],
+          "failing_case": [
+            "The newest stored record ~/.relay/evals/relay/2026-10-24T09-07-34Z-wt-py-rule.json: aggregates casesPassed 14 of 15, the",
+            "regex grader finds-the-contradiction of case spec-reviewer-flaw failed. is_green(record) -> True. With head/branch fields from",
+            "a wave run, `bin/paid-cost due` would print nothing and `relay sync` would write the texts, while the run failed an eval and",
+            "the front files a fix item for it. Should: not green, so the wave's commits stay due and sync waits."
+          ],
+          "fix_hint": [
+            "In report(), count a failed grader of any type (or a case with passed false / casesPassed < casesTotal) as a failure that adds",
+            "the NOT A PASS line; is_green and main keep reading that one line. Test with a record whose only failure is a regex grader."
+          ],
+          "id": "F2",
+          "kind": "inside",
+          "line": 121,
+          "pass_cases": [
+            "1. Record whose only failure is a code (regex) grader with passed false in one run -> is_green False; due lists the commits after the previous green head.",
+            "2. Record with every grader passed, nothing missing, not partial -> is_green True; due prints nothing for commits up to its head.",
+            "3. Record with partial true -> is_green False (test_partial_batch_is_not_green keeps passing).",
+            "4. Record with an llm grader without three votes -> is_green False (test_not_judged_run_is_not_green keeps passing).",
+            "5. eval-record main exit code equals 0 exactly when is_green is True for the same data."
+          ],
+          "path": "bin/eval-record",
+          "rank": "high",
+          "severity": "HIGH",
+          "summary": "is_green calls a run green when a case failed on a code grader, so due counts a red paid run as covering the wave and relay sync goes ahead"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading: the check lives in cmd_sync only; the three other callers call relay_rules.sync directly. The owner's",
+            "decision is that rules reach the projects only after a green wave run (\"relay sync waits for a green run\"); these paths reach",
+            "the same targets. The brief names lib/relay_rules.py as the place of \"the sync refusal\", which would cover every caller.",
+            "Install on a fresh machine with no records would then refuse too: the fixer must decide whether install is exempt (it renders the",
+            "default branch head the owner chose to install) and say so. Size: 30."
+          ],
+          "evidence": [
+            "git grep -n \"relay_rules.sync\" -> bin/relay:232 (improve adopt), bin/relay:328 (cmd_sync, guarded), bin/relay:398 (setup/migrate), lib/relay_setup.py:543 (install)"
+          ],
+          "failing_case": [
+            "After a wave merges rules/git.md and before its paid run, the owner runs `relay setup ~/proj` (bin/relay:398 syncs {proj, global})",
+            "or `relay improve adopt <candidate>` (bin/relay:232, full sync) or `relay install` (lib/relay_setup.py:543, global + agents).",
+            "Now: ~/.claude/CLAUDE.md and the project's CLAUDE.local.md are written from the unchecked rules/; only `relay sync` waits.",
+            "Should: the same wait as relay sync (refuse with the due list), or the command says it held the sync."
+          ],
+          "fix_hint": [
+            "Move the paid_due check into relay_rules.sync (non-dry, a target outside the checkout in `only`), returning a held state per",
+            "target or raising, so every caller gets it; keep agents-only free (F1)."
+          ],
+          "id": "F3",
+          "kind": "inside",
+          "line": 213,
+          "pass_cases": [
+            "1. Checked-path commit due: `relay improve adopt <name>` -> the global target is not written; the due list is printed; exit 1 (or the profile is adopted and the sync part is held with the list).",
+            "2. Checked-path commit due: `relay setup <dir>` -> global and project files not written; the due list printed.",
+            "3. Nothing due (green record at head): `relay setup <dir>` writes as today.",
+            "4. `relay sync --dry` -> plan printed, exit 0."
+          ],
+          "path": "lib/relay_rules.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "relay setup, relay migrate, relay improve adopt and relay install write the global CLAUDE.md from unchecked rules without waiting"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading the diff: F8 (not a pass without failing eval) and F10 (\"no paid run is going\") are in the text; F9 is not.",
+            "Done-when says the texts say the new order. Size: 5."
+          ],
+          "evidence": [
+            "git diff master...HEAD -- plugins/front/skills/front/SKILL.md: lines 105-110 name the red-run item, the not-a-pass case and the sync wait; no line on an existing open item."
+          ],
+          "failing_case": [
+            "Wave 1 run is red on eval tune-setup; the front adds fix item A. Wave 2 merges without A's fix; its run is red on tune-setup",
+            "again. Following the text (\"A red run is one fix item at the top of the queue ... naming each failing eval\"), the front adds a",
+            "second item B for the same eval. Decision F9 says: no second item; add the run's record path to A only if relay queue can."
+          ],
+          "fix_hint": [
+            "Append to the red-run sentence: \"; when an open fix item already names that eval, add none (only the record path, if relay queue can)\"."
+          ],
+          "id": "F4",
+          "kind": "feature",
+          "line": 105,
+          "pass_cases": [
+            "1. Artifact: the front skill's paid-run passage has a sentence saying a failing eval that already has an open fix item gets no second item.",
+            "2. Artifact: the same passage keeps \"A red run is one fix item at the top of the queue (`relay queue add`, kind fix)\".",
+            "3. Artifact: rules/git.md and the passage stay within their current length (replace, do not add paragraphs)."
+          ],
+          "path": "plugins/front/skills/front/SKILL.md",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "the front text omits the decided rule that a red run whose failing eval already has an open fix item adds no second item"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading. Stale doc the change makes wrong; not in the brief's file list, so cheap to fix or list. Size: 5."
+          ],
+          "evidence": [
+            "sed -n 110,116p docs/setup.md"
+          ],
+          "failing_case": [
+            "docs/setup.md \"Editing roles and agents\": \"After the owner-approved merge, the coordinator runs the full `relay sync` once from",
+            "the main checkout.\" Now the sync waits for the wave's green paid run (and merges are not owner-approved under .relay/). Should",
+            "say the sync runs once `bin/paid-cost due` prints nothing."
+          ],
+          "fix_hint": [
+            "Replace the last sentence with the merge.py notice's wording."
+          ],
+          "id": "F5",
+          "kind": "inside",
+          "line": 115,
+          "pass_cases": [
+            "1. Artifact: docs/setup.md's sentence says the full relay sync runs after the wave's paid run is green (it waits for it).",
+            "2. Artifact: the same paragraph keeps the worker's `<worktree>/bin/relay sync agents` instruction."
+          ],
+          "path": "docs/setup.md",
+          "rank": "low",
+          "severity": "LOW",
+          "summary": "docs/setup.md still says the coordinator runs the full relay sync once after the owner-approved merge"
+        }
+      ],
+      "notes": [
+        "Fine: due's git log with --not <green heads> and the glob pathspecs (tests cover each checked path and bin/, lib/ excluded);",
+        "the 50 cap and count line; head-less and other-branch records ignored; partial and not-judged records not green; a git or",
+        "default-branch failure exits 1 and relay sync then refuses (fail closed); --dry still prints the plan; bin/ci's branch",
+        "fallback prints \"master\" in this worktree; default_dir now resolves the common dir absolutely; ready-to-merge texts in",
+        "rules/git.md, front and delegate skills say the same thing, (a)-(d) relettered consistently; principles.md line still holds.",
+        "Design remark (not a finding): plugins/*/lib and plugins/core/bin are run by the hooks in the paid evals but are not checked",
+        "paths; the old per-change rule did not cover them either, so no regression. The global CLAUDE.md keeps the old ready-to-merge",
+        "text until the first green wave run, by design (sync waits). Releases: none exist and none added, as the brief says."
+      ],
+      "reviewed": "174c6111f7de23ac773d76ac5e99b4bb0a9576df",
+      "schema": 1,
+      "scope": [
+        "Range master...174c611 in /Users/amidman/relay/.worktrees/paid-batch (a75d239 plus two gate commits). Read against the brief",
+        "briefs/paid-batch.md: bin/paid-cost (whole), bin/eval-record (report, is_green, store, main), bin/ci record step, bin/relay",
+        "cmd_sync/paid_due and every other relay_rules.sync caller (bin/relay:232 improve adopt, bin/relay:398 setup/migrate,",
+        "lib/relay_setup.py:543 install), lib/relay_git.default_branch, merge.py notice and merge.test.sh N1, the front and delegate",
+        "SKILL passages, rules/git.md, tests/test_paid_batch.py, the test_relay.py and test_sync_refused.py edits, docs/setup.md",
+        "\"Editing roles and agents\". Ran: pytest tests/test_paid_batch.py (14 passed); is_green over the six newest stored records",
+        "in ~/.relay/evals/relay; bin/relay sync agents in a scratch clone of the reviewed sha with an empty RELAY_HOME."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}
