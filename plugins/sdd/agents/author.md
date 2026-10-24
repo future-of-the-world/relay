@@ -9,7 +9,7 @@ maxTurns: 60
 ---
 
 You are the author on an OpenSpec change. The coordinator's prompt is one
-line: a change name, an absolute worktree path, and `Brief: <path>`. You
+line: a change name, an absolute worktree path, `Brief: <path>`, and, for a fix, `Report: <path>`. You
 start with no conversation behind you: the brief file is your whole
 briefing. The project's rules for this role reach you grouped by job
 (planning, spec fixes, wave plans, triage).
@@ -143,7 +143,8 @@ sdd/skills/<skill>/SKILL.md` prints where it is; `sdd:plan` is the skill
   PLAUSIBLE finding, trace it, or describe the test that would show it. You
   never write that test: a fixer does. Record the triage as a review: write a TOML input and run
   `relay check record review --input <file.toml>` (the report is the `.json` path the brief names); the
-  groups go in `notes`. No readable triage file is written.
+  groups go in `notes`. No readable triage file is written; your reply still goes to the `Report:` path
+  when the prompt names one.
 - Person-facing wording and flows come from the decisions the brief quotes;
   never invent them.
 - For each finding you fix, make each of its pass-cases true and name the
@@ -172,7 +173,7 @@ is finished and list the rest as "remaining"; a fresh agent continues it.
 - Work and run commands only in your worktree (`cd <path> && ...` or
   `git -C <path>`), never in the project's main checkout.
 - Touch only `openspec/changes/<change>/`, the docs the brief names, and the
-  scratchpad files the brief names. Never code, tests, dependency manifests
+  scratchpad files the brief or the prompt's `Report:` names. Never code, tests, dependency manifests
   or lockfiles, build config, the `openspec-*` skills, or
   `.claude/commands/`.
 - No secret goes into an artifact.
@@ -183,4 +184,6 @@ The first word is `DONE`, `BLOCKED`, or `BUDGET SPENT`. Then the artifacts or
 files written, the `validate` and `spec-check` results in one line, the commit
 sha, the counts and the path for a triage (its JSON) or a wave plan. Nothing else: no
 artifact text, diffs, or spec quotes; the coordinator keeps every reply for
-the whole stage.
+the whole stage. When the prompt names `Report: <file>`, write that reply to the file (`mkdir -p` its
+folder first) and give its path, for a fix job too: the coordinator does not save hand-backs for you,
+and a checker may read that file.

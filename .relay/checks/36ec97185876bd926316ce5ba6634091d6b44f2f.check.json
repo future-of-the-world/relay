@@ -1,0 +1,207 @@
+{
+  "branch": "wt/fix-reports",
+  "findings": [
+    {
+      "details": [
+        "The spec-review checker line wants 'Fixes: <author report>' as a path, but sdd:author replies only by message and said it wrote no triage file; the coordinator saves hand-backs as files itself. Also kit packet --check does not check the Wave line that parallel-apply needs, so the first author omitted it and only the reviewer caught it."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Trial: the author said 'I wrote no triage file because the brief asked for fixes only'; the coordinator saved the report as spec-fix-report.md; F2 (no Wave 1 line) passed openspec validate --strict, kit spec-check and kit packet --check."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 77,
+      "pass_cases": [
+        "The spec-review skill passes a report path to the author and the file exists afterwards; kit packet --check reports a tasks.md with no Wave line when the tasks run in waves."
+      ],
+      "path": "plugins/sdd/skills/spec-review/SKILL.md:72-76, plugins/sdd/agents/author.md, plugins/core/lib/kit_packet.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_fix_reports.py:36 (WaveLineCheck::test_group_without_wave_line_is_reported) and :31 skill path test; both fail at the merge-base and pass at HEAD."
+      ],
+      "severity": "HIGH",
+      "since": "e3b78d41b89a8ec42b0ef0289815fac250630110",
+      "source": "queue",
+      "summary": "Fix reports are moved by hand: author gives message only",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: reproduced on the trial's own file with the branch's kit. The item's failing case names this F2 and its pass case is",
+        "\"kit packet --check reports a tasks.md with no Wave line when the tasks run in waves\"; every change applied through sdd:parallel-apply",
+        "reads the Wave lines (step 1.1), and spec-reviewer rule 12 requires one per group even for the one-task trial change (sequential apply",
+        "is a way of running the same groups, and the trial reviewer still asked for \"Wave 1 \u00b7 depends on: none\"). So the rule is",
+        "unconditional for groups with open tasks; the \"some group has one\" condition is the fixer's own reading and leaves the trial uncaught.",
+        "If the owner wants sequential plans to carry no Wave line, that is a change to spec-reviewer rule 12 and the item stays unfixed;",
+        "recorded as inside because the rule already exists. Size: 15 minutes (drop the condition, flip the sequential test, add the trial case)."
+      ],
+      "evidence": [
+        "$ cd trialf2 (git checkout 3bbf6ce) && grep -nE \"^## |Wave\" openspec/changes/add-count-unique-words/tasks.md",
+        "5:## 1. Count distinct words",
+        "$ <fix-reports>/plugins/core/bin/kit packet --check add-count-unique-words",
+        "packet: 1 open task(s), 0 problem(s)",
+        "exit 0",
+        "spec-1.toml of the trial, F2: summary = \"group 1 has no `Wave N \u00b7 depends on:` line, so apply must plan waves itself\"",
+        "tests/test_fix_reports.py:72-73: self.assertEqual(self.check(\"## 1. A\\n\\n\" + TASK % \"1.1\")[0], 0)"
+      ],
+      "failing_case": [
+        "The trial's tasks.md (trial repo commit 3bbf6ce, openspec/changes/add-count-unique-words/tasks.md): one group \"## 1. Count distinct",
+        "words\", one open task, no Wave line anywhere (the reviewer's F2: \"group 1 has no `Wave N \u00b7 depends on:` line\"). Branch:",
+        "`kit packet --check add-count-unique-words` prints \"packet: 1 open task(s), 0 problem(s)\", exit 0.",
+        "Expected: \"group 1: no Wave line ...\" and exit 1, as spec-reviewer rule 12 says (\"Every group has a `Wave N \u00b7 depends on:` line\").",
+        "The new check only fires when some group already has a Wave line (`any(wave_groups.values())`), and the trial author omitted all of",
+        "them, so it can never catch the case the item was opened for. test_complete_waves_and_sequential_plans_pass even asserts this",
+        "case passes (\"No Wave line anywhere ... nothing to check\")."
+      ],
+      "fix_hint": [
+        "In check(): for every group with open tasks, require a `^Wave \\d` line in its notes, with no `any(wave_groups.values())` condition;",
+        "keep the Wave 1 check (see F2) under \"some group has a Wave line other than 0\". Change the sequential test to expect exit 1 and",
+        "add the trial file's shape as the failing-case test."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 854,
+      "pass_cases": [
+        "- tasks.md \"## 1. A\" + one open task, no Wave line -> exit 1, output contains \"group 1: no Wave line\".",
+        "- tasks.md \"## 1. A\\n\\nWave 1 \u00b7 depends on: none\" + one open task -> exit 0.",
+        "- groups 1 (Wave 0), 2 (no Wave line), 3 (Wave 2), each with an open task -> exit 1, \"group 2: no Wave line\", not group 1 or 3 (today's test keeps passing).",
+        "- groups 1 and 2 with Wave lines whose tasks are all done, group 3 open with a Wave line -> exit 0 (done groups need nothing).",
+        "- tasks.md with no open task and no Wave line -> exit 0."
+      ],
+      "path": "plugins/core/lib/kit_packet.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_fix_reports.py:77 test_no_wave_line_anywhere_is_reported, fails at base, passes; done-group case :84."
+      ],
+      "severity": "HIGH",
+      "since": "2ee5087baf13dab3166265d0aea4489cf09a239c",
+      "source": "review-fix-reports.json",
+      "source_id": "F1",
+      "summary": "the queue item's own failing case still passes: a tasks.md with no Wave line at all is never checked",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running it. The eval fixtures number a single group Wave 1, so a renumber gets past it; the message is the wrong part.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "$ kit packet --check c   (one group, \"Wave 0 \u00b7 depends on: none\")",
+        "tasks.md: no Wave 1 line: the first wave after wave 0 is Wave 1",
+        "packet: 1 open task(s), 1 problem(s)",
+        "exit 1"
+      ],
+      "failing_case": [
+        "tasks.md \"## 1. A\\n\\nWave 0 \u00b7 depends on: none\\n\\n- [ ] 1.1 ...\" with a valid task -> branch prints \"tasks.md: no Wave 1 line: the",
+        "first wave after wave 0 is Wave 1\", exit 1. There is no wave after wave 0, and the design check above (`^Wave [1-9]`) treats this",
+        "same plan as having no parallel waves. Expected: exit 0, or a message that says to number a single wave 1."
+      ],
+      "fix_hint": [
+        "Ask for Wave 1 only when some group has a wave number above 1 (the gap case the trial hit), or say \"a plan with one wave numbers it Wave 1\"."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 860,
+      "pass_cases": [
+        "- one group with \"Wave 0 \u00b7 depends on: none\" -> exit 0 (or one clear message naming the rule the fixer chooses).",
+        "- groups Wave 0 and Wave 2, no Wave 1 -> exit 1, \"no Wave 1 line\" (today's test).",
+        "- groups Wave 0 and Wave 1 -> exit 0."
+      ],
+      "path": "plugins/core/lib/kit_packet.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_fix_reports.py:90 single wave 0 passes; :62 gap case still reported."
+      ],
+      "severity": "LOW",
+      "since": "2ee5087baf13dab3166265d0aea4489cf09a239c",
+      "source": "review-fix-reports.json",
+      "source_id": "F2",
+      "summary": "a plan whose only wave is Wave 0 is refused with \"no Wave 1 line: the first wave after wave 0 is Wave 1\"",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Only kit_packet.py's docstring was updated. Size: 5 minutes."
+      ],
+      "evidence": [
+        "$ git grep -n \"packet --check\" -- plugins",
+        "plugins/core/lib/kit_spec_check.py:35:`kit packet --check <change>`: every open task has `Reads:`, `Tests:`,",
+        "plugins/sdd/skills/parallel-apply/SKILL.md:83:   `kit packet --check`: fields, refs, size, end-to-end entries,"
+      ],
+      "failing_case": [
+        "kit_spec_check.py:35-38 (\"every open task has Reads:, Tests:, Files:, and Check: ... and a wave plan has design.md's Interfaces\") and",
+        "parallel-apply SKILL.md:83 (\"fields, refs, size, end-to-end entries, Interfaces\") still list the old checks; an author reading them",
+        "does not learn that each group needs a Wave line. Expected: both name the Wave line check."
+      ],
+      "fix_hint": [
+        "Add \"Wave lines\" to both lists."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 35,
+      "pass_cases": [
+        "- kit_spec_check.py docstring names \"every group with open tasks has a Wave line\".",
+        "- parallel-apply SKILL.md step 4 lists \"Wave lines\" beside Interfaces."
+      ],
+      "path": "plugins/core/lib/kit_spec_check.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_fix_reports.py:95 test_docs_name_the_wave_line_check, fails at base."
+      ],
+      "severity": "LOW",
+      "since": "2ee5087baf13dab3166265d0aea4489cf09a239c",
+      "source": "review-fix-reports.json",
+      "source_id": "F3",
+      "summary": "the lists of what kit packet --check checks do not name the new Wave-line check",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (only a paid run shows whether an author skips the file); the wording conflict itself is CONFIRMED by reading. Size: 5 minutes."
+      ],
+      "evidence": [
+        "plugins/sdd/agents/author.md:11-12 and the Rules list, read at 2ee5087."
+      ],
+      "failing_case": [
+        "The new Reply rule says to write the reply to the prompt's `Report:` file, but author.md:11-12 still says \"The coordinator's prompt is",
+        "one line: a change name, an absolute worktree path, and `Brief: <path>`\", and Rules (line 175) \"Touch only ... the scratchpad files the",
+        "brief names\": the spec-review Report path is named in the prompt, not the brief. A Sonnet author weighing the two can again decide not",
+        "to write the file (the trial author's reason was a reading of what it was asked). Expected: both lines allow the prompt's Report: file."
+      ],
+      "fix_hint": [
+        "Two one-line edits in author.md."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 175,
+      "pass_cases": [
+        "- author.md opening names \"and, for a fix, `Report: <path>`\" beside Brief:.",
+        "- the Rules line reads \"the scratchpad files the brief or the prompt's `Report:` names\"."
+      ],
+      "path": "plugins/sdd/agents/author.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_fix_reports.py:95 asserts author.md lines; fails at base."
+      ],
+      "severity": "LOW",
+      "since": "2ee5087baf13dab3166265d0aea4489cf09a239c",
+      "source": "review-fix-reports.json",
+      "source_id": "F4",
+      "summary": "author.md still says the prompt carries only Brief: and that the author touches only scratchpad files the brief names",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "41d85756ad78d5a33e68cbb0a3ef81e3caf1048d.gate.log",
+  "head": "36ec97185876bd926316ce5ba6634091d6b44f2f",
+  "item": "fix-reports-are-moved-by-hand-author-gives-messa",
+  "notes": [
+    "Changed files are within the findings and their tests (spec-check.test.sh fixture needs the Wave line the new rule requires). Gate was bin/ci --quick; the paid run for agent/skill text edits is the front's. test_single_wave_0_plan passes without the fix by design (pass case)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 2ee5087..HEAD for F, master..HEAD for Q1. Ran tests/test_fix_reports.py (9 passed). Copied it to a worktree at merge-base e3b78d4: 6 of 9 failed. Gate log head 41d8575 exit 0; HEAD adds only a gate log."
+  ],
+  "type": "check"
+}

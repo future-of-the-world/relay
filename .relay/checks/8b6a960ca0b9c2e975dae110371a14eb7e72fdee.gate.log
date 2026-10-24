@@ -1,0 +1,19 @@
+head 8b6a960ca0b9c2e975dae110371a14eb7e72fdee
+cmd bin/ci --quick
+ci: library tests ok (267s)
+ci: types and lint ok (0s)
+ci: hook tests FAILED (134s, log: .ci/steps/hook-tests.log)
+    ok   no file: dump is an error too
+    ok   no file: packet is an error too
+    ok   no file: spec-check is an error too
+    ok   path, nothing for this version: an error, not the newest
+    ok   path, that error exits 1
+    FAIL a clean change exits 0 (got 1): spec-check: 1 requirement(s), 0 touching stored data or the native shell, 0 with problems
+    FAIL expected: packet: 1 open task(s), 0 problem(s)
+    FAIL plugins/core/tests/spec-check.test.sh
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (4s)
+ci: plugin validate ok (6s)
+ci: inert ok (415s)
+ci: RED
+exit 1

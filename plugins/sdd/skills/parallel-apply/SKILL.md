@@ -81,7 +81,7 @@ only dispatches, merges and ticks:
 3. No two groups in a wave edit the same file (tasks of one group may).
 4. `kit spec-check <change>` passes before code is written (it runs
    `kit packet --check`: fields, refs, size, end-to-end entries,
-   `Interfaces`). A plan written before this format gets the fields now, from
+   `Interfaces`, Wave lines). A plan written before this format gets the fields now, from
    the same author.
 5. Show the owner the wave plan in 5–10 lines, then start.
 

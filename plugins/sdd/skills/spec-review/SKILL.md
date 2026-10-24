@@ -46,9 +46,9 @@ answers word for word, and this section as the job. One `sdd:author`
 (`subagent_type: "sdd:author"`, `model: "sonnet"`: fixes after review are not
 an Opus job) gets one line:
 
-> Fix the spec review findings of change <change> in `<abs change worktree path>`. Brief: `<brief path>`.
+> Fix the spec review findings of change <change> in `<abs change worktree path>`. Brief: `<brief path>`. Report: `<scratchpad>/review/spec-fix.md`.
 
-It takes this one report, hands back when done or after about 60 tool calls
+It takes this one report, writes its own reply to the `Report:` path (the checker's `Fixes:` reads that file), hands back when done or after about 60 tool calls
 (a fresh author continues from the brief and its "remaining" line), and:
 
 - reads each finding against the artifacts and keeps the ones that hold;
@@ -73,7 +73,7 @@ Whenever fix commits exist (any BLOCKER or FIX was fixed), `delegate:checker`
 runs once over `<review base>..HEAD`; it reads the artifacts (artifact cases
 are checked by reading):
 
-> Check: `<scratchpad>/review/spec-1.json`. Fixes: `<author report>`. Worktree: `<abs change worktree path>`. Gate: none (artifacts only). Report: `<scratchpad>/review/spec-check.md`.
+> Check: `<scratchpad>/review/spec-1.json`. Fixes: `<scratchpad>/review/spec-fix.md`. Worktree: `<abs change worktree path>`. Gate: none (artifacts only). Report: `<scratchpad>/review/spec-check.md`.
 
 No author fixes what it finds and there is no new open review, even when the
 fixes changed a core rule. The spec check writes no verdict (it is not a
