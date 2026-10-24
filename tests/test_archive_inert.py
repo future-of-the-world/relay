@@ -88,6 +88,38 @@ class ArchiveAfterTheMark(unittest.TestCase):
         with self.assertRaises(self.hook.Refused):
             self.judge()
 
+    def test_a_main_spec_edit_with_no_archive_is_refused(self):
+        self.write("openspec/specs/word/spec.md", "spec\n")
+        self.commit("Edit spec")
+        with self.assertRaises(self.hook.Refused):
+            self.judge()
+
+    def test_deleting_another_change_folder_with_no_archive_is_refused(self):
+        self.git("rm", "-q", "-r", "openspec/changes/x")
+        self.commit("Drop change")
+        with self.assertRaises(self.hook.Refused):
+            self.judge()
+
+    def test_a_failing_git_is_an_error_not_an_allowed_merge(self):
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(HERE), "lib"))
+        import relay_inert
+        self.archive()
+        self.commit("Archive x")
+        mark = self.git("rev-parse", "HEAD~1")
+        real = subprocess.run
+
+        def broken(cmd, *a, **k):
+            if "ls-tree" in cmd:
+                return subprocess.CompletedProcess(cmd, 128, "", "boom")
+            return real(cmd, *a, **k)
+        relay_inert.subprocess.run = broken
+        try:
+            with self.assertRaises(ValueError):
+                relay_inert.changed(self.repo, mark, "HEAD", archive=True)
+        finally:
+            relay_inert.subprocess.run = real
+
 
 if __name__ == "__main__":
     unittest.main()

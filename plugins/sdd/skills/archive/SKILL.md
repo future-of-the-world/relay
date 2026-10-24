@@ -57,7 +57,11 @@ fix the main spec from the delta and
 
 ## 4. Docs sweep
 
-The change is now current behaviour, so the docs say so:
+The change is now current behaviour, so the docs say so. Do this sweep
+before the check of the change (as the last apply task, committed before
+`sdd:apply-review` runs), so the docs are reviewed and gated with the code. If
+the check already passed and the sweep is still undone, do it now and run the
+gate and the review again: a docs edit after the check is not inert.
 
 - `CLAUDE.md`, if the change adds a command, a module or layer an agent must
   know, a term, a config area, or a rule every session needs.
@@ -65,25 +69,23 @@ The change is now current behaviour, so the docs say so:
   changed.
 - The project's skills and docs that describe the product as it is, and the
   index page of any docs area that gained a page (the project's rules list them).
-- `docs/handover.md`: where the work stands now.
+- `docs/handover.md`: where the work stands now (inert; may follow the archive).
 - `git grep -n` for every term the change renamed or retired returns nothing
   outside `openspec/changes/archive/`.
 - A frozen record (an approved prototype) is never edited.
 
-When `gate.final` is `remote`, the archive changes only `openspec/` and docs,
-so it needs no new pipeline: run the tests that read docs. If it must change
-anything else, the gate runs again before the branch is reported ready.
-
-Archive after the check of the change, in its own commit. The merge guard
-treats a commit that only archives as inert: every path it touches is under
-`openspec/changes/archive/` or `openspec/specs/`, or is a deletion under
-`openspec/changes/<change>/` (the move into the archive). That commit needs no
-new gate and no new check. Any other file in it (code, docs, an edit of the
-change's own folder) makes the merge ask for both again.
+The archive commit made after the check holds only `openspec/` paths (plus
+`docs/handover.md`, which is inert). The merge guard treats such a commit as
+inert: every path it touches is under `openspec/changes/archive/` or
+`openspec/specs/`, or is a deletion under `openspec/changes/<change>/` (the
+move into the archive), and the span adds a folder under the archive. It needs
+no new gate and no new check. An archive commit that also changes docs or code
+(or edits the change's own folder) needs a new gate and a new review, not just
+a check.
 
 ## 5. Commit and report
 
-Commit on `wt/<change>`:
+Commit on `wt/<change>` (openspec-only, see step 4):
 `Archive <change>: main specs synced (<capabilities added / amended>)`.
 Report `wt/<change>, archived, ready to merge` (with the gate's pipeline
 number when remote). Don't merge and don't remove the worktree: the merge is

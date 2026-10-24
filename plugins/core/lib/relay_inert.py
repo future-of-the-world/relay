@@ -82,12 +82,17 @@ _ARCHIVE = [_regex(p) for p in ARCHIVE]
 _MOVED_OUT = _regex("openspec/changes/*/**")                      # the change's own folder: only its deletion is archiving
 
 
-def _archiving(repo, until, path):
-    """True when `path` is touched only the way archiving a change touches it: written under the archive or the main
-    specs, or deleted from the change's folder (the move into the archive). An edit of the change's folder is not."""
-    if any(rx.match(path) for rx in _ARCHIVE):
-        return True
-    return bool(_MOVED_OUT.match(path)) and relay_git.git(repo, "cat-file", "-e", f"{until}:{path}")[0] != 0
+_ADDED_ARCHIVE = _regex("openspec/changes/archive/**")
+
+
+def _archiving(paths, blobs_since, blobs_until):
+    """The paths of `paths` that only archiving a change touches, or [] when the span does not archive: it must add a
+    folder under openspec/changes/archive/ (the move). Then a path written under the archive or the main specs, or
+    deleted from a change's folder, is part of it; an edit of the change's folder is not."""
+    if not any(_ADDED_ARCHIVE.match(p) and p in blobs_until and p not in blobs_since for p in paths):
+        return []
+    return [p for p in paths
+            if any(rx.match(p) for rx in _ARCHIVE) or (_MOVED_OUT.match(p) and p not in blobs_until)]
 
 
 def changed(repo, since, until="HEAD", own=False, archive=False):
@@ -100,11 +105,12 @@ def changed(repo, since, until="HEAD", own=False, archive=False):
     from the default branch are not the branch's own; a checked fix that was reverted still is.
 
     archive=True also leaves out the paths a commit that only archives an OpenSpec change touches (see `_archiving`);
-    code or any other file in the same span stays listed."""
+    code or any other file in the same span stays listed; a span that adds nothing under the archive is not archiving."""
     out = _git(repo, "diff", "--name-only", "--no-renames", "-z", f"{since}..{until}")
     paths = [line for line in out.split("\0") if line and not matches(line)]
     if archive:
-        paths = [p for p in paths if not _archiving(repo, until, p)]
+        gone = set(_archiving(paths, _blobs(repo, since), _blobs(repo, until)))
+        paths = [p for p in paths if p not in gone]
     if not own or not paths:
         return paths
     default = _default_ref(repo)
