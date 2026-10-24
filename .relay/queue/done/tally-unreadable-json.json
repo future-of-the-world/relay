@@ -16,8 +16,8 @@
   ],
   "taken_at": "2026-10-24T05:45:31Z",
   "taken_by": "wt/eval-tally",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T06:40:44Z",
+  "test": "tests/test_judge_tally.py::UnreadableInput::test_an_empty_file",
   "dropped_at": null,
   "dropped_why": null
 }
