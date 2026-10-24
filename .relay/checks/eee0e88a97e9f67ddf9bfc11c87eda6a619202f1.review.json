@@ -1,0 +1,181 @@
+{
+  "reviewed": "eee0e88a97e9f67ddf9bfc11c87eda6a619202f1",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "review-py-types.json",
+      "findings": [
+        {
+          "details": [
+            "CONFIRMED by running. plugins/core/README.md:25 promises \"Needs Python 3.9+ (kit and the hooks run on macOS /usr/bin/python3)\", and every other",
+            "module the change annotated got the future import with that very comment; relay_transcripts got the annotation but not the import, and its copies",
+            "in plugins/{delegate,front,observe}/lib carry it to the hooks. On this machine `python3` on PATH is homebrew 3.14, so the gate (hook tests use",
+            "`python3`) passes; on a machine or a hook PATH where python3 is the system 3.9, the budget notes, the ledger and the route guard's fork limit stop.",
+            "mypy's python_version 3.11 cannot catch this class. Size: 15 (the import line, sync-lib-copies, one 3.9 import test)."
+          ],
+          "evidence": [
+            "/usr/bin/python3 --version -> Python 3.9.6",
+            "branch: budget.py rc=1 \"def context_tokens_of(session_path: str) -> int | None: TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'\"",
+            "master (git archive master plugins/front): budget.py rc=0",
+            "branch: plugins/observe/hooks/ledger.py rc=1, same TypeError",
+            "import loop over plugins/*/lib under 3.9: only delegate/front/observe relay_transcripts fail"
+          ],
+          "failing_case": [
+            "echo '{\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"hi\",\"session_id\":\"x\",\"cwd\":\"/nonexistent\"}' | /usr/bin/python3 plugins/front/hooks/budget.py",
+            "(macOS system Python 3.9.6). Now: exit 1, \"TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'\" at",
+            "relay_transcripts.py `def context_tokens_of(session_path: str) -> int | None:`. The same for plugins/observe/hooks/ledger.py (no ledger line is",
+            "written: usage data lost), and route-guard.py's context_tokens() silently returns 0 (fork limit off) while is_escalated() raises.",
+            "On master the same command exits 0. Expected: exit 0, as on master."
+          ],
+          "fix_hint": [
+            "Add `from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated` to lib/relay_transcripts.py, run",
+            "bin/sync-lib-copies, and add a test (tests/test_types_step.py or a hook test) that imports every plugins/*/lib/*.py and runs each hook with `{}`",
+            "under /usr/bin/python3 when it is 3.9/3.10."
+          ],
+          "id": "F1",
+          "kind": "inside",
+          "line": 370,
+          "pass_cases": [
+            "1. /usr/bin/python3 -c \"import sys; sys.path.insert(0,'plugins/front/lib'); import relay_transcripts\" exits 0 (same for plugins/delegate/lib and plugins/observe/lib).",
+            "2. The budget.py command of the failing case under /usr/bin/python3 exits 0 with no stderr.",
+            "3. echo '{\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"hi\",\"session_id\":\"x\"}' | RELAY_HOME=<tmp> /usr/bin/python3 plugins/observe/hooks/ledger.py exits 0 and writes a ledger line.",
+            "4. Every module of plugins/*/lib and every plugins/*/hooks/*.py imports under /usr/bin/python3 (a test that skips when /usr/bin/python3 is missing or is 3.11+), so the next annotation that breaks 3.9 fails the gate.",
+            "5. bin/types-lint stays clean on the tree."
+          ],
+          "path": "lib/relay_transcripts.py",
+          "rank": "high",
+          "severity": "HIGH",
+          "summary": "the new `-> int | None` without `from __future__ import annotations` crashes every hook that imports relay_transcripts on Python 3.9"
+        },
+        {
+          "details": [
+            "CONFIRMED. mypy -v: \"BuildSource(path='plugins/front/hooks/handover.py', module='plugins.front.hooks.handover', ...)\"; with explicit_package_bases",
+            "and mypy_path = \"lib\", a hook's module name is its path from the root. The override list therefore matches lib/handover_path etc. but none of the",
+            "three hooks, so a later unannotated function in them passes the gate, against the brief's \"strict = true per module for every module you fully",
+            "annotate\". test_types_step plants only in lib/relay_toml, so nothing shows it. Size: 10."
+          ],
+          "evidence": [
+            "bin/types-lint <copy with bare() in hooks/handover.py and lib/relay_git.py>:",
+            "  FAIL mypy 1.18.2:",
+            "  lib/relay_git.py:129: error: Function is missing a type annotation  [no-untyped-def]",
+            "  Found 1 error in 1 file (checked 31 source files)",
+            "mypy -v: module='plugins.front.hooks.handover'"
+          ],
+          "failing_case": [
+            "In a copy of HEAD, append \"def bare(x):\\n    return x\" to plugins/front/hooks/handover.py and run bin/types-lint <copy>.",
+            "Now: no error for the hook (the same planted in lib/relay_git.py gives \"Function is missing a type annotation [no-untyped-def]\").",
+            "Expected: mypy fails with no-untyped-def at plugins/front/hooks/handover.py, as commit c353d62 (\"annotate plugins/front hooks (strict)\") says."
+          ],
+          "fix_hint": [
+            "In the override list use \"plugins.front.hooks.handover\", \"plugins.front.hooks.budget\", \"plugins.front.hooks.reply_language\"; add a test case in",
+            "tests/test_types_step.py that copies one front hook (and lib/) into the temp dir and plants an unannotated def there."
+          ],
+          "id": "F2",
+          "kind": "inside",
+          "line": 19,
+          "pass_cases": [
+            "1. Unannotated def planted in plugins/front/hooks/handover.py -> bin/types-lint exits 1, output names handover.py and no-untyped-def.",
+            "2. The same in plugins/front/hooks/budget.py and plugins/front/hooks/reply_language.py -> exit 1 with no-untyped-def.",
+            "3. The same planted in an unannotated hook (plugins/observe/hooks/ledger.py) -> no no-untyped-def (default strictness there).",
+            "4. bin/types-lint on the tree exits 0 (the handover hook's `# type: ignore[no-untyped-call]` then counts under warn_unused_ignores)."
+          ],
+          "path": "pyproject.toml",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "the strict override names the hooks `handover`, `budget`, `reply_language`, but mypy names them `plugins.front.hooks.handover`: the hooks are not strict"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading. Commit e852434 \"annotate relay_ledger (strict)\" deletes profiles/candidates/build-haiku.toml (39 lines), added on master in",
+            "3b28fbf. The brief names no profile file; a known test side effect (derive_profile writes ROOT/profiles/candidates, review 2373c2f) rewrites this",
+            "file, which may be why it was removed, but deleting it loses the profile rather than fixing the test. Size: 5."
+          ],
+          "evidence": [
+            "git show --stat e852434: profiles/candidates/build-haiku.toml | 39 -----------------",
+            "git log --all -- profiles/candidates/build-haiku.toml: e852434 (delete), 3b28fbf (add)",
+            "lib/relay_bench.py:42-47 looks up profiles/candidates/<name>.toml and raises FileNotFoundError"
+          ],
+          "failing_case": [
+            "After the merge: relay bench active build-haiku (or relay_bench's profile lookup of \"build-haiku\").",
+            "Now: FileNotFoundError \"no profile 'build-haiku' (profiles/<name>.toml or profiles/candidates/<name>.toml)\", and bin/relay's candidate list",
+            "(bin/relay:311) no longer shows it. Expected: the profile resolves as on master (it is the profile of the 24 Oct bench runs the queue items cite)."
+          ],
+          "fix_hint": [
+            "git checkout master -- profiles/candidates/build-haiku.toml and commit."
+          ],
+          "id": "F3",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "1. git diff master...HEAD --name-status -- profiles/ prints nothing.",
+            "2. profiles/candidates/build-haiku.toml equals master's (models.build = \"haiku\").",
+            "3. The bench tests (tests/test_relay.py Bench) still pass and leave git status clean."
+          ],
+          "path": "profiles/candidates/build-haiku.toml",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "the change deletes the tracked bench profile build-haiku, outside the brief: `relay bench active build-haiku` now fails"
+        },
+        {
+          "details": [
+            "CONFIRMED by reading bin/ci (lib_tests runs every tests/test_*.py, then `step \"types and lint\" bash bin/types-lint`). Principle 2: the same work",
+            "done again on every run is MEDIUM. The cost is small with a warm cache (about 1 s per run measured), so the fix is cheap: test_clean_copy_passes",
+            "already covers \"passes\", and the gate step covers the tree. The brief asked for \"passes on the tree\"; if the owner wants that test kept, this is",
+            "dropped. Size: 5."
+          ],
+          "evidence": [
+            "bin/ci:27 lib_tests() { python3 ... -m unittest discover -s tests -p 'test_*.py'; }",
+            "bin/ci:70 step \"types and lint\" bash bin/types-lint",
+            "tests/test_types_step.py:50-52 test_tree_passes: run(ROOT), assert returncode 0"
+          ],
+          "failing_case": [
+            "bin/ci --quick on an unchanged tree: the \"library tests\" step runs tests/test_types_step.py::TypesStep::test_tree_passes (bin/types-lint over",
+            "the repository), then the \"types and lint\" step runs bin/types-lint over the same tree. Now: the same check twice per gate run (and twice more in",
+            "the inert probe). Expected: once per gate run."
+          ],
+          "fix_hint": [
+            "Remove test_tree_passes (the gate step is the tree check), or have it skip when RELAY_IN_GATE is set by bin/ci."
+          ],
+          "id": "F4",
+          "kind": "inside",
+          "line": 50,
+          "pass_cases": [
+            "1. bin/ci --quick runs bin/types-lint over the repository root exactly once outside the inert probe.",
+            "2. tests/test_types_step.py still shows the step passes on a clean copy (test_clean_copy_passes) and fails on a planted type error and on a planted unused import.",
+            "3. The gate still fails when the tree has a type error (the gate step catches it)."
+          ],
+          "path": "tests/test_types_step.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "Principle 2 (waste): test_tree_passes runs the whole types-and-lint step inside the library tests, then the gate runs the same step again"
+        }
+      ],
+      "notes": [
+        "Fine: the step is in quick and full mode after the library tests; uv missing fails with one line; mypy and ruff are pinned (1.18.2, 0.13.3);",
+        "the 14 pyflakes fixes remove only unused names (relay_setup's `tool` and `main_checkout` were unused); relay_toml.load now goes through loads,",
+        "same result; has_relay's added `main is None` changes nothing (branch was None then); lib copies are identical to lib/ (cmp over every",
+        "plugins/*/lib file); .mypy_cache and .ruff_cache carry their own `*` .gitignore, so the tree stays clean; test_types_step's strict case asserts",
+        "no-untyped-def, so it would fail with strict off for relay_toml. Forbidden modules (relay_verdict, relay_queue, relay_marks, relay_inert, merge.py,",
+        "check-mark.py) are untouched. Not annotated (allowed by \"as many as fit\"): relay_rules, relay_bench, relay_analyze. relay_ledger's records are",
+        "dict aliases (Event, Models, Index), not TypedDicts: the brief asked TypedDict/dataclass for records read across modules; the ledger events are many",
+        "shapes, so an alias is defensible, left to the owner. mypy's python_version 3.11 cannot see Python 3.9 runtime breaks in the hooks (see F1)."
+      ],
+      "reviewed": "eee0e88a97e9f67ddf9bfc11c87eda6a619202f1",
+      "schema": 1,
+      "scope": [
+        "Range master...HEAD in /Users/amidman/relay/.worktrees/py-types (476a8e4, 3936b55, e852434, c353d62, eee0e88 gate log), against the brief",
+        "scratchpad/briefs/py-types.md. Read in full the diffs of bin/ci, bin/types-lint, pyproject.toml, tests/test_types_step.py, tests/test_gate.py,",
+        "tests/test_relay.py, tests/test_eval_record.py, evals/judge-measure/tally.py, lib/relay_toml.py, relay_config.py, relay_git.py, relay_prices.py,",
+        "relay_ledger.py, relay_setup.py, relay_transcripts.py, handover_path.py, plugins/core/lib/kit_packet.py, plugins/front/hooks/*.py, and the deleted",
+        "profiles/candidates/build-haiku.toml. Callers read: plugins/front/hooks/budget.py, plugins/observe/hooks/ledger.py,",
+        "plugins/delegate/hooks/route-guard.py (importers of relay_transcripts), lib/relay_bench.py and bin/relay (profile lookup).",
+        "Ran: pytest tests/test_types_step.py (4 passed); every plugins/*/lib module and the hooks under /usr/bin/python3 (3.9.6) on branch and master;",
+        "bin/types-lint on scratch copies of HEAD with planted errors in plugins/front/hooks/handover.py, lib/relay_git.py and bin/relay;",
+        "mypy -v to read the hook's module name. Gate log .relay/checks/c353d62...gate.log: head c353d62, exit 0 (only the log came after)."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}
