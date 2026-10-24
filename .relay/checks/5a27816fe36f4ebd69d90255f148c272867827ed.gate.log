@@ -1,0 +1,15 @@
+head 5a27816fe36f4ebd69d90255f148c272867827ed
+cmd bin/ci --quick
+ci: library tests ok (355s)
+ci: types and lint ok (1s)
+ci: hook tests ok (130s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests FAILED (0s, log: .ci/steps/eval-grader-tests.log)
+    FAIL  no-spec-step: set runs: 3 (one run cannot show a flaky agent)
+    FAIL  spec-step-on: set runs: 3 (one run cannot show a flaky agent)
+ci: plugin validate ok (6s)
+ci: inert FAILED (493s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed:
+        < eval grader tests FAILED
+ci: RED
+exit 1
