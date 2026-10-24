@@ -31,9 +31,11 @@ class ReplyLanguage(unittest.TestCase):
         with open(os.path.join(self.home.name, ".claude", "CLAUDE.md"), "w", encoding="utf-8") as f:
             f.write("# Defaults\n\n" + line + "\n\nOther text.\n")
 
-    def run_hook(self, reply, **extra):
-        env = {k: v for k, v in os.environ.items() if k != "RELAY_REPLY_LANG_SHARE"}
+    def run_hook(self, reply, env_extra=None, **extra):
+        drop = ("RELAY_REPLY_LANG_SHARE", "CLAUDE_CODE_ENTRYPOINT", "RELAY_BENCH", "CLAUDE_CONFIG_DIR")
+        env = {k: v for k, v in os.environ.items() if k not in drop}
         env["HOME"] = self.home.name
+        env.update(env_extra or {})
         done = subprocess.run([sys.executable, HOOK], input=json.dumps(dict(last_assistant_message=reply, **extra)),
                               capture_output=True, text=True, env=env)
         self.assertEqual(done.returncode, 0, done.stderr)
@@ -65,6 +67,50 @@ class ReplyLanguage(unittest.TestCase):
     def test_second_stop_after_a_block_is_let_through(self):
         self.claude_md("My native language: Russian.")
         self.assertIsNone(self.run_hook(ENGLISH, stop_hook_active=True))
+
+    def test_agent_stop_is_not_checked(self):
+        self.claude_md("My native language: Russian.")
+        self.assertIsNone(self.run_hook(ENGLISH, agent_id="a1"))
+        self.assertEqual(self.run_hook(ENGLISH)["decision"], "block")
+
+    def test_program_started_sessions_are_not_checked(self):
+        self.claude_md("My native language: Russian.")
+        self.assertIsNone(self.run_hook(ENGLISH, env_extra={"CLAUDE_CODE_ENTRYPOINT": "sdk-cli"}))
+        self.assertIsNone(self.run_hook(ENGLISH, env_extra={"RELAY_BENCH": "1"}))
+        self.assertEqual(self.run_hook(ENGLISH, env_extra={"CLAUDE_CODE_ENTRYPOINT": "cli"})["decision"], "block")
+        self.assertIsNone(self.run_hook(RUSSIAN, env_extra={"CLAUDE_CODE_ENTRYPOINT": "cli"}))
+
+    def test_language_is_read_from_claude_config_dir(self):
+        self.claude_md("My native language: Russian.")
+        empty = tempfile.TemporaryDirectory()
+        self.addCleanup(empty.cleanup)
+        self.assertIsNone(self.run_hook(ENGLISH, env_extra={"CLAUDE_CONFIG_DIR": empty.name}))
+        with open(os.path.join(empty.name, "CLAUDE.md"), "w", encoding="utf-8") as f:
+            f.write("My native language: Russian.\n")
+        self.assertEqual(self.run_hook(ENGLISH, env_extra={"CLAUDE_CONFIG_DIR": empty.name})["decision"], "block")
+        self.assertEqual(self.run_hook(ENGLISH)["decision"], "block")   # unset: HOME/.claude
+
+    def test_share_setting_percent_and_garbage(self):
+        self.claude_md("My native language: Russian.")
+        # 60 means 60 percent: the Russian fixture (about 97%) passes
+        self.assertIsNone(self.run_hook(RUSSIAN, env_extra={"RELAY_REPLY_LANG_SHARE": "60"}))
+        self.assertEqual(self.run_hook(ENGLISH, env_extra={"RELAY_REPLY_LANG_SHARE": "0.6"})["decision"], "block")
+        # not a number: the default 0.60 applies, so English is still blocked
+        self.assertEqual(self.run_hook(ENGLISH, env_extra={"RELAY_REPLY_LANG_SHARE": "abc"})["decision"], "block")
+
+    def test_block_reason_counts_letters_not_words(self):
+        self.claude_md("My native language: Russian.")
+        reason = self.run_hook(ENGLISH)["reason"]
+        self.assertIn("of its letters", reason)
+        self.assertNotIn("words", reason)
+
+    def test_tilde_fence_is_removed_like_backtick_fence(self):
+        self.claude_md("My native language: Russian.")
+        # 60+ Russian letters; the English log has 200 letters. Only the prose counts: 100%
+        ru = "Это сообщение написано по русски и содержит достаточно букв для проверки доли."
+        log = "error " * 40
+        self.assertIsNone(self.run_hook(ru + "\n~~~\n" + log + "\n~~~\n"))
+        self.assertIsNone(self.run_hook(ru + "\n```\n" + log + "\n```\n"))
 
     def test_threshold_is_a_share_not_every_character(self):
         self.claude_md("My native language: Russian.")

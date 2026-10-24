@@ -17,15 +17,17 @@ SCRIPTS = {"russian": "CYRILLIC", "ukrainian": "CYRILLIC"}
 THRESHOLD = 0.60     # least share of native-script letters in the prose; RELAY_REPLY_LANG_SHARE overrides
 MIN_LETTERS = 40     # a reply with fewer prose letters (mostly code or paths) is not checked
 
-FENCE = re.compile(r"```.*?(```|\Z)", re.S)
+FENCE = re.compile(r"(```|~~~).*?(\1|\Z)", re.S)
 INLINE = re.compile(r"`[^`\n]*`")
 URL = re.compile(r"\w+://\S+")
 PATHLIKE = re.compile(r"\S*/\S*")
 
 
-def native_language(home):
+def native_language():
+    # the config folder the session uses, as relay_config.claude_dir() reads it
+    folder = os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude")
     try:
-        with open(os.path.join(home, ".claude", "CLAUDE.md"), encoding="utf-8") as f:
+        with open(os.path.join(folder, "CLAUDE.md"), encoding="utf-8") as f:
             for line in f:
                 m = re.match(r"\s*My native language:\s*([^.\n]+)", line)
                 if m:
@@ -67,19 +69,30 @@ def last_reply(data):
     return last
 
 
+def threshold():
+    try:
+        value = float(os.environ.get("RELAY_REPLY_LANG_SHARE") or THRESHOLD)
+    except ValueError:
+        return THRESHOLD
+    return value / 100 if value > 1 else value
+
+
 def main():
     data = json.load(sys.stdin)
     if data.get("stop_hook_active") or data.get("agent_id"):
         return
-    language = native_language(os.environ.get("HOME") or os.path.expanduser("~"))
+    # a session started by a program (evals, bench graders) is not the owner's: its reply goes to a script
+    if os.environ.get("CLAUDE_CODE_ENTRYPOINT", "").startswith("sdk") or os.environ.get("RELAY_BENCH"):
+        return
+    language = native_language()
     script = SCRIPTS.get(language.lower())
     if not script:
         return
     got = share(last_reply(data), script)
-    if got is None or got >= float(os.environ.get("RELAY_REPLY_LANG_SHARE") or THRESHOLD):
+    if got is None or got >= threshold():
         return
     json.dump({"decision": "block", "reason": f"Rewrite the reply in {language}, the owner's native language "
-                                              f"(only {got:.0%} of its words are in {language}); code, paths and names stay as they are."}, sys.stdout)
+                                              f"(only {got:.0%} of its letters are in {language}); code, paths and names stay as they are."}, sys.stdout)
 
 
 if __name__ == "__main__":
