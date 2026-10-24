@@ -60,7 +60,7 @@ def notices(main, files):
     if any((f.startswith("plugins/") and ("/agents/" in f or "/skills/" in f)) or f.startswith("roles/") for f in files):
         out.append("Agent and skill texts changed: open sessions keep the old texts until restarted or /reload-plugins.")
     if os.path.isfile(os.path.join(main, "bin", "relay")) and any(f.startswith(("rules/", "roles/")) for f in files):
-        out.append("Run relay sync once from the main checkout.")
+        out.append("Run relay sync from the main checkout once the wave's paid run is green (it waits for it).")
     return out
 
 
@@ -137,7 +137,8 @@ def blob(main, ref, path):
 def step_queue(main, default, branch):
     """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
     `relay queue migrate`); every queue file at the branch tip, whether the range touched it or not (one that came in by taking the
-    default branch included), is well formed too; every `fix` item it moves into done/ (not dropped) has a test that exists."""
+    default branch included), is well formed too; every `fix` item it moves into done/ (not dropped) passes `relay_queue.close_refusal`: its test exists and the branch's newest check
+    with no own file changed since is of that item with Q1 MET."""
     changed_files = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=AM", "-z",
                                   "refs/heads/%s...refs/heads/%s" % (default, branch))[1]
     added = set(relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z",
@@ -152,10 +153,9 @@ def step_queue(main, default, branch):
             raise Refused("queue item %s is malformed (%s); fix it before the merge" % (slug, "; ".join(meta["problems"])))
         if not in_done or path not in added or meta["kind"] != "fix" or meta["state"] == "dropped":
             continue
-        test_file, sep, test_name = meta["test"].partition("::")
-        source = blob(main, "refs/heads/" + branch, test_file.strip()) if sep and test_file.strip() else None
-        if not relay_queue.holds_test(meta["test"], source):
-            raise Refused("queue item %s is closed without a test (relay queue done --test <file>::<name>)" % slug)
+        reason = relay_queue.close_refusal(main, "refs/heads/" + branch, slug, meta["test"])    # the one rule `relay queue done` uses
+        if reason:
+            raise Refused("queue item %s is closed without a test or a check: %s" % (slug, reason))
 
 
 def step_mark(main, default, branch):

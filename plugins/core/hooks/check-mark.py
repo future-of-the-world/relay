@@ -2,11 +2,11 @@
 """The check-mark hook (design docs/plans/review-gate.md, section 6): SubagentStop.
 
 When `delegate:checker` finishes in a repository whose default branch has `.relay/`, this copies the checker's
-recorded data into a committed mark `.relay/checks/<head>.json`, with the check data (`<head>.check.json`) and the review
-data (`<reviewed>.review.json`, the review data of each findings file joined). Only JSON is stored: no readable report
+recorded check record into a committed mark `.relay/checks/<head>.json`, with the record itself (`<head>.check.json`: the
+item's problem, the reviews' findings, one verdict for each, the gate). Only JSON is stored: no readable report
 is written (`relay check show` renders one on demand). The facts come only from the JSON that `relay check record check`
-wrote at the `Report:` path (the worktree, the head, the reviewed sha, the gate log, the review data files, open,
-queued); the prompt is never parsed for them. The prompt gives one thing, the `Report: <path>` label (the check's JSON
+wrote at the `Report:` path, loaded with `relay_verdict.load_record`; the hook applies no rule of its own and counts
+nothing (`open` and `queued` are derived from the record). The prompt is never parsed for them. The prompt gives one thing, the `Report: <path>` label (the check's JSON
 file), to find that JSON. The checker never writes a mark; no model decides which later commits keep it. Always exits 0 (it never blocks); a missing or invalid
 JSON writes no mark, removes a stale one for the checked commit, and says why in `systemMessage`.
 
@@ -23,13 +23,13 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 
 import relay_git  # noqa: E402
+import relay_inert  # noqa: E402
 import relay_marks  # noqa: E402
 import relay_verdict  # noqa: E402
 
 AGENT_TYPE = "delegate:checker"
 WORKTREE_RE = re.compile(r"(?:^|(?<=\s))Worktree:\s+([^\s]+)")
 REPORT_RE = re.compile(r"(?:^|(?<=\s))Report:\s+(.*)")
-GATE_NAME = re.compile(r"^[0-9a-f]{40}\.gate\.log\Z")
 
 
 class Fail(Exception):
@@ -136,18 +136,40 @@ def read_json(path, what):
 
 
 def stale_commits(wt):
-    """Commits whose mark a failed re-check must remove: HEAD, and the newest marked ancestor when only
-    `.relay/checks/` files came after it (a mark commit does not change the checked code)."""
+    """Commits whose mark a failed re-check must remove: HEAD, and the newest marked ancestor when only inert files
+    (`relay_inert`: a mark commit, the handover, the queue) came after it, the same rule as `relay queue done` and the merge guard."""
     found = []
     rc, head = relay_git.git(wt, "rev-parse", "HEAD")
     if rc == 0:
         found.append(head)
     newest = relay_marks.newest(wt, "HEAD", relay_marks.marks(wt, "HEAD"))
     if newest and newest[0] not in found:
-        rc, names = relay_git.git(wt, "diff", "--name-only", "--no-renames", "%s..HEAD" % newest[0])
-        if rc == 0 and all(n.startswith(relay_marks.FOLDER + "/") for n in names.splitlines()):
+        try:
+            later = relay_inert.changed(wt, newest[0], "HEAD")
+        except ValueError:
+            later = [None]
+        if not later:
             found.append(newest[0])
     return found
+
+
+def write_mark(wt, data):
+    """Commit the mark and the stored record of the loaded check record `data` (a dict with its `worktree`) in worktree `wt`;
+    returns the line the hook prints. No rule of its own: the counts are the record's (`open_of`, `queued_of`)."""
+    head = data["head"]
+    gate = data["gate"] if data["gate"] and os.path.isfile(os.path.join(wt, relay_marks.FOLDER, data["gate"])) else None
+    counts = {"open": relay_verdict.open_of(data), "queued": relay_verdict.queued_of(data)}
+    mark = {
+        "schema": relay_marks.MARK_SCHEMA,
+        "commit": head,
+        "verdict": counts,
+        "check": "%s.check.json" % head,
+        "gate": gate,
+        "time": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    dump = lambda obj: json.dumps(obj, indent=2, sort_keys=True) + "\n"
+    relay_marks.put(wt, head, mark, {mark["check"]: dump(relay_verdict.stored_record(data))})
+    return "check mark written for %s: %s, open %d, queued %d" % (relay_git.current_branch(wt) or wt, head, counts["open"], counts["queued"])
 
 
 def run(hook):
@@ -171,47 +193,18 @@ def run(hook):
         if start is not None and mtime < start:
             raise Fail("the check data is older than the checker's start")
         try:
-            data = relay_verdict.load_check(text, "the check data %s" % data_path)
+            data = relay_verdict.load_record(text, "the check data %s" % data_path)
         except relay_verdict.VerdictError as exc:
             raise Fail(str(exc))
         wt = os.path.realpath(data["worktree"])
         if not os.path.isdir(wt) or relay_git.main_checkout(wt) != relay_git.main_checkout(cwd):
             raise Fail("the check data's worktree is not a worktree of this repository")
-        head, reviewed = data["head"], data["reviewed"]
-        for key in ("head", "reviewed"):
-            if relay_git.git(wt, "cat-file", "-e", data[key] + "^{commit}")[0] != 0:
-                raise Fail("%s %s is not a commit of this worktree" % (key, data[key]))
+        head = data["head"]
+        if relay_git.git(wt, "cat-file", "-e", head + "^{commit}")[0] != 0:
+            raise Fail("head %s is not a commit of this worktree" % head)
         if relay_git.git(wt, "merge-base", "--is-ancestor", head, "HEAD")[0] != 0:
             raise Fail("head %s is not the worktree's head or an ancestor of it" % head)
-        reviews = []
-        for path in data["review"]:
-            rtext, _ = read_json(path, "the review data")
-            try:
-                review = relay_verdict.load_review(rtext, "the review data %s" % path)
-            except relay_verdict.VerdictError as exc:
-                raise Fail(str(exc))
-            if review["reviewed"] != reviewed:
-                raise Fail("the review data %s is of %s, not of the reviewed sha %s" % (path, review["reviewed"], reviewed))
-            reviews.append(dict(review, file=os.path.basename(path)))
-        floor = relay_verdict.floor_error(reviews, data)
-        if floor:
-            raise Fail(floor)
-        gate_name = os.path.basename(data["gate"] or "")
-        gate = gate_name if GATE_NAME.match(gate_name) and os.path.isfile(os.path.join(wt, relay_marks.FOLDER, gate_name)) else None
-        mark = {
-            "schema": relay_verdict.SCHEMA,
-            "commit": head,
-            "verdict": {"open": data["open"], "queued": data["queued"], "reviewed": reviewed},
-            "review": "%s.review.json" % reviewed,
-            "check": "%s.check.json" % head,
-            "gate": gate,
-            "time": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        }
-        dump = lambda obj: json.dumps(obj, indent=2, sort_keys=True) + "\n"
-        files = {mark["review"]: dump(relay_verdict.stored_set(reviews, reviewed)),
-                 mark["check"]: dump(relay_verdict.stored_check(data, mark["review"]))}
-        relay_marks.put(wt, head, mark, files)
-        return "check mark written for %s: %s, open %d, queued %d" % (relay_git.current_branch(wt) or wt, head, data["open"], data["queued"])
+        return write_mark(wt, data)
     except (Fail, relay_marks.MarkError) as exc:
         if wt is None:
             # the data could not be read, so the worktree is not known from it: the prompt's Worktree: label only says

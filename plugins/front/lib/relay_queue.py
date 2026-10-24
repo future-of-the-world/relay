@@ -623,7 +623,7 @@ def _taken_by_refusal(item):
 
 def find_finding(report, fid):
     """The finding `fid` from the JSON a judge recorded at `report` (written by `relay check record`): a review's findings,
-    or a check's new ones. Refused, naming the file, when it is missing or invalid."""
+    or the check record's. Refused, naming the file, when it is missing or invalid."""
     try:
         with open(report, encoding="utf-8") as handle:
             text = handle.read()
@@ -633,10 +633,7 @@ def find_finding(report, fid):
         kind, data = relay_verdict.load_any(text, f"the recorded data {report}")
     except relay_verdict.VerdictError as exc:
         raise Refused(str(exc))
-    if kind == relay_verdict.SET_TYPE:
-        found = [f for r in data["reviews"] for f in r["findings"]]
-    else:
-        found = data["new"] if kind == relay_verdict.CHECK_TYPE else data["findings"]
+    found = data["findings"]       # a review's findings, or the check record's one list (Q, F, M and N alike)
     for finding in found:
         if finding["id"] == fid:
             return finding
@@ -793,14 +790,45 @@ def _q1(item):
             "pass_cases": list(item.get("pass_cases") or []), "evidence": [], "fix_hint": []}
 
 
-def take(worktree, slug, findings, **engine):
-    """Land `taken` on the default branch, bring it into the worktree's branch, and for a fix write the review JSON
-    (`findings`, one finding Q1 from the item) that the checker records against."""
+def held_fix_items(worktree):
+    """{slug: item} of the fix items the branch of `worktree` holds: taken by it at HEAD, or closed on it (in done/ at HEAD
+    but not in done/ on the default branch: an item an older branch of the same name closed is not this branch's)."""
+    main, default = _context(worktree)
+    branch = relay_git.current_branch(worktree)
+    held = {}
+    for slug, item in Reader(worktree, "HEAD").items().items():
+        if not item["problems"] and item["kind"] == "fix" and item.get("taken_by") == branch:
+            held[slug] = item
+    already = set(Reader(main, f"refs/heads/{default}").names("done/"))
+    for slug, item in Reader(worktree, "HEAD").closed_items().items():
+        if slug not in already and not item["problems"] and item["kind"] == "fix" and item["state"] == "done" and item.get("taken_by") == branch:
+            held[slug] = item
+    return held
+
+
+def record_item(worktree):
+    """(slug, finding Q1) for the fix item the branch of `worktree` holds, or None. Q1 is the item's problem, stated against the
+    commit that landed `taken` (its `since`). Refused when the branch holds more than one fix item."""
+    held = held_fix_items(worktree)
+    if not held:
+        return None
+    if len(held) > 1:
+        raise Refused(f"this branch holds {len(held)} fix items ({', '.join(sorted(held))}); a branch holds one")
+    slug, item = next(iter(held.items()))
+    rc, out, err = _git(worktree, "log", "-1", "--format=%H", "--diff-filter=AM", "HEAD", "--", _path(slug))
+    since = _text(out)
+    if rc != 0 or not relay_verdict.is_sha(since):
+        raise Refused(f"cannot find the commit that took '{slug}' in the history of this branch")
+    return slug, dict(_q1(item), source="queue", since=since)
+
+
+def take(worktree, slug, **engine):
+    """Land `taken` on the default branch and bring it into the worktree's branch. A fix item is refused on a branch that
+    already holds one (open or closed on it). Q1, the item's problem, is written by the check (`record_item`), not here."""
     main, default = _context_with_relay(worktree)
     branch = relay_git.current_branch(worktree)
     if branch is None or branch == default:
         raise Refused("take from the worktree of a task branch")
-    seen = {}
 
     def planner(reader):
         item = _item_at(reader, slug)
@@ -808,11 +836,14 @@ def take(worktree, slug, findings, **engine):
             raise Refused(f"queue item '{slug}' is taken by {item['taken_by']}")
         if item["state"] != "open":
             raise Refused(f"queue item '{slug}' is {item['state']}")
-        seen["item"] = item
-        if item["kind"] == "fix":                   # the finding Q1 must be writable before `taken` lands: no item left taken without findings
+        if item["kind"] == "fix":                   # the finding Q1 must be writable before `taken` lands: no item left taken that cannot be checked
             errors = relay_verdict.finding_errors(_q1(item), "finding Q1 of the item")
             if errors:
                 raise Refused(f"queue item '{slug}' cannot become finding Q1, nothing taken: {'; '.join(errors[:3])}")
+            held = held_fix_items(worktree)
+            if held:
+                name, other = next(iter(sorted(held.items())))
+                raise Refused(f"{branch} already holds the fix item '{name}' ({'closed' if other['state'] == 'done' else 'open'} on it); a branch holds one fix item: take '{slug}' from another worktree")
         text = serialize(slug, changed(item, taken_at=utcnow(), taken_by=branch))
         return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "taken")
 
@@ -821,17 +852,6 @@ def take(worktree, slug, findings, **engine):
     rc, merged, err = _git(worktree, "merge", "--no-edit", default)
     if rc != 0:
         raise Refused(f"{out[0]}; but merging {default} into {branch} failed: {_last_line(err or _text(merged))}")
-    item = seen["item"]
-    if item["kind"] == "fix":
-        rc, base, err = _git(worktree, "merge-base", branch, default)
-        if rc != 0:
-            raise Refused(f"{out[0]}; but no merge-base of {branch} and {default}: {err}")
-        data = relay_verdict.review_data(_text(base), default, [_q1(item)], scope=[f"From queue item {slug}: the fix is checked as finding Q1."])
-        try:
-            relay_verdict.write_review(findings, data)
-        except relay_verdict.VerdictError as exc:
-            raise Refused(f"{out[0]}; but the findings cannot be written: {exc}")
-        out.append(f"findings written to {findings}")
     return "\n".join(out)
 
 
@@ -856,31 +876,70 @@ def _holds_test(path, name, source):
     return re.search(pattern, source) is not None
 
 
-def _check_is_of_this_item(worktree, slug, check, data):
-    """Refuse check data that is not the check of this branch's Q1 for this item: its head must be HEAD (or an earlier commit
-    with only `.relay/` files changed since), and one of its reviews must be the findings file `take` wrote for `slug`."""
-    rc, _, _ = _git(worktree, "merge-base", "--is-ancestor", data["head"], "HEAD")
+def close_refusal(repo, ref, slug, test):
+    """None when the item `slug` may be closed with `test` at `ref` of `repo`, else the refusal line. The one rule of
+    `relay queue done` (ref HEAD of the task worktree) and of the merge guard (ref the branch): what may change after the check.
+
+    The test is `<file>::<name>` or `<file>::<Class>::<name>`: the file is in the tree at `ref` and defines the test (`holds_test`).
+    For a fix item, the newest check mark of the branch with no file of the branch's own changed since (the inert files do not
+    count: `relay_inert`) must be of this item and its finding Q1 must be MET."""
+    import relay_inert
+    import relay_marks
+    path, _, rest = test.strip().partition("::")
+    name = rest.split("::")[-1].strip()
+    if not path.strip() or not name:
+        return "--test is <test file>::<test name>"
+    rc, source, _ = _git(repo, "cat-file", "blob", f"{ref}:{path.strip()}")
     if rc != 0:
-        raise Refused(f"the check data {check} is of {data['head'][:12]}, which is not in this branch's history: it is not the check of this fix")
-    rc, out, _ = _git(worktree, "diff", "--name-only", "--no-renames", f"{data['head']}..HEAD")
-    later = sorted(p for p in _text(out).split("\n") if p and not p.startswith(".relay/"))
-    if later:
-        raise Refused(f"the check data {check} is of {data['head'][:12]}; {', '.join(later[:3])} changed after it: check the fix again")
-    marker = f"From queue item {slug}:"
-    for path in data["review"]:
+        return f"the test file {path.strip()} is not in the last commit of the branch"
+    if not holds_test(test, source.decode("utf-8", "replace")):
+        return f"{path.strip()} does not hold a test named {name}"
+    kind = None
+    for sub in ("", "done/"):
+        rc, out, _ = _git(repo, "cat-file", "blob", f"{ref}:{_path(slug, sub)}")
+        if rc == 0:
+            kind = parse(slug, out.decode("utf-8", "replace"), "done" if sub else "open").get("kind")
+            break
+    if kind != "fix":
+        return None
+    default = relay_git.default_branch(repo)
+    if default is None:
+        return "cannot tell the default branch: set project.default_branch in .claude/kit.toml"
+    stored = dict(relay_marks.marks(repo, ref))
+    rc, out = relay_git.git(repo, "rev-list", "--topo-order", ref, f"^refs/heads/{default}")
+    order = [c for c in out.splitlines() if c in stored] if rc == 0 else []
+    if not order:
+        return f"no check of this fix: run delegate:checker on the branch's head, then close '{slug}'"
+    first = None
+    for commit in order:
         try:
-            with open(path, encoding="utf-8") as handle:
-                review = relay_verdict.load_review(handle.read(), f"the review data {path}")
-        except (OSError, relay_verdict.VerdictError):
+            own = relay_inert.changed(repo, commit, ref, own=True)
+        except ValueError as exc:
+            return str(exc)
+        if own:
+            first = first or (commit, own)
             continue
-        if any(line.startswith(marker) for line in review.get("scope") or []):
-            return
-    raise Refused(f"the check data {check} does not check the findings file `relay queue take` wrote for '{slug}' (scope \"{marker}\")")
+        try:
+            record = relay_marks.check_data(repo, ref, stored[commit]["check"])
+        except relay_marks.MarkError as exc:
+            return str(exc)
+        if record is None:
+            return f"the mark of {commit[:12]} names {stored[commit]['check']}, which is not stored"
+        if record["item"] != slug:
+            return f"the check of {commit[:12]} is of {record['item'] or 'no queue item'}, not of '{slug}'"
+        verdict = next((f["verdict"] for f in record["findings"] if f["id"] == "Q1"), None)
+        if verdict is None:
+            return f"the check of {commit[:12]} gives no verdict for Q1"
+        if verdict != "MET":
+            return f"the check of {commit[:12]} says Q1 {verdict}, not MET"
+        return None
+    commit, own = first
+    return f"after the check of {commit[:12]}, {', '.join(own[:3])} changed, which is not inert: check the fix again"
 
 
-def done(worktree, slug, test, check):
-    """Close a taken item on the task branch: needs the named test at HEAD and, for a fix, check data (`check`, the JSON
-    `relay check record check` wrote) whose verdict for Q1 is MET."""
+def done(worktree, slug, test):
+    """Close a taken item on the task branch: needs `close_refusal` to say it may be closed (the named test at HEAD and, for a
+    fix, the branch's check with Q1 MET)."""
     branch = relay_git.current_branch(worktree)
     main, default = _context(worktree)
     if branch is None or branch == default:
@@ -896,29 +955,9 @@ def done(worktree, slug, test, check):
         raise Refused(f"queue item '{slug}' is malformed ({'; '.join(item['problems'])})")
     if item["state"] != "taken" or item["taken_by"] != branch:
         raise Refused(f"queue item '{slug}' is not taken by {branch}")
-    rc, source, _ = _git(worktree, "cat-file", "blob", f"HEAD:{path}")
-    if rc != 0:
-        raise Refused(f"the test file {path} is not in the last commit of {branch}")
-    if not holds_test(test, source.decode("utf-8", "replace")):
-        raise Refused(f"{path} does not hold a test named {name}")
-    try:
-        with open(check, encoding="utf-8") as handle:
-            report = handle.read()
-    except OSError as exc:
-        raise Refused(f"cannot read the check data {check}: {exc.strerror}")
-    try:
-        kind, data = relay_verdict.load_any(report, f"the check data {check}")
-    except relay_verdict.VerdictError as exc:
-        raise Refused(str(exc))
-    if kind != relay_verdict.CHECK_TYPE:
-        raise Refused(f"{check} is a {kind}, not the check data (the JSON of relay check record check)")
-    if item["kind"] == "fix":
-        verdict = next((s["verdict"] for s in data["findings"] if s["id"] == "Q1"), None)
-        if verdict is None:
-            raise Refused(f"the check data {check} gives no verdict for Q1")
-        if verdict != "MET":
-            raise Refused(f"the check data {check} says Q1 {verdict}, not MET")
-        _check_is_of_this_item(worktree, slug, check, data)
+    reason = close_refusal(worktree, "HEAD", slug, test)
+    if reason:
+        raise Refused(reason)
     root = _text(_git(worktree, "rev-parse", "--show-toplevel")[1])
     text = serialize(slug, changed(item, closed_at=utcnow(), test=test), "done")
     old, new = os.path.join(root, _path(slug)), os.path.join(root, _path(slug, "done/"))

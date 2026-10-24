@@ -1,0 +1,63 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F6",
+      "reason": [
+        "gate green on a81d66f, merge applies"
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/checks-record/.relay/checks/a81d66ff794f51056ac9473eb965c09e65a7efd9.gate.log",
+  "head": "367ffe31355829cd4cec0e9ceabaa7af2e2e9fdb",
+  "new": [],
+  "notes": [
+    "Merge findings F1-F6 are met by the green gate on a81d66f. The open +1 is the post-review change to tests/test_archive_inert.py."
+  ],
+  "open": 1,
+  "queued": 0,
+  "review": [
+    "bb35613d51c116882339a78d7e29af912b3e4f96.review.json"
+  ],
+  "reviewed": "bb35613d51c116882339a78d7e29af912b3e4f96",
+  "schema": 1,
+  "scope": [
+    "Fixes: none, yet relay changed --own bb35613 lists tests/test_archive_inert.py (commit a81d66f, one-line test fix after a gate failure). Gate log is for a81d66f, exit 0; HEAD 367ffe3 adds only the inert gate log. Ran tests/test_archive_inert.py: 6 passed. No new tests asserting merge cases, so no fail-without-fix run applies."
+  ],
+  "type": "check"
+}

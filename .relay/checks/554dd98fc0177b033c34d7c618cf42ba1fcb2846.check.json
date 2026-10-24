@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "id": "Q1",
+      "reason": [
+        "tests/test_check_record.py:446 TestEndToEnd end-to-end (one check, done, merge guard, master holds Q1 verdict and gate log); tests/test_check_record.py:351 one function for test name; :327 handover after check accepted. Failed at base, pass at head."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/checks-record/.relay/checks/1b3449bbfe7e4e309a712469e4d448517c8e2777.gate.log",
+  "head": "554dd98fc0177b033c34d7c618cf42ba1fcb2846",
+  "new": [],
+  "notes": [],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "e67bed0c304369c20f56755db9db4eccb047ee2d.review.json"
+  ],
+  "reviewed": "e67bed0c304369c20f56755db9db4eccb047ee2d",
+  "schema": 1,
+  "scope": [
+    "Range e67bed0..HEAD. Gate log is for 1b3449b, exit 0; only the gate-log commit came after (no changed files). tests/test_check_record.py and tests/test_guard_test_name.py: 44 passed. Ran the new tests in a throwaway worktree at e67bed0: 6 of 6 failed there (take() signature, no one-record flow)."
+  ],
+  "type": "check"
+}

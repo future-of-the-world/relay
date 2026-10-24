@@ -1,0 +1,22 @@
+head d20a05b63d2662892260ee49d31efe2e68d2c20c
+cmd bin/ci --quick
+ci: library tests FAILED (248s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_whole_check_and_each_broken_field (test_verdict.Schema.test_a_whole_check_and_each_broken_field)
+        self.assertTrue(any(word in e for e in errors), (over, errors))
+    AssertionError: False is not true : ({'gate': 'x.log'}, ["gate must be null, a gate log file name, a pipeline line or `log <path>`, got 'x.log'"])
+    FAILED (failures=1)
+ci: hook tests FAILED (136s, log: .ci/steps/hook-tests.log)
+    FAIL  K4b gate is not a log name: no commit, reason names gate
+    check-mark.test: 1 FAILED
+    FAIL plugins/core/tests/check-mark.test.sh
+    ok   no file: dump is an error too
+    ok   no file: packet is an error too
+    ok   no file: spec-check is an error too
+    ok   path, nothing for this version: an error, not the newest
+    ok   path, that error exits 1
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (4s)
+ci: plugin validate ok (5s)
+ci: inert ok (399s)
+ci: RED
+exit 1

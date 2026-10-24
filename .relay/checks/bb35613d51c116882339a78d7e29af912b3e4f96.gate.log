@@ -1,0 +1,11 @@
+head bb35613d51c116882339a78d7e29af912b3e4f96
+cmd bin/ci --quick
+ci: library tests FAILED (257s, log: .ci/steps/library-tests.log)
+    FAILED (errors=1)
+ci: hook tests ok (135s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (3s)
+ci: plugin validate ok (5s)
+ci: inert ok (401s)
+ci: RED
+exit 1

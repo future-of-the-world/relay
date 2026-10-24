@@ -990,7 +990,7 @@ class Roles(Base):
                     self.assertNotIn(tool, [x.strip() for x in meta["tools"].split(",")], path)
         judge = open(os.path.join(ROOT, "roles", "judge.md")).read()
         flat = " ".join(judge.split())
-        self.assertIn("When the project has a work queue, a finding from a findings file", flat)
+        self.assertIn("When the record has a `Q1`, it is `MET` only when", flat)   # the queue appears only as a record's Q1, never as a given
         # review F8: the owner's move is data (an owner entry with `queue`), not a `Owner: <id> moved to queue item` prompt line
         self.assertIn("a finding the owner moved to a queue item is data: an `owner` entry with `queue`", flat)
         self.assertNotIn("Owner: <id> moved to queue item", flat)
@@ -1002,7 +1002,7 @@ class Roles(Base):
         """A15: the judge base names `relay changed --own` in check step 1 and the linter line in "Each finding"; the
         checker's flow part and the delegate skill name `relay gate`."""
         judge = " ".join(open(os.path.join(ROOT, "roles", "judge.md")).read().split())
-        self.assertIn("List its files with `relay changed --own -C <path> <Reviewed sha>`", judge)
+        self.assertIn("List the files with `relay changed --own -C <path> <since>`", judge)
         each = judge[judge.index("## Each finding"):judge.index("## The rating is yours")]
         self.assertIn("<path>:<line>: <SEVERITY>: F<n> <what goes wrong>", each)
         self.assertIn("relay changed -C <path> <sha>` lists no file", judge)     # the gate rule has no --own
@@ -1500,6 +1500,12 @@ class Bench(Base):
 
 
 class Rules(Base):
+    def setUp(self):
+        super().setUp()
+        # these tests sync into temporary targets; the wait for a green paid run is tested in test_paid_batch.py
+        old = os.environ.get("RELAY_SKIP_PAID_DUE"); os.environ["RELAY_SKIP_PAID_DUE"] = "1"
+        self.addCleanup(lambda: os.environ.__setitem__("RELAY_SKIP_PAID_DUE", old) if old is not None else os.environ.pop("RELAY_SKIP_PAID_DUE", None))
+
     def test_sync_writes_global_and_project_files(self):
         import relay_config
         import relay_rules
@@ -1992,12 +1998,13 @@ class AutoMergeTextsTest(unittest.TestCase):
         """F3: step 9 merges on readiness (incl. the paid run), not on the verdict alone."""
         text = self._read("plugins/delegate/skills/delegate/SKILL.md")
         self.assertIn("When the change is ready", text)
-        self.assertIn("the paid run green when agent, skill, role or rule texts changed", text)
+        self.assertNotIn("the paid run green when agent, skill, role or rule texts changed", text)
+        self.assertIn("default branch taken)", text)
         self.assertNotIn("When the verdict is `open 0` the front merges", text)
 
     def test_merged_line_has_paid_run_slot(self):
-        """F4: front template carries the optional paid-run part."""
-        self.assertIn("`; paid run green, $<cost>`", self._read("plugins/front/skills/front/SKILL.md"))
+        """The merged line no longer carries a per-change paid-run part: the paid run is per wave."""
+        self.assertNotIn("`; paid run green, $<cost>`", self._read("plugins/front/skills/front/SKILL.md"))
 
 
 if __name__ == "__main__":

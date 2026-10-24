@@ -1078,3 +1078,20 @@ Workflow scripts: ~/.claude/projects/-Users-amidman-relay/3207dc59-.../workflows
 scratchpad briefs/ and reports/.
 Lessons: merge ready changes before gating the next (each merge makes the others take master and gate again, ~9 min);
 a worker given a 220-min task ran out of context without committing: save its work with a WIP commit, start a fresh one.
+
+## STATE 24 Oct, after compaction, session 3207dc59: paid runs per wave in force
+
+Merged since the last section: py-types (mypy + ruff F gate step), numbers-clock (ledger fallback window followed the machine clock; every gate was red), py-rule (rules/python.md; its per-change paid run RED, see below), paid-batch (one paid run per wave; `bin/paid-cost due`; relay sync refuses while anything is due).
+
+Owner decisions (verbatim):
+- Paid runs: "a" (one run after a wave) + "Нам не обязательно обновлять все проекты из этой директории, есть ли у нас релизы ? Сейчас это наш рабочий репозиторий, ни один проект сейчас нас не использует в полной мере, мы никого не ломаем" + "Нам не важно откуда пришли эти изменения, мы жертвуем этим во имя скорости разработки, ... делать проверки после волны изменений позволяет править их скопом, один раз на пачку".
+- Installer: "Не хочу пользоваться node, лучше bun, запускай по их инструкции" (no Node anywhere; claude and bun official installers without checksum).
+Front decisions (owner can reverse): `due` also counts hooks and evals/plugin; py-rule merged on a red per-change run under the owner's new order, the failure became a fix item.
+
+In flight:
+- checks-record: merge5 gate + checker (workflow), then merge.
+- installer: ready except the owner's answer to "merge without showing the hand-resolved bin/ci conflict line? (recommended a: yes)"; then take master, gate, check, merge.
+- plugin-cache (ip 98: sessions load a 21-23 Oct copy of relay's plugins, never refreshed) and spec-flaw (ip 97: spec-reviewer-flaw missed in 1 of 3 runs; evidence in scratchpad/evidence/) building in one workflow.
+- After them: the wave's paid run on master (detached worktree, `bin/paid-cost due` lists what it covers), then `relay sync` (waits for green), then the front refreshes the real plugin install the plugin-cache way.
+Queue added: three-ledger-tests (done), each-merge-makes-every-waiting-change-gate-again (fix 92), one-paid-run (feature 96, merged; features cannot be closed yet: a-finished-feature-cannot-be-closed-in-the-queue).
+Next waves after these: 4 (queue), 5 (judge/paid), 6 (setup/doctor) as in the earlier plan.

@@ -7,30 +7,36 @@ from the JSON on demand (`relay check show`). The JSON is written by `record_rev
 (multi-line text in '''...''' keeps every character, so no text passes through the shell), this module validates it
 against the schemas below (no outside library) and refuses bad input with a message that names the field.
 
-Every file carries "schema": 1 (a version, for later conversions) and "type". Prose is stored as lists of lines.
-Review data:  {"schema": 1, "type": "review", "reviewed": <full sha or "unknown">, "base": <sha or ref>,
-               "scope": [line, ...], "notes": [line, ...], "findings": [FINDING, ...],
+Review data (what a critic records; schema 1): {"schema": 1, "type": "review", "reviewed": <full sha or "unknown">,
+               "base": <sha or ref>, "scope": [line, ...], "notes": [line, ...], "findings": [FINDING, ...],
                "owner": [{"id": of a finding, "words": [line, ...], "date": "YYYY-MM-DD"}, ...]}   (a stored set adds "file")
 The owner's word that a finding is not wrong is data: `relay check owner <review.json> <id> --input <file.toml>`
 (`add_owner`) appends to "owner" the words as the owner said them; a checker counts such a finding as not wrong.
-FINDING:      {"id": "F<n>" or "Q<n>", "path", "line": int >= 1, "severity": a word of WORDS (the flow's own),
+FINDING:      {"id": "F<n>", "path", "line": int >= 1, "severity": a word of WORDS (the flow's own),
                "rank": high|medium|low, "kind": inside|outside|design|feature|question, "summary",
                "failing_case": [line, ...] (at least one), "details", "pass_cases", "evidence", "fix_hint": [line, ...]}
-Check data:   {"schema": 1, "type": "check", "head": <full sha>, "reviewed": <full sha>, "gate": <log path> or null,
-               "worktree": <path> (left out of the stored copy), "review": [<review json path>, ...],
-               "scope": [...], "notes": [...],
-               "findings": [{"id", "verdict": MET|NOT MET|DISPUTED|GAP|OUTSIDE|QUEUED, "reason": [line, ...]}],
-               "new": [FINDING, ...], "open": int >= 0, "queued": int >= 0}
-Stored review set (`.relay/checks/<reviewed>.review.json`): {"schema": 1, "type": "review-set", "reviewed": <sha>,
-               "reviews": [review data with "file", ...]}
+
+The check record (schema 2): ONE file per change, `.relay/checks/<head>.check.json`, built in one order by
+`build_record` and written by `relay check record check --input <file.toml>`; every reader (the check hook, `relay queue
+done`, the merge guard) loads it with `load_record`. Counts are never stored: `open_of` and `queued_of` derive them.
+    {"schema": 2, "type": "check", "head": <sha>, "branch", "item": <queue item name or null>, "gate": <log file name, `log <path>`, pipeline line or null>,
+     "worktree": <path> (left out of the stored copy), "scope": [...], "notes": [...],
+     "findings": [RECORD FINDING, ...]}
+RECORD FINDING: a FINDING plus {"source": "queue"|<review file name>|"merge"|"check", "source_id" (a review's own id),
+     "since": <sha the finding was stated against>, "verdict": MET|NOT MET|DISPUTED|GAP|OUTSIDE|QUEUED, "reason": [line, ...],
+     "owner": [{"words", "date", "queue"?}, ...]}. Ids: Q1 the queue item, F1.. the reviews' findings in order, M1.. the
+     merge findings, N1.. the checker's own (new problems, a gate that is missing, red or for other code).
 """
 
 import json
 import os
 import re
 
-SCHEMA = 1
-REVIEW_TYPE, CHECK_TYPE, SET_TYPE = "review", "check", "review-set"
+import relay_git
+
+SCHEMA = 1                     # the review data
+RECORD_SCHEMA = 2              # the check record
+REVIEW_TYPE, CHECK_TYPE = "review", "check"
 # Each flow's severity words and the rank they stand for. The finding keeps the flow's word (`severity`) and stores
 # its rank beside it (`rank`); everything that counts or sorts findings uses the rank.
 WORD_SETS = (("default", ("HIGH", "MEDIUM", "LOW")), ("spec-reviewer", ("BLOCKER", "FIX", "NIT")),
@@ -42,7 +48,9 @@ SEVERITY_HELP = ", ".join("/".join(words) for _, words in WORD_SETS)
 KINDS = ("inside", "outside", "design", "feature", "question")
 VERDICTS = ("MET", "NOT MET", "DISPUTED", "GAP", "OUTSIDE", "QUEUED")
 SHA = re.compile(r"^[0-9a-f]{40}\Z")
-FINDING_ID = re.compile(r"^[FQ]\d+\Z")
+FINDING_ID = re.compile(r"^[FQMN]\d+\Z")
+GATE_NAME = re.compile(r"^[0-9a-f]{40}\.gate\.log\Z")
+PIPELINE = re.compile(r"^pipeline #[0-9]+ on ([0-9a-f]{40}) passed\Z")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*\Z")
 PROSE = ("details", "pass_cases", "evidence", "fix_hint")       # a finding's optional prose, as lists of lines
@@ -86,11 +94,11 @@ def _prose_errors(data, key, where, errors):
         errors.append("%s: %s must be a list of one-line texts" % (where, key))
 
 
-def finding_errors(finding, where):
+def finding_errors(finding, where, extra=()):
     if not isinstance(finding, dict):
         return ["%s is not an object" % where]
     errors = []
-    allowed = {"id", "path", "line", "severity", "rank", "kind", "summary", "failing_case"} | set(PROSE)
+    allowed = {"id", "path", "line", "severity", "rank", "kind", "summary", "failing_case"} | set(PROSE) | set(extra)
     for key in sorted(set(finding) - allowed):
         errors.append("%s has an unknown field %s" % (where, key))
     if not (isinstance(finding.get("id"), str) and FINDING_ID.match(finding["id"])):
@@ -184,67 +192,6 @@ def _owner_errors(data):
     return errors
 
 
-def check_errors(data, stored=False):
-    """[message] for check data that breaks the schema; the stored copy has no `worktree`."""
-    if not isinstance(data, dict):
-        return ["the check data is not an object"]
-    errors = _head_errors(data, CHECK_TYPE)
-    for key in ("head", "reviewed"):
-        if not is_sha(data.get(key)):
-            errors.append("%s must be a full 40-character sha, got %r" % (key, data.get(key)))
-    if data.get("gate") is not None and not _text(data.get("gate")):
-        errors.append("gate must be a log path or null")
-    if stored:
-        if "worktree" in data:
-            errors.append("a stored check has no worktree")
-    elif not _text(data.get("worktree")):
-        errors.append("worktree must be a path")
-    review = data.get("review")
-    if not (isinstance(review, list) and review and all(_text(r) for r in review)):
-        errors.append("review must be a list of at least one review data path")
-    for key in ("open", "queued"):
-        if not (_is_int(data.get(key)) and data[key] >= 0):
-            errors.append("%s must be a whole number of 0 or more, got %r" % (key, data.get(key)))
-    statuses = data.get("findings")
-    if not isinstance(statuses, list):
-        errors.append("findings must be a list")
-    else:
-        seen = set()
-        for i, item in enumerate(statuses):
-            where = "findings[%d]" % i
-            if not isinstance(item, dict):
-                errors.append("%s is not an object" % where)
-                continue
-            for key in sorted(set(item) - {"id", "verdict", "reason"}):
-                errors.append("%s has an unknown field %s" % (where, key))
-            if not (isinstance(item.get("id"), str) and FINDING_ID.match(item["id"])):
-                errors.append("%s: id must look like F1, got %r" % (where, item.get("id")))
-            if item.get("verdict") not in VERDICTS:
-                errors.append("%s: verdict must be one of %s, got %r" % (where, "/".join(VERDICTS), item.get("verdict")))
-            _prose_errors(item, "reason", where, errors)
-            if item.get("id") in seen:
-                errors.append("%s: id %s is used twice" % (where, item.get("id")))
-            seen.add(item.get("id"))
-    errors += _findings_errors(data.get("new"), "new")
-    for key in sorted(set(data) - {"schema", "type", "head", "reviewed", "gate", "worktree", "review", "scope", "notes", "findings", "new", "open", "queued"}):
-        errors.append("unknown field %s" % key)
-    return errors
-
-
-def set_errors(data):
-    if not isinstance(data, dict):
-        return ["the stored review is not an object"]
-    errors = _head_errors(data, SET_TYPE)
-    if not is_sha(data.get("reviewed")):
-        errors.append("reviewed must be a full 40-character sha, got %r" % (data.get("reviewed"),))
-    reviews = data.get("reviews")
-    if not (isinstance(reviews, list) and reviews):
-        return errors + ["reviews must be a list of at least one review"]
-    for i, review in enumerate(reviews):
-        errors += ["reviews[%d]: %s" % (i, e) for e in review_errors(review)]
-    return errors
-
-
 def _load(text, checker, what, **kw):
     try:
         data = json.loads(text)
@@ -260,17 +207,117 @@ def load_review(text, what="the review data"):
     return _load(text, review_errors, what)
 
 
-def load_check(text, what="the check data", stored=False):
-    return _load(text, check_errors, what, stored=stored)
+MIGRATE_LINE = "this is a schema-1 check from before the record; run `relay check migrate` (or check the change again)"
+RECORD_EXTRA = ("source", "source_id", "since", "verdict", "reason", "owner")
+RECORD_TOP = ("schema", "type", "head", "branch", "item", "gate", "worktree", "scope", "notes", "findings")
 
 
-def load_set(text, what="the stored review"):
-    return _load(text, set_errors, what)
+def _owner_entry_errors(owner, where):
+    if not isinstance(owner, list):
+        return ["%s: owner must be a list" % where]
+    errors = []
+    for i, entry in enumerate(owner):
+        label = "%s: owner[%d]" % (where, i)
+        if not isinstance(entry, dict):
+            errors.append("%s is not an object" % label)
+            continue
+        for key in sorted(set(entry) - {"words", "date", "queue"}):
+            errors.append("%s has an unknown field %s" % (label, key))
+        if "queue" in entry and not (isinstance(entry["queue"], str) and SLUG.match(entry["queue"])):
+            errors.append("%s: queue must be the name of a queue item, got %r" % (label, entry["queue"]))
+        if not (_lines_ok(entry.get("words")) and any(l.strip() for l in entry["words"])):
+            errors.append("%s: words must hold at least one non-empty line" % label)
+        if not (isinstance(entry.get("date"), str) and DATE.match(entry["date"])):
+            errors.append("%s: date must look like 2026-10-23, got %r" % (label, entry.get("date")))
+    return errors
+
+
+def record_errors(data, stored=False):
+    """[message] for check record data that breaks the schema; the stored copy has no `worktree`."""
+    if not isinstance(data, dict):
+        return ["the check record is not an object"]
+    if data.get("type") == CHECK_TYPE and data.get("schema") == 1:
+        return [MIGRATE_LINE]
+    errors = []
+    if data.get("schema") != RECORD_SCHEMA or isinstance(data.get("schema"), bool):
+        errors.append("schema must be %d, got %r" % (RECORD_SCHEMA, data.get("schema")))
+    if data.get("type") != CHECK_TYPE:
+        errors.append("type must be %s, got %r" % (CHECK_TYPE, data.get("type")))
+    for key in sorted(set(data) - set(RECORD_TOP)):
+        errors.append("unknown field %s" % key)
+    if not is_sha(data.get("head")):
+        errors.append("head must be a full 40-character sha, got %r" % (data.get("head"),))
+    if not _text(data.get("branch")):
+        errors.append("branch must be a one-line text")
+    if data.get("item") is not None and not (isinstance(data["item"], str) and SLUG.match(data["item"])):
+        errors.append("item must be null or the name of a queue item, got %r" % (data.get("item"),))
+    gate = data.get("gate")
+    if gate is not None and not (_text(gate) and (GATE_NAME.match(gate) or PIPELINE.match(gate) or gate.startswith("log "))):
+        errors.append("gate must be null, a gate log file name, a pipeline line or `log <path>`, got %r" % (gate,))
+    if stored:
+        if "worktree" in data:
+            errors.append("a stored check has no worktree")
+    elif not _text(data.get("worktree")):
+        errors.append("worktree must be a path")
+    for key in ("scope", "notes"):
+        _prose_errors(data, key, "the data", errors)
+    findings = data.get("findings")
+    if not isinstance(findings, list):
+        return errors + ["findings must be a list"]
+    seen = set()
+    for i, finding in enumerate(findings):
+        where = "findings[%d]" % i
+        errors += finding_errors(finding, where, RECORD_EXTRA)
+        if not isinstance(finding, dict):
+            continue
+        if finding.get("id") in seen:
+            errors.append("%s: id %s is used twice" % (where, finding.get("id")))
+        seen.add(finding.get("id"))
+        if not _text(finding.get("source")):
+            errors.append("%s: source must be a one-line text" % where)
+        if "source_id" in finding and not _text(finding["source_id"]):
+            errors.append("%s: source_id must be a one-line text" % where)
+        if not is_sha(finding.get("since")):
+            errors.append("%s: since must be a full 40-character sha, got %r" % (where, finding.get("since")))
+        if finding.get("verdict") not in VERDICTS:
+            errors.append("%s: verdict must be one of %s, got %r" % (where, "/".join(VERDICTS), finding.get("verdict")))
+        _prose_errors(finding, "reason", where, errors)
+        if "owner" in finding:
+            errors += _owner_entry_errors(finding["owner"], where)
+    return errors
+
+
+def load_record(text, what="the check record", stored=False):
+    """The check record in JSON `text`; VerdictError (naming the field) when it is not one. A schema-1 check is refused
+    with a line that names `relay check migrate`. The one function every reader of a check uses."""
+    return _load(text, record_errors, what, stored=stored)
+
+
+def open_of(record):
+    """How many findings inside the change are wrong and unanswered: kind inside, rank high or medium, verdict not MET,
+    and no owner entry (the owner's word, or a move to a queue item, answers it)."""
+    return sum(1 for f in record["findings"]
+               if f["kind"] == "inside" and f["rank"] in ("high", "medium") and f["verdict"] != "MET" and not f.get("owner"))
+
+
+def queued_of(record):
+    """How many findings the owner moved to a queue item (an owner entry with `queue`)."""
+    return sum(1 for f in record["findings"] if any(e.get("queue") for e in f.get("owner") or []))
+
+
+def outside_of(record):
+    """How many findings of the record are outside the change."""
+    return sum(1 for f in record["findings"] if f["kind"] == "outside")
+
+
+def stored_record(record):
+    """The record without its machine-specific part (the worktree)."""
+    return {k: v for k, v in record.items() if k != "worktree"}
 
 
 def load_any(text, what="the data"):
-    """(type, data) of a review, check or stored review set, by its `type`; VerdictError when it is none of them or invalid.
-    A check with a `worktree` is a recorded one, without it a stored one."""
+    """(type, data) of a review or a check record, by its `type`; VerdictError when it is neither or invalid.
+    A record with a `worktree` is a recorded one, without it a stored one."""
     try:
         parsed = json.loads(text)
     except ValueError as exc:
@@ -279,10 +326,8 @@ def load_any(text, what="the data"):
     if kind == REVIEW_TYPE:
         return kind, load_review(text, what)
     if kind == CHECK_TYPE:
-        return kind, load_check(text, what, stored="worktree" not in parsed)
-    if kind == SET_TYPE:
-        return kind, load_set(text, what)
-    raise VerdictError("%s is not a review, a check or a stored review (type %r)" % (what, kind))
+        return kind, load_record(text, what, stored="worktree" not in parsed)
+    raise VerdictError("%s is not a review or a check (type %r)" % (what, kind))
 
 
 def linter(finding):
@@ -336,30 +381,6 @@ def render_review(data):
     return "\n".join(_review_lines(data)) + "\n"
 
 
-def render_check(data):
-    """The full readable text of check data."""
-    out = ["Check of %s" % data["head"], "Reviewed: %s" % data["reviewed"], "Gate: %s" % (data["gate"] or "none"),
-           "Open: %d  Queued: %d" % (data["open"], data["queued"])]
-    _prose_head(out, data)
-    out.append("Findings checked: %d" % len(data["findings"]))
-    for item in data["findings"]:
-        out.append("%s %s" % (item["id"], item["verdict"]))
-        out += ["  " + l for l in item.get("reason") or []]
-    if data["new"]:
-        out += ["", "New problems: %d" % len(data["new"])]
-        for finding in data["new"]:
-            out += [""] + finding_lines(finding)
-    return "\n".join(out) + "\n"
-
-
-def render_set(data):
-    """The full readable text of a stored review set: each review under its findings file's name."""
-    out = []
-    for review in data["reviews"]:
-        out += ["# %s" % review.get("file", "review")] + _review_lines(review) + [""]
-    return "\n".join(out).rstrip("\n") + "\n"
-
-
 def _cut(lines, source, limit=BRIEF_LINES):
     if len(lines) <= limit:
         return lines
@@ -374,27 +395,33 @@ def brief_review(data, source="<report>"):
     return "\n".join(_cut(out, source)) + "\n"
 
 
+def render_check(data):
+    """The full readable text of a check record."""
+    out = ["Check of %s on %s" % (data["head"], data["branch"]), "Item: %s" % (data["item"] or "none"),
+           "Gate: %s" % (data["gate"] or "none"), "Open: %d  Queued: %d" % (open_of(data), queued_of(data))]
+    _prose_head(out, data)
+    out.append("Findings: %d" % len(data["findings"]))
+    for finding in data["findings"]:
+        out += [""] + finding_lines(finding, finding.get("owner") or [])
+        out.append("  Source: %s%s, since %s" % (finding["source"], " " + finding["source_id"] if finding.get("source_id") else "", finding["since"][:12]))
+        out.append("  Verdict: %s" % finding["verdict"])
+        out += ["    " + l for l in finding.get("reason") or []]
+    return "\n".join(out) + "\n"
+
+
 def brief_check(data, source="<report>"):
-    out = ["Check of %s (reviewed %s): open %d, queued %d, gate %s" % (
-        data["head"][:12], data["reviewed"][:12], data["open"], data["queued"], os.path.basename(data["gate"]) if data["gate"] else "none")]
-    for item in data["findings"]:
-        reason = item.get("reason") or []
-        out.append(("%s %s %s" % (item["id"], item["verdict"], reason[0] if reason else "")).rstrip())
-    out += ["new: " + linter(f) for f in data["new"]]
-    return "\n".join(_cut(out, source)) + "\n"
-
-
-def brief_set(data, source="<report>"):
-    found = [f for r in data["reviews"] for f in r["findings"]]
-    out = ["Review of %s: %d findings in %d files" % (data["reviewed"][:12], len(found), len(data["reviews"]))] + [linter(f) for f in found]
+    out = ["Check of %s: open %d, queued %d, gate %s" % (data["head"][:12], open_of(data), queued_of(data), data["gate"][:12] if data["gate"] else "none")]
+    for finding in data["findings"]:
+        reason = finding.get("reason") or []
+        out.append(("%s %s %s" % (finding["id"], finding["verdict"], reason[0] if reason else "")).rstrip())
     return "\n".join(_cut(out, source)) + "\n"
 
 
 def render_any(text, brief=False, source="<report>", what="the data"):
-    """The readable text (or the 10-line summary) of a review, check or stored review set given as JSON text."""
+    """The readable text (or the 10-line summary) of a review or a check record given as JSON text."""
     kind, data = load_any(text, what)
-    full = {REVIEW_TYPE: render_review, CHECK_TYPE: render_check, SET_TYPE: render_set}
-    short = {REVIEW_TYPE: brief_review, CHECK_TYPE: brief_check, SET_TYPE: brief_set}
+    full = {REVIEW_TYPE: render_review, CHECK_TYPE: render_check}
+    short = {REVIEW_TYPE: brief_review, CHECK_TYPE: brief_check}
     return short[kind](data, source) if brief else full[kind](data)
 
 
@@ -437,16 +464,18 @@ def as_lines(value, key, where, errors):
 
 
 FINDING_KEYS = ("id", "path", "line", "severity", "kind", "summary", "failing_case") + PROSE
+NEW_KEYS = FINDING_KEYS[1:]                # a new problem of the checker: its id (N1, ...) is given by the record
 STATUS_KEYS = ("id", "verdict", "reason")
 
 
-def _finding_from(raw, where, errors):
-    """A finding dict from one `[[finding]]`/`[[new]]` table of the input; problems are appended to `errors`."""
-    problems = table_errors(raw, where, FINDING_KEYS, FINDING_KEYS[:7])
+def _finding_from(raw, where, errors, keys=FINDING_KEYS):
+    """A finding dict from one `[[finding]]`/`[[new]]` table of the input; problems are appended to `errors`. `keys` are
+    the allowed keys; the first seven (the first six of a new problem, which has no id) are required."""
+    problems = table_errors(raw, where, keys, keys[:len(keys) - len(PROSE)])
     errors += problems
     if not isinstance(raw, dict):
         return {}
-    out = {k: v for k, v in raw.items() if k in FINDING_KEYS and k not in PROSE and k != "failing_case"}
+    out = {k: v for k, v in raw.items() if k in keys and k not in PROSE and k != "failing_case"}
     out["failing_case"] = as_lines(raw["failing_case"], "failing_case", where, errors) if "failing_case" in raw else []
     for key in PROSE:
         out[key] = as_lines(raw.get(key, []), key, where, errors)
@@ -518,54 +547,6 @@ def record_review(input_path):
     return write_review(raw["report"], review_data(raw["reviewed"], raw["base"], findings, prose["scope"], prose["notes"]))
 
 
-CHECK_TOP = ("report", "head", "reviewed", "worktree", "gate", "review", "scope", "notes", "status", "new", "open", "queued")
-
-
-def record_check(input_path):
-    """Record a check from the TOML input file at `input_path`. Every review data file must be valid and name the same
-    `reviewed`; every checked id must be a finding of those reviews or a new one. Returns the JSON path."""
-    raw = read_input(input_path)
-    errors = table_errors(raw, "at the top of the input", CHECK_TOP, ("report", "head", "reviewed", "worktree", "gate", "review", "open", "queued"))
-    if not isinstance(raw, dict) or errors:
-        raise VerdictError("nothing recorded: " + "; ".join(errors))
-    _report_errors(raw, errors)
-    statuses = _tables(raw, "status", _status_from, errors)
-    new = _tables(raw, "new", _finding_from, errors)
-    prose = {k: as_lines(raw.get(k, []), k, "at the top of the input", errors) for k in ("scope", "notes")}
-    if errors:
-        raise VerdictError("nothing recorded: " + "; ".join(errors))
-    review_paths = raw["review"]
-    if not (isinstance(review_paths, list) and review_paths and all(_text(p) for p in review_paths)):
-        raise VerdictError("nothing recorded: `review` must be a list of at least one review JSON path")
-    paths = [os.path.abspath(p) for p in review_paths]
-    known = set()
-    loaded = []
-    for path in paths:
-        try:
-            text = open(path, encoding="utf-8").read()
-        except OSError:
-            raise VerdictError("nothing recorded: the review data %s cannot be read (record the review first)" % path)
-        review = load_review(text, "the review data %s" % path)
-        if review["reviewed"] != raw["reviewed"]:
-            raise VerdictError("nothing recorded: the review data %s is of %s, not of the reviewed sha %s" % (path, review["reviewed"], raw["reviewed"]))
-        known |= {f["id"] for f in review["findings"]}
-        loaded.append(review)
-    gate = raw["gate"]
-    data = {"schema": SCHEMA, "type": CHECK_TYPE, "head": raw["head"], "reviewed": raw["reviewed"], "gate": None if gate in (None, "none") else gate,
-            "worktree": os.path.realpath(raw["worktree"]) if _text(raw["worktree"]) else raw["worktree"], "review": paths,
-            "scope": prose["scope"], "notes": prose["notes"], "findings": statuses, "new": new, "open": raw["open"], "queued": raw["queued"]}
-    errors = check_errors(data)
-    known |= {f["id"] for f in data["new"] if isinstance(f, dict)}
-    errors += ["findings: %s is not a finding of the reviews or a new one" % s["id"] for s in statuses if s.get("id") not in known]
-    if not errors:
-        # `open` is typed by the checker but the merge gate trusts it: it may not be below what the verdicts say
-        floor = floor_error(loaded, data)
-        errors += [floor] if floor else []
-    if errors:
-        raise VerdictError("nothing recorded: " + "; ".join(errors))
-    return _write_json(raw["report"], data)
-
-
 OWNER_USAGE_KEYS = ("words", "queue")
 
 
@@ -604,71 +585,271 @@ def add_owner(review_path, fid, input_path, today, queue_has=None):
     return write_review(review_path, data)
 
 
-def owner_ids(review):
-    """The ids of review data that have an owner entry saying not wrong (an entry with a `queue` is a move, not that word)."""
-    return {e["id"] for e in review.get("owner") or [] if not e.get("queue")}
-
-
-def moved_ids(review):
-    """The ids of review data the owner moved to a queue item: they count under the check's `queued`, not `open`."""
-    return {e["id"] for e in review.get("owner") or [] if e.get("queue")}
-
-
-def count_open(review, statuses):
-    """How many HIGH or MEDIUM findings inside the change of review data `review` are NOT MET in `statuses` (the check's
-    [{"id", "verdict"}]) and have no owner entry. A finding with no status counts as NOT MET. (The checker adds the new
-    problems and its own +1s.)"""
-    said = {s["id"]: s["verdict"] for s in statuses}
-    owned = owner_ids(review)
-    return sum(1 for f in review["findings"]
-               if f["kind"] == "inside" and f["rank"] in ("high", "medium") and said.get(f["id"]) != "MET" and f["id"] not in owned)
-
-
-def open_floor(reviews, check):
-    """The ids of the findings that must count as open in check data `check` (a dict with `findings` and `new`): the HIGH or
-    MEDIUM inside findings of the review data dicts `reviews` that are not MET and have no owner entry (`count_open`'s rule),
-    and the check's own new inside HIGH or MEDIUM findings. The checker's `open` may be higher (its +1s), never lower."""
-    ids = []
-    for review in reviews:
-        said = {s["id"]: s["verdict"] for s in check["findings"]}
-        owned = owner_ids(review)
-        ids += [f["id"] for f in review["findings"]
-                if f["kind"] == "inside" and f["rank"] in ("high", "medium") and said.get(f["id"]) != "MET" and f["id"] not in owned]
-    ids += [f["id"] for f in check["new"] if f["kind"] == "inside" and f["rank"] in ("high", "medium")]
-    return ids
-
-
-def floor_error(reviews, check):
-    """The refusal text when `check`'s `open` is below `open_floor`, else None."""
-    ids = open_floor(reviews, check)
-    if check["open"] < len(ids):
-        return "open is %d but %d findings inside the change are not met: %s" % (check["open"], len(ids), ", ".join(ids))
-    moved = sorted(i for review in reviews for i in moved_ids(review))
-    if check["queued"] < len(moved):
-        return "queued is %d but the owner moved %d findings to queue items: %s" % (check["queued"], len(moved), ", ".join(moved))
-    return None
-
-
-def stored_set(reviews, reviewed):
-    """The stored review set (a dict) for review data dicts `reviews`, each marked with its findings file's name."""
-    return {"schema": SCHEMA, "type": SET_TYPE, "reviewed": reviewed, "reviews": reviews}
-
-
-def stored_check(data, review_name):
-    """The check data without its machine-specific parts: no worktree, `review` the stored review set's name."""
-    out = {k: v for k, v in data.items() if k != "worktree"}
-    out["review"] = [review_name]
-    return out
-
-
-def outside_count(review_set):
-    """How many findings of a stored review set are outside the change."""
-    return sum(1 for review in review_set["reviews"] for f in review["findings"] if f["kind"] == "outside")
-
-
 def counts_by_rank(findings):
     """{"high": n, "medium": n, "low": n} of finding dicts, whatever words their flow used."""
     counts = {rank: 0 for rank in RANK_ORDER}
     for finding in findings:
         counts[finding["rank"]] += 1
     return counts
+
+
+# ---------------------------------------------------------------- the check record: built in one order, from git and the inputs
+
+CHECK_TOP = ("report", "head", "worktree", "gate", "review", "scope", "notes", "status", "new")
+M_FAILING = ("%s came in from %s (merge %s) after the point this branch was last reviewed or checked.",
+             "The branch's own change to it was never judged against the merged code.")
+M_PASS = ("At head the branch's own change to the file still does what the review said, against the merged code.",)
+
+
+def _ok(wt, *args):
+    return relay_git.git(wt, *args)[0] == 0
+
+
+def _is_commit(wt, sha):
+    return is_sha(sha) and _ok(wt, "cat-file", "-e", sha + "^{commit}")
+
+
+def _is_ancestor(wt, older, newer):
+    return _ok(wt, "merge-base", "--is-ancestor", older, newer)
+
+
+def _newer(wt, a, b):
+    """Of two commits (or None) the one that is a descendant of the other; `a` when neither is."""
+    if a is None or b is None:
+        return a or b
+    return b if _is_ancestor(wt, a, b) else a
+
+
+def _stated(finding, source, since, **more):
+    out = dict(finding, source=source, since=since)
+    out.update(more)
+    return out
+
+
+def _review_findings(wt, head, paths):
+    """The findings of the review JSON files at `paths`, numbered F1, F2, ... across the files in the order given; each keeps
+    its file name (`source`), its own id (`source_id`), the sha it was stated against (`since`) and the owner's words on it."""
+    out, number = [], 0
+    for path in paths:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+        except OSError:
+            raise VerdictError("nothing recorded: the review data %s cannot be read (record the review first)" % path)
+        review = load_review(text, "the review data %s" % path)
+        since = review["reviewed"]
+        if not _is_commit(wt, since):
+            raise VerdictError("nothing recorded: the review data %s is of %s, which is not a commit of this worktree" % (path, since))
+        if not _is_ancestor(wt, since, head):
+            raise VerdictError("nothing recorded: the review data %s is of %s, which is not in the history of head %s" % (path, since, head))
+        for finding in review["findings"]:
+            number += 1
+            owner = [{k: v for k, v in e.items() if k != "id"} for e in review.get("owner") or [] if e["id"] == finding["id"]]
+            more = {"owner": owner} if owner else {}
+            out.append(_stated(dict(finding, id="F%d" % number), os.path.basename(path), since, source_id=finding["id"], **more))
+    return out
+
+
+def _merge_findings(wt, head, anchors):
+    """One M finding for each file the branch changed (`relay_inert.changed(..., own=True)`) that a merge of the default
+    branch changed after the anchor, the newest of `anchors` (the branch's last mark and its newest review); with none, the
+    point the branch left the default branch. Its `since` is the newest such merge."""
+    import relay_inert
+    default = relay_git.default_branch(wt)
+    if default is None:
+        raise VerdictError("nothing recorded: cannot tell the default branch")
+    base = "refs/heads/" + default
+    anchor = None
+    for candidate in anchors:
+        anchor = _newer(wt, anchor, candidate)
+    if anchor is None:
+        rc, out = relay_git.git(wt, "merge-base", base, head)
+        if rc != 0:
+            raise VerdictError("nothing recorded: no common commit of %s and %s" % (default, head))
+        anchor = out
+    try:
+        own = set(relay_inert.changed(wt, anchor, head, own=True))
+    except ValueError as exc:
+        raise VerdictError("nothing recorded: %s" % exc)
+    if not own:
+        return []
+    rc, out = relay_git.git(wt, "rev-list", "--merges", "--reverse", "%s..%s" % (anchor, head))
+    newest = {}
+    for merge in (out.splitlines() if rc == 0 else []):
+        if not _ok(wt, "rev-parse", "--verify", "-q", merge + "^2") or not _is_ancestor(wt, merge + "^2", base):
+            continue                                                  # not a merge of the default branch
+        rc, names = relay_git.git(wt, "diff", "--name-only", "--no-renames", "-z", merge + "^1", merge)
+        for name in names.split("\0") if rc == 0 else []:
+            if name in own:
+                newest[name] = merge
+    found = []
+    for number, name in enumerate(sorted(newest), 1):
+        merge = newest[name]
+        found.append({"id": "M%d" % number, "path": name, "line": 1, "severity": "MEDIUM", "rank": "medium", "kind": "inside",
+                      "summary": "%s was changed by a merge of %s after it was last checked" % (name, default),
+                      "failing_case": [M_FAILING[0] % (name, default, merge[:12]), M_FAILING[1]], "pass_cases": list(M_PASS),
+                      "source": "merge", "since": merge})
+    return found
+
+
+def _gate(wt, head, gate, since=None):
+    """(the gate the record keeps or None, [N problems as (path, summary, failing_case lines)]) for the `gate` input: a log
+    file name in .relay/checks, a path to a log anywhere (absolute or relative to the worktree), a line
+    "pipeline #<n> on <sha> passed", or "none". The log's head and exit are read from the log, never copied. `since` is the
+    newest commit a review was of: with "none", only own code changed after it counts as code with no gate."""
+    import relay_inert
+    problems = []
+    if gate in (None, "none"):
+        default = relay_git.default_branch(wt)
+        if since is None:
+            rc, since = relay_git.git(wt, "merge-base", "refs/heads/%s" % default, head) if default else (1, "")
+            if rc != 0:
+                return None, problems
+        try:
+            moved = relay_inert.changed(wt, since, head, own=True)
+        except ValueError:
+            moved = []
+        moved = [m for m in moved if not (m.startswith("openspec/") or m.startswith("docs/"))]   # specs and docs are no code
+        if moved:
+            problems.append((".relay/checks", "no gate result for the code of this change",
+                             ["The check was given Gate: none, but %s changed on this branch after the review." % ", ".join(moved[:3]),
+                              "No gate ran on the code at head, so nothing shows the whole test suite passes."]))
+        return None, problems
+    gate = str(gate)
+    piped = PIPELINE.match(gate)
+    if piped:
+        logged, shown, kept, lines = piped.group(1), gate, gate, None
+    else:
+        base = os.path.basename(gate)
+        checks = os.path.join(wt, ".relay", "checks", base)
+        if "/" not in gate and not GATE_NAME.match(gate):
+            raise VerdictError("nothing recorded: `gate` must be \"none\", a pipeline line or the path of a gate log, got %r" % (gate,))
+        path = gate if os.path.isabs(gate) else os.path.join(wt, gate) if "/" in gate else checks
+        inside = GATE_NAME.match(base) and os.path.realpath(path) == os.path.realpath(checks)
+        shown = ".relay/checks/" + base if inside else path
+        kept = base if inside else "log " + path
+        try:
+            with open(path, encoding="utf-8") as handle:
+                lines = handle.read().splitlines()
+        except OSError:
+            return None, [(shown, "the gate log is missing", ["The check names the gate log %s but it cannot be read." % shown])]
+        logged = lines[0].strip()[len("head "):] if lines and lines[0].strip().startswith("head ") else None
+        code = lines[-1].strip() if lines else ""
+        if (inside and logged != base[:-len(".gate.log")]) or not is_sha(logged) or not code.startswith("exit ") or not code[5:].isdigit():
+            return None, [(shown, "the gate log is not in the gate's form", ["%s must start with `head <sha>` (of its own name, in .relay/checks) and end with `exit <n>`." % shown])]
+        if int(code[5:]) != 0:
+            problems.append((shown, "the gate is red", ["The gate for %s ended with `%s`." % (logged[:12], code)]))
+    try:
+        moved = relay_inert.changed(wt, logged, head) if _is_commit(wt, logged) else None
+    except ValueError:
+        moved = None
+    if moved is None:
+        problems.append((shown, "the gate log is for a commit this worktree does not have", ["Gate commit %s is not a commit of this worktree." % logged[:12]]))
+    elif moved:
+        problems.append((shown, "the gate log is for other code than head", ["%s changed after the gate ran at %s." % (", ".join(moved[:3]), logged[:12])]))
+    return kept, problems
+
+
+def _n_finding(number, path, summary, failing, head, severity="HIGH"):
+    return {"id": "N%d" % number, "path": path, "line": 1, "severity": severity, "rank": WORDS[severity], "kind": "inside",
+            "summary": summary, "failing_case": list(failing), "source": "check", "since": head}
+
+
+def build_findings(wt, head, review_paths):
+    """(branch, item or None, [findings without verdicts]) for the change at `head` in worktree `wt`, in the one order of the
+    record: Q1 (the fix item this branch took), F (the reviews), M (merges of the default branch after the last check).
+    VerdictError ("nothing recorded: ...") when a part cannot be read."""
+    import relay_marks
+    import relay_queue
+    branch = relay_git.current_branch(wt)
+    if branch is None:
+        raise VerdictError("nothing recorded: the worktree is not on a branch")
+    try:
+        held = relay_queue.record_item(wt)
+    except relay_queue.Refused as exc:
+        raise VerdictError("nothing recorded: %s" % exc)
+    found, item = [], None
+    if held:
+        item = held[0]
+        found.append(held[1])
+    reviews = _review_findings(wt, head, review_paths)
+    found += reviews
+    default = relay_git.default_branch(wt)
+    rc, out = relay_git.git(wt, "rev-list", head, "^refs/heads/%s" % default) if default else (1, "")
+    own = set(out.splitlines()) if rc == 0 else set()
+    def kept(commit, mark):            # a mark whose check left an M finding not MET does not move the anchor: it is judged again
+        try:
+            data = relay_marks.check_data(wt, head, mark.get("check", ""))
+        except relay_marks.MarkError:
+            return True
+        return data is None or all(f["verdict"] == "MET" for f in data["findings"] if f["id"].startswith("M"))
+    mark = relay_marks.newest(wt, head, [(c, m) for c, m in relay_marks.marks(wt, head) if c in own and kept(c, m)])
+    anchors = [mark[0] if mark else None] + [f["since"] for f in reviews]
+    found += _merge_findings(wt, head, anchors)
+    return branch, item, found
+
+
+def finding_list(wt, review_paths):
+    """The lines `relay check findings` prints: each finding the check must give a verdict for, with its id."""
+    rc, head = relay_git.git(wt, "rev-parse", "HEAD")
+    if rc != 0:
+        raise VerdictError("nothing listed: %s is not a git worktree" % wt)
+    _, item, found = build_findings(wt, head, review_paths)
+    out = ["Check of %s" % head, "Item: %s" % (item or "none")]
+    for f in found:
+        out.append("%s [%s%s, since %s] %s" % (f["id"], f["source"], " " + f["source_id"] if f.get("source_id") else "", f["since"][:12], linter(f)))
+    return out
+
+
+def record_check(input_path):
+    """Record the check from the TOML input file at `input_path`: build the record in its one order (the queue item as Q1, the
+    reviews' findings, the merge findings, one verdict for each, the checker's own new problems and the gate result) and write
+    it at `report`. Refused, nothing written, when a verdict is missing or is for an id that is not a finding. Returns the path."""
+    raw = read_input(input_path)
+    errors = table_errors(raw, "at the top of the input", CHECK_TOP, ("report", "head", "worktree", "gate", "review"))
+    if not isinstance(raw, dict) or errors:
+        raise VerdictError("nothing recorded: " + "; ".join(errors))
+    _report_errors(raw, errors)
+    statuses = _tables(raw, "status", _status_from, errors)
+    new = _tables(raw, "new", lambda item, where, errs: _finding_from(item, where, errs, NEW_KEYS), errors)
+    prose = {k: as_lines(raw.get(k, []), k, "at the top of the input", errors) for k in ("scope", "notes")}
+    if errors:
+        raise VerdictError("nothing recorded: " + "; ".join(errors))
+    review_paths = raw["review"]
+    if not (isinstance(review_paths, list) and review_paths and all(_text(p) for p in review_paths)):
+        raise VerdictError("nothing recorded: `review` must be a list of at least one review JSON path")
+    if not (_text(raw["worktree"]) and os.path.isdir(raw["worktree"])):
+        raise VerdictError("nothing recorded: `worktree` must be the path of a worktree")
+    wt = os.path.realpath(raw["worktree"])
+    head = raw["head"]
+    if not _is_commit(wt, head):
+        raise VerdictError("nothing recorded: head %s is not a commit of this worktree" % (head,))
+    if not _is_ancestor(wt, head, "HEAD"):
+        raise VerdictError("nothing recorded: head %s is not the worktree's head or an ancestor of it" % head)
+    branch, item, found = build_findings(wt, head, [os.path.abspath(p) for p in review_paths])
+    said = {}
+    for status in statuses:
+        if status.get("id") in said:
+            errors.append("findings: %s has two verdicts" % status["id"])
+        said[status.get("id")] = status
+    ids = [f["id"] for f in found]
+    errors += ["findings: %s is not a finding of this check (relay check findings lists them)" % i for i in said if i not in ids]
+    errors += ["findings: no verdict for %s" % i for i in ids if i not in said]
+    newest_review = None
+    for path in review_paths:
+        newest_review = _newer(wt, newest_review, load_review(open(os.path.abspath(path), encoding="utf-8").read(), path)["reviewed"])
+    name, gate_problems = _gate(wt, head, raw["gate"], newest_review)
+    problems = [_n_finding(n, *p, head) for n, p in enumerate(gate_problems, len(new) + 1)]
+    news = []
+    for n, f in enumerate(new, 1):
+        news.append(_stated(dict(f, id="N%d" % n), "check", head))
+    findings = []
+    for f in found + news + problems:
+        status = said.get(f["id"], {})
+        findings.append(dict(f, verdict=status.get("verdict", "NOT MET"), reason=status.get("reason", [])))
+    data = {"schema": RECORD_SCHEMA, "type": CHECK_TYPE, "head": head, "branch": branch, "item": item, "gate": name,
+            "worktree": wt, "scope": prose["scope"], "notes": prose["notes"], "findings": findings}
+    errors += record_errors(data)
+    if errors:
+        raise VerdictError("nothing recorded: " + "; ".join(errors))
+    return _write_json(raw["report"], data)

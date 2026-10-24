@@ -1,0 +1,82 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F5",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F6",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F7",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F8",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F9",
+      "reason": [
+        "gate green on 68248d7, 456 tests pass"
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/checks-record/.relay/checks/68248d7c320cfb3e50d251b41149244465450d2d.gate.log",
+  "head": "a8973513d1d41ce370b277a38b6b87306ac715f3",
+  "new": [],
+  "notes": [],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "68248d7c320cfb3e50d251b41149244465450d2d.review.json"
+  ],
+  "reviewed": "68248d7c320cfb3e50d251b41149244465450d2d",
+  "schema": 1,
+  "scope": [
+    "Gate log head 68248d7, exit 0; only the gate log came after (relay changed --own lists no file). Ran full tests: 456 passed."
+  ],
+  "type": "check"
+}

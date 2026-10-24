@@ -3,6 +3,7 @@
 
   bin/paid-cost ceiling --cap USD --jobs N [--dir DIR]   prints "<jobs> <ceiling>": what to pass as -j and --max-cost-usd
   bin/paid-cost estimate [--dir DIR]                     prints the mean and max cost of a stored batch, or "not measured yet"
+  bin/paid-cost due [--dir DIR] [--repo REPO]            prints the merged changes no green paid run covers yet; nothing when none
 
 DIR holds the eval records bin/eval-record stores ($RELAY_HOME/evals/<repo>/*.json, RELAY_HOME defaults to ~/.relay).
 The eval tool enforces the ceiling itself but lets the runs in flight finish, so a batch can end up to one run per
@@ -11,6 +12,17 @@ the batch within one run of the cap. When that leaves less than one run, or no r
 cap itself. Only full batches count in the estimate; the finished runs of a partial batch still count for the ceiling.
 """
 import argparse, json, os, subprocess, sys
+from importlib.machinery import SourceFileLoader
+import importlib.util
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.join(HERE, "..", "lib"))
+import relay_git  # noqa: E402
+
+# What the paid evals read: a change to one of these is checked by the next paid run (hooks and eval cases included).
+CHECKED_PATHS = [":(glob)roles/**", ":(glob)rules/**", ":(glob)plugins/*/skills/**", ":(glob)plugins/*/agents/**",
+                 ":(glob)plugins/*/hooks/**", ":(glob)evals/plugin/**"]
+SHOW_LIMIT = 50  # with no green run recorded, only this many of the newest commits are listed
 
 MIN_RUNS = 2  # fewer measured batches than this give no estimate
 
@@ -62,11 +74,74 @@ def estimate(records):
     return f"mean ${sum(costs) / len(costs):.2f}, max ${max(costs):.2f} over {len(costs)} stored runs"
 
 
-def default_dir():
+def verdict_module():
+    loader = SourceFileLoader("eval_record", os.path.join(HERE, "eval-record"))
+    spec = importlib.util.spec_from_loader("eval_record", loader)
+    m = importlib.util.module_from_spec(spec); loader.exec_module(m)
+    return m
+
+
+class GitError(Exception):
+    pass
+
+
+def _git(repo, *args):
+    done = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
+    if done.returncode != 0:
+        raise GitError(f"git {' '.join(args[:2])} failed: {done.stderr.strip() or done.returncode}")
+    return done.stdout
+
+
+def green_heads(folder, branch, repo):
+    """The heads of the stored records that are green (bin/eval-record's own verdict), were made on `branch` and are commits of `repo`.
+    A record without a head or with another branch is ignored."""
+    judge = verdict_module().is_green
+    heads = []
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return heads
+    for name in names:
+        if not name.endswith(".json"):
+            continue
+        try:
+            d = json.load(open(os.path.join(folder, name), encoding="utf-8"))
+            head, ok = d.get("head"), judge(d)
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+        if not isinstance(head, str) or not head or d.get("branch") != branch or not ok:
+            continue
+        if subprocess.run(["git", "-C", repo, "cat-file", "-e", head + "^{commit}"], capture_output=True).returncode == 0:
+            heads.append(head)
+    return heads
+
+
+def due(folder, repo):
+    """Lines to print: the commits on the default branch that touch the checked paths and that no green run's head contains."""
+    branch = relay_git.default_branch(repo)
+    if not branch:
+        raise GitError("the default branch cannot be told")
+    heads = green_heads(folder, branch, repo)
+    cmd = ["log", "refs/heads/" + branch, "--format=%h %s"]
+    if heads:
+        cmd += ["--not", *heads]
+    lines = _git(repo, *cmd, "--", *CHECKED_PATHS).splitlines()
+    if not lines:
+        return []
+    if heads:
+        return lines
+    out = ["no green run recorded"]
+    if len(lines) > SHOW_LIMIT:
+        out.append(f"{len(lines)} commits in all, the newest {SHOW_LIMIT} listed")
+        lines = lines[:SHOW_LIMIT]
+    return out + lines
+
+
+def default_dir(repo=None):
     home = os.path.expanduser(os.environ.get("RELAY_HOME") or "~/.relay")
     try:
-        common = subprocess.run(["git", "rev-parse", "--git-common-dir"], capture_output=True, text=True, check=True).stdout.strip()
-        repo = os.path.basename(os.path.dirname(os.path.abspath(common)))
+        common = subprocess.run(["git", "-C", repo or ".", "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True, check=True).stdout.strip()
+        repo = os.path.basename(os.path.dirname(common))
     except (OSError, subprocess.CalledProcessError):
         repo = "repo"
     return os.path.join(home, "evals", repo)
@@ -74,12 +149,22 @@ def default_dir():
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["ceiling", "estimate"])
+    ap.add_argument("cmd", choices=["ceiling", "estimate", "due"])
     ap.add_argument("--cap", type=float)
     ap.add_argument("--jobs", type=int, default=1)
     ap.add_argument("--dir")
+    ap.add_argument("--repo", default=".")
     a = ap.parse_args(argv)
-    records = stored(a.dir or default_dir())
+    if a.cmd == "due":
+        try:
+            lines = due(a.dir or default_dir(a.repo), a.repo)
+        except GitError as e:
+            print(f"paid-cost: {e}", file=sys.stderr)
+            return 1
+        if lines:
+            print("\n".join(lines))
+        return 0
+    records = stored(a.dir or default_dir(a.repo))
     if a.cmd == "estimate":
         print(estimate(records))
         return 0

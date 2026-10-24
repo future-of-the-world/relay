@@ -128,9 +128,12 @@ worker's DONE on a change that will be merged:
 7. **Check.** `delegate:checker` on the findings file, the fixer's report and
    the gate log (with `Fixes: none` after a review with nothing inside the
    change; the gate log of step 3 is the gate). Its report is the JSON it
-   recorded (`relay check record check`) at the `Report:` path, and where the
-   project has `.relay/` a hook commits the check mark and the review and check
-   data. Start it with the one-line check prompt below, never `Brief: <file>`:
+   recorded (`relay check record check`) at the `Report:` path: ONE record
+   that holds the fix item's problem (`Q1`), every finding of every review (`F`),
+   one verdict for each and the gate result. Where the project has `.relay/` a
+   hook commits the check mark and that record. One checker run covers the
+   queue check, the whole-change check and the merge check; `relay queue done`
+   and the merge guard read the same record. Start it with the one-line check prompt below, never `Brief: <file>`:
    the hook reads the `Report:` label and, from that JSON, everything else.
    Then run `relay check show <branch>` (a runner; it waits while the hook is
    committing) before the front commits the handover, so the branch carries
@@ -140,20 +143,16 @@ worker's DONE on a change that will be merged:
    merge commit, never `git rebase` (a rebase gives every commit a new sha, and
    the mark names the old one). When code came in, run `relay gate` again. If
    `relay changed --own -C <wt> <checked sha>` lists a file (a conflict, or a
-   file both sides changed that git combined), that change is a fix: record a
-   findings file (`relay check record review`, `reviewed` = the head before the
-   merge) with one finding per file, `<file>:1: MEDIUM: F<n> combined with master's change by the merge`,
-   failing case "the gate fails or the merge does not apply", pass-case "the
-   gate passes"; a fixer resolves a conflict first (none for a clean
-   combination, `Fixes: none`); then `relay gate`, then the checker. Files that
-   only the default branch changed need no new check.
+   file both sides changed that git combined), that change is a fix: the
+   checker's `relay check findings` lists it as `M<n>` (one for each such file), so nothing is written
+   by hand; a fixer resolves a conflict first (none for a clean combination, `Fixes: none`); then
+   `relay gate`, then the checker. Files that only the default branch changed need no new check.
 9. **To the owner.** What is NOT MET, new, Disputed, Gap or Outside comes as a
    numbered list with a recommendation. Another fix runs on the owner's word
    and is checked the same way (a fix, a gate, a check). Every change that
    will be merged gets step 4 and a verdict. When the change is ready (the front
    skill's "A change ready to merge": `open 0`, the gate green on the head, the
-   default branch taken, the paid run green when agent, skill, role or rule
-   texts changed) the front merges the change and reports it in one line, or shows the person's
+   default branch taken) the front merges the change and reports it in one line, or shows the person's
    step first in the cases the front skill's "A change ready to merge" lists;
    the merge itself is the front's.
 
@@ -183,8 +182,7 @@ not wrong; `relay check show` prints the words under the finding.
 When the owner moves a finding (a `Design:` one, say) to a queue item, keep that as
 data too: the same TOML with `queue = "<slug>"` beside `words`. The item must be on the
 default branch (else nothing is recorded and the finding stays open); the checker
-counts such a finding under `queued`, not `open`, and `relay check record check`
-refuses a `queued` below their number.
+counts such a finding under `queued`, not `open`; the record derives both counts.
 
 Prompts:
 
