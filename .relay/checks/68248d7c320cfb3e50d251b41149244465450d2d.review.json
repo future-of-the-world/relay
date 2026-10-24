@@ -1,0 +1,184 @@
+{
+  "reviewed": "68248d7c320cfb3e50d251b41149244465450d2d",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "merge3-checks-record.json",
+      "findings": [
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F1",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "bin/ci",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "changed since the last check: combined with master's change by the merge, or a gate fix"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F2",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "rules/queue.md",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "changed since the last check: combined with master's change by the merge, or a gate fix"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F3",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "tests/test_archive_inert.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "changed since the last check: combined with master's change by the merge, or a gate fix"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F4",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "tests/test_check_record.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "changed since the last check: combined with master's change by the merge, or a gate fix"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F5",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "tests/test_guard_test_name.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "changed since the last check: combined with master's change by the merge, or a gate fix"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F6",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "tests/test_marks.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "changed since the last check: combined with master's change by the merge, or a gate fix"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F7",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "tests/test_queue.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "changed since the last check: combined with master's change by the merge, or a gate fix"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F8",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "tests/test_relay.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "changed since the last check: combined with master's change by the merge, or a gate fix"
+        },
+        {
+          "details": [],
+          "evidence": [],
+          "failing_case": [
+            "the gate fails or the merge does not apply"
+          ],
+          "fix_hint": [],
+          "id": "F9",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "the gate passes"
+          ],
+          "path": "tests/test_verdict.py",
+          "rank": "medium",
+          "severity": "MEDIUM",
+          "summary": "changed since the last check: combined with master's change by the merge, or a gate fix"
+        }
+      ],
+      "notes": [
+        "Merges combined by git (the installer's bin/ci conflict was resolved by a fixer, fix-installer-merge.md)."
+      ],
+      "reviewed": "68248d7c320cfb3e50d251b41149244465450d2d",
+      "schema": 1,
+      "scope": [
+        "Files of wt/checks-record changed since its last check: the merges of master (py-types, numbers-clock) and any gate fix since; relay changed --own lists them."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}
