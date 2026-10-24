@@ -914,3 +914,39 @@ Owner decisions, 23 Oct after the merge ("1a 2c"):
   built after step 2 (queue item principles-become-a-relay-rule-other-projects-ca), loaded by relay, any project opts in.
 - Step 2 review: 1 MEDIUM (an old-shape item landing on master between the last migrate and the merge) + 2 LOW, fixed
   117669a. Before THIS merge the front runs `bin/relay queue check` (and migrate + commit if it fails) in the worktree.
+
+## STATE 24 Oct ~02:30Z, three changes in flight; workflows trial done (session 0cc68fe0, at the 350k budget line)
+
+Merged today (all on the owner's word): runner-turns (long jobs = front's run_in_background), queue step 1 + step 2
+(dated events; `relay queue migrate`, `relay queue check`, `relay queue json` lists all), openspec-install (setup
+installs flow plugins; doctor reports enabled-not-installed). `relay sync` ran after the rule merges.
+
+Owner decisions since the last section, verbatim:
+- Speed: "Очень важным критерием эффективной разработки является скорость и параллелизация изменений"; picked
+  workflow trial ("а, давай пробу сценариями после шага 2"); after the trial: "a, сначала хук, потом сценарии" =
+  fix the check-mark hook first, then background workflows become the default way to run changes.
+- Merge page: "Я не читаю подобные артифакты, они выглядят машинно ... давай поправим" -> "a, a": remove the page
+  (chat screen only), done as part of the trial. Front publishes no merge pages from now on.
+- "Когда я пишу why we can't - я хочу чтобы ты ответил на вопрос" (a why-not is a question; now in principles).
+- Principles: "оставляем одно правило principles, зарезервируй taste на будущее".
+- Cost/quality question answered: workflow ~165k agent tokens per change vs 236-277k manual, ~0 front hops vs ~22;
+  review quality same; checkers in the workflow skipped fail-without-fix checks (tighten the prompts).
+
+Trial facts: workflow wf_0f6e557b-2f8 (script under ~/.claude/projects/-Users-amidman-relay/0cc68fe0-.../workflows/scripts/
+relay-change-cycle-wf_0f6e557b-2f8.js), 3 changes, 17 agents, 35 min, 495k agent tokens. Two process bugs: (1) the
+check-mark hook read only the first transcript line (workflow puts a harness relay there): marks written by hand by
+feeding the hook the real prompt line; fix = queue item no-check-mark-for-a-checker-started-by-a-workflo (wt/wf-mark);
+(2) the checker returned a class name as q1_test: prompt must ask for a test FUNCTION name.
+
+In flight:
+- wt/principles: rules/principles.md (688 words) replaces rules/taste.md; check open 0; paid bin/ci running (front,
+  background, log scratchpad/ci-full-principles.log). Then merge question; queue item principles-become-... is a feature
+  (no close command yet).
+- wt/no-merge-page: page removed; paid run green ($8.76); took master (tests/test_relay.py combined) -> recorded
+  scratchpad/reports/merge-no-merge-page.json (F1 combined-by-merge), gate running, then checker (Fixes: none), merge.
+- wt/wf-mark: hook fix built, gate green, review 3 LOW, fixer running; then gate, check, Q1 check, queue done, merge.
+To queue after this wave (taste/waste, repeating): one big shared tests/test_relay.py makes every parallel merge cost
+another gate + check; recording the "combined by the merge" finding by hand took 3 tries (should be one command).
+Paid runs today ~$36 of the $50 cap.
+NEXT: finish the three merges (each: take master, check show, chat screen, owner's word); then queue the two waste
+causes; then improve the workflow script (test function name; checkers run fail-without-fix) and use it by default.

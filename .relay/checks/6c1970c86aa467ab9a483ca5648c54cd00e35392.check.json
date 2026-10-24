@@ -1,0 +1,49 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "reason": [
+        "rules/principles.md: 688 words; section 8 trimmed; MEDIUM waste line kept at line 15; TestPrinciplesRule passes."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F2",
+      "reason": [
+        "rules/principles.md:7-8 has IP ordering and the owner-order signal."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F3",
+      "reason": [
+        "Headings are ### n. under # Principles (lines 6-47)."
+      ],
+      "verdict": "MET"
+    },
+    {
+      "id": "F4",
+      "reason": [
+        "rules/principles.md:50 kept, marked owner-confirmed, matching the owner's answer."
+      ],
+      "verdict": "MET"
+    }
+  ],
+  "gate": "/Users/amidman/relay/.worktrees/principles/.relay/checks/c7c7352e0e297711d889aa327d4fbb60d2b2e958.gate.log",
+  "head": "6c1970c86aa467ab9a483ca5648c54cd00e35392",
+  "new": [],
+  "notes": [
+    "Word count 688. Rule text only, no callers."
+  ],
+  "open": 0,
+  "queued": 0,
+  "review": [
+    "22bec2ef40499ddaa514109c4b22ac43d369262a.review.json"
+  ],
+  "reviewed": "22bec2ef40499ddaa514109c4b22ac43d369262a",
+  "schema": 1,
+  "scope": [
+    "Fix range 22bec2e..HEAD. Gate log head c7c7352 exit 0; relay changed lists no file after it. Own list shows rules/principles.md and tests/test_relay.py; the test file change arrived by the master merge (relay setup tests), not the fix. Ran pytest tests/test_relay.py (104 passed). Read rules/principles.md."
+  ],
+  "type": "check"
+}
