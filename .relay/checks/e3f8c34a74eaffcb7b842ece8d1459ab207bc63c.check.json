@@ -1,24 +1,38 @@
 {
+  "branch": "wt/mark-attach",
   "findings": [
     {
+      "details": [
+        "Every workflow checker whose transcript has attachment entries after its prompt gets no mark, silently (the systemMessage is lost in a workflow); the merge is then refused \"no check mark\". The second failure of this hook on the workflow transcript shape (first: the harness relay line, fixed 24 Oct)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "24 Oct, wt/guard-test-name: check JSON open 0 recorded, no mark committed; replaying the hook on agent-a9142df3e17c5ca29.jsonl (line 0 the workflow prompt with Report:, lines 1-3 attachment entries) prints \"check mark not written for this worktree: the checker's transcript does not start with a prompt\"."
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "That transcript shape (labelled prompt, then attachment entries, then assistant) writes the mark; a transcript with no prompt at all still says \"does not start with a prompt\"; the harness-relay-first case of the earlier fix still picks the labelled entry."
+      ],
+      "path": "plugins/core/hooks/check-mark.py:92-95",
+      "rank": "high",
       "reason": [
         "tests/test_mark_attach.py:38 test_labelled_prompt_then_attachments passes and fails on old hook; no-prompt case (line 47) and harness-relay-first (line 52) kept."
       ],
+      "severity": "HIGH",
+      "since": "d6a27e3d593a29fcb61cdb5ac7eacd89b42f2e7c",
+      "source": "queue",
+      "summary": "A workflow checker gets no mark when attachments follow",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/mark-attach/.relay/checks/33351391f257881b859e3bd66990ea4232a1008c.gate.log",
+  "gate": "33351391f257881b859e3bd66990ea4232a1008c.gate.log",
   "head": "e3f8c34a74eaffcb7b842ece8d1459ab207bc63c",
-  "new": [],
+  "item": "a-workflow-checker-gets-no-mark-when-attachments",
   "notes": [],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "d6a27e3d593a29fcb61cdb5ac7eacd89b42f2e7c.review.json"
-  ],
-  "reviewed": "d6a27e3d593a29fcb61cdb5ac7eacd89b42f2e7c",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range d6a27e3..HEAD: check-mark.py and tests/test_mark_attach.py only. Gate log head 3335139, exit 0, only the inert gate commit after. Ran tests/test_mark_attach.py: 4 pass. On the old hook, 2 of 4 fail (labelled+attachments, harness-relay-first)."
   ],

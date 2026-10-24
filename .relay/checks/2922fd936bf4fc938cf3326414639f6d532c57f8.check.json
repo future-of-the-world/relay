@@ -1,33 +1,64 @@
 {
+  "branch": "wt/principles",
   "findings": [
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "rules/principles.md",
+      "rank": "medium",
       "reason": [
         "gate log exit 0 on reviewed sha"
       ],
+      "severity": "MEDIUM",
+      "since": "f7bb444d66cb0dec4a5e5825263b7b8815bf578f",
+      "source": "merge-principles.json",
+      "source_id": "F1",
+      "summary": "combined with master's change by the merge",
       "verdict": "MET"
     },
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "medium",
       "reason": [
         "gate log exit 0 on reviewed sha"
       ],
+      "severity": "MEDIUM",
+      "since": "f7bb444d66cb0dec4a5e5825263b7b8815bf578f",
+      "source": "merge-principles.json",
+      "source_id": "F2",
+      "summary": "combined with master's change by the merge",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/principles/.relay/checks/f7bb444d66cb0dec4a5e5825263b7b8815bf578f.gate.log",
+  "gate": "f7bb444d66cb0dec4a5e5825263b7b8815bf578f.gate.log",
   "head": "2922fd936bf4fc938cf3326414639f6d532c57f8",
-  "new": [],
+  "item": null,
   "notes": [
     "Merge-only review; the gate passing is the pass-case."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "f7bb444d66cb0dec4a5e5825263b7b8815bf578f.review.json"
-  ],
-  "reviewed": "f7bb444d66cb0dec4a5e5825263b7b8815bf578f",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fixes none. relay changed --own after the reviewed sha lists no file (only the gate commit). Gate log starts with head f7bb444, ends exit 0."
   ],

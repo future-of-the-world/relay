@@ -1,41 +1,153 @@
 {
+  "branch": "wt/core-tests",
   "findings": [
     {
+      "failing_case": [
+        "migrated: the old check recorded no Q1 finding; the item's own text is in .relay/queue/done/core-tests-not-in-gate.json"
+      ],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "path": ".relay/queue/done/core-tests-not-in-gate.json",
+      "rank": "high",
+      "reason": [
+        "migrated",
+        "Q1 (queue item findings file, reviewed sha 4522dcb) could not be recorded in the same check: the tool needs one reviewed sha for all files. Q1 is MET: tests/test_ci_hook_tests.py:34 passes at HEAD and fails at 4522dcb; gate green."
+      ],
+      "severity": "HIGH",
+      "since": "54c5dcae5f90f58839c656d8b768e6afb05390c9",
+      "source": "queue",
+      "summary": "The queue item core-tests-not-in-gate (migrated from a note of the old check)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: bin/ci:62 passes RELAY_INERT_FULL_HOOKS=1 when the outer run is full; bin/ci:36 skips hooks-live only when quick=1 AND RELAY_INERT_FULL_HOOKS is empty,",
+        "so the nested run executes it; outcome() (bin/ci:48-49) counts every ^ok line of hook-tests.log, which includes hooks-live's \"ok    ...\" lines (hooks-live.test.sh:47).",
+        "Whether a live model run differs between the two runs is PLAUSIBLE (needs a Haiku miss), but the inert probe exists to prove outcomes do not depend on inert files,",
+        "and a live model result is not deterministic. The full relay gate is the release gate, so a spurious red there is reachable on ordinary use. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "bin/ci:36  if [ \"$quick\" = 1 ] && [ -z \"${RELAY_INERT_FULL_HOOKS:-}\" ]; then echo \"--- $f (left for the full bin/ci: ...)\"; continue; fi",
+        "bin/ci:62  ( cd \"$work\" && env -u RELAY_GATE RELAY_INERT_FULL_HOOKS=\"$([ \"$quick\" = 0 ] && echo 1)\" bash bin/ci --quick )",
+        "bin/ci:49  echo \"hook cases ok: $(grep -c '^ok' \"$1/.ci/steps/hook-tests.log\" 2>/dev/null)\"",
+        "plugins/core/tests/hooks-live.test.sh:47  if [ \"$2\" = 0 ]; then echo \"ok    $1\"; else echo \"FAIL  $1: ...\"",
+        "lib/relay_gate.py run(): command = binding + args, env RELAY_GATE = head (no args = full bin/ci)"
+      ],
+      "failing_case": [
+        "`relay gate` with no arguments (full bin/ci, RELAY_GATE set). The outer hook-tests step runs hooks-live (4 claude -p Haiku calls); inert_probe (bin/ci:62)",
+        "then runs `bin/ci --quick` with RELAY_INERT_FULL_HOOKS=1, and bin/ci:36 lets hooks-live run again in that nested run. outcome() compares results.txt and",
+        "\"hook cases ok: N\" (hooks-live prints \"ok    <name>\", counted by ^ok). If Haiku answers one check in one run and misses it in the other, the gate",
+        "fails with \"FAIL inert: a step's result or the test count changed when only inert files changed\", blaming inert files for model variance, and pays",
+        "for the live calls twice. Before the change hooks-live never ran in either run (RELAY_CORE_TESTS unset).",
+        "Should: the nested inert run never makes a paid live call, and the comparison does not depend on hooks-live's outcome."
+      ],
+      "fix_hint": [
+        "Skip hooks-live in every --quick run (drop the RELAY_INERT_FULL_HOOKS exception at bin/ci:36), and have outcome() count ok lines outside the hooks-live section",
+        "(e.g. awk from \"--- *hooks-live*\" to the next \"--- \" line excluded), so the outer full run and the nested quick run compare the same files. Add a case to",
+        "tests/test_ci_hook_tests.py with RELAY_INERT_FULL_HOOKS=1 and --quick asserting no STUB-RAN hooks-live."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 36,
+      "pass_cases": [
+        "1. Full run under RELAY_GATE: the nested inert run's hook-tests log has no hooks-live run (a stub hooks-live in a test tree, as in tests/test_ci_hook_tests.py, does not print STUB-RAN in the nested log), and the inert step's ok counts compare equal (outcome excludes hooks-live's lines, or the outer count subtracts them).",
+        "2. Full run without RELAY_GATE: hooks-live still runs once with HOOKS_LIVE=1 (stub prints STUB-RAN hooks-live).",
+        "3. Quick run: hooks-live is not run and the log says \"left for the full bin/ci\" (tests/test_ci_hook_tests.py case 2 keeps passing).",
+        "4. Quick relay gate: inert probe still reports \"the same results\" (green as in the fb28c3f gate log)."
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
       "reason": [
         "tests/test_ci_hook_tests.py:56 (nested quick run never runs hooks-live) and :61 (full run runs it once, comparison ignores its ok lines); bin/ci skips hooks-live in every quick run; quick cases at :40 keep passing."
       ],
+      "severity": "MEDIUM",
+      "since": "54c5dcae5f90f58839c656d8b768e6afb05390c9",
+      "source": "core-tests-review.json",
+      "source_id": "F1",
+      "summary": "a full relay gate now runs the live hooks-live test twice (outer run and the inert probe's nested run) and the inert probe compares their model-dependent ok counts",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading: all three cases call run_ci([\"--quick\"]). A full run with claude dropped from PATH makes no model call (bin/ci skips plugin evals and plugin",
+        "validate without claude), so the branch is testable for free. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "tests/test_ci_hook_tests.py:35,41,46  run_ci([\"--quick\"]) / run_ci([\"--quick\"], drop=(\"bun\",))",
+        "bin/ci:37-38  command -v claude ... FAIL $f needs claude on PATH ... HOOKS_LIVE=1 bash \"$f\""
+      ],
+      "failing_case": [
+        "Change bin/ci:37 to `continue` (or drop HOOKS_LIVE=1 at bin/ci:38): tests/test_ci_hook_tests.py still passes, because every case runs --quick.",
+        "Should: a test fails when the full run stops running hooks-live or stops failing without claude."
+      ],
+      "fix_hint": [
+        "Add test_full_without_claude_fails_hooks_live: run_ci([], drop=(\"claude\",)), assert the FAIL line and no STUB-RAN hooks-live."
+      ],
       "id": "F2",
+      "kind": "inside",
+      "line": 45,
+      "pass_cases": [
+        "1. run_ci([], drop=(\"claude\",)): the hook-tests log has \"FAIL plugins/core/tests/hooks-live.test.sh needs claude on PATH\" and no \"STUB-RAN hooks-live\" (no paid call: without claude the evals step is skipped too).",
+        "2. The three existing quick cases keep passing."
+      ],
+      "path": "tests/test_ci_hook_tests.py",
+      "rank": "low",
       "reason": [
         "tests/test_ci_hook_tests.py:50 test_full_without_claude_fails_hooks_live passes."
       ],
+      "severity": "LOW",
+      "since": "54c5dcae5f90f58839c656d8b768e6afb05390c9",
+      "source": "core-tests-review.json",
+      "source_id": "F2",
+      "summary": "the full-run branch for hooks-live (HOOKS_LIVE=1 forced, FAIL when claude is missing) has no test, though it can be tested without a paid call",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading committed_items/committed_text docstrings (tests/test_queue.py:345-363) against the new code at 383-393. Reaching it needs a checkout",
+        "without .git, which the gate never is, so LOW. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "tests/test_queue.py:348  \"... With no git, the checkout.\"",
+        "tests/test_queue.py:384  added = git(ROOT, \"log\", \"--diff-filter=A\", ...)   # check=True default"
+      ],
+      "failing_case": [
+        "Run tests/test_queue.py from a copy without .git (the helpers' documented \"With no git, the checkout\" case): git(ROOT, \"log\", ...) with check=True raises",
+        "AssertionError \"git log ...: not a git repository\", so test_f14 fails while its neighbours fall back.",
+        "Should: either skip with a reason when there is no history, or the dependence on git is accepted and stated."
+      ],
+      "fix_hint": [
+        "Call git(..., check=False) and self.skipTest(\"needs git history\") when the result is empty."
+      ],
       "id": "F3",
+      "kind": "inside",
+      "line": 384,
+      "pass_cases": [
+        "1. In the worktree with history: test_f14 passes (reads bin/ci at the filing commit, finds *inject-addition* on the where line).",
+        "2. With no git: test_f14 is skipped with \"needs git history\" rather than failing."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "low",
       "reason": [
         "Fixer: a silent skip without git history is forbidden; the test fails loudly and the gate always has .git. My view: LOW and reasonable, accept the dispute."
       ],
+      "severity": "LOW",
+      "since": "54c5dcae5f90f58839c656d8b768e6afb05390c9",
+      "source": "core-tests-review.json",
+      "source_id": "F3",
+      "summary": "test_f14 now needs git history; the suite's helpers fall back to the checkout when git cannot run, this test raises instead",
       "verdict": "DISPUTED"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/core-tests/.relay/checks/607004364f23df4e9c4c556183e4e0c2888cba7c.gate.log",
+  "gate": "607004364f23df4e9c4c556183e4e0c2888cba7c.gate.log",
   "head": "1a6893129b52b1823616ff64fb86d696393e44c7",
-  "new": [],
+  "item": "core-tests-not-in-gate",
   "notes": [
     "Callers of hook_tests/outcome/inert_probe read in bin/ci; no caller breaks.",
     "Q1 (queue item findings file, reviewed sha 4522dcb) could not be recorded in the same check: the tool needs one reviewed sha for all files. Q1 is MET: tests/test_ci_hook_tests.py:34 passes at HEAD and fails at 4522dcb; gate green."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "54c5dcae5f90f58839c656d8b768e6afb05390c9.review.json"
-  ],
-  "reviewed": "54c5dcae5f90f58839c656d8b768e6afb05390c9",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range 4522dcb..HEAD; own files: bin/ci, docs/plans/review-gate.md, three core test fixture paths, tests/test_ci_hook_tests.py, tests/test_queue.py: all in scope of the findings. Ran tests.test_ci_hook_tests (6 OK), tests.test_queue (75 OK). Gate log head 6070043, exit 0; only the inert gate-log commit came after (relay changed lists no file). Q1 test run at 4522dcb in a scratch worktree: fails there, passes at HEAD."
   ],

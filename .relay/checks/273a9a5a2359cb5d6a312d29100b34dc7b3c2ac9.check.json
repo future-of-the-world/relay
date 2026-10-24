@@ -1,24 +1,51 @@
 {
+  "branch": "wt/guard-test-name",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by reading holds_test: name = rest.split(\"::\")[-1]; the middle part is dropped. Correct per the brief, which asks only that the",
+        "function be defined in the file, so this is LOW: a mistyped class name passes both gates, and the checker that later runs the recorded",
+        "test gets a collection error instead of a test. Size: 10 agent minutes (for a .py file with three parts, also require",
+        "r\"\\bclass\\s+<Class>\\b\" in source; add the case to CASES)."
+      ],
+      "evidence": [
+        "lib/relay_queue.py:841-845: path, _, rest = test.strip().partition(\"::\"); name = rest.split(\"::\")[-1].strip(); ... return _holds_test(path.strip(), name, source)"
+      ],
+      "failing_case": [
+        "SOURCE = \"class Suite:\\n    def test_hangs_within_bound(self): ...\": holds_test(\"tests/t.py::NoSuchClass::test_hangs_within_bound\", SOURCE)",
+        "returns True today (only the last :: part is matched), and both relay queue done and the merge guard accept it, while",
+        "pytest tests/t.py::NoSuchClass::test_hangs_within_bound reports \"not found\". A stricter rule would return False."
+      ],
+      "fix_hint": [
+        "In holds_test, when path ends with .py and rest has two parts, also require re.search(r\"\\bclass\\s+\" + re.escape(cls) + r\"\\b\", source)."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 842,
+      "pass_cases": [
+        "holds_test(\"tests/t.py::NoSuchClass::test_hangs_within_bound\", SOURCE) -> False",
+        "holds_test(\"tests/t.py::Suite::test_hangs_within_bound\", SOURCE) -> True",
+        "holds_test(\"tests/t.py::test_hangs_within_bound\", SOURCE) -> True",
+        "holds_test(\"tests/t.sh::case_x\", \"case_x() { :; }\") -> True (non-.py files keep the whole-word rule, no class check)"
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
       "reason": [
         "tests/test_guard_test_name.py TestHoldsTest/TestDoneJudges/TestMergeJudges (CASES rows NoSuchClass -> False, Suite::name -> True, file::name -> True); failed at 74b634c, pass at head. lib/relay_queue.py:842-849 requires class for .py."
       ],
+      "severity": "LOW",
+      "since": "74b634cdb36753fe667fe8c33152f959ed3d284e",
+      "source": "review-guard-test-name.json",
+      "source_id": "F1",
+      "summary": "holds_test ignores the Class part, so a recorded file::WrongClass::name that pytest cannot run is accepted by both callers",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/guard-test-name/.relay/checks/ef749fb2271506aa7690f46371b93ed08b978dca.gate.log",
+  "gate": "ef749fb2271506aa7690f46371b93ed08b978dca.gate.log",
   "head": "273a9a5a2359cb5d6a312d29100b34dc7b3c2ac9",
-  "new": [],
+  "item": null,
   "notes": [],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "74b634cdb36753fe667fe8c33152f959ed3d284e.review.json"
-  ],
-  "reviewed": "74b634cdb36753fe667fe8c33152f959ed3d284e",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range 74b634c..HEAD; own files: three relay_queue.py copies (identical) and tests/test_guard_test_name.py. Gate log head ef749fb, exit 0, only the gate log commit after. Ran the test file (3 pass); with the head test copied onto 74b634c all 3 fail."
   ],

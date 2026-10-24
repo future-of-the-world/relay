@@ -1,26 +1,39 @@
 {
+  "branch": "wt/no-merge-page",
   "findings": [
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "medium",
       "reason": [
         "Gate green on 9209e3f (exit 0) and tests/test_relay.py passes (103 passed)."
       ],
+      "severity": "MEDIUM",
+      "since": "bb5c58698eb33cecbe811a7d93ac02d984863427",
+      "source": "merge-no-merge-page.json",
+      "source_id": "F1",
+      "summary": "combined with master's change by the merge",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/no-merge-page/.relay/checks/9209e3f6cfb8334c51c761012fb3bb92e311c500.gate.log",
+  "gate": "9209e3f6cfb8334c51c761012fb3bb92e311c500.gate.log",
   "head": "a5ffb47eff57b5bbb0da0dcfbab15620bca34350",
-  "new": [],
+  "item": null,
   "notes": [
     "The only listed file is the merge-combined test file; the gate and test run are green. The +1 is the step-1 rule (changed since the review), not a defect."
   ],
-  "open": 1,
-  "queued": 0,
-  "review": [
-    "bb5c58698eb33cecbe811a7d93ac02d984863427.review.json"
-  ],
-  "reviewed": "bb5c58698eb33cecbe811a7d93ac02d984863427",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fixes: none. relay changed --own from bb5c586 lists tests/test_relay.py (a later merge of master, 9209e3f, came after the review). Gate log head 9209e3f, exit 0; relay changed since that sha lists no file. Ran tests/test_relay.py: 103 passed."
   ],

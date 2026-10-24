@@ -1,26 +1,39 @@
 {
+  "branch": "wt/no-merge-page",
   "findings": [
     {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
       "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "medium",
       "reason": [
         "Gate passes (exit 0 on 9209e3f) and tests/test_relay.py 103 passed."
       ],
+      "severity": "MEDIUM",
+      "since": "9209e3f6cfb8334c51c761012fb3bb92e311c500",
+      "source": "merge2-no-merge-page.json",
+      "source_id": "F1",
+      "summary": "combined with master's change by the merge",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/no-merge-page/.relay/checks/9209e3f6cfb8334c51c761012fb3bb92e311c500.gate.log",
+  "gate": "9209e3f6cfb8334c51c761012fb3bb92e311c500.gate.log",
   "head": "0587a1224d5df716e863e52d88e8e5903b9093cb",
-  "new": [],
+  "item": null,
   "notes": [
     "Merge applied cleanly, gate green."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "9209e3f6cfb8334c51c761012fb3bb92e311c500.review.json"
-  ],
-  "reviewed": "9209e3f6cfb8334c51c761012fb3bb92e311c500",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fixes none. relay changed --own since the reviewed sha lists no file. Gate log head and exit 0 on the reviewed sha; no non-inert file after it. Ran tests/test_relay.py: 103 passed."
   ],

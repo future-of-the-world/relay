@@ -2,12 +2,10 @@
   "check": "7659ac6ba852561e5b9a37989d662e0a3814bfea.check.json",
   "commit": "7659ac6ba852561e5b9a37989d662e0a3814bfea",
   "gate": "4cd1784eae179e7628a75659e9dda72fd6b88c0c.gate.log",
-  "review": "95c125ab1a510869a3d8714f0653f0a3d0e1aca6.review.json",
-  "schema": 1,
+  "schema": 2,
   "time": "2026-10-24T09:01:32Z",
   "verdict": {
     "open": 0,
-    "queued": 0,
-    "reviewed": "95c125ab1a510869a3d8714f0653f0a3d0e1aca6"
+    "queued": 0
   }
 }

@@ -1,24 +1,38 @@
 {
+  "branch": "wt/numbers-clock",
   "findings": [
     {
+      "details": [
+        "24 Oct: test_a_restarted_counter_that_grows_past_the_old_total_stays_an_estimate, test_capture_does_not_write_a_total_smaller_than_the_recorded_one and test_capture_with_a_readable_index_never_reads_the_ledger fail on master at 489bc9d and also at ae88c19, a commit whose gate passed this morning: the code did not change, the surroundings did. Every gate in relay is red until this is fixed (it stopped the check-record change's gate)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "On ae88c19, `pytest tests/test_relay.py -k Numbers` now gives 3 failed; test_relay.py:483 capture(\"2026-10-21T10:02:00Z\") returns ['s-trust'] instead of []."
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The three tests pass on the fixed head; they still pass with the clock moved a week ahead (faketime or a patched now) and with HOME pointed at an empty folder; with the fix disabled at least one of them fails the same way again."
+      ],
+      "path": "tests/test_relay.py class Numbers (:483 and two more), lib/relay_ledger.py capture",
+      "rank": "high",
       "reason": [
         "tests/test_numbers_hermetic.py::NumbersHermetic::test_fallback_window_follows_the_given_time_not_the_clock (2020 time, empty HOME) passes at head and fails at 51a50a3; Numbers tests pass; gate green."
       ],
+      "severity": "HIGH",
+      "since": "51a50a3cac3890c32d13f783850a4dbb0aca8335",
+      "source": "queue",
+      "summary": "Three ledger tests fail on unchanged code",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/numbers-clock/.relay/checks/581879adbf66bbafa21fbb71b7e9486a7f241e62.gate.log",
+  "gate": "581879adbf66bbafa21fbb71b7e9486a7f241e62.gate.log",
   "head": "4aee532e4fffbd6ce6436213855a8545dd3e8046",
-  "new": [],
+  "item": "three-ledger-tests-fail-on-unchanged-code",
   "notes": [],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "51a50a3cac3890c32d13f783850a4dbb0aca8335.review.json"
-  ],
-  "reviewed": "51a50a3cac3890c32d13f783850a4dbb0aca8335",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range 51a50a3..HEAD: ledger window from given now (3 lib copies) and tests/test_numbers_hermetic.py. Gate log is for 581879a, exit 0, only inert commit after. Ran Numbers plus hermetic tests: 25 passed. Hermetic file in a throwaway worktree at 51a50a3: 2 failed."
   ],
