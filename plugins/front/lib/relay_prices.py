@@ -70,17 +70,21 @@ def is_before(model: str | None, when: str | None) -> bool:
     return bool(earlier and when and when[:10] < str(earlier["date"]))
 
 
+def has_earlier(model: str | None) -> bool:
+    return bool(table()["models"][tier(model)].get("before"))
+
+
 def cost(model: str | None, usage: Mapping[str, Any], early_share: float = 0.0) -> float:
     """USD for one usage dict (input_tokens, cache_creation_input_tokens, cache_read_input_tokens,
     output_tokens). When usage.cache_creation splits the writes, 1-hour writes are priced at the
     1-hour rate; every other written token at the 5-minute rate. `early_share` (0-1) is the part of
-    the usage from before the model's [before] date: its rates are blended with the earlier ones."""
+    the usage from before the model's [before] date: its cache_read rate is blended with the earlier one
+    (early_share is the share of cache reads; other keys of [before] are ignored)."""
     rates: dict[str, Any] = dict(table()["models"][tier(model)])
     earlier = rates.pop("before", None)
     if earlier and early_share:
-        for key, old in earlier.items():
-            if key != "date":
-                rates[key] = old * early_share + rates[key] * (1 - early_share)
+        if "cache_read" in earlier:
+            rates["cache_read"] = earlier["cache_read"] * early_share + rates["cache_read"] * (1 - early_share)
     created = int(usage.get("cache_creation_input_tokens") or 0)
     split = usage.get("cache_creation")
     one_hour = int(split.get("ephemeral_1h_input_tokens") or 0) if isinstance(split, dict) else 0

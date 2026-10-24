@@ -39,7 +39,7 @@ output = 10.00
 # exactly, sessions from 12 Oct fit 0.10 exactly, and d0fce801 (29 Sep - 15 Oct, no Sonnet read between) fits
 # 0.20 for the reads of 29 Sep. The change fell between 8 and 12 Oct; any date in that span prices every session
 # we have the same, 9 Oct is used. A request before this date is priced with the values below, the rest of the
-# rates stay. No Sonnet request in these sessions passed 200k tokens: it was not a long-context price.
+# rates stay. Only cache_read is read from this table (relay_prices.cost blends nothing else). No Sonnet request in these sessions passed 200k tokens: it was not a long-context price.
 [models.sonnet.before]
 date = "2026-10-09"
 cache_read = 0.20

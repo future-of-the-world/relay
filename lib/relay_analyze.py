@@ -171,8 +171,10 @@ def price_error(model, numbers, main, agents):
     if created:
         priced = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": round(written * one_hour / created)}), early)
         return (priced - cost) / cost, "transcript"
+    # no transcript: when is unknown, so a model with an earlier price may have been all earlier (the high end)
+    unknown = main is None and relay_prices.has_earlier(model)
     low = relay_prices.cost(model, usage, early)
-    high = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": written}), early)
+    high = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": written}), 1.0 if unknown else early)
     if cost < low:
         return (low - cost) / cost, "band"
     if cost > high:

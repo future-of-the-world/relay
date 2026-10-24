@@ -127,7 +127,11 @@ say so; the bench gives the real figure.
 
 `prices.toml` holds USD per million tokens by model (opus, sonnet, haiku,
 haiku-4-5, fable) with input, 5-minute and 1-hour cache write, cache read and
-output, a web-search price, and a `measured` date; `relay doctor` warns when
+output, a web-search price, and a `measured` date. A model can carry a
+`[models.<m>.before]` table: a `date` and the earlier `cache_read` rate, applied to
+requests before that date by their transcript timestamp (Sonnet reads cost 0.20
+per million before 9 Oct 2026, 0.10 after; a session without a transcript is
+calibrated against the range between the two). Only `cache_read` is read from it; `relay doctor` warns when
 it is over 90 days old. To re-measure, run `relay calibrate`: it prices Claude
 Code's own token totals with the table and prints the error per model.
 

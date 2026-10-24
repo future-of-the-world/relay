@@ -56,6 +56,33 @@ class SonnetPriceHistory(unittest.TestCase):
         err, _basis = relay_analyze.price_error(SONNET, numbers, main, [])
         self.assertAlmostEqual(err, 0.0)
 
+    def test_session_without_transcript_may_be_all_earlier(self):
+        # no transcript: 1M reads at 0.20 (a 6 Oct session) or at 0.10 (after 12 Oct) are both inside the band.
+        for total in (0.20, 0.10):
+            err, basis = relay_analyze.price_error(SONNET, {"cost_usd": total, **READS}, None, [])
+            self.assertEqual((err, basis), (0.0, "band"))
+        # beyond the range is still an error: 0.30 against the high end 0.20 is -1/3
+        err, _ = relay_analyze.price_error(SONNET, {"cost_usd": 0.30, **READS}, None, [])
+        self.assertAlmostEqual(err, (0.20 - 0.30) / 0.30)
+
+    def test_model_without_earlier_price_is_unchanged_without_transcript(self):
+        err, _ = relay_analyze.price_error("claude-opus-5-5", {"cost_usd": 0.10, **READS}, None, [])
+        self.assertAlmostEqual(err, (0.20 - 0.10) / 0.10)  # opus reads 0.20: still 100% over, no widening
+
+    def test_only_cache_read_of_the_earlier_table_is_blended(self):
+        # an earlier output of 15 must not be blended by the share of reads: output stays 10
+        # 1M out = 10.0; 1M reads at 90% early = 0.9 x 0.20 + 0.1 x 0.10 = 0.19
+        real = relay_prices.table()
+        fake = {**real, "models": {**real["models"], "sonnet": {**real["models"]["sonnet"],
+                "before": {"date": "2026-10-09", "cache_read": 0.20, "output": 15.0}}}}
+        old = relay_prices.table
+        relay_prices.table = lambda: fake
+        try:
+            got = relay_prices.cost(SONNET, {**READS, "output_tokens": 1_000_000}, early_share=0.9)
+        finally:
+            relay_prices.table = old
+        self.assertAlmostEqual(got, 10.0 + 0.19)
+
 
 if __name__ == "__main__":
     unittest.main()
