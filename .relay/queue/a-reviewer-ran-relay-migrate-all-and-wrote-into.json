@@ -1,0 +1,27 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 45,
+  "found_at": "2026-10-24T02:44:42Z",
+  "found_in": "relay queue add",
+  "title": "a reviewer ran relay migrate --all and wrote into main",
+  "what": [
+    "Two causes. 1) Read-only roles (critic, checker, scout, reviewer) can run any Bash, including relay commands that write (migrate, setup, sync, install, queue add); roles/judge.md or a hook should limit them to read-only commands or a --dry form. 2) `relay migrate --all` / setup write into the main checkout with no guard; they should refuse a target that is a primary checkout with a clean default branch unless asked explicitly, or the guard should cover relay's own writers."
+  ],
+  "why": [
+    "24 Oct 02:34Z, workflow review of wt/projects-out: the critic (read-only by its role) ran `bin/relay migrate --all` from the worktree to probe it. That wrote CLAUDE.md, bin/check, .claude/kit.toml and .claude/settings.json into the main relay checkout; the settings pointed the relay marketplace at .worktrees/projects-out, which is removed at merge, so every relay session would lose its plugins. guard-main did not stop it (it only parses shell redirects/rm/cp; relay's own Python wrote the files) but then refused the cleanup. Any reviewer probing a relay command can do this again (MEDIUM)."
+  ],
+  "failing_case": [
+    "From a worktree, `bin/relay migrate --all` with projects.toml listing relay: untracked CLAUDE.md, bin/check, .claude/ appear in the main checkout."
+  ],
+  "pass_cases": [
+    "The same command run by a critic is refused or runs as a dry run; the main checkout stays clean; a deliberate `relay setup <dir>` by the front still works."
+  ],
+  "where": "roles/judge.md, plugins/delegate/agents/critic.md, lib/relay_setup.py (migrate, setup), plugins/core/hooks/guard-main.sh",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
