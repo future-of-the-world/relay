@@ -77,6 +77,8 @@ source files without `Size: mechanical`, an artifact over its budget
 ~2 KB), or, when the tasks run in waves, a design.md without an `Interfaces`
 section (the shape and owner of every value that crosses a task boundary:
 types, function signatures, stored-data fields, event and prop shapes).
+When some group has a `Wave N` line, every group with open tasks needs one and
+one of them must be `Wave 1`.
 """
 import atexit
 import os
@@ -846,6 +848,18 @@ def check(root, change):
         if not re.search(r"(?m)^#{2,4} Interfaces\b", mask_fences(text)):
             print("design.md: no \"Interfaces\" section: tasks run in parallel waves, so every value that "
                   "crosses a task boundary needs its shape and owner written there first")
+            bad += 1
+    wave_line = re.compile(r"(?m)^Wave \d")
+    wave_groups = {n: bool(wave_line.search("\n".join(g[1]))) for n, g in _groups.items()}
+    if open_tasks:
+        # The tasks run in waves: sdd:parallel-apply reads each group's `Wave N · depends on:` line.
+        for number in sorted({t["group"] for t in open_tasks if t["group"]}, key=int):
+            if not wave_groups.get(number):
+                print(f"group {number}: no Wave line: the tasks run in waves, so write `Wave N · depends on: ...` under its heading")
+                bad += 1
+        waves = [int(m) for g in _groups.values() for m in re.findall(r"(?m)^Wave (\d+)", "\n".join(g[1]))]
+        if any(w > 1 for w in waves) and 1 not in waves:
+            print("tasks.md: no Wave 1 line: the first wave after wave 0 is Wave 1")
             bad += 1
     for task in open_tasks:
         if len(task["text"]) > TASK_BUDGET:

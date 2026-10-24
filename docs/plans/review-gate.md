@@ -759,7 +759,8 @@ Only `lib/relay_queue.py` writes it (`serialize`) or reads it (`parse`); nothing
   "taken_at": null,              UTC time the item was taken, else null
   "taken_by": null,              the task branch working on it (it stays as the closing branch); set exactly when taken_at is
   "closed_at": null,             UTC time the closing branch recorded the close, else null
-  "test": null,                  at close: <test file>::<test name>
+  "test": null,                  at close of a fix: <test file>::<test name>
+  "evidence": null,              at close of a feature: a merge sha or report path, one line (instead of test)
   "dropped_at": null,            UTC time the owner dropped it, else null
   "dropped_why": null            null until the owner drops it, then lines
 }
@@ -767,7 +768,7 @@ Only `lib/relay_queue.py` writes it (`serialize`) or reads it (`parse`); nothing
 
 There is no stored state. `state_of` computes it: `dropped_at` set is dropped, else `closed_at` set is done, else
 `taken_at` set is taken, else open; every reader goes through it. The check also refuses `taken_by` without
-`taken_at` (and the converse), `closed_at` without `taken_at` or a test, `dropped_at` without `dropped_why` or
+`taken_at` (and the converse), `closed_at` without `taken_at`, a test or evidence, `dropped_at` without `dropped_why` or
 together with `taken_at` / `closed_at`, times out of order (`found_at` <= `taken_at` <= `closed_at`), and a file under
 `done/` without `closed_at` or `dropped_at` (or one with them outside `done/`). A file of the earlier shape
 (`state`, `found`, `closed_by`) is refused with the message to run `relay queue migrate`, which rewrites such files

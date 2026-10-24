@@ -20,8 +20,8 @@
   "where": "projects.toml [global], bin/paid-cost, bin/ci (plugin evals step), lib/relay_bench.py",
   "taken_at": "2026-10-24T13:42:23Z",
   "taken_by": "wt/paid-cap",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T15:16:25Z",
+  "test": "tests/test_paid_cap.py::Today::test_today_prints_spend_cap_and_run_count",
   "dropped_at": null,
   "dropped_why": null
 }

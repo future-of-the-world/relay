@@ -1,0 +1,92 @@
+{
+  "branch": "wt/paid-cap",
+  "findings": [
+    {
+      "details": [
+        "Owner, verbatim: \"\u0414\u043e\u0431\u0430\u0432\u044c \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u044c \u043f\u0443\u043d\u043a\u0442 \u043f\u0440\u043e \u043f\u0440\u0435\u0434\u0435\u043b \u0437\u0430 \u0434\u0435\u043d\u044c \u0432 relay\". On 24 Oct the cap was raised three times ($75, $100, $200) and lived only in Claude's memory; the day's spend (\"about $70\") was an estimate from the handover, since no command sums it. Another machine or session without that memory has no cap at all."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "24 Oct: no relay command prints the day's paid spend; the cap $200 is written only in ~/.claude/projects/-Users-amidman-relay/memory/paid-checks-preapproved.md; bin/paid-cost has only `ceiling` and `estimate`."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "`bin/paid-cost today` on fixture records prints the summed spend, the run count and the cap; a paid bin/ci or relay bench whose estimate would pass the cap is refused before it starts with that line; with spend + estimate under the cap it runs; the cap is read from projects.toml, not from Claude memory."
+      ],
+      "path": "projects.toml [global], bin/paid-cost, bin/ci (plugin evals step), lib/relay_bench.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_paid_cap.py passes at head; fails at 5590404 (collection error, lib/relay_paidcap absent)."
+      ],
+      "severity": "HIGH",
+      "since": "5590404dd1a1170f97afc81944fddf1685274f60",
+      "source": "queue",
+      "summary": "The day's paid-run cap and spend live outside relay",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
+      "reason": [
+        "Gate for 1000037 is green (exit 0, quick mode); no file after it but the log."
+      ],
+      "severity": "MEDIUM",
+      "since": "1000037d94e7e1e929353184487d72fbc9413fc8",
+      "source": "merge9-paid-cap.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "Gate for 1000037 is green (exit 0); the full test suite part passed in the gate."
+      ],
+      "severity": "MEDIUM",
+      "since": "1000037d94e7e1e929353184487d72fbc9413fc8",
+      "source": "merge9-paid-cap.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "1000037d94e7e1e929353184487d72fbc9413fc8.gate.log",
+  "head": "8ae71b4c5998974f9c819770c6256dd6d38d4bd7",
+  "item": "the-day-s-paid-run-cap-and-spend-live-outside-re",
+  "notes": [
+    "Merge of master combined without conflict; the gate is green on it."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head 1000037 exit 0; HEAD 8ae71b4 adds only the gate log (inert). tests/test_paid_cap.py passes at head; at 5590404 (before the fix) the file fails at collection (module absent), so it fails without the fix."
+  ],
+  "type": "check"
+}

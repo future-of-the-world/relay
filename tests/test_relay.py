@@ -29,7 +29,7 @@ class Base(unittest.TestCase):
         projects = os.path.join(self.tmp, "projects.toml")
         self.project_file = os.path.join(self.tmp, "demo", "CLAUDE.local.md")   # never the owner's real project files
         with open(projects, "w") as handle:
-            handle.write('[global]\nfile = "~/.claude/CLAUDE.md"\ntitle = "Defaults for all projects"\nintro = "Test."\nload = []\n\n'
+            handle.write('[global]\nfile = "~/.claude/CLAUDE.md"\ntitle = "Defaults for all projects"\nintro = "Test."\nload = []\npaid_cap_usd_per_day = 1000\n\n'
                          '[demo]\nfile = "%s"\ntitle = "Principles this project loads"\nload = ["quality-gate"]\nread = []\n' % self.project_file)
         os.environ["RELAY_PROJECTS"] = projects
         for m in list(sys.modules):

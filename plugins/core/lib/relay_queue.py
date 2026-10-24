@@ -36,7 +36,7 @@ KINDS = ("fix", "feature")
 # The keys of an item file, in the order they are written. An item keeps dated events, never a stored state: `state_of` computes it.
 # TEXT are lists of lines (so a git diff goes line by line).
 ORDER = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "failing_case", "pass_cases", "where",
-         "taken_at", "taken_by", "closed_at", "test", "dropped_at", "dropped_why")
+         "taken_at", "taken_by", "closed_at", "test", "evidence", "dropped_at", "dropped_why")
 TEXT = ("what", "why", "failing_case", "pass_cases")
 EVENTS = ("found_at", "taken_at", "closed_at", "dropped_at")
 OLD_ONLY = ("state", "found", "closed_by")    # the keys of the shape before dated events; `relay queue migrate` rewrites them
@@ -117,7 +117,7 @@ def check(slug, data, where=None):
     for key in ("found_in", "title", "where"):
         if key in data and not isinstance(data[key], str):
             problems.append(f"{key} is not a string")
-    for key in ("taken_by", "test"):
+    for key in ("taken_by", "test", "evidence"):
         if key in data and data[key] is not None and not isinstance(data[key], str):
             problems.append(f"{key} is not null or a string")
         elif data.get(key) == "":
@@ -132,12 +132,19 @@ def check(slug, data, where=None):
     found, taken, closed, dropped = (data.get(k) for k in ("found_at", "taken_at", "closed_at", "dropped_at"))
     if bool(data.get("taken_by")) != (taken is not None):
         problems.append("taken_by is set exactly when taken_at is set")
-    if closed is not None and taken is None:
+    evidence = data.get("evidence")
+    if closed is not None and taken is None and not evidence:
         problems.append("closed_at without taken_at")
-    if closed is not None and not data.get("test"):
-        problems.append("closed_at without a test")
+    if closed is not None and not data.get("test") and not evidence:
+        problems.append("closed_at without a test or evidence")
+    if data.get("test") and evidence:
+        problems.append("a test together with evidence: a close has one or the other")
     if data.get("test") and closed is None:
         problems.append("a test without closed_at")
+    if evidence and closed is None:
+        problems.append("evidence without closed_at")
+    if evidence and data.get("kind") == "fix":
+        problems.append("a fix is closed with a test, not with evidence")
     if dropped is not None and not data.get("dropped_why"):
         problems.append("dropped_at without dropped_why")
     if data.get("dropped_why") and dropped is None:
@@ -291,6 +298,8 @@ def show_text(item):
             out.append(f"{label} {item[key]}")
     if item["test"]:
         out.append(f"test {item['test']}")
+    if item.get("evidence"):
+        out.append(f"evidence {item['evidence']}")
     for title, key in (("What", "what"), ("Why", "why"), ("Failing case", "failing_case"), ("Pass cases", "pass_cases"), ("Dropped because", "dropped_why")):
         if item.get(key):
             out += [f"{title}:"] + ["  " + line for line in item[key]]
@@ -764,6 +773,34 @@ def drop(repo, slug, why, **engine):
             raise _taken_by_refusal(item)
         text = serialize(slug, changed(item, dropped_at=utcnow(), dropped_why=lines_of(why)), "done")
         return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "dropped")
+
+    return _run(repo, planner, **engine)
+
+
+def _branch_live(repo, branch):
+    """True while refs/heads/<branch> exists and is not yet part of the default branch (its own `done` still has to find the item)."""
+    main, default = _context(repo)
+    ref = "refs/heads/" + branch
+    if relay_git.git(main, "show-ref", "--verify", "--quiet", ref)[0] != 0:
+        return False
+    return relay_git.git(main, "merge-base", "--is-ancestor", ref, "refs/heads/" + default)[0] != 0
+
+
+def close_with_evidence(repo, slug, evidence, **engine):
+    """Close a feature that was finished without a branch of this repo's own: `evidence` is a merge sha (of this or another
+    repo) or a report path, one line. A fix is closed with a test (`done`), never with this."""
+    evidence = evidence.strip()
+    if not evidence or "\n" in evidence:
+        raise Refused("--evidence is a merge sha or a report path, on one line")
+
+    def planner(reader):
+        item = _item_at(reader, slug)
+        if item["kind"] == "fix":
+            raise Refused(f"'{slug}' is a fix: close it with --test on the branch that took it")
+        if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
+            raise _taken_by_refusal(item)
+        text = serialize(slug, changed(item, closed_at=utcnow(), evidence=evidence), "done")
+        return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "closed")
 
     return _run(repo, planner, **engine)
 

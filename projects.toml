@@ -2,6 +2,7 @@
 # the files. The global target loads the rules the active profile names.
 
 [global]
+paid_cap_usd_per_day = 200   # the owner's cap for paid runs per UTC day; change it with `bin/paid-cost cap <USD>`
 file = "~/.claude/CLAUDE.md"
 title = "Defaults for all projects"
 native_language = "Russian"   # the owner's native language; sync writes one line, the "Working with me" rule uses the term

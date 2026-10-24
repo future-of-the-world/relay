@@ -20,8 +20,8 @@
   "where": "bin/relay (queue done, queue drop), lib/ queue module",
   "taken_at": "2026-10-24T13:42:21Z",
   "taken_by": "wt/queue-close",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-24T14:46:22Z",
+  "test": "tests/test_queue_close.py::TestCloseWithEvidence::test_q1_a_feature_closes_with_a_merge_sha_and_leaves_the_list",
   "dropped_at": null,
   "dropped_why": null
 }

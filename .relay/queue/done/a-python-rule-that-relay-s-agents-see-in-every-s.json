@@ -14,8 +14,9 @@
   "where": "rules/python.md (new), projects.toml (relay's rule list)",
   "taken_at": "2026-10-24T08:30:19Z",
   "taken_by": "wt/py-rule",
-  "closed_at": null,
+  "closed_at": "2026-10-24T15:43:54Z",
   "test": null,
+  "evidence": "3f2a5e4",
   "dropped_at": null,
   "dropped_why": null
 }

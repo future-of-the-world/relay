@@ -1,0 +1,276 @@
+{
+  "branch": "wt/paid-cap",
+  "findings": [
+    {
+      "details": [
+        "Owner, verbatim: \"\u0414\u043e\u0431\u0430\u0432\u044c \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u044c \u043f\u0443\u043d\u043a\u0442 \u043f\u0440\u043e \u043f\u0440\u0435\u0434\u0435\u043b \u0437\u0430 \u0434\u0435\u043d\u044c \u0432 relay\". On 24 Oct the cap was raised three times ($75, $100, $200) and lived only in Claude's memory; the day's spend (\"about $70\") was an estimate from the handover, since no command sums it. Another machine or session without that memory has no cap at all."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "24 Oct: no relay command prints the day's paid spend; the cap $200 is written only in ~/.claude/projects/-Users-amidman-relay/memory/paid-checks-preapproved.md; bin/paid-cost has only `ceiling` and `estimate`."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "`bin/paid-cost today` on fixture records prints the summed spend, the run count and the cap; a paid bin/ci or relay bench whose estimate would pass the cap is refused before it starts with that line; with spend + estimate under the cap it runs; the cap is read from projects.toml, not from Claude memory."
+      ],
+      "path": "projects.toml [global], bin/paid-cost, bin/ci (plugin evals step), lib/relay_bench.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_paid_cap.py (Today, Refusal, OutFolder, CiGuard) pass; the file fails at the since commit 5590404 (collection error, module absent). Gate green."
+      ],
+      "severity": "HIGH",
+      "since": "5590404dd1a1170f97afc81944fddf1685274f60",
+      "source": "queue",
+      "summary": "The day's paid-run cap and spend live outside relay",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. run_bench passes bench=out_root to relay_paidcap.check, and spend_today reads bench_rows(bench) only, so with --out the",
+        "default bench folder is never summed; bin/paid-cost derives bench from RELAY_HOME/bench only, so --out results are never summed either.",
+        "`--out` is a flag of `relay bench` (bin/relay:266). The item promises the day's spend \"from its own records (... the bench reports)\".",
+        "Size: 15 minutes (sum spend over bench_dir() always and, when out_root differs, over out_root too; or keep a one-line spend",
+        "record per bench run under RELAY_HOME whatever the out folder)."
+      ],
+      "evidence": [
+        "Scratch: RELAY_HOME=<s>/home with bench row 9.50, cap 10:",
+        "  default dir: bench refused: the day's cap is $10, $9.50 is spent today (2026-10-24) and this run is estimated at $1.00; ...",
+        "  with --out: None",
+        "lib/relay_bench.py:497  refusal = relay_paidcap.check(stamp[:10], relay_paidcap.bench_estimate(sessions, out_root), \"bench\", bench=out_root)"
+      ],
+      "failing_case": [
+        "Cap 10 (projects.toml [global]); ~/.relay/bench/2026-10-24T01-00-00Z/results.json has one row cost_usd 9.50; then",
+        "`relay bench a b --out /some/dir` with an estimate of $1.00. relay_paidcap.check(\"2026-10-24\", 1.0, \"bench\", bench=\"/some/dir\")",
+        "returns None (the run starts, the day ends at $10.50 over a $10 cap). It should refuse: $9.50 spent + $1.00 > $10.",
+        "The other way: a bench run with --out spends money that `bin/paid-cost today` and `bin/paid-cost guard eval` never see."
+      ],
+      "fix_hint": [
+        "In relay_paidcap.spend_today, sum bench_rows(bench_dir()) and, when an extra folder is given and differs, bench_rows(that folder)",
+        "too; keep the estimate from both. Add the --out case to tests/test_paid_cap.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 497,
+      "pass_cases": [
+        "1. Spend 9.50 in RELAY_HOME/bench, run_bench(..., out_root=<other dir>) with estimate 1.00 and cap 10: raises PaidCapReached naming $9.50.",
+        "2. Spend 9.50 in <other dir> (an --out folder used earlier the same day) and nothing in RELAY_HOME/bench: run_bench(out_root=RELAY_HOME/bench, estimate 1.00) refuses too, or the --out results are recorded where spend_today reads them.",
+        "3. bin/paid-cost today counts a bench run that was written to an --out folder (or the doc states --out runs are not counted and the refusal still holds).",
+        "4. No --out, spend 8.50, estimate 1.00, cap 10: runs (today's behaviour, unchanged)."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_paid_cap.py:106,115,126,134 pass and fail at e54b438."
+      ],
+      "severity": "MEDIUM",
+      "since": "e54b4387368c3a239cd957c8cd59ff304eda7065",
+      "source": "review-paid-cap.json",
+      "source_id": "F1",
+      "summary": "relay bench --out <dir> counts only that folder's bench spend: the day's bench runs in ~/.relay/bench are ignored, and --out runs are never counted by bin/paid-cost today or the bin/ci guard",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: relay_config.ROOT is the checkout holding lib/, projects_file() is ROOT/projects.toml unless RELAY_PROJECTS,",
+        "and set_cap writes that file in place. projects.toml is tracked, so the cap only travels by a commit on master. The front skill",
+        "runs the paid bin/ci in a detached worktree of master's head (plugins/front/skills/front/SKILL.md:98-101). The item's What asks",
+        "for a cap \"changed by one command\"; today it takes the command plus a commit and a merge, and the hint in the refusal leads to a",
+        "dirty main checkout. Size: 30 minutes (land the edit on the default branch the way relay queue lands its file, with a test that",
+        "the main checkout stays clean), or the owner decides the cap is machine state under RELAY_HOME instead (then it is a Design change)."
+      ],
+      "evidence": [
+        "lib/relay_config.py:18  ROOT = os.environ.get(\"RELAY_ROOT\") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))",
+        "lib/relay_config.py:22-23  projects_file() -> RELAY_PROJECTS or ROOT/projects.toml",
+        "lib/relay_paidcap.py set_cap: open(path, \"w\") ... f.write(text)   (no commit)",
+        "lib/relay_paidcap.py check(): \"raise the cap with `bin/paid-cost cap <USD>` or run tomorrow\""
+      ],
+      "failing_case": [
+        "The owner says \"raise the cap to $300\". The refusal line tells the front to run `bin/paid-cost cap <USD>`. In the main checkout:",
+        "projects.toml is modified and uncommitted (the primary checkout must stay clean; the next paid run is a detached worktree of",
+        "master's head, which still reads 200). In the detached paid worktree: that run sees 300, the next one 200 again. In a task",
+        "worktree: 300 only after that branch merges. There is no path where \"one command\" changes the cap the next paid run reads."
+      ],
+      "fix_hint": [
+        "Make `cap <USD>` commit the one-line change on the default branch (refusing when anything else would change), like relay queue;",
+        "or read and write the cap from the main checkout's projects.toml and commit it there."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 160,
+      "pass_cases": [
+        "1. `bin/paid-cost cap 300` run from the main checkout or any worktree: afterwards the default branch's projects.toml says 300 (a commit on the default branch, as `relay queue` lands its file), and the main checkout is clean.",
+        "2. A detached worktree made from the default branch's head after that: `bin/paid-cost cap` prints 300.",
+        "3. `bin/paid-cost cap` with no USD prints the cap and changes no file (unchanged).",
+        "4. The refusal line still names the command that raises the cap."
+      ],
+      "path": "bin/paid-cost",
+      "rank": "medium",
+      "reason": [
+        "tests/test_paid_cap.py:171,183,192 pass; the first two fail at e54b438."
+      ],
+      "severity": "MEDIUM",
+      "since": "e54b4387368c3a239cd957c8cd59ff304eda7065",
+      "source": "review-paid-cap.json",
+      "source_id": "F2",
+      "summary": "`bin/paid-cost cap <USD>` writes the projects.toml of whatever checkout it runs in: from the main checkout it leaves master dirty, from a worktree the change is lost, and the paid run (a detached worktree of master's head) keeps the old cap",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the tests call relay_paidcap and bin/paid-cost guard directly; nothing reads or runs bin/ci's paid step.",
+        "The rule \"a test that passes with the behaviour disabled\" applies to the bin/ci half of the item. Size: 15 minutes (a stub claude",
+        "plus the paid section extracted, or a check that the guard line sits before the eval call with an exit)."
+      ],
+      "evidence": [
+        "git grep -n \"guard eval\" -- tests   -> no match",
+        "bin/ci:80  python3 bin/paid-cost guard eval || { echo \"ci: RED (the day's paid-run cap)\"; exit 1; }"
+      ],
+      "failing_case": [
+        "Remove `python3 bin/paid-cost guard eval || { ...; exit 1; }` from bin/ci: tests/test_paid_cap.py and the whole library suite",
+        "still pass, though the item's pass case \"a paid bin/ci ... is refused before it starts with that line\" is then false."
+      ],
+      "fix_hint": [
+        "Add a test in tests/test_paid_cap.py that runs bin/ci's paid section with a stub claude on PATH over and under the cap."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. With the guard line removed from bin/ci, a test fails.",
+        "2. A test (free, no model call) shows that in bin/ci the guard call comes before `claude plugin eval` and that its failure exits before it, for example by running the paid section with a stub `claude` on PATH and a fixture over the cap: the stub is never called and the output holds \"plugin evals refused\".",
+        "3. Under the cap, the same stub is called once (the step runs)."
+      ],
+      "path": "tests/test_paid_cap.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_paid_cap.py:252,260 pass; 252 fails with the guard line deleted from bin/ci (run in a throwaway worktree)."
+      ],
+      "severity": "MEDIUM",
+      "since": "e54b4387368c3a239cd957c8cd59ff304eda7065",
+      "source": "review-paid-cap.json",
+      "source_id": "F3",
+      "summary": "no test shows bin/ci refuses the paid step: deleting the guard line from bin/ci leaves every test green",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The item defines the guard by the estimate, so this is within its letter; but bounding the tool's own ceiling",
+        "by the room left makes the cap hold within one run, which is what the owner asked (\"stop before a run would push the day's",
+        "spend over\"). Size: 10 minutes (bin/paid-cost prints the room; bin/ci passes min(EVALS_MAX_COST, room) as --cap to ceiling)."
+      ],
+      "evidence": [
+        "bin/ci:81  read -r eval_jobs eval_ceiling < <(python3 bin/paid-cost ceiling --cap \"${EVALS_MAX_COST:-15}\" ...)"
+      ],
+      "failing_case": [
+        "Cap 200, spent 190, largest stored batch 9.04 (real records): the guard passes (190 + 9.04 = 199.04, within 200);",
+        "the batch gets --max-cost-usd 15 (EVALS_MAX_COST) and can end at 190 + 15 + one run, about $206, over the owner's $200."
+      ],
+      "fix_hint": [
+        "Let `bin/paid-cost guard eval` print the room left and pass min(EVALS_MAX_COST, room) to `ceiling --cap`."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 81,
+      "pass_cases": [
+        "1. Spent 190, cap 200, EVALS_MAX_COST 15: the ceiling passed to the eval tool is at most 10 (cap minus spend).",
+        "2. Spent 50, cap 200, EVALS_MAX_COST 15: the ceiling stays 15 (unchanged).",
+        "3. Spent 195, estimate 9: refused by the guard (unchanged)."
+      ],
+      "path": "bin/ci",
+      "rank": "low",
+      "reason": [
+        "tests/test_paid_cap.py:272,275 pass and fail at e54b438."
+      ],
+      "severity": "LOW",
+      "since": "e54b4387368c3a239cd957c8cd59ff304eda7065",
+      "source": "review-paid-cap.json",
+      "source_id": "F4",
+      "summary": "the eval ceiling passed to the tool ignores the day's room, so a batch that passes the guard can still end above the cap",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch run (RELAY_PROJECTS pointing at a copy). Size: 5 minutes (replace only the value group; write repr or a",
+        "fixed format)."
+      ],
+      "evidence": [
+        "RELAY_PROJECTS=<s>/p2.toml python3 bin/paid-cost cap 1234567.5  -> 1.23457e+06",
+        "after cap 12.345 the file holds \"paid_cap_usd_per_day = 12.345\" with the comment gone"
+      ],
+      "failing_case": [
+        "projects.toml holds `paid_cap_usd_per_day = 200   # the owner's cap ...; change it with bin/paid-cost cap <USD>`.",
+        "`bin/paid-cost cap 250` leaves `paid_cap_usd_per_day = 250` with the comment gone. `bin/paid-cost cap 1234567.5` stores 1.23457e+06."
+      ],
+      "fix_hint": [
+        "re.sub(rf\"^({KEY}\\s*=\\s*)[^#\\n]*\", ...) keeping the comment; format with repr(float) or \"{:.2f}\".rstrip."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 37,
+      "pass_cases": [
+        "1. cap 250 on a line with a trailing comment: the value is 250 and the comment is still there.",
+        "2. cap 1234567.5: `bin/paid-cost cap` prints 1234567.5.",
+        "3. cap 200 on a file without the key: the key is added under [global] (unchanged)."
+      ],
+      "path": "lib/relay_paidcap.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_paid_cap.py:200,203,207 pass; fail at e54b438."
+      ],
+      "severity": "LOW",
+      "since": "e54b4387368c3a239cd957c8cd59ff304eda7065",
+      "source": "review-paid-cap.json",
+      "source_id": "F5",
+      "summary": "set_cap drops the line's comment and writes caps with %g, so 1234567.5 is stored as 1.23457e+06 and 12.3456789 as 12.3457",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Cheap text change, but it edits a skill and so needs the wave's paid run; fine to drop if the owner prefers.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "plugins/front/skills/front/SKILL.md:100  needed, within the owner's daily cap) in a detached worktree of the default"
+      ],
+      "failing_case": [
+        "A new session or another machine reads \"run the full paid bin/ci yourself (no approval needed, within the owner's daily cap)\"",
+        "and has no pointer to `bin/paid-cost today`; the session still takes the cap from memory, the place the item says must stop being the source."
+      ],
+      "fix_hint": [
+        "\"within the owner's daily cap (`bin/paid-cost today` prints the spend and the cap; bin/ci refuses past it)\"."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 100,
+      "pass_cases": [
+        "1. The paid-run paragraph names `bin/paid-cost today` (spend and cap) and that bin/ci refuses past the cap.",
+        "2. A paid run of the texts follows (the edit touches a skill text)."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "low",
+      "reason": [
+        "plugins/front/skills/front/SKILL.md:100 names bin/paid-cost today and the refusal. Edits a skill text, so it needs the wave's paid run (not run here)."
+      ],
+      "severity": "LOW",
+      "since": "e54b4387368c3a239cd957c8cd59ff304eda7065",
+      "source": "review-paid-cap.json",
+      "source_id": "F6",
+      "summary": "the front skill still says 'within the owner's daily cap' without naming where the cap and spend now live",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "fff178175d78f7f06631d0922f37354763695626.gate.log",
+  "head": "5122e57c149087278856882d8643d6452c926cda",
+  "item": "the-day-s-paid-run-cap-and-spend-live-outside-re",
+  "notes": [
+    "Fix diff read: land_cap, with_cap, link_out, all_bench_rows, --within-day. No caller broken seen."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range e54b438..HEAD; gate log head fff1781 exit 0, no file changed after it. tests/test_paid_cap.py 19 passed. Against e54b438 with head tests: 10 failed. Guard line deleted from bin/ci: the over-cap CiGuard test fails. Against 5590404 the test file fails at collection."
+  ],
+  "type": "check"
+}

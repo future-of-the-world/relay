@@ -1,0 +1,65 @@
+{
+  "branch": "wt/paid-cap",
+  "findings": [
+    {
+      "details": [
+        "Owner, verbatim: \"\u0414\u043e\u0431\u0430\u0432\u044c \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u044c \u043f\u0443\u043d\u043a\u0442 \u043f\u0440\u043e \u043f\u0440\u0435\u0434\u0435\u043b \u0437\u0430 \u0434\u0435\u043d\u044c \u0432 relay\". On 24 Oct the cap was raised three times ($75, $100, $200) and lived only in Claude's memory; the day's spend (\"about $70\") was an estimate from the handover, since no command sums it. Another machine or session without that memory has no cap at all."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "24 Oct: no relay command prints the day's paid spend; the cap $200 is written only in ~/.claude/projects/-Users-amidman-relay/memory/paid-checks-preapproved.md; bin/paid-cost has only `ceiling` and `estimate`."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "`bin/paid-cost today` on fixture records prints the summed spend, the run count and the cap; a paid bin/ci or relay bench whose estimate would pass the cap is refused before it starts with that line; with spend + estimate under the cap it runs; the cap is read from projects.toml, not from Claude memory."
+      ],
+      "path": "projects.toml [global], bin/paid-cost, bin/ci (plugin evals step), lib/relay_bench.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_paid_cap.py (19 pass on head, fail at base 5590404 with collection error)."
+      ],
+      "severity": "HIGH",
+      "since": "5590404dd1a1170f97afc81944fddf1685274f60",
+      "source": "queue",
+      "summary": "The day's paid-run cap and spend live outside relay",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "Gate green on 891b32b (exit 0, QUICK MODE, paid steps skipped), merge applied cleanly, tests pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "891b32b50ce036aa8f70add2e6de55ee32c9a654",
+      "source": "merge10-paid-cap.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "891b32b50ce036aa8f70add2e6de55ee32c9a654.gate.log",
+  "head": "85271abda264ba1feaab2930259a726172e56b7b",
+  "item": "the-day-s-paid-run-cap-and-spend-live-outside-re",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Merge of master into the branch, no fixes. Gate log head 891b32b, exit 0; relay changed 891b32b lists no file after it (only the gate commit). tests/test_paid_cap.py: 19 passed on head; at the pre-fix base 5590404 it errors at collection (module missing)."
+  ],
+  "type": "check"
+}
