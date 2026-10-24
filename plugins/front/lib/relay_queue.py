@@ -913,13 +913,23 @@ def _holds_test(path, name, source):
     return re.search(pattern, source) is not None
 
 
+TEST_FORMS = "--test is <test file>::<test name>, or evals/plugin/<case>::<grader> for an eval case"
+
+
 def test_refusal(repo, ref, test):
     """None when the test named by `test` (`<file>::<name>` or `<file>::<Class>::<name>`) is in the tree at `ref` of `repo` and
     defined there (`holds_test`), else the refusal line."""
     path, _, rest = test.strip().partition("::")
     name = rest.split("::")[-1].strip()
     if not path.strip() or not name:
-        return "--test is <test file>::<test name>"
+        return TEST_FORMS
+    case = re.fullmatch(r"(evals/plugin/[^/]+)/?", path.strip())
+    if case:                                        # an eval case: the proof is the grader file, which need not name itself
+        grader = f"{case.group(1)}/graders/{name}.md"
+        rc, _, _ = _git(repo, "cat-file", "blob", f"{ref}:{grader}")
+        if rc != 0:
+            return f"the grader {grader} is not in the last commit of the branch ({TEST_FORMS})"
+        return None
     rc, source, _ = _git(repo, "cat-file", "blob", f"{ref}:{path.strip()}")
     if rc != 0:
         return f"the test file {path.strip()} is not in the last commit of the branch"
@@ -996,7 +1006,7 @@ def done(worktree, slug, test):
         raise Refused("done runs in the worktree of the task branch that took the item")
     path, _, name = test.partition("::")
     if not path or not name:
-        raise Refused("--test is <test file>::<test name>")
+        raise Refused(TEST_FORMS)
     rc, out, _ = _git(worktree, "cat-file", "blob", f"HEAD:{_path(slug)}")
     if rc != 0:
         raise Refused(f"no queue item '{slug}' on this branch (take it first)")
