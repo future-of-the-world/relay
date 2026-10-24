@@ -482,7 +482,11 @@ class TestSeedItems(unittest.TestCase):
         item = rq.parse("eval-votes-in-file-names", committed_items(ROOT)["eval-votes-in-file-names.json"])
         path, _, line = item["where"].rpartition(":")
         self.assertEqual(path, "evals/judge-measure/tally.py")
-        self.assertIn("(yes|no)--", committed_text(ROOT, path).split("\n")[int(line) - 1])      # the code at `where` is what the item says
+        # Read at the commit that filed the item, not at HEAD: the change the item asks for removes that regex from tally.py.
+        name = "eval-votes-in-file-names.json"
+        filed = git(ROOT, "log", "--diff-filter=A", "--format=%H", "--", ".relay/queue/" + name, ".relay/queue/done/" + name).split("\n")[-1]
+        self.assertTrue(filed, "the commit that added the item is not in the history")
+        self.assertIn("(yes|no)--", git(ROOT, "show", "%s:%s" % (filed, path)).split("\n")[int(line) - 1])
 
 
 class TestFormat(Base):
