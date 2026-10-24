@@ -220,7 +220,7 @@ A press SHALL turn the dial one step.
 - **WHEN** the dial is at 3 and is pressed once
 - **THEN** it is at 4
 EOF
-printf '## 1. G\n\n- [ ] 1.1 Dial. Reads: dial "The dial turns"; file docs/guide.md. Tests: dial "One press". Files: src/widget/dial.ts. Check: `true`\n' >"$c/tasks.md"
+printf '## 1. G\n\nWave 0 · depends on: none\n\n- [ ] 1.1 Dial. Reads: dial "The dial turns"; file docs/guide.md. Tests: dial "One press". Files: src/widget/dial.ts. Check: `true`\n' >"$c/tasks.md"
 out="$("${check[@]}" demo 2>&1)"; status=$?
 [ "$status" -eq 0 ] && pass "a clean change exits 0" || flunk "a clean change exits 0 (got $status): $out"
 expect "spec-check: 1 requirement(s), 0 touching stored data or the native shell, 0 with problems"
