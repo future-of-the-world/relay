@@ -1,40 +1,149 @@
 {
+  "branch": "wt/projects-out",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by reading. The change removed the behaviour but not its description; START_HERE.md is the script a",
+        "session executes for \"install relay\", so the stale step is reachable by ordinary use. The brief's file list omitted",
+        "the docs, but the change must touch them to keep its own promise (\"install no longer imports\"). The `Next:` line",
+        "of cmd_install (bin/relay:389, \"relay migrate --all (the plan for every project)\") is now of little use on a fresh",
+        "machine; adjust it in the same pass if cheap.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n -i principles -> README.md:56 \"global CLAUDE.md, user settings, plugins, projects imported from ~/principles\";",
+        "START_HERE.md:26 \"`~/principles/projects.toml`\"; docs/setup.md:85 \"`~/principles/projects.toml`). `relay migrate --all` prints the plan for every imported project\"",
+        "bin/relay migrate --all -> only \"==== relay (/Users/amidman/relay)\""
+      ],
+      "failing_case": [
+        "A session told \"install relay\" follows START_HERE.md: step 2 says install \"imports the projects from",
+        "~/principles/projects.toml\", step 5 says `relay migrate --all` acts \"for every imported project\". After this",
+        "change install imports nothing and migrate --all shows only relay, so the session reports a missing import or",
+        "hunts for it. README.md:56 (\"projects imported from ~/principles\") and docs/setup.md:83-86 (\"the projects from",
+        "~/principles/projects.toml\", \"every imported project\") say the same. Should say: install registers no project;",
+        "`relay setup <dir>` adds one."
+      ],
+      "fix_hint": [
+        "Edit README.md:56, START_HERE.md step 2 and step 5, docs/setup.md \"The whole machine at once\": drop the import,",
+        "say `relay setup <dir>` registers a project."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 26,
+      "pass_cases": [
+        "- git grep -n 'principles/projects.toml' -- README.md START_HERE.md docs/setup.md prints nothing.",
+        "- START_HERE.md step 2 lists what install does: global CLAUDE.md, user settings, plugins, claude plugin commands; no import.",
+        "- README.md install block comment for `relay install` names no ~/principles import.",
+        "- docs/setup.md \"The whole machine at once\" describes install without the import and says `relay setup <dir>` registers a project.",
+        "- The owner-project lists in docs/setup.md \"Order for the owner's projects\" stay for the later portable-tool change (not required here)."
+      ],
+      "path": "START_HERE.md",
+      "rank": "medium",
       "reason": [
         "README.md, START_HERE.md steps 2 and 5, docs/setup.md and the bin/relay Next line no longer mention the import; grep empty."
       ],
+      "severity": "MEDIUM",
+      "since": "fe04fc411af2d1f9e02fdbd70107465646d87e1e",
+      "source": "review-projects-out.json",
+      "source_id": "F1",
+      "summary": "install docs still promise that relay install imports the projects from ~/principles/projects.toml",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading: install() has no behaviour test on master or here (git grep of tests for relay_setup.install",
+        "and principles finds none). Correct today; fragile against reintroduction. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n 'principles\\|relay_setup.install' master -- tests -> no output"
+      ],
+      "failing_case": [
+        "Someone re-adds the import inside install() under another name (or inline). test_install_has_no_import_from_a_principles_library",
+        "still passes (no attribute import_principles_projects, no `principles` parameter), and the next `relay install` on",
+        "this machine appends the 10 projects again from ~/principles/projects.toml. Should: a test fails."
+      ],
+      "fix_hint": [
+        "Add one behaviour test calling install(run_claude=False) with HOME, RELAY_PROJECTS and CLAUDE_CONFIG_DIR in a tmp dir",
+        "and a principles/projects.toml present; assert the projects file is unchanged."
+      ],
       "id": "F2",
+      "kind": "inside",
+      "line": 1870,
+      "pass_cases": [
+        "- tmp HOME with principles/projects.toml holding [alix] and [arsenal]; RELAY_PROJECTS = a tmp copy of projects.toml; CLAUDE_CONFIG_DIR = tmp; relay_setup.install(run_claude=False) -> the tmp projects.toml is byte-identical afterwards.",
+        "- same setup -> no line of the returned `done` mentions \"imported\".",
+        "- test_projects_toml_has_only_global_and_relay keeps passing."
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "low",
       "reason": [
         "tests/test_relay.py:1878 test_install_does_not_import_principles_projects: tmp HOME with principles/projects.toml, install(run_claude=False), projects.toml bytes compared; passes."
       ],
+      "severity": "LOW",
+      "since": "fe04fc411af2d1f9e02fdbd70107465646d87e1e",
+      "source": "review-projects-out.json",
+      "source_id": "F2",
+      "summary": "the install test checks only that a function name is gone, not that install leaves projects.toml unchanged",
       "verdict": "MET"
     },
     {
+      "details": [
+        "Question for the owner. How it works: relay sync rewrites only the files named in projects.toml; the 10 project files",
+        "were written by it until today and now stop changing. Live example: ~/alix/CLAUDE.local.md loads OpenSpec and quality-gate",
+        "full texts, and the global ~/.claude/CLAUDE.md already lists those rules as \"read when they apply\", so the projects keep",
+        "their rules either way; only future rule edits stop reaching their full text.",
+        "Options: (a) leave them frozen (recommended now: nothing breaks, the portable-tool change decides where per-project",
+        "settings live); (b) rewrite the header so the file reads as the project's own; (c) delete them and rely on the global list.",
+        "The brief marks deleting them as not decided, so this change correctly left them. Size: 5 agent minutes for (b) or (c)."
+      ],
+      "evidence": [
+        "head -3 ~/alix/CLAUDE.local.md -> \"<!-- Generated by relay (relay sync). Edit rules/ and profiles/active.toml, not this file. -->\"",
+        "bin/relay sync --dry -> only global, relay, agents"
+      ],
+      "failing_case": [
+        "~/alix/CLAUDE.local.md starts \"Generated by relay (relay sync). Edit rules/ and profiles/active.toml, not this file.\"",
+        "After this change, editing rules/openspec.md and running relay sync leaves it as it is: the project keeps the old",
+        "rule text forever, and its header points the reader at a source that no longer reaches it. If a rule is renamed",
+        "(the queued taste -> principles change), its \"Full text: ~/relay/rules/<x>.md\" lines can point at a missing file."
+      ],
+      "fix_hint": [
+        "None in this change; the owner's answer goes to the portable-tool queue item."
+      ],
       "id": "F3",
+      "kind": "question",
+      "line": 1,
+      "owner": [
+        {
+          "date": "2026-10-24",
+          "words": [
+            "\u0430, \u043e\u0441\u0442\u0430\u0432\u044c \u043a\u0430\u043a \u0435\u0441\u0442\u044c"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "- The owner picks one: (a) leave the files frozen as they are (today's brief), (b) strip relay's header so they read as the project's own text, (c) remove the files so the projects get only the global list.",
+        "- Whatever the pick, docs say what happens to a project's CLAUDE.local.md once it leaves projects.toml."
+      ],
+      "path": "projects.toml",
+      "rank": "low",
       "reason": [
         "Question; owner answered a (leave as is). No change required."
       ],
+      "severity": "LOW",
+      "since": "fe04fc411af2d1f9e02fdbd70107465646d87e1e",
+      "source": "review-projects-out.json",
+      "source_id": "F3",
+      "summary": "the 10 projects keep a CLAUDE.local.md that says it is generated by relay sync, but sync no longer writes it",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/projects-out/.relay/checks/9a1f055edc04d5f656836f49fd0623a85c1b1a15.gate.log",
+  "gate": "9a1f055edc04d5f656836f49fd0623a85c1b1a15.gate.log",
   "head": "617712beb08f2f9ac9b6f0c29241133f5b67f4e2",
-  "new": [],
+  "item": null,
   "notes": [
     "The fixer says the new test fails with the import injected; I read the test and it encodes the case. The fix to the Next line in bin/relay has no other caller."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "fe04fc411af2d1f9e02fdbd70107465646d87e1e.review.json"
-  ],
-  "reviewed": "fe04fc411af2d1f9e02fdbd70107465646d87e1e",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range fe04fc4..HEAD. Changed own files: README.md, START_HERE.md, bin/relay, docs/setup.md, tests/test_relay.py (all in scope). Gate log head 9a1f055, exit 0; HEAD adds only the gate log. Ran TestNoOwnerProjects and TestInstallRegistersNoProject (2 passed). grep for principles/projects.toml in the three docs is empty."
   ],

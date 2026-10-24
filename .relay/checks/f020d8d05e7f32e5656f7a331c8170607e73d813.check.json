@@ -1,26 +1,38 @@
 {
+  "branch": "wt/eval-tally",
   "findings": [
     {
+      "details": [
+        "A tally that crashes reads as 'a bar is exceeded', a wrong answer about the judge."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`python3 tally.py /dev/null --expect-model haiku` prints a traceback and exits 1, which means \"a bar is exceeded\"; should exit 2, \"not judged\" (L1)"
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [],
+      "path": ".relay/queue/tally-unreadable-json.json",
+      "rank": "high",
       "reason": [
         "tests/test_judge_tally.py::UnreadableInput (lines 32-66) asserts exit 2, empty stdout, one NOT JUDGED line, no traceback for empty, missing, non-UTF8 and wrong-shape input; passes at head, fails at the reviewed commit."
       ],
+      "severity": "HIGH",
+      "since": "6c858172bed2b9b0d0ff12534b839cc5681d6f20",
+      "source": "queue",
+      "summary": "The tally crashes on unreadable input",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/eval-tally/.relay/checks/c29755468e0bcc6158b6a83f53d9488d505f25cd.gate.log",
+  "gate": "c29755468e0bcc6158b6a83f53d9488d505f25cd.gate.log",
   "head": "f020d8d05e7f32e5656f7a331c8170607e73d813",
-  "new": [],
+  "item": "tally-unreadable-json",
   "notes": [
     "Changes beyond tally.py (answers.json, make.py, tests) belong to the item's other findings in this branch (expected answer as a stored field); not examined as scope violations."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "6c858172bed2b9b0d0ff12534b839cc5681d6f20.review.json"
-  ],
-  "reviewed": "6c858172bed2b9b0d0ff12534b839cc5681d6f20",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range 6c85817..HEAD. Fixer report file was absent. Gate log is for c297554, only gate logs came after; exit 0. Ran tests/test_judge_tally.py (12 passed); ran tally.py /dev/null: exit 2, one NOT JUDGED line. Ran the 4 UnreadableInput tests at the reviewed commit: all 4 fail there."
   ],

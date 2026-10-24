@@ -8,9 +8,12 @@ replaces it; `--apply` moves the replaced files to .claude/relay-migration/
 import datetime as dt
 import json
 import os
+import platform
+import re
 import shutil
 import stat
 import subprocess
+import sys
 import tomllib
 
 import relay_config
@@ -433,6 +436,133 @@ def migrate(root, apply=False, **kw):
     return d, items, moved, flow, product, done, todo
 
 
+# --- dependencies: deps.toml is read here and by install.sh ------------------
+
+DEPS_FILE = os.path.join(ROOT, "deps.toml")
+DEP_STRINGS = ("name", "command", "min", "version_arg", "brew", "apt", "uv_tool", "uv_python", "darwin_run", "installer_url",
+               "installer_sha256", "official_url", "official_shell", "manual", "why")
+DEP_ROUTES = ("brew", "apt", "uv_tool", "uv_python", "darwin_run", "installer_url", "official_url", "manual")   # at least one way to install it
+RELEASE_KEY = re.compile(r"release_(url|sha256)_(darwin|linux)_(arm64|x86_64|aarch64)")
+
+
+def platform_key(system=None, machine=None):
+    """'darwin_arm64', 'linux_x86_64': the suffix of the release_* fields for this machine."""
+    system = system or sys.platform
+    return ("darwin" if system == "darwin" else "linux") + "_" + (machine or platform.machine())
+
+
+def load_deps(path=None):
+    """The entries of deps.toml, checked; a file that does not fit raises ValueError naming the entry."""
+    with open(path or DEPS_FILE, "rb") as handle:
+        data = tomllib.load(handle)
+    entries = data.get("dep")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("deps.toml: no [[dep]] entries")
+    seen = set()
+    for n, dep in enumerate(entries, 1):
+        label = f"deps.toml entry {n} ({dep.get('name', '?')})"
+        for key in dep:
+            if key not in DEP_STRINGS and key != "exact" and not RELEASE_KEY.fullmatch(key):
+                raise ValueError(f"{label}: unknown field '{key}'")
+        for key in ("name", "command", "version_arg"):
+            if not isinstance(dep.get(key), str) or not dep[key]:
+                raise ValueError(f"{label}: '{key}' must be a non-empty string")
+        for key in dep:
+            if key != "exact" and not isinstance(dep[key], str):
+                raise ValueError(f"{label}: '{key}' must be a string")
+        if "min" in dep and not re.fullmatch(r"\d+(\.\d+)*", dep["min"]):
+            raise ValueError(f"{label}: 'min' must be dotted numbers")
+        if "exact" in dep and (dep["exact"] is not True or "min" not in dep):
+            raise ValueError(f"{label}: 'exact' is true and needs 'min'")
+        if ("installer_url" in dep) != ("installer_sha256" in dep):
+            raise ValueError(f"{label}: 'installer_url' and 'installer_sha256' go together")
+        for key in dep:
+            m = RELEASE_KEY.fullmatch(key)
+            if m and m.group(1) == "url" and "release_sha256_" + key[len("release_url_"):] not in dep:
+                raise ValueError(f"{label}: '{key}' needs its release_sha256 checksum")
+            if m and m.group(1) == "sha256" and "release_url_" + key[len("release_sha256_"):] not in dep:
+                raise ValueError(f"{label}: '{key}' needs its release_url")
+        if not any(r in dep for r in DEP_ROUTES) and not any(RELEASE_KEY.fullmatch(k) for k in dep):
+            raise ValueError(f"{label}: no way to install it ({', '.join(DEP_ROUTES)}, release_url_*)")
+        if dep["name"] in seen:
+            raise ValueError(f"{label}: name listed twice")
+        seen.add(dep["name"])
+    return entries
+
+
+def version_tuple(text):
+    return tuple(int(x) for x in text.split("."))
+
+
+def dep_version(dep):
+    """The version the tool prints, as a tuple; None when it prints none or cannot run."""
+    exe = shutil.which(dep["command"])
+    if exe is None:
+        return None
+    try:
+        done = subprocess.run([exe, dep["version_arg"]], capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    found = re.search(r"\d+(?:\.\d+)+", done.stdout + done.stderr)
+    return version_tuple(found.group(0)) if found else None
+
+
+def install_hint(dep, system=None, machine=None):
+    """The route install.sh takes, in its order: the official one first, Homebrew/apt only as the fallback."""
+    system = system or sys.platform
+    if "uv_tool" in dep:
+        return "uv tool install " + dep["uv_tool"]
+    if "uv_python" in dep:
+        return "uv python install " + dep["uv_python"]
+    if "darwin_run" in dep and system == "darwin":
+        return dep["darwin_run"]
+    key = platform_key(system, machine)
+    if "release_url_" + key in dep:
+        return f"sh {os.path.join(ROOT, 'install.sh')} (downloads {dep['release_url_' + key]}, checks its sha256)"
+    if "installer_url" in dep:
+        return f"sh {os.path.join(ROOT, 'install.sh')} (downloads {dep['installer_url']}, checks its sha256)"
+    if "official_url" in dep:
+        return f"curl -fsSL {dep['official_url']} | {dep.get('official_shell', 'sh')}"
+    if "apt" in dep and system.startswith("linux"):
+        return "sudo apt-get install -y " + dep["apt"]
+    if "brew" in dep and system == "darwin":
+        return "brew install " + dep["brew"]
+    if "manual" in dep:
+        return dep["manual"]
+    return "sh " + os.path.join(ROOT, "install.sh")
+
+
+def dep_checks(deps=None):
+    """One (name, good, detail) per entry of deps.toml: on PATH, and the version at least the minimum (exactly it for a pin)."""
+    try:
+        deps = deps if deps is not None else load_deps()
+    except (OSError, ValueError, tomllib.TOMLDecodeError) as exc:
+        return [("deps.toml readable", False, str(exc))]
+    checks = []
+    for dep in deps:
+        exact = dep.get("exact") is True
+        if "min" not in dep:
+            name = f"{dep['name']} on PATH"
+        else:
+            name = f"{dep['name']} {dep['min']}" + (" (pinned)" if exact else "+")
+        found = dep_version(dep)
+        if shutil.which(dep["command"]) is None:
+            good, why = False, "not found"
+        elif found is None:   # on PATH but it prints no version: a stub (macOS git without the developer tools) or broken
+            good, why = False, "version not readable" if "min" in dep else "found but not working (prints no version)"
+        elif "min" not in dep:
+            good, why = True, ""
+        else:
+            want = version_tuple(dep["min"])
+            good = found == want if exact else found >= want
+            why = "found " + ".".join(map(str, found))
+        detail = ""
+        if not good:
+            detail = f"{why}; {install_hint(dep)}" + (f"; {dep['why']}" if dep.get("why") else "")
+        checks.append((name, good, detail))
+    return checks
+
+
 # --- doctor -----------------------------------------------------------------
 
 def doctor(root=None, profile=None):
@@ -441,9 +571,7 @@ def doctor(root=None, profile=None):
     def ok(name, good, detail=""):
         checks.append((name, bool(good), detail))
 
-    ok("python3 3.11+", True, "")
-    ok("jq on PATH", shutil.which("jq") is not None, "brew install jq" if not shutil.which("jq") else "")
-    ok("claude on PATH", shutil.which("claude") is not None, "benches and evals need it" if not shutil.which("claude") else "")
+    checks.extend(dep_checks())
     user = read_json(os.path.join(claude_dir(), "settings.json"))
     ok("relay marketplace in ~/.claude/settings.json", "relay" in user.get("extraKnownMarketplaces", {}), "relay setup --global")
     for p in ("observe", "delegate", "front", "core"):

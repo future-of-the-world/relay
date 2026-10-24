@@ -1,0 +1,166 @@
+{
+  "branch": "wt/installer",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
+      "reason": [
+        "gate log exit 0 on reviewed sha; pytest 447 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "9ead9e4123f29cc446cbe664ee9a02a0f07e8ca3",
+      "source": "merge3-installer.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "install.sh",
+      "rank": "medium",
+      "reason": [
+        "gate log exit 0 on reviewed sha; pytest 447 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "9ead9e4123f29cc446cbe664ee9a02a0f07e8ca3",
+      "source": "merge3-installer.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "gate log exit 0 on reviewed sha; pytest 447 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "9ead9e4123f29cc446cbe664ee9a02a0f07e8ca3",
+      "source": "merge3-installer.json",
+      "source_id": "F3",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_ci_hook_tests.py",
+      "rank": "medium",
+      "reason": [
+        "gate log exit 0 on reviewed sha; pytest 447 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "9ead9e4123f29cc446cbe664ee9a02a0f07e8ca3",
+      "source": "merge3-installer.json",
+      "source_id": "F4",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_eval_record.py",
+      "rank": "medium",
+      "reason": [
+        "gate log exit 0 on reviewed sha; pytest 447 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "9ead9e4123f29cc446cbe664ee9a02a0f07e8ca3",
+      "source": "merge3-installer.json",
+      "source_id": "F5",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_installer_doctor.py",
+      "rank": "medium",
+      "reason": [
+        "gate log exit 0 on reviewed sha; pytest 447 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "9ead9e4123f29cc446cbe664ee9a02a0f07e8ca3",
+      "source": "merge3-installer.json",
+      "source_id": "F6",
+      "summary": "changed since the last check: combined with master's change by the merge, or a gate fix",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "9ead9e4123f29cc446cbe664ee9a02a0f07e8ca3.gate.log",
+  "head": "074c9dfda8218a339159e26e13977676dbffad35",
+  "item": null,
+  "notes": [
+    "All six findings are the generic \"changed by merge, gate must pass\" case; gate and pytest are green."
+  ],
+  "schema": 2,
+  "scope": [
+    "Only commit after reviewed sha is the gate log commit; relay changed --own lists no file. Gate log starts with head 9ead9e41..., ends exit 0. Ran full pytest tests: 447 passed. No new tests, so nothing to prove failing without a fix."
+  ],
+  "type": "check"
+}

@@ -1,26 +1,40 @@
 {
+  "branch": "wt/mac-timeout",
   "findings": [
     {
+      "details": [
+        "bin/check calls timeout, which macOS does not have, so the first check fails as if a test failed and a round of the 3-round budget is spent; with a local shim there is no hang bound at all."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Trial: in a fresh project made by relay setup, bin/check printed 'timeout: command not found' and exited 1 on the first run; the trial had to patch in a shim that removes the hang bound."
+      ],
+      "fix_hint": [],
       "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "On a machine with no timeout or gtimeout, bin/check on a green project prints passed (exit 0) and on a hanging step prints HUNG within CHECK_TIMEOUT."
+      ],
+      "path": "templates/bin-check:19-21, templates/bin-check (md5sum use)",
+      "rank": "high",
       "reason": [
         "tests/test_bin_check_portable.py test_green_step_passes_without_timeout and test_hanging_step_is_hung_within_bound: PATH without timeout/gtimeout, green gives passed exit 0, hang gives HUNG exceeded 1s exit 1. Both fail at the base commit."
       ],
+      "severity": "HIGH",
+      "since": "fa587db2febbbbc57d2293db5df849aef8358788",
+      "source": "queue",
+      "summary": "First check in a new project on a Mac fails: no timeout",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/mac-timeout/.relay/checks/48ab8f5352766cfb30afa88cdac113761b59e287.gate.log",
+  "gate": "48ab8f5352766cfb30afa88cdac113761b59e287.gate.log",
   "head": "cb4253bfd7c95c4a343b41708168e95b75cc8405",
-  "new": [],
+  "item": "first-check-in-a-new-project-on-a-mac-fails-no-t",
   "notes": [
     "bin-check now falls back timeout, gtimeout, python3, perl; md5sum, md5, python3 for the hash. Signals forwarded to the step, CHECK_TIMEOUT=0 means no bound."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "fa587db2febbbbc57d2293db5df849aef8358788.review.json"
-  ],
-  "reviewed": "fa587db2febbbbc57d2293db5df849aef8358788",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Range fa587db..HEAD; changed files templates/bin-check and tests/test_bin_check_portable.py only. Ran the new test file (10 passed) and tests/ (327 passed). Gate log is for 48ab8f5 and exit 0; only the inert gate commit follows. Base run at fa587db with the head test file: 9 failed, 1 passed."
   ],

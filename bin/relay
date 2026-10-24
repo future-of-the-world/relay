@@ -52,6 +52,9 @@
                                      a judge's way to write its verdict (a check is ONE record: see roles/judge.md): the TOML input names the report (a .json path)
                                      and holds the fields and prose; validated, then written as JSON (agents never type
                                      JSON and pass no text through the shell); see roles/judge.md for the template
+  relay check migrate [--redo] [-C <repo>]    convert the old (schema 1) checks in .relay/checks to check records, then delete the
+                                     review sets; safe to run again (nothing to convert, nothing changed);
+                                     --redo converts again from the checks as they were before this branch's migration commit
   relay check owner <review.json> <id> --input <file.toml>
                                      keep the owner's word that finding <id> is not wrong: the TOML holds `words` (the owner's
                                      words as said, '''...''' for several lines); appended with the date to the review's
@@ -76,6 +79,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "lib"))
 
 import relay_analyze  # noqa: E402
 import relay_bench  # noqa: E402
+import relay_checks_migrate  # noqa: E402
 import relay_config  # noqa: E402
 import relay_gate  # noqa: E402
 import relay_git  # noqa: E402
@@ -589,15 +593,43 @@ def cmd_check_findings(args):
     return 0
 
 
+MIGRATE_USAGE = "relay check migrate [--redo] [-C <repo>]"
+
+
+def cmd_check_migrate(args):
+    """relay check migrate: convert the schema-1 checks in <repo>/.relay/checks to check records; safe to run again."""
+    args, repo = list(args), "."
+    again = "--redo" in args
+    if again:
+        args.remove("--redo")
+    if args[:1] == ["-C"] and len(args) == 2:
+        repo = args[1]
+    elif args:
+        raise Usage(MIGRATE_USAGE)
+    try:
+        checks, marks, sets = relay_checks_migrate.migrate_and_commit(os.path.realpath(repo), again)
+    except relay_checks_migrate.CommitError as exc:
+        raise ValueError("%s" % exc)
+    except relay_checks_migrate.MigrateError as exc:
+        raise ValueError("nothing changed: %s" % exc)
+    if not (checks or marks or sets):
+        print("nothing to migrate")
+    else:
+        print("migrated %d checks and %d marks; deleted %d review sets" % (checks, marks, sets))
+    return 0
+
+
 def cmd_check(args):
     usage = ("relay check show [-C <repo>] [--brief] <branch | report.json | sha>  |  "
-             "relay check record review|check --input <file.toml>  |  " + FINDINGS_USAGE + "  |  " + OWNER_USAGE)
+             "relay check record review|check --input <file.toml>  |  " + FINDINGS_USAGE + "  |  " + MIGRATE_USAGE + "  |  " + OWNER_USAGE)
     if args and args[0] == "record":
         return cmd_check_record(args[1:])
     if args and args[0] == "owner":
         return cmd_check_owner(args[1:])
     if args and args[0] == "findings":
         return cmd_check_findings(args[1:])
+    if args and args[0] == "migrate":
+        return cmd_check_migrate(args[1:])
     if not args or args[0] not in ("show",):
         raise Usage(usage)
     args, repo, rest, brief = list(args[1:]), ".", [], False

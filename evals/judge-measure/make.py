@@ -24,7 +24,7 @@ A template holds one line {{FINDING}}; the source's finding lines replace it. Ru
     (an item counts only as a parsed line of items.txt, not as text in a comment)
   - every known wrong answer (the question's `known_wrong` phrases in questions.json: wrong replies that
     pass the code graders, so only the judge can refuse them) appears in a "no" item
-Standard library and node only; no model is called.
+Standard library and bun only; no model is called.
 """
 import argparse, glob, json, os, re, subprocess, sys
 
@@ -48,7 +48,7 @@ def split_front(text):
 def node_test(triples):
     js = ("const t=JSON.parse(require('fs').readFileSync(0,'utf8'));"
           "process.stdout.write(JSON.stringify(t.map(([p,f,x])=>new RegExp(p,f).test(x))))")
-    out = subprocess.run(["node", "-e", js], input=json.dumps(triples), capture_output=True, text=True, check=True).stdout
+    out = subprocess.run(["bun", "-e", js], input=json.dumps(triples), capture_output=True, text=True, check=True).stdout
     return json.loads(out)
 
 

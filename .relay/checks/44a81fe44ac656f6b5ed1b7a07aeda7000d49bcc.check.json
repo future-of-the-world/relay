@@ -1,40 +1,142 @@
 {
+  "branch": "wt/sync-refused",
   "findings": [
     {
+      "details": [
+        "CONFIRMED by trace. The change turned the refusal from an exception into a result state, and updated cmd_sync and",
+        "cmd_improve to turn it back into exit 1 via report_refused, but cmd_setup (used by both `setup` and `migrate`, bin/relay:752)",
+        "still does `return 0` after its sync. The Fail handler at bin/relay:771 no longer fires for this case. An error answered",
+        "as success: a script or the front reading the exit code sees setup succeeded, while the global rules were not written.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "git grep -n \"relay_rules.sync\" -> bin/relay:383 (cmd_setup), the only caller besides improve and sync that can refuse.",
+        "sed -n 383,386p bin/relay:",
+        "    results = relay_rules.sync(..., only={d[\"name\"], \"global\"} if not no_global else {d[\"name\"]}, adopt=d[\"name\"])",
+        "    print(\"\\nSynced: \" + \"; \".join(f\"{n} {state}\" for n, _, state in results))",
+        "    print(\"\\nCheck: relay doctor \" + root)",
+        "    return 0"
+      ],
+      "failing_case": [
+        "A machine whose ~/.claude/CLAUDE.md has no relay header (the person's own file). `relay setup <dir>` (no --no-global):",
+        "sync(only={<name>, \"global\"}, adopt=<name>) refuses global. Before the change this raised Fail and setup exited 1 with",
+        "\"run `relay sync --adopt global`\". Now it prints \"Synced: <name> written; global refused: ...\" then \"Check: relay doctor\"",
+        "and exits 0. Should exit 1 and name global with the --adopt command, as relay sync does."
+      ],
+      "fix_hint": [
+        "In cmd_setup replace the final `return 0` with `return report_refused(results)` (the message wording \"relay sync:\" may",
+        "be made neutral), and add a test in tests/test_sync_refused.py for case 1."
+      ],
       "id": "F1",
+      "kind": "inside",
+      "line": 383,
+      "pass_cases": [
+        "1. Foreign ~/.claude/CLAUDE.md, `relay setup <dir>`: the project file is written, the global file is unchanged, exit 1, stderr names global and `relay sync --adopt global`.",
+        "2. Relay-headed (or old ~/principles-headed) ~/.claude/CLAUDE.md, `relay setup <dir>`: both written, exit 0.",
+        "3. Foreign ~/.claude/CLAUDE.md, `relay setup --no-global <dir>`: global not touched, exit 0.",
+        "4. `relay migrate <dir>` with a foreign global file behaves as case 1."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
       "reason": [
         "tests/test_sync_refused.py:103 (+111, 116 pass cases); fails at base."
       ],
+      "severity": "MEDIUM",
+      "since": "5d046900fd2e5a54442834907c08e9f5dcda2e88",
+      "source": "review-sync-refused.json",
+      "source_id": "F1",
+      "summary": "relay setup/migrate now exits 0 when the global CLAUDE.md is refused: the refusal is only a word in the Synced line",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED (reproduced). The change promises \"write every target it can\" and fixes one cause of a target stopping the",
+        "loop (write_target's refusal), but render_target(), called in the same loop one line above, raises Fail for an unknown",
+        "rule and still ends sync before the later targets. Same failure class as the queue item (one project silently freezes all",
+        "later ones; principle 6, cause not symptom), reachable on any rule rename that one project's load list misses.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "Temp home, projects.toml [a] load=[\"no-such-rule\"], [b] relay header + \"old\":",
+        "$ bin/relay sync a b",
+        "relay sync: a: unknown rule 'no-such-rule'",
+        "exit 1",
+        "$ tail -1 b/CLAUDE.local.md",
+        "old"
+      ],
+      "failing_case": [
+        "projects.toml: [a] load = [\"no-such-rule\"] (a rule renamed or removed in rules/), then [b] with a relay-headed stale file.",
+        "`relay sync a b` prints \"relay sync: a: unknown rule 'no-such-rule'\", exits 1, and b is unchanged. Should write b,",
+        "leave a, exit 1 naming a and its reason."
+      ],
+      "fix_hint": [
+        "Move render_target inside the try in sync() (both the dry and the write branch) and record the Fail as a per-target",
+        "state (e.g. \"failed: <reason>\" counted by refused(), or reuse REFUSED); a test in tests/test_sync_refused.py."
+      ],
       "id": "F2",
+      "kind": "inside",
+      "line": 207,
+      "pass_cases": [
+        "1. The failing case: b rewritten, a untouched, exit 1, output names a and \"unknown rule 'no-such-rule'\".",
+        "2. a foreign-headed, b stale: b written, exit 1 naming a and --adopt (today's test, keeps passing).",
+        "3. All targets valid and relay-headed: all written, exit 0.",
+        "4. `relay sync --dry` with the unknown rule in a: lists b as \"would write\" and a as failed, instead of stopping before b."
+      ],
+      "path": "lib/relay_rules.py",
+      "rank": "medium",
       "reason": [
         "tests/test_sync_refused.py:64; fails at base."
       ],
+      "severity": "MEDIUM",
+      "since": "5d046900fd2e5a54442834907c08e9f5dcda2e88",
+      "source": "review-sync-refused.json",
+      "source_id": "F2",
+      "summary": "an unknown rule in one project still stops the loop: later projects are not written",
       "verdict": "MET"
     },
     {
+      "details": [
+        "CONFIRMED by reading: the dry branch compares text only and never applies the header rule. Older than this change, but the",
+        "change makes the refusal a reported state and leaves the preview disagreeing with it. Size: 10 minutes."
+      ],
+      "evidence": [
+        "lib/relay_rules.py:208-210: if dry: current = ...; results.append((name, file, \"unchanged\" if current == text else \"would write\"))"
+      ],
+      "failing_case": [
+        "a has a foreign header. `relay sync --dry a` prints \"a: would write (...)\" and exits 0; `relay sync a` then refuses it",
+        "and exits 1. The dry run should say \"would refuse\" (and name --adopt) unless --adopt a is given."
+      ],
+      "fix_hint": [
+        "Factor the \"ours\" test out of write_target and use it in the dry branch."
+      ],
       "id": "F3",
+      "kind": "inside",
+      "line": 210,
+      "pass_cases": [
+        "1. Foreign a, `relay sync --dry a`: state \"would refuse ...\" for a, file untouched.",
+        "2. Foreign a, `relay sync --dry --adopt a`: \"would write\".",
+        "3. Old ~/principles-headed stale a, `relay sync --dry a`: \"would write\"."
+      ],
+      "path": "lib/relay_rules.py",
+      "rank": "low",
       "reason": [
         "tests/test_sync_refused.py:78; fails at base."
       ],
+      "severity": "LOW",
+      "since": "5d046900fd2e5a54442834907c08e9f5dcda2e88",
+      "source": "review-sync-refused.json",
+      "source_id": "F3",
+      "summary": "relay sync --dry says 'would write' for a foreign file that the real sync will refuse",
       "verdict": "MET"
     }
   ],
-  "gate": "/Users/amidman/relay/.worktrees/sync-refused/.relay/checks/297b72dbd43611d5f64c91fa1bc90f192b0ff7a8.gate.log",
+  "gate": "297b72dbd43611d5f64c91fa1bc90f192b0ff7a8.gate.log",
   "head": "44a81fe44ac656f6b5ed1b7a07aeda7000d49bcc",
-  "new": [],
+  "item": null,
   "notes": [
     "refusal() shared by dry and write paths; render_target moved inside try. No new problems seen."
   ],
-  "open": 0,
-  "queued": 0,
-  "review": [
-    "5d046900fd2e5a54442834907c08e9f5dcda2e88.review.json"
-  ],
-  "reviewed": "5d046900fd2e5a54442834907c08e9f5dcda2e88",
-  "schema": 1,
+  "schema": 2,
   "scope": [
     "Fix range 5d04690..HEAD: bin/relay, lib/relay_rules.py, tests/test_sync_refused.py only. Ran tests/test_sync_refused.py (7 passed). Gate log for 297b72d exit 0, later commits only logs/queue state. Copied the test file into a base worktree at 5d04690: 3 failed (F1, F2, F3 tests), 4 pass-case tests passed. Callers of refused/report_refused read: cmd_sync, improve adopt, setup consistent."
   ],

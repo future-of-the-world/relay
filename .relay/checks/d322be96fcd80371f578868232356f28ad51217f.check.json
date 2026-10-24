@@ -1,0 +1,291 @@
+{
+  "branch": "wt/installer",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "README.md",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "START_HERE.md",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F3",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "deps.toml",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F4",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "evals/judge-measure/make.py",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F5",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "evals/plugin/graders.test.sh",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F6",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F7",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "install.sh",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F7",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F8",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F8",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F9",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_ci_hook_tests.py",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F9",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F10",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_eval_record.py",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F10",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F11",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_installer_doctor.py",
+      "rank": "medium",
+      "reason": [
+        "gate log a99d057 exit 0, covers head (only the gate log came after)"
+      ],
+      "severity": "MEDIUM",
+      "since": "a99d057ab111ab23c898998ab557bd705ca99e90",
+      "source": "merge8-installer.json",
+      "source_id": "F11",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "a99d057ab111ab23c898998ab557bd705ca99e90.gate.log",
+  "head": "d322be96fcd80371f578868232356f28ad51217f",
+  "item": null,
+  "notes": [
+    "Pass case for each F is that the gate passes: it did (ci green, quick mode)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merge-only check. Gate log starts with head a99d057, ends exit 0; only the gate log file itself changed after a99d057 (git diff --stat), so the gate covers the code. No new tests, no own files changed since."
+  ],
+  "type": "check"
+}

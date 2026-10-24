@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Proof that the eval graders can tell a good reply from a bad one. The evals
 # cannot run on every machine (and cost money), so each regex grader is checked
-# here against recorded replies, with node's RegExp (the grader's own dialect):
+# here against recorded replies, with bun's RegExp (the grader's own dialect):
 #
 #   evals/<case>/recorded/good/*.txt           replies that must pass EVERY regex grader of the case
 #   evals/<case>/recorded/bad/<grader>__*.txt  replies that must FAIL the grader named before `__`
@@ -15,7 +15,7 @@
 #   evals/plugin/graders.test.sh
 set -uo pipefail
 cd "$(dirname "$0")" || exit 1
-command -v node >/dev/null 2>&1 || { echo "graders.test: node is not installed (brew install node)" >&2; exit 1; }
+command -v bun >/dev/null 2>&1 || { echo "graders.test: bun is not installed (curl -fsSL https://bun.sh/install | bash)" >&2; exit 1; }
 exec python3 -I - <<'PY'
 import glob, json, os, re, subprocess, sys
 
@@ -32,7 +32,7 @@ def grader(path):
 
 def matches(meta, reply):
     js = "const [p,f,t]=JSON.parse(require('fs').readFileSync(0,'utf8'));process.stdout.write(String(new RegExp(p,f).test(t)))"
-    out = subprocess.run(["node", "-e", js], input=json.dumps([meta["pattern"], meta.get("flags", ""), reply]),
+    out = subprocess.run(["bun", "-e", js], input=json.dumps([meta["pattern"], meta.get("flags", ""), reply]),
                          capture_output=True, text=True, check=True).stdout
     return out == "true"
 
