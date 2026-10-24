@@ -135,13 +135,25 @@ def _covered(repo, paths, until, default, absorbed):
     return covered
 
 
+def own_marks(repo, tip, default, inner, stored):
+    """The commits of the branch at `tip` that carry a mark in `stored`, newest first (topological), left out those inside a
+    branch of `inner` ({branch: tip}): a rider's check judged its own side only, so it never vouches for the combined tree."""
+    inside = set()
+    for held in inner.values():
+        inside.update(_git(repo, "rev-list", held, "^" + default).split())
+    return [c for c in _git(repo, "rev-list", "--topo-order", tip, "^" + default).split() if c in stored and c not in inside]
+
+
 def _passes(repo, tip, default, inner):
-    """Whether the branch at `tip` would pass the merge hook's mark step on its own: its newest mark whose own files (the
-    covered ones of `inner` left out) are unchanged up to the tip says `open 0`."""
+    """Whether the branch at `tip` would pass the merge hook's mark step on its own: nothing of its own is left once the files
+    of `inner` are covered, or its newest mark (none inside `inner`) whose own files are unchanged up to the tip says `open 0`."""
     import relay_marks
+    if inner:
+        fork = _git(repo, "merge-base", default, tip).strip()
+        if not changed(repo, fork, tip, own=True, archive=True, absorbed=inner):
+            return True
     stored = dict(relay_marks.marks(repo, tip))
-    order = [c for c in _git(repo, "rev-list", "--topo-order", tip, "^" + default).split() if c in stored]
-    for commit in order:
+    for commit in own_marks(repo, tip, default, inner, stored):
         if not changed(repo, commit, tip, own=True, archive=True, absorbed=inner):
             return stored[commit]["verdict"]["open"] == 0
     return False

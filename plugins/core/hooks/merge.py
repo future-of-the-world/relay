@@ -178,12 +178,17 @@ def step_mark(main, default, branch, ab=None):
     own files are all covered (a train of ready changes with no shared file) needs no mark."""
     ab = ab or {}
     ref, base = "refs/heads/" + branch, "refs/heads/" + default
+    left = []
     if ab:
         fork = relay_git.git(main, "merge-base", base, ref)[1]
-        if not relay_inert.changed(main, fork, ref, own=True, archive=True, absorbed=ab):
+        left = relay_inert.changed(main, fork, ref, own=True, archive=True, absorbed=ab)
+        if not left:
             return
     stored = dict(relay_marks.marks(main, ref))
-    order = [c for c in commit_list(main, ["rev-list", "--topo-order", ref, "^" + base]) if c in stored]
+    order = relay_inert.own_marks(main, ref, base, ab, stored)        # a rider's own check never vouches for the combined tree
+    if not order and left:
+        raise Refused("no check of %s covers %s, which the ready changes it holds changed together or which it rewrote; "
+                      "run relay gate, then delegate:checker" % (branch, named(left)))
     if not order:
         raise Refused("no check mark for %s (run relay gate, then delegate:checker on its head)" % branch)
     newest_list = None
