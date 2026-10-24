@@ -20,6 +20,7 @@ import os
 import re
 import subprocess
 
+import relay_marks
 import relay_verdict
 
 FOLDER = os.path.join(".relay", "checks")
@@ -31,6 +32,10 @@ MIGRATED = "migrated"
 
 class MigrateError(Exception):
     """A check cannot be converted; the text names the file and why, in one line."""
+
+
+class CommitError(MigrateError):
+    """The folder was rewritten but the commit failed; a later run commits it."""
 
 
 def _read(path):
@@ -94,6 +99,7 @@ def convert_check(old, sets, name):
             raise MigrateError("%s: the old verdict id %s is used twice" % (name, f.get("id")))
         verdicts[f.get("id")] = f
     queue, reviews, used = [], [], set()
+    item = _item_of(sets)
     for review_set in sets:
         for review in review_set.get("reviews", []):
             since = _sha_or(review.get("reviewed"), review_set.get("reviewed"), old.get("reviewed"), head)
@@ -108,7 +114,7 @@ def convert_check(old, sets, name):
                 if said is None:
                     raise MigrateError("%s: no verdict for %s of %s" % (name, old_id, source))
                 mine = [e for e in owner if e.get("id") == old_id]
-                if old_id.startswith("Q"):
+                if old_id.startswith("Q") and item is not None:
                     new_id, bucket, src = "Q%d" % (len(queue) + 1), queue, "queue"
                 else:
                     new_id, bucket, src = "F%d" % (len(reviews) + 1), reviews, source
@@ -117,13 +123,13 @@ def convert_check(old, sets, name):
     extra = sorted(set(verdicts) - used)
     if extra:
         raise MigrateError("%s: verdicts for %s are for no finding of its reviews" % (name, ", ".join(map(str, extra))))
-    item = _item_of(sets)
     if not queue:
         queue = _note_q1(old, item, name, head)
     news = []
     for n, finding in enumerate(old.get("new") or [], 1):
         reason = ["%s: this was %s in the old check" % (MIGRATED, finding.get("id"))]
         news.append(dict(_stated(dict(finding, id="N%d" % n), "check", head), verdict="NOT MET", reason=reason))
+    _keep_old_counts(old, name, queue + reviews + news, news)
     data = {"schema": relay_verdict.RECORD_SCHEMA, "type": relay_verdict.CHECK_TYPE, "head": head, "branch": _branch(old, name),
             "item": item, "gate": _gate_name(old, name), "scope": list(old.get("scope") or []),
             "notes": list(old.get("notes") or []), "findings": queue + reviews + news}
@@ -131,6 +137,28 @@ def convert_check(old, sets, name):
     if errors:
         raise MigrateError("%s: the converted record is not valid: %s" % (name, "; ".join(errors[:3])))
     return data
+
+
+def _keep_old_counts(old, name, findings, news):
+    """Schema 1 kept the checker's own +1 (a changed rule, a missing gate) only as a count. When the old open is above what the
+    findings derive, add N findings for the gap (quoting the notes that name it); when it is below, or queued differs, refuse."""
+    if old.get("open") is None:
+        return
+    probe = {"findings": findings}
+    gap = old["open"] - relay_verdict.open_of(probe)
+    if gap < 0:
+        raise MigrateError("%s: the old check says open %s but its findings derive %s" % (name, old["open"], relay_verdict.open_of(probe)))
+    notes = [line for line in old.get("notes") or [] if "+1" in line]
+    for _ in range(gap):
+        n = len(news) + 1
+        reason = ["%s: the old check counted open +1 with no finding behind it" % MIGRATED] + notes
+        news.append({"id": "N%d" % n, "path": ".relay/checks/%s" % name, "line": 1, "severity": "MEDIUM", "rank": "medium",
+                     "kind": "inside", "summary": "The old check counted open +1 with no finding behind it",
+                     "failing_case": ["migrated: schema 1 kept this only as a count"], "source": "check",
+                     "since": old.get("head"), "verdict": "NOT MET", "reason": reason})
+    if old.get("queued") is not None and old["queued"] != relay_verdict.queued_of(probe):
+        raise MigrateError("%s: the old check says queued %s but its findings derive %s"
+                           % (name, old["queued"], relay_verdict.queued_of(probe)))
 
 
 def _note_q1(old, item, name, head):
@@ -222,14 +250,17 @@ def migrate_and_commit(repo):
     """migrate(), then commit exactly the `.relay/checks` changes in one commit. Refuses, with nothing written, when anything
     outside `.relay/checks` is dirty (the commit must hold nothing else). Nothing to migrate makes no commit.
     Returns migrate()'s counts."""
-    status = _git(repo, "status", "--porcelain", "--untracked-files=all", "-z")
+    status = _git(repo, "status", "--porcelain=v1", "--no-renames", "--untracked-files=all", "-z")
     for entry in status.split("\0"):
         path = entry[3:]
         if entry and not path.startswith(FOLDER.replace(os.sep, "/") + "/"):
             raise MigrateError("%s is changed outside %s; commit or set it aside first" % (path, FOLDER))
     counts = migrate(repo)
-    if any(counts):
-        rel = FOLDER.replace(os.sep, "/")
-        _git(repo, "add", "-A", "--", rel)
-        _git(repo, "commit", "-q", "--no-verify", "--only", "-m", COMMIT_MESSAGE, "--", rel)
+    rel = FOLDER.replace(os.sep, "/")
+    # Commit whatever is dirty in the folder, not only what this run changed: a run whose commit failed left it rewritten.
+    if _git(repo, "status", "--porcelain", "--untracked-files=all", "--", rel).strip():
+        try:
+            relay_marks._commit(repo, [rel], COMMIT_MESSAGE)
+        except relay_marks.MarkError as exc:
+            raise CommitError("the checks are converted but not committed (%s); run it again" % exc)
     return counts

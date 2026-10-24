@@ -600,6 +600,8 @@ def cmd_check_migrate(args):
         raise Usage(MIGRATE_USAGE)
     try:
         checks, marks, sets = relay_checks_migrate.migrate_and_commit(os.path.realpath(repo))
+    except relay_checks_migrate.CommitError as exc:
+        raise ValueError("%s" % exc)
     except relay_checks_migrate.MigrateError as exc:
         raise ValueError("nothing changed: %s" % exc)
     if not (checks or marks or sets):

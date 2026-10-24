@@ -38,9 +38,9 @@ def review_set(reviewed, *reviews):
     return {"reviewed": reviewed, "reviews": list(reviews), "schema": 1, "type": "review-set"}
 
 
-def old_check(head, sets, verdicts, new=(), scope=("Range x..HEAD.",), notes=(), gate=GATE_A):
+def old_check(head, sets, verdicts, new=(), scope=("Range x..HEAD.",), notes=(), gate=GATE_A, open=0, queued=0):
     return {"findings": [dict(id=i, verdict=v, reason=["checked " + i]) for i, v in verdicts], "gate": gate, "head": head,
-            "new": list(new), "notes": list(notes), "open": 0, "queued": 0, "review": list(sets), "reviewed": SINCE_1,
+            "new": list(new), "notes": list(notes), "open": open, "queued": queued, "review": list(sets), "reviewed": SINCE_1,
             "schema": 1, "scope": list(scope), "type": "check"}
 
 
@@ -123,7 +123,7 @@ class TestConvert(Folder):
         # The old check's own finding was called F3 and counted open 1. It becomes N1, NOT MET (still open), stated at the head.
         new = dict(finding("F3", "HIGH", "test_f6 fails"), details=["d"], evidence=[], pass_cases=["p"], fix_hint=["h"])
         self.put("s.review.json", review_set(SINCE_1, review("one.json", SINCE_1, [finding("F1")])))
-        self.put(HEAD_A + ".check.json", old_check(HEAD_A, ["s.review.json"], [("F1", "MET")], new=[new]))
+        self.put(HEAD_A + ".check.json", old_check(HEAD_A, ["s.review.json"], [("F1", "MET")], new=[new], open=1))
         self.put(HEAD_A + ".json", old_mark(HEAD_A))
         mig.migrate(self.repo)
         n1 = self.record(HEAD_A)["findings"][-1]
@@ -145,9 +145,53 @@ class TestConvert(Folder):
     def test_the_owner_words_of_a_review_stay_on_their_finding(self):
         owner = [{"id": "F1", "words": ["not wrong"], "date": "2026-10-20", "queue": "later-job"}]
         self.put("s.review.json", review_set(SINCE_1, review("one.json", SINCE_1, [finding("F1")], owner=owner)))
-        self.put(HEAD_A + ".check.json", old_check(HEAD_A, ["s.review.json"], [("F1", "GAP")]))
+        self.put(HEAD_A + ".check.json", old_check(HEAD_A, ["s.review.json"], [("F1", "GAP")], queued=1))
         mig.migrate(self.repo)
         self.assertEqual(self.record(HEAD_A)["findings"][0]["owner"], [{"words": ["not wrong"], "date": "2026-10-20", "queue": "later-job"}])
+
+
+class TestKeptCounts(Folder):
+    def one(self, open, queued=0, notes=(), verdict="MET"):
+        self.put("s.review.json", review_set(SINCE_1, review("one.json", SINCE_1, [finding("F1")])))
+        self.put(HEAD_A + ".check.json", old_check(HEAD_A, ["s.review.json"], [("F1", verdict)], notes=notes, open=open, queued=queued))
+        self.put(HEAD_A + ".json", old_mark(HEAD_A))
+
+    def test_an_old_open_plus_one_with_no_finding_becomes_an_n(self):
+        # F1 is MET so findings derive open 0; the old check said open 1 (a note names the +1): N1 NOT MET carries it.
+        self.one(1, notes=["The +1 is the step-1 rule", "unrelated"])
+        mig.migrate(self.repo)
+        n1 = self.record(HEAD_A)["findings"][-1]
+        self.assertEqual((n1["id"], n1["kind"], n1["rank"], n1["verdict"]), ("N1", "inside", "medium", "NOT MET"))
+        self.assertEqual(n1["reason"][-1], "The +1 is the step-1 rule")
+        self.assertEqual(self.get(HEAD_A + ".json")["verdict"]["open"], 1)
+
+    def test_equal_counts_add_no_n(self):
+        self.one(0)
+        mig.migrate(self.repo)
+        self.assertEqual([f["id"] for f in self.record(HEAD_A)["findings"]], ["F1"])
+
+    def test_an_open_below_the_derived_one_is_refused_with_nothing_written(self):
+        self.one(0, verdict="NOT MET")      # F1 medium inside NOT MET derives open 1, the old check said 0
+        before = self.snapshot()
+        with self.assertRaises(mig.MigrateError) as caught:
+            mig.migrate(self.repo)
+        self.assertIn(HEAD_A + ".check.json", str(caught.exception))
+        self.assertEqual(self.snapshot(), before)
+
+    def test_a_different_queued_is_refused(self):
+        self.one(0, queued=1)
+        with self.assertRaises(mig.MigrateError):
+            mig.migrate(self.repo)
+
+
+class TestQuestionIds(Folder):
+    def test_a_question_q1_without_a_queue_item_is_numbered_f(self):
+        q = dict(finding("Q1"), kind="question")
+        self.put("s.review.json", review_set(SINCE_1, review("one.json", SINCE_1, [q])))
+        self.put(HEAD_A + ".check.json", old_check(HEAD_A, ["s.review.json"], [("Q1", "MET")]))
+        mig.migrate(self.repo)
+        f = self.record(HEAD_A)["findings"][0]
+        self.assertEqual((f["id"], f["source"], f["source_id"]), ("F1", "one.json", "Q1"))
 
 
 class TestRun(Folder):
@@ -196,6 +240,52 @@ class TestRun(Folder):
         self.assertEqual(self.git("status", "--porcelain"), "")
         mig.migrate_and_commit(self.repo)
         self.assertEqual(len(self.git("log", "--format=%s").splitlines()), 2)
+
+    def test_a_locked_index_is_retried(self):
+        self.committed_repo()
+        lock = os.path.join(self.repo, ".git", "index.lock")
+        open(lock, "w").close()
+        real = mig.relay_marks._commit
+        mig.relay_marks._commit = lambda wt, rel, msg: real(wt, rel, msg, sleep=lambda _s: os.remove(lock))
+        self.addCleanup(setattr, mig.relay_marks, "_commit", real)
+        # git status of the precheck does not need the lock; the commit's add does, fails once, then the lock is gone.
+        mig.migrate_and_commit(self.repo)
+        self.assertEqual(self.git("log", "--format=%s").splitlines(), [mig.COMMIT_MESSAGE, "seed"])
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
+    def test_a_failed_commit_is_not_nothing_changed_and_a_rerun_commits(self):
+        self.committed_repo()
+        real = mig.relay_marks._commit
+
+        def fail(wt, rel, msg):
+            raise mig.relay_marks.MarkError("index busy")
+        mig.relay_marks._commit = fail
+        self.addCleanup(setattr, mig.relay_marks, "_commit", real)
+        with self.assertRaises(mig.CommitError) as caught:
+            mig.migrate_and_commit(self.repo)
+        self.assertNotIn("nothing changed", str(caught.exception))
+        mig.relay_marks._commit = real
+        mig.migrate_and_commit(self.repo)
+        self.assertEqual(self.git("log", "--format=%s").splitlines(), [mig.COMMIT_MESSAGE, "seed"])
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
+    def test_a_staged_rename_inside_the_checks_is_not_refused(self):
+        self.committed_repo()
+        gate = "c" * 40 + ".gate.log"
+        self.git("mv", ".relay/checks/" + gate, ".relay/checks/" + "d" * 40 + ".gate.log")
+        mig.migrate_and_commit(self.repo)
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
+    def test_a_staged_rename_from_outside_is_refused(self):
+        self.committed_repo()
+        with open(os.path.join(self.repo, "out.txt"), "w", encoding="utf-8") as handle:
+            handle.write("x")
+        self.git("add", "out.txt")
+        self.git("commit", "-q", "--no-verify", "-m", "out")
+        self.git("mv", "out.txt", ".relay/checks/out.txt")
+        with self.assertRaises(mig.MigrateError) as caught:
+            mig.migrate_and_commit(self.repo)
+        self.assertIn("out.txt", str(caught.exception))
 
     def test_the_command_refuses_when_something_outside_the_checks_is_dirty(self):
         self.committed_repo()
