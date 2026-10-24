@@ -386,7 +386,7 @@ def cmd_install(args):
         print("\nYours to do:")
         for n, t in enumerate(todo, 1):
             print(f"{n}. {t}")
-    print("\nNext: `relay migrate --all` (the plan for every project), then `relay doctor`.")
+    print("\nNext: `relay setup <dir>` to add a project, then `relay doctor`.")
     return 0
 
 

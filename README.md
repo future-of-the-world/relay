@@ -53,7 +53,7 @@ Put the folder at `~/relay`, open a Claude Code session there and say
 "install relay" — `START_HERE.md` is written for that session. By hand:
 
 ```sh
-~/relay/bin/relay install          # global CLAUDE.md, user settings, plugins, projects imported from ~/principles
+~/relay/bin/relay install          # global CLAUDE.md, user settings, plugins (registers no project; `relay setup <dir>` adds one)
 ln -s ~/relay/bin/relay /usr/local/bin/relay
 relay migrate --all                # the plan for every project; then per project: relay migrate <dir> --apply
 relay doctor

@@ -22,10 +22,10 @@ this folder, `relay sync` writes `~/.claude/CLAUDE.md` and each project's
 2. `~/relay/bin/relay install` — writes the global CLAUDE.md (the old one
    is kept as `CLAUDE.md.before-relay`), registers the marketplace and the
    four user-scope plugins in `~/.claude/settings.json`, removes the two
-   user hooks the front plugin replaces, imports the projects from
-   `~/principles/projects.toml`, and runs `claude plugin marketplace add`
-   and `claude plugin install` when `claude` is on PATH. It prints what it
-   did and what is left.
+   user hooks the front plugin replaces, and runs `claude plugin marketplace add`
+   and `claude plugin install` when `claude` is on PATH. It registers no
+   project; `relay setup <dir>` adds one. It prints what it did and what
+   is left.
 3. Put `relay` on PATH: `ln -s ~/relay/bin/relay /usr/local/bin/relay`
    (ask first; it needs the owner's shell or sudo).
 4. Restart Claude Code. In the new session: say "what is running?" — the
@@ -33,7 +33,7 @@ this folder, `relay sync` writes `~/.claude/CLAUDE.md` and each project's
 
 ## Migrate the projects
 
-5. `relay migrate --all` — for every imported project: copies the
+5. `relay migrate --all` — for every project registered with `relay setup <dir>`: copies the
    principles library's `migration/<project>/kit/*.md` drafts into the
    project's `.claude/kit/` (where absent), prints what the old setup has
    (prefixed agents, stage skills, hooks, scripts) and what replaces it.

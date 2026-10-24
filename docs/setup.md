@@ -81,9 +81,9 @@ and does that.
 ## The whole machine at once
 
 `relay install` does the machine part (global CLAUDE.md, user settings,
-`claude plugin marketplace add` + installs, the projects from
-`~/principles/projects.toml`). `relay migrate --all` prints the plan for
-every imported project and copies the principles library's
+`claude plugin marketplace add` + installs). It registers no project;
+`relay setup <dir>` adds one. `relay migrate --all` prints the plan for
+every registered project and copies the principles library's
 `migration/<project>/kit/*.md` drafts into each project's `.claude/kit/`;
 `relay migrate <dir> --apply` moves one project. `START_HERE.md` is the
 same procedure written for the session that runs it.

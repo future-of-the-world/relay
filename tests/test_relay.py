@@ -1875,6 +1875,33 @@ class TestNoOwnerProjects(unittest.TestCase):
         self.assertNotIn("principles", inspect.signature(relay_setup.install).parameters)
 
 
+class TestInstallRegistersNoProject(Base):
+    """install leaves projects.toml as it is even when a principles library with projects.toml sits in HOME."""
+
+    def test_install_does_not_import_principles_projects(self):
+        old_home = os.environ.get("HOME")
+        home = os.path.join(self.tmp, "home")
+        os.makedirs(os.path.join(home, "principles"))
+        with open(os.path.join(home, "principles", "projects.toml"), "w") as handle:
+            handle.write('[alix]\nfile = "~/alix/CLAUDE.local.md"\n\n[arsenal]\nfile = "~/arsenal/CLAUDE.local.md"\n')
+        os.environ["HOME"] = home
+        try:
+            projects = os.environ["RELAY_PROJECTS"]
+            with open(projects, "rb") as handle:
+                before = handle.read()
+            import relay_setup
+            done, _ = relay_setup.install(run_claude=False)
+            with open(projects, "rb") as handle:
+                after = handle.read()
+        finally:
+            if old_home is None:
+                os.environ.pop("HOME", None)
+            else:
+                os.environ["HOME"] = old_home
+        self.assertEqual(before, after)
+        self.assertFalse([line for line in done if "imported" in line.lower()])
+
+
 class TestTasteRule(unittest.TestCase):
     """The experimental taste rule is loaded by the relay project's CLAUDE.local.md and by no other target."""
 
