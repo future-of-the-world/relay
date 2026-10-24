@@ -1,0 +1,40 @@
+{
+  "reviewed": "b12b74967d2fc1199174845df8e6540b08090bfe",
+  "reviews": [
+    {
+      "base": "master",
+      "file": "queue-archive-inert.json",
+      "findings": [
+        {
+          "details": [
+            "sdd:archive says archive in the change worktree before the merge and that an openspec/docs-only archive needs no new gate, but the merge hook counts openspec/ and docs changes as not inert, so the first merge is refused and costs an extra gate run and an extra checker run."
+          ],
+          "evidence": [],
+          "failing_case": [
+            "Trial: after the archive commit, git merge --ff-only wt/add-count-unique-words was refused: 'after the check of ..., wt/... changed openspec/specs/word-counting/spec.md, openspec/changes/add-count-unique-words/tasks.md and 6 more, which are not inert; check again'. Cost: 1 refused merge, 1 extra gate, 1 extra checker."
+          ],
+          "fix_hint": [],
+          "id": "Q1",
+          "kind": "inside",
+          "line": 1,
+          "pass_cases": [
+            "A change archived per sdd:archive, with a green gate and a check mark from before the archive, merges on the first try (or the skill says exactly which re-runs are needed and they are enough); a code change after the mark is still refused."
+          ],
+          "path": "lib/relay_inert.py:14-18, plugins/core/hooks/merge.py:172, plugins/sdd/skills/archive/SKILL.md:20-25,73-75",
+          "rank": "high",
+          "severity": "HIGH",
+          "summary": "Following the OpenSpec flow in order gets the merge refused"
+        }
+      ],
+      "notes": [],
+      "reviewed": "b12b74967d2fc1199174845df8e6540b08090bfe",
+      "schema": 1,
+      "scope": [
+        "From queue item following-the-openspec-flow-in-order-gets-the-me: the fix is checked as finding Q1."
+      ],
+      "type": "review"
+    }
+  ],
+  "schema": 1,
+  "type": "review-set"
+}
