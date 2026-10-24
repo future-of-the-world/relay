@@ -23,8 +23,8 @@
     "2. `relay doctor` reports a plugin copy that differs from the repo's default branch."
   ],
   "where": "plugins/core/hooks/merge.py:60",
-  "taken_at": "2026-10-24T11:35:15Z",
-  "taken_by": "wt/plugin-cache",
+  "taken_at": null,
+  "taken_by": null,
   "closed_at": null,
   "test": null,
   "dropped_at": null,
