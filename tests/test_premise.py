@@ -1,5 +1,6 @@
 """A fix item records what its failing case is (finding Q1 of the premise item): a claim is reproduced before the build.
 Scratch repositories in a temp dir."""
+import json
 import os
 import sys
 import unittest
@@ -42,6 +43,24 @@ class TestFailingKind(tq.Base):
         self.assertEqual(rq.read_add_input(path, rq.ADD_KEYS, ("title", "why", "time"))["failing_kind"], "run")
         self.assertNotIn("failing_kind", rq.FROM_KEYS)     # --from takes it from the finding: always a claim
 
+    def test_f4_add_from_queues_a_review_finding_and_a_checks_finding_as_a_claim(self):
+        repo = self.repo("premise-from")
+        finding = {"id": "F1", "path": "lib/q.py", "line": 4, "severity": "LOW", "rank": "low", "kind": "inside",
+                   "summary": "review finding", "failing_case": ["x"]}
+        report = os.path.join(self.tmp, "review.json")
+        with open(report, "w") as handle:
+            json.dump({"schema": 1, "type": "review", "reviewed": "a" * 40, "base": "master", "findings": [finding]}, handle)
+        rq.add_from(repo, report, "F1", why="w", minutes=5, **tq.QUIET)
+        check = {"schema": 2, "type": "check", "head": "b" * 40, "branch": "wt/x", "item": None, "gate": None, "worktree": "/w",
+                 "findings": [dict(finding, id="N1", summary="check finding", source="check", since="a" * 40, verdict="NOT MET", reason=[])]}
+        path = os.path.join(self.tmp, "chk.json")
+        with open(path, "w") as handle:
+            json.dump(check, handle)
+        rq.add_from(repo, path, "N1", why="w", minutes=5, **tq.QUIET)
+        for slug in ("review-finding", "check-finding"):
+            item = rq.parse(slug, tq.git(repo, "show", "master:.relay/queue/%s.json" % slug))
+            self.assertEqual(item["failing_kind"], "claim")
+
     def test_q1_the_skills_and_the_rule_name_the_reproduce_step(self):
         delegate, front, rule = (read("plugins", "delegate", "skills", "delegate", "SKILL.md"),
                                  read("plugins", "front", "skills", "front", "SKILL.md"), read("rules", "queue.md"))
@@ -53,6 +72,11 @@ class TestFailingKind(tq.Base):
         self.assertIn("one message", front)                  # non-reproduced claims reach the owner together
         self.assertIn("owner can", front)
         self.assertIn("failing_kind", rule)
+        self.assertIn("no `failing_kind`", delegate)         # F1: an old item counts as a claim
+        self.assertIn("counts as a claim", delegate)
+        self.assertIn("counts as a claim", rule)
+        self.assertIn("before `relay queue take`", delegate)  # F2: reproduced from the main checkout, nothing left taken
+        self.assertIn('`failing_kind = "run"`', front)        # F3: the red-run fix item names its word
 
 
 if __name__ == "__main__":

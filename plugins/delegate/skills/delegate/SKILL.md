@@ -110,10 +110,12 @@ be merged:
    | planned files changed | more than 8 | 3 to 30 |
 
 2. **Build.** Before it, the reproduce step for a queue item whose `failing_kind` is
-   `claim` (`relay queue show` prints it as "Failing case (claim)"): the failing
+   `claim` (`relay queue show` prints it as "Failing case (claim)"). A fix item with
+   no `failing_kind` (queued before the field existed) counts as a claim. The failing
    case is someone's word (a reviewer's, a scout's, the front's), not a failing
    test or a recorded red run. A `delegate:runner` or `delegate:scout` reproduces
-   it on the live system, when that is cheap (a command, a read, a test; a paid
+   it on the live system, from the main checkout and before `relay queue take`
+   (a read needs no worktree, so a held item is never left taken), when that is cheap (a command, a read, a test; a paid
    run is not: it stays the build's first step) and reports reproduced or not,
    with what it showed. Reproduced: the build starts. Not reproduced, either
    because the claim never held or because the failing case no longer fails
