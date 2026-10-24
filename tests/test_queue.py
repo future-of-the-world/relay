@@ -351,14 +351,18 @@ class TestSchema(Base):
         self.assertEqual(git(self.main, "rev-parse", "master"), before)
 
 
+def read_ref(repo):
+    """Where the tests read inert-folder text from: "HEAD^" in an inert probe commit (the probe appends a line to every
+    inert file and commits it as "inert probe", so the commit before it holds the real text), else None: the checkout."""
+    return "HEAD^" if git(repo, "log", "-1", "--format=%s", "HEAD", check=False) == "inert probe" else None
+
+
 def committed_items(repo):
-    """{file name: text} of the .relay/queue items as committed. The queue folder is inert (bin/ci's inert probe appends a
-    line to every item and commits it as "inert probe"), so the items are read from git, from the commit before such a probe
-    commit, never from the checkout: the outcome of the tests must not depend on inert files. With no git, the checkout."""
-    ref = "HEAD"
-    if git(repo, "log", "-1", "--format=%s", "HEAD", check=False) == "inert probe":
-        ref = "HEAD^"
-    names = git(repo, "ls-tree", "--name-only", ref, ".relay/queue/", check=False).split("\n")
+    """{file name: text} of the .relay/queue items. The queue folder is inert (bin/ci's inert probe appends a line to every
+    item and commits it as "inert probe"), so in a probe commit the items are read from git, from the commit before it. Anywhere
+    else they are read from the working tree, the text `bin/ci --quick` loops on and the gate will read on the commit."""
+    ref = read_ref(repo)
+    names = git(repo, "ls-tree", "--name-only", ref, ".relay/queue/", check=False).split("\n") if ref else [""]
     if names == [""]:
         folder = os.path.join(repo, ".relay", "queue")
         return {n: open(os.path.join(folder, n), encoding="utf-8").read() for n in sorted(os.listdir(folder)) if n.endswith(".json")}
@@ -366,10 +370,11 @@ def committed_items(repo):
 
 
 def committed_text(repo, path):
-    """The text of `path` as committed (the commit before an inert probe commit, see committed_items), else the checkout's."""
-    ref = "HEAD^" if git(repo, "log", "-1", "--format=%s", "HEAD", check=False) == "inert probe" else "HEAD"
-    out = git(repo, "show", "%s:%s" % (ref, path), check=False)
+    """The text of `path`: the working tree's, except in an inert probe commit, where it is the commit before it (see committed_items)."""
+    ref = read_ref(repo)
+    out = git(repo, "show", "%s:%s" % (ref, path), check=False) if ref else ""
     return out + "\n" if out else open(os.path.join(repo, path), encoding="utf-8").read()
+
 
 def new_shape(**changes):
     """A new-shape (event-based) item file as step 2 will write it; `changes` set or replace keys."""
