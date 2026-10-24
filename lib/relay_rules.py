@@ -89,13 +89,24 @@ def render_target(name, spec, all_rules, profile):
     return "\n".join(out).rstrip("\n") + "\n"
 
 
+def refusal(name, path, adopt):
+    """The reason sync would not overwrite path (a file relay did not write, no adopt), else None."""
+    if adopt or not os.path.isfile(path):
+        return None
+    current = open(path, encoding="utf-8").read()
+    if MARK in current or OLD_MARK in current:
+        return None
+    return f"{path} was not written by relay; run `relay sync --adopt {name}` to take it over (a backup is kept)"
+
+
 def write_target(name, spec, text, adopt=False):
     path = spec["file"]
+    reason = refusal(name, path, adopt)
+    if reason:
+        raise Fail(reason)
     if os.path.isfile(path):
         current = open(path, encoding="utf-8").read()
         ours = MARK in current or OLD_MARK in current
-        if not ours and not adopt:
-            raise Fail(f"{path} was not written by relay; run `relay sync --adopt {name}` to take it over (a backup is kept)")
         if current == text:
             return "unchanged"
         if not ours:
@@ -191,11 +202,12 @@ def installed_plugin_dirs(plugin):
 
 
 REFUSED = "refused: "
+WOULD_REFUSE = "would refuse: "
 
 
 def refused(results):
     """The names of the targets sync refused to write."""
-    return [name for name, _, state in results if state.startswith(REFUSED)]
+    return [name for name, _, state in results if state.startswith((REFUSED, WOULD_REFUSE))]
 
 
 def sync(profile, only=None, adopt=None, dry=False):
@@ -204,16 +216,21 @@ def sync(profile, only=None, adopt=None, dry=False):
     for name, spec in targets().items():
         if only and name not in only:
             continue
-        text = render_target(name, spec, all_rules, profile)
-        if dry:
-            current = open(spec["file"], encoding="utf-8").read() if os.path.isfile(spec["file"]) else ""
-            results.append((name, spec["file"], "unchanged" if current == text else "would write"))
-        else:
-            try:
-                state = write_target(name, spec, text, adopt=(adopt == name or adopt == "all"))
-            except Fail as error:   # one refused file must not stop the others
-                state = REFUSED + str(error)
-            results.append((name, spec["file"], state))
+        mine = adopt == name or adopt == "all"
+        try:   # one refused or unrenderable target must not stop the others
+            text = render_target(name, spec, all_rules, profile)
+            if dry:
+                reason = refusal(name, spec["file"], mine)
+                if reason:
+                    state = WOULD_REFUSE + reason
+                else:
+                    current = open(spec["file"], encoding="utf-8").read() if os.path.isfile(spec["file"]) else ""
+                    state = "unchanged" if current == text else "would write"
+            else:
+                state = write_target(name, spec, text, adopt=mine)
+        except Fail as error:
+            state = (WOULD_REFUSE if dry else REFUSED) + str(error)
+        results.append((name, spec["file"], state))
     if not only or "agents" in only:
         try:
             assembled = relay_roles.assemble_detail(ROOT, dry=dry)

@@ -383,7 +383,7 @@ def cmd_setup(args, migrate=False):
     results = relay_rules.sync(relay_config.active_profile(), only={d["name"], "global"} if not no_global else {d["name"]}, adopt=d["name"])
     print("\nSynced: " + "; ".join(f"{n} {state}" for n, _, state in results))
     print("\nCheck: relay doctor " + root)
-    return 0
+    return report_refused(results)
 
 
 def cmd_install(args):
