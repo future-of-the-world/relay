@@ -2,7 +2,6 @@
 reply of the failing 24 Oct run (the spec named in prose, design.md/D2 elsewhere)
 and still fails a reply that never names the design side."""
 import json
-import re
 import shutil
 import subprocess
 import unittest
