@@ -11,7 +11,9 @@
   "why": [
     "Owner, 26 Oct: \"Включи openspec plugin для самого relay, зафиксируй только нужное для разработки relay, первым испытателем relay будет сам relay\", then on OpenSpec only: \"Нет я подумал что всё таки испытывать openspec плагин не стоит на relay, он заточен под другое, включим позже если потребуется\". The plugin part kept by the front (owner can reverse). Facts, 26 Oct: the relay repo has no .claude/ folder; core, delegate, front, observe and gopls-lsp (Go language server; relay has no Go) are on only in ~/.claude/settings.json. wt/parallel (train-15) adds relay's .claude/kit.toml: build after it merges. IP chosen by the front (agent-chosen)."
   ],
-  "where": ".claude/settings.json of the relay repo (new)",
+  "where": [
+    ".claude/settings.json of the relay repo (new)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,
