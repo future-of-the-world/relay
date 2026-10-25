@@ -19,8 +19,8 @@
     "_q1 on that item after the rewrite returns path lib/relay_marks.py; an element \"lib/relay_setup.py:325-333 merge_settings\" gives path lib/relay_setup.py, line 325; relay queue add refuses where = \"a, b\" (a string) and an element whose first word has a non-numeric line; relay queue show prints every place."
   ],
   "where": "lib/relay_queue.py:938 _q1, lib/relay_queue.py:125 (the type check), lib/relay_queue.py:307 (show), rules/queue.md",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T20:32:08Z",
+  "taken_by": "wt/where-list",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
