@@ -5,6 +5,7 @@ Every slot folder is under a temp RELAY_HOME (the Fixture sets it), never the li
 import fcntl
 import os
 import queue
+import shlex
 import signal
 import subprocess
 import sys
@@ -184,6 +185,61 @@ class Slots(Fixture):
         for proc in (first, b1, b2):
             self.assertEqual(proc.wait(timeout=BOUND), 0)
         self.assertEqual(self.runs(), 2)        # A and one B; three would mean the second B ran the gate again
+
+    def license_wt2(self):
+        """wt2 gets a [license] table and the license files; LICENSE itself is git-ignored, so deleting or restoring it
+        on disk leaves the worktree clean (a tracked file changed would be refused as dirty before the license re-check),
+        and so is .relay/checks/, so a green log can be put there without a commit that moves HEAD. Returns (head, log path)."""
+        import relay_license
+        kit = os.path.join(self.wt2, ".claude", "kit.toml")
+        write(kit, read(kit) + '[license]\nid = "MIT"\nholder = "me"\n')
+        write(os.path.join(self.wt2, ".gitignore"), read(os.path.join(self.wt2, ".gitignore")) + "LICENSE\n.relay/checks/\n")
+        relay_license.add(self.wt2, "MIT", "me", 2026)
+        git(self.wt2, "add", "-A")
+        git(self.wt2, "commit", "-q", "-m", "license")
+        head = git(self.wt2, "rev-parse", "HEAD")
+        return head, os.path.join(self.wt2, ".relay", "checks", head + ".gate.log")
+
+    def put_green_log(self, head, log):
+        write(log, "head %s\ncmd %s\nwait 0.0\nexit 0\n" % (head, shlex.quote(self.script)))
+
+    def test_a_license_deleted_during_the_wait_fails_the_gate_and_the_green_log_is_not_reused(self):
+        """A holds the only slot; B (license good when it starts) waits. While B waits LICENSE is deleted and a green log
+        for B's very head appears. By worked reasoning: the check in the slot sees LICENSE missing, so it must not take the
+        log; B runs its command (2 runs: A and B) and, the license being broken, exits 1 with the failure in its log.
+        Without the re-check B would reuse the log, exit 0 and run nothing."""
+        head, log = self.license_wt2()
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        second = self.start(self.wt2)
+        self.assertEqual(self.line(second), "gate: waiting for a free gate slot (1 busy)")
+        os.remove(os.path.join(self.wt2, "LICENSE"))
+        self.put_green_log(head, log)
+        write(self.release, "go\n")
+        self.assertEqual(first.wait(timeout=BOUND), 0)
+        self.assertEqual(second.wait(timeout=BOUND), 1)
+        self.assertEqual(self.runs(), 2)
+        text = read(os.path.join(self.wt2, ".relay", "checks", head + ".gate.log"))
+        self.assertIn("license check FAILED", text)
+        self.assertIn("LICENSE is missing", text)
+
+    def test_a_license_fixed_during_the_wait_clears_the_failure(self):
+        """B starts with LICENSE missing (the check outside the slot fails) and waits for A. While it waits LICENSE is
+        restored and a green log for B's head appears. The check in the slot passes, so B reports that log: exit 0 and
+        only A's run. Without the re-check B would keep the early failure, run its command and exit 1."""
+        import relay_license
+        head, log = self.license_wt2()
+        os.remove(os.path.join(self.wt2, "LICENSE"))
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        second = self.start(self.wt2)
+        self.assertEqual(self.line(second), "gate: waiting for a free gate slot (1 busy)")
+        write(os.path.join(self.wt2, "LICENSE"), relay_license.license_text("MIT", "me", 2026))
+        self.put_green_log(head, log)
+        write(self.release, "go\n")
+        self.assertEqual(first.wait(timeout=BOUND), 0)
+        self.assertEqual(second.wait(timeout=BOUND), 0)
+        self.assertEqual(self.runs(), 1)        # only A ran
 
     def test_the_slot_folder_comes_from_the_given_environ(self):
         """run() with environ naming RELAY_HOME puts the slot files there, not under the process's own RELAY_HOME."""
