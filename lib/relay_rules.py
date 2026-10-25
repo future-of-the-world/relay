@@ -305,6 +305,10 @@ def sync(profile, only=None, adopt=None, dry=False, wait=True):
         except Fail as error:
             state = (WOULD_REFUSE if dry else REFUSED) + str(error)
         results.append((name, spec["file"], state))
+    if not only or "settings" in only:
+        import relay_setup
+        path, state = relay_setup.merge_session_settings(profile, dry=dry)
+        results.append(("settings", path, state))
     if not only or "agents" in only:
         try:
             assembled = relay_roles.assemble_detail(ROOT, dry=dry)

@@ -1,5 +1,6 @@
 # The active profile: the setup every session runs. `relay sync` writes it into
-# the delegate agents (model, effort), ~/.claude/CLAUDE.md (rules) and each
+# the delegate agents (model, effort), the [session] model and effort into
+# ~/.claude/settings.json (model, effortLevel), ~/.claude/CLAUDE.md (rules) and each
 # project's CLAUDE.local.md. Change it only through `relay improve adopt <name>`
 # after a bench, so improve/log.md records why.
 
