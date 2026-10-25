@@ -11,7 +11,14 @@
   "why": [
     "Owner, 26 Oct, verbatim: \"Пока это просто идея на будущее, до неё ещё далеко, насколько сложно будет перенести relay с claude на pi и свободный выбор провайдера, при этом унифицировав подход с дополнительной обвязкой для каждого harness (.claude, .pi and etc.)\". IP left 0 for the owner to set."
   ],
-  "where": "lib/ (core vs Claude-only parts), plugins/*/hooks (9 events, 26 registrations), lib/relay_transcripts.py, lib/relay_ledger.py, lib/relay_bench.py, profiles/",
+  "where": [
+    "lib/ (core vs Claude-only parts)",
+    "plugins/*/hooks (9 events, 26 registrations)",
+    "lib/relay_transcripts.py",
+    "lib/relay_ledger.py",
+    "lib/relay_bench.py",
+    "profiles/"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

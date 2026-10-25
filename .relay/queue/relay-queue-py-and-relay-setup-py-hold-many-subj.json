@@ -18,7 +18,10 @@
   "pass_cases": [
     "The full test suite passes unchanged; no module over about 500 lines keeps two of the listed subjects."
   ],
-  "where": "lib/relay_queue.py (1189 lines), lib/relay_setup.py (1134 lines)",
+  "where": [
+    "lib/relay_queue.py (1189 lines)",
+    "lib/relay_setup.py (1134 lines)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

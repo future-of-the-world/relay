@@ -18,7 +18,11 @@
   "pass_cases": [
     "The new command, given lib/relay_setup.py, names the open branch that changes it; given a free file it says free; it reads only git, writes nothing."
   ],
-  "where": "bin/relay (a new subcommand or relay changed), lib/ (the branch list), plugins/delegate/skills/delegate/SKILL.md (when to run it)",
+  "where": [
+    "bin/relay (a new subcommand or relay changed)",
+    "lib/ (the branch list)",
+    "plugins/delegate/skills/delegate/SKILL.md (when to run it)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,
