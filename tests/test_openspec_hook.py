@@ -90,7 +90,7 @@ class MethodOn(Project):
         self.assertIsNone(out)   # no kit.toml in src and no git: src is the root, so the method is unset there
 
     def test_F4_a_subfolder_of_a_git_project_finds_the_root_kit_toml(self):
-        subprocess.run(["git", "init", "--version"], check=True)
+        subprocess.run(["git", "init", "-q", self.root], check=True)
         sub = os.path.join(self.root, "src")
         os.makedirs(sub)
         self.assertEqual(self.text("SessionStart", cwd=sub), self.text("SessionStart"))
