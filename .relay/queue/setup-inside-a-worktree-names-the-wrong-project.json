@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 30,
+  "found_at": "2026-10-25T17:27:13Z",
+  "found_in": "relay queue add",
+  "title": "setup inside a worktree names the wrong project",
+  "what": [
+    "relay setup run inside a git worktree either refuses or names the project by its main checkout, and writes no .bak file into a tracked folder."
+  ],
+  "why": [
+    "25 Oct, the arsenal pilot design, scratchpad reports/design-arsenal.md (copy in ~/.relay/backup/scratch-3207dc59), section 1.1: setup in .worktrees/relay-setup would name the project after the worktree and leave .bak files in tracked folders. IP chosen by the front (agent-chosen); needed at the pilot's setup step."
+  ],
+  "failing_case": [
+    "relay setup --relay-folder in a temporary repo's linked worktree: the project name is the worktree's folder name; a .bak appears beside a tracked file."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same run names the main checkout's project, or refuses with what to run; no .bak in a tracked folder."
+  ],
+  "where": "lib/relay_setup.py setup",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
