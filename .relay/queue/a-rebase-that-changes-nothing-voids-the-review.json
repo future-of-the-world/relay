@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 86,
+  "time": 60,
+  "found_at": "2026-10-25T17:28:29Z",
+  "found_in": "relay queue add",
+  "title": "A rebase that changes nothing voids the review",
+  "what": [
+    "After a rebase whose patch is unchanged (git range-diff shows no change), the review and check records still count, so only a gate is needed; a rebase that changes the patch still voids them."
+  ],
+  "why": [
+    "25 Oct, the arsenal pilot design, scratchpad reports/design-arsenal.md (copy in ~/.relay/backup/scratch-3207dc59), risk 4: projects that rebase (arsenal's Master Sync) lose relay's review and check at every rebase, about +25 agent minutes and a new Opus review each time, roughly 10% of changes at arsenal's merge rate. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A branch with a review and check record is rebased onto a new main commit that touches an unrelated file; git range-diff shows no patch change; the merge hook refuses for a missing review of the new head."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same rebase keeps the review and check valid (a new gate still required); a rebase that changes the patch still voids them."
+  ],
+  "where": "lib/relay_verdict.py (around 643: a review whose reviewed commit is not in the head's history is refused), plugins/core/hooks/check-mark.py",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
