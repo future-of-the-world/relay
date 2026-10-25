@@ -331,6 +331,7 @@ def merge_user_settings(plugins):
 
 
 SESSION_KEYS = {"model": "model", "effort": "effortLevel"}   # profile [session] key -> user settings key
+OWNED_ENV = {"CLAUDE_CODE_RETRY_WATCHDOG": "1"}   # env keys relay adds to the user settings: a session waits through a network drop
 PERSISTABLE_EFFORTS = ("low", "medium", "high", "xhigh")   # Claude Code drops any other persisted effortLevel; max is session-only
 
 
@@ -361,6 +362,13 @@ def effort_model_key(data, model):
     if len(found) > 1:
         raise ValueError(f"modelSettings has several entries for {model!r}: {', '.join(sorted(found))}")
     return found[0] if found else None
+
+
+def missing_env(data):
+    """The OWNED_ENV keys absent from the settings env. A key present with any value is the owner's and is left alone."""
+    env = data.get("env")
+    env = env if isinstance(env, dict) else {}
+    return {k: v for k, v in OWNED_ENV.items() if k not in env}
 
 
 def read_json_strict(path):
@@ -400,6 +408,10 @@ def merge_session_settings(profile, dry=False):
             if old != effort:
                 per_model = (key, effort)
                 names.append(f"modelSettings.{key}.effortLevel {old!r} -> {effort!r}")
+    add_env = missing_env(data)
+    if add_env and not isinstance(data.get("env", {}), dict):
+        return path, ("would refuse: " if dry else "refused: ") + "env in settings.json is not an object"
+    names += [f"env.{k} -> {v!r}" for k, v in sorted(add_env.items())]
     notes = []
     bad = unpersistable_effort(profile)
     if bad:
@@ -408,6 +420,8 @@ def merge_session_settings(profile, dry=False):
         return path, "; ".join(["unchanged"] + notes) if not notes else "; ".join(notes)
     if not dry:
         data.update(changes)
+        if add_env:
+            data.setdefault("env", {}).update(add_env)
         if per_model:
             data.setdefault("modelSettings", {}).setdefault(per_model[0], {})["effortLevel"] = per_model[1]
         backup(path)
@@ -869,6 +883,9 @@ def doctor(root=None, profile=None):
     for key, want in sorted(session_settings(profile or {}).items()):
         ok(f"{key} in ~/.claude/settings.json is the profile's [session] {want}", user.get(key) == want,
            f"is {user.get(key)!r} -> relay sync")
+    for key in sorted(OWNED_ENV):
+        ok(f"{key} in the env of ~/.claude/settings.json", key not in missing_env(user),
+           "missing -> relay sync")
     bad = unpersistable_effort((profile or {}))
     if bad:
         ok(f"effortLevel in ~/.claude/settings.json can hold the profile's [session] effort {bad}", False,

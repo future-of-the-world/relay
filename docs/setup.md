@@ -26,6 +26,13 @@ never overwrites:
   every plugin the project enables that is not installed;
 - `~/.claude/settings.json`: the marketplace and the user-scope plugins
   (skip with `--no-global`).
+  `relay sync` also writes the profile's session model and effort there, and
+  `CLAUDE_CODE_RETRY_WATCHDOG=1` in its `env`: a session keeps retrying through
+  a network drop (about three hours) instead of giving up after about 15
+  minutes. A value you set by hand for that key is left alone. Claude Code's
+  docs do not say whether subagents and workflow agents honour it, and a drop
+  after thinking but before any output is re-issued only twice. `relay doctor`
+  reports the key when it is missing.
 
 It ends with a numbered list of what only you can finish (the stack
 commands, two lines about the product) and the one Claude Code step

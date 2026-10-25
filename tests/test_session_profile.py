@@ -46,7 +46,7 @@ class SessionProfile(unittest.TestCase):
         # The settings say effort high; the profile says medium: after sync it is medium, theme stays.
         self.put({"model": "sonnet", "effortLevel": "high", "theme": "auto"})
         results = relay_rules.sync(self.profile, only={"settings"})
-        self.assertEqual(self.read(), {"model": "opus", "effortLevel": "medium", "theme": "auto"})
+        self.assertEqual(self.read(), {"model": "opus", "effortLevel": "medium", "theme": "auto", "env": {"CLAUDE_CODE_RETRY_WATCHDOG": "1"}})
         self.assertEqual([r[0] for r in results], ["settings"])
 
     def test_dry_names_the_change_and_writes_nothing(self):
@@ -99,7 +99,7 @@ class SessionProfile(unittest.TestCase):
     def test_f1_no_modelsettings_still_sets_top_level(self):
         self.put({})
         relay_rules.sync(self.profile, only={"settings"})
-        self.assertEqual(self.read(), {"model": "opus", "effortLevel": "medium"})
+        self.assertEqual(self.read(), {"model": "opus", "effortLevel": "medium", "env": {"CLAUDE_CODE_RETRY_WATCHDOG": "1"}})
 
     # F2: max is session-only.
     def test_f2_max_is_not_written_and_doctor_flags_it(self):
@@ -132,7 +132,7 @@ class SessionProfile(unittest.TestCase):
 
     def test_f3_missing_file_is_created(self):
         relay_rules.sync(self.profile, only={"settings"})
-        self.assertEqual(self.read(), {"model": "opus", "effortLevel": "medium"})
+        self.assertEqual(self.read(), {"model": "opus", "effortLevel": "medium", "env": {"CLAUDE_CODE_RETRY_WATCHDOG": "1"}})
 
 
 if __name__ == "__main__":
