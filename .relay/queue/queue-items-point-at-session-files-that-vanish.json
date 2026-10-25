@@ -18,7 +18,10 @@
   "pass_cases": [
     "The same grep lists none; relay queue add with a why naming /private/tmp/... is refused with the message; an item with only the owner's words and dated facts is accepted."
   ],
-  "where": "rules/queue.md (what an item holds), lib/relay_queue.py (add), the 12 open items naming a scratchpad path",
+  "where": [
+    "rules/queue.md (what an item holds)",
+    "lib/relay_queue.py (add), the 12 open items naming a scratchpad path"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

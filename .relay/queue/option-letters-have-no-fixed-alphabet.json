@@ -18,7 +18,11 @@
   "pass_cases": [
     "The three texts name Latin a, b, c and the Cyrillic equivalence in one sentence each; the eval or test that covers the choices shape still passes."
   ],
-  "where": "rules/working-with-me.md:14 (Choices), rules/front.md:22, plugins/front/skills/front/SKILL.md:61",
+  "where": [
+    "rules/working-with-me.md:14 (Choices)",
+    "rules/front.md:22",
+    "plugins/front/skills/front/SKILL.md:61"
+  ],
   "taken_at": "2026-10-25T22:04:48Z",
   "taken_by": "wt/letters",
   "closed_at": null,
