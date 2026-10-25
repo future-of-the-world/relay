@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 97,
+  "time": 60,
+  "found_at": "2026-10-25T03:40:27Z",
+  "found_in": "relay queue add",
+  "title": "The wave paid run of e905742 is red in 9 eval cases",
+  "what": [
+    "Find why 39 code graders and 14 meaning graders failed in the paid run of master e905742, name the cause per group (a case set up wrong, a grader reading the old sdd plugin name, a real behaviour regression), fix it, and prove it with a paid run of only the failing cases."
+  ],
+  "why": [
+    "25 Oct, the wave paid run after the night's merges (OpenSpec optional, quick-head, rules-gate, train-2, it-terms, train-4): bin/ci RED, plugin evals FAILED (4196 s, $15.03). Every no-spec-step run failed even its \"no-openspec-command\" grader, which points at the case set-up or the grader, not at the model. relay sync waits for a green run. IP chosen by the front (agent-chosen): a red run is one fix item at the top."
+  ],
+  "failing_case": [
+    "scratchpad ci-wave-e905742.log: \"ci: eval record: NOT A PASS: 14 meaning grader(s) failed, 39 code grader(s) failed, 1 not judged, in code-reviewer-offbyone, it-terms-es, it-terms-ru, no-spec-step, no-spec-step-ru, no-spec-step-typo, spec-step-on, spec-step-on-ru, tune-no-price\"."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A paid run of the nine cases on the fix branch passes, and the cause of each group is named with evidence from the run's transcripts."
+  ],
+  "where": "evals/plugin (it-terms-ru, it-terms-es, no-spec-step*, spec-step-on*, code-reviewer-offbyone, tune-no-price), plugins/openspec, the eval runner and its code graders",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
