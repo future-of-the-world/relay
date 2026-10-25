@@ -1,0 +1,135 @@
+{
+  "branch": "wt/letters",
+  "findings": [
+    {
+      "details": [
+        "Owner, 26 Oct, on the arsenal pilot session offering \"\u0430. / \u0431.\" while the front offers \"a / b / c\": \"\u0422\u0443\u0442 \u0432\u0430\u0440\u0438\u0430\u043d\u0442\u044b \u043f\u0440\u0435\u0434\u043b\u0430\u0433\u0430\u044e\u0442\u0441\u044f \u0438\u0441\u0445\u043e\u0434\u044f \u0438\u0437 \u0430\u043b\u0444\u0430\u0432\u0438\u0442\u0430 \u043c\u043e\u0435\u0433\u043e \u0440\u043e\u0434\u043d\u043e\u0433\u043e \u044f\u0437\u044b\u043a\u0430, \u0442\u044b \u043f\u0440\u0435\u0434\u043b\u0430\u0433\u0430\u0435\u0448\u044c \u043c\u043d\u0435 \u0432\u0430\u0440\u0438\u0430\u043d\u0442\u044b \u043e\u0442\u0432\u0435\u0442\u043e\u0432 \u043b\u0430\u0442\u0438\u043d\u0438\u0446\u0435\u0439, \u0447\u0442\u043e \u043d\u0430 \u044d\u0442\u043e\u0442 \u0441\u0447\u0435\u0442 \u0433\u043e\u0432\u043e\u0440\u0438\u0442 \u0441\u0430\u043c relay\", then \"a\" (Latin letters in the rule, Cyrillic answers accepted). The rules say only \"lettered options\", so two sessions differ. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "The arsenal session on 26 Oct lettered its options \"\u0430. / \u0431.\" (Cyrillic) and this session \"a / b / c\" (Latin), both under the same rule text."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 61,
+      "pass_cases": [
+        "The three texts name Latin a, b, c and the Cyrillic equivalence in one sentence each; the eval or test that covers the choices shape still passes."
+      ],
+      "path": "rules/working-with-me.md:14 (Choices), rules/front.md:22, plugins/front/skills/front/SKILL.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_option_letters.py::TestOptionLetters::test_latin_letters_and_cyrillic_map (line 26) asserts the Latin a,b,c sentence and the Cyrillic map in all three texts; passes at head, fails at base."
+      ],
+      "severity": "HIGH",
+      "since": "7de0a9831ab5186b9a912b71d32f034d28da3cfc",
+      "source": "queue",
+      "summary": "Option letters have no fixed alphabet",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the clause is in the queue item's What and absent from all three texts (git diff",
+        "master...HEAD -- rules plugins). The brief asked for \"one short sentence each\" and to build the What exactly; the",
+        "clause fits inside the same sentence's parentheses, so both hold. This is part of an owner decision left out,",
+        "on a case the owner meets on an ordinary Russian keyboard (\u0430, \u0432, \u0441 all have Latin twins in shape).",
+        "Size: 10 agent minutes (three edits, regenerate eval prompts, run the eval-rules test, quick gate)."
+      ],
+      "evidence": [
+        "relay queue show option-letters-have-no-fixed-alphabet -> What: \"... (Cyrillic \u0430 = a, \u0431 = b, \u0432 = c; a look-alike",
+        "letter is read by its position in the owner's alphabet only when the reply is in that alphabet).\"",
+        "git diff master...HEAD -- rules plugins -> \"+  Never options that only differ in wording. Letters are Latin a, b, c",
+        "in every language; an answer in the owner's alphabet counts the same (Cyrillic \u0430 = a, \u0431 = b, \u0432 = c).\" (same in",
+        "the other two files; no look-alike clause)"
+      ],
+      "failing_case": [
+        "The queue item's What (the owner's decision \"a\", which the brief says to build exactly) reads: \"...an answer in",
+        "the owner's alphabet counts the same (Cyrillic \u0430 = a, \u0431 = b, \u0432 = c; a look-alike letter is read by its position",
+        "in the owner's alphabet only when the reply is in that alphabet)\". The shipped sentence in rules/working-with-me.md:16,",
+        "rules/front.md:23 and plugins/front/skills/front/SKILL.md:63 stops at \"(Cyrillic \u0430 = a, \u0431 = b, \u0432 = c).\" The",
+        "look-alike clause is missing. Live case it decides: options a, b, c; the owner, on a Russian keyboard, answers",
+        "\"\u0412\" (Cyrillic ve, shaped like Latin B) or \"\u0441\" (Cyrillic es, the key labelled C, shaped like Latin c). The rule",
+        "now gives no way to choose between reading the letter by its shape (b, c) and by its place in the alphabet",
+        "(c, none). The owner's clause settles this; the text does not."
+      ],
+      "fix_hint": [
+        "Extend the parentheses in all three texts: \"(Cyrillic \u0430 = a, \u0431 = b, \u0432 = c; a look-alike letter is read by its",
+        "position in the owner's alphabet only when the reply is in that alphabet)\", then run",
+        "python3 evals/plugin/system_rules.py and tests/test_eval_system_rules.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 16,
+      "pass_cases": [
+        "1. Each of the three texts (rules/working-with-me.md Choices bullet, rules/front.md reply paragraph,",
+        "   plugins/front/skills/front/SKILL.md choices paragraph) has the look-alike clause: a look-alike letter is read",
+        "   by its position in the owner's alphabet only when the reply is in that alphabet.",
+        "2. Each still says letters are Latin a, b, c in every language and gives Cyrillic \u0430 = a, \u0431 = b, \u0432 = c.",
+        "3. Worked value the text must yield: a reply in Russian \"\u0434\u0430\u0432\u0430\u0439 \u0412\" to options a/b/c picks c (position), and a",
+        "   reply in English \"B please\" picks b.",
+        "4. tests/test_eval_system_rules.py still passes after `python3 evals/plugin/system_rules.py` regenerates the",
+        "   four eval prompts that embed working-with-me.md."
+      ],
+      "path": "rules/working-with-me.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_option_letters.py:21 (test_look_alike_clause) asserts the clause in all three texts; fails at base, passes at head."
+      ],
+      "severity": "MEDIUM",
+      "since": "4fb420250a38b377dec5c697e2a8b2818e921346",
+      "source": "review-letters.json",
+      "source_id": "F1",
+      "summary": "the owner's decision includes a look-alike-letter clause that none of the three texts carries",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Correct today, only form; cheap to fix with F1 since the same lines are edited.",
+        "Size: 5 agent minutes, together with F1."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- rules plugins: each added line holds the whole new sentence on one line."
+      ],
+      "failing_case": [
+        "rules/front.md:23 is now about 200 characters (\"  recommendation first with the difference made visible. Letters",
+        "are Latin a, b, c ... Critique the owner's\"), while its neighbours wrap near 90; rules/working-with-me.md:16 and",
+        "plugins/front/skills/front/SKILL.md:63 likewise run to about 170. These texts are synced into every session's",
+        "CLAUDE.md, where the reader sees one overlong line. Expected: the sentence wrapped like the lines around it."
+      ],
+      "fix_hint": [
+        "Rewrap the edited paragraph lines to the width of their neighbours when applying F1."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 23,
+      "pass_cases": [
+        "1. No line touched by the change in the three texts is longer than the longest untouched line of the same",
+        "   paragraph.",
+        "2. The wording of the sentence (and of F1's clause) is unchanged by the rewrap.",
+        "3. tests/test_eval_system_rules.py passes after regenerating the eval prompts."
+      ],
+      "path": "rules/front.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_option_letters.py:32 (test_edited_lines_not_overlong) caps lines at 100; fails at base, passes at head."
+      ],
+      "severity": "LOW",
+      "since": "4fb420250a38b377dec5c697e2a8b2818e921346",
+      "source": "review-letters.json",
+      "source_id": "F2",
+      "summary": "the added sentence makes 170-200 character lines in texts wrapped at about 80, against the brief's 'style of the surrounding text'",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "322cacb9a0ba97e10faced354ade93fedfa0655f.gate.log",
+  "head": "8eea089978725de8ee1cb99bedfede6087e606e5",
+  "item": "option-letters-have-no-fixed-alphabet",
+  "notes": [
+    "Only tests, the three texts, four regenerated eval prompts and inert gate logs changed."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range master..HEAD. Ran tests/test_option_letters.py and tests/test_eval_system_rules.py at head: 8 passed. Copied test_option_letters.py to a throwaway worktree at the merge base: 3 failed. Gate log is for 322cacb (green, exit 0); relay changed lists no file after it."
+  ],
+  "type": "check"
+}
