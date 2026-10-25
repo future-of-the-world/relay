@@ -86,5 +86,26 @@ class OffbyoneScaffold(unittest.TestCase):
                              ["src/shelf.test.ts", "src/shelf.ts"])
 
 
+class ItTermsSetup(unittest.TestCase):
+    """it-terms-es/-ru: the eval runner does not load the scaffold's CLAUDE.md into the session (measured: a probe
+    case with CLAUDE.md, CLAUDE.local.md and .claude/CLAUDE.md, none of the three rules was followed), so the
+    rule reaches the model only when the prompt sends it to read the file."""
+
+    def test_the_prompt_sends_the_session_to_read_the_rule_file_and_allows_the_read(self) -> None:
+        for case in ("it-terms-es", "it-terms-ru"):
+            directory = os.path.join(ROOT, "evals", "plugin", case)
+            with open(os.path.join(directory, "prompt.md"), encoding="utf-8") as handle:
+                head, body = handle.read().split("\n---\n", 1)
+            self.assertIn("CLAUDE.md", body, case)
+            self.assertIn("allowed_tools: [Read]", head, case)
+            # Read is one turn, the reply another: three turns left the model no room to answer.
+            turns = int(next(x for x in head.split("\n") if x.startswith("max_turns:")).split(":")[1])
+            self.assertGreaterEqual(turns, 4, case)
+            with tempfile.TemporaryDirectory() as work:
+                subprocess.run(["bash", os.path.join(directory, "scaffold.sh")], cwd=work, check=True, capture_output=True)
+                with open(os.path.join(work, "CLAUDE.md"), encoding="utf-8") as handle:
+                    self.assertIn("Standard IT terms stay in their English form", handle.read(), case)
+
+
 if __name__ == "__main__":
     unittest.main()
