@@ -1166,3 +1166,7 @@ train-8 is ready by its check (check3-train-8.json in the scratchpad copy: open 
 ## STATE 25 Oct ~17:00
 Merged: train-8 (wave-red + claudemd + split-tests). Closed with --fixed-by: the-eval-cost-ceiling-cuts-every-wave-run-short (2b4c9f0). a-merge-check-of-a-train-is-recorded-but-leaves raised to 96 (hit again on train-8; fixed by a re-check that recorded a mark).
 Running: train-9 (master + wt/net-retry; merge check m11-train-9.json, then ff-only); wt/rules-red (ip 98) and wt/ru-style (ip 93) in the change cycle. Next after them: the wave paid run on master, then relay sync on green.
+
+## STRATEGY (owner, 25 Oct ~17:30) and how the front reports
+Owner: "1. a / 2. b" — strategy from the owner, one digest per wave, only real questions (memory strategy-and-wave-digest); first real project: arsenal (~/go/src/go.amidman.dev/arsenal, the owner's Forgejo). Then on the front's proposed order (1 merge-hook check-mark bugs, 2 arsenal pilot, 3 relay digest, 4 other fixes by ip, features later): "Я согласен с порядком, однако проба в arsenal может происходить параллельно с изменениями в relay".
+Running: wt/check-mark (ip 96), wt/feature-kind (95), wt/ru-style (93, judge measure), train-10 (rules-red), design of the arsenal pilot (reports/design-arsenal.md, read-only). After them: the mark-show item (90, same file as check-mark), then the wave paid run.

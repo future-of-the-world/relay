@@ -1,0 +1,21 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 60,
+  "found_at": "2026-10-25T17:01:31Z",
+  "found_in": "relay queue add",
+  "title": "One digest per wave instead of status messages",
+  "what": [
+    "`relay digest [--since <sha or date>]` builds, from git (merges on the default branch, their queue closes) and the queue (open counts, owner decisions recorded, items added), one page for the owner: what changed for them in plain words, the front's decisions the owner can reverse, numbers (merged, open fix/feature, paid spend), open questions. The front sends it once per wave of merges and stays silent between, except for a real choice, the default branch going red, a spend jump, or a block only the owner can lift. The rule and the front skill say so; the per-event status line goes."
+  ],
+  "why": [
+    "Owner, 25 Oct: \"я зачастую не отслеживаю то что ты делаешь, в этом суть автономности, но от этого появляется пробел в моем понимании происходящего, необходимо найти способ его восполнять без подобных запросов, или же изменить способ общения с тобой, где я только обозначаю стратегию\"; then \"1. a\" (strategy from the owner, a digest per wave, only real questions). About 30 status messages on 25 Oct, none answering \"what changed for me\". IP chosen by the front (agent-chosen)."
+  ],
+  "where": "bin/relay (a digest command), plugins/front/skills/front/SKILL.md and rules/working-with-me.md (\"Status\" line), docs",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

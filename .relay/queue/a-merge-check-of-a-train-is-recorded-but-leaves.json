@@ -19,8 +19,8 @@
     "When the input cannot make a mark, the command refuses and names what is missing."
   ],
   "where": "relay check record check (lib/relay_verdict.py or bin/relay), lib/relay_marks.py put(), plugins/core/hooks/merge.py (train check)",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T17:04:29Z",
+  "taken_by": "wt/check-mark",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
