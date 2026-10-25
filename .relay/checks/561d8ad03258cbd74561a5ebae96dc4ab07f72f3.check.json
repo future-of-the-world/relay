@@ -1,0 +1,329 @@
+{
+  "branch": "wt/where-list",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, measured: 97 records have where, 68 name several places in one string, and _q1 then makes the whole string Q1's path at line 1 (squash-merge-projects-keep-check-records-of-lost: path \"lib/relay_marks.py, plugins/core/hooks/guard-main.sh (... writes), docs\"). The owner asked \"\u041f\u043e\u0447\u0435\u043c\u0443 \u043c\u044b \u043d\u0435 \u0437\u0430\u043f\u0438\u0441\u044b\u0432\u0430\u0435\u043c \u0435\u0433\u043e \u0432 \u0444\u043e\u0440\u043c\u0430\u0442\u0435 \u0441\u043f\u0438\u0441\u043a\u0430 \u0441\u0442\u0440\u043e\u043a\" and picked \"a\" (a list of strings, the place as first word, a note after it) over a list of tables. Done records are rewritten too: where is a description, not a dated event. IP chosen by the front (agent-chosen), right after the pilot fixes.",
+        "Also: lib/relay_queue.py:125 (the type check)",
+        "Also: lib/relay_queue.py:307 (show)",
+        "Also: rules/queue.md"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "_q1 on the item squash-merge-projects-keep-check-records-of-lost returns path equal to the whole where string and line 1."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 938,
+      "pass_cases": [
+        "_q1 on that item after the rewrite returns path lib/relay_marks.py; an element \"lib/relay_setup.py:325-333 merge_settings\" gives path lib/relay_setup.py, line 325; relay queue add refuses where = \"a, b\" (a string) and an element whose first word has a non-numeric line; relay queue show prints every place."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue.py:1348 and neighbours pass on head; WhereList tests failed on d5e0db4 (prior check, same test file); queue check well formed."
+      ],
+      "severity": "HIGH",
+      "since": "d5e0db4f3f0890f48b001563f50a8fb93abe71db",
+      "source": "queue",
+      "summary": "where holds several places in one string",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running split_where and by scanning the rewritten records. Line 57 appends \", \" + piece to the previous element;",
+        "when that element is a bare place with no note yet, the comma lands in its first word. PLACE_WORD ([^\\s:()]+) accepts a",
+        "trailing comma, so the check passes the bad place; for \"path:N,\" it does not match, so the element is invalid and the",
+        "all-or-nothing migrate refuses. The test tests/test_where_migrate.py:26 asserts the comma form (\"bin/ci, the eval runner and its",
+        "graders\"), so it passes with the wrong outcome. Related edge: \"lib/a.py:22, 30\" gives a place \"30\" marked clean (a bare word",
+        "that is the whole piece counts as a place). The live records also need the fixed split applied (the script skips list records,",
+        "so a small one-off over the 11 elements or a rerun from the pre-rewrite strings in git).",
+        "Size: 20 agent minutes."
+      ],
+      "evidence": [
+        "python3 -c \"... wm.split_where('s', t) ...\" :",
+        "'bin/ci, the eval runner and its graders' -> ['bin/ci, the eval runner and its graders'] False ['bin/ci,']",
+        "'lib/a.py:5, notes about it' -> ['lib/a.py:5, notes about it'] False [None]",
+        "scan of written places with path ending \",\" : the-paid-ledger-misses-eval-runs-made-outside-bi \"bin/paid-cost, the eval runner's ...\",",
+        "python-is-formatted-and-auto-fixed-by-tools \"bin/ci, all *.py\", queue-time-estimates-are-guesses-with-no-model-b \"rules/queue.md, a measuring script ...\",",
+        "the-inert-gate-step-went-red-then-green-on-the-s \"lib/relay_inert.py, the eval grader tests step\", a-not-met-finding-of-kind-feature-is-counted-now \"queued_of, outside_of; ...\", and more.",
+        "_q1 per open item: the-paid-ledger-misses-eval-runs-made-outside fix | ('bin/paid-cost,', 1)"
+      ],
+      "failing_case": [
+        "split_where(\"s\", \"bin/paid-cost, the eval runner's aggregate-result.json, whatever records a bin/ci run in the ledger\") writes",
+        "[\"bin/paid-cost, the eval runner's ...\"]; parse_place reads its path as \"bin/paid-cost,\" (comma included). On the branch the open",
+        "item the-paid-ledger-misses-eval-runs-made-outside-bi now gets Q1 path \"bin/paid-cost,\" line 1, a file that does not exist; 15",
+        "written elements across the live records have such a place word (rules/queue.md,, bin/ci,, lib/relay_inert.py,, queued_of, ...).",
+        "And split_where(\"s\", \"lib/a.py:5, notes about it\") writes [\"lib/a.py:5, notes about it\"], which parse_place refuses (None), so",
+        "migrate() raises Refused from serialize and rewrites nothing (a traceback from __main__) the next time it meets such a string.",
+        "Should: the place word stays the path (\"bin/paid-cost\", \"lib/a.py:5\") and the glued text goes into the note."
+      ],
+      "fix_hint": [
+        "At line 57 glue with a space when the previous element has no note yet: elements[-1] += (\", \" if \" \" in elements[-1] else \" \") + piece.",
+        "Optionally make PLACE_WORD refuse a path word ending in \",\" or \";\" so the check catches it. Fix the test at tests/test_where_migrate.py:26",
+        "and rewrite the 11 live elements in a commit of their own."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 57,
+      "pass_cases": [
+        "split_where(\"s\", \"bin/ci, the eval runner and its graders\") == ([\"bin/ci the eval runner and its graders\"], False) (or any note form whose parse_place path is \"bin/ci\").",
+        "split_where(\"s\", \"lib/a.py:5, notes about it\") gives one element with parse_place == Place(\"lib/a.py\", 5, None, <a note holding \"notes about it\">), unclean.",
+        "split_where(\"s\", \"lib/relay_marks.py, plugins/core/hooks/guard-main.sh (writes, reads), docs\") still gives the three elements, clean.",
+        "split_where(\"s\", \"lib/a.py:325-333 merge_settings, b.py:7\") still gives [\"lib/a.py:325-333 merge_settings\", \"b.py:7\"], clean.",
+        "After the fix is applied to the live records: no element of any .relay/queue record has a parse_place path ending in \",\" or \";\"; _q1 of the-paid-ledger-misses-eval-runs-made-outside-bi has path \"bin/paid-cost\"."
+      ],
+      "path": "lib/relay_where_migrate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_where_migrate.py SplitWhereFixes glued-note tests pass; failed on 712f08a^."
+      ],
+      "severity": "MEDIUM",
+      "since": "ea5fa3115e2b73919ee388da63b23bb8f8afb56b",
+      "source": "review-where-list.json",
+      "source_id": "F1",
+      "summary": "gluing a non-place piece with \", \" onto a bare place puts the comma into the place word: 11 written places like \"bin/paid-cost,\", and \"path:N, text\" aborts the rewrite",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the schema block (lines 745-766) is the item schema description, and its where line is the old form.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n -E '\"where\"' -- ':!.relay' ':!lib' ':!plugins/*/lib' ':!tests'",
+        "docs/plans/review-gate.md:758:  \"where\": \"bin/ci:25\",          optional: path:line for the Q1 linter line"
+      ],
+      "failing_case": [
+        "docs/plans/review-gate.md:758 reads: \"where\": \"bin/ci:25\",          optional: path:line for the Q1 linter line",
+        "A reader who files an item from that schema writes a string, which the check now refuses. The brief's done-when says",
+        "\"rules/queue.md and any doc showing a where example show the list form\"."
+      ],
+      "fix_hint": [
+        "Change line 758 to \"where\": [\"bin/ci:25 the skip list\"], with the comment \"optional: a list of places, path, path:N or path:N-M then a note; Q1 takes the first\"."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 758,
+      "pass_cases": [
+        "docs/plans/review-gate.md shows \"where\": [\"bin/ci:25\"] (or a list with a note), with a comment naming path, path:N or path:N-M plus an optional note, Q1 from the first element.",
+        "git grep -n '\"where\": \"' -- docs rules plugins roles finds no string example outside .relay/.",
+        "rules/queue.md keeps its list example (line 33-36)."
+      ],
+      "path": "docs/plans/review-gate.md",
+      "rank": "medium",
+      "reason": [
+        "docs/plans/review-gate.md shows the list form."
+      ],
+      "severity": "MEDIUM",
+      "since": "ea5fa3115e2b73919ee388da63b23bb8f8afb56b",
+      "source": "review-where-list.json",
+      "source_id": "F2",
+      "summary": "the queue item schema doc still shows where as one string (\"bin/ci:25\", path:line only)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running split_where and _q1 on the live records. The records are listed as unclean in the fixer's report, so",
+        "nothing is hidden, but the decided rule \"Q1 = first element (line N of N-M)\" could keep N here: the text holds it exactly.",
+        "Size: 10 agent minutes (with F1's re-run of the live records)."
+      ],
+      "evidence": [
+        "_q1 per open item: a-python-project-gets-a-green-check-that-chec fix | ('lib/relay_setup.py', 1) | lib/relay_setup.py :22,28-35",
+        "setup-docs-and-todo-list-name-steps-not-neede fix | ('docs/setup.md', 1) | docs/setup.md :11-24,42"
+      ],
+      "failing_case": [
+        "The open item a-python-project-gets-a-green-check-that-checks had where \"lib/relay_setup.py:22,28-35, ...\"; it is now",
+        "\"lib/relay_setup.py :22,28-35\" and its Q1 is lib/relay_setup.py line 1, not 22. Same for setup-docs-and-todo-list-name-steps-not-needed",
+        "(\"docs/setup.md :11-24,42\", Q1 line 1 instead of 11)."
+      ],
+      "fix_hint": [
+        "When the first word is path:N followed by \",\" and more line numbers, write \"path:N[-M] <the rest>\" (the first number or range as the place, the rest as the note)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 63,
+      "pass_cases": [
+        "split_where(\"s\", \"lib/a.py:22,28-35, b.py\") gives a first element whose parse_place is Place(\"lib/a.py\", 22, None, <note holding 28-35>), unclean.",
+        "split_where(\"s\", \"docs/setup.md:11-24,42\") gives Place(\"docs/setup.md\", 11, 24, <note holding 42>), unclean.",
+        "split_where(\"s\", \"lib/a.py:325-333 merge_settings\") still gives the element unchanged, clean."
+      ],
+      "path": "lib/relay_where_migrate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_where_migrate.py SplitWhereFixes::test_a_line_list_keeps_its_first_line_as_the_place passes; failed on 712f08a^."
+      ],
+      "severity": "LOW",
+      "since": "ea5fa3115e2b73919ee388da63b23bb8f8afb56b",
+      "source": "review-where-list.json",
+      "source_id": "F3",
+      "summary": "a place with a line list (path:22,28-35) is written as \"path :22,28-35\", so Q1 loses its first line",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading convert (item = {key: data[key] for key in rq.ORDER if key in data}) and serialize (check refuses a string).",
+        "Either convert splits where through relay_where_migrate.split_where, or the old shape is declared gone and the doc says so.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_queue_migrate.py:70: item = {key: data[key] for key in rq.ORDER if key in data}",
+        "lib/relay_queue.py:160-161: if \"where\" in data: problems += where_problems(data[\"where\"])"
+      ],
+      "failing_case": [
+        "An item file of the state shape with \"where\": \"bin/ci:25\" (the shape relay queue migrate exists for): convert copies the string,",
+        "serialize raises Refused \"where is not a list of places\", and the whole migrate writes nothing. No such record is left in this",
+        "repository, so no one hits it today."
+      ],
+      "fix_hint": [
+        "In convert, when data[\"where\"] is a string, set item[\"where\"] from relay_where_migrate.split_where(slug, data[\"where\"])[0] (or drop it when blank)."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 70,
+      "pass_cases": [
+        "relay queue migrate on an old-shape item with \"where\": \"bin/ci:25\" writes the new shape with \"where\": [\"bin/ci:25\"].",
+        "relay queue migrate on an old-shape item without where still writes it without where."
+      ],
+      "path": "lib/relay_queue_migrate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_where_migrate.py QueueMigrateWhere tests pass; failed on 712f08a^."
+      ],
+      "severity": "LOW",
+      "since": "ea5fa3115e2b73919ee388da63b23bb8f8afb56b",
+      "source": "review-where-list.json",
+      "source_id": "F4",
+      "summary": "relay queue migrate copies an old-shape item's where string, which serialize now refuses",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the tests (no TOML file with a where key) and by calling read_add_input on two TOML files by hand",
+        "(list kept, string refused: both behave right today).",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "grep -n \"must be a list of places\\|where = \\[\" tests/*.py -> no output",
+        "read_add_input(w1.toml) -> {... 'where': ['lib/x.py:5-9 note', 'docs/']}; read_add_input(w2.toml) -> REFUSED nothing queued: `where` must be a list of places ..."
+      ],
+      "failing_case": [
+        "Remove the `if key == \"where\"` branch of read_add_input (lib/relay_queue.py:720): a TOML where = [\"lib/x.py:5\"] then falls to the",
+        "lines branch, is joined into the string \"lib/x.py:5\" and refused by add, so `relay queue add --input` can no longer file a where,",
+        "and every test still passes (the WhereList tests call rq.add directly)."
+      ],
+      "fix_hint": [
+        "Add a TestInputFile test that runs relay queue add --input with a list where (asserts the stored list) and with a string where (asserts refusal)."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 1377,
+      "pass_cases": [
+        "relay queue add --input with where = [\"lib/x.py:5-9 note\", \"docs/\"] files an item whose where is that list.",
+        "relay queue add --input with where = \"a, b\" is refused naming where, and nothing is queued."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_where_migrate.py AddInputWhere tests pass; they cover existing read_add_input behaviour so pass on old code too (fixer showed failure with the key==where branch disabled)."
+      ],
+      "severity": "LOW",
+      "since": "ea5fa3115e2b73919ee388da63b23bb8f8afb56b",
+      "source": "review-where-list.json",
+      "source_id": "F5",
+      "summary": "no test covers where in a queue-add TOML input (the new read_add_input branch)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that the log is two interleaved runs (NUL padding is what a truncate under a live O_WRONLY writer leaves); PLAUSIBLE",
+        "that the overlap caused the red inert step: it is a likely cause for the open item the-inert-gate-step-went-red-then-green-on-the-s",
+        "(its first hypothesis is shared state between two runs), so this is evidence for that item rather than a new item.",
+        "Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "cat -v .relay/checks/14641bb...gate.log: \"ci: inert FAILED (715s ...) < inert FAILED / ci: RED / ^@^@^@... ci: inert FAILED (735s ...) > types and lint FAILED / ci: RED / exit 1\"",
+        "git diff 14641bb b57daf1 --stat: only the gate log; b57daf1 gate log: exit 0",
+        "lib/relay_gate.py:122: with open(out_path, \"wb\") as sink: (no lock before it)"
+      ],
+      "failing_case": [
+        "On this branch the committed gate log .relay/checks/14641bb680d75c953c314ca03897d08b7898c100.gate.log holds two runs: the first ends",
+        "\"inert FAILED ... < inert FAILED\", then a block of NUL bytes, then a second \"inert FAILED ... > types and lint FAILED\", exit 1.",
+        "b57daf1 (14641bb plus only that log) was green. run() opens the shared git-path relay-gate.out with \"wb\" and runs bin/ci in the same",
+        "worktree with no lock, so a second run truncates the first's output (the NULs are the first writer's offset) and both share .ci/.",
+        "Should: a second gate on a worktree whose gate is running is refused (or waits), and each log holds one run."
+      ],
+      "fix_hint": [
+        "Take an exclusive lock (fcntl.flock on a file under the git dir, non-blocking) before running the gate command; refuse when held."
+      ],
+      "id": "F6",
+      "kind": "outside",
+      "line": 122,
+      "pass_cases": [
+        "relay gate started while another relay gate runs in the same worktree is refused with a message naming the running one; the first run's log is whole.",
+        "A single relay gate run still writes and commits its log as today.",
+        "relay gate after a finished run on the same head still reuses a green log."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer reports lib/relay_gate.py outside; agreed, a fix item."
+      ],
+      "severity": "MEDIUM",
+      "since": "ea5fa3115e2b73919ee388da63b23bb8f8afb56b",
+      "source": "review-where-list.json",
+      "source_id": "F6",
+      "summary": "two relay gate runs on one worktree share relay-gate.out and .ci/, so their logs interleave with NUL bytes and the inert step can go red",
+      "verdict": "OUTSIDE"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (a timing case). The script is safe to run again, so the cheapest guard is to run it right after the last take of master;",
+        "a lasting guard would be relay queue check in the gate.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "grep -n -i queue bin/ci: only the inert probe lines (56-60), no relay queue check step.",
+        "git merge-tree --write-tree master HEAD: clean; scan of the merged tree: no string where."
+      ],
+      "failing_case": [
+        "The front runs relay queue add on master (old code) after this branch's rewrite commit; the branch takes master before its merge,",
+        "the new item comes in with where as a string, the gate (bin/ci has no queue check) stays green, and after the merge relay queue lists",
+        "the item as malformed and refuses to take it. Today git merge-tree of master and HEAD shows no such item."
+      ],
+      "fix_hint": [
+        "Re-run the rewrite after the final take of master (front step), or add relay queue check to the gate."
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 33,
+      "pass_cases": [
+        "After the branch's last take of master, no record under .relay/queue has a string where (the rewrite run again, or a check that fails).",
+        "Running python3 lib/relay_where_migrate.py on an already rewritten queue rewrites nothing (already tested)."
+      ],
+      "path": "rules/queue.md",
+      "rank": "low",
+      "reason": [
+        "Fixer reports outside; agreed. Master has gained 6 string-form items: the migration script must run when the branch takes master again."
+      ],
+      "severity": "LOW",
+      "since": "ea5fa3115e2b73919ee388da63b23bb8f8afb56b",
+      "source": "review-where-list.json",
+      "source_id": "F7",
+      "summary": "an item filed on master in the string form before this branch merges stays malformed: nothing re-runs the rewrite and the gate does not check the records",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "75cded0883df79f30653d4bb07ab4cb6088125ea.gate.log",
+  "head": "561d8ad03258cbd74561a5ebae96dc4ab07f72f3",
+  "item": "where-holds-several-places-in-one-string",
+  "notes": [
+    "Merge fixer reported 3 unclean splits (publish-relay... first element carries a queue file prefix; \"6 12\" for \"6,12\"); LOW, not in this item's cases. Master items filed after must be rewritten at next take of master."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range ea5fa31..HEAD. Gate log head 75cded0, exit 0; relay changed lists no file after it (only inert/queue-state commits). Own changed files: review-gate.md, relay_queue_migrate.py, relay_where_migrate.py, test_where_migrate.py: all in scope. tests/test_queue.py + test_where_migrate.py: 108 passed. test_where_migrate.py on 712f08a^: 8 failed, 7 passed (all fix tests fail without fix). relay queue check: well formed."
+  ],
+  "type": "check"
+}
