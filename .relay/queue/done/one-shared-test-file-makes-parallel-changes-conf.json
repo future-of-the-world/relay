@@ -20,8 +20,8 @@
   "where": "tests/test_relay.py",
   "taken_at": "2026-10-25T10:21:25Z",
   "taken_by": "wt/split-tests",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T13:59:56Z",
+  "test": "tests/test_split_test_files.py::TestFilesStaySplit::test_the_old_shared_file_is_gone",
   "dropped_at": null,
   "dropped_why": null
 }
