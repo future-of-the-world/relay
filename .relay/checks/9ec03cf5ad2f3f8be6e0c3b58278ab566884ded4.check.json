@@ -1,0 +1,215 @@
+{
+  "branch": "wt/read-only",
+  "findings": [
+    {
+      "details": [
+        "24 Oct 02:34Z, workflow review of wt/projects-out: the critic (read-only by its role) ran `bin/relay migrate --all` from the worktree to probe it. That wrote CLAUDE.md, bin/check, .claude/kit.toml and .claude/settings.json into the main relay checkout; the settings pointed the relay marketplace at .worktrees/projects-out, which is removed at merge, so every relay session would lose its plugins. guard-main did not stop it (it only parses shell redirects/rm/cp; relay's own Python wrote the files) but then refused the cleanup. Any reviewer probing a relay command can do this again (MEDIUM)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "From a worktree, `bin/relay migrate --all` with projects.toml listing relay: untracked CLAUDE.md, bin/check, .claude/ appear in the main checkout."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same command run by a critic is refused or runs as a dry run; the main checkout stays clean; a deliberate `relay setup <dir>` by the front still works."
+      ],
+      "path": "roles/judge.md, plugins/delegate/agents/critic.md, lib/relay_setup.py (migrate, setup), plugins/core/hooks/guard-main.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_read_only_guard.py hook tests and MigrateAllPrimary pass; the test file fails 3 of 4 on the pre-fix commit d278574 (hook tests); migrate skip test was shown failing without the skip in the review. Gate green on 741a707."
+      ],
+      "severity": "HIGH",
+      "since": "4ea6edaf853af3112aacb36b14ae865679f74f41",
+      "source": "queue",
+      "summary": "a reviewer ran relay migrate --all and wrote into main",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. words() splits every quoted word that holds a space again, so the pattern argument of grep/rg/echo becomes",
+        "the tokens relay, setup, and writer() sees a relay call. The re-split exists for `bash -c \"...\"`, but it applies to",
+        "every command. Reviewers grep for command names all the time (judge.md step 4 tells the checker to `git grep -n",
+        "'<name>'` for every changed command, key or message), so this is ordinary use for exactly the agents the hook targets;",
+        "the deny text then tells them the read writes. Size: 15 min."
+      ],
+      "evidence": [
+        "python3 (import read-only-guard.py, call writer):",
+        "\"git grep -n 'relay setup'\" -> relay setup",
+        "'grep -rn \"relay queue add\" docs' -> relay queue add",
+        "\"rg 'relay install' README.md\" -> relay install",
+        "'echo \"see relay setup docs\"' -> relay setup"
+      ],
+      "failing_case": [
+        "agent_type \"delegate:checker\", Bash command `git grep -n 'relay setup'` (judge.md step 4: grep the callers of a changed",
+        "command). Now: denied, \"relay setup writes into the project, and you are read-only\". Should be: allowed (it reads).",
+        "Same for `grep -rn \"relay queue add\" docs`, `rg 'relay install' README.md`, `echo \"see relay setup docs\"`."
+      ],
+      "fix_hint": [
+        "Split a quoted word again only when it is the argument of a shell runner (`bash|sh|zsh -c <word>`, `eval <words>`),",
+        "and match `relay` only as a command word: the first token of a simple command, after `VAR=x` assignments, or after",
+        "python3/sh/bash/env/exec. Add the read cases to test_q1_reads_and_other_agents_are_let_through."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 39,
+      "pass_cases": [
+        "1. delegate:checker, `git grep -n 'relay setup'` -> allow.",
+        "2. delegate:critic, `grep -rn \"relay queue add\" docs` -> allow.",
+        "3. delegate:critic, `bash -c \"relay setup .\"` -> deny (kept).",
+        "4. delegate:critic, `cd w && python3 bin/relay migrate --all --apply` -> deny (kept).",
+        "5. delegate:critic, `sh -c 'relay sync'` -> deny; `sh -c 'relay sync --dry'` -> allow."
+      ],
+      "path": "plugins/delegate/hooks/read-only-guard.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_read_only_guard.py test_q1_reads_and_other_agents_are_let_through and the deny test; grep/echo mentions return None, bash -c / python3 bin/relay still deny (probed)."
+      ],
+      "severity": "MEDIUM",
+      "since": "0d43cc9b5719b59ab5675c7cbb4043fd21a5742c",
+      "source": "review-read-only.json",
+      "source_id": "F1",
+      "summary": "a critic's or checker's grep or echo that only mentions a relay writer in quotes is refused as if it ran it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading bin/relay's usage (lines 4-67) against WRITERS: the brief asks for \"a fixed list of relay",
+        "subcommands that write\"; the list holds setup, migrate, install, sync, queue writers and check migrate only. `relay",
+        "check owner` is the worst gap: the owner entry is defined as the owner's word and lowers `open`, and auto-merge runs at",
+        "open 0 (CLAUDE.md, Git). `relay improve adopt` does what `relay sync` does, which the list refuses. writer() returns",
+        "None for each (probe: `relay check owner x` -> None, `relay paid` -> None). Size: 10 min."
+      ],
+      "evidence": [
+        "bin/relay usage: \"relay improve adopt <profile>  make a candidate the active profile (after a bench), sync, log why\";",
+        "\"relay gate ... run the project's free gate ... and commit its log\"; \"relay check owner ... appended with the date to",
+        "the review's owner list; a checker counts that finding as not wrong\".",
+        "writer('relay check owner x') -> None"
+      ],
+      "failing_case": [
+        "agent_type \"delegate:checker\", `relay check owner review.json F2 --input o.toml`. Now: allowed, and it appends an",
+        "\"owner's word\" to the review, so F2 stops counting as open and the change can merge without the owner. Should be:",
+        "denied. Same gap: `relay improve adopt cand` (changes the active profile and runs sync, which the list does refuse),",
+        "`relay candidate x` (writes a profile), `relay calibrate` (writes the ledger), `relay gate` (commits a gate log),",
+        "`relay bench a b` (paid runs)."
+      ],
+      "fix_hint": [
+        "Add to WRITERS: \"check\": {\"migrate\", \"owner\"}, \"improve\": {\"adopt\"}, \"candidate\": None, \"calibrate\": None,",
+        "\"gate\": None, \"bench\": everything but \"list\" (or None, with `relay bench list` let through). Test each in",
+        "test_q1_critic_is_refused_relay_commands_that_write."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 23,
+      "pass_cases": [
+        "1. delegate:checker, `relay check owner r.json F2 --input o.toml` -> deny.",
+        "2. delegate:critic, `relay improve adopt cand` -> deny; `relay improve suggest` and `relay improve log` -> allow.",
+        "3. delegate:critic, `relay candidate x`, `relay calibrate`, `relay gate`, `relay bench a b` -> deny; `relay bench list` -> allow.",
+        "4. delegate:checker, `relay check record check --input c.toml`, `relay check findings --review r.json`, `relay check show r.json` -> allow (kept)."
+      ],
+      "path": "plugins/delegate/hooks/read-only-guard.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_read_only_guard.py test_q1_critic_is_refused_relay_commands_that_write and the classification test; check owner, improve adopt, bench denied, bench list allowed (probed)."
+      ],
+      "severity": "MEDIUM",
+      "since": "0d43cc9b5719b59ab5675c7cbb4043fd21a5742c",
+      "source": "review-read-only.json",
+      "source_id": "F2",
+      "summary": "the fixed list of writing relay subcommands misses check owner, improve adopt, candidate, calibrate, gate and bench",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE that it reaches real state; CONFIRMED that it spawns claude. Run by hand with HOME set to an empty temporary",
+        "folder, `claude plugin install delegate@relay --scope project` answered 'Plugin \"delegate\" not found in marketplace",
+        "\"relay\"': it knew a \"relay\" marketplace no file under the temporary HOME held, so the binary reads state outside the",
+        "test's sandbox. The brief and the project's Python rule: tests use a temporary folder and HOME and never the real",
+        "~/.claude; tests/test_relay.py stubs this with RELAY_CLAUDE_BIN for that reason. Size: 5 min."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:626 runner = install_runner or run_plugin_install; :531 cmd = [os.environ.get(\"RELAY_CLAUDE_BIN\") or \"claude\", ...]",
+        "tests/test_relay.py:1382, 1675 set RELAY_CLAUDE_BIN to a stub script.",
+        "HOME=<tmp>/home claude plugin install delegate@relay --scope project ->",
+        "  Failed to install plugin \"delegate@relay\": Plugin \"delegate\" not found in marketplace \"relay\"."
+      ],
+      "failing_case": [
+        "test_q1_migrate_all_leaves_a_primary_checkout_alone_unless_asked, second run `relay migrate --all --primary`: setup()",
+        "runs with no install_runner, so run_plugin_install calls the real `claude plugin install <p>@relay --scope project` for",
+        "every project plugin (RELAY_CLAUDE_BIN is not set). Now: the test depends on the machine's claude binary, its network",
+        "and whatever config it reaches outside HOME. Should be: the test runs no outside program but git and relay."
+      ],
+      "fix_hint": [
+        "Add \"RELAY_CLAUDE_BIN\": \"false\" (or a stub path written into tmp) to env at line 57."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 57,
+      "pass_cases": [
+        "1. The test sets RELAY_CLAUDE_BIN to a stub (a script that exits 1, or `false`) in env, and still asserts CLAUDE.md",
+        "   appears in proj after `--primary`.",
+        "2. With `claude` missing from PATH the test still passes and takes under 5 s.",
+        "3. The first leg (no --primary) still asserts `git status --short --ignored` is unchanged."
+      ],
+      "path": "tests/test_read_only_guard.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_read_only_guard.py:87 sets RELAY_CLAUDE_BIN=false; relay_setup.py:532 honours it."
+      ],
+      "severity": "MEDIUM",
+      "since": "0d43cc9b5719b59ab5675c7cbb4043fd21a5742c",
+      "source": "review-read-only.json",
+      "source_id": "F3",
+      "summary": "the --primary leg of the migrate test runs the real claude CLI (plugin install) instead of a stub",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the bin/relay usage line got [--primary]; README.md:60 and docs/setup.md:85 were not touched.",
+        "The skip message names --primary, so a person recovers; hence LOW. Moot if the owner picks (a) in the question. Size: 5 min."
+      ],
+      "evidence": [
+        "grep -rn 'migrate --all' README.md docs -> README.md:60, docs/setup.md:85 (no --primary)"
+      ],
+      "failing_case": [
+        "The owner follows README.md:60 `relay migrate --all  # the plan for every project`. Now: every registered project",
+        "(each lives in a primary checkout) prints \"primary checkout: skipped\". Should be: the docs name --primary (or the",
+        "behaviour matches the docs)."
+      ],
+      "fix_hint": [
+        "Add --primary to both lines, one clause on why."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 60,
+      "pass_cases": [
+        "1. README.md near line 60 shows `relay migrate --all --primary` (or says plain --all skips primary checkouts).",
+        "2. docs/setup.md line 85 says the same."
+      ],
+      "path": "README.md",
+      "rank": "low",
+      "reason": [
+        "README.md:60 and docs/setup.md:85 name --primary and the skip."
+      ],
+      "severity": "LOW",
+      "since": "0d43cc9b5719b59ab5675c7cbb4043fd21a5742c",
+      "source": "review-read-only.json",
+      "source_id": "F4",
+      "summary": "README and docs/setup.md still say migrate --all prints the plan for every project; it now skips every primary checkout",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "741a7077f8a396e7b555fd8167fa45a71bde1006.gate.log",
+  "head": "9ec03cf5ad2f3f8be6e0c3b58278ab566884ded4",
+  "item": "a-reviewer-ran-relay-migrate-all-and-wrote-into",
+  "notes": [
+    "Fixer's known bypass ($(...) in double quotes) is a slip-guard limit, fine. Owner question on plan form kept as built."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix 741a707 over 0d43cc9; head 9ec03cf only adds inert files after the gate sha (relay changed lists none). Ran tests/test_read_only_guard.py (4 passed); the test file run at d278574 fails 3 of 4. Probed writer() on 8 commands. Own changed files: README.md, docs/setup.md, hook, test: all in scope."
+  ],
+  "type": "check"
+}
