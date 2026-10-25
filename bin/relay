@@ -26,7 +26,14 @@
                                      this machine onto relay: global CLAUDE.md, user settings, plugins
   relay migrate --all [--apply] [--primary]      the migration plan (or the move) for every known project
   relay setup [<dir>] [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--no-global]
+              [--license <SPDX id> [--holder <name>]]
                                      a project onto relay (new or existing; nothing deleted)
+                                     --license writes LICENSE and kit.toml [license]; without it nothing about licenses is written
+  relay license add <SPDX id> [--holder <name>] [--year N] [--headers] [-C <dir>]
+                                     write LICENSE from the bundled exact text (refuses to overwrite a different one);
+                                     --headers adds the one-line SPDX header to code files
+  relay license check [-C <dir>]     the project's LICENSE (and, with kit.toml [license] headers = true, the headers);
+                                     one line per problem, exit 1 when there is one
   relay setup --relay-folder [<dir>] write .relay/README.md only (nothing else); the only form run for relay itself
   relay migrate [<dir>] [--apply]    an existing project from the old agents/skills/hooks; --apply moves them aside
   relay doctor [<dir>]               check-up of the machine, the rules, the ledger, and a project
@@ -86,6 +93,7 @@ import relay_gate  # noqa: E402
 import relay_git  # noqa: E402
 import relay_inert  # noqa: E402
 import relay_ledger  # noqa: E402
+import relay_license  # noqa: E402
 import relay_marks  # noqa: E402
 import relay_verdict  # noqa: E402
 import relay_queue  # noqa: E402
@@ -376,6 +384,10 @@ def cmd_setup(args, migrate=False):
     specs = flag(args, "--specs")
     product = True if flag(args, "--product", takes_value=False) else (False if flag(args, "--no-product", takes_value=False) else None)
     no_global = flag(args, "--no-global", takes_value=False)
+    license_id = flag(args, "--license")
+    holder = flag(args, "--holder")
+    if holder is not None and license_id is None:
+        raise Usage("--holder goes with --license <SPDX id>")
     root = os.path.realpath(args[0] if args else os.getcwd())
     if not os.path.isdir(root):
         raise Usage(f"no such folder: {root}")
@@ -393,7 +405,7 @@ def cmd_setup(args, migrate=False):
             for src, dst in moved:
                 print(f"- {src} -> {dst}")
     else:
-        d, flow, product, done, todo = relay_setup.setup(root, flow=flow, specs=specs, product=product, apply_global=not no_global)
+        d, flow, product, done, todo = relay_setup.setup(root, flow=flow, specs=specs, product=product, apply_global=not no_global, license_id=license_id, holder=holder)
         print(f"# {d['name']} ({root}): set up")
     print(f"\nDetected: {d['stack']} ({d['tool'] or 'no tool'}), default branch {d['default_branch']}, flow {flow}, "
           f"{'a person-facing surface' if product else 'no person-facing surface'}.")
@@ -857,10 +869,37 @@ def cmd_queue(args):
     return 0
 
 
+def cmd_license(args):
+    usage = "relay license add <SPDX id> [--holder <name>] [--year N] [--headers] [-C <dir>]   |   relay license check [-C <dir>]"
+    args = list(args)
+    root = os.path.realpath(flag(args, "-C", "."))
+    if not args or args[0] not in ("add", "check"):
+        raise Usage(usage)
+    sub = args.pop(0)
+    try:
+        if sub == "check":
+            if args:
+                raise Usage(usage)
+            problems = relay_license.check(root)
+            for line in problems:
+                print(line)
+            return 1 if problems else 0
+        headers = flag(args, "--headers", takes_value=False)
+        holder, year = flag(args, "--holder"), flag(args, "--year")
+        if len(args) != 1 or (year is not None and not year.isdigit()):
+            raise Usage(usage)
+        for line in relay_license.add(root, args[0], holder, int(year) if year else None, bool(headers)):
+            print(line)
+    except relay_license.Refused as exc:
+        print(f"relay license: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "queue": cmd_queue,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "queue": cmd_queue, "license": cmd_license,
 }
 
 

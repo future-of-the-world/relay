@@ -3,7 +3,7 @@
 ## A new project
 
 ```sh
-relay setup ~/new-project [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--no-global]
+relay setup ~/new-project [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--no-global] [--license <SPDX id> [--holder <name>]]
 ```
 
 Detects the stack (bun, pnpm, mix, cargo, go, python), the default branch,
@@ -33,6 +33,14 @@ never overwrites:
   docs do not say whether subagents and workflow agents honour it, and a drop
   after thinking but before any output is re-issued only twice. `relay doctor`
   reports the key when it is missing.
+
+A license is optional. `--license <id> --holder <name>` writes `[license] id, holder`
+in kit.toml, the LICENSE file (an exact SPDX text, bundled in `data/licenses/`), and a
+`relay license check` step in the new `bin/check`; without the flag nothing about licenses
+is written. Later: `relay license add <id> --holder <name> [--headers]` writes LICENSE (and
+the one-line `SPDX-License-Identifier` header in code files), and `relay license check`
+reports a missing or changed LICENSE and, with `headers = true` under `[license]`, code
+files without the header.
 
 It ends with a numbered list of what only you can finish (the stack
 commands, two lines about the product) and the one Claude Code step
