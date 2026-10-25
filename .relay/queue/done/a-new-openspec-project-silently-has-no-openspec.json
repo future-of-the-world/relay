@@ -17,7 +17,11 @@
   "pass_cases": [
     "After setup --flow openspec the project has sdd@relay installed; if the install cannot run, the todo list names the exact command; doctor <project> reports FIX when an enabled plugin is not installed."
   ],
-  "where": "lib/relay_setup.py:159, lib/relay_setup.py:302-346 (todo at 345), lib/relay_setup.py:398-452",
+  "where": [
+    "lib/relay_setup.py:159",
+    "lib/relay_setup.py:302-346 (todo at 345)",
+    "lib/relay_setup.py:398-452"
+  ],
   "taken_at": "2026-10-24T00:30:49Z",
   "taken_by": "wt/openspec-install",
   "closed_at": "2026-10-24T01:07:24Z",

@@ -20,7 +20,12 @@
     "relay queue tree shows the three links spec-writing-leaves-the-main-pipeline-sdd-become -> openspec-tools-live-in-the-core-plugin, the-change-cycle-builds-independent-groups-in-pa, a-spec-fix-is-marked-met-by-reading-not-by-runni.",
     "every existing item file passes relay queue check without being rewritten."
   ],
-  "where": "lib/relay_queue.py (schema, parse, add, take, a block command; lib copies), lib/queue_ext/ (a tree view), bin/relay (queue help), rules/queue.md (name blockers when adding)",
+  "where": [
+    "lib/relay_queue.py (schema, parse, add, take, a block command; lib copies)",
+    "lib/queue_ext/ (a tree view)",
+    "bin/relay (queue help)",
+    "rules/queue.md (name blockers when adding)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

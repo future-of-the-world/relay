@@ -17,7 +17,11 @@
   "pass_cases": [
     "The command writes a review JSON the checker accepts with Fixes: none and reports open 0 when the gate is green; delegate step 8 matches the checker."
   ],
-  "where": "bin/relay (check record), lib/relay_verdict.py or relay_check, plugins/delegate/skills/delegate/SKILL.md step 8",
+  "where": [
+    "bin/relay (check record)",
+    "lib/relay_verdict.py or relay_check",
+    "plugins/delegate/skills/delegate/SKILL.md step 8"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

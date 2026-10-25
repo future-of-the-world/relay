@@ -17,7 +17,9 @@
   "pass_cases": [
     "After a handover-only commit `done` accepts the check; after a change to any non-inert file it still refuses."
   ],
-  "where": "lib/relay_queue.py:755",
+  "where": [
+    "lib/relay_queue.py:755"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

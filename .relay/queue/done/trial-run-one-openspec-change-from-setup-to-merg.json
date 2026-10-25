@@ -17,7 +17,12 @@
   "pass_cases": [
     "The tiny change merges with the gate and the mark in place, or every gap found is queued or fixed before the owner's real project starts."
   ],
-  "where": "plugins/sdd, plugins/core/hooks/merge.py, lib/relay_setup.py, docs/setup.md",
+  "where": [
+    "plugins/sdd",
+    "plugins/core/hooks/merge.py",
+    "lib/relay_setup.py",
+    "docs/setup.md"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

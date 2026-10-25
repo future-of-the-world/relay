@@ -18,7 +18,10 @@
   "pass_cases": [
     "The same rebase keeps the review and check valid (a new gate still required); a rebase that changes the patch still voids them."
   ],
-  "where": "lib/relay_verdict.py (around 643: a review whose reviewed commit is not in the head's history is refused), plugins/core/hooks/check-mark.py",
+  "where": [
+    "lib/relay_verdict.py (around 643: a review whose reviewed commit is not in the head's history is refused)",
+    "plugins/core/hooks/check-mark.py"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

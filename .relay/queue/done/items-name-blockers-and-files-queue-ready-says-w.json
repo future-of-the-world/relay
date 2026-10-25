@@ -22,7 +22,12 @@
     "two candidates that share a file and overlap no running branch: --slots 2 picks the higher one and shows the other as WAIT naming it",
     "every existing item file passes relay queue check without being rewritten"
   ],
-  "where": "lib/relay_queue.py (schema, add, a new block command, a new ready view; lib copies), bin/relay (queue help), rules/queue.md (name blockers and files when adding), lib/queue_ext/, the item files under .relay/queue/ (migration)",
+  "where": [
+    "lib/relay_queue.py (schema, add, a new block command, a new ready view; lib copies)",
+    "bin/relay (queue help)",
+    "rules/queue.md (name blockers and files when adding)",
+    "lib/queue_ext/, the item files under .relay/queue/ (migration)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

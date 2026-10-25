@@ -18,7 +18,9 @@
   "pass_cases": [
     "That input is allowed; `echo x > .relay/checks/a.json`, `cp f .relay/checks/` and a python heredoc that opens a file there for writing stay refused."
   ],
-  "where": "plugins/core/hooks/guard-main.sh (the rule on writes to the checks folder)",
+  "where": [
+    "plugins/core/hooks/guard-main.sh (the rule on writes to the checks folder)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

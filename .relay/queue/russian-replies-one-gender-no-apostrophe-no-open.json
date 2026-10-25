@@ -19,7 +19,10 @@
     "A reply with \"commit'ов\" fails the case's code grader; one without passes.",
     "The rule text holds the three lines; tests/test_it_terms.py checks them."
   ],
-  "where": "rules/working-with-me.md (IT terms), evals/plugin/it-terms-ru graders",
+  "where": [
+    "rules/working-with-me.md (IT terms)",
+    "evals/plugin/it-terms-ru graders"
+  ],
   "taken_at": "2026-10-25T15:29:40Z",
   "taken_by": "wt/ru-style",
   "closed_at": null,

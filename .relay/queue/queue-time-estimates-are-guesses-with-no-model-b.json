@@ -17,7 +17,10 @@
   "pass_cases": [
     "On the 24 Oct sample, the new estimate (fixed cycle + build part + paid run) is within a factor of 1.5 of the measured agent minutes for at least 9 of 12 changes; `relay queue` shows actual beside estimate for closed items; the actuals are computed from transcripts, not stored by hand."
   ],
-  "where": "lib/relay_queue.py (add, the table), rules/queue.md, a measuring script over agent transcripts",
+  "where": [
+    "lib/relay_queue.py (add, the table)",
+    "rules/queue.md, a measuring script over agent transcripts"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

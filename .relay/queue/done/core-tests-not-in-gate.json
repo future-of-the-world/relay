@@ -14,7 +14,9 @@
   "failing_case": [
     "`bin/ci:29-32` skips `inject-addition`, `packet`, `check-contract`, `shim`, `spec-check`, `hooks-live` unless `RELAY_CORE_TESTS=1`; part 1's per-role tests I1-I9 live in `inject-addition.test.sh`, so a regression in role injection passes `bin/ci --quick` (v3 #1; handover \"core plugin tests not in bin/ci --quick\")"
   ],
-  "where": "bin/ci:29",
+  "where": [
+    "bin/ci:29"
+  ],
   "taken_at": "2026-10-23T01:23:29Z",
   "taken_by": "wt/core-tests-not-in-gate",
   "closed_at": "2026-10-23T12:17:31Z",

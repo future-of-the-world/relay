@@ -17,7 +17,10 @@
   "pass_cases": [
     "The three tests pass on the fixed head; they still pass with the clock moved a week ahead (faketime or a patched now) and with HOME pointed at an empty folder; with the fix disabled at least one of them fails the same way again."
   ],
-  "where": "tests/test_relay.py class Numbers (:483 and two more), lib/relay_ledger.py capture",
+  "where": [
+    "tests/test_relay.py class Numbers (:483 and two more)",
+    "lib/relay_ledger.py capture"
+  ],
   "taken_at": "2026-10-24T10:21:08Z",
   "taken_by": "wt/numbers-clock",
   "closed_at": "2026-10-24T11:09:52Z",

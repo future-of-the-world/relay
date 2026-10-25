@@ -20,7 +20,11 @@
     "PASS FAIL FAIL on one case: the wave is red.",
     "A case whose rate over its last runs drops below its earlier rate is named in the run's summary."
   ],
-  "where": "bin/ci (eval record step), the eval verdict code that turns runs into \"NOT A PASS\", bin/paid-cost or the eval ledger (pass rates), rules/quality-gate.md (flaky tests: code tests only)",
+  "where": [
+    "bin/ci (eval record step), the eval verdict code that turns runs into \"NOT A PASS\"",
+    "bin/paid-cost or the eval ledger (pass rates)",
+    "rules/quality-gate.md (flaky tests: code tests only)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

@@ -11,7 +11,10 @@
   "why": [
     "Owner, verbatim: \"1. a\" (a rule loaded only by relay, over a doc nobody is told to read), after answering the six points (\"1. Согласен ... 3. ... автоматического форматирования ... 4. Согласен 5. Проблема наблюдается 6. Думаю в будущем мы полностью перейдём на python\")."
   ],
-  "where": "rules/python.md (new), projects.toml (relay's rule list)",
+  "where": [
+    "rules/python.md (new)",
+    "projects.toml (relay's rule list)"
+  ],
   "taken_at": "2026-10-24T08:30:19Z",
   "taken_by": "wt/py-rule",
   "closed_at": "2026-10-24T15:43:54Z",

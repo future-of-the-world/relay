@@ -19,7 +19,10 @@
     "A record with one high NOT MET finding of kind feature and no owner entry gives open 1 (or is refused at record time without a queue item).",
     "A record whose findings are all MET gives open 0."
   ],
-  "where": "lib/relay_verdict.py open_of, queued_of, outside_of; relay check show; plugins/core/hooks/merge.py",
+  "where": [
+    "lib/relay_verdict.py open_of",
+    "queued_of, outside_of; relay check show; plugins/core/hooks/merge.py"
+  ],
   "taken_at": "2026-10-25T17:04:30Z",
   "taken_by": "wt/feature-kind",
   "closed_at": null,

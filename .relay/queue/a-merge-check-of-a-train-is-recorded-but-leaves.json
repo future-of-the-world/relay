@@ -18,7 +18,11 @@
     "The same record makes a \"relay: check of <head>\" commit and relay check show no longer lists bin/relay as changed after the mark; the merge hook accepts the train.",
     "When the input cannot make a mark, the command refuses and names what is missing."
   ],
-  "where": "relay check record check (lib/relay_verdict.py or bin/relay), lib/relay_marks.py put(), plugins/core/hooks/merge.py (train check)",
+  "where": [
+    ".relay/queue/a-merge-check-of-a-train-is-recorded-but-leaves.json relay check record check (lib/relay_verdict.py or bin/relay)",
+    "lib/relay_marks.py put()",
+    "plugins/core/hooks/merge.py (train check)"
+  ],
   "taken_at": "2026-10-25T17:04:29Z",
   "taken_by": "wt/check-mark",
   "closed_at": null,

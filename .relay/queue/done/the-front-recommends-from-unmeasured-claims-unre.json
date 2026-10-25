@@ -19,7 +19,12 @@
     "A question explaining an existing mechanism (\"what does relay queue take do?\") is answered by the front directly, with no design track.",
     "A recommendation in a reply says what it rests on: a measured number, or \"not measured\"."
   ],
-  "where": "the rule that holds \"Working with me\" and \"Working style\" (rules/*.md, \"Verify against the real system\"), rules/delegation.md (routing), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md (routing table), an eval case for the front",
+  "where": [
+    ".relay/queue/the-front-recommends-from-unmeasured-claims-unre.json the rule that holds \"Working with me\" and \"Working style\" (rules/*.md, \"Verify against the real system\")",
+    "rules/delegation.md (routing)",
+    "plugins/front/skills/front/SKILL.md",
+    "plugins/delegate/skills/delegate/SKILL.md (routing table), an eval case for the front"
+  ],
   "taken_at": "2026-10-25T02:20:22Z",
   "taken_by": "wt/measured",
   "closed_at": "2026-10-25T04:22:31Z",

@@ -22,7 +22,9 @@
     "2. Same with a README.md edit in the commit prints README.md only.",
     "3. `relay changed --own -C <wt> <C>` without the flag is unchanged."
   ],
-  "where": "bin/relay:468",
+  "where": [
+    "bin/relay:468"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

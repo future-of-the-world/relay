@@ -17,7 +17,10 @@
   "pass_cases": [
     "doctor <project> exits 0 when the project is fine, and the machine-wide FIX is shown separately."
   ],
-  "where": "bin/relay:424-431, lib/relay_setup.py:398-452",
+  "where": [
+    "bin/relay:424-431",
+    "lib/relay_setup.py:398-452"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

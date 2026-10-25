@@ -17,7 +17,10 @@
   "pass_cases": [
     "A checker whose transcript starts with the workflow harness relay gets its mark; a plain Agent-tool checker still does; a transcript with no Report: label in any of its first user entries still writes nothing and says why."
   ],
-  "where": "plugins/core/hooks/check-mark.py:57-95, plugins/core/tests/",
+  "where": [
+    "plugins/core/hooks/check-mark.py:57-95",
+    "plugins/core/tests/"
+  ],
   "taken_at": "2026-10-24T01:37:05Z",
   "taken_by": "wt/wf-mark",
   "closed_at": "2026-10-24T02:11:08Z",

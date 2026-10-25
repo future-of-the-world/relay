@@ -23,7 +23,9 @@
     "2. The bin/ci rules_tests command still runs 128 tests, OK.",
     "3. tests.test_rules_gate_isolation still passes, and still fails with master's relay_testbase."
   ],
-  "where": "tests/relay_testbase.py:14",
+  "where": [
+    "tests/relay_testbase.py:14"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

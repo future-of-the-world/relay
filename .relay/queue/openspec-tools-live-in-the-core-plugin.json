@@ -17,7 +17,11 @@
   "pass_cases": [
     "core has no OpenSpec-only code; kit packet and kit spec-check work from the openspec plugin; their tests pass."
   ],
-  "where": "plugins/core/lib/kit_packet.py, plugins/core/lib/kit_spec_check.py, plugins/openspec/",
+  "where": [
+    "plugins/core/lib/kit_packet.py",
+    "plugins/core/lib/kit_spec_check.py",
+    "plugins/openspec/"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

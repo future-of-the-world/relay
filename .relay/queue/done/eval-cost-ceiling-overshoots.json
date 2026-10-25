@@ -14,7 +14,9 @@
   "failing_case": [
     "`--max-cost-usd 4` at `-j 4` ran to $6.32 (Sonnet measure, 22 Oct); the README's $10 ceiling can reach about $13; should stop within one batch of the ceiling (handover \"ceiling overshoot\", \"eval cost ceiling not firm at -j 4\", check-readme-cost \"$10 ceiling worst case ~$13\")"
   ],
-  "where": "bin/ci:68",
+  "where": [
+    "bin/ci:68"
+  ],
   "taken_at": "2026-10-24T03:53:51Z",
   "taken_by": "wt/eval-cost",
   "closed_at": "2026-10-24T04:31:02Z",

@@ -23,7 +23,9 @@
     "   (or extended to name the gate the same way).",
     "3. Mark with Q1 MET and nothing non-inert after it -> check_refusal returns None (test at test_merge_train.py:405 keeps passing)."
   ],
-  "where": "lib/relay_queue.py:987",
+  "where": [
+    "lib/relay_queue.py:987"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

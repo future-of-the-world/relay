@@ -18,7 +18,10 @@
     "A gate that runs 30 minutes is reported to the step that waits for it without a crash.",
     "A step whose branch already has a green gate on the same code reports that gate and runs nothing."
   ],
-  "where": "plugins/delegate/agents/runner.md (maxTurns 12), plugins/delegate/skills/delegate/SKILL.md (who waits on a gate), the change-cycle workflow's gate step",
+  "where": [
+    "plugins/delegate/agents/runner.md (maxTurns 12)",
+    "plugins/delegate/skills/delegate/SKILL.md (who waits on a gate), the change-cycle workflow's gate step"
+  ],
   "taken_at": "2026-10-25T04:24:18Z",
   "taken_by": "wt/turn-limit",
   "closed_at": "2026-10-25T09:54:10Z",

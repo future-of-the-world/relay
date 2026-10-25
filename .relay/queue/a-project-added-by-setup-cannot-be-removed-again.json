@@ -17,7 +17,11 @@
   "pass_cases": [
     "After setup the relay checkout is clean (entry committed); one relay command removes the entry and leaves the checkout clean; the guard still refuses hand edits in the main checkout."
   ],
-  "where": "lib/relay_setup.py:250-268, bin/relay (setup, projects), plugins/core/hooks/guard-main.sh",
+  "where": [
+    "lib/relay_setup.py:250-268",
+    "bin/relay (setup, projects)",
+    "plugins/core/hooks/guard-main.sh"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

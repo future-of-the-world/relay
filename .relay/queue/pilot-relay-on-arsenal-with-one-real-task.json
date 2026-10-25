@@ -11,7 +11,10 @@
   "why": [
     "Owner, 25 Oct: \"я пока не проверял на что способен relay на реальном проекте, какого сейчас состояние relay\"; picked arsenal (\"2. b\") for the first real project. relay has only ever run on itself (projects.toml lists relay alone). IP chosen by the front (agent-chosen)."
   ],
-  "where": "projects.toml, relay setup/migrate, ~/go/src/go.amidman.dev/arsenal (its CLAUDE.md, CLAUDE.local.md, .claude/agents, hooks, skills, .worktrees, its issue skills and Forgejo issues on git.amidman.dev)",
+  "where": [
+    "projects.toml, relay setup/migrate",
+    "~/go/src/go.amidman.dev/arsenal (its CLAUDE.md, CLAUDE.local.md, .claude/agents, hooks, skills, .worktrees, its issue skills and Forgejo issues on git.amidman.dev)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

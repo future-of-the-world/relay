@@ -18,7 +18,9 @@
   "pass_cases": [
     "The same input is allowed; `git merge origin/master` (no --ff-only) and `git merge --ff-only some-branch` from outside wt/ stay as they are today."
   ],
-  "where": "plugins/core/hooks/guard-main.sh (the merge rule in a main checkout)",
+  "where": [
+    "plugins/core/hooks/guard-main.sh (the merge rule in a main checkout)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

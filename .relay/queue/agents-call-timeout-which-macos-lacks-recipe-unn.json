@@ -17,7 +17,10 @@
   "pass_cases": [
     "The skill names the recipe with a command that runs on macOS; a runner following it never calls timeout."
   ],
-  "where": "plugins/delegate/skills/delegate/SKILL.md:100, plugins/delegate/agents/runner.md:22-45",
+  "where": [
+    "plugins/delegate/skills/delegate/SKILL.md:100",
+    "plugins/delegate/agents/runner.md:22-45"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

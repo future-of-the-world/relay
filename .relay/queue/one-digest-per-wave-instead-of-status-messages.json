@@ -11,7 +11,11 @@
   "why": [
     "Owner, 25 Oct: \"я зачастую не отслеживаю то что ты делаешь, в этом суть автономности, но от этого появляется пробел в моем понимании происходящего, необходимо найти способ его восполнять без подобных запросов, или же изменить способ общения с тобой, где я только обозначаю стратегию\"; then \"1. a\" (strategy from the owner, a digest per wave, only real questions). About 30 status messages on 25 Oct, none answering \"what changed for me\". IP chosen by the front (agent-chosen)."
   ],
-  "where": "bin/relay (a digest command), plugins/front/skills/front/SKILL.md and rules/working-with-me.md (\"Status\" line), docs",
+  "where": [
+    "bin/relay (a digest command)",
+    "plugins/front/skills/front/SKILL.md and rules/working-with-me.md (\"Status\" line)",
+    "docs"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,
