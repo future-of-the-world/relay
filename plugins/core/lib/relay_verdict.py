@@ -294,10 +294,11 @@ def load_record(text, what="the check record", stored=False):
 
 
 def open_of(record):
-    """How many findings inside the change are wrong and unanswered: kind inside, rank high or medium, verdict not MET,
-    and no owner entry (the owner's word, or a move to a queue item, answers it)."""
+    """How many findings are wrong and unanswered: any kind but outside (a request for new work, a design question or
+    a question is counted too, so none is counted nowhere), rank high or medium, verdict not MET, and no owner entry
+    (the owner's word, or a move to a queue item, answers it)."""
     return sum(1 for f in record["findings"]
-               if f["kind"] == "inside" and f["rank"] in ("high", "medium") and f["verdict"] != "MET" and not f.get("owner"))
+               if f["kind"] != "outside" and f["rank"] in ("high", "medium") and f["verdict"] != "MET" and not f.get("owner"))
 
 
 def queued_of(record):
