@@ -1,0 +1,21 @@
+{
+  "kind": "feature",
+  "ip": 0,
+  "time": 60,
+  "found_at": "2026-10-25T22:27:59Z",
+  "found_in": "relay queue add",
+  "title": "relay toolkit: Python scripts for user scenarios",
+  "what": [
+    "The owner's request, recorded without a proposal (the owner will take the subject up later): a set of Python scripts that replace user scenarios, as an extensible system, instead of chains of MCP calls."
+  ],
+  "why": [
+    "Owner, 26 Oct, verbatim: \"Идея для применения правила python, я хочу развить идею в новую фичу - relay toolkit набор скриптов которые заменяют собой ряд пользовательских сценариев с помощью python script, MCP зачастую не гибок, для сложных сценариев необходимо или вызвать их несколько раз что повышает расход токенов или написать еще один скрипт который вызовет MCP сервера, ведь мы уже можем использовать стандартную библиотеку для осуществления вызовов к удаленным ресурсам и писать сложные сценарии, это будет расширяемая система\". Then: \"Давай пока зафиксируем пользовательский запрос, без конкретного предложения с твоей стороны, позже я разберу эту тему\". IP left 0 for the owner."
+  ],
+  "where": "to be designed when taken",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

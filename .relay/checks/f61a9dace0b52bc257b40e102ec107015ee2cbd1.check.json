@@ -1,0 +1,258 @@
+{
+  "branch": "wt/setup-wt",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, the arsenal pilot design, scratchpad reports/design-arsenal.md (copy in ~/.relay/backup/scratch-3207dc59), section 1.1: setup in .worktrees/relay-setup would name the project after the worktree and leave .bak files in tracked folders. IP chosen by the front (agent-chosen); needed at the pilot's setup step."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay setup --relay-folder in a temporary repo's linked worktree: the project name is the worktree's folder name; a .bak appears beside a tracked file."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same run names the main checkout's project, or refuses with what to run; no .bak in a tracked folder."
+      ],
+      "path": "lib/relay_setup.py setup",
+      "rank": "high",
+      "reason": [
+        "tests/test_setup.py:48 test_setup_in_a_linked_worktree_names_the_project_after_the_main_checkout passes; fails at 901966a (refusal) and the review saw it fail on master."
+      ],
+      "severity": "HIGH",
+      "since": "c2e15a0113e74ffc9c58fcb6dc001b7b645812fd",
+      "source": "queue",
+      "summary": "setup inside a worktree names the wrong project",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a probe. A .git file only says the git folder is elsewhere; linked worktrees, submodules and --separate-git-dir all",
+        "use it. And dirname(--git-common-dir) is the main checkout only when the common dir is <main>/.git. The exact test is",
+        "`rev-parse --git-dir` != `rev-parse --git-common-dir` (true only for a linked worktree), and the main checkout is the first",
+        "\"worktree <path>\" line of `git worktree list --porcelain`. Size: 15 agent minutes with the two tests."
+      ],
+      "evidence": [
+        "python3 -I probe.py (lib on sys.path), after building the repos in the scratchpad:",
+        "super/mods/sub -> .../probe/super/.git/modules/mods",
+        "sepwork -> .../probe",
+        "super -> None",
+        "cat super/mods/sub/.git -> gitdir: ../../.git/modules/mods/sub"
+      ],
+      "failing_case": [
+        "A main checkout whose .git is a file but which is not a linked worktree:",
+        "- a submodule super/mods/sub (.git = \"gitdir: ../../.git/modules/mods/sub\"): main_checkout() returns super/.git/modules/mods,",
+        "  so `relay setup super/mods/sub` refuses: \"Run `relay setup <super>/.git/modules/mods` on the main checkout\".",
+        "- `git init --separate-git-dir=$S/sep.git sepwork`: main_checkout(sepwork) returns $S (the parent of sep.git), so setup refuses",
+        "  and names an unrelated folder.",
+        "Should: both are their own main checkout; main_checkout() returns None and setup runs."
+      ],
+      "fix_hint": [
+        "In main_checkout(): return None unless git-dir and git-common-dir (both --path-format=absolute) differ; then take the path of",
+        "the first \"worktree \" line of `git worktree list --porcelain`."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 122,
+      "pass_cases": [
+        "1. git init --separate-git-dir=<tmp>/sep.git <tmp>/sepwork; main_checkout(<tmp>/sepwork) is None; setup(<tmp>/sepwork, flow=\"none\",",
+        "   product=False, apply_global=False) returns d[\"name\"] == \"sepwork\".",
+        "2. A submodule <tmp>/super/mods/sub added with git submodule add: main_checkout() is None.",
+        "3. A linked worktree <tmp>/somewt of <tmp>/mainproj: main_checkout() == realpath(<tmp>/mainproj) (the existing test keeps passing).",
+        "4. A plain main checkout (.git folder) and a folder outside git: main_checkout() is None."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup.py test_main_checkout_is_exact_for_each_kind_of_checkout covers worktree, main, loose, sepwork, submodule; passes, fails at 901966a."
+      ],
+      "severity": "MEDIUM",
+      "since": "901966a4d9d3d277fd1fe31402150e48214e30d7",
+      "source": "review-setup-wt.json",
+      "source_id": "F1",
+      "summary": "main_checkout() takes any .git file for a linked worktree: a submodule or a --separate-git-dir checkout is refused with a wrong path",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: migrate() (lib/relay_setup.py 779-797) runs the shutil.move loop and the bin/kit copy before it calls",
+        "setup(root, relay_dir=False, ...), and the new refusal sits at the top of setup(). The change put the check in the callee",
+        "but migrate writes first. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:783-795  if apply and items: ... shutil.move(src, dst) ... shutil.copy2(... \"kit-shim\" ...)",
+        "lib/relay_setup.py:797      d2, ... = setup(root, relay_dir=False, moved_hooks=hooks_moved, **kw)",
+        "lib/relay_setup.py:634-636  main = main_checkout(root); if main: raise ValueError(...)"
+      ],
+      "failing_case": [
+        "A linked worktree of a project with old agents/skills/hooks (migration_plan lists items); run `relay migrate <worktree> --apply`.",
+        "Now: migrate() moves each item into .claude/relay-migration/ and writes bin/kit, then calls setup(), which raises \"is a linked",
+        "git worktree\"; the CLI prints the refusal and exits 1 with the files already moved and settings.json still calling the moved",
+        "hooks. Should: refuse before anything is moved; the worktree is unchanged."
+      ],
+      "fix_hint": [
+        "Move the refusal into one helper (refuse_linked_worktree(root)) and call it first in both migrate() and setup()."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 779,
+      "pass_cases": [
+        "1. Linked worktree with an old .claude/agents/x.md that migration_plan lists; migrate(wt, apply=True, flow=\"none\", product=False,",
+        "   apply_global=False) raises ValueError naming the main checkout; .claude/agents/x.md is still there; no .claude/relay-migration",
+        "   and no bin/kit were created.",
+        "2. The same with apply=False: raises the same ValueError, nothing written.",
+        "3. migrate(main_checkout, apply=True, ...) still moves the items and runs setup (existing migrate tests keep passing)."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup.py test_migrate_apply_in_a_linked_worktree_completes: migration completes, no half state; passes, fails at 901966a."
+      ],
+      "severity": "MEDIUM",
+      "since": "901966a4d9d3d277fd1fe31402150e48214e30d7",
+      "source": "review-setup-wt.json",
+      "source_id": "F2",
+      "summary": "relay migrate --apply in a linked worktree moves the old files aside and writes bin/kit, then setup refuses: a half-migrated tree",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: cmd_migrate_all loops over known_projects() with no try around migrate(); without --primary it already",
+        "skips every folder with a .git folder, so after this change it can only migrate folders outside git, and a worktree root aborts",
+        "the whole run. A caller of setup() not updated. Today only [relay] is registered, so it is reachable but not live.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "bin/relay:444  if not primary and os.path.isdir(os.path.join(root, \".git\")):  ... \"primary checkout: skipped\"",
+        "bin/relay:447  copied = relay_setup.copy_kit_drafts(principles, name, root)",
+        "bin/relay:450  d, items, moved, ... = relay_setup.migrate(root, apply=bool(apply), apply_global=False)",
+        "bin/relay:881  except (relay_rules.Fail, FileNotFoundError, ValueError) as exc: print ...; return 1"
+      ],
+      "failing_case": [
+        "projects.toml lists project A at a linked worktree and project B after it. `relay migrate --all` (without --primary, which skips",
+        "every main checkout) copies A's kit drafts, then relay_setup.migrate(A) raises the new ValueError out of the loop; main() prints",
+        "\"relay migrate: ... is a linked git worktree ...\" and exits 1; B is never visited. Should: print a skip line for A (with the",
+        "command to run) and go on to B."
+      ],
+      "fix_hint": [
+        "In cmd_migrate_all, check relay_setup.main_checkout(root) beside the primary check and print \"linked worktree of <main>:",
+        "skipped\" before copy_kit_drafts."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 450,
+      "pass_cases": [
+        "1. RELAY_PROJECTS with A (a linked worktree's CLAUDE.local.md) then B (a folder without .git): cmd_migrate_all([]) prints a",
+        "   \"linked worktree: skipped\" line for A, migrates B, and returns 0.",
+        "2. A registry with only a main checkout and no --primary: still prints \"primary checkout: skipped\" (unchanged).",
+        "3. With --primary on a main checkout: still migrates it."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup.py test_migrate_all_with_a_worktree_registered_completes_and_reaches_later_projects: exit 0 and the later project reached; passes, fails at 901966a."
+      ],
+      "severity": "MEDIUM",
+      "since": "901966a4d9d3d277fd1fe31402150e48214e30d7",
+      "source": "review-setup-wt.json",
+      "source_id": "F3",
+      "summary": "relay migrate --all stops at the first registered project whose folder is a linked worktree; later projects are not migrated",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading docs/setup.md 16, 81, 127-130 against the new backup(). The rollback promise is what a person reads to undo",
+        "setup. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "docs/setup.md:16  `Bash(kit:*)` allowed; a backup beside it;",
+        "docs/setup.md:81  Revert: `mv .claude/relay-migration/<file> <back>`; the settings backup is beside the file.",
+        "git diff master...HEAD --stat -- docs  -> (nothing)"
+      ],
+      "failing_case": [
+        "A person rolls back a project setup by docs/setup.md: \"Revert: ... the settings backup is beside the file\" (line 81; also line",
+        "16 \"a backup beside it\" and the rollback list at 127-130). After this change .claude/settings.json in a git project has no .bak",
+        "beside it: the copy is in <git dir>/relay-backup/.claude__settings.json.<stamp>.bak, or none when git holds the file unchanged",
+        "(restore with git). The person finds no backup. Also the worktree refusal is not in the docs."
+      ],
+      "fix_hint": [
+        "Edit the three places in docs/setup.md; one sentence each."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 81,
+      "pass_cases": [
+        "1. docs/setup.md line on project backups names <git dir>/relay-backup/ and \"none when git holds the file unchanged: git restore\".",
+        "2. docs/setup.md keeps \"~/.claude/settings.json (timestamped backup)\" beside the file (outside git, unchanged behaviour).",
+        "3. docs/setup.md says relay setup refuses in a linked worktree and what it prints."
+      ],
+      "path": "docs/setup.md",
+      "rank": "medium",
+      "reason": [
+        "docs/setup.md lines 17, 77-78, 84-85, 131-132 name <git dir>/relay-backup/ and the worktree behaviour (by reading)."
+      ],
+      "severity": "MEDIUM",
+      "since": "901966a4d9d3d277fd1fe31402150e48214e30d7",
+      "source": "review-setup-wt.json",
+      "source_id": "F4",
+      "summary": "docs/setup.md still says the settings backup is beside the file; it now goes under .git/relay-backup or is not made",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE as a cost, CONFIRMED as text. The brief allowed a refusal \"if naming it right is not exact\"; the fixer says exact",
+        "naming is impossible because files and registration would point at the worktree. But the main checkout is known exactly",
+        "(git worktree list), and the registration is a single path (projects.toml file = <root>/CLAUDE.local.md), so option A is",
+        "buildable. Which one is right is the owner's: A costs about 30 agent minutes and touches detect()/register; B is a message."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:636 raise ValueError(f\"... Run `relay setup {main}` on the main checkout, then merge that change into this branch\")",
+        "design-arsenal.md 1.1 row 3: \"Edits the main checkout, which arsenal's rule says stays clean.\"",
+        "~/.claude/CLAUDE.md Git: \"keep the primary checkout on its default branch and clean.\""
+      ],
+      "failing_case": [
+        "The arsenal pilot (design-arsenal.md 1.1: arsenal's main checkout stays clean). `relay setup <arsenal>/.worktrees/x` now",
+        "prints \"Run `relay setup <arsenal>` on the main checkout, then merge that change into this branch\". Following it writes",
+        "kit.toml, settings.json, bin/ templates and docs/handover.md into the primary checkout (dirty, on master), and \"merge that",
+        "change\" names no commit. Should (one choice): either setup in a worktree writes the tracked files in the worktree and registers",
+        "the project under the main checkout's name and CLAUDE.local.md path, or the refusal points at the path that keeps main clean."
+      ],
+      "fix_hint": [
+        "Owner picks A or B; B is a one-line message change."
+      ],
+      "id": "F5",
+      "kind": "question",
+      "line": 636,
+      "pass_cases": [
+        "A (name by main): setup(<tmp>/somewt) writes .claude/kit.toml in somewt, registers [mainproj] with file <tmp>/mainproj/CLAUDE.local.md,",
+        "   and writes nothing in <tmp>/mainproj except CLAUDE.local.md (untracked, ignored).",
+        "B (keep refusal): the message names the command that keeps the main checkout clean, or says plainly that setup writes the main",
+        "   checkout and must be committed there on a branch."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "Option A built: no refusal, project named and registered after the main checkout, main checkout untouched (asserted in the Q1 test)."
+      ],
+      "severity": "MEDIUM",
+      "since": "901966a4d9d3d277fd1fe31402150e48214e30d7",
+      "source": "review-setup-wt.json",
+      "source_id": "F5",
+      "summary": "the refusal tells the owner to run setup on the main checkout, which the owner's Git rule and arsenal's rule keep clean",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "cbfc4cd96bc13312808ad20970e4c110c73dbe3d.gate.log",
+  "head": "f61a9dace0b52bc257b40e102ec107015ee2cbd1",
+  "item": "setup-inside-a-worktree-names-the-wrong-project",
+  "notes": [
+    "Decision applied (no refusal) removes the cause of F2 and F3. main_checkout of relay_setup is local to that module; other main_checkout functions are separate. Full pytest suite run was not awaited (timed out in background); the gate covers it."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 901966a..HEAD; fix commit cbfc4cd touches docs/setup.md, lib/relay_setup.py, tests/test_setup.py only. tests/test_setup.py: 36 passed. The four new or changed tests were copied onto a detached worktree at 901966a and all 4 fail there. Gate log head cbfc4cd, exit 0 (quick mode); relay changed after it lists no file."
+  ],
+  "type": "check"
+}

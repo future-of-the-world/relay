@@ -1,0 +1,15 @@
+head 8ca7ae9004cfeaa958d71d82c4ddebf6c614a0af
+cmd bin/ci --quick
+ci: library tests FAILED (552s, log: .ci/steps/library-tests.log)
+    FAIL: test_q1_every_relay_subcommand_is_classified_as_read_or_write (test_read_only_guard.ReadOnlyHook.test_q1_every_relay_subcommand_is_classified_as_read_or_write)
+    AssertionError: Itemsci: inert FAILED (742s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed:
+        < library tests FAILED
+ci: RED
+i: plugin validate ok (5s)
+ci: inert FAILED (718s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed:
+        < library tests FAILED
+        < inert FAILED
+ci: RED
+exit 1

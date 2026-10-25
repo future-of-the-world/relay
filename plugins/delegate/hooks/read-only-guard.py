@@ -27,6 +27,7 @@ WRITERS: dict[str, Optional[set[str]]] = {
     "queue": {"add", "take", "release", "done", "drop", "land", "ip", "migrate"},
     "check": {"migrate", "owner"},
     "improve": {"adopt"},
+    "license": {"add"},
 }
 READS = {"status", "report", "profile", "doctor", "flows", "rules", "changed"}
 # the words after a writing-or-mixed subcommand that only read (the other words of WRITERS[sub] is None are writes)
@@ -35,6 +36,7 @@ READ_WORDS = {
     "queue": {"count", "show", "check"},
     "check": {"show", "findings", "record"},   # record is the judge's own way to write its verdict
     "improve": {"suggest", "log"},
+    "license": {"check"},
 }
 PASS_THROUGH = {"env", "exec", "command", "nohup", "time", "sudo"}
 SHELLS = {"sh", "bash", "zsh", "dash"}

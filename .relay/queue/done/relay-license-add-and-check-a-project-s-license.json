@@ -19,8 +19,9 @@
   ],
   "taken_at": null,
   "taken_by": null,
-  "closed_at": null,
+  "closed_at": "2026-10-25T22:43:11Z",
   "test": null,
+  "evidence": "c3d8b35",
   "dropped_at": null,
   "dropped_why": null
 }

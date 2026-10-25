@@ -1,0 +1,365 @@
+{
+  "branch": "wt/license",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading add() (writes license_path only) and settings() (reads [license] that add never writes). The owner's",
+        "UPDATE in the brief: \"One command does everything: relay license add <id> --holder <name> writes LICENSE (root, for GitHub),",
+        "LICENSES/<id>.txt ..., REUSE.toml ..., and [license] id, holder in .claude/kit.toml\". docs/setup.md and the bin/relay usage",
+        "describe the pre-update design and need the same update; the one-time reuse lint verification is also not recorded in the",
+        "worker report. Size: 45 agent minutes."
+      ],
+      "evidence": [
+        "probe: `relay license add MIT --holder me --headers -C probe/p` -> \"wrote LICENSE (MIT)\"; `ls` -> a.py LICENSE third_party vendor",
+        "(no LICENSES, no REUSE.toml, no .claude/kit.toml written).",
+        "git log: 8ca7ae9 2026-10-25 23:45:10 +0400; brief mtime Oct 25 23:49:42."
+      ],
+      "failing_case": [
+        "In an empty git repo: `relay license add MIT --holder amidman`.",
+        "Now: only LICENSE is written; ls shows no LICENSES/, no REUSE.toml, and .claude/kit.toml gets no [license] (so `relay license",
+        "check` then does nothing at all: settings() returns None).",
+        "Should: LICENSE, LICENSES/MIT.txt (same SPDX text), REUSE.toml with one [[annotations]] path = \"**\", precedence = \"closest\",",
+        "SPDX-FileCopyrightText = \"2026 amidman\", SPDX-License-Identifier = \"MIT\", and [license] id = \"MIT\", holder = \"amidman\" in",
+        ".claude/kit.toml; `uvx --quiet --from 'reuse[charset-normalizer]==6.2.0' reuse lint` in that repo says compliant."
+      ],
+      "fix_hint": [
+        "In add(): after LICENSE, write LICENSES/<id>.txt with the same text, write REUSE.toml (version = 1 plus one annotation) when",
+        "missing (refuse when present and it does not cover \"**\" with the id), and append [license] to kit.toml through one helper",
+        "shared with relay_setup.set_license (move license_block into relay_license). Update docs/setup.md and the usage text."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 108,
+      "pass_cases": [
+        "1. empty repo, `relay license add MIT --holder amidman --year 2026` -> files LICENSE, LICENSES/MIT.txt, REUSE.toml exist;",
+        "   LICENSE == LICENSES/MIT.txt byte for byte; tomllib(REUSE.toml)[\"annotations\"] == [{\"path\": \"**\", \"precedence\": \"closest\",",
+        "   \"SPDX-FileCopyrightText\": \"2026 amidman\", \"SPDX-License-Identifier\": \"MIT\"}]; tomllib(.claude/kit.toml)[\"license\"] ==",
+        "   {\"id\": \"MIT\", \"holder\": \"amidman\"}; then `relay license check` exits 0.",
+        "2. Apache-2.0 --holder amidman -> LICENSE and LICENSES/Apache-2.0.txt equal the bundled text unchanged; REUSE.toml copyright",
+        "   \"<year> amidman\".",
+        "3. run the same add twice -> second run exit 0, no file content changes (REUSE.toml, kit.toml unchanged).",
+        "4. LICENSE exists and differs -> refused, exit 1, and none of LICENSES/, REUSE.toml, kit.toml is written (kept as today).",
+        "5. existing kit.toml with other tables -> [license] appended, other tables byte-unchanged."
+      ],
+      "path": "lib/relay_license.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_license.py:211 test_f1_add_writes_the_reuse_layout; passes, fails on pre-fix code"
+      ],
+      "severity": "HIGH",
+      "since": "aa1663513091aa07a786d9760f70167b08c1dc61",
+      "source": "review-license.json",
+      "source_id": "F1",
+      "summary": "add writes only LICENSE: no LICENSES/<id>.txt, no REUSE.toml, no kit.toml [license] (the owner's REUSE layout, one command)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: check() looks only at LICENSE and, with headers = true, at header lines. Owner UPDATE: \"The check fails on: LICENSE /",
+        "LICENSES/<id>.txt missing or differing ..., REUSE.toml missing or not covering \"**\" with the kit.toml id, a tracked vendored",
+        "folder (vendor/, third_party/, node_modules/) without its own REUSE.toml annotation or headers\". Also code_files uses",
+        "`git ls-files -co`, which lists untracked files too, while the update speaks of tracked files. Size: 40 agent minutes."
+      ],
+      "evidence": [
+        "probe/p (git repo, tracked vendor/lib/z.c, kit.toml [license] id MIT, no LICENSES, no REUSE.toml):",
+        "`relay license check -C probe/p` -> exit 0, no output."
+      ],
+      "failing_case": [
+        "Repo with kit.toml [license] id=\"MIT\" holder=\"me\", a correct LICENSE, no LICENSES/, no REUSE.toml, and a tracked",
+        "vendor/lib/z.c with no annotation or header.",
+        "Now: `relay license check` prints nothing, exit 0.",
+        "Should: exit non-zero with one line each: LICENSES/MIT.txt missing; REUSE.toml missing; vendor/ is tracked and has no REUSE.toml",
+        "annotation or headers of its own (it would be claimed as ours)."
+      ],
+      "fix_hint": [
+        "Add to check(): LICENSES/<id>.txt exists and matches like LICENSE; parse REUSE.toml with tomllib and require an annotation with",
+        "path \"**\" and the id; for each of vendor/, third_party/, node_modules/ that has tracked files (git ls-files), require an",
+        "annotation whose path covers it or SPDX headers in its files."
+      ],
+      "id": "F2",
+      "kind": "feature",
+      "line": 165,
+      "pass_cases": [
+        "1. the failing case above -> exit 1, exactly 3 lines naming LICENSES/MIT.txt, REUSE.toml and vendor/.",
+        "2. after `relay license add MIT --holder me` in a repo with no vendored folder -> exit 0, no output.",
+        "3. REUSE.toml present but its \"**\" annotation says Apache-2.0 while kit.toml says MIT -> one line, exit 1.",
+        "4. LICENSES/MIT.txt differs from the bundled text by one word -> one line, exit 1.",
+        "5. tracked vendor/x.c with REUSE.toml annotation path = \"vendor/**\" (other license) -> no vendor line; a node_modules/ that is",
+        "   untracked (ignored) -> no line; year in LICENSE 2019 -> still exit 0 (the year is never bumped)."
+      ],
+      "path": "lib/relay_license.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_license.py:243 test_f2_check_names_the_three_reuse_problems; passes, fails on pre-fix code"
+      ],
+      "severity": "HIGH",
+      "since": "aa1663513091aa07a786d9760f70167b08c1dc61",
+      "source": "review-license.json",
+      "source_id": "F2",
+      "summary": "check misses the REUSE problems the owner listed: LICENSES/<id>.txt, REUSE.toml coverage, tracked vendored folders",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by `git grep -n license -- lib/relay_gate.py templates/` (no match) and relay_setup.set_license / add_license_step.",
+        "Owner UPDATE: \"relay gate itself runs relay license check when kit.toml has [license] (do not edit a project's existing",
+        "bin/check ...)\". The gate's reuse cache (reusable(worktree, head, command)) keys on head and command; the license step must be",
+        "part of what the cached result stands for. Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n 'license' -- lib/relay_gate.py templates/  -> no output",
+        "lib/relay_setup.py:213 todo.append(\"bin/check: add the step `run_step license relay license check` ...\")"
+      ],
+      "failing_case": [
+        "Project with kit.toml [license] id=\"MIT\" and LICENSE deleted, run `relay gate`.",
+        "Now: the gate does not call relay license check (no reference to license in lib/relay_gate.py); it passes when bin/check passes.",
+        "For an existing project `relay setup --license MIT --holder x` adds the to-do \"bin/check: add the step `run_step license relay",
+        "license check`\"; for a new one it inserts that step into the written bin/check.",
+        "Should: the gate itself runs `relay license check` when kit.toml has [license] and fails on its output; no bin/check edit and",
+        "no to-do to edit bin/check."
+      ],
+      "fix_hint": [
+        "In relay_gate.run, after bin/check, call relay_license.check(worktree) when settings() is not None and fail the gate with its",
+        "lines; drop add_license_step and the bin/check to-do from relay_setup."
+      ],
+      "id": "F3",
+      "kind": "feature",
+      "line": 103,
+      "pass_cases": [
+        "1. kit.toml [license] MIT, LICENSE missing, bin/check exits 0 -> `relay gate` fails and its log names \"LICENSE is missing\".",
+        "2. kit.toml [license] MIT, all license files right, bin/check exits 0 -> gate green.",
+        "3. kit.toml without [license] -> gate never runs the license check (no license line in the log), same result as today.",
+        "4. `relay setup --license MIT --holder x` on a project with an existing bin/check -> bin/check byte-unchanged and no to-do line",
+        "   about bin/check; on a new project the written bin/check has no license step."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_license.py:383 test_f3_missing_license_fails_the_gate_and_the_log_names_it; passes, fails on pre-fix code"
+      ],
+      "severity": "HIGH",
+      "since": "aa1663513091aa07a786d9760f70167b08c1dc61",
+      "source": "review-license.json",
+      "source_id": "F3",
+      "summary": "relay gate never runs relay license check; setup instead edits bin/check or tells the owner to edit it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the probe. code_files() skips SKIP_DIRS only in the os.walk branch; under git it takes every `git ls-files -co`",
+        "name. has_header() looks only for the project's id, so a file carrying another id gets a second line. Writing a wrong license",
+        "claim into third-party files is data corruption of license metadata and breaks the owner's \"never ... vendor/ node_modules/",
+        "third_party/\". Lock files and generated files are not excluded either (covered by F5). Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "$ relay license add MIT --holder me --headers -C probe/p",
+        "wrote LICENSE (MIT)",
+        "header line added to 3 file(s)",
+        "==> vendor/lib/z.c <==  // SPDX-License-Identifier: MIT",
+        "==> third_party/t.c <== // SPDX-License-Identifier: MIT / // SPDX-License-Identifier: Apache-2.0"
+      ],
+      "failing_case": [
+        "git repo with tracked vendor/lib/z.c \"int x;\" and third_party/t.c \"// SPDX-License-Identifier: Apache-2.0\\nint y;\",",
+        "`relay license add MIT --holder me --headers`.",
+        "Now: \"header line added to 3 file(s)\"; vendor/lib/z.c starts \"// SPDX-License-Identifier: MIT\"; third_party/t.c now has",
+        "\"// SPDX-License-Identifier: MIT\" above its own Apache-2.0 line (two conflicting licenses; third-party code claimed as ours).",
+        "Should: files under vendor/, third_party/, node_modules/ (at any depth) are never touched; a file that already has an",
+        "SPDX-License-Identifier line for another id is not given a second one."
+      ],
+      "fix_hint": [
+        "Filter the git list by path parts against a vendored set (vendor, third_party, node_modules) as well as SKIP_DIRS; in add, skip",
+        "a file whose first lines already hold any SPDX-License-Identifier."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 69,
+      "pass_cases": [
+        "1. the failing case -> vendor/lib/z.c and third_party/t.c byte-unchanged; a.py gets the header; output says 1 file.",
+        "2. a/b/node_modules/m.js tracked -> unchanged.",
+        "3. src/x.py already \"# SPDX-License-Identifier: Apache-2.0\" -> unchanged (and check reports it as a wrong id when headers on).",
+        "4. non-git folder walk with vendor/ -> unchanged (already true today via SKIP_DIRS, keep it).",
+        "5. src/run.sh \"#!/bin/sh\\necho\" -> header after the shebang (kept as today)."
+      ],
+      "path": "lib/relay_license.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_license.py:277 test_f4_headers_never_touch_vendored_or_foreign_spdx_files; passes, fails on pre-fix code"
+      ],
+      "severity": "HIGH",
+      "since": "aa1663513091aa07a786d9760f70167b08c1dc61",
+      "source": "review-license.json",
+      "source_id": "F4",
+      "summary": "add --headers stamps our license on tracked vendor/, third_party/ files, even over another SPDX id",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading COMMENT, cmd_license (flag(\"--headers\", takes_value=False)) and settings() (headers must be a bool).",
+        "Owner UPDATE: \"No per-file headers unless --headers code|config|docs (groups: code = ~40 source types incl.",
+        "Dockerfile/Makefile; config = yaml/toml/ini/xml; docs = md/rst); never json, lock files, binaries, generated files\". Size: 40",
+        "agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_license.py:18-19 COMMENT has 18 extensions, toml/yaml among the code ones; bin/relay cmd_license:",
+        "headers = flag(args, \"--headers\", takes_value=False)"
+      ],
+      "failing_case": [
+        "`relay license add MIT --holder me --headers docs` -> now a usage error (the flag takes no value; \"docs\" becomes a second",
+        "positional). `--headers` alone stamps .toml/.yaml as code; Dockerfile, Makefile, .java, .rb, .php, .cpp get nothing.",
+        "Should: --headers code|config|docs (repeatable or comma list), code = about 40 source types incl. Dockerfile and Makefile,",
+        "config = yaml/toml/ini/xml, docs = md/rst; kit.toml records the groups and check checks exactly those groups."
+      ],
+      "fix_hint": [
+        "Replace COMMENT with GROUPS = {\"code\": {...}, \"config\": {...}, \"docs\": {...}} mapping extension or exact file name to a comment",
+        "style (#, //, <!-- -->); --headers takes group names; kit.toml headers is a list of groups."
+      ],
+      "id": "F5",
+      "kind": "feature",
+      "line": 18,
+      "pass_cases": [
+        "1. `--headers code` in a repo with Dockerfile, Makefile, a.java, b.yaml, c.md -> Dockerfile, Makefile, a.java get the line",
+        "   (\"# ...\" for Dockerfile/Makefile, \"// ...\" for java); b.yaml and c.md unchanged.",
+        "2. `--headers docs` -> c.md gets an HTML-comment SPDX line; nothing else changes.",
+        "3. `--headers config` -> b.yaml and x.toml get \"# ...\"; data.json, package-lock.json, Cargo.lock never.",
+        "4. no --headers -> no file but LICENSE/LICENSES/REUSE.toml/kit.toml changes; check reports no header problems.",
+        "5. kit.toml [license] headers = [\"code\"] -> check lists code files without the line, ignores b.yaml."
+      ],
+      "path": "lib/relay_license.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_license.py:297 test_f5_header_groups; passes, fails on pre-fix code"
+      ],
+      "severity": "HIGH",
+      "since": "aa1663513091aa07a786d9760f70167b08c1dc61",
+      "source": "review-license.json",
+      "source_id": "F5",
+      "summary": "--headers is a yes/no over 18 extensions, not the owner's groups code|config|docs (no Dockerfile/Makefile, md never)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the probe. The SPDX ISC text carries the original ISC copyright lines as an example; the brief listed ISC among the",
+        "texts with a holder placeholder. The worker noted it in the report but did not raise it as a Gap. A reachable wrong LICENSE for",
+        "anyone who picks ISC. Size: 15 agent minutes (one substitution rule for ISC, with check matching it)."
+      ],
+      "evidence": [
+        "$ relay license add ISC --holder me -C probe/i",
+        "wrote LICENSE (ISC)",
+        "this text has no holder line; ...",
+        "ISC License:  /  Copyright (c) 2004-2010 by Internet Systems Consortium, Inc. (\"ISC\")"
+      ],
+      "failing_case": [
+        "`relay license add ISC --holder me` in an empty folder.",
+        "Now: LICENSE starts \"ISC License:\\n\\nCopyright (c) 2004-2010 by Internet Systems Consortium, Inc. (\"ISC\")\", the holder \"me\" goes",
+        "only into a header suggestion; the project's LICENSE claims ISC's copyright.",
+        "Should: either a LICENSE with \"Copyright (c) <year> me\" in place of the SPDX example copyright lines (ISC is meant to be applied",
+        "that way), or a refusal saying ISC is not offered; never a LICENSE naming someone else as holder."
+      ],
+      "fix_hint": [
+        "For ISC replace the two example copyright lines with \"Copyright (c) <year> <copyright holders>\" before filling (and in matches());",
+        "or drop ISC.txt from the bundle and the README list."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 108,
+      "pass_cases": [
+        "1. `add ISC --holder me --year 2026` -> LICENSE contains \"Copyright (c) 2026 me\" and not \"Internet Systems Consortium\" (or exit 1",
+        "   with a message, if ISC is dropped from the bundle).",
+        "2. `add ISC` with no --holder -> refused asking for --holder (if kept).",
+        "3. `add MIT --holder me --year 2026` -> unchanged: line 3 \"Copyright (c) 2026 me\".",
+        "4. `add Apache-2.0 --holder me` -> LICENSE equals the bundled text (kept as today)."
+      ],
+      "path": "lib/relay_license.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_license.py:340 test_f6_isc_names_the_holder_not_isc; passes, fails on pre-fix code"
+      ],
+      "severity": "MEDIUM",
+      "since": "aa1663513091aa07a786d9760f70167b08c1dc61",
+      "source": "review-license.json",
+      "source_id": "F6",
+      "summary": "add ISC --holder me writes a LICENSE naming Internet Systems Consortium as the copyright holder",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the probe; matches() requires \\d{4}, cmd_license accepts any digits. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "probe/y: add MIT --year 99 -> \"wrote LICENSE (MIT)\"; check -> \"LICENSE differs from the bundled MIT text\" exit 1"
+      ],
+      "failing_case": [
+        "`relay license add MIT --holder me --year 99`, kit.toml [license] MIT/me, `relay license check` -> \"LICENSE differs from the",
+        "bundled MIT text\", exit 1. Should: add refuses a year that is not four digits (or check accepts what add writes)."
+      ],
+      "fix_hint": [
+        "In cmd_license require re.fullmatch(r\"\\d{4}\", year)."
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 161,
+      "pass_cases": [
+        "1. `add ... --year 99` -> usage error, nothing written.",
+        "2. `add ... --year 2019` then check -> exit 0.",
+        "3. no --year -> current year, check exit 0."
+      ],
+      "path": "lib/relay_license.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_license.py:349 test_f7_year_must_be_four_digits; passes, fails on pre-fix code"
+      ],
+      "severity": "LOW",
+      "since": "aa1663513091aa07a786d9760f70167b08c1dc61",
+      "source": "review-license.json",
+      "source_id": "F7",
+      "summary": "--year 99 is accepted by add, then check calls the LICENSE it wrote different",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (traced: _read raises UnicodeDecodeError, bin/relay main catches ValueError and prints the message). Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_license.py:129 old = _read(full) has no try; check() at the same spot catches UnicodeDecodeError."
+      ],
+      "failing_case": [
+        "Repo with a.py (UTF-8) and b.c in latin-1 (byte 0xE9), `relay license add MIT --holder me --headers`.",
+        "Now: LICENSE and a.py are written, then main prints \"'utf-8' codec can't decode byte 0xe9 ...\" (UnicodeDecodeError is a",
+        "ValueError), exit non-zero, no file named. Should: skip b.c and name it (\"b.c: not readable as text, header not added\"), as",
+        "check already does."
+      ],
+      "fix_hint": [
+        "Wrap the read in add() like check() does and report the skipped files."
+      ],
+      "id": "F8",
+      "kind": "inside",
+      "line": 129,
+      "pass_cases": [
+        "1. failing case -> exit 0, a.py has the header, b.c byte-unchanged, output names b.c.",
+        "2. all files UTF-8 -> unchanged behaviour."
+      ],
+      "path": "lib/relay_license.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_license.py:357 test_f8_unreadable_file_is_named_and_skipped; passes, fails on pre-fix code"
+      ],
+      "severity": "LOW",
+      "since": "aa1663513091aa07a786d9760f70167b08c1dc61",
+      "source": "review-license.json",
+      "source_id": "F8",
+      "summary": "add --headers stops at the first non-UTF-8 code file with a decode error that names no file, after writing some",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0b91754086e6a6de438ff8a7e035b4b587a04e57.gate.log",
+  "head": "c881266baf26682ac7df1f47c2fb1f7e95e9f06e",
+  "item": null,
+  "notes": [
+    "Callers of removed set_license/add_license_step: none remain per fixer; behaviour changes (holder required, headers as list) are documented."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range aa1663513091..HEAD; own changed files: bin/relay, data/licenses/README.md, docs/setup.md, relay_gate/license/setup, tests/test_license.py, all in scope. Ran tests/test_license.py: 48 passed. Ran the new test file against the pre-fix commit: 24 failed, 24 passed. Gate log is for 0b91754, exit 0; the only later commit is the gate log itself (no changed files)."
+  ],
+  "type": "check"
+}

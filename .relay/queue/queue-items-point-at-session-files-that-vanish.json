@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 45,
+  "found_at": "2026-10-25T22:28:00Z",
+  "found_in": "relay queue add",
+  "title": "Queue items point at session files that vanish",
+  "what": [
+    "A queue item holds the owner's words verbatim and measured facts each as one dated line, and no link to a report: research and design are done when the item is taken. `relay queue add` refuses text that names a session scratchpad or /private/tmp path, saying to put the fact itself in. The 12 open items that point into a scratchpad get, through relay's queue writer, the facts they rely on in place of the link (a fact that cannot be recovered is dropped and the item says so)."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"когда ты проводишь исследование и создаешь задачу, куда ты сохраняешь отчет, в задачу ты пишешь лишь короткий кусочек информации, нужно ли это ? Или достаточно просто сохранить запрос пользователя а дизайн будет выполнен перед выполнением, что позволяет нам освободиться от неактуальных результатов исследования и сделать новое непосредственно перед выполнением\", then \"Согласен с рекомендованным вариантом\" (owner's words plus dated facts, no report links). Measured 26 Oct: 12 of 69 open items name a scratchpad path (a /private/tmp folder cleared on reboot); this session wrote 451 report files. Build after wt/where-list merges (both rewrite queue records). IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "`grep -l scratchpad .relay/queue/*.json` lists 12 open items on 26 Oct."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same grep lists none; relay queue add with a why naming /private/tmp/... is refused with the message; an item with only the owner's words and dated facts is accepted."
+  ],
+  "where": "rules/queue.md (what an item holds), lib/relay_queue.py (add), the 12 open items naming a scratchpad path",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
