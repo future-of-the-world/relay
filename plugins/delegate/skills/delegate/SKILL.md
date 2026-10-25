@@ -19,6 +19,8 @@ with one brief, and comes back as at most 10 lines.
 | a command, test run, pipeline read, PR create or merge, API call | `delegate:runner` | the output stays out of this session |
 | writing or changing code, docs, a script, a test; a group of tasks | `delegate:worker` | builds from a brief in a worktree, loops on the check |
 | fixing listed findings or a red gate | `delegate:fixer` | narrow scope, no new design |
+| the owner asks about a NEW mechanism (a field, a command, a step: "can we", "would X help", "how should we") | `delegate:thinker`, then `delegate:critic`, then the revision | the design track: the brief holds the owner's words verbatim and says to measure live data first and to give at least two distinct approaches plus "do nothing" and how leading tools solve it; the owner gets the revised design, not the front's first idea |
+| explaining a mechanism that already exists | nobody, or `delegate:scout` | the front answers; no design track |
 | a design, a plan, options with costs, the cause of a hard bug | `delegate:thinker` | the big model where judgment pays; writes one file |
 | a review before merge, a design critique | `delegate:critic` | adversarial, read-only, findings with cases |
 | the check of a fix against the review's cases | `delegate:checker` | reads the findings, the fixer's report and the gate log; ends with a verdict |
