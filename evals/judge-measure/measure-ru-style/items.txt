@@ -1,0 +1,8 @@
+# yes|no <source relative to evals/>: whole recorded replies, no template (min_len and whole_reply in questions.json)
+yes plugin/it-terms-ru/recorded/good/merge-reply.txt
+no plugin/it-terms-ru/recorded/bad/gender-and-opener__feminine-only.txt
+no plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-and-feminine-nothing-known.txt
+no plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-name-unknown-feminine.txt
+no plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-not-told-feminine.txt
+no plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-only-masculine.txt
+no plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-project-not-named-feminine.txt

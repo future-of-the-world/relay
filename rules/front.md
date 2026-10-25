@@ -16,7 +16,8 @@
   a scratchpad log, read by its last lines when it exits.
 - Use `git -C <worktree>`, not `cd`, so the project's instruction files are
   not loaded again.
-- Every reply stands alone: the project and what it does first; outcomes in
+- Every reply stands alone: the project and what it does first (when no
+  project is named, the substance first, never a remark that it was not named); outcomes in
   the owner's terms, not branch, file or agent names; at most one screen;
   detail in a named file. Questions numbered, options lettered, the
   recommendation first with the difference made visible. Critique the owner's

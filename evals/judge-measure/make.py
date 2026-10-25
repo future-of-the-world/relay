@@ -15,6 +15,8 @@ writes, from items.txt and the production rubric, the files the eval reads:
                                                 differs, or when an item breaks a rule below
 
 items.txt line:  yes|no <source, relative to evals/> [into <template, relative to the case folder>]
+A question with "whole_reply": true in questions.json takes whole recorded replies with no template
+(its "no" items too) and may set its own "min_len" (a short reply is the form of a real one there).
 A template holds one line {{FINDING}}; the source's finding lines replace it. Rules (--check):
   - every composed item is 1,000 characters or more (the length and form of a real reply)
   - every item, yes and no, passes the question's code graders (the judge must be the one that decides)
@@ -113,7 +115,7 @@ def build(root):
                 hit = re.search(q["mention"], outside, re.I)
                 if hit:
                     problems.append(f"{label}: template {it['template']} mentions the finding outside its slot ({hit.group(0)!r}); a {it['want']} item built on it is not a clean {it['want']}")
-            elif it["want"] == "no":
+            elif it["want"] == "no" and not q.get("whole_reply"):
                 problems.append(f"{label}: a 'no' item needs a template (into ...)"); continue
             else:
                 text = src
@@ -126,8 +128,9 @@ def build(root):
             files[f"{name}/graders/{it['want']}--{nn}-{slug}.md"] = (
                 f"---\ntype: llm\nfocus: {{source: file, path: judged/{nn}.txt}}\n---\n" + d["rubric"])
             report.append(f"{name} {nn} {it['want']:3} {len(text):5} chars  {os.path.basename(it['source'])}")
-            if len(text) < MIN_LEN:
-                problems.append(f"{label}: {len(text)} characters, under {MIN_LEN} (not the length of a real reply)")
+            min_len = q.get("min_len", MIN_LEN)
+            if len(text) < min_len:
+                problems.append(f"{label}: {len(text)} characters, under {min_len} (not the length of a real reply)")
             for g in d["code"]:
                 triples.append([g["pattern"], g.get("flags", ""), text]); where.append(f"{label}: code grader {g.get('pattern')[:40]}...")
         files[f"{name}/answers.json"] = json.dumps(answers, indent=1, sort_keys=True) + "\n"
