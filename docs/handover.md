@@ -1162,3 +1162,7 @@ Scratchpad copy (survives a restart): /Users/amidman/.relay/backup/scratch-3207d
 
 ## STATE 25 Oct ~16:00 (connection drops expected)
 train-8 is ready by its check (check3-train-8.json in the scratchpad copy: open 0, gate 961245d green) and has taken master (47a9e86), but `git -C ~/relay merge --ff-only wt/train-8` was refused: "after the check of 3e4a0a5..., wt/train-8 changed lib/relay_textonly.py, tests/test_rules_gate.py". The last checker recorded its check without a mark commit (queue item a-merge-check-of-a-train-is-recorded-but-leaves, ip 91: raise it, it hit again). Next step: run the fix-cycle workflow on train-8 with fixes = reports/fix-train-8.md and findings = reports/check2-train-8.json, no fix (the gate is reused), so a checker records the check with its mark; then merge --ff-only. Then net-retry (ready) in its own train, then the items in the 15:30 section, step 3 on.
+
+## STATE 25 Oct ~17:00
+Merged: train-8 (wave-red + claudemd + split-tests). Closed with --fixed-by: the-eval-cost-ceiling-cuts-every-wave-run-short (2b4c9f0). a-merge-check-of-a-train-is-recorded-but-leaves raised to 96 (hit again on train-8; fixed by a re-check that recorded a mark).
+Running: train-9 (master + wt/net-retry; merge check m11-train-9.json, then ff-only); wt/rules-red (ip 98) and wt/ru-style (ip 93) in the change cycle. Next after them: the wave paid run on master, then relay sync on green.
