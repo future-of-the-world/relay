@@ -1,0 +1,116 @@
+{
+  "branch": "wt/train-8",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "evals/plugin/it-terms-ru/graders/no-calques.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_claudemd_fixes.py passes; gate green on 47a9e86"
+      ],
+      "severity": "MEDIUM",
+      "since": "0def63644f20f3a968c0bf3e3e1dcdb79dac426f",
+      "source": "m10-train-8.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_textonly.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_rules_gate.py:104 RuleTestsComplete passes and fails without the fix; test_split_test_files passes"
+      ],
+      "severity": "MEDIUM",
+      "since": "0def63644f20f3a968c0bf3e3e1dcdb79dac426f",
+      "source": "m10-train-8.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_claudemd_fixes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_claudemd_fixes.py passes"
+      ],
+      "severity": "MEDIUM",
+      "since": "0def63644f20f3a968c0bf3e3e1dcdb79dac426f",
+      "source": "m10-train-8.json",
+      "source_id": "F3",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_wave_red.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_wave_red.py passes"
+      ],
+      "severity": "MEDIUM",
+      "since": "0def63644f20f3a968c0bf3e3e1dcdb79dac426f",
+      "source": "m10-train-8.json",
+      "source_id": "F4",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "47a9e86a19ab203a3c57fe750c483428f3d95b52.gate.log",
+  "head": "abedadd3c612fef2a9716300b2d5e19f3b1b6aba",
+  "item": null,
+  "notes": [
+    "N1 (from the earlier check record) is fixed: tests/test_rules_gate.py:104 and lib/relay_textonly.py:26-29. The checker wrote this record because check3 was recorded without its mark commit."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head 47a9e86 exit 0 (bin/ci --quick); HEAD adds only a gate log (relay changed lists nothing). N1 fix (commit 961245d): READS_RULES in tests/test_rules_gate.py also matches system_rules., and RULE_TESTS lists ItTermsSetup, ItTermsRuGlossary, GlossaryGivesNoInstruction, HyphenEscape. Ran test_rules_gate, test_split_test_files, test_wave_red, test_claudemd_fixes: 34 passed. The guard test fails on 3e4a0a5 with the new test file copied in (4 classes missing), so it fails without the fix. Callers: RULE_TESTS is read only by the loader test, which passes."
+  ],
+  "type": "check"
+}
