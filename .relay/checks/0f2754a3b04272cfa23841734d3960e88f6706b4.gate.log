@@ -1,0 +1,14 @@
+head 0f2754a3b04272cfa23841734d3960e88f6706b4
+cmd bin/ci --quick
+ci: library tests FAILED (614s, log: .ci/steps/library-tests.log)
+    ImportError: Failed to import test module: test_option_letters
+    ModuleNotFoundError: No module named 'pytest'
+    FAILED (errors=1)
+ci: types and lint ok (0s)
+ci: hook tests ok (149s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert ok (836s)
+ci: RED
+exit 1
