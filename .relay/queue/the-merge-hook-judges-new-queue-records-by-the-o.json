@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 96,
+  "time": 45,
+  "found_at": "2026-10-25T21:21:34Z",
+  "found_in": "relay queue add",
+  "title": "The merge hook judges new queue records by the old schema",
+  "what": [
+    "The merge hook checks the queue records of the incoming tree with the record rules of that same tree (its lib/relay_queue.py, read from the branch's commit, not from the hook's own copy), so a change of the record schema together with its records can merge; records malformed by the incoming tree's own rules are still refused; everything else the hook checks is unchanged and still comes from the hook's own code."
+  ],
+  "why": [
+    "26 Oct, live: `git -C ~/relay merge --ff-only wt/where-list` (the owner's \"a\" on `where` as a list, ready: gate green, check open 0) was refused \"queue item a-project-added-by-setup-cannot-be-removed-again is malformed (where is not a string)\": master's hook reads the branch's list-form records with master's string rule. No schema change of queue records can ever merge. IP chosen by the front (agent-chosen), above where-list's merge."
+  ],
+  "failing_case": [
+    "A temporary repo: master with string-form records and the current hook; a branch whose lib/relay_queue.py accepts only list-form `where` and whose records are lists; the hook refuses the ff-only merge as malformed."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same merge passes the record check; a branch whose records break its own lib's rules is still refused; a branch that changes no lib is judged as today."
+  ],
+  "where": "plugins/core/hooks/merge.py:166 (the queue record check), plugins/core/lib/relay_queue.py (the copy it imports)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
