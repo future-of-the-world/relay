@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 93,
+  "time": 30,
+  "found_at": "2026-10-25T17:27:12Z",
+  "found_in": "relay queue add",
+  "title": "migrate leaves a settings entry for a hook it moved aside",
+  "what": [
+    "When relay migrate moves a project's hook script aside (arsenal's .claude/hooks/issue-stage.sh), the project's settings no longer name it, or migrate does not move it; a settings entry never points at a file that is gone."
+  ],
+  "why": [
+    "25 Oct, the arsenal pilot design, scratchpad reports/design-arsenal.md (copy in ~/.relay/backup/scratch-3207dc59), section 1.1 (read in lib/relay_setup.py, not run): migrate moves issue-stage.sh aside but merge_settings keeps its settings entry, so every prompt in the project would run a missing hook. IP chosen by the front (agent-chosen), before the pilot."
+  ],
+  "failing_case": [
+    "A temporary project with .claude/settings.json naming .claude/hooks/issue-stage.sh: after relay migrate, the file is moved and the entry stays."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "After migrate, no settings entry names a missing file; a hook migrate leaves in place keeps its entry."
+  ],
+  "where": "lib/relay_setup.py merge_settings / migrate",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
