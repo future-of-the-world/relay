@@ -579,9 +579,18 @@ class IncomingRecordRules(TrainCase):
         data["where"] = ["lib/a.py", "lib/b.py"]       # the new shape: a list; the hook's own copy says "where is not a string"
         return json.dumps(data, indent=2) + "\n"
 
+    def full_lib(self, files):
+        """`files` on top of the whole lib/ of this repository: a relay branch carries all its lib/, and the rules import its modules."""
+        lib = {}
+        for name in os.listdir(os.path.dirname(self.LIB)):
+            if name.endswith(".py"):
+                with open(os.path.join(os.path.dirname(self.LIB), name), encoding="utf-8") as handle:
+                    lib["lib/" + name] = handle.read()
+        return dict(lib, **files)
+
     def branch(self, files):
         wt = self.tree("w")
-        self.ready(wt, files)
+        self.ready(wt, self.full_lib(files) if "lib/relay_queue.py" in files else files)
         return "wt/w"
 
     def test_q1_a_record_the_branchs_own_rules_accept_is_not_refused_by_the_hooks_copy(self):
@@ -593,6 +602,26 @@ class IncomingRecordRules(TrainCase):
         self.assertEqual(rq.parse("z", qjson("z"), "open")["problems"], [])        # the hook's copy accepts this record
         reason = self.verdict(self.branch({"lib/relay_queue.py": strict, ".relay/queue/z.json": qjson("z")}))
         self.assertIn("is malformed (kind is not fix or feature)", reason)     # judged by the branch's rules; the fixture's x and y fail too
+
+    def test_f1_rules_that_import_a_lib_module_the_branch_adds_are_judged_by_the_branchs_whole_lib(self):
+        newer = self.lib_text("import json\n", "import json\nimport relay_where\n")      # the branch's rules need its new module
+        self.assertIsNone(self.verdict(self.branch({"lib/relay_queue.py": newer, "lib/relay_where.py": "X = 1\n"})))
+
+    def test_f1_rules_with_a_syntax_error_refuse_the_merge(self):
+        broken = self.lib_text("import json\n", "import json\ndef (:\n")
+        with self.assertRaises(Exception):
+            self.verdict(self.branch({"lib/relay_queue.py": broken}))      # pre() turns any raise into "could not be judged"
+
+    def test_f2_import_time_code_of_the_branchs_rules_cannot_switch_off_the_mark_step(self):
+        wt = self.tree("w")
+        evil = self.lib_text("import json\n", "import json\nimport relay_inert\nrelay_inert.changed = lambda *a, **k: []\n")
+        self.commit(wt, self.full_lib({"lib/relay_queue.py": evil, "code.py": "x = 1\n"}))      # no gate log, no check mark
+        saved = ri.changed
+        try:
+            reason = self.verdict("wt/w")
+        finally:
+            ri.changed = saved
+        self.assertIn("no check mark for wt/w", reason)
 
     def test_a_tree_with_no_record_rules_is_judged_by_the_hooks_copy(self):
         reason = self.verdict(self.branch({".relay/queue/z.json": self.list_record()}))

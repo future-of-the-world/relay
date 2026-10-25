@@ -12,7 +12,6 @@ Only in a repository whose default branch has `.relay/`; elsewhere it exits 0 an
 Cleanup checks git itself, never the tool's exit status, and never forces: no `worktree remove
 --force`, no `branch -D`.
 """
-import importlib.util
 import json
 import os
 import subprocess
@@ -147,22 +146,35 @@ def closing_ref(main, default, ab, path):
     return min(adding)[2] if adding else None
 
 
-def record_rules(main, ref):
-    """The module that judges the records of `ref`: that tree's own lib/relay_queue.py, loaded from the commit (git show into a
-    temporary file, so the tree is never checked out), else the hook's own copy where the tree has none (a project that is not relay).
-    Loading beats a subprocess here: `parse` is the one call, it takes text and returns a dict, and the module's imports (relay_git,
-    relay_verdict) are already on the hook's path."""
-    source = blob(main, ref, "lib/relay_queue.py")
-    if source is None:
-        return relay_queue
+RULES_RUNNER = (
+    "import json, sys\n"
+    "sys.path.insert(0, sys.argv[1])\n"
+    "import relay_queue\n"
+    "rows = json.load(sys.stdin)\n"
+    "json.dump([relay_queue.parse(slug, text, where) for slug, text, where in rows], sys.stdout)\n"
+)
+RULES_TIMEOUT = 60   # seconds for one judge of all the records of a branch
+
+
+def record_rules(main: str, ref: str, rows: list) -> list:
+    """The metas of `rows` (slug, text, "open" or "done"), judged by the lib/ of the tree at `ref`: its lib/*.py are written to a
+    temporary folder (git show, so the tree is never checked out) and one `python -I` process parses all the rows there. Only the
+    metas come back as JSON, so nothing the branch's code does reaches this hook's own modules. Where the tree has no
+    lib/relay_queue.py (a project that is not relay) the hook's own copy judges. A process that fails raises: the merge is refused."""
+    if blob(main, ref, "lib/relay_queue.py") is None:
+        return [relay_queue.parse(slug, text, where) for slug, text, where in rows]
+    names = relay_git.git(main, "ls-tree", "-r", "--name-only", "-z", ref, "--", "lib/")[1].split("\0")
     with tempfile.TemporaryDirectory() as folder:
-        path = os.path.join(folder, "relay_queue_incoming.py")
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(source)
-        spec = importlib.util.spec_from_file_location("relay_queue_incoming", path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-    return module
+        for name in sorted(n for n in names if n.endswith(".py")):
+            target = os.path.join(folder, name[len("lib/"):])
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with open(target, "w", encoding="utf-8") as handle:
+                handle.write(blob(main, ref, name) or "")
+        done = subprocess.run([sys.executable, "-I", "-c", RULES_RUNNER, folder], input=json.dumps(rows), capture_output=True,
+                              text=True, timeout=RULES_TIMEOUT)
+    if done.returncode != 0:
+        raise ValueError("the branch's record rules failed: %s" % (done.stderr.strip().splitlines() or ["no message"])[-1])
+    return json.loads(done.stdout)
 
 
 def step_queue(main, default, branch, ab=None):
@@ -178,11 +190,11 @@ def step_queue(main, default, branch, ab=None):
                               "refs/heads/%s...refs/heads/%s" % (default, branch))[1].split("\0"))
     tip = relay_git.git(main, "ls-tree", "-r", "--name-only", "-z", "refs/heads/" + branch, "--", QUEUE_DIR)[1]
     files = set(changed_files.split("\0")) | set(tip.split("\0"))
-    rules = record_rules(main, "refs/heads/" + branch)
-    for path in sorted(p for p in files if p.endswith(".json") and os.path.dirname(p) in (QUEUE_DIR.rstrip("/"), DONE_DIR.rstrip("/"))):
+    paths = sorted(p for p in files if p.endswith(".json") and os.path.dirname(p) in (QUEUE_DIR.rstrip("/"), DONE_DIR.rstrip("/")))
+    rows = [(os.path.basename(p)[:-5], blob(main, "refs/heads/" + branch, p) or "", "done" if p.startswith(DONE_DIR) else "open") for p in paths]
+    for path, meta in zip(paths, record_rules(main, "refs/heads/" + branch, rows)):
         slug = os.path.basename(path)[:-5]
         in_done = path.startswith(DONE_DIR)
-        meta = rules.parse(slug, blob(main, "refs/heads/" + branch, path) or "", "done" if in_done else "open")
         if meta["problems"]:
             raise Refused("queue item %s is malformed (%s); fix it before the merge" % (slug, "; ".join(meta["problems"])))
         if not in_done or path not in added or meta["kind"] != "fix" or meta["state"] == "dropped":
