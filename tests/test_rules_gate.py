@@ -101,7 +101,7 @@ def _covered(module: str, cls: str) -> bool:
 
 class RuleTestsComplete(unittest.TestCase):
     # F1: the short gate runs only RULE_TESTS, so every test class that reads the rules folder must be on it.
-    READS_RULES = re.compile(r"""os\.path\.join\(ROOT, "rules"|rules/[\w*-]+\.md|relay_rules\.(?:rules|render_target|sync)\(|relay_bench\.make_workspace""")
+    READS_RULES = re.compile(r"""os\.path\.join\(ROOT, "rules"|rules/[\w*-]+\.md|relay_rules\.(?:rules|render_target|sync)\(|relay_bench\.make_workspace|\bsystem_rules\.""")  # system_rules reads rules/*.md for the eval cases
 
     def test_every_test_class_reading_rules_is_listed(self) -> None:
         missing = []
