@@ -21,8 +21,9 @@
   "where": "bin/ci (EVALS_MAX_COST default 15), the eval runner's cost ceiling, bin/paid-cost estimate",
   "taken_at": null,
   "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T15:28:53Z",
+  "test": "tests/test_wave_red.py::SuiteCeiling::test_ci_uses_the_estimate_unless_the_owner_sets_a_number",
+  "fixed_by": "2b4c9f014ba15ea2f6a93478907beb2d01ab47e5",
   "dropped_at": null,
   "dropped_why": null
 }
