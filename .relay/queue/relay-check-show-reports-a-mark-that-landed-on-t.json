@@ -1,0 +1,45 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 30,
+  "found_at": "2026-10-24T21:29:39Z",
+  "found_in": "finding F1 of review-merge-msg.json",
+  "title": "Relay check show reports a mark that landed on the…",
+  "what": [
+    "lib/relay_marks.py:260: MEDIUM: F1 relay check show reports a mark that landed on the default branch as the branch's own, printing open 0 while the merge refuses for no check mark"
+  ],
+  "why": [
+    "Found outside the change by the review of wt/merge-msg, 24 Oct: the front relies on relay check show before every merge; a false open 0 sends it to a merge that is refused. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "Live, today: branch wt/merge-msg (forked from master f9bc285, own commits: one gate log, no check mark).",
+    "`relay check show -C /Users/amidman/relay/.worktrees/merge-msg wt/merge-msg` prints",
+    "  gate f9bc285...: exit 0",
+    "  mark 6b7e6a718079124a0532ce0f57de08d255188a82: open 0, queued 0",
+    "  outside: 0 in the check",
+    "The mark 6b7e6a... is another branch's, already on master (git branch --contains: master, wt/bench-set, wt/eval-close).",
+    "The merge hook's step_mark looks only at marks in `rev-list ref ^master` (relay_inert.own_marks), finds none, and",
+    "refuses \"no check mark for wt/merge-msg (run relay gate, then delegate:checker on its head)\".",
+    "It should print \"mark: no mark yet\" (and \"outside: unknown (no mark yet)\"), as it does when no mark is reachable.",
+    "This is the item's own failing case in another shape: check show prints open 0 while the merge is refused."
+  ],
+  "pass_cases": [
+    "1. Repo in a temp folder: master holds a mark of commit M (open 0); branch wt/a forks after it and commits lib/a.py",
+    "   with no mark of its own -> show(repo, \"wt/a\") == [\"gate: none yet\" or its gate line, \"mark: no mark yet\",",
+    "   \"outside: unknown (no mark yet)\"]; the merge hook refuses with \"no check mark for wt/a\".",
+    "2. Same, then wt/a gets its own mark with open 0 and nothing after it -> show prints \"mark <that commit>: open 0,",
+    "   queued 0\" and three lines in all (test_t9 first half keeps passing).",
+    "3. Same as 2, then a non-inert file lib/late.py committed after the mark -> line 4 is",
+    "   \"1 non-inert file changed after the mark: lib/late.py; run relay gate, then delegate:checker\" (test_t9 keeps passing).",
+    "4. A train branch whose own files are all covered by absorbed ready branches (step_mark returns with no mark) ->",
+    "   show does not claim a refusal the merge would not make (state the line chosen, e.g. \"mark: none needed, the",
+    "   ready changes it holds are checked\")."
+  ],
+  "where": "lib/relay_marks.py:260",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

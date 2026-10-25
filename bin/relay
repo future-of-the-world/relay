@@ -683,7 +683,7 @@ relay queue land <slug>                  try again to land a kept wt/queue-<slug
 relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree>   (a branch holds one fix item; the check states its problem as finding Q1)
 relay queue release <slug>
-relay queue done <slug> -C <worktree> --test <file>::<name>   (a fix: the branch's newest check, with no own file changed since, has Q1 MET)
+relay queue done <slug> -C <worktree> --test <file>::<name> | evals/<plugin|judge-measure>/<case>::<grader>   (a fix: the branch's newest check, with no own file changed since, has Q1 MET)
 relay queue done <slug> --evidence <merge sha or report path>   (a feature finished without a branch of relay's own; a fix is refused: it needs --test)
 relay queue drop <slug> --input <file.toml>
                                          the TOML holds `why`: the owner's words (text in '''...''')

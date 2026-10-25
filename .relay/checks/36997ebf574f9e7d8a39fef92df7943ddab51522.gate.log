@@ -1,0 +1,14 @@
+head 36997ebf574f9e7d8a39fef92df7943ddab51522
+cmd bin/ci --quick
+ci: library tests ok (495s)
+ci: types and lint FAILED (1s, log: .ci/steps/types-and-lint.log)
+    FAIL mypy 1.18.2:
+    lib/relay_prices.py:91: error: Unsupported operand types for * ("int" and "None")  [operator]
+    Found 1 error in 1 file (checked 33 source files)
+ci: hook tests ok (151s)
+ci: lib copies identical ok (1s)
+ci: eval grader tests ok (0s)
+ci: plugin validate ok (5s)
+ci: inert ok (617s)
+ci: RED
+exit 1
