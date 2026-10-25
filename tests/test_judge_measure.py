@@ -186,7 +186,7 @@ class Tally(unittest.TestCase):
 
     def test_the_committed_item_counts_are_what_main_expects(self):
         exp = self.t.load_expected()
-        self.assertEqual(sorted(exp), ["measure-contradiction", "measure-doc-rule", "measure-off-by-one", "measure-role-rule"])
+        self.assertEqual(sorted(exp), ["measure-contradiction", "measure-doc-rule", "measure-off-by-one", "measure-role-rule", "measure-ru-style"])
         for name, n in exp.items():
             self.assertEqual(n, len([f for f in os.listdir(os.path.join(EVALS, "judge-measure", name, "graders")) if f.startswith(("yes--", "no--"))]))
 
