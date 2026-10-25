@@ -18,6 +18,13 @@ does not need; and the big model only where judgment is what is being bought.
   steps the front skill gives it (the handover file, the merge, the paid
   run in the background); a request to build or change something starts with
   the brief, not the file.
+- A question from the owner about a new mechanism (a field, a command, a
+  step: "can we", "would X help", "how should we") is not answered inline:
+  it goes to the design track. A `thinker` gets the owner's words verbatim and
+  measures live data first (a script over the queue, git, the ledger), writes
+  at least two distinct approaches plus "do nothing" and how leading tools
+  solve it; a `critic` reviews it; the revision comes to the owner with the
+  measured numbers. Explaining what already exists stays with the front.
 - Tiers, with model and effort set by the active relay profile: scout and
   runner (small model, low effort) read and run; worker and fixer (middle
   model) build and fix; thinker and critic (big model, high effort) design

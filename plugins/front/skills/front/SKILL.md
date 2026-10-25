@@ -37,6 +37,19 @@ another change already merged (the queue item
 reverse it. Live cases, 24 Oct: the plugin-cache item (the claim never held) and
 the bench item (already fixed on the default branch).
 
+## Recommendations rest on measurements
+
+- A recommendation says what it rests on: a measured number ("measured: 17 of
+  28 overlap") or "not measured: a guess". When a cheap measurement exists (a
+  script over the queue, git, the ledger), it runs before the reply.
+- A view changes on new evidence, not on the owner's push: say what the
+  evidence is, and whether it moved.
+- An owner question about a NEW mechanism ("can we", "would X help", "how
+  should we") starts the design track (the `delegate` skill): a thinker with
+  the owner's words verbatim and a measurement step, then a critic, then the
+  revision. The reply names the measured numbers and at least two approaches
+  plus "do nothing". Explaining what already exists is answered directly.
+
 ## Questions
 
 Ask only what the owner alone can decide: a trade-off, a number, a scope cut,

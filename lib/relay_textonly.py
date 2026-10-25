@@ -34,6 +34,7 @@ RULE_TESTS = (
     "tests.test_bench_worker",
     "tests.test_paid_batch",
     "tests.test_spec_steps.RenderedRules",
+    "tests.test_front_measures",
 )
 
 _COMPILED = [relay_inert._regex(p) for p in TEXT_ONLY]

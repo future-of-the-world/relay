@@ -1,0 +1,222 @@
+{
+  "branch": "wt/measured",
+  "findings": [
+    {
+      "details": [
+        "Owner, 24 Oct: \"\u043a\u0430\u043a \u043c\u044b \u043c\u043e\u0436\u0435\u043c \u0443\u043b\u0443\u0447\u0448\u0438\u0442\u044c relay \u0447\u0442\u043e\u0431\u044b \u0441\u043b\u0435\u0434\u0443\u044f \u0435\u0433\u043e \u0438\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f\u043c \u0442\u044b \u043f\u0440\u0435\u0434\u043b\u0430\u0433\u0430\u043b \u0431\u043e\u043b\u0435\u0435 \u0441\u0438\u043b\u044c\u043d\u043e\u0435 \u0440\u0435\u0448\u0435\u043d\u0438\u0435\", then \"1. a / 2. a\". Live case: the blocked_by / queue ready proposal was designed inline by the front, with one idea and no measurement, and took 6 owner rounds; the front changed its view three times without evidence, and a one-minute dry run made only on the 6th round disproved its premise (it claimed conflicts come from tests/test_relay.py; 17 of 28 open items overlapped a running branch through bin/relay, setup and skills). The OpenSpec design, which went thinker -> critic -> revision, was settled in one owner reply. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Owner asks \"would a dependency field in the queue be useful?\": the front answers inline with one design and a recommendation that rests on a claim about the queue it did not measure, and names no alternative."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same question starts the design track (a thinker brief with the owner's words verbatim and a measurement step), and the reply to the owner names the measured numbers and at least two approaches plus \"do nothing\".",
+        "A question explaining an existing mechanism (\"what does relay queue take do?\") is answered by the front directly, with no design track.",
+        "A recommendation in a reply says what it rests on: a measured number, or \"not measured\"."
+      ],
+      "path": "the rule that holds \"Working with me\" and \"Working style\" (rules/*.md, \"Verify against the real system\"), rules/delegation.md (routing), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md (routing table), an eval case for the front",
+      "rank": "high",
+      "reason": [
+        "tests/test_front_measures.py:20 (recommendation names evidence), :29 (new mechanism to design track), :39 (explaining stays with front); rules/verify.md, working-with-me.md, delegation.md, front and delegate SKILL.md hold the text. All fail on 7eefeed."
+      ],
+      "severity": "HIGH",
+      "since": "7eefeedb3fd4cf3dd1361ee233525523c6eb7b8c",
+      "source": "queue",
+      "summary": "The front recommends from unmeasured claims, unreviewed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the tool_used grader matches `new RegExp(input_match).test(call.inputText)` of calls whose name is the",
+        "grader's tool (strings of the installed claude binary), so only the Agent call's own input is searched. thinker.md line 90",
+        "and the delegate skill (line 74, \"Implement the brief. Brief: <path>. Report: <path>.\") make a `Brief:` path the normal",
+        "prompt; route-guard.py line 170 adds a note against long prompts without a `Brief:` file. The case was not run (paid),",
+        "so the red is predicted from the grader's match rule, not observed. A red paid run becomes a fix item at the top of the",
+        "queue (delegation rule), so this costs a wave round. Size: 15."
+      ],
+      "evidence": [
+        "claude binary: tool_used:{tool, input_match, min, max} ... function Xl(e,n){if(e.name!==n.tool)return!1;if(n.input_match)return new RegExp(n.input_match).test(e.inputText);return!0}",
+        "plugins/delegate/agents/thinker.md:90: The prompt names your brief as `Brief: <path>` and the output path.",
+        "plugins/delegate/skills/delegate/SKILL.md:74: > Implement the brief. Brief: `<path>`. Report: `<path>`.",
+        "evals/plugin/design-track/graders/owner-words-verbatim.md: tool: Agent, input_match: \"dependency field in the work queue\", min: 1"
+      ],
+      "failing_case": [
+        "The front follows the delegate skill and thinker.md (\"The prompt names your brief as `Brief: <path>`\"): it Writes",
+        ".ci/brief.md holding \"Would a dependency field in the work queue be useful, ...\" and starts",
+        "Agent(subagent_type=\"delegate:thinker\", prompt=\"Design the brief. Brief: /abs/.ci/brief.md. Report: /abs/.ci/design.md\").",
+        "Now: owner-words-verbatim (tool: Agent, input_match \"dependency field in the work queue\") finds no Agent input with",
+        "the words and fails; the case is red in the wave's paid run although the behaviour is right. It passes only when the",
+        "front pastes the brief inline, which the routing rules steer away from.",
+        "Should: the grader passes when the owner's words reach the thinker through its brief file."
+      ],
+      "fix_hint": [
+        "Grade the brief, not the prompt: `tool: Write`, `input_match: \"dependency field in the work queue\"`, min 1 (the Write input",
+        "holds the file content). If the inline form must count too, have the prompt name the form (\"write the thinker's brief to",
+        ".ci/brief.md\") so one grader covers the case."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. Write of a brief file whose content holds \"dependency field in the work queue\", then Agent delegate:thinker with",
+        "   prompt \"Brief: <that path>\": the verbatim grader passes.",
+        "2. Agent delegate:thinker with the words inline in the prompt and no brief file: the case still has a way to pass (or the",
+        "   case states that the brief-file form is the one required, and the prompt says so).",
+        "3. Agent delegate:thinker with a brief that paraphrases (\"a field so items can depend on each other\") and never holds the",
+        "   words: the verbatim grader fails.",
+        "4. thinker-started still requires an Agent call matching \"delegate:thinker\" (min 1)."
+      ],
+      "path": "evals/plugin/design-track/graders/owner-words-verbatim.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_front_measures.py:53 owner-words-verbatim grader is tool: Write; prompt asks for brief.md."
+      ],
+      "severity": "MEDIUM",
+      "since": "d2fb66a20761e32ee4130e8ffea999367594b610",
+      "source": "review-measured.json",
+      "source_id": "F1",
+      "summary": "the verbatim grader looks for the owner's words in the Agent prompt, but the rules put them in the brief file, so a front that follows the rules fails it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the two graders: both are tool_used presence checks (an Agent call matching \"delegate:thinker\"; the",
+        "words in an Agent input). Nothing reads what the brief asks for, and the case stops at the first agent's reply, so the",
+        "owner-facing \"measured numbers\" part of pass case 1 is not graded either. The text test proves the rule text; the eval is",
+        "the only place the behaviour is checked, and it passes with the measurement step disabled. Size: 15."
+      ],
+      "evidence": [
+        "evals/plugin/design-track/graders/: owner-words-verbatim.md, thinker-started.md (both type tool_used, min 1)",
+        "Q1 pass case 1: \"a thinker brief with the owner's words verbatim and a measurement step\""
+      ],
+      "failing_case": [
+        "The front starts Agent delegate:thinker with a brief holding the owner's words and \"Design a dependency field for the",
+        "queue\" (no measurement step, no alternatives, no \"do nothing\"): the inline-design habit Q1 is about, only moved into the",
+        "thinker. Now: thinker-started passes and owner-words-verbatim passes (when inline); the case is green.",
+        "Should: the case fails, since Q1 pass case 1 is \"a thinker brief with the owner's words verbatim and a measurement step\"",
+        "and the rules say the brief asks for at least two approaches plus \"do nothing\"."
+      ],
+      "fix_hint": [
+        "Add a tool_used grader on the brief (Write, or Agent if F1 keeps the inline form) with input_match for a measurement",
+        "(\"(?i)measur\") and one for \"do nothing\"; or one llm grader over the brief text. Keep each with a weight of 1."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. A brief (Write content or Agent prompt) with the owner's words, \"measure\" a live source (queue, git, ledger), and asks",
+        "   for at least two approaches plus \"do nothing\": every grader of the case passes.",
+        "2. The same brief without a measurement step: a grader fails.",
+        "3. The same brief without \"do nothing\" or alternatives: a grader fails.",
+        "4. No thinker started, an inline design in the reply: thinker-started fails (as today)."
+      ],
+      "path": "evals/plugin/design-track/graders/thinker-started.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_front_measures.py:53 brief-measures and brief-do-nothing graders exist on Write."
+      ],
+      "severity": "MEDIUM",
+      "since": "d2fb66a20761e32ee4130e8ffea999367594b610",
+      "source": "review-measured.json",
+      "source_id": "F2",
+      "summary": "no grader checks the design-track brief asks for a measurement and for two approaches plus do nothing, so the case passes with that part of the behaviour gone",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: not run (paid runs are forbidden here). The reasoning: thinker.md sets model opus, effort high, maxTurns 60;",
+        "the brief the rules require asks for measurement, two approaches, do nothing and leading tools; the eval prompt waits for",
+        "the reply; critic-role-rule, a smaller job, has 900 s and plan-one-line has 1500 s. Waste that repeats on every paid run",
+        "is MEDIUM under principle 2 (Waste). Size: 15."
+      ],
+      "evidence": [
+        "evals/plugin/design-track/prompt.md: timeout_seconds: 600, runs: 3, \"stop at the first agent's reply\"",
+        "plugins/delegate/agents/thinker.md: model: opus, effort: high, maxTurns: 60",
+        "evals/plugin/critic-role-rule/prompt.md: timeout_seconds: 900"
+      ],
+      "failing_case": [
+        "Run of the case: the front writes a brief and starts delegate:thinker (opus, effort high, maxTurns 60) told to measure",
+        "live data first and to write two approaches plus do nothing and how leading tools solve it; the prompt says \"stop at the",
+        "first agent's reply\", so the session waits for the whole design. Now (expected): the thinker is still working when",
+        "timeout_seconds 600 hits (the much smaller critic-role-rule case is given 900 for one short diff), and the run ends as a",
+        "timeout; each of the 3 runs pays a full Opus design although the graders only need the Agent call and its brief.",
+        "Should: the case ends soon after the thinker is started, or its budget fits the work it waits for."
+      ],
+      "fix_hint": [
+        "Have the prompt tell the front to start the first agent in the background and end its turn right after (the graders only",
+        "need the call and the brief), or tell the brief to ask the thinker for a one-paragraph outline; else raise",
+        "timeout_seconds to about 1500 like plan-one-line."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 3,
+      "pass_cases": [
+        "1. A run where the front starts the thinker: the case finishes inside its timeout with every grader scored.",
+        "2. The graders still see the Agent call and the brief (F1, F2) when the run ends early.",
+        "3. A run where the front designs inline and starts no agent: thinker-started fails (as today)."
+      ],
+      "path": "evals/plugin/design-track/prompt.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_front_measures.py:58-59 prompt starts agent in the background and ends the turn."
+      ],
+      "severity": "MEDIUM",
+      "since": "d2fb66a20761e32ee4130e8ffea999367594b610",
+      "source": "review-measured.json",
+      "source_id": "F3",
+      "summary": "the case waits for an Opus thinker to finish an open design inside 600 seconds, three runs per wave, so it is likely to time out and is the costliest case for what it grades",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: graders/ holds only no-thinker.md (tool_used, min 0, max 0). The baseline arm (no plugins) passes it",
+        "trivially too. Cheap to add a positive grader; LOW because the guard the case exists for (no design track) works. Size: 5."
+      ],
+      "evidence": [
+        "ls evals/plugin/explain-existing/graders -> no-thinker.md"
+      ],
+      "failing_case": [
+        "Run where the front replies \"I cannot tell.\" or an empty message and starts no agent: no-thinker (max 0) passes and the",
+        "case is green. Q1 pass case 2 is \"answered by the front directly\", which that reply does not do."
+      ],
+      "fix_hint": [
+        "Add an llm grader (\"does the reply say what the take command does, in the reply itself?\") or a regex grader with a",
+        "recorded bad reply (graders.test.sh requires one per regex grader)."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. A reply explaining that take claims a queue item for a branch, no thinker: the case passes.",
+        "2. A reply with no explanation of take, no thinker: a grader fails.",
+        "3. A reply that starts delegate:thinker: no-thinker fails (as today)."
+      ],
+      "path": "evals/plugin/explain-existing/graders/no-thinker.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_front_measures.py:62-64 positive grader and recorded bad case exist; graders.test.sh passes."
+      ],
+      "severity": "LOW",
+      "since": "d2fb66a20761e32ee4130e8ffea999367594b610",
+      "source": "review-measured.json",
+      "source_id": "F4",
+      "summary": "the explain case's only grader is a negative one, so it passes when the front answers nothing at all",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "54c2035e7825fe3dfc37171155eca809734063b8.gate.log",
+  "head": "afb580450425c1dc8a33f45e6211d9194ffd904a",
+  "item": "the-front-recommends-from-unmeasured-claims-unre",
+  "notes": [
+    "Paid evals not run (fixer says so); gate is --quick."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 7eefeed..HEAD; only gate-log commits follow gate sha 54c2035 (exit 0, quick mode). tests/test_front_measures.py: 5 passed; graders.test.sh all passed. All 5 tests fail on 7eefeed with the test file copied in. Files changed are the rules, skills, evals, textonly list and the test: in scope."
+  ],
+  "type": "check"
+}

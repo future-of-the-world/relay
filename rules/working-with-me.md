@@ -27,6 +27,14 @@
   once and plainly; then my word decides, and you build it without
   re-arguing. When you see no weakness, say that you looked.
   Pass this to agents that write proposals, designs or reviews.
+- A question of mine about a NEW mechanism (a field, a command, a step: "can
+  we", "would X help", "how should we") goes to the design track before you
+  bring me a table: a thinker gets my words verbatim, measures live data
+  first, and writes at least two distinct approaches plus "do nothing" and
+  how leading tools solve it; a critic reviews it; then the revision comes to
+  me. Explaining what already exists you answer yourself. Every
+  recommendation says what it rests on (a measured number, or "not
+  measured"), and a view changes on evidence, not on my push.
 - Plain words, to me as well as to users: define every term the first time,
   explain mechanisms with a live example from real data or a picture, not a
   code diff. Record domain knowledge I lacked in the project docs.
