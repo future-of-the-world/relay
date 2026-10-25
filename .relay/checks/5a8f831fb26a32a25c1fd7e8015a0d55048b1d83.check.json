@@ -1,0 +1,41 @@
+{
+  "branch": "wt/train-6",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "Gate green on bdc3dc08 with exit 0, no code changed after it."
+      ],
+      "severity": "MEDIUM",
+      "since": "bdc3dc08d62c47649228ebd1e8f0888728a37179",
+      "source": "m9-train-6.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "bdc3dc08d62c47649228ebd1e8f0888728a37179.gate.log",
+  "head": "5a8f831fb26a32a25c1fd7e8015a0d55048b1d83",
+  "item": null,
+  "notes": [
+    "Pytest run of the check command was started but not awaited; the green gate on the same code is the evidence."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fixes none. Gate log starts with head bdc3dc08..., ends exit 0; relay changed lists no file after that sha (only the gate log commit 5a8f831). No tests are new or changed."
+  ],
+  "type": "check"
+}
