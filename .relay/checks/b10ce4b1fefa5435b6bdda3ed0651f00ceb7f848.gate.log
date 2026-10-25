@@ -1,0 +1,13 @@
+head b10ce4b1fefa5435b6bdda3ed0651f00ceb7f848
+cmd bin/ci --quick
+ci: library tests FAILED (632s, log: .ci/steps/library-tests.log)
+    TypeError: stat: path should be string, bytes, os.PathLike or integer, not NoneType
+    FAILED (errors=1)
+ci: types and lint ok (1s)
+ci: hook tests ok (176s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert ok (810s)
+ci: RED
+exit 1

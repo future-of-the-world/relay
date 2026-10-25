@@ -95,6 +95,7 @@ def new_candidate(name, base_name="active", copy_plugins=(), sets=()):
         copied.append(dst)
     out.setdefault("plugins", {})["enabled"] = enabled
     out["profile"] = {"name": name, "description": f"{base['profile']['name']} with " + (", ".join(sets) if sets else "") + (("; edited copies of " + ", ".join(copy_plugins)) if copy_plugins else "")}
+    out.pop("_derived", None)
     out["_path"] = os.path.join(ROOT, "profiles", "candidates", f"{name}.toml")
     os.makedirs(os.path.dirname(out["_path"]), exist_ok=True)
     with open(out["_path"], "w", encoding="utf-8") as handle:
@@ -105,10 +106,16 @@ def new_candidate(name, base_name="active", copy_plugins=(), sets=()):
 
 def derive_profile(base, sets):
     """A profile that is `base` with dotted keys changed: ["models.build=haiku", "effort.build=low"].
-    Its name lists the changes, so the bench table and `relay improve adopt` can name it; it is also
-    written to profiles/candidates/<name>.toml so adopting it later works."""
+    Its name lists the changes, so the bench table can name it; it is also
+    marked `_derived`: run_bench writes it beside the bench report (never into the repository), and
+    `relay improve adopt <path to that file>` adopts it."""
     import copy
     out = copy.deepcopy(base)
+    # The derived file moves to the bench folder: keep relative plugin paths pointing where the base's do.
+    enabled = out.get("plugins", {}).get("enabled")
+    if enabled:
+        out["plugins"]["enabled"] = [
+            (plugin_dir(base, e) or e) if ("/" in e or e.startswith(".")) else e for e in enabled]
     parts = []
     for item in sets:
         key, _, value = item.partition("=")
@@ -129,12 +136,8 @@ def derive_profile(base, sets):
         parts.append(f"{path[-1]}-{value}".replace(",", "+"))
     name = "-".join(parts)[:60]
     out["profile"] = {"name": name, "description": f"{base['profile']['name']} with " + ", ".join(sets)}
-    folder = os.path.join(ROOT, "profiles", "candidates")
-    os.makedirs(folder, exist_ok=True)
-    out["_path"] = os.path.join(folder, f"{name}.toml")
-    with open(out["_path"], "w", encoding="utf-8") as handle:
-        handle.write(f"# Derived by `relay bench --set`: {out['profile']['description']}\n\n")
-        handle.write(to_toml(out))
+    out["_derived"] = True
+    out["_path"] = None
     return out
 
 
@@ -501,6 +504,12 @@ def run_bench(profiles, scenarios, runs=None, judge_model="haiku", keep=False, o
     os.makedirs(out_dir, exist_ok=True)
     if out_root and os.path.realpath(out_root) != os.path.realpath(bench_dir()):
         relay_paidcap.link_out(out_dir, stamp)   # the day's spend (bin/paid-cost today, the cap) counts a run kept outside ~/.relay/bench
+    for profile in profiles:
+        if profile.get("_derived"):
+            profile["_path"] = os.path.join(out_dir, f"{profile['profile']['name']}.toml")
+            with open(profile["_path"], "w", encoding="utf-8") as handle:
+                handle.write(f"# Derived by `relay bench --set`: {profile['profile']['description']}\n# Adopt with `relay improve adopt {profile['_path']}`.\n\n")
+                handle.write(to_toml(profile))
     config_dir = isolated_config_dir(out_dir) if isolate else None
     rows = []
     spent = 0.0
@@ -636,6 +645,18 @@ def render(doc):
     return "\n".join(lines)
 
 
+def _adopt_arg(entry):
+    """The argument `relay improve adopt` can load: the bare name for a profile under profiles/, else its path."""
+    path = entry.get("path")
+    if not path:
+        return entry["name"]
+    folder = os.path.realpath(os.path.dirname(path))
+    profiles = os.path.realpath(os.path.join(ROOT, "profiles"))
+    if folder in (profiles, os.path.join(profiles, "candidates")):
+        return entry["name"]
+    return path
+
+
 def verdict(doc, agg):
     """One paragraph: which profile wins, by the rule 'no scenario worse in quality; then cheaper; then faster'."""
     names = [p["name"] for p in doc["profiles"]]
@@ -653,7 +674,7 @@ def verdict(doc, agg):
     if worse:
         return f"Verdict: keep {a}. {b} is worse in quality on: {', '.join(worse)}. (A cheaper run that fails is not cheaper.)"
     if cheaper > 0.005:
-        return f"Verdict: {b} wins: same or better quality on every scenario, ${cheaper:.2f} cheaper per scenario set, {faster:+.0f}s faster. Adopt with `relay improve adopt {b}`."
+        return f"Verdict: {b} wins: same or better quality on every scenario, ${cheaper:.2f} cheaper per scenario set, {faster:+.0f}s faster. Adopt with `relay improve adopt {_adopt_arg(doc['profiles'][1])}`."
     if cheaper < -0.005:
         return f"Verdict: keep {a}. {b} is not worse in quality but costs ${-cheaper:.2f} more per scenario set."
     return f"Verdict: a tie on quality and cost; {b} is {faster:+.0f}s faster. Decide on speed, or add a scenario that separates them."

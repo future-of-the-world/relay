@@ -1448,7 +1448,12 @@ class Bench(Base):
         self.assertEqual(b["effort"]["build"], "low")
         self.assertEqual(b["delegate"]["max_parallel"], 2)
         self.assertEqual(base["models"]["build"], "sonnet")
-        again = rb.load_profile(b["_path"])
+        # deriving writes nothing; run_bench writes the file beside the report (tests/test_bench_set_clean.py)
+        self.assertEqual(os.listdir(os.path.join(self.tmp, "profiles", "candidates")), [])
+        written = os.path.join(self.tmp, "derived.toml")
+        with open(written, "w", encoding="utf-8") as handle:
+            handle.write(rb.to_toml(b))
+        again = rb.load_profile(written)
         self.assertEqual(again["models"]["build"], "haiku")
         self.assertEqual(again["rules"]["load"], base["rules"]["load"])
 
