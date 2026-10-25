@@ -17,7 +17,7 @@
   "taken_at": "2026-10-23T21:04:25Z",
   "taken_by": "wt/runner-turns",
   "closed_at": "2026-10-23T21:20:47Z",
-  "test": "tests/test_roles.py::test_a_job_longer_than_a_runner_s_turns_runs_in_the_front_s_background",
+  "test": "tests/test_relay.py::test_a_job_longer_than_a_runner_s_turns_runs_in_the_front_s_background",
   "dropped_at": null,
   "dropped_why": null
 }

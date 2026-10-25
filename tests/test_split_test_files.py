@@ -49,30 +49,26 @@ class TestFilesStaySplit(unittest.TestCase):
 
 
 class TestDoneItemsKeepTheirTests(unittest.TestCase):
-    def test_the_moved_done_items_name_a_test_in_a_file_that_exists_and_the_file_is_the_queue_writer_s_text(self) -> None:
-        # a test moved by the split is recorded through the queue's own parser and serializer: the file text equals serialize(parse(text))
+    def test_a_done_item_keeps_the_test_id_it_closed_with_and_the_test_is_found_by_name_under_tests(self) -> None:
+        # a done item's test id is the dated fact of how it closed: the split does not rewrite it (no reader re-runs it).
+        # The test it names moved out of tests/test_relay.py, so it is found by its name in any file under tests/.
+        expected = {"runner-turns-while-waiting": "tests/test_relay.py::test_a_job_longer_than_a_runner_s_turns_runs_in_the_front_s_background",
+                    "a-new-openspec-project-silently-has-no-openspec": "tests/test_relay.py::test_setup_install_failure_todo_names_the_command"}
+        sources = []
+        for name in sorted(os.listdir(TESTS)):
+            if name.endswith(".py"):
+                with open(os.path.join(TESTS, name), encoding="utf-8") as handle:
+                    sources.append(handle.read())
         problems = []
-        moved = ("runner-turns-while-waiting", "a-new-openspec-project-silently-has-no-openspec")   # the two items whose test the split moved
-        for slug in moved:
+        for slug, recorded in expected.items():
             # the queue is inert (bin/ci's inert probe appends a line to every item): in a probe commit this reads the commit before it
-            text = committed_text(ROOT, ".relay/queue/done/" + slug + ".json")
-            item = relay_queue.parse(slug, text, "done")
+            item = relay_queue.parse(slug, committed_text(ROOT, ".relay/queue/done/" + slug + ".json"), "done")
             if item["problems"]:
                 problems.append(f"{slug}: {item['problems']}")
-                continue
-            if relay_queue.serialize(slug, item, "done") != text:
-                problems.append(f"{slug}: not the serializer's text")
-            test = item.get("test") or ""
-            file, _, rest = test.partition("::")
-            if not file or file.startswith("evals/") or not rest:
-                continue
-            full = os.path.join(ROOT, file)
-            if not os.path.isfile(full):
-                problems.append(f"{slug}: {file} is gone")
-            else:
-                with open(full, encoding="utf-8") as handle:
-                    if not relay_queue.holds_test(test, handle.read()):
-                        problems.append(f"{slug}: {test} is not defined")
+            elif item["test"] != recorded:
+                problems.append(f"{slug}: the recorded test was rewritten to {item['test']}")
+            if not any("def " + recorded.rpartition("::")[2] + "(" in text for text in sources):
+                problems.append(f"{slug}: {recorded.rpartition('::')[2]} is defined in no file under tests/")
         self.assertEqual(problems, [])
 
 
