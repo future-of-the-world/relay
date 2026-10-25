@@ -1,0 +1,21 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 180,
+  "found_at": "2026-10-25T17:01:31Z",
+  "found_in": "relay queue add",
+  "title": "Pilot relay on arsenal with one real task",
+  "what": [
+    "Connect arsenal to relay and take one small real arsenal task from start to merge through relay's cycle (queue, worktree, build, gate, review, fix, check, merge), then report what relay added, what clashed (arsenal's own agents, hooks, issue skills and check against relay's), and what it cost. First a design: which task, which queue (relay's or arsenal's Forgejo issues), what arsenal's gate is (Go), how relay's plugins meet arsenal's own, what is left untouched, how it is undone."
+  ],
+  "why": [
+    "Owner, 25 Oct: \"я пока не проверял на что способен relay на реальном проекте, какого сейчас состояние relay\"; picked arsenal (\"2. b\") for the first real project. relay has only ever run on itself (projects.toml lists relay alone). IP chosen by the front (agent-chosen)."
+  ],
+  "where": "projects.toml, relay setup/migrate, ~/go/src/go.amidman.dev/arsenal (its CLAUDE.md, CLAUDE.local.md, .claude/agents, hooks, skills, .worktrees, its issue skills and Forgejo issues on git.amidman.dev)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
