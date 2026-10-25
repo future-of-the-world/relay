@@ -21,8 +21,8 @@
   "where": "lib/relay_setup.py merge_user_settings (the env relay writes into ~/.claude/settings.json), relay doctor, docs",
   "taken_at": "2026-10-25T12:50:26Z",
   "taken_by": "wt/net-retry",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T14:30:41Z",
+  "test": "tests/test_net_retry.py::NetRetry::test_q1_sync_adds_the_watchdog_leaves_other_keys_and_is_idempotent",
   "dropped_at": null,
   "dropped_why": null
 }
