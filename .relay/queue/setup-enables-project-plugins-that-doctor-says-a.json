@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 80,
+  "time": 20,
+  "found_at": "2026-10-25T19:29:55Z",
+  "found_in": "relay queue add",
+  "title": "setup enables project plugins that doctor says are missing",
+  "what": [
+    "After relay setup, relay doctor reports no plugin as not installed: setup installs the plugins it enables at project scope, or puts the exact command in its to-do list."
+  ],
+  "why": [
+    "25 Oct, the throwaway project (scratchpad reports/demo-and-release.md, part 1): setup enabled core, delegate, front and observe in .claude/settings.json; relay doctor then gave 4 FIX \"not installed at project scope\", and setup's to-do list did not name the install. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "relay setup <tmp project> then relay doctor <tmp project>: FIX lines for core, delegate, front, observe; the setup output has no install command for them."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "After setup, doctor has no \"not installed\" FIX, or setup's to-do names `claude plugin install <name>@relay --scope project` for each."
+  ],
+  "where": "lib/relay_setup.py (project-scope plugin install), lib/relay_setup.py:957 (doctor)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
