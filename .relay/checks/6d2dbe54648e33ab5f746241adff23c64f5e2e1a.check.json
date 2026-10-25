@@ -1,0 +1,170 @@
+{
+  "branch": "wt/stale-close",
+  "findings": [
+    {
+      "details": [
+        "24 Oct: the-bench-never-starts-a-worker-so-it-measures-n was fixed on master that morning (3b28fbf, 436ce08, tests/test_bench_worker.py; bench report ~/.relay/bench/2026-10-24T07-33-20Z/report.md meets every pass case), but the item stayed open; a change cycle then spent about 34 minutes and 123k tokens on it and stopped: the check cannot mark Q1 MET on a branch with no code, --evidence refuses fix items, and only a drop with the owner's words ends it. Repeats whenever a change fixes a queue item it did not take. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`relay queue done the-bench-never-starts-a-worker-so-it-measures-n --evidence 3b28fbf` is refused (a fix needs --test), and a branch without code cannot get Q1 MET."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same item closes with the fixing commit and tests/test_bench_worker.py named, after relay checks that the test exists at master and fails at the fixing commit's parent.",
+        "A fix whose named test passes at the parent of the named commit is refused (the commit did not fix it)."
+      ],
+      "path": "lib/relay_queue.py (done, close_refusal), bin/relay queue help, rules/queue.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_stale_close.py:33 and :43 pass; both fail at 2d1f6ce."
+      ],
+      "severity": "HIGH",
+      "since": "2d1f6ce84237832633007e1deccf315878ec3e11",
+      "source": "queue",
+      "summary": "A fix already merged by another change cannot be closed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. holds_test is a word search for \"def <name>\", so file::method passes test_refusal; _test_at passes \"<path>::<node>\"",
+        "straight to pytest, which only collects file::Class::method for a method. rc 4 is outside (0, 1), so the close is refused with a",
+        "message that does not say what to type. The change's own tests use module-level functions only, so the gap is not covered.",
+        "Size: 15 minutes (resolve the enclosing class with ast at the tip source, or refuse early naming the Class form, plus one test)."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/live.py (calls rq._test_at on the main repo, temp trees only):",
+        "  436ce08 tests/test_bench_worker.py::test_prompt_does_not_order_a_worker refusal: None",
+        "     rc 4 ['no tests ran in 0.01s'] ... ERROR: not found: .../tests/test_bench_worker.py::test_prompt_does_not_order_a_worker (no match in any of [<Module test_bench_worker.py>])",
+        "  with ::ScenarioPromptsLeaveDelegationToTheSetup::test_prompt_does_not_order_a_worker: before 1, after 0",
+        "grep -hE \"^    def test_\" tests/*.py | wc -l -> 674; grep -hE \"^def test_\" tests/*.py | wc -l -> 0"
+      ],
+      "failing_case": [
+        "relay queue done the-bench-never-starts-a-worker-so-it-measures-n --fixed-by 436ce08 --test tests/test_bench_worker.py::test_prompt_does_not_order_a_worker",
+        "(the form bin/relay help, rules/queue.md and the usage error name). test_refusal accepts it (holds_test finds \"def test_...\"), then",
+        "pytest gets node tests/test_bench_worker.py::test_prompt_does_not_order_a_worker, which does not exist (the test is a method of",
+        "ScenarioPromptsLeaveDelegationToTheSetup): exit 4 at the parent, and the close is refused \"cannot tell whether ... it did not run",
+        "to a pass or a fail\". Every test in relay's tests/ is a class method (674 methods, 0 module functions), so the documented form never",
+        "works here. It should run the test (or refuse up front naming the form file::Class::name)."
+      ],
+      "fix_hint": [
+        "In close_fixed_by, when the node has one part and the tip source defines it only inside a class (ast walk), build",
+        "<path>::<Class>::<name> for the runs (store what the owner typed, or the full node); or refuse before running with",
+        "\"name the class: <path>::<Class>::<name>\". Say file::Class::name in the help line and rules/queue.md."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 854,
+      "pass_cases": [
+        "A scratch repo whose test file defines class T(unittest.TestCase) with test_flag_is_ok (fails at the fix's parent, passes at the fix): close_fixed_by(..., \"tests/test_flag.py::test_flag_is_ok\") closes the item (or is refused before any run with a message naming tests/test_flag.py::T::test_flag_is_ok).",
+        "The same with \"tests/test_flag.py::T::test_flag_is_ok\": closes, done file has test and fixed_by.",
+        "A module-level test function named file::name (today's test_q1_an_item_fixed_on_master_...) still closes.",
+        "A name that is defined in no class and no module level is still refused \"does not hold a test named\"."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_stale_close.py:100 and :109 pass; the first fails at c89f02c."
+      ],
+      "severity": "MEDIUM",
+      "since": "c89f02cc76d2c200973f89e755cb266e4584fa9d",
+      "source": "review-stale-close.json",
+      "source_id": "F1",
+      "summary": "the documented form <file>.py::<name> is accepted, then pytest finds no such node for any test in a class and the close is refused as 'cannot tell'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: close_fixed_by's planner refuses whenever _branch_live(repo, taken_by), whoever calls; release() works from",
+        "any checkout (no worktree check), so \"release it from that worktree\" is also narrower than the truth. No test runs release then",
+        "close. Size: 10 minutes (pick release, fix the message and docstring, add the release-then-close test), or 20 for allowing the",
+        "taking branch's own worktree to close it."
+      ],
+      "evidence": [
+        "lib/relay_queue.py close_fixed_by planner:",
+        "  if item[\"state\"] == \"taken\" and _branch_live(repo, item[\"taken_by\"]):",
+        "      raise Refused(f\"... release it from that worktree (relay queue release) and run this again, or close it from there\")",
+        "lib/relay_queue.py release(): no current-branch check. tests/test_stale_close.py: no release-then-close test."
+      ],
+      "failing_case": [
+        "Item taken by wt/x, whose branch has one commit of its own that touches only inert files (a gate log, a check record, the handover).",
+        "From the wt/x worktree: relay queue done <slug> --fixed-by <sha> --test <file>::<Class>::<name> -> refused again with the same",
+        "message, since the planner never looks at which branch calls it; relay queue done <slug> --test ... there needs a check with Q1 MET,",
+        "which a branch without code cannot get (the item's failing case). Only \"release\" works. The brief asked to decide one and say it;",
+        "the message and the docstring offer both."
+      ],
+      "fix_hint": [
+        "Decide release: message \"taken by <branch>, which is not merged: relay queue release <slug>, then run this again\"; docstring and",
+        "rules/queue.md to match; one test that releases and then closes."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 898,
+      "pass_cases": [
+        "Item taken by a live branch wt/live, close_fixed_by from the main checkout: refused; the message names wt/live and relay queue release, and names no other path that would refuse again.",
+        "Either: after relay queue release <slug>, close_fixed_by closes it (state done, taken_by none, fixed_by the sha).",
+        "Or (if the decision is \"close from there\"): close_fixed_by run from the wt/live worktree on its own taken item closes it on master.",
+        "A branch at master with no commit of its own still closes here keeping its take (today's test_q1_a_fix_taken_by_a_branch_without_code_...)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_stale_close.py:119 passes; fails at c89f02c."
+      ],
+      "severity": "MEDIUM",
+      "since": "c89f02cc76d2c200973f89e755cb266e4584fa9d",
+      "source": "review-stale-close.json",
+      "source_id": "F2",
+      "summary": "an item taken by a live branch is refused with 'or close it from there', a path that does not exist for a branch without code",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep: no test names \"is a fix: close it\" or \"fixed-by\" outside the CLI cases. The item's What lists this behaviour.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "git grep -n \"is a fix: close it\\|fixed-by\" -- tests plugins/core/tests -> only tests/test_stale_close.py:1,94,96 (the CLI form)"
+      ],
+      "failing_case": [
+        "close_with_evidence(main, \"<fix slug>\", \"3b28fbf\") must raise a Refused naming \"--fixed-by\"; no test asserts it, so dropping the",
+        "new text from the message keeps the suite green."
+      ],
+      "fix_hint": [
+        "One test in tests/test_stale_close.py: close_with_evidence on the fix item, assertIn(\"--fixed-by\", str(exc))."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "close_with_evidence on a fix item: Refused whose text contains \"--fixed-by\" and \"--test\".",
+        "close_with_evidence on a feature item: closes as today."
+      ],
+      "path": "tests/test_stale_close.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_stale_close.py:138 passes and asserts the refusal names the new form."
+      ],
+      "severity": "LOW",
+      "since": "c89f02cc76d2c200973f89e755cb266e4584fa9d",
+      "source": "review-stale-close.json",
+      "source_id": "F3",
+      "summary": "the item's promise that the --evidence refusal for a fix names the new form has no test",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "baf0e476c1b2d99f509215689c78c414b0f5fb44.gate.log",
+  "head": "6d2dbe54648e33ab5f746241adff23c64f5e2e1a",
+  "item": "a-fix-already-merged-by-another-change-cannot-be",
+  "notes": [
+    "Gate is quick mode, paid steps skipped."
+  ],
+  "schema": 2,
+  "scope": [
+    "Q1 over 2d1f6ce..HEAD, F1-F3 over c89f02c..HEAD. tests/test_stale_close.py 10 passed. At 2d1f6ce all 10 fail; at c89f02c F1 and F2 tests fail, F3 test passes (guard for an already-true promise). Gate (bin/ci --quick) for baf0e47 exit 0; HEAD adds only a gate log."
+  ],
+  "type": "check"
+}
