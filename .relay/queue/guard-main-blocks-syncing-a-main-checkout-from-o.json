@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 94,
+  "time": 30,
+  "found_at": "2026-10-25T17:27:12Z",
+  "found_in": "relay queue add",
+  "title": "guard-main blocks syncing a main checkout from origin",
+  "what": [
+    "In a main checkout on its default branch, guard-main allows `git merge --ff-only origin/<default>` and `git merge --ff-only FETCH_HEAD` (a fast-forward to the remote, the \"Master Sync\" of projects that merge by pull request), as it allows `--ff-only wt/<branch>`; any other merge stays refused."
+  ],
+  "why": [
+    "25 Oct, the arsenal pilot design, scratchpad reports/design-arsenal.md (copy in ~/.relay/backup/scratch-3207dc59), section 1.2, measured with fake hook input: arsenal's guard allows exactly `git merge --ff-only origin/master` and blocks `--ff-only wt/x`; relay's guard-main does the reverse, so relay blocks a hand-typed Master Sync in arsenal today. Live in every project that merges by pull request. IP chosen by the front (agent-chosen), before the pilot."
+  ],
+  "failing_case": [
+    "guard-main.sh fed {\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git merge --ff-only origin/master\"}} with cwd a primary checkout on master: refused."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same input is allowed; `git merge origin/master` (no --ff-only) and `git merge --ff-only some-branch` from outside wt/ stay as they are today."
+  ],
+  "where": "plugins/core/hooks/guard-main.sh (the merge rule in a main checkout)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
