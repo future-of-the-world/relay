@@ -23,7 +23,6 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 
 import relay_git  # noqa: E402
-import relay_inert  # noqa: E402
 import relay_marks  # noqa: E402
 import relay_verdict  # noqa: E402
 
@@ -135,90 +134,143 @@ def read_json(path, what):
         raise Fail("%s %s cannot be read; the checker must run relay check record check" % (what, path))
 
 
-def stale_commits(wt):
-    """Commits whose mark a failed re-check must remove: HEAD, and the newest marked ancestor when only inert files
-    (`relay_inert`: a mark commit, the handover, the queue) came after it, the same rule as `relay queue done` and the merge guard."""
+RECORDED_RE = re.compile(r"^recorded (.+) \(open \d+, queued \d+\)\s*$", re.M)
+
+
+class NoRecord(Fail):
+    """The checker wrote no check record during its run."""
+
+
+def result_texts(entry):
+    """The texts of the tool results in a transcript entry (what the checker's commands printed)."""
+    content = (entry.get("message") or {}).get("content")
     found = []
-    rc, head = relay_git.git(wt, "rev-parse", "HEAD")
-    if rc == 0:
-        found.append(head)
-    newest = relay_marks.newest(wt, "HEAD", relay_marks.marks(wt, "HEAD"))
-    if newest and newest[0] not in found:
-        try:
-            later = relay_inert.changed(wt, newest[0], "HEAD")
-        except ValueError:
-            later = [None]
-        if not later:
-            found.append(newest[0])
+    for block in content if isinstance(content, list) else []:
+        if isinstance(block, dict) and block.get("type") == "tool_result":
+            inner = block.get("content")
+            if isinstance(inner, list):
+                inner = "\n".join(b.get("text", "") for b in inner if isinstance(b, dict))
+            if isinstance(inner, str):
+                found.append(inner)
     return found
 
 
+def recorded_paths(path):
+    """The paths `relay check record check` printed in the checker's transcript, in the order printed ("recorded <path> (open n, queued m)")."""
+    found = []
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(entry, dict) and isinstance(entry.get("message") or {}, dict):
+                    for text in result_texts(entry):
+                        found.extend(RECORDED_RE.findall(text))
+    except OSError:
+        pass
+    return found
+
+
+def fresh_records(cwd, label, printed, start):
+    """The check data files this checker wrote (modified at or after its start): (path, text), the label's first, then the others newest first."""
+    names = ([resolve(cwd, label)] if label else []) + [resolve(cwd, name) for name in reversed(printed)]
+    seen = []
+    for name in names:
+        if name not in seen:
+            seen.append(name)
+    found = []
+    for name in seen:
+        try:
+            with open(name, encoding="utf-8") as handle:
+                text, mtime = handle.read(), os.path.getmtime(name)
+        except OSError:
+            continue
+        if start is None or mtime >= start:
+            found.append((name, text, mtime))
+    found.sort(key=lambda item: (item[0] != (resolve(cwd, label) if label else None), -item[2]))
+    return [(name, text) for name, text, _ in found]
+
+
 def write_mark(wt, data):
-    """Commit the mark and the stored record of the loaded check record `data` (a dict with its `worktree`) in worktree `wt`;
-    returns the line the hook prints. No rule of its own: the counts are the record's (`open_of`, `queued_of`)."""
+    """Commit the mark and the stored record of the loaded check record `data` in worktree `wt` (`relay_marks.write_check_mark`,
+    the code `relay check record check` runs too); returns the line the hook prints."""
+    counts = relay_marks.write_check_mark(wt, data)
+    return "check mark written for %s: %s, open %d, queued %d" % (relay_git.current_branch(wt) or wt, data["head"], counts["open"], counts["queued"])
+
+
+class Blocked(Exception):
+    """The checker may not stop yet; the reason goes to it on stderr, exit 2."""
+
+
+def usable(cwd, data_path, text):
+    """(worktree, data) of the check data read from `data_path`, or Fail."""
+    try:
+        data = relay_verdict.load_record(text, "the check data %s" % data_path)
+    except relay_verdict.VerdictError as exc:
+        raise Fail(str(exc))
+    wt = os.path.realpath(data["worktree"])
+    if not os.path.isdir(wt) or relay_git.main_checkout(wt) != relay_git.main_checkout(cwd):
+        raise Fail("the check data's worktree is not a worktree of this repository")
     head = data["head"]
-    gate = data["gate"] if data["gate"] and os.path.isfile(os.path.join(wt, relay_marks.FOLDER, data["gate"])) else None
-    counts = {"open": relay_verdict.open_of(data), "queued": relay_verdict.queued_of(data)}
-    mark = {
-        "schema": relay_marks.MARK_SCHEMA,
-        "commit": head,
-        "verdict": counts,
-        "check": "%s.check.json" % head,
-        "gate": gate,
-        "time": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    }
-    dump = lambda obj: json.dumps(obj, indent=2, sort_keys=True) + "\n"
-    relay_marks.put(wt, head, mark, {mark["check"]: dump(relay_verdict.stored_record(data))})
-    return "check mark written for %s: %s, open %d, queued %d" % (relay_git.current_branch(wt) or wt, head, counts["open"], counts["queued"])
+    if relay_git.git(wt, "cat-file", "-e", head + "^{commit}")[0] != 0:
+        raise Fail("head %s is not a commit of this worktree" % head)
+    if relay_git.git(wt, "merge-base", "--is-ancestor", head, "HEAD")[0] != 0:
+        raise Fail("head %s is not the worktree's head or an ancestor of it" % head)
+    return wt, data
+
+
+def no_record_reason(cwd, prompt, label):
+    hint = worktree_label(prompt)
+    wt = os.path.realpath(hint) if hint and os.path.isdir(hint) and relay_git.main_checkout(hint) == relay_git.main_checkout(cwd) else None
+    rc, head = relay_git.git(wt, "rev-parse", "HEAD") if wt else (1, "")
+    return ("no check record written during your run was found (%s). Run `relay check record check --input <file.toml>` for %s "
+            "and write the record to a new file; the check mark is made from that record when you stop."
+            % ("Report: %s" % label if label else "the prompt has no Report: line", "the head " + head if rc == 0 else "the worktree's head"))
 
 
 def run(hook):
+    """The line to say (or None); raises Blocked when the checker must go on."""
     cwd = hook.get("cwd")
     if hook.get("agent_type") != AGENT_TYPE or not isinstance(cwd, str) or not os.path.isdir(cwd):
         return None
     if not relay_git.has_relay(cwd):
         return None
-    wt = None
     prompt = ""
+    wt = None
     try:
         path = transcript_path(hook)
         if path is None:
             raise Fail("the checker's transcript was not found")
         prompt, start = first_entry(path)
         label = report_label(prompt)
-        if not label:
-            raise Fail("the checker's prompt has no Report: line; start it with the delegate skill's check prompt, never a brief file")
-        data_path = resolve(cwd, label)
-        text, mtime = read_json(data_path, "the check data")
-        if start is not None and mtime < start:
-            raise Fail("the check data is older than the checker's start")
-        try:
-            data = relay_verdict.load_record(text, "the check data %s" % data_path)
-        except relay_verdict.VerdictError as exc:
-            raise Fail(str(exc))
-        wt = os.path.realpath(data["worktree"])
-        if not os.path.isdir(wt) or relay_git.main_checkout(wt) != relay_git.main_checkout(cwd):
-            raise Fail("the check data's worktree is not a worktree of this repository")
-        head = data["head"]
-        if relay_git.git(wt, "cat-file", "-e", head + "^{commit}")[0] != 0:
-            raise Fail("head %s is not a commit of this worktree" % head)
-        if relay_git.git(wt, "merge-base", "--is-ancestor", head, "HEAD")[0] != 0:
-            raise Fail("head %s is not the worktree's head or an ancestor of it" % head)
-        return write_mark(wt, data)
-    except (Fail, relay_marks.MarkError) as exc:
-        if wt is None:
-            # the data could not be read, so the worktree is not known from it: the prompt's Worktree: label only says
-            # where a stale mark of the same worktree may sit to be removed (no fact of a mark comes from it)
-            hint = worktree_label(prompt)
-            wt = os.path.realpath(hint) if hint and os.path.isdir(hint) and relay_git.main_checkout(hint) == relay_git.main_checkout(cwd) else None
-        label = (relay_git.current_branch(wt) if wt and os.path.isdir(wt) else None) or "this worktree"
-        if wt and os.path.isdir(wt):
+        records = fresh_records(cwd, label, recorded_paths(path), start)
+        if not records:
+            raise NoRecord(no_record_reason(cwd, prompt, label))
+        failure = None
+        for data_path, text in records:
             try:
-                for commit in stale_commits(wt):
-                    relay_marks.drop(wt, commit)
-            except relay_marks.MarkError as drop_exc:
-                return "check mark not written for %s: %s; the old mark could not be removed: %s" % (label, exc, drop_exc)
-        return "check mark not written for %s: %s" % (label, exc)
+                wt, data = usable(cwd, data_path, text)
+            except Fail as exc:
+                failure = failure or exc
+                continue
+            return write_mark(wt, data)
+        raise failure
+    except NoRecord as exc:
+        if not hook.get("stop_hook_active"):
+            raise Blocked(str(exc))
+        return "check mark not written for %s: %s" % (branch_of(cwd, prompt), exc)
+    except (Fail, relay_marks.MarkError) as exc:
+        return "check mark not written for %s: %s" % (branch_of(cwd, prompt, wt), exc)
+
+
+def branch_of(cwd, prompt, wt=None):
+    """The branch named in a failure line: of the worktree the record names, else of the prompt's Worktree: label."""
+    if wt is None:
+        hint = worktree_label(prompt)
+        wt = os.path.realpath(hint) if hint and os.path.isdir(hint) and relay_git.main_checkout(hint) == relay_git.main_checkout(cwd) else None
+    return (relay_git.current_branch(wt) if wt and os.path.isdir(wt) else None) or "this worktree"
 
 
 def main():
@@ -227,7 +279,11 @@ def main():
     except ValueError:
         return 0
     if isinstance(hook, dict):
-        text = run(hook)
+        try:
+            text = run(hook)
+        except Blocked as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
         if text:
             say(text)
     return 0
