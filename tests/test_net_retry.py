@@ -16,7 +16,7 @@ KEY = "CLAUDE_CODE_RETRY_WATCHDOG"
 
 
 class NetRetry(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.saved = {k: os.environ.get(k) for k in ("CLAUDE_CONFIG_DIR", "RELAY_SKIP_PAID_DUE")}
         self.tmp = tempfile.mkdtemp(prefix="relay-net-test-")
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
@@ -25,7 +25,7 @@ class NetRetry(unittest.TestCase):
         self.path = os.path.join(self.tmp, "settings.json")
         self.addCleanup(self.restore)
 
-    def restore(self):
+    def restore(self) -> None:
         for k, v in self.saved.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -43,7 +43,7 @@ class NetRetry(unittest.TestCase):
     def failing_doctor(self):
         return [n for n, good, _ in relay_setup.doctor(None, profile={}) if not good and KEY in n]
 
-    def test_q1_sync_adds_the_watchdog_leaves_other_keys_and_is_idempotent(self):
+    def test_q1_sync_adds_the_watchdog_leaves_other_keys_and_is_idempotent(self) -> None:
         # Env holds the owner's FOO and the settings a theme: after sync both stay and the watchdog is "1".
         self.put({"theme": "auto", "env": {"FOO": "bar"}})
         relay_rules.sync({}, only={"settings"})
@@ -51,19 +51,36 @@ class NetRetry(unittest.TestCase):
         again = relay_rules.sync({}, only={"settings"})
         self.assertEqual(again[0][2], "unchanged")
 
-    def test_q1_a_key_the_owner_set_is_left_alone(self):
+    def test_q1_a_key_the_owner_set_is_left_alone(self) -> None:
         self.put({"env": {KEY: "0"}})
         relay_rules.sync({}, only={"settings"})
         self.assertEqual(self.read(), {"env": {KEY: "0"}})
         self.assertEqual(self.failing_doctor(), [])
 
-    def test_q1_doctor_flags_it_when_absent_then_passes(self):
+    def test_q1_doctor_flags_it_when_absent_then_passes(self) -> None:
         self.put({})
         self.assertEqual(len(self.failing_doctor()), 1)
         relay_rules.sync({}, only={"settings"})
         self.assertEqual(self.failing_doctor(), [])
 
-    def test_q1_dry_writes_nothing(self):
+    def test_f2_env_not_an_object_still_writes_model_and_doctor_names_it(self) -> None:
+        # env null: the watchdog cannot be added, but the profile's model is still written; doctor names the bad env.
+        for bad in (None, []):
+            self.put({"env": bad, "model": "sonnet"})
+            _, state = relay_setup.merge_session_settings({"session": {"model": "opus"}})
+            self.assertEqual(self.read(), {"env": bad, "model": "opus"})
+            self.assertIn("env is not an object", state)
+            detail = [d for n, good, d in relay_setup.doctor(None, profile={}) if not good and KEY in n]
+            self.assertEqual(len(detail), 1)
+            self.assertIn("not an object", detail[0])
+
+    def test_f2_env_object_and_missing_env_get_the_watchdog(self) -> None:
+        for before, after in (({"env": {"FOO": "bar"}}, {"FOO": "bar", KEY: "1"}), ({}, {KEY: "1"})):
+            self.put(before)
+            relay_setup.merge_session_settings({"session": {}})
+            self.assertEqual(self.read()["env"], after)
+
+    def test_q1_dry_writes_nothing(self) -> None:
         self.put({})
         relay_rules.sync({}, only={"settings"}, dry=True)
         self.assertEqual(self.read(), {})

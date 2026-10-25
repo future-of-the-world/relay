@@ -364,7 +364,7 @@ def effort_model_key(data, model):
     return found[0] if found else None
 
 
-def missing_env(data):
+def missing_env(data: dict) -> dict[str, str]:
     """The OWNED_ENV keys absent from the settings env. A key present with any value is the owner's and is left alone."""
     env = data.get("env")
     env = env if isinstance(env, dict) else {}
@@ -385,7 +385,7 @@ def read_json_strict(path):
     return data, None
 
 
-def merge_session_settings(profile, dry=False):
+def merge_session_settings(profile: dict, dry: bool = False) -> tuple[str, str]:
     """Write the profile's [session] model and effort into ~/.claude/settings.json, other keys untouched: the top-level
     keys and modelSettings.<model>.effortLevel (the entry Claude Code reads first). Returns (path, state): unchanged,
     would set/set <keys>, not written (max), or refused/would refuse when the file is not valid JSON. dry: write nothing."""
@@ -408,11 +408,12 @@ def merge_session_settings(profile, dry=False):
             if old != effort:
                 per_model = (key, effort)
                 names.append(f"modelSettings.{key}.effortLevel {old!r} -> {effort!r}")
-    add_env = missing_env(data)
-    if add_env and not isinstance(data.get("env", {}), dict):
-        return path, ("would refuse: " if dry else "refused: ") + "env in settings.json is not an object"
-    names += [f"env.{k} -> {v!r}" for k, v in sorted(add_env.items())]
     notes = []
+    add_env = missing_env(data)
+    if "env" in data and not isinstance(data["env"], dict):
+        add_env = {}
+        notes.append("env is not an object: watchdog not written")
+    names += [f"env.{k} -> {v!r}" for k, v in sorted(add_env.items())]
     bad = unpersistable_effort(profile)
     if bad:
         notes.append(f"not written: effort {bad} is session-only")
@@ -867,7 +868,7 @@ def dep_checks(deps=None):
 
 # --- doctor -----------------------------------------------------------------
 
-def doctor(root=None, profile=None):
+def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[str, bool, str]]:
     checks = []
 
     def ok(name, good, detail=""):
@@ -885,7 +886,8 @@ def doctor(root=None, profile=None):
            f"is {user.get(key)!r} -> relay sync")
     for key in sorted(OWNED_ENV):
         ok(f"{key} in the env of ~/.claude/settings.json", key not in missing_env(user),
-           "missing -> relay sync")
+           "env is not an object: fix it by hand" if "env" in user and not isinstance(user["env"], dict)
+           else "missing -> relay sync")
     bad = unpersistable_effort((profile or {}))
     if bad:
         ok(f"effortLevel in ~/.claude/settings.json can hold the profile's [session] effort {bad}", False,
