@@ -11,7 +11,10 @@
   "why": [
     "Owner, 26 Oct: \"Включи openspec plugin для самого relay, зафиксируй только нужное для разработки relay, первым испытателем relay будет сам relay\". Facts, 26 Oct: the relay repo has no .claude/ folder; core, delegate, front, observe and gopls-lsp (Go language server; relay has no Go) are on only in ~/.claude/settings.json; issues, openspec and product are not on for relay; relay has no openspec/ folder; openspec 1.14.2 is installed; OpenSpec's `openspec init` writes 4 /opsx commands and 6 openspec-* skills into .claude/. wt/parallel (train-15) adds relay's .claude/kit.toml and wt/openspec-plugin moves the spec rule into the plugin's own hook: build after both merge. IP chosen by the front (agent-chosen)."
   ],
-  "where": ".claude/settings.json and .claude/kit.toml of the relay repo (new), openspec/ (new)",
+  "where": [
+    ".claude/settings.json and .claude/kit.toml of the relay repo (new)",
+    "openspec/ (new)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,
