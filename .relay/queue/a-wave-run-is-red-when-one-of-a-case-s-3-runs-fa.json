@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 94,
+  "time": 60,
+  "found_at": "2026-10-25T11:17:05Z",
+  "found_in": "relay queue add",
+  "title": "A wave run is red when one of a case's 3 runs fails",
+  "what": [
+    "A plugin eval case passes a wave run when most of its runs pass (2 of 3); the wave is red only when a case fails its majority. Each case's pass rate is recorded per run, and a case whose rate drops against its recent runs is reported, so a fault that hits 1 run in 3 is still seen. rules/quality-gate.md says the max(20, ceil(3/p)) rule is for code tests; a model eval is judged by its pass rate."
+  ],
+  "why": [
+    "Owner, 25 Oct: \"Согласен, сценарий проходит с большинством\". it-terms-ru misses about 7% of runs (4 of 60, part judge noise), so with all 3 runs required about 1 wave in 5 is red with no regression, and the flaky-test rule (45 clean runs in a row at that rate) has about a 4% chance to be met."
+  ],
+  "failing_case": [
+    "A wave run where one case has runs PASS PASS FAIL and every other case passes: today \"ci: RED\"; it should be green, with the case's rate recorded."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "PASS PASS FAIL on one case: the wave is green and the rate 2/3 is recorded.",
+    "PASS FAIL FAIL on one case: the wave is red.",
+    "A case whose rate over its last runs drops below its earlier rate is named in the run's summary."
+  ],
+  "where": "bin/ci (eval record step), the eval verdict code that turns runs into \"NOT A PASS\", bin/paid-cost or the eval ledger (pass rates), rules/quality-gate.md (flaky tests: code tests only)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
