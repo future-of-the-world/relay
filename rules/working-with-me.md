@@ -37,8 +37,8 @@
   language. This holds even when my own message uses the local word: when
   my message says "ветка" or "слияние", or "rama" or "fusión", your reply
   still writes branch or merge, in Latin letters, and never the local word
-  for them. A Russian word set beside the term as a gloss ("страховка, то
-  есть hook") is the same calque: write the English term and, the first time,
+  for them. A local word set beside the term as a gloss ("<local word>, that
+  is, hook") is the same calque: write the English term and, the first time,
   explain it in plain words, never with a one-word equivalent in my language.
   relay's own names
   (branches, files, slugs, commands) stay out of replies, as above; a

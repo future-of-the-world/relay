@@ -116,6 +116,19 @@ class ItTermsSetup(unittest.TestCase):
                     self.assertIn("Standard IT terms stay in their English form", handle.read(), case)
 
 
+class ItTermsRuGlossary(unittest.TestCase):
+    """The model cannot define the relay term gate unless the project it reads says what it is (measured: 11 of 20 runs
+    failed relay-term-defined with "что именно она проверяет, я не знаю"); the glossary lives in the scaffold's CLAUDE.md,
+    not in the prompt."""
+
+    def test_scaffold_claude_md_defines_gate(self) -> None:
+        script = os.path.join(ROOT, "evals", "plugin", "it-terms-ru", "scaffold.sh")
+        with tempfile.TemporaryDirectory() as work:
+            subprocess.run(["bash", script], cwd=work, check=True, capture_output=True)
+            with open(os.path.join(work, "CLAUDE.md"), encoding="utf-8") as handle:
+                self.assertIn("the gate is this project's full local check", handle.read())
+
+
 class ItTermsPromptsDoNotGiveTheAnswer(unittest.TestCase):
     """F4/F5: a pass must show the rule at work, not the prompt or the rule text dictating the reply."""
 
