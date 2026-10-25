@@ -1,7 +1,7 @@
 ---
 type: tool_used
 tool: Bash
-input_match: "(?:^\\{\"command\":\"|[;&|(]|\\\\n)\\s*(?:(?:npx|bunx)\\s+)?openspec\\s+[a-z]|/opsx:"
+input_match: "(?:^\\{\"command\":\"|[;&|(]|\\\\n)\\s*(?:(?:env|npx|bunx|[A-Z_][A-Z0-9_]*=\\S*)\\s+)*openspec\\s+[a-z]|/opsx:"
 min: 0
 max: 0
 ---

@@ -25,8 +25,15 @@ def input_match(case: str) -> str:
     return json.loads(line.partition(":")[2].strip())
 
 
+def js_match(pattern: str, text: str) -> bool:
+    """The eval tool applies input_match as a JavaScript RegExp: test it the same way (as tests/test_eval_record.py does)."""
+    code = "const [p,t]=JSON.parse(require('fs').readFileSync(0,'utf8'));process.stdout.write(String(new RegExp(p).test(t)))"
+    out = subprocess.run(["bun", "-e", code], input=json.dumps([pattern, text]), capture_output=True, text=True, check=True)
+    return out.stdout == "true"
+
+
 def hit(case: str, command: str) -> bool:
-    return re.search(input_match(case), json.dumps({"command": command}, separators=(",", ":"))) is not None
+    return js_match(input_match(case), json.dumps({"command": command}, separators=(",", ":")))
 
 
 class NoOpenspecCommand(unittest.TestCase):
@@ -41,7 +48,10 @@ class NoOpenspecCommand(unittest.TestCase):
         # The program at the start, after && or ;, on a later line, or through npx; and a /opsx: command.
         for case in CASES:
             for command in ("openspec new change sort-by-name", "cd .worktrees/x && openspec validate x --strict",
-                            "ls; openspec list", "ls\nopenspec list", "npx openspec init", "echo /opsx:propose x"):
+                            "ls; openspec list", "ls\nopenspec list", "npx openspec init", "echo /opsx:propose x",
+                            # F3: sessions really write VAR=value or env before the program.
+                            "OPENSPEC_TELEMETRY=0 openspec validate x --strict", "env FOO=1 openspec list",
+                            "A=1 B=2 npx openspec init"):
                 self.assertTrue(hit(case, command), (case, command))
 
     def test_the_three_cases_share_one_pattern(self) -> None:
@@ -62,8 +72,8 @@ class NoWorkerBeforePlan(unittest.TestCase):
             pattern = json.loads(meta["input_match"])
             worker = json.dumps({"description": "build", "subagent_type": "delegate:worker", "prompt": "x"})
             scout = json.dumps({"description": "look", "subagent_type": "delegate:scout", "prompt": "x"})
-            self.assertIsNotNone(re.search(pattern, worker), case)
-            self.assertIsNone(re.search(pattern, scout), case)
+            self.assertTrue(js_match(pattern, worker), case)
+            self.assertFalse(js_match(pattern, scout), case)
 
 
 class OffbyoneScaffold(unittest.TestCase):
@@ -105,6 +115,28 @@ class ItTermsSetup(unittest.TestCase):
                 subprocess.run(["bash", os.path.join(directory, "scaffold.sh")], cwd=work, check=True, capture_output=True)
                 with open(os.path.join(work, "CLAUDE.md"), encoding="utf-8") as handle:
                     self.assertIn("Standard IT terms stay in their English form", handle.read(), case)
+
+
+class ItTermsPromptsDoNotGiveTheAnswer(unittest.TestCase):
+    """F4/F5: a pass must show the rule at work, not the prompt or the rule text dictating the reply."""
+
+    def test_ru_prompt_names_gate_without_defining_or_asking_for_it(self) -> None:
+        with open(os.path.join(ROOT, "evals", "plugin", "it-terms-ru", "prompt.md"), encoding="utf-8") as handle:
+            body = handle.read().split("\n---\n", 1)[1]
+        self.assertIn("gate", body)
+        self.assertIn("CLAUDE.md", body)
+        for given in ("линтер", "проверка типов", "проверку типов", "что такое gate"):
+            self.assertNotIn(given, body)
+
+    def test_rule_does_not_prescribe_the_terms_of_a_merge_reply(self) -> None:
+        with open(os.path.join(ROOT, "rules", "working-with-me.md"), encoding="utf-8") as handle:
+            text = " ".join(handle.read().split())
+        self.assertNotIn("A reply that explains a merge", text)
+        self.assertNotIn("страховка", text)
+        self.assertNotIn("gancho", text)
+        self.assertIn("even when my own message uses the local word", text)
+        self.assertIn("ветка", text)
+        self.assertIn("rama", text)
 
 
 if __name__ == "__main__":
