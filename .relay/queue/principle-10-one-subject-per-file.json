@@ -1,0 +1,21 @@
+{
+  "kind": "feature",
+  "ip": 88,
+  "time": 20,
+  "found_at": "2026-10-25T20:37:37Z",
+  "found_in": "relay queue add",
+  "title": "Principle 10: one subject per file",
+  "what": [
+    "rules/principles.md gains principle 10 in the shape of the others: \"One subject per file. A file holds one subject; no file every change must touch; no committed copies. Fires on: a file two open branches change at once; a table every new command or rule must be added to; the same code kept in two places. Do: split the file by subject when it is next changed, never a big-bang split while branches are open; let parts be found (discovery) instead of listed; keep one copy and load it from where it lives.\""
+  ],
+  "why": [
+    "Owner, 26 Oct: \"агенты позволяют нам делать множество изменений одновременно, большие файлы - наши враги, концентрируя большой объем кода (смысла) они являются поводом для конфликтов\", then \"a\" (principle 10 \"one subject per file, no hub files, no copies\" plus four items). Measured over 5 days: bin/relay (887 lines) in 44 commits, lib/relay_queue.py (1189 lines) in 25 commits kept in 3 copies, lib/relay_setup.py (1134 lines) changed by 3 open branches at once (license, setup-wt, the portable-tool design). IP chosen by the front (agent-chosen)."
+  ],
+  "where": "rules/principles.md",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
