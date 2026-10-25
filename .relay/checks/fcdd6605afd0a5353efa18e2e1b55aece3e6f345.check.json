@@ -1,0 +1,66 @@
+{
+  "branch": "wt/train-14",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "docs/setup.md",
+      "rank": "medium",
+      "reason": [
+        "Gate green on the merged tree (exit 0 on c3b28fc); docs/setup.md combined without conflict; setup tests pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "c3b28fc9528c505a24daeb96789496e3c81bd0b0",
+      "source": "t14-train-14.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_setup.py:647-648 keeps both moved_hooks and license_id/holder; both behaviours used in body (692, 709-710); 125 setup/license/migrate tests pass; gate exit 0."
+      ],
+      "severity": "MEDIUM",
+      "since": "c3b28fc9528c505a24daeb96789496e3c81bd0b0",
+      "source": "t14-train-14.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "c3b28fc9528c505a24daeb96789496e3c81bd0b0.gate.log",
+  "head": "fcdd6605afd0a5353efa18e2e1b55aece3e6f345",
+  "item": null,
+  "notes": [
+    "No new test added by the merge; nothing to prove failing without a fix."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merge of master + wt/license; conflict in lib/relay_setup.py setup() signature. Gate log is for c3b28fc, exit 0; HEAD fcdd660 differs only by the gate-log commit (relay changed lists no file). Ran pytest -k \"license or setup or migrate\": 125 passed. Read setup(): signature keeps moved_hooks, license_id, holder; license validated and applied (lines 659-710); merge_settings still gets moved_hooks (692); migrate caller (819) passes moved_hooks; bin/relay:410 passes license_id/holder."
+  ],
+  "type": "check"
+}
