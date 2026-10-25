@@ -44,7 +44,7 @@ class Fixture(unittest.TestCase):
     def setUp(self):
         self.tmp = os.path.realpath(tempfile.mkdtemp(prefix="relay-gate-"))
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
-        self.env = {**os.environ, **GIT_ENV, "RELAY_ROOT": ROOT}
+        self.env = {**os.environ, **GIT_ENV, "RELAY_ROOT": ROOT, "RELAY_HOME": os.path.join(self.tmp, "home")}      # slots in the temp dir, never the live ~/.relay
         self.env.pop("RELAY_GATE", None)
 
     def repo(self, relay=True, gate=None, ignore=".ci/\n.worktrees/\n"):
@@ -114,7 +114,8 @@ class Gate(Fixture):
         lines = read(log).splitlines()
         self.assertEqual(lines[0], "head " + head)
         self.assertEqual(lines[1], "cmd %s --quick" % self.script)
-        self.assertEqual(lines[2:-1], ["step one ok"])
+        self.assertRegex(lines[2], r"^wait \d+\.\d$")      # the slot wait, then the gate's output
+        self.assertEqual(lines[3:-1], ["step one ok"])
         self.assertEqual(lines[-1], "exit 0")
         self.assertEqual(read(os.path.join(self.wt, ".ci", "seen")).strip(), "seen=" + head)
         self.assertEqual([l for l in git(self.wt, "show", "--name-only", "--format=%s", "HEAD").splitlines() if l],
