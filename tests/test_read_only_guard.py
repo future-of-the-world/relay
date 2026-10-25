@@ -1,7 +1,9 @@
 """Q1: a read-only agent (critic, checker, scout) must not run a relay command that writes, and `relay migrate --all`
 must not write into a primary checkout unless asked. Free: temporary folders and HOME, no paid run."""
 import json
+import importlib.util
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -11,6 +13,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(ROOT, "plugins", "delegate", "hooks", "read-only-guard.py")
 RELAY = os.path.join(ROOT, "bin", "relay")
 GIT = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
+
+
+def load_guard():
+    spec = importlib.util.spec_from_file_location("read_only_guard", HOOK)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def hook(agent_type: str, command: str, tool: str = "Bash") -> str:
@@ -26,7 +35,10 @@ class ReadOnlyHook(unittest.TestCase):
         a path, `cd x &&`, a pipe and `bash -c`."""
         for command in ("bin/relay migrate --all", "relay setup /x", "cd w && python3 bin/relay migrate --all --apply",
                         "relay install", "relay queue add foo", "echo y | relay sync", 'bash -c "relay setup ."',
-                        "relay check migrate", "relay queue take item"):
+                        "relay check migrate", "relay queue take item", "FOO=1 relay setup .", "env X=1 relay install",
+                        "bash -c 'cd x; relay setup .'", "eval relay setup", "sh -c 'relay sync'",
+                        "relay check owner review.json F2 --input o.toml", "relay improve adopt cand", "relay candidate x",
+                        "relay calibrate", "relay gate", "relay bench a b"):
             for agent in ("delegate:critic", "delegate:checker", "delegate:scout"):
                 self.assertEqual(hook(agent, command), "deny", (agent, command))
 
@@ -35,9 +47,25 @@ class ReadOnlyHook(unittest.TestCase):
         self.assertEqual(hook("delegate:worker", "bin/relay migrate --all"), "allow")
         self.assertEqual(hook("", "relay setup /x"), "allow")   # the main session has no agent type
         for command in ("relay sync --dry", "relay queue show a", "relay queue count", "relay doctor", "git log --oneline",
-                        "grep migrate lib/relay_setup.py", "cat docs/relay-migrate.md"):
+                        "grep migrate lib/relay_setup.py", "cat docs/relay-migrate.md",
+                        "git grep -n 'relay setup'", 'grep -rn "relay queue add" docs', "rg 'relay install' README.md",
+                        'echo "see relay setup docs"', "sh -c 'relay sync --dry'", "relay bench list", "relay improve suggest",
+                        "relay improve log", "relay check show r.json", "relay check findings --review r.json",
+                        "relay check record check --input c.toml"):
             self.assertEqual(hook("delegate:critic", command), "allow", command)
         self.assertEqual(hook("delegate:critic", "relay setup /x", tool="Read"), "allow")
+
+    def test_q1_every_relay_subcommand_is_classified_as_read_or_write(self) -> None:
+        """A subcommand bin/relay gains must be put on the guard's list (WRITERS) or its READS: none is left unclassified."""
+        guard = load_guard()
+        with open(RELAY, encoding="utf-8") as handle:
+            source = handle.read()
+        table = source[source.index("COMMANDS = {"):source.index("\n}\n", source.index("COMMANDS = {"))]
+        commands = set(re.findall(r'"(\w+)":', table))
+        self.assertGreater(len(commands), 10)
+        self.assertEqual(commands - set(guard.WRITERS) - guard.READS, set())
+        queue_words = set(re.search(r"relay queue \[([a-z|]+)\]", source).group(1).split("|"))
+        self.assertEqual(queue_words - guard.WRITERS["queue"] - guard.READ_WORDS["queue"], set())
 
 
 class MigrateAllPrimary(unittest.TestCase):
@@ -55,7 +83,8 @@ class MigrateAllPrimary(unittest.TestCase):
             with open(os.path.join(tmp, "projects.toml"), "w", encoding="utf-8") as handle:
                 handle.write('[proj]\nfile = "%s/CLAUDE.local.md"\nload = []\n' % proj)
             env = {**os.environ, "HOME": os.path.join(tmp, "home"), "RELAY_HOME": os.path.join(tmp, "rh"),
-                   "RELAY_PROJECTS": os.path.join(tmp, "projects.toml")}
+                   "RELAY_PROJECTS": os.path.join(tmp, "projects.toml"),
+                   "RELAY_CLAUDE_BIN": "false"}   # a stub: the plugin install must not run the real claude
 
             def status() -> str:
                 return subprocess.run(["git", "-C", proj, "status", "--short", "--ignored"], capture_output=True, text=True, timeout=20).stdout

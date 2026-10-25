@@ -82,7 +82,7 @@ and does that.
 
 `relay install` does the machine part (global CLAUDE.md, user settings,
 `claude plugin marketplace add` + installs). It registers no project;
-`relay setup <dir>` adds one. `relay migrate --all` prints the plan for
+`relay setup <dir>` adds one. `relay migrate --all --primary` (plain `--all` skips primary checkouts, which is where projects live) prints the plan for
 every registered project and copies the principles library's
 `migration/<project>/kit/*.md` drafts into each project's `.claude/kit/`;
 `relay migrate <dir> --apply` moves one project. `START_HERE.md` is the

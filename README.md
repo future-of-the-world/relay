@@ -57,7 +57,7 @@ sh ~/relay/install.sh --dry-run    # what is missing or too old, from deps.toml;
 sh ~/relay/install.sh              # installs it (official installers first: uv's, jq's release binary, `uv python install`, Claude's own; Homebrew or apt-get only as the fallback), then runs `relay doctor`
 ~/relay/bin/relay install          # global CLAUDE.md, user settings, plugins (registers no project; `relay setup <dir>` adds one)
 ln -s ~/relay/bin/relay /usr/local/bin/relay
-relay migrate --all                # the plan for every project; then per project: relay migrate <dir> --apply
+relay migrate --all --primary      # the plan for every project (plain --all skips primary checkouts, where projects live); then per project: relay migrate <dir> --apply
 relay doctor
 ```
 

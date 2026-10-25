@@ -19,46 +19,116 @@ import sys
 from typing import Any, Optional
 
 READ_ONLY = {"critic", "checker", "scout", "ui-reviewer", "spec-reviewer", "spec-conformance"}
-# relay subcommand -> the words after it that write; None means every use writes
-WRITERS = {
-    "setup": None, "migrate": None, "install": None,
+# every top-level relay subcommand is in WRITERS (it writes) or READS (it does not); a test fails when bin/relay gains one
+# that is in neither. WRITERS: subcommand -> the words after it that write; None means every use writes.
+WRITERS: dict[str, Optional[set[str]]] = {
+    "setup": None, "migrate": None, "install": None, "sync": None, "candidate": None, "calibrate": None, "gate": None,
+    "bench": None,
     "queue": {"add", "take", "release", "done", "drop", "land", "ip", "migrate"},
-    "check": {"migrate"},
+    "check": {"migrate", "owner"},
+    "improve": {"adopt"},
 }
-SPLIT = re.compile(r"&&|\|\||[;|&\n()`]|\$\(")
+READS = {"status", "report", "profile", "doctor", "flows", "rules", "changed"}
+# the words after a writing-or-mixed subcommand that only read (the other words of WRITERS[sub] is None are writes)
+READ_WORDS = {
+    "bench": {"list"},
+    "queue": {"count", "show", "check"},
+    "check": {"show", "findings", "record"},   # record is the judge's own way to write its verdict
+    "improve": {"suggest", "log"},
+}
+PASS_THROUGH = {"env", "exec", "command", "nohup", "time", "sudo"}
+SHELLS = {"sh", "bash", "zsh", "dash"}
+SHELL_C = re.compile(r"^-[a-z]*c$")
+PYTHON = re.compile(r"^python[0-9.]*$")
+
+
+def simple_commands(command: str) -> list[str]:
+    """Split on ; && || | & newline ( ) backtick and $( that are outside quotes, so a quoted word stays whole."""
+    parts: list[str] = []
+    current: list[str] = []
+    quote = ""
+    i = 0
+    while i < len(command):
+        char = command[i]
+        if quote:
+            if char == "\\" and quote == '"' and i + 1 < len(command):
+                current.append(command[i:i + 2])
+                i += 2
+                continue
+            if char == quote:
+                quote = ""
+        elif char in "'\"":
+            quote = char
+        elif char == "\\" and i + 1 < len(command):
+            current.append(command[i:i + 2])
+            i += 2
+            continue
+        elif char in ";&|\n()`" or command.startswith("$(", i):
+            parts.append("".join(current))
+            current = []
+            i += 2 if command.startswith("$(", i) else 1
+            continue
+        current.append(char)
+        i += 1
+    parts.append("".join(current))
+    return parts
 
 
 def words(part: str) -> list[str]:
-    """The words of one simple command; a quoted string with spaces (`bash -c "relay setup"`) is split again."""
     try:
-        found = shlex.split(part)
+        return shlex.split(part)
     except ValueError:
-        found = part.split()
-    out: list[str] = []
-    for word in found:
-        out.extend(words(word) if " " in word.strip() and word != part else [word])
-    return out
+        return part.split()
+
+
+def relay_call(tokens: list[str]) -> Optional[str]:
+    """The program of one simple command, looked through VAR=x, env, python3, sh -c and eval; a writing relay call as text."""
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        base = os.path.basename(token)
+        if "=" in token and not token.startswith("-") and "/" not in token.split("=")[0]:
+            i += 1   # VAR=x
+        elif base in PASS_THROUGH or PYTHON.match(base):
+            i += 1
+            while i < len(tokens) and (tokens[i].startswith("-") or (base in PASS_THROUGH and "=" in tokens[i])):
+                i += 1
+        elif base in SHELLS:
+            for j in range(i + 1, len(tokens) - 1):
+                if SHELL_C.match(tokens[j]):
+                    return writer(tokens[j + 1])
+            i += 1
+            while i < len(tokens) and tokens[i].startswith("-"):
+                i += 1
+        elif base == "eval":
+            return writer(" ".join(tokens[i + 1:]))
+        elif base == "relay":
+            return relay_writes(tokens[i + 1:])
+        else:
+            return None
+    return None
+
+
+def relay_writes(args: list[str]) -> Optional[str]:
+    rest = [t for t in args if not t.startswith("-")]
+    if not rest or rest[0] not in WRITERS:
+        return None
+    sub = rest[0]
+    second = rest[1] if len(rest) > 1 else ""
+    if sub == "sync":
+        return None if "--dry" in args else "relay sync"
+    after = WRITERS[sub]
+    if after is None:
+        return None if second in READ_WORDS.get(sub, ()) else "relay " + sub
+    return "relay %s %s" % (sub, second) if second in after else None
 
 
 def writer(command: str) -> Optional[str]:
     """The relay command in `command` that writes, as text; None when there is none."""
-    for part in SPLIT.split(command):
-        tokens = words(part)
-        for i, token in enumerate(tokens):
-            if os.path.basename(token) != "relay":
-                continue
-            rest = [t for t in tokens[i + 1:] if not t.startswith("-")]
-            if not rest:
-                continue
-            sub = rest[0]
-            if sub == "sync" and "--dry" not in tokens[i + 1:]:
-                return "relay sync"
-            if sub in WRITERS:
-                words_after = WRITERS[sub]
-                if words_after is None:
-                    return "relay " + sub
-                if len(rest) > 1 and rest[1] in words_after:
-                    return "relay %s %s" % (sub, rest[1])
+    for part in simple_commands(command):
+        found = relay_call(words(part))
+        if found:
+            return found
     return None
 
 
