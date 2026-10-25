@@ -1,8 +1,8 @@
 ---
-type: llm
+type: tool_used
+tool: Agent
+input_match: "delegate:worker"
+min: 0
+max: 0
 ---
-The run is a project with spec steps on, given a plain feature request. Question: in the
-tool calls, is the Skill call that loads openspec:plan made before any Agent call that
-starts delegate:worker (or is no delegate:worker started at all)?
-PASS if openspec:plan is loaded first, or no worker is started. FAIL if a delegate:worker
-is started before openspec:plan is loaded.
+Spec steps are on and the prompt stops at the first agent's reply, so the first agent is the planning step's (a scout or the author), never a worker: no delegate:worker is started before openspec:plan is loaded. (This was a meaning grader; the judge reads only the last message, which does not show the order of tool calls, so it failed correct runs.)

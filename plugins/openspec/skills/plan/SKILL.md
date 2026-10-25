@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Research and planning stage of an OpenSpec change. Use together with openspec-explore or openspec-propose whenever /opsx:explore or /opsx:propose runs, or the user asks to research, plan, design, or propose a change. Covers the change worktree, research (repo first, cheap subagents, the network last), shaping what a person will see, the artifact rules the author follows, and handing the plan to spec review.
+description: Research and planning stage of an OpenSpec change. Use together with openspec-explore or openspec-propose whenever /opsx:explore or /opsx:propose runs, or the user asks to research, plan, design, or propose a change. Covers the change worktree, research (repo first, cheap subagents, the network last), shaping what a person will see, the artifact rules the author follows, and handing the plan to spec review. Use only in a project whose rules carry "Spec steps in the change cycle" (`[specs] method = "openspec"` in `.claude/kit.toml`); a project that merely has an `openspec/` folder keeps it as docs, and this skill is not loaded for it.
 argument-hint: "<change>"
 ---
 

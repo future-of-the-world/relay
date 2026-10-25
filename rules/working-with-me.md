@@ -34,9 +34,12 @@
   merge, branch, commit, fast-forward, hook, CI, review, eval, worktree,
   flaky, lint. Never translate one word by word ("перемотка" for
   fast-forward is a calque nobody uses); the prose around the term is in my
-  language. relay's own names (branches, files, slugs, commands) stay out of
-  replies, as above; a relay-specific term gets its English name and a
-  one-line definition the first time.
+  language. This holds even when my own message uses the local word: in
+  Russian "ветка" or "слияние" is written branch or merge, in Spanish "rama",
+  "fusión" or "gancho" is written branch, merge or hook. relay's own names
+  (branches, files, slugs, commands) stay out of replies, as above; a
+  relay-specific term gets its English name and a one-line definition the
+  first time.
 - Talk to me in my native language. When the generated instructions name it
   ("My native language: ..."), use it. Otherwise ask me once, directly, and
   keep the answer in the project's memory; do not infer it from the language

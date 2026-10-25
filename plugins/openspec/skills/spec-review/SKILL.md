@@ -1,6 +1,6 @@
 ---
 name: spec-review
-description: Review and fix an OpenSpec change's planning artifacts before apply. Use after /opsx:propose (openspec:plan calls it), when the user asks to review a spec, proposal or plan, and together with openspec-update-change whenever /opsx:update revises a change. Runs openspec:spec-reviewer, fixes findings through one openspec:author with the full sweep, one check of the fixes, and asks the owner only for real decisions.
+description: Review and fix an OpenSpec change's planning artifacts before apply. Use after /opsx:propose (openspec:plan calls it), when the user asks to review a spec, proposal or plan, and together with openspec-update-change whenever /opsx:update revises a change. Runs openspec:spec-reviewer, fixes findings through one openspec:author with the full sweep, one check of the fixes, and asks the owner only for real decisions. Use only in a project whose rules carry "Spec steps in the change cycle" (`[specs] method = "openspec"` in `.claude/kit.toml`); a project that merely has an `openspec/` folder keeps it as docs, and this skill is not loaded for it.
 argument-hint: "<change>"
 ---
 
