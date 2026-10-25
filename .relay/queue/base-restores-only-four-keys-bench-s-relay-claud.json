@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 89,
+  "time": 20,
+  "found_at": "2026-10-25T16:57:05Z",
+  "found_in": "finding F1 of review-rules-red.json",
+  "title": "Base restores only four keys; Bench's RELAY_CLAUDE_BIN…",
+  "what": [
+    "tests/relay_testbase.py:14: LOW: F1 Base restores only four keys; Bench's RELAY_CLAUDE_BIN still leaks a deleted fake binary to every later test"
+  ],
+  "why": [
+    "25 Oct, review of wt/rules-red (LOW, merged as is): the test base restores four listed environment variables by hand; Bench's RELAY_CLAUDE_BIN still leaks a deleted fake binary to every later test, the same kind of shared state that made the rules-only gate red. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "In one unittest process run tests.test_bench.Bench then any later class that reaches relay_bench.claude_command or",
+    "relay_setup's install runner without setting RELAY_CLAUDE_BIN: the env still holds <tmp>/relay-test-*/.../claude from",
+    "Bench.fake_claude (test_bench.py:28), whose folder Base.tearDown deleted, so the later test gets FileNotFoundError (order",
+    "dependent, the same shape as Q1). No such test is on RULE_TESTS today, so nothing is red now."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. After a Bench test finishes, os.environ.get(\"RELAY_CLAUDE_BIN\") equals its value before setUp (None in a clean env).",
+    "2. The bin/ci rules_tests command still runs 128 tests, OK.",
+    "3. tests.test_rules_gate_isolation still passes, and still fails with master's relay_testbase."
+  ],
+  "where": "tests/relay_testbase.py:14",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
