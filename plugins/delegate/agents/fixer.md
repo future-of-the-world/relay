@@ -91,7 +91,10 @@ the count; a fix without them is not done.
   rerun is flaky: report `FLAKY <file>:<line> "<name>"`, never "passed on
   rerun".
 - Turn limit: you have 80 turns. Every request re-reads your context:
-  send independent lookups together, read a file once.
+  send independent lookups together, read a file once. Wait on a long job in
+  one call per wait (the loop under Limits), never in short polls: each poll
+  is a turn. When 8 turns remain, start no new work: write your report, and if
+  a job still runs, hand back BLOCKED with `still running: <log>` and its pid.
 
 ## Diagnosing, and blockers
 - A print is allowed while you find a cause; each marks a question the code
