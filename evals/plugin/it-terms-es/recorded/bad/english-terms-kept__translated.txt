@@ -1,0 +1,1 @@
+El cambio está en una rama aparte, y como la rama principal puede avanzar directo sobre esos commits, la fusión es un avance rápido y no hace falta un commit de unión. El gancho que revisa la fusión también se disparó.

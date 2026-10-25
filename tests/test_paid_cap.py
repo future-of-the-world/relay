@@ -65,6 +65,21 @@ class Refusal(Fixture):
         # bench estimate: 2 sessions x largest session 1.50 = 3.00; spent 8.50 + 3.00 > 10
         bench = os.path.join(self.home, "bench")
         os.environ["RELAY_HOME"], os.environ["RELAY_PROJECTS"] = self.home, self.projects
+        # run_bench stamps the day from the clock; the fixture's spend is dated 24 Oct, so the clock is fixed there (a run that
+        # crossed UTC midnight, or any later day, made the cap look unspent and the bench start)
+        real_dt = relay_bench.dt
+
+        class FixedDatetime(datetime.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime.datetime(2026, 10, 24, 12, 0, 0, tzinfo=tz)
+
+        class FixedModule:
+            def __getattr__(self, name):
+                return FixedDatetime if name == "datetime" else getattr(real_dt, name)
+
+        relay_bench.dt = FixedModule()
+        self.addCleanup(setattr, relay_bench, "dt", real_dt)
         try:
             line = relay_paidcap.check("2026-10-24", relay_paidcap.bench_estimate(2, bench), "bench", self.projects, self.home, bench)
             self.assertIn("bench refused: the day's cap is $10, $8.50 is spent", line)

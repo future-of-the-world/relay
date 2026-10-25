@@ -1,0 +1,198 @@
+{
+  "branch": "wt/it-terms",
+  "findings": [
+    {
+      "details": [
+        "Owner, verbatim, 24 Oct: \"\u0421\u0442\u0438\u043b\u044c \u0442\u0432\u043e\u0435\u0433\u043e \u043f\u043e\u0432\u0435\u0441\u0442\u0432\u043e\u0432\u0430\u043d\u0438\u044f \u043a\u0430\u0436\u0435\u0442\u0441\u044f \u0447\u0435\u0440\u0435\u0437\u0447\u0443\u0440 \u0441\u043b\u0430\u0432\u044f\u043d\u0441\u043a\u0438\u043c, \u0442\u044b \u0441\u043b\u0438\u0448\u043a\u043e\u043c \u043e\u0442\u0434\u0430\u043b\u044f\u0435\u0448\u044c\u0441\u044f \u043e\u0442 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c\u044b\u0445 \u0442\u0435\u0445\u043d\u043e\u043b\u043e\u0433\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u0442\u0435\u0440\u043c\u0438\u043d\u043e\u0432, \u0438 \u043d\u0435\u043a\u043e\u0442\u043e\u0440\u044b\u0435 \u0438\u0437 \u043d\u0438\u0445 \u0442\u044b \u043f\u0435\u0440\u0435\u0432\u043e\u0434\u0438\u0448\u044c \u043f\u0440\u044f\u043c\u043e, \u043f\u0440\u0438 \u044d\u0442\u043e\u043c \u0442\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u043e\u0435 \u0437\u043d\u0430\u0447\u0435\u043d\u0438\u0435 \u043e\u043d\u0438 \u0438\u043c\u0435\u044e\u0442 \u0442\u043e\u043b\u044c\u043a\u043e \u043f\u0440\u0438 \u0443\u043f\u043e\u0442\u0440\u0435\u0431\u043b\u0435\u043d\u0438\u0438 \u0432 \u0430\u043d\u0433\u043b\u0438\u0439\u0441\u043a\u043e\u043c \u044f\u0437\u044b\u043a\u0435 - \u0438 \u0442\u043e \u0441\u0440\u0435\u0434\u0438 IT \u0441\u043f\u0435\u0446\u0438\u0430\u043b\u0438\u0441\u0442\u043e\u0432\". The front had written \"\u043f\u0435\u0440\u0435\u043c\u043e\u0442\u043a\u0430\" for fast-forward, \"\u043f\u043e\u0435\u0437\u0434\" for merge train, \"\u0441\u0442\u0440\u0430\u0445\u043e\u0432\u043a\u0430 \u0441\u043b\u0438\u044f\u043d\u0438\u044f\" for the merge hook, \"\u043f\u043b\u0430\u0442\u043d\u044b\u0439 \u043f\u0440\u043e\u0433\u043e\u043d\" for the paid eval run."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "24 Oct front replies: \"\u043e\u0441\u043d\u043e\u0432\u043d\u0430\u044f \u0432\u0435\u0442\u043a\u0430 \u043f\u0440\u043e\u0441\u0442\u043e \u043f\u0435\u0440\u0435\u043c\u0430\u0442\u044b\u0432\u0430\u0435\u0442\u0441\u044f\", \"\u0441\u0442\u0440\u0430\u0445\u043e\u0432\u043a\u0430 \u0441\u043b\u0438\u044f\u043d\u0438\u044f \u043e\u0442\u043a\u0430\u0436\u0435\u0442\", \"\u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430\" for the gate."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The rule text says to keep standard IT terms in English and still keeps relay's internal names out; a paid check (several languages) shows a reply about a merge using \"merge\", \"branch\", \"hook\" in a Russian reply, and still defining a relay-only term once."
+      ],
+      "path": "the rule that holds 'Working with me' (rules/*.md: Plain words, native language), roles that write to the owner",
+      "rank": "high",
+      "reason": [
+        "tests/test_it_terms.py:45 and :65 (Russian reply full of IT terms not refused; rule text keeps IT terms English and internal names out) fail at the Q1 since commit 2d72799 and pass now."
+      ],
+      "severity": "HIGH",
+      "since": "2d72799292636033970b22f95e712a967b815a9e",
+      "source": "queue",
+      "summary": "Replies translate IT terms literally instead of using them",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by calling share() from the worktree's hook on the two replies above (0.50 and 0.42).",
+        "Runs are counted over WORD matches only, so commas, colons and full stops do not separate terms; an enumeration of",
+        "standard terms, which the new rule encourages, becomes one \"English clause\". The fixer's measure (143 replies of 24 Oct)",
+        "had one such list and it passed, but replies written under the new rule will carry more terms.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "python3 -I probe on plugins/front/hooks/reply_language.py:",
+        "  share(\"\u0427\u0442\u043e \u0441\u0434\u0435\u043b\u0430\u043d\u043e: merge, branch, commit, fast-forward, hook \u0442\u0435\u043f\u0435\u0440\u044c \u043f\u0438\u0448\u0443\u0442\u0441\u044f \u043f\u043e-\u0430\u043d\u0433\u043b\u0438\u0439\u0441\u043a\u0438.\", \"CYRILLIC\") -> 0.5",
+        "  share(\"\u0413\u043e\u0442\u043e\u0432\u043e: merge \u043f\u0440\u043e\u0448\u0451\u043b, CI green, review OK, paid eval run \u0437\u0430\u043f\u0443\u0449\u0435\u043d, flaky test fixed.\", \"CYRILLIC\") -> 0.4222"
+      ],
+      "failing_case": [
+        "Reply (owner language Russian): \"\u0427\u0442\u043e \u0441\u0434\u0435\u043b\u0430\u043d\u043e: merge, branch, commit, fast-forward, hook \u0442\u0435\u043f\u0435\u0440\u044c \u043f\u0438\u0448\u0443\u0442\u0441\u044f \u043f\u043e-\u0430\u043d\u0433\u043b\u0438\u0439\u0441\u043a\u0438.\"",
+        "share() = 0.50, under 0.60: the hook blocks and asks to rewrite in Russian. Same for",
+        "\"\u0413\u043e\u0442\u043e\u0432\u043e: merge \u043f\u0440\u043e\u0448\u0451\u043b, CI green, review OK, paid eval run \u0437\u0430\u043f\u0443\u0449\u0435\u043d, flaky test fixed.\" (0.42).",
+        "The words list ignores punctuation, so \"merge, branch, commit, fast-forward, hook\" is one run of 5 Latin words (> TERM_RUN=3)",
+        "and counts in full. This is the brief's own case: a short Russian reply full of English IT terms, the very list the new rule names.",
+        "Should be: not refused."
+      ],
+      "fix_hint": [
+        "Split the text into segments at , ; : ( ) and similar before finding runs (a run never crosses punctuation), and let a",
+        "segment touch a native word across the punctuation (the nearest word before or after in the reply). A pure English reply",
+        "has no native word, so nothing is skipped. Add pass-case 1 and 4 to tests/test_it_terms.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 52,
+      "pass_cases": [
+        "1. \"\u0427\u0442\u043e \u0441\u0434\u0435\u043b\u0430\u043d\u043e: merge, branch, commit, fast-forward, hook \u0442\u0435\u043f\u0435\u0440\u044c \u043f\u0438\u0448\u0443\u0442\u0441\u044f \u043f\u043e-\u0430\u043d\u0433\u043b\u0438\u0439\u0441\u043a\u0438.\" -> hook prints nothing.",
+        "2. TERMY of tests/test_it_terms.py -> hook prints nothing (works today).",
+        "3. ENGLISH and ENGLISH + \" \u0413\u043e\u0442\u043e\u0432\u043e.\" of tests/test_it_terms.py -> decision \"block\" (works today).",
+        "4. An English reply made of short sentences, \"Done. Merged the branch. Gate is green. Paid run done. Next item starts now. Ok then.\" -> \"block\"."
+      ],
+      "path": "plugins/front/hooks/reply_language.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_it_terms.py:52 (comma lists not refused) and :57 (short English sentences still refused) pass; :52 fails on the pre-fix hook."
+      ],
+      "severity": "MEDIUM",
+      "since": "9f5dce0e9a9b7689ffdfe5d30835b5f60e22eef0",
+      "source": "review-it-terms.json",
+      "source_id": "F1",
+      "summary": "a Russian reply that lists four or more English IT terms in a row (comma list) is still refused",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading both cases: prompts, graders (english-terms-kept, no-calques, prose-in-owner-language) check only the four",
+        "standard terms and calques. Brief: \"Paid check: write or adjust the eval case the item asks for\"; the item's pass case names",
+        "the relay-only definition. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "cat evals/plugin/it-terms-ru/prompt.md evals/plugin/it-terms-ru/graders/*.md evals/plugin/it-terms-es/graders/*.md",
+        "  no prompt names a relay-only term; no grader mentions a definition."
+      ],
+      "failing_case": [
+        "Queue item pass case: \"a paid check (several languages) shows a reply about a merge using merge, branch, hook in a Russian",
+        "reply, and still defining a relay-only term once\". Neither it-terms-ru nor it-terms-es mentions a relay-specific term",
+        "(gate, merge train, inert list, queue item) in the prompt, and no grader asks for a one-line definition. A reply that uses a",
+        "relay-only term with no definition passes both cases. Should be: one case whose prompt needs a relay-only term and a grader",
+        "that fails a reply where that term appears undefined."
+      ],
+      "fix_hint": [
+        "Add to the ru prompt a sentence that requires a relay-only term (the gate) and an llm grader \"relay-term-defined.md\";",
+        "an llm grader with a recorded bad reply must be listed in an evals/judge-measure/*/items.txt."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 8,
+      "pass_cases": [
+        "1. An eval case (ru) whose prompt needs a relay-only term (for example the gate, relay's full local check) has an llm grader:",
+        "   PASS when the term appears in English with a one-line definition the first time, FAIL when it is used undefined or translated.",
+        "2. The existing regex grader english-terms-kept still passes recorded/good/merge-reply.txt and fails recorded/bad/... (graders.test.sh ok).",
+        "3. evals/plugin/graders.test.sh stays green."
+      ],
+      "path": "evals/plugin/it-terms-ru/prompt.md",
+      "rank": "medium",
+      "reason": [
+        "evals/plugin/it-terms-ru/graders/relay-term-defined.md exists, ru prompt line 8 asks about the gate; graders.test.sh passes. No recorded bad reply for the llm grader (fixer's stated gap)."
+      ],
+      "severity": "MEDIUM",
+      "since": "9f5dce0e9a9b7689ffdfe5d30835b5f60e22eef0",
+      "source": "review-it-terms.json",
+      "source_id": "F2",
+      "summary": "the paid check never asks for a relay-only term, so the item's pass case 'still defining a relay-only term once' is untested",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the prompt. A grader that passes with the behaviour disabled for half its terms. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "evals/plugin/it-terms-es/prompt.md line 8: \"El hook que revisa el merge antes de que ocurra tambi\u00e9n se dispar\u00f3.\""
+      ],
+      "failing_case": [
+        "Prompt text: \"El hook que revisa el merge antes de que ocurra tambi\u00e9n se dispar\u00f3.\" A model that ignores the new rule echoes",
+        "\"hook\" and \"merge\" from the prompt; the regex grader then only really tests \"branch\" and \"fast-forward\".",
+        "Should be: the prompt says them in Spanish (gancho, fusi\u00f3n) as the ru prompt does with \"\u0421\u0442\u0440\u0430\u0445\u043e\u0432\u043a\u0430 ... \u0441\u043b\u0438\u044f\u043d\u0438\u0435\"."
+      ],
+      "fix_hint": [
+        "Write \"El gancho que revisa la fusi\u00f3n ...\" in the prompt."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 8,
+      "pass_cases": [
+        "1. evals/plugin/it-terms-es/prompt.md contains none of: merge, branch, fast-forward, hook.",
+        "2. graders.test.sh stays green for it-terms-es."
+      ],
+      "path": "evals/plugin/it-terms-es/prompt.md",
+      "rank": "low",
+      "reason": [
+        "evals/plugin/it-terms-es/prompt.md no longer contains merge, branch, fast-forward or hook; graders.test.sh passes."
+      ],
+      "severity": "LOW",
+      "since": "9f5dce0e9a9b7689ffdfe5d30835b5f60e22eef0",
+      "source": "review-it-terms.json",
+      "source_id": "F3",
+      "summary": "the Spanish prompt already says 'hook', 'merge' and 'commits' in English, so two of the four terms pass without the rule",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lines 1-7 and 120-121. Size: 5 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "When the hook refuses a Russian reply (for example F1's list), its reason says \"Rewrite the reply in Russian ... code, paths and",
+        "names stay as they are.\" The model is told to rewrite in Russian with no word about terms, the push toward \"\u043f\u0435\u0440\u0435\u043c\u043e\u0442\u043a\u0430\" the",
+        "new rule forbids. The docstring (lines 2-7) still describes the share as counting all prose letters.",
+        "Should be: the reason adds \"standard IT terms (merge, branch, hook) stay in English\"; the docstring names the term-run rule."
+      ],
+      "fix_hint": [
+        "Extend the reason string and the docstring by one clause each."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 120,
+      "pass_cases": [
+        "1. A refusal's reason contains \"IT terms\" and \"English\".",
+        "2. tests/test_reply_language.py test_english_reply_is_blocked_once_with_rewrite_request still passes."
+      ],
+      "path": "plugins/front/hooks/reply_language.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_it_terms.py:60 passes and fails on the pre-fix hook; reply_language.py:138 names IT terms staying in English; tests/test_reply_language.py still passes."
+      ],
+      "severity": "LOW",
+      "since": "9f5dce0e9a9b7689ffdfe5d30835b5f60e22eef0",
+      "source": "review-it-terms.json",
+      "source_id": "F4",
+      "summary": "the refusal text and the module docstring do not say IT terms stay in English, so a refused reply is rewritten with calques",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "c1d17e4d5ea313e20aeb014134af726f64d39b9d.gate.log",
+  "head": "e05046ba26edadb2af4db6fe780795feba15753c",
+  "item": "replies-translate-it-terms-literally-instead-of",
+  "notes": [
+    "Scope note: tests/test_paid_cap.py changed after the review (commit c1d17e4, the inert-gate clock fix, explained in fix-it-terms-inert.md). It is not a file any finding names; it is a legitimate separate flakiness fix (test read real UTC date), reported for the owner. No gate problem. F2 llm grader has no recorded bad reply or judge-measure item (fixer states it; no paid run), noted to the owner; the ru prompt now asks about the gate and a grader exists. F3: the es prompt no longer has merge/branch/hook words (read)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Checked 9f5dce0..HEAD (e05046b). Ran tests/test_it_terms.py and tests/test_reply_language.py (19 passed), evals/plugin/graders.test.sh (all passed). Gate log head c1d17e4 ends exit 0; only a gate-log commit follows (relay changed lists no file). Fail-without-fix: test_it_terms.py copied to a detached worktree at a4275e9^ (F1, F4 tests fail) and at the Q1 since 2d72799 (4 of 6 fail, including the Q1 rule-text and Russian-IT-terms tests)."
+  ],
+  "type": "check"
+}
