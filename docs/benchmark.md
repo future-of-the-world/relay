@@ -105,3 +105,8 @@ list` shows past runs.
 plugin's agent or hook do what it must (the guard fires, the reviewer finds
 the planted bug). They run in `bin/ci` against a baseline. The bench asks
 the other question: which setup does the same work better, cheaper, faster.
+
+The runner sets `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and `--setting-sources user`, so a
+`CLAUDE.md` or `CLAUDE.local.md` a scaffold writes never loads. A rule a case needs reaches the
+session through `append_system_prompt` in its `prompt.md`, written from `rules/*.md` by
+`python3 evals/plugin/system_rules.py`. `tests/test_claudemd_fixes.py` fails a scaffold that writes an instruction file.

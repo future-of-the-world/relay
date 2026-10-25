@@ -51,7 +51,7 @@ def spec_steps() -> str:
         return relay_rules.render_target("project", spec, relay_rules.rules(), {})
 
 
-GLOSSARY = "the gate is this project's full local check before a merge (tests, lint, types); it is a relay term, so define it in one line at the place you first write it."
+GLOSSARY = "the gate is this project's full local check before a merge (tests, lint, types)."
 CASES: Dict[str, Callable[[], str]] = {
     "it-terms-ru": lambda: language("Russian", GLOSSARY),
     "it-terms-es": lambda: language("Spanish"),
@@ -68,7 +68,7 @@ CASES: Dict[str, Callable[[], str]] = {
 def line(case: str) -> str:
     # The runner closes the frontmatter at the first `---` it finds, even inside a quoted string (a markdown table
     # separator `|---|` cut the spec cases off), so a run of three hyphens is written as \u002d, which both JSON and YAML read as `-`.
-    return KEY + " " + json.dumps(CASES[case](), ensure_ascii=False).replace("---", "-\\u002d-")
+    return KEY + " " + json.dumps(CASES[case](), ensure_ascii=False).replace("-", "\\u002d")
 
 
 def split(case: str):
