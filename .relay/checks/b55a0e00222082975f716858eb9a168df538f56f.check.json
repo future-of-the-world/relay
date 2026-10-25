@@ -1,0 +1,141 @@
+{
+  "branch": "wt/hook-schema",
+  "findings": [
+    {
+      "details": [
+        "26 Oct, live: `git -C ~/relay merge --ff-only wt/where-list` (the owner's \"a\" on `where` as a list, ready: gate green, check open 0) was refused \"queue item a-project-added-by-setup-cannot-be-removed-again is malformed (where is not a string)\": master's hook reads the branch's list-form records with master's string rule. No schema change of queue records can ever merge. IP chosen by the front (agent-chosen), above where-list's merge."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A temporary repo: master with string-form records and the current hook; a branch whose lib/relay_queue.py accepts only list-form `where` and whose records are lists; the hook refuses the ff-only merge as malformed."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same merge passes the record check; a branch whose records break its own lib's rules is still refused; a branch that changes no lib is judged as today."
+      ],
+      "path": "plugins/core/hooks/merge.py:166 (the queue record check), plugins/core/lib/relay_queue.py (the copy it imports)",
+      "rank": "high",
+      "reason": [
+        "tests/test_merge_train.py:IncomingRecordRules::test_q1_a_record_the_branchs_own_rules_accept_is_not_refused_by_the_hooks_copy passes at head and fails at 475dc8a (where is not a string). Pass cases: stricter-branch-lib refused (test_a_record_the_branchs_own_rules_refuse...), no-lib branch judged by the hook copy (test_a_tree_with_no_record_rules...), both hold."
+      ],
+      "severity": "HIGH",
+      "since": "475dc8af13c8f1810e28281d05f72ca2d7ca3d86",
+      "source": "queue",
+      "summary": "The merge hook judges new queue records by the old schema",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction. record_rules writes only lib/relay_queue.py to a temp folder and exec_module's it inside the hook,",
+        "so every `import` in it resolves against the hook's sys.path (plugins/core/lib, the copies of the default branch as loaded",
+        "from ~/relay/plugins) and the modules already in sys.modules. The rules are thus only half the branch's: relay_queue.py",
+        "from the branch, relay_git / relay_verdict (check() reaches relay_verdict.lines_of) and any new module from the hook. This is",
+        "the same cause the queue item names (records judged by code other than the branch's), moved one file over. Relay's lib",
+        "changes often touch several modules together (wt/where-list changed relay_queue.py and added relay_where_migrate.py).",
+        "Size: 30 minutes (shared with F2)."
+      ],
+      "evidence": [
+        "scratchpad/repro/test_repro_hook_schema.py::Repro::test_branch_rules_needing_a_new_lib_module",
+        "  self.ready(wt, {\"lib/relay_queue.py\": <lib + \"import relay_where\">, \"lib/relay_where.py\": \"X = 1\"})",
+        "  E   ModuleNotFoundError: No module named 'relay_where'",
+        "  .../T/tmpu6vesqc1/relay_queue_incoming.py:1191: ModuleNotFoundError",
+        "(in production pre() turns this into \"merge refused: the gate for ... could not be judged\".)"
+      ],
+      "failing_case": [
+        "A branch whose lib/relay_queue.py does `import relay_where` (a lib module the same branch adds; e.g. the place parsing of",
+        "wt/where-list moved to its own file), with a green gate and a check mark with open 0: exec_module runs with sys.path = the",
+        "hook's plugins/core/lib, so the import fails; pre() answers \"merge refused: the gate for wt/w could not be judged: No module",
+        "named 'relay_where'\". It should be judged by the branch's own lib: allowed.",
+        "The same mix judges a record with the branch's check() over the hook's relay_verdict.lines_of: a branch that changes",
+        "both files gets a verdict from neither version."
+      ],
+      "fix_hint": [
+        "Judge with the branch's whole lib/: extract it (git archive <ref> lib/ | tar -x into a temporary folder, or git show each",
+        "lib/*.py) and run one subprocess `[sys.executable, \"-I\", <small runner>]` with that folder first on sys.path, the records",
+        "(slug, text, folder) as JSON on stdin and the metas as JSON on stdout, with timeout=. One process per judge, not per record.",
+        "Fall back to the hook's copy only when the tree has no lib/relay_queue.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 164,
+      "pass_cases": [
+        "1. Branch adds lib/relay_where.py and its lib/relay_queue.py imports it; records well formed by that rule; green gate, mark",
+        "   open 0 -> judge returns None (merge allowed).",
+        "2. Branch whose relay_queue.py accepts `where` as a list (the Q1 case, wt/where-list's shape) -> allowed.",
+        "3. Branch whose relay_queue.py drops kind `fix` and holds a fix record -> refused \"queue item z is malformed (kind is not fix or feature)\".",
+        "4. Tree with no lib/relay_queue.py and a list `where` -> refused \"where is not a string\" (hook's copy).",
+        "5. Branch whose lib/relay_queue.py has a syntax error -> refused (fail closed), never allowed."
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_merge_train.py::IncomingRecordRules::test_f1_rules_that_import_a_lib_module_the_branch_adds_are_judged_by_the_branchs_whole_lib passes at head, fails at 26623bf. Syntax-error case refused (test_f1_rules_with_a_syntax_error...)."
+      ],
+      "severity": "MEDIUM",
+      "since": "b96d387347bb04fde1c70837295df5ae3f2df921",
+      "source": "review-hook-schema.json",
+      "source_id": "F1",
+      "summary": "the branch's relay_queue.py runs against the hook's own relay_git/relay_verdict, so a branch that moves its record rules into a new lib module is refused",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction. exec_module runs the branch's module top-level code in the hook's own interpreter; its imports",
+        "of relay_git / relay_inert / relay_marks return the very module objects judge() uses next (sys.modules), and step_queue is",
+        "step 2, before step 3 (changed), 4-5 (mark) and 6 (gate). Any import-time side effect of the branch's lib therefore changes",
+        "the hook's other verdicts, which breaks the brief's line \"Everything else in the hook stays the hook's own code\".",
+        "Rated MEDIUM, not HIGH: relay's guards defend against mistakes, not a hostile author (a mark is a committed file anyway),",
+        "and an accidental rebinding is unlikely; but the boundary the brief drew is not held. The subprocess fix of F1 closes it.",
+        "Size: 0 beyond F1 (same fix); 5 minutes for the test."
+      ],
+      "evidence": [
+        "scratchpad/repro/test_repro_hook_schema.py",
+        "  test_baseline_no_gate_refused:            VERDICT: no check mark for wt/w (run relay gate, then delegate:checker on its head)",
+        "  test_branch_code_disables_mark_and_gate:  VERDICT: None"
+      ],
+      "failing_case": [
+        "A branch with one code commit, no gate log and no check mark, whose lib/relay_queue.py ends with",
+        "`import relay_inert; relay_inert.changed = lambda *a, **k: []`. Before: refused \"no check mark for wt/w\". Now: judge returns",
+        "None, the merge runs (step 3 sees no change, so step_mark and step_gate are skipped). It should still be refused",
+        "\"no check mark for wt/w\": only the record verdict comes from the branch, \"everything else in the hook stays the hook's own code\"."
+      ],
+      "fix_hint": [
+        "The F1 fix: run the branch's parse in a separate `python -I` process and take back only the metas as JSON, so nothing the",
+        "branch's code does reaches the hook's modules."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 164,
+      "pass_cases": [
+        "1. The failing case above -> refused \"no check mark for wt/w (run relay gate, then delegate:checker on its head)\".",
+        "2. Same branch without the extra lines -> same refusal (today's behaviour).",
+        "3. A branch whose relay_queue.py changes module state at import (e.g. rebinds relay_git.git) -> the hook's later steps",
+        "   still use the hook's relay_git; a ready branch is still allowed.",
+        "4. Q1 (list `where` accepted by the branch's rules) -> allowed."
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_merge_train.py::IncomingRecordRules::test_f2_import_time_code_of_the_branchs_rules_cannot_switch_off_the_mark_step passes at head (subprocess, python -I, only metas return), fails at 26623bf."
+      ],
+      "severity": "MEDIUM",
+      "since": "b96d387347bb04fde1c70837295df5ae3f2df921",
+      "source": "review-hook-schema.json",
+      "source_id": "F2",
+      "summary": "the branch's relay_queue.py runs in the hook's process before the mark and gate steps, so its top-level code can switch those steps off",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "4a7242213930f1d80b0cbda91eaa00a81c30a03b.gate.log",
+  "head": "b55a0e00222082975f716858eb9a168df538f56f",
+  "item": "the-merge-hook-judges-new-queue-records-by-the-o",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Q1 only (queue item, since 475dc8a). Read the diff 475dc8a..HEAD of merge.py and test_merge_train.py; ran IncomingRecordRules (6 passed); reran it at 475dc8a with the head test file: 3 failed. Gate log head 4a72422, exit 0; only the inert gate commit follows."
+  ],
+  "type": "check"
+}
