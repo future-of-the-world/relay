@@ -23,6 +23,7 @@ RULE_TESTS = (
     "tests.test_it_terms.ItTerms",
     "tests.test_sync_refused",
     "tests.test_session_profile",
+    "tests.test_net_retry",
     "tests.test_delegate_small_builds",
     "tests.test_queue.TestStructuredRule",
     "tests.test_relay.Rules",
