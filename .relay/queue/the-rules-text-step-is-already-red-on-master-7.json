@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 98,
+  "time": 30,
+  "found_at": "2026-10-25T13:12:05Z",
+  "found_in": "finding F3 of check-queue-split-tests-1.json",
+  "title": "The rules-text step is already red on master: 7…",
+  "what": [
+    "tests/test_principles_rule.py:1: MEDIUM: F3 the rules-text step is already red on master: 7 TestPrinciplesRule tests error after earlier tests leave RELAY_ROOT on a deleted fixture"
+  ],
+  "why": [
+    "25 Oct, the check of wt/split-tests: the rules-text step (the short gate for rules-only changes) is already red on master, 7 TestPrinciplesRule errors. Every rules-only change would be refused or run the full gate. IP chosen by the front (agent-chosen): a red step on master is first."
+  ],
+  "failing_case": [
+    "On master, `python3 -m unittest $(python3 lib/relay_textonly.py tests)` from the root: Ran 117 tests, FAILED (errors=7), all in",
+    "TestPrinciplesRule, with FileNotFoundError on <tmp>/relay-test-*/fx/rules and fx/plugins. Earlier tests in the list",
+    "(Roles at test_roles.py:184/217, Bench at test_bench.py:84/110) set os.environ[\"RELAY_ROOT\"] to a temporary fixture and never",
+    "restore it; Base.tearDown deletes the folder; TestPrinciplesRule is a plain TestCase that does not reset RELAY_ROOT. Should: 117",
+    "tests, OK."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. The full RULE_TESTS list under unittest from the root runs 117 tests with no error.",
+    "2. TestPrinciplesRule run alone still passes.",
+    "3. pytest tests still passes (its order differs, which is why the library-tests step is green)."
+  ],
+  "where": "tests/test_principles_rule.py:1",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
