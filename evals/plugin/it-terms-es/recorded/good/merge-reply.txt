@@ -1,0 +1,1 @@
+El cambio está en una rama aparte, pero como el branch principal puede avanzar directo sobre esos commits, el merge es un fast-forward y no hace falta un commit de unión. El hook que revisa el merge también se disparó y no bloqueó nada.

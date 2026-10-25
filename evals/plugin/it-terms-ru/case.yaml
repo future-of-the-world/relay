@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: it-terms-ru
+description: "a reply to the owner (Russian) about a merge keeps standard IT terms (merge, branch, fast-forward, hook) in English and does not translate them word by word"
+tags: [front, language]
+plugins: ["../../../plugins/core"]
+context:
+  scaffold_script: scaffold.sh

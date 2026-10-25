@@ -1,0 +1,19 @@
+head 7194e77863f459e3ee5667f5892edf39f244154e
+cmd bin/ci --quick
+ci: library tests ok (471s)
+ci: types and lint ok (0s)
+ci: hook tests ok (150s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests FAILED (1s, log: .ci/steps/eval-grader-tests.log)
+    FAIL  it-terms-es/english-terms-kept: no bad reply recorded (recorded/bad/english-terms-kept__<label>.txt)
+    FAIL  it-terms-ru/english-terms-kept: no bad reply recorded (recorded/bad/english-terms-kept__<label>.txt)
+ci: plugin validate ok (5s)
+val-grader-tests.log)
+    FAIL  it-terms-es/english-terms-kept: no bad reply recorded (recorded/bad/english-terms-kept__<label>.txt)
+    FAIL  it-terms-ru/english-terms-kept: no bad reply recorded (recorded/bad/english-terms-kept__<label>.txt)
+ci: plugin validate ok (5s)
+ci: inert FAILED (624s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed:
+        < eval grader tests FAILED
+ci: RED
+exit 1

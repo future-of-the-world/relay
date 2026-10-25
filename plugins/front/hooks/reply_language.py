@@ -3,7 +3,8 @@
 language. When "My native language: <name>" (written by relay sync into
 ~/.claude/CLAUDE.md) names a language with a non-Latin script, the share of that
 script among the reply's prose letters (code blocks, inline code, URLs and paths
-removed) is measured; under the threshold the stop is blocked once with a rewrite
+removed, and short runs of English IT terms such as merge, branch, hook next to native words, which are the
+rule and not a lapse) is measured; under the threshold the stop is blocked once with a rewrite
 request. A share, never a per-character check. Fails open."""
 
 from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
@@ -24,6 +25,9 @@ FENCE = re.compile(r"(```|~~~).*?(\1|\Z)", re.S)
 INLINE = re.compile(r"`[^`\n]*`")
 URL = re.compile(r"\w+://\S+")
 PATHLIKE = re.compile(r"\S*/\S*")
+WORD = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*")   # a hyphenated term (opt-in) is one word
+SENTENCE_END = re.compile(r"[.!?\u2026\n]")
+TERM_RUN = 3         # longest run of Latin words next to native words that is taken for IT terms
 
 
 def native_language() -> str:
@@ -40,14 +44,49 @@ def native_language() -> str:
     return ""
 
 
-def prose_letters(text: str) -> list[str]:
+def prose_letters(text: str, script: str = "") -> list[str]:
     for rx in (FENCE, INLINE, URL, PATHLIKE):
         text = rx.sub(" ", text)
-    return [ch for ch in text if ch.isalpha()]
+    if not script:
+        return [ch for ch in text if ch.isalpha()]
+    # English IT terms (merge, branch, hook) inside native prose are the rule, not a lapse: a run of at most
+    # TERM_RUN Latin words that touches a native word does not count. A whole English clause still counts.
+    found = list(WORD.finditer(text))
+    words = [m.group() for m in found]
+    native = [unicodedata.name(w[0], "").startswith(script) for w in words]
+    latin = [unicodedata.name(w[0], "").startswith("LATIN") for w in words]
+    skip = [False] * len(words)
+
+    def gap(k: int) -> str:   # the text between word k-1 and word k
+        return text[found[k - 1].end():found[k].start()]
+
+    i = 0
+    while i < len(words):
+        if not latin[i]:
+            i += 1
+            continue
+        # a run of Latin words ends at a sentence end; commas, colons and brackets only split it into segments
+        j = i + 1
+        while j < len(words) and latin[j] and not SENTENCE_END.search(gap(j)):
+            j += 1
+        longest = 1
+        for k in range(i + 1, j):
+            if gap(k).strip():
+                longest = 1
+            else:
+                longest += 1
+            if longest > TERM_RUN:
+                break
+        else:
+            touches = (i > 0 and native[i - 1]) or (j < len(words) and native[j])
+            if touches:
+                skip[i:j] = [True] * (j - i)
+        i = j
+    return [ch for w, k in zip(words, skip) if not k for ch in w]
 
 
 def share(text: str, script: str) -> float | None:
-    letters = prose_letters(text)
+    letters = prose_letters(text, script)
     if len(letters) < MIN_LETTERS:
         return None
     native = sum(1 for ch in letters if unicodedata.name(ch, "").startswith(script))
@@ -96,7 +135,7 @@ def main() -> None:
     if got is None or got >= threshold():
         return
     json.dump({"decision": "block", "reason": f"Rewrite the reply in {language}, the owner's native language "
-                                              f"(only {got:.0%} of its letters are in {language}); code, paths and names stay as they are."}, sys.stdout)
+                                              f"(only {got:.0%} of its letters are in {language}); code, paths and names stay as they are, and standard IT terms (merge, branch, hook) stay in English."}, sys.stdout)
 
 
 if __name__ == "__main__":

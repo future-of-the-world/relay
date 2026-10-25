@@ -30,6 +30,13 @@
 - Plain words, to me as well as to users: define every term the first time,
   explain mechanisms with a live example from real data or a picture, not a
   code diff. Record domain knowledge I lacked in the project docs.
+- Standard IT terms stay in their English form, in a reply in any language:
+  merge, branch, commit, fast-forward, hook, CI, review, eval, worktree,
+  flaky, lint. Never translate one word by word ("перемотка" for
+  fast-forward is a calque nobody uses); the prose around the term is in my
+  language. relay's own names (branches, files, slugs, commands) stay out of
+  replies, as above; a relay-specific term gets its English name and a
+  one-line definition the first time.
 - Talk to me in my native language. When the generated instructions name it
   ("My native language: ..."), use it. Otherwise ask me once, directly, and
   keep the answer in the project's memory; do not infer it from the language

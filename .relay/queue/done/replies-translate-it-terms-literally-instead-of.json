@@ -20,8 +20,8 @@
   "where": "the rule that holds 'Working with me' (rules/*.md: Plain words, native language), roles that write to the owner",
   "taken_at": "2026-10-24T21:18:20Z",
   "taken_by": "wt/it-terms",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T00:45:48Z",
+  "test": "tests/test_it_terms.py::ItTerms::test_q1_russian_reply_full_of_english_it_terms_is_not_refused",
   "dropped_at": null,
   "dropped_why": null
 }
