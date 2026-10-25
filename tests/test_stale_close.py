@@ -97,6 +97,54 @@ class TestFixedBy(tq.Base):
         self.assertEqual(good.returncode, 0, good.stderr)
         self.assertEqual(self.item("item", sub="done/")["fixed_by"], self.fix)
 
+    def test_f1_a_method_named_without_its_class_is_found_and_closes_with_the_full_node(self):
+        # a class-method test, as every test of relay is; the file::name form must find the class by itself
+        text = ("import unittest\n\n\nclass T(unittest.TestCase):\n    def test_flag_is_ok(self):\n"
+                "        assert open('flag.txt').read().strip() == 'ok'\n")
+        self.write_commit(self.main, {"tests/test_cls.py": text}, "class test")
+        self.close(test="tests/test_cls.py::test_flag_is_ok")
+        # worked out: bad flag at the parent -> fails, ok at the fix -> passes; the kept name is the full node pytest ran
+        self.assertEqual(self.item("item", sub="done/")["test"], "tests/test_cls.py::T::test_flag_is_ok")
+
+    def test_f1_the_full_class_form_closes_and_a_name_in_no_class_is_still_refused(self):
+        text = ("import unittest\n\n\nclass T(unittest.TestCase):\n    def test_flag_is_ok(self):\n"
+                "        assert open('flag.txt').read().strip() == 'ok'\n")
+        self.write_commit(self.main, {"tests/test_cls.py": text}, "class test")
+        with self.assertRaises(rq.Refused) as ctx:
+            self.close(test="tests/test_cls.py::test_nothing")
+        self.assertIn("does not hold a test named", str(ctx.exception))
+        self.close(test="tests/test_cls.py::T::test_flag_is_ok")
+        self.assertEqual(self.item("item", sub="done/")["test"], "tests/test_cls.py::T::test_flag_is_ok")
+
+    def test_f2_after_release_a_fix_taken_by_a_live_branch_closes(self):
+        self.write_commit(self.main, {".relay/queue/job.json": tq.with_fields(tq.fix_item(), **tq.taken_fields("wt/live"))}, "take")
+        tq.git(self.main, "checkout", "-q", "-b", "wt/live")
+        tq.git(self.main, "commit", "-q", "--allow-empty", "-m", "work")
+        tq.git(self.main, "checkout", "-q", "master")
+        with self.assertRaises(rq.Refused) as ctx:
+            self.close_job()
+        # the message names the one path that works, and no path that would refuse again
+        self.assertIn("relay queue release job", str(ctx.exception))
+        self.assertNotIn("close it from there", str(ctx.exception))
+        rq.release(self.main, "job", **tq.QUIET)
+        self.close_job()
+        closed = self.item("job", sub="done/")
+        self.assertEqual((closed["state"], closed["taken_by"], closed["fixed_by"]), ("done", None, self.fix))
+
+    def close_job(self):
+        with mock.patch.object(rq, "utcnow", return_value=NOW):
+            return rq.close_fixed_by(self.main, "job", self.fix, NAME, **tq.QUIET)
+
+    def test_f3_the_evidence_refusal_for_a_fix_names_the_new_form_and_a_feature_still_closes(self):
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.close_with_evidence(self.main, "item", "3b28fbf", **tq.QUIET)
+        self.assertIn("--fixed-by", str(ctx.exception))
+        self.assertIn("--test", str(ctx.exception))
+        self.write_commit(self.main, {".relay/queue/feat.json": tq.feature_item()}, "feature")
+        with mock.patch.object(rq, "utcnow", return_value=NOW):
+            rq.close_with_evidence(self.main, "feat", "3b28fbf", **tq.QUIET)
+        self.assertEqual(self.item("feat", sub="done/")["evidence"], "3b28fbf")
+
 
 if __name__ == "__main__":
     unittest.main()

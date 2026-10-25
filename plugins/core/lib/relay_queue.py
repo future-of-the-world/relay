@@ -11,6 +11,7 @@ re-reads the head and re-checks the command's precondition; after `QUEUE_LAND_TR
 branch is kept for `relay queue land`.
 """
 
+import ast
 import copy
 import datetime as dt
 import importlib.util
@@ -815,7 +816,7 @@ def close_with_evidence(repo, slug, evidence, **engine):
     def planner(reader):
         item = _item_at(reader, slug)
         if item["kind"] == "fix":
-            raise Refused(f"'{slug}' is a fix: close it with --test on the branch that took it, or with --fixed-by <commit> --test <file>::<name> when a change already on the default branch fixed it")
+            raise Refused(f"'{slug}' is a fix: close it with --test on the branch that took it, or with --fixed-by <commit> --test <file>::<Class>::<name> when a change already on the default branch fixed it")
         if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
             raise _taken_by_refusal(item)
         text = serialize(slug, changed(item, closed_at=utcnow(), evidence=evidence), "done")
@@ -856,12 +857,31 @@ def _test_at(repo, commit, test, source, run_test):
         shutil.rmtree(tree, ignore_errors=True)
 
 
+def _with_class(test, source):
+    """`<file>::<name>` where the file defines `name` only as a method of one class becomes `<file>::<Class>::<name>` (pytest finds a
+    method only through its class); any other form is returned as typed."""
+    path, _, rest = test.strip().partition("::")
+    if "::" in rest or not path.endswith(".py"):
+        return test.strip()
+    name = rest.strip()
+    try:
+        tree = ast.parse(source.decode("utf-8", "replace"))
+    except SyntaxError:
+        return test.strip()
+    defs = (ast.FunctionDef, ast.AsyncFunctionDef)
+    if any(isinstance(n, defs) and n.name == name for n in tree.body):
+        return test.strip()
+    classes = [c.name for c in tree.body if isinstance(c, ast.ClassDef) and any(isinstance(n, defs) and n.name == name for n in c.body)]
+    return f"{path.strip()}::{classes[0]}::{name}" if len(classes) == 1 else test.strip()
+
+
 def close_fixed_by(repo, slug, commit, test, run_test=_run_pytest, **engine):
     """Close a fix that a change already on the default branch fixed, with no branch of its own. `commit` is that change's commit;
     `test` is a python test at the tip of the default branch. The close is refused unless the test fails at the parent of `commit`
     and passes at `commit` (the test file taken as it is on the default branch), so the commit is shown to have fixed it.
     An item taken by a branch that is merged or gone is closed here, keeping its take; one taken by a live branch is released
-    first (`relay queue release`) by its worktree, or closed from there."""
+    first (`relay queue release`, which works from any checkout), then this is run again. A test that is a method of a class may be
+    named `<file>::<name>`: the class is found in the test file on the default branch, and the full `<file>::<Class>::<name>` is run and kept."""
     main, default = _context(repo)
     tip = "refs/heads/" + default
     rc, out, _ = _git(main, "rev-parse", "--verify", "-q", f"{commit.strip()}^{{commit}}")
@@ -881,6 +901,7 @@ def close_fixed_by(repo, slug, commit, test, run_test=_run_pytest, **engine):
     if reason:
         raise Refused(reason.replace("in the last commit of the branch", f"on {default}"))
     source = _git(main, "cat-file", "blob", f"{tip}:{path}")[1]
+    test = _with_class(test, source)
     before = _test_at(main, parent, test, source, run_test)
     if before is None or before not in (0, 1):
         raise Refused(f"cannot tell whether {test} fails at {parent[:12]}, the parent of {sha[:12]}: it did not run to a pass or a fail")
@@ -895,8 +916,8 @@ def close_fixed_by(repo, slug, commit, test, run_test=_run_pytest, **engine):
         if item["kind"] != "fix":
             raise Refused(f"'{slug}' is a feature: close it with --evidence <merge sha or report path>")
         if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
-            raise Refused(f"queue item '{slug}' is taken by {item['taken_by']}, which is not merged: release it from that worktree "
-                          f"(relay queue release) and run this again, or close it from there")
+            raise Refused(f"queue item '{slug}' is taken by {item['taken_by']}, which is not merged: "
+                          f"relay queue release {slug}, then run this again")
         text = serialize(slug, changed(item, closed_at=utcnow(), test=test.strip(), fixed_by=sha), "done")
         return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "closed")
 

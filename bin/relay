@@ -685,7 +685,7 @@ relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree>   (a branch holds one fix item; the check states its problem as finding Q1)
 relay queue release <slug>
 relay queue done <slug> -C <worktree> --test <file>::<name> | evals/<plugin|judge-measure>/<case>::<grader>   (a fix: the branch's newest check, with no own file changed since, has Q1 MET)
-relay queue done <slug> --fixed-by <commit> --test <file>.py::<name>   (a fix that a change already on the default branch fixed: the test is there and fails at the commit's parent; no branch of its own)
+relay queue done <slug> --fixed-by <commit> --test <file>.py::<Class>::<name>   (a fix that a change already on the default branch fixed: the test is there and fails at the commit's parent; no branch of its own)
 relay queue done <slug> --evidence <merge sha or report path>   (a feature finished without a branch of relay's own; a fix is refused: it needs --test)
 relay queue drop <slug> --input <file.toml>
                                          the TOML holds `why`: the owner's words (text in '''...''')
@@ -833,7 +833,7 @@ def cmd_queue(args):
     else:
         if "--fixed-by" in o:
             if "--test" not in o or "--evidence" in o:
-                raise Usage("relay queue done <slug> --fixed-by <commit> --test <file>.py::<name>: the commit that fixed it and its test")
+                raise Usage("relay queue done <slug> --fixed-by <commit> --test <file>.py::<Class>::<name>: the commit that fixed it and its test")
             try:
                 print(relay_queue.close_fixed_by(repo(o), p[0], o["--fixed-by"], o["--test"]))
             except relay_queue.Refused as e:
@@ -848,7 +848,7 @@ def cmd_queue(args):
                 raise Usage(str(e))
             return 0
         if "--test" not in o:
-            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name>   |   relay queue done <slug> --evidence <merge sha or report path>   |   relay queue done <slug> --fixed-by <commit> --test <file>.py::<name>")
+            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name>   |   relay queue done <slug> --evidence <merge sha or report path>   |   relay queue done <slug> --fixed-by <commit> --test <file>.py::<Class>::<name>")
         print(relay_queue.done(repo(o), p[0], o["--test"]))
     return 0
 
