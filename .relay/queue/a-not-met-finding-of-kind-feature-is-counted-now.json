@@ -20,8 +20,8 @@
     "A record whose findings are all MET gives open 0."
   ],
   "where": "lib/relay_verdict.py open_of, queued_of, outside_of; relay check show; plugins/core/hooks/merge.py",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T17:04:30Z",
+  "taken_by": "wt/feature-kind",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
