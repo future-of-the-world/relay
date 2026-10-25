@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 89,
+  "time": 20,
+  "found_at": "2026-10-25T22:04:47Z",
+  "found_in": "relay queue add",
+  "title": "Option letters have no fixed alphabet",
+  "what": [
+    "The rules say options are lettered in Latin a, b, c (in every language), and that an answer in the owner's alphabet counts the same (Cyrillic а = a, б = b, в = c; a look-alike letter is read by its position in the owner's alphabet only when the reply is in that alphabet)."
+  ],
+  "why": [
+    "Owner, 26 Oct, on the arsenal pilot session offering \"а. / б.\" while the front offers \"a / b / c\": \"Тут варианты предлагаются исходя из алфавита моего родного языка, ты предлагаешь мне варианты ответов латиницей, что на этот счет говорит сам relay\", then \"a\" (Latin letters in the rule, Cyrillic answers accepted). The rules say only \"lettered options\", so two sessions differ. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "The arsenal session on 26 Oct lettered its options \"а. / б.\" (Cyrillic) and this session \"a / b / c\" (Latin), both under the same rule text."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The three texts name Latin a, b, c and the Cyrillic equivalence in one sentence each; the eval or test that covers the choices shape still passes."
+  ],
+  "where": "rules/working-with-me.md:14 (Choices), rules/front.md:22, plugins/front/skills/front/SKILL.md:61",
+  "taken_at": "2026-10-25T22:04:48Z",
+  "taken_by": "wt/letters",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
