@@ -18,8 +18,8 @@
     "The same two branches add their tests to different files and merge without a conflict or a combined file; pytest tests runs the same number of tests as before the split."
   ],
   "where": "tests/test_relay.py",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T10:21:25Z",
+  "taken_by": "wt/split-tests",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
