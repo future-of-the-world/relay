@@ -12,10 +12,12 @@ Only in a repository whose default branch has `.relay/`; elsewhere it exits 0 an
 Cleanup checks git itself, never the tool's exit status, and never forces: no `worktree remove
 --force`, no `branch -D`.
 """
+import importlib.util
 import json
 import os
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
@@ -145,6 +147,24 @@ def closing_ref(main, default, ab, path):
     return min(adding)[2] if adding else None
 
 
+def record_rules(main, ref):
+    """The module that judges the records of `ref`: that tree's own lib/relay_queue.py, loaded from the commit (git show into a
+    temporary file, so the tree is never checked out), else the hook's own copy where the tree has none (a project that is not relay).
+    Loading beats a subprocess here: `parse` is the one call, it takes text and returns a dict, and the module's imports (relay_git,
+    relay_verdict) are already on the hook's path."""
+    source = blob(main, ref, "lib/relay_queue.py")
+    if source is None:
+        return relay_queue
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "relay_queue_incoming.py")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(source)
+        spec = importlib.util.spec_from_file_location("relay_queue_incoming", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    return module
+
+
 def step_queue(main, default, branch, ab=None):
     """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
     `relay queue migrate`); every queue file at the branch tip, whether the range touched it or not (one that came in by taking the
@@ -158,10 +178,11 @@ def step_queue(main, default, branch, ab=None):
                               "refs/heads/%s...refs/heads/%s" % (default, branch))[1].split("\0"))
     tip = relay_git.git(main, "ls-tree", "-r", "--name-only", "-z", "refs/heads/" + branch, "--", QUEUE_DIR)[1]
     files = set(changed_files.split("\0")) | set(tip.split("\0"))
+    rules = record_rules(main, "refs/heads/" + branch)
     for path in sorted(p for p in files if p.endswith(".json") and os.path.dirname(p) in (QUEUE_DIR.rstrip("/"), DONE_DIR.rstrip("/"))):
         slug = os.path.basename(path)[:-5]
         in_done = path.startswith(DONE_DIR)
-        meta = relay_queue.parse(slug, blob(main, "refs/heads/" + branch, path) or "", "done" if in_done else "open")
+        meta = rules.parse(slug, blob(main, "refs/heads/" + branch, path) or "", "done" if in_done else "open")
         if meta["problems"]:
             raise Refused("queue item %s is malformed (%s); fix it before the merge" % (slug, "; ".join(meta["problems"])))
         if not in_done or path not in added or meta["kind"] != "fix" or meta["state"] == "dropped":

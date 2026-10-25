@@ -563,5 +563,42 @@ class Bounded(TrainCase):
         self.assertEqual(len(reads), len(set(reads)))              # a commit's tree is read once per judge, not once per question
 
 
+class IncomingRecordRules(TrainCase):
+    """Q1 of the queue item `the-merge-hook-judges-new-queue-records-by-the-o`: the hook judges a branch's queue records by that
+    branch's own lib/relay_queue.py, not by the hook's copy; where the branch has none, by the hook's copy."""
+    LIB = os.path.join(ROOT, "lib", "relay_queue.py")
+
+    def lib_text(self, old, new):
+        with open(self.LIB, encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertIn(old, text)
+        return text.replace(old, new, 1)
+
+    def list_record(self):
+        data = json.loads(qjson("z"))
+        data["where"] = ["lib/a.py", "lib/b.py"]       # the new shape: a list; the hook's own copy says "where is not a string"
+        return json.dumps(data, indent=2) + "\n"
+
+    def branch(self, files):
+        wt = self.tree("w")
+        self.ready(wt, files)
+        return "wt/w"
+
+    def test_q1_a_record_the_branchs_own_rules_accept_is_not_refused_by_the_hooks_copy(self):
+        lenient = self.lib_text('for key in ("found_in", "title", "where"):', 'for key in ("found_in", "title"):')
+        self.assertIsNone(self.verdict(self.branch({"lib/relay_queue.py": lenient, ".relay/queue/z.json": self.list_record()})))
+
+    def test_a_record_the_branchs_own_rules_refuse_is_refused_though_the_hooks_copy_accepts_it(self):
+        strict = self.lib_text('KINDS = ("fix", "feature")', 'KINDS = ("feature",)')      # a tree whose rules no longer know `fix`
+        self.assertEqual(rq.parse("z", qjson("z"), "open")["problems"], [])        # the hook's copy accepts this record
+        reason = self.verdict(self.branch({"lib/relay_queue.py": strict, ".relay/queue/z.json": qjson("z")}))
+        self.assertIn("is malformed (kind is not fix or feature)", reason)     # judged by the branch's rules; the fixture's x and y fail too
+
+    def test_a_tree_with_no_record_rules_is_judged_by_the_hooks_copy(self):
+        reason = self.verdict(self.branch({".relay/queue/z.json": self.list_record()}))
+        self.assertIn("queue item z is malformed", reason)
+        self.assertIn("where is not a string", reason)
+
+
 if __name__ == "__main__":
     unittest.main()
