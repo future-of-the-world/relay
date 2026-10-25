@@ -1,0 +1,12 @@
+head e118eb706fd64db6a507076e3bc235b1e6ddfc1f
+cmd bin/ci --quick
+ci: library tests ok (439s)
+ci: types and lint ok (0s)
+ci: hook tests ok (144s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert FAILED (597s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed:
+ci: RED
+exit 1
