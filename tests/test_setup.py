@@ -241,6 +241,65 @@ class RelayFolder(Base):
         relay_setup.setup(repo, flow="none", product=False)                                      # relay setup of that one project does
         self.assertTrue(os.path.isfile(os.path.join(repo, ".relay", "README.md")))
 
+    def test_q1_migrate_leaves_no_settings_entry_for_a_hook_it_moved_aside(self):
+        """A hook script migrate moves aside (issue-stage.sh) has no entry left in settings.json; a hook it leaves keeps its entry."""
+        import relay_setup
+        repo = self._repo()
+        hooks = os.path.join(repo, ".claude", "hooks")
+        os.makedirs(hooks)
+        os.makedirs(os.path.join(repo, "bin"), exist_ok=True)   # migrate writes bin/kit and needs bin/ (a project with hooks has it)
+        for name in ("issue-stage.sh", "guard.sh"):
+            with open(os.path.join(hooks, name), "w") as handle:
+                handle.write("#!/bin/sh\n")
+        group = lambda name: {"hooks": [{"type": "command", "command": f'"$CLAUDE_PROJECT_DIR"/.claude/hooks/{name}'}]}
+        with open(os.path.join(repo, ".claude", "settings.json"), "w") as handle:
+            json.dump({"hooks": {"UserPromptSubmit": [group("issue-stage.sh")], "PreToolUse": [group("guard.sh")]}}, handle)
+        relay_setup.migrate(repo, apply=True, flow="none", product=False)
+        self.assertFalse(os.path.exists(os.path.join(hooks, "issue-stage.sh")))   # moved aside
+        self.assertTrue(os.path.exists(os.path.join(hooks, "guard.sh")))          # left in place
+        text = json.dumps(json.load(open(os.path.join(repo, ".claude", "settings.json")))["hooks"])
+        self.assertNotIn("issue-stage.sh", text)
+        self.assertIn("guard.sh", text)
+
+    def _settings_with(self, repo, groups):
+        os.makedirs(os.path.join(repo, ".claude"), exist_ok=True)
+        with open(os.path.join(repo, ".claude", "settings.json"), "w") as handle:
+            json.dump({"hooks": groups}, handle)
+
+    @staticmethod
+    def _cmd(path):
+        return {"type": "command", "command": path}
+
+    def test_f2_setup_keeps_entries_it_did_not_move(self):
+        """Home-folder hooks and a project hook relay never moved keep their entry on plain setup (no migrate)."""
+        import relay_setup
+        repo = self._repo()
+        later = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/later.sh'   # does not exist, never moved by relay
+        self._settings_with(repo, {"Stop": [{"hooks": [self._cmd("~/.claude/hooks/notify.sh")]}],
+                                   "Notification": [{"hooks": [self._cmd("/Users/someone/.claude/hooks/notify.sh")]}],
+                                   "PreToolUse": [{"hooks": [self._cmd(later)]}]})
+        relay_setup.merge_settings(repo, [])
+        hooks = json.load(open(os.path.join(repo, ".claude", "settings.json")))["hooks"]
+        self.assertEqual(sorted(hooks), ["Notification", "PreToolUse", "Stop"])
+        # migrate moving issue-stage.sh does not touch a home-folder hook of the same file name either
+        relay_setup.merge_settings(repo, [], moved_hooks=(".claude/hooks/later.sh",))
+        hooks = json.load(open(os.path.join(repo, ".claude", "settings.json")))["hooks"]
+        self.assertEqual(sorted(hooks), ["Notification", "Stop"])   # only the exact moved project path went
+
+    def test_f3_a_group_keeps_its_other_commands(self):
+        """A group holding a moved hook and a kept hook loses only the moved command; a group left empty goes, and its event."""
+        import relay_setup
+        repo = self._repo()
+        proj = lambda name: self._cmd(f'"$CLAUDE_PROJECT_DIR"/.claude/hooks/{name}')
+        self._settings_with(repo, {"PreToolUse": [{"hooks": [proj("guard.sh"), proj("issue-stage.sh")]}],
+                                   "UserPromptSubmit": [{"hooks": [proj("issue-stage.sh")]}],
+                                   "Stop": [{"hooks": [proj("guard.sh")]}]})
+        relay_setup.merge_settings(repo, [], moved_hooks=(".claude/hooks/issue-stage.sh",))
+        hooks = json.load(open(os.path.join(repo, ".claude", "settings.json")))["hooks"]
+        self.assertEqual(hooks["PreToolUse"], [{"hooks": [proj("guard.sh")]}])
+        self.assertNotIn("UserPromptSubmit", hooks)
+        self.assertEqual(hooks["Stop"], [{"hooks": [proj("guard.sh")]}])
+
 
 class DefaultBranch(unittest.TestCase):
     """T18: relay_git.default_branch is never the current branch (design fact 2.8)."""

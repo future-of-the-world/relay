@@ -2,6 +2,7 @@
 import contextlib
 import importlib.util
 import io
+import json
 import os
 import subprocess
 import tempfile
@@ -59,6 +60,55 @@ class FailsClosed(unittest.TestCase):
         self.hook["tool_input"]["command"] = "git status"
         rc, err = self.run_pre(KeyError("never called"))
         self.assertEqual((rc, err), (0, ""))
+
+
+class GuardMainSync(unittest.TestCase):
+    """guard-main in a main checkout on its default branch lets it catch up with its remote, and nothing else of that kind."""
+
+    GUARD = os.path.join(os.path.dirname(HERE), "plugins", "core", "hooks", "guard-main.sh")
+
+    def setUp(self):
+        self.repo = os.path.realpath(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", self.repo]))
+        self.env = {**os.environ, **GIT_ENV}
+        self.env.pop("CLAUDE_PROJECT_DIR", None)
+        subprocess.run(["git", "init", "-q", "-b", "master", self.repo], check=True, env=self.env)
+        subprocess.run(["git", "-C", self.repo, "commit", "-q", "--allow-empty", "-m", "init"], check=True, env=self.env)
+
+    def verdict(self, command: str) -> int:
+        payload = json.dumps({"tool_name": "Bash", "cwd": self.repo, "tool_input": {"command": command}})
+        return subprocess.run([self.GUARD], input=payload, text=True, capture_output=True, env=self.env).returncode
+
+    def test_q1_a_main_checkout_on_its_default_branch_may_ff_only_to_origin_default_only(self):
+        # Failing case: it was refused (exit 2); now exit 0. Everything else of the kind stays refused (exit 2).
+        self.assertEqual(self.verdict("git merge --ff-only origin/master"), 0)
+        self.assertEqual(self.verdict("git merge origin/master"), 2)            # not fast-forward only
+        self.assertEqual(self.verdict("git merge --ff-only some-branch"), 2)
+        self.assertEqual(self.verdict("git merge --ff-only upstream/master"), 2)   # origin is the only remote
+        self.assertEqual(self.verdict("git merge --ff-only origin/other"), 2)       # not the default branch
+        subprocess.run(["git", "-C", self.repo, "switch", "-q", "-c", "side"], check=True, env=self.env)
+        self.assertEqual(self.verdict("git merge --ff-only origin/master"), 2)      # the default branch is not checked out
+
+    def test_f1_fetch_head_is_not_a_sync(self):
+        # FETCH_HEAD is whatever the last fetch wrote (any remote, URL or local branch): a bypass of "origin only" and of the gate.
+        self.assertEqual(self.verdict("git merge --ff-only FETCH_HEAD"), 2)
+        self.assertEqual(self.verdict("git fetch . side && git merge --ff-only FETCH_HEAD"), 2)
+        self.assertEqual(self.verdict("git fetch https://example.invalid/x.git topic && git merge --ff-only FETCH_HEAD"), 2)
+        self.assertEqual(self.verdict("git merge --ff-only origin/master"), 0)
+
+    def test_f4_ff_only_beside_no_ff_is_refused(self):
+        # git takes the last of --ff/--no-ff/--ff-only: --ff-only --no-ff makes a merge commit on the default branch.
+        for flag in ("--no-ff", "--ff", "--squash"):
+            self.assertEqual(self.verdict(f"git merge --ff-only {flag} --no-edit origin/master"), 2, flag)
+            self.assertEqual(self.verdict(f"git merge --ff-only {flag} wt/x"), 2, flag)
+        self.assertEqual(self.verdict("git merge --ff-only origin/master"), 0)
+        self.assertEqual(self.verdict("git merge --ff-only wt/x"), 0)
+        self.assertEqual(self.verdict("git merge --ff-only wt/x 2>&1 | tail -3"), 0)
+
+    def test_f5_header_names_the_sync_exception(self):
+        with open(self.GUARD) as handle:
+            header = handle.read()[:1500]
+        self.assertIn("--ff-only origin/<default>", header)
 
 
 if __name__ == "__main__":

@@ -180,7 +180,7 @@
 {"cwd":"@M@","cmd":"git branch -f master HEAD~1","was":"block"}
 {"cwd":"@M@","cmd":"git log --format=%H | xargs -I{} git reset --hard {}","was":"block"}
 {"cwd":"@M@","cmd":"git log --format=%H | xargs -n1 git show --stat","was":"allow"}
-{"cwd":"@M@","cmd":"git merge --ff-only origin/master","was":"block"}
+{"cwd":"@M@","cmd":"git merge --ff-only origin/master","was":"allow"}
 {"cwd":"@M@","cmd":"git merge --ff-only wt/add-library && git log --oneline -1 && bin/wt rm add-library","was":"allow"}
 {"cwd":"@M@","cmd":"git merge --ff-only wt/add-library 2>&1 | tail -3","was":"allow"}
 {"cwd":"@M@","cmd":"git merge --ff-only wt/foo && git commit --amend","was":"block"}

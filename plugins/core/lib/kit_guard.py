@@ -437,26 +437,48 @@ def stash_block(rest):
     return None
 
 
+def _widens_ff_only(texts):
+    """True when --ff-only has --no-ff, --ff or --squash beside it: git takes the last one and may make a merge commit."""
+    return any(t in ("--no-ff", "--ff", "--squash", "--no-ff-only") for t in texts)
+
+
 def allowed_merge_branch(rest):
     """The wt/ branch of `git merge --ff-only wt/<name>` (the arguments after `merge`), else None."""
     texts = [w.text for w in rest]
     if "--help" in texts or "-h" in texts:
         return None
     pos = [t for t in texts if not t.startswith("-")]
+    if _widens_ff_only(texts):
+        return None
     if "--ff-only" in texts and len(pos) == 1 and re.match(r"^wt/[^\s;&|)]+$", pos[0]):
         return pos[0]
     return None
 
 
-def git_write(sub, rest):
+def sync_merge(rest, directory):
+    """True for `git merge --ff-only origin/<default>` (exactly that ref) run in `directory` while the default branch
+    is checked out there: a main checkout catching up with its remote (projects that merge by pull request). Only `origin`."""
+    texts = [w.text for w in rest]
+    pos = [t for t in texts if not t.startswith("-")]
+    if "--help" in texts or "-h" in texts or "--ff-only" not in texts or _widens_ff_only(texts) or len(pos) != 1 or directory == UNKNOWN:
+        return False
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # the guard runs with python3 -I: no script folder on the path
+    import relay_git
+    default = relay_git.default_branch(directory)
+    if not default or relay_git.current_branch(directory) != default:
+        return False
+    return pos[0] == "origin/" + default
+
+
+def git_write(sub, rest, directory=UNKNOWN):
     """What a git subcommand writes, or None when it only reads (or writes nothing in the working tree)."""
     texts = [w.text for w in rest]
     if "--help" in texts or "-h" in texts:
         return None
     flags = [t for t in texts if t.startswith("-")]
     if sub == "merge":
-        # the one write allowed in main: the user-requested fast-forward to a finished wt/ branch
-        if allowed_merge_branch(rest):
+        # the one write allowed in main: the user-requested fast-forward to a finished wt/ branch, or the sync to origin/<default>
+        if allowed_merge_branch(rest) or sync_merge(rest, directory):
             return None
         return "git merge"
     if sub in GIT_WRITE:
@@ -698,7 +720,7 @@ def analyze(cmd, cwd, flags, depth=0, merges=None, env=None):
                 branch = allowed_merge_branch(rest)
                 if branch:
                     merges.append((d, branch))
-            what = git_write(sub, rest)
+            what = git_write(sub, rest, d)
             texts = [w.text for w in rest]
             if d != UNKNOWN and any(CHECKS.search(t) or CHECKS_NAMED.search(t) for t in texts) and (
                 sub in GIT_CHECKS_WRITE or (sub == "checkout" and "--" in texts)

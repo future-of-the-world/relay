@@ -1,0 +1,21 @@
+head a4ad90db029a4fe42bed563921f4281fa5127311
+cmd bin/ci --quick
+ci: library tests ok (595s)
+ci: types and lint ok (0s)
+ci: hook tests FAILED (157s, log: .ci/steps/hook-tests.log)
+    FAIL  allow (old guard: block)  @M@  git merge --ff-only origin/master
+    FAIL pluginsci: inert FAILED (848s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed:
+        < hook tests FAILED
+ci: RED
+ing for this version: an error, not the newest
+    ok   path, that error exits 1
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert FAILED (892s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed:
+        < hook tests FAILED
+        < inert FAILED
+ci: RED
+exit 1
