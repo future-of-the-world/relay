@@ -254,6 +254,11 @@ def relay_plugins_for(flow, specs, product):
     return plugins
 
 
+def gone_hook(root, command):
+    """True when `command` runs a script under the project's .claude/hooks/ that is not there (migrate moved it aside)."""
+    return any(not os.path.exists(os.path.join(root, ".claude", "hooks", name)) for name in re.findall(r"\.claude/hooks/([\w.-]+)", command))
+
+
 def merge_settings(root, plugins, remove=()):
     """Enable `plugins`; drop the principles marketplace, the old plugin keys and the `remove` keys."""
     path = os.path.join(root, ".claude", "settings.json")
@@ -281,7 +286,7 @@ def merge_settings(root, plugins, remove=()):
         kept = []
         for group in groups:
             cmds = " ".join(h.get("command", "") for h in group.get("hooks", []))
-            if "context-budget.py" in cmds or "session-handover.py" in cmds or "opsx-stage.sh" in cmds or "guard-main.sh" in cmds:
+            if "context-budget.py" in cmds or "session-handover.py" in cmds or "opsx-stage.sh" in cmds or "guard-main.sh" in cmds or gone_hook(root, cmds):
                 removed.append(f"{event}: {cmds}")
             else:
                 kept.append(group)

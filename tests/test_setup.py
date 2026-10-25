@@ -241,6 +241,26 @@ class RelayFolder(Base):
         relay_setup.setup(repo, flow="none", product=False)                                      # relay setup of that one project does
         self.assertTrue(os.path.isfile(os.path.join(repo, ".relay", "README.md")))
 
+    def test_q1_migrate_leaves_no_settings_entry_for_a_hook_it_moved_aside(self):
+        """A hook script migrate moves aside (issue-stage.sh) has no entry left in settings.json; a hook it leaves keeps its entry."""
+        import relay_setup
+        repo = self._repo()
+        hooks = os.path.join(repo, ".claude", "hooks")
+        os.makedirs(hooks)
+        os.makedirs(os.path.join(repo, "bin"), exist_ok=True)   # migrate writes bin/kit and needs bin/ (a project with hooks has it)
+        for name in ("issue-stage.sh", "guard.sh"):
+            with open(os.path.join(hooks, name), "w") as handle:
+                handle.write("#!/bin/sh\n")
+        group = lambda name: {"hooks": [{"type": "command", "command": f'"$CLAUDE_PROJECT_DIR"/.claude/hooks/{name}'}]}
+        with open(os.path.join(repo, ".claude", "settings.json"), "w") as handle:
+            json.dump({"hooks": {"UserPromptSubmit": [group("issue-stage.sh")], "PreToolUse": [group("guard.sh")]}}, handle)
+        relay_setup.migrate(repo, apply=True, flow="none", product=False)
+        self.assertFalse(os.path.exists(os.path.join(hooks, "issue-stage.sh")))   # moved aside
+        self.assertTrue(os.path.exists(os.path.join(hooks, "guard.sh")))          # left in place
+        text = json.dumps(json.load(open(os.path.join(repo, ".claude", "settings.json")))["hooks"])
+        self.assertNotIn("issue-stage.sh", text)
+        self.assertIn("guard.sh", text)
+
 
 class DefaultBranch(unittest.TestCase):
     """T18: relay_git.default_branch is never the current branch (design fact 2.8)."""
