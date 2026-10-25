@@ -1,7 +1,7 @@
 ---
 type: tool_used
-tool: Agent
+tool: Write
 input_match: "dependency field in the work queue"
 min: 1
 ---
-The thinker's prompt or brief carries the owner's words verbatim.
+The thinker's brief file carries the owner's words verbatim.

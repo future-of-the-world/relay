@@ -46,6 +46,23 @@ class FrontMeasures(unittest.TestCase):
         import relay_textonly
         self.assertIn("tests.test_front_measures", relay_textonly.RULE_TESTS)
 
+    def test_q1_eval_graders_check_the_brief_file_and_a_positive_explanation(self):
+        """F1/F2: words, measurement and "do nothing" are graded on the Write of the brief; F3: the prompt ends the turn
+        after starting the thinker; F4: the explain case has a positive grader."""
+        base = os.path.join(ROOT, "evals", "plugin", "design-track")
+        wanted = {"owner-words-verbatim": "dependency field in the work queue", "brief-measures": "easur", "brief-do-nothing": "o nothing"}
+        for name, pattern in wanted.items():
+            body = text("evals", "plugin", "design-track", "graders", name + ".md")
+            self.assertIn("tool: Write", body, name)
+            self.assertIn(pattern, body, name)
+        prompt = text("evals", "plugin", "design-track", "prompt.md")
+        self.assertIn("in the background", prompt)
+        self.assertIn("end your turn right after", prompt)
+        self.assertTrue(os.path.isfile(os.path.join(base, "graders", "thinker-started.md")))
+        explain = os.path.join(ROOT, "evals", "plugin", "explain-existing")
+        self.assertTrue(os.path.isfile(os.path.join(explain, "graders", "says-what-take-does.md")))
+        self.assertTrue(os.path.isfile(os.path.join(explain, "recorded", "bad", "says-what-take-does__no-answer.txt")))
+
 
 if __name__ == "__main__":
     unittest.main()
