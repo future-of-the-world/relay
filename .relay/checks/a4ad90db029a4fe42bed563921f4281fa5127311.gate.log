@@ -13,4 +13,9 @@ ing for this version: an error, not the newest
 ci: lib copies identical ok (0s)
 ci: eval grader tests ok (1s)
 ci: plugin validate ok (5s)
+ci: inert FAILED (892s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed:
+        < hook tests FAILED
+        < inert FAILED
+ci: RED
 exit 1
