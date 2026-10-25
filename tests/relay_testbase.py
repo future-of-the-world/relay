@@ -11,8 +11,15 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 sys.path.insert(0, HERE)
 
 
+def _drop_relay_modules() -> None:
+    for m in list(sys.modules):
+        if m.startswith("relay_"):
+            del sys.modules[m]
+
+
 class Base(unittest.TestCase):
     def setUp(self):
+        self._saved_env = dict(os.environ)
         self.tmp = tempfile.mkdtemp(prefix="relay-test-")
         self.claude = os.path.join(self.tmp, "claude")
         self.home = os.path.join(self.tmp, "relay-home")
@@ -26,10 +33,13 @@ class Base(unittest.TestCase):
             handle.write('[global]\nfile = "~/.claude/CLAUDE.md"\ntitle = "Defaults for all projects"\nintro = "Test."\nload = []\npaid_cap_usd_per_day = 1000\n\n'
                          '[demo]\nfile = "%s"\ntitle = "Principles this project loads"\nload = ["quality-gate"]\nread = []\n' % self.project_file)
         os.environ["RELAY_PROJECTS"] = projects
-        for m in list(sys.modules):
-            if m.startswith("relay_"):
-                del sys.modules[m]
+        _drop_relay_modules()
 
     def tearDown(self):
+        # A test may point RELAY_ROOT at its own fixture (test_roles does); a class that sets nothing runs on what
+        # is left behind, so put the environment and the imported relay modules back as they were before setUp.
+        os.environ.clear()
+        os.environ.update(self._saved_env)
+        _drop_relay_modules()
         shutil.rmtree(self.tmp, ignore_errors=True)
 

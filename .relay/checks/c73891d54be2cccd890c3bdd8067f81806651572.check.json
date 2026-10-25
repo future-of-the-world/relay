@@ -1,0 +1,85 @@
+{
+  "branch": "wt/rules-red",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, the check of wt/split-tests: the rules-text step (the short gate for rules-only changes) is already red on master, 7 TestPrinciplesRule errors. Every rules-only change would be refused or run the full gate. IP chosen by the front (agent-chosen): a red step on master is first."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "On master, `python3 -m unittest $(python3 lib/relay_textonly.py tests)` from the root: Ran 117 tests, FAILED (errors=7), all in",
+        "TestPrinciplesRule, with FileNotFoundError on <tmp>/relay-test-*/fx/rules and fx/plugins. Earlier tests in the list",
+        "(Roles at test_roles.py:184/217, Bench at test_bench.py:84/110) set os.environ[\"RELAY_ROOT\"] to a temporary fixture and never",
+        "restore it; Base.tearDown deletes the folder; TestPrinciplesRule is a plain TestCase that does not reset RELAY_ROOT. Should: 117",
+        "tests, OK."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. The full RULE_TESTS list under unittest from the root runs 117 tests with no error.",
+        "2. TestPrinciplesRule run alone still passes.",
+        "3. pytest tests still passes (its order differs, which is why the library-tests step is green)."
+      ],
+      "path": "tests/test_principles_rule.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_rules_gate_isolation.py:13 passes; fails at 40b7e795b4c0 (both tests fail there)."
+      ],
+      "severity": "HIGH",
+      "since": "40b7e795b4c036f8b65a209e5fcb998136cf6e61",
+      "source": "queue",
+      "summary": "The rules-text step is already red on master: 7\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (no current reader in the run order found). The brief asked for the cause (shared state), and the fix lists the keys",
+        "by hand; the next variable a Base test sets (RELAY_CLAUDE_BIN today) is missed. Size: 5 minutes."
+      ],
+      "evidence": [
+        "grep -n RELAY_CLAUDE_BIN tests/test_bench.py -> 28: os.environ[\"RELAY_CLAUDE_BIN\"] = path (no cleanup, no tearDown)",
+        "lib/relay_bench.py:374, lib/relay_setup.py:532 read it with a default."
+      ],
+      "failing_case": [
+        "In one unittest process run tests.test_bench.Bench then any later class that reaches relay_bench.claude_command or",
+        "relay_setup's install runner without setting RELAY_CLAUDE_BIN: the env still holds <tmp>/relay-test-*/.../claude from",
+        "Bench.fake_claude (test_bench.py:28), whose folder Base.tearDown deleted, so the later test gets FileNotFoundError (order",
+        "dependent, the same shape as Q1). No such test is on RULE_TESTS today, so nothing is red now."
+      ],
+      "fix_hint": [
+        "In Base.setUp save dict(os.environ); in tearDown clear os.environ and update it from the copy (or addCleanup with",
+        "unittest.mock.patch.dict(os.environ)), instead of the fixed ENV_KEYS list."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 14,
+      "pass_cases": [
+        "1. After a Bench test finishes, os.environ.get(\"RELAY_CLAUDE_BIN\") equals its value before setUp (None in a clean env).",
+        "2. The bin/ci rules_tests command still runs 128 tests, OK.",
+        "3. tests.test_rules_gate_isolation still passes, and still fails with master's relay_testbase."
+      ],
+      "path": "tests/relay_testbase.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_rules_gate_isolation.py:27 passes; fails at fce1189413d9 (AssertionError line 38)."
+      ],
+      "severity": "LOW",
+      "since": "fce1189413d9ef128c52779249fa1e3ef7009421",
+      "source": "review-rules-red.json",
+      "source_id": "F1",
+      "summary": "Base restores only four keys; Bench's RELAY_CLAUDE_BIN still leaks a deleted fake binary to every later test",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "58d5d5f98ad931ad91c21daa18069c86bf10eab1.gate.log",
+  "head": "c73891d54be2cccd890c3bdd8067f81806651572",
+  "item": "the-rules-text-step-is-already-red-on-master-7",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Ran tests/test_rules_gate_isolation.py (2 pass). Gate log head 58d5d5f, exit 0; only inert files after it. Both tests fail on throwaway worktrees at the pre-fix commits."
+  ],
+  "type": "check"
+}
