@@ -121,14 +121,6 @@ def backup(path):
 
 # --- bindings ---------------------------------------------------------------
 
-def license_block(license_id, holder):
-    """The kit.toml [license] table (id and, when there is one, holder), as text."""
-    lines = ["[license]", f"id = {json.dumps(license_id)}"]
-    if holder:
-        lines.append(f"holder = {json.dumps(holder, ensure_ascii=False)}")
-    return "\n".join(lines) + "\n"
-
-
 def bindings_text(d, flow, product, specs="none"):
     """A kit.toml for a new project; sections relay needs, with the detected values."""
     name, stack = d["name"], d["stack"]
@@ -192,35 +184,14 @@ def set_specs(root, method):
     return False
 
 
-def set_license(root, license_id, holder, block, todo):
-    """LICENSE and kit.toml [license] for `setup --license`; the lines for the done list. A different LICENSE is kept and goes to the to-do list."""
-    done = []
-    path = bindings_path(root)
-    text = open(path, encoding="utf-8").read()
-    cfg = tomllib.loads(text)
-    if "license" in cfg:
-        done.append("kept the [license] table already in .claude/kit.toml" if cfg["license"] == tomllib.loads(block)["license"]
-                    else "kept the [license] table already in .claude/kit.toml (it differs from --license; edit it by hand)")
-    else:
-        backup(path)
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(text.rstrip("\n") + "\n\n" + block)
-        done.append("kit.toml: added [license]")
+def set_license(root, license_id, holder, todo):
+    """`setup --license`: relay license add (LICENSE, LICENSES/, REUSE.toml, kit.toml [license]); the lines for the done list.
+    A different existing file is kept and goes to the to-do list. The gate runs the check; bin/check is not touched."""
     try:
-        done += relay_license.add(root, license_id, holder)
+        return relay_license.add(root, license_id, holder)
     except relay_license.Refused as exc:
         todo.append(str(exc))
-    if os.path.isfile(os.path.join(root, "bin", "check")) and "relay license check" not in open(os.path.join(root, "bin", "check"), encoding="utf-8").read():
-        todo.append("bin/check: add the step `run_step license relay license check` so the check reports a missing or changed LICENSE")
-    return done
-
-
-def add_license_step(path):
-    """Put the license check step into a bin/check just written from the template (before its placeholder step)."""
-    text = open(path, encoding="utf-8").read()
-    text = text.replace("run_step placeholder true\n", "run_step license relay license check\nrun_step placeholder true\n", 1)
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(text)
+        return []
 
 
 def merge_bindings(root, flow, specs="none", force_specs=False):
@@ -622,10 +593,10 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
         raise ValueError("spec steps are their own setting now: use --specs openspec")
     if specs is not None and specs != "none" and specs not in methods:
         raise ValueError(f"no spec method named '{specs}' (spec methods: {', '.join(sorted(methods)) or 'none'})")
-    block = ""
     if license_id is not None:
+        if not holder:
+            raise ValueError("--license needs --holder <name>")
         relay_license.license_text(license_id, holder, 2000)   # refuses an unknown id or a missing holder before anything is written
-        block = license_block(license_id, holder)
     d = detect(root)
     done, todo = [], []
     if d["has_bindings"]:
@@ -671,11 +642,9 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
         if not d["scripts"][script]:
             if copy_template(f"bin-{script}", os.path.join(root, "bin", script), mode_exec=True, replacements={"tool": d["tool"], "stack": d["stack"], "branch": d["default_branch"]}):
                 done.append(f"wrote bin/{script} from the template")
-                if script == "check" and license_id is not None:
-                    add_license_step(os.path.join(root, "bin", "check"))
                 todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO (the contract is in plugins/core/README.md)")
     if license_id is not None:
-        done += set_license(root, license_id, holder, block, todo)
+        done += set_license(root, license_id, holder, todo)
     if copy_template("CLAUDE.md", os.path.join(root, "CLAUDE.md"), replacements={"name": d["name"], "stack": d["stack"]}):
         done.append("wrote CLAUDE.md (a skeleton: what the product is, the commands, the product surface)")
         todo.append("CLAUDE.md: write what the project is in two lines, and its product surface if a person sees it")

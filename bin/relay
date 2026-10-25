@@ -29,11 +29,13 @@
               [--license <SPDX id> [--holder <name>]]
                                      a project onto relay (new or existing; nothing deleted)
                                      --license writes LICENSE and kit.toml [license]; without it nothing about licenses is written
-  relay license add <SPDX id> [--holder <name>] [--year N] [--headers] [-C <dir>]
-                                     write LICENSE from the bundled exact text (refuses to overwrite a different one);
-                                     --headers adds the one-line SPDX header to code files
-  relay license check [-C <dir>]     the project's LICENSE (and, with kit.toml [license] headers = true, the headers);
-                                     one line per problem, exit 1 when there is one
+  relay license add <SPDX id> [--holder <name>] [--year YYYY] [--headers code|config|docs] [-C <dir>]
+                                     write LICENSE, LICENSES/<id>.txt, REUSE.toml and kit.toml [license] from the bundled exact
+                                     text (refuses to overwrite a different one); --headers (repeatable or a comma list) adds
+                                     the one-line SPDX header to the files of those groups
+  relay license check [-C <dir>]     LICENSE, LICENSES/<id>.txt, REUSE.toml, tracked vendored folders and, with kit.toml
+                                     [license] headers = [...], the headers; one line per problem, exit 1 when there is one.
+                                     relay gate runs it when kit.toml has [license]
   relay setup --relay-folder [<dir>] write .relay/README.md only (nothing else); the only form run for relay itself
   relay migrate [<dir>] [--apply]    an existing project from the old agents/skills/hooks; --apply moves them aside
   relay doctor [<dir>]               check-up of the machine, the rules, the ledger, and a project
@@ -870,7 +872,7 @@ def cmd_queue(args):
 
 
 def cmd_license(args):
-    usage = "relay license add <SPDX id> [--holder <name>] [--year N] [--headers] [-C <dir>]   |   relay license check [-C <dir>]"
+    usage = "relay license add <SPDX id> [--holder <name>] [--year YYYY] [--headers code|config|docs] [-C <dir>]   |   relay license check [-C <dir>]"
     args = list(args)
     root = os.path.realpath(flag(args, "-C", "."))
     if not args or args[0] not in ("add", "check"):
@@ -884,11 +886,13 @@ def cmd_license(args):
             for line in problems:
                 print(line)
             return 1 if problems else 0
-        headers = flag(args, "--headers", takes_value=False)
+        headers = []
+        while "--headers" in args:
+            headers.append(flag(args, "--headers"))
         holder, year = flag(args, "--holder"), flag(args, "--year")
-        if len(args) != 1 or (year is not None and not year.isdigit()):
+        if len(args) != 1 or (year is not None and not re.fullmatch(r"\d{4}", year)):
             raise Usage(usage)
-        for line in relay_license.add(root, args[0], holder, int(year) if year else None, bool(headers)):
+        for line in relay_license.add(root, args[0], holder, int(year) if year else None, headers):
             print(line)
     except relay_license.Refused as exc:
         print(f"relay license: {exc}", file=sys.stderr)

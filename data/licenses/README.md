@@ -7,7 +7,8 @@ and kept byte-exact; relay never fetches them at run time.
 
 The only change `relay license add` makes is to fill the `<year>` and the
 holder placeholder (`<copyright holders>` or `<owner>`) in the texts that have
-them (MIT, BSD-2-Clause, BSD-3-Clause). The other texts are written as they are.
+them (MIT, BSD-2-Clause, BSD-3-Clause, and ISC, whose two example copyright lines of ISC
+itself are replaced by `Copyright (c) <year> <copyright holders>`). The other texts are written as they are.
 
 To move to a newer tag, fetch the same files again from that tag and change
 the tag above.
