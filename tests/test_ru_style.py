@@ -43,6 +43,28 @@ class RuStyle(unittest.TestCase):
         self.assertIn("masculine", judge)
         self.assertIn("not named", judge)
 
+    def test_f2_the_judge_is_measured_on_the_live_bad_replies_and_the_good_one(self):
+        # F2: the grader text alone proves nothing; the judge is measured (evals/judge-measure/measure-ru-style,
+        # paid, re-run by hand with its README) on the live bad replies of 25 Oct and the owner-approved good one.
+        items = [l.split() for l in read("evals", "judge-measure", "measure-ru-style", "items.txt").split("\n")
+                 if l.strip() and not l.startswith("#")]
+        bad = sorted(os.listdir(os.path.join(CASE, "recorded", "bad")))
+        bad = ["plugin/it-terms-ru/recorded/bad/" + n for n in bad if n.startswith("gender-and-opener__")]
+        self.assertEqual(6, len(bad))
+        self.assertEqual(sorted(("no", b) for b in bad), sorted(tuple(i) for i in items if i[0] == "no"))
+        self.assertEqual([["yes", "plugin/it-terms-ru/recorded/good/merge-reply.txt"]], [i for i in items if i[0] == "yes"])
+        # each recorded bad reply really shows a fault the judge is asked to refuse; the good one shows neither
+        feminine = re.compile(r"(?:отдельной|эта|Основная|основная) branch")
+        opener = re.compile(r"\A[^.]*(?:не прозвучал|не назван|не назвали|назначение проекта я не знаю)")
+        for rel in bad:
+            text = read("evals", rel)
+            self.assertTrue(feminine.search(text) or opener.search(text), rel)
+        self.assertIsNotNone(opener.search(read("evals", "plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-only-masculine.txt")))
+        self.assertIsNotNone(feminine.search(read("evals", "plugin/it-terms-ru/recorded/bad/gender-and-opener__feminine-only.txt")))
+        good = read("evals", "plugin", "it-terms-ru", "recorded", "good", "merge-reply.txt")
+        self.assertIsNone(feminine.search(good))
+        self.assertIsNone(opener.search(good))
+
     def test_f1_rule_examples_keep_the_english_term(self):
         rule = " ".join(read("rules", "working-with-me.md").split())
         self.assertNotIn("несколько изменений", rule)

@@ -1,0 +1,9 @@
+{
+ "no--02-gender-and-opener-feminine-only": "FAIL",
+ "no--03-gender-and-opener-opener-and-feminine-nothing-known": "FAIL",
+ "no--04-gender-and-opener-opener-name-unknown-feminine": "FAIL",
+ "no--05-gender-and-opener-opener-not-told-feminine": "FAIL",
+ "no--06-gender-and-opener-opener-only-masculine": "FAIL",
+ "no--07-gender-and-opener-opener-project-not-named-feminine": "FAIL",
+ "yes--01-merge-reply": "PASS"
+}
