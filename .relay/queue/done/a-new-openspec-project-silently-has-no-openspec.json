@@ -21,7 +21,7 @@
   "taken_at": "2026-10-24T00:30:49Z",
   "taken_by": "wt/openspec-install",
   "closed_at": "2026-10-24T01:07:24Z",
-  "test": "tests/test_relay.py::test_setup_install_failure_todo_names_the_command",
+  "test": "tests/test_setup.py::test_setup_install_failure_todo_names_the_command",
   "dropped_at": null,
   "dropped_why": null
 }

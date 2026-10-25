@@ -119,7 +119,7 @@ class RuleTestsComplete(unittest.TestCase):
         self.assertEqual(missing, [])
 
     def test_the_classes_the_review_named_are_listed(self) -> None:
-        for name in ("tests.test_relay.TestPrinciplesRule", "tests.test_relay.AutoMergeTextsTest",
+        for name in ("tests.test_principles_rule.TestPrinciplesRule", "tests.test_principles_rule.AutoMergeTextsTest",
                      "tests.test_bench_worker", "tests.test_paid_batch"):
             self.assertIn(name, relay_textonly.RULE_TESTS)
 
