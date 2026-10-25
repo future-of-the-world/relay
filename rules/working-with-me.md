@@ -38,7 +38,8 @@
   my message says "ветка" or "слияние", or "rama" or "fusión", your reply
   still writes branch or merge, in Latin letters, and never the local word
   for them. The same holds for every other standard term, hook included:
-  whatever local word I wrote for it, you write the English term. A local word
+  whatever local word I wrote for it, you write the English term and
+  the local word does not appear in your reply at all, not even once. A local word
   set beside the term as a gloss ("<local word>, that is, hook") is the same
   calque: write the English term and, the first time, explain it in plain
   words, never with a one-word equivalent in my language. relay's own names
