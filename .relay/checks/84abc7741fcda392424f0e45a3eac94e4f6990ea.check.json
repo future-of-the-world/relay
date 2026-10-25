@@ -1,0 +1,316 @@
+{
+  "branch": "wt/train-4",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F3",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/core/lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F4",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F5",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/front/lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F6",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F7",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F7",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F8",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "rules/queue.md",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F8",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F9",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_bench_set_clean.py",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F9",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F10",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_premise.py",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F10",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F11",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F11",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F12",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "medium",
+      "reason": [
+        "gate log for 6674b17 (HEAD code) ends exit 0"
+      ],
+      "severity": "MEDIUM",
+      "since": "6674b17d8f2167199aac302102974a11648c60f5",
+      "source": "m9-train-4.json",
+      "source_id": "F12",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "6674b17d8f2167199aac302102974a11648c60f5.gate.log",
+  "head": "84abc7741fcda392424f0e45a3eac94e4f6990ea",
+  "item": null,
+  "notes": [
+    "Full pytest run not repeated (exceeds 4 min; the green gate on the same code covers it)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merge-only review, Fixes: none. Gate log starts with head 6674b17..., ends exit 0; HEAD 84abc77 only adds the gate log (relay changed lists no file after 6674b17). Each finding's pass case is \"the gate passes\"; no new tests introduced by this check."
+  ],
+  "type": "check"
+}
