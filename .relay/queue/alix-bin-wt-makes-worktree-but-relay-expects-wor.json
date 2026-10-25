@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 81,
+  "time": 20,
+  "found_at": "2026-10-25T21:30:26Z",
+  "found_in": "relay queue add",
+  "title": "ALIX bin/wt makes .worktree/ but relay expects .worktrees",
+  "what": [
+    "relay reads a project's worktree folder from its kit.toml [project] worktrees (or what its bin/wt creates) instead of assuming .worktrees, so ALIX's .worktree/ worktrees are recognised; nothing is changed in ALIX by this item."
+  ],
+  "why": [
+    "26 Oct, found by the portable-tool design (scratchpad reports/design-portable.md): ALIX's bin/wt creates .worktree/ (singular) while the guard hook expects .worktrees. Not yet reproduced. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A temporary project whose bin/wt makes .worktree/<task>: relay's guard treats a session in .worktree/x as the main checkout (or refuses its work)."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same session is treated as a task worktree; a project using .worktrees is unchanged."
+  ],
+  "where": "relay's guard hooks (the worktree folder they expect), kit.toml [project] worktrees, ALIX's bin/wt (read only)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
