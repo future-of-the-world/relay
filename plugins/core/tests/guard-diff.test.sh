@@ -4,6 +4,8 @@
 # value (guard-variable-paths): "was" holds the verdict of the guard that follows a variable set once by a plain
 # assignment. An unquoted variable of unknown value is read literally, as at master; cd and git -C with one stay in
 # the current directory. This test fails if a variable is followed in any other case.
+# One more exception: `git merge --ff-only origin/master` in the main checkout on master is allowed since the sync fix (a
+# main checkout catching up with its remote), so its "was" is allow.
 # The commands: the 28-command list of review 1, review 2's R1/R2 cases, review 3's M1/M2/S3 cases, and every
 # Bash input of the guard-main suite (before the variable tests were dropped). Placeholders in cwd and cmd:
 # @M@ the main checkout, @W@ its worktree .worktrees/any-change, @A@ its worktree .worktrees/a, @T@ a temp dir.
