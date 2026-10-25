@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 84,
+  "time": 30,
+  "found_at": "2026-10-25T17:30:41Z",
+  "found_in": "relay queue add",
+  "title": "guard-main refuses a script that only names the checks dir",
+  "what": [
+    "guard-main refuses only commands that write into .relay/checks, not a read-only command whose text merely contains that path (a heredoc script that reads the queue and prints a string naming the folder)."
+  ],
+  "why": [
+    "25 Oct, live: a python3 heredoc in the main checkout that only read .relay/queue/*.json and printed a string containing \".relay/checks writes\" was refused (\"files in .relay/checks are written only by relay\"). A false refusal costs a retry each time and teaches agents to rephrase around the guard. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "guard-main.sh fed a Bash tool input whose command is a python3 heredoc that prints the text \".relay/checks writes\" and writes no file: refused."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "That input is allowed; `echo x > .relay/checks/a.json`, `cp f .relay/checks/` and a python heredoc that opens a file there for writing stay refused."
+  ],
+  "where": "plugins/core/hooks/guard-main.sh (the rule on writes to the checks folder)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
