@@ -70,6 +70,70 @@ class SessionProfile(unittest.TestCase):
         bad = [n for n, good, _ in relay_setup.doctor(None, profile=self.profile) if not good and n.startswith(("effortLevel", "model"))]
         self.assertEqual(bad, [])
 
+    # F1: Claude Code reads modelSettings.<model>.effortLevel first; the top-level key is ignored for newer models.
+    REAL = {"model": "opus", "theme": "auto", "modelSettings": {
+        "claude-opus-5-5": {"effortLevel": "high"}, "claude-sonnet-5": {"autoCompactWindow": 5}}}
+
+    def test_f1_effort_lands_in_the_models_modelsettings_entry(self):
+        self.put(json.loads(json.dumps(self.REAL)))
+        relay_rules.sync(self.profile, only={"settings"})
+        got = self.read()
+        self.assertEqual(got["modelSettings"]["claude-opus-5-5"]["effortLevel"], "medium")
+        self.assertEqual(got["modelSettings"]["claude-sonnet-5"], {"autoCompactWindow": 5})
+        self.assertEqual(got["theme"], "auto")
+        self.assertEqual(relay_rules.sync(self.profile, only={"settings"})[0][2], "unchanged")
+
+    def test_f1_dry_writes_nothing_and_names_the_entry(self):
+        self.put(json.loads(json.dumps(self.REAL)))
+        res = relay_rules.sync(self.profile, only={"settings"}, dry=True)
+        self.assertEqual(self.read(), self.REAL)
+        self.assertIn("modelSettings.claude-opus-5-5.effortLevel 'high' -> 'medium'", res[0][2])
+
+    def test_f1_doctor_flags_the_modelsettings_entry_even_if_top_level_matches(self):
+        data = json.loads(json.dumps(self.REAL))
+        data["effortLevel"] = "medium"
+        self.put(data)
+        bad = [n for n, good, _ in relay_setup.doctor(None, profile=self.profile) if not good and "modelSettings" in n]
+        self.assertEqual(len(bad), 1)
+
+    def test_f1_no_modelsettings_still_sets_top_level(self):
+        self.put({})
+        relay_rules.sync(self.profile, only={"settings"})
+        self.assertEqual(self.read(), {"model": "opus", "effortLevel": "medium"})
+
+    # F2: max is session-only.
+    def test_f2_max_is_not_written_and_doctor_flags_it(self):
+        profile = {"session": {"model": "opus", "effort": "max"}}
+        self.put({"effortLevel": "high"})
+        res = relay_rules.sync(profile, only={"settings"})
+        self.assertIn("session-only", res[0][2])
+        got = self.read()
+        self.assertEqual(got["effortLevel"], "high")   # not overwritten with max
+        self.assertEqual(got["model"], "opus")
+        bad = [n for n, good, _ in relay_setup.doctor(None, profile=profile) if not good and n.startswith("effortLevel")]
+        self.assertEqual(len(bad), 1)
+
+    def test_f2_xhigh_is_written(self):
+        self.put({})
+        relay_rules.sync({"session": {"model": "opus", "effort": "xhigh"}}, only={"settings"})
+        self.assertEqual(self.read()["effortLevel"], "xhigh")
+
+    # F3: a malformed settings.json is refused, not rewritten.
+    def test_f3_malformed_file_is_refused_untouched(self):
+        bad = '{"enabledPlugins": {"core@relay": true}, "model": "sonnet",}'
+        with open(self.path, "w") as handle:
+            handle.write(bad)
+        for dry, prefix in ((False, "refused: "), (True, "would refuse: ")):
+            res = relay_rules.sync(self.profile, only={"settings"}, dry=dry)
+            self.assertTrue(res[0][2].startswith(prefix), res[0][2])
+            self.assertIn("not valid JSON", res[0][2])
+        self.assertEqual(open(self.path).read(), bad)
+        self.assertEqual(os.listdir(self.tmp), ["settings.json"])   # no .bak
+
+    def test_f3_missing_file_is_created(self):
+        relay_rules.sync(self.profile, only={"settings"})
+        self.assertEqual(self.read(), {"model": "opus", "effortLevel": "medium"})
+
 
 if __name__ == "__main__":
     unittest.main()

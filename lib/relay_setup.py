@@ -331,29 +331,88 @@ def merge_user_settings(plugins):
 
 
 SESSION_KEYS = {"model": "model", "effort": "effortLevel"}   # profile [session] key -> user settings key
+PERSISTABLE_EFFORTS = ("low", "medium", "high", "xhigh")   # Claude Code drops any other persisted effortLevel; max is session-only
 
 
 def session_settings(profile):
-    """The user settings keys the profile's [session] sets: model and effortLevel (Claude Code takes low, medium, high, xhigh)."""
+    """The top-level user settings keys the profile's [session] sets: model and effortLevel (only a persistable effort)."""
     session = profile.get("session", {})
-    return {SESSION_KEYS[k]: session[k] for k in SESSION_KEYS if session.get(k)}
+    out = {SESSION_KEYS[k]: session[k] for k in SESSION_KEYS if session.get(k)}
+    if out.get("effortLevel") not in PERSISTABLE_EFFORTS:
+        out.pop("effortLevel", None)
+    return out
+
+
+def unpersistable_effort(profile):
+    """The profile's [session] effort when Claude Code cannot keep it in settings.json (e.g. max), else None."""
+    effort = profile.get("session", {}).get("effort")
+    return effort if effort and effort not in PERSISTABLE_EFFORTS else None
+
+
+def effort_model_key(data, model):
+    """The modelSettings key Claude Code reads the effort of the profile's model from (it wins over top-level effortLevel).
+    A full id is its own key; an alias ("opus") is the one existing key naming that family; None when no entry exists yet.
+    Raises ValueError when several keys match."""
+    if not model:
+        return None
+    if model.startswith("claude-"):
+        return model
+    found = [k for k in data.get("modelSettings", {}) if model in k.split("-")]
+    if len(found) > 1:
+        raise ValueError(f"modelSettings has several entries for {model!r}: {', '.join(sorted(found))}")
+    return found[0] if found else None
+
+
+def read_json_strict(path):
+    """(data, error): a missing file is ({}, None); invalid JSON or a non-object is ({}, reason)."""
+    if not os.path.exists(path):
+        return {}, None
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError) as exc:
+        return {}, f"{os.path.basename(path)} is not valid JSON: {exc}"
+    if not isinstance(data, dict):
+        return {}, f"{os.path.basename(path)} is not a JSON object"
+    return data, None
 
 
 def merge_session_settings(profile, dry=False):
-    """Write the profile's [session] model and effortLevel into ~/.claude/settings.json, other keys untouched.
-    Returns (path, state) with state unchanged, would write/wrote and the keys changed. dry: write nothing."""
+    """Write the profile's [session] model and effort into ~/.claude/settings.json, other keys untouched: the top-level
+    keys and modelSettings.<model>.effortLevel (the entry Claude Code reads first). Returns (path, state): unchanged,
+    would set/set <keys>, not written (max), or refused/would refuse when the file is not valid JSON. dry: write nothing."""
     path = os.path.join(claude_dir(), "settings.json")
-    data = read_json(path)
-    changes = {k: v for k, v in session_settings(profile).items() if data.get(k) != v}
-    if not changes:
-        return path, "unchanged"
-    names = ", ".join(f"{k} {data.get(k)!r} -> {v!r}" for k, v in sorted(changes.items()))
-    if dry:
-        return path, "would set " + names
-    data.update(changes)
-    backup(path)
-    write_json(path, data)
-    return path, "set " + names
+    data, error = read_json_strict(path)
+    if error:
+        return path, ("would refuse: " if dry else "refused: ") + error
+    wanted = session_settings(profile)
+    changes = {k: v for k, v in wanted.items() if data.get(k) != v}
+    names = [f"{k} {data.get(k)!r} -> {v!r}" for k, v in sorted(changes.items())]
+    effort = wanted.get("effortLevel")
+    per_model = None
+    if effort:
+        try:
+            key = effort_model_key(data, profile["session"].get("model"))
+        except ValueError as exc:
+            return path, ("would refuse: " if dry else "refused: ") + str(exc)
+        if key:
+            old = data.get("modelSettings", {}).get(key, {}).get("effortLevel")
+            if old != effort:
+                per_model = (key, effort)
+                names.append(f"modelSettings.{key}.effortLevel {old!r} -> {effort!r}")
+    notes = []
+    bad = unpersistable_effort(profile)
+    if bad:
+        notes.append(f"not written: effort {bad} is session-only")
+    if not names:
+        return path, "; ".join(["unchanged"] + notes) if not notes else "; ".join(notes)
+    if not dry:
+        data.update(changes)
+        if per_model:
+            data.setdefault("modelSettings", {}).setdefault(per_model[0], {})["effortLevel"] = per_model[1]
+        backup(path)
+        write_json(path, data)
+    return path, ("would set " if dry else "set ") + ", ".join(names) + "".join("; " + n for n in notes)
 
 
 # --- files ------------------------------------------------------------------
@@ -810,6 +869,21 @@ def doctor(root=None, profile=None):
     for key, want in sorted(session_settings(profile or {}).items()):
         ok(f"{key} in ~/.claude/settings.json is the profile's [session] {want}", user.get(key) == want,
            f"is {user.get(key)!r} -> relay sync")
+    bad = unpersistable_effort((profile or {}))
+    if bad:
+        ok(f"effortLevel in ~/.claude/settings.json can hold the profile's [session] effort {bad}", False,
+           f"{bad} is session-only: Claude Code does not keep it; pick low, medium, high or xhigh")
+    want_effort = session_settings(profile or {}).get("effortLevel")
+    if want_effort:
+        try:
+            mkey = effort_model_key(user, (profile or {})["session"].get("model"))
+        except ValueError as exc:
+            ok("modelSettings has one entry for the profile's model", False, str(exc))
+        else:
+            if mkey:
+                have = user.get("modelSettings", {}).get(mkey, {}).get("effortLevel")
+                ok(f"modelSettings.{mkey}.effortLevel is the profile's [session] {want_effort}", have == want_effort,
+                   f"is {have!r} -> relay sync")
     ok("~/.claude/CLAUDE.md written by relay", "Generated by relay" in text, "relay sync --adopt global")
     try:
         import relay_rules
