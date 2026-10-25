@@ -21,8 +21,9 @@
   "where": "lib/relay_setup.py merge_settings / migrate",
   "taken_at": null,
   "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T20:16:14Z",
+  "test": "tests/test_setup.py::RelayFolder::test_q1_migrate_leaves_no_settings_entry_for_a_hook_it_moved_aside",
+  "fixed_by": "a4ad90db029a4fe42bed563921f4281fa5127311",
   "dropped_at": null,
   "dropped_why": null
 }
