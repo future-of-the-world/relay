@@ -20,8 +20,8 @@
     "A recommendation in a reply says what it rests on: a measured number, or \"not measured\"."
   ],
   "where": "the rule that holds \"Working with me\" and \"Working style\" (rules/*.md, \"Verify against the real system\"), rules/delegation.md (routing), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md (routing table), an eval case for the front",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T02:20:22Z",
+  "taken_by": "wt/measured",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
