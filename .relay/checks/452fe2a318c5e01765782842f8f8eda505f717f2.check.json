@@ -1,0 +1,202 @@
+{
+  "branch": "wt/turn-limit",
+  "findings": [
+    {
+      "details": [
+        "24-25 Oct: with 5 changes in parallel a quick gate took 19-25 minutes instead of about 9; a runner waiting on it stopped at its 12-turn limit three times (the first merge train's gate, the quick-head gate, and the premise change's gate, where the workflow then failed with \"subagent completed without calling StructuredOutput\" although the gate had finished green). Each costs a manual restart or a rerun of a 20-minute gate. Repeats whenever gates run in parallel (MEDIUM by the waste principle). IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "wt/premise, 25 Oct: gate of cf55280 ended exit 0, but the workflow's gate step returned no result and the change cycle stopped as \"crash\"."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A gate that runs 30 minutes is reported to the step that waits for it without a crash.",
+        "A step whose branch already has a green gate on the same code reports that gate and runs nothing."
+      ],
+      "path": "plugins/delegate/agents/runner.md (maxTurns 12), plugins/delegate/skills/delegate/SKILL.md (who waits on a gate), the change-cycle workflow's gate step",
+      "rank": "high",
+      "reason": [
+        "tests/test_turn_limit.py TurnLimitWait q1 tests and GateReuse::test_f1_second_gate_on_the_gate_log_commit_runs_nothing pass at head and fail at db67a0a; second pass case now built in lib/relay_gate.py reusable()."
+      ],
+      "severity": "HIGH",
+      "since": "db67a0a5bfc2292da1d49b7de0c8a630211bc65b",
+      "source": "queue",
+      "summary": "A gate waited on by a runner dies at its turn limit",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. The queue item this branch took lists two pass cases; the second, \"A step whose branch already has a",
+        "green gate on the same code reports that gate and runs nothing\", has no code or text in the change: dd7c944 touches",
+        "only agent and role texts and a text test, and relay_gate.run (line 79) always runs the command after check_ready.",
+        "The branch's own history reproduces the failing case (two full gates, about 38 minutes, for one code state). This",
+        "is the waste principle's repeating case (every gate step after a gate commit, every merge-train regate on inert",
+        "changes) and the item's own promise, so the check will hold Q1 NOT MET. Size: 30."
+      ],
+      "evidence": [
+        "git log --oneline master..HEAD",
+        "  32d6951 relay: gate of 36645ec...",
+        "  36645ec relay: gate of dd7c944...",
+        "  dd7c944 Turn limit: ...",
+        "relay changed -C . dd7c944        -> (no output)",
+        ".relay/checks/dd7c944...gate.log  -> library tests ok (421s) ... inert ok (575s) ... exit 0",
+        ".relay/checks/36645ec...gate.log  -> library tests ok (415s) ... inert ok (584s) ... exit 0",
+        "grep -n \"reuse|already|same code|green\" lib/relay_gate.py -> no match"
+      ],
+      "failing_case": [
+        "This very branch: relay gate ran on dd7c944 (exit 0, about 19 min: library 421 s, hooks 137 s, inert 575 s) and",
+        "committed its log as 36645ec. relay gate then ran again on 36645ec, whose only change since dd7c944 is that inert",
+        "log (relay changed -C . dd7c944 prints nothing), and spent another about 19 min (415 s + 144 s + 584 s) to reach",
+        "the same exit 0. Now: the second run executes bin/ci --quick in full. Should: it reports the green gate of",
+        "dd7c944 and runs nothing."
+      ],
+      "fix_hint": [
+        "In relay_gate.run, after check_ready: walk back from HEAD over commits; for each with a",
+        ".relay/checks/<sha>.gate.log whose first line is head <sha>, whose cmd line equals the command about to run and",
+        "whose last line is exit 0, and for which relay_inert's changed-files since <sha> is empty, return",
+        "(0, that log, []) without running. Test it with a temporary repo and a stub gate command that records whether it ran.",
+        "Also one line in delegate SKILL step 3/6 that a reused gate is the gate."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 79,
+      "pass_cases": [
+        "1. A task branch with a green gate log for commit G and, after G, only inert commits (the gate-log commit itself):",
+        "   relay gate runs no command, prints the existing log path, exits 0.",
+        "2. The same, but a non-inert file changed after G: relay gate runs the gate command as today and writes",
+        "   .relay/checks/<HEAD>.gate.log.",
+        "3. A log for G that ends with a non-zero exit: relay gate runs the gate again (a red gate is never reused).",
+        "4. A green log for G made with other arguments (relay gate -- --quick vs. no arguments, i.e. a different cmd line):",
+        "   relay gate runs again.",
+        "5. A branch with no gate log: relay gate runs as today."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_turn_limit.py GateReuse (second gate runs nothing, line 137; non-inert change, red log, other args, no log all rerun); failed at 32d6951 with 2 != 1."
+      ],
+      "severity": "HIGH",
+      "since": "32d695166ec7a200d6b27b28807376037586bef2",
+      "source": "review-turn-limit.json",
+      "source_id": "F1",
+      "summary": "Q1's second pass case is not built: relay gate reruns a full gate on code that already has a green gate",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: grep for RUNNING / still running in delegate SKILL.md, front SKILL.md and rules/delegation.md",
+        "finds no handling. The change adds a new outcome to three agent texts but no caller of those agents was updated",
+        "(\"a caller not updated\"). The item's first pass case is \"reported to the step that waits for it without a crash\";",
+        "a RUNNING reply nobody acts on leaves the gate unreported, and the natural reaction (run the gate again) is the",
+        "waste this item exists to remove. Size: 15."
+      ],
+      "evidence": [
+        "grep -n -i \"RUNNING|turn|background|gate\" plugins/delegate/skills/delegate/SKILL.md",
+        "  31-33: \"A job longer than about 30 minutes ... is not a runner's ... the front starts it in the background\"",
+        "  132-140: step 3 gate text; no RUNNING outcome",
+        "grep -n -i \"RUNNING|still running\" plugins/front/skills/front/SKILL.md rules/delegation.md -> only status wording"
+      ],
+      "failing_case": [
+        "The gate step under parallel load takes 36 min. The runner, as now told, replies at its 10th turn",
+        "\"RUNNING <log>\" (with the gate still running detached). Delegate SKILL steps 3 and 6 say only that a runner runs",
+        "relay gate and that a red gate goes to a fixer; they name no RUNNING outcome, so the front (or the change-cycle",
+        "gate step) has no rule to follow: it either treats it as a failure and starts relay gate again (another 20+ min,",
+        "and two gates on one worktree), or stops. Should: the front starts a fresh runner that only waits on the same",
+        "pid / .relay/checks/<HEAD>.gate.log and reports its result; the gate is never started twice.",
+        "Same for a worker or fixer that hands back BLOCKED with \"still running: <log>\" and its pid."
+      ],
+      "fix_hint": [
+        "Two sentences in delegate SKILL.md step 3 (step 6 points to it): \"A runner that replies RUNNING with a log leaves",
+        "the job running: start a fresh runner that waits on that pid and log; never start the gate again. A worker or",
+        "fixer that hands back BLOCKED with still running: <log> is handled the same way, then a fresh agent goes on from its",
+        "report.\" Plus a text test."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 132,
+      "pass_cases": [
+        "1. Delegate SKILL step 3 (or the paragraph on jobs longer than 30 minutes) has a line: a runner reply RUNNING",
+        "   with a log means the job still runs; a fresh runner waits on that pid or log, the job is not started again.",
+        "2. The same text covers a worker or fixer hand-back \"BLOCKED ... still running: <log>\": wait on it (a runner),",
+        "   then a fresh agent continues from the report.",
+        "3. A test asserts both lines are in plugins/delegate/skills/delegate/SKILL.md (it must fail on master).",
+        "4. The existing rule stays: a job over about 30 minutes is the front's, in the background."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_turn_limit.py RunningHandling::test_f2_delegate_skill_says_what_to_do_with_running_and_still_running; lines present in delegate SKILL.md step 3; failed at 32d6951."
+      ],
+      "severity": "MEDIUM",
+      "since": "32d695166ec7a200d6b27b28807376037586bef2",
+      "source": "review-turn-limit.json",
+      "source_id": "F2",
+      "summary": "nothing tells the front what to do with a runner's RUNNING or a worker's BLOCKED still running: <log>",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (a paid run or a hook test would show it). Principle 5: \"Code checks what can be checked exactly; the",
+        "model decides what needs understanding.\" The number of tool calls an agent made is an exact fact available in its",
+        "transcript (hook input has transcript_path); asking the model to count 72 calls is the model doing a fact's job.",
+        "The judge base already carries the same counting rule (\"after about 60 tool calls\"), and the evidence case shows the",
+        "\"you have 80 turns\" sentence alone did not save the worker. The change keeps to fewer parts (principle 7), which is",
+        "why this is a finding and not a design reversal: one PreToolUse hook in plugins/delegate/hooks is the smallest",
+        "code path. Size: 45. If the owner prefers text only, this becomes a question."
+      ],
+      "evidence": [
+        "git show master:plugins/delegate/agents/worker.md | grep \"Turn limit\" -> \"Turn limit: you have 80 turns.\"",
+        "wave-red transcript, last lines: a 220 s wait loop on pytest (pid 98483) printed RUNNING, then no hand-back.",
+        "ls plugins/delegate/hooks -> hooks.json, route-guard.py (no turn count)"
+      ],
+      "failing_case": [
+        "The wave-red worker (maxTurns 80) already had \"Turn limit: you have 80 turns\" in its text and stopped at its 81st",
+        "tool use with no hand-back. With this change it must also notice, unaided, that 72 tool calls have passed; nothing",
+        "tells it the count. A worker that loses count at turn 75 starts a 220 s wait at turn 79 and dies exactly as before.",
+        "Should: the agent is told its turn count by code when 8 turns remain, so the hand-back does not depend on counting."
+      ],
+      "fix_hint": [
+        "A small hook (PreToolUse, delegate plugin) that, for a subagent call, counts tool_use entries in the transcript and,",
+        "at maxTurns - 8 (runner: - 2), returns additionalContext with the hand-back sentence. Test with a fake transcript",
+        "in a temporary folder."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 14,
+      "pass_cases": [
+        "1. A subagent with maxTurns 80 reaches its 72nd tool call: it receives a message such as \"8 turns left: write your",
+        "   report; if a job runs, hand back BLOCKED with still running: <log>\".",
+        "2. The same agent at its 40th tool call receives nothing extra.",
+        "3. The runner (maxTurns 12) gets the message at its 10th tool call.",
+        "4. The main session gets no such message.",
+        "5. If no hook can read the count, the owner decides (recorded as a question), and the text stays as it is."
+      ],
+      "path": "roles/parts/budget.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_turn_limit.py TurnCountHook (72nd call told, 71st and 40th nothing, runner at 10th, main session and other plugin nothing, hook registered); plugins/delegate/hooks/turn-limit.py; all failed at 32d6951."
+      ],
+      "severity": "MEDIUM",
+      "since": "32d695166ec7a200d6b27b28807376037586bef2",
+      "source": "review-turn-limit.json",
+      "source_id": "F3",
+      "summary": "the 8-turns-left hand-back rests on the model counting its own tool calls (principle 5: fact to code)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "6048a5b15fa161d510b97c9f4344e1bb07ff5474.gate.log",
+  "head": "452fe2a318c5e01765782842f8f8eda505f717f2",
+  "item": "a-gate-waited-on-by-a-runner-dies-at-its-turn-li",
+  "notes": [
+    "Fixer F3 note: the hook assumes PreToolUse input inside a subagent carries agent_id/agent_type; the fixer could not verify it live (budget.py and check-mark.py rely on the same fields). It fails open, so the worst case is no note."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 32d6951..HEAD for F1-F3, db67a0a..HEAD for Q1. Ran tests/test_turn_limit.py (16 passed). Gate log head 6048a5b, exit 0; relay changed since it lists nothing. Read the diff of lib/relay_gate.py, turn-limit.py, hooks.json, delegate SKILL.md; grepped callers of relay_gate.run (bin/relay:528 only prints the log). Copied the test file into throwaway worktrees at 32d6951 (9 failed) and db67a0a (12 failed, including the three Q1 tests and the gate-reuse test), then removed them."
+  ],
+  "type": "check"
+}
