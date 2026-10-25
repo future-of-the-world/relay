@@ -24,7 +24,7 @@
                                      refuses while `bin/paid-cost due` lists changes no green paid run covers
   relay install [--no-claude]
                                      this machine onto relay: global CLAUDE.md, user settings, plugins
-  relay migrate --all [--apply]      the migration plan (or the move) for every known project
+  relay migrate --all [--apply] [--primary]      the migration plan (or the move) for every known project
   relay setup [<dir>] [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--no-global]
                                      a project onto relay (new or existing; nothing deleted)
   relay setup --relay-folder [<dir>] write .relay/README.md only (nothing else); the only form run for relay itself
@@ -431,6 +431,7 @@ def cmd_install(args):
 def cmd_migrate_all(args):
     apply = flag(args, "--apply", takes_value=False)
     principles = flag(args, "--principles", "~/principles")
+    primary = flag(args, "--primary", takes_value=False)
     projects = relay_setup.known_projects()
     if not projects:
         print("No projects registered (relay setup <dir> adds one).")
@@ -439,6 +440,9 @@ def cmd_migrate_all(args):
         print(f"\n==== {name} ({root})")
         if not exists:
             print("  folder missing: skipped")
+            continue
+        if not primary and os.path.isdir(os.path.join(root, ".git")):   # .git is a folder only in a primary checkout
+            print("  primary checkout: skipped (a reviewer's probe once wrote into one); add --primary to migrate it")
             continue
         copied = relay_setup.copy_kit_drafts(principles, name, root)
         if copied:
