@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 30,
+  "found_at": "2026-10-24T21:43:30Z",
+  "found_in": "relay queue add",
+  "title": "A merge check of a train is recorded but leaves no mark",
+  "what": [
+    "A merge check of a merge train (a check with review = [] on a branch holding ready changes) recorded with `relay check record check` leaves the \"relay: check of <head>\" mark the merge hook needs, or the command refuses and says why."
+  ],
+  "why": [
+    "25 Oct, wt/train-2 (eval-close + sonnet-price, both changed bin/relay): the checker recorded open 0 with review = [] and the command printed \"recorded … (open 0, queued 0)\", but no mark commit appeared; relay check show kept the older mark and \"1 non-inert file changed after the mark: bin/relay\", and the merge hook refused. The front had to record the combined file as a review finding and run a second check. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "In a train worktree whose riders both changed bin/relay, `relay check record check --input` with review = [] and a verdict MET for M1 prints \"recorded\" and makes no commit."
+  ],
+  "pass_cases": [
+    "The same record makes a \"relay: check of <head>\" commit and relay check show no longer lists bin/relay as changed after the mark; the merge hook accepts the train.",
+    "When the input cannot make a mark, the command refuses and names what is missing."
+  ],
+  "where": "relay check record check (lib/relay_verdict.py or bin/relay), lib/relay_marks.py put(), plugins/core/hooks/merge.py (train check)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

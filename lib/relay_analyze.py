@@ -159,17 +159,22 @@ def price_error(model, numbers, main, agents):
     cost = numbers["cost_usd"]
     usage = _exact_usage(numbers)
     written = usage["cache_creation_input_tokens"]
-    created = one_hour = 0
+    created = one_hour = reads = early_reads = 0
     for trace in ([main] + agents if main else []):
         agg = trace.by_model.get(model)
         if agg:
             created += agg.usage["cache_creation_input_tokens"]
             one_hour += agg.one_hour
+            reads += agg.usage["cache_read_input_tokens"]
+            early_reads += agg.early_reads
+    early = early_reads / reads if reads else 0.0     # the part of the reads priced at the model's earlier rate
     if created:
-        priced = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": round(written * one_hour / created)}))
+        priced = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": round(written * one_hour / created)}), early)
         return (priced - cost) / cost, "transcript"
-    low = relay_prices.cost(model, usage)
-    high = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": written}))
+    # no transcript: when is unknown, so a model with an earlier price may have been all earlier (the high end)
+    unknown = main is None and relay_prices.has_earlier(model)
+    low = relay_prices.cost(model, usage, early)
+    high = relay_prices.cost(model, dict(usage, cache_creation={"ephemeral_1h_input_tokens": written}), 1.0 if unknown else early)
     if cost < low:
         return (low - cost) / cost, "band"
     if cost > high:

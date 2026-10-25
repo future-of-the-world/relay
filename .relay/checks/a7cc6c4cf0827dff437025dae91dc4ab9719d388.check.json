@@ -1,0 +1,39 @@
+{
+  "branch": "wt/train-2",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "Gate green (exit 0) on the merged code; no own file changed after it."
+      ],
+      "severity": "MEDIUM",
+      "since": "d8d4507b857d213a6b3ac80d282e06d10b8c9091",
+      "source": "m5-train-2.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "f9525a373deb23671e5a0e9a6c7f9e7b6d89b69c.gate.log",
+  "head": "a7cc6c4cf0827dff437025dae91dc4ab9719d388",
+  "item": null,
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Merge-only review (Fixes: none). Gate log head f9525a3 is green (exit 0); relay changed lists no file after it (only gate-log commits). relay changed --own since d8d4507 lists nothing. No new tests relied on."
+  ],
+  "type": "check"
+}
