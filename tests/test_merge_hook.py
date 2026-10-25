@@ -79,16 +79,36 @@ class GuardMainSync(unittest.TestCase):
         payload = json.dumps({"tool_name": "Bash", "cwd": self.repo, "tool_input": {"command": command}})
         return subprocess.run([self.GUARD], input=payload, text=True, capture_output=True, env=self.env).returncode
 
-    def test_q1_a_main_checkout_on_its_default_branch_may_ff_only_to_origin_or_fetch_head(self):
-        # Failing case: both were refused (exit 2); now exit 0. Everything else of the kind stays refused (exit 2).
+    def test_q1_a_main_checkout_on_its_default_branch_may_ff_only_to_origin_default_only(self):
+        # Failing case: it was refused (exit 2); now exit 0. Everything else of the kind stays refused (exit 2).
         self.assertEqual(self.verdict("git merge --ff-only origin/master"), 0)
-        self.assertEqual(self.verdict("git merge --ff-only FETCH_HEAD"), 0)
         self.assertEqual(self.verdict("git merge origin/master"), 2)            # not fast-forward only
         self.assertEqual(self.verdict("git merge --ff-only some-branch"), 2)
         self.assertEqual(self.verdict("git merge --ff-only upstream/master"), 2)   # origin is the only remote
         self.assertEqual(self.verdict("git merge --ff-only origin/other"), 2)       # not the default branch
         subprocess.run(["git", "-C", self.repo, "switch", "-q", "-c", "side"], check=True, env=self.env)
         self.assertEqual(self.verdict("git merge --ff-only origin/master"), 2)      # the default branch is not checked out
+
+    def test_f1_fetch_head_is_not_a_sync(self):
+        # FETCH_HEAD is whatever the last fetch wrote (any remote, URL or local branch): a bypass of "origin only" and of the gate.
+        self.assertEqual(self.verdict("git merge --ff-only FETCH_HEAD"), 2)
+        self.assertEqual(self.verdict("git fetch . side && git merge --ff-only FETCH_HEAD"), 2)
+        self.assertEqual(self.verdict("git fetch https://example.invalid/x.git topic && git merge --ff-only FETCH_HEAD"), 2)
+        self.assertEqual(self.verdict("git merge --ff-only origin/master"), 0)
+
+    def test_f4_ff_only_beside_no_ff_is_refused(self):
+        # git takes the last of --ff/--no-ff/--ff-only: --ff-only --no-ff makes a merge commit on the default branch.
+        for flag in ("--no-ff", "--ff", "--squash"):
+            self.assertEqual(self.verdict(f"git merge --ff-only {flag} --no-edit origin/master"), 2, flag)
+            self.assertEqual(self.verdict(f"git merge --ff-only {flag} wt/x"), 2, flag)
+        self.assertEqual(self.verdict("git merge --ff-only origin/master"), 0)
+        self.assertEqual(self.verdict("git merge --ff-only wt/x"), 0)
+        self.assertEqual(self.verdict("git merge --ff-only wt/x 2>&1 | tail -3"), 0)
+
+    def test_f5_header_names_the_sync_exception(self):
+        with open(self.GUARD) as handle:
+            header = handle.read()[:1500]
+        self.assertIn("--ff-only origin/<default>", header)
 
 
 if __name__ == "__main__":

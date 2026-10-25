@@ -254,13 +254,23 @@ def relay_plugins_for(flow, specs, product):
     return plugins
 
 
-def gone_hook(root, command):
-    """True when `command` runs a script under the project's .claude/hooks/ that is not there (migrate moved it aside)."""
-    return any(not os.path.exists(os.path.join(root, ".claude", "hooks", name)) for name in re.findall(r"\.claude/hooks/([\w.-]+)", command))
+def names_moved_hook(command, moved):
+    """True when `command` runs one of the project hook files `moved` (paths like ".claude/hooks/issue-stage.sh") as migrate wrote
+    it: `"$CLAUDE_PROJECT_DIR"/<path>`, `./<path>` or `<path>`, with or without arguments. A home-folder or other path is not."""
+    words = command.replace('"', "").replace("'", "").split()
+    if not words:
+        return False
+    first = words[0]
+    for prefix in ("$CLAUDE_PROJECT_DIR/", "${CLAUDE_PROJECT_DIR}/", "./"):
+        if first.startswith(prefix):
+            first = first[len(prefix):]
+            break
+    return first in moved
 
 
-def merge_settings(root, plugins, remove=()):
-    """Enable `plugins`; drop the principles marketplace, the old plugin keys and the `remove` keys."""
+def merge_settings(root, plugins, remove=(), moved_hooks=()):
+    """Enable `plugins`; drop the principles marketplace, the old plugin keys and the `remove` keys. `moved_hooks`: project hook paths
+    migrate moved aside in this run; only the commands that run them are dropped."""
     path = os.path.join(root, ".claude", "settings.json")
     data = read_json(path)
     before = json.dumps(data, sort_keys=True)
@@ -286,10 +296,16 @@ def merge_settings(root, plugins, remove=()):
         kept = []
         for group in groups:
             cmds = " ".join(h.get("command", "") for h in group.get("hooks", []))
-            if "context-budget.py" in cmds or "session-handover.py" in cmds or "opsx-stage.sh" in cmds or "guard-main.sh" in cmds or gone_hook(root, cmds):
+            if "context-budget.py" in cmds or "session-handover.py" in cmds or "opsx-stage.sh" in cmds or "guard-main.sh" in cmds:
                 removed.append(f"{event}: {cmds}")
-            else:
-                kept.append(group)
+                continue
+            entries = group.get("hooks", [])
+            stay = [h for h in entries if not names_moved_hook(h.get("command", ""), moved_hooks)]
+            for h in entries:
+                if h not in stay:
+                    removed.append(f"{event}: {h.get('command', '')}")
+            if stay or not entries:
+                kept.append(group if len(stay) == len(entries) else {**group, "hooks": stay})
         if kept:
             hooks[event] = kept
         else:
@@ -576,7 +592,8 @@ def project_installed(root, key):
                for e in (entries if isinstance(entries, list) else []) if isinstance(e, dict))
 
 
-def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, install_runner=None, specs=None, uninstall_runner=None):
+def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, install_runner=None, specs=None, uninstall_runner=None,
+          moved_hooks=()):
     """Set one project up. `relay_dir=False` leaves `.relay/` out: `migrate` (even as a plan) must not turn the work queue and the
     merge checks on in a project the owner has not chosen (docs/setup.md: old projects are not given a .relay/ folder)."""
     import relay_rules
@@ -616,7 +633,7 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
         done.append(f"spec steps are ON for this project because it has an openspec/ folder; turn them off with `relay setup {root} --specs none`")
     plugins = relay_plugins_for(flow, specs, product)
     turned_off = [f"{m}@relay" for m in methods if m != specs]
-    changed, removed = merge_settings(root, plugins, remove=turned_off)
+    changed, removed = merge_settings(root, plugins, remove=turned_off, moved_hooks=moved_hooks)
     done.append(f".claude/settings.json: plugins {', '.join(p + '@relay' for p in plugins)} enabled" + (" (unchanged)" if not changed else ""))
     for r in removed:
         done.append(f"  removed a hook the plugins now provide: {r}")
@@ -740,7 +757,8 @@ def migrate(root, apply=False, **kw):
             shutil.copy2(os.path.join(ROOT, "plugins", "core", "templates", "kit-shim"), os.path.join(root, "bin", "kit"))
             os.chmod(os.path.join(root, "bin", "kit"), 0o755)
             moved.append(("bin/kit", "written from the shim template"))
-    d2, flow, product, done, todo = setup(root, relay_dir=False, **kw)
+    hooks_moved = tuple(path for path, _ in moved if path.startswith(".claude/hooks/"))
+    d2, flow, product, done, todo = setup(root, relay_dir=False, moved_hooks=hooks_moved, **kw)
     return d, items, moved, flow, product, done, todo
 
 
