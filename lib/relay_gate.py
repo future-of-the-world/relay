@@ -11,6 +11,7 @@ import shlex
 import subprocess
 
 import relay_git
+import relay_inert
 import relay_marks
 import relay_toml
 
@@ -76,11 +77,37 @@ def first_failure(output):
     return lines[-5:]
 
 
+def reusable(worktree, head, command):
+    """The path of a green gate log for the same command on a commit at or before `head` with only inert changes since, else None.
+
+    Walks back from `head` and stops at the first commit after which a non-inert file changed. A log counts only when its
+    first line is `head <that commit>`, its `cmd` line is the command about to run and its last line is `exit 0`."""
+    wanted = "cmd %s" % " ".join(shlex.quote(c) for c in command)
+    rc, listing = relay_git.git(worktree, "rev-list", head)
+    if rc != 0:
+        return None
+    for commit in listing.split():
+        if relay_inert.changed(worktree, commit, head):
+            return None
+        log = os.path.join(worktree, relay_marks.FOLDER, "%s.gate.log" % commit)
+        try:
+            with open(log, encoding="utf-8", errors="replace") as handle:
+                lines = handle.read().splitlines()
+        except OSError:
+            continue
+        if len(lines) >= 3 and lines[0] == "head %s" % commit and lines[1] == wanted and lines[-1] == "exit 0":
+            return log
+    return None
+
+
 def run(worktree, args=(), environ=None):
     """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red)."""
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
     command = shlex.split(binding(worktree)) + list(args)
+    green = reusable(worktree, head, command)
+    if green is not None:      # the same code already has a green gate: report it, run nothing
+        return 0, green, []
     # the output goes under the worktree's git dir, never into the tree: a project that does not ignore .ci/ would see
     # an untracked file and the next gate (and the merge cleanup) would refuse
     rc, git_path = relay_git.git(worktree, "rev-parse", "--path-format=absolute", "--git-path", "relay-gate.out")
