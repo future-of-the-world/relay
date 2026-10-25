@@ -11,14 +11,17 @@ re-reads the head and re-checks the command's precondition; after `QUEUE_LAND_TR
 branch is kept for `relay queue land`.
 """
 
+import ast
 import copy
 import datetime as dt
 import importlib.util
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
+import tarfile
 import tempfile
 import time
 
@@ -38,7 +41,7 @@ FAILING_KINDS = ("test", "run", "claim")
 # The keys of an item file, in the order they are written. An item keeps dated events, never a stored state: `state_of` computes it.
 # TEXT are lists of lines (so a git diff goes line by line).
 ORDER = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "failing_case", "failing_kind", "pass_cases", "where",
-         "taken_at", "taken_by", "closed_at", "test", "evidence", "dropped_at", "dropped_why")
+         "taken_at", "taken_by", "closed_at", "test", "fixed_by", "evidence", "dropped_at", "dropped_why")
 TEXT = ("what", "why", "failing_case", "pass_cases")
 EVENTS = ("found_at", "taken_at", "closed_at", "dropped_at")
 OLD_ONLY = ("state", "found", "closed_by")    # the keys of the shape before dated events; `relay queue migrate` rewrites them
@@ -46,6 +49,7 @@ REQUIRED = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why"
             "dropped_at", "dropped_why")
 TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 MIGRATE_HINT = "run `relay queue migrate` on this branch"
+TEST_RUN_SECONDS = 120        # one run of a named test at one commit (`close_fixed_by`); a slower test is refused, not waited for
 TITLE_MAX = 60                # a title is under this many characters (rules/queue.md)
 
 
@@ -121,7 +125,7 @@ def check(slug, data, where=None):
     for key in ("found_in", "title", "where"):
         if key in data and not isinstance(data[key], str):
             problems.append(f"{key} is not a string")
-    for key in ("taken_by", "test", "evidence"):
+    for key in ("taken_by", "test", "evidence", "fixed_by"):
         if key in data and data[key] is not None and not isinstance(data[key], str):
             problems.append(f"{key} is not null or a string")
         elif data.get(key) == "":
@@ -137,7 +141,8 @@ def check(slug, data, where=None):
     if bool(data.get("taken_by")) != (taken is not None):
         problems.append("taken_by is set exactly when taken_at is set")
     evidence = data.get("evidence")
-    if closed is not None and taken is None and not evidence:
+    fixed_by = data.get("fixed_by")
+    if closed is not None and taken is None and not evidence and not fixed_by:
         problems.append("closed_at without taken_at")
     if closed is not None and not data.get("test") and not evidence:
         problems.append("closed_at without a test or evidence")
@@ -145,6 +150,8 @@ def check(slug, data, where=None):
         problems.append("a test together with evidence: a close has one or the other")
     if data.get("test") and closed is None:
         problems.append("a test without closed_at")
+    if fixed_by and (data.get("kind") != "fix" or closed is None or not data.get("test")):
+        problems.append("fixed_by belongs to a closed fix with a test")
     if evidence and closed is None:
         problems.append("evidence without closed_at")
     if evidence and data.get("kind") == "fix":
@@ -304,6 +311,8 @@ def show_text(item):
             out.append(f"{label} {item[key]}")
     if item["test"]:
         out.append(f"test {item['test']}")
+    if item.get("fixed_by"):
+        out.append(f"fixed by {item['fixed_by']}")
     if item.get("evidence"):
         out.append(f"evidence {item['evidence']}")
     for title, key in (("What", "what"), ("Why", "why"), ("Failing case" + (f" ({item['failing_kind']})" if item.get("failing_kind") else ""), "failing_case"), ("Pass cases", "pass_cases"), ("Dropped because", "dropped_why")):
@@ -807,10 +816,109 @@ def close_with_evidence(repo, slug, evidence, **engine):
     def planner(reader):
         item = _item_at(reader, slug)
         if item["kind"] == "fix":
-            raise Refused(f"'{slug}' is a fix: close it with --test on the branch that took it")
+            raise Refused(f"'{slug}' is a fix: close it with --test on the branch that took it, or with --fixed-by <commit> --test <file>::<Class>::<name> when a change already on the default branch fixed it")
         if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
             raise _taken_by_refusal(item)
         text = serialize(slug, changed(item, closed_at=utcnow(), evidence=evidence), "done")
+        return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "closed")
+
+    return _run(repo, planner, **engine)
+
+
+def _run_pytest(tree, node):
+    """Exit code of pytest on the test `node` inside the folder `tree`; None when pytest cannot be run or takes too long."""
+    exe = shutil.which("pytest") or os.path.expanduser("~/.local/bin/pytest")
+    if not os.path.exists(exe):
+        return None
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+    try:
+        return subprocess.run([exe, "-q", "-x", "-p", "no:cacheprovider", node], cwd=tree, env=env, capture_output=True,
+                              timeout=TEST_RUN_SECONDS).returncode
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _test_at(repo, commit, test, source, run_test):
+    """Exit code of the test at `commit`: that commit's tree with the test file as it is on the default branch (`source`)."""
+    rc, out, err = _git(repo, "archive", "--format=tar", commit, timeout=120)
+    if rc != 0:
+        raise Refused(f"cannot read {commit[:12]}: {err}")
+    path, _, node = test.strip().partition("::")
+    tree = tempfile.mkdtemp(prefix="relay-queue-fixed-")
+    try:
+        with tarfile.open(fileobj=io.BytesIO(out)) as tar:
+            tar.extractall(tree, filter="data")
+        target = os.path.join(tree, path.strip())
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "wb") as handle:
+            handle.write(source)
+        return run_test(tree, f"{path.strip()}::{node.strip()}")
+    finally:
+        shutil.rmtree(tree, ignore_errors=True)
+
+
+def _with_class(test, source):
+    """`<file>::<name>` where the file defines `name` only as a method of one class becomes `<file>::<Class>::<name>` (pytest finds a
+    method only through its class); any other form is returned as typed."""
+    path, _, rest = test.strip().partition("::")
+    if "::" in rest or not path.endswith(".py"):
+        return test.strip()
+    name = rest.strip()
+    try:
+        tree = ast.parse(source.decode("utf-8", "replace"))
+    except SyntaxError:
+        return test.strip()
+    defs = (ast.FunctionDef, ast.AsyncFunctionDef)
+    if any(isinstance(n, defs) and n.name == name for n in tree.body):
+        return test.strip()
+    classes = [c.name for c in tree.body if isinstance(c, ast.ClassDef) and any(isinstance(n, defs) and n.name == name for n in c.body)]
+    return f"{path.strip()}::{classes[0]}::{name}" if len(classes) == 1 else test.strip()
+
+
+def close_fixed_by(repo, slug, commit, test, run_test=_run_pytest, **engine):
+    """Close a fix that a change already on the default branch fixed, with no branch of its own. `commit` is that change's commit;
+    `test` is a python test at the tip of the default branch. The close is refused unless the test fails at the parent of `commit`
+    and passes at `commit` (the test file taken as it is on the default branch), so the commit is shown to have fixed it.
+    An item taken by a branch that is merged or gone is closed here, keeping its take; one taken by a live branch is released
+    first (`relay queue release`, which works from any checkout), then this is run again. A test that is a method of a class may be
+    named `<file>::<name>`: the class is found in the test file on the default branch, and the full `<file>::<Class>::<name>` is run and kept."""
+    main, default = _context(repo)
+    tip = "refs/heads/" + default
+    rc, out, _ = _git(main, "rev-parse", "--verify", "-q", f"{commit.strip()}^{{commit}}")
+    if rc != 0:
+        raise Refused(f"--fixed-by {commit.strip()} is not a commit of this repository")
+    sha = _text(out)
+    if _git(main, "merge-base", "--is-ancestor", sha, tip)[0] != 0:
+        raise Refused(f"{sha[:12]} is not on {default}: a change fixes an item for the queue only when it is merged")
+    rc, out, _ = _git(main, "rev-parse", "--verify", "-q", f"{sha}^")
+    if rc != 0:
+        raise Refused(f"{sha[:12]} has no parent to show the test failing at")
+    parent = _text(out)
+    path = test.strip().partition("::")[0].strip()
+    if not path.endswith(".py"):
+        raise Refused(f"--fixed-by runs a python test: {TEST_FORMS}")
+    reason = test_refusal(main, tip, test)
+    if reason:
+        raise Refused(reason.replace("in the last commit of the branch", f"on {default}"))
+    source = _git(main, "cat-file", "blob", f"{tip}:{path}")[1]
+    test = _with_class(test, source)
+    before = _test_at(main, parent, test, source, run_test)
+    if before is None or before not in (0, 1):
+        raise Refused(f"cannot tell whether {test} fails at {parent[:12]}, the parent of {sha[:12]}: it did not run to a pass or a fail")
+    if before == 0:
+        raise Refused(f"{test} passes at {parent[:12]}, the parent of {sha[:12]}: that commit did not fix it")
+    after = _test_at(main, sha, test, source, run_test)
+    if after != 0:
+        raise Refused(f"{test} does not pass at {sha[:12]}: that commit did not fix it")
+
+    def planner(reader):
+        item = _item_at(reader, slug)
+        if item["kind"] != "fix":
+            raise Refused(f"'{slug}' is a feature: close it with --evidence <merge sha or report path>")
+        if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
+            raise Refused(f"queue item '{slug}' is taken by {item['taken_by']}, which is not merged: "
+                          f"relay queue release {slug}, then run this again")
+        text = serialize(slug, changed(item, closed_at=utcnow(), test=test.strip(), fixed_by=sha), "done")
         return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "closed")
 
     return _run(repo, planner, **engine)
