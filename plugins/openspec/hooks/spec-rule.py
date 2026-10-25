@@ -23,6 +23,9 @@ import subprocess
 import sys
 from typing import Any, Dict, List, Optional
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
+import relay_toml  # noqa: E402   (relay's one TOML reader: tomllib, else its 3.9 fallback)
+
 METHOD = "openspec"
 PLUGIN = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -37,28 +40,12 @@ def project_root(cwd: str) -> str:
 
 def project_method(root: str) -> str:
     """The `[specs] method` of the project's .claude/kit.toml; "none" when unset or unreadable."""
-    path = os.path.join(root, ".claude", "kit.toml")
     try:
-        with open(path, "rb") as handle:
-            raw = handle.read()
-    except OSError:
-        return "none"
-    try:
-        import tomllib
-        method = tomllib.loads(raw.decode("utf-8")).get("specs", {}).get("method", "none")
-        return method if isinstance(method, str) else "none"
-    except ImportError:
-        pass   # python before 3.11: read the one key by hand
+        with open(os.path.join(root, ".claude", "kit.toml"), "rb") as handle:
+            method = relay_toml.load(handle).get("specs", {}).get("method", "none")
     except Exception:
         return "none"
-    section = ""
-    for text in raw.decode("utf-8", "replace").splitlines():
-        text = text.split("#", 1)[0].strip()
-        if text.startswith("["):
-            section = text.strip("[] ")
-        elif section == "specs" and text.startswith("method") and "=" in text:
-            return text.split("=", 1)[1].strip().strip("\"'")
-    return "none"
+    return method if isinstance(method, str) else "none"
 
 
 def load_manifest() -> Optional[Dict[str, Any]]:

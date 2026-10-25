@@ -32,17 +32,21 @@ uninstalls it at project scope and runs `relay sync` for the project. The
 folder and no `[specs]` setting gets the steps on, and setup says so in one
 line; turning them off is explicit.
 
-From the setting `relay sync` derives (nothing is stored twice): the rule
-`rules/openspec.md` in the project's `CLAUDE.local.md`, followed by the table
-"Spec steps in the change cycle" rendered from the plugin's `flow.json`
-`steps`. `relay doctor <dir>` names drift between the setting and
+The spec method answers for itself: the openspec plugin's hook
+(`plugins/openspec/hooks/spec-rule.py`) reads `[specs] method` and speaks only
+where the plugin is loaded and the method is `"openspec"`; nothing is stored
+twice and `relay sync` writes no spec rule. At SessionStart and SubagentStart it
+gives the main session and every agent it starts the rule
+(`plugins/openspec/rules/openspec.md`) followed by the table "Spec steps in the
+change cycle", rendered from the plugin's `flow.json` `steps`. On every prompt
+that starts with an `/opsx:*` trigger it adds one line: load the stage's skill
+and follow it, or, for a stage with only a `note`, the note.
+`relay doctor <dir>` names drift between the setting and
 `.claude/settings.json`, an unknown method, a stored spec rule in
 `projects.toml`, and old forms left over from the plugin's earlier name.
 
-The core plugin's stage hook reads both on every prompt. When a prompt starts
-with a trigger of a bound manifest (`/opsx:apply`, `/issue 42`, ...), the hook
-adds one line: load the stage's skill and follow it, or, for a stage with only
-a `note`, the note.
+The core plugin's stage hook binds `[flow] kind` only. When a prompt starts with
+a trigger of that manifest (`/issue 42`, ...), it adds the same kind of line.
 
 ## The manifest: `plugins/<name>/flow.json`
 

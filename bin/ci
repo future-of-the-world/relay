@@ -39,7 +39,7 @@ hook_tests() { local f rc=0 t; [ "$quick" = 1 ] && [ -z "${RELAY_INERT_FULL_HOOK
     command -v claude >/dev/null 2>&1 || { echo "FAIL $f needs claude on PATH: install Claude Code"; rc=1; continue; }
     echo "--- $f"; HOOKS_LIVE=1 bash "$f" || { echo "FAIL $f"; rc=1; }; continue ;; esac
   echo "--- $f"; bash "$f" || { echo "FAIL $f"; rc=1; }; done; return $rc; }
-lib_copies() { local rc=0 f p; for p in observe delegate front core; do for f in plugins/$p/lib/relay_*.py; do
+lib_copies() { local rc=0 f p; for p in observe delegate front core openspec; do for f in plugins/$p/lib/relay_*.py; do
   [ -e "$f" ] || continue; cmp -s "$f" "lib/$(basename "$f")" || { echo "FAIL $f differs from lib/ (run bin/sync-lib-copies)"; rc=1; }; done
   cmp -s "plugins/$p/lib/prices.toml" prices.toml 2>/dev/null || { [ -e "plugins/$p/lib/prices.toml" ] && { echo "FAIL plugins/$p/lib/prices.toml differs"; rc=1; }; }; done; return $rc; }
 grader_tests() { bash evals/plugin/graders.test.sh; }

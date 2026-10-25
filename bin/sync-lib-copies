@@ -4,7 +4,7 @@
 # refreshes the copies (a plugin gets the modules already in its lib/); bin/ci fails when they drift.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd -P)"
-for p in observe delegate front core; do
+for p in observe delegate front core openspec; do
   for f in "$root"/plugins/$p/lib/relay_*.py; do [ -e "$f" ] && cp "$root/lib/$(basename "$f")" "$f"; done
   [ -e "$root/plugins/$p/lib/prices.toml" ] && cp "$root/prices.toml" "$root/plugins/$p/lib/prices.toml"
 done
