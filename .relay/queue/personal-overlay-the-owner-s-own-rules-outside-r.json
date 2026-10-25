@@ -1,0 +1,21 @@
+{
+  "kind": "feature",
+  "ip": 89,
+  "time": 60,
+  "found_at": "2026-10-25T19:39:39Z",
+  "found_in": "relay queue add",
+  "title": "Personal overlay: the owner's own rules outside relay",
+  "what": [
+    "relay sync adds the rules and settings of a personal overlay folder outside the relay repo (per machine) to relay's own; the Glonass rule, the owner's project names in rule texts, native_language and the money cap move there; the default profile loads none of them; with no overlay relay works and says nothing about Glonass."
+  ],
+  "why": [
+    "Owner, 25 Oct, on preparing a public GitHub release in parallel with the arsenal pilot (\"b\"), then \"1. a / 2. a / 3. a / 4. a\" to the front's questions (scratchpad reports/demo-and-release.md, part 2): 1a MIT with holder \"amidman\"; 2a a new public repo with one commit, the working repo stays private; 3a Glonass, project names, language and the money cap in a personal overlay outside the public repo; 4a relay's own stdlib license command. Release blocker 6 in the report. Decides the open point of relay-as-a-portable-tool-project-data-out-of-rel (\"Glonass stays outside relay ... decide its place at build time with the owner\"): the overlay. Designed together with that item. IP chosen by the front (agent-chosen), release track."
+  ],
+  "where": "lib/relay_rules.py (sync sources), profiles/active.toml, rules/glonass.md, rules/git.md:6,12, projects.toml [global]",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
