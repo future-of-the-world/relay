@@ -154,22 +154,10 @@ def stale_commits(wt):
 
 
 def write_mark(wt, data):
-    """Commit the mark and the stored record of the loaded check record `data` (a dict with its `worktree`) in worktree `wt`;
-    returns the line the hook prints. No rule of its own: the counts are the record's (`open_of`, `queued_of`)."""
-    head = data["head"]
-    gate = data["gate"] if data["gate"] and os.path.isfile(os.path.join(wt, relay_marks.FOLDER, data["gate"])) else None
-    counts = {"open": relay_verdict.open_of(data), "queued": relay_verdict.queued_of(data)}
-    mark = {
-        "schema": relay_marks.MARK_SCHEMA,
-        "commit": head,
-        "verdict": counts,
-        "check": "%s.check.json" % head,
-        "gate": gate,
-        "time": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    }
-    dump = lambda obj: json.dumps(obj, indent=2, sort_keys=True) + "\n"
-    relay_marks.put(wt, head, mark, {mark["check"]: dump(relay_verdict.stored_record(data))})
-    return "check mark written for %s: %s, open %d, queued %d" % (relay_git.current_branch(wt) or wt, head, counts["open"], counts["queued"])
+    """Commit the mark and the stored record of the loaded check record `data` in worktree `wt` (`relay_marks.write_check_mark`,
+    the code `relay check record check` runs too); returns the line the hook prints."""
+    counts = relay_marks.write_check_mark(wt, data)
+    return "check mark written for %s: %s, open %d, queued %d" % (relay_git.current_branch(wt) or wt, data["head"], counts["open"], counts["queued"])
 
 
 def run(hook):

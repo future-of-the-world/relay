@@ -13,6 +13,7 @@ staged and out of the commit, the project's commit hooks do not run, and the mes
 A locked index is retried `MARK_COMMIT_RETRIES` times, one second apart, then `MarkError("index busy")`.
 """
 
+import datetime as dt
 import json
 import os
 import re
@@ -106,6 +107,31 @@ def put(worktree, commit, mark, files, sleep=time.sleep):
         _write(os.path.join(folder, name), text)
     rel = [FOLDER + "/" + name for name in names]
     _commit(worktree, rel, "relay: check of %s" % commit, sleep)
+
+
+def write_check_mark(worktree, data):
+    """Commit the mark and the stored record of the loaded check record `data` (its `head`, `gate`, findings) in `worktree`;
+    returns the counts {"open", "queued"}. No rule of its own: the counts are the record's (`open_of`, `queued_of`). When the
+    branch already holds the same mark of that head (the command made it, then the hook came) nothing is committed. Both the
+    command `relay check record check` and the SubagentStop hook call this, so a mark does not depend on which one runs."""
+    head = data["head"]
+    gate = data["gate"] if data["gate"] and os.path.isfile(os.path.join(worktree, FOLDER, data["gate"])) else None
+    counts = {"open": relay_verdict.open_of(data), "queued": relay_verdict.queued_of(data)}
+    name = "%s.check.json" % head
+    stored = json.dumps(relay_verdict.stored_record(data), indent=2, sort_keys=True) + "\n"
+    have = get(worktree, "HEAD", head)
+    if have is not None and have["verdict"] == counts and have["check"] == name and have.get("gate") == gate and _show(worktree, "HEAD", name) == stored:
+        return counts
+    mark = {
+        "schema": MARK_SCHEMA,
+        "commit": head,
+        "verdict": counts,
+        "check": name,
+        "gate": gate,
+        "time": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    put(worktree, head, mark, {name: stored})
+    return counts
 
 
 def drop(worktree, commit, sleep=time.sleep):
