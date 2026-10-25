@@ -54,7 +54,8 @@ def load_old_names(path=None):
 
 
 def detect(root):
-    d = {"root": root, "name": os.path.basename(os.path.realpath(root)), "git": os.path.isdir(os.path.join(root, ".git")) or os.path.isfile(os.path.join(root, ".git"))}
+    # a linked worktree is the same project as its main checkout: name it after that folder
+    d = {"root": root, "name": os.path.basename(main_checkout(root) or os.path.realpath(root)), "git": os.path.isdir(os.path.join(root, ".git")) or os.path.isfile(os.path.join(root, ".git"))}
     d["stack"], d["tool"] = "unknown", ""
     for marker, stack, tool in STACKS:
         if os.path.exists(os.path.join(root, marker)):
@@ -110,12 +111,52 @@ def write_json(path, data):
         handle.write("\n")
 
 
+def _git_out(cwd, *args):
+    """Stdout of a git command run in `cwd`, stripped; None when git fails or is missing."""
+    try:
+        run = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return run.stdout.strip() if run.returncode == 0 else None
+
+
+def main_checkout(root):
+    """The main checkout's folder when `root` is a linked git worktree of it; None for anything else (a main checkout, a submodule,
+    a --separate-git-dir checkout, a bare repository, a folder outside git). A linked worktree's git dir is <common>/worktrees/<name>,
+    so it differs from the common dir; the main checkout is the common dir's parent when that is a `.git` folder."""
+    gitdir = _git_out(root, "rev-parse", "--path-format=absolute", "--git-dir")
+    common = _git_out(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if not gitdir or not common or os.path.realpath(gitdir) == os.path.realpath(common):
+        return None
+    if os.path.basename(os.path.realpath(common)) != ".git":
+        return None
+    if _git_out(root, "rev-parse", "--is-bare-repository") == "true":
+        return None
+    return os.path.dirname(os.path.realpath(common))
+
+
 def backup(path):
-    if os.path.isfile(path):
-        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-        shutil.copy2(path, f"{path}.{stamp}.bak")
-        return f"{path}.{stamp}.bak"
-    return None
+    """Keep a copy of `path` before it is rewritten; return where it went, None when no copy was needed.
+    A file in a git repository gets no `.bak` beside it (it would sit untracked among the project's files): when git holds the
+    file unchanged, no copy is needed; otherwise the copy goes under the repository's git folder, relay-backup/. A file outside
+    git (the user's own settings) keeps the `.bak` beside it."""
+    if not os.path.isfile(path):
+        return None
+    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    folder = os.path.dirname(os.path.abspath(path))
+    top = _git_out(folder, "rev-parse", "--show-toplevel")
+    if top is not None:
+        if _git_out(folder, "ls-files", "--error-unmatch", "--", path) is not None and _git_out(folder, "diff", "--quiet", "HEAD", "--", path) is not None:
+            return None   # tracked and equal to HEAD: git already holds this exact file
+        gitdir = _git_out(folder, "rev-parse", "--path-format=absolute", "--git-dir")
+        if gitdir:
+            rel = os.path.relpath(os.path.realpath(path), os.path.realpath(top)).replace(os.sep, "__")
+            dest = os.path.join(gitdir, "relay-backup", f"{rel}.{stamp}.bak")
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            shutil.copy2(path, dest)
+            return dest
+    shutil.copy2(path, f"{path}.{stamp}.bak")
+    return f"{path}.{stamp}.bak"
 
 
 # --- bindings ---------------------------------------------------------------
@@ -655,7 +696,7 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
         todo.append("CLAUDE.md: write what the project is in two lines, and its product surface if a person sees it")
     if copy_template("handover.md", os.path.join(root, "docs", "handover.md"), replacements={"name": d["name"], "date": str(dt.date.today())}):
         done.append("wrote docs/handover.md")
-    if register_project(d["name"], root, flow, product, specs):
+    if register_project(d["name"], main_checkout(root) or root, flow, product, specs):
         done.append(f"registered {d['name']} in projects.toml (loads: {flow} flow rules)")
     if strip_stored_spec_rules(d["name"]):
         done.append(f"projects.toml [{d['name']}]: removed the stored spec rule from load (it comes from kit.toml [specs])")

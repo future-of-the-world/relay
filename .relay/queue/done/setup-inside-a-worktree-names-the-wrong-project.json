@@ -21,8 +21,8 @@
   "where": "lib/relay_setup.py setup",
   "taken_at": "2026-10-25T20:16:33Z",
   "taken_by": "wt/setup-wt",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T21:24:53Z",
+  "test": "tests/test_setup.py::SetupInWorktree::test_setup_in_a_linked_worktree_names_the_project_after_the_main_checkout",
   "dropped_at": null,
   "dropped_why": null
 }
