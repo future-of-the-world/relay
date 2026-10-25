@@ -21,8 +21,8 @@
   "where": [
     "lib/relay_setup.py setup"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T20:16:33Z",
+  "taken_by": "wt/setup-wt",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

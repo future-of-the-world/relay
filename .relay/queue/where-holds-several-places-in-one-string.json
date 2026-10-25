@@ -24,8 +24,8 @@
     "lib/relay_queue.py:307 (show)",
     "rules/queue.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T20:32:08Z",
+  "taken_by": "wt/where-list",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

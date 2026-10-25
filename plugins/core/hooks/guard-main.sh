@@ -6,7 +6,8 @@
 #   outside its worktrees folder (project.worktrees, default .worktrees);
 # - Bash that, in the main checkout, runs a mutating git command (commit,
 #   reset, branch -f, update-ref, ...; except `git merge --ff-only wt/<name>`,
-#   the user-requested merge), also behind `git -c k=v`, `time`, `nohup`,
+#   the user-requested merge, and `git merge --ff-only origin/<default>` in a
+#   main checkout on its default branch, the sync with the remote), also behind `git -c k=v`, `time`, `nohup`,
 #   `bash -c "..."`, `eval` and `xargs`, a command the
 #   project lists under [[guard.block]] in .claude/kit.toml (the stack's
 #   commands that write tracked files: dependency changes, formatters), or

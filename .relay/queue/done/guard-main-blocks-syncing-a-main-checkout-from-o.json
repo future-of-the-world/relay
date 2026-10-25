@@ -21,10 +21,10 @@
   "where": [
     "plugins/core/hooks/guard-main.sh (the merge rule in a main checkout)"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-25T19:19:58Z",
+  "taken_by": "wt/pilot-guards",
+  "closed_at": "2026-10-25T19:46:33Z",
+  "test": "tests/test_merge_hook.py::GuardMainSync::test_q1_a_main_checkout_on_its_default_branch_may_ff_only_to_origin_default_only",
   "dropped_at": null,
   "dropped_why": null
 }

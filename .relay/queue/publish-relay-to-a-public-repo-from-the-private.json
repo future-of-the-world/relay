@@ -1,0 +1,26 @@
+{
+  "kind": "feature",
+  "ip": 87,
+  "time": 60,
+  "found_at": "2026-10-25T19:39:40Z",
+  "found_in": "relay queue add",
+  "title": "Publish relay to a public repo from the private one",
+  "what": [
+    "One script builds the public tree from the private repo's default branch (the minimal release list of the report: bin/relay, lib, plugins, rules without the overlay, profiles without Glonass, templates, install.sh, deps.toml, prices.toml, tests, evals with a cost warning, the user docs, README, LICENSE; never .relay/ records, handover, notes, variants, plans, improve/log) and commits it as one commit to the public repo with a neutral author; a check refuses when the tree holds /Users/, the owner's hosts, Glonass names or a secret pattern. The README is written for a stranger (what it is, requirements, the cost of paid evals, macOS tested, Linux not). Pushing to GitHub waits for the owner's word and account."
+  ],
+  "why": [
+    "Owner, 25 Oct, on preparing a public GitHub release in parallel with the arsenal pilot (\"b\"), then \"1. a / 2. a / 3. a / 4. a\" to the front's questions (scratchpad reports/demo-and-release.md, part 2): 1a MIT with holder \"amidman\"; 2a a new public repo with one commit, the working repo stays private; 3a Glonass, project names, language and the money cap in a personal overlay outside the public repo; 4a relay's own stdlib license command. Release blockers 2, 3 and 7 in the report (1047 commits carry the owner's name and host; 497 check files, 119 queue items, a 1172-line handover in the tree; a README for the owner). IP chosen by the front (agent-chosen), release track; after the portable-tool and overlay items."
+  ],
+  "where": [
+    ".relay/queue/publish-relay-to-a-public-repo-from-the-private.json a new bin/ script (publish)",
+    "docs/setup.md",
+    "README.md",
+    ".relay/ and docs/ (what stays private)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

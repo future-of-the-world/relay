@@ -330,7 +330,7 @@ m15; commit "fix a" "lib/a.py=v2\n"; gate 0; pre "$MERGE"
 expect "T15a no mark: refused" "$(refused 'no check mark for wt/t'; echo $?)"
 # (b) mark open 2
 m15; commit "fix a" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 2; pre "$MERGE"
-expect "T15b open 2: refused" "$(refused 'left 2 things inside the change wrong'; echo $?)"
+expect "T15b open 2: refused" "$(refused 'left 2 things open'; echo $?)"
 expect "T15b names the report" "$(has ".relay/checks/$X.check.json" "$out"; echo $?)"
 # (c) clean mark and green gate; the merge itself then succeeds
 m15; green; pre "$MERGE"

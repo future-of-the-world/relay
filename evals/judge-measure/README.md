@@ -42,3 +42,8 @@ the default judge of `bin/ci` (`EVALS_JUDGE_MODEL`, still overridable, e.g. `EVA
 Cost: see above; a sonnet-judged batch costs more than a haiku one per vote (the ledger and `bin/paid-cost estimate` hold the measured figures). A grader that
 fails on sonnet too comes out of its case until its rubric is reworded and measured again. The eval
 writes `results/` here (ignored by git); `git status --short` must be empty afterwards.
+
+`measure-ru-style` (the it-terms-ru judge `gender-and-opener`; whole recorded replies with no template, short, see `whole_reply` and
+`min_len` in questions.json): result of 2026-10-25 on sonnet, `--case measure-ru-style --runs 3 -j 1`, $0.095: the 6 live bad replies
+of 25 Oct (feminine branch, the "project not named" opener, or both) were judged FAIL and the owner-approved good reply PASS in all
+3 runs, 21 of 21 verdicts and 63 of 63 votes right. tally.py wants every case, so for this one case read the `--json` by hand.

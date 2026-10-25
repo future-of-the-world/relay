@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-25T15:29:40Z",
   "taken_by": "wt/ru-style",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T17:30:00Z",
+  "test": "tests/test_ru_style.py::RuStyle::test_q1_the_apostrophe_grader_fails_commitov_and_passes_a_reply_without_it",
   "dropped_at": null,
   "dropped_why": null
 }

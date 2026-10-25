@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-25T17:04:30Z",
   "taken_by": "wt/feature-kind",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T18:30:53Z",
+  "test": "tests/test_feature_kind.py::TestFeatureKind::test_feature_not_met_finding_is_open",
   "dropped_at": null,
   "dropped_why": null
 }

@@ -1,0 +1,26 @@
+{
+  "kind": "feature",
+  "ip": 89,
+  "time": 90,
+  "found_at": "2026-10-25T19:39:39Z",
+  "found_in": "relay queue add",
+  "title": "relay license: add and check a project's license",
+  "what": [
+    "An optional built-in: `relay license add <SPDX id> --holder <name> [--year N]` writes LICENSE from a bundled exact SPDX text (about 10: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MPL-2.0, GPL-3.0-or-later, LGPL-3.0-or-later, AGPL-3.0-or-later, Unlicense; texts from SPDX license-list-data at a pinned tag, CC0); `relay license check` reports a missing or changed LICENSE and, when the project asks for headers, code files without a one-line `SPDX-License-Identifier: <id>` (code files only, by extension; JSON, docs and logs never). `relay setup --license <id>` and a `[license]` table in kit.toml turn it on; without them nothing happens. relay itself gets its LICENSE (MIT, holder amidman) from the command; headers stay off in relay (front's decision, owner can reverse: 180 files touched would collide with every open branch)."
+  ],
+  "why": [
+    "Owner, 25 Oct, on preparing a public GitHub release in parallel with the arsenal pilot (\"b\"), then \"1. a / 2. a / 3. a / 4. a\" to the front's questions (scratchpad reports/demo-and-release.md, part 2): 1a MIT with holder \"amidman\"; 2a a new public repo with one commit, the working repo stays private; 3a Glonass, project names, language and the money cap in a personal overlay outside the public repo; 4a relay's own stdlib license command. The owner: \"можем ли мы встроить в relay утилиту которая позволяет автоматически добавлять и проверять наличие заголовка с лицензией и саму лицензию в проект, это будет полезно для любых проектов, в relay это идёт built-in ... подключение лицензии в любой проект это основа, такая возможность должна быть и оставаться при этом опцией\". REUSE (6.2.0) was measured and set aside: GPL-3.0 code cannot be embedded in an MIT relay, 7 deps plus libmagic. IP chosen by the front (agent-chosen), release track."
+  ],
+  "where": [
+    "bin/relay",
+    "lib/ (a new license module), templates or data for the license texts",
+    "lib/relay_setup.py (setup --license)",
+    "kit.toml [license], the gate's check step"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

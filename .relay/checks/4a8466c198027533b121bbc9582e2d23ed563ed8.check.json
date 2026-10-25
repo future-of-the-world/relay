@@ -1,0 +1,260 @@
+{
+  "branch": "wt/pilot-guards",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, the arsenal pilot design, scratchpad reports/design-arsenal.md (copy in ~/.relay/backup/scratch-3207dc59), section 1.2, measured with fake hook input: arsenal's guard allows exactly `git merge --ff-only origin/master` and blocks `--ff-only wt/x`; relay's guard-main does the reverse, so relay blocks a hand-typed Master Sync in arsenal today. Live in every project that merges by pull request. IP chosen by the front (agent-chosen), before the pilot."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "guard-main.sh fed {\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git merge --ff-only origin/master\"}} with cwd a primary checkout on master: refused."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same input is allowed; `git merge origin/master` (no --ff-only) and `git merge --ff-only some-branch` from outside wt/ stay as they are today."
+      ],
+      "path": "plugins/core/hooks/guard-main.sh (the merge rule in a main checkout)",
+      "rank": "high",
+      "reason": [
+        "tests/test_merge_hook.py:82 asserts exit 0 for git merge --ff-only origin/master and exit 2 for the near cases; fails at 431d4ce, passes at head."
+      ],
+      "severity": "HIGH",
+      "since": "431d4ce9ce796b98df91b3ba5f1acb0ff33ab681",
+      "source": "queue",
+      "summary": "guard-main blocks syncing a main checkout from origin",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced with the hook). sync_merge accepts the literal word FETCH_HEAD without asking what it holds.",
+        "FETCH_HEAD is whatever the last `git fetch` wrote: any remote, any URL, or `.` (a local branch). `git fetch` is not in",
+        "GIT_WRITE, so the fetch half is allowed in main too. The guard runs before the command, so in the usual one-line form",
+        "`git fetch X && git merge --ff-only FETCH_HEAD` it cannot even read the FETCH_HEAD that the merge will use; checking",
+        "its content at hook time sees the old value. So no fix inside \"allow FETCH_HEAD, origin only\" is exact unless the",
+        "guard parses the preceding fetch in the same command and also checks the current FETCH_HEAD when there is none.",
+        "Design: the brief asks for both \"allow --ff-only FETCH_HEAD\" and \"origin is the only remote allowed (do not widen to",
+        "any remote)\"; FETCH_HEAD is a widening to every remote. The design's own measurement (design-arsenal.md 1.2) names only",
+        "`git merge --ff-only origin/master` as arsenal's Master Sync; nothing measured needs FETCH_HEAD.",
+        "Recommendation: drop FETCH_HEAD (allow origin/<default> only). Size: 10 min (drop it, flip two test lines).",
+        "Keeping it with a parse of the preceding `git fetch origin [<default>]` plus a FETCH_HEAD==refs/remotes/origin/<default>",
+        "check when no fetch precedes: about 45 min and more parts (principle 7)."
+      ],
+      "evidence": [
+        "$ for c in ...; do printf '{...cwd: repro/g on master...}' | env -u CLAUDE_PROJECT_DIR plugins/core/hooks/guard-main.sh; echo \"$? :: $c\"; done",
+        "0 :: git fetch . side && git merge --ff-only FETCH_HEAD",
+        "0 :: git fetch https://example.invalid/x.git topic && git merge --ff-only FETCH_HEAD",
+        "2 :: git merge --ff-only side",
+        "plugins/core/hooks/merge.py:282  for directory, branch in kit_guard.allowed_merges(command, cwd):   (wt/ names only)",
+        "kit_guard.py:464  return pos[0] in (\"FETCH_HEAD\", \"origin/\" + default)"
+      ],
+      "failing_case": [
+        "A main checkout on master (any repo; in a project with .relay/ the same holds). guard-main.sh fed",
+        "{\"tool_name\":\"Bash\",\"cwd\":<main>,\"tool_input\":{\"command\":\"git fetch . side && git merge --ff-only FETCH_HEAD\"}}",
+        "exits 0 (allowed), while \"git merge --ff-only side\" exits 2. Likewise",
+        "\"git fetch https://example.invalid/x.git topic && git merge --ff-only FETCH_HEAD\" exits 0.",
+        "In relay itself, \"git fetch . wt/unchecked && git merge --ff-only FETCH_HEAD\" is allowed by guard-main and",
+        "never seen by merge.py (allowed_merges lists only wt/ names), so a branch lands on master with no gate and no check mark.",
+        "Should: be refused, because the brief says origin is the only remote allowed and the merge hook lets a branch in",
+        "only with a green gate and open 0."
+      ],
+      "fix_hint": [
+        "Return pos[0] == \"origin/\" + default; drop FETCH_HEAD from sync_merge, its docstring, the comment in git_write, the",
+        "guard-main.test.sh \"ff-only FETCH_HEAD sync\" line (make it a block case) and the test_merge_hook assertion (expect 2)."
+      ],
+      "id": "F1",
+      "kind": "design",
+      "line": 464,
+      "pass_cases": [
+        "1. main on master, \"git merge --ff-only origin/master\": allowed (exit 0), as now.",
+        "2. main on master, \"git fetch . side && git merge --ff-only FETCH_HEAD\": refused (exit 2).",
+        "3. main on master, \"git fetch https://example.invalid/x.git topic && git merge --ff-only FETCH_HEAD\": refused (exit 2).",
+        "4. main on master, \"git merge --ff-only upstream/master\" and \"git merge --ff-only some-branch\": refused (exit 2), as now.",
+        "5. If the owner keeps FETCH_HEAD: main on master, \"git fetch origin && git merge --ff-only FETCH_HEAD\" and",
+        "   \"git fetch origin master && git merge --ff-only FETCH_HEAD\": allowed."
+      ],
+      "path": "plugins/core/lib/kit_guard.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_merge_hook.py:92 FETCH_HEAD refused; fails without the fix."
+      ],
+      "severity": "HIGH",
+      "since": "23dd17fc596adf5f53b10b5e3342d7aa5b6e1350",
+      "source": "review-pilot-guards.json",
+      "source_id": "F1",
+      "summary": "FETCH_HEAD lets a main checkout fast-forward to any branch of any remote, URL or local branch: the origin-only rule and the merge gate are bypassed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced). The regex r\"\\.claude/hooks/([\\w.-]+)\" matches any path that ends in .claude/hooks/<name>,",
+        "then checks only <root>/.claude/hooks/<name>. So a hook in the home folder, or any other path with that tail, is",
+        "judged \"gone\". And the rule runs in merge_settings, i.e. on every `relay setup`, not only after migrate moved",
+        "something: it deletes the owner's settings by file absence, not by what relay moved. Cause, not symptom (principle 6):",
+        "the cause of Q1 is that migrate forgets the entries of the files it moves; the fix belongs with the moved list, not",
+        "with a generic existence test. The setup message \"removed a hook the plugins now provide\" is also wrong for these.",
+        "Size: 20 min."
+      ],
+      "evidence": [
+        "$ python3 scratchpad/repro/hooks.py scratchpad/repro",
+        "removed: ['Stop: ~/.claude/hooks/notify.sh', 'Notification: /Users/someone/.claude/hooks/notify.sh', 'PreToolUse: ...guard.sh ...issue-stage.sh']",
+        "left: None"
+      ],
+      "failing_case": [
+        "Project .claude/settings.json with {\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"~/.claude/hooks/notify.sh\"}]}],",
+        "\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/someone/.claude/hooks/notify.sh\"}]}]}}, no",
+        "<root>/.claude/hooks/notify.sh. relay_setup.merge_settings(root, []) (run by every `relay setup`, not only migrate)",
+        "removes both entries and reports them as \"removed a hook the plugins now provide\". Should: keep both; relay did not",
+        "move them and does not provide them."
+      ],
+      "fix_hint": [
+        "Pass the paths migrate moved (moved list, e.g. \".claude/hooks/issue-stage.sh\") from migrate into setup/merge_settings",
+        "and drop only commands that name exactly those project paths (\"$CLAUDE_PROJECT_DIR\"/<path>, ./<path>, <path>);",
+        "plain setup passes none."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 259,
+      "pass_cases": [
+        "1. migrate(apply=True) on a project whose settings name \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/issue-stage.sh (moved aside)",
+        "   and .../guard.sh (kept): issue-stage.sh entry gone, guard.sh entry kept (the existing test).",
+        "2. merge_settings / setup on a project whose settings name \"~/.claude/hooks/notify.sh\": entry kept.",
+        "3. Same with an absolute \"/Users/someone/.claude/hooks/notify.sh\": entry kept.",
+        "4. setup (no migrate) on a project whose settings name \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/later.sh that does not exist",
+        "   and was never moved by relay: entry kept (relay does not delete what it did not move)."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup.py test_f2_setup_keeps_entries_it_did_not_move passes; fails at 431d4ce."
+      ],
+      "severity": "MEDIUM",
+      "since": "23dd17fc596adf5f53b10b5e3342d7aa5b6e1350",
+      "source": "review-pilot-guards.json",
+      "source_id": "F2",
+      "summary": "gone_hook drops every settings entry naming any .claude/hooks/<file> missing from the project, including user hooks in ~/.claude/hooks and hooks migrate never touched",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced, same script as F2: the PreToolUse group with guard.sh and issue-stage.sh was removed whole).",
+        "The loop joins every command of a group into one string and drops the group when gone_hook matches any part. The",
+        "existing names (context-budget.py, ...) were whole-group rules for relay's own groups; applying that to project hooks",
+        "breaks Q1's own pass case. Same fix area as F2 (hook-by-hook removal). Size: 15 min."
+      ],
+      "evidence": [
+        "$ python3 scratchpad/repro/hooks.py scratchpad/repro",
+        "removed: [..., 'PreToolUse: \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard.sh \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/issue-stage.sh']"
+      ],
+      "failing_case": [
+        "settings.json: {\"hooks\":{\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"$CLAUDE_PROJECT_DIR\\\"/.claude/hooks/guard.sh\"},",
+        "{\"type\":\"command\",\"command\":\"\\\"$CLAUDE_PROJECT_DIR\\\"/.claude/hooks/issue-stage.sh\"}]}]}}, guard.sh present,",
+        "issue-stage.sh moved aside. merge_settings removes the whole PreToolUse group, so guard.sh no longer runs.",
+        "Should: remove only the issue-stage.sh command and keep the group with guard.sh (the item: \"a hook it leaves in place",
+        "keeps its entry\")."
+      ],
+      "fix_hint": [
+        "For the moved-path rule, filter group[\"hooks\"] command by command; drop the group only when no command is left."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 289,
+      "pass_cases": [
+        "1. The group above: after migrate, PreToolUse holds one group with only the guard.sh command.",
+        "2. A group with only issue-stage.sh (moved): the group is gone, and the event key when it was the last group.",
+        "3. A group with only guard.sh (kept): unchanged."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup.py test_f3_a_group_keeps_its_other_commands passes; fails at 431d4ce."
+      ],
+      "severity": "MEDIUM",
+      "since": "23dd17fc596adf5f53b10b5e3342d7aa5b6e1350",
+      "source": "review-pilot-guards.json",
+      "source_id": "F3",
+      "summary": "a hook group holding a moved hook and a kept hook is dropped whole: the kept hook loses its entry",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: git 2.50.1 ran `git merge --ff-only --no-ff -m x origin/master` and printed \"Merge made by the 'ort'",
+        "strategy\" (last of --ff/--no-ff/--ff-only wins); the guard returned 0 for the --no-edit form. allowed_merge_branch",
+        "(before this change) has the same gap for wt/; the change copies it to the new rule. A slip is unlikely (\"this",
+        "catches slips, not a determined bypass\"), so LOW. Size: 5 min (refuse when --no-ff, --ff or --squash appears with --ff-only, in both rules)."
+      ],
+      "evidence": [
+        "$ git merge --ff-only --no-ff origin/master -m x   ->  Merge made by the 'ort' strategy. rc=0",
+        "guard-main: 0 :: git merge --ff-only --no-ff --no-edit origin/master"
+      ],
+      "failing_case": [
+        "main on master with master and origin/master diverged: \"git merge --ff-only --no-ff --no-edit origin/master\" is allowed",
+        "by guard-main (exit 0) and git creates a merge commit on master in the main checkout. Should: refused (exit 2)."
+      ],
+      "fix_hint": [
+        "In sync_merge (and allowed_merge_branch), return False when any of --no-ff, --ff, --squash, --no-ff-only is in texts."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 456,
+      "pass_cases": [
+        "1. \"git merge --ff-only --no-ff --no-edit origin/master\" in main on master: refused.",
+        "2. \"git merge --ff-only origin/master\": allowed.",
+        "3. \"git merge --ff-only wt/x\" and \"git merge --ff-only wt/x 2>&1 | tail -3\": allowed, as now."
+      ],
+      "path": "plugins/core/lib/kit_guard.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_merge_hook.py:99 refuses --ff-only beside --no-ff/--ff/--squash, keeps wt/x and origin/master allowed; fails at 431d4ce."
+      ],
+      "severity": "LOW",
+      "since": "23dd17fc596adf5f53b10b5e3342d7aa5b6e1350",
+      "source": "review-pilot-guards.json",
+      "source_id": "F4",
+      "summary": "--ff-only next to --no-ff (git takes the last one) passes the sync rule and makes a merge commit on the default branch in main",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: guard-main.sh was not touched by the change; its header is the guard's documentation. Size: 5 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A reader of plugins/core/hooks/guard-main.sh lines 7-9 learns that `git merge --ff-only wt/<name>` is the one",
+        "exception; the guard now also allows `git merge --ff-only origin/<default>` on the default branch. Should: the header names it."
+      ],
+      "fix_hint": [
+        "Add the sync exception to the header list, next to the wt/ merge."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 8,
+      "pass_cases": [
+        "1. guard-main.sh header names the sync exception: --ff-only origin/<default>, in a main checkout on its default branch.",
+        "2. kit_guard.py git_write comment names the same exception (it does)."
+      ],
+      "path": "plugins/core/hooks/guard-main.sh",
+      "rank": "low",
+      "reason": [
+        "tests/test_merge_hook.py:108 header names the sync exception; fails at 431d4ce."
+      ],
+      "severity": "LOW",
+      "since": "23dd17fc596adf5f53b10b5e3342d7aa5b6e1350",
+      "source": "review-pilot-guards.json",
+      "source_id": "F5",
+      "summary": "guard-main.sh header still says the only merge allowed in main is --ff-only wt/<name>",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "9b28973b81ea99b24dbb92a791a512b9e9503bce.gate.log",
+  "head": "4a8466c198027533b121bbc9582e2d23ed563ed8",
+  "item": "guard-main-blocks-syncing-a-main-checkout-from-o",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Q1 and F1-F5 over 431d4ce..HEAD. pytest tests/test_merge_hook.py tests/test_setup.py: 35 passed. At 431d4ce with head's two test files copied in, 7 tests fail (the Q1, F1, F4, F5, F2, F3 and q1-migrate tests). Gate log is for 9b28973, exit 0; relay changed lists no file after it. FETCH_HEAD part of Q1 withdrawn (F1)."
+  ],
+  "type": "check"
+}

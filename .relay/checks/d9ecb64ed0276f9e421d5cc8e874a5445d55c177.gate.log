@@ -1,0 +1,19 @@
+head d9ecb64ed0276f9e421d5cc8e874a5445d55c177
+cmd bin/ci --quick
+ci: library tests ok (552s)
+ci: types and lint ok (1s)
+ci: hook tests FAILED (151s, log: .ci/steps/hook-tests.log)
+    FAIL  K1 one new commit
+    FAIL  K2 then checker: the mark commit
+    FAIL  K4b not JSON: no commit, reason named
+    FAIL  K4b gate is not a log name: no commit, reason names gate
+    FAIL  K4c an open field in the data: no commit, reason names it
+    FAIL  K5 old report: no commit
+    FAIL  K6 unknown head in the data: no commit, reason named
+    FAIL  K6 abbreviated head in the data: no commit, reason named
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert ok (758s)
+ci: RED
+exit 1

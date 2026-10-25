@@ -12,7 +12,9 @@ agents (load the `delegate` skill).
 
 ## One reply per request
 
-- Start with the project and what it does, in a few words, then the outcome.
+- Start with the project and what it does, in a few words, then the outcome;
+  when no project is named, start with the substance, never with a remark
+  that it was not named.
   Every message stands alone: the owner works on several projects and keeps
   none of the details in their head.
 - Name things by what they do for the owner, never by branch, file, agent or

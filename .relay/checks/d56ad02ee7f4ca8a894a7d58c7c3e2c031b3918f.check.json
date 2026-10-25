@@ -1,0 +1,203 @@
+{
+  "branch": "wt/feature-kind",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, wt/claudemd: the check record holds F2 (rank high, verdict NOT MET, kind \"feature\"), and relay check show says \"open 0, queued 0, outside: 0\", so the merge hook would let it through with no word about it. The checker itself wrote \"I don't know why the record shows open 0 while F2 is a HIGH finding not met\". IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "/Users/amidman/relay/.worktrees/claudemd/.relay/checks/9abb0e27ba0cc189a69bbf25825bee9e57040a91.check.json: F2 kind feature, rank high, NOT MET; open_of gives 0."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A record with one high NOT MET finding of kind feature and no owner entry gives open 1 (or is refused at record time without a queue item).",
+        "A record whose findings are all MET gives open 0."
+      ],
+      "path": "lib/relay_verdict.py open_of, queued_of, outside_of; relay check show; plugins/core/hooks/merge.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_feature_kind.py:36 (test_feature_not_met_finding_is_open) passes at head, fails at 0181656 (0 != 1); all-MET gives 0 at line 40."
+      ],
+      "severity": "HIGH",
+      "since": "0181656a47f670b68a85f7c59bf24a62b2e1d786",
+      "source": "queue",
+      "summary": "A NOT MET finding of kind feature is counted nowhere",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Before the change a feature, design or question finding never counted, so the table's \"listed for the",
+        "owner\" was enough to reach open 0. The change makes open_of count every kind but outside; the only ways to 0 are MET or an owner",
+        "entry (relay_verdict.open_of), and the mark's count is fixed when the checker records (check-mark.py write_mark), so the owner",
+        "entry must be kept and the checker run again. The table (and roles/judge.md:143-145, which still says \"inside the change\") is the",
+        "text the front and the judges act on; it is the caller of the new rule and was not updated. The refusal is safe (fails closed),",
+        "but its message sends the front to fix a feature request inside the change. Size: 15 (one table row pair, one judge.md",
+        "sentence; agent copies follow relay sync and the wave's paid run)."
+      ],
+      "evidence": [
+        "git grep -n 'feature' plugins/delegate/skills/delegate/SKILL.md",
+        "215:| a feature (a judge's suggestion, an out-of-scope question) | listed for the owner |",
+        "sed -n 140,145p roles/judge.md: \"the script derives `open` from the record (the `HIGH` and `MEDIUM` findings inside the change that are not `MET` ...\"",
+        "python3 probe over .relay/checks: 9abb0e27ba0c old 0 new 1 mark 0 [('F2', 'feature', 'NOT MET'), ...]"
+      ],
+      "failing_case": [
+        "A critic records F2 kind \"feature\", severity HIGH (a judge's suggestion beyond the change). The front follows the table at line",
+        "215: \"listed for the owner\". The checker gives F2 NOT MET; open_of now gives 1; the hook writes the mark with open 1. The front",
+        "sees \"open 1\" and plugins/core/hooks/merge.py:223 refuses with \"the check of X left 1 thing inside the change wrong ... fix",
+        "them\", so the front sends a fixer to build the suggested feature inside this change, or stalls. Same for a MEDIUM kind",
+        "\"question\": line 216 says the answer is \"recorded in the design or brief\", which leaves the finding without an owner entry and",
+        "open stays 1.",
+        "Should be: the table says that a feature, a question or a Design finding at HIGH or MEDIUM counts as open until the owner's",
+        "answer is kept with `relay check owner` (words, or `queue = \"<slug>\"` for a feature moved to the queue) and the checker runs again."
+      ],
+      "fix_hint": [
+        "Edit the feature and question rows of the delegate skill's table to name `relay check owner` (queue or words) and a new check;",
+        "reword roles/judge.md step 7's parenthesis to \"of every kind but outside\"; relay sync --dry to see the copies."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 215,
+      "pass_cases": [
+        "- delegate SKILL.md \"Where findings go\": the feature row names `relay check owner <review.json> F<n>` with `queue = \"<slug>\"` (after `relay queue add --input` of the feature), then the checker again.",
+        "- The question row names keeping the owner's answer with `relay check owner` (words), then the checker again, besides the brief.",
+        "- The Design row (it stays open and goes to the owner) is unchanged in effect: it is cleared the same way.",
+        "- roles/judge.md step 7: \"the HIGH and MEDIUM findings of every kind but outside that are not MET and have no owner entry\" (and the agent copies after relay sync), matching open_of's docstring."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "delegate SKILL.md rows for Design, feature, question name relay check owner and a new check; roles/judge.md step 7 says every kind but outside."
+      ],
+      "severity": "MEDIUM",
+      "since": "e3cedf92451dc41bc883fe8fde0b87259c12bac7",
+      "source": "review-feature-kind.json",
+      "source_id": "F1",
+      "summary": "the routing table still says a feature or a question finding is only listed for or asked of the owner; now it holds the merge until an owner entry clears it, and the table never says so",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading; the message predates the change but its meaning changed with open_of. Correct today in effect (it refuses),",
+        "unclear in wording. Size: 5. The hook's tests that match the message text need the same words."
+      ],
+      "evidence": [
+        "plugins/core/hooks/merge.py:222-224 (if mark[\"verdict\"][\"open\"] != 0: raise Refused(\"the check of %s left %s inside the change wrong ...\"))"
+      ],
+      "failing_case": [
+        "Mark of X with open 1 from one HIGH NOT MET kind \"feature\" finding: merge.py prints \"the check of X left 1 thing inside the change",
+        "wrong ...; fix them, run relay gate, then delegate:checker\". Should say the finding needs a fix or the owner's answer kept with",
+        "relay check owner (a feature is not a defect inside the change)."
+      ],
+      "fix_hint": [
+        "\"left %s open (wrong, or waiting for the owner's answer)\"; mention relay check owner."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 223,
+      "pass_cases": [
+        "- open 1 from a feature finding: the message names \"a fix or the owner's answer (relay check owner)\".",
+        "- open 2 from inside findings: the message still says 2 things are wrong and names the report.",
+        "- open 0: no refusal (unchanged)."
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "low",
+      "reason": [
+        "plugins/core/hooks/merge.py:223 message says open, wrong inside the change or waiting for the owner; tests/test_merge_train.py updated and passes."
+      ],
+      "severity": "LOW",
+      "since": "e3cedf92451dc41bc883fe8fde0b87259c12bac7",
+      "source": "review-feature-kind.json",
+      "source_id": "F2",
+      "summary": "the merge refusal says the check 'left N inside the change wrong ... fix them' also when N counts a feature or a question",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the test. Size: 5."
+      ],
+      "evidence": [
+        "tests/test_feature_kind.py: only finding(\"feature\") and finding(\"outside\") are built."
+      ],
+      "failing_case": [
+        "Change open_of to `f[\"kind\"] in (\"inside\", \"feature\") and ...`: both tests still pass, yet a HIGH NOT MET kind \"design\" or",
+        "\"question\" finding with no owner entry gives open 0 again, against open_of's docstring and the item's \"any kind other than",
+        "inside/outside\"."
+      ],
+      "fix_hint": [
+        "Loop the first test over (\"feature\", \"design\", \"question\") with subTest; add the queued case."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 31,
+      "pass_cases": [
+        "- one high NOT MET finding of kind design, no owner entry: open_of 1.",
+        "- one medium NOT MET finding of kind question, no owner entry: open_of 1.",
+        "- one high NOT MET kind design with an owner entry carrying queue: open_of 0, queued_of 1."
+      ],
+      "path": "tests/test_feature_kind.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_feature_kind.py test_design_and_question_are_open_too (fails at base, passes at head)."
+      ],
+      "severity": "LOW",
+      "since": "e3cedf92451dc41bc883fe8fde0b87259c12bac7",
+      "source": "review-feature-kind.json",
+      "source_id": "F3",
+      "summary": "the tests pin only kind feature; the change also counts design and question, and a narrower predicate would pass them",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: traced in the code; relay's own folder is unaffected (probed: identical output with master's and the branch's code),",
+        "other projects' unmigrated folders were not read. Size: 15."
+      ],
+      "evidence": [
+        "python3 -I probe.py <branch> <copy of 669417d^ .relay/checks>: (59, 59, 58); same with master's lib; diff -rq: no difference.",
+        "lib/relay_checks_migrate.py:149-151: gap = old[\"open\"] - relay_verdict.open_of(probe); if gap < 0: raise MigrateError(...)"
+      ],
+      "failing_case": [
+        "A project's schema-1 check with old open 0 and one review-set finding kind \"feature\", rank high, verdict NOT MET, no owner entry",
+        "(the same case as Q1). Before the change _keep_old_counts derived 0 and migrated; now it derives 1 and raises \"the old check says",
+        "open 0 but its findings derive 1\", so `relay check migrate` changes nothing for that whole project."
+      ],
+      "fix_hint": [
+        "In _keep_old_counts derive the old count with the schema-1 rule (kind inside only) for the comparison, or accept gap < 0 when the",
+        "surplus is only non-inside findings."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 149,
+      "pass_cases": [
+        "- that schema-1 check migrates; its record keeps the finding NOT MET and its mark keeps the old open the checker typed (0) or records the new derived count, as decided.",
+        "- relay's own folder at 669417d^ migrates to the same bytes as on master (today: identical, 59 checks, 59 marks).",
+        "- an old open above the derived count still adds N findings for the gap (unchanged)."
+      ],
+      "path": "lib/relay_checks_migrate.py",
+      "rank": "low",
+      "reason": [
+        "lib/relay_checks_migrate.py:149 compares by the old inside-only rule; tests/test_feature_kind.py TestMigrateKeepsOldRule passes."
+      ],
+      "severity": "LOW",
+      "since": "e3cedf92451dc41bc883fe8fde0b87259c12bac7",
+      "source": "review-feature-kind.json",
+      "source_id": "F4",
+      "summary": "the schema-1 migration compares the old typed open with the new open_of, so an unmigrated folder whose checker typed 0 beside a NOT MET feature finding is now refused",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "10016bcc89b539d28ccde6e2ef910aa90b06549e.gate.log",
+  "head": "d56ad02ee7f4ca8a894a7d58c7c3e2c031b3918f",
+  "item": "a-not-met-finding-of-kind-feature-is-counted-now",
+  "notes": [
+    "open_of now counts kind != outside; migration keeps the old inside-only rule; merge.py message and role texts updated."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 0181656..HEAD. Ran tests/test_feature_kind.py and tests/test_merge_train.py (33 passed). Gate log head 10016bcc, exit 0; only the gate-log commit follows. Base worktree at 0181656 with the test file copied in: 2 of 5 tests fail there."
+  ],
+  "type": "check"
+}

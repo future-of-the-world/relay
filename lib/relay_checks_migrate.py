@@ -146,9 +146,11 @@ def _keep_old_counts(old, name, findings, news):
     if old.get("open") is None:
         return
     probe = {"findings": findings}
-    gap = old["open"] - relay_verdict.open_of(probe)
+    # schema 1 counted only the findings inside the change; open_of now counts every kind but outside, so compare with the old rule
+    derived = relay_verdict.open_of({"findings": [f for f in findings if f["kind"] == "inside"]})
+    gap = old["open"] - derived
     if gap < 0:
-        raise MigrateError("%s: the old check says open %s but its findings derive %s" % (name, old["open"], relay_verdict.open_of(probe)))
+        raise MigrateError("%s: the old check says open %s but its findings derive %s" % (name, old["open"], derived))
     notes = [line for line in old.get("notes") or [] if "+1" in line]
     for _ in range(gap):
         n = len(news) + 1

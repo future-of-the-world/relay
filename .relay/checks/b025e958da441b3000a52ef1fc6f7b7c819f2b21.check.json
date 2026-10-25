@@ -1,0 +1,261 @@
+{
+  "branch": "wt/check-mark",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, wt/train-2 (eval-close + sonnet-price, both changed bin/relay): the checker recorded open 0 with review = [] and the command printed \"recorded \u2026 (open 0, queued 0)\", but no mark commit appeared; relay check show kept the older mark and \"1 non-inert file changed after the mark: bin/relay\", and the merge hook refused. The front had to record the combined file as a review finding and run a second check. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "In a train worktree whose riders both changed bin/relay, `relay check record check --input` with review = [] and a verdict MET for M1 prints \"recorded\" and makes no commit."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same record makes a \"relay: check of <head>\" commit and relay check show no longer lists bin/relay as changed after the mark; the merge hook accepts the train.",
+        "When the input cannot make a mark, the command refuses and names what is missing."
+      ],
+      "path": "relay check record check (lib/relay_verdict.py or bin/relay), lib/relay_marks.py put(), plugins/core/hooks/merge.py (train check)",
+      "rank": "high",
+      "reason": [
+        "tests/test_check_mark_hook.py:61 passes; fails at base 2eb6874 (log subject is the gate commit, no check mark)."
+      ],
+      "severity": "HIGH",
+      "since": "2eb687430a1455edf0511178c443d48a80261803",
+      "source": "queue",
+      "summary": "A merge check of a train is recorded but leaves no mark",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED, reproduced. Before the change the hook was the only writer, so dropping marks of HEAD on its own failure was",
+        "safe: any mark there predated this checker. Now the command commits a mark during the checker's run, and the failure path",
+        "(wt from the Worktree: label, stale_commits = HEAD plus the newest marked ancestor with only inert files after it) treats",
+        "that fresh mark as stale. This is exactly the train-8 prompt shape (Report label = an old findings file), so the change's",
+        "promise \"relay check show never shows an older mark as current after a newer record\" fails on the live case it was",
+        "written for. The fixer saw it (\"Open risk ... left unchanged\"); a HIGH inside the change is fixed before the merge.",
+        "Size: 30 minutes."
+      ],
+      "evidence": [
+        "Scratch test /private/tmp/claude-501/-Users-amidman-relay/3207dc59-2cc6-4cd6-9463-5c3c3c8bd504/scratchpad/rt/test_hook_drops.py",
+        "(RecordMakesMark subclass; transcript with the label above; old file utime -3600 s):",
+        "after command: mark 3dcafc88e38d2e8994403143a1c34ad83de3d9ed: open 0, queued 0",
+        "hook: check mark not written for wt/train-1: the check data is older than the checker's start",
+        "after hook: mark 75977edc44cfebbf92e89e107fe3085c46fbb7e5: open 0, queued 0",
+        "verdict: no check of wt/train-1 covers lib/shared.py, which the ready changes it holds changed together or which it rewrote; run relay gate, then delegate:checker"
+      ],
+      "failing_case": [
+        "Train worktree (two riders both changed lib/shared.py), gate green. Checker prompt: \"Check: <old>.json ... Worktree: <train>.",
+        "... Report: <old>.json.\" where <old>.json is older than the checker's start (the train-8 prompt shape). The checker runs",
+        "`relay check record check --input` with report = another path: the command commits \"relay: check of H\" (show: \"mark H: open 0\").",
+        "Then the SubagentStop hook runs: \"check mark not written for wt/train-1: the check data is older than the checker's start\",",
+        "and stale_commits() returns [mark commit, H] (only inert files after H), so drop(H) removes the mark. Now: show lists the",
+        "riders' older mark as current and the merge hook refuses (\"no check of wt/train-1 covers lib/shared.py\"). Expected: the",
+        "command's mark of H stays; the hook reports its own failure without removing a mark it did not write for this record."
+      ],
+      "fix_hint": [
+        "In the failure path, do not drop a mark committed after the checker's start (the mark's \"time\", or its commit date, at or",
+        "after `start`): it is this checker's own record. Add the scratch case as a test in tests/test_check_mark_on_record.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 196,
+      "pass_cases": [
+        "1. The failing case above: after the hook, `relay_marks.show(main, \"wt/train-1\")` still lists \"mark H: open 0\" and the merge hook's verdict for wt/train-1 is None.",
+        "2. A re-check with a correct Report: label whose record is open 1 at the same head H that held an open 0 mark: the mark of H is replaced with open 1 (a stale clean mark never outlives a failed re-check, design 6.5).",
+        "3. A checker whose label file is missing and that recorded nothing, on a HEAD with an old clean mark of HEAD: that stale mark is still removed (today's behaviour).",
+        "4. Label correct, command already made the same mark: the hook adds no commit (tests/test_check_mark_on_record.py test 2 keeps passing)."
+      ],
+      "path": "plugins/core/hooks/check-mark.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_check_mark_hook.py:89 and :110 pass; both fail at base. The hook never removes a mark."
+      ],
+      "severity": "HIGH",
+      "since": "cb585f032602e2f571bd44a1fd39704e5d53bc33",
+      "source": "review-check-mark.json",
+      "source_id": "F1",
+      "summary": "when the hook cannot use its Report: label it drops the mark the command just committed, so show and the merge fall back to an older mark",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. docs/plans/review-gate.md section 6: \"the checker writes only its report; a SubagentStop hook copies",
+        "its verdict into a committed mark; no model writes a mark\", and step 1: \"Does nothing unless agent_type is exactly",
+        "delegate:checker\". Section 9's guard keeps agents from writing .relay/checks by hand; no guard limits who runs",
+        "`relay check record check` (grep of plugins/core/hooks: only check-mark.py names it). The change makes the mark a side",
+        "effect of a command any session can run, so the independence of the check (the one review plus a separate checker) is no",
+        "longer enforced by code. The queue item's pass case (\"the same record makes a relay: check of <head> commit\") cannot be",
+        "met inside section 6, hence a design finding.",
+        "Design: whether `relay check record check` (any caller) may commit a mark, or marks stay hook-only for delegate:checker",
+        "(then the hook finds the record the checker actually wrote, e.g. from the \"recorded <path>\" line of its own transcript,",
+        "instead of trusting only the prompt's Report: label).",
+        "Size: 30 minutes either way, after the owner's word."
+      ],
+      "evidence": [
+        "docs/plans/review-gate.md:316-325 (section 6, steps 1 and 5); bin/relay:578 calls relay_marks.write_check_mark with no",
+        "agent or has_relay check; grep -rln \"check record\" plugins/core/hooks -> only check-mark.py."
+      ],
+      "failing_case": [
+        "A worker or fixer in wt/x (project with .relay/) writes a check TOML with every finding MET and runs",
+        "`relay check record check --input it.toml`. Now: \"recorded ... (open 0, queued 0); check mark committed\", a commit",
+        "\"relay: check of <head>\" with open 0, and with a green gate the merge hook lets wt/x into master with no checker ever run.",
+        "Before the change: the record existed but no mark (the hook fires only for agent_type delegate:checker), and the merge",
+        "was refused \"no check mark for wt/x\"."
+      ],
+      "fix_hint": [
+        "Owner choice. Keeping the design: revert the command's mark; in the hook take the record path from the last",
+        "\"recorded <path> (open\" line in the checker's transcript, falling back to the Report: label."
+      ],
+      "id": "F2",
+      "kind": "design",
+      "line": 1,
+      "pass_cases": [
+        "1. Artifact: docs/plans/review-gate.md section 6 states who may cause a mark: either it keeps \"Does nothing unless agent_type is exactly delegate:checker\" and the command makes no mark, or it is amended to say the command makes it for any caller, with the owner's word.",
+        "2. If the design stays: a record by a non-checker agent leaves no mark and the merge hook refuses wt/x \"no check mark\".",
+        "3. If the design stays: the queue item's train case recorded by a delegate:checker leaves the mark (via the hook, also when the Report: label names another file)."
+      ],
+      "path": "lib/relay_marks.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_check_mark_hook.py:79 passes: the record command makes no mark and the merge still refuses. bin/relay equals 2eb6874."
+      ],
+      "severity": "HIGH",
+      "since": "cb585f032602e2f571bd44a1fd39704e5d53bc33",
+      "source": "review-check-mark.json",
+      "source_id": "F2",
+      "summary": "any agent that runs relay check record check now gets a mark the merge trusts; the design makes marks only from a delegate:checker via the hook",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED from the transcript (agent-a0bc62598ac915d8a.jsonl): the only record-like call is none; check3-train-8.json is",
+        "dated 18:56 local, an hour after this checker (14:55Z), i.e. the second checker's. The brief asks for the cause (principle",
+        "6); the change fixes a different path (record by command) and leaves this one. The hook's design says it \"always exits 0",
+        "(it never blocks)\", so making the checker continue needs that decision changed.",
+        "Design: the check-mark hook may block a delegate:checker's stop once when no valid record newer than its start exists.",
+        "Size: 30 minutes."
+      ],
+      "evidence": [
+        "Prompt (transcript first labelled entry): \"Check: `.../check2-train-8.json`. ... Report: `.../check2-train-8.json`.\"",
+        "Tool calls: relay check findings, relay check show check2, pytest in base3, then StructuredOutput {\"open\": 0, ... \"summary\": \"Report: .../check3-train-8.json ...\"}.",
+        "ls -la reports: check3-train-8.json Oct 25 18:56; check2-train-8.json Oct 25 19:27."
+      ],
+      "failing_case": [
+        "Train-8, 25 Oct: prompt \"Check: check2-train-8.json ... Report: check2-train-8.json\"; the checker ran relay check findings,",
+        "the tests, then StructuredOutput with \"open 0\" and never ran relay check record check. With this change the same run still",
+        "leaves no record and no mark; the hook says \"the check data is older than the checker's start\" in a systemMessage the",
+        "workflow does not surface; show keeps 3e4a0a5 (open 1) and the front believes open 0. Expected: the checker is stopped",
+        "and told to record (or the front is told plainly that no check was recorded)."
+      ],
+      "fix_hint": [
+        "Owner choice on blocking; cheapest without it: the delegate skill / workflow prompt names a new Report path per check and",
+        "the hook refuses a Report label equal to a Check: file with a plain message."
+      ],
+      "id": "F3",
+      "kind": "design",
+      "line": 179,
+      "pass_cases": [
+        "1. A delegate:checker whose transcript holds no successful `relay check record check` and whose label file is older than its start: it is not allowed to finish silently (SubagentStop blocks once with \"run relay check record check --input <toml>\", or the reply the front reads says \"no check recorded\").",
+        "2. A checker that did record (label right): finishes with no block and the mark is made.",
+        "3. Artifact: the delegate skill's check prompt never gives a Report: path equal to a Check: findings file (or the hook refuses that prompt with a message saying so)."
+      ],
+      "path": "plugins/core/hooks/check-mark.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_check_mark_hook.py:123 passes (first stop blocked with exit 2, second lets go with a message); fails at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "cb585f032602e2f571bd44a1fd39704e5d53bc33",
+      "source": "review-check-mark.json",
+      "source_id": "F3",
+      "summary": "the train-8 cause is untouched: a checker that ends without recording leaves the old mark and only a systemMessage nobody in a workflow sees",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: cmd_check_record calls relay_marks.write_check_mark(data[\"worktree\"], data) unconditionally;",
+        "write_check_mark -> put() writes FOLDER files and commits them. The hook guards this with `if not relay_git.has_relay(cwd):",
+        "return None`; the shared code lost that guard on the command path. Reachable on ordinary use in every non-relay project",
+        "that records checks; the owner just said the arsenal probe may run in parallel with this relay work.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "bin/relay:577-581 (no has_relay); plugins/core/hooks/check-mark.py:174-175 (`if not relay_git.has_relay(cwd): return None`);",
+        "lib/relay_git.py:81 has_relay."
+      ],
+      "failing_case": [
+        "A project whose default branch has no .relay/ (the check record is still used there, e.g. a Glonass repo or arsenal before",
+        "its probe): a checker runs `relay check record check --input c.toml` with worktree = its task worktree. Now: a commit",
+        "\"relay: check of <head>\" adding .relay/checks/<head>.json and <head>.check.json lands on the task branch and goes into its",
+        "merge request. Before: nothing was committed (the hook does nothing unless relay_git.has_relay). Expected: no commit; the",
+        "record is written and the command prints \"recorded <path> (open n, queued m)\"."
+      ],
+      "fix_hint": [
+        "Call write_check_mark only when relay_git.has_relay(worktree); print \"; check mark committed\" only then. Add a test with a repo whose master has no .relay/."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 578,
+      "pass_cases": [
+        "1. Repo without .relay/ on its default branch: record check exits 0, prints \"recorded\", git log of the worktree is unchanged, no .relay/ folder appears.",
+        "2. Repo with .relay/: the queue item's train case still makes the mark (tests/test_check_mark_on_record.py test 1)."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "bin/relay is unchanged, so the command commits nothing under .relay/checks in any project."
+      ],
+      "severity": "MEDIUM",
+      "since": "cb585f032602e2f571bd44a1fd39704e5d53bc33",
+      "source": "review-check-mark.json",
+      "source_id": "F4",
+      "summary": "in a project without .relay/ the command now commits .relay/checks files into the task branch",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading write_check_mark's early return. Misleading only; Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Run `relay check record check --input same.toml` twice for the same head and findings: the second run prints",
+        "\"; check mark committed\" though no commit was made (write_check_mark returned early)."
+      ],
+      "fix_hint": [
+        "Have write_check_mark return whether it committed, and print accordingly."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 584,
+      "pass_cases": [
+        "1. First run: \"check mark committed\" and one new commit.",
+        "2. Second identical run: no new commit and the message says the mark was already there (or says nothing about a commit)."
+      ],
+      "path": "bin/relay",
+      "rank": "low",
+      "reason": [
+        "The message came from the removed command code; bin/relay is unchanged."
+      ],
+      "severity": "LOW",
+      "since": "cb585f032602e2f571bd44a1fd39704e5d53bc33",
+      "source": "review-check-mark.json",
+      "source_id": "F5",
+      "summary": "the command says check mark committed when write_check_mark found the same mark and committed nothing",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0f985684c8b95a2e075aad597ef49c3f1a39cb80.gate.log",
+  "head": "b025e958da441b3000a52ef1fc6f7b7c819f2b21",
+  "item": "a-merge-check-of-a-train-is-recorded-but-leaves",
+  "notes": [
+    "LOW, not recorded as a finding: the hook docstring still says it always exits 0 and removes a stale mark, which is no longer true."
+  ],
+  "schema": 2,
+  "scope": [
+    "Ran tests/test_check_mark_hook.py and tests/test_check_record.py (48 passed) and plugins/core/tests/check-mark.test.sh (all passed). Gate 0f98568 exit 0; relay changed lists no file after it. Base run at 2eb6874 with the head's test file: Q1, F1 (two) and F3 tests fail there; F2 and the two extra tests pass (bin/relay is unchanged from 2eb6874, so F2 cannot fail at that base). Read the hook in full."
+  ],
+  "type": "check"
+}

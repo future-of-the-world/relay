@@ -209,7 +209,7 @@ class TheTrainLands(TrainCase):
         train = self.train("a", "b")
         self.gate(train)
         self.assertEqual(sorted(ri.absorbed(self.main, "wt/train-1")), ["wt/a"])
-        self.assertIn("left 1 thing inside the change wrong", self.verdict("wt/train-1"))
+        self.assertIn("left 1 thing open", self.verdict("wt/train-1"))
 
     def test_t5_a_rider_with_a_code_commit_after_its_mark_is_not_absorbed_and_the_train_is_refused(self):
         a, b = self.tree("a"), self.tree("b")
