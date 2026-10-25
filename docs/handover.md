@@ -1144,3 +1144,17 @@ Next: merge train-4; then the wave paid run (bin/paid-cost due; bin/ci in a deta
 - In build: wt/turn-limit (ip 91, a-gate-waited-on-by-a-runner-dies-at-its-turn-li), widened to any agent polling a long job (workflow wofyfp1zr).
 - Open question for later: the ledger (bin/paid-cost today) shows 1 run although the wave-red worker reproduced cases with paid runs; the worker reports the count.
 - Next: the 91s by ip; offbyone-rubric-fail-clause and stale-eval-texts wait for wave-red (same eval files).
+
+## STATE 25 Oct ~15:30 (laptop battery low; read this first after a restart)
+
+Merged today after train-5: session-profile (sync writes [session] model/effort, modelSettings entry), turn-limit (gate reuse, turn-count hook plugins/delegate/hooks/turn-limit.py), read-only (read-only-guard.py; migrate --all skips primary checkouts).
+Owner decisions today (verbatim): "Согласен, сценарий проходит с большинством" (an eval case passes by 2 of 3 runs; queue item a-wave-run-is-red-when-one-of-a-case-s-3-runs-fa, ip 94). On three live it-terms-ru replies: "Да, меня вполне устраивает", with the front's three corrections (masculine gender for English nouns, no apostrophe before a Russian ending, no opener about the unnamed project): queue item russian-replies-one-gender-no-apostrophe-no-open (ip 93); the front's memory use-english-it-terms already carries them.
+Front decisions (owner can reverse): rules reach eval sessions through append_system_prompt written by evals/plugin/system_rules.py (the runner sets CLAUDE_CODE_DISABLE_CLAUDE_MDS=1); turn count by a hook; done queue records are not rewritten; CLAUDE_CODE_RETRY_WATCHDOG=1 via relay sync (measured: default gives up ~900 s offline, watchdog still waiting at 900 s).
+
+In progress, all committed, nothing only in memory:
+1. .worktrees/train-8 (wt/train-8) = master + wt/wave-red (holds wt/claudemd) + wt/split-tests. Merge check N1 (RULE_TESTS misses ItTermsSetup, GlossaryGivesNoInstruction) was being fixed by workflow w86lqfuok. Next: if a fixer commit for N1 is there, run the fix-cycle (fixes reports/fix-train-8.md, findings reports/check2-train-8.json) with no fix: gate, check; then `git -C ~/relay merge --ff-only wt/train-8` (take master into the train first if master moved; never into a rider).
+2. .worktrees/net-retry (wt/net-retry): ready, open 0, item closed on the branch. Next: own train after train-8 (git worktree add train-9 from master, merge --no-ff wt/net-retry, relay changed --own, gate, merge check if files listed, ff-only).
+3. After both: queue the-rules-text-step-is-already-red-on-master-7 (ip 98; cause: running lib/relay_textonly.py tests with unittest, a test class removes a shared temp fixture another class uses; pytest order hides it), then russian-replies-one-gender-no-apostrophe-no-open (93), then close the-eval-cost-ceiling-cuts-every-wave-run-short with --fixed-by (fixed inside wave-red, F6, SuiteCeiling tests).
+4. Then the wave paid run on master (detached worktree, bash bin/ci in the background); green -> relay sync; red -> one fix item at the top. Remove .worktrees/paid-e905742 then (kept as evidence).
+Paid today: about $63 of $200 (ledger shows less: direct eval runs are missing, queue item the-paid-ledger-misses-eval-runs-made-outside-bi).
+Scratchpad (briefs, reports, q-*.toml): /private/tmp/claude-501/-Users-amidman-relay/3207dc59-2cc6-4cd6-9463-5c3c3c8bd504/scratchpad (a /tmp path: it may be gone after a restart; the reports named above then live only in the branches' commits and .relay/checks).
