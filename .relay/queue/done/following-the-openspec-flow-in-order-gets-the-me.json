@@ -20,7 +20,7 @@
   "where": [
     "lib/relay_inert.py:14-18",
     "plugins/core/hooks/merge.py:172",
-    "plugins/sdd/skills/archive/SKILL.md :20-25,73-75"
+    "plugins/sdd/skills/archive/SKILL.md:20-25 73-75"
   ],
   "taken_at": "2026-10-24T03:53:51Z",
   "taken_by": "wt/archive-inert",

@@ -26,7 +26,7 @@
     "lib/relay_queue.py (schema, add, a new block command, a new ready view; lib copies)",
     "bin/relay (queue help)",
     "rules/queue.md (name blockers and files when adding)",
-    "lib/queue_ext/, the item files under .relay/queue/ (migration)"
+    "lib/queue_ext/ the item files under .relay/queue/ (migration)"
   ],
   "taken_at": null,
   "taken_by": null,

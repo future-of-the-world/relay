@@ -20,7 +20,7 @@
   "where": [
     ".claude/workflows/ (or what plugins can ship)",
     "plugins/delegate/skills/delegate/SKILL.md (review loop)",
-    "plugins/front/skills/front/SKILL.md, a skill that starts it",
+    "plugins/front/skills/front/SKILL.md a skill that starts it",
     "bin/relay"
   ],
   "taken_at": null,

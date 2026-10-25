@@ -19,7 +19,7 @@
   ],
   "where": [
     "bin/ci (inert step)",
-    "lib/relay_inert.py, the eval grader tests step",
+    "lib/relay_inert.py the eval grader tests step",
     ".ci/steps/inert.log"
   ],
   "taken_at": null,

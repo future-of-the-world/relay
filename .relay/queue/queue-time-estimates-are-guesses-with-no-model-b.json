@@ -19,7 +19,7 @@
   ],
   "where": [
     "lib/relay_queue.py (add, the table)",
-    "rules/queue.md, a measuring script over agent transcripts"
+    "rules/queue.md a measuring script over agent transcripts"
   ],
   "taken_at": null,
   "taken_by": null,

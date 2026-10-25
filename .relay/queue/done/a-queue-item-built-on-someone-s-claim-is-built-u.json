@@ -20,7 +20,7 @@
   "where": [
     "plugins/delegate/skills/delegate/SKILL.md (review loop, before step 2 Build)",
     "plugins/front/skills/front/SKILL.md",
-    "rules/queue.md, relay queue add (a field saying whether the failing case is a failing test or a claim)"
+    "rules/queue.md relay queue add (a field saying whether the failing case is a failing test or a claim)"
   ],
   "taken_at": "2026-10-24T21:00:51Z",
   "taken_by": "wt/premise",

@@ -13,7 +13,7 @@
   ],
   "where": [
     "pyproject.toml",
-    "bin/ci, all *.py"
+    "bin/ci all *.py"
   ],
   "taken_at": null,
   "taken_by": null,

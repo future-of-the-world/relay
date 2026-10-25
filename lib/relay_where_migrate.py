@@ -19,6 +19,8 @@ import relay_queue as rq
 
 FIRST = re.compile(r"[^\s:()]+")      # the path part of a first word, as in rq.PLACE_WORD
 
+LINE_LIST = re.compile(r"([^\s:()]+:\d+(?:-\d+)?),(\S.*)?")      # a place followed by more line numbers after a comma
+
 
 def _pieces(text: str) -> list[str]:
     """`text` cut at ", " that is outside parentheses, backticks and double quotes."""
@@ -54,9 +56,13 @@ def split_where(slug: str, text: str) -> tuple[list[str], bool]:
     for piece in _pieces(text):
         if not _names_place(piece):
             if elements:
-                elements[-1] += ", " + piece
+                elements[-1] += (", " if " " in elements[-1] else " ") + piece      # no note yet: a space, so no comma lands in the place word
             else:
                 elements.append(f"{rq._path(slug)} {piece}")      # no place at all: the item's own file is the place
+            clean = False
+        elif LINE_LIST.fullmatch(piece):
+            head, rest = LINE_LIST.fullmatch(piece).groups()               # "lib/a.py:22,28-35": the first line is the place, the rest the note
+            elements.append(f"{head} {rest}".strip())
             clean = False
         elif rq.parse_place(piece) is None:
             found = FIRST.match(piece)

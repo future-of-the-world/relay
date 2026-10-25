@@ -11,6 +11,7 @@ import json
 import os
 
 import relay_queue as rq
+import relay_where_migrate
 
 OPEN_END = ("done", "dropped")
 
@@ -68,6 +69,11 @@ def convert(slug, data, found_at, taken_at, ended_at):
     state = data["state"]
     taken_by = data.get("taken_by") or data.get("closed_by") or None
     item = {key: data[key] for key in rq.ORDER if key in data}
+    if isinstance(item.get("where"), str):                            # the old shape: one string, now a list of places
+        if item["where"].strip():
+            item["where"] = relay_where_migrate.split_where(slug, item["where"])[0]
+        else:
+            del item["where"]
     item.update(found_at=found_at, taken_at=None, taken_by=None, closed_at=None, test=None, dropped_at=None,
                 dropped_why=data.get("dropped_why"))
     if state in ("taken", "done"):

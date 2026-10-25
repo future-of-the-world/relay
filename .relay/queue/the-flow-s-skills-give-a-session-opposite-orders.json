@@ -19,7 +19,7 @@
   ],
   "where": [
     "plugins/sdd/skills/spec-review/SKILL.md:63",
-    "plugins/sdd/skills/apply-review/SKILL.md :63,110",
+    "plugins/sdd/skills/apply-review/SKILL.md:63 110",
     "plugins/sdd/skills/parallel-apply/SKILL.md:54",
     "plugins/delegate/skills/delegate/SKILL.md",
     "plugins/sdd/skills/plan/SKILL.md:42",

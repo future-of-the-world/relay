@@ -18,7 +18,7 @@
     "A folder with test_*.py is detected as python with a pytest step; a folder with an unfilled placeholder gets a failing check that says what to fill in."
   ],
   "where": [
-    "lib/relay_setup.py :22,28-35",
+    "lib/relay_setup.py:22 28-35",
     "templates/bin-check:30",
     "templates/bin-ci"
   ],
