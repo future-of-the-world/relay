@@ -1,0 +1,127 @@
+{
+  "branch": "wt/net-retry",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, a network drop killed three agents with \"API Error: Connection dropped (ECONNRESET)\" (workflows wf_1f346d2b-a88 and wf_f799f68a-db0) and stopped the front until the owner's \"\u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0430\u0439\". Measured offline (proxy to a closed port, no tokens): default settings gave up after about 900 s with ECONNREFUSED; with CLAUDE_CODE_RETRY_WATCHDOG=1 still retrying at 900 s. Claude Code docs (env-vars, errors): the watchdog is for unattended sessions, about three hours of backoff for dropped connections. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "scratchpad net/default2.log: exit 1 after 900 s offline."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After relay sync in a temporary HOME the settings env holds CLAUDE_CODE_RETRY_WATCHDOG=1, other keys untouched; a second sync is unchanged; relay doctor flags it when absent."
+      ],
+      "path": "lib/relay_setup.py merge_user_settings (the env relay writes into ~/.claude/settings.json), relay doctor, docs",
+      "rank": "high",
+      "reason": [
+        "tests/test_net_retry.py test_q1_sync_adds_the_watchdog_leaves_other_keys_and_is_idempotent passes and fails at 41da24c."
+      ],
+      "severity": "HIGH",
+      "since": "41da24ce1d5d44226c863ac329186ba5df934aba",
+      "source": "queue",
+      "summary": "Sessions and agents die when the network drops",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the diff. Project rule (CLAUDE.local.md, Python: \"Every new or changed function has types\")",
+        "and the brief's constraint. The rule names no severity; rated MEDIUM because it breaks a stated project rule,",
+        "not behaviour. The test methods in tests/test_net_retry.py are untyped too (-> None would do). Size: 5."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- lib/relay_setup.py",
+        "+def missing_env(data):",
+        " def merge_session_settings(profile, dry=False):   (changed hunks at 408-424)",
+        " def doctor(root=None, profile=None):              (changed hunk at 883-888)"
+      ],
+      "failing_case": [
+        "git diff master...HEAD -- lib/relay_setup.py: `def missing_env(data):` is new and untyped;",
+        "merge_session_settings(profile, dry=False) and doctor(root=None, profile=None) are changed and untyped.",
+        "The project's Python rule says \"Every new or changed function has types\" and the brief repeats \"typed functions\".",
+        "Should be: missing_env(data: dict) -> dict[str, str], and the two changed functions annotated."
+      ],
+      "fix_hint": [
+        "Add annotations to missing_env, merge_session_settings and doctor (and -> None on the new test methods)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 367,
+      "pass_cases": [
+        "1. missing_env has parameter and return annotations (dict -> dict[str, str]).",
+        "2. merge_session_settings(profile: dict, dry: bool = False) -> tuple[str, str].",
+        "3. doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[str, bool, str]].",
+        "4. bin/ci --quick \"types and lint\" stays ok; tests/test_net_retry.py and tests/test_session_profile.py still pass."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_setup.py missing_env, merge_session_settings, doctor now typed (diff read)."
+      ],
+      "severity": "MEDIUM",
+      "since": "b79c4cf1458eff0a0fd113d12b04c5c48a8f625d",
+      "source": "review-net-retry.json",
+      "source_id": "F1",
+      "summary": "Python rule (typed functions): new missing_env and changed merge_session_settings and doctor carry no types",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED with a scratch probe. Claude Code would likely reject a non-object env itself, so the input is rare;",
+        "LOW because the refusal is explicit and the data is untouched. Either keep the refusal but make doctor's hint",
+        "match, or skip only the env part and still write model/effort with a note. Size: 15."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/envnull.py <worktree> <scratch>",
+        "('.../settings.json', 'refused: env in settings.json is not an object')",
+        "{'env': None, 'model': 'sonnet'}",
+        "[('CLAUDE_CODE_RETRY_WATCHDOG in the env of ~/.claude/settings.json', False, 'missing -> relay sync')]"
+      ],
+      "failing_case": [
+        "settings.json {\"env\": null, \"model\": \"sonnet\"}, profile [session] model opus, effort medium:",
+        "merge_session_settings returns \"refused: env in settings.json is not an object\" and model stays \"sonnet\"",
+        "(before this change model/effortLevel were written). doctor meanwhile says",
+        "\"CLAUDE_CODE_RETRY_WATCHDOG in the env ... missing -> relay sync\", and relay sync refuses.",
+        "No test covers the refusal branch."
+      ],
+      "fix_hint": [
+        "In merge_session_settings, on a non-dict env append a note (\"env is not an object: watchdog not written\") and",
+        "continue with model/effort; in doctor use a hint that names the bad env; add one test."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 411,
+      "pass_cases": [
+        "1. {\"env\": null} or {\"env\": []}: sync reports the env problem and does not touch env; doctor's hint names the",
+        "   env not being an object, not \"relay sync\".",
+        "2. A test asserts the refusal branch (state text and file unchanged, or model written, whichever is chosen).",
+        "3. {\"env\": {\"FOO\": \"bar\"}}: unchanged behaviour, watchdog added, FOO kept.",
+        "4. {}: env created with the watchdog."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_net_retry.py test_f2_env_not_an_object_still_writes_model_and_doctor_names_it passes, fails at base."
+      ],
+      "severity": "LOW",
+      "since": "b79c4cf1458eff0a0fd113d12b04c5c48a8f625d",
+      "source": "review-net-retry.json",
+      "source_id": "F2",
+      "summary": "an env that is not an object now blocks the profile's model and effort too, and doctor sends the owner to a sync that refuses",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0a1259f6fdeb4437816e1ce610cd0397f74a5b31.gate.log",
+  "head": "aeca4bfc047f0dfe17f46686649dc043d8c90d59",
+  "item": "sessions-and-agents-die-when-the-network-drops",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range 41da24c..HEAD; changed files are only setup, textonly, docs, new test, session_profile test. Ran test_net_retry and test_session_profile (18 pass). Ran new test file at 41da24c: 4 of 6 fail. Gate log 0a1259f exit 0; HEAD adds only the gate-log commit."
+  ],
+  "type": "check"
+}
