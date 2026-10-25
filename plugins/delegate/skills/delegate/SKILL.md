@@ -135,6 +135,12 @@ be merged:
    `relay gate -- --quick`). It runs the free checks on the committed head and
    stores the result as `.relay/checks/<G>.gate.log`. A red gate goes back to
    the worker or a fixer, then this step again: a red build is never reviewed.
+   `relay gate` on code that already has a green gate (only inert files
+   changed since) reports that gate and runs nothing; a reused gate is the gate.
+   A runner that replies RUNNING with a log leaves the job running: start a
+   fresh runner that waits on that pid and log; never start the gate again. A
+   worker or fixer that hands back BLOCKED with still running: <log> is handled
+   the same way, then a fresh agent goes on from its report.
    Elsewhere the gate is the project's own command, run by a runner into a
    log whose first line is `head <sha>` and last `exit <code>` (`{ echo "head
    $(git -C <wt> rev-parse HEAD)"; <gate>; echo "exit $?"; } > <log> 2>&1`);
