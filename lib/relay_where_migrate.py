@@ -60,8 +60,8 @@ def split_where(slug: str, text: str) -> tuple[list[str], bool]:
             else:
                 elements.append(f"{rq._path(slug)} {piece}")      # no place at all: the item's own file is the place
             clean = False
-        elif LINE_LIST.fullmatch(piece):
-            head, rest = LINE_LIST.fullmatch(piece).groups()               # "lib/a.py:22,28-35": the first line is the place, the rest the note
+        elif (line_list := LINE_LIST.fullmatch(piece)) is not None:
+            head, rest = line_list.groups()             # "lib/a.py:22,28-35": the first line is the place, the rest the note
             elements.append(f"{head} {rest}".strip())
             clean = False
         elif rq.parse_place(piece) is None:
