@@ -1,8 +1,10 @@
 """Tests of the principles rule and the auto-merge texts."""
 import os
+import sys
 import unittest
 
-from relay_testbase import ROOT
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # unittest from the repo root has only the root on sys.path
+from relay_testbase import ROOT  # noqa: E402
 
 
 class TestPrinciplesRule(unittest.TestCase):

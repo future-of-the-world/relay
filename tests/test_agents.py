@@ -6,7 +6,8 @@ import sys
 import tempfile
 import unittest
 
-from relay_testbase import ROOT
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # unittest from the repo root has only the root on sys.path
+from relay_testbase import ROOT  # noqa: E402
 
 
 class Agents(unittest.TestCase):
