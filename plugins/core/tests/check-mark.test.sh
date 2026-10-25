@@ -78,6 +78,8 @@ EOF
     printf '[[status]]\nid = "%s"\nverdict = "%s"\n' "$id" "$verdict" >>"$S/check.toml"
   done
   "$relay" check record check --input "$S/check.toml" >/dev/null || echo "setup: check record failed" >&2
+  # the command now commits the mark itself (tests/test_check_mark_on_record.py); these cases test the hook alone, so take it away
+  [ "$(git -C "$W" log -1 --format=%s)" = "relay: check of ${3:-$HEAD0}" ] && git -C "$W" reset -q --hard HEAD~1
   touch -t "${2:-$NEW}" "$S/rep.json"
 }
 # prompt [check files]: the delegate skill's check prompt, verbatim form (backticks, periods), as the transcript's first line
