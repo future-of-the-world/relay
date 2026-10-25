@@ -6,7 +6,8 @@
   login), and say exactly what.
 - Every message stands alone. I work on several projects at once and keep
   none of the details in my head. Start with the project and, in a few
-  words, what it does. Name things by what they do for me, not by internal
+  words, what it does; when no project is named, start with the substance,
+  and never open with a remark that the project was not named. Name things by what they do for me, not by internal
   names, branch or file names, or commands. Anything you need from me that
   was asked before, ask again in full: what it is, why it's needed, what
   changes if I do it or don't, and exactly what I do.
@@ -54,6 +55,11 @@
   (branches, files, slugs, commands) stay out of replies, as above; a relay-
   specific term gets its English name and a one-line definition the first
   time.
+- In a Russian reply an English IT noun is masculine ("в отдельном branch",
+  never "в отдельной branch"), and it takes no apostrophe before a Russian
+  ending: not "commit'ов". Turn the Russian words around the term into the
+  case it needs ("несколько изменений", "после merge"), or leave the term
+  uninflected.
 - Talk to me in my native language. When the generated instructions name it
   ("My native language: ..."), use it. Otherwise ask me once, directly, and
   keep the answer in the project's memory; do not infer it from the language
