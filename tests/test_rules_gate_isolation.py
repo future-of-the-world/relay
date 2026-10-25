@@ -4,6 +4,8 @@ import subprocess
 import sys
 import unittest
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
@@ -19,6 +21,24 @@ class RulesGateIsolation(unittest.TestCase):
         env = {k: v for k, v in os.environ.items() if k not in ("RELAY_ROOT", "RELAY_HOME", "RELAY_PROJECTS", "CLAUDE_CONFIG_DIR")}
         run = subprocess.run([sys.executable, "-m", "unittest", *names], capture_output=True, text=True, cwd=ROOT, env=env, timeout=200)
         self.assertEqual(run.returncode, 0, run.stderr[-1500:])
+
+    def test_base_restores_any_variable_a_test_sets(self) -> None:
+        # F1: Bench sets RELAY_CLAUDE_BIN to a fake binary in a folder Base deletes; the key is not one of the four
+        # Base sets itself, so a fixed key list misses it. After the case runs, the variable must be as it was (unset).
+        from relay_testbase import Base
+
+        class Sets(Base):
+            def test_sets(self) -> None:
+                os.environ["RELAY_CLAUDE_BIN"] = os.path.join(self.tmp, "claude")
+
+        before = os.environ.pop("RELAY_CLAUDE_BIN", None)
+        try:
+            result = unittest.TextTestRunner(stream=open(os.devnull, "w")).run(unittest.defaultTestLoader.loadTestsFromTestCase(Sets))
+            self.assertTrue(result.wasSuccessful())
+            self.assertNotIn("RELAY_CLAUDE_BIN", os.environ)
+        finally:
+            if before is not None:
+                os.environ["RELAY_CLAUDE_BIN"] = before
 
 
 if __name__ == "__main__":

@@ -11,9 +11,6 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 sys.path.insert(0, HERE)
 
 
-ENV_KEYS = ("CLAUDE_CONFIG_DIR", "RELAY_HOME", "RELAY_ROOT", "RELAY_PROJECTS")
-
-
 def _drop_relay_modules() -> None:
     for m in list(sys.modules):
         if m.startswith("relay_"):
@@ -22,7 +19,7 @@ def _drop_relay_modules() -> None:
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self._saved_env = {k: os.environ.get(k) for k in ENV_KEYS}
+        self._saved_env = dict(os.environ)
         self.tmp = tempfile.mkdtemp(prefix="relay-test-")
         self.claude = os.path.join(self.tmp, "claude")
         self.home = os.path.join(self.tmp, "relay-home")
@@ -41,11 +38,8 @@ class Base(unittest.TestCase):
     def tearDown(self):
         # A test may point RELAY_ROOT at its own fixture (test_roles does); a class that sets nothing runs on what
         # is left behind, so put the environment and the imported relay modules back as they were before setUp.
-        for key, value in self._saved_env.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
+        os.environ.clear()
+        os.environ.update(self._saved_env)
         _drop_relay_modules()
         shutil.rmtree(self.tmp, ignore_errors=True)
 
