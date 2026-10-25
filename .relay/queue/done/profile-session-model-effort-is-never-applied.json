@@ -20,8 +20,8 @@
   "where": "lib/relay_rules.py sync, lib/relay_setup.py merge_user_settings, profiles/active.toml [session]",
   "taken_at": "2026-10-25T04:45:38Z",
   "taken_by": "wt/session-profile",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T09:23:19Z",
+  "test": "tests/test_session_profile.py::SessionProfile::test_sync_writes_model_and_effort_and_leaves_other_keys",
   "dropped_at": null,
   "dropped_why": null
 }
