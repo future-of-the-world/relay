@@ -21,8 +21,8 @@
   "where": "lib/relay_queue.py (done, close_refusal), bin/relay queue help, rules/queue.md",
   "taken_at": "2026-10-25T02:20:21Z",
   "taken_by": "wt/stale-close",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T03:20:08Z",
+  "test": "tests/test_stale_close.py::TestFixedBy::test_q1_an_item_fixed_on_master_closes_with_the_commit_and_test_and_leaves_the_list",
   "dropped_at": null,
   "dropped_why": null
 }

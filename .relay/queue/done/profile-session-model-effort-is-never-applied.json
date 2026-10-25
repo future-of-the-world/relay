@@ -18,10 +18,10 @@
     "After `relay sync` the settings carry the profile's model and effortLevel, other keys untouched; `relay sync --dry` names the change; a second sync is unchanged."
   ],
   "where": "lib/relay_rules.py sync, lib/relay_setup.py merge_user_settings, profiles/active.toml [session]",
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-25T04:45:38Z",
+  "taken_by": "wt/session-profile",
+  "closed_at": "2026-10-25T09:23:19Z",
+  "test": "tests/test_session_profile.py::SessionProfile::test_sync_writes_model_and_effort_and_leaves_other_keys",
   "dropped_at": null,
   "dropped_why": null
 }

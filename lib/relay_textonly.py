@@ -23,6 +23,7 @@ RULE_TESTS = (
     "tests.test_it_terms.ItTerms",
     "tests.test_wave_red.ItTermsPromptsDoNotGiveTheAnswer",
     "tests.test_sync_refused",
+    "tests.test_session_profile",
     "tests.test_delegate_small_builds",
     "tests.test_queue.TestStructuredRule",
     "tests.test_relay.Rules",
@@ -35,6 +36,7 @@ RULE_TESTS = (
     "tests.test_bench_worker",
     "tests.test_paid_batch",
     "tests.test_spec_steps.RenderedRules",
+    "tests.test_front_measures",
 )
 
 _COMPILED = [relay_inert._regex(p) for p in TEXT_ONLY]

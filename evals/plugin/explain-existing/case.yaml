@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: explain-existing
+description: "an owner question explaining an existing mechanism is answered directly, with no design track"
+tags: [front, delegate]
+plugins: ["../../../plugins/core", "../../../plugins/front", "../../../plugins/delegate"]
+context:
+  scaffold_script: scaffold.sh

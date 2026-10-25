@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: design-track
+description: "an owner question about a new mechanism starts the design track (a thinker), not an inline design"
+tags: [front, delegate]
+plugins: ["../../../plugins/core", "../../../plugins/front", "../../../plugins/delegate"]
+context:
+  scaffold_script: scaffold.sh

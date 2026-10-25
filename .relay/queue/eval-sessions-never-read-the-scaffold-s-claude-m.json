@@ -1,0 +1,29 @@
+{
+  "kind": "fix",
+  "ip": 95,
+  "time": 60,
+  "found_at": "2026-10-25T08:55:36Z",
+  "found_in": "relay queue add",
+  "title": "Eval sessions never read the scaffold's CLAUDE.md",
+  "what": [
+    "An eval case that puts a rule in the scaffold's CLAUDE.md, CLAUDE.local.md or .claude/CLAUDE.md gets a session that never sees it. Find how the runner starts the session (setting sources, the working folder, HOME) and make the scaffold's instruction files load as they do in a real project; then list which existing cases were passing or failing only because the rule was absent."
+  ],
+  "why": [
+    "25 Oct, wt/wave-red: a probe case with CLAUDE.md, CLAUDE.local.md and .claude/CLAUDE.md, each saying \"the reply must contain the word X\", got none of BANANA, CHERRY, MANGO in 3 runs ($0.04); `claude -p` in the same scaffold gave them. it-terms-ru/es failed for this reason; wave-red worked around it by having the prompt ask the session to read CLAUDE.md, which tests a different thing. Every rule-following case may be measuring nothing. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "scratchpad reports/wave-red.md, cause 3: probe case, 3 runs, none of the three words in the reply."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The probe case (a rule in the scaffold's CLAUDE.md that asks for a word) passes 3 of 3 runs without the prompt naming the file.",
+    "The it-terms prompts no longer tell the session to read CLAUDE.md, and the cases still pass."
+  ],
+  "where": "evals/plugin/setup-fixture.sh, the eval runner (claude plugin eval) set-up, every case whose graders depend on a project rule in CLAUDE.md",
+  "taken_at": "2026-10-25T09:25:28Z",
+  "taken_by": "wt/claudemd",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
