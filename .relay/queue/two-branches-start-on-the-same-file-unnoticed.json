@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 30,
+  "found_at": "2026-10-25T20:37:37Z",
+  "found_in": "relay queue add",
+  "title": "Two branches start on the same file unnoticed",
+  "what": [
+    "Before a new branch starts, one relay command lists the open wt/* branches that already change any of the files the brief names (from relay changed --own of each open branch against the default branch), so the front starts a branch only when its files are free or says why not; the delegate skill names the step."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"агенты позволяют нам делать множество изменений одновременно, большие файлы - наши враги, концентрируя большой объем кода (смысла) они являются поводом для конфликтов\", then \"a\" (principle 10 \"one subject per file, no hub files, no copies\" plus four items). Measured over 5 days: bin/relay (887 lines) in 44 commits, lib/relay_queue.py (1189 lines) in 25 commits kept in 3 copies, lib/relay_setup.py (1134 lines) changed by 3 open branches at once (license, setup-wt, the portable-tool design). IP chosen by the front (agent-chosen). 26 Oct live: wt/where-list's rewrite of every queue record met master's changes to the same records and stopped in a conflict; R4 and R5 of the pilot wait by hand because their files are taken."
+  ],
+  "failing_case": [
+    "Two worktrees on branches that both change lib/relay_setup.py: nothing in relay says so before the second one starts."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The new command, given lib/relay_setup.py, names the open branch that changes it; given a free file it says free; it reads only git, writes nothing."
+  ],
+  "where": "bin/relay (a new subcommand or relay changed), lib/ (the branch list), plugins/delegate/skills/delegate/SKILL.md (when to run it)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
