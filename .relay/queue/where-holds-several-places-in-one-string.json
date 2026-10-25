@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 85,
+  "time": 30,
+  "found_at": "2026-10-25T17:37:41Z",
+  "found_in": "relay queue add",
+  "title": "where holds several places in one string",
+  "what": [
+    "A queue item's where is a list of strings. Each element starts with one place as its first word, `path`, `path:N` or `path:N-M`, then an optional note for people after a space: [\"lib/relay_setup.py:325-333 merge_settings\", \"docs/\"]. The schema check refuses an element whose first word is not that shape. Q1 takes its path and line from the first element (N of N-M); the other elements go into its details. One script rewrites all records, open and done, through the queue's writer; nothing reads the old string form afterwards (no second format)."
+  ],
+  "why": [
+    "25 Oct, measured: 97 records have where, 68 name several places in one string, and _q1 then makes the whole string Q1's path at line 1 (squash-merge-projects-keep-check-records-of-lost: path \"lib/relay_marks.py, plugins/core/hooks/guard-main.sh (... writes), docs\"). The owner asked \"Почему мы не записываем его в формате списка строк\" and picked \"a\" (a list of strings, the place as first word, a note after it) over a list of tables. Done records are rewritten too: where is a description, not a dated event. IP chosen by the front (agent-chosen), right after the pilot fixes."
+  ],
+  "failing_case": [
+    "_q1 on the item squash-merge-projects-keep-check-records-of-lost returns path equal to the whole where string and line 1."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "_q1 on that item after the rewrite returns path lib/relay_marks.py; an element \"lib/relay_setup.py:325-333 merge_settings\" gives path lib/relay_setup.py, line 325; relay queue add refuses where = \"a, b\" (a string) and an element whose first word has a non-numeric line; relay queue show prints every place."
+  ],
+  "where": "lib/relay_queue.py:938 _q1, lib/relay_queue.py:125 (the type check), lib/relay_queue.py:307 (show), rules/queue.md",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

@@ -220,8 +220,8 @@ def step_mark(main, default, branch, ab=None):
                               "run relay gate, then delegate:checker" % (commit, branch, named(lost)))
             mark = stored[commit]
             if mark["verdict"]["open"] != 0:
-                raise Refused("the check of %s left %s inside the change wrong (report: .relay/checks/%s.check.json; relay check show prints it); "
-                              "fix them, run relay gate, then delegate:checker" % (commit, plural(mark["verdict"]["open"], "thing"), commit))
+                raise Refused("the check of %s left %s open, wrong inside the change or waiting for the owner's answer (report: .relay/checks/%s.check.json; relay check show prints it); "
+                              "fix them or keep the owner's answer with relay check owner, run relay gate, then delegate:checker" % (commit, plural(mark["verdict"]["open"], "thing"), commit))
             return commit
         if newest_list is None:
             newest_list = (commit, own)

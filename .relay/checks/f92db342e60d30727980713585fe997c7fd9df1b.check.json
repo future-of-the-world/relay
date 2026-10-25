@@ -1,0 +1,254 @@
+{
+  "branch": "wt/ru-style",
+  "findings": [
+    {
+      "details": [
+        "Owner, 25 Oct, after reading three live it-terms-ru replies: \"\u0414\u0430, \u043c\u0435\u043d\u044f \u0432\u043f\u043e\u043b\u043d\u0435 \u0443\u0441\u0442\u0440\u0430\u0438\u0432\u0430\u0435\u0442\", accepting the front's three corrections: \"\u043c\u0443\u0436\u0441\u043a\u043e\u0439 \u0440\u043e\u0434 \u0434\u043b\u044f branch, \u0431\u0435\u0437 \u0430\u043f\u043e\u0441\u0442\u0440\u043e\u0444\u043e\u0432, \u0431\u0435\u0437 \u0444\u0440\u0430\u0437\u044b \u043f\u0440\u043e \u043e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0438\u0435 \u043f\u0440\u043e\u0435\u043a\u0442\u0430\". Live replies had \"\u0432 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u043c branch\" and \"\u0432 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u0439 branch\" side by side, \"commit'\u043e\u0432\", and \"\u0420\u0435\u0447\u044c \u043e \u0432\u0430\u0448\u0435\u043c \u043f\u0440\u043e\u0435\u043a\u0442\u0435: \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0438 \u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d\u0438\u0435 \u0432 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0438 \u043d\u0435 \u043f\u0440\u043e\u0437\u0432\u0443\u0447\u0430\u043b\u0438\"."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "scratchpad demo/it-terms-ru.json run 3: opens \"\u0420\u0435\u0447\u044c \u043e \u0432\u0430\u0448\u0435\u043c \u043f\u0440\u043e\u0435\u043a\u0442\u0435: \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0438 \u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d\u0438\u0435 \u0432 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0438 \u043d\u0435 \u043f\u0440\u043e\u0437\u0432\u0443\u0447\u0430\u043b\u0438, \u043f\u043e\u044d\u0442\u043e\u043c\u0443 \u044f \u0438\u0445 \u043d\u0435 \u043d\u0430\u0437\u044b\u0432\u0430\u044e.\"; run 1 \"commit'\u043e\u0432\"; runs 1 and 2 differ in the gender of branch."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A reply with \"commit'\u043e\u0432\" fails the case's code grader; one without passes.",
+        "The rule text holds the three lines; tests/test_it_terms.py checks them."
+      ],
+      "path": "rules/working-with-me.md (IT terms), evals/plugin/it-terms-ru graders",
+      "rank": "high",
+      "reason": [
+        "tests/test_ru_style.py test_q1_the_apostrophe_grader_fails_commitov_and_passes_a_reply_without_it passes, fails at 960a44d."
+      ],
+      "severity": "HIGH",
+      "since": "960a44d80c233527f7d0088086ea7b346723c23d",
+      "source": "queue",
+      "summary": "Russian replies: one gender, no apostrophe, no opener",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the example and the standard-terms bullet contradict each other in the same rule file, which the owner's",
+        "sessions load (and which reaches it-terms-ru, it-terms-es, design-track and explain-existing through append_system_prompt).",
+        "Whether a session actually writes \"\u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f\" for commits is PLAUSIBLE (no grader checks commit). Owner decision broken: English",
+        "IT terms stay in English (memory: use-english-it-terms; the bullet itself). Size: 10 minutes."
+      ],
+      "evidence": [
+        "sed -n 44,62p rules/working-with-me.md:",
+        "  \"- Standard IT terms stay in their English form ...: merge, branch, commit, fast-forward, hook, ...\"",
+        "  \"... case it needs (\"\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439\", \"\u043f\u043e\u0441\u043b\u0435 merge\"), or leave the term uninflected.\"",
+        "git diff master...HEAD -- evals/plugin/it-terms-ru/graders/no-calques.md:",
+        "  -\"... \u0441\u0434\u0432\u0438\u043d\u0443\u0442\u044c\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434 \u043d\u0430 \u044d\u0442\u0438 commit'\u044b\" (the owner read this reply and approved it).",
+        "  +\"... \u0441\u0434\u0432\u0438\u043d\u0443\u0442\u044c\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434 \u043d\u0430 \u044d\u0442\u0438 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f\"."
+      ],
+      "failing_case": [
+        "rules/working-with-me.md:58-62 says: \"Turn the Russian words around the term into the case it needs (\"\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439\",",
+        "\"\u043f\u043e\u0441\u043b\u0435 merge\")\". \"\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439\" holds no English term at all: it shows commit replaced by \"\u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f\". The bullet",
+        "just above (line 47-48) lists commit among the standard terms that stay in English and says the local word \"does not appear",
+        "in your reply at all\". The no-calques grader's PASS example was changed the same way (\"\u0441\u0434\u0432\u0438\u043d\u0443\u0442\u044c\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434 \u043d\u0430 \u044d\u0442\u0438 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f\",",
+        "where it had commit'\u044b). A session that follows the example writes \"\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439\" where the owner expects commit; the",
+        "english-terms-kept grader checks only merge, branch, fast-forward and hook, so the eval does not see it.",
+        "Now: the example teaches dropping the term. Should: the example keeps the term and inflects only the words around it."
+      ],
+      "fix_hint": [
+        "Replace \"\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439\" with an example that keeps the term (\"\u0432 \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u0438\u0445 commit\", \"\u043f\u043e\u0441\u043b\u0435 \u0442\u0440\u0451\u0445 commit\"); give the",
+        "no-calques PASS example an uninflected term too (\"\u043d\u0430 \u044d\u0442\u0438 commit\"); update the asserted string in tests/test_claudemd_fixes.py;",
+        "rerun system_rules.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 61,
+      "pass_cases": [
+        "1. The rule bullet's examples each contain the English term: e.g. \"\u0432 \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u0438\u0445 commit\" or \"\u043f\u043e\u0441\u043b\u0435 \u0442\u0440\u0451\u0445 commit\", \"\u043f\u043e\u0441\u043b\u0435 merge\".",
+        "2. The bullet still says no apostrophe before a Russian ending and still names \"commit'\u043e\u0432\" as the wrong form (test_ru_style",
+        "   test_q1_the_rule_holds_the_three_lines keeps passing).",
+        "3. The no-calques grader's PASS example keeps an English term where it had commit'\u044b (or drops that clause), and",
+        "   tests/test_claudemd_fixes.py asserts the new string.",
+        "4. python3 evals/plugin/system_rules.py rewrites the four prompt.md lines; tests/test_eval_system_rules.py passes."
+      ],
+      "path": "rules/working-with-me.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_ru_style.py test_f1_rule_examples_keep_the_english_term, fails at 960a44d."
+      ],
+      "severity": "MEDIUM",
+      "since": "097f5569e8a01e188ea9229b48423c02c2eb3aaf",
+      "source": "review-ru-style.json",
+      "source_id": "F1",
+      "summary": "the new rule's example \"\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439\" replaces commit with a Russian word, against the bullet above it that keeps commit in English",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: the judge may well work (the rubric quotes the exact bad forms), but nothing measures it, and the only test of it",
+        "passes with the behaviour removed. evals/judge-measure/README.md: that folder \"measures that judge on recorded replies before",
+        "it gates anything\"; graders.test.sh already supports recorded/bad/<llm grader>__*.txt listed in judge-measure items. The",
+        "other it-terms-ru llm graders are not measured either, so this follows existing practice, but the brief's \"Done when\" asks for",
+        "proof of Q1 and the gender/opener half of Q1 has none. Size: 30 minutes plus one small paid judge run (a few items, well under $1)."
+      ],
+      "evidence": [
+        "grep -rn it-terms-ru evals/judge-measure -> no output.",
+        "ls evals/plugin/it-terms-ru/recorded/bad -> english-terms-kept__translated.txt, no-apostrophe__commity.txt (no gender-and-opener__*).",
+        "tests/test_ru_style.py:40-44: assertIn(\"type: llm\"), assertIn(\"masculine\"), assertIn(\"not named\") on the grader text."
+      ],
+      "failing_case": [
+        "tests/test_ru_style.py test_q1_the_case_judges_gender_and_opener asserts only that the file contains \"type: llm\", \"masculine\"",
+        "and \"not named\". Replace the rubric body with \"PASS always.\" plus those three words in a comment and the test still passes.",
+        "The paid run showed the judge PASS three good replies; no run shows it FAIL the live bad ones the queue item cites",
+        "(\"\u0432 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u0439 branch\" beside \"\u0432 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u043c branch\"; the opener \"\u0420\u0435\u0447\u044c \u043e \u0432\u0430\u0448\u0435\u043c \u043f\u0440\u043e\u0435\u043a\u0442\u0435: \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0438 \u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d\u0438\u0435 \u0432 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0438 \u043d\u0435",
+        "\u043f\u0440\u043e\u0437\u0432\u0443\u0447\u0430\u043b\u0438, \u043f\u043e\u044d\u0442\u043e\u043c\u0443 \u044f \u0438\u0445 \u043d\u0435 \u043d\u0430\u0437\u044b\u0432\u0430\u044e.\"). The queue item promises the case checks gender and opener \"by its judge\"; that check",
+        "is unproven, unlike the regex grader, which graders.test.sh runs against a recorded bad reply.",
+        "Now: a judge that passes everything goes unnoticed. Should: the two live bad replies are recorded and judged FAIL."
+      ],
+      "fix_hint": [
+        "Add recorded/bad/gender-and-opener__mixed-gender.txt and __not-named-opener.txt (the live replies), list them with the good",
+        "reply in a new evals/judge-measure/measure-ru-style/items.txt (make.py writes the graders and answers), run the measurement",
+        "once on the bin/ci judge model (sonnet) and record the tally. If the owner prefers not to pay for it, say so in the check."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. A recorded reply with \"\u0432 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u043c branch\" and \"\u0432 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u0439 branch\" in the same text is judged FAIL by gender-and-opener.",
+        "2. A recorded reply opening \"\u0420\u0435\u0447\u044c \u043e \u0432\u0430\u0448\u0435\u043c \u043f\u0440\u043e\u0435\u043a\u0442\u0435: \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0438 \u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d\u0438\u0435 \u0432 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0438 \u043d\u0435 \u043f\u0440\u043e\u0437\u0432\u0443\u0447\u0430\u043b\u0438, \u043f\u043e\u044d\u0442\u043e\u043c\u0443 \u044f \u0438\u0445 \u043d\u0435 \u043d\u0430\u0437\u044b\u0432\u0430\u044e.\"",
+        "   is judged FAIL.",
+        "3. evals/plugin/it-terms-ru/recorded/good/merge-reply.txt (\"\u0418\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0435 \u043b\u0435\u0436\u0438\u0442 \u0432 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u043c branch ...\") is judged PASS.",
+        "4. graders.test.sh stays green: each recorded/bad/gender-and-opener__*.txt is listed in an evals/judge-measure/*/items.txt."
+      ],
+      "path": "evals/plugin/it-terms-ru/graders/gender-and-opener.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_ru_style.py:46 test_f2 passes and fails at fb3c868; evals/judge-measure/measure-ru-style/items.txt lists 6 bad (feminine / empty opener, e.g. recorded/bad/gender-and-opener__feminine-only.txt) and the good merge-reply; README records 63/63 correct votes."
+      ],
+      "severity": "MEDIUM",
+      "since": "097f5569e8a01e188ea9229b48423c02c2eb3aaf",
+      "source": "review-ru-style.json",
+      "source_id": "F2",
+      "summary": "nothing shows the new gender-and-opener judge fails a bad reply; its test only greps words in the grader file",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED with Python re (same semantics as the bun RegExp here). Models rarely emit U+2018 in that place, so it is fragile,",
+        "not wrong in the measured runs. Size: 5 minutes."
+      ],
+      "evidence": [
+        "python3 probe: '\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e commit\u2018\u043e\u0432' True ; '\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e commit`\u043e\u0432' True ; \"\u043f\u043e\u0441\u043b\u0435 PR'\u0430\" False (True = passes the grader)."
+      ],
+      "failing_case": [
+        "Python re with the grader's pattern: \"\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e commit\u2018\u043e\u0432\" (U+2018 LEFT SINGLE QUOTATION MARK) -> pattern matches (PASS);",
+        "\"\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e commit`\u043e\u0432\" -> PASS. Both should FAIL like \"commit'\u043e\u0432\" and \"commit\u2019\u043e\u0432\" do."
+      ],
+      "fix_hint": [
+        "Widen the class to [\u2019'\u02bc\u2018`] and add the two inputs to test_q1_the_apostrophe_grader..."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 3,
+      "pass_cases": [
+        "1. \"\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e commit\u2018\u043e\u0432\" fails the grader.",
+        "2. \"\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e commit`\u043e\u0432\" fails the grader.",
+        "3. \"\u042d\u0442\u043e \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e commit'\u043e\u0432.\" and \"\u042d\u0442\u043e \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e commit\u2019\u043e\u0432.\" still fail (test_ru_style line 27-28).",
+        "4. \"\u042d\u0442\u043e merge, \u0430 don't \u0437\u043d\u0430\u0447\u0438\u0442 \u043d\u0435 \u043d\u0430\u0434\u043e.\" and recorded/good/merge-reply.txt still pass."
+      ],
+      "path": "evals/plugin/it-terms-ru/graders/no-apostrophe.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_ru_style.py test_f3_the_apostrophe_class_covers_u2018_and_backtick passes."
+      ],
+      "severity": "LOW",
+      "since": "097f5569e8a01e188ea9229b48423c02c2eb3aaf",
+      "source": "review-ru-style.json",
+      "source_id": "F3",
+      "summary": "the apostrophe class misses U+2018 and the backtick, so \"commit\u2018\u043e\u0432\" passes the grader",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Cheap; can share the commit with F1. Size: 5 minutes."
+      ],
+      "evidence": [
+        "git grep -noP \"(\u043e\u0441\u043d\u043e\u0432\u043d\u0430\u044f|\u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u0439|\u044d\u0442\u0430|\u044d\u0442\u0443|\u043e\u0441\u043d\u043e\u0432\u043d\u0443\u044e) branch\" -> evals/plugin/it-terms-ru/graders/no-calques.md:12:\u043e\u0441\u043d\u043e\u0432\u043d\u0430\u044f branch"
+      ],
+      "failing_case": [
+        "no-calques.md line 12: Examples that PASS: \"\u043e\u0441\u043d\u043e\u0432\u043d\u0430\u044f branch \u043c\u043e\u0436\u0435\u0442 \u0441\u0434\u0435\u043b\u0430\u0442\u044c fast-forward ...\". The change edited this very line",
+        "(removing commit'\u044b) but kept the feminine \"\u043e\u0441\u043d\u043e\u0432\u043d\u0430\u044f branch\", which rules/working-with-me.md now names as wrong (\"never \u0432",
+        "\u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u0439 branch\"). The judge does not grade gender here, so no verdict changes today, but the rubric holds up as a model a",
+        "form the owner rejected on 25 Oct."
+      ],
+      "fix_hint": [
+        "\"\u043e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 branch \u043c\u043e\u0436\u0435\u0442 \u0441\u0434\u0435\u043b\u0430\u0442\u044c fast-forward, ...\" and the matching assertIn in tests/test_claudemd_fixes.py."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 12,
+      "pass_cases": [
+        "1. The no-calques PASS example reads \"\u043e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 branch \u043c\u043e\u0436\u0435\u0442 \u0441\u0434\u0435\u043b\u0430\u0442\u044c fast-forward ...\".",
+        "2. tests/test_claudemd_fixes.py NoCalquesJudge asserts the new string and passes.",
+        "3. The rest of the no-calques rubric is unchanged (the \"\u0441\u043b\u0438\u044f\u043d\u0438\u0435\" and \"\u043f\u0435\u0440\u0435\u043c\u043e\u0442\u043a\u0430\" assertions keep passing)."
+      ],
+      "path": "evals/plugin/it-terms-ru/graders/no-calques.md",
+      "rank": "low",
+      "reason": [
+        "Covered by tests/test_claudemd_fixes.py and test_ru_style, passing at HEAD (met in the earlier check)."
+      ],
+      "severity": "LOW",
+      "since": "097f5569e8a01e188ea9229b48423c02c2eb3aaf",
+      "source": "review-ru-style.json",
+      "source_id": "F4",
+      "summary": "the no-calques PASS example still says \"\u043e\u0441\u043d\u043e\u0432\u043d\u0430\u044f branch\", the feminine form the new rule forbids",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep; effect PLAUSIBLE only. Size: 10 minutes."
+      ],
+      "evidence": [
+        "git grep -n \"project and what it does\\|Start with the project\" -> rules/front.md:19, plugins/front/skills/front/SKILL.md:15,",
+        "rules/working-with-me.md:8."
+      ],
+      "failing_case": [
+        "rules/front.md:19 \"Every reply stands alone: the project and what it does first\" and plugins/front/skills/front/SKILL.md:15",
+        "\"Start with the project and what it does, in a few words, then the outcome.\" still give the bare instruction. A front session",
+        "with no project named reads three instructions, one of which now has the exception. In a real session the project is almost",
+        "always known (the working folder), so the empty opener is unlikely there; it is a second place to drift."
+      ],
+      "fix_hint": [
+        "Add the short clause to both lines, or replace them with a reference to the working-with-me bullet."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 19,
+      "pass_cases": [
+        "1. rules/front.md's line either carries the same clause (\"when no project is named, start with the substance\") or points to",
+        "   working-with-me instead of restating it.",
+        "2. The front skill's line does the same.",
+        "3. The front's own tests and relay sync --dry stay green."
+      ],
+      "path": "rules/front.md",
+      "rank": "low",
+      "reason": [
+        "Covered by tests in test_ru_style.py, passing at HEAD (met in the earlier check)."
+      ],
+      "severity": "LOW",
+      "since": "097f5569e8a01e188ea9229b48423c02c2eb3aaf",
+      "source": "review-ru-style.json",
+      "source_id": "F5",
+      "summary": "two other copies of 'start with the project' (rules/front.md, the front skill) did not get the no-empty-opener exception",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "af1eb043fe442198936609dd40ff3222d692ff88.gate.log",
+  "head": "f92db342e60d30727980713585fe997c7fd9df1b",
+  "item": "russian-replies-one-gender-no-apostrophe-no-open",
+  "notes": [
+    "F2: the judge is now measured on 6 live bad replies and the good one (judged/ files, README result: sonnet 63/63 votes, $0.095); the committed test checks the item list and that each recorded bad reply carries the fault. The paid result itself is recorded, not re-run here."
+  ],
+  "schema": 2,
+  "scope": [
+    "Ran tests/test_ru_style.py and tests/test_claudemd_fixes.py at HEAD (15 pass). Gate log head af1eb04 exit 0 (quick); HEAD f92db34 only adds the gate log. Throwaway worktrees: at 960a44d the q1 tests and F1/F3/F4/F5 tests fail (8 failed); at fb3c868 (before the F2 fix) test_f2 fails (FileNotFoundError, no measure case). Files since 45a62de: judge-measure case, recorded bad replies, make.py, two count tests, test_ru_style: all F2 scope."
+  ],
+  "type": "check"
+}

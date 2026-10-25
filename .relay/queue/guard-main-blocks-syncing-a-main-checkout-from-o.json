@@ -19,8 +19,8 @@
     "The same input is allowed; `git merge origin/master` (no --ff-only) and `git merge --ff-only some-branch` from outside wt/ stay as they are today."
   ],
   "where": "plugins/core/hooks/guard-main.sh (the merge rule in a main checkout)",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T19:19:58Z",
+  "taken_by": "wt/pilot-guards",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
