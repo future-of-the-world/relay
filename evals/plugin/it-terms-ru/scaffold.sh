@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# The fixture plus a project CLAUDE.md that carries the owner's language line, a glossary line for gate, and the rule text itself
-# (rules/working-with-me.md, the one a synced project loads).
+# The fixture. The rule texts the session follows reach it through `append_system_prompt` in prompt.md (the runner
+# turns CLAUDE.md loading off); evals/plugin/system_rules.py writes that line.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd -P)"
 "$here/../setup-fixture.sh"
-{ echo "My native language: Russian."; echo; echo "Project glossary: the gate is this project's full local check before a merge (tests, lint, types); it is a relay term."; echo; cat "$here/../../../rules/working-with-me.md"; } > CLAUDE.md

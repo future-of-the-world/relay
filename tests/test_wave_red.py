@@ -9,10 +9,13 @@ import glob
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(ROOT, "evals", "plugin"))
+import system_rules  # noqa: E402
 CASES = ("no-spec-step", "no-spec-step-ru", "no-spec-step-typo")
 
 
@@ -97,36 +100,27 @@ class OffbyoneScaffold(unittest.TestCase):
 
 class ItTermsSetup(unittest.TestCase):
     """it-terms-es/-ru: the eval runner does not load the scaffold's CLAUDE.md into the session (measured: a probe
-    case with CLAUDE.md, CLAUDE.local.md and .claude/CLAUDE.md, none of the three rules was followed), so the
-    rule reaches the model only when the prompt sends it to read the file."""
+    case with CLAUDE.md, CLAUDE.local.md and .claude/CLAUDE.md, none of the three rules was followed), so the rule
+    reaches the model as `append_system_prompt` in the prompt's frontmatter (evals/plugin/system_rules.py)."""
 
-    def test_the_prompt_sends_the_session_to_read_the_rule_file_and_allows_the_read(self) -> None:
+    def test_the_rule_is_in_the_system_prompt_and_the_prompt_does_not_send_the_session_to_a_file(self) -> None:
         for case in ("it-terms-es", "it-terms-ru"):
-            directory = os.path.join(ROOT, "evals", "plugin", case)
-            with open(os.path.join(directory, "prompt.md"), encoding="utf-8") as handle:
+            with open(os.path.join(ROOT, "evals", "plugin", case, "prompt.md"), encoding="utf-8") as handle:
                 head, body = handle.read().split("\n---\n", 1)
-            self.assertIn("CLAUDE.md", body, case)
-            self.assertIn("allowed_tools: [Read]", head, case)
-            # Read is one turn, the reply another: three turns left the model no room to answer.
+            self.assertNotIn("CLAUDE.md", body, case)
+            self.assertIn("Standard IT terms stay in their English form", system_rules.current(case), case)
+            # no file is read any more: the reply is the first turn, a second is slack
             turns = int(next(x for x in head.split("\n") if x.startswith("max_turns:")).split(":")[1])
-            self.assertGreaterEqual(turns, 4, case)
-            with tempfile.TemporaryDirectory() as work:
-                subprocess.run(["bash", os.path.join(directory, "scaffold.sh")], cwd=work, check=True, capture_output=True)
-                with open(os.path.join(work, "CLAUDE.md"), encoding="utf-8") as handle:
-                    self.assertIn("Standard IT terms stay in their English form", handle.read(), case)
+            self.assertLessEqual(turns, 2, case)
 
 
 class ItTermsRuGlossary(unittest.TestCase):
-    """The model cannot define the relay term gate unless the project it reads says what it is (measured: 11 of 20 runs
-    failed relay-term-defined with "что именно она проверяет, я не знаю"); the glossary lives in the scaffold's CLAUDE.md,
-    not in the prompt."""
+    """The model cannot define the relay term gate unless the project says what it is (measured: 11 of 20 runs
+    failed relay-term-defined with "что именно она проверяет, я не знаю"); the glossary lives in the system prompt
+    (the case's rules text), not in the prompt."""
 
-    def test_scaffold_claude_md_defines_gate(self) -> None:
-        script = os.path.join(ROOT, "evals", "plugin", "it-terms-ru", "scaffold.sh")
-        with tempfile.TemporaryDirectory() as work:
-            subprocess.run(["bash", script], cwd=work, check=True, capture_output=True)
-            with open(os.path.join(work, "CLAUDE.md"), encoding="utf-8") as handle:
-                self.assertIn("the gate is this project's full local check", handle.read())
+    def test_system_prompt_defines_gate(self) -> None:
+        self.assertIn("the gate is this project's full local check", system_rules.current("it-terms-ru"))
 
 
 class ItTermsPromptsDoNotGiveTheAnswer(unittest.TestCase):
@@ -136,7 +130,6 @@ class ItTermsPromptsDoNotGiveTheAnswer(unittest.TestCase):
         with open(os.path.join(ROOT, "evals", "plugin", "it-terms-ru", "prompt.md"), encoding="utf-8") as handle:
             body = handle.read().split("\n---\n", 1)[1]
         self.assertIn("gate", body)
-        self.assertIn("CLAUDE.md", body)
         for given in ("линтер", "проверка типов", "проверку типов", "что такое gate"):
             self.assertNotIn(given, body)
 
