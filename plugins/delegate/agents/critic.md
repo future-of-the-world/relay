@@ -147,7 +147,7 @@ review or check. Use these ids, not the files' own.
    check (options in your flow part). A new problem of yours from steps 3-5 is
    a `[[new]]` table; the script numbers it `N<n>`. You type no `open` or
    `queued`: the script derives `open` from the record (the `HIGH` and
-   `MEDIUM` findings inside the change that are not `MET` and have no `owner`
+   `MEDIUM` findings of every kind but outside that are not `MET` and have no `owner`
    entry), so a red or missing gate counts too. An `owner` entry is the owner's
    word, kept by `relay check owner` (`relay check show` prints it under the
    finding). When the project has a work queue, a finding the owner moved to a
