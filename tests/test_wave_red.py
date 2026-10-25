@@ -144,5 +144,51 @@ class ItTermsPromptsDoNotGiveTheAnswer(unittest.TestCase):
         self.assertIn("rama", text)
 
 
+class SuiteCeiling(unittest.TestCase):
+    """F6: a whole-suite run's money ceiling comes from the suite's stored full batches, not a fixed $15.
+
+    Worked from the wave run of e905742: stored full batches cost at most $9.56 and the real run cost $15.03 (the
+    fixed $15 cut it before its last case). 9.56 x 2 = 19.12 covers 15.03."""
+    BIN = os.path.join(ROOT, "bin", "paid-cost")
+
+    def records(self) -> list:
+        return [(8.0, False, [1.0]), (9.56, False, [1.0]), (20.0, True, [1.0])]  # the partial batch is not counted
+
+    def load(self):
+        from importlib.machinery import SourceFileLoader
+        import importlib.util
+        loader = SourceFileLoader("paid_cost_wave", self.BIN)
+        spec = importlib.util.spec_from_loader("paid_cost_wave", loader)
+        module = importlib.util.module_from_spec(spec)
+        loader.exec_module(module)
+        return module
+
+    def test_ceiling_is_the_largest_full_batch_times_the_margin(self) -> None:
+        self.assertEqual(self.load().suite_cap(self.records(), 15), 19.12)
+        self.assertGreater(self.load().suite_cap(self.records(), 15), 15.03)
+
+    def test_nothing_measured_uses_the_fallback(self) -> None:
+        self.assertEqual(self.load().suite_cap([], 15), 15)
+        self.assertEqual(self.load().suite_cap([(9.56, False, [1.0])], 15), 15)  # one batch is below MIN_RUNS
+
+    def test_command_line_from_estimate(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            for name, cost in (("a.json", 8.0), ("b.json", 9.56)):
+                with open(os.path.join(folder, name), "w", encoding="utf-8") as handle:
+                    json.dump({"costUsd": cost, "cases": [{"name": "c", "arms": {"with": [{"costUsd": 1.0}]}}]}, handle)
+            out = subprocess.run([self.BIN, "ceiling", "--from-estimate", "--cap", "15", "--jobs", "1", "--dir", folder],
+                                 capture_output=True, text=True, check=True)
+            self.assertEqual(out.stdout.split(), ["1", "19.12"])
+            out = subprocess.run([self.BIN, "ceiling", "--cap", "15", "--jobs", "1", "--dir", folder],
+                                 capture_output=True, text=True, check=True)
+            self.assertEqual(out.stdout.split(), ["1", "15"])
+
+    def test_ci_uses_the_estimate_unless_the_owner_sets_a_number(self) -> None:
+        with open(os.path.join(ROOT, "bin", "ci"), encoding="utf-8") as handle:
+            ci = handle.read()
+        self.assertIn("--from-estimate --cap 15", ci)
+        self.assertIn('cap_args=(--cap "$EVALS_MAX_COST")', ci)
+
+
 if __name__ == "__main__":
     unittest.main()
