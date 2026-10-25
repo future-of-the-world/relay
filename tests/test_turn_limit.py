@@ -56,6 +56,66 @@ class RunningHandling(unittest.TestCase):
         self.assertIn("longer than about 30 minutes", text)
 
 
+class TurnCountHook(unittest.TestCase):
+    """F3: code, not the model, counts an agent's tool calls and says when few turns remain."""
+    HOOK = os.path.join(ROOT, "plugins", "delegate", "hooks", "turn-limit.py")
+
+    def run_hook(self, agent_type: str, prior_calls: int, agent_id: str = "a1") -> dict:
+        """Run the hook as Claude Code does: JSON on stdin; the agent's transcript has `prior_calls` tool_use entries."""
+        import json
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            session = os.path.join(tmp, "s1.jsonl")
+            folder = os.path.join(tmp, "s1", "subagents")
+            os.makedirs(folder)
+            open(session, "w").close()
+            with open(os.path.join(folder, "agent-%s.jsonl" % agent_id), "w", encoding="utf-8") as handle:
+                for number in range(prior_calls):
+                    handle.write(json.dumps({"type": "assistant", "message": {"content": [
+                        {"type": "text", "text": "step"}, {"type": "tool_use", "id": "t%d" % number, "name": "Bash", "input": {}}]}}) + "\n")
+                    handle.write(json.dumps({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "t%d" % number}]}}) + "\n")
+            data = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "transcript_path": session, "agent_id": agent_id, "agent_type": agent_type}
+            done = subprocess.run([sys.executable, self.HOOK], input=json.dumps(data), capture_output=True, text=True, timeout=30)
+        self.assertEqual(done.returncode, 0)
+        return json.loads(done.stdout) if done.stdout.strip() else {}
+
+    def context(self, out: dict) -> str:
+        return out["hookSpecificOutput"]["additionalContext"]
+
+    def test_f3_worker_at_its_72nd_call_is_told_to_hand_back(self) -> None:
+        # worker maxTurns is 80; 71 calls are in the transcript, so the current one is the 72nd: 8 left.
+        out = self.run_hook("delegate:worker", 71)
+        self.assertEqual(out["hookSpecificOutput"]["hookEventName"], "PreToolUse")
+        self.assertIn("still running: <log>", self.context(out))
+        self.assertIn("72 of 80", self.context(out))
+
+    def test_f3_worker_at_its_40th_call_gets_nothing(self) -> None:
+        self.assertEqual(self.run_hook("delegate:worker", 39), {})
+
+    def test_f3_worker_at_its_71st_call_gets_nothing(self) -> None:
+        # one before the line (80 - 8 = 72)
+        self.assertEqual(self.run_hook("delegate:worker", 70), {})
+
+    def test_f3_runner_is_told_at_its_10th_call(self) -> None:
+        # runner maxTurns is 12: the line is 12 - 2 = 10; the 9th call gets nothing.
+        self.assertIn("10 of 12", self.context(self.run_hook("delegate:runner", 9)))
+        self.assertEqual(self.run_hook("delegate:runner", 8), {})
+
+    def test_f3_the_main_session_gets_nothing(self) -> None:
+        import json
+        import subprocess
+        data = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "transcript_path": "/nonexistent.jsonl"}
+        done = subprocess.run([sys.executable, self.HOOK], input=json.dumps(data), capture_output=True, text=True, timeout=30)
+        self.assertEqual((done.returncode, done.stdout), (0, ""))
+
+    def test_f3_an_agent_of_another_plugin_gets_nothing(self) -> None:
+        self.assertEqual(self.run_hook("openspec:author", 79), {})
+
+    def test_f3_the_hook_is_registered(self) -> None:
+        self.assertIn("hooks/turn-limit.py", read_repo("plugins", "delegate", "hooks", "hooks.json"))
+
+
 class GateReuse(Fixture):
     """F1: a green gate on the same code (only inert files changed since) is reported, not run again.
     The gate script appends a line to a counter file outside the repo each time it runs."""
