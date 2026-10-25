@@ -331,6 +331,7 @@ def merge_user_settings(plugins):
 
 
 SESSION_KEYS = {"model": "model", "effort": "effortLevel"}   # profile [session] key -> user settings key
+OWNED_ENV = {"CLAUDE_CODE_RETRY_WATCHDOG": "1"}   # env keys relay adds to the user settings: a session waits through a network drop
 PERSISTABLE_EFFORTS = ("low", "medium", "high", "xhigh")   # Claude Code drops any other persisted effortLevel; max is session-only
 
 
@@ -363,6 +364,13 @@ def effort_model_key(data, model):
     return found[0] if found else None
 
 
+def missing_env(data: dict) -> dict[str, str]:
+    """The OWNED_ENV keys absent from the settings env. A key present with any value is the owner's and is left alone."""
+    env = data.get("env")
+    env = env if isinstance(env, dict) else {}
+    return {k: v for k, v in OWNED_ENV.items() if k not in env}
+
+
 def read_json_strict(path):
     """(data, error): a missing file is ({}, None); invalid JSON or a non-object is ({}, reason)."""
     if not os.path.exists(path):
@@ -377,7 +385,7 @@ def read_json_strict(path):
     return data, None
 
 
-def merge_session_settings(profile, dry=False):
+def merge_session_settings(profile: dict, dry: bool = False) -> tuple[str, str]:
     """Write the profile's [session] model and effort into ~/.claude/settings.json, other keys untouched: the top-level
     keys and modelSettings.<model>.effortLevel (the entry Claude Code reads first). Returns (path, state): unchanged,
     would set/set <keys>, not written (max), or refused/would refuse when the file is not valid JSON. dry: write nothing."""
@@ -401,6 +409,11 @@ def merge_session_settings(profile, dry=False):
                 per_model = (key, effort)
                 names.append(f"modelSettings.{key}.effortLevel {old!r} -> {effort!r}")
     notes = []
+    add_env = missing_env(data)
+    if "env" in data and not isinstance(data["env"], dict):
+        add_env = {}
+        notes.append("env is not an object: watchdog not written")
+    names += [f"env.{k} -> {v!r}" for k, v in sorted(add_env.items())]
     bad = unpersistable_effort(profile)
     if bad:
         notes.append(f"not written: effort {bad} is session-only")
@@ -408,6 +421,8 @@ def merge_session_settings(profile, dry=False):
         return path, "; ".join(["unchanged"] + notes) if not notes else "; ".join(notes)
     if not dry:
         data.update(changes)
+        if add_env:
+            data.setdefault("env", {}).update(add_env)
         if per_model:
             data.setdefault("modelSettings", {}).setdefault(per_model[0], {})["effortLevel"] = per_model[1]
         backup(path)
@@ -853,7 +868,7 @@ def dep_checks(deps=None):
 
 # --- doctor -----------------------------------------------------------------
 
-def doctor(root=None, profile=None):
+def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[str, bool, str]]:
     checks = []
 
     def ok(name, good, detail=""):
@@ -869,6 +884,10 @@ def doctor(root=None, profile=None):
     for key, want in sorted(session_settings(profile or {}).items()):
         ok(f"{key} in ~/.claude/settings.json is the profile's [session] {want}", user.get(key) == want,
            f"is {user.get(key)!r} -> relay sync")
+    for key in sorted(OWNED_ENV):
+        ok(f"{key} in the env of ~/.claude/settings.json", key not in missing_env(user),
+           "env is not an object: fix it by hand" if "env" in user and not isinstance(user["env"], dict)
+           else "missing -> relay sync")
     bad = unpersistable_effort((profile or {}))
     if bad:
         ok(f"effortLevel in ~/.claude/settings.json can hold the profile's [session] effort {bad}", False,
