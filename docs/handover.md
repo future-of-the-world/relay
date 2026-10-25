@@ -1135,3 +1135,12 @@ Next: merge train-4; then the wave paid run (bin/paid-cost due; bin/ci in a deta
 - Wave paid run running: bin/ci in .worktrees/paid-e905742 (detached), log scratchpad ci-wave-e905742.log, task bdjrwrbey. Green -> `relay sync` (check bin/paid-cost due is empty), remove the worktree. Red -> one fix item at the top.
 - Next fixes (at most 3 at once while the paid run uses the CPU): a-fix-already-merged-by-another-change-cannot-be (96), the-front-recommends-from-unmeasured-claims-unre (93); then the 91s by ip, checking file overlap with git diff of running branches. New `relay queue add` of a fix now needs failing_kind (test|run|claim).
 - Owner's latest words (verbatim): "Я убрал сон, следует ли мне снижать яркость экрана, или это будет выполнено автоматически ? Можешь ли ты их перезапустить, повредило ли это нам как либо или мы полностью восстановились и проблема была лишь в паузе ?" (answered: no damage, only the pause; displaysleep 0 means the screen stays on with the lid open, `sudo pmset -a displaysleep 10` if wanted).
+
+## STATE 25 Oct ~09:30 (after train-5)
+
+- Merged (train-5): stale-close (`relay queue done <slug> --fixed-by <commit> --test file::Class::name`) and measured (front measures before recommending; new eval explain-existing, not yet paid-run).
+- Closed with --fixed-by: the-bench-never-starts-a-worker-so-it-measures-n (3b28fbf), a-refused-merge-does-not-say-what-to-rerun (c59d6a0). wt/merge-msg removed.
+- Wave paid run of e905742: RED (9 eval cases; $15.03). Queue fix ip 97 the-wave-paid-run-of-e905742-is-red-in-9-eval-ca, in wt/wave-red. First worker died at maxTurns 80 while polling pytest; its edits are WIP 6ef1a73; causes so far in scratchpad reports/wave-red.md (no-openspec-command grader matched the folder name; openspec skills loaded without [specs]; offbyone scaffold put the reviewer rule on the branch only). A second worker continues (workflow wd80tg3d5). relay sync waits for a green paid run. .worktrees/paid-e905742 kept as evidence until wave-red is done.
+- In build: wt/turn-limit (ip 91, a-gate-waited-on-by-a-runner-dies-at-its-turn-li), widened to any agent polling a long job (workflow wofyfp1zr).
+- Open question for later: the ledger (bin/paid-cost today) shows 1 run although the wave-red worker reproduced cases with paid runs; the worker reports the count.
+- Next: the 91s by ip; offbyone-rubric-fail-clause and stale-eval-texts wait for wave-red (same eval files).
