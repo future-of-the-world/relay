@@ -1,0 +1,21 @@
+{
+  "kind": "feature",
+  "ip": 90,
+  "time": 30,
+  "found_at": "2026-10-25T23:33:22Z",
+  "found_in": "relay queue add",
+  "title": "relay's repo records the plugins relay development uses",
+  "what": [
+    "The relay repo itself turns on the plugins its development uses (core, delegate, front, observe) and turns off for relay those it does not (gopls-lsp, issues, product, openspec), so relay is the first project that runs relay and a change to the global settings does not silently take relay's merge hook away."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"Включи openspec plugin для самого relay, зафиксируй только нужное для разработки relay, первым испытателем relay будет сам relay\", then on OpenSpec only: \"Нет я подумал что всё таки испытывать openspec плагин не стоит на relay, он заточен под другое, включим позже если потребуется\". The plugin part kept by the front (owner can reverse). Facts, 26 Oct: the relay repo has no .claude/ folder; core, delegate, front, observe and gopls-lsp (Go language server; relay has no Go) are on only in ~/.claude/settings.json. wt/parallel (train-15) adds relay's .claude/kit.toml: build after it merges. IP chosen by the front (agent-chosen)."
+  ],
+  "where": ".claude/settings.json of the relay repo (new)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
