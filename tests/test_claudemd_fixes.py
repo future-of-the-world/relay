@@ -30,7 +30,7 @@ class NoCalquesJudge(unittest.TestCase):
         text = self.read()
         self.assertIn("hook — скрипт, который Claude Code запускает перед командой", text)
         self.assertIn("is not a calque: PASS", text)
-        self.assertIn("fast-forward, то есть просто сдвинуться вперёд на эти изменения", text)
+        self.assertIn("fast-forward, то есть просто сдвинуться вперёд на эти commit", text)
         self.assertIn('"слияние"', text)
         self.assertIn('"перемотка"', text)
 

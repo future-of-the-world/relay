@@ -58,7 +58,7 @@
 - In a Russian reply an English IT noun is masculine ("в отдельном branch",
   never "в отдельной branch"), and it takes no apostrophe before a Russian
   ending: not "commit'ов". Turn the Russian words around the term into the
-  case it needs ("несколько изменений", "после merge"), or leave the term
+  case it needs ("в нескольких commit", "после merge"), or leave the term
   uninflected.
 - Talk to me in my native language. When the generated instructions name it
   ("My native language: ..."), use it. Otherwise ask me once, directly, and
