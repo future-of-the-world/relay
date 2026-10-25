@@ -3,6 +3,7 @@ import datetime as dt
 import json
 import os
 import shutil
+import unittest
 
 from relay_testbase import Base, ROOT
 import fixtures

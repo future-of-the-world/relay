@@ -3,12 +3,11 @@ import datetime as dt
 import json
 import os
 import shutil
-import subprocess
 import sys
 import time
+import unittest
 
 from relay_testbase import Base, ROOT
-import fixtures
 
 
 class Numbers(Base):

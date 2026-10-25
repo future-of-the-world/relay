@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import sys
+import unittest
 
 from relay_testbase import Base, ROOT
 
