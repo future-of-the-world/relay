@@ -18,8 +18,8 @@
     "The rule text says to keep standard IT terms in English and still keeps relay's internal names out; a paid check (several languages) shows a reply about a merge using \"merge\", \"branch\", \"hook\" in a Russian reply, and still defining a relay-only term once."
   ],
   "where": "the rule that holds 'Working with me' (rules/*.md: Plain words, native language), roles that write to the owner",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-24T21:18:20Z",
+  "taken_by": "wt/it-terms",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

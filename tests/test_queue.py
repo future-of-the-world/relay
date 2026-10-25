@@ -351,25 +351,36 @@ class TestSchema(Base):
         self.assertEqual(git(self.main, "rev-parse", "master"), before)
 
 
+def read_ref(repo):
+    """Where the tests read inert-folder text from: "HEAD^" in an inert probe commit (the probe appends a line to every
+    inert file and commits it as "inert probe", so the commit before it holds the real text), else None: the checkout."""
+    return "HEAD^" if git(repo, "log", "-1", "--format=%s", "HEAD", check=False) == "inert probe" else None
+
+
+def show_raw(repo, ref, path):
+    """The exact text of `path` at `ref` (git() strips; the working-tree read does not, so the two must agree), or None."""
+    done = subprocess.run(["git", "-C", repo, "show", "%s:%s" % (ref, path)], capture_output=True, text=True)
+    return done.stdout if done.returncode == 0 else None
+
+
 def committed_items(repo):
-    """{file name: text} of the .relay/queue items as committed. The queue folder is inert (bin/ci's inert probe appends a
-    line to every item and commits it as "inert probe"), so the items are read from git, from the commit before such a probe
-    commit, never from the checkout: the outcome of the tests must not depend on inert files. With no git, the checkout."""
-    ref = "HEAD"
-    if git(repo, "log", "-1", "--format=%s", "HEAD", check=False) == "inert probe":
-        ref = "HEAD^"
-    names = git(repo, "ls-tree", "--name-only", ref, ".relay/queue/", check=False).split("\n")
+    """{file name: text} of the .relay/queue items. The queue folder is inert (bin/ci's inert probe appends a line to every
+    item and commits it as "inert probe"), so in a probe commit the items are read from git, from the commit before it. Anywhere
+    else they are read from the working tree, the text `bin/ci --quick` loops on and the gate will read on the commit."""
+    ref = read_ref(repo)
+    names = git(repo, "ls-tree", "--name-only", ref, ".relay/queue/", check=False).split("\n") if ref else [""]
     if names == [""]:
         folder = os.path.join(repo, ".relay", "queue")
         return {n: open(os.path.join(folder, n), encoding="utf-8").read() for n in sorted(os.listdir(folder)) if n.endswith(".json")}
-    return {os.path.basename(n): git(repo, "show", "%s:%s" % (ref, n)) + "\n" for n in sorted(names) if n.endswith(".json")}
+    return {os.path.basename(n): show_raw(repo, ref, n) for n in sorted(names) if n.endswith(".json")}
 
 
 def committed_text(repo, path):
-    """The text of `path` as committed (the commit before an inert probe commit, see committed_items), else the checkout's."""
-    ref = "HEAD^" if git(repo, "log", "-1", "--format=%s", "HEAD", check=False) == "inert probe" else "HEAD"
-    out = git(repo, "show", "%s:%s" % (ref, path), check=False)
-    return out + "\n" if out else open(os.path.join(repo, path), encoding="utf-8").read()
+    """The text of `path`: the working tree's, except in an inert probe commit, where it is the commit before it (see committed_items)."""
+    ref = read_ref(repo)
+    out = show_raw(repo, ref, path) if ref else None
+    return out if out else open(os.path.join(repo, path), encoding="utf-8").read()
+
 
 def new_shape(**changes):
     """A new-shape (event-based) item file as step 2 will write it; `changes` set or replace keys."""

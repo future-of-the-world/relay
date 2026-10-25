@@ -1,0 +1,84 @@
+{
+  "branch": "wt/quick-head",
+  "findings": [
+    {
+      "details": [
+        "taste: core-tests-not-in-gate (23 Oct). Tests that read committed text (committed_items, committed_text in tests/test_queue.py) see the old commit while a worker loops on uncommitted edits, so `bin/ci --quick` is green in the worktree and the gate on the commit is red; one ~8 min gate run and a fixer round were spent on it. It repeats on every change that touches a file such a test reads."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "On wt/core-tests-not-in-gate, bin/ci with the edit uncommitted: green; the same edit committed: TestSeedItems.test_f14_a_where_line_names_the_line_the_item_talks_about fails ('*inject-addition*' not found)."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "An edit that breaks a committed-text test fails `bin/ci --quick` before the commit as it does after it, or the run states it checked HEAD only."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_quick_head.py:10 passes with the fix and fails at 57cc76f; it asserts an uncommitted edit is read. Gate cf7ee23 exit 0, no file after it."
+      ],
+      "severity": "HIGH",
+      "since": "57cc76fb593a9fa2bf460cc2062e0da89cdfda8d",
+      "source": "queue",
+      "summary": "The quick check passes before a commit and fails after",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: git() in tests/test_queue.py:24-28 returns done.stdout.strip(); committed_text (line 375) and",
+        "committed_items (line 369) add \"\\n\" to it in the probe path, while the tree path (lines 368, 376) returns the file",
+        "exactly. Today README and every item end in exactly one newline with no leading space, so nothing fails: fragile, LOW.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "sed -n 24,28p tests/test_queue.py  ->  return done.stdout.strip()",
+        "tail -c 50 .relay/README.md | od -c  ->  ... c o m m i t t e d . \\n   (one newline today)"
+      ],
+      "failing_case": [
+        "relay_setup.RELAY_README and .relay/README.md both end \"...never committed.\\n\\n\" (or both lack the last newline).",
+        "Outer gate run: committed_text reads the tree exactly, equal, test_f14_setups_readme_text_is_relays_own_readme passes.",
+        "Nested inert-probe run: committed_text reads `git show HEAD^:...` through git(), which strips, then adds \"\\n\": \"...\\n\" is",
+        "not equal, the test fails. The gate goes red only at \"inert\" with \"a step's result or the test count changed when only",
+        "inert files changed\", pointing at inert files when nothing inert is at fault. Before this change both runs read through",
+        "git() and agreed. Same for a queue item in committed_items (round-trip test)."
+      ],
+      "fix_hint": [
+        "Read the probe path raw: subprocess git show without strip (or a git(..., strip=False)), so both paths return the file's",
+        "exact bytes; or normalise the tree path the same way. One small test: a file ending \"\\n\\n\" reads the same in both paths."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 375,
+      "pass_cases": [
+        "- README and RELAY_README identical, ending in one newline: outer and probe runs both pass (today's case).",
+        "- README and RELAY_README identical, ending \"\\n\\n\": outer and probe runs give the same result (both pass, or both fail).",
+        "- An item with an uncommitted appended line, no probe commit: committed_items returns the text with the line (test_q1_an_uncommitted_edit...).",
+        "- A probe commit appending \"inert probe line\": committed_items and committed_text return the text of HEAD^ (test_q1_a_probe_commit...)."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_quick_head.py:31 (test_f1) passes; fails at 57cc76f. Helpers now use show_raw, byte-exact in both paths (tests/test_queue.py:354-383)."
+      ],
+      "severity": "LOW",
+      "since": "a7b6f9a4c3556d580fa4c6edd3f46a3a404ac52b",
+      "source": "review-quick-head.json",
+      "source_id": "F1",
+      "summary": "outer run reads inert text byte-exact from the tree, the probe run reads it from git stripped plus one newline: the two runs can now disagree",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "cf7ee232a070fa3cd3443074c84ac2d3116fa0f3.gate.log",
+  "head": "30854fed625f151bd8b4830986c7f00548b76dbf",
+  "item": "the-quick-check-passes-before-a-commit-and-fails",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Q1 only. Changed files 57cc76f..HEAD: tests/test_queue.py, tests/test_quick_head.py (plus gate logs). Ran test_quick_head.py (3 pass); at 57cc76f 2 of 3 fail."
+  ],
+  "type": "check"
+}

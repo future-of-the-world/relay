@@ -1,0 +1,22 @@
+head cd6ef450e4ef803947627d91a4dbea4fd91162c9
+cmd bin/ci --quick
+ci: library tests ok (298s)
+ci: types and lint ok (1s)
+ci: hook tests FAILED (125s, log: .ci/steps/hook-tests.log)
+    ok   no file: dump is an error too
+    ok   no file: packet is an error too
+    ok   no file: spec-check is an error too
+    ok   path, nothing for this version: an error, not the newest
+    ok   path, that error exits 1
+    FAIL --check: design.md: no "Interfaces" section
+    FAIL plugins/core/tests/packet.test.sh
+ci: lib copies identical ok (0s)
+ci: eval grader tests FAILED (1s, log: .ci/steps/eval-grader-tests.log)
+    FAIL  no-spec-step: set runs: 3 (one run cannot show a flaky agent)
+    FAIL  spec-step-on: set runs: 3 (one run cannot show a flaky agent)
+ci: plugin validate ok (5s)
+ci: inert FAILED (491s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed:
+        < eval grader tests FAILED
+ci: RED
+exit 1

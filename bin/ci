@@ -11,6 +11,7 @@
 # plugin evals (full mode only; compared with evals/plugin/baseline), then the record step
 # (bin/eval-record: files .ci/evals.json under $RELAY_HOME/evals, prints failed meaning graders,
 # split votes and rule-file reads; it fails the gate when the copy fails, when a meaning grader failed, or when a run was not judged).
+# A change of only rules/*.md files (lib/relay_textonly.py) runs just the step "rules text tests" under --quick.
 # The last step, `inert`, runs only under `relay gate` (RELAY_GATE = the commit gated): it runs this quick gate again in a
 # temporary worktree where every inert file has a line appended and probe files sit in the inert folders, and fails when a
 # step's result or the test count differs, which proves no outcome depends on an inert file (design section 12.6).
@@ -66,6 +67,15 @@ inert_probe() { local tmpd work rc=0 f
     echo "FAIL inert: a step's result or the test count changed when only inert files changed:"; sed 's/^/    /' "$tmpd/diff.txt"; rc=1
   else echo "inert: the same results with every inert file changed"; fi
   git worktree remove --force "$work" 2>/dev/null; git worktree prune; rm -rf "$tmpd"; return $rc; }
+# A change that only edits the text of rules (the fixed list in lib/relay_textonly.py) runs the checks that read rules, not
+# the whole quick gate and its inert probe (which reruns it): an error or any file off the list means the full gate.
+rules_tests() { local t names; names="$(python3 lib/relay_textonly.py tests)" || return 1
+  python3 -W ignore::ResourceWarning -m unittest $names || return 1; python3 bin/relay sync --dry; }
+if [ "$quick" = 1 ] && [ -f lib/relay_textonly.py ] && python3 lib/relay_textonly.py check >/dev/null 2>&1; then
+  step "rules text tests" rules_tests
+  [ "$status" -eq 0 ] && echo "ci: green (QUICK MODE: rules text only, the short gate; paid steps skipped, not a release gate)" || echo "ci: RED"
+  exit $status
+fi
 step "library tests" lib_tests
 step "types and lint" bash bin/types-lint   # mypy and ruff F, pinned, through uv (bin/types-lint, pyproject.toml)
 step "hook tests" hook_tests

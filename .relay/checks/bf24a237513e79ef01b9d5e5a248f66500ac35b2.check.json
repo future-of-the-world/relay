@@ -1,0 +1,162 @@
+{
+  "branch": "wt/sonnet-price",
+  "findings": [
+    {
+      "details": [
+        "Cost reports for long sessions may be wrong by about a fifth."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`relay calibrate` on the 21 Oct ledger: 2 Sonnet sessions (of 15 sessions in all), both at 266k-278k context, are 20.8% under Claude Code's total; should be within 5% (v3 #2). First step: measure whether the gap comes from a long-context price before changing one."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [],
+      "path": ".relay/queue/sonnet-long-context-price.json",
+      "rank": "high",
+      "reason": [
+        "tests/test_sonnet_price_history.py::SonnetPriceHistory::test_calibration_prices_an_early_session_at_the_earlier_rate passes; fails at ebcebfa (7 failed there)."
+      ],
+      "severity": "HIGH",
+      "since": "ebcebfa06d3c4f8c12ec74d6bd4f1a235320a8a3",
+      "source": "queue",
+      "summary": "Two long Sonnet sessions are costed a fifth too low",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a probe of price_error and by reading calibrate: for sid without a transcript, path is None,",
+        "main is None, agents is [], and price_error still runs for every model with cost_usd > 0. The loop over traces",
+        "is empty, so reads = 0, early = 0.0, and the band low/high are both priced at the current 0.10 read rate.",
+        "The ledger's session_usage line carries no session date (its ts is the capture time: the 21 Oct backfill for",
+        "these), so the date cannot be recovered later. That Claude Code removes transcripts after 30 days by default is",
+        "PLAUSIBLE (no setting overrides it here); the done-when of the brief holds only until then.",
+        "Size: 30 minutes."
+      ],
+      "evidence": [
+        "python3 -I probe in lib/: price_error(sonnet, {cost_usd 0.20, reads 1M}, None, []) -> (-0.5, 'band');",
+        "with an Agg added at 2026-10-06 -> (0.0, 'band').",
+        "ls ~/.claude/projects/*/<sid>*.jsonl: a909038c 2026-10-08, ced060f6 2026-10-01, d0fce801 2026-10-15.",
+        "grep cleanupPeriodDays ~/.claude/settings*.json: none.",
+        "relay_ledger.usage_records: (parse_ts(event[\"ts\"]), models): the write time, no session start."
+      ],
+      "failing_case": [
+        "price_error(\"claude-sonnet-5-5\", {\"cost_usd\": 0.20, \"cache_read_input_tokens\": 1_000_000}, None, [])",
+        "(a 6 Oct Sonnet session whose transcript is gone) returns (-0.5, \"band\"); with the transcript present it",
+        "returns (0.0, \"band\"). The three sessions' transcripts were last written 1 Oct (ced060f6), 8 Oct (a909038c)",
+        "and 15 Oct (d0fce801); no cleanupPeriodDays is set, so Claude Code's default 30-day cleanup removes them",
+        "from about 31 Oct. calibrate still prices them from the ledger (cost_usd > 0) with main=None, early=0, and",
+        "the Sonnet worst goes back to about -14.7% / -20.8%, the failure the queue item names."
+      ],
+      "fix_hint": [
+        "Keep the session's early share where the transcript cannot be lost: when the ledger copies a session_usage line",
+        "(relay_ledger.capture) and a transcript exists, store the session's first-request date (or the early read share",
+        "per model) on the line, and let price_error use it when main is None. A cheaper alternative: in the band path,",
+        "when there is no transcript and the model has a [before] table, widen the band to early_share 0..1 (low at the",
+        "current rate, high at the earlier one) so a pre-change session is not counted as an error."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 170,
+      "pass_cases": [
+        "- A Sonnet session dated before 2026-10-09 with no transcript, Claude Code cost = 1M reads x 0.20 = $0.20:",
+        "  calibrate's error for it is within 5% (not -50%).",
+        "- The same session with its transcript (all requests on 6 Oct): error 0.0, as today.",
+        "- A Sonnet session from 12 Oct or later, with or without a transcript, cost = 1M reads x 0.10 = $0.10: error 0.0.",
+        "- An Opus session with no transcript: error unchanged from master."
+      ],
+      "path": "lib/relay_analyze.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_sonnet_price_history.py:59 (0.20 and 0.10 both inside band, 0.30 still an error); :73 opus unchanged; failed at 8c832aa."
+      ],
+      "severity": "MEDIUM",
+      "since": "8c832aafaf0df2c820b97100287964eaabd3f356",
+      "source": "review-sonnet-price.json",
+      "source_id": "F1",
+      "summary": "the earlier price is applied only while the session's transcript exists; once Claude Code deletes it the three sessions fall back to the band path at 0.10 and are 15-50% low again",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: early = early_reads / reads, and cost() applies early_share to every key of the earlier",
+        "table. Correct for the one key there today; fragile for the next price change. Size: 15 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "prices.toml [models.sonnet.before] gains output = 15.00 (a future earlier output price). A session with 90% of",
+        "its reads before the date but 10% of its output before it: price_error blends output at 0.9 x 15 + 0.1 x 10,",
+        "pricing the output as 90% early when it was 10%."
+      ],
+      "fix_hint": [
+        "Either document in prices.toml that [before] holds cache_read only and have cost() ignore other keys, or count",
+        "early tokens per usage key in Agg and blend each rate by its own share."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 170,
+      "pass_cases": [
+        "- Today's table (only cache_read in [before]): results unchanged.",
+        "- A [before] table with a key other than cache_read is either refused by relay_prices with a clear message or",
+        "  blended by that key's own early share."
+      ],
+      "path": "lib/relay_analyze.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_sonnet_price_history.py:73 test_only_cache_read_of_the_earlier_table_is_blended; failed at 8c832aa; today's table covered by test_cost_blends_the_earlier_cache_read_price."
+      ],
+      "severity": "LOW",
+      "since": "8c832aafaf0df2c820b97100287964eaabd3f356",
+      "source": "review-sonnet-price.json",
+      "source_id": "F2",
+      "summary": "price_error blends every [before] rate by the share of cache reads, so an earlier input or output price would be weighted by the wrong share",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The owner's rule asks for domain knowledge to be recorded in the project docs.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A reader of docs/observability.md \"Prices\" learns of input, cache writes, cache read, output and measured, but",
+        "not of [models.<m>.before]; the next person re-measuring prices.toml by least squares over old and new sessions",
+        "would not know old Sonnet sessions are priced apart."
+      ],
+      "fix_hint": [
+        "One or two sentences in docs/observability.md \"Prices\"."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 128,
+      "pass_cases": [
+        "- docs/observability.md Prices names the [models.<m>.before] table (a date and the earlier rates, applied to",
+        "  requests before that date by their timestamp)."
+      ],
+      "path": "docs/observability.md",
+      "rank": "low",
+      "reason": [
+        "docs/observability.md:130 names [models.<m>.before], date, cache_read, 0.20 before 9 Oct."
+      ],
+      "severity": "LOW",
+      "since": "8c832aafaf0df2c820b97100287964eaabd3f356",
+      "source": "review-sonnet-price.json",
+      "source_id": "F3",
+      "summary": "the Prices section does not say that a model can carry an earlier price with a date, nor that Sonnet reads cost 0.20 before 9 Oct",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "fb720b627c2e8c199101d94195877aa46461451a.gate.log",
+  "head": "bf24a237513e79ef01b9d5e5a248f66500ac35b2",
+  "item": "sonnet-long-context-price",
+  "notes": [
+    "F1 trade-off (pre-change session without transcript priced at 0.10 is no longer flagged) is the hint's own alternative; accepted. Files changed are only those the findings name plus plugin copies (identical syncs)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix diff 8c832aa..fb720b6; tests/test_sonnet_price_history.py run (8 passed); gate log for fb720b6 ends exit 0, no non-inert file after it. Base worktrees: at 8c832aa the two new tests fail; at ebcebfa (Q1 since) 7 of 8 fail."
+  ],
+  "type": "check"
+}

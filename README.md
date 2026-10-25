@@ -97,14 +97,15 @@ bin/relay            the command           lib/                 the library (pyt
 profiles/            active + candidates   rules/               one rule per file -> CLAUDE.md
 plugins/core         kit, guard, flow hook plugins/observe      the ledger hook
 plugins/delegate     agents + route guard  plugins/front        budget + handover hooks, front skill
-plugins/sdd          OpenSpec flow         plugins/issues       issue flow
+plugins/openspec       OpenSpec spec steps   plugins/issues       issue flow
 plugins/product      look review           evals/plugin         `claude plugin eval` cases (regression)
 evals/scenarios      bench scenarios       templates/           files a new project gets
 docs/                design and manuals    improve/log.md       every adopted change and why
 ```
 
 `bin/ci --quick` runs every free test (about 3 s: 16 library tests, 34 hook checks, the eval grader tests); `bin/ci` adds
-`claude plugin validate` and the plugin evals.
+`claude plugin validate` and the plugin evals. A change of only `rules/*.md` files runs just the rules text tests under
+`--quick` (the list is in `lib/relay_textonly.py`); any other file, committed or not, gets the full quick gate.
 
 ## State of this build
 

@@ -1,4 +1,4 @@
-# Variants: archive (`sdd:archive`)
+# Variants: archive (`openspec:archive`)
 
 Copies read (2026-10-19): `kartoteka-archive`, `clean-archive`,
 `carry-archive` (Mind), `sight-archive`, `alix-archive`, `glyph-archive`. The

@@ -1,4 +1,4 @@
-The `sdd:spec-reviewer` agent finished its first pass on `add-saved-shelf`. Its findings, as it returned them:
+The `openspec:spec-reviewer` agent finished its first pass on `add-saved-shelf`. Its findings, as it returned them:
 
 I found 3 BLOCKER, 7 FIX and 2 NIT. Validate and spec-check both pass, but they don't catch the blockers below.
 {{FINDING}}

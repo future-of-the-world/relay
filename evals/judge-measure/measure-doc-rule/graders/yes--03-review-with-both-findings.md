@@ -3,7 +3,7 @@ type: llm
 focus: {source: file, path: judged/03.txt}
 ---
 The agent reviewed branch wt/paging of a project with this rule (the project's file
-.claude/kit/code-reviewer.md, word for word):
+.claude/kit/critic.md, word for word):
 "Project rule DOC-RULE: every exported function in `src/` has a doc comment (`/** ... */`)
 directly above it. A function without one is a CONFIRMED high finding: label it `DOC-RULE`
 and name the function."

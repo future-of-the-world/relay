@@ -25,7 +25,7 @@
   relay install [--no-claude]
                                      this machine onto relay: global CLAUDE.md, user settings, plugins
   relay migrate --all [--apply]      the migration plan (or the move) for every known project
-  relay setup [<dir>] [--flow openspec|issues|none] [--product|--no-product] [--no-global]
+  relay setup [<dir>] [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--no-global]
                                      a project onto relay (new or existing; nothing deleted)
   relay setup --relay-folder [<dir>] write .relay/README.md only (nothing else); the only form run for relay itself
   relay migrate [<dir>] [--apply]    an existing project from the old agents/skills/hooks; --apply moves them aside
@@ -373,13 +373,14 @@ def cmd_setup(args, migrate=False):
         return 0
     apply = flag(args, "--apply", takes_value=False)
     flow = flag(args, "--flow")
+    specs = flag(args, "--specs")
     product = True if flag(args, "--product", takes_value=False) else (False if flag(args, "--no-product", takes_value=False) else None)
     no_global = flag(args, "--no-global", takes_value=False)
     root = os.path.realpath(args[0] if args else os.getcwd())
     if not os.path.isdir(root):
         raise Usage(f"no such folder: {root}")
     if migrate:
-        d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply), flow=flow, product=product, apply_global=not no_global)
+        d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply), flow=flow, specs=specs, product=product, apply_global=not no_global)
         print(f"# {d['name']} ({root}): migration" + (" applied" if apply else " plan (nothing moved; add --apply)"))
         if items:
             print("\nThe old setup had, and relay replaces with:")
@@ -392,7 +393,7 @@ def cmd_setup(args, migrate=False):
             for src, dst in moved:
                 print(f"- {src} -> {dst}")
     else:
-        d, flow, product, done, todo = relay_setup.setup(root, flow=flow, product=product, apply_global=not no_global)
+        d, flow, product, done, todo = relay_setup.setup(root, flow=flow, specs=specs, product=product, apply_global=not no_global)
         print(f"# {d['name']} ({root}): set up")
     print(f"\nDetected: {d['stack']} ({d['tool'] or 'no tool'}), default branch {d['default_branch']}, flow {flow}, "
           f"{'a person-facing surface' if product else 'no person-facing surface'}.")
@@ -470,11 +471,14 @@ def cmd_doctor(args):
 
 def cmd_flows(args):
     for m in relay_setup.list_flows():
-        print(f"# {m['kind']} (plugin {m['plugin']}): {m['description']}")
-        print("  stages: " + ", ".join(f"{s['name']} ({', '.join(s['triggers'])} -> {s['skill']})" for s in m["stages"]))
+        print(f"# {m['kind']} (plugin {m['plugin']}, {m.get('slot', 'work')}): {m['description']}")
+        print("  stages: " + ", ".join(f"{s['name']} ({', '.join(s['triggers'])} -> {s.get('skill') or 'note'})" for s in m["stages"]))
+        if m.get("steps"):
+            print("  steps: " + ", ".join(f"{s['at']}: {s['does']}" for s in m["steps"]))
         print("  needs plugins: " + ", ".join(m.get("requires_plugins", [])) + "; bindings: " + ", ".join(m.get("bindings_required", [])))
         print()
-    print("Bind one in .claude/kit.toml: [flow] kind = \"<kind>\". A new flow is a plugin with a flow.json (docs/flows.md).")
+    print("Bind where work comes from in .claude/kit.toml: [flow] kind = \"<kind>\"; turn spec steps on with [specs] method = \"<plugin>\" "
+          "(`relay setup <dir> --specs <plugin>`). A new flow or spec method is a plugin with a flow.json (docs/flows.md).")
     return 0
 
 
@@ -679,7 +683,7 @@ relay queue land <slug>                  try again to land a kept wt/queue-<slug
 relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree>   (a branch holds one fix item; the check states its problem as finding Q1)
 relay queue release <slug>
-relay queue done <slug> -C <worktree> --test <file>::<name>   (a fix: the branch's newest check, with no own file changed since, has Q1 MET)
+relay queue done <slug> -C <worktree> --test <file>::<name> | evals/<plugin|judge-measure>/<case>::<grader>   (a fix: the branch's newest check, with no own file changed since, has Q1 MET)
 relay queue done <slug> --evidence <merge sha or report path>   (a feature finished without a branch of relay's own; a fix is refused: it needs --test)
 relay queue drop <slug> --input <file.toml>
                                          the TOML holds `why`: the owner's words (text in '''...''')

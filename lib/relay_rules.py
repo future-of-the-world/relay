@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 
 import relay_roles
 from relay_config import ROOT, claude_dir, projects_file, read_toml
@@ -58,8 +59,59 @@ def targets():
     return out
 
 
+def spec_methods():
+    """{plugin name: flow.json} for every plugin that supplies spec steps (`"slot": "specs"`)."""
+    found = {}
+    folder = os.path.join(ROOT, "plugins")
+    for plugin in sorted(os.listdir(folder)):
+        path = os.path.join(folder, plugin, "flow.json")
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+        if manifest.get("slot") == "specs":
+            found[plugin] = manifest
+    return found
+
+
+def project_spec_method(spec):
+    """The `[specs] method` of the project a target writes into (its .claude/kit.toml); "none" when unset or unreadable."""
+    if "file" not in spec:
+        return "none"  # a target with no file has no project folder, so no spec method
+    path = os.path.join(os.path.dirname(spec["file"]), ".claude", "kit.toml")
+    try:
+        with open(path, "rb") as handle:
+            method = tomllib.load(handle).get("specs", {}).get("method", "none")
+    except (OSError, tomllib.TOMLDecodeError):
+        return "none"
+    return method if isinstance(method, str) else "none"
+
+
+def steps_table(manifest):
+    """The spec method's steps as the table the project's rules carry, rendered from flow.json `steps`."""
+    lines = ["### Spec steps in the change cycle", "",
+             "Each step runs at the step of the change cycle it names (the delegate skill, \"Review loop\").", "",
+             "| At step | What happens | Skill or agent |", "|---|---|---|"]
+    for step in manifest.get("steps", []):
+        who = step.get("skill") or step.get("agent") or ""
+        lines.append(f"| {step['at']} | {step['does']} | {('`' + who + '`') if who else ''} |")
+    lines.append("")
+    return lines
+
+
 def render_target(name, spec, all_rules, profile):
     load = list(spec.get("load", []))
+    methods = spec_methods()
+    method = None
+    if name != "global":
+        for r in load:
+            if r in methods:
+                raise Fail(f"projects.toml [{name}] load names `{r}`: spec rules come from kit.toml [specs]; run `relay setup <dir>`")
+        method = project_spec_method(spec)
+        if method in methods and method in all_rules:
+            load.append(method)
+        else:
+            method = None
     if name == "global":
         load = list(profile.get("rules", {}).get("load", [])) + [r for r in load if r not in profile.get("rules", {}).get("load", [])]
     for r in load:
@@ -67,7 +119,7 @@ def render_target(name, spec, all_rules, profile):
             raise Fail(f"{name}: unknown rule '{r}'")
     read = spec.get("read")
     if read is None:
-        read = [r for r in all_rules if r not in load and r not in spec.get("skip", [])]
+        read = [r for r in all_rules if r not in load and r not in spec.get("skip", []) and r not in methods]
     out = [MARK, "", f"# {spec.get('title', 'Rules this project loads')}", ""]
     if spec.get("intro"):
         out += [spec["intro"].strip(), ""]
@@ -81,6 +133,8 @@ def render_target(name, spec, all_rules, profile):
     for r in load:
         rule = all_rules[r]
         out += [f"## {rule['title']}", "", rule["body"], ""]
+        if r == method:
+            out += steps_table(methods[method])
     if read:
         out += ["## Rules to read when they apply", ""]
         for r in read:

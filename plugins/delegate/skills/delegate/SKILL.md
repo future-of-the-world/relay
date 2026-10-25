@@ -36,10 +36,12 @@ the front skill).
 Never `general-purpose` (every tool, 30k tokens re-read each request) and
 never `fork` from a session over 100k tokens: the routing guard refuses both.
 A worker or fixer gets `model: opus` only with a line `Escalated: <reason>` in
-its prompt, after a Sonnet agent failed the same brief.
+its prompt, after a middle-model agent failed the same brief.
 
 Each agent's model and effort come from the active profile (`relay profile`);
-do not set `model:` on a call unless escalating.
+never set `model:` on a call. The one exception is the escalation above.
+At most `[delegate] max_parallel` agents run at once (default 4, bound 1 to 8);
+the route guard notes the cap.
 
 ## The brief file
 
@@ -90,8 +92,10 @@ brief and the old report.
 
 ## Review loop
 
-One good review, then a checked fix; never a new open review. After a
-worker's DONE on a change that will be merged:
+One good review, then a checked fix; never a new open review. When this
+project's rules carry a list "Spec steps in the change cycle", each listed step
+runs at the step number it names. After a worker's DONE on a change that will
+be merged:
 
 1. **Design review before a risky build.** A `delegate:critic` reviews the
    design or plan before a worker starts, when a trigger holds or the owner
@@ -117,8 +121,10 @@ worker's DONE on a change that will be merged:
    $(git -C <wt> rev-parse HEAD)"; <gate>; echo "exit $?"; } > <log> 2>&1`);
    a remote pipeline gives `Gate: pipeline #<n> on <full sha> passed`; a flow
    with no gate by design (a spec review) passes `Gate: none (artifacts only)`.
-4. **One whole-change review.** Every judge the flow names runs once, in one
-   message, over `<base>...HEAD`, after a green step 3.
+4. **One whole-change review.** Every judge runs once, in one message, over
+   `<base>...HEAD`, after a green step 3: `delegate:critic`, plus
+   `product:ui-reviewer` when the project is person-facing (`product:look-review`
+   says when the look review applies), plus the judges the spec steps add.
 5. **Fix.** One `delegate:fixer` per group of findings; it ends with one of
    four outcomes per finding (Fixed, Disputed, Gap, Outside).
 6. **Gate again.** When fix commits exist, a `delegate:runner` runs `relay

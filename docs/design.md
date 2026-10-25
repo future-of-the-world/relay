@@ -49,7 +49,7 @@ Around it:
   over 200k), the handover pointer after compaction, the `front` skill.
 - **core**: unchanged from principles (`kit`, guard, addition injection)
   plus the generic flow stage hook.
-- **flows**: `sdd` (OpenSpec) and `issues`, each a plugin with `flow.json`.
+- **flows and spec methods**: `issues` (where work comes from) and `openspec` (opt-in spec steps), each a plugin with `flow.json`.
 - **profiles**: one `active.toml` and candidates; a profile is the whole
   setup (front model, tier models and efforts, rules loaded, plugins on,
   guard thresholds). `relay sync` applies it; `relay bench` compares two.
@@ -62,11 +62,13 @@ and every migrated project keep their file; `kit get` keeps working; the
 `.claude/kit/<role>.md` additions keep being injected (now for `delegate:`,
 `issues:` and `front:` roles too).
 
-**Plugins keep their names (`core`, `sdd`, `product`).** Agent and skill
-names like `sdd:worker` are in project files and additions; renaming them
-would be churn with no benefit. The marketplace is renamed `relay` because
-its source directory moves; `relay setup` rewrites `*@principles` to
-`*@relay` in a project's settings.
+**Plugins keep their names (`core`, `product`), except the spec plugin.**
+The marketplace is renamed `relay` because its source directory moves;
+`relay setup` rewrites `*@principles` to `*@relay` in a project's settings.
+The plugin first named after its method is renamed `openspec`: the earlier
+decision not to rename plugins is replaced by the owner's words of 24 Oct 2026:
+
+> мы изымаем написание спецификаций из общего пайплайна и даем опцию включить дополнительные шаги для написания спецификации, так же то что это называется sdd меня тоже не устраивает - это фактически openspec, если мы придумаем новый способ писать спецификации и захотим добавить его в relay мы добавим его рядом с openspec
 
 **Enforce in hooks what used to be rules.** No general-purpose agents, no
 forks from big sessions, no Opus for build agents without an escalation

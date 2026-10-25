@@ -1,4 +1,4 @@
-# Variants: sdd:spec-conformance
+# Variants: openspec:spec-conformance
 
 Built from six copies (2026-10-19). Kartoteka and Clean are one text; Mind
 adds the rules check; Sight and ALIX swap the e2e item for data files and
@@ -13,7 +13,7 @@ Sonnet, with `openspec-verify-change` preloaded (all six).
 | 2 A test counts only if it could fail, and not with a pasted value | Kartoteka, Clean, Mind | stricter than Sight, ALIX, Glyph |
 | 2 A snapshot counts when it shows the THEN | Sight | makes the rule usable for snapshot tests |
 | 3 End-to-end entries black-box | Kartoteka, Clean, Mind | |
-| 3 Smoke entries (`smoke "<command>"`) run as their own process | ALIX (plan and spec-review rules) | `sdd:plan` asks for smoke entries; nothing checked them |
+| 3 Smoke entries (`smoke "<command>"`) run as their own process | ALIX (plan and spec-review rules) | `openspec:plan` asks for smoke entries; nothing checked them |
 | 4 Stored shapes: version, older data restored, documented, tested | Clean 5, Mind 5, Sight 4 | merged; Sight adds "documented" |
 | 5 Words on screen match the locked wording character for character | Glyph 3, Clean ui-reviewer 9 | product-work rule: locked words are quoted exactly |
 | 6 One test file at most | all | the command is in `CLAUDE.md`, not bound |

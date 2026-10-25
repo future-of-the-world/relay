@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 45,
+  "found_at": "2026-10-24T21:43:30Z",
+  "found_in": "relay queue add",
+  "title": "A gate waited on by a runner dies at its turn limit",
+  "what": [
+    "A gate that takes longer than a runner's 12 turns of waiting no longer kills the step: the gate is started so that its end is reported without an agent polling it (or the waiting agent has the turns a 30-minute gate needs), and a step whose gate already ran green on the same code reuses it instead of running it again."
+  ],
+  "why": [
+    "24-25 Oct: with 5 changes in parallel a quick gate took 19-25 minutes instead of about 9; a runner waiting on it stopped at its 12-turn limit three times (the first merge train's gate, the quick-head gate, and the premise change's gate, where the workflow then failed with \"subagent completed without calling StructuredOutput\" although the gate had finished green). Each costs a manual restart or a rerun of a 20-minute gate. Repeats whenever gates run in parallel (MEDIUM by the waste principle). IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "wt/premise, 25 Oct: gate of cf55280 ended exit 0, but the workflow's gate step returned no result and the change cycle stopped as \"crash\"."
+  ],
+  "pass_cases": [
+    "A gate that runs 30 minutes is reported to the step that waits for it without a crash.",
+    "A step whose branch already has a green gate on the same code reports that gate and runs nothing."
+  ],
+  "where": "plugins/delegate/agents/runner.md (maxTurns 12), plugins/delegate/skills/delegate/SKILL.md (who waits on a gate), the change-cycle workflow's gate step",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

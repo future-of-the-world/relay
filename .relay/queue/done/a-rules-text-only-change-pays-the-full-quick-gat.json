@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 30,
+  "found_at": "2026-10-23T14:05:46Z",
+  "found_in": "finding F5 of review-structured-reword.json",
+  "title": "A rules-text-only change pays the full quick gate twice…",
+  "what": [
+    "bin/ci:14: MEDIUM: F5 a rules-text-only change pays the full quick gate twice (inert probe): 520 s for 5 lines of markdown"
+  ],
+  "why": [
+    "Every rule or doc rewording pays an 8.7-minute gate (the inert step runs the quick gate a second time); measured 520 s on a 13-line markdown change, 23 Oct."
+  ],
+  "failing_case": [
+    "This change edits 5 lines of rules/structured-data.md. The gate log shows library tests 136 s, hook tests 108 s, inert 267 s",
+    "(the inert probe reruns the quick gate in a second worktree): 520 s, about 8.7 min. The tests that can see a rules/*.md edit",
+    "(relay_rules parsing, TestStructuredRule, the rule-title tests) run in seconds. Every rule or doc rewording pays the same."
+  ],
+  "pass_cases": [
+    "- A change touching only rules/*.md runs the checks that read rules (rule parsing, rule tests, relay sync dry-run) and is green in under a minute.",
+    "- A change touching lib/, bin/, plugins/ or hooks still runs the full quick gate and the inert probe.",
+    "- A change touching rules/ plus code runs the full gate."
+  ],
+  "where": "bin/ci:14",
+  "taken_at": "2026-10-24T17:52:10Z",
+  "taken_by": "wt/rules-gate",
+  "closed_at": "2026-10-24T19:43:38Z",
+  "test": "tests/test_rules_gate.py::RulesGate::test_a_rules_only_change_runs_the_short_gate",
+  "dropped_at": null,
+  "dropped_why": null
+}

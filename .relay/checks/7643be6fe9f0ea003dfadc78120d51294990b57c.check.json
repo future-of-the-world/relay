@@ -1,0 +1,66 @@
+{
+  "branch": "wt/openspec-optional",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "Gate green on code (exit 0) and full test run 635 passed."
+      ],
+      "severity": "MEDIUM",
+      "since": "40983a4393d3e919b55fc98104981a75104118e7",
+      "source": "m2-openspec-optional.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "Gate green on code (exit 0) and full test run 635 passed."
+      ],
+      "severity": "MEDIUM",
+      "since": "40983a4393d3e919b55fc98104981a75104118e7",
+      "source": "m2-openspec-optional.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "40983a4393d3e919b55fc98104981a75104118e7.gate.log",
+  "head": "7643be6fe9f0ea003dfadc78120d51294990b57c",
+  "item": null,
+  "notes": [
+    "No new or changed tests relied on; the findings are merge outcomes judged by the gate."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merge-combination findings only. Gate log head 40983a4, exit 0; HEAD adds only the gate log (inert). Ran pytest tests -q -x: 635 passed."
+  ],
+  "type": "check"
+}

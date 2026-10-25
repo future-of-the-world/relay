@@ -1,5 +1,6 @@
 {
   "kind": "issues",
+  "slot": "work",
   "plugin": "issues",
   "description": "Issue flow (from Arsenal): an issue is .issues/<slug>/description.md on its own branch, a tracker issue, and a worktree; one PR per issue, squash-merged; no status in the file, git state is the truth.",
   "detect": {
