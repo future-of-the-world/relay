@@ -19,6 +19,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-25T23:33:22Z",
+  "dropped_why": [
+    "Owner, 26 Oct: \"Нет я подумал что всё таки испытывать openspec плагин не стоит на relay, он заточен под другое, включим позже если потребуется\""
+  ]
 }
