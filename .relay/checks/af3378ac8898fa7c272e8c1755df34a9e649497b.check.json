@@ -1,0 +1,192 @@
+{
+  "branch": "wt/split-tests",
+  "findings": [
+    {
+      "details": [
+        "24 Oct: 3 of 5 merges either conflicted or were combined in tests/test_relay.py (no-merge-page, principles, projects-out, auto-merge). Every parallel change appends a test class at its end, so each take-master costs a gate (~9 min), a recorded finding and a checker. Repeats on every parallel change (MEDIUM by the waste principle)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Two branches from the same master each add a test class for different areas: merging the second into master after the first conflicts in tests/test_relay.py."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same two branches add their tests to different files and merge without a conflict or a combined file; pytest tests runs the same number of tests as before the split."
+      ],
+      "path": "tests/test_relay.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_split_test_files.py:22 (cap) and :33 (old file gone) pass at head; they failed at the base before the split (previous check)."
+      ],
+      "severity": "HIGH",
+      "since": "fb66d5d12e278f75fc4d8873e6c2a81be06bf104",
+      "source": "queue",
+      "summary": "one shared test file makes parallel changes conflict",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running the step on the branch and on a master worktree. The brief asked that everything reading test ids by file",
+        "keeps working; RULE_TESTS was renamed but its consumer (bin/ci rules_tests, unittest from the root, no tests/__init__.py, no",
+        "conftest) was not run. The quick gate the worker ran took the library-tests path (pytest puts tests/ on sys.path), so it stayed",
+        "green. Ordinary use: every rules-only change in relay goes through this step. test_rules_gate only checks the names are listed,",
+        "not that they load, which is why no test caught it. With PYTHONPATH=tests the step runs 117 tests again, confirming the cause.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "$ bash -c 'names=\"$(python3 lib/relay_textonly.py tests)\"; python3 -W ignore::ResourceWarning -m unittest $names'",
+        "  File \".../tests/test_bench.py\", line 8, in <module>",
+        "    from relay_testbase import Base, ROOT",
+        "ModuleNotFoundError: No module named 'relay_testbase'",
+        "ERROR: test_rules / test_roles / test_agents / test_principles_rule (x2) / test_bench (unittest.loader._FailedTest)",
+        "Ran 79 tests in 7.876s   FAILED (errors=6)",
+        "master worktree, same command: Ran 117 tests in 12.503s   FAILED (errors=7)   (the 7 are F3)",
+        "branch with PYTHONPATH=tests: Ran 117 tests   FAILED (errors=7)   (the same 7)"
+      ],
+      "failing_case": [
+        "A change that edits only rules/*.md runs bin/ci --quick, which takes the \"rules text tests\" path:",
+        "  python3 -W ignore::ResourceWarning -m unittest $(python3 lib/relay_textonly.py tests)",
+        "from the repository root. On this branch it prints \"Ran 79 tests ... FAILED (errors=6)\": tests.test_rules, test_roles,",
+        "test_agents, test_principles_rule (twice) and test_bench fail to import, because each new file's first relay import is",
+        "`from relay_testbase import ...` and nothing has put tests/ on sys.path yet (the old test_relay.py inserted HERE and lib/ into",
+        "sys.path before any such import; relay_testbase does that itself, too late to be found). On master the same command runs 117",
+        "tests. Should: all the RULE_TESTS names import and the same 117 tests run."
+      ],
+      "fix_hint": [
+        "In each new test file put the path line before the import, as the old file did:",
+        "  sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))",
+        "  from relay_testbase import ...  # noqa: E402",
+        "(or have bin/ci's rules_tests run with tests/ on PYTHONPATH, but then every other unittest caller still breaks). Add pass-case 4."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 7,
+      "pass_cases": [
+        "1. From the repo root, `python3 -m unittest tests.test_rules.Rules tests.test_roles.Roles tests.test_agents.Agents tests.test_principles_rule.TestPrinciplesRule tests.test_principles_rule.AutoMergeTextsTest tests.test_bench.Bench` imports every module (no ImportError) and runs the same tests as these classes held under tests.test_relay on master.",
+        "2. The full `python3 -m unittest $(python3 lib/relay_textonly.py tests)` runs 117 tests (the master count); any error left is only the pre-existing TestPrinciplesRule one (outside finding F3).",
+        "3. `pytest tests -q` still collects 719 tests and passes.",
+        "4. A test (for example in tests/test_rules_gate.py) imports every RULE_TESTS name with unittest's loader from the repo root, in a subprocess, and fails on an ImportError; it fails on 9c66280 and passes after the fix."
+      ],
+      "path": "tests/test_rules.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_split_test_files.py:36 passes at head; failed at 9c66280 (previous check); gate green."
+      ],
+      "severity": "HIGH",
+      "since": "beb6b1a17e588998cf486075cf4f41bdf18f5878",
+      "source": "review-split-tests.json",
+      "source_id": "F1",
+      "summary": "the short gate's rules-text step can no longer import the moved rule tests: 6 modules fail with No module named 'relay_testbase'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (diff and the worker's own report). The content is correct today: relay queue check is clean, test_refusal would",
+        "accept both ids, and the merge guard only re-proves done files the range adds, so nothing breaks at merge. The finding is the",
+        "broken rule (an owner decision: HIGH by the judge base; label structured-data: one writer). It also matters for the method:",
+        "the next split (test_queue.py at 1342 lines, F1 of a later change) will meet the same need, and a hand edit is what the rule",
+        "exists to stop. The brief offered two paths (a lookup by class name, or a rewrite through the one queue writer); the worker",
+        "took a third. Size: 30 minutes for a small writer (a `relay queue` subcommand or a lib function used once, both lib copies",
+        "synced), 10 for the revert plus a Gap line."
+      ],
+      "evidence": [
+        "$ git diff master...HEAD -- .relay/queue",
+        "-  \"test\": \"tests/test_relay.py::test_a_job_longer_than_a_runner_s_turns_runs_in_the_front_s_background\",",
+        "+  \"test\": \"tests/test_roles.py::test_a_job_longer_than_a_runner_s_turns_runs_in_the_front_s_background\",",
+        "-  \"test\": \"tests/test_relay.py::test_setup_install_failure_todo_names_the_command\",",
+        "+  \"test\": \"tests/test_setup.py::test_setup_install_failure_todo_names_the_command\",",
+        "$ relay queue --help   (no subcommand sets the test of a done item)",
+        "reports/split-tests.md: \"two recorded ids rewritten by a text edit (no queue command sets a recorded test)\""
+      ],
+      "failing_case": [
+        "Commit 234f5a4 changes the \"test\" field of .relay/queue/done/runner-turns-while-waiting.json (line 20) and",
+        ".relay/queue/done/a-new-openspec-project-silently-has-no-openspec.json (line 24) from tests/test_relay.py::<name> to",
+        "tests/test_roles.py::<name> and tests/test_setup.py::<name> by editing the JSON text. rules/structured-data.md: \"One writer: a",
+        "single library parses, checks and writes the file. Nothing else edits it by hand or by string replacement.\" The worker's report",
+        "says so itself (\"rewritten by a text edit (no queue command sets a recorded test)\"). Should: the records change only through",
+        "relay_queue (its serialize/check), or not at all."
+      ],
+      "fix_hint": [
+        "Write the two records through relay_queue: a small function (or `relay queue` subcommand) that parses the done item, sets",
+        "\"test\" after test_refusal accepts the new id at HEAD, and writes relay_queue.serialize; run it once and commit its output.",
+        "Alternatively revert both files and make `relay queue show` resolve a moved name; either way keep lib copies identical."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 20,
+      "pass_cases": [
+        "1. Every change to a .relay/queue/done/*.json file in this range is produced by code in lib/ that parses the item with relay_queue.parse and writes it with relay_queue.serialize (like lib/relay_queue_migrate.py), or the two files are byte-identical to master.",
+        "2. If rewritten: the two \"test\" fields read tests/test_roles.py::test_a_job_longer_than_a_runner_s_turns_runs_in_the_front_s_background and tests/test_setup.py::test_setup_install_failure_todo_names_the_command, and relay_queue.test_refusal(repo, \"HEAD\", <field>) returns None for both.",
+        "3. If reverted: relay queue show <slug> still prints the moved test in a form a person can run (for example a lookup that finds <name> under tests/ when the recorded file is gone), or the brief's \"must still resolve\" goes to the owner as a Gap.",
+        "4. relay queue check stays \"every queue item file is well formed\"."
+      ],
+      "path": ".relay/queue/done/runner-turns-while-waiting.json",
+      "rank": "high",
+      "reason": [
+        "Both done records byte-identical to master (git diff master empty); tests/test_split_test_files.py:52 asserts the recorded ids are unchanged and the name is under tests/; it fails at f9d5265 (AssertionError on the rewritten test_setup id) and passes at head."
+      ],
+      "severity": "HIGH",
+      "since": "beb6b1a17e588998cf486075cf4f41bdf18f5878",
+      "source": "review-split-tests.json",
+      "source_id": "F2",
+      "summary": "two done queue records were rewritten by a text edit, against the one-writer rule for queue items (structured-data)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED on master and, after F1 is bypassed with PYTHONPATH=tests, on the branch (the same 7). Outside: the defect predates the",
+        "change and its fix changes test bodies, which the brief forbids in this pure move. A rules-only change in relay gets a red short",
+        "gate today. Size: 15 minutes (Base.tearDown restores the environment it set, or TestPrinciplesRule sets RELAY_ROOT=ROOT)."
+      ],
+      "evidence": [
+        "master worktree: Ran 117 tests in 12.503s  FAILED (errors=7)",
+        "ERROR: test_rule_has_the_shape (tests.test_relay.TestPrinciplesRule...) and 6 more",
+        "branch, PYTHONPATH=tests: FileNotFoundError: ... /relay-test-lu1styc4/fx/rules (x5), .../fx/plugins (x2)"
+      ],
+      "failing_case": [
+        "On master, `python3 -m unittest $(python3 lib/relay_textonly.py tests)` from the root: Ran 117 tests, FAILED (errors=7), all in",
+        "TestPrinciplesRule, with FileNotFoundError on <tmp>/relay-test-*/fx/rules and fx/plugins. Earlier tests in the list",
+        "(Roles at test_roles.py:184/217, Bench at test_bench.py:84/110) set os.environ[\"RELAY_ROOT\"] to a temporary fixture and never",
+        "restore it; Base.tearDown deletes the folder; TestPrinciplesRule is a plain TestCase that does not reset RELAY_ROOT. Should: 117",
+        "tests, OK."
+      ],
+      "fix_hint": [
+        "Base.setUp records the environment keys it and its tests set and tearDown restores them; or TestPrinciplesRule.setUp sets",
+        "RELAY_ROOT to ROOT. A queue fix item, not this change."
+      ],
+      "id": "F3",
+      "kind": "outside",
+      "line": 1,
+      "pass_cases": [
+        "1. The full RULE_TESTS list under unittest from the root runs 117 tests with no error.",
+        "2. TestPrinciplesRule run alone still passes.",
+        "3. pytest tests still passes (its order differs, which is why the library-tests step is green)."
+      ],
+      "path": "tests/test_principles_rule.py",
+      "rank": "medium",
+      "reason": [
+        "Already queue item the-rules-text-step-is-already-red-on-master-7 on master; outside this change."
+      ],
+      "severity": "MEDIUM",
+      "since": "beb6b1a17e588998cf486075cf4f41bdf18f5878",
+      "source": "review-split-tests.json",
+      "source_id": "F3",
+      "summary": "the rules-text step is already red on master: 7 TestPrinciplesRule tests error after earlier tests leave RELAY_ROOT on a deleted fixture",
+      "verdict": "QUEUED"
+    }
+  ],
+  "gate": "067934c66a01b9de99e17d9aa360869cad4c9d55.gate.log",
+  "head": "af3378ac8898fa7c272e8c1755df34a9e649497b",
+  "item": "one-shared-test-file-makes-parallel-changes-conf",
+  "notes": [
+    "Fixer's note that nothing re-runs old done ids (merge.py skips done files not added in the branch) was read and agrees."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix 067934c over f9d5265 (only the two done records restored and tests/test_split_test_files.py changed). Gate log head 067934c, bin/ci --quick, exit 0; HEAD af3378a only adds the gate mark. pytest tests: 721 passed. The two done records are identical to master (git diff master empty). New done-items test fails at f9d5265 (records rewritten) and passes at head; other tests in the file unchanged."
+  ],
+  "type": "check"
+}
