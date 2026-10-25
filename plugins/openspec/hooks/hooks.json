@@ -1,0 +1,14 @@
+{
+  "description": "The OpenSpec rule and its steps table for the session and every agent it starts, and the stage line on /opsx:* prompts; each only where the project's kit.toml has [specs] method = \"openspec\".",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/spec-rule.py"], "timeout": 10 }] }
+    ],
+    "SubagentStart": [
+      { "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/spec-rule.py"], "timeout": 10 }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/spec-rule.py"], "timeout": 10 }] }
+    ]
+  }
+}

@@ -182,24 +182,6 @@ class RenderedRules(Scratch):
         for method in self.rules.spec_methods():
             self.assertIn(method, spec["skip"])   # every spec method's rule is skipped globally
 
-    def test_project_with_specs_on_gets_the_rule_and_the_six_steps(self):
-        root = self.project("on", specs="openspec")
-        text = self.render(root)
-        self.assertIn("## OpenSpec", text)
-        rows = {line.split("|")[1].strip(): line for line in text.splitlines() if line.startswith("| ") and "`" in line}
-        # the six steps, each at the step of the change cycle the design names
-        for at, who in (("before 1", "openspec:plan"), ("1", "openspec:spec-review"), ("2", "kit packet"),
-                        ("4", "openspec:spec-conformance"), ("5", "openspec:author"), ("after 7", "openspec:archive")):
-            self.assertIn(who, rows[at], at)
-        self.assertEqual(len(rows), 6)
-        self.assertLess(text.index("## OpenSpec"), text.index("### Spec steps in the change cycle"))
-
-    def test_rule_appears_once_beside_other_stored_rules(self):
-        root = self.project("on2", specs="openspec")
-        text = self.render(root, load=["quality-gate"])
-        self.assertEqual(text.count("## OpenSpec"), 1)
-        self.assertIn("## Quality gate", text)
-
     def test_project_with_specs_off_or_unset_gets_none_of_it(self):
         for name, specs in (("off", "none"), ("unset", None)):
             text = self.render(self.project(name, specs=specs, openspec_dir=True))
@@ -216,12 +198,11 @@ class RenderedRules(Scratch):
         self.setenv("RELAY_PROJECTS", os.path.join(ROOT, "projects.toml"))
         global_text = self.rules.render_target("global", self.rules.targets()["global"], self.rules.rules(), {})
         without = self.render(self.project("plain"))
-        with_steps = self.render(self.project("steps", specs="openspec"))
         for text in (global_text, without):
             self.assertNotIn("goes through an OpenSpec change before code", text)
             self.assertNotIn("openspec:plan", text)
-        self.assertIn("openspec:plan", with_steps)
-        self.assertIn("openspec:archive", with_steps)
+        # a project that turns the steps on gets them from the openspec plugin's hook (tests/test_openspec_hook.py), not from sync
+        self.assertNotIn("openspec:plan", self.render(self.project("steps", specs="openspec")))
 
     def test_stored_spec_rule_is_refused_and_setup_removes_it(self):
         root = self.project("alpha", specs="openspec")
@@ -404,25 +385,29 @@ class Doctor(Scratch):
 # --- case 10: the stage hook --------------------------------------------------------------------------------------
 
 class StageHook(Scratch):
-    def say(self, root, prompt):
+    def say(self, root, prompt, hook=("core", "flow-stage.py")):
         data = json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": root, "prompt": prompt})
-        run = subprocess.run([sys.executable, os.path.join(ROOT, "plugins", "core", "hooks", "flow-stage.py")], input=data,
-                             capture_output=True, text=True, env={**os.environ, "RELAY_ROOT": ROOT})
+        run = subprocess.run([sys.executable, os.path.join(ROOT, "plugins", hook[0], "hooks", hook[1])], input=data,
+                             capture_output=True, text=True,
+                             env={**os.environ, "RELAY_ROOT": ROOT, "CLAUDE_PLUGIN_ROOT": os.path.join(ROOT, "plugins", hook[0])})
         self.assertEqual(run.returncode, 0, run.stderr)
         return json.loads(run.stdout)["hookSpecificOutput"]["additionalContext"] if run.stdout.strip() else ""
 
     def test_stage_lines_of_the_spec_method(self):
         root = self.project("nu", specs="openspec")
-        apply_line = self.say(root, "/opsx:apply add-x")
+        spec = ("openspec", "spec-rule.py")   # the spec method's line is the openspec plugin's hook; core's stays silent
+        apply_line = self.say(root, "/opsx:apply add-x", spec)
         self.assertIn("step 2 of the change cycle", apply_line)
         self.assertIn("kit packet", apply_line)
-        self.assertIn("openspec:spec-conformance", self.say(root, "/opsx:verify add-x"))
-        self.assertIn("openspec:plan", self.say(root, "/opsx:propose add-x: do it"))
-        self.assertIn("openspec:archive", self.say(root, "/opsx:archive add-x"))
+        self.assertIn("openspec:spec-conformance", self.say(root, "/opsx:verify add-x", spec))
+        self.assertIn("openspec:plan", self.say(root, "/opsx:propose add-x: do it", spec))
+        self.assertIn("openspec:archive", self.say(root, "/opsx:archive add-x", spec))
+        self.assertEqual(self.say(root, "/opsx:apply add-x"), "")
 
     def test_nothing_without_the_setting_and_nothing_for_the_old_flow_form(self):
         self.assertEqual(self.say(self.project("xi"), "/opsx:apply x"), "")
         self.assertEqual(self.say(self.project("omicron", old_flow='\n[flow]\nkind = "openspec"\n'), "/opsx:apply x"), "")
+        self.assertEqual(self.say(self.project("pi"), "/opsx:apply x", ("openspec", "spec-rule.py")), "")
 
     def test_no_two_shipped_manifests_share_a_trigger(self):
         seen = {}

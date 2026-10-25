@@ -5,14 +5,12 @@ hook="$here/../hooks/flow-stage.py"
 export RELAY_ROOT="$(cd "$here/../../.." && pwd -P)"
 fails=0
 check() { local name="$1" want="$2" out; out="$(printf '%s' "$3" | python3 "$hook")"
-  if [[ "$out" == *"$want"* ]]; then echo "ok   $name"; else echo "FAIL $name: got '$out'"; fails=1; fi; }
+  if [[ -z "$want" && -z "$out" ]] || [[ -n "$want" && "$out" == *"$want"* ]]; then echo "ok   $name"; else echo "FAIL $name: got '$out'"; fails=1; fi; }
 p="$(mktemp -d)"; mkdir -p "$p/.claude"
 check "no binding: silent" '' "{\"hook_event_name\":\"UserPromptSubmit\",\"cwd\":\"$p\",\"prompt\":\"/opsx:apply x\"}"
 printf '[specs]\nmethod = "openspec"\n' > "$p/.claude/kit.toml"
-check "openspec: /opsx:apply gives the step-2 note" 'step 2 of the change cycle' "{\"hook_event_name\":\"UserPromptSubmit\",\"cwd\":\"$p\",\"prompt\":\"/opsx:apply add-x\"}"
-check "openspec: /opsx:propose names openspec:plan" 'openspec:plan' "{\"hook_event_name\":\"UserPromptSubmit\",\"cwd\":\"$p\",\"prompt\":\"/opsx:propose add-x: do it\"}"
-check "openspec: plain prompt silent" '' "{\"hook_event_name\":\"UserPromptSubmit\",\"cwd\":\"$p\",\"prompt\":\"hello\"}"
-check "inside an agent: silent" '' "{\"hook_event_name\":\"UserPromptSubmit\",\"cwd\":\"$p\",\"agent_id\":\"a\",\"prompt\":\"/opsx:apply x\"}"
+# the spec method's line is the openspec plugin's hook now (tests/test_openspec_hook.py); core cannot know the plugin is loaded
+check "openspec: core stays silent on /opsx:apply" '' "{\"hook_event_name\":\"UserPromptSubmit\",\"cwd\":\"$p\",\"prompt\":\"/opsx:apply add-x\"}"
 printf '[flow]\nkind = "issues"\n' > "$p/.claude/kit.toml"
 check "issues: /issue 42 names issues:implement" 'issues:implement' "{\"hook_event_name\":\"UserPromptSubmit\",\"cwd\":\"$p\",\"prompt\":\"/issue 42\"}"
 check "issues: roles listed" 'delegate:worker' "{\"hook_event_name\":\"UserPromptSubmit\",\"cwd\":\"$p\",\"prompt\":\"/issues:merge 42\"}"

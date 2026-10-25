@@ -4,7 +4,7 @@
 `claude plugin eval` starts the session with CLAUDE.md loading turned off (CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 and
 `--setting-sources user`), so a CLAUDE.md written by a case's scaffold never reaches the session. The one channel the
 runner honours is `append_system_prompt` in the case's prompt.md frontmatter. This module builds that text from
-rules/*.md (and, for the spec-step cases, from relay's own renderer), so no copy is kept by hand:
+rules/*.md (and, for the spec-step cases, from the openspec plugin's hook renderer), so no copy is kept by hand:
 
     python3 evals/plugin/system_rules.py        rewrites the `append_system_prompt:` line of every case listed below
     tests/test_eval_system_rules.py             fails when a case's line differs from what this module builds
@@ -13,8 +13,6 @@ A system-prompt rule sits higher than a CLAUDE.md rule does in a real session, s
 """
 import json
 import os
-import sys
-import tempfile
 from typing import Callable, Dict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -39,16 +37,19 @@ def front_rules() -> str:
 
 
 def spec_steps() -> str:
-    """The rules a project with `[specs] method = "openspec"` loads in full (the OpenSpec rule and its steps table),
-    rendered by relay's own code; the pointer list of rules to read is left out (those files are not in the case's folder)."""
-    sys.path.insert(0, os.path.join(ROOT, "lib"))
-    import relay_rules
-    with tempfile.TemporaryDirectory() as work:
-        os.makedirs(os.path.join(work, ".claude"))
-        with open(os.path.join(work, ".claude", "kit.toml"), "w", encoding="utf-8") as handle:
-            handle.write('[specs]\nmethod = "openspec"\n')
-        spec = {"file": os.path.join(work, "CLAUDE.local.md"), "load": [], "read": []}
-        return relay_rules.render_target("project", spec, relay_rules.rules(), {})
+    """The text a project with `[specs] method = "openspec"` gets at SessionStart from the openspec plugin's hook (the
+    OpenSpec rule and its steps table), rendered by the hook's own code."""
+    import importlib.util
+    plugin = os.path.join(ROOT, "plugins", "openspec")
+    found = importlib.util.spec_from_file_location("openspec_spec_rule", os.path.join(plugin, "hooks", "spec-rule.py"))
+    assert found and found.loader
+    hook = importlib.util.module_from_spec(found)
+    found.loader.exec_module(hook)
+    hook.PLUGIN = plugin   # not the CLAUDE_PLUGIN_ROOT of whatever session runs this
+    rule = hook.load_rule()
+    manifest = hook.load_manifest()
+    assert rule and manifest
+    return hook.render(rule, manifest)
 
 
 GLOSSARY = "the gate is this project's full local check before a merge (tests, lint, types)."
