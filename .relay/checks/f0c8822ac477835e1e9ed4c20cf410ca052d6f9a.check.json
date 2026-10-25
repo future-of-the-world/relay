@@ -1,0 +1,184 @@
+{
+  "branch": "wt/session-profile",
+  "findings": [
+    {
+      "details": [
+        "24 Oct, owner asked how to record the front's effort in relay. profiles/active.toml has [session] model = \"opus\", effort = \"high\" and calls itself \"the setup every session runs\", but only lib/relay_bench.py reads [session]; relay sync never writes them, and ~/.claude/settings.json holds effortLevel \"high\" set by hand. A change to [session] (an adopted candidate, say) silently does nothing for real sessions."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Set [session] effort = \"medium\" in profiles/active.toml and run `relay sync`: ~/.claude/settings.json still says effortLevel \"high\"."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After `relay sync` the settings carry the profile's model and effortLevel, other keys untouched; `relay sync --dry` names the change; a second sync is unchanged."
+      ],
+      "path": "lib/relay_rules.py sync, lib/relay_setup.py merge_user_settings, profiles/active.toml [session]",
+      "rank": "high",
+      "reason": [
+        "tests/test_session_profile.py:45 test_sync_writes_model_and_effort_and_leaves_other_keys passes, fails at 76c37c3."
+      ],
+      "severity": "HIGH",
+      "since": "76c37c350c08d5520a8e40ea6a3c15cc13069684",
+      "source": "queue",
+      "summary": "profile [session] model/effort is never applied",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading Claude Code 2.1.310 (the installed binary). b2t(): for userSettings the top-level effortLevel",
+        "goes to `legacyUserEffort` (setsTopLevel false); per-model values come from modelSettings. U2r(table, model):",
+        "byModel[model] wins; otherwise, with no default from another source, legacyUserEffort applies only when",
+        "Y2o(model) holds, which is true for the listed older models (claude-opus-4-x, claude-opus-5, sonnet-4-x, ...)",
+        "or names that do not parse; claude-opus-5-5 parses and is not on the list, so the top-level user effortLevel is",
+        "ignored for it entirely. And the real file already holds modelSettings.claude-opus-5-5.effortLevel \"high\", which",
+        "wins in any case. The fixer saw the modelSettings copy (report: \"not touched\") but did not check which one is read.",
+        "The tests encode only the top-level shape, so they pass while the real session is unchanged.",
+        "The key is canonical (TV(name)); the profile holds the alias \"opus\", so the fix must know the id the alias",
+        "resolves to, or the profile must name the id. That may need the owner's word (see the question in fix_hint).",
+        "Size: 30."
+      ],
+      "evidence": [
+        "python3 read of ~/.claude/settings.json (model/effort keys only):",
+        "  {'model': 'opus', 'effortLevel': None, 'modelSettings': {'claude-opus-5-5': {'effortLevel': 'high'}}}",
+        "Binary text, b2t: if(S===\"userSettings\"){s=aAe(v.effortLevel),u.push({source:S,setsTopLevel:!1,settings:v});continue}",
+        "U2r: if(Object.hasOwn(e.byModel,r))return e.byModel[r];if(e.default!==void 0||e.legacyUserEffort===void 0)return e.default;return Y2o(r)?e.legacyUserEffort:void 0",
+        "Y2o: n=Fe.has(e)||!$L(Cc(e))   Fe = [\"claude-3-5-haiku\",...,\"claude-opus-4-8\",\"claude-opus-5\",\"claude-fable-5\",...] (no claude-opus-5-5)",
+        "Tool doc in binary: \"takes effortLevel only and saves it as the default for the session's current model, under modelSettings as /effort saves it\""
+      ],
+      "failing_case": [
+        "Real shape today: ~/.claude/settings.json has model \"opus\" and modelSettings {\"claude-opus-5-5\": {\"effortLevel\": \"high\"}},",
+        "no top-level effortLevel (this is where /effort saves it). Set [session] effort = \"medium\" and run relay sync:",
+        "it writes top-level effortLevel \"medium\", doctor prints ok, and a new Opus 5.5 session still runs at high.",
+        "Should: the session for the profile's model runs at medium."
+      ],
+      "fix_hint": [
+        "Write modelSettings[<canonical id of the profile's model>].effortLevel (keep or drop top-level effortLevel), and make",
+        "doctor compare that entry. The canonical id: either resolve the alias the way the front's model resolves today",
+        "(e.g. the key already present in modelSettings whose family matches the alias), or have [session] model name the",
+        "full id. Add a test with the real shape (pass case 1)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 333,
+      "pass_cases": [
+        "1. settings {\"model\":\"opus\",\"modelSettings\":{\"claude-opus-5-5\":{\"effortLevel\":\"high\"}}}, profile effort \"medium\":",
+        "   after sync the effort Claude Code resolves for claude-opus-5-5 is medium (modelSettings entry for that model is \"medium\").",
+        "2. same file, other keys (theme, enabledPlugins, modelSettings.<other model>.autoCompactWindow) untouched.",
+        "3. sync --dry names the change and writes nothing; a second sync says unchanged.",
+        "4. doctor reports FIX when modelSettings.<profile model>.effortLevel differs from [session] effort, even if top-level effortLevel matches.",
+        "5. settings with no modelSettings at all: after sync the profile's effort applies to the profile's model."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_session_profile.py:77 and :86, :92, :99 pass; fail at 2f7988f."
+      ],
+      "severity": "HIGH",
+      "since": "2f7988f412c5f8f96152834976a322e286b38278",
+      "source": "review-session-profile.json",
+      "source_id": "F1",
+      "summary": "the top-level effortLevel sync writes is ignored by Claude Code for the front's model; modelSettings.<model>.effortLevel wins, so the item's failing case still holds and doctor says ok",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: reproduced in a temp CLAUDE_CONFIG_DIR, sync wrote \"effortLevel\": \"max\". Claude Code 2.1.310 schema:",
+        "effortLevel:B([\"low\",\"medium\",\"high\",\"xhigh\"]).optional().catch(void 0); its tool doc says \"'max' is session-only and",
+        "is not written\". The docstring of session_settings names the four values but nothing enforces them. Size: 10."
+      ],
+      "evidence": [
+        "CLAUDE_CONFIG_DIR=<tmp> sync({'session':{'model':'opus','effort':'max'}}, only={'settings'})",
+        "  -> \"set effortLevel None -> 'max', model None -> 'opus'\"; settings.json {\"model\": \"opus\", \"effortLevel\": \"max\"}"
+      ],
+      "failing_case": [
+        "Profile [session] effort = \"max\" (the tune skill and docs/benchmark.md list max as an effort; `relay candidate --set",
+        "session.effort=max` then adopt). relay sync writes effortLevel \"max\": state \"set effortLevel None -> 'max'\".",
+        "Claude Code's schema for the persisted effort is low|medium|high|xhigh with .catch(undefined), so the value is",
+        "dropped silently and the session runs at the model default; doctor says ok. Should: sync and doctor say plainly",
+        "that max cannot be persisted (or refuse it), and write nothing invalid."
+      ],
+      "fix_hint": [
+        "A fixed tuple of persistable values beside SESSION_KEYS; a value outside it gives a state \"not written: max is",
+        "session-only\" and a doctor line."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 336,
+      "pass_cases": [
+        "1. effort \"max\": sync state names that max is session-only and not written; settings.json effort keys unchanged.",
+        "2. effort \"max\": doctor reports FIX (or a note) rather than ok.",
+        "3. effort \"xhigh\", \"high\", \"medium\", \"low\": written as today."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_session_profile.py:105 and :116 pass; :105 fails at 2f7988f."
+      ],
+      "severity": "MEDIUM",
+      "since": "2f7988f412c5f8f96152834976a322e286b38278",
+      "source": "review-session-profile.json",
+      "source_id": "F2",
+      "summary": "[session] effort \"max\" is written to settings.json, where Claude Code drops it (max is session-only), and doctor reports ok",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction. read_json maps ValueError to {} and merge_session_settings then writes. merge_user_settings",
+        "had the same flaw but ran only in setup --global/install; this change puts it on the path of every `relay sync`,",
+        "`relay improve adopt` and install. The backup makes it recoverable, but sessions lose the relay plugins and",
+        "permissions until someone notices. Size: 15."
+      ],
+      "evidence": [
+        "temp CLAUDE_CONFIG_DIR with '{\"enabledPlugins\": {\"core@relay\": true}, \"model\": \"sonnet\",}':",
+        "  sync -> \"set effortLevel None -> 'max', model None -> 'opus'\"; settings.json now {\"model\": \"opus\", \"effortLevel\": \"max\"};",
+        "  settings.json.20261025-094745.bak beside it"
+      ],
+      "failing_case": [
+        "~/.claude/settings.json is not valid JSON (a trailing comma after a hand edit):",
+        "{\"enabledPlugins\": {\"core@relay\": true}, \"model\": \"sonnet\",}",
+        "relay sync -> read_json returns {}, the file becomes {\"model\": \"opus\", \"effortLevel\": \"max\"}; enabledPlugins,",
+        "permissions, marketplaces are gone from the live file (a .bak is kept). Should: sync refuses that target with",
+        "\"settings.json is not valid JSON: <error>\" and leaves the file as it is."
+      ],
+      "fix_hint": [
+        "Read the file with a parser that tells \"missing\" from \"invalid\"; on invalid return (path, REFUSED + reason) / WOULD_REFUSE",
+        "in dry. Applying the same to merge_user_settings is cheap and in the same file."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 345,
+      "pass_cases": [
+        "1. malformed settings.json: sync state starts with \"refused: \" (so report_refused exits 1), file byte-identical, no .bak written.",
+        "2. sync --dry on the malformed file: \"would refuse: ...\" and nothing written.",
+        "3. missing settings.json: sync creates it with model and effortLevel (works today).",
+        "4. valid file: merged as today, other keys untouched."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_session_profile.py:122 and :133 pass; :122 fails at 2f7988f."
+      ],
+      "severity": "MEDIUM",
+      "since": "2f7988f412c5f8f96152834976a322e286b38278",
+      "source": "review-session-profile.json",
+      "source_id": "F3",
+      "summary": "every relay sync now rewrites a malformed settings.json as just model and effortLevel, dropping plugins, permissions and hooks",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "954fce15514ffdbc090ae3a414fa9921a29cc512.gate.log",
+  "head": "f0c8822ac477835e1e9ed4c20cf410ca052d6f9a",
+  "item": "profile-session-model-effort-is-never-applied",
+  "notes": [
+    "Gap (alias with no modelSettings entry writes only top-level effortLevel) is fine: with no entry nothing overrides it. Active profile uses alias \"opus\"."
+  ],
+  "schema": 2,
+  "scope": [
+    "Ran tests/test_session_profile.py (12 pass) at head. Baseline 2f7988f: 5 new tests fail; baseline 76c37c3 (Q1 since): all 12 fail. Gate log is for 954fce1, relay changed lists no file after it, exit 0. Read the fix diff of lib/relay_setup.py."
+  ],
+  "type": "check"
+}
