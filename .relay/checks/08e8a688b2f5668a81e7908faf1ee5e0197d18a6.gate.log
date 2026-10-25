@@ -1,0 +1,13 @@
+head 08e8a688b2f5668a81e7908faf1ee5e0197d18a6
+cmd bin/ci --quick
+ci: library tests FAILED (403s, log: .ci/steps/library-tests.log)
+    KeyError: 'name'
+    FAILED (errors=1)
+ci: types and lint ok (0s)
+ci: hook tests ok (142s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert ok (617s)
+ci: RED
+exit 1

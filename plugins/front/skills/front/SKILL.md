@@ -25,6 +25,18 @@ agents (load the `delegate` skill).
 - One screen at most. Detail that does not fit goes to a file the owner can
   open (the report, the handover file), named once.
 
+## Claims that did not reproduce
+
+A queue item whose failing case is a claim (`failing_kind` `claim`) is reproduced
+by a cheap agent before its build (the `delegate` skill, step 2). When it does
+not reproduce, the owner is not asked at once: the front collects such items and
+brings them in one message, with what each check showed and a recommendation:
+drop it, or close it as already fixed once `relay queue` can close a fix that
+another change already merged (the queue item
+`a-fix-already-merged-by-another-change-cannot-be`). Front's decision, the owner can
+reverse it. Live cases, 24 Oct: the plugin-cache item (the claim never held) and
+the bench item (already fixed on the default branch).
+
 ## Questions
 
 Ask only what the owner alone can decide: a trade-off, a number, a scope cut,
@@ -117,7 +129,7 @@ branch's head, so the primary checkout stays clean, and report its cost. It take
 longer than the ~40 minutes a runner's turns cover, so never a runner: start it
 with Bash `run_in_background` into a log in the scratchpad (no `&`, no polling;
 the harness tells you when it exits) and, when told, read only the log's last lines.
-A red run is one fix item at the top of the queue (`relay queue add`, kind fix)
+A red run is one fix item at the top of the queue (`relay queue add`, kind fix, `failing_kind = "run"`)
 naming each failing eval and the changes `due` listed; when an open fix item already names that eval, add none (only the record path, if `relay queue` can); the next wave's run
 proves the fix. A run that is not a pass without a failing eval (money ceiling,
 runs not judged, the day's cap) adds no item: tell the owner in one line and run

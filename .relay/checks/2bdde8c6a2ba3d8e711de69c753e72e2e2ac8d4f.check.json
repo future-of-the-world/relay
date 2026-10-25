@@ -1,0 +1,207 @@
+{
+  "branch": "wt/premise",
+  "findings": [
+    {
+      "details": [
+        "Owner, verbatim, 24 Oct: \"1. a\" to: add the premise check only for items whose failing case is someone's claim, not a failing test. Live case: installed-relay-plugins-are-a-cached-copy-from-2 (a design reviewer's conditional claim, F12) went through build, review, 4 fixes and a hand-resolved merge conflict (about 200k agent tokens) before one 30-second command showed sessions load ~/relay/plugins directly; dropped with the owner's \"1. a\"."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "24 Oct: the plugin-cache item was built although its premise (\"sessions load the stale copy\") was never reproduced; a fresh `claude -p` session disproved it in 30 s after the build."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The skills say: an item whose failing case is a claim gets the reproduce step before its build; a non-reproduced claim stops the build and reaches the owner; an item with a failing test skips the step; relay queue add records which kind the failing case is."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md (review loop, before step 2 Build), plugins/front/skills/front/SKILL.md, rules/queue.md, relay queue add (a field saying whether the failing case is a failing test or a claim)",
+      "rank": "high",
+      "reason": [
+        "tests/test_premise.py::TestFailingKind::test_q1_add_records_which_kind_the_failing_case_is_and_refuses_a_fix_that_does_not_say passes; at 29855289bc9d all four test_premise tests fail."
+      ],
+      "severity": "HIGH",
+      "since": "29855289bc9db2308cd4d287a8e935b6be79e6c3",
+      "source": "queue",
+      "summary": "A queue item built on someone's claim is built unchecked",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the skill and counting the items. The field is only written by `relay queue add` from now on, so every",
+        "item queued before the change lacks it, and nothing migrates them. The skill names two branches (claim; test/run/feature) and",
+        "no third, while the queue holds 25 items of the third shape today, and those are mostly reviewers' and the front's claims (the",
+        "kind of item the step is for). Inside: the fix is one sentence in the files the change touched (delegate SKILL.md step 2,",
+        "rules/queue.md, optionally the front skill), plus one assertion in tests/test_premise.py. An alternative, a one-off",
+        "`relay queue` rewrite that marks old items, is a write to the live queue and conflicts with the overlap note; the text rule is",
+        "smaller. Size: 10 minutes."
+      ],
+      "evidence": [
+        "$ for f in .relay/queue/*.json; do ... kind fix, untaken, undropped, 'failing_kind' in d ...; done",
+        "25 lines \"fix False\", including .relay/queue/the-bench-never-starts-a-worker-so-it-measures-n.json (taken_at null, closed_at null)",
+        "plugins/delegate/skills/delegate/SKILL.md:112 \"the reproduce step for a queue item whose `failing_kind` is `claim`\"",
+        "plugins/delegate/skills/delegate/SKILL.md:124 \"Items with `failing_kind` `test` or `run`, and features, go straight to the build.\"",
+        "lib/relay_queue.py:309 show_text adds \"(kind)\" only when failing_kind is set"
+      ],
+      "failing_case": [
+        "On this branch, 25 open fix items in .relay/queue/ have no failing_kind, among them the change's own second live case,",
+        "the-bench-never-starts-a-worker-so-it-measures-n (still open, already fixed on master by 3b28fbf/436ce08). The front takes it",
+        "next: the delegate skill step 2 runs the reproduce step only for \"a queue item whose failing_kind is claim\" and sends",
+        "\"failing_kind test or run, and features\" straight to the build; an item with no failing_kind matches neither sentence, and",
+        "`relay queue show` prints plain \"Failing case:\" for it. The likely reading is \"not a claim, build\": the 34-minute, 123k-token",
+        "cycle the change was made to stop happens again on the very item it names. It should get the reproduce step."
+      ],
+      "fix_hint": [
+        "In delegate SKILL.md step 2 and rules/queue.md: \"A fix item with no failing_kind (queued before the field existed) counts as a",
+        "claim.\" Assert that sentence in tests/test_premise.py::test_q1_the_skills_and_the_rule_name_the_reproduce_step."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 112,
+      "pass_cases": [
+        "1. A fix item with no failing_kind key (an item file queued before this change): the delegate skill step 2 and rules/queue.md say it is treated as a claim and reproduced before its build (a test reads the skill text for that sentence).",
+        "2. A fix item with failing_kind \"claim\": reproduce step, as now.",
+        "3. A fix item with failing_kind \"test\" or \"run\": straight to the build, as now.",
+        "4. A feature: straight to the build, as now.",
+        "5. `relay queue check` still accepts an old item without failing_kind (no problem listed)."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_premise.py:75-77 asserts \"no `failing_kind`\" and \"counts as a claim\" in delegate and rule; passed, fails at 532e961."
+      ],
+      "severity": "MEDIUM",
+      "since": "532e961843a1c54d045b9dc6e8be21453844e06c",
+      "source": "review-premise.json",
+      "source_id": "F1",
+      "summary": "the 25 open fix items queued before the field (the bench item among them) have no failing_kind, and the skill gives them no rule, so they skip the reproduce step",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: bin/relay:685 `relay queue take <slug> -C <worktree>`; delegate SKILL.md step 2 places the step \"before",
+        "the build\", after the brief and worktree exist, and its not-reproduced branch names no release. Correct for the owner's message",
+        "(the front brings it), but the queue shows a taken item that nobody works on until the owner answers. Cheap to fix in the same",
+        "sentence. Size: 5 minutes."
+      ],
+      "evidence": [
+        "bin/relay:685 relay queue take <slug> -C <worktree>",
+        "plugins/delegate/skills/delegate/SKILL.md:119-122 \"no build; the item is held for the front, who brings all such items to the owner in one message\""
+      ],
+      "failing_case": [
+        "The front takes the bench item (`relay queue take <slug> -C <worktree>` needs the worktree, so the branch exists), writes the",
+        "brief, and at step 2 a runner finds the failing case no longer fails. The skill says \"no build; the item is held for the front\".",
+        "The item stays \"taken by wt/<task>\" in `relay queue` and its worktree and branch stay; nothing says to release them. It should",
+        "either be reproduced before the take (a read from the main checkout needs no worktree) or be released when held."
+      ],
+      "fix_hint": [
+        "\"Run it before `relay queue take`, from the main checkout (a read, a command, a test of master)\"; or add \"release the item",
+        "(`relay queue release <slug>`) and remove the worktree\" to the not-reproduced branch."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 119,
+      "pass_cases": [
+        "1. The skill says the reproduce step runs before `relay queue take` (or says a held item is released with `relay queue release <slug>` and its worktree removed).",
+        "2. A reproduced claim: taken and built as now.",
+        "3. An item with failing_kind test or run: taken and built as now."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_premise.py:78 asserts \"before `relay queue take`\" in the delegate skill; text present at SKILL.md step 2."
+      ],
+      "severity": "LOW",
+      "since": "532e961843a1c54d045b9dc6e8be21453844e06c",
+      "source": "review-premise.json",
+      "source_id": "F2",
+      "summary": "the reproduce step sits after the item is taken in a worktree, and a held item is never released, so it stays taken by a dead branch",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading SKILL.md:132 and lib/relay_queue.py:714. Not wrong (the refusal names the three words), only a wasted",
+        "turn each red run. Size: 2 minutes."
+      ],
+      "evidence": [
+        "plugins/front/skills/front/SKILL.md:132 \"A red run is one fix item at the top of the queue (`relay queue add`, kind fix)\"",
+        "lib/relay_queue.py:714 if kind == \"fix\" and failing_kind not in FAILING_KINDS: raise Refused(...)"
+      ],
+      "failing_case": [
+        "After a red paid run the front follows SKILL.md:132 \"one fix item at the top of the queue (`relay queue add`, kind fix)\" and",
+        "writes a TOML with kind, title, why, time, failing_case. `relay queue add` now refuses: \"a fix item says what its failing case",
+        "is (failing_kind ...)\". The front adds it on the second try. The text should name failing_kind = \"run\" (a recorded red run is",
+        "exactly that kind)."
+      ],
+      "fix_hint": [
+        "\"(`relay queue add`, kind fix, failing_kind run)\"."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 132,
+      "pass_cases": [
+        "1. front SKILL.md's red-run sentence names `failing_kind = \"run\"`.",
+        "2. A TOML with that key is queued on the first try (rq.add with failing_kind=\"run\" succeeds, already covered by add)."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_premise.py:79 asserts failing_kind = \"run\" in the front skill; text present at SKILL.md:132."
+      ],
+      "severity": "LOW",
+      "since": "532e961843a1c54d045b9dc6e8be21453844e06c",
+      "source": "review-premise.json",
+      "source_id": "F3",
+      "summary": "the front skill's red-run fix item does not say failing_kind = run, so the first add is refused and the agent must guess the word",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the test (lines 38-43) and test_queue.py add_from tests (175-230): none reads failing_kind. Size: 5 minutes."
+      ],
+      "evidence": [
+        "tests/test_premise.py:43 self.assertNotIn(\"failing_kind\", rq.FROM_KEYS)",
+        "grep -n add_from tests/*.py: only tests/test_queue.py 175-233, no failing_kind assertion"
+      ],
+      "failing_case": [
+        "Change lib/relay_queue.py:757 to failing_kind=\"test\". tests/test_premise.py and tests/test_queue.py still pass: the test",
+        "test_q1_the_input_file_key_is_read_and_a_finding_is_queued_as_a_claim only checks that FROM_KEYS lacks the key, and the add_from",
+        "tests in test_queue.py do not read failing_kind. Every review finding would then skip the reproduce step. A test should fail."
+      ],
+      "fix_hint": [
+        "In the test, record a review with tq's review_data helper, add_from it, and assert the item's failing_kind == \"claim\"."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 38,
+      "pass_cases": [
+        "1. rq.add_from(repo, report, \"F1\", why=\"w\", minutes=5) writes an item whose failing_kind is \"claim\".",
+        "2. The same for a check's new finding N1.",
+        "3. A TOML for --from holding failing_kind is refused (FROM_KEYS), as now."
+      ],
+      "path": "tests/test_premise.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_premise.py:46 test_f4_add_from_queues_a_review_finding_and_a_checks_finding_as_a_claim asserts claim for F1 and N1 (passes; it passes at 532e961 too because the code was already right, the fixer reports it fails with line 757 mutated, not rerun by me)."
+      ],
+      "severity": "LOW",
+      "since": "532e961843a1c54d045b9dc6e8be21453844e06c",
+      "source": "review-premise.json",
+      "source_id": "F4",
+      "summary": "the test named 'a finding is queued as a claim' never queues a finding; add_from writing 'test' instead of 'claim' passes every test",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "512521a3c7c49f8fbd729a855f17f374592be4b9.gate.log",
+  "head": "2bdde8c6a2ba3d8e711de69c753e72e2e2ac8d4f",
+  "item": "a-queue-item-built-on-someone-s-claim-is-built-u",
+  "notes": [
+    "Fix commit 6821632 touches only the two skills, rules/queue.md and tests/test_premise.py. No caller changed."
+  ],
+  "schema": 2,
+  "scope": [
+    "Q1 over 29855289bc9d..HEAD, F1-F4 over 532e961..HEAD. Ran tests/test_premise.py and tests/test_queue.py (91 passed). Gate log head 512521a, exit 0, bin/ci --quick; relay changed lists no file after it. Base worktrees at 29855289bc9d and 532e961 with head test_premise.py."
+  ],
+  "type": "check"
+}
