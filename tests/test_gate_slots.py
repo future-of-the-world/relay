@@ -38,7 +38,8 @@ class Slots(Fixture):
         git(self.wt2, "commit", "-q", "-m", "work")
 
     def start(self, cwd):
-        proc = subprocess.Popen([sys.executable, RELAY, "gate"], cwd=cwd, env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        proc = subprocess.Popen([sys.executable, RELAY, "gate"], cwd=cwd, env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL))      # a detached run ignores SIGINT and the child would inherit that
         self.addCleanup(self.reap, proc)
         return proc
 
