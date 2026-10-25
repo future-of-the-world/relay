@@ -1158,3 +1158,4 @@ In progress, all committed, nothing only in memory:
 4. Then the wave paid run on master (detached worktree, bash bin/ci in the background); green -> relay sync; red -> one fix item at the top. Remove .worktrees/paid-e905742 then (kept as evidence).
 Paid today: about $63 of $200 (ledger shows less: direct eval runs are missing, queue item the-paid-ledger-misses-eval-runs-made-outside-bi).
 Scratchpad (briefs, reports, q-*.toml): /private/tmp/claude-501/-Users-amidman-relay/3207dc59-2cc6-4cd6-9463-5c3c3c8bd504/scratchpad (a /tmp path: it may be gone after a restart; the reports named above then live only in the branches' commits and .relay/checks).
+Scratchpad copy (survives a restart): /Users/amidman/.relay/backup/scratch-3207dc59 — briefs/, reports/, q-*.toml.
