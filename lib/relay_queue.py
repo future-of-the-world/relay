@@ -95,7 +95,7 @@ def parse_place(element: str) -> Optional[Place]:
 
 def where_problems(value: object) -> list[str]:
     """Why `where` (a list of places, each a string `parse_place` reads) is not well formed; [] when it is."""
-    if not _is_lines(value):
+    if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
         return ["where is not a list of places"]
     if not value:
         return ["where is empty (leave the key out)"]

@@ -49,7 +49,8 @@ def _names_place(piece: str) -> bool:
 
 def split_where(slug: str, text: str) -> tuple[list[str], bool]:
     """(the elements of the list, True when the split was clean) for the old string `text` of the item `slug`."""
-    elements, clean = [], True
+    elements: list[str] = []
+    clean = True
     for piece in _pieces(text):
         if not _names_place(piece):
             if elements:
@@ -58,7 +59,8 @@ def split_where(slug: str, text: str) -> tuple[list[str], bool]:
                 elements.append(f"{rq._path(slug)} {piece}")      # no place at all: the item's own file is the place
             clean = False
         elif rq.parse_place(piece) is None:
-            path = FIRST.match(piece).group()                     # e.g. "lib/a.py:22,28-35 note": keep the rest as the note
+            found = FIRST.match(piece)
+            path = found.group() if found else piece.split()[0]                     # e.g. "lib/a.py:22,28-35 note": keep the rest as the note
             elements.append(f"{path} {piece[len(path):].strip()}".strip())
             clean = False
         else:
