@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 45,
+  "found_at": "2026-10-25T08:55:37Z",
+  "found_in": "relay queue add",
+  "title": "The paid ledger misses eval runs made outside bin/ci",
+  "what": [
+    "Every paid eval run counts in `bin/paid-cost today` and against the daily cap, including a direct `claude plugin eval` run that an agent makes while reproducing a case."
+  ],
+  "why": [
+    "25 Oct, wt/wave-red: two workers made about $22.7 of direct case runs; `bin/paid-cost today` showed $15.03, 1 run (the wave run only). The $200/day cap is blind to them, and an agent cannot see what it already spent. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "scratchpad reports/wave-red.md, \"Paid case runs made on this branch\": the ledger missed all direct runs."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "After a direct eval run of one case, `bin/paid-cost today` shows its cost and the run."
+  ],
+  "where": "bin/paid-cost, the eval runner's aggregate-result.json, whatever records a bin/ci run in the ledger",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
