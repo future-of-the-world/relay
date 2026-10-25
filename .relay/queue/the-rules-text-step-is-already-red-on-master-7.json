@@ -25,8 +25,8 @@
     "3. pytest tests still passes (its order differs, which is why the library-tests step is green)."
   ],
   "where": "tests/test_principles_rule.py:1",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T15:29:40Z",
+  "taken_by": "wt/rules-red",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
