@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 86,
+  "time": 60,
+  "found_at": "2026-10-25T17:28:28Z",
+  "found_in": "relay queue add",
+  "title": "Squash-merge projects keep check records of lost commits",
+  "what": [
+    "On a project that merges by pull request with squash, relay's check records do not land on the default branch naming commits it never holds, and the pull-request merge is gated by relay's ready state (or the docs say plainly it is not)."
+  ],
+  "why": [
+    "25 Oct, the arsenal pilot design, scratchpad reports/design-arsenal.md (copy in ~/.relay/backup/scratch-3207dc59), risk 5: about 4 files under .relay/checks per change reach arsenal's master through the squash, naming shas of a branch Forgejo deletes at merge; an agent cannot drop them (guard-main refuses writes to .relay/checks once .relay/ is on the default branch). IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A temporary repo with .relay/ on main: a branch gets a check record, is squash-merged into main as one new commit, branch deleted; main now holds .relay/checks files naming commits main does not contain."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "After the same squash-merge, no record on main names a commit main lacks (or the docs and setup state it and relay keeps the records out of the squashed tree)."
+  ],
+  "where": "lib/relay_marks.py, plugins/core/hooks/guard-main.sh (.relay/checks writes), docs",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
