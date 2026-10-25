@@ -32,6 +32,62 @@ class Setup(Base):
         self.assertTrue(d2["has_bindings"])
 
 
+class SetupInWorktree(Base):
+    def _repo_with_worktree(self):
+        main = os.path.join(self.tmp, "mainproj")
+        os.makedirs(main)
+        git = ["git", "-C", main, "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run(["git", "init", "-q", main], check=True)
+        open(os.path.join(main, "go.mod"), "w").write("module x\n")
+        subprocess.run(git + ["add", "go.mod"], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "init"], check=True)
+        wt = os.path.join(self.tmp, "somewt")
+        subprocess.run(git + ["worktree", "add", "-q", "-b", "wt/x", wt], check=True)
+        return main, wt
+
+    def test_setup_in_a_linked_worktree_refuses_and_names_the_main_checkout(self):
+        # Q1: the worktree folder is "somewt"; the project is "mainproj". Naming it "somewt" would register the wrong project.
+        import relay_setup
+        main, wt = self._repo_with_worktree()
+        with self.assertRaises(ValueError) as caught:
+            relay_setup.setup(wt, flow="none", product=False, apply_global=False)
+        self.assertIn(f"relay setup {os.path.realpath(main)}", str(caught.exception))
+        self.assertFalse(os.path.exists(os.path.join(wt, ".claude")))
+        self.assertNotIn("somewt", open(os.environ["RELAY_PROJECTS"]).read())
+
+    def test_setup_in_the_main_checkout_still_runs_and_names_it(self):
+        import relay_setup
+        main, _wt = self._repo_with_worktree()
+        d, *_ = relay_setup.setup(main, flow="none", product=False, apply_global=False)
+        self.assertEqual(d["name"], "mainproj")
+
+    def test_second_setup_leaves_no_bak_beside_project_files(self):
+        # kit.toml/settings.json are untracked on the first run and rewritten on the second: the copy goes under .git/, not beside them.
+        import relay_setup
+        main, _wt = self._repo_with_worktree()
+        relay_setup.setup(main, flow="none", product=False, apply_global=False)
+        relay_setup.setup(main, flow="none", product=False, apply_global=False, specs="none")
+        strays = [os.path.join(r, f) for r, _, fs in os.walk(main) if ".git" not in r.split(os.sep) for f in fs if f.endswith(".bak")]
+        self.assertEqual(strays, [])
+
+    def test_backup_of_an_edited_file_goes_under_git_and_of_a_clean_tracked_file_is_skipped(self):
+        import relay_setup
+        main, _wt = self._repo_with_worktree()
+        tracked = os.path.join(main, "go.mod")
+        self.assertIsNone(relay_setup.backup(tracked))   # equal to HEAD: git holds it
+        open(tracked, "w").write("module y\n")
+        dest = relay_setup.backup(tracked)
+        self.assertTrue(os.path.isfile(dest))
+        self.assertTrue(os.path.realpath(dest).startswith(os.path.realpath(os.path.join(main, ".git")) + os.sep))
+
+    def test_backup_outside_git_stays_beside_the_file(self):
+        import relay_setup
+        loose = os.path.join(self.tmp, "loose.json")
+        open(loose, "w").write("{}")
+        dest = relay_setup.backup(loose)
+        self.assertEqual(os.path.dirname(dest), self.tmp)
+
+
 class PluginInstall(Base):
     def _proj(self):
         proj = os.path.join(self.tmp, "ip")

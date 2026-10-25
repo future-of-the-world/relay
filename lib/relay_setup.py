@@ -110,12 +110,45 @@ def write_json(path, data):
         handle.write("\n")
 
 
+def _git_out(cwd, *args):
+    """Stdout of a git command run in `cwd`, stripped; None when git fails or is missing."""
+    try:
+        run = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return run.stdout.strip() if run.returncode == 0 else None
+
+
+def main_checkout(root):
+    """The main checkout's folder when `root` is a linked git worktree of it; None for a main checkout or a folder outside git."""
+    if not os.path.isfile(os.path.join(root, ".git")):
+        return None   # a linked worktree has a .git file (a pointer); a main checkout has a .git folder
+    common = _git_out(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    return os.path.dirname(common) if common else None
+
+
 def backup(path):
-    if os.path.isfile(path):
-        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-        shutil.copy2(path, f"{path}.{stamp}.bak")
-        return f"{path}.{stamp}.bak"
-    return None
+    """Keep a copy of `path` before it is rewritten; return where it went, None when no copy was needed.
+    A file in a git repository gets no `.bak` beside it (it would sit untracked among the project's files): when git holds the
+    file unchanged, no copy is needed; otherwise the copy goes under the repository's git folder, relay-backup/. A file outside
+    git (the user's own settings) keeps the `.bak` beside it."""
+    if not os.path.isfile(path):
+        return None
+    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    folder = os.path.dirname(os.path.abspath(path))
+    top = _git_out(folder, "rev-parse", "--show-toplevel")
+    if top is not None:
+        if _git_out(folder, "ls-files", "--error-unmatch", "--", path) is not None and _git_out(folder, "diff", "--quiet", "HEAD", "--", path) is not None:
+            return None   # tracked and equal to HEAD: git already holds this exact file
+        gitdir = _git_out(folder, "rev-parse", "--path-format=absolute", "--git-dir")
+        if gitdir:
+            rel = os.path.relpath(os.path.realpath(path), os.path.realpath(top)).replace(os.sep, "__")
+            dest = os.path.join(gitdir, "relay-backup", f"{rel}.{stamp}.bak")
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            shutil.copy2(path, dest)
+            return dest
+    shutil.copy2(path, f"{path}.{stamp}.bak")
+    return f"{path}.{stamp}.bak"
 
 
 # --- bindings ---------------------------------------------------------------
@@ -598,6 +631,9 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
     merge checks on in a project the owner has not chosen (docs/setup.md: old projects are not given a .relay/ folder)."""
     import relay_rules
     root = os.path.realpath(root)
+    main = main_checkout(root)
+    if main:
+        raise ValueError(f"{root} is a linked git worktree: setup would name the project after the worktree folder. Run `relay setup {main}` on the main checkout, then merge that change into this branch")
     names = load_old_names()
     methods = relay_rules.spec_methods()
     if flow == "openspec":
