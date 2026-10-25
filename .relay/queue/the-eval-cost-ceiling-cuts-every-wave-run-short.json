@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 30,
+  "found_at": "2026-10-25T08:55:36Z",
+  "found_in": "relay queue add",
+  "title": "The eval cost ceiling cuts every wave run short",
+  "what": [
+    "A full wave run is not stopped by its own cost ceiling before its last case: the ceiling is the suite's estimate plus a margin (from bin/paid-cost estimate), still under the day's cap, instead of a fixed $15."
+  ],
+  "why": [
+    "25 Oct, the wave run of e905742: \"partial run: cost_ceiling\", $15.03 of $15; tune-no-price never ran and was \"not judged\", which alone makes the run red. Repeats on every wave run as the suite grows (MEDIUM by the waste principle). Decided by the front inside the owner's $200/day pre-approval; owner can reverse. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "scratchpad ci-wave-e905742.keep.log: \"tune-no-price: 1 of 3 runs missing, not judged\"."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "bin/ci's eval step takes its ceiling from the suite estimate; a test with a fixed estimate shows the ceiling above it and below the day's remaining cap."
+  ],
+  "where": "bin/ci (EVALS_MAX_COST default 15), the eval runner's cost ceiling, bin/paid-cost estimate",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
