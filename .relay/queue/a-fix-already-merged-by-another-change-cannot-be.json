@@ -19,8 +19,8 @@
     "A fix whose named test passes at the parent of the named commit is refused (the commit did not fix it)."
   ],
   "where": "lib/relay_queue.py (done, close_refusal), bin/relay queue help, rules/queue.md",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T02:20:21Z",
+  "taken_by": "wt/stale-close",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
