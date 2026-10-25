@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 30,
+  "found_at": "2026-10-25T12:07:54Z",
+  "found_in": "relay queue add",
+  "title": "Sessions and agents die when the network drops",
+  "what": [
+    "relay sync and install put \"CLAUDE_CODE_RETRY_WATCHDOG\": \"1\" into the user settings env (merged like the other keys relay owns), and relay doctor reports it missing. The docs say what it does and what it does not cover (subagents and workflow agents are not stated in Claude Code's docs; a drop after thinking but before any output is re-issued only twice)."
+  ],
+  "why": [
+    "25 Oct, a network drop killed three agents with \"API Error: Connection dropped (ECONNRESET)\" (workflows wf_1f346d2b-a88 and wf_f799f68a-db0) and stopped the front until the owner's \"продолжай\". Measured offline (proxy to a closed port, no tokens): default settings gave up after about 900 s with ECONNREFUSED; with CLAUDE_CODE_RETRY_WATCHDOG=1 still retrying at 900 s. Claude Code docs (env-vars, errors): the watchdog is for unattended sessions, about three hours of backoff for dropped connections. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "scratchpad net/default2.log: exit 1 after 900 s offline."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "After relay sync in a temporary HOME the settings env holds CLAUDE_CODE_RETRY_WATCHDOG=1, other keys untouched; a second sync is unchanged; relay doctor flags it when absent."
+  ],
+  "where": "lib/relay_setup.py merge_user_settings (the env relay writes into ~/.claude/settings.json), relay doctor, docs",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
