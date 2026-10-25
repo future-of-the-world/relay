@@ -27,8 +27,8 @@
   "where": "tests/test_principles_rule.py:1",
   "taken_at": "2026-10-25T15:29:40Z",
   "taken_by": "wt/rules-red",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T16:53:56Z",
+  "test": "tests/test_rules_gate_isolation.py::RulesGateIsolation::test_rules_tests_command_passes_in_the_order_unittest_runs_them",
   "dropped_at": null,
   "dropped_why": null
 }
