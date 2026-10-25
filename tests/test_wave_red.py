@@ -8,7 +8,6 @@ program `openspec`. These tests run each case's pattern over the JSON the grader
 import glob
 import json
 import os
-import re
 import subprocess
 import tempfile
 import unittest
