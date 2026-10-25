@@ -14,6 +14,8 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 
 import relay_queue  # noqa: E402
 import relay_textonly  # noqa: E402
+sys.path.insert(0, TESTS)
+from test_queue import committed_text  # noqa: E402
 
 
 class TestFilesStaySplit(unittest.TestCase):
@@ -52,9 +54,8 @@ class TestDoneItemsKeepTheirTests(unittest.TestCase):
         problems = []
         moved = ("runner-turns-while-waiting", "a-new-openspec-project-silently-has-no-openspec")   # the two items whose test the split moved
         for slug in moved:
-            path = os.path.join(ROOT, ".relay", "queue", "done", slug + ".json")
-            with open(path, encoding="utf-8") as handle:
-                text = handle.read()
+            # the queue is inert (bin/ci's inert probe appends a line to every item): in a probe commit this reads the commit before it
+            text = committed_text(ROOT, ".relay/queue/done/" + slug + ".json")
             item = relay_queue.parse(slug, text, "done")
             if item["problems"]:
                 problems.append(f"{slug}: {item['problems']}")
