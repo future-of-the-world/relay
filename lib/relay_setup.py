@@ -17,6 +17,7 @@ import sys
 import tomllib
 
 import relay_config
+import relay_license
 from relay_config import ROOT, bindings_path, claude_dir, load_bindings, read_toml
 
 STACKS = [
@@ -222,6 +223,16 @@ def set_specs(root, method):
             handle.write(new)
         return True
     return False
+
+
+def set_license(root, license_id, holder, todo):
+    """`setup --license`: relay license add (LICENSE, LICENSES/, REUSE.toml, kit.toml [license]); the lines for the done list.
+    A different existing file is kept and goes to the to-do list. The gate runs the check; bin/check is not touched."""
+    try:
+        return relay_license.add(root, license_id, holder)
+    except relay_license.Refused as exc:
+        todo.append(str(exc))
+        return []
 
 
 def merge_bindings(root, flow, specs="none", force_specs=False):
@@ -634,7 +645,7 @@ def project_installed(root, key):
 
 
 def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, install_runner=None, specs=None, uninstall_runner=None,
-          moved_hooks=()):
+          moved_hooks=(), license_id=None, holder=None):
     """Set one project up. `relay_dir=False` leaves `.relay/` out: `migrate` (even as a plan) must not turn the work queue and the
     merge checks on in a project the owner has not chosen (docs/setup.md: old projects are not given a .relay/ folder)."""
     import relay_rules
@@ -645,6 +656,10 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
         raise ValueError("spec steps are their own setting now: use --specs openspec")
     if specs is not None and specs != "none" and specs not in methods:
         raise ValueError(f"no spec method named '{specs}' (spec methods: {', '.join(sorted(methods)) or 'none'})")
+    if license_id is not None:
+        if not holder:
+            raise ValueError("--license needs --holder <name>")
+        relay_license.license_text(license_id, holder, 2000)   # refuses an unknown id or a missing holder before anything is written
     d = detect(root)
     done, todo = [], []
     if d["has_bindings"]:
@@ -691,6 +706,8 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
             if copy_template(f"bin-{script}", os.path.join(root, "bin", script), mode_exec=True, replacements={"tool": d["tool"], "stack": d["stack"], "branch": d["default_branch"]}):
                 done.append(f"wrote bin/{script} from the template")
                 todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO (the contract is in plugins/core/README.md)")
+    if license_id is not None:
+        done += set_license(root, license_id, holder, todo)
     if copy_template("CLAUDE.md", os.path.join(root, "CLAUDE.md"), replacements={"name": d["name"], "stack": d["stack"]}):
         done.append("wrote CLAUDE.md (a skeleton: what the product is, the commands, the product surface)")
         todo.append("CLAUDE.md: write what the project is in two lines, and its product surface if a person sees it")

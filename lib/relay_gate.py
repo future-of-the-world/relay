@@ -12,6 +12,7 @@ import subprocess
 
 import relay_git
 import relay_inert
+import relay_license
 import relay_marks
 import relay_toml
 
@@ -105,7 +106,13 @@ def run(worktree, args=(), environ=None):
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
     command = shlex.split(binding(worktree)) + list(args)
-    green = reusable(worktree, head, command)
+    # the license check is the gate's own step when kit.toml has [license]; it runs every time (cheap), so a green log of
+    # the same commit never stands for a license that has since broken (kit.toml and the license files are not inert)
+    try:
+        license_lines = relay_license.check(worktree)
+    except (OSError, ValueError) as exc:
+        license_lines = ["license: cannot check: %s" % exc]
+    green = None if license_lines else reusable(worktree, head, command)
     if green is not None:      # the same code already has a green gate: report it, run nothing
         return 0, green, []
     # the output goes under the worktree's git dir, never into the tree: a project that does not ignore .ci/ would see
@@ -128,6 +135,9 @@ def run(worktree, args=(), environ=None):
         code = 127
     with open(out_path, encoding="utf-8", errors="replace") as handle:
         output = handle.read()
+    if license_lines:
+        output += ("" if output.endswith("\n") or not output else "\n") + "license check FAILED\n" + "".join("  %s\n" % line for line in license_lines)
+        code = code or 1
     text = "head %s\ncmd %s\n%s%sexit %d\n" % (head, " ".join(shlex.quote(c) for c in command), output, "" if output.endswith("\n") or not output else "\n", code)
     log = os.path.join(worktree, relay_marks.FOLDER, "%s.gate.log" % head)
     os.makedirs(os.path.dirname(log), exist_ok=True)

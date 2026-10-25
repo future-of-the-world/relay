@@ -3,7 +3,7 @@
 ## A new project
 
 ```sh
-relay setup ~/new-project [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--no-global]
+relay setup ~/new-project [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--no-global] [--license <SPDX id> [--holder <name>]]
 ```
 
 Detects the stack (bun, pnpm, mix, cargo, go, python), the default branch,
@@ -33,6 +33,17 @@ never overwrites:
   docs do not say whether subagents and workflow agents honour it, and a drop
   after thinking but before any output is re-issued only twice. `relay doctor`
   reports the key when it is missing.
+
+A license is optional. `--license <id> --holder <name>` runs `relay license add`: it writes
+LICENSE (an exact SPDX text, bundled in `data/licenses/`), `LICENSES/<id>.txt`, a `REUSE.toml`
+with one annotation for `**`, and `[license] id, holder` in kit.toml; without the flag nothing
+about licenses is written. `relay license add <id> --holder <name> [--headers code|config|docs]`
+does the same later (the one-line `SPDX-License-Identifier` header goes only into the files of the
+groups named; never into vendor/, third_party/, node_modules/ or a file that has another id).
+`relay gate` runs `relay license check` itself when kit.toml has `[license]` (bin/check is not
+edited): it reports a missing or changed LICENSE or LICENSES file, a REUSE.toml that does not
+cover `**` with the id, a tracked vendored folder with no annotation or headers of its own, and,
+with `headers = [...]` under `[license]`, files of those groups without the header.
 
 It ends with a numbered list of what only you can finish (the stack
 commands, two lines about the product) and the one Claude Code step
