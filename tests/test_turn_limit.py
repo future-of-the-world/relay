@@ -5,7 +5,6 @@ import os
 import re
 import unittest
 
-import stat
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -13,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_gate import Fixture, git, read, write  # noqa: E402
 
 
-def read(*parts: str) -> str:
+def read_repo(*parts: str) -> str:
     with open(os.path.join(ROOT, *parts), encoding="utf-8") as handle:
         return handle.read()
 
@@ -25,7 +24,7 @@ class TurnLimitWait(unittest.TestCase):
         report and hand back BLOCKED with `still running: <log>`."""
         seen = 0
         for path in sorted(glob.glob(os.path.join(ROOT, "plugins", "*", "agents", "*.md"))):
-            text = read(os.path.relpath(path, ROOT))
+            text = read_repo(os.path.relpath(path, ROOT))
             if not re.search(r"<!-- relay:base (build|fix) -->", text):  # the base that carries the budget part
                 continue
             seen += 1
@@ -36,21 +35,21 @@ class TurnLimitWait(unittest.TestCase):
     def test_q1_runner_replies_running_with_the_log_before_its_12_turns_end(self) -> None:
         """Q1: a runner waiting on a gate stopped at its 12th turn three times. It is told to reply RUNNING with the log
         path while 2 turns remain, so the step that started the job gets a result instead of a crash."""
-        text = read("plugins", "delegate", "agents", "runner.md")
+        text = read_repo("plugins", "delegate", "agents", "runner.md")
         self.assertIn("12 turns", text)
         self.assertIn("2 turns", text)
         self.assertIn("RUNNING", text)
 
     def test_the_sources_carry_the_same_rule(self) -> None:
-        self.assertIn("still running: <log>", read("roles", "parts", "budget.md"))
-        self.assertIn("{maxTurns}", read("roles", "run.md"))
+        self.assertIn("still running: <log>", read_repo("roles", "parts", "budget.md"))
+        self.assertIn("{maxTurns}", read_repo("roles", "run.md"))
 
 
 class RunningHandling(unittest.TestCase):
     def test_f2_delegate_skill_says_what_to_do_with_running_and_still_running(self) -> None:
         """F2: a runner reply RUNNING <log> and a hand-back BLOCKED ... still running: <log> leave the job running; a
         fresh runner waits on it; the gate is never started twice. The 30-minute rule stays."""
-        text = " ".join(read("plugins", "delegate", "skills", "delegate", "SKILL.md").split())
+        text = " ".join(read_repo("plugins", "delegate", "skills", "delegate", "SKILL.md").split())
         self.assertIn("RUNNING with a log leaves the job running", text)
         self.assertIn("never start the gate again", text)
         self.assertIn("still running: <log>", text)
