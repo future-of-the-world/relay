@@ -1,0 +1,29 @@
+{
+  "kind": "fix",
+  "ip": 95,
+  "time": 30,
+  "found_at": "2026-10-25T12:27:52Z",
+  "found_in": "relay queue add",
+  "title": "A NOT MET finding of kind feature is counted nowhere",
+  "what": [
+    "Every finding of a check is counted in exactly one of open, queued, outside or met: a NOT MET finding of kind \"feature\" (or any kind other than inside/outside) at rank high or medium either counts as open or must carry a queue item, and relay check show names it."
+  ],
+  "why": [
+    "25 Oct, wt/claudemd: the check record holds F2 (rank high, verdict NOT MET, kind \"feature\"), and relay check show says \"open 0, queued 0, outside: 0\", so the merge hook would let it through with no word about it. The checker itself wrote \"I don't know why the record shows open 0 while F2 is a HIGH finding not met\". IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "/Users/amidman/relay/.worktrees/claudemd/.relay/checks/9abb0e27ba0cc189a69bbf25825bee9e57040a91.check.json: F2 kind feature, rank high, NOT MET; open_of gives 0."
+  ],
+  "failing_kind": "test",
+  "pass_cases": [
+    "A record with one high NOT MET finding of kind feature and no owner entry gives open 1 (or is refused at record time without a queue item).",
+    "A record whose findings are all MET gives open 0."
+  ],
+  "where": "lib/relay_verdict.py open_of, queued_of, outside_of; relay check show; plugins/core/hooks/merge.py",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
