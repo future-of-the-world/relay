@@ -20,8 +20,8 @@
     "The it-terms prompts no longer tell the session to read CLAUDE.md, and the cases still pass."
   ],
   "where": "evals/plugin/setup-fixture.sh, the eval runner (claude plugin eval) set-up, every case whose graders depend on a project rule in CLAUDE.md",
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-25T09:25:28Z",
+  "taken_by": "wt/claudemd",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
