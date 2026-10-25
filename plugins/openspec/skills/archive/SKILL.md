@@ -1,6 +1,6 @@
 ---
 name: archive
-description: Archive stage of an OpenSpec change. Use together with openspec-archive-change or openspec-sync-specs whenever /opsx:archive or /opsx:sync runs, or the user asks to archive or finish a change. Covers the pre-archive gate, archiving inside the change worktree, checking that no main-spec scenario was dropped, the docs sweep, and never merging on its own.
+description: Archive stage of an OpenSpec change. Use together with openspec-archive-change or openspec-sync-specs whenever /opsx:archive or /opsx:sync runs, or the user asks to archive or finish a change. Covers the pre-archive gate, archiving inside the change worktree, checking that no main-spec scenario was dropped, the docs sweep, and never merging on its own. Use only in a project whose rules carry "Spec steps in the change cycle" (`[specs] method = "openspec"` in `.claude/kit.toml`); a project that merely has an `openspec/` folder keeps it as docs, and this skill is not loaded for it.
 argument-hint: "<change>"
 ---
 

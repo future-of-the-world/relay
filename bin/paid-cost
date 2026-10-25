@@ -2,6 +2,7 @@
 """Money limits and estimates of paid runs (`claude plugin eval`), from the costs relay measured itself.
 
   bin/paid-cost ceiling --cap USD --jobs N [--dir DIR]   prints "<jobs> <ceiling>": what to pass as -j and --max-cost-usd
+  bin/paid-cost ceiling ... --from-estimate              the --cap is only the fallback: the ceiling is the largest stored full batch times 2
   bin/paid-cost ceiling ... --within-day                 the same, with --cap lowered to what is left of the day's cap
   bin/paid-cost estimate [--dir DIR]                     prints the mean and max cost of a stored batch, or "not measured yet"
   bin/paid-cost due [--dir DIR] [--repo REPO]            prints the merged changes no green paid run covers yet; nothing when none
@@ -30,6 +31,10 @@ CHECKED_PATHS = [":(glob)roles/**", ":(glob)rules/**", ":(glob)plugins/*/skills/
 SHOW_LIMIT = 50  # with no green run recorded, only this many of the newest commits are listed
 
 MIN_RUNS = 2  # fewer measured batches than this give no estimate
+# The ceiling of a whole-suite run is the largest stored full batch times this. Measured 2026-10-25: the wave run of e905742
+# cost $15.03 against stored full batches of at most $9.56 (a ratio of 1.57), because the failing cases cost more than the
+# green ones stored; 2 leaves room for that and the day's remaining cap still bounds it.
+SUITE_MARGIN = 2.0
 
 
 def _num(v):
@@ -69,6 +74,15 @@ def ceiling(cap, jobs, records):
     if room < per_run:
         return 1, cap
     return jobs, round(room, 2)
+
+
+def suite_cap(records, fallback, margin=SUITE_MARGIN):
+    """The money ceiling of a whole-suite run: the largest full stored batch times `margin`, or `fallback` when fewer
+    than MIN_RUNS full batches were measured."""
+    costs = [c for c, partial, _ in records if not partial]
+    if len(costs) < MIN_RUNS:
+        return fallback
+    return round(max(costs) * margin, 2)
 
 
 def estimate(records):
@@ -188,6 +202,7 @@ def main(argv=None):
     ap.add_argument("--today", help="the UTC day as YYYY-MM-DD (default: now)")
     ap.add_argument("--cap", type=float)
     ap.add_argument("--jobs", type=int, default=1)
+    ap.add_argument("--from-estimate", action="store_true", help="ceiling: take the cap from the suite's stored full batches (--cap is the fallback)")
     ap.add_argument("--within-day", action="store_true", help="ceiling: cap the --cap at what is left of the day's cap")
     ap.add_argument("--dir")
     ap.add_argument("--repo", default=".")
@@ -210,6 +225,8 @@ def main(argv=None):
     if a.cap is None or a.cap <= 0 or a.jobs < 1:
         print("paid-cost: ceiling needs --cap above 0 and --jobs of 1 or more", file=sys.stderr)
         return 2
+    if a.from_estimate:
+        a.cap = suite_cap(records, a.cap)
     if a.within_day:   # the batch may not push the day past the cap: its ceiling is at most the room the day has left
         today = a.today or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
         home = os.path.dirname(os.path.dirname(a.dir)) if a.dir else None

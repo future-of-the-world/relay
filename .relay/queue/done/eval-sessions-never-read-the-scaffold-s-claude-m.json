@@ -22,8 +22,8 @@
   "where": "evals/plugin/setup-fixture.sh, the eval runner (claude plugin eval) set-up, every case whose graders depend on a project rule in CLAUDE.md",
   "taken_at": "2026-10-25T09:25:28Z",
   "taken_by": "wt/claudemd",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T12:24:51Z",
+  "test": "tests/test_eval_system_rules.py::SystemRules::test_the_it_terms_prompts_do_not_tell_the_session_to_read_claude_md",
   "dropped_at": null,
   "dropped_why": null
 }

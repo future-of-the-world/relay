@@ -1,0 +1,281 @@
+{
+  "branch": "wt/claudemd",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, wt/wave-red: a probe case with CLAUDE.md, CLAUDE.local.md and .claude/CLAUDE.md, each saying \"the reply must contain the word X\", got none of BANANA, CHERRY, MANGO in 3 runs ($0.04); `claude -p` in the same scaffold gave them. it-terms-ru/es failed for this reason; wave-red worked around it by having the prompt ask the session to read CLAUDE.md, which tests a different thing. Every rule-following case may be measuring nothing. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "scratchpad reports/wave-red.md, cause 3: probe case, 3 runs, none of the three words in the reply."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The probe case (a rule in the scaffold's CLAUDE.md that asks for a word) passes 3 of 3 runs without the prompt naming the file.",
+        "The it-terms prompts no longer tell the session to read CLAUDE.md, and the cases still pass."
+      ],
+      "path": "evals/plugin/setup-fixture.sh, the eval runner (claude plugin eval) set-up, every case whose graders depend on a project rule in CLAUDE.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_system_rules.py:34 and :15 pass; fail at 06e1ac1 (3 of 5 fail). Probe 3 of 3 BANANA, it-terms-es 3/3 per fixer/build report (paid, not re-run by me)."
+      ],
+      "severity": "HIGH",
+      "since": "c46eac7e2717ee7c38329492c2c78aba91854e0b",
+      "source": "queue",
+      "summary": "Eval sessions never read the scaffold's CLAUDE.md",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: rules/working-with-me.md lines 50-53 \"A local word set beside the term as a gloss (...) is the same",
+        "calque: write the English term and, the first time, explain it in plain words, never with a one-word equivalent in my",
+        "language.\" The grader added in fcfe12d contradicts it. The brief names this as a HIGH. Restoring the judge will drop the",
+        "measured pass rate; that is the case doing its job (see F2), and a judge vote on a correct reply is a separate grader",
+        "finding to be named with the reply. Size: 10 agent minutes (text), plus the paid re-measure under F2."
+      ],
+      "evidence": [
+        "git log master..HEAD -- evals/plugin/it-terms-ru/graders/no-calques.md -> fcfe12d",
+        "git diff master...HEAD -- evals/plugin/it-terms-ru/graders/no-calques.md: +A Russian description placed next to the English term as its gloss (\"fast-forward, \u0442\u043e \u0435\u0441\u0442\u044c \u0441\u0434\u0432\u0438\u043d\u0443\u0442\u044c\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434\") is not a translation of the term ... Only a Russian phrase used in place of the term counts.",
+        "reports/claudemd.md line 19-20: \"19/20 (grader no-calques now accepts a Russian gloss next to the English term)\" ... \"others judge noise on \"commit-\u044b\"/\"\u0441\u0434\u0432\u0438\u043d\u0443\u043b\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434 (fast-forward)\"\""
+      ],
+      "failing_case": [
+        "Reply: \"\u0421\u0440\u0430\u0431\u043e\u0442\u0430\u043b hook (\u043a\u0440\u044e\u0447\u043e\u043a), \u043a\u043e\u0442\u043e\u0440\u044b\u0439 \u043f\u0440\u043e\u0432\u0435\u0440\u044f\u0435\u0442 merge \u043f\u0435\u0440\u0435\u0434 \u0442\u0435\u043c, \u043a\u0430\u043a \u043e\u043d \u043f\u0440\u043e\u0439\u0434\u0451\u0442.\" or \"\u043e\u0441\u043d\u043e\u0432\u043d\u0430\u044f \u0432\u0435\u0442\u043a\u0430 \u0441\u0434\u0435\u043b\u0430\u043b\u0430",
+        "fast-forward, \u0442\u043e \u0435\u0441\u0442\u044c \u0441\u0434\u0432\u0438\u043d\u0443\u043b\u0430\u0441\u044c \u0432\u043f\u0435\u0440\u0451\u0434\". The grader text now says a Russian gloss next to the English term \"is not a",
+        "translation of the term: the term itself is shown. Only a Russian phrase used in place of the term counts\", and its own",
+        "example \"fast-forward, \u0442\u043e \u0435\u0441\u0442\u044c \u0441\u0434\u0432\u0438\u043d\u0443\u0442\u044c\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434\" is the shape the rule names as a calque (\"<local word>, that is, hook\").",
+        "Now: PASS. Should be: FAIL. The build report counts \"\u0441\u0434\u0432\u0438\u043d\u0443\u043b\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434 (fast-forward)\" as judge noise; under the rule it is",
+        "a real miss, so the measured 19/20 is bought by the loosened judge."
+      ],
+      "fix_hint": [
+        "Replace the two added lines with: a Russian equivalent set beside the term as its gloss (\"hook (\u043a\u0440\u044e\u0447\u043e\u043a)\", \"fast-forward,",
+        "\u0442\u043e \u0435\u0441\u0442\u044c \u0441\u0434\u0432\u0438\u043d\u0443\u0442\u044c\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434\") is a calque: FAIL; a plain explanation of what the thing does is not. Keep \"commit-\u044b\" (the",
+        "English term with a Russian ending) explicitly PASS if that is the noise seen."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 8,
+      "pass_cases": [
+        "1. Artifact: no-calques.md no longer holds the sentence \"Only a Russian phrase used in place of the term counts\" nor the example \"fast-forward, \u0442\u043e \u0435\u0441\u0442\u044c \u0441\u0434\u0432\u0438\u043d\u0443\u0442\u044c\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434\" as a pass.",
+        "2. Artifact: no-calques.md says FAIL for a Russian one-word or literal equivalent set beside the term, with examples \"hook (\u043a\u0440\u044e\u0447\u043e\u043a)\" and \"fast-forward, \u0442\u043e \u0435\u0441\u0442\u044c \u0441\u0434\u0432\u0438\u043d\u0443\u0442\u044c\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434\".",
+        "3. Artifact: no-calques.md says PASS for a plain explanation of the term, example \"hook \u2014 \u0441\u043a\u0440\u0438\u043f\u0442, \u043a\u043e\u0442\u043e\u0440\u044b\u0439 Claude Code \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0435\u0442 \u043f\u0435\u0440\u0435\u0434 \u043a\u043e\u043c\u0430\u043d\u0434\u043e\u0439\".",
+        "4. Artifact: \"\u0441\u043b\u0438\u044f\u043d\u0438\u0435\" for merge and \"\u043f\u0435\u0440\u0435\u043c\u043e\u0442\u043a\u0430\" for fast-forward stay FAIL examples."
+      ],
+      "path": "evals/plugin/it-terms-ru/graders/no-calques.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_claudemd_fixes.py:23 and :29 pass; fail at f7ce624. Grader text evals/plugin/it-terms-ru/graders/no-calques.md now FAILs a gloss."
+      ],
+      "severity": "HIGH",
+      "since": "f7ce6242449ec95fc5fcc3d576f2492cb97c6727",
+      "source": "review-claudemd.json",
+      "source_id": "F1",
+      "summary": "no-calques judge now passes a Russian equivalent set beside the English term, the exact calque rules/working-with-me.md forbids",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED from the build's own report. The brief says the pass is not to be bought by loosening the judge; what remains is",
+        "either a rule/prompt change that makes the session hold the rule, or a grader finding on a named reply and vote, or the",
+        "front taking the rate to the owner. Owner choice possible: accept a known rate for a model-judged case. Size: 30 agent",
+        "minutes plus about $1 per 20 runs."
+      ],
+      "evidence": [
+        "reports/claudemd.md lines 21-24: \"About 95% per run: 20 in a row NOT shown (3 batches of 20: 18, 19, 19 of 20)\" ... \"Open for the front: more runs ... or loosen the no-calques judge further\""
+      ],
+      "failing_case": [
+        "Three batches of 20 runs of it-terms-ru: 18/20, 19/20, 19/20 (build report). Required: 20 clean in a row, and per",
+        "quality-gate.md max(20, ceil(3/p)) = 60 with p about 0.05. With F1 undone the true rate is lower still."
+      ],
+      "fix_hint": [
+        "Undo F1, re-run in batches; for each failing run name the reply and the judge vote; fix a real miss in the rule text (one",
+        "source, rules/working-with-me.md, then python3 evals/plugin/system_rules.py), a judge miss in the grader with that reply as",
+        "its example."
+      ],
+      "id": "F2",
+      "kind": "feature",
+      "line": 1,
+      "pass_cases": [
+        "1. With the no-calques grader restored per F1, a batch of max(20, ceil(3/p)) it-terms-ru runs passes every run (aggregate-result.json).",
+        "2. it-terms-es: 3 of 3 with the same rule text.",
+        "3. The probe (rule through append_system_prompt, prompt names no file) stays 3 of 3."
+      ],
+      "path": "evals/plugin/it-terms-ru/prompt.md",
+      "rank": "high",
+      "reason": [
+        "Paid re-measure of it-terms-ru (max(20,ceil(3/p)) runs, restored judge) not done; fixer reports it as not done, no paid run. Gap for the front/owner."
+      ],
+      "severity": "HIGH",
+      "since": "f7ce6242449ec95fc5fcc3d576f2492cb97c6727",
+      "source": "review-claudemd.json",
+      "source_id": "F2",
+      "summary": "it-terms-ru 20 runs in a row (the brief's done-when, rules/quality-gate.md) is not shown: 18, 19, 19 of 20, and those with the loosened judge",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Giving the model what the gate is matches a real project (its docs say it); telling it how to answer",
+        "does not. Size: 10 agent minutes plus the re-measure under F2."
+      ],
+      "evidence": [
+        "evals/plugin/system_rules.py:54 GLOSSARY = \"the gate is this project's full local check before a merge (tests, lint, types); it is a relay term, so define it in one line at the place you first write it.\"",
+        "evals/plugin/it-terms-ru/graders/relay-term-defined.md: \"does the reply use the word \"gate\" in English and define it in one line where it first appears?\"",
+        "reports/claudemd.md line 20: \"19/20 (glossary line in the system text now says \"define it where you first write it\")\""
+      ],
+      "failing_case": [
+        "GLOSSARY = \"the gate is ... (tests, lint, types); it is a relay term, so define it in one line at the place you first write",
+        "it.\" The relay-term-defined grader asks exactly \"define it in one line where it first appears\". A session that ignores the",
+        "rule's \"a relay-specific term gets its English name and a one-line definition the first time\" still passes, because the",
+        "case's own text orders it. The report says this clause was added to lift 18/20 to 19/20. Same reason wave-red F4 removed",
+        "the definition from the prompt (ItTermsPromptsDoNotGiveTheAnswer), now moved to the system text where no test looks."
+      ],
+      "fix_hint": [
+        "GLOSSARY = \"the gate is this project's full local check before a merge (tests, lint, types).\" and a test that the",
+        "non-rule part of the text carries no instruction."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 54,
+      "pass_cases": [
+        "1. Artifact: GLOSSARY says what the gate is (the full local check before a merge: tests, lint, types) and gives no instruction on how or where to write it (\"define it\", \"one line\", \"first write\" absent).",
+        "2. Test: ItTermsPromptsDoNotGiveTheAnswer (or a sibling) asserts system_rules.current(\"it-terms-ru\") minus rule(\"working-with-me\") holds none of \"define it\", \"one line\", \"first\".",
+        "3. test_system_prompt_defines_gate keeps passing (the definition content stays)."
+      ],
+      "path": "evals/plugin/system_rules.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_claudemd_fixes.py:38 passes; fails at f7ce624."
+      ],
+      "severity": "MEDIUM",
+      "since": "f7ce6242449ec95fc5fcc3d576f2492cb97c6727",
+      "source": "review-claudemd.json",
+      "source_id": "F3",
+      "summary": "the it-terms-ru glossary tells the session the very behaviour relay-term-defined grades, so the case measures the hint, not the rule",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: git grep for DISABLE_CLAUDE_MDS / append_system_prompt outside prompt.md finds only the scaffolds,",
+        "system_rules.py and the two tests; the brief asks to \"Record the finding where the next case author reads it (the eval",
+        "cases README or the eval docs in the repo)\". Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n -l \"DISABLE_CLAUDE_MDS\\|append_system_prompt\" -- ':!evals/plugin/*/prompt.md' -> 9 scaffold.sh, system_rules.py, tests/test_eval_system_rules.py, tests/test_wave_red.py",
+        "docs/benchmark.md:104-107 Plugin evals section: no mention.",
+        "tests/test_eval_system_rules.py:39 for case in system_rules.CASES:"
+      ],
+      "failing_case": [
+        "A case author adds evals/plugin/new-case/scaffold.sh that writes the rule into CLAUDE.md (the pattern the nine old cases",
+        "used). docs/benchmark.md \"Plugin evals\" says nothing about it; test_scaffolds_write_no_instruction_file only loops over",
+        "system_rules.CASES, so the new case passes the free tests and its rule silently never reaches the session, the exact",
+        "failure this queue item fixed. Should: the doc says it, and a free test over every evals/plugin/*/scaffold.sh fails."
+      ],
+      "fix_hint": [
+        "Three lines in docs/benchmark.md \"Plugin evals\"; widen test_scaffolds_write_no_instruction_file to glob every",
+        "evals/plugin/*/scaffold.sh."
+      ],
+      "id": "F4",
+      "kind": "feature",
+      "line": 104,
+      "pass_cases": [
+        "1. Artifact: docs/benchmark.md (Plugin evals section) or an evals/plugin README states the runner sets CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 and --setting-sources user, so a scaffold CLAUDE.md never loads, and that rules go through append_system_prompt written by evals/plugin/system_rules.py.",
+        "2. Test: a scaffold under evals/plugin/* (all of them, not only CASES) that writes CLAUDE.md differing from fixture/CLAUDE.md, or any CLAUDE.local.md / .claude/CLAUDE.md, fails a free test.",
+        "3. The current 9 cases and code-reviewer-offbyone (writes .claude/kit/critic.md, read by a hook) still pass it."
+      ],
+      "path": "docs/benchmark.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_claudemd_fixes.py:47 (guard over all scaffolds; passes at base too, it is a guard) and :63 (docs, fails at base) pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "f7ce6242449ec95fc5fcc3d576f2492cb97c6727",
+      "source": "review-claudemd.json",
+      "source_id": "F4",
+      "summary": "the runner fact (CLAUDE.md never loads; rules go through append_system_prompt) is not in the eval docs, and nothing stops a new case from writing a scaffold CLAUDE.md again",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a python probe. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "python3 -c \"print(repr('-----'.replace('---','-\\\\\\\\u002d-')))\" -> '-\\\\u002d---'"
+      ],
+      "failing_case": [
+        "\"-----\".replace(\"---\", \"-\\\\u002d-\") gives \"-----\" (the replacement's last \"-\" plus the two left over), which still",
+        "holds \"---\". A rule with a 5-hyphen run would break the frontmatter; today test_the_line_has_no_run_of_three_hyphens",
+        "would catch it, so correct now, fragile."
+      ],
+      "fix_hint": [
+        "Escape every hyphen after json.dumps: .replace(\"-\", \"\\\\u002d\") (or loop until no \"---\")."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 70,
+      "pass_cases": [
+        "1. line() of a text with \"-----\" contains no \"---\".",
+        "2. line() of \"|---|---|\" and \"------\" still contains no \"---\" and json-decodes back to the original text."
+      ],
+      "path": "evals/plugin/system_rules.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_claudemd_fixes.py:80 passes; fails at f7ce624."
+      ],
+      "severity": "LOW",
+      "since": "f7ce6242449ec95fc5fcc3d576f2492cb97c6727",
+      "source": "review-claudemd.json",
+      "source_id": "F5",
+      "summary": "the --- escape leaves a run of three hyphens when a run is 5, 8, 11... long",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE. Size: 10 agent minutes (three grader files share one pattern, test_the_three_cases_share_one_pattern)."
+      ],
+      "evidence": [
+        "input_match: \"(?:^\\\\{\\\"command\\\":\\\"|[;&|(]|\\\\\\\\n)\\\\s*(?:(?:env|npx|bunx|[A-Z_][A-Z0-9_]*=\\\\S*)\\\\s+)*openspec\\\\s+[a-z]|/opsx:\"",
+        "tests/test_wave_red.py hit(): json.dumps({\"command\": command}, separators=(\",\", \":\"))"
+      ],
+      "failing_case": [
+        "A Bash input serialised as {\"description\":\"x\",\"command\":\"openspec list\"} or {\"command\": \"openspec list\"} (space), or a",
+        "command \"openspec --version\": no match, so the no-spec-step grader passes a run that did run the program. The old pattern",
+        "was key-order free. Plausible: depends on how the eval tool serialises; tests only use separators=(\",\",\":\") command-first."
+      ],
+      "fix_hint": [
+        "Anchor on \"command\":\\\\s*\" instead of ^\\\\{\"command\":\", and openspec(?:\\\\s+[a-z-]|\\\\s*\")"
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 4,
+      "pass_cases": [
+        "1. {\"description\":\"x\",\"command\":\"openspec list\"} matches.",
+        "2. \"openspec --help\" as the whole command matches.",
+        "3. \"find .claude openspec docs -type f\", \"ls openspec/changes\" still do not match (test_reading_the_openspec_folder_is_not_a_command)."
+      ],
+      "path": "evals/plugin/no-spec-step/graders/no-openspec-command.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_claudemd_fixes.py:88 passes; fails at f7ce624."
+      ],
+      "severity": "LOW",
+      "since": "f7ce6242449ec95fc5fcc3d576f2492cb97c6727",
+      "source": "review-claudemd.json",
+      "source_id": "F6",
+      "summary": "the openspec pattern relies on command being the first key of compact JSON and misses openspec with only a flag",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "24a0be3d5a9e71e481d78c75a906a2a66fdec447.gate.log",
+  "head": "b53ecc566d064cf12f8e8798861203737b9fdd1e",
+  "item": "eval-sessions-never-read-the-scaffold-s-claude-m",
+  "notes": [
+    "Paid evidence is from the fixer report (reports/claudemd.md): probe 3 of 3 BANANA with no file named in the prompt; it-terms-es 3/3; it-terms-ru 18,19,19 of 20 in three batches, so 20 in a row is not shown (brief step 3, F2 of the earlier review, still open as a paid re-measure; not part of Q1 pass cases)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Q1 only, with the front's channel (append_system_prompt). Ran test_eval_system_rules, test_claudemd_fixes, test_wave_red: 21 passed. Gate log head 24a0be3, exit 0 (quick mode); HEAD adds only the gate log."
+  ],
+  "type": "check"
+}

@@ -42,9 +42,18 @@
   merge, branch, commit, fast-forward, hook, CI, review, eval, worktree,
   flaky, lint. Never translate one word by word ("перемотка" for
   fast-forward is a calque nobody uses); the prose around the term is in my
-  language. relay's own names (branches, files, slugs, commands) stay out of
-  replies, as above; a relay-specific term gets its English name and a
-  one-line definition the first time.
+  language. This holds even when my own message uses the local word: when
+  my message says "ветка" or "слияние", or "rama" or "fusión", your reply
+  still writes branch or merge, in Latin letters, and never the local word
+  for them. The same holds for every other standard term, hook included:
+  whatever local word I wrote for it, you write the English term and
+  the local word does not appear in your reply at all, not even once. A local word
+  set beside the term as a gloss ("<local word>, that is, hook") is the same
+  calque: write the English term and, the first time, explain it in plain
+  words, never with a one-word equivalent in my language. relay's own names
+  (branches, files, slugs, commands) stay out of replies, as above; a relay-
+  specific term gets its English name and a one-line definition the first
+  time.
 - Talk to me in my native language. When the generated instructions name it
   ("My native language: ..."), use it. Otherwise ask me once, directly, and
   keep the answer in the project's memory; do not infer it from the language

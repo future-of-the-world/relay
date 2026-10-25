@@ -20,7 +20,9 @@ TEXT_ONLY = (
 # The tests that read rules/*.md: rule parsing and rendering, the rule texts, the rules the delegation text quotes.
 RULE_TESTS = (
     "tests.test_python_rule",
+    "tests.test_eval_system_rules",
     "tests.test_it_terms.ItTerms",
+    "tests.test_wave_red.ItTermsPromptsDoNotGiveTheAnswer",
     "tests.test_sync_refused",
     "tests.test_session_profile",
     "tests.test_delegate_small_builds",

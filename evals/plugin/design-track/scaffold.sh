@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The fixture plus a project CLAUDE.md that carries the rule texts the front reads (delegation, working with me, verify).
+# The fixture. The rule texts the session follows reach it through `append_system_prompt` in prompt.md (the runner
+# turns CLAUDE.md loading off); evals/plugin/system_rules.py writes that line.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd -P)"
 "$here/../setup-fixture.sh"
-{ cat "$here/../../../rules/delegation.md" "$here/../../../rules/working-with-me.md" "$here/../../../rules/verify.md"; } > CLAUDE.md
