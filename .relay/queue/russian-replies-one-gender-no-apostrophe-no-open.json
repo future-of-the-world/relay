@@ -1,0 +1,29 @@
+{
+  "kind": "fix",
+  "ip": 93,
+  "time": 30,
+  "found_at": "2026-10-25T12:04:14Z",
+  "found_in": "relay queue add",
+  "title": "Russian replies: one gender, no apostrophe, no opener",
+  "what": [
+    "In a Russian reply an English IT noun takes the masculine gender (\"в отдельном branch\"), takes no apostrophe before a Russian ending (inflect the Russian words around it, or leave the term uninflected), and the reply never opens with a remark that the project was not named. The rule says so in plain lines; the it-terms-ru case checks the apostrophe by code and the other two by its judge."
+  ],
+  "why": [
+    "Owner, 25 Oct, after reading three live it-terms-ru replies: \"Да, меня вполне устраивает\", accepting the front's three corrections: \"мужской род для branch, без апострофов, без фразы про отсутствие проекта\". Live replies had \"в отдельном branch\" and \"в отдельной branch\" side by side, \"commit'ов\", and \"Речь о вашем проекте: название и назначение в сообщении не прозвучали\"."
+  ],
+  "failing_case": [
+    "scratchpad demo/it-terms-ru.json run 3: opens \"Речь о вашем проекте: название и назначение в сообщении не прозвучали, поэтому я их не называю.\"; run 1 \"commit'ов\"; runs 1 and 2 differ in the gender of branch."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "A reply with \"commit'ов\" fails the case's code grader; one without passes.",
+    "The rule text holds the three lines; tests/test_it_terms.py checks them."
+  ],
+  "where": "rules/working-with-me.md (IT terms), evals/plugin/it-terms-ru graders",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
