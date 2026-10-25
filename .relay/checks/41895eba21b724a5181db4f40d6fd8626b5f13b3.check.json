@@ -1,0 +1,175 @@
+{
+  "branch": "wt/parallel",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED (reproduced). The brief's done-when says \"each test fails without the feature\"; test 1 does not fail, it hangs, and the",
+        "docstring's \"the test's own timeout ends a hang\" is untrue: unittest has no timeout and bin/ci sets none. A hang inside the gate is the",
+        "worst outcome now that a gate also holds one of three machine slots with no time limit. Size: 15."
+      ],
+      "evidence": [
+        "scratch worktree at HEAD with `return open(os.devnull), 0.0` as take_slot's first line;",
+        "python3 run1.py <wt>/tests 60  (unittest of test 1 in a new session, killpg after)  ->  HUNG after 60 s",
+        "bin/ci:28 lib_tests() { python3 -W ignore::ResourceWarning -m unittest discover -s tests -p 'test_*.py'; }   (no timeout)",
+        "with the feature: python3 -m unittest test_gate_slots -> Ran 4 tests in 6.495s OK"
+      ],
+      "failing_case": [
+        "take_slot disabled (returns at once). test_with_one_slot_a_second_gate_waits_until_the_first_exits: gate B never prints the waiting",
+        "line, runs its HOLD command, and second.stderr.readline() (line 55) blocks until B exits, which is never (the release file is not",
+        "written). Seen: still running after 60 s. bin/ci has no test timeout (plain `python3 -m unittest discover`), so `relay gate` would hang",
+        "for good instead of going red. Same with wait_for (line 33): if gate A refuses before its command starts, the loop spins forever.",
+        "test_a_bad_slot_count_is_refused without the check runs HOLD and dies only at timeout=60, leaving the HOLD shell looping. On any red",
+        "run, the cleanups kill the relay processes but never write the release file, so the HOLD loops (sleep 0.05) poll a deleted temp dir forever.",
+        "Should: each test fails within a bound (e.g. 30 s) when the feature is off, and leaves no process."
+      ],
+      "fix_hint": [
+        "Give wait_for and the waiting-line read a deadline (read stderr in a thread or poll with select and a time limit; wait_for raises after",
+        "30 s), and register a cleanup that writes the release file (registered after the kill cleanups so it runs first) in setUp."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 33,
+      "pass_cases": [
+        "1. take_slot disabled: test 1 fails (assertion or timeout error) within its bound, not hangs; no process of the test is left (the release file is written in cleanup).",
+        "2. Feature on: all four tests pass as today (about 7 s).",
+        "3. Gate A refuses at once (e.g. a dirty worktree): wait_for raises after its bound instead of looping.",
+        "4. RELAY_GATE_SLOTS check removed: test_a_bad_slot_count_is_refused fails and its HOLD command ends (release written in cleanup)."
+      ],
+      "path": "tests/test_gate_slots.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_slots.py waits bounded (BOUND); 9 tests pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "af2f58a8fd6785c3013817e2c87e1544404a9e70",
+      "source": "review-parallel.json",
+      "source_id": "F1",
+      "summary": "slot tests wait with no bound: with the feature broken they hang the gate instead of failing, and leave polling processes forever",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: run() calls subprocess.run(command, ...) with no new session and no signal handling; close_fds defaults to True so",
+        "the command never holds the lock; Python's default SIGTERM action ends only the python process. The owner's intent (queue item: \"at most",
+        "three gates at once\", measured: library tests 138 s alone, 489 s with 4+ others) is broken by every killed gate, and the delegation rules",
+        "tell runners to wait on and stop processes by their own pid. SIGKILL cannot be caught, so the reachable fix covers SIGTERM, SIGHUP and",
+        "SIGINT; passing the lock fd to the command (pass_fds) would also cover SIGKILL but lets a hung command, the usual reason for a kill, hold",
+        "the slot for good, so it is not the better fix. Size: 30."
+      ],
+      "evidence": [
+        "lib/relay_gate.py:178 done = subprocess.run(command, cwd=worktree, env=env, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT)",
+        "tests/test_gate_slots.py:76 write(self.release, \"go\\n\")        # lets A's orphaned command end, and B's command go straight through"
+      ],
+      "failing_case": [
+        "RELAY_GATE_SLOTS=1. Gate A starts bin/ci (about 25 minutes). A runner whose wait ran out does `kill <pid>` on the pid it started",
+        "(relay gate's python): python dies on SIGTERM, the lock is released, but bin/ci (started by subprocess.run, its own process, not given",
+        "the lock fd) keeps running. Gate B takes the slot at once: two gates run with N=1. test_a_gate_killed_with_sigkill_frees_its_slot shows",
+        "it: its own comment says the release \"lets A's orphaned command end\". Should: stopping a gate stops its command, so the count of",
+        "running gate commands never exceeds N."
+      ],
+      "fix_hint": [
+        "Start the command with start_new_session=True (Popen), and on SIGTERM/SIGHUP/SIGINT (handlers set while it runs) and in the finally",
+        "block, kill its process group before the slot is closed. Add the SIGTERM case as a test."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 175,
+      "pass_cases": [
+        "1. N=1, gate A running its command, SIGTERM to relay gate's pid: A's command is gone (its process group ended) before B's command starts.",
+        "2. N=1, gate A ends normally: B starts right after, as today.",
+        "3. N=1, gate A killed with SIGKILL: the slot is free (no stale lock), as the brief requires.",
+        "4. Ctrl-C (SIGINT) on a waiting gate: it exits without having started its command, and holds no slot."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_slots.py test_a_gate_stopped_with_sigterm_ends_its_command_before_the_slot_is_free passes, fails on pre-fix code."
+      ],
+      "severity": "MEDIUM",
+      "since": "af2f58a8fd6785c3013817e2c87e1544404a9e70",
+      "source": "review-parallel.json",
+      "source_id": "F2",
+      "summary": "killing relay gate frees its slot while its command keeps running, so more than N gates run at once",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading (run(): check_ready and reusable before take_slot). Not data loss: the merge hook still compares the logged head to",
+        "the branch with relay changed and refuses, so it is waste and a misleading log. The window was the run's length before; the wait makes it",
+        "unbounded. Size: 15."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Three gates hold the slots. In worktree X, gate 1 waits (head H1 read, tree clean). A fixer commits H2 in X meanwhile. When the slot",
+        "frees, the command runs H2's tree but the log says `head H1`. Or: the same gate is started twice in X; both wait; the first goes green,",
+        "the second still runs the whole gate (about 25 minutes) because reusable() was asked before the wait. Should: after the slot is taken,",
+        "check_ready and reusable are asked again."
+      ],
+      "fix_hint": [
+        "After take_slot returns, call check_ready again and compare with head (refuse if it moved), then reusable again (close the slot and",
+        "return the green log if found)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 173,
+      "pass_cases": [
+        "1. HEAD moves from H1 to H2 during the wait: the gate refuses (or gates H2), never logs `head H1` for H2's tree.",
+        "2. A green log for the same head appears during the wait: the gate frees the slot and reports that log, running nothing.",
+        "3. Nothing changes during the wait: the gate runs and logs as today."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_slots.py test_a_gate_whose_head_moved_during_the_wait_refuses and test_a_green_log_that_appears_during_the_wait_is_reported_without_a_run pass, fail pre-fix."
+      ],
+      "severity": "LOW",
+      "since": "af2f58a8fd6785c3013817e2c87e1544404a9e70",
+      "source": "review-parallel.json",
+      "source_id": "F3",
+      "summary": "head and the reused check are read before an unbounded slot wait, so the gate can run newer code under the old sha or rerun a gate that just went green",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading; today the only caller (bin/relay cmd_gate) passes no environ, so it is fragile, not wrong. Size: 5."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay_gate.run(wt, environ={**os.environ, \"RELAY_HOME\": tmp, \"RELAY_GATE_SLOTS\": \"1\"}) in-process (as a future test would): the count",
+        "is 1 from environ, but the slot files are taken under the live ~/.relay/gate-slots, which tests must never touch. Should: both from environ."
+      ],
+      "fix_hint": [
+        "Read RELAY_HOME from env (the dict already built in run) and fall back to relay_config.home_dir() only when it is absent."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 173,
+      "pass_cases": [
+        "1. run(..., environ with RELAY_HOME=tmp): the slot files are under tmp/gate-slots.",
+        "2. run(...) with environ None: ~/.relay/gate-slots (or $RELAY_HOME) as today."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_slots.py:195 test_the_slot_folder_comes_from_the_given_environ passes, fails pre-fix."
+      ],
+      "severity": "LOW",
+      "since": "af2f58a8fd6785c3013817e2c87e1544404a9e70",
+      "source": "review-parallel.json",
+      "source_id": "F4",
+      "summary": "the slot folder comes from os.environ while the slot count comes from the environ argument",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "95fcd6990580764430215b1fe72eec3114bf33ca.gate.log",
+  "head": "41895eba21b724a5181db4f40d6fd8626b5f13b3",
+  "item": null,
+  "notes": [
+    "F1 is judged by reading: waits bounded by BOUND=30s; not proven by a base failure (the base tree had take_slot, so the hang case is only the fixer's claim of failing without take_slot)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range af2f58a..HEAD; own changed files lib/relay_gate.py and tests/test_gate_slots.py only. Ran tests/test_gate_slots.py (9 passed). Ran the new test file against the pre-fix tree: 4 failed (sigterm, head moved, green log appeared, slot folder from environ). Gate log is for 95fcd69, exit 0; only gate logs came after it."
+  ],
+  "type": "check"
+}
