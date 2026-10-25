@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-25T20:32:08Z",
   "taken_by": "wt/where-list",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T21:14:58Z",
+  "test": "tests/test_queue.py::WhereList::test_q1_takes_the_first_place_of_a_list_and_keeps_the_others_in_its_details",
   "dropped_at": null,
   "dropped_why": null
 }
