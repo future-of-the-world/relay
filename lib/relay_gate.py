@@ -12,6 +12,7 @@ so a killed gate frees its slot by itself). The log's third line, `wait <seconds
 import fcntl
 import os
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -170,18 +171,50 @@ def run(worktree, args=(), environ=None):
     os.makedirs(os.path.join(worktree, ".ci"), exist_ok=True)      # the gate command's own scratch folder (empty, so git sees nothing)
     env = dict(os.environ if environ is None else environ)
     env["RELAY_GATE"] = head
-    slot, waited = take_slot(slot_count(env), os.path.join(relay_config.home_dir(), "gate-slots"), lambda line: print(line, file=sys.stderr, flush=True))
-    try:
+    home = env.get("RELAY_HOME") or relay_config.home_dir()
+    # a stopped gate (SIGTERM, SIGHUP; SIGINT already raises) must end its command too, so it leaves through an exception
+    saved = {}
+
+    def stop(signum, frame):
+        raise SystemExit(128 + signum)
+
+    for sig in (signal.SIGTERM, signal.SIGHUP):
         try:
-            with open(out_path, "wb") as sink:
-                done = subprocess.run(command, cwd=worktree, env=env, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT)
-            code = done.returncode if done.returncode >= 0 else 128 - done.returncode
-        except OSError as exc:
-            with open(out_path, "w") as sink:
-                sink.write("gate command could not start: %s\n" % exc)
-            code = 127
+            saved[sig] = signal.signal(sig, stop)
+        except ValueError:      # not the main thread: no handlers, the caller owns its signals
+            break
+    try:
+        slot, waited = take_slot(slot_count(env), os.path.join(home, "gate-slots"), lambda line: print(line, file=sys.stderr, flush=True))
+        try:
+            # the wait can be long: the code may have moved, or the same code may have gone green meanwhile
+            now = check_ready(worktree)
+            green = reusable(worktree, now, command)      # (a gate log committed meanwhile moves HEAD, but only by inert files)
+            if green is not None:
+                return 0, green, []
+            if now != head:
+                raise GateRefused("%s moved to another commit while the gate waited for a slot: run it again" % worktree)
+            proc = None
+            try:
+                with open(out_path, "wb") as sink:
+                    proc = subprocess.Popen(command, cwd=worktree, env=env, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
+                    returncode = proc.wait()
+                code = returncode if returncode >= 0 else 128 - returncode
+            except OSError as exc:
+                with open(out_path, "w") as sink:
+                    sink.write("gate command could not start: %s\n" % exc)
+                code = 127
+            finally:
+                if proc is not None:      # the command's whole process group ends before the slot is freed
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except OSError:
+                        pass
+                    proc.wait()
+        finally:
+            slot.close()
     finally:
-        slot.close()
+        for sig, old in saved.items():
+            signal.signal(sig, old)
     with open(out_path, encoding="utf-8", errors="replace") as handle:
         output = handle.read()
     text = "head %s\ncmd %s\nwait %.1f\n%s%sexit %d\n" % (head, " ".join(shlex.quote(c) for c in command), waited, output, "" if output.endswith("\n") or not output else "\n", code)
