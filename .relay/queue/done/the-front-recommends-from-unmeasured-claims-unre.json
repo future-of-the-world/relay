@@ -22,8 +22,8 @@
   "where": "the rule that holds \"Working with me\" and \"Working style\" (rules/*.md, \"Verify against the real system\"), rules/delegation.md (routing), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md (routing table), an eval case for the front",
   "taken_at": "2026-10-25T02:20:22Z",
   "taken_by": "wt/measured",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T04:22:31Z",
+  "test": "tests/test_front_measures.py::FrontMeasures::test_q1_a_question_about_a_new_mechanism_goes_to_the_design_track",
   "dropped_at": null,
   "dropped_why": null
 }
