@@ -29,7 +29,7 @@ class NoCalquesJudge(unittest.TestCase):
     def test_plain_explanation_passes_and_old_calques_stay_fail(self) -> None:  # F1 pass cases 3, 4
         text = self.read()
         self.assertIn("hook — скрипт, который Claude Code запускает перед командой", text)
-        self.assertIn("не является калькой" if False else "is not one: PASS", text)
+        self.assertIn("is not one: PASS", text)
         self.assertIn('"слияние"', text)
         self.assertIn('"перемотка"', text)
 
