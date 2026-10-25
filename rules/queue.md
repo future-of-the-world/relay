@@ -30,5 +30,10 @@ An out-of-scope question from the owner is answered in two lines and becomes a
 `fix` items wait, name them (how many, the top one, its time, written 30m or 1h 30m) and let the owner
 decide what goes first.
 
+An item's `where` is a list of places, one string each: the place as its first word (`path`, `path:N` or `path:N-M`), then an
+optional note for people after a space, for example `["lib/relay_setup.py:325-333 merge_settings", "docs/"]`. The check refuses a
+string and an element whose first word has another shape. When the item is taken, its Q1 gets the first place (line N of N-M);
+the other places go into Q1's details.
+
 An item's `title` is one plain sentence saying what is wrong or wanted, under 60
 characters; `relay queue` shows it as the "what" column, and `add` refuses a title that only repeats the name.

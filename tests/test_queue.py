@@ -33,7 +33,7 @@ SLUG = "item"   # the check only compares the title with the file's own name; no
 
 def fix_item(title="A fix", ip=91, size=10, found="2026-10-01T00:00:00Z", failing="the case fails"):
     return rq.serialize(SLUG, rq.new_item("fix", ip, size, found, "test", title, "what is wrong here", "it matters", failing=failing,
-                                          pass_cases="the other case", where="lib/x.py:5"))
+                                          pass_cases="the other case", where=["lib/x.py:5"]))
 
 
 def feature_item(title="A feature", ip=0, size=10, found="2026-10-01T00:00:00Z"):
@@ -183,7 +183,7 @@ class TestOrderAndParse(Base):
         item = self.item("a-merge-commit-lists-master-s-files")
         self.assertEqual((item["kind"], item["state"], item["ip"], item["time"]), ("fix", "open", 1, 25))
         self.assertEqual((item["found_at"], item["found_in"]), ("2026-10-22T08:30:00Z", "finding F7 of review.json"))
-        self.assertEqual(item["where"], "lib/relay_inert.py:51")
+        self.assertEqual(item["where"], ["lib/relay_inert.py:51"])
         self.assertEqual(item["title"], "A merge commit lists master's files")
         # the linter line is built by relay_verdict.linter: path:line: SEVERITY: id summary
         self.assertEqual(item["what"], ["lib/relay_inert.py:51: MEDIUM: F7 a merge commit lists master's files"])
@@ -1143,7 +1143,7 @@ class TestInputFile(Base):
         done = self.run_relay("add", "--from", report, "F3", "--input", self.toml("why = 'it matters'\ntime = '20m'\n"), "--ip", "7", "-C", self.main)
         self.assertEqual(done.returncode, 0, done.stderr)
         item = self.item("a-thing-is-off")
-        self.assertEqual((item["why"], item["time"], item["ip"], item["where"]), (["it matters"], 20, 7, "lib/q.py:4"))
+        self.assertEqual((item["why"], item["time"], item["ip"], item["where"]), (["it matters"], 20, 7, ["lib/q.py:4"]))
 
     def test_f5_drop_takes_the_owners_words_from_a_toml_file(self):
         self.write_commit(self.main, {".relay/queue/feat.json": feature_item("Feat")}, "seed")
@@ -1183,7 +1183,7 @@ class TestInputFile(Base):
         self.assertEqual(done.returncode, 0, done.stderr)
         # worked by hand from fix_item: slug job, title Job; fix, ip 60, 90 minutes = 1h 30m, open; found 2026-10-01 in test
         self.assertEqual(done.stdout.splitlines(), [
-            "job: Job", "fix, ip 60, 1h 30m, open", "found 2026-10-01T00:00:00Z in test", "where lib/x.py:5",
+            "job: Job", "fix, ip 60, 1h 30m, open", "found 2026-10-01T00:00:00Z in test", "Where:", "  lib/x.py:5",
             "What:", "  what is wrong here", "Why:", "  it matters", "Failing case:", "  line 1", "  line 2", "Pass cases:", "  the other case"])
         self.assertEqual(self.run_relay("show", "nope", "-C", self.main).returncode, 2)
 
@@ -1338,5 +1338,54 @@ class TestStructuredRule(unittest.TestCase):
         self.assertIn("agent reports", rule["body"])
 
 
+class WhereList(unittest.TestCase):
+    """An item's where is a list of places: the first word of each is `path`, `path:N` or `path:N-M`, then a note."""
+
+    def item_with(self, where):
+        return rq.parse("job", rq.serialize("job", rq.new_item("fix", 5, 10, "2026-10-01T00:00:00Z", "test", "Job", "what", "it matters",
+                                                               failing="fails", where=where)))
+
+    def test_q1_takes_the_first_place_of_a_list_and_keeps_the_others_in_its_details(self):
+        # The item squash-merge-projects-keep-check-records-of-lost named three places in one string and Q1 took the whole string
+        # as its path at line 1. Now the first element is Q1's place; by hand: path lib/relay_marks.py, no line so line 1.
+        item = self.item_with(["lib/relay_marks.py", "plugins/core/hooks/guard-main.sh (writes)", "docs"])
+        q1 = rq._q1(item)
+        self.assertEqual((q1["path"], q1["line"]), ("lib/relay_marks.py", 1))
+        self.assertEqual(q1["details"], ["it matters", "Also: plugins/core/hooks/guard-main.sh (writes)", "Also: docs"])
+
+    def test_an_element_with_a_line_range_gives_the_path_and_its_first_line(self):
+        # "lib/relay_setup.py:325-333 merge_settings": path lib/relay_setup.py, lines 325 to 333, note merge_settings
+        self.assertEqual(rq.parse_place("lib/relay_setup.py:325-333 merge_settings"), rq.Place("lib/relay_setup.py", 325, 333, "merge_settings"))
+        self.assertEqual(rq.parse_place("docs/"), rq.Place("docs/", None, None, ""))
+        self.assertEqual(rq.parse_place("a.py:7 two words"), rq.Place("a.py", 7, None, "two words"))
+        q1 = rq._q1(self.item_with(["lib/relay_setup.py:325-333 merge_settings"]))
+        self.assertEqual((q1["path"], q1["line"]), ("lib/relay_setup.py", 325))
+
+    def test_an_element_whose_first_word_is_not_a_place_is_refused(self):
+        for bad in ("a.py:x", "a.py:0", "a.py:5-3", "a.py:", ":5", "(a.py)", "", " a.py"):
+            self.assertIsNone(rq.parse_place(bad), bad)
+            self.assertEqual(len(rq.where_problems([bad])), 1, bad)
+        self.assertEqual(rq.where_problems(["a.py", "b.py:2"]), [])
+        self.assertEqual(rq.where_problems("a.py, b.py"), ["where is not a list of places"])
+        self.assertEqual(rq.where_problems([]), ["where is empty (leave the key out)"])
+
+    def test_a_where_string_in_a_file_fails_the_check(self):
+        data = json.loads(fix_item())
+        data["where"] = "lib/a.py, lib/b.py"
+        self.assertEqual(rq.parse("item", json.dumps(data))["problems"], ["where is not a list of places"])
+
+    def test_add_refuses_a_string_where(self):
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.add("/nonexistent", "fix", "Something is wrong", why="w", failing="f", failing_kind="claim", minutes=5, where="a, b")
+        self.assertIn("where is not a list of places", str(ctx.exception))
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.add("/nonexistent", "fix", "Something is wrong", why="w", failing="f", failing_kind="claim", minutes=5, where=["a.py:x"])
+        self.assertIn("where element 1", str(ctx.exception))
+
+    def test_show_prints_every_place(self):
+        text = rq.show_text(self.item_with(["a.py:1 first", "b/"]))
+        self.assertEqual(text.splitlines()[3:6], ["Where:", "  a.py:1 first", "  b/"])
+
 if __name__ == "__main__":
     unittest.main()
+
