@@ -21,8 +21,8 @@
   "where": "plugins/delegate/agents/runner.md (maxTurns 12), plugins/delegate/skills/delegate/SKILL.md (who waits on a gate), the change-cycle workflow's gate step",
   "taken_at": "2026-10-25T04:24:18Z",
   "taken_by": "wt/turn-limit",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T09:54:10Z",
+  "test": "tests/test_turn_limit.py::GateReuse::test_f1_second_gate_on_the_gate_log_commit_runs_nothing",
   "dropped_at": null,
   "dropped_why": null
 }
