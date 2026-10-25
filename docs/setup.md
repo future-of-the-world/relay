@@ -14,7 +14,7 @@ never overwrites:
   `[observe]` (and `[issues]` or `[product]` when they apply);
 - `.claude/settings.json`: the relay marketplace and the plugins for the
   flow (`core`, `observe`, `delegate`, `front`, + `openspec` / `issues` /
-  `product`), `Bash(kit:*)` allowed; a backup beside it;
+  `product`), `Bash(kit:*)` allowed; a backup of the old file in `<git dir>/relay-backup/` (none when git holds the file unchanged: `git restore` it);
 - `bin/check`, `bin/ci`, `bin/wt` from templates that follow the contract,
   with `TODO` where the stack's commands go;
 - `CLAUDE.md` skeleton and `docs/handover.md`;
@@ -74,12 +74,14 @@ What migration recognises from the principles era:
 | `*@principles` plugins, the principles marketplace | `*@relay`, the relay marketplace |
 | user hooks `context-budget.py`, `session-handover.py` | the front plugin (entries removed) |
 
+Run in a linked git worktree, setup names the project after its main checkout and registers that folder, and writes the files into the worktree, so they reach the default branch through that branch's merge.
+
 Kept as they are: `.claude/kit.toml` (sections added), `.claude/kit/*.md`
 additions, project-only skills and agents (ALIX's safety reviewers, run
 skills, stack skills), project-only hooks (Kartoteka's `format.sh`).
 
-Revert: `mv .claude/relay-migration/<file> <back>`; the settings backup is
-beside the file.
+Revert: `mv .claude/relay-migration/<file> <back>`; the settings backup is in
+`<git dir>/relay-backup/` (none when git holds the file unchanged: `git restore .claude/settings.json`).
 
 A project that already ran on the principles plugins (Kartoteka) needs only
 the settings change and the sections: `relay migrate` finds nothing to move
@@ -126,7 +128,7 @@ after the wave's paid run is green (it waits until `bin/paid-cost due` prints no
 
 `relay` writes only: `~/.claude/CLAUDE.md` (backup `.before-relay`),
 `~/.claude/settings.json` (timestamped backup), per project
-`.claude/settings.json` (backup), `kit.toml` (backup when sections are
-added), `CLAUDE.local.md`, and the moved files. Restore the backups,
+`.claude/settings.json` (backup in `<git dir>/relay-backup/`, none when git holds
+the file unchanged), `kit.toml` (the same when sections are added), `CLAUDE.local.md`, and the moved files. Restore the backups,
 remove the marketplace, and the old system is back; `~/principles` is not
 touched.

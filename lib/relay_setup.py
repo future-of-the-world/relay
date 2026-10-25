@@ -54,7 +54,8 @@ def load_old_names(path=None):
 
 
 def detect(root):
-    d = {"root": root, "name": os.path.basename(os.path.realpath(root)), "git": os.path.isdir(os.path.join(root, ".git")) or os.path.isfile(os.path.join(root, ".git"))}
+    # a linked worktree is the same project as its main checkout: name it after that folder
+    d = {"root": root, "name": os.path.basename(main_checkout(root) or os.path.realpath(root)), "git": os.path.isdir(os.path.join(root, ".git")) or os.path.isfile(os.path.join(root, ".git"))}
     d["stack"], d["tool"] = "unknown", ""
     for marker, stack, tool in STACKS:
         if os.path.exists(os.path.join(root, marker)):
@@ -120,11 +121,18 @@ def _git_out(cwd, *args):
 
 
 def main_checkout(root):
-    """The main checkout's folder when `root` is a linked git worktree of it; None for a main checkout or a folder outside git."""
-    if not os.path.isfile(os.path.join(root, ".git")):
-        return None   # a linked worktree has a .git file (a pointer); a main checkout has a .git folder
+    """The main checkout's folder when `root` is a linked git worktree of it; None for anything else (a main checkout, a submodule,
+    a --separate-git-dir checkout, a bare repository, a folder outside git). A linked worktree's git dir is <common>/worktrees/<name>,
+    so it differs from the common dir; the main checkout is the common dir's parent when that is a `.git` folder."""
+    gitdir = _git_out(root, "rev-parse", "--path-format=absolute", "--git-dir")
     common = _git_out(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    return os.path.dirname(common) if common else None
+    if not gitdir or not common or os.path.realpath(gitdir) == os.path.realpath(common):
+        return None
+    if os.path.basename(os.path.realpath(common)) != ".git":
+        return None
+    if _git_out(root, "rev-parse", "--is-bare-repository") == "true":
+        return None
+    return os.path.dirname(os.path.realpath(common))
 
 
 def backup(path):
@@ -631,9 +639,6 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
     merge checks on in a project the owner has not chosen (docs/setup.md: old projects are not given a .relay/ folder)."""
     import relay_rules
     root = os.path.realpath(root)
-    main = main_checkout(root)
-    if main:
-        raise ValueError(f"{root} is a linked git worktree: setup would name the project after the worktree folder. Run `relay setup {main}` on the main checkout, then merge that change into this branch")
     names = load_old_names()
     methods = relay_rules.spec_methods()
     if flow == "openspec":
@@ -691,7 +696,7 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
         todo.append("CLAUDE.md: write what the project is in two lines, and its product surface if a person sees it")
     if copy_template("handover.md", os.path.join(root, "docs", "handover.md"), replacements={"name": d["name"], "date": str(dt.date.today())}):
         done.append("wrote docs/handover.md")
-    if register_project(d["name"], root, flow, product, specs):
+    if register_project(d["name"], main_checkout(root) or root, flow, product, specs):
         done.append(f"registered {d['name']} in projects.toml (loads: {flow} flow rules)")
     if strip_stored_spec_rules(d["name"]):
         done.append(f"projects.toml [{d['name']}]: removed the stored spec rule from load (it comes from kit.toml [specs])")
