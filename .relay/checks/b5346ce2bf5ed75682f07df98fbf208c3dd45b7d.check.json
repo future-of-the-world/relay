@@ -1,0 +1,41 @@
+{
+  "branch": "wt/train-9",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_textonly.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_textonly.py:21-46 lists both sides' classes under current module names (test_wave_red.*, test_claudemd_fixes.*, test_net_retry); all resolve and collect; gate green on code."
+      ],
+      "severity": "MEDIUM",
+      "since": "9b8a3badb9a9159711fbaa686351ff207c8b3fe6",
+      "source": "m11-train-9.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "9b8a3badb9a9159711fbaa686351ff207c8b3fe6.gate.log",
+  "head": "b5346ce2bf5ed75682f07df98fbf208c3dd45b7d",
+  "item": null,
+  "notes": [
+    "Not run: full suite (gate covers it; quick mode skipped paid steps)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merge-fix check. Gate log is for 9b8a3ba (head line, exit 0); only an inert gate-log commit b5346ce came after (relay changed lists no file). Loaded every RULE_TESTS entry with unittest: all 23 names resolve and collect tests. Ran test_rules_gate, test_net_retry, test_wave_red, test_claudemd_fixes, test_front_measures. No test code changed by the fix, so no fail-without-fix test relied on."
+  ],
+  "type": "check"
+}
