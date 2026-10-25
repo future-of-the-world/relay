@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 86,
+  "time": 60,
+  "found_at": "2026-10-25T20:37:38Z",
+  "found_in": "relay queue add",
+  "title": "Every new relay command edits bin/relay",
+  "what": [
+    "A relay command lives in its own module and is found by bin/relay (discovery), with its usage line next to it; adding a command touches no shared file."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"агенты позволяют нам делать множество изменений одновременно, большие файлы - наши враги, концентрируя большой объем кода (смысла) они являются поводом для конфликтов\", then \"a\" (principle 10 \"one subject per file, no hub files, no copies\" plus four items). Measured over 5 days: bin/relay (887 lines) in 44 commits, lib/relay_queue.py (1189 lines) in 25 commits kept in 3 copies, lib/relay_setup.py (1134 lines) changed by 3 open branches at once (license, setup-wt, the portable-tool design). IP chosen by the front (agent-chosen). bin/relay was in 44 commits in 5 days, the most of any code file."
+  ],
+  "failing_case": [
+    "Adding a command today means editing bin/relay's table and usage text, so two branches that each add a command conflict there."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "A test adds a command module in a temporary copy and bin/relay runs it and lists it in its help without bin/relay changing; every existing command behaves as before."
+  ],
+  "where": "bin/relay (887 lines: the command table and usage)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

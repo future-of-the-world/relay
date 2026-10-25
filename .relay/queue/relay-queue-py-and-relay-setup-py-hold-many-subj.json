@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 85,
+  "time": 90,
+  "found_at": "2026-10-25T20:37:39Z",
+  "found_in": "relay queue add",
+  "title": "relay_queue.py and relay_setup.py hold many subjects",
+  "what": [
+    "Each is split by subject (queue: records and schema, add, take/done, views; setup: naming, settings merge, migrate, doctor) with no behaviour change, done at a wave boundary when no open branch changes either file (the collision command says free)."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"агенты позволяют нам делать множество изменений одновременно, большие файлы - наши враги, концентрируя большой объем кода (смысла) они являются поводом для конфликтов\", then \"a\" (principle 10 \"one subject per file, no hub files, no copies\" plus four items). Measured over 5 days: bin/relay (887 lines) in 44 commits, lib/relay_queue.py (1189 lines) in 25 commits kept in 3 copies, lib/relay_setup.py (1134 lines) changed by 3 open branches at once (license, setup-wt, the portable-tool design). IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "lib/relay_setup.py is changed by wt/license, wt/setup-wt and the coming portable-tool build at once."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The full test suite passes unchanged; no module over about 500 lines keeps two of the listed subjects."
+  ],
+  "where": "lib/relay_queue.py (1189 lines), lib/relay_setup.py (1134 lines)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

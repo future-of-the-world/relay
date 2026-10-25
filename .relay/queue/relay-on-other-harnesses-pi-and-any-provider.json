@@ -1,0 +1,21 @@
+{
+  "kind": "feature",
+  "ip": 0,
+  "time": 960,
+  "found_at": "2026-10-25T20:36:41Z",
+  "found_in": "relay queue add",
+  "title": "relay on other harnesses (pi) and any provider",
+  "what": [
+    "An idea for later: one harness-neutral core plus a thin adapter per harness (.claude, .pi, ...), with free choice of provider. Assessment in ~/.relay/backup/scratch-3207dc59/reports/harness-port.md: 45% of relay's Python is harness-neutral, 26% mixed, 26% Claude-only; pi 1.4.0 maps the hook events almost one to one (blocking a tool call, stop), lacks typed subagents with turn limits, plugin eval, CLAUDE.local.md and permissions; 870-1300 agent minutes (estimate) plus double upkeep. Cheapest proof: measure provider choice inside Claude Code first (~60 min)."
+  ],
+  "why": [
+    "Owner, 26 Oct, verbatim: \"Пока это просто идея на будущее, до неё ещё далеко, насколько сложно будет перенести relay с claude на pi и свободный выбор провайдера, при этом унифицировав подход с дополнительной обвязкой для каждого harness (.claude, .pi and etc.)\". IP left 0 for the owner to set."
+  ],
+  "where": "lib/ (core vs Claude-only parts), plugins/*/hooks (9 events, 26 registrations), lib/relay_transcripts.py, lib/relay_ledger.py, lib/relay_bench.py, profiles/",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
