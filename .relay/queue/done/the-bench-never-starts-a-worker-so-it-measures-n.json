@@ -20,8 +20,9 @@
   "where": "evals/scenarios",
   "taken_at": null,
   "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-25T04:44:25Z",
+  "test": "tests/test_bench_worker.py::ScenarioPromptsLeaveDelegationToTheSetup::test_workspace_is_a_linked_worktree_not_a_primary_checkout",
+  "fixed_by": "3b28fbf6cbb7d898914193c9d41b3d1bdcd9a38b",
   "dropped_at": null,
   "dropped_why": null
 }
