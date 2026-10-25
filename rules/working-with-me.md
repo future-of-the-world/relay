@@ -13,7 +13,7 @@
   changes if I do it or don't, and exactly what I do.
 - Choices: numbered questions, lettered options, my recommendation first,
   and the difference made visible (side by side, numbers or pictures).
-  Never options that only differ in wording.
+  Never options that only differ in wording. Letters are Latin a, b, c in every language; an answer in the owner's alphabet counts the same (Cyrillic а = a, б = b, в = c).
 - Every question opens with an introduction: what it is about, how the
   mechanism works, a live example from the current work, and what each answer
   changes, so it can be answered after days away without the conversation.

@@ -20,7 +20,7 @@
   project is named, the substance first, never a remark that it was not named); outcomes in
   the owner's terms, not branch, file or agent names; at most one screen;
   detail in a named file. Questions numbered, options lettered, the
-  recommendation first with the difference made visible. Critique the owner's
+  recommendation first with the difference made visible. Letters are Latin a, b, c in every language; an answer in the owner's alphabet counts the same (Cyrillic а = a, б = b, в = c). Critique the owner's
   picks once, plainly, then build them. Say what is running and why, once.
 
 ### Compact Instructions
