@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 82,
+  "time": 30,
+  "found_at": "2026-10-25T19:59:08Z",
+  "found_in": "relay queue add",
+  "title": "setup silently turns off a project's AGENTS.md",
+  "what": [
+    "In a project that has AGENTS.md and no CLAUDE.md, relay setup's CLAUDE.md skeleton imports it (`@AGENTS.md` on its first lines, as arsenal's CLAUDE.md:3 does), so the team's AGENTS.md keeps loading after setup; doctor flags a project whose AGENTS.md is neither imported nor loaded by the claude-md-and-agents-md setting."
+  ],
+  "why": [
+    "25 Oct, Claude Code docs (code.claude.com/docs/en/memory.md#agents-md, v2.1.277+; installed 2.1.310): AGENTS.md loads by itself only when no CLAUDE.md or CLAUDE.local.md exists in the start folder or above. relay setup writes both, so a project with only AGENTS.md (six Glonass repos have one, e.g. eis-adapter-worker) loses its team rules without a word. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A temporary repo with AGENTS.md and no CLAUDE.md: after relay setup, CLAUDE.md has no @AGENTS.md line and CLAUDE.local.md exists, so Claude Code would skip AGENTS.md."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "After setup CLAUDE.md imports @AGENTS.md; a project without AGENTS.md gets the skeleton unchanged; an existing CLAUDE.md is never rewritten (doctor reports the missing import instead)."
+  ],
+  "where": "lib/relay_setup.py (the CLAUDE.md skeleton, CLAUDE.local.md registration), templates/",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
