@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 87,
+  "time": 45,
+  "found_at": "2026-10-25T20:37:38Z",
+  "found_in": "relay queue add",
+  "title": "lib modules are committed in three copies",
+  "what": [
+    "Each lib module exists once in the repo; the plugins load it from that one place (a path resolved from the plugin's own location, or the plugin build copies it outside git), and bin/sync-lib-copies goes away."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"агенты позволяют нам делать множество изменений одновременно, большие файлы - наши враги, концентрируя большой объем кода (смысла) они являются поводом для конфликтов\", then \"a\" (principle 10 \"one subject per file, no hub files, no copies\" plus four items). Measured over 5 days: bin/relay (887 lines) in 44 commits, lib/relay_queue.py (1189 lines) in 25 commits kept in 3 copies, lib/relay_setup.py (1134 lines) changed by 3 open branches at once (license, setup-wt, the portable-tool design). IP chosen by the front (agent-chosen). Every change to relay_queue.py touches 3 files (25 commits x 3 in 5 days); principle 3, a built file committed beside its source."
+  ],
+  "failing_case": [
+    "git ls-files | grep relay_queue.py lists 3 paths with identical content."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "One path; the plugins' hooks and commands that used a copy still run (their tests pass); a session started with only the plugins folder still finds the module."
+  ],
+  "where": "lib/relay_queue.py, plugins/core/lib/relay_queue.py, plugins/front/lib/relay_queue.py (and the other copied modules), bin/sync-lib-copies",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
