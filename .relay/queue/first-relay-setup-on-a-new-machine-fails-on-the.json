@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 83,
+  "time": 30,
+  "found_at": "2026-10-25T19:29:55Z",
+  "found_in": "relay queue add",
+  "title": "First relay setup on a new machine fails on the paid hold",
+  "what": [
+    "relay setup on a machine with no paid-run record writes its files and its sync does not exit 1 with the list of every relay commit: like relay install, setup's sync does not wait for a green paid run, or says in one line what is held and why."
+  ],
+  "why": [
+    "25 Oct, a throwaway project in a fake HOME (scratchpad reports/demo-and-release.md, part 1): relay setup shop exited 1, \"Not synced: waits for a green paid run ... no green run recorded\" and 50 of 174 commits; CLAUDE.local.md was not written. Every new machine hits it. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "relay setup <tmp project> with HOME set to an empty temporary folder: exit 1 and the hold message; no CLAUDE.local.md."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "Same run: exit 0 and CLAUDE.local.md written (or exit 0 with a one-line note of what waits); the hold still applies to relay sync on a machine that has a paid-run record."
+  ],
+  "where": "lib/relay_rules.py:284 (the paid-run hold), lib/relay_setup.py (setup's own sync)",
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
