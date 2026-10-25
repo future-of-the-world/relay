@@ -1,0 +1,145 @@
+{
+  "branch": "wt/train-8",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "evals/plugin/it-terms-ru/graders/no-calques.md",
+      "rank": "medium",
+      "reason": [
+        "Gate green on the merged head; tests/test_claudemd_fixes.py NoCalquesJudge passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "0def63644f20f3a968c0bf3e3e1dcdb79dac426f",
+      "source": "m10-train-8.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_textonly.py",
+      "rank": "medium",
+      "reason": [
+        "Gate green; RULE_TESTS names resolve (tests/test_split_test_files.py:35 passes). Completeness gap is reported as N1."
+      ],
+      "severity": "MEDIUM",
+      "since": "0def63644f20f3a968c0bf3e3e1dcdb79dac426f",
+      "source": "m10-train-8.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_claudemd_fixes.py",
+      "rank": "medium",
+      "reason": [
+        "Gate green; tests/test_claudemd_fixes.py passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "0def63644f20f3a968c0bf3e3e1dcdb79dac426f",
+      "source": "m10-train-8.json",
+      "source_id": "F3",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_wave_red.py",
+      "rank": "medium",
+      "reason": [
+        "Gate green; tests/test_wave_red.py passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "0def63644f20f3a968c0bf3e3e1dcdb79dac426f",
+      "source": "m10-train-8.json",
+      "source_id": "F4",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: ItTermsSetup asserts system_rules.current(case) contains the rule line (rules/working-with-me.md:41); GlossaryGivesNoInstruction renders the rule via system_rules.rule. Size 10 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A rules-only commit edits rules/working-with-me.md line 41 (\"Standard IT terms stay in their English form\"). The short gate runs only RULE_TESTS; tests.test_wave_red.ItTermsSetup asserts that text via system_rules.current(case) and tests.test_claudemd_fixes.GlossaryGivesNoInstruction asserts \"define it\" is absent from the rendered rule, but neither is listed, so the short gate is green and the break shows only in the full gate. RuleTestsComplete does not catch it because its regex matches only direct rules/ reads, not system_rules.rule()/current()."
+      ],
+      "fix_hint": [
+        "Add the two class names to RULE_TESTS and extend READS_RULES with system_rules\\.(?:rule|current)\\(."
+      ],
+      "id": "N1",
+      "kind": "inside",
+      "line": 21,
+      "pass_cases": [
+        "1. RULE_TESTS contains tests.test_wave_red.ItTermsSetup and tests.test_claudemd_fixes.GlossaryGivesNoInstruction (or their modules where all classes are rule-only).",
+        "2. test_split_test_files loader test still reports no failed import with these names added.",
+        "3. READS_RULES in tests/test_rules_gate.py also matches system_rules.(rule|current)( so an unlisted class fails the guard.",
+        "4. EveryScaffold (runs bash scaffolds) need not be listed."
+      ],
+      "path": "lib/relay_textonly.py",
+      "rank": "medium",
+      "reason": [],
+      "severity": "MEDIUM",
+      "since": "3e4a0a5c4a8d77dddad3e897deed38373345100a",
+      "source": "check",
+      "summary": "RULE_TESTS omits wave-red/claudemd test classes whose assertions read rules/working-with-me.md through system_rules",
+      "verdict": "NOT MET"
+    }
+  ],
+  "gate": "0def63644f20f3a968c0bf3e3e1dcdb79dac426f.gate.log",
+  "head": "3e4a0a5c4a8d77dddad3e897deed38373345100a",
+  "item": null,
+  "notes": [
+    "RULE_TESTS lists the moved modules under their new names (test_python_rule, test_it_terms.ItTerms, test_queue.*, test_rules.Rules, test_roles.Roles, test_agents.Agents, test_principles_rule.*, test_bench.Bench, test_spec_steps.RenderedRules, ...) and test_split_test_files loads them from the repo root with no failed import. test_wave_red/test_claudemd_fixes insert evals/plugin onto sys.path and test_claudemd_fixes also the tests dir, so they import fine under the short gate's loader. Gap: wave-red classes that read rules text through system_rules are not on RULE_TESTS (see N1)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head 0def636, exit 0; HEAD 3e4a0a5 adds only the gate log (relay changed lists nothing). Ran test_claudemd_fixes, test_wave_red, test_split_test_files, test_rules_gate: 34 passed. Read RULE_TESTS and the classes of the two new wave-red test files."
+  ],
+  "type": "check"
+}
