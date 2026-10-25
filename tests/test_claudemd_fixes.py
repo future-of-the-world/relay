@@ -23,13 +23,14 @@ class NoCalquesJudge(unittest.TestCase):
     def test_a_russian_gloss_beside_the_term_fails(self) -> None:  # F1
         text = self.read()
         self.assertNotIn("Only a Russian phrase used in place of the term counts", text)
-        self.assertIn("is the same calque: FAIL", text)
+        self.assertIn("is a calque: FAIL", text)
         self.assertIn("hook (крючок)", text)
 
     def test_plain_explanation_passes_and_old_calques_stay_fail(self) -> None:  # F1 pass cases 3, 4
         text = self.read()
         self.assertIn("hook — скрипт, который Claude Code запускает перед командой", text)
-        self.assertIn("is not one: PASS", text)
+        self.assertIn("is not a calque: PASS", text)
+        self.assertIn("fast-forward, то есть просто сдвинуться вперёд на эти commit'ы", text)
         self.assertIn('"слияние"', text)
         self.assertIn('"перемотка"', text)
 
