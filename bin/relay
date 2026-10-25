@@ -575,13 +575,9 @@ def cmd_check_record(args):
             with open(path, encoding="utf-8") as handle:
                 data = relay_verdict.load_record(handle.read(), "the check record")
             counts = " (open %d, queued %d)" % (relay_verdict.open_of(data), relay_verdict.queued_of(data))
-            try:
-                relay_marks.write_check_mark(os.path.realpath(data["worktree"]), data)
-            except relay_marks.MarkError as exc:
-                raise ValueError("the check is recorded at %s but no check mark was made: %s; run relay check record check again" % (path, exc))
     except (relay_verdict.VerdictError, OSError) as exc:
         raise ValueError(str(exc))
-    print("recorded %s%s%s" % (path, counts, "; check mark committed" if args[0] == "check" else ""))
+    print("recorded %s%s" % (path, counts))
     return 0
 
 

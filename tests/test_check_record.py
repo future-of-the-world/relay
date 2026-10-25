@@ -331,7 +331,6 @@ class TestOneFunction(Flow):
         self.assertIn("closed job", rq.done(self.wa, "job", TEST_NAME))
         self.assertIsNone(rq.close_refusal(self.wa, "HEAD", "job", TEST_NAME))
         self.assertEqual(merge_hook.step_mark(self.main, "master", "wt/a"), self.mark_commit())
-        self.assertEqual(len(check_mark.stale_commits(self.wa)), 2)    # HEAD and the marked commit: only inert files came after it
 
     def mark_commit(self):
         return next(c for c, _ in rm.marks(self.wa, "HEAD"))
@@ -346,7 +345,6 @@ class TestOneFunction(Flow):
         with self.assertRaises(merge_hook.Refused) as ctx:
             merge_hook.step_mark(self.main, "master", "wt/a")
         self.assertIn("bin/ci", str(ctx.exception))
-        self.assertEqual(check_mark.stale_commits(self.wa), [self.head()])
 
     def test_t2_done_and_the_guard_judge_a_test_name_by_the_same_function(self):
         self.after_check()

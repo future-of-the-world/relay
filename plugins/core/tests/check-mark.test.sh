@@ -78,8 +78,6 @@ EOF
     printf '[[status]]\nid = "%s"\nverdict = "%s"\n' "$id" "$verdict" >>"$S/check.toml"
   done
   "$relay" check record check --input "$S/check.toml" >/dev/null || echo "setup: check record failed" >&2
-  # the command now commits the mark itself (tests/test_check_mark_on_record.py); these cases test the hook alone, so take it away
-  [ "$(git -C "$W" log -1 --format=%s)" = "relay: check of ${3:-$HEAD0}" ] && git -C "$W" reset -q --hard HEAD~1
   touch -t "${2:-$NEW}" "$S/rep.json"
 }
 # prompt [check files]: the delegate skill's check prompt, verbatim form (backticks, periods), as the transcript's first line
@@ -88,9 +86,9 @@ prompt() {
   jq -nc --arg t "Check: $files. Fixes: \`none\`. Worktree: \`$W\`. Check command: \`bin/ci --quick\`. Gate: \`none\`. Report: \`$S/rep.json\`." --arg ts "$START" \
     '{type:"user", timestamp:$ts, message:{role:"user", content:$t}}' >"$S/agent.jsonl"
 }
-# stop <agent_type> -> $out, $rc
+# stop <agent_type> -> $out, $rc; ACTIVE=1 is a stop after the hook already kept the checker going once (stop_hook_active)
 stop() {
-  out="$(jq -n --arg ty "$1" --arg cwd "$M" --arg tp "$S/agent.jsonl" '{hook_event_name:"SubagentStop", agent_type:$ty, agent_id:"a1", cwd:$cwd, agent_transcript_path:$tp}' \
+  out="$(jq -n --arg ty "$1" --arg cwd "$M" --arg tp "$S/agent.jsonl" '{hook_event_name:"SubagentStop", agent_type:$ty, agent_id:"a1", cwd:$cwd, agent_transcript_path:$tp, stop_hook_active:($ENV.ACTIVE == "1")}' \
     | python3 -I "$hook" 2>&1)"; rc=$?
   msg="$(jq -r '.systemMessage // empty' <<<"$out" 2>/dev/null)"
 }
@@ -122,13 +120,15 @@ expect "K2 then checker: the mark commit" "$([ "$(count)" -eq $((before + 1)) ];
 mkrepo; prompt; before="$(count)"; stop ""
 expect "K3 empty agent_type: no commit" "$([ "$(count)" -eq "$before" ] && [ -z "$out" ]; echo $?)"
 
-# K4: no check data (the old prose-only report, or the data gone), with an earlier clean mark on that head: no mark, the old one removed, reason named
+# K4: no check data (the old prose-only report, or the data gone), with an earlier clean mark on that head: no mark; the earlier one stays; the first stop is kept going, the second says why
 mkrepo; prompt; stop delegate:checker
 expect "K4 setup: the earlier mark exists" "$(git -C "$W" cat-file -e "HEAD:.relay/checks/$HEAD0.json"; echo $?)"
 before="$(count)"; rm -f "$S/rep.json"
 printf '# Check\nF1 MET\n## Verdict\nhead %s\nreviewed %s\nopen 0\nqueued 0\n' "$HEAD0" "$INIT" >"$S/rep.md"; touch -t $NEW "$S/rep.md"; stop delegate:checker
-expect "K4 a commit removing the old mark" "$([ "$(count)" -eq $((before + 1)) ] && ! git -C "$W" cat-file -e "HEAD:.relay/checks/$HEAD0.json" 2>/dev/null; echo $?)"
-expect "K4 the old prose verdict is not read: the message names the missing data" "$(has 'check mark not written for wt/t: the check data' "$msg" && has 'the checker must run relay check record check' "$msg"; echo $?)"
+expect "K4 first stop: exit 2, the reason on stderr names the record command" "$([ "$rc" -eq 2 ] && has 'relay check record check --input' "$out"; echo $?)"
+ACTIVE=1 stop delegate:checker
+expect "K4 second stop: exit 0, no commit, the earlier mark stays" "$([ "$rc" -eq 0 ] && [ "$(count)" -eq "$before" ] && git -C "$W" cat-file -e "HEAD:.relay/checks/$HEAD0.json" 2>/dev/null; echo $?)"
+expect "K4 the old prose verdict is not read: the message says no record was found" "$(has 'check mark not written for wt/t: no check record written during your run' "$msg"; echo $?)"
 # K4b: the data is not JSON, or breaks the schema: no mark, the reason names it
 mkrepo; prompt; report 0; printf 'not json' >"$S/rep.json"; touch -t $NEW "$S/rep.json"; before="$(count)"; stop delegate:checker
 expect "K4b not JSON: no commit, reason named" "$([ "$(count)" -eq "$before" ] && has 'is not JSON' "$msg"; echo $?)"
@@ -143,8 +143,9 @@ expect "K4c an open field in the data: no commit, reason names it" "$([ "$(count
 
 # K5: a report older than the transcript's first timestamp
 mkrepo; prompt; report 0 $OLD; before="$(count)"; stop delegate:checker   # the data file is older than the start
-expect "K5 old report: no commit" "$([ "$(count)" -eq "$before" ]; echo $?)"
-expect "K5 reason named" "$(has 'older than the checker' "$msg"; echo $?)"
+expect "K5 old report, first stop: kept going (exit 2), no commit" "$([ "$rc" -eq 2 ] && [ "$(count)" -eq "$before" ]; echo $?)"
+ACTIVE=1 stop delegate:checker
+expect "K5 old report, second stop: no commit, reason named" "$([ "$rc" -eq 0 ] && [ "$(count)" -eq "$before" ] && has 'no check record written during your run' "$msg"; echo $?)"
 
 # K6: head not in the history; the record script refuses an abbreviated one; the hook refuses data changed behind it
 mkrepo; prompt; before="$(count)"
@@ -188,11 +189,11 @@ expect "K11 the mark's open is 0" "$([ "$(git -C "$W" show "HEAD:.relay/checks/$
 # K12: a prompt that is a brief file, not the check line: the report it names has no data; with no Report: label at all, the prompt is refused by name
 mkrepo; before="$(count)"; rm -f "$S/rep.json"
 jq -nc --arg t "Check the fix per the brief. Brief: $S/brief.md. Report: $S/rep.json." --arg ts "$START" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}' >"$S/agent.jsonl"
-stop delegate:checker
+ACTIVE=1 stop delegate:checker
 expect "K12 no commit" "$([ "$(count)" -eq "$before" ]; echo $?)"
-expect "K12 systemMessage names the missing check data" "$(has 'the check data' "$msg" && has 'cannot be read' "$msg"; echo $?)"
+expect "K12 systemMessage names the missing record and the label" "$(has 'no check record written during your run' "$msg" && has "Report: $S/rep.json" "$msg"; echo $?)"
 jq -nc --arg t "Check the fix per the brief. Brief: $S/brief.md." --arg ts "$START" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}' >"$S/agent.jsonl"
-stop delegate:checker
+ACTIVE=1 stop delegate:checker
 expect "K12 no Report: label: names 'no Report: line'" "$(has 'no Report: line' "$msg"; echo $?)"
 
 # K13: a workflow's checker: the first line is the harness's relayed request (no Report: label), the second the check prompt
@@ -205,17 +206,17 @@ expect "K13 workflow transcript: the mark commit" "$([ "$(count)" -eq $((before 
 # K13b: the harness line and no Report: label in any leading user entry: no mark, named
 mkrepo; before="$(count)"
 { harness; jq -nc --arg t "Check the fix per the brief." --arg ts "$START" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}'; } >"$S/agent.jsonl"
-stop delegate:checker
+ACTIVE=1 stop delegate:checker
 expect "K13b no label in the leading user entries: no commit, names 'no Report: line'" "$([ "$(count)" -eq "$before" ] && has 'no Report: line' "$msg"; echo $?)"
 # K13c: a Report: label after the first assistant entry is not the prompt
 { harness; jq -nc '{type:"assistant",message:{role:"assistant",content:"ok"}}'; jq -nc --arg t "Report: $S/rep.json." --arg ts "$START" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}'; } >"$S/agent.jsonl"
-stop delegate:checker
+ACTIVE=1 stop delegate:checker
 expect "K13c a label after an assistant entry is not read" "$([ "$(count)" -eq "$before" ] && has 'no Report: line' "$msg"; echo $?)"
 # K13d: the start time is the prompt entry's, not the harness line's: harness 09:00, prompt 10:00 (START), report 09:30 -> older
 mkrepo; prompt; before="$(count)"; report 0; touch -t 202610220930 "$S/rep.json"
 { jq -nc --arg t "[Workflow harness — user request] run the change for me" --arg ts "2026-10-22T09:00:00.000Z" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}'; cat "$S/agent.jsonl"; } >"$S/agent2.jsonl" && mv "$S/agent2.jsonl" "$S/agent.jsonl"
-stop delegate:checker
-expect "K13d report between harness line and prompt: no commit, 'older'" "$([ "$(count)" -eq "$before" ] && has 'older' "$msg"; echo $?)"
+ACTIVE=1 stop delegate:checker
+expect "K13d report between harness line and prompt: no commit, no record newer than the start" "$([ "$(count)" -eq "$before" ] && has 'no check record written during your run' "$msg"; echo $?)"
 # K13e: the harness line repeats the owner's words with a Report: label; the checker's prompt (the last label) wins
 mkrepo; prompt; before="$(count)"
 { jq -nc --arg t "[Workflow harness — user request] look at Report: $S/old-check.json" --arg ts "$START" '{type:"user",timestamp:$ts,message:{role:"user",content:$t}}'; cat "$S/agent.jsonl"; } >"$S/agent2.jsonl" && mv "$S/agent2.jsonl" "$S/agent.jsonl"
