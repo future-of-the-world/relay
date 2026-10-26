@@ -1,0 +1,66 @@
+{
+  "branch": "wt/train-17",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_gate.py in the combined tree has slots (take_slot, slot_count, wait line) and the license re-check; gate green on 3751e23 and tests pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "3751e23775629d0d436f23da8b880409f98deeef",
+      "source": "t17-train-17.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_gate_slots.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_slots.py: 11 tests pass in the combined tree, including the in-slot license re-check test (b1a2b4b)."
+      ],
+      "severity": "MEDIUM",
+      "since": "3751e23775629d0d436f23da8b880409f98deeef",
+      "source": "t17-train-17.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "3751e23775629d0d436f23da8b880409f98deeef.gate.log",
+  "head": "228952e1b35ffcb567ec082e67da4b3bb98a7853",
+  "item": null,
+  "notes": [
+    "No new tests added by the merge; the tests are the existing branch tests, not proven by a fail-without-fix run here (merge of already checked branches)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merge check. Gate log head 3751e23 ends exit 0 (quick mode); HEAD 228952e adds only that log, relay changed lists no file. Ran tests/test_gate_slots.py: 11 passed. Read the diff of lib/relay_gate.py vs 208cc5f: only the slot changes, no overlap with another branch."
+  ],
+  "type": "check"
+}
