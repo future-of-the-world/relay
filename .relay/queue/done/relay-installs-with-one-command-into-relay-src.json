@@ -21,6 +21,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-26T03:41:40Z",
+  "dropped_why": [
+    "Replaced by relay-installs-with-one-command-from-its-own-repo (adds the owner's 26 Oct words on where the install script lives). Owner, 26 Oct: \"При установке через install.sh | sh, сам установочный скрипт хранится в репозитории, не отдельно\"."
+  ]
 }
