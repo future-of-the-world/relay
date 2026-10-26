@@ -108,7 +108,20 @@ class RulesInWorktree(Base):
     def test_full_text_paths_in_the_main_checkout_are_unchanged(self):
         main, _ = self._relay_copy()
         found, text = self._global_text(main)
-        self.assertEqual(found["demo-rule"]["path"], os.path.join(main, "rules", "demo-rule.md"))
+        self.assertEqual(found["demo-rule"]["path"], os.path.join(os.path.realpath(main), "rules", "demo-rule.md"))
+
+    def test_a_symlinked_main_checkout_gives_the_same_path_as_its_worktree(self):
+        # Main reached as .../link (symlink) and its worktree must render one string, the resolved main checkout.
+        import relay_rules
+        main, wt = self._relay_copy()
+        link = os.path.join(self.tmp, "link")
+        os.symlink(main, link)
+        paths = []
+        for root in (link, wt):
+            relay_rules.ROOT = root
+            paths.append(relay_rules.rules()["demo-rule"]["path"])
+        self.assertEqual(paths[0], paths[1])
+        self.assertEqual(paths[0], os.path.join(os.path.realpath(main), "rules", "demo-rule.md"))
 
     def test_rule_text_comes_from_the_checkout_being_rendered(self):
         main, wt = self._relay_copy()

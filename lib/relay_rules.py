@@ -38,7 +38,7 @@ def rules():
     import relay_setup  # lazily: relay_setup imports this module too
     found = {}
     folder = os.path.join(ROOT, "rules")
-    named = os.path.join(relay_setup.main_checkout(ROOT) or ROOT, "rules")
+    named = os.path.join(relay_setup.main_checkout(ROOT) or os.path.realpath(ROOT), "rules")
     for name in sorted(os.listdir(folder)):
         if not name.endswith(".md"):
             continue
