@@ -40,6 +40,11 @@ class FrontCd(unittest.TestCase):
         for command in (f"git -C {self.wt} status", f"ls {self.wt}", f"(cd {self.wt} && ls)", "cd /tmp && ls"):
             self.assertEqual(self.run_hook(command), 0, command)
 
+    def test_main_session_already_inside_the_worktree_may_cd_within_it(self) -> None:
+        os.makedirs(os.path.join(self.wt, "sub"))
+        self.assertEqual(self.run_hook("cd sub && ls", cwd=self.wt), 0)
+        self.assertEqual(self.run_hook(f"cd {self.wt}/sub", cwd=self.wt), 0)
+
     def test_subagent_in_its_worktree_is_not_refused(self) -> None:
         self.assertEqual(self.run_hook(f"cd {self.wt} && ls", agent=True, cwd=self.wt), 0)
 

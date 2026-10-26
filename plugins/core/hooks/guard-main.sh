@@ -205,6 +205,9 @@ while IFS=$SEP read -r kind a b; do
     X) checks_refuse "$a" ;;
     D)
       case "$a" in "$main/$wtdir/"*)
+        # a session already working inside that worktree moves nowhere by cd'ing within it
+        wtroot="${a#"$main/$wtdir/"}"; wtroot="$main/$wtdir/${wtroot%%/*}"
+        case "$cwd" in "$wtroot" | "$wtroot/"*) continue ;; esac
         [ -n "$agent" ] || block "cd into a worktree moves this session's working folder there and keeps it there; use git -C $a ... or absolute paths instead."
       esac
       ;;
