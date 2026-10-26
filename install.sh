@@ -18,12 +18,12 @@ for arg in "$@"; do
 done
 
 here="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)"
-home="${RELAY_HOME:-$HOME/relay}"
+root="${RELAY_ROOT:-$HOME/relay}"   # relay's code folder; RELAY_HOME is the state folder and is not read here
 deps=""
-for d in "$here" "$home"; do
+for d in "$here" "$root"; do
   [ -n "$d" ] && [ -f "$d/deps.toml" ] && { deps="$d/deps.toml"; relay_dir="$d"; break; }
 done
-[ -n "$deps" ] || { echo "install.sh: deps.toml not found next to this script or in $home; put the relay folder at ~/relay first (or set RELAY_HOME)" >&2; exit 1; }
+[ -n "$deps" ] || { echo "install.sh: deps.toml not found next to this script or in $root; put the relay folder at $HOME/relay first (or set RELAY_ROOT)" >&2; exit 1; }
 
 os="$(uname -s)"
 case "$os" in Darwin) plat="darwin" ;; *) plat="linux" ;; esac
