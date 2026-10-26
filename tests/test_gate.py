@@ -5,6 +5,7 @@ except as the file the A11 fixture copies.
 """
 import os
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -16,6 +17,8 @@ ROOT = os.path.dirname(HERE)
 RELAY = os.path.join(ROOT, "bin", "relay")
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
+GATE_TIMEOUT = 900      # seconds a test waits for its gate; the slowest (a copied bin/ci with its nested probe) takes about a minute
+GATE_STOP_GRACE = 30    # seconds the stopped gate has to end its command and free its slot
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
 
@@ -69,8 +72,26 @@ class Fixture(unittest.TestCase):
         git(self.wt, "add", "-A")
         git(self.wt, "commit", "-q", "-m", "work")
 
-    def gate(self, cwd, *args):
-        return subprocess.run([sys.executable, RELAY, "gate", *args], capture_output=True, text=True, cwd=cwd, env=self.env)
+    def gate(self, cwd, *args, timeout=GATE_TIMEOUT):
+        """Run `relay gate`; past `timeout` seconds the gate is stopped (SIGTERM: it ends its command's process group and
+        frees its slot), killed if it ignores that, and the test fails. A gate never outlives its test."""
+        proc = subprocess.Popen([sys.executable, RELAY, "gate", *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                cwd=cwd, env=self.env, start_new_session=True)
+        try:
+            out, err = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.terminate()
+            try:
+                proc.communicate(timeout=GATE_STOP_GRACE)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.communicate()
+            raise AssertionError("relay gate still running after %s s; it was stopped" % timeout)
+        except BaseException:      # an interrupt of the test: the gate must not be left behind either
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.communicate()
+            raise
+        return subprocess.CompletedProcess(proc.args, proc.returncode, out, err)
 
 
 class Gate(Fixture):
@@ -154,6 +175,17 @@ class Gate(Fixture):
         self.assertEqual(run.returncode, 1)
         self.assertIn("task branch", run.stderr)
         self.assertFalse(os.path.exists(os.path.join(self.main, ".relay", "checks")))
+
+    def test_a_gate_that_outlives_its_timeout_is_stopped_with_its_command(self):
+        """A gate command that never ends: the helper stops the gate at the timeout, the command dies with it (no process
+        left holding a slot), and the test fails with a message."""
+        self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
+        with self.assertRaises(AssertionError) as caught:
+            self.gate(self.wt, timeout=3)
+        self.assertIn("still running", str(caught.exception))
+        pid = int(read(os.path.join(self.tmp, "pid")))
+        with self.assertRaises(ProcessLookupError):      # the gate waited for its command's end, so it is gone now
+            os.kill(pid, 0)
 
 
 class Inert(Fixture):
