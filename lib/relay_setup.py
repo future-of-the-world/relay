@@ -75,6 +75,7 @@ def detect(root):
     skills_dir = os.path.join(root, ".claude", "skills")
     d["skills"] = sorted(os.listdir(skills_dir)) if os.path.isdir(skills_dir) else []
     d["additions"] = sorted(os.listdir(os.path.join(root, ".claude", "kit"))) if os.path.isdir(os.path.join(root, ".claude", "kit")) else []
+    d["ui"] = any(os.path.exists(os.path.join(root, p)) for p in ("index.html", "src/ui", "src/App.tsx", "src-tauri", "lib/*_web"))   # a person-facing surface: [product] binding and the product-work rule
     cfg_specs = d["bindings"].get("specs", {}).get("method") if isinstance(d["bindings"].get("specs"), dict) else None
     d["specs_bound"] = cfg_specs if isinstance(cfg_specs, str) else None   # None: kit.toml has no [specs] setting
     return d
@@ -178,6 +179,8 @@ def bindings_text(d, flow, specs="none"):
         "[delegate]", "typed_only = true", "fork_limit = 100000", "max_parallel = 4", 'build_tier_opus = "escalate"', "",
         "[observe]", "enabled = true", "log_prompts = false", "",
     ]
+    if d["ui"]:
+        lines += ["[product]", 'medium = "the app on a phone and on a computer"', f'run_skill = "{name}-run"', ""]
     lines += ["[coordination]", 'mode = "leadless"', ""]
     return "\n".join(lines)
 
@@ -640,7 +643,7 @@ def strip_stored_spec_rules(name):
     return changed
 
 
-def register_project(name, root, specs="none"):
+def register_project(name, root, specs="none", ui=False):
     """Add the project to projects.toml so `relay sync` writes its CLAUDE.local.md."""
     path = relay_config.projects_file()
     text = open(path, encoding="utf-8").read() if os.path.isfile(path) else ""
@@ -650,6 +653,8 @@ def register_project(name, root, specs="none"):
     load = []
     if specs != "none":
         load += ["quality-gate"]   # spec rules are not stored here: relay sync derives them from kit.toml [specs]
+    if ui:
+        load.append("product-work")
     block = (f'\n[{name}]\nfile = "{os.path.join(root, "CLAUDE.local.md")}"\ntitle = "Rules this project loads"\n'
              f'load = {json.dumps(load)}\nread = []\n')
     with open(path, "a", encoding="utf-8") as handle:
@@ -810,7 +815,7 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
             todo.append("CLAUDE.md: write what the project is in two lines, and its product surface if a person sees it")
         if copy_template("handover.md", os.path.join(root, "docs", "handover.md"), replacements={"name": d["name"], "date": str(dt.date.today())}):
             done.append("wrote docs/handover.md")
-    if register_project(d["name"], main_checkout(root) or root, specs):
+    if register_project(d["name"], main_checkout(root) or root, specs, ui=d["ui"]):
         done.append(f"registered {d['name']} in projects.toml")
     if strip_stored_spec_rules(d["name"]):
         done.append(f"projects.toml [{d['name']}]: removed the stored spec rule from load (it comes from kit.toml [specs])")
@@ -1106,7 +1111,7 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
         ok("no old binding", flow != old_flow["old_kind"] and cfg.get("flow", {}).get("plugin") != old_flow["old_plugin"] and not stale_keys,
            "old binding: " + ", ".join(([f'[flow] kind = "{flow}"'] if flow == old_flow["old_kind"] else []) + ([f'[flow] plugin = "{old_flow["old_plugin"]}"'] if cfg.get("flow", {}).get("plugin") == old_flow["old_plugin"] else []) + stale_keys) + f" -> relay setup {root}")
         ok(f"flow bound ({flow})", True, "")
-        retired = retired_keys(enabled)
+        retired = retired_keys({**enabled, **read_json(os.path.join(root, ".claude", "settings.local.json")).get("enabledPlugins", {})})
         ok("no retired relay plugin in .claude/settings.json", not retired, f"{', '.join(retired)}: relay no longer ships them -> relay setup {root}")
         for name in ALWAYS_ON:
             key = plugin_key(name)
@@ -1117,7 +1122,9 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
         off_now = sorted({plugin_key(n) for n in marketplace()[1]} | project_keys)
         off_now = [k for k in off_now if not actual_on(root, k)]
         ok(f"plugins off for this project: {', '.join(off_now) or 'none'}", True, "")
-        if flow not in ("none", old_flow["old_kind"]):
+        if flow in RETIRED:
+            ok("no retired flow in kit.toml", False, f'[flow] kind = "{flow}": relay no longer ships that flow -> set kind = "none" in .claude/kit.toml')
+        elif flow not in ("none", old_flow["old_kind"]):
             manifest = flow_manifest(flow)
             ok(f"flow plugin for '{flow}' found", manifest is not None, "plugins/<plugin>/flow.json")
             if manifest:

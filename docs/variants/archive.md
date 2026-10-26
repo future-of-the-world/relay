@@ -10,7 +10,6 @@ copies are near identical apart from the pre-archive gate and the docs list.
 |---|---|---|
 | Archive in the change worktree; archive and code land in one merge | all | |
 | Pre-gate: apply-review with no open high finding, all tasks ticked, validate, spec-check | all | |
-| Pre-gate: the `Look:` line clean (no defect, no taste waiting; "not run" has a reason, "skipped" a count) | Mind | now for every project with `look_review = true` |
 | Pre-gate: full gate passed; local → `ci` here; remote → pipeline on the pushed branch, not rerun | local copies; ALIX, Glyph | `gate.final` |
 | Sync now; MODIFIED replaces the whole block | all | |
 | Scenario count check; a new capability counts 0 | all; the "0" note from Kartoteka/Clean | |

@@ -103,7 +103,7 @@ class Docs(unittest.TestCase):
             text = handle.read()
         self.assertNotIn("rules/openspec.md` in the project", text)
         self.assertNotIn("The core plugin's stage hook reads both", text)
-        for word in ("plugins/openspec/rules/openspec.md", "SessionStart and SubagentStart", "`[flow] kind` only", "`/issue 42`"):
+        for word in ("plugins/openspec/rules/openspec.md", "SessionStart and SubagentStart", "`[flow] kind` only", "`/<trigger> 42`"):
             self.assertIn(word, text)
 
 

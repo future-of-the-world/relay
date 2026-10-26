@@ -44,7 +44,7 @@ and follow it, or, for a stage with only a `note`, the note.
 `projects.toml`, and old forms left over from the plugin's earlier name.
 
 The core plugin's stage hook binds `[flow] kind` only. When a prompt starts with
-a trigger of that manifest (`/issue 42`, ...), it adds the same kind of line.
+a trigger of that manifest (`/<trigger> 42`, ...), it adds the same kind of line.
 
 ## The manifest: `plugins/<name>/flow.json`
 
