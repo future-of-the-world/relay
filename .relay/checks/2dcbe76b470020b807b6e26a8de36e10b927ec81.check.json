@@ -1,0 +1,123 @@
+{
+  "branch": "wt/rules-wt",
+  "findings": [
+    {
+      "details": [
+        "Found 26 Oct by the review of wt/setup-wt-market (outside that change). Checked the same day: ~/.claude/CLAUDE.md names no worktree path, so no damage yet; it would happen on the next install run from a linked worktree."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "install() run from /Users/amidman/relay/.worktrees/x calls relay_rules.sync(..., only={\"global\",...}, wait=False); rules() builds each",
+        "\"Full text: `<path>`\" from os.path.join(ROOT, \"rules\", name), so ~/.claude/CLAUDE.md lists /Users/amidman/relay/.worktrees/x/rules/openspec.md,",
+        "which is gone after the merge. It should list /Users/amidman/relay/rules/openspec.md."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 37,
+      "pass_cases": [
+        "1. ROOT = linked worktree of a temp relay copy, temp CLAUDE_CONFIG_DIR, sync of the global target: every \"Full text:\" path starts with the main checkout.",
+        "2. ROOT = the main checkout: paths unchanged from today.",
+        "3. The rule text itself (title, gist) still comes from the checkout being rendered."
+      ],
+      "path": "lib/relay_rules.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_rules.py RulesInWorktree: worktree paths name main checkout (case 1), main unchanged (case 2), text from rendered checkout (case 3). Worktree test fails without fix."
+      ],
+      "severity": "HIGH",
+      "since": "ac08cd9be4221227c626eb1644c43d9635640c62",
+      "source": "queue",
+      "summary": "Rules rendered from a linked worktree write that\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_setup.py:1161-1163: the line uses ROOT directly, two lines after the marketplace todo the change moved to",
+        "marketplace_root(). Same cause as the queue item (a global pointer at a folder that is removed after its merge), same function the change",
+        "edited, so it is inside. It is a suggestion the person runs, not a write, hence MEDIUM, not HIGH. Size: 5 minutes."
+      ],
+      "evidence": [
+        "sed -n 1161,1164p lib/relay_setup.py",
+        "    link = \"/usr/local/bin/relay\"",
+        "    if not shutil.which(\"relay\"):",
+        "        todo.append(f\"put relay on your PATH: ln -s {os.path.join(ROOT, 'bin', 'relay')} {link} (or add {os.path.join(ROOT, 'bin')} to PATH)\")"
+      ],
+      "failing_case": [
+        "relay not on PATH; RELAY_ROOT (or the lib folder) is /Users/amidman/relay/.worktrees/x; install(run_claude=False) returns the todo",
+        "\"put relay on your PATH: ln -s /Users/amidman/relay/.worktrees/x/bin/relay /usr/local/bin/relay ...\". After the worktree is removed the link",
+        "is dangling and `relay` is gone. It should name /Users/amidman/relay/bin/relay (the main checkout), like the marketplace line just above it."
+      ],
+      "fix_hint": [
+        "Use marketplace_root() (or a renamed relay_home_checkout()) in both os.path.join calls of that todo, and add pass case 1 as a test."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1163,
+      "pass_cases": [
+        "1. ROOT = linked worktree of a temp repo, shutil.which(\"relay\") patched to None, install(run_claude=False): the PATH todo names <main>/bin/relay and not the worktree.",
+        "2. ROOT = the main checkout, same run: the PATH todo names <main>/bin/relay.",
+        "3. relay already on PATH: no PATH todo is added."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "Not this branch's item (PATH link hint in lib/relay_setup.py, setup-wt-market change); not judged here."
+      ],
+      "severity": "MEDIUM",
+      "since": "658215e12792a9d2214b0f4459e251fa316bfd5a",
+      "source": "review-setup-wt-market.json",
+      "source_id": "F1",
+      "summary": "install run from a linked worktree still tells the owner to link relay on PATH to the worktree's bin/relay, which vanishes after its merge",
+      "verdict": "OUTSIDE"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: traced by reading (relay_rules.py:37 and :142; relay_setup.install passes wait=False so the paid-run Held guard does not stop it);",
+        "not run. Whether `relay sync` itself is held from a worktree head depends on its green-run record, not checked. Outside the change: relay_rules.py",
+        "was not touched. Size: 15 minutes."
+      ],
+      "evidence": [
+        "lib/relay_rules.py:37  folder = os.path.join(ROOT, \"rules\")",
+        "lib/relay_rules.py:142 out.append(f\"- **{rule['title']}**: {rule['gist']} Full text: `{rule['path']}`.\")",
+        "lib/relay_setup.py install(): relay_rules.sync(profile, only={\"global\", \"agents\", \"settings\"}, adopt=\"global\", wait=False)"
+      ],
+      "failing_case": [
+        "install() run from /Users/amidman/relay/.worktrees/x calls relay_rules.sync(..., only={\"global\",...}, wait=False); rules() builds each",
+        "\"Full text: `<path>`\" from os.path.join(ROOT, \"rules\", name), so ~/.claude/CLAUDE.md lists /Users/amidman/relay/.worktrees/x/rules/openspec.md,",
+        "which is gone after the merge. It should list /Users/amidman/relay/rules/openspec.md."
+      ],
+      "fix_hint": [
+        "Share one helper (main checkout of ROOT, else ROOT) in relay_config and use it for paths written into files outside the checkout."
+      ],
+      "id": "F2",
+      "kind": "outside",
+      "line": 37,
+      "pass_cases": [
+        "1. ROOT = linked worktree of a temp relay copy, temp CLAUDE_CONFIG_DIR, sync of the global target: every \"Full text:\" path starts with the main checkout.",
+        "2. ROOT = the main checkout: paths unchanged from today.",
+        "3. The rule text itself (title, gist) still comes from the checkout being rendered."
+      ],
+      "path": "lib/relay_rules.py",
+      "rank": "medium",
+      "reason": [
+        "Same finding as Q1; tests/test_rules.py RulesInWorktree::test_full_text_paths_from_a_linked_worktree_name_the_main_checkout."
+      ],
+      "severity": "MEDIUM",
+      "since": "658215e12792a9d2214b0f4459e251fa316bfd5a",
+      "source": "review-setup-wt-market.json",
+      "source_id": "F2",
+      "summary": "rules rendered from a linked worktree write that worktree's rule paths into the global CLAUDE.md (install passes wait=False)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "bb8197724133be5fa81b23ccd8b9de10fe10ccce.gate.log",
+  "head": "2dcbe76b470020b807b6e26a8de36e10b927ec81",
+  "item": "rules-rendered-from-a-linked-worktree-write-that",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Q1 only, range ac08cd9..HEAD. Gate log head bb81977, exit 0; HEAD adds only the gate log (relay changed lists no file). tests/test_rules.py 8 passed; RulesInWorktree fails 3 of 4 at ac08cd9."
+  ],
+  "type": "check"
+}

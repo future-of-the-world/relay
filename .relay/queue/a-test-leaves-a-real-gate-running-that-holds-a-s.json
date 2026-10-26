@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 96,
+  "time": 45,
+  "found_at": "2026-10-26T05:37:21Z",
+  "found_in": "relay queue add",
+  "title": "A test leaves a real gate running that holds a slot",
+  "what": [
+    "No test leaves a gate process running after it ends, and a test's gate never takes a slot from the machine's real slot folder: every test that starts `relay gate` waits for it or kills it, and runs with its own RELAY_HOME."
+  ],
+  "why": [
+    "Seen 26 Oct: process 72877, `/Users/amidman/relay/.worktrees/setup-wt-market/bin/relay gate`, parent PID 1 (orphaned), working folder /private/var/folders/.../T/relay-gate-uiubjo2c/main/.worktrees/x, running 3 h 42 min; with three slots per machine, the real gates of setup-scope and tests-tmp waited (\"gate: waiting for a free gate slot (3 busy)\"), and the agents waiting on them ran out of turns. The front's kill of it was refused by the permission classifier; the owner was asked. Relates to every-test-runs-with-temporary-relay-and-claude."
+  ],
+  "failing_case": [
+    "After the setup-wt-market branch's test run, a `relay gate` process from a temporary relay copy is still running hours later and holds a real gate slot."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "After the full test suite, `pgrep -f \"relay gate\"` lists no process whose folder is a test's temporary folder; a test's gate takes slots only under its temporary RELAY_HOME."
+  ],
+  "where": [
+    "tests/test_setup.py or the test that runs `relay gate` inside a temporary relay copy (temp folder relay-gate-*/main/.worktrees/x)",
+    "lib/relay_gate.py the machine-wide slots under $RELAY_HOME/gate-slots"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

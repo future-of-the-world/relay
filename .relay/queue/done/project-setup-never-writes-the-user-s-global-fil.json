@@ -20,6 +20,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-26T03:40:33Z",
+  "dropped_why": [
+    "Replaced by the fix item project-setup-writes-the-user-s-global-files. Owner, 26 Oct: \"Сделай это fix\"."
+  ]
 }

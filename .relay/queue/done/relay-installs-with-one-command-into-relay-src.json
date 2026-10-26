@@ -1,0 +1,28 @@
+{
+  "kind": "feature",
+  "ip": 87,
+  "time": 180,
+  "found_at": "2026-10-26T03:36:02Z",
+  "found_in": "relay queue add",
+  "title": "relay installs with one command into ~/.relay/src",
+  "what": [
+    "A user installs relay with one command (curl ... install.sh | sh): it clones relay into ~/.relay/src, installs the tools from deps.toml, runs the global part once, and puts `relay` into ~/.local/bin. relay's state stays beside it in ~/.relay (ledger, backups, personal overlay). Claude Code loads relay's plugins from that folder (a directory marketplace pointing at ~/.relay/src), so one copy of the code serves both the command and the plugins. `relay update` pulls the new version and syncs; it keeps the user's own edits to the code and, on a conflict with the new version, stops and names the files, losing nothing. The owner's ~/relay stays the owner's working copy, pointed at by the path setting."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"Как пользователь будет устанавливать наше приложение, как это выглядит ? Папку на устройство, стоит ли устанавливать в ~/relay, как происходит установка похожих приложений\", then \"Стоит ли пользователю давать доступ к исходному коду ? Как будут устанавливаться плагины Claude ? Как после будут подключаться новые проекты\", then \"Под открыть код я имел ввиду дать возможность изменять локальную версию в ~/.relay/app / app не звучит, может что-то другое ?\", then on the front's recommendations (folder ~/.relay/src with state beside; update keeps edits and stops on a conflict; plugins from relay's folder, not a GitHub /plugin copy; one install command like oh-my-zsh): \"Полностью согласен с твоими рекомендациями\". Facts, 26 Oct: install today is 5 manual steps (README \"Install\"); ~/relay is assumed in install.sh:21 and plugins/front/bin/relay:11; ~/.relay holds ledger, backup, bench, evals, state. Part of publish-relay-to-a-public-repo-from-the-private. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "install.sh the installer (today it expects the folder at ~/relay, install.sh:21)",
+    "plugins/front/bin/relay the fallback path $HOME/relay (line 11)",
+    "lib/relay_config.py ROOT and HOME_DIR",
+    "README.md and START_HERE.md the install steps"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-26T03:41:40Z",
+  "dropped_why": [
+    "Replaced by relay-installs-with-one-command-from-its-own-repo (adds the owner's 26 Oct words on where the install script lives). Owner, 26 Oct: \"При установке через install.sh | sh, сам установочный скрипт хранится в репозитории, не отдельно\"."
+  ]
+}

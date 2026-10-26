@@ -72,5 +72,65 @@ class Rules(Base):
         self.assertTrue(new.endswith("body\n"))
 
 
+class RulesInWorktree(Base):
+    def _relay_copy(self):
+        import subprocess
+        main = os.path.join(self.tmp, "relaycopy")
+        os.makedirs(os.path.join(main, "rules"))
+        os.makedirs(os.path.join(main, "plugins"))
+        open(os.path.join(main, "plugins", ".gitkeep"), "w").close()   # git tracks no empty folder
+        with open(os.path.join(main, "rules", "demo-rule.md"), "w") as handle:
+            handle.write("# Main title\n> main gist\nbody\n")
+        git = ["git", "-C", main, "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run(["git", "init", "-q", main], check=True)
+        subprocess.run(git + ["add", "."], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "init"], check=True)
+        wt = os.path.join(self.tmp, "relaywt")
+        subprocess.run(git + ["worktree", "add", "-q", "-b", "wt/x", wt], check=True)
+        return main, wt
+
+    def _global_text(self, root):
+        import relay_rules
+        relay_rules.ROOT = root
+        found = relay_rules.rules()
+        spec = {"file": os.path.join(self.tmp, "G.md"), "title": "T", "intro": "I", "load": []}
+        return found, relay_rules.render_target("global", spec, found, {})
+
+    def test_full_text_paths_from_a_linked_worktree_name_the_main_checkout(self):
+        # The worktree is removed after its merge, so the global file must not name it: every path starts with the main checkout.
+        main, wt = self._relay_copy()
+        found, text = self._global_text(wt)
+        want = os.path.join(os.path.realpath(main), "rules", "demo-rule.md")
+        self.assertEqual(found["demo-rule"]["path"], want)
+        self.assertIn(f"Full text: `{want}`", text)
+        self.assertNotIn(wt, text)
+
+    def test_full_text_paths_in_the_main_checkout_are_unchanged(self):
+        main, _ = self._relay_copy()
+        found, text = self._global_text(main)
+        self.assertEqual(found["demo-rule"]["path"], os.path.join(os.path.realpath(main), "rules", "demo-rule.md"))
+
+    def test_a_symlinked_main_checkout_gives_the_same_path_as_its_worktree(self):
+        # Main reached as .../link (symlink) and its worktree must render one string, the resolved main checkout.
+        import relay_rules
+        main, wt = self._relay_copy()
+        link = os.path.join(self.tmp, "link")
+        os.symlink(main, link)
+        paths = []
+        for root in (link, wt):
+            relay_rules.ROOT = root
+            paths.append(relay_rules.rules()["demo-rule"]["path"])
+        self.assertEqual(paths[0], paths[1])
+        self.assertEqual(paths[0], os.path.join(os.path.realpath(main), "rules", "demo-rule.md"))
+
+    def test_rule_text_comes_from_the_checkout_being_rendered(self):
+        main, wt = self._relay_copy()
+        with open(os.path.join(wt, "rules", "demo-rule.md"), "w") as handle:
+            handle.write("# Branch title\n> branch gist\nbody\n")
+        found, text = self._global_text(wt)
+        self.assertEqual((found["demo-rule"]["title"], found["demo-rule"]["gist"]), ("Branch title", "branch gist"))
+        self.assertIn("**Branch title**: branch gist", text)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
