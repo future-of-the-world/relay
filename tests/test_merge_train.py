@@ -574,9 +574,9 @@ class IncomingRecordRules(TrainCase):
         self.assertIn(old, text)
         return text.replace(old, new, 1)
 
-    def list_record(self):
+    def new_kind_record(self):
         data = json.loads(qjson("z"))
-        data["where"] = ["lib/a.py", "lib/b.py"]       # the new shape: a list; the hook's own copy says "where is not a string"
+        data["kind"] = "idea"       # a kind only a newer lib accepts; the hook's own copy says "kind is not fix or feature"
         return json.dumps(data, indent=2) + "\n"
 
     def full_lib(self, files):
@@ -594,8 +594,8 @@ class IncomingRecordRules(TrainCase):
         return "wt/w"
 
     def test_q1_a_record_the_branchs_own_rules_accept_is_not_refused_by_the_hooks_copy(self):
-        lenient = self.lib_text('for key in ("found_in", "title", "where"):', 'for key in ("found_in", "title"):')
-        self.assertIsNone(self.verdict(self.branch({"lib/relay_queue.py": lenient, ".relay/queue/z.json": self.list_record()})))
+        lenient = self.lib_text('KINDS = ("fix", "feature")', 'KINDS = ("fix", "feature", "idea")')
+        self.assertIsNone(self.verdict(self.branch({"lib/relay_queue.py": lenient, ".relay/queue/z.json": self.new_kind_record()})))
 
     def test_a_record_the_branchs_own_rules_refuse_is_refused_though_the_hooks_copy_accepts_it(self):
         strict = self.lib_text('KINDS = ("fix", "feature")', 'KINDS = ("feature",)')      # a tree whose rules no longer know `fix`
@@ -624,9 +624,9 @@ class IncomingRecordRules(TrainCase):
         self.assertIn("no check mark for wt/w", reason)
 
     def test_a_tree_with_no_record_rules_is_judged_by_the_hooks_copy(self):
-        reason = self.verdict(self.branch({".relay/queue/z.json": self.list_record()}))
+        reason = self.verdict(self.branch({".relay/queue/z.json": self.new_kind_record()}))
         self.assertIn("queue item z is malformed", reason)
-        self.assertIn("where is not a string", reason)
+        self.assertIn("kind is not fix or feature", reason)
 
 
 if __name__ == "__main__":
