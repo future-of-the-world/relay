@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 97,
+  "time": 45,
+  "found_at": "2026-10-26T01:36:55Z",
+  "found_in": "relay queue add",
+  "title": "setup in a worktree points every session's relay at it",
+  "what": [
+    "relay setup run inside a linked worktree of relay rewrites the global marketplace entry `relay` in ~/.claude/settings.json to that worktree's path. Every new session on the machine then loads relay's plugins from the worktree, and when the worktree is removed after its merge, they load from nowhere (no merge hook, no guards). setup must point the marketplace at the main checkout of relay (or leave an existing correct entry alone) and never at a linked worktree."
+  ],
+  "why": [
+    "Seen 26 Oct: a worker ran `bin/relay setup .` in /Users/amidman/relay/.worktrees/relay-plugins; ~/.claude/settings.json extraKnownMarketplaces.relay.source.path changed from /Users/amidman/relay to /Users/amidman/relay/.worktrees/relay-plugins (only that field; setup kept a backup settings.json.20261026-053547.bak, which the front copied back the same day)."
+  ],
+  "failing_case": [
+    "In a temporary HOME with a settings.json whose relay marketplace path is the main checkout, run setup inside a linked worktree of relay: the path becomes the worktree's."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same run leaves the path at the main checkout; setup run in the main checkout writes the main checkout; a test never touches the real ~/.claude."
+  ],
+  "where": [
+    "lib/relay_setup.py where setup writes extraKnownMarketplaces into ~/.claude/settings.json"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
