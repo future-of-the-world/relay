@@ -1,0 +1,178 @@
+{
+  "branch": "wt/plans-save",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by git grep on master. The brief asked for a \"not built yet\" header; for this one plan that is half",
+        "true, and the queue item it names covers only the logs half. A reader two days later cannot tell. Size: 5."
+      ],
+      "evidence": [
+        "git grep -n RELAY_HOME master -- tests/parallel_unittest.py",
+        "  master:tests/parallel_unittest.py:12:The class times live in ONE file per machine, $RELAY_HOME/test-times/<repo>.json",
+        "  master:tests/parallel_unittest.py:13:checkout's folder ... Only an outer run writes it (RELAY_INERT_PROBE=1 marks the",
+        "git log --oneline master | grep -i parallel",
+        "  7aef441 gate: library tests on parallel processes split by class, class times in RELAY_HOME",
+        "sed -n 2p docs/plans/checks-artifacts.md",
+        "  Not built yet: nothing in this file is in the code; it is the design a worker builds from."
+      ],
+      "failing_case": [
+        "A worker takes queue item red-gate-and-probe-runs-keep-no-logs-to-find-a-c and opens docs/plans/checks-artifacts.md.",
+        "Line 2 says \"Not built yet: nothing in this file is in the code\". Yet the plan's recommendation D, \"one cache per",
+        "machine under $RELAY_HOME\", only the outer run writes, the probe reads (RELAY_INERT_PROBE=1), is built: master",
+        "tests/parallel_unittest.py:12-13 \"The class times live in ONE file per machine, $RELAY_HOME/test-times/<repo>.json ...",
+        "Only an outer run writes it (RELAY_INERT_PROBE=1 ...\", commit 7aef441 (26 Oct 22:06) \"class times in RELAY_HOME\".",
+        "The worker may rebuild or re-decide it. It should say which part is built and which part the queue item covers",
+        "(the red-gate / red-probe logs under $RELAY_HOME/artifacts/)."
+      ],
+      "fix_hint": [
+        "Line 2: \"Partly built: the test-times cache (approach D) is on master since 7aef441 (tests/parallel_unittest.py);",
+        "the logs of red gate and probe runs (queue item red-gate-and-probe-runs-keep-no-logs-to-find-a-c) are not built.\""
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 2,
+      "pass_cases": [
+        "- docs/plans/checks-artifacts.md header names the times cache (approach D) as built, citing 7aef441 or tests/parallel_unittest.py.",
+        "- The header still says the logs-on-the-machine part (artifacts of a red gate and a red probe, 14 days) is not built and is what queue item red-gate-and-probe-runs-keep-no-logs-to-find-a-c designs.",
+        "- The other three plans keep \"Not built yet\" (no part of dev-metrics, cycle-scripts or test-speed is on master: checked in git log)."
+      ],
+      "path": "docs/plans/checks-artifacts.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_plans_docs.py:15 and :23 pass; the first fails at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "0d64a818efc2ff1546107120138897c9d562b371",
+      "source": "review-plans-save.json",
+      "source_id": "F1",
+      "summary": "header says nothing in this plan is built, but its recommended times cache (D) is on master since 7aef441",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep and by reading both revisions in the scratchpad. The brief said \"content otherwise as is\", but it",
+        "also made the repository copy the only kept one; a reference to a file not kept is the same gap as a scratchpad path,",
+        "which the brief did ask to replace. Size: 10."
+      ],
+      "evidence": [
+        "grep -n 'design-dev-metrics' docs/plans/*.md",
+        "  docs/plans/cycle-scripts.md:283: (`design-dev-metrics.md`, 2.1-2.2)",
+        "  docs/plans/cycle-scripts.md:289: this replaces the list in `design-dev-metrics.md:200`",
+        "  docs/plans/cycle-scripts.md:358: `merge.py post`, `design-dev-metrics.md:268`",
+        "sed -n 195,205p scratchpad/reports/design-dev-metrics.md   (revision 2: stage list in lib/relay_metrics.py)",
+        "grep -n relay_labels docs/plans/dev-metrics.md   (261, 287, 446, 488: revision 3 moved it)"
+      ],
+      "failing_case": [
+        "A worker building the cycle-scripts plan on another machine reads line 289 \"this replaces the list in",
+        "`design-dev-metrics.md:200`\", line 283 \"(`design-dev-metrics.md`, 2.1-2.2)\" and line 358 \"`design-dev-metrics.md:268`\".",
+        "No such file exists in the repository; the saved dev-metrics plan is docs/plans/dev-metrics.md, revision 3, where the",
+        "stage list moved to lib/relay_labels.py (section 4.2 line 287, build step 1 line 488) and the record is written from",
+        "merge.py post in section 5.1 (line 347). The line numbers 200 and 268 are of the scratchpad's revision 2 (whose line",
+        "~200 still names lib/relay_metrics.py). The worker cannot find what the plan says it replaces; the change's own aim",
+        "(designs readable from another machine) fails for this link."
+      ],
+      "fix_hint": [
+        "Replace the three references with `docs/plans/dev-metrics.md` and its section numbers (4.2 and 7 step 1 for the stage",
+        "list, 5.1 for merge.py post, 5.2 for the ledger label), and note that the list now lives in lib/relay_labels.py."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 289,
+      "pass_cases": [
+        "- docs/plans/cycle-scripts.md contains no \"design-dev-metrics.md\"; each of the three places names docs/plans/dev-metrics.md and a section (stage list: 4.2 / build step 1; record writing: 5.1; stages read from the ledger: 2 or 5.2).",
+        "- No line-number reference (\":200\", \":268\") into another plan remains.",
+        "- dev-metrics.md is unchanged by the fix except where the stage list relation needs a note (not required)."
+      ],
+      "path": "docs/plans/cycle-scripts.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_plans_docs.py:33 passes; fails at base; docs/plans/dev-metrics.md exists."
+      ],
+      "severity": "MEDIUM",
+      "since": "0d64a818efc2ff1546107120138897c9d562b371",
+      "source": "review-plans-save.json",
+      "source_id": "F2",
+      "summary": "cross-references to design-dev-metrics.md:200 and :268 point to revision 2, a file not in the repository",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Correct today in substance, unclear to a reader on another machine. Cheap: one edit pass. Size: 5."
+      ],
+      "evidence": [
+        "ls docs/plans -> checks-artifacts.md cycle-scripts.md dev-metrics.md review-gate.md test-speed.md trustworthy-numbers.md",
+        "diff of the scratchpad sources against the copies (cycle-scripts 11c14, test-speed 3c6; checks-artifacts line 57 unchanged)"
+      ],
+      "failing_case": [
+        "cycle-scripts.md:7-8 \"Revision 1 is kept beside this file as `design-cycle-scripts.r1.md`\" - there is no such file in",
+        "docs/plans/. cycle-scripts.md:14 \"Measurement scripts: the session scratchpad (not kept), `wfagg.py`, `wfagg2.py`,",
+        "`front.py`\" - half replaced, reads as if wfagg.py were kept. checks-artifacts.md:57 \"three clones of master into the",
+        "scratchpad (`sim/`, made by `sim/sim.py`)\" - not converted. test-speed.md:6 \"the session scratchpad (not kept) What",
+        "changed\" - sentence lost its full stop. checks-artifacts.md:8, 21, 103, 150 cite \"the gate-speed design\" (sections B,",
+        "3 C), a design not in the repository (built as 7aef441)."
+      ],
+      "fix_hint": [
+        "One wording pass over the five places listed."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 7,
+      "pass_cases": [
+        "- cycle-scripts.md says revision 1 is not kept (or drops the sentence).",
+        "- cycle-scripts.md:14 reads \"Measurement scripts (wfmeasure.py, wfagg.py, wfagg2.py, front.py) were in the session scratchpad (not kept)\".",
+        "- checks-artifacts.md:57 says the clones and sim.py were in the session scratchpad (not kept).",
+        "- test-speed.md:6 ends the sentence before \"What changed\".",
+        "- checks-artifacts.md says once that the gate-speed design is not kept and was built as 7aef441."
+      ],
+      "path": "docs/plans/cycle-scripts.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_plans_docs.py:27,39,44,53,57 pass; each fails at base."
+      ],
+      "severity": "LOW",
+      "since": "0d64a818efc2ff1546107120138897c9d562b371",
+      "source": "review-plans-save.json",
+      "source_id": "F3",
+      "summary": "references to files not kept: revision 1 'kept beside this file', scratch names left in lists, a scratchpad sim/ path",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. Same class as F2: a pointer to something not in the repository. Size: 5."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "git ls-files lib | grep relay_labels prints nothing; docs/plans/dev-metrics.md:488 lists lib/relay_labels.py as a step still to build. The new sentence claims it exists now. Should say it is planned there."
+      ],
+      "fix_hint": [
+        "Replace \"which now lives in\" with \"which is to live in\"."
+      ],
+      "id": "N1",
+      "kind": "inside",
+      "line": 287,
+      "pass_cases": [
+        "cycle-scripts.md:287 says the list is planned for lib/relay_labels.py (dev-metrics.md section 7 step 1), not that it lives there.",
+        "The reference to docs/plans/dev-metrics.md sections 4.2 and 7 stays."
+      ],
+      "path": "docs/plans/cycle-scripts.md",
+      "rank": "medium",
+      "reason": [],
+      "severity": "MEDIUM",
+      "since": "d128ae4468845ca2a603d3d415265a78b7aeb66b",
+      "source": "check",
+      "summary": "fix text says the stage list 'now lives in lib/relay_labels.py', a file that does not exist",
+      "verdict": "NOT MET"
+    }
+  ],
+  "gate": "cd91e213ca3b67c246a8569585ce189ec91e4cd8.gate.log",
+  "head": "d128ae4468845ca2a603d3d415265a78b7aeb66b",
+  "item": null,
+  "notes": [
+    "Minor wording: cycle-scripts.md measurement-scripts sentence has a \"(not kept) (over ...\" double parenthesis; not a defect."
+  ],
+  "schema": 2,
+  "scope": [
+    "since 0d64a818efc2..HEAD; changed files are 3 plan docs and tests/test_plans_docs.py only. Ran tests/test_plans_docs.py (8 passed). Gate log head cd91e21 exit 0; only the gate commit came after. Ran the new tests at the base commit: 7 failed, 1 passed (the pass case)."
+  ],
+  "type": "check"
+}
