@@ -3,7 +3,6 @@ session (no agent_id in the hook input) and lets a subagent, which has its own f
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import unittest
 
