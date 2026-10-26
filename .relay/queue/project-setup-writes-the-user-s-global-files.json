@@ -23,8 +23,8 @@
     "bin/relay the setup flags (--no-global, --global) and the usage text",
     "lib/relay_setup.py the doctor checks of the relay marketplace"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T04:23:10Z",
+  "taken_by": "wt/setup-scope",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
