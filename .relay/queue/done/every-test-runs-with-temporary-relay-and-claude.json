@@ -17,8 +17,9 @@
   ],
   "taken_at": "2026-10-26T03:19:12Z",
   "taken_by": "wt/tests-tmp",
-  "closed_at": null,
+  "closed_at": "2026-10-26T14:37:28Z",
   "test": null,
+  "evidence": "fd221e0",
   "dropped_at": null,
   "dropped_why": null
 }
