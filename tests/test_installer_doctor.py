@@ -16,6 +16,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
 import relay_setup  # noqa: E402
+from fake_tools import install_fake  # noqa: E402
 
 ENV_KEYS = ("PATH", "HOME", "CLAUDE_CONFIG_DIR", "RELAY_HOME")
 # what every tool of deps.toml prints for --version when it is at the right version
@@ -46,10 +47,7 @@ class Fakes(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def fake(self, name, output):
-        path = os.path.join(self.bin, name)
-        with open(path, "w") as handle:
-            handle.write(f"#!/bin/sh\necho '{output}'\n")
-        os.chmod(path, 0o755)
+        install_fake(os.path.join(self.bin, name), f"#!/bin/sh\necho '{output}'\n")
 
     def fakes(self, **changes):
         """Every tool at its right version, except `changes`: a version text, or None for a tool that is not there."""
@@ -149,12 +147,7 @@ class InstallScript(Fakes):
 
     def script(self, name, body):
         """A fake program on PATH with a shell body (replaces a symlink of the same name)."""
-        path = os.path.join(self.bin, name)
-        if os.path.lexists(path):
-            os.remove(path)
-        with open(path, "w") as handle:
-            handle.write("#!/bin/sh\n" + body + "\n")
-        os.chmod(path, 0o755)
+        install_fake(os.path.join(self.bin, name), "#!/bin/sh\n" + body + "\n")
 
     def machine(self, system, arch):
         self.script("uname", f'case "$1" in -s) echo {system};; -m) echo {arch};; *) echo {system};; esac')
