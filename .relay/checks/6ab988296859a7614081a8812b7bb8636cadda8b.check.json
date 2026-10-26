@@ -1,0 +1,39 @@
+{
+  "branch": "wt/train-19",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate.py LeakedGates present and passing in the 23-test run; merge of two separately checked branches, gate green on the train head."
+      ],
+      "severity": "MEDIUM",
+      "since": "6ab988296859a7614081a8812b7bb8636cadda8b",
+      "source": "t19-train-19.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "36ef3d71c7a4f85f577b4515a76bbf3bbf7dc251.gate.log",
+  "head": "6ab988296859a7614081a8812b7bb8636cadda8b",
+  "item": null,
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Gate log head 36ef3d7, exit 0; no non-inert file changed after it (relay changed empty). Ran the check command: 23 passed (test_gate, test_gate_stops, test_front_cd). The two merged branches touch no common file and each has its own check."
+  ],
+  "type": "check"
+}
