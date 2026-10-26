@@ -22,8 +22,8 @@
     "bin/ci the steps and the inert probe (bin/ci:15-17, inert_probe at bin/ci:53)",
     "lib/relay_gate.py how the gate is run"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T17:50:38Z",
+  "taken_by": "wt/test-jobs",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
