@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-26T12:57:59Z",
   "taken_by": "wt/setup-wt-rules",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T14:35:04Z",
+  "test": "tests/test_setup_worktree_rules.py::WorktreeSetup::test_main_checkout_file_is_untouched",
   "dropped_at": null,
   "dropped_why": null
 }
