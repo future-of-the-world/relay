@@ -1335,3 +1335,81 @@ RELAY_TEST_JOBS default 4 to be measured at 1/2/4/6; times cache as above). Afte
 Lessons: a gate-waiting runner died without its report twice more (relay-home, leaked-gate); the front ran later gates
 itself with run_in_background, which never failed. Taking master that auto-merges a file the branch also changed
 needs a fresh check of the branch's queue item (gate-lock), so take master before the queue check when master moved.
+
+## STATE 27 Oct, early morning (session 3207dc59)
+
+Merged: gate-speed branch 3 (wt/test-jobs: tests/parallel_unittest.py, library tests split by class over
+RELAY_TEST_JOBS processes, default 4; times cache $RELAY_HOME/test-times/<repo>.json written by the outer run only, probe
+reads with RELAY_INERT_PROBE=1); closes the-gate-runs-its-work-twice-in-a-row-on-one-cor.
+Measured by its builder on the owner's Mac (one tree, 27 Oct): whole quick gate 1 job 801 s (lib 624 s), 2 jobs 520 s
+(lib 359 s), 4 jobs 420 s (lib 213 s), 6 jobs 368 s; old bin/ci before the gate-speed work 1404 s (-70% at 4 jobs).
+Concurrent gates at 4 jobs: 1 = 8.6 gates/h, 2 at once 698 s each = 10.3/h, 3 at once 1058 s each = 10.2/h, so
+DEFAULT_SLOTS stays 3. Knee: 4 -> 6 gains 12% for 50% more processes; hook tests (~150 s, serial) are the next floor.
+
+Owner answers this night (verbatim where short): observability coverage "Замеряем метрики на каждом gate" (a: inside
+the probe); cycle scripts "Скрипт вливает сам" (a: relay land prepares, the final ff stays a Bash merge the hook sees);
+moving the scripts first: "a" and "Подними приоритет переноса скриптов выше" (item change-cycle-workflow-scripts-move-
+into-relay, ip 96, before the fixes); git launcher: "надо лишь зафиксировать что такое явление существует и исправить
+только на этой машине - в PATH я укажу прямой путь к git" (fix item dropped; docs/macos.md in review); "Что означает
+core, замени это на стандартный пакет relay при объяснении" (memory core-is-the-standard-package). Open: observability
+question 2 (projects with observe only: a ledger view, b observe's own landing detector).
+The 24 Oct workflow measurement the front had not recorded: one change via the workflow ~165k agent tokens vs 236-277k
+by hand, front turns ~0 vs ~22, same review quality (now in the scripts item; memory record-measurements-at-once).
+
+Designs done tonight (scratchpad/reports/): design-gate-speed.md (built), design-checks-artifacts.md (owner: 1a 2a),
+design-test-speed.md (tests start git ~29,000 times; Apple's /usr/bin/git launcher adds 8-12 ms per start; Python ~1.5%
+of test time, Rust at most 5-10%), design-dev-metrics.md (rev 2; observability), design-cycle-scripts.md (rev 2).
+
+Running: drop-plugins (relay-drops-the-issues-and-product-plugins; after merge drop setup-never-sees-a-phoenix-project-
+as-person-fac, issues-flow-into-queue, issue-bindings-forgejo-gitlab and close the feature with --evidence), macos-doc
+(docs only), the 20-run proof script (scratchpad/proof20/, worktree .worktrees/proof20 detached at master).
+Next: a-train-cannot-recheck-a-queue-item-its-branch-c (92) before the scripts move (the script lands trains), then
+change-cycle-workflow-scripts-move-into-relay (96) from design-cycle-scripts.md, then observability.
+
+Addendum 27 Oct morning: observability question 2 answered "Хорошо согласен, метрики становятся частью стандартного
+пакета relay" (a: full records where the standard package and .relay/ are on; observe alone gives a ledger view). The
+owner then asked "что меняется в observe ? Как можно отключить эти метрики по желанию ?". Front's answer: observe's
+ledger hook adds the stage label and seven token fields at agent stop (design-dev-metrics.md 2.2), nothing else; the
+off switch proposed is one project setting written by `relay setup --off metrics` (records off) plus RELAY_COVERAGE=off
+(coverage only); awaiting the owner's word on the switch before the build. Context at ~351k: next session continues
+from the "early morning" state above.
+
+Addendum 27 Oct morning (2): off switch for metrics: "Хорошо" to a (`relay setup --off metrics` writes
+`[metrics] record = false` in the project's kit.toml; RELAY_COVERAGE=off stays for coverage only). On coverage the
+owner said: "Помни что само покрытие coverage.py не общее для всех, это лишь инструмент для получения покрытия для
+конкретной технологии" and "как мы отслеживаем покрытие кодовой базы, есть разные инструменты для этого, мы должны иметь
+способ динамически получать его для разных проектов". Front's proposal, awaiting the owner: a) a project setting names
+its coverage report path and format (LCOV or Cobertura, which coverage.py, Go via a converter, Jest/c8/istanbul and
+cargo llvm-cov all write; relay parses both with the stdlib; changed-line coverage from the report against the diff)
+instead of b) the design's invented `coverage <repo> changed <changed>` line. The design (design-dev-metrics.md 2.4) is
+revised to the owner's pick before the build. The ledger/record overlap is deliberate: the record copies only the
+change's agents (stage, role, model, start, seconds, requests, tokens), because the ledger is machine-local, mixes
+projects and holds prompts.
+20-run proof: scratchpad/proof20/proof20.py (takes the worktree lock and a slot via lib/relay_gate.py, runs
+RELAY_GATE=HEAD bin/ci --quick in .worktrees/proof20, logs run-<i>.log and summary.tsv, stops at the first red); trial
+run 1: 492 s, library tests 291 s, green. The 20 runs started 27 Oct morning in the front's background.
+
+Addendum 27 Oct morning (3): coverage format: owner "a" (a project setting names its LCOV or Cobertura report; relay reads both with the stdlib). Revise design-dev-metrics.md 2.4 to it before the build.
+
+### Addendum (4), 27 Oct 00:15: how the metrics design is judged
+
+Owner, verbatim: "Для метрик - важной стадией проверки будет являться: Информативность - набор вопросов на которые могут дать ответ метрики / Краткость - отсутствие лишней информации / Гибкость - способность формата приспосабливаться под будущие изменения и дополнения, как продумано добавление нового способа выполнять изменения / Для меня все еще не до конца ясен момент ledger и metrics, их свойств и различий, думаю тебе необходимо это продемонстрировать более наглядно".
+Done: revision 3 of the metrics design runs on the design track (thinker, critic, revise), brief `scratchpad/briefs/dev-metrics-design-r3.md`, output `scratchpad/reports/design-dev-metrics-r3.md`; the critic judges each finding against the three criteria. Section 1 shows the ledger and a change record side by side for one real landed change. The front explained the difference to the owner in the reply.
+
+Owner, verbatim (27 Oct, after the ledger/metrics explanation): "ledger является источником данных для metric, позволяющий записать её лишь однажды, данные аккумулируются в ledger / Согласен со слабым местом которое ты подметил, краткость сегодня, возможность расширения в будущем, это не противоречие а дизайн / Гибкость - Простота - Порядок / Хороший дизайн сочетает в себе эти вещи". So: the ledger accumulates, the change record is written once from it at landing; store only what answers a question today, extend through a format version; the design is judged on flexibility, simplicity and order together.
+
+### Addendum (5), 27 Oct: metrics design revision 3 done (thinker, critic 13 findings 0 HIGH 9 MEDIUM 4 LOW, all fixed in the revision)
+
+File: scratchpad/reports/design-dev-metrics-r3.md (review: review-design-dev-metrics-r3.json). Measured facts shown to the owner: ci-python in the ledger = 253 lines, 74,963 bytes for 9 agents; its change record = 1,841 bytes (2.5%); cost $3.50 (review $1.52, build $1.35); cycle 192 min with 61 min no agent; ci-python's own gates are 4 (first-parent line), not the 14 a plain diff names; 4 distinct findings, not 6. bench-set: estimate 20 min, real 103 (5.2x). Session: 0 of 53 hand-started agents labelled ($13.72, 5.7%), 804 of 804 workflow agents labelled; designs and hand thinkers $77.23 of $241.86 (31.9%). Ledger 2.8 MB/day, no code deletes it (oldest 21 Oct). Design answers 16 questions; 5 listed as unanswerable. Build ~400 agent minutes (estimate). Open for the owner: (1) records for designs/analyses/experiments (rec a); (2) refuse unlabelled hand agents at start (rec a). Also queued 27 Oct: a-wrong-value-in-project-settings-passes-unnotic (fix 86), relay-doctor-checks-the-project-of-the-current-f (feature 80, owner "A").
+
+### Addendum (6), 27 Oct: owner answers on metrics r3, and a new ask
+
+- Metrics design revision 3, open questions: owner "1. a" (designs, analyses, experiments get a record in git at the run's end) and "2. a" (the route guard refuses a relay agent started by hand without a `<stage>: <name>` label, in projects with `.relay/` and metrics on). Build from scratchpad/reports/design-dev-metrics-r3.md with both a's, after the scripts move.
+- New ask, verbatim: "Как мы вообще планируем задачи, документируем эксперименты, мы должны быть устройство независимым, вплоть до того что бы можем запускать каждое изменение в новой docker контейнере где предустановлены все необходимые утилиты, как будто это запуск ci/cd в стандартных системах (woodpecker), с минимумом настроек глобального relay, хочу вообще без глобальных настроек relay и claude, полностью чистое окружение с предустановленными утилитами и файлами проекта / При этом получать тот же результат". On the design track: brief scratchpad/briefs/clean-env-design.md, output scratchpad/reports/design-clean-env.md. Known gap that day: designs, briefs and reports live only in the session scratchpad under /private/tmp (outside git, lost on reboot).
+- macos-doc: F3 (LOW, the 1.5% vs 5-10% split) sent to a fixer with the measurement's split instead of to the owner; fix cycle running.
+
+### Addendum (7), 27 Oct: clean-environment design revision 2 done; proof run 10 red
+
+- Design: scratchpad/reports/design-clean-env.md (rev 2, critic 1 HIGH 11 MEDIUM 1 LOW, 12 fixed, F7 replaced). Measured: 23 pieces of global state a change cycle depends on (6 fail, 11 differ, 3 do not care, 3 not verified); same tree b10d314 quick gate: Mac green 935 s, Linux container RED 25 failures + 17 errors, 215 s (queued: the-quick-gate-is-red-in-a-clean-linux-container, fix 90); container start 0.33-0.52 s cached, image 1.18 GB, cold build 311 s; setup fingerprint differs on 8 of 10 lines. Recommendation: B (relay project-local on the host) first, then A (container per change, never landing), plans by P1. Four owner questions asked (plans location, memory notes, who decides merge, order).
+- 20-run proof of the new gate: runs 1-9 green (451-720 s, mean 562), run 10 red: inert probe library tests "ValueError: invalid literal for int() with base 10: ''". Queued the-inert-probe-s-library-tests-sometimes-fail-o (fix 95); a thinker is finding the cause (brief scratchpad/briefs/probe-int-cause.md, report reports/cause-probe-int.md). Proof after the fix: 30 clean runs.
+- macos-doc merged. plans-save: fixing N1 (a plan said an unbuilt module exists), then merge.

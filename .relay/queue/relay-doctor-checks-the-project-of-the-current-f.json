@@ -1,0 +1,25 @@
+{
+  "kind": "feature",
+  "ip": 80,
+  "time": 30,
+  "found_at": "2026-10-26T20:36:03Z",
+  "found_in": "relay queue add",
+  "title": "relay doctor checks the project of the current folder",
+  "what": [
+    "With no folder argument, `relay doctor` takes the top of the git repository of the current folder; when that folder has relay's project settings (.claude/kit.toml or .relay/), it runs the project checks as `relay doctor <dir>` does, and the output names the project it checked. Outside a project (no git repository, or one without relay's settings) it checks the machine only and says \"no project checked\". An explicit folder argument works as before."
+  ],
+  "why": [
+    "Owner, 27 Oct: \"Какой scope у команды relay doctor, глобальный или в случае запуска в директории с .relay добавляются проверки для проекта ?\", then picked \"A\": with no folder given, doctor finds the project the current folder is in and checks it too. Fact that day (bin/relay:505-517): project checks run only with `relay doctor <dir>`; with no argument doctor checks the machine and only relay_tidy reads the current folder, so inside a project it printed \"0 to fix\" without opening the project's settings. IP chosen by the front (agent-chosen); build it together with the fix a-wrong-value-in-project-settings-passes-unnotic, which brings the settings schema these checks use."
+  ],
+  "where": [
+    "bin/relay:505-517 cmd_doctor",
+    "lib/relay_setup.py:1066 doctor(root)",
+    "lib/relay_tidy.py lines(root or cwd)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
