@@ -56,7 +56,7 @@
   relay check show [-C <repo>] [--brief] <report.json | sha>
                                      a recorded review or check printed as readable text (all of it, or with --brief
                                      the 10-line summary); a sha shows the stored check record of that commit
-  relay check findings [-C <worktree>] [--review <review.json> ...]
+  relay check findings [-C <worktree>] [--item <slug>] [--review <review.json> ...]
                                      the findings a check must give a verdict for, with their ids (Q1 the queue item, F the
                                      reviews' findings, M merges of the default branch since the last check); a merge train
                                      (a branch that holds ready changes) needs no review: only its M findings

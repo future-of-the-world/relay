@@ -234,6 +234,10 @@ Prompts:
 
 > Merge check: `<train worktree>`. Findings: `relay check findings -C <train>` (M only, no review). Gate: `<train gate log>`. Report: `<path>.json`.
 
+> Merge check of a rider's item: `<train worktree>`. Item: `<slug>`. Review: `<review of the stale rider's late files>`. Findings: `relay check findings -C <train> --item <slug> --review <review>`. Gate: `<train gate log>`. Report: `<path>.json`.
+
+A train with stale riders that closed several fix items needs one such check per item, one after the other (input `item = "<slug>"`).
+
 The merge check is a check with `review = []` in its input; `relay` allows it only
 on a branch that holds ready changes (a train). It gives a verdict for each
 combined file and no other finding.

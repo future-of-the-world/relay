@@ -1008,11 +1008,29 @@ def held_fix_items(worktree: str, riders: bool = False) -> dict:
     return held
 
 
+def _unvouched_rider_item(worktree: str, slug: str) -> bool:
+    """True when a rider-closed item still needs a check on this branch: judged the way the merge hook does (`step_queue`), at the
+    innermost absorbed branch whose range adds its done/ file, else at this branch. An item vouched for at its rider needs none."""
+    import relay_inert
+    main, default = _context(worktree)
+    path = _path(slug, "done/")
+    closers = []
+    for name, tip in relay_inert.absorbed(worktree, "HEAD").items():
+        rc, out = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", f"refs/heads/{default}...{tip}")
+        if rc == 0 and path in out.split("\0"):
+            closers.append((int(relay_git.git(main, "rev-list", "--count", tip)[1]), name, tip))
+    closer = min(closers)[2] if closers else "HEAD"
+    return check_refusal(worktree, closer, slug) is not None
+
+
 def record_item(worktree: str, named: str | None = None) -> tuple | None:
     """(slug, finding Q1) for the fix item the branch of `worktree` holds, or None. Q1 is the item's problem, stated against the
     commit that landed `taken` (its `since`). Refused when the branch holds more than one fix item. A train holds the items its
     riders closed: `named` is the slug of the one this check is of (needed when there are several, refused when not held)."""
     held = held_fix_items(worktree, riders=True)
+    if named is None:
+        mine = held_fix_items(worktree)
+        held = {s: i for s, i in held.items() if s in mine or _unvouched_rider_item(worktree, s)}
     if named is not None and named not in held:
         raise Refused(f"this branch does not hold the fix item '{named}'" + (f" (it holds {', '.join(sorted(held))})" if held else ""))
     if named is None:

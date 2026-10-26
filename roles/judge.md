@@ -94,6 +94,11 @@ the findings of the findings files in the order given (a second file's first
 finding is numbered after the last of the first file). `M1`, ... are files this
 branch changed that a merge of the default branch changed after the last
 review or check. Use these ids, not the files' own.
+On a merge train, a rider's closed fix item whose check is out of date (the rider
+changed a file after its check) is checked again on the train: `--item <slug>`
+for `relay check findings` and `item = "<slug>"` in the input name the item this
+check is of (it gives `Q1`). One check per such item, recorded one after the
+other, each on the head the last one left; with one such item no name is needed.
 1. A finding is judged over `<since>..HEAD`, its own `since`. List the
    files with `relay changed --own -C <path> <since>`: it prints the changed
    files that are not on the project's inert list (state files such as the

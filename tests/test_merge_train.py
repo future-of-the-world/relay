@@ -500,6 +500,82 @@ class ATrainChecksItsRidersClosedItems(TrainCase):
         train = self.train("a", "c")
         self.assertEqual(rv.finding_list(train, [self.review_of(train)])[1], "Item: x")
 
+    def fresh_rider(self, name, slug, shared=None):
+        """A rider that closes `slug` and has a Q1-MET check after its last change: the check at the rider vouches for the item."""
+        wt = self.tree(name)
+        self.git(wt, "rm", "-q", ".relay/queue/%s.json" % slug)
+        self.ready(wt, {".relay/queue/done/%s.json" % slug: qjson(slug, "done", "wt/" + name, "tests/test_relay.py::test_%s_stays_fixed" % slug),
+                        "lib/%s.py" % slug: "fixed\n", **(shared or {})}, item=slug)
+        return wt
+
+    def test_f1_two_fresh_riders_with_a_shared_file_need_no_item_name(self):
+        # x and y are each vouched for at their riders (the hook judges them there), so the merge check is M only: "Item: none"
+        self.fresh_rider("a", "x", {"lib/shared.py": SHARED.replace("line 1\n", "A one\n")})
+        self.fresh_rider("b", "y", {"lib/shared.py": SHARED.replace("line 10\n", "B ten\n")})
+        train = self.train("a", "b")
+        lines = rv.finding_list(train, [])
+        self.assertEqual(lines[1], "Item: none")
+        self.assertEqual([l.split()[0] for l in lines[2:]], ["M1"])
+
+    def test_f1_one_fresh_rider_with_a_shared_file_gets_only_m(self):
+        self.fresh_rider("a", "x", {"lib/shared.py": SHARED.replace("line 1\n", "A one\n")})
+        b = self.tree("b")
+        self.ready(b, {"lib/shared.py": SHARED.replace("line 10\n", "B ten\n"), "lib/b.py": "b1\n"})
+        train = self.train("a", "b")
+        lines = rv.finding_list(train, [])
+        self.assertEqual(lines[1], "Item: none")
+        self.assertEqual([l.split()[0] for l in lines[2:]], ["M1"])
+
+    def test_f1_two_stale_riders_are_refused_without_a_name_and_listed_with_one(self):
+        self.late_rider("a", "x")
+        self.late_rider("b", "y")
+        self.clean_rider()
+        train = self.train("a", "b", "c")
+        with self.assertRaises(rv.VerdictError) as ctx:
+            rv.finding_list(train, [self.review_of(train)])
+        self.assertIn("name the one to check", str(ctx.exception))
+        self.assertEqual(rv.finding_list(train, [self.review_of(train)], "y")[1], "Item: y")
+
+    def check_input(self, train, extra, name="in.toml"):
+        """A TOML input for a check of the train with a review of its head and Q1 MET; `extra` is added at the top."""
+        gate = self.gate(train)
+        toml = os.path.join(self.tmp, name)
+        with open(toml, "w") as handle:
+            handle.write("report = '%s'\nhead = '%s'\nworktree = '%s'\ngate = '%s'\nreview = ['%s']\n%s[[status]]\nid = 'Q1'\n"
+                         "verdict = 'MET'\nreason = ['tests/test_relay.py:1']\n"
+                         % (os.path.join(self.tmp, name + ".json"), self.head(train), train, gate, self.review_of(train), extra))
+        return toml
+
+    def stale_train(self):
+        self.late_rider("a", "x")
+        self.late_rider("b", "y")
+        self.clean_rider()
+        return self.train("a", "b", "c")
+
+    def test_f3_a_check_input_with_item_records_the_check_of_that_item(self):
+        train = self.stale_train()
+        toml = self.check_input(train, "item = 'y'\n")
+        rv.record_check(toml)
+        with open(toml + ".json") as handle:
+            record = rv.load_record(handle.read())
+        self.assertEqual(record["item"], "y")
+        self.assertEqual(record["findings"][0]["id"], "Q1")
+
+    def test_f3_a_check_input_without_item_is_refused_on_two_stale_riders(self):
+        train = self.stale_train()
+        with self.assertRaises(rv.VerdictError) as ctx:
+            rv.record_check(self.check_input(train, ""))
+        self.assertIn("name the one to check", str(ctx.exception))
+
+    def test_f3_a_check_input_with_a_bad_item_is_refused(self):
+        train = self.stale_train()
+        with self.assertRaises(rv.VerdictError) as ctx:
+            rv.record_check(self.check_input(train, "item = 'Nope Nope'\n"))
+        self.assertIn("`item` must be the slug of a queue item", str(ctx.exception))
+        with self.assertRaises(rv.VerdictError) as ctx:
+            rv.record_check(self.check_input(train, "item = 'nope'\n", "in2.toml"))
+        self.assertIn("does not hold the fix item 'nope'", str(ctx.exception))
+
 
 class RefusalsNameTheSteps(TrainCase):
     def test_t9_a_refusal_after_a_later_commit_names_the_gate_and_the_checker_and_show_names_the_files(self):
