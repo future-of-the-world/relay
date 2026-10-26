@@ -3,7 +3,7 @@
 ## A new project
 
 ```sh
-relay setup ~/new-project [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--no-global] [--license <SPDX id> [--holder <name>]]
+relay setup ~/new-project [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--license <SPDX id> [--holder <name>]]
 ```
 
 Detects the stack (bun, pnpm, mix, cargo, go, python), the default branch,
@@ -24,8 +24,10 @@ never overwrites:
   with `claude plugin install <name>@relay --scope project`; when that cannot
   run, the command is in the to-do list. `relay doctor <dir>` reports FIX for
   every plugin the project enables that is not installed;
-- `~/.claude/settings.json`: the marketplace and the user-scope plugins
-  (skip with `--no-global`).
+- Nothing in `~/.claude`: `relay setup <dir>` writes only into the project. The user's own files (the marketplace and
+  user-scope plugins in `~/.claude/settings.json`) are written by `relay setup --global` (or `relay install`), once per machine;
+  a project setup says so in its to-do list when they are missing, and `relay doctor` checks that the marketplace path exists
+  and is relay's main checkout, not a linked worktree.
   `relay sync` also writes the profile's session model and effort there, and
   `CLAUDE_CODE_RETRY_WATCHDOG=1` in its `env`: a session keeps retrying through
   a network drop (about three hours) instead of giving up after about 15
@@ -110,7 +112,7 @@ same procedure written for the session that runs it.
 
 ## Order for the owner's projects
 
-1. `relay sync --adopt global`; `relay setup --global` happens inside it.
+1. `relay sync --adopt global`; run `relay setup --global` once on the machine.
    Start one session anywhere: `relay status` must show it.
 2. Kartoteka (already on the plugins): `relay migrate ~/kartoteka --apply`.
 3. Clean, Mind, Sight, Glyph, Noisegate (OpenSpec, their own agents):

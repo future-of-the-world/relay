@@ -106,7 +106,7 @@ class Scratch(unittest.TestCase):
     def run_setup(self, root, **kw):
         calls, install, uninstall = getattr(self, "_calls", None) or self.runners(root)
         self._calls = (calls, install, uninstall)
-        self.setup.setup(root, product=False, apply_global=False, relay_dir=False, install_runner=install, uninstall_runner=uninstall, **kw)
+        self.setup.setup(root, product=False, relay_dir=False, install_runner=install, uninstall_runner=uninstall, **kw)
         return calls
 
     def tree_hash(self, folder):
@@ -251,22 +251,22 @@ class TurnOnAndOff(Scratch):
         # The owner's decision (24 Oct, "2. b"): found with openspec/ and no [specs]: on; turning off is explicit.
         root = self.project("gamma", openspec_dir=True)
         os.remove(os.path.join(root, ".claude", "kit.toml"))
-        d, flow, product, done, todo = self.setup.setup(root, product=False, apply_global=False, relay_dir=False,
+        d, flow, product, done, todo = self.setup.setup(root, product=False, relay_dir=False,
                                                           install_runner=self.runners(root)[1])
         self.assertIn('method = "openspec"', open(os.path.join(root, ".claude", "kit.toml")).read())
         told = [line for line in done if "spec steps are ON" in line]
         self.assertEqual(len(told), 1)
         self.assertIn("--specs none", told[0])
         # explicitly off stays off on the next setup
-        self.setup.setup(root, specs="none", product=False, apply_global=False, relay_dir=False, install_runner=self.runners(root)[1])
-        again = self.setup.setup(root, product=False, apply_global=False, relay_dir=False, install_runner=self.runners(root)[1])
+        self.setup.setup(root, specs="none", product=False, relay_dir=False, install_runner=self.runners(root)[1])
+        again = self.setup.setup(root, product=False, relay_dir=False, install_runner=self.runners(root)[1])
         self.assertIn('method = "none"', open(os.path.join(root, ".claude", "kit.toml")).read())
         self.assertFalse([line for line in again[3] if "spec steps are ON" in line])
 
     def test_flow_openspec_is_refused_with_the_new_flag(self):
         root = self.project("delta")
         with self.assertRaises(ValueError) as caught:
-            self.setup.setup(root, flow="openspec", product=False, apply_global=False, relay_dir=False)
+            self.setup.setup(root, flow="openspec", product=False, relay_dir=False)
         self.assertIn("--specs openspec", str(caught.exception))
 
 

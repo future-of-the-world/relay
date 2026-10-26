@@ -25,7 +25,8 @@
   relay install [--no-claude]
                                      this machine onto relay: global CLAUDE.md, user settings, plugins
   relay migrate --all [--apply] [--primary]      the migration plan (or the move) for every known project
-  relay setup [<dir>] [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--no-global]
+  relay setup --global [--no-claude]  the user's files, once per machine (same as relay install)
+  relay setup [<dir>] [--flow issues|none] [--specs openspec|none] [--product|--no-product]
               [--license <SPDX id> [--holder <name>]]
                                      a project onto relay (new or existing; nothing deleted)
                                      --license writes LICENSE and kit.toml [license]; without it nothing about licenses is written
@@ -385,16 +386,22 @@ def cmd_setup(args, migrate=False):
     flow = flag(args, "--flow")
     specs = flag(args, "--specs")
     product = True if flag(args, "--product", takes_value=False) else (False if flag(args, "--no-product", takes_value=False) else None)
-    no_global = flag(args, "--no-global", takes_value=False)
+    if flag(args, "--global", takes_value=False):
+        if migrate or any(a != "--no-claude" for a in args):
+            raise Usage("--global takes nothing else: relay setup --global [--no-claude]")
+        return cmd_install(args)
     license_id = flag(args, "--license")
     holder = flag(args, "--holder")
     if holder is not None and license_id is None:
         raise Usage("--holder goes with --license <SPDX id>")
+    unknown = [a for a in args if a.startswith("--")]
+    if unknown:
+        raise Usage(f"unknown flag {unknown[0]} (the user's files are written only by `relay setup --global`)")
     root = os.path.realpath(args[0] if args else os.getcwd())
     if not os.path.isdir(root):
         raise Usage(f"no such folder: {root}")
     if migrate:
-        d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply), flow=flow, specs=specs, product=product, apply_global=not no_global)
+        d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply), flow=flow, specs=specs, product=product)
         print(f"# {d['name']} ({root}): migration" + (" applied" if apply else " plan (nothing moved; add --apply)"))
         if items:
             print("\nThe old setup had, and relay replaces with:")
@@ -407,7 +414,7 @@ def cmd_setup(args, migrate=False):
             for src, dst in moved:
                 print(f"- {src} -> {dst}")
     else:
-        d, flow, product, done, todo = relay_setup.setup(root, flow=flow, specs=specs, product=product, apply_global=not no_global, license_id=license_id, holder=holder)
+        d, flow, product, done, todo = relay_setup.setup(root, flow=flow, specs=specs, product=product, license_id=license_id, holder=holder)
         print(f"# {d['name']} ({root}): set up")
     print(f"\nDetected: {d['stack']} ({d['tool'] or 'no tool'}), default branch {d['default_branch']}, flow {flow}, "
           f"{'a person-facing surface' if product else 'no person-facing surface'}.")
@@ -419,7 +426,7 @@ def cmd_setup(args, migrate=False):
         for n, item in enumerate(todo, 1):
             print(f"{n}. {item}")
     try:
-        results = relay_rules.sync(relay_config.active_profile(), only={d["name"], "global"} if not no_global else {d["name"]}, adopt=d["name"])
+        results = relay_rules.sync(relay_config.active_profile(), only={d["name"]}, adopt=d["name"])
     except relay_rules.Held as held:
         print("\nNot synced: waits for a green paid run; merged since the last one:\n" + str(held), file=sys.stderr)
         return 1
@@ -461,7 +468,7 @@ def cmd_migrate_all(args):
         copied = relay_setup.copy_kit_drafts(principles, name, root)
         if copied:
             print(f"  kit drafts from principles/migration/{name}: " + ", ".join(copied))
-        d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply), apply_global=False)
+        d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply))
         print(f"  flow {flow}, {'screen' if product else 'no screen'}; {len(items)} old files " + ("moved aside" if apply else "to move (add --apply)"))
         for kind, path, target, note in items:
             print(f"  - {kind} {path} -> {target}")

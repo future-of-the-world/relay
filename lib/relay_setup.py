@@ -377,6 +377,20 @@ def merge_settings(root, plugins, remove=(), moved_hooks=()):
     return False, removed
 
 
+def global_problem():
+    """Why the user's settings do not hold relay's marketplace at relay's main checkout, None when they do."""
+    user = read_json(os.path.join(claude_dir(), "settings.json"))
+    entry = user.get("extraKnownMarketplaces", {}).get("relay")
+    if not entry:
+        return "the relay marketplace is not in ~/.claude/settings.json"
+    path = entry.get("source", {}).get("path") if isinstance(entry, dict) and isinstance(entry.get("source"), dict) else None
+    if not isinstance(path, str) or not os.path.isdir(path):
+        return f"the relay marketplace path {path!r} in ~/.claude/settings.json does not exist"
+    if os.path.realpath(path) != os.path.realpath(marketplace_root()):
+        return f"the relay marketplace path {path} in ~/.claude/settings.json is not relay's main checkout {marketplace_root()}"
+    return None
+
+
 def merge_user_settings(plugins):
     """~/.claude/settings.json: the relay marketplace and the user-scope plugins (observe, delegate, front, core)."""
     path = os.path.join(claude_dir(), "settings.json")
@@ -650,7 +664,7 @@ def project_installed(root, key):
                for e in (entries if isinstance(entries, list) else []) if isinstance(e, dict))
 
 
-def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, install_runner=None, specs=None, uninstall_runner=None,
+def setup(root, flow=None, product=None, relay_dir=True, install_runner=None, specs=None, uninstall_runner=None,
           moved_hooks=(), license_id=None, holder=None):
     """Set one project up. `relay_dir=False` leaves `.relay/` out: `migrate` (even as a plan) must not turn the work queue and the
     merge checks on in a project the owner has not chosen (docs/setup.md: old projects are not given a .relay/ folder)."""
@@ -738,11 +752,9 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
                 done.append(f"installed {key} at project scope")
             else:
                 todo.append(f"{key} is enabled but not installed, so its skills are missing: after the marketplace step above, run `{cmd}` in {root}" + (f" (claude said: {why})" if why else ""))
-    if apply_global:
-        path, changed, removed = merge_user_settings(["core", "observe", "delegate", "front"])
-        done.append(f"{path}: relay marketplace registered, user-scope plugins enabled" + ("" if changed else " (already)"))
-        for r in removed:
-            done.append(f"  removed a user hook the front plugin now provides: {r}")
+    problem = global_problem()
+    if problem:   # a project setup never writes the user's files (owner's decision, 26 Oct): it says which command does
+        todo.append(f"{problem}: run `relay setup --global` once on this machine")
     if relay_dir and relay_folder(root)[1]:
         done.append("wrote .relay/README.md (turns on the work queue and the merge checks once it is on the default branch)")
     return d, flow, product, done, todo
@@ -964,6 +976,8 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
     checks.extend(dep_checks())
     user = read_json(os.path.join(claude_dir(), "settings.json"))
     ok("relay marketplace in ~/.claude/settings.json", "relay" in user.get("extraKnownMarketplaces", {}), "relay setup --global")
+    problem = global_problem()
+    ok("relay marketplace in ~/.claude/settings.json is relay's main checkout", problem is None, f"{problem} -> relay setup --global")
     for p in ("observe", "delegate", "front", "core"):
         ok(f"{p}@relay enabled for the user", user.get("enabledPlugins", {}).get(f"{p}@relay"), "relay setup --global")
     global_md = os.path.join(claude_dir(), "CLAUDE.md")

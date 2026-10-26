@@ -32,6 +32,76 @@ class Setup(Base):
         self.assertTrue(d2["has_bindings"])
 
 
+class SetupIsProjectOnly(Base):
+    """Owner's decision A (26 Oct): `relay setup <dir>` writes only into the project; the Claude folder is the global command's."""
+
+    def _snapshot(self):
+        out = {}
+        for folder, _, files in os.walk(self.claude):
+            for f in files:
+                path = os.path.join(folder, f)
+                out[os.path.relpath(path, self.claude)] = open(path, "rb").read()
+        return out
+
+    def _project(self):
+        proj = os.path.join(self.tmp, "proj")
+        os.makedirs(proj)
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        return proj
+
+    def test_project_setup_leaves_every_file_in_the_claude_folder_byte_identical(self):
+        # The failing case: setup <project> with no flags rewrote the relay marketplace path in the user's settings.json.
+        import relay_setup
+        with open(os.path.join(self.claude, "settings.json"), "w") as handle:
+            json.dump({"extraKnownMarketplaces": {"relay": {"source": {"source": "directory", "path": "/somewhere/else"}}}, "model": "x"}, handle)
+        with open(os.path.join(self.claude, "CLAUDE.md"), "w") as handle:
+            handle.write("my own file\n")
+        before = self._snapshot()
+        proj = self._project()
+        relay_setup.setup(proj, flow="none", product=False, install_runner=lambda r, k: (True, ""))
+        self.assertEqual(self._snapshot(), before)   # no file changed, none added (no .bak either)
+        self.assertTrue(os.path.isfile(os.path.join(proj, ".claude", "settings.json")))
+
+    def test_project_setup_on_an_empty_claude_folder_creates_nothing_there(self):
+        import relay_setup
+        proj = self._project()
+        relay_setup.setup(proj, flow="none", product=False, install_runner=lambda r, k: (True, ""))
+        self.assertEqual(self._snapshot(), {})
+
+    def test_project_setup_names_the_global_command_when_the_global_part_is_missing(self):
+        import relay_setup
+        proj = self._project()
+        *_, todo = relay_setup.setup(proj, flow="none", product=False, install_runner=lambda r, k: (True, ""))
+        self.assertTrue(any("relay setup --global" in t for t in todo), todo)
+
+    def test_the_global_command_writes_the_marketplace_at_relays_main_checkout(self):
+        import relay_setup
+        path, changed, _ = relay_setup.merge_user_settings(["core"])
+        data = json.load(open(path))
+        self.assertTrue(changed)
+        self.assertEqual(data["extraKnownMarketplaces"]["relay"]["source"]["path"], relay_setup.marketplace_root())
+
+    def test_doctor_flags_a_marketplace_path_that_is_missing_or_is_a_linked_worktree(self):
+        import relay_setup
+        wt = os.path.join(self.tmp, "relay-wt")
+        main = os.path.join(self.tmp, "relay-main")
+        os.makedirs(main)
+        git = ["git", "-C", main, "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run(["git", "init", "-q", main], check=True)
+        subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "i"], check=True)
+        subprocess.run(git + ["worktree", "add", "-q", "-b", "wt/x", wt], check=True)
+        name = "relay marketplace in ~/.claude/settings.json is relay's main checkout"
+
+        def verdict(path):
+            with open(os.path.join(self.claude, "settings.json"), "w") as handle:
+                json.dump({"extraKnownMarketplaces": {"relay": {"source": {"source": "directory", "path": path}}}}, handle)
+            return {n: ok for n, ok, _ in relay_setup.doctor(None, profile={})}[name]
+
+        self.assertFalse(verdict(os.path.join(self.tmp, "gone")))   # does not exist
+        self.assertFalse(verdict(wt))                                # a linked worktree
+        self.assertTrue(verdict(relay_setup.marketplace_root()))     # relay's main checkout
+
+
 class SetupInWorktree(Base):
     def _repo_with_worktree(self):
         main = os.path.join(self.tmp, "mainproj")
@@ -49,7 +119,7 @@ class SetupInWorktree(Base):
         # Q1: the worktree folder is "somewt"; the project is "mainproj". Files go into the worktree, the registry points at the main checkout.
         import relay_setup
         main, wt = self._repo_with_worktree()
-        d, *_ = relay_setup.setup(wt, flow="none", product=False, apply_global=False)
+        d, *_ = relay_setup.setup(wt, flow="none", product=False)
         self.assertEqual(d["name"], "mainproj")
         self.assertIn('name = "mainproj"', open(os.path.join(wt, ".claude", "kit.toml")).read())
         self.assertFalse(os.path.exists(os.path.join(main, ".claude")))   # the main checkout stays untouched
@@ -117,7 +187,7 @@ class SetupInWorktree(Base):
         subprocess.run(["git", "init", "-q", f"--separate-git-dir={os.path.join(self.tmp, 'sep.git')}", sep], check=True)
         self.assertTrue(os.path.isfile(os.path.join(sep, ".git")))
         self.assertIsNone(relay_setup.main_checkout(sep))
-        d, *_ = relay_setup.setup(sep, flow="none", product=False, apply_global=False)
+        d, *_ = relay_setup.setup(sep, flow="none", product=False)
         self.assertEqual(d["name"], "sepwork")
         sub = os.path.join(main, "mods", "sub")
         subprocess.run(["git", "-C", self.tmp, "init", "-q", "subsrc"], check=True)
@@ -141,7 +211,7 @@ class SetupInWorktree(Base):
         import relay_setup
         main, wt = self._repo_with_worktree()
         self._old_agent(wt)
-        d, items, moved, *_ = relay_setup.migrate(wt, apply=True, flow="none", product=False, apply_global=False)
+        d, items, moved, *_ = relay_setup.migrate(wt, apply=True, flow="none", product=False)
         self.assertEqual(d["name"], "mainproj")
         self.assertTrue(items)
         self.assertFalse(os.path.exists(os.path.join(wt, ".claude", "agents", "mainproj-worker.md")))
@@ -166,15 +236,15 @@ class SetupInWorktree(Base):
     def test_setup_in_the_main_checkout_still_runs_and_names_it(self):
         import relay_setup
         main, _wt = self._repo_with_worktree()
-        d, *_ = relay_setup.setup(main, flow="none", product=False, apply_global=False)
+        d, *_ = relay_setup.setup(main, flow="none", product=False)
         self.assertEqual(d["name"], "mainproj")
 
     def test_second_setup_leaves_no_bak_beside_project_files(self):
         # kit.toml/settings.json are untracked on the first run and rewritten on the second: the copy goes under .git/, not beside them.
         import relay_setup
         main, _wt = self._repo_with_worktree()
-        relay_setup.setup(main, flow="none", product=False, apply_global=False)
-        relay_setup.setup(main, flow="none", product=False, apply_global=False, specs="none")
+        relay_setup.setup(main, flow="none", product=False)
+        relay_setup.setup(main, flow="none", product=False, specs="none")
         strays = [os.path.join(r, f) for r, _, fs in os.walk(main) if ".git" not in r.split(os.sep) for f in fs if f.endswith(".bak")]
         self.assertEqual(strays, [])
 
@@ -224,7 +294,7 @@ class PluginInstall(Base):
         def runner(root, key):
             calls.append((root, key))
             return True, ""
-        _, _, _, done, todo = relay_setup.setup(proj, specs="openspec", product=False, apply_global=False, install_runner=runner)
+        _, _, _, done, todo = relay_setup.setup(proj, specs="openspec", product=False, install_runner=runner)
         # only the flow plugin openspec is project-scope; core/observe/delegate/front are user-level
         self.assertEqual(calls, [(os.path.realpath(proj), "openspec@relay")])
         self.assertIn("installed openspec@relay at project scope", done)
@@ -234,7 +304,7 @@ class PluginInstall(Base):
         import relay_setup
         self._registry({})
         proj = self._proj()
-        _, _, _, done, todo = relay_setup.setup(proj, specs="openspec", product=False, apply_global=False,
+        _, _, _, done, todo = relay_setup.setup(proj, specs="openspec", product=False,
                                                 install_runner=lambda root, key: (False, "no claude"))
         self.assertTrue([t for t in todo if "claude plugin install openspec@relay --scope project" in t])
         self.assertFalse([d for d in done if "installed openspec@relay" in d])
@@ -243,7 +313,7 @@ class PluginInstall(Base):
         import relay_setup
         self._registry({})
         proj = self._proj()
-        relay_setup.setup(proj, specs="openspec", product=False, apply_global=False, install_runner=lambda r, k: (False, ""))
+        relay_setup.setup(proj, specs="openspec", product=False, install_runner=lambda r, k: (False, ""))
         names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
         self.assertFalse(names["openspec@relay installed"])
         self._registry({"openspec@relay": [{"scope": "project", "projectPath": proj}]})
@@ -266,7 +336,7 @@ class PluginInstall(Base):
         import relay_setup
         self._registry({})
         proj = self._proj()
-        _, _, _, _, todo = relay_setup.setup(proj, specs="openspec", product=False, apply_global=False,
+        _, _, _, _, todo = relay_setup.setup(proj, specs="openspec", product=False,
                                              install_runner=lambda r, k: (False, "marketplace relay not found"))
         line = [i for i, t in enumerate(todo) if "claude plugin install openspec@relay --scope project" in t]
         market = [i for i, t in enumerate(todo) if "/plugin marketplace add" in t]
@@ -280,7 +350,7 @@ class PluginInstall(Base):
         self._registry({"openspec@relay": [{"scope": "project", "projectPath": os.path.realpath(proj)}]})
         def boom(r, k):
             raise AssertionError("runner called")
-        _, _, _, done, _ = relay_setup.setup(proj, specs="openspec", product=False, apply_global=False, install_runner=boom)
+        _, _, _, done, _ = relay_setup.setup(proj, specs="openspec", product=False, install_runner=boom)
         self.assertIn("openspec@relay already installed", done)
 
     def _fake_claude(self, body):
