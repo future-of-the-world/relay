@@ -6,10 +6,17 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STUBS = ["inject-addition", "packet", "check-contract", "shim", "spec-check", "hooks-live"]
 
 
+def copy_gate(tree):
+    """bin/ci is a wrapper of lib/relay_ci.py: both go into the temporary tree."""
+    for rel in (("bin", "ci"), ("lib", "relay_ci.py")):
+        os.makedirs(os.path.join(tree, rel[0]), exist_ok=True)
+        shutil.copy(os.path.join(ROOT, *rel), os.path.join(tree, *rel))
+
+
 def run_ci(args, drop=(), env_extra=None):
     tmp = tempfile.mkdtemp()
     try:
-        os.makedirs(os.path.join(tmp, "bin")); shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(tmp, "bin", "ci"))
+        copy_gate(tmp)
         d = os.path.join(tmp, "plugins", "core", "tests"); os.makedirs(d)
         for n in STUBS:
             with open(os.path.join(d, n + ".test.sh"), "w") as f:
@@ -67,8 +74,8 @@ class HookTestsStep(unittest.TestCase):
             with open(os.path.join(fake, "claude"), "w") as f:
                 f.write("#!/bin/sh\nexit 0\n")
             os.chmod(os.path.join(fake, "claude"), 0o755)
-            tree = os.path.join(tmp, "tree"); os.makedirs(os.path.join(tree, "bin"))
-            shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(tree, "bin", "ci"))
+            tree = os.path.join(tmp, "tree"); os.makedirs(tree)
+            copy_gate(tree)
             d = os.path.join(tree, "plugins", "core", "tests"); os.makedirs(d)
             with open(os.path.join(d, "hooks-live.test.sh"), "w") as f:
                 f.write("echo STUB-RAN hooks-live\necho 'ok    live case'\n")

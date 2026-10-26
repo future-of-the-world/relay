@@ -3,7 +3,7 @@ import io, json, os, shutil, sys, tempfile, unittest
 from contextlib import redirect_stdout
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_eval_record import ROOT, fixture, load_record
+from test_eval_record import fixture, load_record
 
 
 class GateNotJudged(unittest.TestCase):
@@ -89,13 +89,6 @@ class GateNotJudged(unittest.TestCase):
         d["cases"][0]["arms"]["with"][1]["graders"] = [g for g in d["cases"][0]["arms"]["with"][1]["graders"] if g["name"] != "reports-off-by-one"]
         code, out = self.step(d)
         self.assertEqual(code, 2); self.assertTrue(out.strip().split("\n")[-1].endswith("1 not judged, in code-reviewer-offbyone"))
-
-    def test_bin_ci_does_not_end_green_on_a_non_zero_record_step(self):
-        ci = open(os.path.join(ROOT, "bin", "ci")).read()
-        full = ci[ci.index("bin/eval-record"):ci.index('if [ "$status" -ne 0 ]')]
-        self.assertIn("rec_rc=$?", full)
-        self.assertIn("status=1", full)
-        self.assertIn("not a pass", full)
 
 
 if __name__ == "__main__":

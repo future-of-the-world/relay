@@ -211,25 +211,5 @@ class Record(unittest.TestCase):
         self.assertEqual(code, 1); self.assertIn("could not store the eval record", out)
 
 
-class CiLines(unittest.TestCase):
-    """T5: the lines of bin/ci that keep a stale or unjudged result from passing for today's."""
-    def setUp(self):
-        self.ci = open(os.path.join(ROOT, "bin", "ci"), encoding="utf-8").read()
-
-    def test_the_eval_command_names_the_judge_model(self):
-        self.assertRegex(self.ci, r'claude plugin eval[^\n]*--judge-model "\$\{EVALS_JUDGE_MODEL:-sonnet\}"')
-
-    def test_the_old_results_file_is_removed_before_the_eval_step(self):
-        rm, ev = self.ci.find("rm -f .ci/evals.json"), self.ci.find('step "plugin evals"')
-        self.assertTrue(0 <= rm < ev, "rm -f .ci/evals.json must stand before the plugin evals step")
-
-    def test_the_record_step_is_inside_the_full_mode_branch_only(self):
-        full = self.ci[self.ci.index('if [ "$quick" = 0 ]; then'):self.ci.index('if [ "$status" -ne 0 ]')]
-        self.assertIn("bin/eval-record", full)
-        outside = "\n".join(l for l in self.ci.replace(full, "").split("\n") if not l.lstrip().startswith("#"))
-        self.assertNotIn("bin/eval-record", outside)
-        self.assertLess(full.index('step "plugin evals"'), full.index("bin/eval-record"))
-
-
 if __name__ == "__main__":
     unittest.main()

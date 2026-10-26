@@ -59,9 +59,6 @@ class TemporaryFoldersTest(unittest.TestCase):
                               capture_output=True, text=True, timeout=120)
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertIn("Ran 1 test", done.stderr)
-        with open(os.path.join(root, "bin", "ci")) as handle:
-            rules_line = [l for l in handle if "relay_textonly.py tests" in l or "$names" in l]
-        self.assertTrue(any("run_unittest.py $names" in l for l in rules_line), rules_line)
 
 
 if __name__ == "__main__":

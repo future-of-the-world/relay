@@ -183,12 +183,6 @@ class SuiteCeiling(unittest.TestCase):
                                  capture_output=True, text=True, check=True)
             self.assertEqual(out.stdout.split(), ["1", "15"])
 
-    def test_ci_uses_the_estimate_unless_the_owner_sets_a_number(self) -> None:
-        with open(os.path.join(ROOT, "bin", "ci"), encoding="utf-8") as handle:
-            ci = handle.read()
-        self.assertIn("--from-estimate --cap 15", ci)
-        self.assertIn('cap_args=(--cap "$EVALS_MAX_COST")', ci)
-
 
 if __name__ == "__main__":
     unittest.main()

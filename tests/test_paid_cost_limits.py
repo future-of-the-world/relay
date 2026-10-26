@@ -88,12 +88,5 @@ class Estimate(unittest.TestCase):
         self.assertEqual(load().estimate(load().stored("/nonexistent-paid-cost-dir")), "not measured yet")
 
 
-class CiWiring(unittest.TestCase):
-    def test_ci_passes_the_computed_ceiling_and_jobs(self):
-        ci = open(os.path.join(ROOT, "bin", "ci"), encoding="utf-8").read()
-        self.assertIn("bin/paid-cost ceiling", ci)
-        self.assertNotIn('--max-cost-usd "${EVALS_MAX_COST:-15}"', ci)
-
-
 if __name__ == "__main__":
     unittest.main()

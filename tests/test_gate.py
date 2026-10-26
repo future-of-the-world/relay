@@ -223,6 +223,8 @@ class Inert(Fixture):
         write(os.path.join(main, "evals", "plugin", "graders.test.sh"), "exit 0\n")
         os.makedirs(os.path.join(main, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(main, "bin", "ci"))
+        os.makedirs(os.path.join(main, "lib"))
+        shutil.copy(os.path.join(ROOT, "lib", "relay_ci.py"), os.path.join(main, "lib", "relay_ci.py"))   # the wrapper runs it
         # the copied gate's library tests run through the unittest runner that gives every test its temporary folders
         for name in ("run_unittest.py", "tmp_default.py", "leaked_gates.py"):
             shutil.copy(os.path.join(ROOT, "tests", name), os.path.join(main, "tests", name))
@@ -272,6 +274,35 @@ class Inert(Fixture):
         self.assertIn("ci: inert FAILED", log)
         self.assertIn("ci: library tests ok", log)       # the outer run itself was green
         self.assertEqual(self.runs(), 2)
+
+    def test_an_inert_red_shows_the_whole_diff_and_keeps_the_nested_log(self):
+        """Case 5: the red `inert` line is followed by every line of the difference (the probe's step result), not only the
+        lines with FAIL in them, and the probe's own output stays in .ci/steps/inert-nested.log."""
+        self.project("        with open('docs/handover.md') as handle:\n"
+                     "            self.assertEqual(handle.read(), 'state\\n')\n")
+        self.gate(self.wt, "--", "--quick")
+        head = git(self.wt, "rev-parse", "HEAD~1")
+        log = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))
+        # the probe's "library tests FAILED" line is a '+' line of the diff; it has no FAIL-matching word besides that one
+        self.assertIn("+++ probe run", log)
+        self.assertIn("+library tests FAILED", log)
+        self.assertIn("-library tests ok", log)
+        self.assertIn("ci: library tests FAILED", read(os.path.join(self.wt, ".ci", "steps", "inert-nested.log")))   # the probe run itself, as it printed it
+
+    def test_a_probe_that_is_killed_turns_inert_red_and_leaves_no_worktree(self):
+        """Case 2: the nested run is killed (SIGKILL) halfway: `inert` is FAILED, not ok, and `git worktree list` shows only
+        the main checkout and the task's worktree. Only the nested run lacks RELAY_GATE, so only it kills its own parent
+        (the gate program)."""
+        self.project("        if not os.environ.get('RELAY_GATE'):\n"
+                     "            os.kill(os.getppid(), 9)\n")
+        run = self.gate(self.wt, "--", "--quick")
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        head = git(self.wt, "rev-parse", "HEAD~1")
+        log = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))
+        self.assertIn("ci: inert FAILED", log)
+        self.assertNotIn("ci: inert ok", log)
+        self.assertIn("stopped by signal 9", log)
+        self.assertEqual(len(git(self.wt, "worktree", "list").splitlines()), 2)
 
     def test_a_full_run_is_probed_with_its_hook_suites_in_full(self):
         """The hook case count must not depend on the mode: a suite that prints 2 ok lines in full mode and 1 under

@@ -224,16 +224,8 @@ class CapText(unittest.TestCase):
         self.assertTrue(out.startswith("[global]\npaid_cap_usd_per_day = 200"))
 
 
-def ci_paid_section():
-    """The lines of bin/ci from the comment above the guard to the plugin evals step, run with `step` and `claude` replaced by stubs."""
-    lines = open(os.path.join(ROOT, "bin", "ci"), encoding="utf-8").read().splitlines()
-    start = next(i for i, l in enumerate(lines) if l.lstrip().startswith("# the eval tool lets runs already started finish"))
-    end = next(i for i, l in enumerate(lines) if l.startswith('    step "plugin evals"'))
-    return "\n".join(lines[start:end + 1])
-
-
 class CiGuard(unittest.TestCase):
-    """F3, F4: bin/ci refuses the paid step over the cap before claude is called; the ceiling is bounded by the day's room."""
+    """F3, F4: the gate (lib/relay_ci.py) refuses the paid step over the cap before claude is called; the ceiling is bounded by the day's room."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -258,11 +250,18 @@ class CiGuard(unittest.TestCase):
         with open(self.projects, "w") as f:
             f.write(f'[global]\npaid_cap_usd_per_day = {cap}\n')
         return dict(os.environ, RELAY_HOME=self.home, RELAY_PROJECTS=self.projects,
-                    PATH=os.path.join(self.tmp.name, "stub") + os.pathsep + os.environ["PATH"])
+                    PATH=os.path.join(self.tmp.name, "stub") + os.pathsep + os.environ["PATH"],
+                    PYTHONPATH=os.path.join(ROOT, "lib"))
 
     def run_section(self, cap):
-        script = 'step() { shift; "$@"; }\nroot=' + ROOT + "\n" + ci_paid_section() + "\necho SECTION-DONE\n"
-        return subprocess.run(["bash", "-c", script], cwd=ROOT, capture_output=True, text=True, env=self.env(cap))
+        """The paid eval step of lib/relay_ci.py in a temporary tree (the real bin/ through a link, a stub `claude`)."""
+        root = os.path.join(self.tmp.name, "tree")
+        os.makedirs(os.path.join(root, "evals", "plugin"), exist_ok=True)
+        if not os.path.exists(os.path.join(root, "bin")):
+            os.symlink(os.path.join(ROOT, "bin"), os.path.join(root, "bin"))
+        script = ("import sys, relay_ci\nci = relay_ci.Ci(sys.argv[1], False)\nci.prepare()\n"
+                  "stop = ci.plugin_evals()\nif stop is not None:\n    sys.exit(stop)\nprint('SECTION-DONE')\n")
+        return subprocess.run([sys.executable, "-c", script, root], cwd=ROOT, capture_output=True, text=True, env=self.env(cap))
 
     def test_over_the_cap_the_paid_step_is_refused_and_claude_is_never_called(self):
         self.spend(6.0)   # spent 6 + largest stored batch 6 = 12 > cap 10
