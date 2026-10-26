@@ -1,0 +1,140 @@
+{
+  "branch": "wt/gate-lock",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, wt/it-terms: the gate of 93e522d (finished 02:11, before the Mac slept) was red only in the inert step (\"a step's result or the test count changed when only inert files changed\": \"< inert FAILED\", \"> eval grader tests FAILED\"); the next gate, of 785ae3e (93e522d plus only its gate log), was green, inert ok in 604 s. A flaky gate step costs a fixer round or a rerun of a 10-25 minute gate. IP chosen by the front (agent-chosen).",
+        "Also: lib/relay_inert.py the eval grader tests step",
+        "Also: .ci/steps/inert.log"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "wt/it-terms .relay/checks/93e522dd1fb82c0c48e1da7465fa18875fa7f7fc.gate.log: exit 1 in inert only; .relay/checks/785ae3ebf9e4323d027ad98afa90756dcee29544.gate.log: exit 0 on the same code."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The cause is named with evidence, and the inert step passes max(20, ceil(3/p)) runs in a row on an unchanged tree."
+      ],
+      "path": "bin/ci",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate_slots.py:194 (t1), :240 (t3), :178 fail at 1404ba9 (no lock), pass at head."
+      ],
+      "severity": "HIGH",
+      "since": "1404ba9c8013d6e1b4cfec90cc4892e8120f080b",
+      "source": "queue",
+      "summary": "The inert gate step went red, then green on the same code",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction. take_worktree_lock writes os.getpid() of relay into the lock file; since pass_fds hands the lock",
+        "to the command so that it outlives relay (review F4 of the design), the holder after a SIGKILL is the command, whose pid is",
+        "never written. The design promised the line names the holder (\"the holder writes its pid into the file\") and relies on it",
+        "for the only recovery it offers (an orphan that hangs forever \"makes the next gate wait with the line above naming its",
+        "pid ... a hung real gate is killed by hand\"). test_t3 checks only the line's prefix, so the wrong pid passes. The same gap",
+        "makes a detached daemon that a gate command starts (setsid, inheriting the fd from bash) block every later gate of the",
+        "worktree forever while the line names a finished relay (see F2). Size: 15 minutes."
+      ],
+      "evidence": [
+        "scratchpad/repro/test_deadpid.py (Slots fixture, N=2: start A, wait for started, A.kill(), start B, read B's line):",
+        "  LINE: gate: waiting for the gate already running in this worktree (pid 78317) named pid alive: False relay pid: 78317 command pid: 78465",
+        "lib/relay_gate.py:137 handle.write(\"%d\\n\" % os.getpid())  -- the only pid ever written",
+        "tests/test_gate_slots.py:344 assertRegex(line, r\"^gate: waiting for the gate already running in this worktree\")  -- pid not checked"
+      ],
+      "failing_case": [
+        "Gate A runs in worktree x; A's `relay gate` process (pid 78317) is killed with SIGKILL while its command (pid 78465, own",
+        "session) runs on. Gate B in x prints \"gate: waiting for the gate already running in this worktree (pid 78317)\" and waits",
+        "without a time limit. pid 78317 no longer exists, so a person who follows the design's \"a hung real gate is killed by",
+        "hand\" kills nothing (\"no such process\") and B waits on. It should name a process that is alive and holds the lock: the",
+        "command's process group (78465)."
+      ],
+      "fix_hint": [
+        "After Popen, rewrite the lock file as \"<relay pid> <command pid>\" (the command's pid is its process group, start_new_session);",
+        "in take_worktree_lock's waiting line name the live one (\"pid 78317, command group 78465\", or only the group when the relay",
+        "pid is gone). Extend test_t3 to assert the named pid is alive."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 137,
+      "pass_cases": [
+        "1. A killed with SIGKILL while its command runs; B in the same worktree: the waiting line names the command's pid/process",
+        "   group (78465 in the run above), and `os.kill(<named pid>, 0)` succeeds while B waits.",
+        "2. A alive and running (T1): the waiting line still names A's relay pid (first.pid), as test_t1 asserts today.",
+        "3. After the orphan ends, B runs (T3, 2 runs) and its line or the lock file names B's own pid.",
+        "4. A killed after its command ended: B prints no waiting line and runs (test_t3_a_killed_gate_whose_command_has_ended)."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_slots.py test_f1 (line ~255) asserts the named pid is the command group and alive; fails at 595d55f, passes at head."
+      ],
+      "severity": "MEDIUM",
+      "since": "595d55f290b38e0c1d4835344178582b7c293c3b",
+      "source": "review-gate-lock.json",
+      "source_id": "F1",
+      "summary": "after a SIGKILLed gate the waiting line names the dead relay pid, not the orphaned command that holds the lock",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (not reproduced; relay's own bin/ci starts no detached process: the only start_new_session in its tests is",
+        "Python's Popen, which closes inherited fds). Traced: Popen(pass_fds=(lock.fileno(),)) clears close-on-exec on the fd in the",
+        "command; bash and the programs it starts keep inherited fds; only processes in the command's group are killed. The design",
+        "accepted an unbounded wait for an orphan that hangs, but a daemon is not a hung gate and cannot be found from the line.",
+        "Low because no relay project is known to start such a daemon today; cheap once F1 records the command's group (the waiter",
+        "can see that the recorded group is empty and say a stray process holds the lock). Size: 15 minutes."
+      ],
+      "evidence": [
+        "git grep -n 'setsid\\|start_new_session\\|nohup\\|daemon' -- 'plugins/*/tests/*' 'tests/*' bin/types-lint evals/plugin/graders.test.sh",
+        "  plugins/core/tests/merge.test.sh:243 subprocess.Popen(..., start_new_session=True)  (Python: close_fds, no inheritance)",
+        "lib/relay_gate.py:124-125 Popen(..., start_new_session=True, pass_fds=(lock.fileno(),)); finally: os.killpg(proc.pid, SIGKILL)"
+      ],
+      "failing_case": [
+        "A project's gate command (bash) starts a background server that calls setsid (an sccache server, a git fsmonitor daemon, a",
+        "test helper with its own session) and lives on. bash passes the inherited lock fd to it; killpg at the end of the gate does",
+        "not reach it (another process group). Every later `relay gate` in that worktree prints the waiting line naming the",
+        "finished relay pid and waits forever. Before this change it ran. It should either not block, or say what holds the lock",
+        "(for example `lsof <git dir>/relay-gate.lock`)."
+      ],
+      "fix_hint": [
+        "With the command's pgid in the lock file (F1): when the lock is busy, the recorded relay pid is dead and os.killpg(pgid, 0)",
+        "says the group is gone, print \"gate: the worktree lock is held by a process outside the last gate (lsof <path>)\" once."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 125,
+      "pass_cases": [
+        "1. A gate command `(setsid sleep 600 &) ; exit 0` finishes; a second gate on a new commit of that worktree either runs, or",
+        "   prints within 1 s a line that names the lock file and that the holder is outside the gate's process group.",
+        "2. T3 (orphaned command after SIGKILL of relay) still blocks the next gate until the orphan ends.",
+        "3. T1 (second gate while the first runs) still waits and reuses the first log."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_slots.py test_f2 asserts the \"outside the gate's process group still holds\" line; fails at 595d55f, passes at head."
+      ],
+      "severity": "LOW",
+      "since": "595d55f290b38e0c1d4835344178582b7c293c3b",
+      "source": "review-gate-lock.json",
+      "source_id": "F2",
+      "summary": "a process the gate command detaches (setsid) inherits the lock fd and blocks every later gate of the worktree with no bound",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "2caa2947b9dd28c2d02e7235e8aafb9af52f12fe.gate.log",
+  "head": "0fee527c956ba577fed1aa72d7f73c8a5f76ea41",
+  "item": "the-inert-gate-step-went-red-then-green-on-the-s",
+  "notes": [
+    "Small race between Popen and the lock-file rewrite (relay killed in that instant would name only the relay pid); negligible."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix diff 595d55f..2caa294 (lib/relay_gate.py, tests/test_gate_slots.py). Ran tests/test_gate_slots.py, test_gate.py, test_marks.py (54 passed). Gate log head 2caa294, exit 0; later commits are inert only. f1/f2 tests fail at 595d55f; Q1 tests (t1, t3, green-log) fail at 1404ba9 with the new test file."
+  ],
+  "type": "check"
+}

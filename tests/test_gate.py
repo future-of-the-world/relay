@@ -138,9 +138,10 @@ class Gate(Fixture):
         self.assertEqual(run.returncode, 0, run.stderr)
 
     def test_r3_green_gate_writes_and_commits_its_log_alone(self):
-        """R3: log = head <G>, cmd, the gate's output, exit 0; committed alone while a file the gate staged stays
-        staged; the gate saw RELAY_GATE=<G>; the three printed lines."""
-        self.repo(gate='echo "step one ok"\necho "seen=$RELAY_GATE" > .ci/seen\necho staged > extra.txt\ngit add extra.txt\nexit 0\n')
+        """R3: log = head <G>, cmd, the gate's output, exit 0; committed alone; the gate saw RELAY_GATE=<G>; the three
+        printed lines. (That a staged file stays staged is the property of commit_file, tested in test_marks.py; a gate
+        that leaves a file staged is refused, see the Moved tests.)"""
+        self.repo(gate='echo "step one ok"\necho "seen=$RELAY_GATE" > .ci/seen\nexit 0\n')
         head = git(self.wt, "rev-parse", "HEAD")
         run = self.gate(self.wt, "--", "--quick")
         self.assertEqual(run.returncode, 0, run.stderr)
@@ -154,9 +155,46 @@ class Gate(Fixture):
         self.assertEqual(read(os.path.join(self.wt, ".ci", "seen")).strip(), "seen=" + head)
         self.assertEqual([l for l in git(self.wt, "show", "--name-only", "--format=%s", "HEAD").splitlines() if l],
                          ["relay: gate of " + head, ".relay/checks/%s.gate.log" % head])
-        self.assertEqual(git(self.wt, "diff", "--cached", "--name-only"), "extra.txt")
         out = run.stdout.splitlines()
         self.assertEqual(out, ["gate %s: exit 0" % head, log])
+
+    def refused_gate(self, body):
+        """Run a gate whose command does `body` to the tree; returns (run, gated head). It must be refused with no log."""
+        self.repo(gate=body + "exit 0\n")
+        head = git(self.wt, "rev-parse", "HEAD")
+        run = self.gate(self.wt)
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        self.assertIn("the worktree changed while the gate ran", run.stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
+        return run, head
+
+    def test_t4_a_gate_that_commits_code_midrun_is_refused(self):
+        """T4: the command commits lib/n.py, so HEAD is another commit with a code file changed: the tested tree is not the gated commit."""
+        run, head = self.refused_gate('echo n > lib/n.py\ngit add lib/n.py\ngit commit -q -m code\n')
+        self.assertIn("lib/n.py", run.stderr)
+        self.assertNotEqual(git(self.wt, "rev-parse", "HEAD"), head)
+
+    def test_t4_a_gate_that_leaves_an_untracked_file_is_refused(self):
+        run, _ = self.refused_gate("echo n > new.txt\n")
+        self.assertIn("new.txt", run.stderr)
+
+    def test_t4_a_gate_that_edits_a_tracked_file_is_refused(self):
+        run, _ = self.refused_gate("echo changed > lib/a.py\n")
+        self.assertIn("lib/a.py", run.stderr)
+
+    def test_t4_a_gate_that_leaves_a_file_staged_is_refused(self):
+        run, _ = self.refused_gate("echo n > extra.txt\ngit add extra.txt\n")
+        self.assertIn("extra.txt", run.stderr)
+
+    def test_t5_a_gate_that_commits_only_an_inert_file_midrun_is_green(self):
+        """T5 (guards against over-reach): docs/handover.md is inert, so a commit of it mid-run leaves the gated commit certified;
+        the log names the gated head and sits on top of the new HEAD. A file written only into the ignored .ci/ is fine too."""
+        self.repo(gate='echo i > .ci/scratch\nmkdir -p docs\necho h > docs/handover.md\ngit add docs/handover.md\ngit commit -q -m handover\nexit 0\n')
+        head = git(self.wt, "rev-parse", "HEAD")
+        run = self.gate(self.wt)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertTrue(os.path.exists(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
+        self.assertEqual(git(self.wt, "status", "--porcelain"), "")
 
     def test_f11_a_project_that_does_not_ignore_ci_can_run_the_gate_twice(self):
         """F11: .gitignore lacks .ci/. The gate's own output file must not appear in the tree: two gates in a row both run
@@ -220,7 +258,7 @@ class Inert(Fixture):
         main = os.path.join(self.tmp, "main")
         os.makedirs(main)
         git(main, "init", "-q", "-b", "master")
-        write(os.path.join(main, ".gitignore"), ".ci/\n.worktrees/\n")
+        write(os.path.join(main, ".gitignore"), ".ci/\n.worktrees/\n__pycache__/\n.ruff_cache/\n")      # what a real run of the copied gate leaves behind
         write(os.path.join(main, ".relay", "README.md"), "x\n")
         write(os.path.join(main, "docs", "handover.md"), "state\n")
         write(os.path.join(main, "tests", "test_x.py"), self.TEST % body)
