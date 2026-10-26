@@ -1,0 +1,41 @@
+{
+  "branch": "wt/train-15",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_slots.py:~200-220 test_a_license_deleted_during_the_wait... passes and fails when the in-slot license re-check is disabled."
+      ],
+      "severity": "MEDIUM",
+      "since": "403bf9fb883547e7f49e4c1ed7abdf12b79e5280",
+      "source": "t15-train-15.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b1a2b4bc8e20051f7f0ef533aad328f5f35b8e7e.gate.log",
+  "head": "0e9299cc7b2bb1222ac05db11a54ef017862d79f",
+  "item": null,
+  "notes": [
+    "The second new test (license fixed during the wait) passed with my disabling variant (it only holds the already-supported behaviour); the first test alone proves the lines."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix commit b1a2b4b changes only tests/test_gate_slots.py. Ran it: 11 passed. In a throwaway worktree at HEAD with the in-slot license try/except (lib/relay_gate.py 198-202) replaced by license_lines = [], test_a_license_deleted_during_the_wait_fails_the_gate_and_the_green_log_is_not_reused failed (0 != 1, line 220). Gate log head b1a2b4b, exit 0; only inert files after."
+  ],
+  "type": "check"
+}

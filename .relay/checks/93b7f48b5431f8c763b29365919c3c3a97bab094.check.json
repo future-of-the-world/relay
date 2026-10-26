@@ -1,0 +1,41 @@
+{
+  "branch": "wt/train-15",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "No test was added: tests/test_gate_slots.py has no license case, and the branch has no commit after the gate log. Nothing to prove fails without lines 198-202."
+      ],
+      "severity": "MEDIUM",
+      "since": "403bf9fb883547e7f49e4c1ed7abdf12b79e5280",
+      "source": "t15-train-15.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "NOT MET"
+    }
+  ],
+  "gate": "403bf9fb883547e7f49e4c1ed7abdf12b79e5280.gate.log",
+  "head": "93b7f48b5431f8c763b29365919c3c3a97bab094",
+  "item": null,
+  "notes": [
+    "The Fixes file named in the prompt is a check record (type check), not a fixer report; the review data used is t15-train-15.json. Gate: log for 403bf9f exit 0, only inert files since."
+  ],
+  "schema": 2,
+  "scope": [
+    "git diff 403bf9f..HEAD touches only .relay/checks files (inert). No fix commit exists: tests/test_gate_slots.py was not changed and has no license case (grep -i license finds nothing). Lines 198-202 of lib/relay_gate.py are unchanged and still untested."
+  ],
+  "type": "check"
+}

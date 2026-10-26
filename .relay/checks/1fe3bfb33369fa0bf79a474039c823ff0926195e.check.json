@@ -1,0 +1,41 @@
+{
+  "branch": "wt/train-15",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "The merged behaviour is right and the existing tests pass, but the added in-slot license check (lib/relay_gate.py:198-202) has no test; deleting those lines leaves every test green. Needs a test in tests/test_gate_slots.py: license broken during the wait while a green log appears must not be reused."
+      ],
+      "severity": "MEDIUM",
+      "since": "403bf9fb883547e7f49e4c1ed7abdf12b79e5280",
+      "source": "t15-train-15.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "NOT MET"
+    }
+  ],
+  "gate": "403bf9fb883547e7f49e4c1ed7abdf12b79e5280.gate.log",
+  "head": "1fe3bfb33369fa0bf79a474039c823ff0926195e",
+  "item": null,
+  "notes": [
+    "Both parts hold in the combined tree: the license check before the slot (master) and the slot, wait line and reuse (wt/parallel) all work, and their tests pass. The second license check inside the slot (lib/relay_gate.py:198-202) is right: a license broken during the wait must not be hidden by a reused green log, and a license fixed during the wait clears the failure. But no test covers it: test_gate_slots.py has no license case and test_license.py GateRunsLicenseCheck has no wait case. Failing case: gate A holds the only slot; gate B (same commit, green log appears or not) waits; during the wait LICENSE is deleted (or a green log for the same head appears). Without the inside check B reuses the green log and exits 0 despite the missing license; with it B exits 1. Pass cases: license broken during wait with green log appearing -> exit 1, log not reused; license fine -> reuse exit 0; license broken from the start -> exit 1 (covered by f3 test)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merge of master and wt/parallel; read lib/relay_gate.py run(); ran tests/test_license.py, test_gate_slots.py, test_gate.py (68 passed). Gate log head 403bf9f, exit 0; HEAD only adds that log."
+  ],
+  "type": "check"
+}
