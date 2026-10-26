@@ -22,8 +22,8 @@
     "lib/relay_inert.py the eval grader tests step",
     ".ci/steps/inert.log"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T14:37:39Z",
+  "taken_by": "wt/gate-lock",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
