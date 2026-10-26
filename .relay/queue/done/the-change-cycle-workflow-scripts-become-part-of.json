@@ -20,6 +20,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-26T19:11:24Z",
+  "dropped_why": [
+    "Replaced by the same item with the measured 24 Oct numbers and the owner's raised priority (the queue has no edit command)."
+  ]
 }
