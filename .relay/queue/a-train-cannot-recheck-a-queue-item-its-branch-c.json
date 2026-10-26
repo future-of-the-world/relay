@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 45,
+  "found_at": "2026-10-26T11:59:08Z",
+  "found_in": "relay queue add",
+  "title": "A train cannot recheck a queue item its branch closed",
+  "what": [
+    "When a queue item closed on a task branch needs a fresh check on the train that carries that branch, a checker on the train can record a check of that item, so the merge hook accepts the train without going back to the task branch."
+  ],
+  "why": [
+    "26 Oct evening, measured on wt/train-19: the item a-test-leaves-a-real-gate-running-that-holds-a-s was closed on wt/leaked-gate, then commit 87eddeb moved one test class in tests/test_gate.py. The merge hook refused the train (\"the check of 6ab988296859 is of no queue item, not of 'a-test-leaves-a-real-gate-running-that-holds-a-s'\"); a checker on wt/train-19 got \"Item: none\" from relay check findings because taken_by is wt/leaked-gate, and the input file has no field to name the item. The workaround is a recheck on the task branch and a fresh merge into the train. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A temporary repo: item closed on wt/a, a non-inert commit on wt/a after the check, wt/train-1 merges wt/a; a checker on wt/train-1 cannot record a check of the item, and the merge of wt/train-1 is refused."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The checker on the train records a check of the item and the merge passes; a train whose item has no check after its last change is still refused; a check on the task branch still counts."
+  ],
+  "where": [
+    "plugins/core/hooks/merge.py (closed item needs a check after its last non-inert change)",
+    "lib/relay_queue.py (taken_by, held_fix_items)",
+    "relay check findings (Item: none on a train)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

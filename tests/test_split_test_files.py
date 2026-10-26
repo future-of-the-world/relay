@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 import relay_queue  # noqa: E402
 import relay_textonly  # noqa: E402
 sys.path.insert(0, TESTS)
-from test_queue import committed_text  # noqa: E402
+from test_queue import QUEUE_COMMIT, show_raw  # noqa: E402
 
 
 class TestFilesStaySplit(unittest.TestCase):
@@ -61,8 +61,8 @@ class TestDoneItemsKeepTheirTests(unittest.TestCase):
                     sources.append(handle.read())
         problems = []
         for slug, recorded in expected.items():
-            # the queue is inert (bin/ci's inert probe appends a line to every item): in a probe commit this reads the commit before it
-            item = relay_queue.parse(slug, committed_text(ROOT, ".relay/queue/done/" + slug + ".json"), "done")
+            # a pinned commit, never the live queue: a queue event must not turn this red
+            item = relay_queue.parse(slug, show_raw(ROOT, QUEUE_COMMIT, ".relay/queue/done/" + slug + ".json"), "done")
             if item["problems"]:
                 problems.append(f"{slug}: {item['problems']}")
             elif item["test"] != recorded:

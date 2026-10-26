@@ -1,0 +1,135 @@
+{
+  "branch": "wt/live-queue-tests",
+  "findings": [
+    {
+      "details": [
+        "Found 26 Oct by the review of wt/tests-tmp (outside that change: it did not touch these tests). Breaks the project's Python rule \"Tests use a temporary folder and never touch the live .relay/queue\". A gate would go red on a queue event (an item moving to done/), not on a code change."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "tests/test_queue.py:488 reads committed_items(ROOT)[\"gate-log-summary.json\"]; committed_items lists only the top level of",
+        ".relay/queue/ (not done/). When the owner's queue moves gate-log-summary to .relay/queue/done/ (the item is taken and",
+        "finished), the test raises KeyError and the gate goes red for a queue event, not a code change. Other live reads:",
+        "tests/test_queue.py:462 and :504 (every live item), :476-485 (git log of the live queue in ROOT),",
+        "tests/test_split_test_files.py:65 (live done item). Should: each reads a fixture copy in a temporary folder, or a",
+        "pinned commit (as :496 does with b176e6d)."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 488,
+      "pass_cases": [
+        "1. With .relay/queue/gate-log-summary.json moved to .relay/queue/done/ in a scratch copy, tests/test_queue.py passes.",
+        "2. test_f7 still asserts kind feature, ip 0, no failing_case, on a fixed copy of the item.",
+        "3. test_f6 (pinned b176e6d) keeps passing unchanged."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_no_live_queue_reads.py:21 test_no_test_reads_the_checkouts_live_queue passes at head, fails at base 48f7263."
+      ],
+      "severity": "HIGH",
+      "since": "48f7263561b1110ff0e935f2838be6653aaae013",
+      "source": "queue",
+      "summary": "Python rule (tests never touch the live .relay/queue)\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the diff. Rule label: Python rule \"Every new or changed function has types\" (CLAUDE.local.md, Python).",
+        "Rated MEDIUM: an owner rule broken in this change, no behaviour wrong; fixed before the merge. show_raw returns None on a",
+        "missing path, so the honest return type is dict[str, Optional[str]] unless pinned_items asserts. Size: 5 minutes."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- tests/test_queue.py",
+        "+def pinned_items(commit=QUEUE_COMMIT):",
+        "     def test_f14_every_seed_title_is_under_60_characters_and_a_one_line_text(self):"
+      ],
+      "failing_case": [
+        "tests/test_queue.py:412 `def pinned_items(commit=QUEUE_COMMIT):` is a new function with no parameter or return types;",
+        "the changed test methods at :501 (test_f14_every_seed_title...), :525 (test_f7_gate_log_summary...) and :541",
+        "(test_round_trip_is_byte_identical...) are `def ...(self):` with no `-> None`. The project's Python rule says every new or",
+        "changed function has types. Should: `def pinned_items(commit: str = QUEUE_COMMIT) -> dict[str, str]:` and `-> None` on the",
+        "changed tests (as the new guard test and test_split_test_files.py:53 already do)."
+      ],
+      "fix_hint": [
+        "Annotate pinned_items (commit: str, returns dict[str, Optional[str]] or dict[str, str] after an assert) and add -> None to",
+        "the three changed test methods."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 412,
+      "pass_cases": [
+        "1. grep -n \"def pinned_items\" tests/test_queue.py shows `commit: str` and a return type `-> dict[str, str]` (or Optional values if show_raw may return None).",
+        "2. tests/test_queue.py:501, :525, :541 each end with `-> None:`.",
+        "3. The type and lint step of the gate stays green; the 11 seed, format and done-item tests still pass."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue.py:412 has commit: str and -> dict[str, str] with assert; :507, :531, :547 have -> None. Gate green."
+      ],
+      "severity": "MEDIUM",
+      "since": "558082a168f947d373b3f49214b0dcc00f26160c",
+      "source": "review-live-queue-tests.json",
+      "source_id": "F1",
+      "summary": "Python rule (every new or changed function has types): new pinned_items and the three changed tests have no type annotations",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the patterns: they match committed_items(ROOT, committed_text(ROOT, \".relay/queue, git(ROOT, \"log\"",
+        "...relay/queue and os.listdir(os.path.join(ROOT, \".relay\", \"queue\". Correct today (the tree has none of the other shapes,",
+        "grep confirmed) and it does fail on the base, so it is a valid regression test for this item; fragile as a standing guard",
+        "(principle 5: a word list standing in for intent). A sturdier form: flag any line naming ROOT (or tq.ROOT) together with",
+        ".relay/queue or read_queue, unless it names a pinned sha or QUEUE_COMMIT. Size: 15 minutes."
+      ],
+      "evidence": [
+        "sed -n 9,12p tests/test_no_live_queue_reads.py (four patterns)",
+        "git grep -n -E 'read_queue|ROOT' -- tests  -> no read_queue(ROOT) today"
+      ],
+      "failing_case": [
+        "A new test line `rq.read_queue(ROOT)`, `show_raw(ROOT, \"HEAD\", \".relay/queue/x.json\")`,",
+        "`git(ROOT, \"show\", \"HEAD:.relay/queue/x.json\")`, `tq.committed_items(tq.ROOT)` or",
+        "`open(os.path.join(ROOT, \".relay/queue/x.json\"))` reads the live queue; the guard reports [] for each. Should: flag them,",
+        "or the guard should say plainly it covers only the shapes this fix removed."
+      ],
+      "fix_hint": [
+        "Widen the guard to: a line that names ROOT and (.relay/queue or \"queue\" path parts or read_queue/check_files) and not",
+        "QUEUE_COMMIT or a hex sha; add the cases above as small self-tests of the matcher."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 9,
+      "pass_cases": [
+        "1. A test file line `rq.read_queue(ROOT)` is reported by the guard.",
+        "2. A line `show_raw(ROOT, \"HEAD\", \".relay/queue/x.json\")` is reported.",
+        "3. `show_raw(ROOT, QUEUE_COMMIT, \".relay/queue/done/x.json\")` (a pinned read) is not reported.",
+        "4. `committed_text(ROOT, \".relay/README.md\")` (not the queue) is not reported.",
+        "5. The current tests/ tree reports []."
+      ],
+      "path": "tests/test_no_live_queue_reads.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_no_live_queue_reads.py:33 and :45 assert the widened matcher flags read_queue(ROOT), show_raw(ROOT,\"HEAD\"...) etc and not pinned reads; tree reports [] (:21)."
+      ],
+      "severity": "LOW",
+      "since": "558082a168f947d373b3f49214b0dcc00f26160c",
+      "source": "review-live-queue-tests.json",
+      "source_id": "F2",
+      "summary": "the guard is a list of four call shapes: common live reads of the queue at ROOT pass it unflagged",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "d471628b10a72760f4ab6a9494f6f71690d12f14.gate.log",
+  "head": "33e018d86792e66bab05d9ec1387399fc299f330",
+  "item": "python-rule-tests-never-touch-the-live-relay-que",
+  "notes": [
+    "Q1 guard test fails at base 48f7263 (lists test_queue.py and test_split_test_files.py live reads), passes at head."
+  ],
+  "schema": 2,
+  "scope": [
+    "Files changed since review: tests/test_no_live_queue_reads.py, tests/test_queue.py only (in scope). Ran both test files: 100 passed. Gate log head d471628 exit 0; only inert files after it."
+  ],
+  "type": "check"
+}

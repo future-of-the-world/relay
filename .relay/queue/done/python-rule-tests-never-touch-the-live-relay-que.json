@@ -28,10 +28,10 @@
   "where": [
     "tests/test_queue.py:488"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-26T08:20:59Z",
+  "taken_by": "wt/live-queue-tests",
+  "closed_at": "2026-10-26T09:50:52Z",
+  "test": "tests/test_no_live_queue_reads.py::TestNoLiveQueueReads::test_no_test_reads_the_checkouts_live_queue",
   "dropped_at": null,
   "dropped_why": null
 }

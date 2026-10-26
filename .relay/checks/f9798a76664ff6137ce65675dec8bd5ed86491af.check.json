@@ -1,0 +1,132 @@
+{
+  "branch": "wt/front-cd",
+  "findings": [
+    {
+      "details": [
+        "Seen 3 times on 25-26 Oct in session 3207dc59: a `cd` once locked the session into .worktrees/train-11; on 26 Oct `cd /Users/amidman/relay/.worktrees/tests-tmp; tail ...` and `cd /Users/amidman/relay/.worktrees/red-wave; sed ...` each moved the session's primary working folder into that worktree (\"Primary working directory: ... (was /Users/amidman/relay)\"). The user's rule already says \"Use git -C <worktree>, not cd\"; text alone did not stop it (principle 5: fact to code). IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "In the front session, `cd /Users/amidman/relay/.worktrees/x; ls` runs and the session's working folder becomes the worktree."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same command from the main session is refused with the git -C message; `git -C /Users/amidman/relay/.worktrees/x status` and `ls /Users/amidman/relay/.worktrees/x` run; a subagent working inside its worktree is not refused."
+      ],
+      "path": "plugins/core/hooks/guard-main.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_front_cd.py:34 test_main_session_cd_into_worktree_is_refused asserts exit 2 with git -C message; fails on base; subagent and git -C / ls cases pass (lines 56-69)."
+      ],
+      "severity": "HIGH",
+      "since": "9bc0fa3cbd39756e51f99afcc20daca4665fbb3e",
+      "source": "queue",
+      "summary": "The front's cd into a worktree moves its session there",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. analyze() recurses for a shell string (`if name in SHELLS: out.extend(analyze(real[k+1].text, cur, flags, depth+1, ...))`)",
+        "with a fresh `states = [State(cwd, env)]`, so `len(states) == 1` holds inside the child and the D row is emitted.",
+        "`eval` recurses the same way but does run in the session's shell, so the test must tell eval (same shell) from bash/sh -c (child).",
+        "A pipe stage is not a subshell in the State stack, so `cd <wt> | cat` also emits D. The `(cd ...)` subshell form, which is allowed,",
+        "does the same thing as bash -c, so refusing one and not the other is inconsistent; the brief's pass case says only a cd that moves the",
+        "session is refused. Size: 15."
+      ],
+      "evidence": [
+        "for c in \"bash -c 'cd $W && ls'\" \"sh -c \\\"cd $W; make\\\"\" \"cd $W | cat\" \"(cd $W && ls)\" \"eval cd $W\"; do jq ... | guard-main.sh; echo $?; done",
+        "  bash -c 'cd /Users/amidman/relay/.worktrees/front-cd && ls' 2",
+        "  sh -c \"cd /Users/amidman/relay/.worktrees/front-cd; make\" 2",
+        "  cd /Users/amidman/relay/.worktrees/front-cd | cat  2",
+        "  x=$(cd /Users/amidman/relay/.worktrees/front-cd && pwd); echo $x 0",
+        "printf '%s' \"bash -c 'cd $W && ls'\" | python3 -I plugins/core/lib/kit_guard.py /Users/amidman/relay",
+        "  C /Users/amidman/relay bash -c '...'",
+        "  C /Users/amidman/relay cd /Users/amidman/relay/.worktrees/front-cd",
+        "  D /Users/amidman/relay/.worktrees/front-cd"
+      ],
+      "failing_case": [
+        "Main session (no agent_id), cwd /Users/amidman/relay:",
+        "  bash -c 'cd /Users/amidman/relay/.worktrees/front-cd && ls'   -> exit 2 now; should be 0 (the cd runs in a child bash)",
+        "  sh -c \"cd /Users/amidman/relay/.worktrees/front-cd; make\"      -> exit 2 now; should be 0",
+        "  cd /Users/amidman/relay/.worktrees/front-cd | cat              -> exit 2 now; should be 0 (each pipe stage is a subshell)"
+      ],
+      "fix_hint": [
+        "Pass a `same_shell` flag into analyze (True at the top, kept for eval, False for SHELLS), emit D only when",
+        "`same_shell and len(states) == 1`, and skip it for a cd whose part is in a pipe (`around[1] == \"|\"` or around[0] ends in \"|\").",
+        "Add the cases above to tests/test_front_cd.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 715,
+      "pass_cases": [
+        "1. Main session, cwd main: `bash -c 'cd <wt> && ls'` -> exit 0.",
+        "2. Main session, cwd main: `cd <wt> | cat` -> exit 0.",
+        "3. Main session, cwd main: `eval cd <wt>` -> exit 2 (eval runs in the session's own shell), message contains \"git -C\".",
+        "4. Main session, cwd main: `cd <wt>; ls` and `{ cd <wt>; ls; }` -> exit 2 (unchanged).",
+        "5. Main session, cwd main: `(cd <wt> && ls)` -> exit 0 (unchanged)."
+      ],
+      "path": "plugins/core/lib/kit_guard.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_front_cd.py:41 child shell and pipe stages allowed; eval/braces still refused line 48."
+      ],
+      "severity": "MEDIUM",
+      "since": "aa9792cebac4bfa40a8cda93d5322f3a4a77d38a",
+      "source": "review-front-cd.json",
+      "source_id": "F1",
+      "summary": "a cd that runs in a child shell (bash -c, sh -c, a pipe stage) is refused for the main session, though it cannot move the session",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running the hook. block() always appends the worktree advice, which fits writes to the main checkout, not this refusal.",
+        "Correct today (exit 2, git -C named) but confusing to the agent that reads it. Size: 5."
+      ],
+      "evidence": [
+        "jq -n ... '{tool_name:\"Bash\",cwd:$cwd,tool_input:{command:\"cd <wt>; ls\"}}' | guard-main.sh",
+        "  guard-main: cd into a worktree moves this session's working folder there and keeps it there; use git -C ... or absolute paths instead.",
+        "  Work in a worktree instead: git worktree add .worktrees/<name> -b <branch>, then use .worktrees/<name> (the project's Git and worktrees rule).",
+        "  exit 2"
+      ],
+      "failing_case": [
+        "Main session, cwd /Users/amidman/relay: `cd /Users/amidman/relay/.worktrees/front-cd; ls` prints",
+        "  guard-main: cd into a worktree moves this session's working folder there ...; use git -C ... or absolute paths instead.",
+        "  Work in a worktree instead: git worktree add .worktrees/<name> -b <branch>, then use .worktrees/<name> (...)",
+        "The second line tells a session that is already using a worktree to make one. It should print only the first line."
+      ],
+      "fix_hint": [
+        "In the D branch use `echo \"guard-main: ...\" >&2; exit 2` (as the B branch does) instead of block."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 211,
+      "pass_cases": [
+        "1. Main session: `cd <wt>; ls` -> exit 2, stderr has \"git -C\" and no \"Work in a worktree instead\".",
+        "2. Main session in main: `git commit -m x` -> exit 2 and stderr still has \"Work in a worktree instead\" (block() unchanged)."
+      ],
+      "path": "plugins/core/hooks/guard-main.sh",
+      "rank": "low",
+      "reason": [
+        "tests/test_front_cd.py:37 asserts no worktree advice in the cd refusal; line 52 keeps it for main writes."
+      ],
+      "severity": "LOW",
+      "since": "aa9792cebac4bfa40a8cda93d5322f3a4a77d38a",
+      "source": "review-front-cd.json",
+      "source_id": "F2",
+      "summary": "the cd refusal ends with block()'s advice to create a worktree, which contradicts it",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "a264d500fd2e157ffd4c8fa69b35b59c53b7c8a5.gate.log",
+  "head": "f9798a76664ff6137ce65675dec8bd5ed86491af",
+  "item": "the-front-s-cd-into-a-worktree-moves-its-session",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range master..HEAD; ran tests/test_front_cd.py (7 pass); Q1 tests fail on base 9bc0fa3, F1/F2 tests fail on aa9792c. Gate log is for a264d50, later commit only adds the gate log (relay changed lists nothing); exit 0."
+  ],
+  "type": "check"
+}
