@@ -21,8 +21,8 @@
   "where": [
     "plugins/core/hooks/guard-main.sh or the delegate routing guard: the PreToolUse check of the main session's Bash commands"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T08:21:00Z",
+  "taken_by": "wt/front-cd",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
