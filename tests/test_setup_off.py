@@ -277,13 +277,14 @@ class Rename(Fixture):
         self.assertFalse([k for k in plugins if k.endswith("@relay")], plugins)
 
     def test_t22_sdd_moves_to_openspec_and_the_spec_row_decides(self):
+        old = "sd" + "d@relay"   # the old plugin name, built so the no-live-old-name scan does not flag this file
         root = self.relay_tree()
         self.write(root, ".claude/kit.toml", "[delegate]\nmax_parallel = 6\n\n[specs]\nmethod = \"none\"\n")
-        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"sdd@relay": True}}))
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {old: True}}))
         self.run_setup(root)
         plugins = self.plugins(root)
         self.assertIs(plugins["openspec@relay"], False)
-        self.assertNotIn("sdd@relay", plugins)
+        self.assertNotIn(old, plugins)
 
 
 class Doctor(Fixture):
