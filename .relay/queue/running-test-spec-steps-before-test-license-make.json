@@ -1,0 +1,35 @@
+{
+  "kind": "fix",
+  "ip": 93,
+  "time": 30,
+  "found_at": "2026-10-26T07:24:44Z",
+  "found_in": "finding F5 of review-setup-scope.json",
+  "title": "Running test_spec_steps before test_license makes…",
+  "what": [
+    "tests/test_spec_steps.py:1: LOW: F5 running test_spec_steps before test_license makes test_f3_good_license_files_gate_is_green fail (same on master)"
+  ],
+  "why": [
+    "Found 26 Oct by the review of wt/setup-scope, outside that change (the same on master): two test files depend on the order they run in, which is shared state between tests (principle 6), and parallel test runs (queue item the-gate-runs-its-work-twice-in-a-row-on-one-cor) would surface it."
+  ],
+  "failing_case": [
+    "`pytest tests/test_spec_steps.py tests/test_license.py -q` -> 1 failed: FileNotFoundError",
+    "'<repo>/plugins/delegate/data/licenses' from lib/relay_license.py:46 (relay_license is imported from a plugins/delegate/lib copy).",
+    "Same result in the primary checkout on master. Alone, or in alphabetical order, it passes.",
+    "Should: pass in any order."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. `pytest tests/test_spec_steps.py tests/test_license.py` -> all pass.",
+    "2. `pytest tests/test_license.py tests/test_spec_steps.py` -> all pass (as now).",
+    "3. `pytest tests/test_license.py -k test_f3_good` -> passes (as now)."
+  ],
+  "where": [
+    "tests/test_spec_steps.py:1"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
