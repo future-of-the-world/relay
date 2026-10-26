@@ -9,12 +9,16 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 RELAY = os.path.join(ROOT, "bin", "relay")
 sys.path.insert(0, os.path.join(ROOT, "lib"))
+sys.path.insert(0, HERE)
+
+import leaked_gates
 
 GATE_TIMEOUT = 900      # seconds a test waits for its gate; the slowest (a copied bin/ci with its nested probe) takes about a minute
 GATE_STOP_GRACE = 30    # seconds the stopped gate has to end its command and free its slot
@@ -220,7 +224,7 @@ class Inert(Fixture):
         os.makedirs(os.path.join(main, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(main, "bin", "ci"))
         # the copied gate's library tests run through the unittest runner that gives every test its temporary folders
-        for name in ("run_unittest.py", "tmp_default.py"):
+        for name in ("run_unittest.py", "tmp_default.py", "leaked_gates.py"):
             shutil.copy(os.path.join(ROOT, "tests", name), os.path.join(main, "tests", name))
         # the "types and lint" step of the copied gate: its script, its config and one python file to check
         shutil.copy(os.path.join(ROOT, "bin", "types-lint"), os.path.join(main, "bin", "types-lint"))
@@ -297,3 +301,44 @@ class Inert(Fixture):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LeakedGates(Fixture):
+    """F3: a gate left running under the run's temporary folder is found and stopped with its command (tests/leaked_gates.py)."""
+
+    def start_orphan(self, name):
+        """A real `relay gate` whose command sleeps, started detached (its runner is gone); returns (gate Popen, command pid)."""
+        pid_file = os.path.join(self.tmp, name)
+        gate = subprocess.Popen([sys.executable, RELAY, "gate"], cwd=self.wt, env=self.env, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        self.addCleanup(gate.wait)
+        self.addCleanup(gate.kill)
+        deadline = time.monotonic() + 60
+        while not os.path.exists(pid_file) and time.monotonic() < deadline and gate.poll() is None:
+            time.sleep(0.05)
+        self.assertTrue(os.path.exists(pid_file), "the gate command did not start")
+        return gate, int(read(pid_file))
+
+    def test_a_gate_left_under_the_folder_is_stopped_with_its_command_and_named(self):
+        self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
+        gate, command_pid = self.start_orphan("pid")
+        found = leaked_gates.stop(self.tmp)
+        # one gate, found by its pid; it and its sleeping command are both gone afterwards
+        self.assertEqual([pid for pid, _ in found], [gate.pid])
+        gate.wait(timeout=30)
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and leaked_gates._alive(command_pid):
+            time.sleep(0.05)
+        self.assertFalse(leaked_gates._alive(command_pid))
+
+    def test_a_gate_outside_the_folder_is_left_running(self):
+        """Pass case 3: a legitimately detached gate elsewhere is not touched."""
+        self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
+        gate, command_pid = self.start_orphan("pid")
+        other = os.path.realpath(tempfile.mkdtemp(prefix="relay-other-"))
+        self.addCleanup(shutil.rmtree, other, ignore_errors=True)
+        self.assertEqual(leaked_gates.stop(other), [])
+        self.assertIsNone(gate.poll())
+        self.assertTrue(leaked_gates._alive(command_pid))
+        self.assertEqual(len(leaked_gates.stop(self.tmp)), 1)  # cleanup: the gate and its command end
+        gate.wait(timeout=30)
