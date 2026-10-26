@@ -137,6 +137,21 @@ class Marks(unittest.TestCase):
         self.assertEqual(git(self.wt, "ls-tree", "--name-only", "HEAD", ".relay/checks/"), ".relay/checks/%s.review.json" % self.head)
         self.assertFalse(relay_marks.drop(self.wt, self.head))               # nothing left to drop
 
+    def test_commit_file_commits_the_file_alone_and_a_staged_file_stays_staged(self):
+        """Moved from test_gate's r3: the log commit takes only the log; a file staged before it is not in it and stays staged."""
+        with open(os.path.join(self.wt, "staged.txt"), "w") as handle:
+            handle.write("s\n")
+        git(self.wt, "add", "staged.txt")
+        folder = os.path.join(self.wt, ".relay", "checks")
+        os.makedirs(folder)
+        log = os.path.join(folder, "%s.gate.log" % self.head)
+        with open(log, "w") as handle:
+            handle.write("head %s\nexit 0\n" % self.head)
+        relay_marks.commit_file(self.wt, log, "relay: gate of %s" % self.head)
+        self.assertEqual([l for l in git(self.wt, "show", "--name-only", "--format=%s", "HEAD").splitlines() if l],
+                         ["relay: gate of " + self.head, ".relay/checks/%s.gate.log" % self.head])
+        self.assertEqual(git(self.wt, "diff", "--cached", "--name-only"), "staged.txt")
+
     # -- relay check show: P3, P4 -------------------------------------------------------------------------------
 
     def finding(self, fid, kind, path="a.txt", line=1):

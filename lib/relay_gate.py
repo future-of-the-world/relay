@@ -5,7 +5,9 @@ The log `.relay/checks/<G>.gate.log` starts with `head <G>` (the commit the gate
 `wait <seconds>` (the wait for a slot), the gate's output, and ends with `exit <n>`. The merge hook trusts it because this code, not a model, wrote it. The log
 is committed alone, with the same commit path as check marks (`relay_marks.commit_file`).
 
-A gate that has to run takes one of a few slots shared by the whole machine (OS file locks under `$RELAY_HOME/gate-slots/`,
+A gate that has to run first takes the worktree's own lock (`<git dir>/relay-gate.lock`, waiting without a time limit; the
+lock file is passed to the gate command, so the lock lasts until the command's last process ends, even when `relay gate`
+is killed). After the command it checks that the tested tree is still the gated commit. Then it takes one of a few slots shared by the whole machine (OS file locks under `$RELAY_HOME/gate-slots/`,
 so a killed gate frees its slot by itself). The log's third line, `wait <seconds>`, is the time spent waiting for a slot.
 """
 
@@ -117,6 +119,52 @@ def take_slot(count, folder, notify=None):
         raise
 
 
+def take_worktree_lock(path, notify=None):
+    """Lock the file `path` exclusively, waiting without a time limit; returns the open file, which holds the lock.
+
+    The holder writes its pid into the file; `notify` is called once with the waiting line (naming that pid) when the lock is
+    held by another process. The lock lasts as long as any process keeps the file open (closing it, or the process dying, frees it)."""
+    handle = open(path, "a+")
+    try:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            if notify is not None:
+                handle.seek(0)
+                holder = handle.read().strip() or "unknown"
+                notify("gate: waiting for the gate already running in this worktree (pid %s)" % holder)
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        handle.seek(0)
+        handle.truncate()
+        handle.write("%d\n" % os.getpid())
+        handle.flush()
+    except BaseException:
+        handle.close()
+        raise
+    return handle
+
+
+def tree_moved(worktree, head):
+    """Why the tree the gate ran on is no longer the commit `head` (a sentence), else None.
+
+    HEAD may differ from `head` only by inert files, and `git status` must be empty (a file edited, created or staged
+    and left so means the tested tree was not the commit)."""
+    rc, now = relay_git.git(worktree, "rev-parse", "HEAD")
+    if rc != 0 or not relay_marks.is_sha(now):
+        return "git cannot read HEAD"
+    if now != head:
+        code = relay_inert.changed(worktree, head, now)
+        if code:
+            return "HEAD moved to %s (files: %s)" % (now[:12], ", ".join(code[:5]))
+    rc, status = relay_git.git(worktree, "status", "--porcelain", raw=True)
+    if rc != 0:
+        return "git cannot read the state of the worktree"
+    dirty = [line[3:] for line in status.splitlines()]
+    if dirty:
+        return "files changed (%s%s)" % (", ".join(dirty[:5]), " and %d more" % (len(dirty) - 5) if len(dirty) > 5 else "")
+    return None
+
+
 def first_failure(output):
     """The first failing step's lines (the step line and its indented findings), else the last five lines."""
     lines = output.splitlines()
@@ -174,6 +222,7 @@ def run(worktree, args=(), environ=None):
     if rc != 0 or not git_path:
         raise GateRefused("git cannot tell where %s keeps its files" % worktree)
     out_path = git_path
+    lock_path = os.path.join(os.path.dirname(git_path), "relay-gate.lock")
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     os.makedirs(os.path.join(worktree, ".ci"), exist_ok=True)      # the gate command's own scratch folder (empty, so git sees nothing)
     env = dict(os.environ if environ is None else environ)
@@ -190,54 +239,66 @@ def run(worktree, args=(), environ=None):
             saved[sig] = signal.signal(sig, stop)
         except ValueError:      # not the main thread: no handlers, the caller owns its signals
             break
+    notify = lambda line: print(line, file=sys.stderr, flush=True)
     try:
-        slot, waited = take_slot(slot_count(env), os.path.join(home, "gate-slots"), lambda line: print(line, file=sys.stderr, flush=True))
+        # one gate at a time per worktree, taken before the slot so a gate waiting for its worktree holds no slot
+        lock = take_worktree_lock(lock_path, notify)
         try:
-            # the wait can be long: the code may have moved, or the same code may have gone green meanwhile
-            now = check_ready(worktree)
-            try:      # the license check is a gate step: it runs inside the slot, on the files as they are after the wait
-                license_lines = relay_license.check(worktree)
-            except (OSError, ValueError) as exc:
-                license_lines = ["license: cannot check: %s" % exc]
-            green = None if license_lines else reusable(worktree, now, command)      # (a gate log committed meanwhile moves HEAD, but only by inert files)
-            if green is not None:
-                return 0, green, []
-            if now != head:
-                raise GateRefused("%s moved to another commit while the gate waited for a slot: run it again" % worktree)
-            proc = None
+            slot, waited = take_slot(slot_count(env), os.path.join(home, "gate-slots"), notify)
             try:
-                with open(out_path, "wb") as sink:
-                    proc = subprocess.Popen(command, cwd=worktree, env=env, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
-                    returncode = proc.wait()
-                code = returncode if returncode >= 0 else 128 - returncode
-            except OSError as exc:
-                with open(out_path, "w") as sink:
-                    sink.write("gate command could not start: %s\n" % exc)
-                code = 127
+                # the waits can be long: the code may have moved, or the same code may have gone green meanwhile
+                now = check_ready(worktree)
+                try:      # the license check is a gate step: it runs inside the slot, on the files as they are after the wait
+                    license_lines = relay_license.check(worktree)
+                except (OSError, ValueError) as exc:
+                    license_lines = ["license: cannot check: %s" % exc]
+                green = None if license_lines else reusable(worktree, now, command)      # (a gate log committed meanwhile moves HEAD, but only by inert files)
+                if green is not None:
+                    return 0, green, []
+                if now != head:
+                    raise GateRefused("%s moved to another commit while the gate waited: run it again" % worktree)
+                proc = None
+                try:
+                    with open(out_path, "wb") as sink:
+                        # the lock file goes to the command: the OS keeps the lock until its last process ends, even if this process is killed
+                        proc = subprocess.Popen(command, cwd=worktree, env=env, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT,
+                                                start_new_session=True, pass_fds=(lock.fileno(),))
+                        returncode = proc.wait()
+                    code = returncode if returncode >= 0 else 128 - returncode
+                except OSError as exc:
+                    with open(out_path, "w") as sink:
+                        sink.write("gate command could not start: %s\n" % exc)
+                    code = 127
+                finally:
+                    if proc is not None:      # the command's whole process group ends before the slot is freed
+                        try:
+                            os.killpg(proc.pid, signal.SIGKILL)
+                        except OSError:
+                            pass
+                        proc.wait()
+                why = tree_moved(worktree, head)
+                if why is not None:
+                    raise GateRefused("the worktree changed while the gate ran (%s): commit, then run it again" % why)
             finally:
-                if proc is not None:      # the command's whole process group ends before the slot is freed
-                    try:
-                        os.killpg(proc.pid, signal.SIGKILL)
-                    except OSError:
-                        pass
-                    proc.wait()
+                slot.close()
+            # the lock stays until the log is committed: a second gate of this worktree then finds the log
+            with open(out_path, encoding="utf-8", errors="replace") as handle:
+                output = handle.read()
+            if license_lines:
+                output += ("" if output.endswith("\n") or not output else "\n") + "license check FAILED\n" + "".join("  %s\n" % line for line in license_lines)
+                code = code or 1
+            text = "head %s\ncmd %s\nwait %.1f\n%s%sexit %d\n" % (head, " ".join(shlex.quote(c) for c in command), waited, output, "" if output.endswith("\n") or not output else "\n", code)
+            log = os.path.join(worktree, relay_marks.FOLDER, "%s.gate.log" % head)
+            os.makedirs(os.path.dirname(log), exist_ok=True)
+            with open(log, "w", encoding="utf-8") as handle:
+                handle.write(text)
+            try:
+                relay_marks.commit_file(worktree, log, "relay: gate of %s" % head)
+            except relay_marks.MarkError as exc:
+                raise GateRefused("the gate exited %d but its log was not committed: %s" % (code, exc))
+            return code, log, first_failure(output) if code != 0 else []
         finally:
-            slot.close()
+            lock.close()
     finally:
         for sig, old in saved.items():
             signal.signal(sig, old)
-    with open(out_path, encoding="utf-8", errors="replace") as handle:
-        output = handle.read()
-    if license_lines:
-        output += ("" if output.endswith("\n") or not output else "\n") + "license check FAILED\n" + "".join("  %s\n" % line for line in license_lines)
-        code = code or 1
-    text = "head %s\ncmd %s\nwait %.1f\n%s%sexit %d\n" % (head, " ".join(shlex.quote(c) for c in command), waited, output, "" if output.endswith("\n") or not output else "\n", code)
-    log = os.path.join(worktree, relay_marks.FOLDER, "%s.gate.log" % head)
-    os.makedirs(os.path.dirname(log), exist_ok=True)
-    with open(log, "w", encoding="utf-8") as handle:
-        handle.write(text)
-    try:
-        relay_marks.commit_file(worktree, log, "relay: gate of %s" % head)
-    except relay_marks.MarkError as exc:
-        raise GateRefused("the gate exited %d but its log was not committed: %s" % (code, exc))
-    return code, log, first_failure(output) if code != 0 else []
