@@ -39,4 +39,4 @@ For this reason relay's tests reuse fake tools through `tests/fake_tools.py` ins
 
 ## 3. Python is not the problem (measured 27 Oct)
 
-Python's own work is about 1.5% of the test suite's time. A faster language would save at most 5-10%. The time goes to starting processes (git above all), the disk, and the two macOS costs above.
+Python's own logic inside the test process is about 1-1.5% of the test suite's time. The tests also start Python child processes (744 `python3` runs: `bin/relay` and the hooks), and each spends 22-70 ms on interpreter start and imports, about 4-7% of the time in `tests/test_queue.py`; a compiled program would start in 2-5 ms. Both together are what a faster language could shrink, so it would save at most 5-10%. The time goes to starting processes (git above all), the disk, and the two macOS costs above.

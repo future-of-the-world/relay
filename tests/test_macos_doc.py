@@ -27,6 +27,14 @@ class MacosDoc(unittest.TestCase):
         self.assertIn("30 interleaved rounds", DOC)
         self.assertTrue(re.search(r"29,000", DOC) and "81%" in DOC)
 
+    def test_python_share_explains_the_5_10_percent(self) -> None:
+        # F3: 1-1.5% (own logic) + 4-7% (child interpreter starts) ~ 5-10% ceiling.
+        self.assertIn("1-1.5%", DOC)
+        self.assertNotIn("about 1.5% of the test suite", DOC)
+        self.assertIn("744 `python3` runs", DOC)
+        self.assertIn("4-7%", DOC)
+        self.assertIn("at most 5-10%", DOC)
+
 
 if __name__ == "__main__":
     unittest.main()
