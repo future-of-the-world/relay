@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 60,
+  "time": 20,
+  "found_at": "2026-10-26T15:12:37Z",
+  "found_in": "relay queue add",
+  "title": "A gate log keeps failure lines of any length",
+  "what": [
+    "The failure lines a gate copies into its committed gate log are cut to at most 300 characters each (with a mark that the line was cut), as they are already limited by count."
+  ],
+  "why": [
+    "26 Oct night, found by the review of the checks-artifacts design (F10) and counted from git: bin/ci limits failure lines by count but not by length; one gate log already in .relay/checks holds a 61,667-character line. A committed log stays in history forever and may carry whatever a test printed. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A gate whose failing step prints one 70,000-character line: the committed gate log holds the whole line."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same gate log holds the line cut to 300 characters with a cut mark; short failure lines are unchanged; the count limit still holds."
+  ],
+  "where": [
+    "bin/ci (failure lines copied into the gate log, bin/ci:27)",
+    ".relay/checks/*.gate.log"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

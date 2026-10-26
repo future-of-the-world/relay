@@ -8,6 +8,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # unittest from the repo root has only the root on sys.path
 from relay_testbase import Base, ROOT  # noqa: E402
+from fake_tools import install_fake  # noqa: E402
 
 GOPLS = "gopls-lsp@claude-plugins-official"
 RELAY_BIN = os.path.join(ROOT, "bin", "relay")
@@ -33,12 +34,12 @@ class Fixture(Base):
         subprocess.run(["git", "init", "-q", root], check=True)
         return root
 
-    def relay_tree(self):
+    def relay_tree(self) -> str:
         """The shape of relay itself: kit.toml with only [delegate], bin/ci, docs/handover.md, .relay/README.md."""
         root = self.git_folder("relaytree")
         self.write(root, ".claude/kit.toml", "[delegate]\nmax_parallel = 6\n")
-        self.write(root, "bin/ci", "#!/bin/sh\n")
-        os.chmod(os.path.join(root, "bin", "ci"), 0o755)
+        os.makedirs(os.path.join(root, "bin"), exist_ok=True)
+        install_fake(os.path.join(root, "bin", "ci"), "#!/bin/sh\n")
         self.write(root, "docs/handover.md", "h\n")
         self.write(root, ".relay/README.md", "r\n")
         return root

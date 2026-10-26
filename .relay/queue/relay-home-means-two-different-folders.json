@@ -22,8 +22,8 @@
     "install.sh:21 RELAY_HOME as relay's code folder",
     "lib/relay_config.py RELAY_HOME as the state folder ~/.relay"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T15:16:17Z",
+  "taken_by": "wt/relay-home",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

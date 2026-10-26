@@ -1,0 +1,177 @@
+{
+  "branch": "wt/fake-tools",
+  "findings": [
+    {
+      "details": [
+        "Measured 26 Oct: on the owner's Mac, the first run of a newly written executable (also a copy or an APFS clone) takes 730-790 ms; the same file run again takes 6 ms; a hardlink or symlink to a file that already ran takes about 4 ms; the whole Mac does about 2.7 such scans per second however many run in parallel. In the installer tests the scans are about 45% of the time, under 5% in the 3 other test files measured. The front chose this over turning on Developer Tools for the app running Claude Code (a security cost, unverified). Owner can reverse. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A test that writes a fake tool and runs it pays about 750 ms on the first run on the owner's Mac."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The installer tests' wall time drops by about the scan share; every test still passes; a fake tool's behaviour per test is unchanged."
+      ],
+      "path": "tests/",
+      "rank": "high",
+      "reason": [
+        "tests/test_fake_tools.py::FakeTools::test_same_text_shares_one_file_and_runs asserts equal inode and the tool runs; fails at base (module absent); installer tests 87.8 s -> 13.1 s."
+      ],
+      "severity": "HIGH",
+      "since": "63f5fc945d8defa4086523194b1a0936843f4c41",
+      "source": "queue",
+      "summary": "Tests write new executables macOS scans 0.75 s each",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that the texts carry no per-test path and that bin/ci executes claude on each run (bin/ci:84 step \"plugin validate\"",
+        "validate_all -> claude plugin validate). PLAUSIBLE on the saved seconds (not measured; estimate from the item's 0.75 s per",
+        "scan). The worker's report says test_gate's writers \"embed per-test paths, so a cache would never hit\", which is true only for",
+        "the sleep-600 gate scripts. The change's own promise (the brief: every place in tests/ that writes a fake tool) reaches this",
+        "file, so it is inside. Principle 2: waste that repeats on every run is MEDIUM. Note line 177 rewrites self.script in place: once",
+        "it is a hardlink to the cache, that write would poison the cache (see F2), so it must go through install_fake too.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "grep -n 'write(.*S_IRWXU' tests/test_gate.py",
+        "  66:            write(script, \"#!/bin/sh\\n\" + gate, stat.S_IRWXU)",
+        "  177:        write(self.script, \"#!/bin/sh\\nexit 3\\n\", stat.S_IRWXU)",
+        "  238:        write(os.path.join(fake, \"claude\"), \"#!/bin/sh\\nexit 0\\n\", stat.S_IRWXU)",
+        "grep -n 'gate=' tests/test_gate.py -> 109/120/182: gate=\"exit 0\\n\"",
+        "grep -n validate_all bin/ci -> 84: step \"plugin validate\" validate_all (runs `claude plugin validate \"$d\"`)",
+        "worker report: \"test_gate ... embed per-test paths in the text, so a cache would never hit; left alone.\""
+      ],
+      "failing_case": [
+        "tests/test_gate.py Inert.setUp line 238 writes \"#!/bin/sh\\nexit 0\\n\" to <tmp>/fakebin/claude with write(..., stat.S_IRWXU)",
+        "for each of the 5 Inert tests; every one runs bin/ci, whose \"plugin validate\" step executes `claude plugin validate`, so each",
+        "test pays one first-run scan (about 0.75 s on the owner's Mac). Gate.repo line 66 writes the same \"#!/bin/sh\\nexit 0\\n\" gate",
+        "script fresh for test_r2 and test_r5 (and similar texts elsewhere). Now: about 5-7 scans, roughly 4-5 s, on every gate run.",
+        "Expected: the same text is installed through install_fake, so the scan happens once per run, as the brief asks (\"find every",
+        "place in tests/ that writes a fake tool script\")."
+      ],
+      "fix_hint": [
+        "Import install_fake in tests/test_gate.py; in write(), when mode has an execute bit, call install_fake(path, text) instead",
+        "of open+chmod (it already replaces the old path, so line 177 becomes safe)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 238,
+      "pass_cases": [
+        "1. Inert.setUp installs fakebin/claude with install_fake(path, \"#!/bin/sh\\nexit 0\\n\"); the five Inert tests still pass.",
+        "2. Gate.repo(gate=\"exit 0\\n\") installs the gate script through install_fake; test_r1, test_r2, test_r5 still pass.",
+        "3. test_r4 replaces self.script with \"#!/bin/sh\\nexit 3\\n\" by install_fake (not an in-place write), and the gate still exits 3;",
+        "   no other test's gate script changes.",
+        "4. Gate scripts whose text embeds self.tmp (test_a_gate_that_outlives..., LeakedGates) keep working (a cache miss is fine).",
+        "5. tests/ test count unchanged; python3 tests/run_unittest.py test_gate passes."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate.py:42-46 write() routes executables through install_fake (covers Gate.repo line 70, rewrite line 181, Inert line 242); test_gate passes (56 passed run). No behaviour test possible (time gain only)."
+      ],
+      "severity": "MEDIUM",
+      "since": "5a14425bbe8e7f717283ddc17dba18c64d627ad9",
+      "source": "review-fake-tools.json",
+      "source_id": "F1",
+      "summary": "test_gate still writes a fresh executable per test for texts with no per-test path (fake claude, gate scripts), so each run keeps paying the scan (Principle 2, Waste)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch script (evidence). No test does this today: installer tests replace through install_fake, test_setup_off",
+        "only reads bin/ci. Fragile because the F1 fix or any future test that edits a fake in place hits it, and the failure shows up",
+        "in an unrelated later test. A read-only cache (0o555) turns the silent poison into an error at the faulty line (does not hold",
+        "under root). Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "python3 scratch: install_fake(a, one); install_fake(b, one); open(a,\"w\").write(\"exit 3\"); os.chmod(a,0o644); install_fake(c, one)",
+        "  b now: '#!/bin/sh\\nexit 3\\n'",
+        "  b executable: False",
+        "  c (fresh install, same text): '#!/bin/sh\\nexit 3\\n'"
+      ],
+      "failing_case": [
+        "install_fake(a, \"#!/bin/sh\\necho one\\n\"); install_fake(b, same text); then a test does open(a, \"w\").write(\"#!/bin/sh\\nexit 3\\n\")",
+        "(as test_gate.py:177 does today with its own script) or os.chmod(a, 0o644) to simulate a broken tool.",
+        "Now: b reads \"exit 3\" and is no longer executable, and a later install_fake(c, \"#!/bin/sh\\necho one\\n\") gets the \"exit 3\" text",
+        "too (the cache is poisoned for the rest of the run, in other test files). Expected: the in-place write fails loudly",
+        "(PermissionError) or does not reach other tests."
+      ],
+      "fix_hint": [
+        "os.chmod(partial, 0o555) instead of 0o755, and one test that open(path, \"w\") on an installed fake raises PermissionError."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 33,
+      "pass_cases": [
+        "1. open(a, \"w\") on an installed fake raises PermissionError (cached file mode 0o555), and b still prints \"one\".",
+        "2. install_fake(a, other_text) after install_fake(a, text) still works (it removes and relinks; no write to the cached file).",
+        "3. tests/test_fake_tools.py's two tests and test_installer_doctor still pass."
+      ],
+      "path": "tests/fake_tools.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_fake_tools.py::FakeTools::test_an_installed_tool_cannot_be_written_in_place passes; with 0o555 changed to 0o755 it fails (seen)."
+      ],
+      "severity": "LOW",
+      "since": "5a14425bbe8e7f717283ddc17dba18c64d627ad9",
+      "source": "review-fake-tools.json",
+      "source_id": "F2",
+      "summary": "the cached file is writable, so one test writing or chmod-ing its fake in place silently changes that tool for every later test of the run",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Project rule (CLAUDE.local.md, Python: \"Every new or changed function has types\"); the rule sets no severity; behaviour is",
+        "correct, so LOW, and cheap, so fixed in the change. tests/fake_tools.py itself is typed. CONFIRMED by reading the diff.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- tests/: \"def fake(self, name, output):\", \"def script(self, name, body):\", \"def relay_tree(self):\",",
+        "\"def test_same_text_shares_one_file_and_runs(self):\", \"def test_replacing_a_tool_changes_only_that_path(self):\""
+      ],
+      "failing_case": [
+        "Fakes.fake(self, name, output) (test_installer_doctor.py:49), InstallScript.script(self, name, body) (:148),",
+        "Fixture.relay_tree(self) (test_setup_off.py:37) were changed, and FakeTools.test_* (test_fake_tools.py:13, :22) are new;",
+        "none has annotations. The brief repeats the rule (\"types on every new or changed function\"). Expected: annotated."
+      ],
+      "fix_hint": [
+        "Add the annotations listed in the pass cases."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 49,
+      "pass_cases": [
+        "1. def fake(self, name: str, output: str) -> None and def script(self, name: str, body: str) -> None.",
+        "2. def relay_tree(self) -> str.",
+        "3. The two tests in tests/test_fake_tools.py are annotated -> None; bin/types-lint stays green."
+      ],
+      "path": "tests/test_installer_doctor.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_installer_doctor.py:49 and :148 now typed; fake_tools.py typed."
+      ],
+      "severity": "LOW",
+      "since": "5a14425bbe8e7f717283ddc17dba18c64d627ad9",
+      "source": "review-fake-tools.json",
+      "source_id": "F3",
+      "summary": "changed and new functions carry no types (Python rule: every new or changed function has types)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "44b2e59741a37c16d2286524736689662c9d4cbf.gate.log",
+  "head": "f923eb8784f4cd32f820d65ca4d860520cdc0a4d",
+  "item": "tests-write-new-executables-macos-scans-0-75-s-e",
+  "notes": [
+    "Fake tools with per-test paths in text are left alone by the fixer (no cache hit possible); reasonable."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 63f5fc9..HEAD. Ran tests/test_fake_tools.py, test_gate, test_ci_hook_tests, test_setup_off (56 passed). Gate log head 44b2e59 exit 0 (bin/ci --quick); relay changed lists no file after it. Base worktree at 63f5fc9: test_fake_tools.py fails (collection error, no fake_tools module); test_installer_doctor 87.8 s at base vs 13.1 s at head, 29 passed both."
+  ],
+  "type": "check"
+}
