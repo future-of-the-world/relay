@@ -1,0 +1,37 @@
+{
+  "kind": "fix",
+  "ip": 86,
+  "time": 120,
+  "found_at": "2026-10-26T20:32:11Z",
+  "found_in": "relay queue add",
+  "title": "A wrong value in project settings passes unnoticed",
+  "what": [
+    "One typed record and one checking parser for .claude/kit.toml (all sections relay reads: [flow], [specs], [delegate], [observe], [metrics] when built), used by every reader (hooks included); unknown keys and wrong types are named. relay doctor reports them; a hook given a broken file says so instead of silently using defaults. Same for env overrides (RELAY_DELEGATE_*, RELAY_CTX_STEP). Found 27 Oct: plugins/delegate/hooks/route-guard.py:49-55 swallows every kit.toml error (except Exception: pass); route-guard.py:155-156 denies Opus for build tiers only on \"deny\" or unescalated \"escalate\", so build_tier_opus = \"denny\" allows Opus; typed_only = \"false\" (a string) is truthy (route-guard.py:150); [observe] enabled is read by no code, only log_prompts (plugins/observe/hooks/ledger.py:47); RELAY_CTX_STEP=abc crashes budget.py at import; relay_config.relay_defaults() is never called."
+  ],
+  "why": [
+    "Owner, 27 Oct: \"Что контролирует целостность и валидность настроек и окружения, точно ли relay doctor сейчас покрывает все или для этого есть прочие утилиты\". A scout read of the code that day (verified by the front): every reader of .claude/kit.toml parses its own section ad hoc, and nothing checks keys or values. IP chosen by the front (agent-chosen): a typo can switch a guard off."
+  ],
+  "failing_case": [
+    "A project with [delegate] build_tier_opus = \"denny\" in .claude/kit.toml: a worker started with model opus and no Escalated line is allowed, and relay doctor says nothing."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "build_tier_opus = \"deny\" still denies; the default (no key) still escalates only with an Escalated line",
+    "a kit.toml with a syntax error: the route guard names the file and the error; relay doctor reports it",
+    "typed_only = \"false\" (string) is reported as a wrong type, not read as true",
+    "an unknown key in [observe] is reported by relay doctor"
+  ],
+  "where": [
+    "plugins/delegate/hooks/route-guard.py:49-55 swallowed errors",
+    "plugins/delegate/hooks/route-guard.py:150-156 values",
+    "plugins/observe/hooks/ledger.py:47 only log_prompts",
+    "lib/relay_config.py",
+    "lib/relay_setup.py:1066-1180 doctor"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

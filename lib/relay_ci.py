@@ -157,6 +157,7 @@ class Probe:
         # a full outer run ran the hook suites in full (guard-main repeats its shared cases per profile); the nested run is quick
         # for the paid steps only, so its hook tests run in full too, or the case counts differ by mode, not by an inert file
         env = {k: v for k, v in self.env.items() if k != "RELAY_GATE"}
+        env["RELAY_INERT_PROBE"] = "1"   # the probe run is marked: its test runner only reads the class times; the outer run writes them
         env["RELAY_INERT_FULL_HOOKS"] = "" if self.quick else "1"
         os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
         self._log = open(self.log_path, "wb")

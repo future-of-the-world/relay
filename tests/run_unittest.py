@@ -37,5 +37,19 @@ def run(names: list) -> int:
         shutil.rmtree(run_dir, ignore_errors=True)
 
 
+def main(argv: list) -> int:
+    """Names given: run them in this process. None: every library test, on RELAY_TEST_JOBS processes split by class
+    (tests/parallel_unittest.py); one job is the single process below."""
+    if argv:
+        return run(argv)
+    import parallel_unittest
+    jobs, note = parallel_unittest.jobs_setting(dict(os.environ))
+    if jobs == 1:
+        if note:
+            print(note)
+        return run([])
+    return parallel_unittest.run()
+
+
 if __name__ == "__main__":
-    sys.exit(run(sys.argv[1:]))  # names given: run them; none: discover every library test
+    sys.exit(main(sys.argv[1:]))

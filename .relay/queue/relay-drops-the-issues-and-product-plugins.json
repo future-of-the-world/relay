@@ -19,8 +19,8 @@
     "tests/test_setup_off.py, tests/test_roles.py, tests/test_agents.py, plugins/core/tests/kit.test.sh",
     "README.md, docs/flows.md, docs/variants/ui-reviewer.md, docs/plans/review-gate.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T20:00:09Z",
+  "taken_by": "wt/drop-plugins",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
