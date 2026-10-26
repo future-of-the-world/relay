@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-26T17:50:38Z",
   "taken_by": "wt/test-jobs",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T19:54:50Z",
+  "test": "tests/test_parallel_unittest.py::Runs::test_the_three_class_tree_gives_the_single_process_count_at_one_and_four_jobs",
   "dropped_at": null,
   "dropped_why": null
 }
