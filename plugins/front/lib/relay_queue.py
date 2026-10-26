@@ -294,11 +294,11 @@ def slugify(title):
 
 
 def order_key(item):
-    return (-item["ip"], item["found_at"], item["slug"])
+    return (item["kind"] != "fix", -item["ip"], item["found_at"], item["slug"])
 
 
 def ordered(items):
-    """Well-formed items by ip (highest first), then older `found_at`, then slug; malformed ones last, by slug."""
+    """Well-formed items fix before feature, then by ip (highest first), then older `found_at`, then slug; malformed ones last, by slug."""
     good = sorted((i for i in items if not i["problems"]), key=order_key)
     bad = sorted((i for i in items if i["problems"]), key=lambda i: i["slug"])
     return good + bad
