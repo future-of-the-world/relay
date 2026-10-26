@@ -1,0 +1,115 @@
+{
+  "branch": "wt/ci-python",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED (reproduced). The SIGTERM/SIGHUP handlers in relay_ci.main() and the finally around the steps only run when",
+        "bin/ci itself is signalled softly. Under relay gate, the only place a probe exists, a stopped gate SIGKILLs the whole",
+        "process group (lib/relay_gate.py, master and wt/gate-lock alike), so relay_ci's finally never runs. With the bash gate",
+        "the same leak happened only when the stop came during the probe (the last ~half of a gate); with B the probe exists",
+        "from the first second, so every stopped gate leaks one detached worktree plus a full checkout in TMPDIR. Stopping a gate",
+        "is ordinary use (Ctrl-C, a session that ends, the front stopping a wrong run). The tests cover only an in-process",
+        "KeyboardInterrupt, not the real stop path.",
+        "Size: 15-30 agent minutes."
+      ],
+      "evidence": [
+        "python3 scratchpad/rep/stopgate.py <worktree> <dir>   (script: Popen bin/ci --quick with start_new_session, killpg SIGKILL)",
+        "before kill: 2 worktrees",
+        "after killpg SIGKILL: .../rep/tmpyetklmla  4e60d45 [master]",
+        "/private/var/folders/p8/.../T/tmp7c5b4qpj/wt  5e98427 (detached HEAD)",
+        "lib/relay_gate.py (master) finally: os.killpg(proc.pid, signal.SIGKILL); proc.wait()",
+        "Live: git -C /Users/amidman/relay worktree list on 26 Oct shows 9 detached probe worktrees under",
+        "/var/folders/.../T/tmp.XXXXXXXXXX/wt (bash mktemp names, from the bash gate): the leak already accumulates when a stop",
+        "hits the probe phase; B widens it to the whole gate. (Some may be probes of gates running now; not separated.)"
+      ],
+      "failing_case": [
+        "A temp repo with the branch's bin/ci and lib/relay_ci.py, tests/run_unittest.py sleeping 30 s; run what relay gate",
+        "runs: Popen([\"bin/ci\",\"--quick\"], env RELAY_GATE=<head>, start_new_session=True); after 3 s os.killpg(pid, SIGKILL)",
+        "(what lib/relay_gate.py does in its finally when the gate gets SIGTERM, SIGHUP or Ctrl-C).",
+        "Now: `git worktree list` still shows /var/folders/.../T/tmp7c5b4qpj/wt (detached) and the full checkout stays on disk;",
+        "the next gate in that worktree does not remove it. Should: no probe worktree left once the gate is stopped, or at the",
+        "latest the next gate of that worktree removes the leftover one (design case 3: \"the probe is stopped and its worktree",
+        "removed\")."
+      ],
+      "fix_hint": [
+        "Inside this change: Probe.start() writes the probe's temp path to the outer `.ci/inert-probe` before `git worktree add`;",
+        "at the start of every run (prepare) a recorded path that is still there is removed (`git worktree remove --force`,",
+        "prune, rmtree) and the record deleted; stop() deletes the record. The per-worktree gate lock (wt/gate-lock) makes this",
+        "safe against a second gate of the same worktree. Optional, outside (lib/relay_gate.py, the other branch): SIGTERM the",
+        "group, a short grace, then SIGKILL."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 109,
+      "pass_cases": [
+        "1. The reproduction above, then a second `RELAY_GATE=<head> bin/ci --quick` run in the same worktree to its end:",
+        "   `git worktree list` lists only the main checkout, and the leftover temp folder is gone.",
+        "2. Two worktrees of one repo gating at once: the cleanup in one never removes the other's live probe worktree",
+        "   (only the probe recorded for this worktree is removed).",
+        "3. tests/test_ci_python.py::ProbeBesideTheRun (stop, KeyboardInterrupt in a step, killed probe) still pass.",
+        "4. A gate that runs to its end leaves no probe worktree and no record of one (as today)."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_ci_python.py:278 (fails at base, passes now), :295, :308 pass; record written before worktree, removed on stop, leftover removed in prepare."
+      ],
+      "severity": "MEDIUM",
+      "since": "2d90bcacbfa9f3e2c89cd8f8e4ec906f9139379b",
+      "source": "review-ci-python.json",
+      "source_id": "F1",
+      "summary": "a stopped relay gate (killpg SIGKILL) leaves the probe's worktree registered and its checkout in TMPDIR, now at any point of the gate",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (traced; not reproduced, gate-lock is not in master). Narrow: relay gate itself kills the whole group, so this",
+        "needs the gate program alone to die. Size: 15 agent minutes (close_fds=False, or pass_fds of the inherited lock fd",
+        "named by an environment variable)."
+      ],
+      "evidence": [
+        "git diff master...wt/gate-lock -- lib/relay_gate.py: Popen(..., start_new_session=True, pass_fds=(lock.fileno(),))",
+        "lib/relay_ci.py:138 subprocess.Popen(list(self.nested), ...) and :216 self.runner(argv, **kwargs): close_fds default True"
+      ],
+      "failing_case": [
+        "With wt/gate-lock landed: relay gate passes its lock file to bin/ci (pass_fds) so the lock lives until the command's",
+        "last process ends. bash passed that fd to every child; Python's subprocess closes it (close_fds=True default) in the",
+        "probe (Popen at :138) and every step (Ci.run). If the bin/ci python process alone is killed (kill -9 <pid>, OOM) while",
+        "its library tests or probe run on, the lock is freed and a second gate of the same worktree can start beside the",
+        "orphans. Should: the lock held until the last process of the command ends, as the design promises (F4 of its review)."
+      ],
+      "fix_hint": [
+        "Pass close_fds=False to the Popen of the probe and to Ci.run's subprocess calls (the gate opens no other fds a child",
+        "must not have), or keep it and let the lock fd through by number."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 138,
+      "pass_cases": [
+        "1. bin/ci started with an inherited flock fd; kill -9 of the bin/ci python while a step's child sleeps: a non-blocking",
+        "   flock on the same file still fails until that child ends.",
+        "2. A gate that runs to its end frees the lock when it ends (as today)."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_ci_python.py:323 fails at base (AssertionError 1 != 0), passes now; close_fds=False at relay_ci.py:165 and :240."
+      ],
+      "severity": "LOW",
+      "since": "2d90bcacbfa9f3e2c89cd8f8e4ec906f9139379b",
+      "source": "review-ci-python.json",
+      "source_id": "F2",
+      "summary": "children of the Python gate no longer inherit the worktree lock fd that wt/gate-lock passes to the command",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "28dd05969318a451fb9913ab665972d6fe8cf076.gate.log",
+  "head": "8cbf47053501498d0f53b898624dac2c31d01703",
+  "item": null,
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "2d90bcacbfa9..HEAD; own changed files lib/relay_ci.py and tests/test_ci_python.py only. Ran tests/test_ci_python.py (16 passed); ran it at the base commit: the two new tests fail there. Gate log head 28dd059, exit 0 (head after it is the gate commit only)."
+  ],
+  "type": "check"
+}
