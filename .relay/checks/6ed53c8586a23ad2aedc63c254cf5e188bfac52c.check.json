@@ -1,0 +1,179 @@
+{
+  "branch": "wt/red-wave",
+  "findings": [
+    {
+      "details": [
+        "Recorded red run 26 Oct: ~/.relay/evals/relay/2026-10-26T01-47-23Z-master.json, cost $17.43 (the stored mean was $8.27). The judged it-terms-ru text that failed: \"\u0418\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0435 \u043b\u0435\u0436\u0438\u0442 \u0432 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u043c branch, \u0438 \u043e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 branch \u043c\u043e\u0436\u0435\u0442 \u043f\u0440\u0438\u043d\u044f\u0442\u044c \u0435\u0433\u043e \u0447\u0435\u0440\u0435\u0437 fast-forward. \u042d\u0442\u043e \u0437\u043d\u0430\u0447\u0438\u0442, \u0447\u0442\u043e \u043e\u043d \u043f\u0440\u043e\u0441\u0442\u043e \u0441\u0434\u0432\u0438\u043d\u0435\u0442\u0441\u044f \u0432\u043f\u0435\u0440\u0451\u0434 \u043d\u0430 \u044d\u0442\u0438 commit...\" relay sync waits for a green run.",
+        "Also: evals/plugin/it-terms-ru/ the eval case, its prompt and graders"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "bin/ci at 13ea53b: \"ci: eval record: NOT A PASS: 1 meaning grader(s) failed, 1 code grader(s) failed, 1 not judged, in design-track, it-terms-ru\"."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "One paid run after the fix with design-track and it-terms-ru judged and passing in all runs, and the rest still green."
+      ],
+      "path": "evals/plugin/design-track/",
+      "rank": "high",
+      "reason": [
+        "The 2-case x 3-run proof is not all green under bin/ci's real grant: design-track passed 2 of 3 (worker report); 6 of 6 only with Write granted, and bin/ci was not changed. it-terms-ru 3 of 3 passed. No test covers Q1."
+      ],
+      "severity": "HIGH",
+      "since": "6ca71ad087188bc4264d32846f1c9ac144b1995b",
+      "source": "queue",
+      "summary": "Paid run of 26 Oct is red: design-track and it-terms-ru",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: rules/working-with-me.md lines 55-58 (calque bullet) against lines 65-68 (the added sentence),",
+        "and evals/plugin/it-terms-ru/graders/no-calques.md (\"A one-word local equivalent of the term is a calque: FAIL\";",
+        "\"A descriptive explanation ... set after '\u0442\u043e \u0435\u0441\u0442\u044c' ... is not a calque\"). The gender rubric itself uses the",
+        "descriptive form \"hook, \u0442\u043e \u0435\u0441\u0442\u044c \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430\", so only the rule's example is short. The rule text is",
+        "what every Russian reply is generated from, so an example in it is imitated; this is the same kind of slip (the",
+        "rule inviting the shape) the cause report found for run 3. Also \"gate, \u0442\u043e \u0435\u0441\u0442\u044c \u043f\u043e\u043b\u043d\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430\" in the same",
+        "sentence is a two-word gloss; it would read better as \"\u043f\u043e\u043b\u043d\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u043f\u0435\u0440\u0435\u0434 merge\", but it is not one word.",
+        "Size: 5 minutes (one sentence, then regenerate the eval prompt copies)."
+      ],
+      "evidence": [
+        "sed -n 50,75p rules/working-with-me.md:",
+        "  \"A local word set beside the term as a gloss (\"<local word>, that is, hook\") is the same calque: write the English",
+        "   term and, the first time, explain it in plain words, never with a one-word equivalent in my language.\"",
+        "  ... \"a pronoun that points at the Russian gloss (\"hook, \u0442\u043e \u0435\u0441\u0442\u044c \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430, \u0438 \u043e\u043d\u0430 \u043f\u0440\u043e\u0448\u043b\u0430\") is allowed.\"",
+        "head evals/plugin/it-terms-ru/graders/no-calques.md:",
+        "  \"A one-word local equivalent of the term is a calque: FAIL.\""
+      ],
+      "failing_case": [
+        "rules/working-with-me.md:65-68 now reads: a pronoun that points at the Russian gloss (\"hook, \u0442\u043e \u0435\u0441\u0442\u044c \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430, \u0438 \u043e\u043d\u0430",
+        "\u043f\u0440\u043e\u0448\u043b\u0430\") is allowed. The bullet just above (line 55-57) says a local word set beside the term as a gloss is the same",
+        "calque: \"explain it in plain words, never with a one-word equivalent in my language\". The it-terms-ru grader",
+        "no-calques.md FAILs \"a one-word local equivalent of the term\", e.g. \"hook (\u043a\u0440\u044e\u0447\u043e\u043a)\". So the rule text now shows, as",
+        "the allowed form, a reply that its own neighbouring bullet forbids and the case's calque judge fails: a session that",
+        "copies the example (\"hook, \u0442\u043e \u0435\u0441\u0442\u044c \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430, \u0438 \u043e\u043d\u0430 \u043f\u0440\u043e\u0448\u043b\u0430\") is told it is fine by one sentence and wrong by the other.",
+        "Should: the example's gloss is a plain-words explanation (as in the rubric: \"hook, \u0442\u043e \u0435\u0441\u0442\u044c \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430",
+        "\u043f\u0435\u0440\u0435\u0434 merge, \u0438 \u043e\u043d\u0430 \u043f\u0440\u043e\u0448\u043b\u0430\"), so the two bullets agree."
+      ],
+      "fix_hint": [
+        "Replace the example with \"hook, \u0442\u043e \u0435\u0441\u0442\u044c \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u043f\u0435\u0440\u0435\u0434 merge, \u0438 \u043e\u043d\u0430 \u043f\u0440\u043e\u0448\u043b\u0430\" (and optionally",
+        "\"gate, \u0442\u043e \u0435\u0441\u0442\u044c \u043f\u043e\u043b\u043d\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u043f\u0435\u0440\u0435\u0434 merge\"), re-render the eval prompts through evals/plugin/system_rules.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 65,
+      "pass_cases": [
+        "1. rules/working-with-me.md: the pronoun example after a gloss uses a descriptive gloss of two or more words",
+        "   (e.g. \"hook, \u0442\u043e \u0435\u0441\u0442\u044c \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u043f\u0435\u0440\u0435\u0434 merge, \u0438 \u043e\u043d\u0430 \u043f\u0440\u043e\u0448\u043b\u0430\"); the string \"hook, \u0442\u043e \u0435\u0441\u0442\u044c \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430,\"",
+        "   no longer appears in the rule.",
+        "2. The same sentence still says a verb or adjective whose subject is the term agrees with the term",
+        "   (\"gate \u0442\u043e\u0436\u0435 \u043f\u0440\u043e\u0448\u0451\u043b\", never \"gate \u0442\u043e\u0436\u0435 \u0437\u0435\u043b\u0451\u043d\u0430\u044f\") and that the pronoun after the gloss is allowed",
+        "   (tests/test_ru_style.py test_the_rule_keeps_agreement_with_the_term_after_a_gloss keeps passing).",
+        "3. The calque bullet above (\"never with a one-word equivalent in my language\") is unchanged.",
+        "4. The eval prompts regenerated from the rule (it-terms-ru, it-terms-es, explain-existing, design-track) carry the",
+        "   new wording (the system_rules identity tests pass)."
+      ],
+      "path": "rules/working-with-me.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_ru_style.py:79 asserts the descriptive gloss; passes, fails at 2d267b6 (old wording present); rules/working-with-me.md:68 carries it."
+      ],
+      "severity": "MEDIUM",
+      "since": "2d267b66266e4f60f69bc3dac913dadd4dd7adf2",
+      "source": "review-red-wave.json",
+      "source_id": "F1",
+      "summary": "the new allowed example 'hook, \u0442\u043e \u0435\u0441\u0442\u044c \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430' is a one-word gloss that the bullet above and the no-calques judge forbid",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading tests/test_ru_style.py lines 70-79: `good = read(... \"merge-reply.txt\")` only. Correct today",
+        "(gloss-pronoun.txt has no feminine form of a term), fragile. Size: 5 minutes."
+      ],
+      "evidence": [
+        "sed -n 55,80p tests/test_ru_style.py: good = read(\"evals\", \"plugin\", \"it-terms-ru\", \"recorded\", \"good\", \"merge-reply.txt\")"
+      ],
+      "failing_case": [
+        "test_f2_the_judge_is_measured_on_the_live_bad_replies_and_the_good_one checks every bad reply shows a fault and that",
+        "merge-reply.txt shows neither, but never reads recorded/good/gloss-pronoun.txt. Editing that good reply into",
+        "\"... gate, \u0442\u043e \u0435\u0441\u0442\u044c \u043f\u043e\u043b\u043d\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430, \u0442\u043e\u0436\u0435 \u0437\u0435\u043b\u0451\u043d\u0430\u044f\" (a breach) keeps the test green, and the measured set would then",
+        "hold a FAIL reply under the answer PASS.",
+        "Should: the loop over good replies asserts feminine and opener find nothing in each of them."
+      ],
+      "fix_hint": [
+        "Loop over the two \"yes\" items from items.txt and assert both regexes find nothing."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 76,
+      "pass_cases": [
+        "1. Replace gloss-pronoun.txt's \"\u0438 \u043e\u043d\u0430 \u043f\u0440\u043e\u0448\u043b\u0430\" sentence with \"Gate, \u0442\u043e \u0435\u0441\u0442\u044c \u043f\u043e\u043b\u043d\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430, \u0442\u043e\u0436\u0435 \u0437\u0435\u043b\u0451\u043d\u0430\u044f\": the test fails.",
+        "2. The committed gloss-pronoun.txt and merge-reply.txt: the test passes.",
+        "3. A bad reply without a fault still fails the test as today."
+      ],
+      "path": "tests/test_ru_style.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_ru_style.py:72-76 loops over all yes items, both regexes empty; passes."
+      ],
+      "severity": "LOW",
+      "since": "2d267b66266e4f60f69bc3dac913dadd4dd7adf2",
+      "source": "review-red-wave.json",
+      "source_id": "F2",
+      "summary": "the new good reply gloss-pronoun.txt is not checked to show neither fault; only merge-reply.txt is",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: git grep 'stop-at-agent\\|refuse-agent' -- tests bin lib finds nothing; tests/test_front_measures.py",
+        "already reads the design-track case (lines 40-58), the natural place. Correct today, fragile. Size: 10 minutes."
+      ],
+      "evidence": [
+        "git grep -n \"design-track\\|stop-at-agent\\|refuse-agent\" -- tests bin lib: only design-track grader/prompt reads,",
+        "no reference to stop-at-agent or refuse-agent.",
+        "echo '{}' | python3 -I evals/plugin/design-track/stop-at-agent/hooks/refuse-agent.py -> message on stderr, rc=2"
+      ],
+      "failing_case": [
+        "Remove \"stop-at-agent\" from evals/plugin/design-track/case.yaml plugins (or make refuse-agent.py exit 0): the gate",
+        "(bin/ci --quick) and tests stay green; the next paid run is again a full Opus design per run, up to the 600 s",
+        "timeout that made the 26 Oct run red. Should: a free test fails."
+      ],
+      "fix_hint": [
+        "In tests/test_front_measures.py: assert \"stop-at-agent\" in the case.yaml plugins line and run the hook with",
+        "subprocess (list args, timeout=) expecting returncode 2."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 52,
+      "pass_cases": [
+        "1. case.yaml plugins without \"stop-at-agent\": a free test fails.",
+        "2. refuse-agent.py run with \"{}\" on stdin exits 2 and writes a non-empty message to stderr: the test passes; exit 0 fails it.",
+        "3. hooks.json of stop-at-agent has a PreToolUse entry with matcher \"Agent|Task\" pointing at refuse-agent.py: passes."
+      ],
+      "path": "tests/test_front_measures.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_front_measures.py:66 checks case.yaml plugin, hooks.json matcher and hook exit 2 with message; passes."
+      ],
+      "severity": "LOW",
+      "since": "2d267b66266e4f60f69bc3dac913dadd4dd7adf2",
+      "source": "review-red-wave.json",
+      "source_id": "F3",
+      "summary": "no free test keeps the design-track fixture: dropping stop-at-agent from case.yaml leaves every free check green",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "871d1072f165c4e48b6403c63d404d822a0d2ad2.gate.log",
+  "head": "6ed53c8586a23ad2aedc63c254cf5e188bfac52c",
+  "item": "paid-run-of-26-oct-is-red-design-track-and-it-te",
+  "notes": [
+    "Worker report: design-track with bin/ci's grant (--allow-tools Bash Agent) passed 2 of 3; green 6 of 6 only with Write also granted. bin/ci is unchanged on the branch (still --allow-tools Bash Agent, line 95), so the full paid run would still hit the same ungranted-Write grader flake. Decision for the front: add Write to bin/ci."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head 871d107, bin/ci --quick, exit 0; HEAD adds only the inert gate log. Ran test_ru_style, test_front_measures, test_judge_tally: 28 passed. At base 2d267b6 with head test files: F1 test fails, F2/F3 tests pass (they guard existing correct state). Paid proofs not re-run; read from the worker report."
+  ],
+  "type": "check"
+}

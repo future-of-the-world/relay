@@ -25,7 +25,7 @@ step() { local name="$1"; shift; local log=".ci/steps/${name// /-}.log" start rc
   echo "$name $([ "$rc" -eq 0 ] && echo ok || echo FAILED)" >> .ci/results.txt
   if [ "$rc" -eq 0 ]; then echo "ci: $name ok ($(( $(date +%s) - start ))s)"
   else echo "ci: $name FAILED ($(( $(date +%s) - start ))s, log: $log)"; grep -E 'FAIL|Error|error|✗' "$log" | head -8 | sed 's/^/    /'; status=1; fi; }
-lib_tests() { python3 -W ignore::ResourceWarning -m unittest discover -s tests -p 'test_*.py'; }
+lib_tests() { python3 -W ignore::ResourceWarning tests/run_unittest.py; }
 hook_tests() { local f rc=0 t; [ "$quick" = 1 ] && [ -z "${RELAY_INERT_FULL_HOOKS:-}" ] && export RELAY_QUICK=1   # the guard suite runs its shared cases once in quick mode (not in the inert probe of a full run: see inert_probe)
   # the tools the free tests run on: a missing one FAILS the step (a skipped test would pass a gate that checked nothing)
   for t in "git:install git" "jq:brew install jq" "python3:install python3" "bun:curl -fsSL https://bun.sh/install | bash (the packet and check-contract tests run on it)"; do
@@ -70,7 +70,7 @@ inert_probe() { local tmpd work rc=0 f
 # A change that only edits the text of rules (the fixed list in lib/relay_textonly.py) runs the checks that read rules, not
 # the whole quick gate and its inert probe (which reruns it): an error or any file off the list means the full gate.
 rules_tests() { local t names; names="$(python3 lib/relay_textonly.py tests)" || return 1
-  python3 -W ignore::ResourceWarning -m unittest $names || return 1; python3 bin/relay sync --dry; }
+  python3 -W ignore::ResourceWarning tests/run_unittest.py $names || return 1; python3 bin/relay sync --dry; }
 if [ "$quick" = 1 ] && [ -f lib/relay_textonly.py ] && python3 lib/relay_textonly.py check >/dev/null 2>&1; then
   step "rules text tests" rules_tests
   [ "$status" -eq 0 ] && echo "ci: green (QUICK MODE: rules text only, the short gate; paid steps skipped, not a release gate)" || echo "ci: RED"
@@ -92,7 +92,8 @@ if [ "$quick" = 0 ]; then
     if [ -n "${EVALS_MAX_COST:-}" ]; then cap_args=(--cap "$EVALS_MAX_COST"); else cap_args=(--from-estimate --cap 15); fi
     read -r eval_jobs eval_ceiling < <(python3 bin/paid-cost ceiling --within-day "${cap_args[@]}" --jobs "${EVALS_JOBS:-1}") || { echo "ci: RED (no money ceiling for the plugin evals)"; exit 1; }
     echo "plugin evals: estimate $(python3 bin/paid-cost estimate); -j $eval_jobs, ceiling \$$eval_ceiling (${cap_args[*]})"
-    step "plugin evals" env root="$root" eval_jobs="$eval_jobs" eval_ceiling="$eval_ceiling" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none -j "$eval_jobs" --judge-model "${EVALS_JUDGE_MODEL:-sonnet}" --no-publish --max-cost-usd "$eval_ceiling" --json "$root/.ci/evals.json"'
+    # Write is granted because a real session has it: the Write graders error when it is not granted
+    step "plugin evals" env root="$root" eval_jobs="$eval_jobs" eval_ceiling="$eval_ceiling" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent Write --ablation none -j "$eval_jobs" --judge-model "${EVALS_JUDGE_MODEL:-sonnet}" --no-publish --max-cost-usd "$eval_ceiling" --json "$root/.ci/evals.json"'
     # the record names the commit it ran on and the branch it counts for: a detached worktree of the default branch's head records the default branch (bin/paid-cost due)
     rec_branch="$(git symbolic-ref --short -q HEAD || PYTHONPATH=lib python3 -c 'import os, relay_git; print(relay_git.default_branch(os.getcwd()) or "detached")')"
     python3 bin/eval-record --json .ci/evals.json --branch "$rec_branch" --head "$(git rev-parse HEAD)"; rec_rc=$?

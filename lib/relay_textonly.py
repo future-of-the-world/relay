@@ -34,6 +34,7 @@ RULE_TESTS = (
     "tests.test_delegate_small_builds",
     "tests.test_queue.TestStructuredRule",
     "tests.test_rules.Rules",
+    "tests.test_rules.RulesInWorktree",
     "tests.test_roles.Roles",
     "tests.test_agents.Agents",
     "tests.test_principles_rule.TestPrinciplesRule",

@@ -21,10 +21,10 @@
   "where": [
     "lib/relay_queue.py the order of `relay queue`, `relay queue count` (its \"top\") and whatever picks the next item"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-26T04:29:45Z",
+  "taken_by": "wt/fix-first",
+  "closed_at": "2026-10-26T06:44:28Z",
+  "test": "tests/test_queue.py::TestOrderAndParse::test_fix_before_feature_whatever_the_ip",
   "dropped_at": null,
   "dropped_why": null
 }

@@ -63,6 +63,21 @@ class FrontMeasures(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(explain, "graders", "says-what-take-does.md")))
         self.assertTrue(os.path.isfile(os.path.join(explain, "recorded", "bad", "says-what-take-does__no-answer.txt")))
 
+    def test_f3_the_design_track_case_keeps_the_hook_that_refuses_the_agent(self):
+        """The case loads stop-at-agent; its hook is on Agent|Task and exits 2 with a message, so the thinker never runs."""
+        import json
+        import subprocess
+        base = os.path.join(ROOT, "evals", "plugin", "design-track")
+        plugins = [l for l in text("evals", "plugin", "design-track", "case.yaml").split("plugins:")[1:]]
+        self.assertIn('"stop-at-agent"', plugins[0].split("context:")[0])
+        with open(os.path.join(base, "stop-at-agent", "hooks", "hooks.json"), encoding="utf-8") as handle:
+            entries = json.load(handle)["hooks"]["PreToolUse"]
+        self.assertTrue(any(e["matcher"] == "Agent|Task" and any("refuse-agent.py" in " ".join(h["args"]) for h in e["hooks"]) for e in entries))
+        done = subprocess.run(["python3", "-I", os.path.join(base, "stop-at-agent", "hooks", "refuse-agent.py")], input="{}",
+                              capture_output=True, text=True, timeout=30)
+        self.assertEqual(2, done.returncode)
+        self.assertTrue(done.stderr.strip())
+
 
 if __name__ == "__main__":
     unittest.main()

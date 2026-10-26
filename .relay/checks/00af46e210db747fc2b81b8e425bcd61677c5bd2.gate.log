@@ -1,0 +1,15 @@
+head 00af46e210db747fc2b81b8e425bcd61677c5bd2
+cmd bin/ci --quick
+wait 0.0
+ci: library tests FAILED (670s, log: .ci/steps/library-tests.log)
+    FAIL: test_writes_land_in_temporary_folders_not_the_real_ones (test_temporary_folders.TemporaryFoldersTest.test_writes_land_in_temporary_folders_not_the_real_ones)
+    AssertionError: '/Users/amidman/.relay' == '/Users/amidman/.relay'
+    FAILED (failures=1)
+ci: types and lint ok (1s)
+ci: hook tests ok (152s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert ok (852s)
+ci: RED
+exit 1

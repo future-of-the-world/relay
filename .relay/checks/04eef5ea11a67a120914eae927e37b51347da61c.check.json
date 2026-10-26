@@ -1,0 +1,166 @@
+{
+  "branch": "wt/train-18",
+  "findings": [
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
+      "reason": [
+        "bin/ci: run_unittest.py at lines 28 and 73, Write grant at line 95-96 both present"
+      ],
+      "severity": "MEDIUM",
+      "since": "b8f4424546dfcab3c32b6f5ee4cccad5318369d0",
+      "source": "t18-train-18.json",
+      "source_id": "F1",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/conftest.py",
+      "rank": "medium",
+      "reason": [
+        "tests/conftest.py:17-23 uses tmp_default; full pytest 919 passed"
+      ],
+      "severity": "MEDIUM",
+      "since": "b8f4424546dfcab3c32b6f5ee4cccad5318369d0",
+      "source": "t18-train-18.json",
+      "source_id": "F2",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/run_unittest.py",
+      "rank": "medium",
+      "reason": [
+        "tests/run_unittest.py:10-13 patch_unittest; test_queue ran under it OK (97 tests)"
+      ],
+      "severity": "MEDIUM",
+      "since": "b8f4424546dfcab3c32b6f5ee4cccad5318369d0",
+      "source": "t18-train-18.json",
+      "source_id": "F3",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate.py passed (pytest 111 passed with test_queue, test_temporary_folders)"
+      ],
+      "severity": "MEDIUM",
+      "since": "b8f4424546dfcab3c32b6f5ee4cccad5318369d0",
+      "source": "t18-train-18.json",
+      "source_id": "F4",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/test_temporary_folders.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_temporary_folders.py passes; fails on master (no tmp_default module)"
+      ],
+      "severity": "MEDIUM",
+      "since": "b8f4424546dfcab3c32b6f5ee4cccad5318369d0",
+      "source": "t18-train-18.json",
+      "source_id": "F5",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [],
+      "evidence": [],
+      "failing_case": [
+        "the gate fails or the merge does not apply"
+      ],
+      "fix_hint": [],
+      "id": "F6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate passes"
+      ],
+      "path": "tests/tmp_default.py",
+      "rank": "medium",
+      "reason": [
+        "tests/tmp_default.py: one definition for both runners; queue tests test_queue.py:144,168 (fix before feature, default ip 0) pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "b8f4424546dfcab3c32b6f5ee4cccad5318369d0",
+      "source": "t18-train-18.json",
+      "source_id": "F6",
+      "summary": "changed since the last check: combined with master's change by the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b8f4424546dfcab3c32b6f5ee4cccad5318369d0.gate.log",
+  "head": "04eef5ea11a67a120914eae927e37b51347da61c",
+  "item": null,
+  "notes": [
+    "Throwaway worktree at master: test_temporary_folders.py fails (no tmp_default). Pre-existing tests exercised the combined tree."
+  ],
+  "schema": 2,
+  "scope": [
+    "merge check; gate log head b8f4424, exit 0, only the gate commit after it (relay changed lists none); full pytest 919 passed; run_unittest test_queue OK"
+  ],
+  "type": "check"
+}

@@ -182,6 +182,9 @@ class Inert(Fixture):
         write(os.path.join(main, "evals", "plugin", "graders.test.sh"), "exit 0\n")
         os.makedirs(os.path.join(main, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(main, "bin", "ci"))
+        # the copied gate's library tests run through the unittest runner that gives every test its temporary folders
+        for name in ("run_unittest.py", "tmp_default.py"):
+            shutil.copy(os.path.join(ROOT, "tests", name), os.path.join(main, "tests", name))
         # the "types and lint" step of the copied gate: its script, its config and one python file to check
         shutil.copy(os.path.join(ROOT, "bin", "types-lint"), os.path.join(main, "bin", "types-lint"))
         shutil.copy(os.path.join(ROOT, "pyproject.toml"), main)
