@@ -5,7 +5,6 @@ except as the file the A11 fixture copies.
 """
 import os
 import shutil
-import signal
 import stat
 import subprocess
 import sys
@@ -72,24 +71,30 @@ class Fixture(unittest.TestCase):
         git(self.wt, "add", "-A")
         git(self.wt, "commit", "-q", "-m", "work")
 
+    @staticmethod
+    def _stop(proc):
+        """SIGTERM the gate (its handler kills its command's group and frees its slot), wait; SIGKILL only if it ignores that."""
+        proc.terminate()
+        try:
+            proc.communicate(timeout=GATE_STOP_GRACE)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+
     def gate(self, cwd, *args, timeout=GATE_TIMEOUT):
         """Run `relay gate`; past `timeout` seconds the gate is stopped (SIGTERM: it ends its command's process group and
         frees its slot), killed if it ignores that, and the test fails. A gate never outlives its test."""
+        # No new session: the gate stays in the runner's process group, so a stop of that group (SIGTERM, SIGINT, hangup)
+        # reaches the gate and its handler ends the command; a session of its own would orphan it.
         proc = subprocess.Popen([sys.executable, RELAY, "gate", *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                cwd=cwd, env=self.env, start_new_session=True)
+                                cwd=cwd, env=self.env)
         try:
             out, err = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
-            proc.terminate()
-            try:
-                proc.communicate(timeout=GATE_STOP_GRACE)
-            except subprocess.TimeoutExpired:
-                os.killpg(proc.pid, signal.SIGKILL)
-                proc.communicate()
+            self._stop(proc)
             raise AssertionError("relay gate still running after %s s; it was stopped" % timeout)
-        except BaseException:      # an interrupt of the test: the gate must not be left behind either
-            os.killpg(proc.pid, signal.SIGKILL)
-            proc.communicate()
+        except BaseException:      # an interrupt of the test: the gate must end its command too, so stop it the same way
+            self._stop(proc)
             raise
         return subprocess.CompletedProcess(proc.args, proc.returncode, out, err)
 
