@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-26T01:37:18Z",
   "taken_by": "wt/setup-wt-market",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T02:54:44Z",
+  "test": "tests/test_setup.py::SetupInWorktree::test_user_settings_marketplace_never_points_at_a_linked_worktree",
   "dropped_at": null,
   "dropped_why": null
 }
