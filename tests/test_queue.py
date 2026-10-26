@@ -409,10 +409,16 @@ def committed_items(repo):
 QUEUE_COMMIT = "48f7263"
 
 
-def pinned_items(commit=QUEUE_COMMIT):
+def pinned_items(commit: str = QUEUE_COMMIT) -> dict[str, str]:
     """{file name: text} of the top-level .relay/queue items at a pinned commit."""
     names = git(ROOT, "ls-tree", "--name-only", commit, ".relay/queue/").split("\n")
-    return {os.path.basename(n): show_raw(ROOT, commit, n) for n in sorted(names) if n.endswith(".json")}
+    items: dict[str, str] = {}
+    for n in sorted(names):
+        if n.endswith(".json"):
+            text = show_raw(ROOT, commit, n)
+            assert text is not None, n
+            items[os.path.basename(n)] = text
+    return items
 
 
 def committed_text(repo, path):
@@ -498,7 +504,7 @@ class TestNewShape(unittest.TestCase):
 class TestSeedItems(unittest.TestCase):
     """Review F14 and the seed-item findings: the committed items say what is true and follow the queue rule."""
 
-    def test_f14_every_seed_title_is_under_60_characters_and_a_one_line_text(self):
+    def test_f14_every_seed_title_is_under_60_characters_and_a_one_line_text(self) -> None:
         for name, text in pinned_items().items():
             title = rq.parse(name[:-5], text)["title"]
             self.assertLess(len(title), rq.TITLE_MAX, name)
@@ -522,7 +528,7 @@ class TestSeedItems(unittest.TestCase):
         path, _, line = where.rpartition(":")
         self.assertIn("*inject-addition*", git(ROOT, "show", "%s:%s" % (filed, path)).split("\n")[int(line) - 1])
 
-    def test_f7_gate_log_summary_is_a_feature_and_not_a_fix_with_a_failing_case_that_cannot_fail(self):
+    def test_f7_gate_log_summary_is_a_feature_and_not_a_fix_with_a_failing_case_that_cannot_fail(self) -> None:
         item = rq.parse("gate-log-summary", pinned_items()["gate-log-summary.json"])
         self.assertEqual((item["kind"], item["ip"]), ("feature", 0))
         self.assertNotIn("failing_case", item)
@@ -538,7 +544,7 @@ class TestSeedItems(unittest.TestCase):
 
 
 class TestFormat(Base):
-    def test_round_trip_is_byte_identical_for_every_seed_item(self):
+    def test_round_trip_is_byte_identical_for_every_seed_item(self) -> None:
         items = pinned_items()
         self.assertGreaterEqual(len(items), 22)
         for name, text in items.items():
