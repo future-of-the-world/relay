@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 89,
+  "time": 60,
+  "found_at": "2026-10-26T15:15:58Z",
+  "found_in": "relay queue add",
+  "title": "Red gate and probe runs keep no logs to find a cause",
+  "what": [
+    "A red gate keeps its step logs, and a red inert probe keeps its own run's logs before its worktree is removed, under $RELAY_HOME/artifacts/<repo>/<sha>/ for 14 days (a variable sets the days); the folder follows from the commit, so nothing committed holds a path; a green run keeps nothing. The red paid run (item a-red-paid-run-keeps-no-traces-to-find-its-cause) uses the same store. Every path is written relative to a folder named by an environment variable (RELAY_HOME), never as an absolute or home path, in code, docs and messages; <repo> is a name, not a machine path."
+  ],
+  "why": [
+    "Owner, 26 Oct night, on the checks-artifacts design (which recommended logs on the machine for 14 days and test times in one file per machine): \"Мне нравятся рекомендованные варианты, однако не используй прямой путь, опирайся на относительный путь + переменную окружения\". Measured that night: the inert step's red-then-green of 25 Oct had to be traced from gate logs alone, because the probe's logs are deleted at once (bin/ci:69) and the gate's step logs go with the worktree. Build after relay-home-means-two-different-folders, since RELAY_HOME names two folders today. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A gate whose library tests fail, in a worktree that is then removed: no log of the failing step is left anywhere."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same red gate leaves its step logs under $RELAY_HOME/artifacts/<repo>/<sha>/gate/; a red probe leaves its logs under .../inert/; a green gate leaves nothing; folders older than the set days are removed; tests use a temporary RELAY_HOME; no committed file and no message names an absolute path."
+  ],
+  "where": [
+    "lib/relay_gate.py (keep the step logs of a red gate)",
+    "bin/ci or its Python port (the inert probe deletes its run's logs before anyone reads them)",
+    "lib/relay_config.py (HOME_DIR from RELAY_HOME)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
