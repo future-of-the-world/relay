@@ -1,0 +1,8 @@
+{
+  "name": "stop-at-agent",
+  "version": "0.1.0",
+  "description": "Eval fixture of the design-track case only: refuses every Agent call, so the thinker never runs.",
+  "author": {
+    "name": "amidman"
+  }
+}

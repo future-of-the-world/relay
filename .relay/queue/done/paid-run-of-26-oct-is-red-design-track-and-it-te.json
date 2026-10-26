@@ -22,10 +22,10 @@
     "evals/plugin/design-track/ the eval case, its prompt and graders",
     "evals/plugin/it-terms-ru/ the eval case, its prompt and graders"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-26T03:29:52Z",
+  "taken_by": "wt/red-wave",
+  "closed_at": "2026-10-26T05:52:48Z",
+  "test": "evals/plugin/design-track::thinker-started",
   "dropped_at": null,
   "dropped_why": null
 }

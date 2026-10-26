@@ -62,7 +62,10 @@
   never "в отдельной branch"), and it takes no apostrophe before a Russian
   ending: not "commit'ов". Turn the Russian words around the term into the
   case it needs ("в нескольких commit", "после merge"), or leave the term
-  uninflected.
+  uninflected. After a gloss ("gate, то есть полная проверка") a verb or an
+  adjective whose subject is the term still agrees with the term: "gate тоже
+  прошёл", never "gate тоже зелёная"; a pronoun that points at the Russian gloss
+  ("hook, то есть автоматическая проверка перед merge, и она прошла") is allowed.
 - Talk to me in my native language. When the generated instructions name it
   ("My native language: ..."), use it. Otherwise ask me once, directly, and
   keep the answer in the project's memory; do not infer it from the language

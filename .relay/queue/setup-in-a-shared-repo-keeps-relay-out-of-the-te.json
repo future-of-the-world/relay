@@ -1,0 +1,23 @@
+{
+  "kind": "feature",
+  "ip": 70,
+  "time": 60,
+  "found_at": "2026-10-26T03:36:03Z",
+  "found_in": "relay queue add",
+  "title": "Setup in a shared repo keeps relay out of the team's files",
+  "what": [
+    "In a repository other people also use, relay setup writes relay's project settings (enabled relay plugins, marketplace) where they do not reach the team (for example .claude/settings.local.json, which git does not track), so a teammate without relay does not get \"plugin not found\". Design when taken: how setup knows a repo is shared, what stays committed."
+  ],
+  "why": [
+    "Found 26 Oct while answering the owner's question \"Как после будут подключаться новые проекты\": setup writes relay's plugins into the project's .claude/settings.json, which is committed to the project's repo. Connecting Glonass repositories stays deferred (owner, 25 Oct). IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "lib/relay_setup.py what setup writes into a project's .claude/settings.json"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

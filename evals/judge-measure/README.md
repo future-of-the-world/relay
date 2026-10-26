@@ -47,3 +47,6 @@ writes `results/` here (ignored by git); `git status --short` must be empty afte
 `min_len` in questions.json): result of 2026-10-25 on sonnet, `--case measure-ru-style --runs 3 -j 1`, $0.095: the 6 live bad replies
 of 25 Oct (feminine branch, the "project not named" opener, or both) were judged FAIL and the owner-approved good reply PASS in all
 3 runs, 21 of 21 verdicts and 63 of 63 votes right. tally.py wants every case, so for this one case read the `--json` by hand.
+Re-measured 2026-10-26 after the rubric named gate and the gloss case (9 items, `--case measure-ru-style --runs 3 -j 1`, $0.185):
+the 7 bad replies, among them run 3 of the 26 Oct paid run ("Gate, то есть ... проверка, тоже зелёная"), were judged FAIL and the 2
+good ones, among them run 2 of that run (a pronoun after a gloss), PASS in all 3 runs: 27 of 27 verdicts, 81 of 81 votes right.

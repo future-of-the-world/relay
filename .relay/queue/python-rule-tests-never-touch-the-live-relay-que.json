@@ -1,0 +1,37 @@
+{
+  "kind": "fix",
+  "ip": 94,
+  "time": 45,
+  "found_at": "2026-10-26T06:46:57Z",
+  "found_in": "finding F5 of review-tests-tmp.json",
+  "title": "Python rule (tests never touch the live .relay/queue)…",
+  "what": [
+    "tests/test_queue.py:488: MEDIUM: F5 Python rule (tests never touch the live .relay/queue): several tests read the checkout's live queue, and test_f7 breaks with KeyError once the gate-log-summary feature is done"
+  ],
+  "why": [
+    "Found 26 Oct by the review of wt/tests-tmp (outside that change: it did not touch these tests). Breaks the project's Python rule \"Tests use a temporary folder and never touch the live .relay/queue\". A gate would go red on a queue event (an item moving to done/), not on a code change."
+  ],
+  "failing_case": [
+    "tests/test_queue.py:488 reads committed_items(ROOT)[\"gate-log-summary.json\"]; committed_items lists only the top level of",
+    ".relay/queue/ (not done/). When the owner's queue moves gate-log-summary to .relay/queue/done/ (the item is taken and",
+    "finished), the test raises KeyError and the gate goes red for a queue event, not a code change. Other live reads:",
+    "tests/test_queue.py:462 and :504 (every live item), :476-485 (git log of the live queue in ROOT),",
+    "tests/test_split_test_files.py:65 (live done item). Should: each reads a fixture copy in a temporary folder, or a",
+    "pinned commit (as :496 does with b176e6d)."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. With .relay/queue/gate-log-summary.json moved to .relay/queue/done/ in a scratch copy, tests/test_queue.py passes.",
+    "2. test_f7 still asserts kind feature, ip 0, no failing_case, on a fixed copy of the item.",
+    "3. test_f6 (pinned b176e6d) keeps passing unchanged."
+  ],
+  "where": [
+    "tests/test_queue.py:488"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

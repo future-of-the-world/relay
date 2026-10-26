@@ -27,8 +27,8 @@
   ],
   "taken_at": "2026-10-26T02:56:59Z",
   "taken_by": "wt/rules-wt",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T04:24:13Z",
+  "test": "tests/test_rules.py::RulesInWorktree::test_full_text_paths_from_a_linked_worktree_name_the_main_checkout",
   "dropped_at": null,
   "dropped_why": null
 }

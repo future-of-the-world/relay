@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 94,
+  "time": 30,
+  "found_at": "2026-10-26T04:10:28Z",
+  "found_in": "relay queue add",
+  "title": "Tests write new executables macOS scans 0.75 s each",
+  "what": [
+    "Tests that need fake tools reuse ones that already ran (hardlinks or symlinks to a cached copy) instead of writing a new executable file each time, so macOS's first-run scan happens once per tool, not once per test."
+  ],
+  "why": [
+    "Measured 26 Oct: on the owner's Mac, the first run of a newly written executable (also a copy or an APFS clone) takes 730-790 ms; the same file run again takes 6 ms; a hardlink or symlink to a file that already ran takes about 4 ms; the whole Mac does about 2.7 such scans per second however many run in parallel. In the installer tests the scans are about 45% of the time, under 5% in the 3 other test files measured. The front chose this over turning on Developer Tools for the app running Claude Code (a security cost, unverified). Owner can reverse. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A test that writes a fake tool and runs it pays about 750 ms on the first run on the owner's Mac."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The installer tests' wall time drops by about the scan share; every test still passes; a fake tool's behaviour per test is unchanged."
+  ],
+  "where": [
+    "tests/ the fixtures that write fake tool scripts (the installer tests most)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

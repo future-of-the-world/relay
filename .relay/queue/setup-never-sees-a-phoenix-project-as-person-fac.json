@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 80,
+  "time": 15,
+  "found_at": "2026-10-26T04:22:34Z",
+  "found_in": "relay queue add",
+  "title": "setup never sees a Phoenix project as person-facing",
+  "what": [
+    "detect() finds an Elixir Phoenix project (lib/<app>_web/) as person-facing, so setup turns on the look review (product plugin) for it."
+  ],
+  "why": [
+    "Found 26 Oct by the design of setup-turns-off-for-a-project-the-plugins-it-doe: os.path.exists with a \"*\" never matches a real folder."
+  ],
+  "failing_case": [
+    "A folder with lib/shop_web/ gives detect()[\"ui\"] False."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "lib/shop_web/ gives ui True; a folder without any lib/*_web gives False."
+  ],
+  "where": [
+    "lib/relay_setup.py detect(): os.path.exists(\"<root>/lib/*_web\") takes the glob as a literal path"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
