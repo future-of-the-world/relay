@@ -790,8 +790,7 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
             n += 1
         value = ip
         if value is None:
-            top = [i["ip"] for i in reader.items().values() if not i["problems"] and i["kind"] == "feature" and i["state"] == "open"]
-            value = (1 + max(top, default=0)) if kind == "fix" else 0
+            value = 0                                  # a fix lists above every feature by kind, so it needs no lifted ip
         item = new_item(kind, value, minutes, found, context, title.strip(), what or title.strip(), why, failing, pass_cases, where, failing_kind)
         return Plan(slug, {_path(slug): serialize(slug, item)}, f"{kind}, ip {value}", "queued")
 

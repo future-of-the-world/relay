@@ -788,10 +788,9 @@ relay only; they read, they never write items: the writes stay `add`, `take`, `r
 
 ### 10.3 Order, pick-up, close (m-4 fixed)
 
-- Order: ip descending; equal ip, older `found_at` first, then slug.
-- A new `fix` gets ip = 1 + the highest ip among open features (0 when
-  none) unless `--ip` is given; a new `feature` gets the owner's ip, default
-  0. `relay queue ip <slug> <n>` changes it.
+- Order: every open fix before every open feature; then ip descending; equal ip, older `found_at` first, then slug.
+- A new `fix` or `feature` gets ip 0 unless `--ip` is given (stored as
+  given); a fix lists above every feature by kind, not by ip. `relay queue ip <slug> <n>` changes it.
 - Take: `relay queue take <slug> -C <worktree> --findings <path>`:
   1. refuses when the item is `taken` on the default branch ("taken by
      wt/other"), read again at the head of every landing try (10.4 step 2),
