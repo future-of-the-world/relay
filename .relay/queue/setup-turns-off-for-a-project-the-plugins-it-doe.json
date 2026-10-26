@@ -1,0 +1,23 @@
+{
+  "kind": "feature",
+  "ip": 91,
+  "time": 60,
+  "found_at": "2026-10-26T01:36:56Z",
+  "found_in": "relay queue add",
+  "title": "setup turns off for a project the plugins it does not use",
+  "what": [
+    "relay setup can write, for one project, which plugins are off (enabledPlugins set to false) as well as which are on, including plugins that are on globally and plugins not from relay's marketplace, and it writes into a project only the files that project needs."
+  ],
+  "why": [
+    "Needed by relay-s-repo-records-the-plugins-relay-developme (owner, 26 Oct: \"зафиксируй только нужное для разработки relay, первым испытателем relay будет сам relay\"). Seen 26 Oct, `bin/relay setup .` on relay's own worktree: it wrote enabledPlugins core, observe, delegate, front @relay = true and no false entries (no way to turn off gopls-lsp@claude-plugins-official, issues, product, openspec for relay); it also wrote a skeleton CLAUDE.md, bin/check and bin/wt from templates and added [flow], [specs], [observe] to .claude/kit.toml. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "lib/relay_setup.py what setup writes into a project's .claude/settings.json"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
