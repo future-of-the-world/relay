@@ -1,0 +1,363 @@
+{
+  "branch": "wt/setup-scope",
+  "findings": [
+    {
+      "details": [
+        "Owner, 26 Oct: \"\u0417\u0430\u0447\u0435\u043c \u043c\u044b \u0432\u044b\u0437\u0432\u0430\u043b\u0438 setup \u0438\u0437 worktree \u0432\u043e\u043e\u0431\u0449\u0435, \u044d\u0442\u043e \u0440\u0430\u0437\u0432\u0435 \u043d\u0435 \u043e\u0434\u043d\u043e\u0440\u0430\u0437\u043e\u0432\u0430\u044f \u043a\u043e\u043c\u0430\u043d\u0434\u0430, \u043e\u043d\u0430 \u0436\u0435 \u0441\u0434\u0435\u043b\u0430\u043b\u0430 \u0440\u043e\u0432\u043d\u043e \u0442\u043e \u0447\u0442\u043e \u043d\u0443\u0436\u043d\u043e\", then picked \"A\": project setup never touches the global files, the global part is a separate command run once. Earlier the same day the owner picked \"a)\" (skip global from a worktree and print a list), then asked \"\u043f\u043e\u0447\u0435\u043c\u0443 \u0442\u044b \u043d\u0430\u0441\u0442\u0430\u0438\u0432\u0430\u0435\u0448\u044c \u043d\u0430 \u0432\u044b\u0432\u043e\u0434\u0435 \u0441\u043f\u0438\u0441\u043a\u043e\u043c\"; this item replaces both. Then, on the front calling it a feature that closes a real hole: \"\u0421\u0434\u0435\u043b\u0430\u0439 \u044d\u0442\u043e fix\". Facts, 26 Oct: `relay setup <dir>` applies the global part by default (lib/relay_setup.py:741, apply_global=True; bin/relay:388 --no-global turns it off); a worker ran `bin/relay setup .` in a worktree of relay without --no-global and setup rewrote ~/.claude/settings.json's relay marketplace path to the worktree; doctor checks only that the entry exists (lib/relay_setup.py:966). Build on the same branch as setup-turns-off-for-a-project-the-plugins-it-doe (same file). IP chosen by the front (agent-chosen).",
+        "Also: bin/relay the setup flags (--no-global, --global) and the usage text",
+        "Also: lib/relay_setup.py the doctor checks of the relay marketplace"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "26 Oct: `bin/relay setup .` run by a worker in /Users/amidman/relay/.worktrees/relay-plugins rewrote ~/.claude/settings.json extraKnownMarketplaces.relay.source.path to that worktree (backup settings.json.20261026-053547.bak); in a temporary HOME, `relay setup <project>` without flags still writes ~/.claude/settings.json."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "In a temporary HOME, `relay setup <project>` leaves every file under the Claude folder byte-identical and writes only into the project; `relay setup --global` (or `relay install`) writes the marketplace at relay's main checkout; doctor reports a marketplace path that does not exist or is a linked worktree."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_setup.py:52 test_project_setup_leaves_every_file_in_the_claude_folder_byte_identical: temp HOME with a settings.json marketplace path and CLAUDE.md, setup(proj) leaves the Claude folder byte-identical; fails at b5487a8, passes at head. Also :65 (empty Claude folder stays empty), :71 (to-do names relay setup --global), :84 (doctor flags missing or worktree marketplace path), :77 (global command writes main checkout). Gate 8739ae9 exit 0, only a gate commit after."
+      ],
+      "severity": "HIGH",
+      "since": "b5487a8bbcbf71bb610004863e8385fd4c39b618",
+      "source": "queue",
+      "summary": "Project setup writes the user's global files",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The design's fact at line 35-37 (\"the blocks merge_bindings adds ... are exactly relay_defaults()\")",
+        "holds only for flow \"none\": the [flow] block is `kind = \"{flow}\"`, and flow is \"issues\" whenever the run says --flow issues",
+        "or detect() finds issue skills, an [issues] section or .issues/. Section 4's rule \"add a section only when its value is",
+        "not what a missing section means\" is right; line 108 applies it wrongly to [flow]. The fix stays inside the design: add",
+        "[flow] when the chosen flow is not \"none\". Size: 5 minutes in the design, 15 in the build (one test)."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:251   \"flow\": f'\\n[flow]\\nkind = \"{flow}\"\\n',",
+        "plugins/core/hooks/flow-stage.py:45-48   name = cfg.get(\"flow\", {}).get(\"kind\"); if name not in (\"\", \"none\"): bind it",
+        "lib/relay_setup.py:1015   flow = cfg.get(\"flow\", {}).get(\"kind\", \"none\")",
+        "design line 108: \"`[flow]`, `[delegate]`, `[observe]`: never added (they equal `relay_defaults()`).\""
+      ],
+      "failing_case": [
+        "A project with .claude/kit.toml holding only [project] and [gate] (no [flow], no [issues], no .issues/), run",
+        "`relay setup <dir> --flow issues`.",
+        "Today: merge_bindings appends `[flow] kind = \"issues\"` (lib/relay_setup.py:251 builds the block from `flow`), so",
+        "plugins/core/hooks/flow-stage.py:45 reads kind \"issues\" and the issue stages fire.",
+        "Under the design (section 4, line 108: \"[flow] ... never added (they equal relay_defaults())\"): nothing is added,",
+        "issues@relay is set true, but flow-stage.py finds no [flow] kind and binds nothing; doctor (relay_setup.py:1015) reports",
+        "\"flow bound (none)\" and skips the issue flow's bindings_required check. The issue flow is silently off.",
+        "Should: `[flow] kind = \"issues\"` is written, as today."
+      ],
+      "fix_hint": [
+        "Section 4: \"[flow]: added when the chosen flow is not \"none\"; [delegate], [observe]: never added.\" Add the test case of",
+        "pass-case 1 to the table."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 108,
+      "pass_cases": [
+        "1. kit.toml without [flow], `--flow issues` -> kit.toml gains `[flow]\\nkind = \"issues\"`; issues@relay true.",
+        "2. kit.toml without [flow], no --flow, nothing detected -> no [flow] added (the design's intent; T11 first part).",
+        "3. kit.toml without [flow], `--flow none` -> no [flow] added (the value is the default).",
+        "4. Relay tree (T1) -> kit.toml byte-identical."
+      ],
+      "path": "artifact",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup_off.py:192 test_t17_flow_issues_is_recorded_and_read_back (kit.toml gains [flow] kind issues, issues@relay true); passes at head, fails at b5487a8 (25 of 27 of the file fail there)."
+      ],
+      "severity": "MEDIUM",
+      "since": "ac08cd9be4221227c626eb1644c43d9635640c62",
+      "source": "review-design-setup-off.json",
+      "source_id": "F1",
+      "summary": "never adding [flow] to an existing kit.toml drops `relay setup --flow issues`: the issues plugin is on but the flow-stage hook binds nothing",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the probe. The new FIX exists to protect the merge hook (design line 138-139: \"This is the protection the",
+        "relay-plugins item exists for\"); a local-scope disable is exactly the case a person reaches with Claude Code's own",
+        "command, and it is invisible in git. The fix stays inside the design: \"actually on\" = local value, else project, else",
+        "user, else off. Setup itself must not write settings.local.json (it is the person's own). Size: 5 minutes design, 15 build."
+      ],
+      "evidence": [
+        "cd <scratch> (settings.json observe@relay true, settings.local.json observe@relay false); claude plugin list --json",
+        "  {'id': 'observe@relay', 'enabled': False, 'scope': 'user'} / {'id': 'observe@relay', 'enabled': False, 'scope': 'project'}",
+        "rm settings.local.json; claude plugin list --json",
+        "  {'id': 'observe@relay', 'enabled': True, ...} (both)",
+        "claude plugin disable --help: -s, --scope <scope>  Installation scope: user, project, local"
+      ],
+      "failing_case": [
+        "Project .claude/settings.json: `core@relay: true`; .claude/settings.local.json: `core@relay: false` (what",
+        "`claude plugin disable core@relay --scope local` writes). Claude Code shows the plugin disabled; the merge hook and the",
+        "main-checkout guard do not run. The design's doctor (line 20, line 136-137) reads the project value true and passes.",
+        "Should: FIX \"core@relay is off for this project ...\".",
+        "Probe, 26 Oct, scratch folder: project settings observe@relay true + settings.local.json observe@relay false ->",
+        "`claude plugin list --json` shows observe@relay enabled False; the same folder without the local file -> enabled True."
+      ],
+      "fix_hint": [
+        "Line 20 and section 6: define \"actually on\" as settings.local.json, else settings.json, else user settings, else off;",
+        "add pass-cases 1 and 2 to T12."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 20,
+      "pass_cases": [
+        "1. local false, project true, user true -> doctor FIX for that plugin.",
+        "2. local true, project false -> passes (local wins).",
+        "3. no local file, project false, user true -> FIX (T12 first part).",
+        "4. no local file, no project key, user true -> passes (T12 second part).",
+        "5. The same rule feeds the spec check (T14): local openspec@relay true, [specs] none -> FIX."
+      ],
+      "path": "artifact",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup_off.py:296 test_t12_core_is_judged_by_the_scope_claude_code_reads_first: local, project, user cases and the --scope local hint; passes at head, fails at b5487a8."
+      ],
+      "severity": "MEDIUM",
+      "since": "ac08cd9be4221227c626eb1644c43d9635640c62",
+      "source": "review-design-setup-off.json",
+      "source_id": "F2",
+      "summary": "doctor's 'actually on' (project, else user, else off) ignores .claude/settings.local.json, which beats the project file",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the design against the rename item, whose Why says the rename must move settings \"so no project",
+        "silently loses the merge hook\". The brief says this design \"must not make that rename harder\"; deriving false from the",
+        "marketplace while the true set stays a separate literal (three copies: relay_plugins_for line 305, USER_SCOPE_PLUGINS",
+        "line 608, merge_user_settings callers 742/1147, plus doctor 967) turns a missed literal from harmless into a silent",
+        "off. The same holds for any plugin added to the marketplace later and turned on at user scope only: the next setup run",
+        "writes it false in every project. Fix inside the design: one always-on tuple used by all of them, and setup refuses",
+        "when an always-on name is not in marketplace.json (fact to code, principle 5). Size: 15 design, 30 build."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:305  plugins = [\"core\", \"observe\", \"delegate\", \"front\"]",
+        "lib/relay_setup.py:608  USER_SCOPE_PLUGINS = (\"core\", \"observe\", \"delegate\", \"front\")",
+        "lib/relay_setup.py:742, 1147  merge_user_settings([\"core\", \"observe\", \"delegate\", \"front\"])",
+        "design line 70-78 (table over marketplace plugins, row 5 \"no key -> false\"); line 150-152 (literals stay for the rename);",
+        "design T15: \"Fixture marketplace.json named amidman (same plugin names)\".",
+        "queue the-core-plugin-becomes-relay-amidman: \"plugin ids become relay@amidman, ...\" \"so no project silently loses the merge hook\""
+      ],
+      "failing_case": [
+        "The planned rename (queue item the-core-plugin-becomes-relay-amidman) renames plugin core to relay and the marketplace",
+        "to amidman. Suppose marketplace.json is updated and relay_plugins_for's literal list (lib/relay_setup.py:305, which the",
+        "design keeps, line 150-152) still says \"core\". The design's table iterates marketplace.json: p = \"relay\" is not in",
+        "{core, observe, delegate, front}, no key exists after [plugin_key] deletes core@relay, so row 5 writes",
+        "`relay@amidman: false` into every project file. A project false beats the user true (the design's own probe), so the",
+        "merge checks and the guard stop in every project set up again. Today (no false lines) the same miss leaves a dangling",
+        "`core@amidman: true` and the user-scope plugin keeps running.",
+        "T15 does not catch it: its fixture keeps \"the same plugin names\".",
+        "Should: setup never writes false for an always-on plugin; a name mismatch is refused before any write."
+      ],
+      "fix_hint": [
+        "Section 2/7: name one always-on tuple (e.g. USER_SCOPE_PLUGINS) that relay_plugins_for, merge_user_settings and doctor",
+        "read; table row 0: \"p is always-on -> true, never false\"; a check before any write that every always-on name is in",
+        "marketplace.json. Add pass-case 1 as a test next to T15."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 74,
+      "pass_cases": [
+        "1. Fixture marketplace.json with \"relay\" in place of \"core\", always-on list still naming \"core\" -> setup raises",
+        "   ValueError naming the missing always-on plugin; settings.json unchanged (bytes and mtime).",
+        "2. Fixture marketplace.json with names matching the always-on list (T15) -> every key ends @amidman, none ends @relay.",
+        "3. Relay tree (T1) -> as T1.",
+        "4. A test reads marketplace.json and asserts every always-on name is a plugin name in it."
+      ],
+      "path": "artifact",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup_off.py:236 test_t19 (always-on plugin missing from marketplace: ValueError, settings.json untouched) and :246 test_t20; pass at head, fail at b5487a8."
+      ],
+      "severity": "MEDIUM",
+      "since": "ac08cd9be4221227c626eb1644c43d9635640c62",
+      "source": "review-design-setup-off.json",
+      "source_id": "F3",
+      "summary": "false lines derived from marketplace.json against a literal always-on list: a plugin rename the literal misses writes relay@amidman: false and silently turns the merge hook off",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Option B (line 89-95) makes the existing relay key the record of --product and --flow issues on an",
+        "existing project; section 7 (line 147-149) then claims the rename needs \"no extra migration code\" because the false",
+        "lines are derived. Only the false lines with no other source are derivable; the true lines kept under B are not. The",
+        "[plugin_key] table already maps old -> new, so the fix is small and inside the design: carry the old value to the new",
+        "key when the new key is absent, then apply rows 1-3. This also matches the rename item. Size: 10 design, 20 build."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:336-339  gone = set(load_old_names()[\"plugin_key\"]) | set(remove); ... enabled.pop(key)",
+        "lib/relay_old_names.toml [plugin_key]  \"sdd@relay\" = \"openspec@relay\" (an old -> new map, today used only to delete)",
+        "design line 89-95 (option B keeps existing keys), line 147-149 (\"deleted through [plugin_key] ... no extra migration code\")",
+        "queue the-core-plugin-becomes-relay-amidman What: \"relay setup's migrate moves existing settings (enabledPlugins keys ...)\""
+      ],
+      "failing_case": [
+        "A Phoenix project set up with `relay setup <dir> --product` (detect() never sees lib/shop_web, the design's own outside",
+        "note), so its settings hold `product@relay: true` only because option B keeps it. After the rename, a plain",
+        "`relay setup <dir>`: [plugin_key] maps product@relay -> product@amidman and merge_settings (lib/relay_setup.py:336-339)",
+        "pops the old key; row 1 does not apply (d[\"ui\"] False), row 4 finds no product@amidman key, row 5 writes",
+        "`product@amidman: false`. The look review is silently off. The same happens to an `issues@relay: true` that only",
+        "option B keeps (keys of other marketplaces are untouched and do not lose anything).",
+        "Should: product@amidman: true (the value moves to the new key, as the rename item says: \"migrate moves existing settings\")."
+      ],
+      "fix_hint": [
+        "Section 2 \"kept as today\" and section 7: an old key from [plugin_key] moves its value to the new key when the new key is",
+        "absent (then the table applies); add pass-case 1 as a test."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 148,
+      "pass_cases": [
+        "1. Settings product@relay true, no ui marker, [plugin_key] product@relay -> product@amidman, plain run -> product@amidman true, no product@relay key.",
+        "2. Settings issues@relay false, mapped -> issues@amidman false.",
+        "3. Settings sdd@relay true with today's [plugin_key] (sdd@relay -> openspec@relay), [specs] none -> openspec@relay false (the spec row still decides).",
+        "4. No old key -> rows of the table as designed (T9)."
+      ],
+      "path": "artifact",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup_off.py:268 test_t21 and :279 test_t22: old key values move to the new key and the spec row decides; pass at head, fail at b5487a8."
+      ],
+      "severity": "MEDIUM",
+      "since": "ac08cd9be4221227c626eb1644c43d9635640c62",
+      "source": "review-design-setup-off.json",
+      "source_id": "F4",
+      "summary": "section 7 says the rename deletes old X@relay keys and re-derives false, but under option B the kept values are data: a hand or --product true is lost",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading flag(). Every test in the design calls setup() directly (T1-T16), so a CLI that drops the second",
+        "flag passes all of them. Cheap to fix in the design: name a repeated-flag parse and one CLI test. Size: 5."
+      ],
+      "evidence": [
+        "bin/relay:135-140  if name in args: i = args.index(name); value = args[i + 1]; del args[i:i + 2]; return value",
+        "bin/relay:393  root = os.path.realpath(args[0] if args else os.getcwd())   (leftover args never checked)"
+      ],
+      "failing_case": [
+        "`relay setup . --off a@m --off b@m` built with today's helper `flag(args, \"--off\")` (bin/relay:134-143): only a@m is",
+        "taken; \"--off b@m\" stays in args and cmd_setup never rejects leftovers, so b@m is silently not turned off.",
+        "Should: both a@m and b@m false, or a usage error."
+      ],
+      "fix_hint": [
+        "Section 8: \"--off is collected by a loop (all occurrences); leftover arguments starting with -- are a usage error\"; add pass-case 1."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 54,
+      "pass_cases": [
+        "1. CLI `relay setup <dir> --off a@m --off b@m --no-global` (both in the fixture registry) -> both keys false.",
+        "2. CLI with one --off -> as T1.",
+        "3. CLI `--off` with no value -> usage error, nothing written."
+      ],
+      "path": "artifact",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup_off.py:353 test_t23_off_is_collected_and_a_bad_flag_writes_nothing and :365 test_t23_one_off, through the CLI; pass at head, fail at b5487a8."
+      ],
+      "severity": "LOW",
+      "since": "ac08cd9be4221227c626eb1644c43d9635640c62",
+      "source": "review-design-setup-off.json",
+      "source_id": "F5",
+      "summary": "--off is 'repeatable' but bin/relay flag() takes only the first occurrence and cmd_setup ignores leftovers; no test goes through the CLI",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE as a design gap (traced by reading doctor; not run on relay). The queue item's point is that relay is the",
+        "first project that runs relay; a doctor that is red by design on relay teaches the reader to ignore it. Not a defect of",
+        "the off-plugins logic; the smallest answer is a line under \"Not decided\" or a queue item (relay's quiet check / gate keys).",
+        "Size: 5 in the design."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:1053-1055  for s in (\"check\", \"ci\", \"wt\"): path = cfg.get(\"gate\", {}).get(s, f\"bin/{s}\"); ok(... os.path.isfile(path) ...)",
+        "ls /Users/amidman/relay: bin/check, bin/wt absent; .claude/kit.toml = [delegate] max_parallel = 6"
+      ],
+      "failing_case": [
+        "Relay tree after the design is built and T1 is applied: `relay doctor /Users/amidman/relay` reports FIX",
+        "\"gate.check exists and is executable\" (bin/check absent; kit.toml has no [gate], so the default bin/check is checked,",
+        "lib/relay_setup.py:1053-1055) and FIX \"gate.wt exists\" (no bin/wt). The design (line 122-126, 39-40) keeps both FIX",
+        "on purpose and says bin/ci cannot be gate.check. A later `core@relay is off` FIX shows as a third red line among two",
+        "that are always red.",
+        "Should: relay's doctor is green when relay is set up as designed, or the design names how it gets there."
+      ],
+      "fix_hint": [
+        "Add to \"Not decided\": relay's doctor keeps gate.check and gate.wt FIX until relay has a quiet check and a worktree",
+        "script (or kit.toml names what relay uses); queue it as an item."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 125,
+      "pass_cases": [
+        "1. Relay tree after T1: doctor's project part has no FIX (or the design lists the two FIX as accepted, with the item that clears them).",
+        "2. Folder with kit.toml and no bin/check (T10): doctor FIX as today."
+      ],
+      "path": "artifact",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup_off.py:323 test_t13 asserts doctor on the setup output reports exactly the two known fixes; passes at head."
+      ],
+      "severity": "LOW",
+      "since": "ac08cd9be4221227c626eb1644c43d9635640c62",
+      "source": "review-design-setup-off.json",
+      "source_id": "F6",
+      "summary": "relay, the first tester, keeps two permanent doctor FIX lines (gate.check, gate.wt), so the new always-on FIX lands among red lines nobody clears",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (traced by reading; not run, it would touch live files). The design's critique already notes sync runs (line",
+        "209-211) but the procedure's expected outcome does not. Size: 5."
+      ],
+      "evidence": [
+        "bin/relay:421-425  results = relay_rules.sync(..., only={d[\"name\"], \"global\"} if not no_global else {d[\"name\"]}, ...); except Held: return 1",
+        "lib/relay_rules.py:37  folder = os.path.join(ROOT, \"rules\")",
+        "git check-ignore -v CLAUDE.local.md -> .git/info/exclude:7",
+        "queue rules-rendered-from-a-linked-worktree-write-that: taken by wt/rules-wt"
+      ],
+      "failing_case": [
+        "`bin/relay setup . --off gopls-lsp@claude-plugins-official --no-global` in /Users/amidman/relay/.worktrees/relay-plugins:",
+        "after setup() writes settings.json, cmd_setup (bin/relay:421-425) calls relay_rules.sync(only={\"relay\"}) with ROOT =",
+        "the worktree; it renders /Users/amidman/relay/CLAUDE.local.md (projects.toml [relay] file) from the worktree's rules",
+        "(lib/relay_rules.py:37 builds paths from ROOT), or, when merges are waiting for a paid run, prints \"Not synced\" and",
+        "exits 1. Either way the run is not \"settings.json and nothing else\"; an exit 1 reads as a failed setup.",
+        "Should: the step names the expected sync outcome (untracked CLAUDE.local.md rewritten, or exit 1 held) as acceptable,",
+        "or runs after rules-rendered-from-a-linked-worktree-write-that lands."
+      ],
+      "fix_hint": [
+        "Reword line 196-198: expected git diff is settings.json only; sync may rewrite the untracked CLAUDE.local.md or stop held (exit 1)."
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 197,
+      "pass_cases": [
+        "1. The design's relay-plugins paragraph names: git diff = .claude/settings.json only; CLAUDE.local.md (ignored via .git/info/exclude) may be rewritten; exit 1 \"Not synced\" is not a setup failure."
+      ],
+      "path": "artifact",
+      "rank": "low",
+      "reason": [
+        "LOW wording in the design's procedure text (artifact); no code case, not checked here."
+      ],
+      "severity": "LOW",
+      "since": "ac08cd9be4221227c626eb1644c43d9635640c62",
+      "source": "review-design-setup-off.json",
+      "source_id": "F7",
+      "summary": "the relay-plugins step expects 'T1's settings.json and nothing else', but cmd_setup then runs relay sync from the linked worktree, which can rewrite CLAUDE.local.md or exit 1 when held",
+      "verdict": "GAP"
+    }
+  ],
+  "gate": "8739ae9580875316416f8c7a9c2dae0ba0122c13.gate.log",
+  "head": "5ecc184d0d4af691ad660921b3b2c12f3426e825",
+  "item": "project-setup-writes-the-user-s-global-files",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Q1 only. Ran tests/test_setup.py and tests/test_setup_off.py (73 passed). Ran test_setup.py SetupIsProjectOnly in a throwaway worktree at b5487a8: 4 of 5 fail there. git grep shows no apply_global or --no-global left in bin, lib, docs (except history notes)."
+  ],
+  "type": "check"
+}
