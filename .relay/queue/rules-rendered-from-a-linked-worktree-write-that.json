@@ -25,8 +25,8 @@
   "where": [
     "lib/relay_rules.py:37"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T02:56:59Z",
+  "taken_by": "wt/rules-wt",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
