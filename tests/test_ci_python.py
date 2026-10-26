@@ -237,6 +237,29 @@ class ProbeBesideTheRun(unittest.TestCase):
         self.assertEqual(len(self.worktrees()), 1)
         probe.stop()   # twice is safe
 
+    def test_the_probe_is_running_before_the_first_step_and_a_step_that_stops_the_run_removes_it(self) -> None:
+        # B: the nested run starts before "library tests", not after "plugin validate"; an interrupt in a step stops it
+        flag = os.path.join(self.root, "flag")
+        env = {"PATH": os.environ["PATH"], "RELAY_GATE": self.head, "FLAG": flag}
+        ci = relay_ci.Ci(self.root, True, env=env)
+        ci.nested = ("sh", "-c", 'until [ -e "$FLAG" ]; do sleep 0.02; done')
+        started = []
+
+        def library_tests(log: Any) -> int:
+            try:
+                assert ci.probe is not None and ci.probe.proc is not None
+                started.append(ci.probe.proc.poll() is None)   # still running: it began before this step
+                raise KeyboardInterrupt
+            finally:
+                open(flag, "w").close()   # lets a nested run end, so a failing test never hangs
+        ci.lib_tests = library_tests   # type: ignore[assignment,method-assign]
+        with redirect_stdout(io.StringIO()), self.assertRaises(KeyboardInterrupt):
+            ci.main()
+        self.assertEqual(started, [True])
+        assert ci.probe is not None and ci.probe.proc is not None
+        self.assertIsNotNone(ci.probe.proc.poll())
+        self.assertEqual(len(self.worktrees()), 1)
+
     def test_a_probe_that_dies_makes_inert_failed(self) -> None:
         # case 2: the nested run is killed (signal 9) -> exit code -9 -> the step is FAILED, never ok
         ci = relay_ci.Ci(self.root, True, env={"PATH": os.environ["PATH"], "RELAY_GATE": self.head})
@@ -244,6 +267,7 @@ class ProbeBesideTheRun(unittest.TestCase):
         ci.probe = self.probe("kill -9 $$")
         out = io.StringIO()
         with redirect_stdout(out):
+            ci.probe.start()
             ci.step("inert", ci.inert_step, show_all=True)
             ci.probe.stop()
         self.assertEqual(ci.status, 1)

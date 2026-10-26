@@ -323,7 +323,6 @@ class Ci:
         """Wait for the probe started before the first step and compare what the two runs did."""
         probe = self.probe
         assert probe is not None
-        probe.start()
         if probe.error:
             log.write(probe.error + "\n")
             return 1
@@ -421,6 +420,7 @@ class Ci:
             if gate:
                 self.probe = Probe(self.root, gate, self.quick, self.env, self.path(".ci", "steps", "inert-nested.log"),
                                    nested=self.nested)
+                self.probe.start()   # beside the outer steps, not after them: it is waited for at the `inert` step
             self.step("library tests", self.lib_tests)
             self.step("types and lint", self.types_lint)
             self.step("hook tests", self.hook_tests)
