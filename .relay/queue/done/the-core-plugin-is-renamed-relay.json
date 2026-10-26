@@ -20,6 +20,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-26T00:56:13Z",
+  "dropped_why": [
+    "Replaced by the-core-plugin-becomes-relay-amidman. Owner, 26 Oct: \"Действительно relay@relay звучит не очень, может тогда просто relay, в данном случае это не опция и он всегда будет включен\", then \"Хорошо, давай relay@amidman\""
+  ]
 }
