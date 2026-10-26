@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 95,
+  "time": 30,
+  "found_at": "2026-10-26T06:35:11Z",
+  "found_in": "relay queue add",
+  "title": "setup in a worktree rewrites main checkout rules",
+  "what": [
+    "relay setup run in a linked worktree writes nothing outside that worktree: the rules sync it runs at the end does not rewrite the main checkout's CLAUDE.local.md (or it is skipped with one line saying so), and a sync held by a waiting paid run is not reported as a failed setup (exit 1)."
+  ],
+  "why": [
+    "Found 26 Oct as F7 of the design review of setup-turns-off-for-a-project-the-plugins-it-doe (traced by reading, not run, since it would touch live files): after setup() writes settings.json, cmd_setup calls relay_rules.sync(only={\"relay\"}) with ROOT = the worktree, which renders /Users/amidman/relay/CLAUDE.local.md (projects.toml [relay] file) from the worktree's rules, or prints \"Not synced\" and exits 1 while merges wait for a paid run. Blocks relay-s-repo-records-the-plugins-relay-developme (it runs setup in a worktree). The portable design plans that relay writes no CLAUDE.local.md at all (owner, 26 Oct); this fix may fold into that. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A reproduction in a temporary relay copy with a linked worktree and a temporary projects.toml: `relay setup <worktree> --off x` rewrites the main checkout's CLAUDE.local.md."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same run leaves the main checkout's files byte-identical; a held sync prints one line and setup exits 0."
+  ],
+  "where": [
+    "bin/relay cmd_setup (lines 421-425): the relay_rules.sync call after setup",
+    "lib/relay_rules.py the project target from projects.toml"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
