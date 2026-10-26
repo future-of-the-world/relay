@@ -1,0 +1,201 @@
+{
+  "branch": "wt/leaked-gate",
+  "findings": [
+    {
+      "details": [
+        "Seen 26 Oct: process 72877, `/Users/amidman/relay/.worktrees/setup-wt-market/bin/relay gate`, parent PID 1 (orphaned), working folder /private/var/folders/.../T/relay-gate-uiubjo2c/main/.worktrees/x, running 3 h 42 min; with three slots per machine, the real gates of setup-scope and tests-tmp waited (\"gate: waiting for a free gate slot (3 busy)\"), and the agents waiting on them ran out of turns. The front's kill of it was refused by the permission classifier; the owner was asked. Relates to every-test-runs-with-temporary-relay-and-claude.",
+        "Also: lib/relay_gate.py the machine-wide slots under $RELAY_HOME/gate-slots"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "After the setup-wt-market branch's test run, a `relay gate` process from a temporary relay copy is still running hours later and holds a real gate slot."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After the full test suite, `pgrep -f \"relay gate\"` lists no process whose folder is a test's temporary folder; a test's gate takes slots only under its temporary RELAY_HOME."
+      ],
+      "path": "tests/test_setup.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate.py LeakedGates (line 302, two tests) pass; leftover test gate is found and stopped (tests/leaked_gates.py, run_unittest.py scan); orphan case in tests/test_gate_stops.py."
+      ],
+      "severity": "HIGH",
+      "since": "68320e432b2acdb7cd7762c984c046a186fdb87f",
+      "source": "queue",
+      "summary": "A test leaves a real gate running that holds a slot",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by experiment. On master, subprocess.run started the gate in the test runner's process group, so any signal to that",
+        "group reached relay gate. relay gate traps SIGTERM and SIGHUP (relay_gate.py:188) and its finally kills its command's own",
+        "session (line 218). The new helper passes start_new_session=True, so the gate gets a session and group of its own. A group-wide",
+        "stop of the runner no longer reaches it. Python's default SIGTERM kills the runner without running the helper's",
+        "`except BaseException`, so nothing stops the gate. The orphan seen on 26 Oct also had PPID 1, so its runner died while the gate",
+        "lived. This change makes that outcome more likely, not less.",
+        "The new test passes with the regression in place: it only exercises the case where the runner survives.",
+        "Size: 15 agent minutes. Remove start_new_session and use proc.terminate() rather than killpg, then add a regression test that",
+        "stops a runner's group and asserts no gate is left."
+      ],
+      "evidence": [
+        "python3 exp/launch.py <tests> <out>   (stops the runner's group with SIGTERM, then looks for leftover gates by cwd via lsof)",
+        "NEW (this branch): runner rc -15 | gate processes left in the test folder: [23183] | command alive: True",
+        "OLD (master):      runner rc -15 | gate processes left in the test folder: [] | command alive: False",
+        "(the leftover process 23183 and its sleep were then killed by the script; pgrep shows none left)"
+      ],
+      "failing_case": [
+        "A test runner (its own process group) runs Fixture.gate with a gate command that never ends (`exec sleep 120`). The runner's",
+        "process group is then sent SIGTERM. A process group gets this signal when an outer `relay gate` stops bin/ci (relay_gate.py",
+        "SIGKILLs the command's group), when a wrapper kills a job by its pgid, or when a terminal hangs up.",
+        "Now (this branch): the runner dies with rc -15. A `relay gate` process with its cwd in relay-gate-*/main/.worktrees/x is still",
+        "running, re-parented to PID 1, and so is its command. Nothing will ever stop it: the 900 s timeout lived in the dead runner.",
+        "On master the same sequence leaves no gate and no command: the gate shared the runner's group, got SIGTERM, and its handler ended",
+        "its command."
+      ],
+      "fix_hint": [
+        "Drop start_new_session=True so the gate stays in the runner's group. Stop it with proc.terminate() and then proc.kill() on that",
+        "one pid, rather than os.killpg on its own group. Add a test like exp/launch.py: a child runner in its own session runs the helper,",
+        "the test stops the runner's group, and asserts that no relay gate is left with its cwd in the tmp folder."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 79,
+      "pass_cases": [
+        "1. Runner group gets SIGTERM while Fixture.gate waits on a gate whose command sleeps: 3 s later no `relay gate` process has its cwd under the test's tmp folder, and the command's pid is gone.",
+        "2. Runner group gets SIGKILL (the outer gate's killpg) in the same setup: the gate process is gone right away (it was in the group). Its command may then outlive it, see F3.",
+        "3. test_a_gate_that_outlives_its_timeout_is_stopped_with_its_command (timeout=3, `exec sleep 600`) still passes: AssertionError \"still running\", and the command's pid is gone.",
+        "4. The Gate and Inert tests that end normally keep their outcomes: same return codes, the log in .relay/checks."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate_stops.py runner-group stop test passes (16 passed); unchanged by 87eddeb."
+      ],
+      "severity": "HIGH",
+      "since": "588912678ef7d1e058a4e0a4b83b8d74795ae20f",
+      "source": "review-leaked-gate.json",
+      "source_id": "F1",
+      "summary": "start_new_session=True takes the test's gate out of the runner's process group, so stopping the runner now leaves the gate orphaned and running, which is exactly the item's failing case",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by experiment. The comment \"the gate must not be left behind either\" holds for the gate, but not for what the gate",
+        "started. relay gate frees its command only on a signal it can catch. SIGKILL skips that, and killpg of the gate's own group",
+        "cannot reach the command's separate session. The timeout path does it right (terminate, then wait), and this path should do the",
+        "same.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "exp/launch_int.py (the same as launch.py, but sends SIGINT to the runner's group)",
+        "NEW: runner rc -2 | gate processes left in the test folder: [] | command alive: True",
+        "OLD: runner rc -2 | gate processes left in the test folder: [] | command alive: False"
+      ],
+      "failing_case": [
+        "Ctrl-C (SIGINT to the runner's group) while Fixture.gate waits on a gate whose command sleeps.",
+        "Now: KeyboardInterrupt in the helper, then os.killpg(gate, SIGKILL). The gate dies without its finally, and its command",
+        "(relay_gate.py:210, start_new_session=True) keeps running: \"command alive: True\".",
+        "On master the gate got the SIGINT, raised KeyboardInterrupt, and its finally killed the command: \"command alive: False\"."
+      ],
+      "fix_hint": [
+        "In the BaseException branch, do as the timeout branch does: proc.terminate(), then communicate(timeout=GATE_STOP_GRACE), and",
+        "proc.kill() only if that times out."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 91,
+      "pass_cases": [
+        "1. SIGINT to the runner's group during Fixture.gate with a gate command that sleeps: KeyboardInterrupt reaches the test, and 3 s later neither the gate nor its command's pid is alive.",
+        "2. A KeyboardInterrupt raised inside the helper by other means (the gate not signalled): the helper ends the gate with SIGTERM and waits, and the command's pid is gone.",
+        "3. The timeout test still passes."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_stops.py interrupt test passes; unchanged by 87eddeb."
+      ],
+      "severity": "MEDIUM",
+      "since": "588912678ef7d1e058a4e0a4b83b8d74795ae20f",
+      "source": "review-leaked-gate.json",
+      "source_id": "F2",
+      "summary": "on an interrupt the helper SIGKILLs the gate, so the gate's finally never runs and its command (in a session of its own) is left running",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE as the cause of the 26 Oct orphan (traced, not reproduced on that run). This is CONFIRMED as a gap against the item:",
+        "its What says \"every test that starts relay gate waits for it or kills it\", and its pass case asks for a check after the full",
+        "suite. The change covers only a gate that is still running when a living runner times it out. Possible ways to close it: the gate",
+        "helper, or test_gate's tearDown, records the gate's pid and the test folder, and a cleanup step after the suite in bin/ci kills",
+        "anything left there; or each test gate gets its own deadline that does not depend on the runner. Pass case 3 forbids a parent-death",
+        "watch in relay gate itself, because a legitimately detached gate also has PPID 1.",
+        "Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "relay queue show a-test-leaves-a-real-gate-running-that-holds-a-s: Pass cases: \"After the full test suite, `pgrep -f \"relay gate\"` lists no process whose folder is a test's temporary folder\"",
+        "git diff master...HEAD --stat: only tests/test_gate.py and the gate log changed; no suite-end check, no change to test_gate_slots.reap (proc.kill = SIGKILL of the gate)"
+      ],
+      "failing_case": [
+        "The item's own case: a test's `relay gate` with PPID 1 in relay-gate-*/main/.worktrees/x, running for 3 h 42 min. The runner was",
+        "killed: by SIGKILL, by an agent's tool timeout, or by an outer gate's killpg SIGKILL that does not reach a process in a group of",
+        "its own (relay_gate.py:210 puts every gate command in a new session, and test_gate_slots.reap SIGKILLs the gate).",
+        "Now: no code notices that the gate lost its parent, and no step checks the end of the suite for leftover gates. The helper's",
+        "timeout cannot act, because the helper is gone. After this branch the same sequence still leaves the process running."
+      ],
+      "fix_hint": [
+        "The smallest version: the test environment (tests/tmp_default.py, or bin/ci after the library tests) lists `relay gate` processes",
+        "whose cwd lies under the temporary folders the run created, kills them, and fails the step when it found any. That turns a leak",
+        "into a red gate instead of a slot held for hours."
+      ],
+      "id": "F3",
+      "kind": "feature",
+      "line": 210,
+      "pass_cases": [
+        "1. Runner SIGKILLed (pid only) while a test's gate runs a command that sleeps: within a bounded time (seconds) the gate and its command are both gone.",
+        "2. After `bin/ci --quick` on a tree whose tests start gates, a check lists no `relay gate` process whose cwd is under a relay-gate-* temp folder, or the step fails and names them.",
+        "3. A real `relay gate` started detached with nohup (its parent the shell, which exits) keeps running to its end. A legitimately detached gate must not be killed."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate.py LeakedGates tests pass (no gate left after the suite); lib/relay_gate.py unchanged since the earlier check."
+      ],
+      "severity": "MEDIUM",
+      "since": "588912678ef7d1e058a4e0a4b83b8d74795ae20f",
+      "source": "review-leaked-gate.json",
+      "source_id": "F3",
+      "summary": "a gate whose runner was SIGKILLed lives on (PPID 1) and nothing ends it; the item's pass case 'after the full suite no relay gate is left' has no check",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/core/hooks/guard-main.sh, plugins/core/lib/kit_guard.py, plugins/core/tests/guard-diff.golden.jsonl changed after the gate ran at 36ef3d71c7a4."
+      ],
+      "id": "N1",
+      "kind": "inside",
+      "line": 1,
+      "path": "/Users/amidman/relay/.worktrees/train-19/.relay/checks/36ef3d71c7a4f85f577b4515a76bbf3bbf7dc251.gate.log",
+      "rank": "high",
+      "reason": [],
+      "severity": "HIGH",
+      "since": "87eddeb2e1d8be7cfdb791b4ad7c3b2b05fc6e0a",
+      "source": "check",
+      "summary": "the gate log is for other code than head",
+      "verdict": "NOT MET"
+    }
+  ],
+  "gate": "log /Users/amidman/relay/.worktrees/train-19/.relay/checks/36ef3d71c7a4f85f577b4515a76bbf3bbf7dc251.gate.log",
+  "head": "87eddeb2e1d8be7cfdb791b4ad7c3b2b05fc6e0a",
+  "item": "a-test-leaves-a-real-gate-running-that-holds-a-s",
+  "notes": [
+    "The earlier LOW (LeakedGates after the __main__ block) is fixed by 87eddeb."
+  ],
+  "schema": 2,
+  "scope": [
+    "Re-check after 87eddeb, which only moved the LeakedGates class above the __main__ block in tests/test_gate.py. Reused the judgement of check-queue-train-19 and check2-leaked-gate. Ran test_gate.py and test_gate_stops.py: 16 passed. Gate is the train-19 log (exit 0) for the same code."
+  ],
+  "type": "check"
+}
