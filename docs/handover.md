@@ -1335,3 +1335,33 @@ RELAY_TEST_JOBS default 4 to be measured at 1/2/4/6; times cache as above). Afte
 Lessons: a gate-waiting runner died without its report twice more (relay-home, leaked-gate); the front ran later gates
 itself with run_in_background, which never failed. Taking master that auto-merges a file the branch also changed
 needs a fresh check of the branch's queue item (gate-lock), so take master before the queue check when master moved.
+
+## STATE 27 Oct, early morning (session 3207dc59)
+
+Merged: gate-speed branch 3 (wt/test-jobs: tests/parallel_unittest.py, library tests split by class over
+RELAY_TEST_JOBS processes, default 4; times cache $RELAY_HOME/test-times/<repo>.json written by the outer run only, probe
+reads with RELAY_INERT_PROBE=1); closes the-gate-runs-its-work-twice-in-a-row-on-one-cor.
+Measured by its builder on the owner's Mac (one tree, 27 Oct): whole quick gate 1 job 801 s (lib 624 s), 2 jobs 520 s
+(lib 359 s), 4 jobs 420 s (lib 213 s), 6 jobs 368 s; old bin/ci before the gate-speed work 1404 s (-70% at 4 jobs).
+Concurrent gates at 4 jobs: 1 = 8.6 gates/h, 2 at once 698 s each = 10.3/h, 3 at once 1058 s each = 10.2/h, so
+DEFAULT_SLOTS stays 3. Knee: 4 -> 6 gains 12% for 50% more processes; hook tests (~150 s, serial) are the next floor.
+
+Owner answers this night (verbatim where short): observability coverage "Замеряем метрики на каждом gate" (a: inside
+the probe); cycle scripts "Скрипт вливает сам" (a: relay land prepares, the final ff stays a Bash merge the hook sees);
+moving the scripts first: "a" and "Подними приоритет переноса скриптов выше" (item change-cycle-workflow-scripts-move-
+into-relay, ip 96, before the fixes); git launcher: "надо лишь зафиксировать что такое явление существует и исправить
+только на этой машине - в PATH я укажу прямой путь к git" (fix item dropped; docs/macos.md in review); "Что означает
+core, замени это на стандартный пакет relay при объяснении" (memory core-is-the-standard-package). Open: observability
+question 2 (projects with observe only: a ledger view, b observe's own landing detector).
+The 24 Oct workflow measurement the front had not recorded: one change via the workflow ~165k agent tokens vs 236-277k
+by hand, front turns ~0 vs ~22, same review quality (now in the scripts item; memory record-measurements-at-once).
+
+Designs done tonight (scratchpad/reports/): design-gate-speed.md (built), design-checks-artifacts.md (owner: 1a 2a),
+design-test-speed.md (tests start git ~29,000 times; Apple's /usr/bin/git launcher adds 8-12 ms per start; Python ~1.5%
+of test time, Rust at most 5-10%), design-dev-metrics.md (rev 2; observability), design-cycle-scripts.md (rev 2).
+
+Running: drop-plugins (relay-drops-the-issues-and-product-plugins; after merge drop setup-never-sees-a-phoenix-project-
+as-person-fac, issues-flow-into-queue, issue-bindings-forgejo-gitlab and close the feature with --evidence), macos-doc
+(docs only), the 20-run proof script (scratchpad/proof20/, worktree .worktrees/proof20 detached at master).
+Next: a-train-cannot-recheck-a-queue-item-its-branch-c (92) before the scripts move (the script lands trains), then
+change-cycle-workflow-scripts-move-into-relay (96) from design-cycle-scripts.md, then observability.
