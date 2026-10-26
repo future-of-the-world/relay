@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-26T15:16:17Z",
   "taken_by": "wt/relay-home",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T16:43:24Z",
+  "test": "tests/test_installer_doctor.py::CodeFolder::test_code_folder_is_RELAY_ROOT_not_RELAY_HOME",
   "dropped_at": null,
   "dropped_why": null
 }
