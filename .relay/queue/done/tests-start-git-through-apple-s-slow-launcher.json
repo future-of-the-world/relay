@@ -28,6 +28,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-26T19:53:35Z",
+  "dropped_why": [
+    "Owner, 27 Oct small hours: \"Думаю на текущий момент надо лишь зафиксировать что такое явление существует и исправить только на этой машине - в PATH я укажу прямой путь к git\". The launcher exists only on macOS (Linux distributions install the real git at /usr/bin/git); the fact is recorded in docs/macos.md and the owner puts the real git (/Applications/Xcode.app/Contents/Developer/usr/bin on this Mac) first on PATH."
+  ]
 }
