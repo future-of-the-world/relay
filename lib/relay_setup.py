@@ -447,7 +447,23 @@ def merge_settings(root, plugins, remove=(), moved_hooks=(), forced_off=(), off=
     return False, removed
 
 
+RESERVED_NAMES = ("global", "settings", "agents")   # relay sync targets that write the user's files, selected by name
+
+
 def global_problem():
+    """Why the user's settings lack the relay marketplace at relay's main checkout or an always-on plugin, None when whole."""
+    return marketplace_problem() or plugins_problem()
+
+
+def plugins_problem():
+    user = read_json(os.path.join(claude_dir(), "settings.json"))
+    enabled = user.get("enabledPlugins")
+    enabled = enabled if isinstance(enabled, dict) else {}
+    off = [plugin_key(p) for p in ALWAYS_ON if enabled.get(plugin_key(p)) is not True]
+    return f"{', '.join(off)} not enabled in ~/.claude/settings.json" if off else None
+
+
+def marketplace_problem():
     """Why the user's settings do not hold relay's marketplace at relay's main checkout, None when they do."""
     user = read_json(os.path.join(claude_dir(), "settings.json"))
     entry = user.get("extraKnownMarketplaces", {}).get(marketplace()[0])
@@ -1056,10 +1072,10 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
     checks.extend(dep_checks())
     user = read_json(os.path.join(claude_dir(), "settings.json"))
     ok("relay marketplace in ~/.claude/settings.json", marketplace()[0] in user.get("extraKnownMarketplaces", {}), "relay setup --global")
-    problem = global_problem()
+    problem = marketplace_problem()
     ok("relay marketplace in ~/.claude/settings.json is relay's main checkout", problem is None, f"{problem} -> relay setup --global")
-    for p in ("observe", "delegate", "front", "core"):
-        ok(f"{p}@relay enabled for the user", user.get("enabledPlugins", {}).get(f"{p}@relay"), "relay setup --global")
+    for p in ALWAYS_ON:
+        ok(f"{plugin_key(p)} enabled for the user", user.get("enabledPlugins", {}).get(plugin_key(p)), "relay setup --global")
     global_md = os.path.join(claude_dir(), "CLAUDE.md")
     text = open(global_md, encoding="utf-8").read() if os.path.isfile(global_md) else ""
     for key, want in sorted(session_settings(profile or {}).items()):
@@ -1129,7 +1145,7 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
             if manifest:
                 missing = [k for k in manifest.get("bindings_required", []) if get_dotted(cfg, k) is None]
                 ok("flow bindings present", not missing, "missing: " + ", ".join(missing) if missing else "")
-                not_on = [p for p in manifest.get("requires_plugins", []) if not enabled.get(f"{p}@relay")]
+                not_on = [p for p in manifest.get("requires_plugins", []) if not enabled.get(plugin_key(p))]
                 ok("flow plugins enabled in .claude/settings.json", not not_on, "enable: " + ", ".join(not_on) if not_on else "")
         import relay_rules
         methods = relay_rules.spec_methods()

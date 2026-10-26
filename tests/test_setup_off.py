@@ -345,6 +345,79 @@ class Doctor(Fixture):
         self.assertFalse(self.check(b, name)[0])   # local on beats project off
 
 
+class ReviewFixes(Fixture):
+    """Review findings F1-F4 of the project-only setup change."""
+
+    def relay_cli(self, *args):
+        env = dict(os.environ, RELAY_SKIP_PAID_DUE="1")
+        return subprocess.run([sys.executable, RELAY_BIN, "setup", *args], env=env, capture_output=True, text=True)
+
+    def claude_snapshot(self):
+        out = {}
+        for folder, _, names in os.walk(self.claude):
+            for n in names:
+                path = os.path.join(folder, n)
+                with open(path, "rb") as handle:
+                    out[os.path.relpath(path, self.claude)] = handle.read()
+        return out
+
+    def user_settings(self, enabled, marketplace_name="relay"):
+        with open(os.path.join(self.claude, "settings.json"), "w") as handle:
+            json.dump({"extraKnownMarketplaces": {marketplace_name: {"source": {"source": "directory", "path": self.rs.marketplace_root()}}},
+                       "enabledPlugins": enabled}, handle)
+
+    def test_f1_a_folder_named_like_a_user_target_leaves_the_claude_folder_alone(self):
+        with open(os.path.join(self.claude, "CLAUDE.md"), "w") as handle:
+            handle.write("my own file\n")
+        for name in ("global", "settings", "agents"):
+            before = self.claude_snapshot()
+            root = self.git_folder(name)
+            done = self.relay_cli(root)
+            self.assertEqual(done.returncode, 2, (name, done.stdout, done.stderr))   # refused as a usage error
+            self.assertEqual(self.claude_snapshot(), before, name)   # no CLAUDE.md.before-relay, no settings.json, no agents
+
+    def test_f1_an_ordinary_folder_name_still_sets_up(self):
+        root = self.git_folder("proj")
+        done = self.relay_cli(root)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertTrue(os.path.isfile(os.path.join(root, "CLAUDE.local.md")))
+
+    def test_f2_global_with_a_project_flag_is_a_usage_error(self):
+        for extra in (["--specs", "openspec"], ["--flow", "issues"], ["--product"], ["--no-product"], ["--apply"]):
+            done = self.relay_cli("--global", *extra)
+            self.assertEqual(done.returncode, 2, (extra, done.stdout))
+            self.assertIn("--global takes nothing else", done.stderr)
+        self.assertEqual(sorted(self.claude_snapshot()), ["plugins/installed_plugins.json"])   # only the fixture's registry: install never ran
+        root = self.git_folder()
+        self.assertEqual(self.relay_cli(root, "--global").returncode, 2)
+
+    def test_f3_doctor_builds_the_user_plugin_checks_from_the_marketplace_name(self):
+        self.marketplace_fixture("amidman", ALL)
+        self.user_settings({f"{p}@amidman": True for p in ("core", "observe", "delegate", "front")}, "amidman")
+        names = {n: ok for n, ok, _ in self.rs.doctor(None, profile={}) if "enabled for the user" in n}
+        self.assertEqual(sorted(names), sorted(f"{p}@amidman enabled for the user" for p in ("core", "observe", "delegate", "front")))
+        self.assertTrue(all(names.values()), names)
+
+    def test_f3_real_marketplace_missing_core_is_one_fix_naming_it(self):
+        self.user_settings({f"{p}@relay": True for p in ("observe", "delegate", "front")})
+        checks = {n: ok for n, ok, _ in self.rs.doctor(None, profile={}) if "enabled for the user" in n}
+        self.assertEqual([n for n, ok in checks.items() if not ok], ["core@relay enabled for the user"])
+        self.assertEqual(len(checks), 4)
+
+    def test_f4_project_setup_names_the_global_command_when_the_user_plugins_are_missing(self):
+        def lines(enabled):
+            self.user_settings(enabled)
+            root = self.git_folder(f"p{len(enabled)}")
+            *_, todo = self.run_setup(root)
+            return [t for t in todo if "relay setup --global" in t]
+        self.assertEqual(len(lines({})), 1)
+        self.assertEqual(lines({f"{p}@relay": True for p in ("core", "observe", "delegate", "front")}), [])
+        os.remove(os.path.join(self.claude, "settings.json"))   # no marketplace entry: one line, not two
+        root = self.git_folder("p9")
+        *_, todo = self.run_setup(root)
+        self.assertEqual(len([t for t in todo if "relay setup --global" in t]), 1)
+
+
 class Cli(Fixture):
     def relay(self, *args):
         env = dict(os.environ, RELAY_SKIP_PAID_DUE="1")

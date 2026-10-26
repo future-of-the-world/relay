@@ -395,14 +395,14 @@ def cmd_setup(args, migrate=False):
         path, created = relay_setup.relay_folder(root)
         print(f"{path}: " + ("written" if created else "already there, nothing changed"))
         return 0
+    if flag(args, "--global", takes_value=False):   # before the project flags are taken out, so none is dropped silently
+        if migrate or any(a != "--no-claude" for a in args):
+            raise Usage("--global takes nothing else: relay setup --global [--no-claude]")
+        return cmd_install(args)
     apply = flag(args, "--apply", takes_value=False)
     flow = flag(args, "--flow")
     specs = flag(args, "--specs")
     product = True if flag(args, "--product", takes_value=False) else (False if flag(args, "--no-product", takes_value=False) else None)
-    if flag(args, "--global", takes_value=False):
-        if migrate or any(a != "--no-claude" for a in args):
-            raise Usage("--global takes nothing else: relay setup --global [--no-claude]")
-        return cmd_install(args)
     off = flags(args, "--off")
     if off and migrate:
         raise Usage("--off is a setup flag: relay setup <dir> --off <name@marketplace>")
@@ -416,6 +416,9 @@ def cmd_setup(args, migrate=False):
     root = os.path.realpath(args[0] if args else os.getcwd())
     if not os.path.isdir(root):
         raise Usage(f"no such folder: {root}")
+    name = relay_setup.detect(root)["name"]
+    if name in relay_setup.RESERVED_NAMES:   # relay sync would take the name for the user's own target and write ~/.claude
+        raise Usage(f"a project folder cannot be named {name!r} (relay sync's own target of that name writes the user's files): use another folder name")
     if migrate:
         d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply), flow=flow, specs=specs, product=product)
         print(f"# {d['name']} ({root}): migration" + (" applied" if apply else " plan (nothing moved; add --apply)"))
