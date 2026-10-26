@@ -34,7 +34,7 @@ class Fixture(Base):
         subprocess.run(["git", "init", "-q", root], check=True)
         return root
 
-    def relay_tree(self):
+    def relay_tree(self) -> str:
         """The shape of relay itself: kit.toml with only [delegate], bin/ci, docs/handover.md, .relay/README.md."""
         root = self.git_folder("relaytree")
         self.write(root, ".claude/kit.toml", "[delegate]\nmax_parallel = 6\n")

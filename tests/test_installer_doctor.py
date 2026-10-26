@@ -46,7 +46,7 @@ class Fakes(unittest.TestCase):
                 os.environ[key] = value
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def fake(self, name, output):
+    def fake(self, name: str, output: str) -> None:
         install_fake(os.path.join(self.bin, name), f"#!/bin/sh\necho '{output}'\n")
 
     def fakes(self, **changes):
@@ -145,7 +145,7 @@ class InstallScript(Fakes):
                 continue
             os.symlink(real, os.path.join(self.bin, util))
 
-    def script(self, name, body):
+    def script(self, name: str, body: str) -> None:
         """A fake program on PATH with a shell body (replaces a symlink of the same name)."""
         install_fake(os.path.join(self.bin, name), "#!/bin/sh\n" + body + "\n")
 

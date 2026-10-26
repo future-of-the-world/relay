@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 sys.path.insert(0, HERE)
 
 import leaked_gates
+from fake_tools import install_fake
 
 GATE_TIMEOUT = 900      # seconds a test waits for its gate; the slowest (a copied bin/ci with its nested probe) takes about a minute
 GATE_STOP_GRACE = 30    # seconds the stopped gate has to end its command and free its slot
@@ -40,6 +41,9 @@ def read(path):
 
 def write(path, text, mode=None):
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    if mode and mode & stat.S_IXUSR:
+        install_fake(path, text)    # an executable is shared per text, so macOS scans it once per run
+        return
     with open(path, "w") as handle:
         handle.write(text)
     if mode:

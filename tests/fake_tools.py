@@ -30,7 +30,7 @@ def install_fake(path: str, text: str) -> None:
         partial = cached + f".{os.getpid()}"
         with open(partial, "w") as handle:
             handle.write(text)
-        os.chmod(partial, 0o755)
+        os.chmod(partial, 0o555)    # read-only: an in-place write through one link would change every test's tool
         os.replace(partial, cached)
     if os.path.lexists(path):
         os.remove(path)
