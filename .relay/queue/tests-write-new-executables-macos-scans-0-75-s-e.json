@@ -21,8 +21,8 @@
   "where": [
     "tests/ the fixtures that write fake tool scripts (the installer tests most)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T12:58:00Z",
+  "taken_by": "wt/fake-tools",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
