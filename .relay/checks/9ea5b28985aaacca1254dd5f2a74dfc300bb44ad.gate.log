@@ -1,0 +1,12 @@
+head 9ea5b28985aaacca1254dd5f2a74dfc300bb44ad
+cmd bin/ci --quick
+wait 0.0
+ci: library tests ok (626s)
+ci: types and lint ok (1s)
+ci: hook tests ok (133s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert ok (769s)
+ci: green (QUICK MODE: paid steps skipped, not a release gate)
+exit 0

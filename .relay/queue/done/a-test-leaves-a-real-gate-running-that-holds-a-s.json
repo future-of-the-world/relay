@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-26T08:20:58Z",
   "taken_by": "wt/leaked-gate",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T11:21:49Z",
+  "test": "tests/test_gate.py::LeakedGates::test_a_gate_left_under_the_folder_is_stopped_with_its_command_and_named",
   "dropped_at": null,
   "dropped_why": null
 }
