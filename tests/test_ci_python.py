@@ -224,6 +224,16 @@ class ProbeBesideTheRun(unittest.TestCase):
         log = os.path.join(self.root, ".ci", "steps", "inert-nested.log")
         return relay_ci.Probe(self.root, self.head, True, self.env, log, nested=("sh", "-c", script))
 
+    def test_the_probe_run_is_marked_so_its_test_runner_only_reads_the_class_times(self) -> None:
+        # the nested run gets RELAY_INERT_PROBE=1 (the outer run's environment does not have it)
+        mark = os.path.join(self.root, "mark.txt")
+        probe = self.probe('printf "%%s" "$RELAY_INERT_PROBE" > "%s"' % mark)
+        probe.start()
+        probe.wait()
+        with open(mark) as handle:
+            self.assertEqual(handle.read(), "1")
+        probe.stop()
+
     def test_stop_ends_the_probe_and_everything_below_it_and_removes_the_worktree(self) -> None:
         # case 3: the outer run leaves early; the nested run's own child (sleep) must not outlive it, and no worktree stays
         probe = self.probe("sleep 600 & wait")

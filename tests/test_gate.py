@@ -268,8 +268,10 @@ class Inert(Fixture):
         os.makedirs(os.path.join(main, "lib"))
         shutil.copy(os.path.join(ROOT, "lib", "relay_ci.py"), os.path.join(main, "lib", "relay_ci.py"))   # the wrapper runs it
         # the copied gate's library tests run through the unittest runner that gives every test its temporary folders
-        for name in ("run_unittest.py", "tmp_default.py", "leaked_gates.py"):
+        for name in ("run_unittest.py", "parallel_unittest.py", "tmp_default.py", "leaked_gates.py"):
             shutil.copy(os.path.join(ROOT, "tests", name), os.path.join(main, "tests", name))
+        for name in ("relay_config.py", "relay_toml.py"):      # parallel_unittest finds $RELAY_HOME through relay_config
+            shutil.copy(os.path.join(ROOT, "lib", name), os.path.join(main, "lib", name))
         # the "types and lint" step of the copied gate: its script, its config and one python file to check
         shutil.copy(os.path.join(ROOT, "bin", "types-lint"), os.path.join(main, "bin", "types-lint"))
         shutil.copy(os.path.join(ROOT, "pyproject.toml"), main)
@@ -335,6 +337,7 @@ class Inert(Fixture):
         """Case 2: the nested run is killed (SIGKILL) halfway: `inert` is FAILED, not ok, and `git worktree list` shows only
         the main checkout and the task's worktree. Only the nested run lacks RELAY_GATE, so only it kills its own parent
         (the gate program)."""
+        self.env["RELAY_TEST_JOBS"] = "1"     # the test kills its parent: with one job that is the nested run's own test process
         self.project("        if not os.environ.get('RELAY_GATE'):\n"
                      "            os.kill(os.getppid(), 9)\n")
         run = self.gate(self.wt, "--", "--quick")
