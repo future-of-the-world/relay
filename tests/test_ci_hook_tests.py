@@ -1,6 +1,9 @@
 """bin/ci's hook-test step: which plugin test files it runs in quick mode. Free; no model call.
 Each case copies bin/ci into a temporary tree holding stub test files and reads that run's hook-tests log."""
-import os, shutil, subprocess, tempfile, unittest
+import os, shutil, subprocess, sys, tempfile, unittest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from fake_tools import install_fake  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STUBS = ["inject-addition", "packet", "check-contract", "shim", "spec-check", "hooks-live"]
@@ -71,9 +74,7 @@ class HookTestsStep(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         try:
             fake = os.path.join(tmp, "fake"); os.makedirs(fake)
-            with open(os.path.join(fake, "claude"), "w") as f:
-                f.write("#!/bin/sh\nexit 0\n")
-            os.chmod(os.path.join(fake, "claude"), 0o755)
+            install_fake(os.path.join(fake, "claude"), "#!/bin/sh\nexit 0\n")
             tree = os.path.join(tmp, "tree"); os.makedirs(tree)
             copy_gate(tree)
             d = os.path.join(tree, "plugins", "core", "tests"); os.makedirs(d)

@@ -5,6 +5,7 @@ Every slot folder is under a temp RELAY_HOME (the Fixture sets it), never the li
 import fcntl
 import os
 import queue
+import re
 import shlex
 import signal
 import subprocess
@@ -175,16 +176,130 @@ class Slots(Fixture):
         self.assertEqual(self.runs(), 1)        # B never ran its command
 
     def test_a_green_log_that_appears_during_the_wait_is_reported_without_a_run(self):
-        """A holds the slot; B1 and B2 gate the same code and both wait. After A, one of them runs (2 runs in all); the other finds that log and runs nothing."""
+        """A holds the slot; B1 and B2 gate the same code in one worktree. One of them waits for the slot, the other for the
+        worktree lock (which of the two is up to the race, so the two lines are compared sorted). After A, one of them runs
+        (2 runs in all); the other finds that log and runs nothing."""
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         b1, b2 = self.start(self.wt2), self.start(self.wt2)
-        self.assertEqual(self.line(b1), "gate: waiting for a free gate slot (1 busy)")
-        self.assertEqual(self.line(b2), "gate: waiting for a free gate slot (1 busy)")
+        lines = sorted([self.line(b1), self.line(b2)])
+        self.assertEqual(lines[0], "gate: waiting for a free gate slot (1 busy)")
+        # the holder may have locked the file but not yet written its pid when B reads it: the line then says "unknown"
+        self.assertRegex(lines[1], r"^gate: waiting for the gate already running in this worktree \(pid (\d+|unknown)\)$")
         write(self.release, "go\n")
         for proc in (first, b1, b2):
             self.assertEqual(proc.wait(timeout=BOUND), 0)
         self.assertEqual(self.runs(), 2)        # A and one B; three would mean the second B ran the gate again
+
+    def test_t1_a_second_gate_in_one_worktree_waits_then_reuses_the_first_log(self):
+        """T1: B starts in the worktree where A runs (a slot is free: N=2). B prints the worktree waiting line, its command
+        never starts, and after A commits its log B reports it: 1 run, both exit 0, no zero byte in the log."""
+        self.env["RELAY_GATE_SLOTS"] = "2"
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        second = self.start(self.wt)
+        self.assertRegex(self.line(second), r"^gate: waiting for the gate already running in this worktree \(pid %d\)$" % first.pid)
+        self.assertEqual(self.runs(), 1)        # B holds back although a slot is free
+        write(self.release, "go\n")
+        self.assertEqual(first.wait(timeout=BOUND), 0)
+        self.assertEqual(second.wait(timeout=BOUND), 0)
+        self.assertEqual(self.runs(), 1)
+        head = git(self.wt, "rev-parse", "HEAD~1")
+        self.assertNotIn("\0", read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
+
+    def test_t2_a_second_gate_after_code_moved_refuses_and_never_runs(self):
+        """T2: code is committed in the worktree while A runs and B waits. B ends with 'moved' and never runs; A, whose tree
+        is no longer its commit, is refused too, with no log."""
+        self.env["RELAY_GATE_SLOTS"] = "2"
+        head = git(self.wt, "rev-parse", "HEAD")
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        second = self.start(self.wt)
+        self.line(second)
+        write(os.path.join(self.wt, "lib", "c.py"), "c\n")
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "more")
+        write(self.release, "go\n")
+        self.assertEqual(first.wait(timeout=BOUND), 1)
+        self.assertEqual(second.wait(timeout=BOUND), 1)
+        self.assertIn("moved", second.stderr.read())
+        self.assertEqual(self.runs(), 1)
+        self.assertFalse(os.path.exists(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
+
+    def orphan_gone(self, pid_file):
+        pid = int(read(pid_file))
+
+        def gone():
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return True
+            return False
+        return gone
+
+    def test_t3_a_killed_gate_leaves_the_worktree_locked_until_its_command_ends(self):
+        """T3: SIGKILL of A's relay process while its command runs. B in the same worktree prints the waiting line and does
+        not start its command (1 run) until A's orphan ends; then it runs (2 runs)."""
+        self.env["RELAY_GATE_SLOTS"] = "2"
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        first.kill()
+        first.wait(timeout=BOUND)
+        second = self.start(self.wt)
+        self.assertRegex(self.line(second), r"^gate: waiting for the gate already running in this worktree")
+        self.assertEqual(self.runs(), 1)
+        write(self.release, "go\n")        # A's orphaned command ends; the OS frees the lock
+        self.assertEqual(second.wait(timeout=BOUND), 0)
+        self.assertEqual(self.runs(), 2)
+
+    def test_f1_waiting_line_after_sigkill_names_a_live_process(self):
+        """F1: A's relay is SIGKILLed while its command runs; the line B prints names the command's group, which is alive
+        (so a person can kill it), not the dead relay pid. A's relay pid is first.pid, the command's group is read from .ci/pid
+        ($$ of the gate command, its own session leader)."""
+        self.env["RELAY_GATE_SLOTS"] = "2"
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        command_pid = int(read(os.path.join(self.wt, ".ci", "pid")))
+        first.kill()
+        first.wait(timeout=BOUND)
+        second = self.start(self.wt)
+        match = re.match(r"^gate: waiting for the gate already running in this worktree \(pid (\d+)", self.line(second))
+        self.assertIsNotNone(match)
+        named = int(match.group(1))
+        self.assertNotEqual(named, first.pid)
+        self.assertEqual(named, command_pid)
+        os.kill(named, 0)      # alive while B waits
+
+    def test_f2_a_stray_holder_outside_the_group_is_named_as_such(self):
+        """F2: the lock file names a dead relay and a dead group, yet the lock is held (a detached daemon): the line says a
+        process outside the gate's group holds the lock file."""
+        path = os.path.join(self.tmp, "lockfile")
+        holder = open(path, "a+")
+        self.addCleanup(holder.close)
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        dead = subprocess.Popen([sys.executable, "-c", "pass"])
+        dead.wait()
+        write(path, "%d %d\n" % (dead.pid, dead.pid))
+        lines = []
+        waiter = threading.Thread(target=lambda: relay_gate.take_worktree_lock(path, lines.append), daemon=True)
+        waiter.start()
+        self.wait_until(lambda: lines)
+        self.assertIn("outside the gate's process group still holds " + path, lines[0])
+        fcntl.flock(holder, fcntl.LOCK_UN)
+        waiter.join(BOUND)
+
+    def test_t3_a_killed_gate_whose_command_has_ended_does_not_block_the_next(self):
+        self.env["RELAY_GATE_SLOTS"] = "2"
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        first.kill()
+        first.wait(timeout=BOUND)
+        write(self.release, "go\n")
+        self.wait_until(self.orphan_gone(os.path.join(self.wt, ".ci", "pid")))
+        second = subprocess.run([sys.executable, RELAY, "gate"], cwd=self.wt, env=self.env, capture_output=True, text=True, timeout=BOUND)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertNotIn("waiting", second.stderr)
+        self.assertEqual(self.runs(), 2)
 
     def license_wt2(self):
         """wt2 gets a [license] table and the license files; LICENSE itself is git-ignored, so deleting or restoring it
