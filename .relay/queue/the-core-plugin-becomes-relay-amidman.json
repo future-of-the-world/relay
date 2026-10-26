@@ -1,0 +1,25 @@
+{
+  "kind": "feature",
+  "ip": 86,
+  "time": 90,
+  "found_at": "2026-10-26T00:56:13Z",
+  "found_in": "relay queue add",
+  "title": "The core plugin becomes relay@amidman",
+  "what": [
+    "The plugin now called core is called relay, and relay's marketplace is called amidman: the plugin ids become relay@amidman, delegate@amidman, front@amidman, observe@amidman, openspec@amidman, issues@amidman, product@amidman. The folder, the marketplace file, what relay setup writes, and every place that names the old ids change; relay setup's migrate moves existing settings (enabledPlugins keys and the extraKnownMarketplaces entry) from the old ids to the new ones, so no project silently loses the merge hook. Agent and skill names (delegate:worker) do not change."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"Запланируй изменение в core plugin переименовать его в relay, мне не нравится название core\", then \"Действительно relay@relay звучит не очень, может тогда просто relay, в данном случае это не опция и он всегда будет включен\", then picked \"a\" (plugin relay, marketplace renamed) with \"Хорошо, давай relay@amidman\". Facts, 26 Oct: 127 tracked files name plugins/core; ~/.claude/settings.json turns on core@relay, observe@relay, delegate@relay, front@relay and lists the marketplace relay under extraKnownMarketplaces (path /Users/amidman/relay); hook refusals end with \"This hook comes from the core@relay plugin\". Build alone, when no other branch is open, and after relay-s-repo-records-the-plugins-relay-developme (both change plugin settings). IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "plugins/core/ the plugin folder, its hooks, lib and bin",
+    ".claude-plugin/marketplace.json the marketplace name and the plugin list",
+    "lib/relay_setup.py what setup writes into settings (enabledPlugins, extraKnownMarketplaces) and its migrate step"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
