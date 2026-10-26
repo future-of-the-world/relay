@@ -27,11 +27,13 @@ mkrepo() { # <dir>: a fresh repository with a worktree in each of the two direct
 }
 
 shards=1; shard=0; ncase=0   # quick mode cuts the shared cases into shards that run in parallel
+# The cases run as a subagent (agent_id set): the main session's cd into a worktree is refused on its own
+# (tests/test_front_cd.py), and these cases judge the other rules.
 t() {
   ncase=$((ncase + 1)); [ $((ncase % shards)) -eq "$shard" ] || return 0
   local expect="$1" desc="$2" tool="$3" cwd="$4" key="$5" val="$6" got
   jq -n --arg tool "$tool" --arg cwd "$cwd" --arg key "$key" --arg val "$val" \
-    '{tool_name: $tool, cwd: $cwd, tool_input: {($key): $val}}' | "$hook" >/dev/null 2>&1
+    '{tool_name: $tool, cwd: $cwd, agent_id: "a1", tool_input: {($key): $val}}' | "$hook" >/dev/null 2>&1
   [ $? -eq 2 ] && got=block || got=allow
   if [ "$got" = "$expect" ]; then echo "ok    $got  [$profile] $desc"; else echo "FAIL  $got  [$profile] $desc"; fails=$((fails + 1)); fi
 }

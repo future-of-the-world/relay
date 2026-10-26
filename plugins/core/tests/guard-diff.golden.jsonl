@@ -47,8 +47,8 @@
 {"cwd":"@M@","cmd":"export W=@A@; export -n W; git -C $W commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"W=@A@; f() { W=.; }; f; git -C $W commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"W=@A@; W=. true; git -C $W commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"W=@A@; cd $W; git commit -m x","was":"allow"}
-{"cwd":"@M@","cmd":"W=@A@; cd \"$W\" && git commit -m x","was":"allow"}
+{"cwd":"@M@","cmd":"W=@A@; cd $W; git commit -m x","was":"block"}
+{"cwd":"@M@","cmd":"W=@A@; cd \"$W\" && git commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"declare W=@A@; git -C $W commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"W=@A@; export W=. ; git -C $W commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"W=@A@; eval W=.; git -C $W commit -m x","was":"block"}
@@ -132,16 +132,16 @@
 {"cwd":"@M@","cmd":"cd .worktree/$NAME && git commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"cd .worktree/any-change && mix ci","was":"allow"}
 {"cwd":"@M@","cmd":"cd .worktree/any-change`echo /../..` && git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"cd .worktrees/any-change && bin/ci","was":"allow"}
-{"cwd":"@M@","cmd":"cd .worktrees/any-change && git status","was":"allow"}
+{"cwd":"@M@","cmd":"cd .worktrees/any-change && bin/ci","was":"block"}
+{"cwd":"@M@","cmd":"cd .worktrees/any-change && git status","was":"block"}
 {"cwd":"@M@","cmd":"cd .worktrees/any-change`echo /../..` && git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"cd @W@ && bun add @tauri-apps/api","was":"allow"}
-{"cwd":"@M@","cmd":"cd @W@ && bun run check","was":"allow"}
-{"cwd":"@M@","cmd":"cd @W@ && cd @M@ && cd - && git commit -m x","was":"allow"}
+{"cwd":"@M@","cmd":"cd @W@ && bun add @tauri-apps/api","was":"block"}
+{"cwd":"@M@","cmd":"cd @W@ && bun run check","was":"block"}
+{"cwd":"@M@","cmd":"cd @W@ && cd @M@ && cd - && git commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"cd @W@ && git status && cd @M@ && git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"cd @W@ && mix ci","was":"allow"}
+{"cwd":"@M@","cmd":"cd @W@ && mix ci","was":"block"}
 {"cwd":"@M@","cmd":"cd @W@; cd -; git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"cd @W@/src-tauri && cargo clippy","was":"allow"}
+{"cwd":"@M@","cmd":"cd @W@/src-tauri && cargo clippy","was":"block"}
 {"cwd":"@M@","cmd":"cd \".worktree/any-change/$(printf ../..)\" && git reset --hard","was":"block"}
 {"cwd":"@M@","cmd":"cd \".worktrees/any-change/$(printf ../..)\" && git reset --hard","was":"block"}
 {"cwd":"@M@","cmd":"cd $X && git commit -m x","was":"block"}
@@ -217,7 +217,7 @@
 {"cwd":"@M@","cmd":"perl -ne 'print if /a/' README.md","was":"allow"}
 {"cwd":"@M@","cmd":"perl -pi -e 's/a/b/' @W@/f.txt","was":"allow"}
 {"cwd":"@M@","cmd":"perl -pi -e 's/a/b/' README.md","was":"block"}
-{"cwd":"@M@","cmd":"pushd @W@ && git commit -m x","was":"allow"}
+{"cwd":"@M@","cmd":"pushd @W@ && git commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"pushd @W@; popd; git commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"rm -rf src","was":"block"}
 {"cwd":"@M@","cmd":"rsync -a @W@/ src/","was":"block"}
@@ -227,7 +227,7 @@
 {"cwd":"@M@","cmd":"sed -i '' 's/a/b/' README.md","was":"block"}
 {"cwd":"@M@","cmd":"sh -c 'cd . && git reset --hard HEAD~1'","was":"block"}
 {"cwd":"@M@","cmd":"T=any-change && cd .worktree/${T} && git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"T=any-change && cd .worktrees/${T} && git commit -m x","was":"allow"}
+{"cwd":"@M@","cmd":"T=any-change && cd .worktrees/${T} && git commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"T=any-change; git -C .worktree/$T commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"T=any-change; git -C .worktrees/$T commit -m x","was":"allow"}
 {"cwd":"@M@","cmd":"tar -tf x.tar","was":"allow"}
