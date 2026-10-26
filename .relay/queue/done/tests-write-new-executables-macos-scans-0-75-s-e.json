@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-26T12:58:00Z",
   "taken_by": "wt/fake-tools",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T14:24:43Z",
+  "test": "tests/test_fake_tools.py::FakeTools::test_same_text_shares_one_file_and_runs",
   "dropped_at": null,
   "dropped_why": null
 }
