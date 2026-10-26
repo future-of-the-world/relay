@@ -71,9 +71,15 @@ class RuStyle(unittest.TestCase):
             self.assertTrue(feminine.search(text) or opener.search(text), rel)
         self.assertIsNotNone(opener.search(read("evals", "plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-only-masculine.txt")))
         self.assertIsNotNone(feminine.search(read("evals", "plugin/it-terms-ru/recorded/bad/gender-and-opener__feminine-only.txt")))
-        good = read("evals", "plugin", "it-terms-ru", "recorded", "good", "merge-reply.txt")
-        self.assertIsNone(feminine.search(good))
-        self.assertIsNone(opener.search(good))
+        for rel in (i[1] for i in items if i[0] == "yes"):
+            good = read("evals", rel)
+            self.assertIsNone(feminine.search(good), rel)
+            self.assertIsNone(opener.search(good), rel)
+
+    def test_f1_the_pronoun_example_uses_a_descriptive_gloss_not_a_one_word_one(self):
+        rule = " ".join(read("rules", "working-with-me.md").split())
+        self.assertNotIn("hook, то есть проверка,", rule)
+        self.assertIn("hook, то есть автоматическая проверка перед merge, и она прошла", rule)
 
     def test_f1_rule_examples_keep_the_english_term(self):
         rule = " ".join(read("rules", "working-with-me.md").split())
