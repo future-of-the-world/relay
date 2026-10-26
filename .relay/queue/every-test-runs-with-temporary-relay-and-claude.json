@@ -15,8 +15,8 @@
     "tests/ a shared fixture every test gets by default",
     "lib/relay_config.py ROOT, HOME_DIR and CLAUDE_DIR and their override variables"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T03:19:12Z",
+  "taken_by": "wt/tests-tmp",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
