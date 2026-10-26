@@ -1,0 +1,24 @@
+{
+  "kind": "feature",
+  "ip": 86,
+  "time": 120,
+  "found_at": "2026-10-26T03:44:26Z",
+  "found_in": "relay queue add",
+  "title": "Install and setup are tested in a clean container",
+  "what": [
+    "An end-to-end test runs relay's install from a pipe on a clean Linux machine in a container (Alpine, the harshest: busybox sh, musl, no curl/git/python3; plus one glibc distribution such as Debian, the common case), then the global part, then setup of a sample project and doctor, and checks the results. It runs in the full gate where a container engine is present and says plainly when it is skipped; the unit tests keep using temporary folders. macOS stays covered by the owner's machine and the temporary-folder tests."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"Для тестирования ты можешь использовать изолированные окружения, контейнеры alpine, думаю это будет полезно для ряда тестов\". Facts, 26 Oct: Docker Desktop 29.4.0 runs on the owner's Mac (arm64), podman is installed too; `docker run --rm alpine:3.20` starts in under 1 s with the image cached; bare Alpine 3.20 has no curl, git or python3; install.sh cannot run from a pipe today (it needs deps.toml beside it or ~/relay, install.sh:20-26), which such a test would have caught. Belongs with relay-installs-with-one-command-from-its-own-rep. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "tests/ an end-to-end test of install.sh, relay install, relay setup and relay doctor",
+    "bin/ci where the full gate would run it"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
