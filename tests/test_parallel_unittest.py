@@ -116,11 +116,91 @@ class Runs(Tree):
         self.assertFalse(os.path.exists(self.times_file()))
 
     def test_a_worker_keeps_the_temporary_home_guard(self) -> None:
-        # the worker runs every test with a temporary RELAY_HOME (tests/tmp_default.py), never the one the run was given
-        self.add("test_home", "Home", "    def test_home_is_temporary(self):\n        import os\n"
-                 "        assert os.environ['RELAY_HOME'] != %r, os.environ['RELAY_HOME']\n" % self.home)
+        # the workers start with the run's RELAY_HOME (self.home); the guard gives every test a fresh relay-home-*/.relay folder,
+        # and two tests of one class get two different ones
+        self.add("test_home", "Home", "    def test_one(self):\n        import os\n"
+                 "        print('HOME', os.environ['RELAY_HOME'])\n"
+                 "        assert os.environ['RELAY_HOME'] != %r, os.environ['RELAY_HOME']\n"
+                 "        assert os.path.basename(os.path.dirname(os.environ['RELAY_HOME'])).startswith('relay-home-')\n"
+                 "    test_two = test_one\n" % self.home)
         code, out = self.go()
         self.assertEqual(code, 0, out)
+
+    def test_two_tests_of_a_class_get_two_homes(self) -> None:
+        marks = os.path.join(self.tmp.name, "homes")
+        self.add("test_homes", "Homes", "    def test_one(self):\n        import os\n"
+                 "        open(%r, 'a').write(os.environ['RELAY_HOME'] + '\\n')\n"
+                 "    test_two = test_one\n" % marks)
+        self.assertEqual(self.go()[0], 0)
+        with open(marks) as handle:
+            homes = handle.read().split()
+        self.assertEqual(len(homes), 2)
+        self.assertEqual(len(set(homes)), 2)
+
+    def single_process(self) -> str:
+        """What the single process (RELAY_TEST_JOBS=1: unittest discover) prints for this tree."""
+        done = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", self.tests, "-p", "test_*.py"],
+                              capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL, cwd=self.tests)
+        return done.stderr + done.stdout
+
+    @staticmethod
+    def pick(text: str) -> list:
+        return [re.sub(r" in [0-9.]+s", "", ln) for ln in text.splitlines() if ln.startswith(("Ran ", "OK", "FAILED"))]
+
+    def test_a_class_imported_into_a_second_module_runs_as_in_the_single_process(self) -> None:
+        # F2: Small (2 tests) is found in test_a and again in test_x, which adds Sub (Small's 2 + test_c = 3): 2 + 2 + 3 = 7
+        self.add("test_a", "Small", methods(2))
+        with open(os.path.join(self.tests, "test_x.py"), "w") as handle:
+            handle.write("import unittest\nfrom test_a import Small\n\nclass Sub(Small):\n    def test_c(self):\n        pass\n")
+        self.assertEqual(self.pick(self.single_process()), ["Ran 7 tests", "OK"])
+        code, out = self.go("2")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.pick(out), ["Ran 7 tests", "OK"])
+
+    def test_an_imported_failing_class_is_named_without_a_count_error(self) -> None:
+        self.add("test_a", "Small", methods(1, "    def test_boom(self):\n        self.assertEqual(1, 2)\n"))
+        with open(os.path.join(self.tests, "test_x.py"), "w") as handle:
+            handle.write("import unittest\nfrom test_a import Small\n")
+        code, out = self.go("2")
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL: test_boom", out)
+        self.assertNotIn("ERROR: count", out)
+
+    def test_a_helper_class_without_tests_imported_elsewhere_changes_nothing(self) -> None:
+        self.add("test_a", "Helper", "    pass")
+        with open(os.path.join(self.tests, "test_x.py"), "w") as handle:
+            handle.write("import unittest\nfrom test_a import Helper\n\nclass Real(unittest.TestCase):\n"
+                         "    def test_r(self):\n        pass\n")
+        code, out = self.go("2")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.pick(out), ["Ran 1 tests", "OK"])
+
+    def test_the_three_class_tree_gives_the_single_process_count_at_one_and_four_jobs(self) -> None:
+        self.three_classes()
+        self.assertEqual(self.pick(self.single_process()), ["Ran 9 tests", "OK"])
+        self.assertEqual(self.pick(self.go("4")[1]), ["Ran 9 tests", "OK"])
+
+    def test_a_child_that_reads_stdin_sees_the_end_of_it_not_the_controllers_pipe(self) -> None:
+        # F3: `cat` started by a test must not wait on the worker's command pipe (it is never closed while classes remain)
+        self.add("test_cat", "Cat", "    def test_cat(self):\n        import subprocess\n"
+                 "        subprocess.run(['cat'], timeout=60, stdout=subprocess.DEVNULL)\n")
+        self.add("test_next", "Next", methods(2))     # the name of this class must still reach the worker
+        code, out = self.go("1")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.pick(out), ["Ran 3 tests", "OK"])
+
+    def test_a_child_given_input_still_reads_it(self) -> None:
+        self.add("test_in", "In", "    def test_in(self):\n        import subprocess\n"
+                 "        done = subprocess.run(['sh', '-c', 'read x; echo $x'], input='hi\\n', capture_output=True, text=True)\n"
+                 "        assert done.stdout == 'hi\\n', done.stdout\n")
+        self.assertEqual(self.go("2")[0], 0)
+
+    def test_a_test_that_prints_does_not_corrupt_the_reply(self) -> None:
+        self.add("test_p", "P", "    def test_p(self):\n        import os\n        print('noise')\n"
+                 "        os.write(1, b'more noise\\n')\n")
+        code, out = self.go("2")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.pick(out), ["Ran 1 tests", "OK"])
 
     def test_a_bad_jobs_value_fails_with_the_reason(self) -> None:
         self.three_classes()

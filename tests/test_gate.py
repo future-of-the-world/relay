@@ -89,14 +89,24 @@ class Fixture(unittest.TestCase):
             proc.kill()
             proc.communicate()
 
-    def gate(self, cwd, *args, timeout=GATE_TIMEOUT):
+    def gate(self, cwd, *args, timeout=GATE_TIMEOUT, started=None):
         """Run `relay gate`; past `timeout` seconds the gate is stopped (SIGTERM: it ends its command's process group and
-        frees its slot), killed if it ignores that, and the test fails. A gate never outlives its test."""
+        frees its slot), killed if it ignores that, and the test fails. A gate never outlives its test.
+        `started`: a file the gate command writes once it runs; `timeout` then counts from that moment (waiting for it is
+        bounded by GATE_TIMEOUT), so a loaded machine that is slow to start the command does not decide the outcome."""
         # No new session: the gate stays in the runner's process group, so a stop of that group (SIGTERM, SIGINT, hangup)
         # reaches the gate and its handler ends the command; a session of its own would orphan it.
         proc = subprocess.Popen([sys.executable, RELAY, "gate", *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                                 cwd=cwd, env=self.env)
         try:
+            if started:
+                limit = time.monotonic() + GATE_TIMEOUT
+                while not os.path.exists(started) and time.monotonic() < limit:
+                    try:
+                        proc.wait(timeout=0.05)
+                        break
+                    except subprocess.TimeoutExpired:
+                        pass
             out, err = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
             self._stop(proc)
@@ -232,10 +242,22 @@ class Gate(Fixture):
         left holding a slot), and the test fails with a message."""
         self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
         with self.assertRaises(AssertionError) as caught:
-            self.gate(self.wt, timeout=3)
+            self.gate(self.wt, timeout=3, started=os.path.join(self.tmp, "pid"))
         self.assertIn("still running", str(caught.exception))
         pid = int(read(os.path.join(self.tmp, "pid")))
         with self.assertRaises(ProcessLookupError):      # the gate waited for its command's end, so it is gone now
+            os.kill(pid, 0)
+
+    def test_the_timeout_counts_from_the_start_of_the_command_not_of_the_gate(self):
+        """A command slow to start (a loaded machine) is not cut by a short timeout: the wait is for the pid file, then the
+        timeout. Here the command starts after 2 s, the timeout is 1 s: the gate is still stopped for running too long, and
+        its pid file exists (without `started` the helper stopped it before the command ran)."""
+        self.repo(gate='sleep 2\necho $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
+        with self.assertRaises(AssertionError) as caught:
+            self.gate(self.wt, timeout=1, started=os.path.join(self.tmp, "pid"))
+        self.assertIn("still running", str(caught.exception))
+        pid = int(read(os.path.join(self.tmp, "pid")))
+        with self.assertRaises(ProcessLookupError):
             os.kill(pid, 0)
 
 

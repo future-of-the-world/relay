@@ -124,8 +124,19 @@ def _flatten(suite: unittest.TestSuite) -> List[unittest.TestCase]:
     return found
 
 
-def _class_of(test: unittest.TestCase) -> str:
-    return "%s.%s" % (type(test).__module__, type(test).__qualname__)
+class _Loader(unittest.TestLoader):
+    """Remembers which module discovery found each test in: a class imported into a second test module is found (and, in a
+    single process, run) once per module, so the unit of work is "<discovering module>.<class>", not the defining module."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.found_in: Dict[int, str] = {}
+
+    def loadTestsFromModule(self, module: Any, *args: Any, **kwargs: Any) -> unittest.TestSuite:
+        suite = super().loadTestsFromModule(module, *args, **kwargs)
+        for test in _flatten(suite):
+            self.found_in[id(test)] = module.__name__
+        return suite
 
 
 # ---- the worker -----------------------------------------------------------------------------------------------------
@@ -135,12 +146,14 @@ def worker_main(tests_dir: str) -> int:
     import tmp_default
     out = os.fdopen(os.dup(1), "w", encoding="utf-8")
     os.dup2(2, 1)                       # a test's prints go to the worker's log, not to the pipe
+    commands = os.fdopen(os.dup(0), encoding="utf-8")   # the class names; os.dup's fd is not inherited by a test's children
+    os.dup2(os.open(os.devnull, os.O_RDONLY), 0)        # a child that reads stdin sees EOF, as under a detached gate
     run_dir = os.path.realpath(tempfile.mkdtemp(prefix="relay-run-"))
     os.environ["TMPDIR"] = run_dir
     tempfile.tempdir = None
     tmp_default.patch_unittest()
     try:
-        for line in sys.stdin:
+        for line in commands:
             name = line.strip()
             if not name:
                 continue
@@ -164,11 +177,12 @@ def worker_main(tests_dir: str) -> int:
 
 # ---- the controller -------------------------------------------------------------------------------------------------
 class Pool:
-    def __init__(self, jobs: int, classes: List[str], log_dir: Optional[str], tests_dir: str) -> None:
+    def __init__(self, jobs: int, classes: List[str], log_dir: Optional[str], tests_dir: str,
+                 env: Optional[Dict[str, str]] = None) -> None:
         self.todo: "queue.Queue[str]" = queue.Queue()
         for name in classes:
             self.todo.put(name)
-        self.jobs, self.log_dir, self.tests_dir = jobs, log_dir, tests_dir
+        self.jobs, self.log_dir, self.tests_dir, self.env = jobs, log_dir, tests_dir, env
         self.lock = threading.Lock()
         self.replies: List[Dict[str, Any]] = []
         self.deaths: List[str] = []
@@ -181,7 +195,7 @@ class Pool:
         else:
             log = open(os.devnull, "w")
         proc = subprocess.Popen([sys.executable, "-W", "ignore::ResourceWarning", os.path.abspath(__file__), "--worker", self.tests_dir],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True, cwd=ROOT,
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True, cwd=ROOT, env=self.env,
                                 close_fds=False)    # keeps a gate's lock fd, as every child of the gate does
         assert proc.stdin is not None and proc.stdout is not None
         current = ""
@@ -242,20 +256,22 @@ def run(root: str = ROOT, env: Optional[Dict[str, str]] = None, tests_dir: str =
     start = time.monotonic()
     sys.path.insert(0, tests_dir)
     sys.path.insert(0, root)
-    suite = unittest.defaultTestLoader.discover(tests_dir, pattern="test_*.py")
+    loader = _Loader()
+    suite = loader.discover(tests_dir, pattern="test_*.py")
     tests = _flatten(suite)
     # tests that failed to import (or a module that skipped itself) are not classes a worker can load: run them here
     local = [t for t in tests if type(t).__module__.startswith("unittest")]
     counts: Dict[str, int] = {}
     for t in tests:
         if t not in local:
-            counts[_class_of(t)] = counts.get(_class_of(t), 0) + 1
+            unit = "%s.%s" % (loader.found_in.get(id(t), type(t).__module__), type(t).__qualname__)
+            counts[unit] = counts.get(unit, 0) + 1
     path = times_path(root, env)
     times, why = load_times(path)
     print("test jobs: %d; class times from $RELAY_HOME/test-times (searched %s)%s" %
           (jobs, path, "" if not why else ": " + why + "; classes go out by test count, the biggest first"))
     steps = os.path.join(root, ".ci", "steps")
-    pool = Pool(jobs, order_classes(counts, times), steps if os.path.isdir(steps) else None, tests_dir)
+    pool = Pool(jobs, order_classes(counts, times), steps if os.path.isdir(steps) else None, tests_dir, env)
     pool.run()
 
     ran = sum(r["ran"] for r in pool.replies)
