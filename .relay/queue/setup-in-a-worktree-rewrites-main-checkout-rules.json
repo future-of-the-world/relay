@@ -22,8 +22,8 @@
     "bin/relay cmd_setup (lines 421-425): the relay_rules.sync call after setup",
     "lib/relay_rules.py the project target from projects.toml"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T12:57:59Z",
+  "taken_by": "wt/setup-wt-rules",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
