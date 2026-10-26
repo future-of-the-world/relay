@@ -141,6 +141,17 @@ class TestOrderAndParse(Base):
             "b": feature_item(ip=50, found="2026-10-01T00:00:00Z"), "d": fix_item(ip=90)}.items()]
         self.assertEqual([i["slug"] for i in rq.ordered(items)], ["d", "b", "c", "a"])
 
+    def test_fix_before_feature_whatever_the_ip(self):
+        # a fix at ip 10 goes above a feature at ip 99; within a kind, ip descending (fix 10 above fix 5)
+        items = [rq.parse(s, t) for s, t in {
+            "feat": feature_item(ip=99), "fixlow": fix_item(ip=5), "fixhigh": fix_item(ip=10)}.items()]
+        self.assertEqual([i["slug"] for i in rq.ordered(items)], ["fixhigh", "fixlow", "feat"])
+
+    def test_count_top_is_a_fix_even_under_a_higher_feature(self):
+        # the top is the first of the order: fix ip 10 beats feature ip 99
+        repo = self.repo("top", items={"feat": feature_item(ip=99), "fx": fix_item(ip=10)})
+        self.assertIn("top: fx (fix, ip 10", rq.count_text(rq.read_queue(repo)))
+
     def test_q1_cli_list_in_that_order(self):
         repo = self.repo("cli", items={"low": feature_item(ip=5), "high": fix_item(ip=80)})
         done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "queue", "-C", repo],
@@ -149,6 +160,24 @@ class TestOrderAndParse(Base):
         lines = done.stdout.strip().split("\n")
         self.assertEqual(lines[0].split(), ["ip", "kind", "time", "what", "name"])   # the header names the columns
         self.assertEqual([line.split()[-1] for line in lines[1:]], ["high", "low"])   # the name is the last word
+
+    def add_fix(self, repo, title, **kw):
+        rq.add(repo, "fix", title, why="w", failing="it fails", failing_kind="test", minutes=5, now="2026-10-26T00:00:00Z", **QUIET, **kw)
+        return rq.parse(rq.slugify(title), git(repo, "show", f"master:.relay/queue/{rq.slugify(title)}.json"))
+
+    def test_new_fix_without_ip_gets_zero_and_lists_above_features(self):
+        # open feature ip 95 and fix ip 60: a new fix with no --ip gets ip 0 (not 96), lists after the ip-60 fix, before the feature
+        repo = self.repo("def", items={"feat": feature_item(ip=95), "old": fix_item(ip=60)})
+        new = self.add_fix(repo, "Brand new fix")
+        self.assertEqual(new["ip"], 0)
+        self.assertEqual([i["slug"] for i in rq.ordered(rq.read_queue(repo))],
+                         ["old", "brand-new-fix", "feat"])
+
+    def test_explicit_ip_is_stored_as_given_for_fix_and_feature(self):
+        repo = self.repo("exp", items={"feat": feature_item(ip=95)})
+        self.assertEqual(self.add_fix(repo, "Fix with ip", ip=7)["ip"], 7)
+        rq.add(repo, "feature", "Feature with ip", why="w", minutes=5, ip=3, now="2026-10-26T00:00:00Z", **QUIET)
+        self.assertEqual(rq.parse("feature-with-ip", git(repo, "show", "master:.relay/queue/feature-with-ip.json"))["ip"], 3)
 
     def test_q2_fix_without_failing_case_refused_and_shown_malformed(self):
         before = git(self.main, "rev-parse", "master")
@@ -179,9 +208,9 @@ class TestOrderAndParse(Base):
                   "summary": "a merge commit lists master's files", "failing_case": ["merge master into a branch;", "  changed() lists 3 files"]}
         report = self.review_data(findings=[other, wanted])
         message = rq.add_from(self.main, report, "F7", why="the gate runs on the wrong files", minutes=25, now="2026-10-22T08:30:00Z", **QUIET)
-        self.assertIn("queued a-merge-commit-lists-master-s-files (fix, ip 1)", message)
+        self.assertIn("queued a-merge-commit-lists-master-s-files (fix, ip 0)", message)
         item = self.item("a-merge-commit-lists-master-s-files")
-        self.assertEqual((item["kind"], item["state"], item["ip"], item["time"]), ("fix", "open", 1, 25))
+        self.assertEqual((item["kind"], item["state"], item["ip"], item["time"]), ("fix", "open", 0, 25))
         self.assertEqual((item["found_at"], item["found_in"]), ("2026-10-22T08:30:00Z", "finding F7 of review.json"))
         self.assertEqual(item["where"], ["lib/relay_inert.py:51"])
         self.assertEqual(item["title"], "A merge commit lists master's files")
@@ -278,17 +307,17 @@ class TestOrderAndParse(Base):
         self.write_commit(only_done, {".relay/queue/x.json": with_fields(fix_item(), **taken_fields())}, "taken only")
         self.assertIsNone(run(only_done))                                          # zero open items: nothing
 
-    def test_q8_new_fix_gets_one_more_than_top_open_feature(self):
-        # open features 40 and 70; a taken feature at 90 does not count; so a fix gets 71, a feature 0
+    def test_q8_new_fix_without_ip_gets_zero_like_a_feature(self):
+        # fixes list above features by kind, so a default ip needs no lift: fix and feature both get 0
         repo = self.repo("q8", items={"fa": feature_item(ip=40), "fb": feature_item(ip=70),
                                       "fc": with_fields(feature_item(ip=90), **taken_fields())})
         rq.add(repo, "fix", "New fix", why="w", failing="f", failing_kind="test", minutes=5, **QUIET)
-        self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-fix.json"))["ip"], 71)
+        self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-fix.json"))["ip"], 0)
         rq.add(repo, "feature", "New feature", why="w", minutes=5, **QUIET)
         self.assertEqual(rq.parse("n", git(repo, "show", "master:.relay/queue/new-feature.json"))["ip"], 0)
         bare = self.repo("q8b")
         rq.add(bare, "fix", "First", why="w", failing="f", failing_kind="test", minutes=5, **QUIET)
-        self.assertEqual(rq.parse("n", git(bare, "show", "master:.relay/queue/first.json"))["ip"], 1)   # no open feature: 1 + 0
+        self.assertEqual(rq.parse("n", git(bare, "show", "master:.relay/queue/first.json"))["ip"], 0)
 
 
 class TestSchema(Base):

@@ -16,7 +16,7 @@ Something found during a change is one of four things:
    owner gives (default 0).
 
 The queue is `.relay/queue/` on the project's default branch, one JSON file per item
-(`<slug>.json`), read the same from every worktree. Only `relay queue` writes an item. Items are ordered by ip, highest first. Use
+(`<slug>.json`), read the same from every worktree. Only `relay queue` writes an item. Items are ordered every open fix before every open feature, then by ip, highest first. A fix added without `--ip` gets ip 0, like a feature; an explicit `--ip` is stored as given. Use
 `relay queue` to list them, `relay queue show <slug>` to read one, `relay queue add` to add one, `relay queue take` to
 start one in a worktree (a branch holds one fix item; the check states its problem as `Q1`), `relay queue done` to close a fix with its test and the branch's check, `relay queue done <feature> --evidence <merge sha or report path>` to close a finished feature; `relay queue done <fix> --fixed-by <commit> --test <file>.py::<Class>::<name>` to close a fix that a change already on the default branch fixed (relay runs the test at the commit's parent and at the commit: it must fail, then pass); `relay
 queue -h` shows the rest. A view is a read-only script in relay's own `lib/queue_ext/`

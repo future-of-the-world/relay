@@ -1,0 +1,139 @@
+{
+  "branch": "wt/fix-first",
+  "findings": [
+    {
+      "details": [
+        "rules/queue.md: \"A new fix goes above every open feature\"; principle 1: a found defect is a fix item above the features. Seen 26 Oct: `relay queue count` names a feature as the top (\"one-digest-per-wave-instead-of-status-messages (feature, ip 95)\") while 39 fixes are open; 21 open features have an ip above the lowest open fix (ip 60), most of them ips the front chose itself."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`relay queue count` on 26 Oct: \"39 fix, 37 feature; top: one-digest-per-wave-instead-of-status-messages (feature, ip 95, 1h)\"."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "With a fix at ip 60 and a feature at ip 95 open, the queue lists the fix first and count's top is the fix; two fixes keep their ip order."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue.py:144 test_fix_before_feature_whatever_the_ip and :150 test_count_top_is_a_fix_even_under_a_higher_feature pass and fail at the base 0329138."
+      ],
+      "severity": "HIGH",
+      "since": "0329138337bb84f2da0d9d965da617240c1a9a5d",
+      "source": "queue",
+      "summary": "The queue lists features above open fixes",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the change makes the order derived from kind (lib/relay_queue.py:297) but the rule text agents",
+        "load still names ip as the only order. Agents read rules, not order_key; a reader that sorts `relay queue json` itself,",
+        "or that reasons \"top by ip\" (handover lines do exactly this: \"the next fixes by ip\"), gets the order this change was",
+        "made to remove. The change's own promise is \"the order is derived from the kind\"; the rule describing the order is the",
+        "file that must say so. Note: a rules/ edit joins the next wave's paid run (no extra run per change).",
+        "Size: 5."
+      ],
+      "evidence": [
+        "git grep -n -i 'highest first\\|ordered by\\|order by ip' ->",
+        "  rules/queue.md:19: ... Items are ordered by ip, highest first.",
+        "  docs/plans/review-gate.md:791:- Order: ip descending; equal ip, older `found_at` first, then slug.",
+        "  lib/relay_setup.py:586:  `feature`, ordered by important points.",
+        "lib/relay_queue.py:297: return (item[\"kind\"] != \"fix\", -item[\"ip\"], item[\"found_at\"], item[\"slug\"])"
+      ],
+      "failing_case": [
+        "An agent (the front picking the next item, or a script author reading `relay queue json`) follows rules/queue.md:19",
+        "\"Items are ordered by ip, highest first.\" With an open fix at ip 60 and an open feature at ip 95 it ranks the feature",
+        "first, while `relay queue` now lists the fix first. The same stale order is stated in docs/plans/review-gate.md:791",
+        "(\"Order: ip descending; ...\") and, as the text relay writes into a project, lib/relay_setup.py:586 (\"ordered by",
+        "important points\")."
+      ],
+      "fix_hint": [
+        "rules/queue.md:19: \"Items are ordered fix before feature, then by ip, highest first.\" Same words in",
+        "docs/plans/review-gate.md:791 and lib/relay_setup.py:586."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 19,
+      "pass_cases": [
+        "1. Artifact: rules/queue.md states the order as every open fix before every open feature, then ip highest first",
+        "   (then older found_at, then slug), matching order_key.",
+        "2. Artifact: docs/plans/review-gate.md's \"Order:\" line states the same kind-first order.",
+        "3. Artifact: lib/relay_setup.py:586's generated text says \"fix before feature, then by important points\" (or no order",
+        "   at all), not an ip-only order.",
+        "4. Artifact: rules/queue.md:10-11 keeps \"A new fix goes above every open feature\"."
+      ],
+      "path": "rules/queue.md",
+      "rank": "medium",
+      "reason": [
+        "rules/queue.md:19 now states every open fix before every open feature, then ip."
+      ],
+      "severity": "MEDIUM",
+      "since": "bd8478899627fc95d448381f5e53af2f9af704c2",
+      "source": "review-fix-first.json",
+      "source_id": "F1",
+      "summary": "the queue rule still says items are ordered by ip, highest first; the tool now orders fix before feature",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: lib/relay_queue.py:792-794 still computes value = 1 + max(open feature ips) for a fix. With",
+        "order_key putting kind first, that number no longer does what it was for (lift a fix over features); it only decides",
+        "the fix's place among other fixes, from unrelated feature ips. Correct today, unclear tomorrow. It is the owner's call",
+        "where a new fix goes among fixes by default (top of the fixes, bottom, or ip 0 like features), so this is a question.",
+        "Question for the owner: a new fix you add without naming its importance today gets a number one above the most",
+        "important feature, so it usually lands near the top of the fixes. Now that fixes always come first, that number only",
+        "decides its place among fixes. (a) recommended: default 0 like features; you raise the ones that matter. (b) keep",
+        "today's rule. (c) one above the highest open fix, so a new fix is always the top.",
+        "Size: 5."
+      ],
+      "evidence": [
+        "sed -n 790,795p lib/relay_queue.py:",
+        "  top = [i[\"ip\"] for i in reader.items().values() if ... i[\"kind\"] == \"feature\" and i[\"state\"] == \"open\"]",
+        "  value = (1 + max(top, default=0)) if kind == \"fix\" else 0"
+      ],
+      "failing_case": [
+        "Open: feature ip 95, fix A ip 98, fix B ip 60. `relay queue add --kind fix` without --ip gives the new fix ip 96: it",
+        "lands below A and above B. Add a feature at ip 200 and the next new fix gets ip 201, above every older fix. Where a",
+        "new fix sits among fixes depends on feature ips, and fix ips keep climbing; the queue item says the order should not be",
+        "\"kept up by hand-picked ip numbers\"."
+      ],
+      "fix_hint": [
+        "On the owner's answer: value = 0 for both kinds (and update docs/plans/review-gate.md:792 and its test), or leave it."
+      ],
+      "id": "F2",
+      "kind": "question",
+      "line": 793,
+      "pass_cases": [
+        "1. Kind order holds whatever the default: a new fix added with no --ip lists above every open feature (today: yes).",
+        "2. If the owner picks \"default 0\": with open feature ip 95 and fix ip 60, a new fix with no --ip gets ip 0 and lists",
+        "   after the ip-60 fix, before the feature.",
+        "3. An explicit --ip is stored as given, for fix and feature alike."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue.py:164 test_new_fix_without_ip_gets_zero_and_lists_above_features, test_explicit_ip_is_stored_as_given_for_fix_and_feature, test_q8_new_fix_without_ip_gets_zero_like_a_feature (and q3 updated) pass; the first, q8 and q3 fail at bd84788."
+      ],
+      "severity": "LOW",
+      "since": "bd8478899627fc95d448381f5e53af2f9af704c2",
+      "source": "review-fix-first.json",
+      "source_id": "F2",
+      "summary": "a new fix's default ip is still 1 + the highest open feature ip, which now only reorders fixes among themselves by feature numbers",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0450515f93ada9effce7bf2652d5350dff9180ff.gate.log",
+  "head": "744953f1185bb9e79a49d41ad181b239f51ff7b2",
+  "item": "the-queue-lists-features-above-open-fixes",
+  "notes": [
+    "Changed files beyond the lib (relay_setup text, plan doc, README, plugin lib copies) carry the fix-first wording or the synced copy; no caller broke."
+  ],
+  "schema": 2,
+  "scope": [
+    "Ran tests/test_queue.py (97 passed). Gate log head 0450515, exit 0; only inert files came after. Q1 tests fail at base 0329138; F2 tests fail at bd84788."
+  ],
+  "type": "check"
+}

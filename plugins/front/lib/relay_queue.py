@@ -294,11 +294,11 @@ def slugify(title):
 
 
 def order_key(item):
-    return (-item["ip"], item["found_at"], item["slug"])
+    return (item["kind"] != "fix", -item["ip"], item["found_at"], item["slug"])
 
 
 def ordered(items):
-    """Well-formed items by ip (highest first), then older `found_at`, then slug; malformed ones last, by slug."""
+    """Well-formed items fix before feature, then by ip (highest first), then older `found_at`, then slug; malformed ones last, by slug."""
     good = sorted((i for i in items if not i["problems"]), key=order_key)
     bad = sorted((i for i in items if i["problems"]), key=lambda i: i["slug"])
     return good + bad
@@ -790,8 +790,7 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
             n += 1
         value = ip
         if value is None:
-            top = [i["ip"] for i in reader.items().values() if not i["problems"] and i["kind"] == "feature" and i["state"] == "open"]
-            value = (1 + max(top, default=0)) if kind == "fix" else 0
+            value = 0                                  # a fix lists above every feature by kind, so it needs no lifted ip
         item = new_item(kind, value, minutes, found, context, title.strip(), what or title.strip(), why, failing, pass_cases, where, failing_kind)
         return Plan(slug, {_path(slug): serialize(slug, item)}, f"{kind}, ip {value}", "queued")
 

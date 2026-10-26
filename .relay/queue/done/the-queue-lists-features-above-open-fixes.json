@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-26T04:29:45Z",
   "taken_by": "wt/fix-first",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T06:44:28Z",
+  "test": "tests/test_queue.py::TestOrderAndParse::test_fix_before_feature_whatever_the_ip",
   "dropped_at": null,
   "dropped_why": null
 }
