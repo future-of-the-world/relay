@@ -444,10 +444,9 @@ def cmd_setup(args, migrate=False):
         print("\nYours to do (only what the setup cannot know):")
         for n, item in enumerate(todo, 1):
             print(f"{n}. {item}")
-    main = relay_setup.main_checkout(root)
-    if main:
+    if relay_setup.main_checkout(root):
         # the project's CLAUDE.local.md lives in the main checkout; a worktree's setup writes nothing outside the worktree
-        print(f"\nNot synced from a worktree: run `relay sync` from {main}.")
+        print("\nNot synced from a worktree: run `relay sync` after this branch is merged into the default branch.")
         print("\nCheck: relay doctor " + root)
         return 0
     try:

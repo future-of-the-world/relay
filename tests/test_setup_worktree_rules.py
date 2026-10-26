@@ -43,6 +43,9 @@ class WorktreeSetup(Base):
         with open(target) as handle:
             self.assertEqual(handle.read(), "hand written, sync must not touch this\n")   # byte-identical
         self.assertIn("Not synced from a worktree", done.stdout)
+        # sync reads the main checkout's kit.toml, so it counts only once this branch is merged (finding F2)
+        self.assertIn("after this branch is merged", done.stdout)
+        self.assertNotIn("from " + main, done.stdout)
 
     def test_main_checkout_setup_still_syncs(self) -> None:
         main, _ = self.make()
