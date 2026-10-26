@@ -18,7 +18,9 @@
   "pass_cases": [
     "After a direct eval run of one case, `bin/paid-cost today` shows its cost and the run."
   ],
-  "where": "bin/paid-cost, the eval runner's aggregate-result.json, whatever records a bin/ci run in the ledger",
+  "where": [
+    "bin/paid-cost the eval runner's aggregate-result.json, whatever records a bin/ci run in the ledger"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

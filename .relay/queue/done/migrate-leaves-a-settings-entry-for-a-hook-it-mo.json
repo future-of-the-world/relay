@@ -18,7 +18,9 @@
   "pass_cases": [
     "After migrate, no settings entry names a missing file; a hook migrate leaves in place keeps its entry."
   ],
-  "where": "lib/relay_setup.py merge_settings / migrate",
+  "where": [
+    "lib/relay_setup.py merge_settings / migrate"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": "2026-10-25T20:16:14Z",

@@ -18,7 +18,9 @@
   "pass_cases": [
     "The same run names the main checkout's project, or refuses with what to run; no .bak in a tracked folder."
   ],
-  "where": "lib/relay_setup.py setup",
+  "where": [
+    "lib/relay_setup.py setup"
+  ],
   "taken_at": "2026-10-25T20:16:33Z",
   "taken_by": "wt/setup-wt",
   "closed_at": "2026-10-25T21:24:53Z",

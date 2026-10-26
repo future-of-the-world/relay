@@ -17,7 +17,9 @@
   "pass_cases": [
     "The same bench shows a worker started in add-function and small-script under both setups, both scenarios pass under the active setup, and the two setups' worker model differs in the report's model usage."
   ],
-  "where": "evals/scenarios",
+  "where": [
+    "evals/scenarios"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": "2026-10-25T04:44:25Z",

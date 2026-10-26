@@ -18,7 +18,10 @@
   "pass_cases": [
     "After setup, doctor has no \"not installed\" FIX, or setup's to-do names `claude plugin install <name>@relay --scope project` for each."
   ],
-  "where": "lib/relay_setup.py (project-scope plugin install), lib/relay_setup.py:957 (doctor)",
+  "where": [
+    "lib/relay_setup.py (project-scope plugin install)",
+    "lib/relay_setup.py:957 (doctor)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

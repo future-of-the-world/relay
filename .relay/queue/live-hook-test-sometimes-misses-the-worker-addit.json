@@ -17,7 +17,9 @@
   "pass_cases": [
     "hooks-live.test.sh passes max(20, ceil(3/p)) clean runs in a row once the cause is fixed (rules/quality-gate.md)."
   ],
-  "where": "plugins/core/tests/hooks-live.test.sh",
+  "where": [
+    "plugins/core/tests/hooks-live.test.sh"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

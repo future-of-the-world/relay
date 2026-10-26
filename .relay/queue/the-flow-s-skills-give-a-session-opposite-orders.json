@@ -17,7 +17,14 @@
   "pass_cases": [
     "A search for each topic finds one rule and references to it; no two skills state different numbers or orders."
   ],
-  "where": "plugins/sdd/skills/spec-review/SKILL.md:63, plugins/sdd/skills/apply-review/SKILL.md:63,110, plugins/sdd/skills/parallel-apply/SKILL.md:54, plugins/delegate/skills/delegate/SKILL.md, plugins/sdd/skills/plan/SKILL.md:42, ~/.claude/skills/openspec-apply-orchestrator/SKILL.md",
+  "where": [
+    "plugins/sdd/skills/spec-review/SKILL.md:63",
+    "plugins/sdd/skills/apply-review/SKILL.md:63 110",
+    "plugins/sdd/skills/parallel-apply/SKILL.md:54",
+    "plugins/delegate/skills/delegate/SKILL.md",
+    "plugins/sdd/skills/plan/SKILL.md:42",
+    "~/.claude/skills/openspec-apply-orchestrator/SKILL.md"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

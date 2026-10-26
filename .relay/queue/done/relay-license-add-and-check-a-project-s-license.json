@@ -11,7 +11,12 @@
   "why": [
     "Owner, 25 Oct, on preparing a public GitHub release in parallel with the arsenal pilot (\"b\"), then \"1. a / 2. a / 3. a / 4. a\" to the front's questions (scratchpad reports/demo-and-release.md, part 2): 1a MIT with holder \"amidman\"; 2a a new public repo with one commit, the working repo stays private; 3a Glonass, project names, language and the money cap in a personal overlay outside the public repo; 4a relay's own stdlib license command. The owner: \"можем ли мы встроить в relay утилиту которая позволяет автоматически добавлять и проверять наличие заголовка с лицензией и саму лицензию в проект, это будет полезно для любых проектов, в relay это идёт built-in ... подключение лицензии в любой проект это основа, такая возможность должна быть и оставаться при этом опцией\". REUSE (6.2.0) was measured and set aside: GPL-3.0 code cannot be embedded in an MIT relay, 7 deps plus libmagic. IP chosen by the front (agent-chosen), release track."
   ],
-  "where": "bin/relay, lib/ (a new license module), templates or data for the license texts, lib/relay_setup.py (setup --license), kit.toml [license], the gate's check step",
+  "where": [
+    "bin/relay",
+    "lib/ (a new license module), templates or data for the license texts",
+    "lib/relay_setup.py (setup --license)",
+    "kit.toml [license], the gate's check step"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": "2026-10-25T22:43:11Z",

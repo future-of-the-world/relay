@@ -17,7 +17,11 @@
   "pass_cases": [
     "relay report prints front requests per owner turn and flags a session over the target; the rule text names the batching and the 3+ probes hand-off; a session following it shows fewer front requests per turn in relay report --compare."
   ],
-  "where": "rules/delegation.md, plugins/front/skills/front/SKILL.md, lib/relay_analyze.py (report)",
+  "where": [
+    "rules/delegation.md",
+    "plugins/front/skills/front/SKILL.md",
+    "lib/relay_analyze.py (report)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

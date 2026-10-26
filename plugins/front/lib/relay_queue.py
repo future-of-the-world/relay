@@ -24,6 +24,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
+from typing import NamedTuple, Optional
 
 import relay_git
 import relay_verdict
@@ -65,6 +66,40 @@ def _is_int(value):
 
 def _is_lines(value):
     return isinstance(value, list) and all(isinstance(x, str) for x in value)
+
+
+class Place(NamedTuple):
+    """One element of an item's `where`: the place as its first word (`path`, `path:N` or `path:N-M`), then a note for people."""
+    path: str
+    line: Optional[int]
+    end: Optional[int]
+    note: str
+
+
+PLACE_WORD = re.compile(r"([^\s:()]+)(?::(\d+)(?:-(\d+))?)?")
+
+
+def parse_place(element: str) -> Optional[Place]:
+    """The Place an element of `where` says, or None when its first word is not `path`, `path:N` or `path:N-M`
+    (N from 1, M not before N). The one reader of that string: the schema check, Q1 and `show` all use it."""
+    parts = element.split(None, 1)
+    found = PLACE_WORD.fullmatch(parts[0]) if parts and element == element.strip() else None
+    if found is None:
+        return None
+    line = int(found.group(2)) if found.group(2) else None
+    end = int(found.group(3)) if found.group(3) else None
+    if line is not None and line < 1 or end is not None and end < (line or 0):
+        return None
+    return Place(found.group(1), line, end, parts[1] if len(parts) > 1 else "")
+
+
+def where_problems(value: object) -> list[str]:
+    """Why `where` (a list of places, each a string `parse_place` reads) is not well formed; [] when it is."""
+    if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+        return ["where is not a list of places"]
+    if not value:
+        return ["where is empty (leave the key out)"]
+    return [f"where element {n} does not start with path, path:N or path:N-M" for n, element in enumerate(value, 1) if parse_place(element) is None]
 
 
 def state_of(item):
@@ -122,7 +157,9 @@ def check(slug, data, where=None):
             problems.append(f"{key} is not null or a UTC time YYYY-MM-DDTHH:MM:SSZ")
     if "found_at" in data and data["found_at"] is None:
         problems.append("found_at is null")
-    for key in ("found_in", "title", "where"):
+    if "where" in data:
+        problems += where_problems(data["where"])
+    for key in ("found_in", "title"):
         if key in data and not isinstance(data[key], str):
             problems.append(f"{key} is not a string")
     for key in ("taken_by", "test", "evidence", "fixed_by"):
@@ -234,7 +271,7 @@ def joined(item, key):
     return "\n".join(item.get(key) or [])
 
 
-def new_item(kind, ip, minutes, found_at, found_in, title, what, why, failing="", pass_cases="", where="", failing_kind=""):
+def new_item(kind, ip, minutes, found_at, found_in, title, what, why, failing="", pass_cases="", where=(), failing_kind=""):
     item = {"kind": kind, "ip": ip, "time": minutes, "found_at": found_at, "found_in": found_in,
             "title": title, "what": lines_of(what), "why": lines_of(why)}
     if failing.strip():
@@ -244,7 +281,7 @@ def new_item(kind, ip, minutes, found_at, found_in, title, what, why, failing=""
     if pass_cases.strip():
         item["pass_cases"] = lines_of(pass_cases)
     if where:
-        item["where"] = where
+        item["where"] = list(where)
     item.update({"taken_at": None, "taken_by": None, "closed_at": None, "test": None, "dropped_at": None, "dropped_why": None})
     return item
 
@@ -305,7 +342,7 @@ def show_text(item):
     out = [f"{item['slug']}: {item['title']}", f"{item['kind']}, ip {item['ip']}, {format_time(item['time'])}, {state}",
            f"found {item['found_at']} in {item['found_in']}"]
     if item.get("where"):
-        out.append(f"where {item['where']}")
+        out += ["Where:"] + ["  " + place for place in item["where"]]
     for label, key in (("taken", "taken_at"), ("closed", "closed_at"), ("dropped", "dropped_at")):
         if item[key]:
             out.append(f"{label} {item[key]}")
@@ -680,7 +717,12 @@ def read_add_input(path, keys, required, done="queued"):
         raise Refused(f"nothing {done}: " + "; ".join(problems))
     out = {}
     for key, value in raw.items():
-        if key in ("kind", "title", "where", "failing_kind"):
+        if key == "where":
+            if _is_lines(value):
+                out["where"] = value
+            else:
+                problems.append("`where` must be a list of places, each a text starting with path, path:N or path:N-M")
+        elif key in ("kind", "title", "failing_kind"):
             if not isinstance(value, str):
                 problems.append(f"`{key}` must be a text")
             out[key] = value
@@ -703,7 +745,7 @@ def read_add_input(path, keys, required, done="queued"):
     return out
 
 
-def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=None, ip=None, where="",
+def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=None, ip=None, where=(),
         context="relay queue add", now=None, failing_kind="", **engine):
     """Queue a new item. The slug comes from the title, suffixed -2, -3, ... when taken."""
     if kind not in KINDS:
@@ -730,6 +772,10 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
         raise Refused(f"an item needs its time (`time` in the input or --time), as {TIME_FORMS}")
     if ip is not None and ip < 0:
         raise Refused("ip is a whole number from 0")
+    if where:
+        bad = where_problems(where if isinstance(where, str) else list(where))
+        if bad:
+            raise Refused("; ".join(bad))
     base = slugify(title)
     found = now or utcnow()
 
@@ -762,7 +808,7 @@ def add_from(repo, report, fid, why="", minutes=None, ip=None, now=None, **engin
     if len(title) >= TITLE_MAX:                   # a title is the "what" column: cut a long summary at a word (the linter line in `what` holds all of it)
         title = title[:TITLE_MAX - 2].rsplit(" ", 1)[0].rstrip(" ,;:.-") + "…"
     return add(repo, "fix", title, why=why, what=relay_verdict.linter(found), failing="\n".join(found["failing_case"]),
-               pass_cases="\n".join(found.get("pass_cases") or []), minutes=minutes, ip=ip, where=f"{found['path']}:{found['line']}", context=context, now=now,
+               pass_cases="\n".join(found.get("pass_cases") or []), minutes=minutes, ip=ip, where=[f"{found['path']}:{found['line']}"], context=context, now=now,
                failing_kind="claim", **engine)     # a review's finding is its reviewer's claim
 
 
@@ -937,12 +983,10 @@ def release(repo, slug, **engine):
 
 def _q1(item):
     """The finding Q1 a fix item becomes: its place, title, failing case, why and pass cases."""
-    where = item.get("where") or f"{_path(item['slug'])}:1"
-    place, _, line = where.rpartition(":")
-    if not (place and line.isdigit() and int(line) >= 1):
-        place, line = where, "1"
-    return {"id": "Q1", "path": place, "line": int(line), "severity": "HIGH", "rank": "high", "kind": "inside", "summary": item["title"],
-            "failing_case": list(item["failing_case"]), "details": list(item["why"]),
+    places = item.get("where") or [f"{_path(item['slug'])}:1"]
+    first = parse_place(places[0])          # the check has refused an element that does not parse
+    return {"id": "Q1", "path": first.path, "line": first.line or 1, "severity": "HIGH", "rank": "high", "kind": "inside", "summary": item["title"],
+            "failing_case": list(item["failing_case"]), "details": list(item["why"]) + [f"Also: {place}" for place in places[1:]],
             "pass_cases": list(item.get("pass_cases") or []), "evidence": [], "fix_hint": []}
 
 

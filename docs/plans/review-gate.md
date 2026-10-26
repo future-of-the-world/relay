@@ -755,7 +755,7 @@ Only `lib/relay_queue.py` writes it (`serialize`) or reads it (`parse`); nothing
   "why": ["..."],                lines; why it matters
   "failing_case": ["..."],       lines; required for a fix
   "pass_cases": ["..."],         lines; optional (2-5)
-  "where": "bin/ci:25",          optional: path:line for the Q1 linter line
+  "where": ["bin/ci:25 the skip list"],   optional: a list of places, path, path:N or path:N-M then a note; Q1 takes the first
   "taken_at": null,              UTC time the item was taken, else null
   "taken_by": null,              the task branch working on it (it stays as the closing branch); set exactly when taken_at is
   "closed_at": null,             UTC time the closing branch recorded the close, else null

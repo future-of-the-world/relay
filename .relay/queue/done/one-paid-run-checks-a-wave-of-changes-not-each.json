@@ -17,7 +17,12 @@
   "pass_cases": [
     "The rules and skills say a text-editing change is ready without its own paid run; a command lists the changes merged on the default branch since its last green paid run that edited agent, skill, role or rule texts (empty right after a green run); the front skill says when the wave's run starts, that a red run is one fix item at the top, and that relay sync waits for green."
   ],
-  "where": "rules/git.md (ready to merge), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md (step 9), bin/paid-cost",
+  "where": [
+    "rules/git.md (ready to merge)",
+    "plugins/front/skills/front/SKILL.md",
+    "plugins/delegate/skills/delegate/SKILL.md (step 9)",
+    "bin/paid-cost"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": "2026-10-24T15:43:54Z",

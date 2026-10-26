@@ -17,7 +17,13 @@
   "pass_cases": [
     "After the move, the gate runs the same cases (same count) from Python; no .sh file under plugins/ holds more than a few lines of wrapper; the gate passes on macOS with no GNU tools on PATH."
   ],
-  "where": "plugins/core/tests/*.test.sh, plugins/core/hooks/*.sh, evals/plugin/*.sh, bin/ci, templates/bin-check",
+  "where": [
+    "plugins/core/tests/*.test.sh",
+    "plugins/core/hooks/*.sh",
+    "evals/plugin/*.sh",
+    "bin/ci",
+    "templates/bin-check"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

@@ -694,7 +694,7 @@ relay queue show <slug>                  one item in full
 relay queue check                        every item file of this checkout (done/ too) is well formed; lists the ones that are not
 relay queue migrate                      rewrite item files of the old shape (`state`) to dated events from git history; safe to run again
 relay queue add --input <file.toml> [--time 20m|1h|1h30m] [--ip N]
-                                         the TOML holds kind, title, why, time, what, failing_case, failing_kind, pass_cases, where (text in '''...''')
+                                         the TOML holds kind, title, why, time, what, failing_case, failing_kind, pass_cases, where (a list of places: ["lib/x.py:5-9 note", "docs/"])
                                          a fix says what its failing case is: failing_kind = "test", "run" (a recorded red run) or "claim" (someone's word)
 relay queue add --from <report.json> F<n> --input <file.toml> [--time ..] [--ip N]
                                          the finding F<n> of a recorded review or check; the TOML holds why, time, ip

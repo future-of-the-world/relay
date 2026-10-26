@@ -17,7 +17,11 @@
   "pass_cases": [
     "The skills say: an item whose failing case is a claim gets the reproduce step before its build; a non-reproduced claim stops the build and reaches the owner; an item with a failing test skips the step; relay queue add records which kind the failing case is."
   ],
-  "where": "plugins/delegate/skills/delegate/SKILL.md (review loop, before step 2 Build), plugins/front/skills/front/SKILL.md, rules/queue.md, relay queue add (a field saying whether the failing case is a failing test or a claim)",
+  "where": [
+    "plugins/delegate/skills/delegate/SKILL.md (review loop, before step 2 Build)",
+    "plugins/front/skills/front/SKILL.md",
+    "rules/queue.md relay queue add (a field saying whether the failing case is a failing test or a claim)"
+  ],
   "taken_at": "2026-10-24T21:00:51Z",
   "taken_by": "wt/premise",
   "closed_at": "2026-10-24T23:33:26Z",

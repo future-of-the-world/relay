@@ -17,7 +17,10 @@
   "pass_cases": [
     "The same F1 after a partial fix is reported open by the checker because its sketch still passes; a complete fix is MET."
   ],
-  "where": "plugins/sdd/skills/spec-review/SKILL.md:72-84, roles/judge.md (step 1)",
+  "where": [
+    "plugins/sdd/skills/spec-review/SKILL.md:72-84",
+    "roles/judge.md (step 1)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

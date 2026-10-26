@@ -19,7 +19,9 @@
     "The probe case (a rule in the scaffold's CLAUDE.md that asks for a word) passes 3 of 3 runs without the prompt naming the file.",
     "The it-terms prompts no longer tell the session to read CLAUDE.md, and the cases still pass."
   ],
-  "where": "evals/plugin/setup-fixture.sh, the eval runner (claude plugin eval) set-up, every case whose graders depend on a project rule in CLAUDE.md",
+  "where": [
+    "evals/plugin/setup-fixture.sh the eval runner (claude plugin eval) set-up, every case whose graders depend on a project rule in CLAUDE.md"
+  ],
   "taken_at": "2026-10-25T09:25:28Z",
   "taken_by": "wt/claudemd",
   "closed_at": "2026-10-25T12:24:51Z",

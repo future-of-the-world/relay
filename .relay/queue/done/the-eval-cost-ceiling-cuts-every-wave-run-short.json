@@ -18,7 +18,10 @@
   "pass_cases": [
     "bin/ci's eval step takes its ceiling from the suite estimate; a test with a fixed estimate shows the ceiling above it and below the day's remaining cap."
   ],
-  "where": "bin/ci (EVALS_MAX_COST default 15), the eval runner's cost ceiling, bin/paid-cost estimate",
+  "where": [
+    "bin/ci (EVALS_MAX_COST default 15), the eval runner's cost ceiling",
+    "bin/paid-cost estimate"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": "2026-10-25T15:28:53Z",

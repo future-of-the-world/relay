@@ -17,7 +17,12 @@
   "pass_cases": [
     "A new session in relay (and in a project relay set up) runs a change from the queue through the saved workflow by name; a test fails when a command the workflow uses changes form; the merge goes through the train; the delegate skill and the workflow name the same steps."
   ],
-  "where": ".claude/workflows/ (or what plugins can ship), plugins/delegate/skills/delegate/SKILL.md (review loop), plugins/front/skills/front/SKILL.md, a skill that starts it, bin/relay",
+  "where": [
+    ".claude/workflows/ (or what plugins can ship)",
+    "plugins/delegate/skills/delegate/SKILL.md (review loop)",
+    "plugins/front/skills/front/SKILL.md a skill that starts it",
+    "bin/relay"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

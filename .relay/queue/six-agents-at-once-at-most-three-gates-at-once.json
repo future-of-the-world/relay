@@ -11,7 +11,11 @@
   "why": [
     "Owner, 26 Oct: \"Является ли лимит одновременно запущенных агентов бутылочным горлышком ? Стоит ли его увеличить\" then \"a\" (6 agents, gates capped at 3). Measured on 238 gates (12 cores): library tests median 138 s alone, 280-350 s with 1-3 others, 489 s with 4+; gates per hour peak near 4 at once and fall at 5+. Gates are 40-60% of a change's time; build, review and check wait on the model. Expected +25-30% (an estimate to check). IP chosen by the front (agent-chosen)."
   ],
-  "where": ".claude/kit.toml [delegate] max_parallel, bin/relay gate (lib: the gate runner), rules/delegation.md (\"At most 4 agents at once unless the project says otherwise\")",
+  "where": [
+    ".claude/kit.toml [delegate] max_parallel",
+    "bin/relay gate (lib: the gate runner)",
+    "rules/delegation.md (\"At most 4 agents at once unless the project says otherwise\")"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

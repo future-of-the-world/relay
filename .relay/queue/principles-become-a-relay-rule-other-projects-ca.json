@@ -11,7 +11,13 @@
   "why": [
     "Owner, 24 Oct, verbatim: \"Те разделы вкуса что ты привел, назовем их принципами - паттерны поведения и принятия решений, они мне по душе\"; \"а, включай после шага 2\" (to: make them effective now, loaded in relay only, after queue step 2); \"Давай сделаем эти правила частью relay, часть из этих принципов могут быть переиспользованы другими проектами\". Order: build right after queue-items-store-state-instead-of-dated-events (step 2), by the owner's word."
   ],
-  "where": "rules/taste.md -> rules/principles.md, projects.toml ([relay] load, [global] skip), lib/relay_rules.py, tests/test_relay.py, docs/",
+  "where": [
+    "rules/taste.md -> rules/principles.md",
+    "projects.toml ([relay] load, [global] skip)",
+    "lib/relay_rules.py",
+    "tests/test_relay.py",
+    "docs/"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

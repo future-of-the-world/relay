@@ -17,7 +17,9 @@
   "pass_cases": [
     "A design with the measured numbers and at least three approaches plus doing nothing, reviewed, and the owner's pick recorded before any build."
   ],
-  "where": "to be designed (design track first): the front skill, the change-cycle workflow, possibly a queue view",
+  "where": [
+    ".relay/queue/choose-which-unblocked-items-start-together.json to be designed (design track first): the front skill, the change-cycle workflow, possibly a queue view"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

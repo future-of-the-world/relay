@@ -21,7 +21,9 @@
     "- A change touching lib/, bin/, plugins/ or hooks still runs the full quick gate and the inert probe.",
     "- A change touching rules/ plus code runs the full gate."
   ],
-  "where": "bin/ci:14",
+  "where": [
+    "bin/ci:14"
+  ],
   "taken_at": "2026-10-24T17:52:10Z",
   "taken_by": "wt/rules-gate",
   "closed_at": "2026-10-24T19:43:38Z",

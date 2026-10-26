@@ -11,7 +11,9 @@
   "why": [
     "Owner, 26 Oct: \"агенты позволяют нам делать множество изменений одновременно, большие файлы - наши враги, концентрируя большой объем кода (смысла) они являются поводом для конфликтов\", then \"a\" (principle 10 \"one subject per file, no hub files, no copies\" plus four items). Measured over 5 days: bin/relay (887 lines) in 44 commits, lib/relay_queue.py (1189 lines) in 25 commits kept in 3 copies, lib/relay_setup.py (1134 lines) changed by 3 open branches at once (license, setup-wt, the portable-tool design). IP chosen by the front (agent-chosen)."
   ],
-  "where": "rules/principles.md",
+  "where": [
+    "rules/principles.md"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

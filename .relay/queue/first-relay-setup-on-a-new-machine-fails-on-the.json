@@ -18,7 +18,10 @@
   "pass_cases": [
     "Same run: exit 0 and CLAUDE.local.md written (or exit 0 with a one-line note of what waits); the hold still applies to relay sync on a machine that has a paid-run record."
   ],
-  "where": "lib/relay_rules.py:284 (the paid-run hold), lib/relay_setup.py (setup's own sync)",
+  "where": [
+    "lib/relay_rules.py:284 (the paid-run hold)",
+    "lib/relay_setup.py (setup's own sync)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

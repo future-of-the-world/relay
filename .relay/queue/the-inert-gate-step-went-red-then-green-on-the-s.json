@@ -17,7 +17,11 @@
   "pass_cases": [
     "The cause is named with evidence, and the inert step passes max(20, ceil(3/p)) runs in a row on an unchanged tree."
   ],
-  "where": "bin/ci (inert step), lib/relay_inert.py, the eval grader tests step, .ci/steps/inert.log",
+  "where": [
+    "bin/ci (inert step)",
+    "lib/relay_inert.py the eval grader tests step",
+    ".ci/steps/inert.log"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

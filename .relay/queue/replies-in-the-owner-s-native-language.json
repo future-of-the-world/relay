@@ -11,7 +11,10 @@
   "why": [
     "The owner, verbatim: \"My native lang is russian - I don't like speak in English\"; then \"a - can we fix this in relay, but not hard rules, use native language term for this, model can detect or ask directly\"."
   ],
-  "where": "rules/ (the \"Working with me\" rule), memory",
+  "where": [
+    "rules/ (the \"Working with me\" rule)",
+    "memory"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

@@ -11,7 +11,9 @@
   "why": [
     "The structured-data rule: what a later step reads is a structured file. Today the two lines are written by the gate itself, so this is a cleanup of the format, not a defect."
   ],
-  "where": "lib/relay_marks.py:170",
+  "where": [
+    "lib/relay_marks.py:170"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

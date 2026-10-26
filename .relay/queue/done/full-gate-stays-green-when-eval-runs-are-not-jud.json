@@ -17,7 +17,10 @@
   "pass_cases": [
     "A full bin/ci with any run not judged, or any grader failed, does not end \"ci: green\"; a run with all judged and passing still ends green."
   ],
-  "where": "bin/eval-record, bin/ci (plugin evals step)",
+  "where": [
+    "bin/eval-record",
+    "bin/ci (plugin evals step)"
+  ],
   "taken_at": "2026-10-24T07:30:32Z",
   "taken_by": "wt/gate-not-judged",
   "closed_at": "2026-10-24T08:05:02Z",

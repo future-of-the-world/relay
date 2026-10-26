@@ -17,7 +17,9 @@
   "pass_cases": [
     "A run where the hook did not deliver the rule fails the case even if the session read the rule file; a run where the hook delivered it passes; the grader tests show both with recorded fixtures."
   ],
-  "where": "evals/plugin/critic-role-rule (case and graders), the role-rule hook it tests (inject-addition.sh)",
+  "where": [
+    "evals/plugin/critic-role-rule (case and graders), the role-rule hook it tests (inject-addition.sh)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

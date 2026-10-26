@@ -17,7 +17,9 @@
   "pass_cases": [
     "An edit that breaks a committed-text test fails `bin/ci --quick` before the commit as it does after it, or the run states it checked HEAD only."
   ],
-  "where": "tests/test_queue.py",
+  "where": [
+    "tests/test_queue.py"
+  ],
   "taken_at": "2026-10-24T17:52:11Z",
   "taken_by": "wt/quick-head",
   "closed_at": "2026-10-24T19:25:28Z",

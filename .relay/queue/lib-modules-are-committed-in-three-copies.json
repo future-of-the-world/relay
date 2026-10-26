@@ -18,7 +18,12 @@
   "pass_cases": [
     "One path; the plugins' hooks and commands that used a copy still run (their tests pass); a session started with only the plugins folder still finds the module."
   ],
-  "where": "lib/relay_queue.py, plugins/core/lib/relay_queue.py, plugins/front/lib/relay_queue.py (and the other copied modules), bin/sync-lib-copies",
+  "where": [
+    "lib/relay_queue.py",
+    "plugins/core/lib/relay_queue.py",
+    "plugins/front/lib/relay_queue.py (and the other copied modules)",
+    "bin/sync-lib-copies"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

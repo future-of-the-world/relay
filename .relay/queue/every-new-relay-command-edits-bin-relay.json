@@ -18,7 +18,9 @@
   "pass_cases": [
     "A test adds a command module in a temporary copy and bin/relay runs it and lists it in its help without bin/relay changing; every existing command behaves as before."
   ],
-  "where": "bin/relay (887 lines: the command table and usage)",
+  "where": [
+    "bin/relay (887 lines: the command table and usage)"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

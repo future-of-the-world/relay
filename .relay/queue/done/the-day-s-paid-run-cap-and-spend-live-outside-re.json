@@ -17,7 +17,12 @@
   "pass_cases": [
     "`bin/paid-cost today` on fixture records prints the summed spend, the run count and the cap; a paid bin/ci or relay bench whose estimate would pass the cap is refused before it starts with that line; with spend + estimate under the cap it runs; the cap is read from projects.toml, not from Claude memory."
   ],
-  "where": "projects.toml [global], bin/paid-cost, bin/ci (plugin evals step), lib/relay_bench.py",
+  "where": [
+    "projects.toml [global]",
+    "bin/paid-cost",
+    "bin/ci (plugin evals step)",
+    "lib/relay_bench.py"
+  ],
   "taken_at": "2026-10-24T13:42:23Z",
   "taken_by": "wt/paid-cap",
   "closed_at": "2026-10-24T15:16:25Z",

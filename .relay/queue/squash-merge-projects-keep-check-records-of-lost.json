@@ -18,7 +18,11 @@
   "pass_cases": [
     "After the same squash-merge, no record on main names a commit main lacks (or the docs and setup state it and relay keeps the records out of the squashed tree)."
   ],
-  "where": "lib/relay_marks.py, plugins/core/hooks/guard-main.sh (.relay/checks writes), docs",
+  "where": [
+    "lib/relay_marks.py",
+    "plugins/core/hooks/guard-main.sh (.relay/checks writes)",
+    "docs"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

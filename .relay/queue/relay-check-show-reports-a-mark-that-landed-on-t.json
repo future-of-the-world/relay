@@ -35,7 +35,9 @@
     "   show does not claim a refusal the merge would not make (state the line chosen, e.g. \"mark: none needed, the",
     "   ready changes it holds are checked\")."
   ],
-  "where": "lib/relay_marks.py:260",
+  "where": [
+    "lib/relay_marks.py:260"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

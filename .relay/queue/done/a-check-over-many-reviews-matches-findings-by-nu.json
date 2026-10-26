@@ -17,7 +17,9 @@
   "pass_cases": [
     "A check over two reviews that both have F2 records two verdicts, `<review-a>:F2` and `<review-b>:F2`."
   ],
-  "where": "lib/relay_verdict.py",
+  "where": [
+    "lib/relay_verdict.py"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

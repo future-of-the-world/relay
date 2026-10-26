@@ -18,7 +18,10 @@
   "pass_cases": [
     "After setup CLAUDE.md imports @AGENTS.md; a project without AGENTS.md gets the skeleton unchanged; an existing CLAUDE.md is never rewritten (doctor reports the missing import instead)."
   ],
-  "where": "lib/relay_setup.py (the CLAUDE.md skeleton, CLAUDE.local.md registration), templates/",
+  "where": [
+    "lib/relay_setup.py (the CLAUDE.md skeleton, CLAUDE.local.md registration)",
+    "templates/"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

@@ -18,7 +18,10 @@
   "pass_cases": [
     "The same merge passes the record check; a branch whose records break its own lib's rules is still refused; a branch that changes no lib is judged as today."
   ],
-  "where": "plugins/core/hooks/merge.py:166 (the queue record check), plugins/core/lib/relay_queue.py (the copy it imports)",
+  "where": [
+    "plugins/core/hooks/merge.py:166 (the queue record check)",
+    "plugins/core/lib/relay_queue.py (the copy it imports)"
+  ],
   "taken_at": "2026-10-25T21:21:51Z",
   "taken_by": "wt/hook-schema",
   "closed_at": "2026-10-25T22:49:26Z",

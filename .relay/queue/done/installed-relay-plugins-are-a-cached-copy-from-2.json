@@ -22,7 +22,9 @@
     "1. After a merge that edits plugins/front/skills/front/SKILL.md and the documented refresh step, the copy a new session loads equals the repo's file.",
     "2. `relay doctor` reports a plugin copy that differs from the repo's default branch."
   ],
-  "where": "plugins/core/hooks/merge.py:60",
+  "where": [
+    "plugins/core/hooks/merge.py:60"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

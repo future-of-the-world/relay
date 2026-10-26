@@ -11,7 +11,10 @@
   "why": [
     "Owner, verbatim: \"Я думаю будет эффективным использовать инструменты автоматического форматирования кода, инструменты автоматического исправления кода сэкономят приличное количество токенов\". Today 2,230 lines are longer than the default and ruff finds 2,755 style and bug items under a wider rule set; agents spend turns on hand edits a tool makes in a second."
   ],
-  "where": "pyproject.toml, bin/ci, all *.py",
+  "where": [
+    "pyproject.toml",
+    "bin/ci all *.py"
+  ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,

@@ -17,7 +17,9 @@
   "pass_cases": [
     "a run whose grader names carry the right yes--/no-- prefixes tallies correctly today"
   ],
-  "where": "evals/judge-measure/tally.py:62",
+  "where": [
+    "evals/judge-measure/tally.py:62"
+  ],
   "taken_at": "2026-10-24T05:45:32Z",
   "taken_by": "wt/eval-tally",
   "closed_at": "2026-10-24T06:42:52Z",

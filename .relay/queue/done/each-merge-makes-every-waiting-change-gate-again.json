@@ -17,7 +17,12 @@
   "pass_cases": [
     "With N ready changes, the rules and hook let them merge with at most one extra gate in total, or skip it when code shows no overlap; a merge whose branch and master's new commits share a file still gets the combined-by-merge check and a gate."
   ],
-  "where": "rules/git.md (ready to merge), plugins/front/skills/front/SKILL.md, plugins/delegate/skills/delegate/SKILL.md step 8, plugins/core/hooks/merge.py",
+  "where": [
+    "rules/git.md (ready to merge)",
+    "plugins/front/skills/front/SKILL.md",
+    "plugins/delegate/skills/delegate/SKILL.md step 8",
+    "plugins/core/hooks/merge.py"
+  ],
   "taken_at": "2026-10-24T15:18:32Z",
   "taken_by": "wt/regate",
   "closed_at": "2026-10-24T17:38:41Z",
