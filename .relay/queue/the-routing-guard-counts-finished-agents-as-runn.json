@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 75,
+  "time": 45,
+  "found_at": "2026-10-26T09:56:03Z",
+  "found_in": "relay queue add",
+  "title": "The routing guard counts finished agents as running",
+  "what": [
+    "The routing guard's \"agents are already running\" count matches what is really running in the session: an agent that ended without a stop event in the ledger (a workflow agent that died, crashed or ended without its structured output) stops counting once it has ended."
+  ],
+  "why": [
+    "26 Oct evening, measured: after workflow wami2lmn7 ended (15 agents, one of them ended without StructuredOutput), starting one fixer got \"Routing note: 7 agents are already running in this session (cap 6)\", while ListAgents at the same moment showed 1 running subagent and one workflow with one agent. running_now counts relay_ledger.running_agents over the last 12 h. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A ledger for one session with 7 agent-start events from a workflow that ended and no matching stop events, and 1 live agent: running_now reports 7 or 8 instead of 1."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same ledger with stop events reports only the live agent; a session with 2 live agents reports 2; a cap warning still fires at the cap when the agents really run."
+  ],
+  "where": [
+    "plugins/delegate/hooks/route-guard.py (running_now)",
+    "lib/relay_ledger.py (running_agents)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
