@@ -21,8 +21,8 @@
   "where": [
     "lib/relay_setup.py where setup writes extraKnownMarketplaces into ~/.claude/settings.json"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T01:37:18Z",
+  "taken_by": "wt/setup-wt-market",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
