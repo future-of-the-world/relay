@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-26T04:23:10Z",
   "taken_by": "wt/setup-scope",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T06:31:15Z",
+  "test": "tests/test_setup.py::SetupIsProjectOnly::test_project_setup_leaves_every_file_in_the_claude_folder_byte_identical",
   "dropped_at": null,
   "dropped_why": null
 }
