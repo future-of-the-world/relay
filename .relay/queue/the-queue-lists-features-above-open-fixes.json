@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 98,
+  "time": 30,
+  "found_at": "2026-10-26T03:38:44Z",
+  "found_in": "relay queue add",
+  "title": "The queue lists features above open fixes",
+  "what": [
+    "Every open fix comes before every open feature in the queue's order, whatever their ip; ip orders items within a kind. The order is derived from the kind when reading, not kept up by hand-picked ip numbers."
+  ],
+  "why": [
+    "rules/queue.md: \"A new fix goes above every open feature\"; principle 1: a found defect is a fix item above the features. Seen 26 Oct: `relay queue count` names a feature as the top (\"one-digest-per-wave-instead-of-status-messages (feature, ip 95)\") while 39 fixes are open; 21 open features have an ip above the lowest open fix (ip 60), most of them ips the front chose itself."
+  ],
+  "failing_case": [
+    "`relay queue count` on 26 Oct: \"39 fix, 37 feature; top: one-digest-per-wave-instead-of-status-messages (feature, ip 95, 1h)\"."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "With a fix at ip 60 and a feature at ip 95 open, the queue lists the fix first and count's top is the fix; two fixes keep their ip order."
+  ],
+  "where": [
+    "lib/relay_queue.py the order of `relay queue`, `relay queue count` (its \"top\") and whatever picks the next item"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
