@@ -1272,3 +1272,33 @@ then the core rename alone.
 Lessons: gate-waiting runner agents ran out of turns 3 times (gates now 25-60 min); the scripts now give them 40 turns
 and a "still running" report; the front can run a gate itself with run_in_background. A test leaked a real gate that held
 a machine slot for 3.7 h. The front `cd`-ed into worktrees twice (red-wave stays locked by this session).
+
+## STATE 26 Oct night (session 3207dc59)
+
+Paid run of the wave: GREEN at 57b1564, $15.18 (day $32.61 of $200). `relay sync` ran: global CLAUDE.md written; it also
+set `effortLevel` 'high' and env CLAUDE_CODE_RETRY_WATCHDOG=1 in ~/.claude/settings.json from the profile (owner told).
+Note: two eval sessions (code-reviewer-offbyone, critic-role-rule) read the rule file via Bash, so they do not prove the
+hook delivered the rule.
+
+Merged: live-queue-tests (tests read pinned queue commits, guard test against live queue reads), front-cd (guard-main
+refuses the main session's cd/pushd from the main checkout into a worktree; allowed inside the worktree and in child
+shells; 11 guard-diff golden "was" values now block), leaked-gate (test gate helper stops a gate past its timeout with its
+command; after the library tests tests/leaked_gates.py stops gates left under the run's temp folders and fails the step).
+Owner on the cd guard: "Оставь" (after the front asked whether a code guard against the front's own mistake is wanted).
+Front decision (owner can reverse): review F3 of leaked-gate (no suite-end check) was fixed inside the change, not queued,
+because the item's pass case asks for it.
+
+Found and queued: the-routing-guard-counts-finished-agents-as-runn (75: "7 running" while 1 ran),
+a-train-cannot-recheck-a-queue-item-its-branch-c (92: two fix items can never land in one train; the merge hook walks
+marks in topo order and needs the item's check after every non-inert change, so the other branch's files always come
+after; train-19 and train-20 were abandoned and landed one at a time, +1 gate).
+
+Leftovers the guard will not let the front remove: .worktrees/train-19, .worktrees/train-20 (wt/train-19, wt/train-20,
+fully contained in master), .worktrees/relay-plugins. `relay doctor` lists them.
+
+Lessons: fix LOW findings before the queue check, not after (a one-line move after the item's check cost 3 extra checker
+runs and a gate). Gates run by the front with run_in_background worked every time.
+
+Next: next fix wave from the top of the queue (relay queue): the-gate-runs-its-work-twice (95, 3h, ports bin/ci to
+Python), setup-in-a-worktree-rewrites-main-checkout-rules (95), a-wave-run-is-red-when-one-of-a-case-s-3-runs-fa (94),
+tests-write-new-executables (94), then 93s and a-train-cannot-recheck (92). Each brief starts with a fresh look at the code.
