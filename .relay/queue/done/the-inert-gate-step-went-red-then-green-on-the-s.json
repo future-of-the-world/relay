@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-26T14:37:39Z",
   "taken_by": "wt/gate-lock",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T16:36:28Z",
+  "test": "tests/test_gate_slots.py::Slots::test_t1_a_second_gate_in_one_worktree_waits_then_reuses_the_first_log",
   "dropped_at": null,
   "dropped_why": null
 }
