@@ -141,6 +141,17 @@ class TestOrderAndParse(Base):
             "b": feature_item(ip=50, found="2026-10-01T00:00:00Z"), "d": fix_item(ip=90)}.items()]
         self.assertEqual([i["slug"] for i in rq.ordered(items)], ["d", "b", "c", "a"])
 
+    def test_fix_before_feature_whatever_the_ip(self):
+        # a fix at ip 10 goes above a feature at ip 99; within a kind, ip descending (fix 10 above fix 5)
+        items = [rq.parse(s, t) for s, t in {
+            "feat": feature_item(ip=99), "fixlow": fix_item(ip=5), "fixhigh": fix_item(ip=10)}.items()]
+        self.assertEqual([i["slug"] for i in rq.ordered(items)], ["fixhigh", "fixlow", "feat"])
+
+    def test_count_top_is_a_fix_even_under_a_higher_feature(self):
+        # the top is the first of the order: fix ip 10 beats feature ip 99
+        repo = self.repo("top", items={"feat": feature_item(ip=99), "fx": fix_item(ip=10)})
+        self.assertIn("top: fx (fix, ip 10", rq.count_text(rq.read_queue(repo)))
+
     def test_q1_cli_list_in_that_order(self):
         repo = self.repo("cli", items={"low": feature_item(ip=5), "high": fix_item(ip=80)})
         done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "queue", "-C", repo],
