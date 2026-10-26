@@ -444,11 +444,18 @@ def cmd_setup(args, migrate=False):
         print("\nYours to do (only what the setup cannot know):")
         for n, item in enumerate(todo, 1):
             print(f"{n}. {item}")
+    main = relay_setup.main_checkout(root)
+    if main:
+        # the project's CLAUDE.local.md lives in the main checkout; a worktree's setup writes nothing outside the worktree
+        print(f"\nNot synced from a worktree: run `relay sync` from {main}.")
+        print("\nCheck: relay doctor " + root)
+        return 0
     try:
         results = relay_rules.sync(relay_config.active_profile(), only={d["name"]}, adopt=d["name"])
-    except relay_rules.Held as held:
-        print("\nNot synced: waits for a green paid run; merged since the last one:\n" + str(held), file=sys.stderr)
-        return 1
+    except relay_rules.Held:
+        print("\nNot synced: waits for a green paid run (the setup itself is done); run `relay sync` after it.", file=sys.stderr)
+        print("\nCheck: relay doctor " + root)
+        return 0
     print("\nSynced: " + "; ".join(f"{n} {state}" for n, _, state in results))
     print("\nCheck: relay doctor " + root)
     return report_refused(results)
