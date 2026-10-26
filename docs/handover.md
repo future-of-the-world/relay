@@ -1388,3 +1388,5 @@ projects and holds prompts.
 20-run proof: scratchpad/proof20/proof20.py (takes the worktree lock and a slot via lib/relay_gate.py, runs
 RELAY_GATE=HEAD bin/ci --quick in .worktrees/proof20, logs run-<i>.log and summary.tsv, stops at the first red); trial
 run 1: 492 s, library tests 291 s, green. The 20 runs started 27 Oct morning in the front's background.
+
+Addendum 27 Oct morning (3): coverage format: owner "a" (a project setting names its LCOV or Cobertura report; relay reads both with the stdlib). Revise design-dev-metrics.md 2.4 to it before the build.
