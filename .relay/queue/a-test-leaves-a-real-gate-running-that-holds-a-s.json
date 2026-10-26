@@ -22,8 +22,8 @@
     "tests/test_setup.py or the test that runs `relay gate` inside a temporary relay copy (temp folder relay-gate-*/main/.worktrees/x)",
     "lib/relay_gate.py the machine-wide slots under $RELAY_HOME/gate-slots"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T08:20:58Z",
+  "taken_by": "wt/leaked-gate",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
