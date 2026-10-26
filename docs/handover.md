@@ -1365,3 +1365,11 @@ as-person-fac, issues-flow-into-queue, issue-bindings-forgejo-gitlab and close t
 (docs only), the 20-run proof script (scratchpad/proof20/, worktree .worktrees/proof20 detached at master).
 Next: a-train-cannot-recheck-a-queue-item-its-branch-c (92) before the scripts move (the script lands trains), then
 change-cycle-workflow-scripts-move-into-relay (96) from design-cycle-scripts.md, then observability.
+
+Addendum 27 Oct morning: observability question 2 answered "Хорошо согласен, метрики становятся частью стандартного
+пакета relay" (a: full records where the standard package and .relay/ are on; observe alone gives a ledger view). The
+owner then asked "что меняется в observe ? Как можно отключить эти метрики по желанию ?". Front's answer: observe's
+ledger hook adds the stage label and seven token fields at agent stop (design-dev-metrics.md 2.2), nothing else; the
+off switch proposed is one project setting written by `relay setup --off metrics` (records off) plus RELAY_COVERAGE=off
+(coverage only); awaiting the owner's word on the switch before the build. Context at ~351k: next session continues
+from the "early morning" state above.
