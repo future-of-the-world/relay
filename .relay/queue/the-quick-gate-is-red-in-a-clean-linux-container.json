@@ -1,0 +1,35 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 100,
+  "found_at": "2026-10-26T21:47:02Z",
+  "found_in": "relay queue add",
+  "title": "The quick gate is red in a clean Linux container",
+  "what": [
+    "Make the quick gate green in a clean Linux image built from deps.toml: list `ps` (procps) in deps.toml and the installer; fix the float comparison; pin one python and make bin/ci refuse another; find and fix the four unexplained groups. The probe image's Dockerfile (scratchpad clean-env/img/Dockerfile, not kept) is reproduced in the change so the comparison can be run again."
+  ],
+  "why": [
+    "Found 27 Oct by the clean-environment design (owner: \"...запускать каждое изменение в новой docker контейнере... При этом получать тот же результат\"). Measured: two fresh clones of master b10d314 (same tree), `bin/ci --quick`, each with an empty $RELAY_HOME: this Mac green (1,027 tests OK, 935 s at load 27-36); a python:3.11-slim image with git, jq, uv, the deps.toml pins, bun and Claude Code (no relay or Claude settings) RED: 25 failures, 17 errors in library tests, hook tests failed (215 s). Causes found: `ps` is not installed in a slim image and deps.toml does not list it (18 errors: leaked-gate scan, inert probe, check migrate); tests/test_marks.py:245 compares a float sum exactly and passes only on python 3.12+ (`sum([0.1]*100)` is 10.0 on 3.14, 9.99999999999998 on 3.11) while deps.toml promises 3.11; this Mac runs python 3.14.6 and nothing pins one version. Not explained yet: paid-hold tests \"git log refs/heads/master failed: unable to open loose object\" (4), the guard case \"TMPDIR from the hook environment\" (macOS sets TMPDIR, Linux usually not), the packet tests' TypeScript declarations (\"no declaration emitted for module src/widget/gear.ts\"), test_parallel_unittest sub-runs exiting 1. The design decides inside the principles (owner can reverse): one exact python for host and image, 3.14.6, and bin/ci refuses another python3. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "`bin/ci --quick` on a fresh clone of b10d314 in python:3.11-slim plus the deps.toml tools: 25 failures, 17 errors in library tests, hook tests FAILED."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "the same run in the image built from the change's Dockerfile: green",
+    "this Mac's quick gate: still green",
+    "bin/ci given a python3 of another version refuses with the version it wants"
+  ],
+  "where": [
+    "deps.toml (no ps)",
+    "tests/test_marks.py:245 exact float",
+    "install.sh",
+    "bin/ci and lib/relay_ci.py (python check)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
