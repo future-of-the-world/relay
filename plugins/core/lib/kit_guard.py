@@ -23,6 +23,9 @@ separated by \\x1f:
                        found from the parsed words, so `git -c k=v commit`,
                        `time git reset`, `bash -c "git commit"` and
                        `xargs git reset` all count.
+    D <dir>            a `cd` / `pushd` to a known directory that stays in force for the rest of the session's
+                       command (not inside a subshell): Claude Code moves the session's folder there. The guard
+                       refuses it from the main session when the directory is a linked worktree.
     B <reason>         a command blocked anywhere: an anonymous stash, a stash
                        pop, an environment dump.
     X <dir>            a command that writes `.relay/checks/` (a redirect, cp, mv,
@@ -709,6 +712,8 @@ def analyze(cmd, cwd, flags, depth=0, merges=None, env=None):
                 if name == "pushd":
                     st.stack.append(cur)
                 st.prev, st.cur = cur, new
+                if len(states) == 1 and name in ("cd", "pushd"):
+                    out.append(("D", new))
             return
         if name == "git":
             d, sub, rest = git_parts(real, cur)
