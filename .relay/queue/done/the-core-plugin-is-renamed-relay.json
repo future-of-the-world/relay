@@ -1,0 +1,27 @@
+{
+  "kind": "feature",
+  "ip": 86,
+  "time": 60,
+  "found_at": "2026-10-26T00:50:22Z",
+  "found_in": "relay queue add",
+  "title": "The core plugin is renamed relay",
+  "what": [
+    "The plugin now called core is called relay: its folder, its marketplace entry, the id projects turn on (core@relay becomes relay@relay), and every place that names it. relay setup's migrate moves a project's settings from the old id to the new one."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"Запланируй изменение в core plugin переименовать его в relay, мне не нравится название core\". Facts, 26 Oct: 127 tracked files name plugins/core; core@relay appears on 8 lines in 6 files and in ~/.claude/settings.json; hook refusals end with \"This hook comes from the core@relay plugin\". Build alone, when no other branch is open, since a rename across 127 files conflicts with every open branch. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "plugins/core/ the plugin folder, its hooks, lib and bin",
+    ".claude-plugin/marketplace.json the plugin list",
+    "lib/relay_setup.py what setup writes into a project's settings and its migrate step"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-26T00:56:13Z",
+  "dropped_why": [
+    "Replaced by the-core-plugin-becomes-relay-amidman. Owner, 26 Oct: \"Действительно relay@relay звучит не очень, может тогда просто relay, в данном случае это не опция и он всегда будет включен\", then \"Хорошо, давай relay@amidman\""
+  ]
+}

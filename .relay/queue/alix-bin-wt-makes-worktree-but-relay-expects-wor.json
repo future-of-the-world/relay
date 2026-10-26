@@ -19,7 +19,7 @@
     "The same session is treated as a task worktree; a project using .worktrees is unchanged."
   ],
   "where": [
-    ".relay/queue/alix-bin-wt-makes-worktree-but-relay-expects-wor.json relay's guard hooks (the worktree folder they expect)",
+    "plugins/core/hooks/ relay's guard hooks (the worktree folder they expect)",
     "kit.toml [project] worktrees, ALIX's bin/wt (read only)"
   ],
   "taken_at": null,
