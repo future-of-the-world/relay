@@ -1,0 +1,24 @@
+{
+  "kind": "feature",
+  "ip": 60,
+  "time": 60,
+  "found_at": "2026-10-26T17:56:35Z",
+  "found_in": "relay queue add",
+  "title": "Test process count fits the machine it runs on",
+  "what": [
+    "On a machine with a different core count (or without macOS's first-run scan of new executables), the number of test processes a gate uses, and the number of gate slots, fit that machine instead of the default measured on the owner's Mac."
+  ],
+  "why": [
+    "Owner, 27 Oct small hours, on the gate-speed branch 3: \"На разных устройствах с разным количеством ядер - будет ли пересчитано эффективное количество процессов ? Не изменяй текущее может добавить это в очередь если необходимо\". Facts that night: the design sets RELAY_TEST_JOBS to a fixed default (4, or the knee branch 3 measures on the owner's 12-core Mac) bounded by 1..core count, so a 2-core machine gets 2 but a 32-core machine still gets the Mac's number; the measured caps on the Mac are 12 cores, 3 gate slots and macOS scanning each new executable for ~0.75 s at ~2.7 per second machine-wide (Linux has no such scan). Relay runs on one machine today; other machines come with relay-installs-with-one-command-from-its-own-rep. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "the parallel library-test runner (RELAY_TEST_JOBS) from the gate-speed branch 3",
+    "lib/relay_gate.py DEFAULT_SLOTS"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
