@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 20,
+  "found_at": "2026-10-26T03:36:03Z",
+  "found_in": "relay queue add",
+  "title": "RELAY_HOME means two different folders",
+  "what": [
+    "One variable names one folder: install.sh uses RELAY_HOME for the folder with relay's code, while lib/relay_config.py uses RELAY_HOME for the state folder (~/.relay; the code folder is RELAY_ROOT there). install.sh uses RELAY_ROOT for the code folder, like the rest of relay."
+  ],
+  "why": [
+    "Found 26 Oct while answering the owner's install question: install.sh:21 `home=\"${RELAY_HOME:-$HOME/relay}\"` (the code), lib/relay_config.py \"HOME_DIR: ~/.relay (RELAY_HOME overrides)\" (the state). Setting RELAY_HOME for one breaks the other."
+  ],
+  "failing_case": [
+    "RELAY_HOME=/tmp/x sh install.sh --dry-run looks for deps.toml in /tmp/x, while relay itself would put its ledger there."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "install.sh reads RELAY_ROOT for the code folder; RELAY_HOME means only the state folder everywhere (git grep RELAY_HOME shows one meaning)."
+  ],
+  "where": [
+    "install.sh:21 RELAY_HOME as relay's code folder",
+    "lib/relay_config.py RELAY_HOME as the state folder ~/.relay"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

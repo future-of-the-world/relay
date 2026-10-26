@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 30,
+  "found_at": "2026-10-26T03:29:51Z",
+  "found_in": "relay queue add",
+  "title": "The paid-run estimate misses new eval cases",
+  "what": [
+    "bin/paid-cost estimates a paid run per case (each case's stored cost, a new case at the mean case cost), so a suite that grew is estimated at its new size."
+  ],
+  "why": [
+    "26 Oct: the estimate said mean $8.27 over 16 stored runs; the run cost $17.43: the 15 old cases cost $8.24, 12 new cases added $9.35. The estimate averages whole batches and misses suite growth."
+  ],
+  "failing_case": [
+    "bin/paid-cost estimate on 26 Oct printed \"mean $8.27\" for a run that cost $17.43."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "With the 26 Oct records, the estimate for the current suite is within 15% of $17.43."
+  ],
+  "where": [
+    "bin/paid-cost estimate: the mean over whole stored runs"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

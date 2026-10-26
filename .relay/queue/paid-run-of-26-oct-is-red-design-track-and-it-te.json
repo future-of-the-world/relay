@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 99,
+  "time": 60,
+  "found_at": "2026-10-26T03:12:52Z",
+  "found_in": "relay queue add",
+  "title": "Paid run of 26 Oct is red: design-track and it-terms-ru",
+  "what": [
+    "The wave's paid run at master 13ea53b is RED: design-track run 3 failed its code grader thinker-started and run 2 timed out after 600 s (not judged); it-terms-ru run 3 failed gender-and-opener on a split vote (FAIL FAIL PASS). Find the cause (the wave changed evals/plugin/design-track/prompt.md and evals/plugin/it-terms-ru/prompt.md in the option-letters change), fix the cause rather than re-running, and get one green paid run."
+  ],
+  "why": [
+    "Recorded red run 26 Oct: ~/.relay/evals/relay/2026-10-26T01-47-23Z-master.json, cost $17.43 (the stored mean was $8.27). The judged it-terms-ru text that failed: \"Изменение лежит в отдельном branch, и основной branch может принять его через fast-forward. Это значит, что он просто сдвинется вперёд на эти commit...\" relay sync waits for a green run."
+  ],
+  "failing_case": [
+    "bin/ci at 13ea53b: \"ci: eval record: NOT A PASS: 1 meaning grader(s) failed, 1 code grader(s) failed, 1 not judged, in design-track, it-terms-ru\"."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "One paid run after the fix with design-track and it-terms-ru judged and passing in all runs, and the rest still green."
+  ],
+  "where": [
+    "evals/plugin/design-track/ the eval case, its prompt and graders",
+    "evals/plugin/it-terms-ru/ the eval case, its prompt and graders"
+  ],
+  "taken_at": "2026-10-26T03:29:52Z",
+  "taken_by": "wt/red-wave",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

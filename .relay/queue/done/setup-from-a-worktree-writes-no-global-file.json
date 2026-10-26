@@ -1,0 +1,26 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 45,
+  "found_at": "2026-10-26T03:18:54Z",
+  "found_in": "relay queue add",
+  "title": "setup from a worktree writes no global file",
+  "what": [
+    "relay setup run from a linked worktree of relay writes only into the project; what it would change in the user's Claude folder (marketplace path, the profile's model and effort, the global rules) it prints as a list instead. Global writes happen only from relay's main checkout. relay doctor checks that the relay marketplace path exists and is relay's main checkout, not only that the entry is there."
+  ],
+  "why": [
+    "Owner, 26 Oct, picked \"a)\" for \"Как не дать setup менять твои глобальные файлы из ветки?\" and added: \"Но я бы все равно подумал, возможно мы бы добавили конфигурацию путей, по умолчанию глобально, для тестов указываем tmp директорию\". Facts, 26 Oct: a worker told in its brief not to touch ~/.claude/settings.json ran `bin/relay setup .` in a worktree and setup rewrote the marketplace path there anyway; setup also writes the profile's [session] model and effort into ~/.claude/settings.json (lib/relay_setup.py:468); doctor checks only that the marketplace entry exists (lib/relay_setup.py:966). Build on the same branch as setup-turns-off-for-a-project-the-plugins-it-doe (same file). IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "lib/relay_setup.py every write into the Claude folder (settings.json marketplace, profile model and effort) and the rules sync into ~/.claude/CLAUDE.md",
+    "lib/relay_setup.py the doctor checks of the relay marketplace"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-26T03:26:31Z",
+  "dropped_why": [
+    "Replaced by project-setup-never-writes-the-user-s-global-files. Owner, 26 Oct, asked \"Зачем мы вызвали setup из worktree вообще, это разве не одноразовая команда, она же сделала ровно то что нужно\" and then picked \"A\" (project setup never touches the global files; the global part is its own command)."
+  ]
+}
