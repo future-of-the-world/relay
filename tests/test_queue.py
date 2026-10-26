@@ -404,6 +404,23 @@ def committed_items(repo):
     return {os.path.basename(n): show_raw(repo, ref, n) for n in sorted(names) if n.endswith(".json")}
 
 
+# The queue as committed at this commit (immutable): the tests that check real items read it, never the checkout's live queue,
+# which changes with every queue event (an item taken, moved to done/, added).
+QUEUE_COMMIT = "48f7263"
+
+
+def pinned_items(commit: str = QUEUE_COMMIT) -> dict[str, str]:
+    """{file name: text} of the top-level .relay/queue items at a pinned commit."""
+    names = git(ROOT, "ls-tree", "--name-only", commit, ".relay/queue/").split("\n")
+    items: dict[str, str] = {}
+    for n in sorted(names):
+        if n.endswith(".json"):
+            text = show_raw(ROOT, commit, n)
+            assert text is not None, n
+            items[os.path.basename(n)] = text
+    return items
+
+
 def committed_text(repo, path):
     """The text of `path`: the working tree's, except in an inert probe commit, where it is the commit before it (see committed_items)."""
     ref = read_ref(repo)
@@ -487,8 +504,8 @@ class TestNewShape(unittest.TestCase):
 class TestSeedItems(unittest.TestCase):
     """Review F14 and the seed-item findings: the committed items say what is true and follow the queue rule."""
 
-    def test_f14_every_seed_title_is_under_60_characters_and_a_one_line_text(self):
-        for name, text in committed_items(ROOT).items():
+    def test_f14_every_seed_title_is_under_60_characters_and_a_one_line_text(self) -> None:
+        for name, text in pinned_items().items():
             title = rq.parse(name[:-5], text)["title"]
             self.assertLess(len(title), rq.TITLE_MAX, name)
             self.assertNotIn("\n", title, name)
@@ -502,9 +519,7 @@ class TestSeedItems(unittest.TestCase):
         # commit that first added the item (in .relay/queue/ or, once done, .relay/queue/done/), not at HEAD: the fix the
         # item asks for removes that skip, so HEAD no longer holds the line.
         name = "core-tests-not-in-gate.json"
-        added = git(ROOT, "log", "--diff-filter=A", "--format=%H", "--", ".relay/queue/" + name, ".relay/queue/done/" + name).split("\n")
-        self.assertTrue(added[-1], "the commit that added the item is not in the history")
-        filed = added[-1]
+        filed = "fba8e70e57f4aba208e7a3f5d259ec36845f507e"      # the commit that added the item (found once with git log --diff-filter=A), pinned
         for folder in (".relay/queue/", ".relay/queue/done/"):
             text = git(ROOT, "show", "%s:%s%s" % (filed, folder, name), check=False)
             if text:
@@ -513,8 +528,8 @@ class TestSeedItems(unittest.TestCase):
         path, _, line = where.rpartition(":")
         self.assertIn("*inject-addition*", git(ROOT, "show", "%s:%s" % (filed, path)).split("\n")[int(line) - 1])
 
-    def test_f7_gate_log_summary_is_a_feature_and_not_a_fix_with_a_failing_case_that_cannot_fail(self):
-        item = rq.parse("gate-log-summary", committed_items(ROOT)["gate-log-summary.json"])
+    def test_f7_gate_log_summary_is_a_feature_and_not_a_fix_with_a_failing_case_that_cannot_fail(self) -> None:
+        item = rq.parse("gate-log-summary", pinned_items()["gate-log-summary.json"])
         self.assertEqual((item["kind"], item["ip"]), ("feature", 0))
         self.assertNotIn("failing_case", item)
 
@@ -529,8 +544,8 @@ class TestSeedItems(unittest.TestCase):
 
 
 class TestFormat(Base):
-    def test_round_trip_is_byte_identical_for_every_seed_item(self):
-        items = committed_items(ROOT)
+    def test_round_trip_is_byte_identical_for_every_seed_item(self) -> None:
+        items = pinned_items()
         self.assertGreaterEqual(len(items), 22)
         for name, text in items.items():
             item = rq.parse(name[:-5], text)
