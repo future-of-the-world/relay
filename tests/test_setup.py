@@ -58,6 +58,25 @@ class SetupInWorktree(Base):
         self.assertIn(os.path.join(os.path.realpath(main), "CLAUDE.local.md"), registry)
         self.assertNotIn("somewt", registry)
 
+    def _marketplace_path(self):
+        return json.load(open(os.path.join(self.claude, "settings.json")))["extraKnownMarketplaces"]["relay"]["source"]["path"]
+
+    def test_user_settings_marketplace_never_points_at_a_linked_worktree(self):
+        # relay run from a linked worktree of itself: the global marketplace entry must name the main checkout, not the worktree
+        # (the worktree is removed after its merge and every session would then load relay from nowhere).
+        import relay_setup
+        main, wt = self._repo_with_worktree()
+        relay_setup.ROOT = wt
+        relay_setup.merge_user_settings(["core"])
+        self.assertEqual(self._marketplace_path(), os.path.realpath(main))
+
+    def test_user_settings_marketplace_in_the_main_checkout_is_that_checkout(self):
+        import relay_setup
+        main, _ = self._repo_with_worktree()
+        relay_setup.ROOT = main
+        relay_setup.merge_user_settings(["core"])
+        self.assertEqual(self._marketplace_path(), main)
+
     def test_main_checkout_is_exact_for_each_kind_of_checkout(self):
         # F1: only a linked worktree has a main checkout elsewhere; a submodule and a --separate-git-dir checkout are their own.
         import relay_setup

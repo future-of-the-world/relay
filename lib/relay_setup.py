@@ -136,6 +136,12 @@ def main_checkout(root):
     return os.path.dirname(os.path.realpath(common))
 
 
+def marketplace_root():
+    """The folder the relay marketplace is registered at: relay's main checkout, never a linked worktree of it (a worktree is
+    removed after its merge, and every session would then load relay from nowhere)."""
+    return main_checkout(ROOT) or ROOT
+
+
 def backup(path):
     """Keep a copy of `path` before it is rewritten; return where it went, None when no copy was needed.
     A file in a git repository gets no `.bak` beside it (it would sit untracked among the project's files): when git holds the
@@ -334,7 +340,7 @@ def merge_settings(root, plugins, remove=(), moved_hooks=()):
     for p in plugins:
         enabled[f"{p}@relay"] = True
     markets = data.setdefault("extraKnownMarketplaces", {})
-    markets["relay"] = {"source": {"source": "directory", "path": ROOT}}
+    markets["relay"] = {"source": {"source": "directory", "path": marketplace_root()}}
     markets.pop("principles", None)
     perms = data.setdefault("permissions", {})
     allow = perms.setdefault("allow", [])
@@ -376,7 +382,7 @@ def merge_user_settings(plugins):
     path = os.path.join(claude_dir(), "settings.json")
     data = read_json(path)
     before = json.dumps(data, sort_keys=True)
-    data.setdefault("extraKnownMarketplaces", {})["relay"] = {"source": {"source": "directory", "path": ROOT}}
+    data.setdefault("extraKnownMarketplaces", {})["relay"] = {"source": {"source": "directory", "path": marketplace_root()}}
     enabled = data.setdefault("enabledPlugins", {})
     for p in plugins:
         enabled[f"{p}@relay"] = True
@@ -717,7 +723,7 @@ def setup(root, flow=None, product=None, apply_global=True, relay_dir=True, inst
         done.append(f"registered {d['name']} in projects.toml (loads: {flow} flow rules)")
     if strip_stored_spec_rules(d["name"]):
         done.append(f"projects.toml [{d['name']}]: removed the stored spec rule from load (it comes from kit.toml [specs])")
-    todo.append("in Claude Code, run `/plugin marketplace add " + ROOT + "` once, then `/reload-plugins` (or restart) so the plugins load")
+    todo.append("in Claude Code, run `/plugin marketplace add " + marketplace_root() + "` once, then `/reload-plugins` (or restart) so the plugins load")
     runner = install_runner or run_plugin_install
     for p in plugins:
         if p in USER_SCOPE_PLUGINS:
@@ -1143,7 +1149,7 @@ def install(run_claude=True):
     for r in removed:
         done.append(f"  removed a user hook the front plugin now provides: {r}")
     if run_claude and shutil.which("claude"):
-        cmds = [["claude", "plugin", "marketplace", "add", ROOT]] + [["claude", "plugin", "install", f"{p}@relay", "--scope", "user"] for p in ("core", "observe", "delegate", "front")]
+        cmds = [["claude", "plugin", "marketplace", "add", marketplace_root()]] + [["claude", "plugin", "install", f"{p}@relay", "--scope", "user"] for p in ("core", "observe", "delegate", "front")]
         for cmd in cmds:
             try:
                 proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
@@ -1151,7 +1157,7 @@ def install(run_claude=True):
             except Exception as exc:
                 done.append(f"FAIL {' '.join(cmd[1:])}: {exc}")
     else:
-        todo.append(f"in Claude Code: /plugin marketplace add {ROOT}, then install core, observe, delegate, front at user scope; restart")
+        todo.append(f"in Claude Code: /plugin marketplace add {marketplace_root()}, then install core, observe, delegate, front at user scope; restart")
     link = "/usr/local/bin/relay"
     if not shutil.which("relay"):
         todo.append(f"put relay on your PATH: ln -s {os.path.join(ROOT, 'bin', 'relay')} {link} (or add {os.path.join(ROOT, 'bin')} to PATH)")
