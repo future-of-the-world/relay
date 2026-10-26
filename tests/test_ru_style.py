@@ -37,6 +37,15 @@ class RuStyle(unittest.TestCase):
         self.assertIn("takes no apostrophe before a Russian ending", rule)
         self.assertIn("never open with a remark that the project was not named", rule)
 
+    def test_the_rule_keeps_agreement_with_the_term_after_a_gloss(self):
+        # 26 Oct run 3: "Gate, то есть полная ... проверка, тоже зелёная" agreed with the gloss; a pronoun after the gloss is fine
+        rule = " ".join(read("rules", "working-with-me.md").split())
+        self.assertIn('never "gate тоже зелёная"', rule)
+        self.assertIn("a pronoun that points at the Russian gloss", rule)
+        judge = read("evals", "plugin", "it-terms-ru", "graders", "gender-and-opener.md")
+        self.assertIn("gate, ... any English IT noun", judge)
+        self.assertIn("is not a breach", judge)
+
     def test_q1_the_case_judges_gender_and_opener(self):
         judge = read("evals", "plugin", "it-terms-ru", "graders", "gender-and-opener.md")
         self.assertIn("type: llm", judge)
@@ -50,11 +59,12 @@ class RuStyle(unittest.TestCase):
                  if l.strip() and not l.startswith("#")]
         bad = sorted(os.listdir(os.path.join(CASE, "recorded", "bad")))
         bad = ["plugin/it-terms-ru/recorded/bad/" + n for n in bad if n.startswith("gender-and-opener__")]
-        self.assertEqual(6, len(bad))
+        self.assertEqual(7, len(bad))
         self.assertEqual(sorted(("no", b) for b in bad), sorted(tuple(i) for i in items if i[0] == "no"))
-        self.assertEqual([["yes", "plugin/it-terms-ru/recorded/good/merge-reply.txt"]], [i for i in items if i[0] == "yes"])
+        self.assertEqual([["yes", "plugin/it-terms-ru/recorded/good/gloss-pronoun.txt"], ["yes", "plugin/it-terms-ru/recorded/good/merge-reply.txt"]],
+                         sorted(i for i in items if i[0] == "yes"))
         # each recorded bad reply really shows a fault the judge is asked to refuse; the good one shows neither
-        feminine = re.compile(r"(?:отдельной|эта|Основная|основная) branch")
+        feminine = re.compile(r"(?:отдельной|эта|Основная|основная) branch|Gate, то есть[^.]*тоже зелёная")
         opener = re.compile(r"\A[^.]*(?:не прозвучал|не назван|не назвали|назначение проекта я не знаю)")
         for rel in bad:
             text = read("evals", rel)

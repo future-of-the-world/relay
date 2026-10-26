@@ -5,5 +5,7 @@
  "no--05-gender-and-opener-opener-not-told-feminine": "FAIL",
  "no--06-gender-and-opener-opener-only-masculine": "FAIL",
  "no--07-gender-and-opener-opener-project-not-named-feminine": "FAIL",
- "yes--01-merge-reply": "PASS"
+ "no--08-gender-and-opener-gloss-feminine": "FAIL",
+ "yes--01-merge-reply": "PASS",
+ "yes--09-gloss-pronoun": "PASS"
 }

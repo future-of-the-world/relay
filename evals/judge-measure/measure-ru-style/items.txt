@@ -6,3 +6,5 @@ no plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-name-unknown-femini
 no plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-not-told-feminine.txt
 no plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-only-masculine.txt
 no plugin/it-terms-ru/recorded/bad/gender-and-opener__opener-project-not-named-feminine.txt
+no plugin/it-terms-ru/recorded/bad/gender-and-opener__gloss-feminine.txt
+yes plugin/it-terms-ru/recorded/good/gloss-pronoun.txt
