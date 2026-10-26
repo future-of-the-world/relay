@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 96,
+  "time": 45,
+  "found_at": "2026-10-26T02:56:19Z",
+  "found_in": "finding F2 of review-setup-wt-market.json",
+  "title": "Rules rendered from a linked worktree write that…",
+  "what": [
+    "lib/relay_rules.py:37: MEDIUM: F2 rules rendered from a linked worktree write that worktree's rule paths into the global CLAUDE.md (install passes wait=False)"
+  ],
+  "why": [
+    "Found 26 Oct by the review of wt/setup-wt-market (outside that change). Checked the same day: ~/.claude/CLAUDE.md names no worktree path, so no damage yet; it would happen on the next install run from a linked worktree."
+  ],
+  "failing_case": [
+    "install() run from /Users/amidman/relay/.worktrees/x calls relay_rules.sync(..., only={\"global\",...}, wait=False); rules() builds each",
+    "\"Full text: `<path>`\" from os.path.join(ROOT, \"rules\", name), so ~/.claude/CLAUDE.md lists /Users/amidman/relay/.worktrees/x/rules/openspec.md,",
+    "which is gone after the merge. It should list /Users/amidman/relay/rules/openspec.md."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. ROOT = linked worktree of a temp relay copy, temp CLAUDE_CONFIG_DIR, sync of the global target: every \"Full text:\" path starts with the main checkout.",
+    "2. ROOT = the main checkout: paths unchanged from today.",
+    "3. The rule text itself (title, gist) still comes from the checkout being rendered."
+  ],
+  "where": [
+    "lib/relay_rules.py:37"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
