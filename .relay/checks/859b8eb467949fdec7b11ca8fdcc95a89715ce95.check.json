@@ -1,0 +1,166 @@
+{
+  "branch": "wt/probe-int",
+  "findings": [
+    {
+      "details": [
+        "Found 27 Oct by the 20-run proof of the new gate (owner's pick \"a\" for proving it): runs 1-9 green (451-720 s, mean 562 s), run 10 red at master 3ba0208-era head in the detached worktree .worktrees/proof20. The outer run's library tests were ok (427 s); the inert probe's library tests failed (431 s) with \"ValueError: invalid literal for int() with base 10: ''\" and \"FAILED (errors=1)\", so the inert step went red. Which test raised is not known: the probe keeps only a 3-line summary (the same gap as red-gate-and-probe-runs-keep-no-logs-to-find-a-c). The probe runs beside the outer run, so shared state between the two (the test-times cache under $RELAY_HOME, gate slots, fake tool links, pid files) is the first hypothesis. Observed rate 1 in 10, so the fix is proven with max(20, ceil(3/0.1)) = 30 clean runs. IP chosen by the front (agent-chosen): the new gate is not proven until this is fixed.",
+        "Also: tests/parallel_unittest.py (test-times cache)",
+        "Also: lib/relay_gate.py (slots)",
+        "Also: tests/fake_tools.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Proof run 10 of 27 Oct: `bin/ci --quick` with RELAY_GATE set in .worktrees/proof20; inert step red, probe library tests \"ValueError: invalid literal for int() with base 10: ''\"."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "30 proof runs in a row green, each with an `inert ok` line",
+        "the probe's library-tests log names the failing test when it fails (kept, not overwritten)"
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_pidfile.py OnlyThroughTheHelper::test_no_test_parses_a_file_it_read_itself_with_int fails at b350299 and passes at head; wait_pid writer test tests/test_pidfile.py:25 covers the empty-file case."
+      ],
+      "severity": "HIGH",
+      "since": "b350299d868c1fa6fec9d42524f295b822ef3a4e",
+      "source": "queue",
+      "summary": "The inert probe's library tests sometimes fail on int('')",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: wait_pid has no notion of the writer being gone; at these two sites the read happens after",
+        "run_check returned, i.e. after bin/check has already killed the step, so nothing can write the file any more. The",
+        "analysis (row B, H2) accepted turning ValueError into the named failure, so this is not a regression of the promise,",
+        "but the 60 s is pure waiting and the residual flake stays (rate not measured; the analysis calls it rarer than H1).",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "tests/test_bin_check_portable.py:111-114 and 136-146 (read after run_check); tests/pidfile.py:20-33 (loop ends only on a",
+        "whole line or the deadline)."
+      ],
+      "failing_case": [
+        "test_hung_step_is_gone_afterwards (and test_perl_hang_is_hung_and_does_not_wait_extra, line 146) on a loaded machine where",
+        "the step `sh -c 'echo $$ > step.pid; exec sleep 30'` has not written its pid when bin/check's 1 s limit kills it: the file",
+        "is missing or empty and its writer is dead. Now: wait_pid polls for 60 s, then AssertionError \"held no whole number",
+        "within 60 s: missing\" (before: ValueError or FileNotFoundError at once). The test is still red in that case, and 60 s",
+        "later. Expected: either the case cannot arise (the step's pid is known before the limit can fire), or the test fails at",
+        "once with a message saying the step never wrote its pid."
+      ],
+      "fix_hint": [
+        "Give wait_pid an optional `writer_alive: Callable[[], bool]` and fail at once with the file's text when it returns False;",
+        "these two sites pass `lambda: False` (the writer is already gone, so one read decides). The same parameter fixes F2."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 114,
+      "pass_cases": [
+        "- step writes its pid, bin/check kills it at 1 s: wait_pid returns the pid at once, the pid is not alive, test passes (as today).",
+        "- pid file missing after run_check returned (writer dead): the test ends within 1 s with a message naming \"never wrote its pid\", not after 60 s.",
+        "- perl variant: same two cases; the `took < 5` assertion still measures only run_check, not the pid wait."
+      ],
+      "path": "tests/test_bin_check_portable.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_pidfile.py:46 dead writer fails at once; passes."
+      ],
+      "severity": "LOW",
+      "since": "ef9fc99764344fc02a8fcdddb92e3e8be86558a2",
+      "source": "review-probe-int.json",
+      "source_id": "F1",
+      "summary": "after bin/check has killed the step, wait_pid waits 60 s for a pid no live process can still write, then fails",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the removed loop (`... and gate.poll() is None`) against wait_pid, which has no early stop. Only the",
+        "failure path changes (time and wording), so LOW. Size: 5 agent minutes once F1's parameter exists."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- tests/test_gate.py: the removed `while not os.path.exists(pid_file) and ... and gate.poll() is None`"
+      ],
+      "failing_case": [
+        "LeakedGates.start_orphan with a gate that exits at once (a broken repo setup, a gate refusing to start): before, the loop",
+        "stopped as soon as gate.poll() was not None and the test failed with \"the gate command did not start\"; now",
+        "wait_pid(pid_file, 60) waits the full 60 s and fails with \"pid file ... held no whole number within 60 s: missing\"."
+      ],
+      "fix_hint": [
+        "wait_pid(pid_file, 60, writer_alive=lambda: gate.poll() is None), with the parameter from F1."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 411,
+      "pass_cases": [
+        "- gate starts and its command writes the pid: start_orphan returns (gate, pid) as today.",
+        "- gate process exits before the pid file is written: start_orphan fails within about 1 s, naming that the gate ended before its command started.",
+        "- gate slow to start (pid written after 2 s, gate still running): start_orphan still waits and returns the pid."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_pidfile.py:46,52 writer_alive handling passes."
+      ],
+      "severity": "LOW",
+      "since": "ef9fc99764344fc02a8fcdddb92e3e8be86558a2",
+      "source": "review-probe-int.json",
+      "source_id": "F2",
+      "summary": "start_orphan no longer stops waiting when the gate exits before its command starts: 60 s wait and a vaguer message",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading line 143 (`[1]` drops the exit code). In practice a tip that does not exist fails here first, so",
+        "the new rev-list check is reached only when diff works and rev-list then fails (a timeout); the more likely git failure",
+        "is the one still answered as \"not added\". The outcome is a wrong closer (more often a spurious refusal than a wrong",
+        "pass), so LOW. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "plugins/core/hooks/merge.py:143 `added = relay_git.git(main, \"diff\", ...)[1]`; the new test mocks this call as succeeding."
+      ],
+      "failing_case": [
+        "closing_ref with ab = {\"wt/a\": <tip>} where `git diff --name-only ... master...<tip>` fails or passes relay_git's 20 s",
+        "limit (returns (rc != 0, \"\")): the path is taken as not added by wt/a, closing_ref returns None, and the caller uses the",
+        "merging branch as the closer, so check_refusal runs against the wrong branch. Expected: a refusal naming the branch whose",
+        "diff git could not read, as the rev-list case now does one line below."
+      ],
+      "fix_hint": [
+        "rc, added = relay_git.git(...diff...); if rc != 0: raise Refused(\"cannot list the files %s adds (%s)\" % (name, tip))."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 143,
+      "pass_cases": [
+        "- diff fails (mock rc 128, \"\"): Refused naming wt/a.",
+        "- diff succeeds without the path: wt/a skipped, closing_ref returns None (as today).",
+        "- diff succeeds with the path, rev-list fails: Refused naming wt/a (the new test, unchanged)."
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_merge_hook.py test_a_diff_git_cannot_run_is_a_refusal_naming_the_branch passes; fails at base."
+      ],
+      "severity": "LOW",
+      "since": "ef9fc99764344fc02a8fcdddb92e3e8be86558a2",
+      "source": "review-probe-int.json",
+      "source_id": "F3",
+      "summary": "closing_ref still ignores the exit code of its git diff: a failed diff silently drops that branch from the candidates",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "9b240747efafd08c746da65be7f5cd7ceba409ce.gate.log",
+  "head": "859b8eb467949fdec7b11ca8fdcc95a89715ce95",
+  "item": "the-inert-probe-s-library-tests-sometimes-fail-o",
+  "notes": [
+    "Gate is a --quick run (paid steps skipped). The 30 proof runs of the queue item were not part of this check."
+  ],
+  "schema": 2,
+  "scope": [
+    "b350299..HEAD; ran test_pidfile, test_merge_hook, test_ci_python (36 passed). Gate log is for 9b24074, exit 0; only the gate-log file came after.",
+    "Base proof at b350299 with head tests copied in: 4 failed (OnlyThroughTheHelper, 2 merge hook, ci step summary)."
+  ],
+  "type": "check"
+}
