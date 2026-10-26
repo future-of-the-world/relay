@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 95,
+  "time": 180,
+  "found_at": "2026-10-26T04:10:28Z",
+  "found_in": "relay queue add",
+  "title": "The gate runs its work twice in a row on one core",
+  "what": [
+    "The gate runs the inert probe (the second quick gate in a temporary worktree with probe lines in every inert file) at the same time as the first run instead of after it, and runs the library tests in parallel processes split by test class (the slowest test file sets the floor of a split by file). Every check keeps its power: same steps, same comparison of results and test counts. bin/ci's first edit moves it to Python per the project's Python rule."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"Можешь проанализировать время которое мы тратим на одно изменение ... как мы можем это ускорить без потери функциональных качеств ... незначительным считаю все что меньше 25%\". Measured 26 Oct over 35 changes: one change's cycle about 90 min (median of the last 7) plus a median 37 min until it lands; the gate is 45-62% of the cycle; the inert step 680-850 s, 22-36% of the cycle, because it reruns the whole quick gate after the first run; contention 14-30%, no gate waited for a slot; library tests grew from 148 s to 530 s in 2 days (591 to 888 tests), in one process on a 12-core Mac. Estimated saving 55-70% of a gate, 30-43% of a change (an estimate: macOS scans each new executable for about 0.75 s, at about 2.7 per second for the whole Mac, which may cap the parallel gain at 1.9x instead of 3x). Build after every-test-runs-with-temporary-relay-and-claude lands (tests must be isolated to run in parallel) and after the open inert-probe flake item. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "Gate logs of 26 Oct: \"library tests ok (532s)\" then \"inert ok (696s)\" in sequence; a quick gate takes 903-1653 s."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "On the same tree the quick gate's wall time drops by at least 25% against the 26 Oct logs; the inert probe still fails when a test reads an inert file; the library-tests count and results are identical to a serial run; 20 gates in a row on an unchanged tree are green."
+  ],
+  "where": [
+    "bin/ci the steps and the inert probe (bin/ci:15-17, inert_probe at bin/ci:53)",
+    "lib/relay_gate.py how the gate is run"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
