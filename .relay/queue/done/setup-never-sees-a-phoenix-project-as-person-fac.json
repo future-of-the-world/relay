@@ -25,6 +25,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-26T22:06:34Z",
+  "dropped_why": [
+    "The issues and product plugins were removed (merged at a4e9e65, 27 Oct). Owner's words: \"Хочу убрать плагины которые не используются самим relay, кроме openspec\" and \"issues это адаптация arsenal, мне проще перевести arsenal на механизм queue и использовать .issues которые в нем уже есть как документацию чем внедрять этот механизм в relay\". This item only made sense with those plugins."
+  ]
 }
