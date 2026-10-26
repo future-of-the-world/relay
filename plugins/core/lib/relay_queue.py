@@ -11,6 +11,8 @@ re-reads the head and re-checks the command's precondition; after `QUEUE_LAND_TR
 branch is kept for `relay queue land`.
 """
 
+from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
+
 import ast
 import copy
 import datetime as dt
