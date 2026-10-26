@@ -16,6 +16,8 @@
 #   truncate, find -delete, xargs rm, rsync, patch, tar -x, unzip, curl -o,
 #   wget -O, dd of=). Not seen: a program's own code (python3 -c, node -e)
 #   and a path held in a shell variable of unknown value (see below);
+# - Bash of the main session (no agent_id) that cd's into a linked worktree: it moves the session's folder there;
+#   a subagent may. Tests: tests/test_front_cd.py;
 # - an anonymous `git stash` (bare, -u, push without -m) and any `git stash
 #   pop`, anywhere (the stash is shared);
 # - shell tracing (set -x, bash -x), verbose curl on an authenticated request,
@@ -191,12 +193,24 @@ rule_hit() {
   return 1
 }
 
+# The main session (no agent_id in the hook input) that cd's into a worktree has Claude Code move its own working
+# folder there; a subagent has a folder of its own, so it may.
+agent="$(jq -r '.agent_id // empty' <<<"$input")"
+
 rows="$(printf '%s' "$cmd" | python3 -I "$lib/kit_guard.py" "$cwd" "${flags[@]+"${flags[@]}"}")" || die "lib/kit_guard.py failed on this command, so the guard cannot judge it."
 
 while IFS=$SEP read -r kind a b; do
   case "$kind" in
     B) echo "guard-main: $a" >&2; exit 2 ;;
     X) checks_refuse "$a" ;;
+    D)
+      case "$a" in "$main/$wtdir/"*)
+        # a session already working inside that worktree moves nowhere by cd'ing within it
+        wtroot="${a#"$main/$wtdir/"}"; wtroot="$main/$wtdir/${wtroot%%/*}"
+        case "$cwd" in "$wtroot" | "$wtroot/"*) continue ;; esac
+        [ -n "$agent" ] || { echo "guard-main: cd into a worktree moves this session's working folder there and keeps it there; use git -C $a ... or absolute paths instead." >&2; exit 2; }
+      esac
+      ;;
     W)
       # a git-ignored target stays allowed (.ci/ logs); a not-yet-existing ignored
       # directory is probed through a child path

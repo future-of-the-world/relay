@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-26T08:21:00Z",
   "taken_by": "wt/front-cd",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T11:11:18Z",
+  "test": "tests/test_front_cd.py::FrontCd::test_main_session_cd_into_worktree_is_refused",
   "dropped_at": null,
   "dropped_why": null
 }

@@ -1,0 +1,20 @@
+head 034add4f01c06fda48f236bc630f5b0fb6fdfd5f
+cmd bin/ci --quick
+wait 0.0
+ci: library tests ok (603s)
+ci: types and lint ok (0s)
+ci: hook tests FAILED (139s, log: .ci/steps/hook-tests.log)
+    FAIL  block (old guard: allow)  @M@  W=@A@; cd $W; git commit -m x
+    FAIL  block (old guard: allow)  @M@  W=@A@; cd "$W" && git commit -m x
+    FAIL  block (old guard: allow)  @M@  cd .worktrees/any-change && bin/ci
+    FAIL  block (old guard: allow)  @M@  cd .worktrees/any-change && git status
+    FAIL  block (old guard: allow)  @M@  cd @W@ && bun add @tauri-apps/api
+    FAIL  block (old guard: allow)  @M@  cd @W@ && bun run check
+    FAIL  block (old guard: allow)  @M@  cd @W@ && cd @M@ && cd - && git commit -m x
+    FAIL  block (old guard: allow)  @M@  cd @W@ && mix ci
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert ok (765s)
+ci: RED
+exit 1
