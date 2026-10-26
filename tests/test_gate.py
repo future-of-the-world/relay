@@ -299,10 +299,6 @@ class Inert(Fixture):
         self.assertIn("ci: inert FAILED", read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class LeakedGates(Fixture):
     """F3: a gate left running under the run's temporary folder is found and stopped with its command (tests/leaked_gates.py)."""
 
@@ -342,3 +338,7 @@ class LeakedGates(Fixture):
         self.assertTrue(leaked_gates._alive(command_pid))
         self.assertEqual(len(leaked_gates.stop(self.tmp)), 1)  # cleanup: the gate and its command end
         gate.wait(timeout=30)
+
+
+if __name__ == "__main__":
+    unittest.main()
