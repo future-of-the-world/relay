@@ -70,7 +70,7 @@ inert_probe() { local tmpd work rc=0 f
 # A change that only edits the text of rules (the fixed list in lib/relay_textonly.py) runs the checks that read rules, not
 # the whole quick gate and its inert probe (which reruns it): an error or any file off the list means the full gate.
 rules_tests() { local t names; names="$(python3 lib/relay_textonly.py tests)" || return 1
-  python3 -W ignore::ResourceWarning -m unittest $names || return 1; python3 bin/relay sync --dry; }
+  python3 -W ignore::ResourceWarning tests/run_unittest.py $names || return 1; python3 bin/relay sync --dry; }
 if [ "$quick" = 1 ] && [ -f lib/relay_textonly.py ] && python3 lib/relay_textonly.py check >/dev/null 2>&1; then
   step "rules text tests" rules_tests
   [ "$status" -eq 0 ] && echo "ci: green (QUICK MODE: rules text only, the short gate; paid steps skipped, not a release gate)" || echo "ci: RED"

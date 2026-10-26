@@ -7,6 +7,7 @@ The autouse fixture also applies to unittest-style classes."""
 
 import os
 import sys
+from typing import Iterator
 
 import pytest
 
@@ -17,7 +18,7 @@ import tmp_default  # the shared definition; bin/ci's unittest runner (tests/run
 
 
 @pytest.fixture(autouse=True)
-def _temporary_relay_and_claude(tmp_path_factory, monkeypatch):
+def _temporary_relay_and_claude(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     base = tmp_path_factory.mktemp("home")
     for key, value in tmp_default.temporary_environment(str(base)).items():
         if value is None:
