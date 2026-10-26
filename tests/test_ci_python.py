@@ -275,6 +275,74 @@ class ProbeBesideTheRun(unittest.TestCase):
         self.assertIn("stopped by signal 9", out.getvalue())
         self.assertEqual(len(self.worktrees()), 1)
 
+    def test_a_gate_killed_without_cleanup_leaves_a_probe_that_the_next_run_of_that_worktree_removes(self) -> None:
+        # F1: relay gate SIGKILLs the group, so stop() never runs; the record in .ci/inert-probe lets the next prepare() clean up
+        probe = self.probe("sleep 600 & wait")
+        probe.start()
+        assert probe.proc is not None and probe.tmpd is not None
+        left = probe.tmpd
+        child = wait_for(lambda: relay_ci._descendants(probe.proc.pid))[0]
+        for pid in (child, probe.proc.pid):   # the kill: no finally, no stop()
+            os.kill(pid, 9)
+        probe.proc.wait()
+        self.assertEqual(len(self.worktrees()), 2)   # the leak, as reproduced
+        ci = relay_ci.Ci(self.root, True, env={"PATH": os.environ["PATH"]})
+        ci.prepare()
+        self.assertEqual(len(self.worktrees()), 1)
+        self.assertFalse(os.path.exists(left))
+        self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "inert-probe")))
+
+    def test_cleanup_removes_only_the_probe_recorded_for_this_worktree(self) -> None:
+        # pass case 2: a second worktree of the repo has a live probe; the first one's prepare() leaves it alone
+        other = os.path.join(self.root, "other")
+        subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", other, self.head], check=True, env=self.env)
+        live = probe_for(other, self.head, self.env)
+        live.start()
+        try:
+            relay_ci.Ci(self.root, True, env={"PATH": os.environ["PATH"]}).prepare()
+            self.assertTrue(os.path.isdir(live.work))
+            self.assertEqual(len(self.worktrees()), 3)   # root, other, the live probe
+        finally:
+            live.stop()
+
+    def test_a_probe_that_ends_normally_leaves_no_record(self) -> None:
+        probe = self.probe("true")
+        probe.start()
+        probe.wait()
+        probe.stop()
+        self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "inert-probe")))
+        self.assertEqual(len(self.worktrees()), 1)
+
+
+def probe_for(root: str, head: str, env: Any) -> relay_ci.Probe:
+    return relay_ci.Probe(root, head, True, env, os.path.join(root, ".ci", "steps", "inert-nested.log"),
+                          nested=("sh", "-c", "sleep 600"))
+
+
+class LockFdReachesChildren(unittest.TestCase):
+    def test_a_fd_inherited_by_the_gate_is_open_in_step_children_and_in_the_probe(self) -> None:
+        # F2: relay gate passes a lock fd; every child of bin/ci must keep it (close_fds=False), or killing bin/ci frees the lock
+        genv = {**os.environ, **GIT_ENV}
+        with tempfile.TemporaryDirectory() as tmp:
+            fd = os.open(os.path.join(tmp, "lock"), os.O_CREAT | os.O_RDWR)
+            try:
+                os.set_inheritable(fd, True)
+                ci = relay_ci.Ci(tmp, True, env={"PATH": os.environ["PATH"]})
+                self.assertEqual(ci.run(["sh", "-c", "test -e /dev/fd/%d" % fd]).returncode, 0)
+                root = os.path.join(tmp, "repo")
+                os.makedirs(root)
+                subprocess.run(["git", "init", "-q", root], check=True, env=genv)
+                subprocess.run(["git", "-C", root, "commit", "-q", "--allow-empty", "-m", "i"], check=True, env=genv)
+                head = subprocess.run(["git", "-C", root, "rev-parse", "HEAD"], check=True, capture_output=True, text=True,
+                                      env=genv).stdout.strip()
+                probe = relay_ci.Probe(root, head, True, genv, os.path.join(root, ".ci", "n.log"),
+                                       nested=("sh", "-c", "test -e /dev/fd/%d" % fd))
+                probe.start()
+                self.assertEqual(probe.wait(), 0)
+                probe.stop()
+            finally:
+                os.close(fd)
+
 
 if __name__ == "__main__":
     unittest.main()

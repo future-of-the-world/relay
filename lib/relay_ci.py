@@ -90,6 +90,26 @@ def _descendants(pid: int) -> list[int]:
     return found
 
 
+def remove_leftover_probe(root: str) -> None:
+    """Remove the probe worktree of an earlier run of THIS worktree that was killed before it could clean up (the path is
+    recorded in <root>/.ci/inert-probe by Probe.start; another worktree has its own record, so a live probe is never touched)."""
+    record = os.path.join(root, ".ci", "inert-probe")
+    lines = _read_lines(record)
+    if not lines:
+        if os.path.exists(record):
+            os.remove(record)
+        return
+    tmpd = lines[0].strip()
+    if tmpd and os.path.isdir(tmpd):
+        work = os.path.join(tmpd, "wt")
+        subprocess.run(["git", "worktree", "remove", "--force", work], cwd=root, capture_output=True)
+        subprocess.run(["git", "worktree", "prune"], cwd=root, capture_output=True)
+        shutil.rmtree(tmpd, ignore_errors=True)
+    else:
+        subprocess.run(["git", "worktree", "prune"], cwd=root, capture_output=True)
+    os.remove(record)
+
+
 class Probe:
     """The inert probe: a temporary worktree of the gated commit with every inert file changed, and a quick run of the gate
     in it, started now and finished by `finish`. `stop` ends it (and removes the worktree) on any way out."""
@@ -102,6 +122,7 @@ class Probe:
         self.proc: subprocess.Popen[bytes] | None = None
         self.error = ""
         self._log: Any = None
+        self.record_path = os.path.join(root, ".ci", "inert-probe")
 
     def _git(self, *args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
         return subprocess.run(["git", *args], cwd=cwd or self.root, capture_output=True, text=True)
@@ -109,6 +130,11 @@ class Probe:
     def start(self) -> None:
         """Make the worktree, plant the files, commit, start the nested run. A failure is kept in `self.error`."""
         self.tmpd = tempfile.mkdtemp()
+        # recorded BEFORE the worktree exists: a gate killed without a chance to clean up (relay gate SIGKILLs the group)
+        # leaves this record, and the next run of this worktree removes the leftover (remove_leftover_probe)
+        os.makedirs(os.path.dirname(self.record_path), exist_ok=True)
+        with open(self.record_path, "w", encoding="utf-8") as handle:
+            handle.write(self.tmpd + "\n")
         self.work = os.path.join(self.tmpd, "wt")
         if self._git("worktree", "add", "-q", "--detach", self.work, self.head).returncode != 0:
             self.error = "FAIL inert: cannot make a worktree at %s" % self.head
@@ -136,7 +162,7 @@ class Probe:
         self._log = open(self.log_path, "wb")
         # the same process group as this run: whatever stops the gate's group stops the probe too
         self.proc = subprocess.Popen(list(self.nested), cwd=self.work, env=env, stdin=subprocess.DEVNULL,
-                                     stdout=self._log, stderr=subprocess.STDOUT)
+                                     stdout=self._log, stderr=subprocess.STDOUT, close_fds=False)   # keeps an inherited lock fd
 
     def wait(self) -> int | None:
         """The nested run's exit code once it ends (negative: stopped by a signal); None when it never started."""
@@ -166,6 +192,8 @@ class Probe:
             self._git("worktree", "prune")
             shutil.rmtree(self.tmpd, ignore_errors=True)
             self.tmpd = None
+        if os.path.exists(self.record_path):
+            os.remove(self.record_path)
 
     @staticmethod
     def _signal(pid: int, sig: int) -> None:
@@ -195,6 +223,7 @@ class Ci:
 
     def prepare(self) -> None:
         os.makedirs(self.path(".ci", "steps"), exist_ok=True)
+        remove_leftover_probe(self.root)
         for name in ("ci.log", "results.txt"):
             open(self.path(".ci", name), "w").close()
 
@@ -207,7 +236,8 @@ class Ci:
         status 127 with the reason in the log, never a pass."""
         if log is not None:
             log.flush()
-        kwargs: dict[str, Any] = {"cwd": cwd or self.root, "env": env or self.env}
+        # close_fds=False: a lock fd that relay gate passes to bin/ci stays open in every child until the last one ends
+        kwargs: dict[str, Any] = {"cwd": cwd or self.root, "env": env or self.env, "close_fds": False}
         if capture:
             kwargs.update(stdout=subprocess.PIPE, text=True)
         elif log is not None:
