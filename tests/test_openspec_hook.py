@@ -148,7 +148,7 @@ class MethodOff(Project):
         self.silent()
 
     def test_only_a_flow_kind(self):
-        self.kit('[flow]\nkind = "issues"\n')
+        self.kit('[flow]\nkind = "other"\n')
         self.silent()
 
     def test_another_method(self):
@@ -161,12 +161,6 @@ class MethodOff(Project):
 
 
 class CoreKeepsFlow(Project):
-    def test_issue_flow_line_is_core_s_and_openspec_hook_is_silent(self):
-        self.kit('[flow]\nkind = "issues"\n')
-        out = self.run_hook(FLOW_STAGE, "UserPromptSubmit", prompt="/issue 42")
-        self.assertIn("issues:implement", out["additionalContext"])
-        self.assertIsNone(self.run_hook(HOOK, "UserPromptSubmit", prompt="/issue 42"))
-
     def test_core_no_longer_answers_for_the_spec_method(self):
         self.kit('[specs]\nmethod = "openspec"\n')
         self.assertIsNone(self.run_hook(FLOW_STAGE, "UserPromptSubmit", prompt="/opsx:propose x"))

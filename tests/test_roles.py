@@ -256,8 +256,7 @@ class Roles(Base):
             "fix": ["plugins/delegate/agents/fixer.md"],
             "think": ["plugins/delegate/agents/thinker.md", "plugins/openspec/agents/author.md"],
             "judge": ["plugins/delegate/agents/checker.md", "plugins/delegate/agents/critic.md",
-                      "plugins/openspec/agents/spec-conformance.md", "plugins/openspec/agents/spec-reviewer.md",
-                      "plugins/product/agents/ui-reviewer.md"]})
+                      "plugins/openspec/agents/spec-conformance.md", "plugins/openspec/agents/spec-reviewer.md"]})
 
     def test_judges_cannot_edit_and_check_mode_does_not_need_part_two(self):
         """The judge base forbids Edit tools (A3) and names no part-2 thing as a given: marks, merge refusal and queue

@@ -1,14 +1,12 @@
 {
   "name": "relay",
-  "description": "The system of work: observe (ledger), delegate (typed agents by tier), front (the owner-facing session), core (bindings, guard, flow stage), the issue flow and the OpenSpec spec steps (opt-in), plus product (look review).",
+  "description": "The system of work: observe (ledger), delegate (typed agents by tier), front (the owner-facing session), core (bindings, guard, flow stage) and the OpenSpec spec steps (opt-in).",
   "owner": { "name": "amidman" },
   "plugins": [
     { "name": "core",     "source": "./plugins/core",     "description": "kit helper (bindings, task briefs, spec checks), main-checkout guard, project additions injected into shared roles, the flow stage hook." },
     { "name": "observe",  "source": "./plugins/observe",  "description": "The ledger: every session, prompt, agent, tool call and compaction as one JSON line, read by `relay report`, `relay status`, `relay improve`." },
     { "name": "delegate", "source": "./plugins/delegate", "description": "Typed agents by tier (scout, runner, worker, fixer, thinker, critic) with model and effort from the active profile; the routing guard; the delegate skill (brief files, who does what)." },
     { "name": "front",    "source": "./plugins/front",    "description": "The front desk: context budget and handover hooks, the front skill (one reply per request, plain words, numbered choices)." },
-    { "name": "openspec", "source": "./plugins/openspec", "description": "OpenSpec spec steps (opt-in per project): plan, spec-review, archive skills; author, spec-reviewer, spec-conformance agents." },
-    { "name": "issues",   "source": "./plugins/issues",   "description": "Issue flow: pick, implement, review, merge, with the tracker and hosting commands bound in kit.toml." },
-    { "name": "product",  "source": "./plugins/product",  "description": "Look review of person-facing work: the ui-reviewer agent and its measuring script." }
+    { "name": "openspec", "source": "./plugins/openspec", "description": "OpenSpec spec steps (opt-in per project): plan, spec-review, archive skills; author, spec-reviewer, spec-conformance agents." }
   ]
 }

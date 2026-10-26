@@ -18,7 +18,7 @@ import shlex
 import sys
 from typing import Any, Optional
 
-READ_ONLY = {"critic", "checker", "scout", "ui-reviewer", "spec-reviewer", "spec-conformance"}
+READ_ONLY = {"critic", "checker", "scout", "spec-reviewer", "spec-conformance"}
 # every top-level relay subcommand is in WRITERS (it writes) or READS (it does not); a test fails when bin/relay gains one
 # that is in neither. WRITERS: subcommand -> the words after it that write; None means every use writes.
 WRITERS: dict[str, Optional[set[str]]] = {

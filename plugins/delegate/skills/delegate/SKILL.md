@@ -150,8 +150,7 @@ be merged:
    with no gate by design (a spec review) passes `Gate: none (artifacts only)`.
 4. **One whole-change review.** Every judge runs once, in one message, over
    `<base>...HEAD`, after a green step 3: `delegate:critic`, plus
-   `product:ui-reviewer` when the project is person-facing (`product:look-review`
-   says when the look review applies), plus the judges the spec steps add.
+   the judges the spec steps add.
 5. **Fix.** One `delegate:fixer` per group of findings; it ends with one of
    four outcomes per finding (Fixed, Disputed, Gap, Outside).
 6. **Gate again.** When fix commits exist, a `delegate:runner` runs `relay

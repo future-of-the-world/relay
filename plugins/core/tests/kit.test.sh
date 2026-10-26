@@ -48,7 +48,7 @@ if [ -x /usr/bin/python3 ]; then
 fi
 # kit path: source layout, then an installed layout (<market>/<plugin>/<version>/)
 plugins="$(cd "$here/../.." && pwd -P)"
-ck "path, sibling plugin" "$("$kit" path product/scripts/measure.mjs)" "$plugins/product/scripts/measure.mjs"
+ck "path, sibling plugin" "$("$kit" path openspec/flow.json)" "$plugins/openspec/flow.json"
 ck "path, core itself" "$("$kit" path core/lib/kit_packet.py)" "$plugins/core/lib/kit_packet.py"
 ck "path, missing file" "$("$kit" path openspec/nope 2>&1 | head -c 20)" "kit: no file 'opensp"
 ck "path, no escape" "$("$kit" path 'openspec/../core/bin/kit' >/dev/null 2>&1; echo $?)" "1"

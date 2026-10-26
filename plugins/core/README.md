@@ -18,8 +18,8 @@ Claude Code 2.1.302, project-scope install from a local directory marketplace,
   `../bin/kit` from their own folder.
 
 Install (from the local marketplace; the owner's `claude plugin marketplace add ~/principles` first):
-`/plugin install core --marketplace ~/principles`. Also `openspec` and `product`;
-both need `core` (their agents and skills start with `kit get ...`, which exists
+`/plugin install core --marketplace ~/principles`. Also `openspec`;
+it needs `core` (their agents and skills start with `kit get ...`, which exists
 only while core is enabled), so enable core wherever you enable them.
 
 Needs Python 3.9+ (kit and the hooks run on macOS /usr/bin/python3; only the `relay` command itself needs 3.11+ for `tomllib`), `jq`, and bash. Bindings: `.claude/kit.toml`
@@ -77,7 +77,7 @@ no agent has to obey a "read your addition" line:
   happens then, so the second hook never fires; this one covers it. (Verified
   live 2026-10-19: without it a typed `/openspec:archive` returned no addition.)
 
-Only the framework's own plugins are served: `core:`, `openspec:` and `product:`
+Only the framework's own plugins are served: `core:`, `openspec:`, `delegate:` and `front:`
 names. Another plugin's `code-reviewer` never receives a project's
 `code-reviewer.md`. The hooks reach Claude Code's sessions; one thing is not
 verified: whether the text survives an automatic compaction of a long session.
@@ -202,12 +202,6 @@ path (write `^` to anchor it); `files` and `files_exclude` work the same way.
 | `coordination.mode` | `leadless` | `leadless`, `single-lead` or `multi-lead` | `"leadless"` |
 | `product.medium` | required if the project has a person-facing surface | what the person looks at | `"the site on a phone"` |
 | `product.run_skill` | required if `[product]` | project skill that launches the app | `"kartoteka-run"` |
-| `product.look_review` | `false` | run the look review on changes that touch a screen | `true` |
-| `product.surface` | required if `look_review` | list of regexes; a changed path matching one can reach a screen | `['^src/ui/', '\.css$']` |
-| `product.look_diff` | none (look review always runs) | command that compares shots with the base; first line ending `0 different` skips the review | `"bin/look-diff"` |
-| `product.build` | required if `look_review` | build command, `{out}` = output folder | `"bun run build --outDir {out} --emptyOutDir"` |
-| `product.serve` | required if `look_review` | serve command, `{out}` and `{port}` filled in | `"bun run preview --port {port} --strictPort --outDir {out}"` |
-| `product.widths` | required if `look_review` | CSS widths the look review shoots, one per list item | `[320, 340, 390, 1024]` |
 | `packet.module` | none (module refs off) | module-contract kind: `typescript`, `rust` or `elixir` | `"typescript"` |
 | `packet.install_hint` | `install the project's dependencies` | said when the compiler is missing | `"run \`bun install --frozen-lockfile\`"` |
 | `packet.module_dirs` | `["lib", "test/support"]` (elixir) | folders searched for a module | `["lib"]` |

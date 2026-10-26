@@ -106,7 +106,7 @@ class Scratch(unittest.TestCase):
     def run_setup(self, root, **kw):
         calls, install, uninstall = getattr(self, "_calls", None) or self.runners(root)
         self._calls = (calls, install, uninstall)
-        self.setup.setup(root, product=False, relay_dir=False, install_runner=install, uninstall_runner=uninstall, **kw)
+        self.setup.setup(root, relay_dir=False, install_runner=install, uninstall_runner=uninstall, **kw)
         return calls
 
     def tree_hash(self, folder):
@@ -225,12 +225,9 @@ class RenderedRules(Scratch):
 
 class TurnOnAndOff(Scratch):
     def test_plugins_follow_the_specs_setting(self):
-        self.assertIn("openspec", self.setup.relay_plugins_for("none", "openspec", False))
-        self.assertNotIn("openspec", self.setup.relay_plugins_for("none", "none", False))
-        both = self.setup.relay_plugins_for("issues", "openspec", False)   # Arsenal: the issue flow and the spec steps together
-        self.assertIn("openspec", both)
-        self.assertIn("issues", both)
-        self.assertNotIn("no-such-method", self.setup.relay_plugins_for("none", "no-such-method", False))
+        self.assertIn("openspec", self.setup.relay_plugins_for("openspec"))
+        self.assertNotIn("openspec", self.setup.relay_plugins_for("none"))
+        self.assertNotIn("no-such-method", self.setup.relay_plugins_for("no-such-method"))
 
     def test_specs_on_then_off_adds_then_removes_the_plugin_and_leaves_the_folder(self):
         root = self.project("beta", openspec_dir=True)
@@ -251,23 +248,17 @@ class TurnOnAndOff(Scratch):
         # The owner's decision (24 Oct, "2. b"): found with openspec/ and no [specs]: on; turning off is explicit.
         root = self.project("gamma", openspec_dir=True)
         os.remove(os.path.join(root, ".claude", "kit.toml"))
-        d, flow, product, done, todo = self.setup.setup(root, product=False, relay_dir=False,
+        d, flow, done, todo = self.setup.setup(root, relay_dir=False,
                                                           install_runner=self.runners(root)[1])
         self.assertIn('method = "openspec"', open(os.path.join(root, ".claude", "kit.toml")).read())
         told = [line for line in done if "spec steps are ON" in line]
         self.assertEqual(len(told), 1)
         self.assertIn("--specs none", told[0])
         # explicitly off stays off on the next setup
-        self.setup.setup(root, specs="none", product=False, relay_dir=False, install_runner=self.runners(root)[1])
-        again = self.setup.setup(root, product=False, relay_dir=False, install_runner=self.runners(root)[1])
+        self.setup.setup(root, specs="none", relay_dir=False, install_runner=self.runners(root)[1])
+        again = self.setup.setup(root, relay_dir=False, install_runner=self.runners(root)[1])
         self.assertIn('method = "none"', open(os.path.join(root, ".claude", "kit.toml")).read())
         self.assertFalse([line for line in again[3] if "spec steps are ON" in line])
-
-    def test_flow_openspec_is_refused_with_the_new_flag(self):
-        root = self.project("delta")
-        with self.assertRaises(ValueError) as caught:
-            self.setup.setup(root, flow="openspec", product=False, relay_dir=False)
-        self.assertIn("--specs openspec", str(caught.exception))
 
 
 # --- case 7: the migration -----------------------------------------------------------------------------------------
@@ -306,7 +297,7 @@ class Migration(Scratch):
 class MigrationPlan(Scratch):
     def plan(self, specs):
         root = self.project("p", specs=specs, openspec_dir=True)
-        for agent in ("worker", "spec-reviewer", "ui-reviewer"):
+        for agent in ("worker", "spec-reviewer"):
             self.write(os.path.join(root, ".claude", "agents", "p-%s.md" % agent), "x\n")
         for skill in ("apply-review", "plan"):
             self.write(os.path.join(root, ".claude", "skills", "p-%s" % skill, "SKILL.md"), "x\n")
@@ -317,7 +308,6 @@ class MigrationPlan(Scratch):
         on = self.plan("openspec")
         self.assertEqual(on["p-spec-reviewer"], "openspec:spec-reviewer")
         self.assertEqual(on["p-worker"], "delegate:worker")
-        self.assertEqual(on["p-ui-reviewer"], "product:ui-reviewer")
         self.assertEqual(on["p-plan"], "openspec:plan")
         self.assertEqual(on["p-apply-review"], "the change cycle's step 4")   # never a skill that no longer exists
         self.assertNotIn(OLD, " ".join(on.values()))
@@ -329,7 +319,6 @@ class MigrationPlan(Scratch):
         self.assertEqual(off["p-spec-reviewer"], "no target: spec steps are off")
         self.assertEqual(off["p-plan"], "no target: spec steps are off")
         self.assertEqual(off["p-worker"], "delegate:worker")
-        self.assertEqual(off["p-ui-reviewer"], "product:ui-reviewer")
 
 
 # --- case 9: doctor -----------------------------------------------------------------------------------------------
@@ -433,7 +422,7 @@ class OneAnswer(unittest.TestCase):
     def test_no_skill_gives_a_second_answer(self):
         wrong = ['model: "', 'subagent_type: "Explore"', "/clear", "bin/packet", "at most 6", "alix-lead", "coordination.mode", "perl -pi"]
         skills = self.skill_files()
-        self.assertGreater(len(skills), 10)
+        self.assertGreater(len(skills), 5)   # was 10 before the issues and product plugins (6 skills) were removed
         for path in skills:
             text = open(path, encoding="utf-8").read()
             for phrase in wrong:

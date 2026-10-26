@@ -15,7 +15,7 @@ Sonnet, with `openspec-verify-change` preloaded (all six).
 | 3 End-to-end entries black-box | Kartoteka, Clean, Mind | |
 | 3 Smoke entries (`smoke "<command>"`) run as their own process | ALIX (plan and spec-review rules) | `openspec:plan` asks for smoke entries; nothing checked them |
 | 4 Stored shapes: version, older data restored, documented, tested | Clean 5, Mind 5, Sight 4 | merged; Sight adds "documented" |
-| 5 Words on screen match the locked wording character for character | Glyph 3, Clean ui-reviewer 9 | product-work rule: locked words are quoted exactly |
+| 5 Words on screen match the locked wording character for character | Glyph 3, Clean 9 | product-work rule: locked words are quoted exactly |
 | 6 One test file at most | all | the command is in `CLAUDE.md`, not bound |
 | 7 `kit spec-check` | all but Glyph | Glyph had no spec-check; it gains one |
 

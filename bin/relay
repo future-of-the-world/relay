@@ -16,7 +16,7 @@
   relay bench active --set models.build=haiku --set effort.build=low
                                      try a change without writing a profile: B is A with these keys changed
   relay bench list                   past bench results
-  relay candidate <name> [--copy delegate,issues] [--set k=v]
+  relay candidate <name> [--copy delegate,front] [--set k=v]
                                      a candidate to edit by hand: copies of plugins whose agents or skills change
   relay profile [<name>]             show the active profile, or a candidate
   relay sync [--dry] [--adopt <target>]
@@ -26,7 +26,7 @@
                                      this machine onto relay: global CLAUDE.md, user settings, plugins
   relay migrate --all [--apply] [--primary]      the migration plan (or the move) for every known project
   relay setup --global [--no-claude]  the user's files, once per machine (same as relay install)
-  relay setup [<dir>] [--flow issues|none] [--specs openspec|none] [--product|--no-product]
+  relay setup [<dir>] [--specs openspec|none]
               [--off <name@marketplace>]... [--license <SPDX id> [--holder <name>]]
                                      a project onto relay (new or existing; nothing deleted; writes only the project)
                                      --off turns a plugin of another marketplace off for this project (repeat for several)
@@ -331,7 +331,7 @@ def cmd_candidate(args):
         sets.append(flag(args, "--set"))
     base = flag(args, "--from", "active")
     if not args:
-        raise Usage("relay candidate <name> [--from <profile>] [--copy delegate,issues] [--set key=value]")
+        raise Usage("relay candidate <name> [--from <profile>] [--copy delegate,front] [--set key=value]")
     name = args[0]
     out, copied = relay_bench.new_candidate(name, base, copies, sets)
     print(f"Candidate {name}: {out['profile']['description']}\n  profile: {out['_path']}")
@@ -400,9 +400,7 @@ def cmd_setup(args, migrate=False):
             raise Usage("--global takes nothing else: relay setup --global [--no-claude]")
         return cmd_install(args)
     apply = flag(args, "--apply", takes_value=False)
-    flow = flag(args, "--flow")
     specs = flag(args, "--specs")
-    product = True if flag(args, "--product", takes_value=False) else (False if flag(args, "--no-product", takes_value=False) else None)
     off = flags(args, "--off")
     if off and migrate:
         raise Usage("--off is a setup flag: relay setup <dir> --off <name@marketplace>")
@@ -420,7 +418,7 @@ def cmd_setup(args, migrate=False):
     if name in relay_setup.RESERVED_NAMES:   # relay sync would take the name for the user's own target and write ~/.claude
         raise Usage(f"a project folder cannot be named {name!r} (relay sync's own target of that name writes the user's files): use another folder name")
     if migrate:
-        d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply), flow=flow, specs=specs, product=product)
+        d, items, moved, flow, done, todo = relay_setup.migrate(root, apply=bool(apply), specs=specs)
         print(f"# {d['name']} ({root}): migration" + (" applied" if apply else " plan (nothing moved; add --apply)"))
         if items:
             print("\nThe old setup had, and relay replaces with:")
@@ -433,10 +431,9 @@ def cmd_setup(args, migrate=False):
             for src, dst in moved:
                 print(f"- {src} -> {dst}")
     else:
-        d, flow, product, done, todo = relay_setup.setup(root, flow=flow, specs=specs, product=product, license_id=license_id, holder=holder, off=off)
+        d, flow, done, todo = relay_setup.setup(root, specs=specs, license_id=license_id, holder=holder, off=off)
         print(f"# {d['name']} ({root}): set up")
-    print(f"\nDetected: {d['stack']} ({d['tool'] or 'no tool'}), default branch {d['default_branch']}, flow {flow}, "
-          f"{'a person-facing surface' if product else 'no person-facing surface'}.")
+    print(f"\nDetected: {d['stack']} ({d['tool'] or 'no tool'}), default branch {d['default_branch']}, flow {flow}.")
     print("\nDone:")
     for item in done:
         print(f"- {item}")
@@ -493,8 +490,8 @@ def cmd_migrate_all(args):
         copied = relay_setup.copy_kit_drafts(principles, name, root)
         if copied:
             print(f"  kit drafts from principles/migration/{name}: " + ", ".join(copied))
-        d, items, moved, flow, product, done, todo = relay_setup.migrate(root, apply=bool(apply))
-        print(f"  flow {flow}, {'screen' if product else 'no screen'}; {len(items)} old files " + ("moved aside" if apply else "to move (add --apply)"))
+        d, items, moved, flow, done, todo = relay_setup.migrate(root, apply=bool(apply))
+        print(f"  flow {flow}; {len(items)} old files " + ("moved aside" if apply else "to move (add --apply)"))
         for kind, path, target, note in items:
             print(f"  - {kind} {path} -> {target}")
         for t in todo:

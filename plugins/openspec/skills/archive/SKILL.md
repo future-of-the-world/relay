@@ -23,10 +23,6 @@ Archive in `<worktrees>/<change>` (`kit get project.worktrees`) on
 all of these hold, or stop and say which does not:
 
 - the change cycle's check (step 7) passed with `open 0` for this branch;
-- when `kit get --default false product.look_review` is `true` and the change touches what a
-  person sees: the look review of step 4 ran (or its report says "not run"
-  with its reason, or "skipped" with its count of identical shots), and the
-  check of step 7 has `open 0`, so no defect or matter of taste is left waiting;
 - every task in `tasks.md` is ticked;
 - the full gate passed: `kit get gate.ci` in the worktree when
   `kit get --default local gate.final` is `local`; when `remote`, the pipeline on the pushed

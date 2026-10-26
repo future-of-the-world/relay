@@ -4,14 +4,12 @@ Relay has one change cycle for any change: queue item, worktree, brief, build,
 gate, review, fix, gate again, check, take the default branch, merge (the
 delegate skill, "Review loop"). Two plugin slots hang off it:
 
-- **work** (`"slot": "work"`): where the work comes from. Today: `issues`.
-  A project binds one with `[flow] kind = "issues"` (or `"none"`).
+- **work** (`"slot": "work"`): where the work comes from. No work flow ships today;
+  the slot stays, a project's `[flow] kind` is `"none"`, and a new flow is a plugin with a `flow.json` (below).
 - **specs** (`"slot": "specs"`): extra steps about the spec, never about
   building. A project turns them on with `[specs] method = "openspec"` (default
   `none`). OpenSpec only wraps the project's documentation; a new way of
   writing specs would be added as another plugin beside `openspec`.
-
-Both can be on at once (Arsenal: issue flow and spec steps).
 
 ## Binding
 
@@ -19,7 +17,7 @@ Both can be on at once (Arsenal: issue flow and spec steps).
 
 ```toml
 [flow]
-kind = "issues"        # or "none"
+kind = "none"          # no work flow ships today
 
 [specs]
 method = "openspec"    # or "none" (the default)
@@ -81,39 +79,6 @@ a trigger of that manifest (`/issue 42`, ...), it adds the same kind of line.
 `kit packet <change> <group>` as each group's brief at step 2,
 `openspec:spec-conformance` as one more judge at step 4, `openspec:author`
 for a Gap whose cause is the spec at step 5, `openspec:archive` after step 7.
-
-**issues** (`plugins/issues`), from Arsenal's executed flow: an issue is
-`.issues/<slug>/description.md` committed on branch `<slug>` in
-`.worktrees/<slug>`, plus a tracker issue, plus one pull request,
-squash-merged with `Closes: #<n>` on the final commit; no status field (git
-state is the truth); `decisions.md` beside discussion-born issues; the
-reality review before implementing; every remaining worktree rebased after
-a merge. Four skills: `issues:read` (a scout), `issues:create` (thinker
-drafts, critic checks faithfulness and secrets, runner creates; report
-after, never a question before), `issues:implement`, `issues:merge`.
-
-Stages fire on slash triggers or on keywords in the prompt, as Arsenal's
-hook did: `#123`, "do / continue / finish ... issue", "create an issue",
-"which issues", "PR / merge / rebase".
-
-The tracker and hosting are commands in `[issues]` (Forgejo's `tea` in the
-template; GitHub `gh`, GitLab `glab`, Yandex Tracker through the
-`glonass_*` tools, all run by a runner):
-
-| key | placeholders | Forgejo example |
-|---|---|---|
-| `create` | `{title}` `{body_file}` | `tea issue create --title "{title}" --description "$(cat {body_file})"` |
-| `view` | `{n}` | `tea issue view {n} --comments` |
-| `list` | | `tea issue list --state open` |
-| `pr_create` | `{branch}` `{title}` `{body_file}` | `tea pr create --head {branch} ...` |
-| `pr_status` | `{pr}` | `tea pr view {pr}` |
-| `pr_merge` | `{pr}` | `tea pr merge {pr} --style squash --delete-branch` |
-| `commit_ref` | `{n}` | `Closes: #{n}` |
-| `attribution` | | `none` where no Claude credit may appear |
-
-What stays project-only, in `.claude/kit/<stage>.md` additions: Arsenal's
-Hard Rules text, its preflight script path, its OpenSpec "born archived"
-procedure for feature-sized issues.
 
 ## Writing a flow
 
