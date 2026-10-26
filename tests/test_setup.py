@@ -77,6 +77,33 @@ class SetupInWorktree(Base):
         relay_setup.merge_user_settings(["core"])
         self.assertEqual(self._marketplace_path(), main)
 
+    def _path_todo(self, root, on_path=False):
+        import relay_setup
+        relay_setup.ROOT = root
+        real_which = shutil.which
+        relay_setup.shutil.which = lambda name, *a, **k: ("/usr/bin/relay" if on_path else None) if name == "relay" else real_which(name, *a, **k)
+        try:
+            _, todo = relay_setup.install(run_claude=False)
+        finally:
+            relay_setup.shutil.which = real_which
+        return [t for t in todo if t.startswith("put relay on your PATH")]
+
+    def test_install_path_todo_never_names_a_linked_worktree(self):
+        # F1: the PATH link must point at the main checkout's bin/relay; a worktree is removed after its merge and the link would dangle.
+        main, wt = self._repo_with_worktree()
+        (line,) = self._path_todo(wt)
+        self.assertIn(os.path.join(os.path.realpath(main), "bin", "relay"), line)
+        self.assertNotIn("somewt", line)
+
+    def test_install_path_todo_in_the_main_checkout_names_that_checkout(self):
+        main, _ = self._repo_with_worktree()
+        (line,) = self._path_todo(main)
+        self.assertIn(os.path.join(main, "bin", "relay"), line)
+
+    def test_install_adds_no_path_todo_when_relay_is_on_path(self):
+        _, wt = self._repo_with_worktree()
+        self.assertEqual(self._path_todo(wt, on_path=True), [])
+
     def test_main_checkout_is_exact_for_each_kind_of_checkout(self):
         # F1: only a linked worktree has a main checkout elsewhere; a submodule and a --separate-git-dir checkout are their own.
         import relay_setup

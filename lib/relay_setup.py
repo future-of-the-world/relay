@@ -1160,7 +1160,7 @@ def install(run_claude=True):
         todo.append(f"in Claude Code: /plugin marketplace add {marketplace_root()}, then install core, observe, delegate, front at user scope; restart")
     link = "/usr/local/bin/relay"
     if not shutil.which("relay"):
-        todo.append(f"put relay on your PATH: ln -s {os.path.join(ROOT, 'bin', 'relay')} {link} (or add {os.path.join(ROOT, 'bin')} to PATH)")
+        todo.append(f"put relay on your PATH: ln -s {os.path.join(marketplace_root(), 'bin', 'relay')} {link} (or add {os.path.join(marketplace_root(), 'bin')} to PATH)")
     return done, todo
 
 
