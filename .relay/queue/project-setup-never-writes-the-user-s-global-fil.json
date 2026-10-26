@@ -1,0 +1,25 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 45,
+  "found_at": "2026-10-26T03:26:32Z",
+  "found_in": "relay queue add",
+  "title": "Project setup never writes the user's global files",
+  "what": [
+    "`relay setup <dir>` writes only into that project. The user's global files (the relay marketplace and user-scope plugins in ~/.claude/settings.json, the profile's model and effort, the global rules in ~/.claude/CLAUDE.md) are written only by the global command (`relay setup --global` / `relay install`), run once per machine and on a profile change. --no-global goes away (it is now the only behaviour). Where a project setup finds the global part missing, it says which command to run. relay doctor checks that the relay marketplace path exists and is relay's main checkout."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"Зачем мы вызвали setup из worktree вообще, это разве не одноразовая команда, она же сделала ровно то что нужно\", then picked \"A\": project setup never touches the global files, the global part is a separate command run once. Earlier the same day the owner picked \"a)\" (skip global from a worktree and print a list), then asked \"почему ты настаиваешь на выводе списком\"; this item replaces both. Facts, 26 Oct: `relay setup <dir>` applies the global part by default (lib/relay_setup.py:741, apply_global=True; bin/relay:388 --no-global turns it off); a worker ran `bin/relay setup .` in a worktree of relay without --no-global and setup rewrote ~/.claude/settings.json's relay marketplace path to the worktree; doctor checks only that the entry exists (lib/relay_setup.py:966). Build on the same branch as setup-turns-off-for-a-project-the-plugins-it-doe (same file). IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "lib/relay_setup.py setup() and migrate(): the apply_global part (marketplace, user plugins, the profile's model and effort, the global rules)",
+    "bin/relay the setup flags (--no-global, --global) and the usage text",
+    "lib/relay_setup.py the doctor checks of the relay marketplace"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
