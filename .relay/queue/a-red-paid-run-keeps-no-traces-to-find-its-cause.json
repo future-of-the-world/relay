@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 93,
+  "time": 30,
+  "found_at": "2026-10-26T03:29:51Z",
+  "found_in": "relay queue add",
+  "title": "A red paid run keeps no traces to find its cause",
+  "what": [
+    "When a paid eval run is red, the transcripts of its failing runs are kept (the eval tool's --keep-temp or a copy of the failing runs' folders into ~/.relay), so the cause can be read instead of guessed; green runs keep nothing extra."
+  ],
+  "why": [
+    "26 Oct: the paid run at 13ea53b was red; for design-track run 3 (no thinker started, 5 steps, 18 s) the cause could not be established because bin/ci does not pass --keep-temp and the traces were deleted; three candidate causes stay unverified."
+  ],
+  "failing_case": [
+    "After the red paid run of 26 Oct (record ~/.relay/evals/relay/2026-10-26T01-47-23Z-master.json) no transcript of design-track run 3 exists."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A red run leaves the failing runs' transcripts at a path the record names; a green run leaves none."
+  ],
+  "where": [
+    "bin/ci how it calls the eval tool (no --keep-temp)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
