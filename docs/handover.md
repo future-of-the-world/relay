@@ -1390,3 +1390,8 @@ RELAY_GATE=HEAD bin/ci --quick in .worktrees/proof20, logs run-<i>.log and summa
 run 1: 492 s, library tests 291 s, green. The 20 runs started 27 Oct morning in the front's background.
 
 Addendum 27 Oct morning (3): coverage format: owner "a" (a project setting names its LCOV or Cobertura report; relay reads both with the stdlib). Revise design-dev-metrics.md 2.4 to it before the build.
+
+### Addendum (4), 27 Oct 00:15: how the metrics design is judged
+
+Owner, verbatim: "Для метрик - важной стадией проверки будет являться: Информативность - набор вопросов на которые могут дать ответ метрики / Краткость - отсутствие лишней информации / Гибкость - способность формата приспосабливаться под будущие изменения и дополнения, как продумано добавление нового способа выполнять изменения / Для меня все еще не до конца ясен момент ledger и metrics, их свойств и различий, думаю тебе необходимо это продемонстрировать более наглядно".
+Done: revision 3 of the metrics design runs on the design track (thinker, critic, revise), brief `scratchpad/briefs/dev-metrics-design-r3.md`, output `scratchpad/reports/design-dev-metrics-r3.md`; the critic judges each finding against the three criteria. Section 1 shows the ledger and a change record side by side for one real landed change. The front explained the difference to the owner in the reply.
