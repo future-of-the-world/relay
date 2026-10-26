@@ -1,0 +1,19 @@
+head 97b872e41b48d110790ec3939dacf24885d2bf35
+cmd bin/ci --quick
+ci: library tests FAILED (566s, log: .ci/steps/library-tests.log)
+    ............................................................................................................................................................................................................................................................................................................................................................................error: unknown option `version'
+        raise CalledProcessError(retcode, process.args,
+    subprocess.CalledProcessError: Command '['git', 'init', '--version']' returned non-zero exit status 129.
+    FAIL: test_rules_tests_command_passes_in_the_order_unittest_runs_them (test_rules_gate_isolation.RulesGateIsolation.test_rules_tests_command_passes_in_the_order_unittest_runs_them)
+    AssertionError: 1 != 0 : e object allocation traceback
+        raise CalledProcessError(retcode, process.args,
+    subprocess.CalledProcessError: Command '['git', 'init', '--version']' returned non-zero exit status 129.
+    FAILED (errors=1)
+ci: types and lint ok (1s)
+ci: hook tests ok (149s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert ok (747s)
+ci: RED
+exit 1

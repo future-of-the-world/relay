@@ -79,6 +79,14 @@ class Due(unittest.TestCase):
         # bin/ and lib/ are not checked by the paid evals
         self.assertEqual(got, sorted(subjects[:4]))
 
+    def test_a_plugin_rule_file_counts(self):
+        # plugins/openspec/rules/openspec.md is what the spec-step evals put in front of the session: a commit that
+        # changes it is due like a change under rules/
+        green = self.commit("README.md", "start")
+        self.commit("plugins/openspec/rules/openspec.md", "plugin rule")
+        self.record("1.json", green)
+        self.assertEqual([l.split(" ", 1)[1] for l in self.due().stdout.splitlines()], ["plugin rule"])
+
     def test_no_green_record_lists_all_and_says_so(self):
         self.commit("rules/a.md", "a"); self.commit("rules/b.md", "b")
         out = self.due().stdout.splitlines()

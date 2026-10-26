@@ -27,7 +27,7 @@ import relay_paidcap  # noqa: E402
 
 # What the paid evals read: a change to one of these is checked by the next paid run (hooks and eval cases included).
 CHECKED_PATHS = [":(glob)roles/**", ":(glob)rules/**", ":(glob)plugins/*/skills/**", ":(glob)plugins/*/agents/**",
-                 ":(glob)plugins/*/hooks/**", ":(glob)evals/plugin/**"]
+                 ":(glob)plugins/*/hooks/**", ":(glob)plugins/*/rules/**", ":(glob)evals/plugin/**"]
 SHOW_LIMIT = 50  # with no green run recorded, only this many of the newest commits are listed
 
 MIN_RUNS = 2  # fewer measured batches than this give no estimate

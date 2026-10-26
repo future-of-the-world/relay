@@ -24,11 +24,10 @@ class SystemRules(unittest.TestCase):
             self.assertNotIn("---", system_rules.line(case).split(system_rules.KEY, 1)[1], case)
 
     def test_the_text_holds_the_rule_the_case_proves(self):
-        # what each case needs in front of the session: the IT-terms sentence, the delegation rule, the spec steps table
+        # what each case needs in front of the session: the IT-terms sentence, the delegation rule
         self.assertIn("Standard IT terms stay in their English form", system_rules.CASES["it-terms-ru"]())
         self.assertIn("My native language: Spanish.", system_rules.CASES["it-terms-es"]())
         self.assertIn("Project glossary:", system_rules.CASES["it-terms-ru"]())
-        self.assertIn("Spec steps in the change cycle", system_rules.CASES["spec-step-on"]())
         self.assertIn("typed agents only", system_rules.CASES["design-track"]())
 
     def test_the_it_terms_prompts_do_not_tell_the_session_to_read_claude_md(self):
