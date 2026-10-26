@@ -1,0 +1,20 @@
+head ea4316c08de9c4777a01618fa442e36e2893d972
+cmd bin/ci --quick
+wait 0.0
+ci: library tests FAILED (420s, log: .ci/steps/library-tests.log)
+    FAIL: test_hooks_survive_an_empty_event (test_py39_hooks.Python39.test_hooks_survive_an_empty_event) (hook='plugins/core/hooks/merge.py')
+        self.assertNotIn("TypeError", r.stderr)
+    AssertionError: 'TypeError' unexpectedly found in 'Traceback (most recent call last):\n  File "/Users/amidman/relay/.worktrees/train-recheck/plugins/core/hooks/merge.py", line 28, in <module>\n    import relay_queue  # noqa: E402\n  File "/Users/amidman/relay/.worktrees/train-recheck/plugins/core/hooks/../lib/relay_queue.py", line 1009, in <module>\n    def record_item(worktree: str, named: str | None = None) -> tuple | None:\nTypeError: unsupported operand type(s) for |: \'type\' and \'NoneType\'\n'
+    FAIL: test_hooks_survive_an_empty_event (test_py39_hooks.Python39.test_hooks_survive_an_empty_event) (hook='plugins/front/hooks/handover.py')
+        self.assertNotIn("TypeError", r.stderr)
+    AssertionError: 'TypeError' unexpectedly found in 'Traceback (most recent call last):\n  File "/Users/amidman/relay/.worktrees/train-recheck/plugins/front/hooks/handover.py", line 18, in <module>\n    import relay_queue  # noqa: E402\n  File "/Users/amidman/relay/.worktrees/train-recheck/plugins/front/hooks/../lib/relay_queue.py", line 1009, in <module>\n    def record_item(worktree: str, named: str | None = None) -> tuple | None:\nTypeError: unsupported operand type(s) for |: \'type\' and \'NoneType\'\n'
+    FAIL: test_lib_modules_import (test_py39_hooks.Python39.test_lib_modules_import) (module='plugins/core/lib/relay_queue.py')
+    AssertionError: 1 != 0 : Traceback (most recent call last):
+ci: types and lint ok (1s)
+ci: hook tests ok (199s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (0s)
+ci: RED
+exit 1
