@@ -3,7 +3,7 @@ Not built yet: nothing in this file is in the code; it is the design a worker bu
 
 # Design: why relay's library tests take ~10 minutes, and whether Rust or parallel runs fix it
 
-Revision 2 (27 Oct), against the review in the session scratchpad (not kept) What changed is listed in section 9.
+Revision 2 (27 Oct), against the review in the session scratchpad (not kept). What changed is listed in section 9.
 
 Owner's question (verbatim, 27 Oct): "Почему наши тесты вообще выполняются 10 минут даже с оптимизацией, ускорится ли это вместе со сменой технологии, возьмем максимально возможную - rust, или параллельной обработки будет достаточно, что делает тесты долгими ?"
 

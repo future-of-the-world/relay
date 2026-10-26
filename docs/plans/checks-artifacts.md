@@ -1,5 +1,5 @@
 Plan: revision 2 of the design on what .relay/checks keeps and where run artifacts go. Written 2026-10-26. Designs queue item `red-gate-and-probe-runs-keep-no-logs-to-find-a-c`.
-Not built yet: nothing in this file is in the code; it is the design a worker builds from.
+Partly built: the test-times cache (approach D) is on master since 7aef441 (tests/parallel_unittest.py); the logs of red gate and probe runs (queue item `red-gate-and-probe-runs-keep-no-logs-to-find-a-c`) are not built. The gate-speed design this file cites is not kept in the repository; it was built as 7aef441.
 
 # Design: what .relay/checks keeps per commit, and whether more artifacts belong there (revision 2)
 
@@ -54,7 +54,7 @@ option the probe can read gives any speed gain); the miss rate is a measured 30%
 | Full step logs of one run (`.ci/`, ignored) | `ci.log` 83 KB (a concatenation of the step logs); hook tests 59 KB, plugin validate 11 KB, grader tests 11 KB |
 | Eval records already kept outside git | `$RELAY_HOME/evals`: 19 records, 2.0 MB |
 
-How the packing estimate was made: three clones of master into the scratchpad (`sim/`, made by `sim/sim.py`). Each
+How the packing estimate was made: three clones of master, made by a script (`sim.py`); the clones and the script were in the session scratchpad (not kept). Each
 got 100 commits of the same shape a gate makes, then a `git gc`, and `size-pack` was read before and after. The times
 in the simulation vary by -20% to +25% between runs, as real times would. The real repository was not changed.
 

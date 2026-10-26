@@ -4,15 +4,13 @@ Not built yet: nothing in this file is in the code; it is the design a worker bu
 # Design: the workflow script as relay's one unit of run, and how it reaches users
 
 Revision 2, 26 Oct 2026, after the design review the session scratchpad (not kept) (9 findings: 1 HIGH,
-7 MEDIUM, 1 LOW; all 9 hold and are fixed here; the table at the end says where). Revision 1 is kept beside this file as
-`design-cycle-scripts.r1.md`.
+7 MEDIUM, 1 LOW; all 9 hold and are fixed here; the table at the end says where). Revision 1 is not kept.
 
 Queue item `change-cycle-workflow-scripts-move-into-relay` (IP 96, owner's word). Owner, 27 Oct small hours, verbatim:
 "a, как мы можем это унифицировать, я заметил что ты запускаешь этот скрипт не тольк для feature или fix из очереди, это
 базовая единица запуска, в том числе для экспериментов и анализа, как это будет доставляться до пользователей"
 
-Nothing in the repository was changed. Measurement scripts: the session scratchpad (not kept), `wfagg.py`, `wfagg2.py`,
-`front.py` (over this session's 128 run records `workflows/wf_*.json`, their journals, the agents' meta files and the
+Nothing in the repository was changed. Measurement scripts (wfmeasure.py, wfagg.py, wfagg2.py, front.py) were in the session scratchpad (not kept) (over this session's 128 run records `workflows/wf_*.json`, their journals, the agents' meta files and the
 front's transcript). Claude Code facts were read from the installed binary, version 2.1.310 (its strings,
 the session scratchpad (not kept)); each is marked **verified in code** (read, not run), **measured** (seen in this
 session's files) or **not verified**.
@@ -280,13 +278,13 @@ The Workflow tool cannot run inside a unit test. But the script is plain JavaScr
 
 ### 3.1 Stage events and the full stage list
 
-The observability design (`design-dev-metrics.md`, 2.1-2.2) reads stages from what Claude Code already writes: the
+The observability design (`docs/plans/dev-metrics.md`, sections 2 and 5.2) reads stages from what Claude Code already writes: the
 observe hook copies each agent's label into the ledger when the agent stops, if the label matches the fixed pattern. A
 workflow script cannot write a file anyway (no file access). So the script's whole duty is the label. Every `agent()` call
 is labelled `<stage>[ N]: <name>`, with the stage from the list below. `<name>` is the branch name without `wt/`, or the
 design, analysis or train name.
 
-The stage list (this replaces the list in `design-dev-metrics.md:200`; the comparison test of 2.1 holds the two together):
+The stage list (this replaces the stage list of `docs/plans/dev-metrics.md` (sections 4.2 and 7 step 1), which now lives in `lib/relay_labels.py`):
 
 | Stage | Kind or step | New? |
 |---|---|---|
@@ -355,7 +353,7 @@ ff refused (the default branch moved meanwhile) -> back to take default, at most
 - **The fast-forward is the runner's own Bash call of that printed command** (fixes F1, the review's main point). The core
   hooks fire inside workflow agents (measured, section 2), so the merge hook judges this merge exactly as it judges the
   front's. After the merge it removes the worktree and branch, and it will write the observability record (that design
-  writes it from `merge.py post`, `design-dev-metrics.md:268`). A Python program's own `git merge` would pass through no
+  writes it from `merge.py post`, `docs/plans/dev-metrics.md` section 5.1). A Python program's own `git merge` would pass through no
   hook. Then the guard, the clean-up and the record would all be skipped, so `relay land` never merges into the default
   branch itself. **This is the test that fails when that "never" is false**: in a temporary repo, `relay land --take`,
   `--train` and `--ready` are run against a branch that is ready, and the test asserts the default branch's head is
