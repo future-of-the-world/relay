@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 95,
+  "time": 60,
+  "found_at": "2026-10-26T21:44:16Z",
+  "found_in": "relay queue add",
+  "title": "The inert probe's library tests sometimes fail on int('')",
+  "what": [
+    "Find which test raises int('') in the probe and why only there, fix the cause (not the one test), and prove it with 30 clean proof runs (scratchpad proof20.py or its successor)."
+  ],
+  "why": [
+    "Found 27 Oct by the 20-run proof of the new gate (owner's pick \"a\" for proving it): runs 1-9 green (451-720 s, mean 562 s), run 10 red at master 3ba0208-era head in the detached worktree .worktrees/proof20. The outer run's library tests were ok (427 s); the inert probe's library tests failed (431 s) with \"ValueError: invalid literal for int() with base 10: ''\" and \"FAILED (errors=1)\", so the inert step went red. Which test raised is not known: the probe keeps only a 3-line summary (the same gap as red-gate-and-probe-runs-keep-no-logs-to-find-a-c). The probe runs beside the outer run, so shared state between the two (the test-times cache under $RELAY_HOME, gate slots, fake tool links, pid files) is the first hypothesis. Observed rate 1 in 10, so the fix is proven with max(20, ceil(3/0.1)) = 30 clean runs. IP chosen by the front (agent-chosen): the new gate is not proven until this is fixed."
+  ],
+  "failing_case": [
+    "Proof run 10 of 27 Oct: `bin/ci --quick` with RELAY_GATE set in .worktrees/proof20; inert step red, probe library tests \"ValueError: invalid literal for int() with base 10: ''\"."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "30 proof runs in a row green, each with an `inert ok` line",
+    "the probe's library-tests log names the failing test when it fails (kept, not overwritten)"
+  ],
+  "where": [
+    "lib/relay_ci.py (probe beside the main run)",
+    "tests/parallel_unittest.py (test-times cache)",
+    "lib/relay_gate.py (slots)",
+    "tests/fake_tools.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

@@ -1,0 +1,131 @@
+{
+  "branch": "wt/macos-doc",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by running it. The brief gave this line as an example (\"e.g.\"), so the fixer may change it. relay requires python3 3.11+ (README, deps.toml) and every entry point uses #!/usr/bin/env python3 or calls python3 by name, so the first python3 on PATH decides. Prepending the developer-tools bin folder makes that Apple's 3.9.6.",
+        "A git-only folder works: a directory with one symlink, git -> $(xcrun --find git), first on PATH. The symlink also avoids the first-run scan cost of section 2 (no new executable is written).",
+        "Severity HIGH: the doc's one recommended action breaks relay on ordinary use for any Mac reader who follows it.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "$ d=$(dirname \"$(xcrun --find git)\"); ls $d | grep python",
+        "python3  python3.9   (also pip3, make, ld)",
+        "$ PATH=\"$d:$PATH\" sh -c 'command -v python3; python3 --version; ./bin/relay help'",
+        "/Applications/Xcode.app/Contents/Developer/usr/bin/python3",
+        "Python 3.9.6",
+        "  File \".../lib/relay_license.py\", line 14, in <module>",
+        "    import tomllib",
+        "ModuleNotFoundError: No module named 'tomllib'",
+        "$ ln -sf /Applications/Xcode.app/Contents/Developer/usr/bin/git <scratch>/gitbin/git; PATH=\"<scratch>/gitbin:$PATH\" sh -c 'command -v git; git --version; git --exec-path; command -v python3'",
+        "<scratch>/gitbin/git",
+        "git version 2.50.1 (Apple Git-155)",
+        "/Applications/Xcode.app/Contents/Developer/usr/libexec/git-core",
+        "/opt/homebrew/bin/python3"
+      ],
+      "failing_case": [
+        "On this Mac, a reader follows the doc and adds export PATH=\"$(dirname \"$(xcrun --find git)\"):$PATH\" to the shell profile.",
+        "The prepended folder /Applications/Xcode.app/Contents/Developer/usr/bin (and /Library/Developer/CommandLineTools/usr/bin with only the CLT) also holds python3, pip3, make, ld.",
+        "Now: command -v python3 -> /Applications/Xcode.app/Contents/Developer/usr/bin/python3 (Python 3.9.6); ./bin/relay help -> ModuleNotFoundError: No module named 'tomllib'. Every relay command, every python3 hook (merge.py, check-mark.py, turn-limit.py ...) and bin/ci (calls python3) break.",
+        "Should: the fix speeds up git only and leaves python3 (and the other tools) resolving as before: /opt/homebrew/bin/python3, 3.11+."
+      ],
+      "fix_hint": [
+        "Replace the line with a folder that holds only git, e.g.",
+        "  mkdir -p \"$HOME/.local/git-bin\" && ln -sf \"$(xcrun --find git)\" \"$HOME/.local/git-bin/git\"   (once)",
+        "  export PATH=\"$HOME/.local/git-bin:$PATH\"   (in the shell profile)",
+        "and one sentence on why not the whole folder (it carries Apple's python3 3.9, older than relay needs)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 16,
+      "pass_cases": [
+        "1. Artifact: the fix shown in docs/macos.md section 1, applied in a shell where command -v python3 was /opt/homebrew/bin/python3, leaves command -v python3 unchanged and ./bin/relay help runs.",
+        "2. Artifact: the same fix makes command -v git print a path that is not /usr/bin/git and git --version reports the developer tools' git (checked: a folder holding only a symlink to $(xcrun --find git) gives git version 2.50.1 (Apple Git-155), exec-path /Applications/Xcode.app/Contents/Developer/usr/libexec/git-core, git log works).",
+        "3. Artifact: the doc says why the whole developer-tools folder must not go first on PATH (it carries python3 3.9).",
+        "4. Artifact: the Homebrew alternative and the owner decision line (relay does not change PATH) stay."
+      ],
+      "path": "docs/macos.md",
+      "rank": "high",
+      "reason": [
+        "docs/macos.md:16-26 git-only symlink folder and the python3 3.9 warning; tests/test_macos_doc.py:11,15,20 pass; first two fail on the old doc."
+      ],
+      "severity": "HIGH",
+      "since": "c8382e3da2e16d33dc3594858e50fde06afca33b",
+      "source": "review-macos-doc.json",
+      "source_id": "F1",
+      "summary": "the recommended PATH line puts Apple's python3 3.9.6 ahead of every other python3, and relay then fails to start (needs 3.11+)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by arithmetic. Copied from the brief's wording; the doc is the place readers take numbers from. Size: 5 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A reader of section 1 reads \"Each start through the launcher costs 8-12 ms more: 11.8 ms against 4.1 ms\". 11.8 - 4.1 = 7.7 ms, outside the stated 8-12 range; the sentence reads as if 8-12 were the difference.",
+        "Should: the range and the worked numbers agree (e.g. \"about 8 ms more: 11.8 ms against 4.1 ms\", or say what 8-12 is the range of)."
+      ],
+      "fix_hint": [
+        "\"about 8 ms more per start: 11.8 ms against 4.1 ms ...\""
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 9,
+      "pass_cases": [
+        "1. Artifact: the stated extra cost and the two measured means in the same sentence agree (difference 7.7 ms, or a range that contains it).",
+        "2. Artifact: the 30 interleaved rounds and the 29,000 starts / 81% figures stay."
+      ],
+      "path": "docs/macos.md",
+      "rank": "low",
+      "reason": [
+        "docs/macos.md:9 \"about 8 ms more: 11.8 ms against 4.1 ms\"; tests/test_macos_doc.py:24 passes, fails on the old doc."
+      ],
+      "severity": "LOW",
+      "since": "c8382e3da2e16d33dc3594858e50fde06afca33b",
+      "source": "review-macos-doc.json",
+      "source_id": "F2",
+      "summary": "\"8-12 ms more\" is followed by its own example, 11.8 against 4.1 ms, which is 7.7 ms more",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE that the intended meaning is interpreter start-up per spawned python process; not measured here. Size: 5 agent minutes (ask the front for the measurement's split if unknown)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Section 3 says Python's own work is about 1.5% of the suite's time, then that a faster language would save at most 5-10%. A reader cannot see where the other 3.5-8.5% comes from (interpreter start-up per process? imports?), so the two numbers look contradictory.",
+        "Should: one clause says what the 5-10% counts beyond the 1.5% (or the bound is stated as what was measured)."
+      ],
+      "fix_hint": [],
+      "id": "F3",
+      "kind": "inside",
+      "line": 35,
+      "pass_cases": [
+        "1. Artifact: section 3 names what the 5-10% upper bound includes beyond Python's own 1.5% (e.g. interpreter start-up and imports for each process).",
+        "2. Artifact: the conclusion (time goes to starting processes, git above all, the disk and the two macOS costs) stays."
+      ],
+      "path": "docs/macos.md",
+      "rank": "low",
+      "reason": [
+        "docs/macos.md:42 splits 1-1.5% own logic from 4-7% child interpreter starts = at most 5-10%; tests/test_macos_doc.py:31 passes, fails on the old doc."
+      ],
+      "severity": "LOW",
+      "since": "c8382e3da2e16d33dc3594858e50fde06afca33b",
+      "source": "review-macos-doc.json",
+      "source_id": "F3",
+      "summary": "Python is 1.5% of the time, yet a faster language would save \"at most 5-10%\": the gap is not explained",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0ef7b7cf2c5118f332ff3eb7a4823605fb7e9636.gate.log",
+  "head": "558cb166525b1c339fdd56bd533f8f2ce8e6eb6c",
+  "item": null,
+  "notes": [
+    "F3's numbers (744 runs, 22-70 ms, 4-7%) come from the fixer's report; not re-measured here."
+  ],
+  "schema": 2,
+  "scope": [
+    "Own changes since c8382e3: docs/macos.md, tests/test_macos_doc.py. Ran tests/test_macos_doc.py: 5 pass. Ran the test file against 87afe78 in a throwaway worktree: 4 of 5 fail (the 5th, homebrew/decision, is a keep-case). Gate log head 0ef7b7c, exit 0 (quick mode); relay changed lists no file after it. README link intact."
+  ],
+  "type": "check"
+}
