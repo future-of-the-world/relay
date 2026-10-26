@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-26T03:29:52Z",
   "taken_by": "wt/red-wave",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T05:52:48Z",
+  "test": "evals/plugin/design-track::thinker-started",
   "dropped_at": null,
   "dropped_why": null
 }
