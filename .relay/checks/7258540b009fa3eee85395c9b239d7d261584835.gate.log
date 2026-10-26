@@ -1,0 +1,15 @@
+head 7258540b009fa3eee85395c9b239d7d261584835
+cmd bin/ci --quick
+wait 1120.6
+ci: library tests FAILED (667s, log: .ci/steps/library-tests.log)
+    FAIL: test_no_live_old_plugin_name_in_the_tree (test_spec_steps.NoOldName.test_no_live_old_plugin_name_in_the_tree)
+    AssertionError: Lists differ: ['tests/test_setup_off.py:282:        self[165 chars]ns)'] != []
+    FAILED (failures=1)
+ci: types and lint ok (1s)
+ci: hook tests ok (144s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (5s)
+ci: inert ok (766s)
+ci: RED
+exit 1
