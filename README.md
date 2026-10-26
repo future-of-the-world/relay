@@ -61,6 +61,8 @@ relay migrate --all --primary      # the plan for every project (plain --all ski
 relay doctor
 ```
 
+On a Mac, see [docs/macos.md](docs/macos.md) for what slows relay down and how to fix it.
+
 ## How it answers the six requirements
 
 1. **Observability and benchmark** — the `observe` plugin writes a ledger of
