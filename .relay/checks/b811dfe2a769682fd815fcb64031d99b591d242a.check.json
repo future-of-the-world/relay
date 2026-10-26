@@ -1,0 +1,235 @@
+{
+  "branch": "wt/test-jobs",
+  "findings": [
+    {
+      "details": [
+        "Owner, 26 Oct: \"\u041c\u043e\u0436\u0435\u0448\u044c \u043f\u0440\u043e\u0430\u043d\u0430\u043b\u0438\u0437\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432\u0440\u0435\u043c\u044f \u043a\u043e\u0442\u043e\u0440\u043e\u0435 \u043c\u044b \u0442\u0440\u0430\u0442\u0438\u043c \u043d\u0430 \u043e\u0434\u043d\u043e \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0435 ... \u043a\u0430\u043a \u043c\u044b \u043c\u043e\u0436\u0435\u043c \u044d\u0442\u043e \u0443\u0441\u043a\u043e\u0440\u0438\u0442\u044c \u0431\u0435\u0437 \u043f\u043e\u0442\u0435\u0440\u0438 \u0444\u0443\u043d\u043a\u0446\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0445 \u043a\u0430\u0447\u0435\u0441\u0442\u0432 ... \u043d\u0435\u0437\u043d\u0430\u0447\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u043c \u0441\u0447\u0438\u0442\u0430\u044e \u0432\u0441\u0435 \u0447\u0442\u043e \u043c\u0435\u043d\u044c\u0448\u0435 25%\". Measured 26 Oct over 35 changes: one change's cycle about 90 min (median of the last 7) plus a median 37 min until it lands; the gate is 45-62% of the cycle; the inert step 680-850 s, 22-36% of the cycle, because it reruns the whole quick gate after the first run; contention 14-30%, no gate waited for a slot; library tests grew from 148 s to 530 s in 2 days (591 to 888 tests), in one process on a 12-core Mac. Estimated saving 55-70% of a gate, 30-43% of a change (an estimate: macOS scans each new executable for about 0.75 s, at about 2.7 per second for the whole Mac, which may cap the parallel gain at 1.9x instead of 3x). Build after every-test-runs-with-temporary-relay-and-claude lands (tests must be isolated to run in parallel) and after the open inert-probe flake item. IP chosen by the front (agent-chosen).",
+        "Also: lib/relay_gate.py how the gate is run"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Gate logs of 26 Oct: \"library tests ok (532s)\" then \"inert ok (696s)\" in sequence; a quick gate takes 903-1653 s."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "On the same tree the quick gate's wall time drops by at least 25% against the 26 Oct logs; the inert probe still fails when a test reads an inert file; the library-tests count and results are identical to a serial run; 20 gates in a row on an unchanged tree are green."
+      ],
+      "path": "bin/ci",
+      "rank": "high",
+      "reason": [
+        "tests/test_parallel_unittest.py:178 (four jobs give the single process count and result); fails at 940c489 where tests/parallel_unittest.py does not exist. Gate green on head. 20-gate proof left to the front."
+      ],
+      "severity": "HIGH",
+      "since": "940c489f12b0f6a06f722e23c36dd4861a115f4b",
+      "source": "queue",
+      "summary": "The gate runs its work twice in a row on one core",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the builder's measurement in its report (scratchpad/reports/test-jobs.md, \"FLAKY\"): 5 of 5 concurrent gates red for this test only.",
+        "The cause is a wall-clock window: gate(timeout=3) counts from the Popen of `relay gate`, which under load first has to start python,",
+        "take a slot and start the command; when 3 s pass before `echo $$ > pid`, the helper stops it and read(pid) raises. This change",
+        "multiplies the processes per gate (4 workers outer + 4 in the probe, plus nested copied gates in the Inert tests), so the",
+        "window is now missed on ordinary use: the 3 slots exist exactly so that 3 gates run at once. Whether it failed before this change",
+        "at 3 gates was not measured; the brief's case 8 (\"4 jobs with two other gates running\") is what turned it up, and the builder left",
+        "it \"out of list\". Project rule (quality gate): a flaky test is a bug; fixed before the merge since the change touched this file",
+        "and causes the load. Size: 15 minutes."
+      ],
+      "evidence": [
+        "scratchpad/reports/test-jobs.md: \"at machine load 12-21 (2 and 3 gates at once) the gate command had not written its pid file",
+        "within 3 s, FileNotFoundError, library tests FAILED in all 5 concurrent gates ... Not fixed (out of list).\"",
+        "tests/test_gate.py:233-236: self.repo(gate='echo $$ > \"%s/pid\"\\nexec sleep 600\\n'); self.gate(self.wt, timeout=3)"
+      ],
+      "failing_case": [
+        "Two or three quick gates at once, each at RELAY_TEST_JOBS=4 (the new default), own trees, same head (the builder's case-8 run).",
+        "Now: tests/test_gate.py::test_a_gate_that_outlives_its_timeout_is_stopped_with_its_command fails with FileNotFoundError on <tmp>/pid",
+        "in all 5 concurrent gates (\"library tests FAILED\"); machine load 12-21. The gate command had not started within gate(timeout=3).",
+        "Should: the test passes however loaded the machine is; a gate is never red because other gates were running."
+      ],
+      "fix_hint": [
+        "Make the wait a condition: start the gate, wait (bounded, e.g. up to GATE_TIMEOUT) until the pid file exists, then give the",
+        "helper its short timeout from that point (or pass a hook into gate() that starts the timer once the command runs). Then the",
+        "proof the rule asks: max(20, 3/p) clean runs of this test under two concurrent gates."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 230,
+      "pass_cases": [
+        "1. The test run while 2 other quick gates run at 4 jobs (load about 12-20): passes; it may take longer than 3 s, but its outcome does not depend on it.",
+        "2. The test alone: passes, and stays under a few seconds (it must not wait the full GATE_TIMEOUT).",
+        "3. The command really never ends (exec sleep 600): the helper still stops the gate, AssertionError contains \"still running\", and the pid in the pid file is gone (ProcessLookupError).",
+        "4. The test still fails if the helper's stop is disabled (the command outlives the gate): kept as today."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate.py::Gate::test_the_timeout_counts_from_the_start_of_the_command_not_of_the_gate (line ~253) passes; fails when the started argument is dropped (FileNotFoundError on pid). Not measured under concurrent gates."
+      ],
+      "severity": "HIGH",
+      "since": "eda9653b62622d836fff27218b53a79f7cd13d87",
+      "source": "review-test-jobs.json",
+      "source_id": "F1",
+      "summary": "with library tests on 4 processes, two or three gates at once (what the 3 slots allow) turn the library tests red: the 3-second window of the timeout test runs out before the gate command writes its pid file",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced). unittest's loadTestsFromModule picks every TestCase subclass that is an attribute of the module, imported ones",
+        "included, so discovery yields Small's tests under test_a and again under test_x. counts is keyed by _class_of(t) = the class's",
+        "defining module (type(t).__module__), so \"test_a.Small\" gets 4, but the queue holds it once and a worker runs it once (2 tests):",
+        "ran 5 != expected 7, red. The repo already imports TestCase classes across test modules (test_gate_slots and test_license",
+        "import test_gate.Fixture; test_gate_stops imports test_gate); today none of them carries test_ methods, so the gate is green,",
+        "but one test method added to such a base (or importing a class that has them) makes the 4-job gate red and the 1-job run green,",
+        "which breaks case 6 (\"RELAY_TEST_JOBS=1 and =4 give the same results\"). The test of case 6",
+        "(tests/test_parallel_unittest.py:77) runs both legs through parallel_unittest.run, so it never compares with the real 1-job",
+        "path. Size: 30 minutes."
+      ],
+      "evidence": [
+        "scratch tree scratchpad/imp/myrepo/tests (test_a.py, test_x.py as above):",
+        "RELAY_TEST_JOBS=2 parallel_unittest.run(...) -> \"ERROR: count\", \"ran 5 tests but discovery found 7\", \"Ran 5 tests\", \"FAILED (errors=1)\"",
+        "python3 -m unittest discover -s . -> OK (7 tests)",
+        "git grep \"^from test_\" tests/ -> tests/test_gate_slots.py:18 from test_gate import RELAY, Fixture, ...; tests/test_license.py:10 from test_gate import Fixture, ..."
+      ],
+      "failing_case": [
+        "tests/test_a.py: class Small(TestCase) with test_a, test_b. tests/test_x.py: `from test_a import Small` and class Sub(Small) with test_c.",
+        "Single process (RELAY_TEST_JOBS=1, unittest discover): 7 tests, OK.",
+        "RELAY_TEST_JOBS=2: \"ERROR: count / ran 5 tests but discovery found 7\", \"Ran 5 tests\", FAILED.",
+        "Should: the same tests run and the same \"Ran 7 tests\" / OK as the single process."
+      ],
+      "fix_hint": [
+        "Hand out work by where discovery found it, not by where the class is defined: walk the discovered suite per module and name the",
+        "unit \"<discovering module>.<class name>\" (loadTestsFromName(\"test_x.Small\") resolves the imported attribute), so the class runs",
+        "once per module that exposes it, as the single process does. Make the case-6 test compare run_unittest.main at RELAY_TEST_JOBS=1",
+        "with parallel_unittest.run at 4, and add the imported-class tree to it."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 252,
+      "pass_cases": [
+        "1. The tree above at RELAY_TEST_JOBS=1 (run_unittest.main, the real single-process path) and =4: both exit 0, both print one \"Ran 7 tests\" line.",
+        "2. Three classes in three modules (2+3+4 tests), no imports between them: one \"Ran 9 tests\" at 1 and at 4 jobs (today's test, but its 1-job leg goes through run_unittest.main, not parallel_unittest.run with one worker).",
+        "3. A module importing only a helper class without test methods (like tests/test_license.py importing test_gate.Fixture): unchanged, OK, counts equal.",
+        "4. A deliberately failing test in the imported class: named in the FAIL lines, the run is FAILED, no extra \"count\" error."
+      ],
+      "path": "tests/parallel_unittest.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_parallel_unittest.py:150 and :160 pass; both fail at eda9653 (ERROR: count, ran 5 but found 7 type)."
+      ],
+      "severity": "MEDIUM",
+      "since": "eda9653b62622d836fff27218b53a79f7cd13d87",
+      "source": "review-test-jobs.json",
+      "source_id": "F2",
+      "summary": "a test class imported into a second test module is discovered twice but run once: 4 jobs reports a count ERROR where 1 job (today's runner) is green",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced). Pool._loop starts the worker with stdin=PIPE; worker_main reads class names from sys.stdin (fd 0) and",
+        "moves only stdout away (os.dup2(2, 1)); fd 0 stays the pipe, and subprocess children inherit fd 0 by default. The controller",
+        "keeps the write end open until the queue is empty, so a child reading stdin never sees EOF: a deadlock with no bound. In the repo",
+        "183 subprocess.run/Popen calls in tests/*.py pass neither input= nor stdin= (count of lines, not each one a reader), e.g.",
+        "tests/test_gate.py:97 starts `relay gate` with the inherited stdin. Today none of them reads, so the gate is green; the change",
+        "added the trap. Size: 10 minutes."
+      ],
+      "evidence": [
+        "scratchpad/stdin/myrepo/tests/test_reads.py: subprocess.run([\"cat\"], timeout=5, stdout=subprocess.DEVNULL)",
+        "RELAY_TEST_JOBS=2 parallel_unittest.run(...) < /dev/null -> \"subprocess.TimeoutExpired: Command '['cat']' timed out after 5 seconds\", \"FAILED (errors=1)\"",
+        "python3 -m unittest discover -s . < /dev/null -> \"Ran 1 test in 0.004s\", OK",
+        "git grep -n \"subprocess.run\\|Popen\" -- tests/*.py | grep -v \"input=\\|stdin=\" | wc -l -> 183"
+      ],
+      "failing_case": [
+        "A test: subprocess.run([\"cat\"], timeout=5, stdout=DEVNULL) (any child started without stdin=/input= that reads stdin, e.g. a hook",
+        "script run without input).",
+        "Single process with stdin /dev/null (as under a detached relay gate): OK in 0.004 s.",
+        "RELAY_TEST_JOBS=2: \"ERROR ... subprocess.TimeoutExpired: Command '['cat']' timed out after 5 seconds\"; without the timeout= the",
+        "worker, and with it the controller and the gate, wait forever. A background child that reads stdin can also take the next class",
+        "name off the pipe, so the worker waits for a name that never comes.",
+        "Should: a test's children see the same stdin as in the single process (or /dev/null), never the controller's pipe."
+      ],
+      "fix_hint": [
+        "In worker_main, as is done for stdout: commands = os.fdopen(os.dup(0), encoding=\"utf-8\"); then point fd 0 at /dev/null",
+        "(os.dup2(os.open(os.devnull, os.O_RDONLY), 0)) and read class names from `commands`. os.dup gives a non-inheritable fd, so",
+        "children never see the pipe."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 183,
+      "pass_cases": [
+        "1. The cat test above at RELAY_TEST_JOBS=2: passes at once (cat reads EOF), \"Ran 1 tests\", OK.",
+        "2. A test that runs subprocess.run([\"sh\",\"-c\",\"read x; echo $x\"], input=\"hi\\n\", capture_output=True): stdout \"hi\", unchanged.",
+        "3. The three-class tree at 4 jobs: still one \"Ran 9 tests\", OK (the worker still gets its class names).",
+        "4. A test that writes to fd 1 (print, os.write(1, ...)): its text lands in the worker log, the reply line is still valid JSON."
+      ],
+      "path": "tests/parallel_unittest.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_parallel_unittest.py:183 passes; fails at eda9653 (cat on controller pipe)."
+      ],
+      "severity": "MEDIUM",
+      "since": "eda9653b62622d836fff27218b53a79f7cd13d87",
+      "source": "review-test-jobs.json",
+      "source_id": "F3",
+      "summary": "a worker's stdin is the controller's command pipe, and every process a test starts inherits it: a child that reads stdin blocks (no EOF ever comes) or eats the next class name",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (mutation run). The test passes RELAY_HOME=self.home only in the env dict given to parallel_unittest.run; Pool starts",
+        "the workers with no env=, so they inherit the test process's os.environ, whose RELAY_HOME is pytest's own temporary one. The",
+        "asserted inequality (worker RELAY_HOME != self.home) holds with or without the guard. The guard is what keeps a real gate's",
+        "library tests off the live $RELAY_HOME (the Python rule: tests never touch the live state), so it needs a test that can fail.",
+        "The same gap means run(env=...) does not reach the workers at all (only RELAY_TEST_JOBS, RELAY_HOME for the times file and",
+        "RELAY_INERT_PROBE are read from it in the controller): harmless in the gate, where env is os.environ. Size: 10 minutes."
+      ],
+      "evidence": [
+        "cp tests lib -> scratchpad/mut; sed 's/^    tmp_default.patch_unittest()$/    pass  # guard disabled/' tests/parallel_unittest.py",
+        "~/.local/bin/pytest tests/test_parallel_unittest.py -q -k temporary_home_guard -> \"1 passed, 13 deselected\""
+      ],
+      "failing_case": [
+        "Remove `tmp_default.patch_unittest()` from worker_main (tests/parallel_unittest.py:141): a worker's tests then run with the",
+        "controller's RELAY_HOME (the live one in a real gate).",
+        "Now: test_a_worker_keeps_the_temporary_home_guard still passes (1 passed).",
+        "Should: it fails, so a lost guard cannot reach the live $RELAY_HOME unnoticed."
+      ],
+      "fix_hint": [
+        "Pass env to the workers (Popen(..., env=self.env) from run's env) so the worker starts with the run's RELAY_HOME, then assert the",
+        "test sees a different, relay-home-* RELAY_HOME; or have the test set os.environ[\"RELAY_HOME\"] (restored in cleanup) before run()."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 118,
+      "pass_cases": [
+        "1. Guard removed from worker_main: the test fails (the worker test sees the RELAY_HOME the run was started with).",
+        "2. Guard in place: the test passes; the worker test's RELAY_HOME is a fresh relay-home-* folder under the worker's TMPDIR, not the run's.",
+        "3. Two tests in one worker class: each sees a different RELAY_HOME (one folder per test, as tmp_default promises)."
+      ],
+      "path": "tests/test_parallel_unittest.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_parallel_unittest.py:118 and :129 pass; both fail with the tmp_default patch removed in the worker."
+      ],
+      "severity": "MEDIUM",
+      "since": "eda9653b62622d836fff27218b53a79f7cd13d87",
+      "source": "review-test-jobs.json",
+      "source_id": "F4",
+      "summary": "the test of the worker's temporary-home guard passes with the guard removed: the workers never get the RELAY_HOME the test compares against",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "8acfea488b454cf1fe207db58a54b31662ea0a1d.gate.log",
+  "head": "b811dfe2a769682fd815fcb64031d99b591d242a",
+  "item": "the-gate-runs-its-work-twice-in-a-row-on-one-cor",
+  "notes": [
+    "Q1's pass case of 20 gates in a row is the front's proof after landing. The F4 tests do not fail when only env=self.env is dropped from Pool (inherited env is also not self.home), but they do fail with the guard removed, which is what F4 asked. Quick-gate speedup is the builder's measurement (420 s vs 801 s at 4 jobs vs 1), not re-run here."
+  ],
+  "schema": 2,
+  "scope": [
+    "940c489..HEAD. Ran tests/test_parallel_unittest.py, test_ci_python.py, test_gate.py (61 passed). Gate log head 8acfea4, exit 0; HEAD only adds the log (relay changed lists nothing). Base/mutation runs in scratch worktrees (removed): at eda9653 with head tests, the F2 tests and the F3 stdin test fail; F1 test fails with the helper's started argument dropped; F4 tests fail with the worker's tmp_default patch removed."
+  ],
+  "type": "check"
+}
