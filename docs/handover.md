@@ -1302,3 +1302,36 @@ runs and a gate). Gates run by the front with run_in_background worked every tim
 Next: next fix wave from the top of the queue (relay queue): the-gate-runs-its-work-twice (95, 3h, ports bin/ci to
 Python), setup-in-a-worktree-rewrites-main-checkout-rules (95), a-wave-run-is-red-when-one-of-a-case-s-3-runs-fa (94),
 tests-write-new-executables (94), then 93s and a-train-cannot-recheck (92). Each brief starts with a fresh look at the code.
+
+## STATE 27 Oct, small hours (session 3207dc59)
+
+Merged since "26 Oct night": setup-wt-rules (relay setup in a linked worktree skips the rules sync, held sync exits 0),
+fake-tools (tests/fake_tools.py: a fake tool's text is written once and linked; installer tests 72 s -> 11 s),
+gate-lock (gate-speed branch 1: one gate per worktree, a second waits and reuses; closes the-inert-gate-step-went-red-...;
+cause measured: three gates at once in one worktree on 25 Oct sharing one results file), relay-home (install.sh reads
+RELAY_ROOT for code; RELAY_HOME is the state folder everywhere), ci-python (gate-speed branch 2: bin/ci is a wrapper over
+lib/relay_ci.py; the inert probe runs beside the outer run; first gates 868 s and 801 s vs 1404 s on the old bin/ci).
+Closed by evidence: every-test-runs-with-temporary-relay-and-claude (feature, fd221e0; it stayed open after train-18).
+
+Owner decisions (verbatim):
+- gate-speed proof: "a" (20 real runs of the new gate before relying on it; the front runs them after branch 3 lands,
+  design case 9: a scratchpad script, commits nothing).
+- checks-artifacts design: "Мне нравятся рекомендованные варианты, однако не используй прямой путь, опирайся на
+  относительный путь + переменную окружения" -> test times in one file per machine $RELAY_HOME/test-times/<repo>.json
+  (outer run writes, probe reads); red-run logs under $RELAY_HOME/artifacts/<repo>/<sha>/ for 14 days (queue item
+  red-gate-and-probe-runs-keep-no-logs-to-find-a-c, ip 89). Memory: paths-via-env-var.
+- install.sh error message prints the real searched path: "Согласен с твоей рекомендацией" (a). The owner asked why the
+  installer does not keep code in $RELAY_HOME/src: that layout is the feature relay-installs-with-one-command (87), not
+  built; today's install.sh is the developer installer.
+- ci-python after a hand-resolved conflict: "Можешь влить".
+- cd guard: "Оставь".
+
+Queued tonight: a-gate-log-keeps-failure-lines-of-any-length (60), red-gate-and-probe-runs-keep-no-logs (89), plus a
+reviewer's test_installer_doctor duplicate-class item (fixer-queued).
+
+Running: gate-speed branch 3 (wt/test-jobs, item the-gate-runs-its-work-twice, parallel library tests by class,
+RELAY_TEST_JOBS default 4 to be measured at 1/2/4/6; times cache as above). After it lands: the 20-run proof.
+
+Lessons: a gate-waiting runner died without its report twice more (relay-home, leaked-gate); the front ran later gates
+itself with run_in_background, which never failed. Taking master that auto-merges a file the branch also changed
+needs a fresh check of the branch's queue item (gate-lock), so take master before the queue check when master moved.

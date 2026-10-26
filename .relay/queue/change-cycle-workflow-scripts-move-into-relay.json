@@ -1,0 +1,25 @@
+{
+  "kind": "feature",
+  "ip": 96,
+  "time": 120,
+  "found_at": "2026-10-26T19:11:31Z",
+  "found_in": "relay queue add",
+  "title": "Change-cycle workflow scripts move into relay",
+  "what": [
+    "The scripts that run a change's cycle (build, gate, review, fix, gate, queue check and close, check) and the fix cycle live in relay's repository, are tested and versioned like the rest of relay, reach every project relay sets up as saved workflows, and report each stage's events so the observability records can count stages and find-and-fix rounds."
+  ],
+  "why": [
+    "Owner, 27 Oct small hours, after the front said the stages are run by its own scripts outside relay: \"Ты имеешь ввиду скрипты workflow, relay-change-cycle ? Я полагал что это тоже часть relay, они так хорошо работают, ускоряют и удешевляют разработку, оркестратора заменяет скрипт\". Facts that night: two scripts (10.0 KB and 5.6 KB of JavaScript for Claude Code's Workflow tool) exist only under the session's folder in the Claude Code projects directory; relay's repo has no .claude/workflows and no skill names them; the front edited them by hand during 26 Oct (gate-waiting runners given 40 turns). Measured 24 Oct (one change run through the workflow against the front leading each agent by hand): agent tokens per change ~165k against 236-277k by hand, front-session turns ~0 (start and result only) against ~22, review quality the same; the front did not record this in the queue or the handover then, and the owner had to recall it (27 Oct: \\\"я помню мы мерили их, ты не сохранил это\\\"). Ties to each-change-records-its-stage-times-cost-and-cov. Owner raised its priority on 27 Oct: \\\"Подними приоритет переноса скриптов выше\\\" (IP 96 set by the owner's word)."
+  ],
+  "where": [
+    "the front's workflow scripts (relay-change-cycle, relay-fix-cycle) kept today only in the Claude Code session folder",
+    "plugins/front (skills front, delegate)",
+    "relay sync / setup (where a project gets saved workflows)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

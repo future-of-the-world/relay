@@ -1,0 +1,27 @@
+{
+  "kind": "feature",
+  "ip": 85,
+  "time": 180,
+  "found_at": "2026-10-26T18:56:56Z",
+  "found_in": "relay queue add",
+  "title": "Each change records its stage times, cost and coverage",
+  "what": [
+    "Scripts measure, for every change, the time of each stage, the model cost of each stage, and the code coverage of the tests (Python's coverage.py, nothing invented), and keep one record per change in the repository, so statistics for the whole repository are computed from those records. Designed in scratchpad reports/design-dev-metrics.md tonight; the design is redone fresh when the item is taken if it has gone stale."
+  ],
+  "why": [
+    "Owner, 27 Oct small hours: \"Сейчас я говорю об этом сам - но хочу чтобы ты вел метрики разработки: 1. Распределение времени по этапам 2. Стоимость каждого этапа изменений (использование моделей) 3. Покрытие тестов (не хочу чтобы ты тут что-то изобретал, полагаю у python уже есть способ считать покрытие КОДА) Эти метрики необходимо хотя бы отслеживать, где сейчас хранится информация о проделанных изменениях, статистика каждого изменения на основании которой мы могли бы вести статистику всего репозитория, я бы хотел чтобы это замерялось автоматическими скриптами, эта фича очень ценна так как улучшает наблюдаемость изменений и хранит их в самом репозитории\". Facts that night: model usage is in the ledger under $RELAY_HOME/ledger (outside git, keyed by session and agent, not by branch); gate step times are in committed .relay/checks gate logs; queue items carry found/taken/closed dates; a one-off stage-time analysis of 26 Oct found a cycle ~90 min with the gate 45-62% of it; coverage.py is installed as a tool on the Mac but not pinned by relay. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "lib/relay_ledger.py (model usage per session and agent)",
+    ".relay/checks (gate step times)",
+    ".relay/queue (dated events)",
+    "the gate's library-tests step (coverage.py)",
+    "deps.toml, install.sh (pinned gate tools)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

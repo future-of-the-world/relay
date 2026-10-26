@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 70,
+  "time": 60,
+  "found_at": "2026-10-26T19:45:24Z",
+  "found_in": "relay queue add",
+  "title": "relay's merge and queue code start git too often",
+  "what": [
+    "relay's own merge-hook and queue code start fewer git processes per call (e.g. one git call that returns what several calls ask for now), with the same results; designed fresh when taken."
+  ],
+  "why": [
+    "27 Oct, the test-speed design (approach B), measured: 81% of the test suite's ~29,000 git starts come from relay's own code under test (23,750 of 29,387 in one run), so the same code is slow for users too, outside tests. Queued below the launcher fix (tests-start-git-through-apple-s-slow-launcher) by the front, inside principle 2 (owner can reverse). IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "Counting git starts during one `relay queue` or merge-hook call on a repo with this queue: the count is many times the number of facts the call needs."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same calls give byte-identical output with fewer git starts, counted by a test."
+  ],
+  "where": [
+    "lib/relay_queue.py",
+    "plugins/core/hooks/merge.py",
+    "lib/relay_marks.py",
+    "lib/relay_inert.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

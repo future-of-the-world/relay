@@ -1,0 +1,27 @@
+{
+  "kind": "feature",
+  "ip": 86,
+  "time": 120,
+  "found_at": "2026-10-26T19:09:40Z",
+  "found_in": "relay queue add",
+  "title": "The change-cycle workflow scripts become part of relay",
+  "what": [
+    "The scripts that run a change's cycle (build, gate, review, fix, gate, queue check and close, check) and the fix cycle live in relay's repository, are tested and versioned like the rest of relay, reach every project relay sets up as saved workflows, and report each stage's events so the observability records can count stages and find-and-fix rounds."
+  ],
+  "why": [
+    "Owner, 27 Oct small hours, after the front said the stages are run by its own scripts outside relay: \"Ты имеешь ввиду скрипты workflow, relay-change-cycle ? Я полагал что это тоже часть relay, они так хорошо работают, ускоряют и удешевляют разработку, оркестратора заменяет скрипт\". Facts that night: two scripts (10.0 KB and 5.6 KB of JavaScript for Claude Code's Workflow tool) exist only under the session's folder in the Claude Code projects directory; relay's repo has no .claude/workflows and no skill names them; the front edited them by hand during 26 Oct (gate-waiting runners given 40 turns). Their speed and cost against agent-by-agent work are not measured. Ties to each-change-records-its-stage-times-cost-and-cov. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "the front's workflow scripts (relay-change-cycle, relay-fix-cycle) kept today only in the Claude Code session folder",
+    "plugins/front (skills front, delegate)",
+    "relay sync / setup (where a project gets saved workflows)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-26T19:11:24Z",
+  "dropped_why": [
+    "Replaced by the same item with the measured 24 Oct numbers and the owner's raised priority (the queue has no edit command)."
+  ]
+}

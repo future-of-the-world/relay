@@ -1,0 +1,25 @@
+{
+  "kind": "feature",
+  "ip": 50,
+  "time": 60,
+  "found_at": "2026-10-26T18:16:20Z",
+  "found_in": "relay queue add",
+  "title": "A feature is written once, in the queue or in openspec",
+  "what": [
+    "In a project with openspec turned on, one feature is described in one place: the queue item and its openspec change are tied together, and the owner's words and the checks live once, not twice. Designed when the item is taken, on the first real project that turns openspec on."
+  ],
+  "why": [
+    "Owner, 27 Oct small hours: \"Я не спорю, но как так получилось что openspec - плагин а queue это встроенный механизм, разве они не выполняют одну и ту же функцию но по разному ?\", then \"Да, поставь в очередь\" after the front answered that they meet only at a change's description: a queue item holds what, failing_case and pass_cases, an openspec change holds a proposal, spec deltas and scenarios, and how the two are tied is not decided. Facts that night: no project has openspec turned on (relay's own sessions enable core, delegate, front, observe; the owner decided on 26 Oct not to try openspec on relay). IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "lib/relay_queue.py (a feature item's what, failing_case, pass_cases)",
+    "plugins/openspec (openspec/changes/<change>: proposal, spec deltas, scenarios)",
+    "rules/queue.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

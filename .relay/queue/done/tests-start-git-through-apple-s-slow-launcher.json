@@ -1,0 +1,35 @@
+{
+  "kind": "fix",
+  "ip": 94,
+  "time": 45,
+  "found_at": "2026-10-26T19:45:23Z",
+  "found_in": "relay queue add",
+  "title": "Tests start git through Apple's slow launcher",
+  "what": [
+    "Every test run (unittest, pytest, the gate's hook tests and the inert probe) starts the real git binary instead of Apple's /usr/bin/git launcher, defined once in tests/tmp_default.py; when the run would not use the launcher (Homebrew git first on PATH) it changes nothing. Tests check the same git version the table names."
+  ],
+  "why": [
+    "Owner, 27 Oct small hours: \"Почему наши тесты вообще выполняются 10 минут даже с оптимизацией, ускорится ли это вместе со сменой технологии, возьмем максимально возможную - rust, или параллельной обработки будет достаточно, что делает тесты долгими ?\". Measured 27 Oct by the test-speed design and its review: the test suite starts git about 29,000 times (23,750 of 29,387 counted in one run come from relay's own code under test, test_queue included); Apple's launcher in front of git adds 8-12 ms per start (30-round interleaved microbench: 11.8 ms through the launcher, 4.1 ms for the real git); Python's own work is about 1.5% of the time, so a rewrite in Rust saves at most 5-10%; pointing tests at the real git is expected to cut git-heavy files by 55-61%, the suite by about 40% and the gate by about 33% (estimate from paired low-load runs). The gate's median since the probe runs beside the main run (26 Oct 19:07) is 938 s. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A gate's library tests on the owner's Mac with /usr/bin/git first on PATH: every git start in a test pays the launcher's 8-12 ms."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same tests start the real git (a test asserts which binary runs); results and test counts are unchanged; with Homebrew git first on PATH nothing is linked; the gate's library tests drop by at least 25% on an idle Mac."
+  ],
+  "where": [
+    "tests/tmp_default.py (the one place every test run gets its environment)",
+    "tests/run_unittest.py",
+    "plugins/core/tests (hook tests run by the gate)",
+    "lib/relay_ci.py (the inert probe's run)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-26T19:53:35Z",
+  "dropped_why": [
+    "Owner, 27 Oct small hours: \"Думаю на текущий момент надо лишь зафиксировать что такое явление существует и исправить только на этой машине - в PATH я укажу прямой путь к git\". The launcher exists only on macOS (Linux distributions install the real git at /usr/bin/git); the fact is recorded in docs/macos.md and the owner puts the real git (/Applications/Xcode.app/Contents/Developer/usr/bin on this Mac) first on PATH."
+  ]
+}
