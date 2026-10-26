@@ -989,9 +989,10 @@ def _q1(item):
             "pass_cases": list(item.get("pass_cases") or []), "evidence": [], "fix_hint": []}
 
 
-def held_fix_items(worktree):
+def held_fix_items(worktree: str, riders: bool = False) -> dict:
     """{slug: item} of the fix items the branch of `worktree` holds: taken by it at HEAD, or closed on it (in done/ at HEAD
-    but not in done/ on the default branch: an item an older branch of the same name closed is not this branch's)."""
+    but not in done/ on the default branch: an item an older branch of the same name closed is not this branch's).
+    With `riders` (a train's check) an item closed on any branch this one merged is held too, whoever took it."""
     main, default = _context(worktree)
     branch = relay_git.current_branch(worktree)
     held = {}
@@ -1000,20 +1001,25 @@ def held_fix_items(worktree):
             held[slug] = item
     already = set(Reader(main, f"refs/heads/{default}").names("done/"))
     for slug, item in Reader(worktree, "HEAD").closed_items().items():
-        if slug not in already and not item["problems"] and item["kind"] == "fix" and item["state"] == "done" and item.get("taken_by") == branch:
+        if slug not in already and not item["problems"] and item["kind"] == "fix" and item["state"] == "done" and (riders or item.get("taken_by") == branch):
             held[slug] = item
     return held
 
 
-def record_item(worktree):
+def record_item(worktree: str, named: str | None = None) -> tuple | None:
     """(slug, finding Q1) for the fix item the branch of `worktree` holds, or None. Q1 is the item's problem, stated against the
-    commit that landed `taken` (its `since`). Refused when the branch holds more than one fix item."""
-    held = held_fix_items(worktree)
-    if not held:
-        return None
-    if len(held) > 1:
-        raise Refused(f"this branch holds {len(held)} fix items ({', '.join(sorted(held))}); a branch holds one")
-    slug, item = next(iter(held.items()))
+    commit that landed `taken` (its `since`). Refused when the branch holds more than one fix item. A train holds the items its
+    riders closed: `named` is the slug of the one this check is of (needed when there are several, refused when not held)."""
+    held = held_fix_items(worktree, riders=True)
+    if named is not None and named not in held:
+        raise Refused(f"this branch does not hold the fix item '{named}'" + (f" (it holds {', '.join(sorted(held))})" if held else ""))
+    if named is None:
+        if not held:
+            return None
+        if len(held) > 1:
+            raise Refused(f"this branch holds {len(held)} fix items ({', '.join(sorted(held))}); name the one to check (`item` in the input, `--item` in `relay check findings`)")
+        named = next(iter(held))
+    slug, item = named, held[named]
     rc, out, err = _git(worktree, "log", "-1", "--format=%H", "--diff-filter=AM", "HEAD", "--", _path(slug))
     since = _text(out)
     if rc != 0 or not relay_verdict.is_sha(since):
@@ -1134,7 +1140,7 @@ def check_refusal(repo, ref, slug):
     order = [c for c in out.splitlines() if c in stored] if rc == 0 else []
     if not order:
         return f"no check of this fix: run delegate:checker on the branch's head, then close '{slug}'"
-    first = None
+    first, other = None, None
     for commit in order:
         try:
             own = relay_inert.changed(repo, commit, ref, own=True)
@@ -1149,14 +1155,17 @@ def check_refusal(repo, ref, slug):
             return str(exc)
         if record is None:
             return f"the mark of {commit[:12]} names {stored[commit]['check']}, which is not stored"
-        if record["item"] != slug:
-            return f"the check of {commit[:12]} is of {record['item'] or 'no queue item'}, not of '{slug}'"
+        if record["item"] != slug:       # a train carries several closed items: an older check with no own change since may be this one's
+            other = other or f"the check of {commit[:12]} is of {record['item'] or 'no queue item'}, not of '{slug}'"
+            continue
         verdict = next((f["verdict"] for f in record["findings"] if f["id"] == "Q1"), None)
         if verdict is None:
             return f"the check of {commit[:12]} gives no verdict for Q1"
         if verdict != "MET":
             return f"the check of {commit[:12]} says Q1 {verdict}, not MET"
         return None
+    if other:
+        return other
     commit, own = first
     return f"after the check of {commit[:12]}, {', '.join(own[:3])} changed, which is not inert: check the fix again"
 

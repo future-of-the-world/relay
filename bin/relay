@@ -624,22 +624,24 @@ def cmd_check_record(args):
     return 0
 
 
-FINDINGS_USAGE = "relay check findings [-C <worktree>] [--review <review.json> ...]"
+FINDINGS_USAGE = "relay check findings [-C <worktree>] [--item <slug>] [--review <review.json> ...]"
 
 
 def cmd_check_findings(args):
     """relay check findings: the findings the check must give a verdict for, built by the same code that records the check."""
-    wt, reviews, args = ".", [], list(args)
+    wt, reviews, item, args = ".", [], None, list(args)
     while args:
         arg = args.pop(0)
         if arg == "-C" and args:
             wt = args.pop(0)
+        elif arg == "--item" and args:
+            item = args.pop(0)
         elif arg == "--review" and args and not args[0].startswith("--"):
             reviews.append(os.path.abspath(args.pop(0)))
         else:
             raise Usage(FINDINGS_USAGE)
     try:
-        print("\n".join(relay_verdict.finding_list(os.path.realpath(wt), reviews)))
+        print("\n".join(relay_verdict.finding_list(os.path.realpath(wt), reviews, item)))
     except relay_verdict.VerdictError as exc:
         raise ValueError(str(exc))
     return 0

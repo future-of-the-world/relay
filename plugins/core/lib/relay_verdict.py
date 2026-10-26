@@ -596,7 +596,7 @@ def counts_by_rank(findings):
 
 # ---------------------------------------------------------------- the check record: built in one order, from git and the inputs
 
-CHECK_TOP = ("report", "head", "worktree", "gate", "review", "scope", "notes", "status", "new")
+CHECK_TOP = ("report", "head", "worktree", "gate", "review", "item", "scope", "notes", "status", "new")
 M_FAILING = ("%s came in from %s (merge %s) after the point this branch was last reviewed or checked.",
              "The branch's own change to it was never judged against the merged code.")
 M_PASS = ("At head the branch's own change to the file still does what the review said, against the merged code.",)
@@ -762,9 +762,10 @@ def _n_finding(number, path, summary, failing, head, severity="HIGH"):
             "summary": summary, "failing_case": list(failing), "source": "check", "since": head}
 
 
-def build_findings(wt, head, review_paths):
+def build_findings(wt, head, review_paths, item=None):
     """(branch, item or None, [findings without verdicts]) for the change at `head` in worktree `wt`, in the one order of the
     record: Q1 (the fix item this branch took), F (the reviews), M (merges of the default branch after the last check).
+    `item` names the fix item the check is of, for a train that carries several closed ones.
     VerdictError ("nothing recorded: ...") when a part cannot be read."""
     import relay_marks
     import relay_queue
@@ -772,7 +773,7 @@ def build_findings(wt, head, review_paths):
     if branch is None:
         raise VerdictError("nothing recorded: the worktree is not on a branch")
     try:
-        held = relay_queue.record_item(wt)
+        held = relay_queue.record_item(wt, item)
     except relay_queue.Refused as exc:
         raise VerdictError("nothing recorded: %s" % exc)
     found, item = [], None
@@ -820,12 +821,12 @@ def build_findings(wt, head, review_paths):
     return branch, item, found
 
 
-def finding_list(wt, review_paths):
+def finding_list(wt, review_paths, item=None):
     """The lines `relay check findings` prints: each finding the check must give a verdict for, with its id."""
     rc, head = relay_git.git(wt, "rev-parse", "HEAD")
     if rc != 0:
         raise VerdictError("nothing listed: %s is not a git worktree" % wt)
-    _, item, found = build_findings(wt, head, review_paths)
+    _, item, found = build_findings(wt, head, review_paths, item)
     out = ["Check of %s" % head, "Item: %s" % (item or "none")]
     for f in found:
         out.append("%s [%s%s, since %s] %s" % (f["id"], f["source"], " " + f["source_id"] if f.get("source_id") else "", f["since"][:12], linter(f)))
@@ -841,6 +842,8 @@ def record_check(input_path):
     if not isinstance(raw, dict) or errors:
         raise VerdictError("nothing recorded: " + "; ".join(errors))
     _report_errors(raw, errors)
+    if "item" in raw and not (_text(raw["item"]) and SLUG.match(raw["item"])):
+        errors.append("`item` must be the slug of a queue item")
     statuses = _tables(raw, "status", _status_from, errors)
     new = _tables(raw, "new", lambda item, where, errs: _finding_from(item, where, errs, NEW_KEYS), errors)
     prose = {k: as_lines(raw.get(k, []), k, "at the top of the input", errors) for k in ("scope", "notes")}
@@ -857,7 +860,7 @@ def record_check(input_path):
         raise VerdictError("nothing recorded: head %s is not a commit of this worktree" % (head,))
     if not _is_ancestor(wt, head, "HEAD"):
         raise VerdictError("nothing recorded: head %s is not the worktree's head or an ancestor of it" % head)
-    branch, item, found = build_findings(wt, head, [os.path.abspath(p) for p in review_paths])    # no review: only a merge check
+    branch, item, found = build_findings(wt, head, [os.path.abspath(p) for p in review_paths], raw.get("item"))    # no review: only a merge check
     said = {}
     for status in statuses:
         if status.get("id") in said:

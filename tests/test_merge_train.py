@@ -408,6 +408,99 @@ class FixItems(TrainCase):
         self.assertEqual(rq.close_refusal(self.main, "refs/heads/wt/a", "x", test), None)
 
 
+class ATrainChecksItsRidersClosedItems(TrainCase):
+    """Queue item `a-train-cannot-recheck-a-queue-item-its-branch-c`: a rider closed a fix item, then changed a file that is not
+    inert; the train that carries it is checked again on the train, and that check of the item is the one the merge asks for."""
+
+    def late_rider(self, name, slug):
+        """A rider that closes `slug` with a Q1-MET check, then commits one more non-inert file (so its own check is out of date)."""
+        wt = self.tree(name)
+        self.git(wt, "rm", "-q", ".relay/queue/%s.json" % slug)
+        self.ready(wt, {".relay/queue/done/%s.json" % slug: qjson(slug, "done", "wt/" + name, "tests/test_relay.py::test_%s_stays_fixed" % slug),
+                        "lib/%s.py" % slug: "fixed\n"}, item=slug)
+        self.commit(wt, {"lib/late_%s.py" % slug: "late\n"})
+        self.gate(wt)
+        return wt
+
+    def head(self, wt):
+        return self.git(wt, "rev-parse", "HEAD")
+
+    def test_the_failing_case_a_train_without_a_check_of_the_item_is_refused(self):
+        self.late_rider("a", "x")
+        train = self.train("a")
+        self.gate(train)
+        reason = self.verdict("wt/train-1")
+        # a's only check of x is older than lib/late_x.py, so nothing vouches for x on a or on the train
+        self.assertIn("queue item x is closed without a test or a check", reason)
+        self.assertIn("after the check of", reason)
+
+    def test_a_check_of_the_item_on_the_train_after_its_last_change_lets_the_train_land(self):
+        self.late_rider("a", "x")
+        train = self.train("a")
+        self.gate(train)
+        self.mark(train, self.head(train), item="x")
+        self.assertIsNone(self.verdict("wt/train-1"))
+
+    def test_a_train_check_of_another_item_does_not_vouch_for_this_one(self):
+        self.late_rider("a", "x")
+        train = self.train("a")
+        self.gate(train)
+        self.mark(train, self.head(train), item=None)
+        self.assertIn("is of no queue item, not of 'x'", self.verdict("wt/train-1"))
+
+    def test_a_train_check_older_than_the_trains_last_change_is_refused(self):
+        self.late_rider("a", "x")
+        train = self.train("a")
+        self.gate(train)
+        self.mark(train, self.head(train), item="x")
+        self.commit(train, {"lib/after.py": "after\n"})
+        self.gate(train)
+        self.assertIn("after the check of", self.verdict("wt/train-1"))
+
+    def test_two_closed_fix_items_ride_one_train_when_each_has_a_check_after_its_last_change(self):
+        # the 26 Oct trains 19 and 20: x and y both closed, each rider changed a file after its own check. Checks of x then y on the
+        # train (the second is made on the first one's mark commit, which is inert): the newest check is y's, x's is the one below it.
+        self.late_rider("a", "x")
+        self.late_rider("b", "y")
+        train = self.train("a", "b")
+        self.gate(train)
+        self.mark(train, self.head(train), item="x")
+        self.assertIn("queue item y is closed without a test or a check", self.verdict("wt/train-1"))     # y has none yet
+        self.mark(train, self.head(train), item="y")
+        self.assertIsNone(self.verdict("wt/train-1"))
+
+    def clean_rider(self):
+        """A rider with a fresh check and no item: it keeps the train a merge check (a train of stale riders alone needs a review)."""
+        self.ready(self.tree("c"), {"lib/c.py": "c1\n"})
+
+    def review_of(self, wt):
+        """A review of the train's head with no findings (the late files of a stale rider need a review, whatever it finds)."""
+        path = os.path.join(self.tmp, "review.json")
+        rv.write_review(path, rv.review_data(self.head(wt), "master", []))
+        return path
+
+    def test_the_checker_on_the_train_can_name_the_item_it_checks(self):
+        self.late_rider("a", "x")
+        self.late_rider("b", "y")
+        self.clean_rider()
+        train = self.train("a", "b", "c")
+        with self.assertRaises(rv.VerdictError) as ctx:
+            rv.finding_list(train, [self.review_of(train)])
+        self.assertIn("name the one to check", str(ctx.exception))
+        got = rv.finding_list(train, [self.review_of(train)], "y")
+        self.assertEqual(got[1], "Item: y")
+        self.assertTrue(got[2].startswith("Q1 [queue"))
+        with self.assertRaises(rv.VerdictError) as ctx:
+            rv.finding_list(train, [self.review_of(train)], "nope")
+        self.assertIn("does not hold the fix item 'nope'", str(ctx.exception))
+
+    def test_a_train_with_one_closed_item_needs_no_name(self):
+        self.late_rider("a", "x")
+        self.clean_rider()
+        train = self.train("a", "c")
+        self.assertEqual(rv.finding_list(train, [self.review_of(train)])[1], "Item: x")
+
+
 class RefusalsNameTheSteps(TrainCase):
     def test_t9_a_refusal_after_a_later_commit_names_the_gate_and_the_checker_and_show_names_the_files(self):
         a = self.tree("a")
