@@ -80,6 +80,17 @@ class PaidPart(unittest.TestCase):
         ci.prepare()
         return ci
 
+    def test_a_step_summary_names_a_test_that_raised(self) -> None:
+        # unittest's controller prints "ERROR: <test id>" for a test that raised; "ERROR" in capitals matched no finding
+        def failing(log: Any) -> int:
+            log.write("ERROR: test_x (m.C.test_x)\nTraceback (most recent call last):\nValueError: boom\n")
+            return 1
+        ci = self.ci(Recorder())
+        out = io.StringIO()
+        with redirect_stdout(out):
+            ci.step("lib", failing)
+        self.assertIn("    ERROR: test_x (m.C.test_x)", out.getvalue().splitlines())
+
     def paid_answers(self, ceiling: str = "1 15") -> Callable[[List[str]], Any]:
         def answer(argv: List[str]) -> Any:
             if "ceiling" in argv:

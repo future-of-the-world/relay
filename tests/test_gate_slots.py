@@ -16,6 +16,7 @@ import unittest
 from unittest import mock
 
 from test_gate import RELAY, Fixture, git, read, write
+from pidfile import wait_pid
 
 import relay_gate
 
@@ -136,7 +137,7 @@ class Slots(Fixture):
         first = self.start(self.wt)
         pid_file = os.path.join(self.wt, ".ci", "pid")
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
-        command_pid = int(read(pid_file))
+        command_pid = wait_pid(pid_file)
         first.terminate()
         first.wait(timeout=BOUND)
 
@@ -227,7 +228,7 @@ class Slots(Fixture):
         self.assertFalse(os.path.exists(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
 
     def orphan_gone(self, pid_file):
-        pid = int(read(pid_file))
+        pid = wait_pid(pid_file)
 
         def gone():
             try:
@@ -259,7 +260,7 @@ class Slots(Fixture):
         self.env["RELAY_GATE_SLOTS"] = "2"
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
-        command_pid = int(read(os.path.join(self.wt, ".ci", "pid")))
+        command_pid = wait_pid(os.path.join(self.wt, ".ci", "pid"))
         first.kill()
         first.wait(timeout=BOUND)
         second = self.start(self.wt)

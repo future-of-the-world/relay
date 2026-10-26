@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from pidfile import wait_pid
+
 TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "bin-check"
 TOOLS = ["bash", "git", "python3", "date", "cat", "head", "mkdir", "rm", "cut", "printf",
          "md5sum", "md5", "sleep", "true", "dirname", "env", "sh", "perl"]
@@ -89,8 +91,7 @@ class BinCheckPortable(unittest.TestCase):
             proc = subprocess.Popen([str(self.toolbin / "bash"), str(self.proj / "bin" / "check"), "c", "1"],
                                     cwd=self.proj, env=env, stdout=fh, stderr=subprocess.STDOUT,
                                     start_new_session=True)
-        self.wait_for(lambda: pidfile.exists() and pidfile.read_text().strip(), "step pid")
-        pid = int(pidfile.read_text())
+        pid = wait_pid(pidfile)
         self.addCleanup(lambda: self.alive(pid) and os.kill(pid, signal.SIGKILL))
         os.killpg(proc.pid, signum)
         proc.wait(timeout=20)
@@ -110,7 +111,7 @@ class BinCheckPortable(unittest.TestCase):
         self.write("run_step sleeper sh -c 'echo $$ > %s; exec sleep 30'" % pidfile)
         r = self.run_check("change", "1", timeout_s="1")
         self.assertEqual(r.returncode, 1)
-        self.assertFalse(self.alive(int(pidfile.read_text())))
+        self.assertFalse(self.alive(wait_pid(pidfile)))
 
     def test_timeout_zero_means_no_bound(self):
         self.write("run_step ok true")
@@ -142,7 +143,7 @@ class BinCheckPortable(unittest.TestCase):
         took = time.monotonic() - t0
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn("HUNG: sleeper exceeded 1s", r.stdout)
-        self.assertFalse(self.alive(int(pidfile.read_text())))
+        self.assertFalse(self.alive(wait_pid(pidfile)))
         # TERM ends sleep at once; the old unconditional 5 s sleep made this >= 6 s.
         self.assertLess(took, 5)
 

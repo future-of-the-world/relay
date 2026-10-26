@@ -39,7 +39,7 @@ from typing import Any, Callable, TextIO
 
 StepFn = Callable[[TextIO], int]
 
-FINDING = re.compile(r"FAIL|Error|error|✗")
+FINDING = re.compile(r"FAIL|Error|error|✗|^ERROR: ")   # "ERROR: <test id>" names a test that raised, not failed
 MAX_FINDINGS = 8            # lines of a failing step shown under its line (the full log is in .ci/ci.log)
 STOP_GRACE = 10.0           # seconds a stopped probe has to end after SIGTERM before it is killed
 PROBE_LINE = "inert probe line"
