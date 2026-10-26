@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 82,
+  "time": 45,
+  "found_at": "2026-10-26T04:22:34Z",
+  "found_in": "relay queue add",
+  "title": "relay's own doctor is red: no bin/check, no bin/wt",
+  "what": [
+    "relay itself has the quiet check (`<check> --tests <file>...` contract) and the worktree script its bindings call for, or its bindings name the ones it has, so `relay doctor` on relay shows no FIX line for gate.check or gate.wt."
+  ],
+  "why": [
+    "Found 26 Oct by the design of setup-turns-off-for-a-project-the-plugins-it-doe: relay's doctor shows FIX for \"gate.check exists\" and \"gate.wt exists\" (relay has no bin/check and no bin/wt; bin/ci does not follow the check-script contract). Seen the same day: a brief named bin/check and the worker found none. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "`relay doctor` in /Users/amidman/relay on 26 Oct lists FIX lines \"gate.check exists\" and \"gate.wt exists\"."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "relay doctor on relay lists no FIX for gate.check or gate.wt; the quiet check runs the named test files and exits non-zero on a failure."
+  ],
+  "where": [
+    "bin/ the quiet check and worktree script the gate keys gate.check and gate.wt call for",
+    ".claude/kit.toml relay's own bindings"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
