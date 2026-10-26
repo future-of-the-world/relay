@@ -92,7 +92,8 @@ if [ "$quick" = 0 ]; then
     if [ -n "${EVALS_MAX_COST:-}" ]; then cap_args=(--cap "$EVALS_MAX_COST"); else cap_args=(--from-estimate --cap 15); fi
     read -r eval_jobs eval_ceiling < <(python3 bin/paid-cost ceiling --within-day "${cap_args[@]}" --jobs "${EVALS_JOBS:-1}") || { echo "ci: RED (no money ceiling for the plugin evals)"; exit 1; }
     echo "plugin evals: estimate $(python3 bin/paid-cost estimate); -j $eval_jobs, ceiling \$$eval_ceiling (${cap_args[*]})"
-    step "plugin evals" env root="$root" eval_jobs="$eval_jobs" eval_ceiling="$eval_ceiling" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent --ablation none -j "$eval_jobs" --judge-model "${EVALS_JUDGE_MODEL:-sonnet}" --no-publish --max-cost-usd "$eval_ceiling" --json "$root/.ci/evals.json"'
+    # Write is granted because a real session has it: the Write graders error when it is not granted
+    step "plugin evals" env root="$root" eval_jobs="$eval_jobs" eval_ceiling="$eval_ceiling" bash -c 'cd evals/plugin && PATH="$root/plugins/core/bin:$PATH" claude plugin eval "$root" --eval-dir evals/plugin --trust-plugin --scaffold --allow-tools Bash Agent Write --ablation none -j "$eval_jobs" --judge-model "${EVALS_JUDGE_MODEL:-sonnet}" --no-publish --max-cost-usd "$eval_ceiling" --json "$root/.ci/evals.json"'
     # the record names the commit it ran on and the branch it counts for: a detached worktree of the default branch's head records the default branch (bin/paid-cost due)
     rec_branch="$(git symbolic-ref --short -q HEAD || PYTHONPATH=lib python3 -c 'import os, relay_git; print(relay_git.default_branch(os.getcwd()) or "detached")')"
     python3 bin/eval-record --json .ci/evals.json --branch "$rec_branch" --head "$(git rev-parse HEAD)"; rec_rc=$?
