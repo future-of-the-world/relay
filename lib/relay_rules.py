@@ -33,8 +33,12 @@ class Fail(Exception):
 
 
 def rules():
+    """Every rule: its text is read from this checkout; its path names the main checkout, since a linked worktree is removed
+    after its merge and the global file must not point into it."""
+    import relay_setup  # lazily: relay_setup imports this module too
     found = {}
     folder = os.path.join(ROOT, "rules")
+    named = os.path.join(relay_setup.main_checkout(ROOT) or ROOT, "rules")
     for name in sorted(os.listdir(folder)):
         if not name.endswith(".md"):
             continue
@@ -43,7 +47,7 @@ def rules():
         if len(lines) < 2 or not lines[0].startswith("# ") or not lines[1].startswith("> "):
             raise Fail(f"rules/{name}: the first two lines must be '# Title' and '> gist'")
         found[name[:-3]] = {"title": lines[0][2:].strip(), "gist": lines[1][2:].strip(),
-                            "body": "\n".join(lines[2:]).strip("\n"), "path": os.path.join(folder, name)}
+                            "body": "\n".join(lines[2:]).strip("\n"), "path": os.path.join(named, name)}
     return found
 
 
