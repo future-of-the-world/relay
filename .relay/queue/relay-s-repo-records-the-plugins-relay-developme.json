@@ -14,8 +14,8 @@
   "where": [
     ".claude/settings.json of the relay repo (new)"
   ],
-  "taken_at": "2026-10-26T01:35:14Z",
-  "taken_by": "wt/relay-plugins",
+  "taken_at": null,
+  "taken_by": null,
   "closed_at": null,
   "test": null,
   "dropped_at": null,
