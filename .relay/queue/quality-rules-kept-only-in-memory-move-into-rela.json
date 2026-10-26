@@ -1,0 +1,25 @@
+{
+  "kind": "feature",
+  "ip": 70,
+  "time": 30,
+  "found_at": "2026-10-26T22:12:47Z",
+  "found_in": "relay queue add",
+  "title": "Quality rules kept only in memory move into relay",
+  "what": [
+    "Go through the memory notes that exist only in memory (no-guard-workarounds, record-measurements-at-once, paths-via-env-var, strategy-and-wave-digest, bun-not-node, core-is-the-standard-package, paid-checks-preapproved, taste-means-judgement). Each that is a strict rule for a wide range of cases goes into relay's rules/ (or relay's own project rules when it is about relay only) so relay sync delivers it; a personal preference or a one-machine fact stays in memory. The memory notes themselves are not touched by this item."
+  ],
+  "why": [
+    "Owner, 27 Oct: \"наша задача сделать так чтобы строгие правила, применимые для широкого диапазона случаев жили в relay и доставлялись до всех проектов, чтобы качество не падало, это будет пусть и не персональный вариант для чистой сборки но вариант отвечающий критериям качества relay\" (memory management itself deferred: \"На текущий момент отложим вопрос управления памятью о проекте\"). Front's grep that day: of 23 behaviour notes in this Mac's Claude memory for relay, 15 already match text in relay's rules, 8 exist only in memory; some of those 8 are quality rules a clean run would lose. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "rules/",
+    "/Users/amidman/relay/CLAUDE.local.md principles",
+    "relay sync"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

@@ -20,8 +20,8 @@
 # stages have no role. With no role file the output is what it was before
 # role files existed (test I4).
 #
-# Only the framework's own plugins are served (core, openspec, product, delegate,
-# issues, front): another plugin's `code-reviewer` must not receive a
+# Only the framework's own plugins are served (core, openspec, delegate,
+# front): another plugin's `code-reviewer` must not receive a
 # project's `code-reviewer.md`.
 #
 # Project root = the git top-level of the hook's cwd (inside a worktree, that
@@ -53,7 +53,7 @@ cwd="$(jq -r '.cwd // empty' <<<"$input")"
 [ -n "$cwd" ] || cwd="$PWD"
 
 # <plugin>:<role> of a framework plugin, nothing else (no path can leave .claude/kit/).
-[[ "$name" =~ ^(core|openspec|product|delegate|issues|front):([a-z][a-z0-9-]*)$ ]] || exit 0
+[[ "$name" =~ ^(core|openspec|delegate|front):([a-z][a-z0-9-]*)$ ]] || exit 0
 role="${BASH_REMATCH[2]}"
 
 root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" || root="$cwd"

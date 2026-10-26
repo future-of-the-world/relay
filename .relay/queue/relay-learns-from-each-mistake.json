@@ -1,0 +1,28 @@
+{
+  "kind": "feature",
+  "ip": 94,
+  "time": 180,
+  "found_at": "2026-10-26T22:39:43Z",
+  "found_in": "relay queue add",
+  "title": "relay learns from each mistake",
+  "what": [
+    "Principle 6 rewritten as above; the checker writes mistake_kind and prevent on each counted finding and the record check refuses a counted finding without them; agent runs that end without their report are recorded automatically; `relay queue mistakes` counts recurrences, a repeat counting only when the defect was written after the previous fix landed (git blame); text lessons marked and retired by ablation in the paid run; kinds assigned once to the 59 closed fix items. The kind-level guards found by the design (a hook refusing a gate wait from an agent; a temporary HOME plus main-checkout-unchanged test; programs run by subprocess listed in deps.toml) become fix items of their own."
+  ],
+  "why": [
+    "Owner, 27 Oct: \"Когда мы допускаем ошибку необходимо не только не только придумать способ их автоматического отлова но и способ снижения их появления в будущем / Наш gate строгий, если ошибка есть он точно её отловит / Но должен быть способ не допускать подобных ошибок в будущем - учиться на своих ошибках / Последнее звучит как принцип - учиться на своих ошибках, вероятно будущие модели будут лишены недостатков предыдущих, и рекомендации будут лишь тратить место однако сам принцип обучения на ошибках важен\". Memory management deferred by the owner the same day. Owner's answers to the design's questions, 27 Oct: \"1. A\" (mistake kind and prevention recorded on fix items and on MEDIUM+ review findings: 236 in 22-27 Oct, about 40 checker lines a day), \"2. A\" (a text lesson is retired only after 20+ green runs without it, every 30 days and on a model change, about $1.70 a lesson), \"3. A\" (a thinker assigns kinds to the 59 closed fix items with a check record, about 30 agent minutes). Measured 22-27 Oct: 122 fix items, 396 unique findings (HIGH 100, MEDIUM 157, LOW 139); \"agent ends without its report\" recurred 9 times after 2 code fixes and was never filed (13 workflow StructuredOutput failures and 3 turn-limit stops seen only in the transcript); lessons kept only as text recurred in 3 of 3 kinds; the reply-style rule grew from 1,801 to 5,620 bytes in 12 commits; 24.4 kB of rule text is read every session. Proposed principle (design, front's wording, owner saw it): principle 6 becomes \"Learn from each mistake: cause, not symptom\": every MEDIUM+ mistake ends in a catch for its kind and a change to what produced it, or a stated reason why not; prefer making it impossible, then a guard or test over the whole kind, then a step in the template or script, then a brief line, prose last and tied to the eval that shows it is still needed. Design (redo against the fresh repository when taken): scratchpad report design-learn-from-mistakes.md of 27 Oct, without its memory-inbox change. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "/Users/amidman/relay/CLAUDE.local.md principle 6",
+    "rules/principles.md",
+    "roles/judge.md",
+    "lib/relay_verdict.py (check records)",
+    "plugins/observe/hooks/ledger.py",
+    "bin/ci paid run"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

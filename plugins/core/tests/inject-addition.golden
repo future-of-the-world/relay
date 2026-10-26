@@ -5,13 +5,6 @@
     "additionalContext": "Project addition for openspec:apply-review (.claude/kit/apply-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\napply-review-MARK\nline two of apply-review\n"
   }
 }
-== agent product:apply-review
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:apply-review (.claude/kit/apply-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\napply-review-MARK\nline two of apply-review\n"
-  }
-}
 == skill openspec:apply-review
 {
   "hookSpecificOutput": {
@@ -31,13 +24,6 @@
   "hookSpecificOutput": {
     "hookEventName": "SubagentStart",
     "additionalContext": "Project addition for openspec:archive (.claude/kit/archive.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\narchive-MARK\nline two of archive\n"
-  }
-}
-== agent product:archive
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:archive (.claude/kit/archive.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\narchive-MARK\nline two of archive\n"
   }
 }
 == skill openspec:archive
@@ -61,13 +47,6 @@
     "additionalContext": "Project addition for openspec:author (.claude/kit/author.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nauthor-MARK\nline two of author\n"
   }
 }
-== agent product:author
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:author (.claude/kit/author.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nauthor-MARK\nline two of author\n"
-  }
-}
 == skill openspec:author
 {
   "hookSpecificOutput": {
@@ -87,13 +66,6 @@
   "hookSpecificOutput": {
     "hookEventName": "SubagentStart",
     "additionalContext": "Project addition for openspec:fixer (.claude/kit/fixer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nfixer-MARK\nline two of fixer\n"
-  }
-}
-== agent product:fixer
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:fixer (.claude/kit/fixer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nfixer-MARK\nline two of fixer\n"
   }
 }
 == skill openspec:fixer
@@ -117,13 +89,6 @@
     "additionalContext": "Project addition for openspec:parallel-apply (.claude/kit/parallel-apply.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nparallel-apply-MARK\nline two of parallel-apply\n"
   }
 }
-== agent product:parallel-apply
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:parallel-apply (.claude/kit/parallel-apply.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nparallel-apply-MARK\nline two of parallel-apply\n"
-  }
-}
 == skill openspec:parallel-apply
 {
   "hookSpecificOutput": {
@@ -143,13 +108,6 @@
   "hookSpecificOutput": {
     "hookEventName": "SubagentStart",
     "additionalContext": "Project addition for openspec:plan (.claude/kit/plan.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nplan-MARK\nline two of plan\n"
-  }
-}
-== agent product:plan
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:plan (.claude/kit/plan.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nplan-MARK\nline two of plan\n"
   }
 }
 == skill openspec:plan
@@ -173,13 +131,6 @@
     "additionalContext": "Project addition for openspec:reviewer (.claude/kit/reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nreviewer-MARK\nline two of reviewer\n"
   }
 }
-== agent product:reviewer
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:reviewer (.claude/kit/reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nreviewer-MARK\nline two of reviewer\n"
-  }
-}
 == skill openspec:reviewer
 {
   "hookSpecificOutput": {
@@ -199,13 +150,6 @@
   "hookSpecificOutput": {
     "hookEventName": "SubagentStart",
     "additionalContext": "Project addition for openspec:spec-conformance (.claude/kit/spec-conformance.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-conformance-MARK\nline two of spec-conformance\n"
-  }
-}
-== agent product:spec-conformance
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:spec-conformance (.claude/kit/spec-conformance.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-conformance-MARK\nline two of spec-conformance\n"
   }
 }
 == skill openspec:spec-conformance
@@ -229,13 +173,6 @@
     "additionalContext": "Project addition for openspec:spec-review (.claude/kit/spec-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-review-MARK\nline two of spec-review\n"
   }
 }
-== agent product:spec-review
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:spec-review (.claude/kit/spec-review.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-review-MARK\nline two of spec-review\n"
-  }
-}
 == skill openspec:spec-review
 {
   "hookSpecificOutput": {
@@ -257,13 +194,6 @@
     "additionalContext": "Project addition for openspec:spec-reviewer (.claude/kit/spec-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-reviewer-MARK\nline two of spec-reviewer\n"
   }
 }
-== agent product:spec-reviewer
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:spec-reviewer (.claude/kit/spec-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-reviewer-MARK\nline two of spec-reviewer\n"
-  }
-}
 == skill openspec:spec-reviewer
 {
   "hookSpecificOutput": {
@@ -278,46 +208,11 @@
     "additionalContext": "Project addition for openspec:spec-reviewer (.claude/kit/spec-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nspec-reviewer-MARK\nline two of spec-reviewer\n"
   }
 }
-== agent openspec:ui-reviewer
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for openspec:ui-reviewer (.claude/kit/ui-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nui-reviewer-MARK\nline two of ui-reviewer\n"
-  }
-}
-== agent product:ui-reviewer
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:ui-reviewer (.claude/kit/ui-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nui-reviewer-MARK\nline two of ui-reviewer\n"
-  }
-}
-== skill openspec:ui-reviewer
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PostToolUse",
-    "additionalContext": "Project addition for openspec:ui-reviewer (.claude/kit/ui-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nui-reviewer-MARK\nline two of ui-reviewer\n"
-  }
-}
-== prompt /openspec:ui-reviewer
-{
-  "hookSpecificOutput": {
-    "hookEventName": "UserPromptSubmit",
-    "additionalContext": "Project addition for openspec:ui-reviewer (.claude/kit/ui-reviewer.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nui-reviewer-MARK\nline two of ui-reviewer\n"
-  }
-}
 == agent openspec:worker
 {
   "hookSpecificOutput": {
     "hookEventName": "SubagentStart",
     "additionalContext": "Project addition for openspec:worker (.claude/kit/worker.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nworker-MARK\nline two of worker\n"
-  }
-}
-== agent product:worker
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SubagentStart",
-    "additionalContext": "Project addition for product:worker (.claude/kit/worker.md of this project). It belongs to the shared role; where it differs from the shared text, it wins.\n\nworker-MARK\nline two of worker\n"
   }
 }
 == skill openspec:worker

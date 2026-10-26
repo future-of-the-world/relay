@@ -154,7 +154,7 @@ class SetupLicense(Base):
         subprocess.run(["git", "init", "-q", proj], check=True)
         with open(os.path.join(proj, "go.mod"), "w") as handle:
             handle.write("module x\n")
-        relay_setup.setup(proj, flow="none", product=False, install_runner=lambda r, k: (True, ""), **kw)
+        relay_setup.setup(proj, install_runner=lambda r, k: (True, ""), **kw)
         return proj
 
     def test_setup_with_license_writes_table_license_and_no_check_step(self):
@@ -179,7 +179,7 @@ class SetupLicense(Base):
         proj = os.path.join(self.tmp, "p")
         os.makedirs(proj)
         with self.assertRaises(ValueError):
-            relay_setup.setup(proj, flow="none", product=False, license_id="MIT")
+            relay_setup.setup(proj, license_id="MIT")
         self.assertFalse(os.path.exists(os.path.join(proj, ".claude")))
 
     def test_setup_keeps_a_different_license_and_says_what_to_do(self):
@@ -187,7 +187,7 @@ class SetupLicense(Base):
         proj = os.path.join(self.tmp, "p")
         os.makedirs(proj)
         open(os.path.join(proj, "LICENSE"), "w").write("mine\n")
-        d, flow, product, done, todo = relay_setup.setup(proj, flow="none", product=False, install_runner=lambda r, k: (True, ""), license_id="MIT", holder="a")
+        d, flow, done, todo = relay_setup.setup(proj, install_runner=lambda r, k: (True, ""), license_id="MIT", holder="a")
         self.assertEqual(open(os.path.join(proj, "LICENSE")).read(), "mine\n")
         self.assertTrue(any("mv LICENSE" in t for t in todo))
 

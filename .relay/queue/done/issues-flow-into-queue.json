@@ -1,0 +1,22 @@
+{
+  "kind": "feature",
+  "ip": 90,
+  "time": 60,
+  "found_at": "2026-10-22T19:21:47Z",
+  "found_in": "relay review-gate design 10.6 seed 11",
+  "title": "Merge the issues flow into the queue",
+  "what": [
+    "the issues flow (`.issues/<slug>/`, `plugins/issues`) merges into the queue; joins the shared change cycle (phase-1 decision); touches ALIX and arsenal live flows (v3 #3)"
+  ],
+  "why": [
+    "the owner ranked it 90 in the work order of 22 Oct."
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-26T22:06:35Z",
+  "dropped_why": [
+    "The issues and product plugins were removed (merged at a4e9e65, 27 Oct). Owner's words: \"Хочу убрать плагины которые не используются самим relay, кроме openspec\" and \"issues это адаптация arsenal, мне проще перевести arsenal на механизм queue и использовать .issues которые в нем уже есть как документацию чем внедрять этот механизм в relay\". This item only made sense with those plugins."
+  ]
+}

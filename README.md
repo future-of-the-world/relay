@@ -76,7 +76,7 @@ On a Mac, see [docs/macos.md](docs/macos.md) for what slows relay down and how t
    guard that enforces it. `docs/delegation.md`.
 3. **Pluggable flows** — a flow is a plugin with a `flow.json` (stages,
    triggers, roles, bindings); the project binds one in `kit.toml`; the
-   stage hook is generic. OpenSpec and issues ship; a third is a manifest
+   stage hook is generic. OpenSpec ships; a second is a manifest
    and skills. `docs/flows.md`.
 4. **Setup and migration** — `relay setup` for a new project (bindings,
    settings, scripts from templates, handover file, rules); `relay migrate`
@@ -99,8 +99,7 @@ bin/relay            the command           lib/                 the library (pyt
 profiles/            active + candidates   rules/               one rule per file -> CLAUDE.md
 plugins/core         kit, guard, flow hook plugins/observe      the ledger hook
 plugins/delegate     agents + route guard  plugins/front        budget + handover hooks, front skill
-plugins/openspec       OpenSpec spec steps   plugins/issues       issue flow
-plugins/product      look review           evals/plugin         `claude plugin eval` cases (regression)
+plugins/openspec      OpenSpec spec steps   evals/plugin         `claude plugin eval` cases (regression)
 evals/scenarios      bench scenarios       templates/           files a new project gets
 docs/                design and manuals    improve/log.md       every adopted change and why
 ```

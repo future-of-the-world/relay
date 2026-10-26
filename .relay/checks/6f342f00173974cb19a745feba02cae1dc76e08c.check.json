@@ -1,0 +1,206 @@
+{
+  "branch": "wt/drop-plugins",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading: master bindings_text() appended [product] under `if product:` (line 195) and register_project()",
+        "appended \"product-work\" under `if product:` (line 668); both removed with d[\"ui\"] in detect(). The [product] binding",
+        "is not the product plugin's: openspec:plan (kept) reads product.medium and product.run_skill, and plugins/core/README.md",
+        "204-205 still documents them as required for a person-facing project. rules/product-work.md is the owner's rule, not",
+        "part of the plugin. So the change drops behaviour outside the two plugins. The front plans to drop the queue item",
+        "setup-never-sees-a-phoenix-project-as-person-fac as plugin-only; with this fix it still applies (the lib/*_web glob).",
+        "Size: 15 minutes (restore detect()[\"ui\"] and the two branches without any plugin key, plus a test)."
+      ],
+      "evidence": [
+        "git show master:lib/relay_setup.py | grep -n 'if product:'  -> 195, 365, 668",
+        "git grep -n '\\[product\\]' plugins/openspec/skills/plan/SKILL.md -> 54: Only when the project has a `[product]` binding",
+        "plugins/core/README.md:203-204: product.medium \"required if the project has a person-facing surface\", product.run_skill"
+      ],
+      "failing_case": [
+        "A git folder with go.mod and index.html (a screen), no kit.toml; `relay setup <dir>`.",
+        "master: kit.toml gets `[product]` with `medium` and `run_skill = \"<name>-run\"`, and projects.toml registers the",
+        "project with load = [\"product-work\"].",
+        "HEAD: no [product] section, load = [] (the --product branch was the only writer of both). openspec:plan step 3",
+        "(\"Only when the project has a `[product]` binding ... kit get product.medium / product.run_skill\") then never fires",
+        "for any new project, and the owner's product-work rule is not loaded for it. Neither is the product plugin: the queue",
+        "item says \"nothing else changes\"."
+      ],
+      "fix_hint": [
+        "Keep d[\"ui\"] in detect(); bindings_text writes [product] (medium, run_skill, no look_review) when d[\"ui\"];",
+        "register_project loads \"product-work\" when d[\"ui\"]. No flag and no plugin key needed."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 165,
+      "pass_cases": [
+        "1. Folder with index.html (or src/App.tsx, src-tauri): setup writes `[product]` with `medium` and `run_skill`, and",
+        "   registers load containing \"product-work\"; enabledPlugins has no product@relay key.",
+        "2. Folder with no screen marker (go.mod only): no [product], load = [] (as today).",
+        "3. An existing kit.toml that already has [product]: kept byte for byte.",
+        "4. (If the owner instead drops person-facing detection) docs/setup.md and openspec plan step 3 say [product] is",
+        "   written by hand, and core README no longer calls product.medium \"required\"."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "Met at the last check (227cea1); code unchanged by the merge."
+      ],
+      "severity": "MEDIUM",
+      "since": "8321ff7d5ab16a5ebf6efbe827be78e02928fde4",
+      "source": "review-drop-plugins.json",
+      "source_id": "F1",
+      "summary": "setup no longer writes [product] nor loads the product-work rule for a person-facing project, though openspec:plan and the core README still rely on [product]",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: ran doctor on a scratch project. The brief asks that setup and doctor handle an old project and that doctor",
+        "may report the removed plugins; the settings.json half is done, the kit.toml half reports a generic missing-manifest",
+        "FIX pointing at plugins/<plugin>/flow.json, which a person cannot act on, and setup deliberately keeps the value.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "python3 -c \"...rs.doctor('<scratch>/p1', profile={})\" filtered on 'flow':",
+        "True flow bound (issues) |",
+        "False flow plugin for 'issues' found | plugins/<plugin>/flow.json",
+        "tests/test_setup_off.py:198-205 test_t17 asserts setup leaves kind = \"issues\" and returns flow \"issues\"."
+      ],
+      "failing_case": [
+        "Project with .claude/kit.toml `[flow]\\nkind = \"issues\"` (what setup wrote on master for any project with .issues/,",
+        "issue skills or [issues] bindings: Arsenal, linter, testenv). `relay doctor <dir>` at HEAD:",
+        "  OK   flow bound (issues)",
+        "  FIX  flow plugin for 'issues' found | plugins/<plugin>/flow.json",
+        "`relay setup <dir>` keeps kind = \"issues\" (test_t17 asserts it), prints \"flow issues\", and the FIX stays. Should: doctor",
+        "says the issues flow was removed and how to clear it (or setup rewrites the retired kind to \"none\" and says so)."
+      ],
+      "fix_hint": [
+        "In doctor, when flow is in RETIRED: one check \"no retired flow in kit.toml\" failing with",
+        "'[flow] kind = \"issues\": relay no longer ships that flow -> set kind = \"none\"', and skip the manifest check; or let",
+        "migrate_kit_toml rewrite a retired kind to \"none\" like old_kind, and say it in the done list."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1120,
+      "pass_cases": [
+        "1. kit.toml [flow] kind = \"issues\": doctor's check names the retired flow (\"relay no longer ships the issues flow\")",
+        "   with a fix that works; after that fix (or after setup, if setup rewrites it) doctor has no flow FIX.",
+        "2. kit.toml [flow] kind = \"none\" or no [flow]: no flow FIX (as today).",
+        "3. kit.toml [flow] kind = \"openspec\" (old_kind): still handled by the \"no old binding\" check (as today).",
+        "4. kit.toml [flow] kind = \"other\" with no plugin: doctor still reports \"flow plugin for 'other' found\" FIX."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "Met at the last check (227cea1); code unchanged by the merge."
+      ],
+      "severity": "MEDIUM",
+      "since": "8321ff7d5ab16a5ebf6efbe827be78e02928fde4",
+      "source": "review-drop-plugins.json",
+      "source_id": "F2",
+      "summary": "a project whose kit.toml still says [flow] kind = \"issues\" gets a doctor FIX that relay setup can never clear, with a wrong hint",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (read, not run): retired_keys(enabled) gets only d[\"settings\"][\"enabledPlugins\"]; doctor already builds",
+        "project_keys from both files a few lines later. Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        ".claude/settings.local.json {\"enabledPlugins\": {\"product@relay\": true}}: setup leaves it, doctor's",
+        "\"no retired relay plugin\" check reads only settings.json and passes; Claude Code keeps naming a plugin the marketplace",
+        "no longer lists. Should: doctor reports it (setup need not write settings.local.json)."
+      ],
+      "fix_hint": [
+        "Pass the union of settings.json and settings.local.json enabledPlugins to retired_keys in doctor."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 213,
+      "pass_cases": [
+        "1. settings.local.json with product@relay: doctor's retired check fails naming it.",
+        "2. settings.json with issues@relay: doctor fails, setup drops it (as today).",
+        "3. No retired key anywhere: check passes."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "Met at the last check (227cea1); code unchanged by the merge."
+      ],
+      "severity": "LOW",
+      "since": "8321ff7d5ab16a5ebf6efbe827be78e02928fde4",
+      "source": "review-drop-plugins.json",
+      "source_id": "F3",
+      "summary": "retired keys in .claude/settings.local.json are neither dropped by setup nor reported by doctor",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep. Size: 5 minutes."
+      ],
+      "evidence": [
+        "grep -n '/issue 42' docs/flows.md -> 47",
+        "grep -n look_review docs/variants/archive.md -> 13"
+      ],
+      "failing_case": [
+        "docs/flows.md:47 gives \"`/issue 42`\" as the example trigger of a work flow that no longer exists;",
+        "docs/variants/archive.md:13 lists \"the `Look:` line clean ... for every project with `look_review = true`\" as an",
+        "archive pre-gate, which this change removed from plugins/openspec/skills/archive/SKILL.md."
+      ],
+      "fix_hint": [
+        "Edit the two lines."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 47,
+      "pass_cases": [
+        "1. docs/flows.md names a neutral trigger (`/<trigger> 42`) as flow-stage.py's docstring now does.",
+        "2. docs/variants/archive.md row 13 is removed or marked dropped (27 Oct, product plugin removed)."
+      ],
+      "path": "docs/flows.md",
+      "rank": "low",
+      "reason": [
+        "Met at the last check (227cea1); code unchanged by the merge."
+      ],
+      "severity": "LOW",
+      "since": "8321ff7d5ab16a5ebf6efbe827be78e02928fde4",
+      "source": "review-drop-plugins.json",
+      "source_id": "F4",
+      "summary": "docs still describe the removed plugins: the /issue 42 trigger example and the archive look-review pre-gate row",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "README.md came in from master (merge a9de17161acf) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "README.md",
+      "rank": "medium",
+      "reason": [
+        "README.md:64 holds master's macOS link; the branch's plugin-text removals are intact; the diff since 227cea1 is only the 2 lines master added."
+      ],
+      "severity": "MEDIUM",
+      "since": "a9de17161acf865a29d4028bf25a88f6538ae618",
+      "source": "merge",
+      "summary": "README.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "a9de17161acf865a29d4028bf25a88f6538ae618.gate.log",
+  "head": "6f342f00173974cb19a745feba02cae1dc76e08c",
+  "item": null,
+  "notes": [
+    "F1-F4 were MET at 227cea1 and the fix code is untouched by the merge."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merge commit a9de171 (master into branch) checked against the last checked head 227cea1. README.md is the only own non-inert file changed: diff is exactly the 2 added lines from master (link to docs/macos.md at README.md:64); no issues/product plugin text came back (grep finds none). Other changed files are master's (docs/macos.md, tests/test_macos_doc.py, handover, queue/check state). Gate log head a9de171, exit 0 (quick mode). Check command: 163 passed."
+  ],
+  "type": "check"
+}

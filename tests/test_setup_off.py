@@ -82,9 +82,9 @@ class Fixture(Base):
         self.rs.MARKETPLACE_FILE = path
 
 
-ALL = ("core", "observe", "delegate", "front", "openspec", "issues", "product")
+ALL = ("core", "observe", "delegate", "front", "openspec")
 T1_PLUGINS = {"core@relay": True, "observe@relay": True, "delegate@relay": True, "front@relay": True,
-              "openspec@relay": False, "issues@relay": False, "product@relay": False, GOPLS: False}
+              "openspec@relay": False, GOPLS: False}
 
 
 class Writes(Fixture):
@@ -111,14 +111,19 @@ class Writes(Fixture):
         self.assertTrue(any("(unchanged)" in line for line in done), done)
         self.assertFalse(os.path.exists(os.path.join(root, ".git", "relay-backup")))   # no backup was made
 
-    def test_t3_a_hand_set_true_stays(self):
+    def test_t3_a_retired_plugin_key_is_dropped_and_said(self):
+        # issues@relay and product@relay were removed from relay (27 Oct): an old settings.json that names them must not crash setup;
+        # the keys go, and the done list says so (a key left behind would name a plugin Claude Code can no longer load).
         root = self.relay_tree()
-        self.run_setup(root, off=[GOPLS])
-        data = self.settings(root)
-        data["enabledPlugins"]["product@relay"] = True
-        self.write(root, ".claude/settings.json", json.dumps(data))
-        self.run_setup(root)
-        self.assertIs(self.plugins(root)["product@relay"], True)
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"product@relay": True, "issues@relay": False, "core@relay": True}}))
+        *_, done, _ = self.run_setup(root)
+        plugins = self.plugins(root)
+        self.assertNotIn("product@relay", plugins)
+        self.assertNotIn("issues@relay", plugins)
+        self.assertIs(plugins["core@relay"], True)
+        self.assertEqual([line for line in done if line.startswith("removed ")],
+                         ["removed issues@relay from .claude/settings.json: relay no longer ships that plugin",
+                          "removed product@relay from .claude/settings.json: relay no longer ships that plugin"])
 
     def test_t4_a_key_of_another_marketplace_that_is_not_named_stays(self):
         root = self.relay_tree()
@@ -147,11 +152,11 @@ class Writes(Fixture):
 
     def test_t9_a_new_project_gets_the_templates_and_the_full_kit_toml(self):
         root = self.git_folder()
-        self.run_setup(root, product=None)
+        self.run_setup(root)
         for rel in (".claude/kit.toml", "bin/check", "bin/ci", "bin/wt", "CLAUDE.md", "docs/handover.md"):
             self.assertTrue(os.path.isfile(os.path.join(root, rel)), rel)
         self.assertEqual(self.plugins(root), {"core@relay": True, "observe@relay": True, "delegate@relay": True, "front@relay": True,
-                                              "openspec@relay": False, "issues@relay": False, "product@relay": False})
+                                              "openspec@relay": False})
         self.assertIn("[delegate]", self.read(root, ".claude/kit.toml"))
 
     def test_t10_an_existing_kit_toml_gets_no_template_and_a_todo_line(self):
@@ -173,15 +178,14 @@ class KitToml(Fixture):
     def test_t11_only_sections_that_differ_from_a_missing_section_are_added(self):
         root = self.kit("[delegate]\nmax_parallel = 6\n")
         text = self.read(root, ".claude/kit.toml")
-        self.assertEqual(self.rs.merge_bindings(root, "none", "none"), [])
-        self.assertEqual(self.rs.merge_bindings(root, "none", "none", force_flow=True), [])
+        self.assertEqual(self.rs.merge_bindings(root, "none"), [])
         self.assertEqual(self.read(root, ".claude/kit.toml"), text)
-        self.assertEqual(self.rs.merge_bindings(root, "none", "openspec", spec_folder=True), ["specs"])   # an openspec/ folder
+        self.assertEqual(self.rs.merge_bindings(root, "openspec", spec_folder=True), ["specs"])   # an openspec/ folder
         self.assertIn('[specs]\nmethod = "openspec"', self.read(root, ".claude/kit.toml"))
 
     def test_t11_specs_none_is_written_when_the_run_says_so(self):
         root = self.kit("[delegate]\nmax_parallel = 6\n")
-        self.assertEqual(self.rs.merge_bindings(root, "none", "none", force_specs=True), ["specs"])
+        self.assertEqual(self.rs.merge_bindings(root, "none", force_specs=True), ["specs"])
         self.assertIn('method = "none"', self.read(root, ".claude/kit.toml"))
 
     def test_t11_an_openspec_folder_turns_the_spec_method_on_in_kit_toml(self):
@@ -190,27 +194,15 @@ class KitToml(Fixture):
         self.run_setup(root)
         self.assertIn('[specs]\nmethod = "openspec"', self.read(root, ".claude/kit.toml"))
 
-    def test_t17_flow_issues_is_recorded_and_read_back(self):
-        root = self.kit("[project]\nname = \"x\"\n\n[gate]\ncheck = \"bin/check\"\n")
-        self.run_setup(root, flow="issues")
-        self.assertIn('[flow]\nkind = "issues"', self.read(root, ".claude/kit.toml"))
-        self.assertIs(self.plugins(root)["issues@relay"], True)
+    def test_t17_an_old_issues_flow_in_kit_toml_is_kept_and_setup_does_not_crash(self):
+        # the flow slot stays for spec methods; a kit.toml that still says kind = "issues" is the owner's text: setup leaves it
+        root = self.kit("[flow]\nkind = \"issues\"\n")
         kit = self.read(root, ".claude/kit.toml")
-        self.run_setup(root)   # a plain run: the flow comes from kit.toml, not from a kept key
-        self.assertEqual(self.read(root, ".claude/kit.toml"), kit)
-        self.assertIs(self.plugins(root)["issues@relay"], True)
-
-    def test_t17_the_flow_is_read_from_kit_toml_even_when_the_key_is_gone(self):
-        root = self.kit("[flow]\nkind = \"issues\"\n")
-        self.run_setup(root)
-        self.assertIs(self.plugins(root)["issues@relay"], True)
-
-    def test_t18_flow_none_rewrites_kit_toml_and_turns_issues_off(self):
-        root = self.kit("[flow]\nkind = \"issues\"\n")
         self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"issues@relay": True}}))
-        self.run_setup(root, flow="none")
-        self.assertIn('kind = "none"', self.read(root, ".claude/kit.toml"))
-        self.assertIs(self.plugins(root)["issues@relay"], False)
+        d, flow, done, todo = self.run_setup(root)
+        self.assertEqual(flow, "issues")
+        self.assertEqual(self.read(root, ".claude/kit.toml"), kit)
+        self.assertNotIn("issues@relay", self.plugins(root))
 
 
 class Refusals(Fixture):
@@ -220,10 +212,10 @@ class Refusals(Fixture):
         s, k = self.stat(root, ".claude/settings.json"), self.stat(root, ".claude/kit.toml")
         with self.assertRaises(ValueError) as core:
             self.run_setup(root, off=["core@relay"])
-        self.assertIn("--flow, --specs and --product", str(core.exception))
-        with self.assertRaises(ValueError) as issues:
-            self.run_setup(root, off=["issues@relay"])
-        self.assertIn("--flow", str(issues.exception))
+        self.assertIn("relay's own are decided by --specs", str(core.exception))
+        with self.assertRaises(ValueError) as spec:
+            self.run_setup(root, off=["openspec@relay"])
+        self.assertIn("openspec@relay is decided by --specs", str(spec.exception))
         self.assertEqual((self.stat(root, ".claude/settings.json"), self.stat(root, ".claude/kit.toml")), (s, k))
 
     def test_t8_a_plugin_the_registry_does_not_know_is_refused(self):
@@ -268,13 +260,13 @@ class Rename(Fixture):
 
     def test_t21_old_keys_move_their_value_to_the_new_key(self):
         self.marketplace_fixture("amidman", ALL)
-        self._old_names({"product@relay": "product@amidman", "issues@relay": "issues@amidman"})
+        self._old_names({"old-a@relay": "old-a@amidman", "old-b@relay": "old-b@amidman"})
         root = self.relay_tree()
-        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"product@relay": True, "issues@relay": False}}))
-        self.run_setup(root, product=None)
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"old-a@relay": True, "old-b@relay": False}}))
+        self.run_setup(root)
         plugins = self.plugins(root)
-        self.assertIs(plugins["product@amidman"], True)   # moved, not recomputed (no ui marker)
-        self.assertIs(plugins["issues@amidman"], False)
+        self.assertIs(plugins["old-a@amidman"], True)   # the value moved, not recomputed
+        self.assertIs(plugins["old-b@amidman"], False)
         self.assertFalse([k for k in plugins if k.endswith("@relay")], plugins)
 
     def test_t22_sdd_moves_to_openspec_and_the_spec_row_decides(self):
@@ -327,7 +319,7 @@ class Doctor(Fixture):
         self.write(root, os.path.join("..", "claude", "settings.json"), json.dumps({"enabledPlugins": {GOPLS: True}}))
         checks = self.rs.doctor(root, profile={})
         names = [n for n, _, _ in checks]
-        self.assertIn("plugins off for this project: " + ", ".join(sorted([GOPLS, "issues@relay", "openspec@relay", "product@relay"])), names)
+        self.assertIn("plugins off for this project: " + ", ".join(sorted([GOPLS, "openspec@relay"])), names)
         project_part = checks[names.index("project has .claude/kit.toml"):]
         fixes = sorted(n for n, ok, _ in project_part if not ok)
         # relay has no quiet check and no worktree script: those two stay red, nothing else.
@@ -344,6 +336,29 @@ class Doctor(Fixture):
         self.write(b, ".claude/settings.json", json.dumps({"enabledPlugins": {"openspec@relay": False}}))
         self.write(b, ".claude/settings.local.json", json.dumps({"enabledPlugins": {"openspec@relay": True}}))
         self.assertFalse(self.check(b, name)[0])   # local on beats project off
+
+
+class RetiredPlugins(Fixture):
+    def test_doctor_reports_a_retired_plugin_in_settings_and_setup_clears_it(self):
+        # issues@relay / product@relay are named by an old project's settings.json: doctor fails one check naming both, setup fixes it
+        root = self.relay_tree()
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"product@relay": True, "issues@relay": True}}))
+        name = "no retired relay plugin in .claude/settings.json"
+        found = [(ok, detail) for n, ok, detail in self.rs.doctor(root, profile={}) if n == name]
+        self.assertEqual(len(found), 1)
+        self.assertFalse(found[0][0])
+        self.assertIn("issues@relay, product@relay", found[0][1])
+        self.run_setup(root)
+        self.assertTrue([ok for n, ok, _ in self.rs.doctor(root, profile={}) if n == name][0])
+
+    def test_a_retired_plugin_installed_at_project_scope_is_uninstalled(self):
+        root = self.relay_tree()
+        self.registry([GOPLS, "core@relay"] )
+        with open(os.path.join(self.claude, "plugins", "installed_plugins.json"), "w") as handle:
+            json.dump({"plugins": {"issues@relay": [{"scope": "project", "projectPath": root}]}}, handle)
+        gone = []
+        self.run_setup(root, uninstall_runner=lambda r, key: (gone.append(key), (True, ""))[1])
+        self.assertEqual(gone, ["issues@relay"])
 
 
 class ReviewFixes(Fixture):
@@ -384,7 +399,7 @@ class ReviewFixes(Fixture):
         self.assertTrue(os.path.isfile(os.path.join(root, "CLAUDE.local.md")))
 
     def test_f2_global_with_a_project_flag_is_a_usage_error(self):
-        for extra in (["--specs", "openspec"], ["--flow", "issues"], ["--product"], ["--no-product"], ["--apply"]):
+        for extra in (["--specs", "openspec"], ["--apply"]):
             done = self.relay_cli("--global", *extra)
             self.assertEqual(done.returncode, 2, (extra, done.stdout))
             self.assertIn("--global takes nothing else", done.stderr)

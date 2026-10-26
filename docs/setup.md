@@ -3,23 +3,21 @@
 ## A new project
 
 ```sh
-relay setup ~/new-project [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--off <name@marketplace>]... [--license <SPDX id> [--holder <name>]]
+relay setup ~/new-project [--specs openspec|none] [--off <name@marketplace>]... [--license <SPDX id> [--holder <name>]]
 ```
 
 Detects the stack (bun, pnpm, mix, cargo, go, python), the default branch,
-an `openspec/` folder, issue skills, a screen. Writes what is missing and
+an `openspec/` folder. Writes what is missing and
 never overwrites:
 
 - `.claude/kit.toml` with `[project]`, `[gate]`, `[flow]`, `[delegate]`,
-  `[observe]` (and `[issues]` or `[product]` when they apply). A project that already has a kit.toml
-  gets only the sections whose value is not what a missing section means: `[flow]` for a flow other than
-  `none`, `[specs]` for a method other than `none`;
+  `[observe]`. A project that already has a kit.toml
+  gets only the sections whose value is not what a missing section means: `[specs]` for a method other than `none`;
 - `.claude/settings.json`: the relay marketplace and the plugins for the
-  flow (`core`, `observe`, `delegate`, `front`, + `openspec` / `issues` /
-  `product`), `Bash(kit:*)` allowed. Relay's plugins the project does not use get `false`, and so does each plugin of
+  flow (`core`, `observe`, `delegate`, `front`, + `openspec`), `Bash(kit:*)` allowed. Relay's plugins the project does not use get `false`, and so does each plugin of
   another marketplace named with `--off <name@marketplace>` (repeat the flag; the id must be one Claude Code's registry
   knows, e.g. `--off gopls-lsp@claude-plugins-official`). A `false` in the project's file beats the user's `true`.
-  A re-run keeps a key that is already there, except where the run's flags or kit.toml decide it; `relay doctor`
+  A key of a plugin relay no longer ships (`issues@relay`, `product@relay`) is dropped and said in the done list, and `relay doctor` reports it until setup runs. A re-run keeps a key that is already there, except where the run's flags or kit.toml decide it; `relay doctor`
   lists the plugins that are off and reports a FIX when `core`, `observe`, `delegate` or `front` is off for the project; a backup of the old file in `<git dir>/relay-backup/` (none when git holds the file unchanged: `git restore` it);
 - `bin/check`, `bin/ci`, `bin/wt` from templates that follow the contract,
   with `TODO` where the stack's commands go, and a `CLAUDE.md` skeleton and `docs/handover.md`: all of these only on
@@ -27,7 +25,7 @@ never overwrites:
 - the project in `projects.toml`, then `relay sync` writes its
   `CLAUDE.local.md` (never committed). In a linked worktree setup skips the sync and says so; run `relay sync`
   after the branch is merged. A sync held by a waiting paid run leaves setup at exit 0 with one line;
-- the flow plugins (`openspec`, `issues`, `product`) installed at project scope
+- the spec plugin (`openspec`) installed at project scope
   with `claude plugin install <name>@relay --scope project`; when that cannot
   run, the command is in the to-do list. `relay doctor <dir>` reports FIX for
   every plugin the project enables that is not installed;
@@ -126,15 +124,10 @@ same procedure written for the session that runs it.
    `relay migrate <dir>` to read the plan, move the project-only rules of
    each old agent into `.claude/kit/<role>.md` (the migration/<project>/kit
    drafts from principles are the starting point), then `--apply`.
-4. Arsenal, linter, testenv (issue flows): `relay migrate <dir>` finds
-   `issue-reader/creator/implementer` and `issue-stage.sh` and maps them
-   to `issues:read/create/implement/merge`; move the Arsenal-only rules
-   (Hard Rules, the preflight script, born-archived OpenSpec) into
-   `.claude/kit/<stage>.md`; fill `[issues]` with the `tea` commands.
+4. Arsenal, linter, testenv (issue flows): relay no longer ships an issues flow; their own issue skills stay project-only until they move to the queue.
 5. ALIX: as 3, plus keep its safety and funds reviewers; its lead/route
    flow is not a relay flow until it is written as one (docs/flows.md).
-6. Glonass repositories: `[issues] attribution = "none"` and the `glonass`
-   rule loaded (it is in the active profile).
+6. Glonass repositories: the `glonass` rule loaded (it is in the active profile).
 
 ## Editing roles and agents
 

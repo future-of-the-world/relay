@@ -19,7 +19,7 @@ against the active setup, and reports the table in plain words. The
 | the front's model | a profile key | `--set session.model=sonnet` |
 | fewer or more rules loaded | a profile key | `--set rules.load=a,b,c` |
 | how a role works ("workers plan first", "smaller tasks", "reviews name the test") | text in an agent or skill | `relay candidate <name> --copy delegate` then edit the copy |
-| a flow stage ("the issue flow should open the PR earlier") | text in a flow skill | `relay candidate <name> --copy issues` then edit the copy |
+| a flow stage ("the spec review should check more") | text in a flow skill | `relay candidate <name> --copy openspec` then edit the copy |
 | "what did this week cost", "where does the money go" | a report | `relay report --since 7d`, `relay improve suggest` |
 
 Tiers: look (scout), run (runner), build (worker), fix (fixer), think

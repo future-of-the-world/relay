@@ -49,7 +49,7 @@ Around it:
   over 200k), the handover pointer after compaction, the `front` skill.
 - **core**: unchanged from principles (`kit`, guard, addition injection)
   plus the generic flow stage hook.
-- **flows and spec methods**: `issues` (where work comes from) and `openspec` (opt-in spec steps), each a plugin with `flow.json`.
+- **flows and spec methods**: `openspec` (opt-in spec steps) is a plugin with `flow.json`; the work-flow slot (where work comes from) has no plugin today.
 - **profiles**: one `active.toml` and candidates; a profile is the whole
   setup (front model, tier models and efforts, rules loaded, plugins on,
   guard thresholds). `relay sync` applies it; `relay bench` compares two.
@@ -59,10 +59,10 @@ Around it:
 **One bindings file, `kit.toml`, kept.** Relay adds sections to it (`[flow]`,
 `[delegate]`, `[observe]`) rather than introducing `relay.toml`. Kartoteka
 and every migrated project keep their file; `kit get` keeps working; the
-`.claude/kit/<role>.md` additions keep being injected (now for `delegate:`,
-`issues:` and `front:` roles too).
+`.claude/kit/<role>.md` additions keep being injected (now for `delegate:`
+and `front:` roles too).
 
-**Plugins keep their names (`core`, `product`), except the spec plugin.**
+**Plugins keep their names (`core`), except the spec plugin.**
 The marketplace is renamed `relay` because its source directory moves;
 `relay setup` rewrites `*@principles` to `*@relay` in a project's settings.
 The plugin first named after its method is renamed `openspec`: the earlier

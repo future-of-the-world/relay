@@ -891,7 +891,6 @@ The list reads as a table a person scans (the "what" is the item's `# ` title, c
 ```
  ip  kind     time    what                                          name
  95  fix       30m    Six core test files never run in the quick gate  core-tests-not-in-gate
- 90  feature    1h    Merge the issues flow into the queue             issues-flow-into-queue
 ```
 
 `add` refuses a title that only repeats the name's words.
@@ -935,7 +934,7 @@ L1-L3 (list 2). Duplicates merged as named in the last column.
 | 8 | `tally-runs-from-prompt` | fix | 91 | 2 | tally compares the run count with the prompt's `runs:`; `--runs 3` on the CLI with `runs: 5` in the prompts gives "not judged"; should compare with what was run, or the README says they must match (L3) |
 | 9 | `offbyone-rubric-fail-clause` | fix | 91 | 10 | the off-by-one rubric's FAIL clause words ("stays within size", "as the doc says") made Haiku fail right answers yes-03 (5 of 5) and yes-05 (2 of 5); Sonnet unaffected, the trap stays for any weaker judge (handover cause-measure) |
 | 10 | `stale-eval-texts` | fix | 91 | 5 | the handover names `case.yaml:3` and `evals/plugin/setup-fixture.sh` as stale; the C2 worker reads both and writes the exact failing case into the item (5 min) or, if nothing is wrong, leaves it out and says so |
-| 11 | `issues-flow-into-queue` | feature | 90 | 60 | the issues flow (`.issues/<slug>/`, `plugins/issues`) merges into the queue; joins the shared change cycle (phase-1 decision); touches ALIX and arsenal live flows (v3 #3) |
+| 11 | `issues-flow-into-queue` | feature | 90 | 60 | dropped (27 Oct): the issues plugin was removed from relay; arsenal moves to the queue instead |
 | 12 | `state-from-facts` | feature | 80 | 60 | rebuild session state from git (branches, worktrees, merges, marks), the queue, the ledger and reports; keep by hand only the owner's words and decisions; at session start name each difference between the handover and the facts (owner, q4 "a"; v3 #4) |
 | 13 | `status-line-limit-share` | feature | 70 | 40 | visible status line `5h % · week % · $` that also logs (v3 #5) |
 | 14 | `openspec-stages-by-meaning` | feature | 60 | 45 | stages by meaning in any language with typos; doctor and setup check the openspec CLI and `/opsx:` commands; about 15 paid Haiku prompts (about $0.30) (v3 #6) |
@@ -945,7 +944,7 @@ L1-L3 (list 2). Duplicates merged as named in the last column.
 | 18 | `large-repeated-requests` | feature | 30 | 30 | carried-weight finding, including about $0.30 of session start-up (v3 #9) |
 | 19 | `bench-judge-model-measured` | feature | 25 | 20 | `relay bench`'s own judge still defaults to Haiku (`bin/relay`, `docs/benchmark.md`); the 22 Oct measurement shows Haiku misreads meaning; measure before changing (handover) |
 | 20 | `front-noise-measured` | feature | 20 | 15 | bench reply length before any Stop hook (v3 #10) |
-| 21 | `issue-bindings-forgejo-gitlab` | feature | 15 | 20 | `[issues]` commands for Arsenal and Glonass (v3 #11) |
+| 21 | `issue-bindings-forgejo-gitlab` | feature | 15 | 20 | dropped (27 Oct): the issues plugin was removed from relay |
 | 22 | `bench-isolate-keychain` | feature | 10 | 10 | `--isolate` sign-in on keychain Macs unverified (v3 #12) |
 | 23 | `judge-measure-realistic-items` | feature | 5 | 15 | two "no" items (off-by-one 24, role-rule 13) are less natural than the rest; the "no" templates say "5 problems" with 4 listed (L2: labelled right, so not wrong) |
 

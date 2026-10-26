@@ -18,7 +18,7 @@ class Agents(unittest.TestCase):
         import glob
         import re
         files = sorted(glob.glob(os.path.join(ROOT, "plugins", "*", "agents", "*.md")))
-        self.assertGreaterEqual(len(files), 11)
+        self.assertGreaterEqual(len(files), 10)   # 11 before the product plugin (its ui-reviewer agent) was removed
         for path in files:
             with open(path, encoding="utf-8") as handle:
                 text = handle.read()
@@ -44,13 +44,13 @@ class Agents(unittest.TestCase):
         files = []
         for pattern in ("rules/*.md", "roles/*.md", "roles/parts/*.md", "plugins/*/skills/*/SKILL.md", "plugins/*/agents/*.md"):
             files += glob.glob(os.path.join(ROOT, pattern))
-        self.assertGreater(len(files), 40)
+        self.assertGreater(len(files), 35)   # was 40 before the issues and product plugins (6 skills, 1 agent) were removed
         for path in sorted(files):
             with open(path, encoding="utf-8") as handle:
                 text = handle.read().lower()
             for phrase in banned:
                 self.assertNotIn(phrase, text, "%s still says %r" % (os.path.relpath(path, ROOT), phrase))
-        places = ["rules/delegation.md", "plugins/delegate/skills/delegate/SKILL.md", "plugins/issues/skills/implement/SKILL.md",
+        places = ["rules/delegation.md", "plugins/delegate/skills/delegate/SKILL.md",
                   "plugins/openspec/skills/spec-review/SKILL.md"]
         for place in places:
             with open(os.path.join(ROOT, place), encoding="utf-8") as handle:
@@ -67,9 +67,8 @@ class Agents(unittest.TestCase):
                 return " ".join(handle.read().split())
         agents = [p for p in sorted(glob.glob(os.path.join(ROOT, "plugins/*/agents/*.md")))
                   if "<!-- relay:base judge -->" in open(p, encoding="utf-8").read()]
-        self.assertGreaterEqual(len(agents), 5)
-        own_list_flows = ("plugins/openspec/agents/spec-reviewer.md", "plugins/openspec/agents/spec-conformance.md",
-                          "plugins/product/agents/ui-reviewer.md")
+        self.assertGreaterEqual(len(agents), 4)   # was 5 before the product plugin (ui-reviewer) was removed
+        own_list_flows = ("plugins/openspec/agents/spec-reviewer.md", "plugins/openspec/agents/spec-conformance.md")
         for path in agents:
             text = read(os.path.relpath(path, ROOT))
             name = os.path.relpath(path, ROOT)
@@ -89,8 +88,7 @@ class Agents(unittest.TestCase):
                     self.assertTrue(has_own_list, name + ": the flow's own reply list cannot be found")
                 if has_own_list:
                     self.assertRegex(own, r"project rule\s+raises \(where, what, the rule's label\)", name + " own reply list")
-        for flow in ("plugins/openspec/agents/spec-reviewer.md", "plugins/openspec/agents/spec-conformance.md",
-                     "plugins/product/agents/ui-reviewer.md"):
+        for flow in ("plugins/openspec/agents/spec-reviewer.md", "plugins/openspec/agents/spec-conformance.md"):
             self.assertIn("## Reply, in addition", read(flow), flow)
         self.assertIn("The skill does not see the project's rules", read("plugins/openspec/agents/spec-conformance.md"))
         conf = " ".join(read("plugins/openspec/agents/spec-conformance.md").split())
@@ -106,10 +104,6 @@ class Agents(unittest.TestCase):
             with open(os.path.join(ROOT, rel), encoding="utf-8") as handle:
                 return " ".join(handle.read().split())
         writer = 'echo "head $(git -C <wt> rev-parse HEAD)"'
-        implement = read("plugins/issues/skills/implement/SKILL.md")
-        self.assertIn(writer, implement)
-        self.assertLess(implement.index("delegate:fixer"), implement.index("runs `gate.ci`"))
-        self.assertLess(implement.index("runs `gate.ci`"), implement.index("`delegate:checker` with `Gate: <log>`"))
         delegate = read("plugins/delegate/skills/delegate/SKILL.md")
         self.assertIn(writer, delegate)
         self.assertIn("pipeline #<n> on <full sha> passed", delegate)
@@ -133,7 +127,7 @@ class Agents(unittest.TestCase):
         self.assertIn("plain text file", checker)
         # F6: the global rule and the skills that run in other projects give relay's path, never a bare roles/judge.md
         for rel in ("rules/delegation.md", "plugins/delegate/skills/delegate/SKILL.md",
-                    "plugins/issues/skills/implement/SKILL.md", "plugins/openspec/skills/spec-review/SKILL.md"):
+                    "plugins/openspec/skills/spec-review/SKILL.md"):
             text = read(rel)
             self.assertIn("~/relay/roles/judge.md", text, rel)
             self.assertEqual(text.count("roles/judge.md"), text.count("~/relay/roles/judge.md"), rel)
@@ -299,7 +293,7 @@ class Agents(unittest.TestCase):
         import relay_roles
         roles = {os.path.basename(f)[:-3] for f in glob.glob(os.path.join(ROOT, "roles", "*.md"))}
         self.assertEqual(roles, {"lookup", "run", "build", "fix", "think", "judge"})
-        served = {"core", "openspec", "product", "delegate", "issues", "front"}
+        served = {"core", "openspec", "delegate", "front"}
         names = {}
         for kind, pattern in (("agent", "plugins/*/agents/*.md"), ("skill", "plugins/*/skills/*/SKILL.md")):
             for path in glob.glob(os.path.join(ROOT, pattern)):

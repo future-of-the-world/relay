@@ -12,7 +12,6 @@ R="$tmp/repo"
 mkdir -p "$R/.claude/kit" "$R/sub/dir" && cd "$R" && git init -q -b master . \
   && printf 'WORKER-RULE ПСК\nsecond line\n' >.claude/kit/worker.md \
   && printf 'PLAN-RULE\n' >.claude/kit/plan.md \
-  && printf 'PRODUCT-RULE\n' >.claude/kit/ui-reviewer.md \
   && git add -A && git -c user.name=t -c user.email=t@t commit -q -m init \
   && git worktree add -q .worktrees/wt1 -b wt/wt1 \
   && git worktree add -q .worktrees/wt2 -b wt/wt2 || { echo "inject-addition.test: cannot build the repo" >&2; exit 1; }
@@ -48,7 +47,7 @@ ck "agent: a core: name is served too" "WORKER-RULE" "$(ctx "$(agent core:worker
 
 ck "agent: another plugin's role gets nothing" - "$(agent pr-review-toolkit:worker "$R")"
 ck "agent: an unlisted plugin's plan gets nothing" - "$(agent other:plan "$R")"
-ck "agent: product is served" "PRODUCT-RULE" "$(ctx "$(agent product:ui-reviewer "$R")")"
+ck "agent: a removed plugin (product) is not served" - "$(agent product:ui-reviewer "$R")"
 
 out="$(prompt "/openspec:plan add a low-stock view" "$R")"
 ck "prompt: a typed stage gets its addition" "PLAN-RULE" "$(ctx "$out")"
@@ -77,12 +76,11 @@ ck "another event gets nothing" - "$(jq -n --arg c "$R" '{hook_event_name: "Stop
 # existed (inject-addition.golden, recorded from that hook; INJECT_RECORD=<file> re-records, only ever from a hook known good).
 K="$tmp/kartoteka"
 mkdir -p "$K/.claude/kit" && git -C "$K" init -q -b master
-names="apply-review archive author fixer parallel-apply plan reviewer spec-conformance spec-review spec-reviewer ui-reviewer worker"
+names="apply-review archive author fixer parallel-apply plan reviewer spec-conformance spec-review spec-reviewer worker"
 for n in $names; do printf '%s-MARK\nline two of %s\n' "$n" "$n" >"$K/.claude/kit/$n.md"; done
 golden_out() {
   for n in $names; do
     echo "== agent openspec:$n"; agent "openspec:$n" "$K"
-    echo "== agent product:$n"; agent "product:$n" "$K"
     echo "== skill openspec:$n"; skill "openspec:$n" "$K"
     echo "== prompt /openspec:$n"; prompt "/openspec:$n go" "$K"
   done
@@ -116,8 +114,8 @@ ck "I6: the skill openspec:plan gets plan.md" "plan-MARK" "$(ctx "$(skill opensp
 ck "I6: the typed /openspec:plan gets plan.md" "plan-MARK" "$(ctx "$(prompt "/openspec:plan go" "$J")")"
 case "$(skill openspec:plan "$J")$(prompt "/openspec:plan go" "$J")" in *JUDGE-MARK*) echo "FAIL  I6: a role file reached a skill"; fails=$((fails + 1)) ;; *) echo "ok    I6: no role file for a skill or a typed stage" ;; esac
 JO="$tmp/judgeonly"; mkdir -p "$JO/.claude/kit" && git -C "$JO" init -q -b master && printf 'JUDGE-MARK\n' >"$JO/.claude/kit/judge.md"
-out="$(ctx "$(agent product:ui-reviewer "$JO")")"
-ck "I8: judge.md alone reaches product:ui-reviewer" "JUDGE-MARK" "$out"
+out="$(ctx "$(agent openspec:spec-conformance "$JO")")"
+ck "I8: judge.md alone reaches openspec:spec-conformance" "JUDGE-MARK" "$out"
 ck "I8: judge.md alone gives a build agent nothing" - "$(agent delegate:worker "$JO")"
 # a map of our own, beside a copy of the hook
 mkdir -p "$tmp/h/hooks" "$tmp/h/lib" && cp "$hook" "$tmp/h/hooks/inject-addition.sh"
