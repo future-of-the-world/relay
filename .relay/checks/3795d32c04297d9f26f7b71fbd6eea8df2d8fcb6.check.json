@@ -1,0 +1,90 @@
+{
+  "branch": "wt/rules-wt",
+  "findings": [
+    {
+      "details": [
+        "Found 26 Oct by the review of wt/setup-wt-market (outside that change). Checked the same day: ~/.claude/CLAUDE.md names no worktree path, so no damage yet; it would happen on the next install run from a linked worktree."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "install() run from /Users/amidman/relay/.worktrees/x calls relay_rules.sync(..., only={\"global\",...}, wait=False); rules() builds each",
+        "\"Full text: `<path>`\" from os.path.join(ROOT, \"rules\", name), so ~/.claude/CLAUDE.md lists /Users/amidman/relay/.worktrees/x/rules/openspec.md,",
+        "which is gone after the merge. It should list /Users/amidman/relay/rules/openspec.md."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 37,
+      "pass_cases": [
+        "1. ROOT = linked worktree of a temp relay copy, temp CLAUDE_CONFIG_DIR, sync of the global target: every \"Full text:\" path starts with the main checkout.",
+        "2. ROOT = the main checkout: paths unchanged from today.",
+        "3. The rule text itself (title, gist) still comes from the checkout being rendered."
+      ],
+      "path": "lib/relay_rules.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_rules.py:99 passes, fails at ac08cd9; also judged MET in check-queue-rules-wt-1.json."
+      ],
+      "severity": "HIGH",
+      "since": "ac08cd9be4221227c626eb1644c43d9635640c62",
+      "source": "queue",
+      "summary": "Rules rendered from a linked worktree write that\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a repro (below). relay_config.ROOT is abspath, not realpath; main_checkout returns",
+        "os.path.dirname(os.path.realpath(common)). Today /Users/amidman/relay is a real folder, so no effect on the owner's machine;",
+        "it matters if an install ever reaches relay through a symlink or RELAY_ROOT names one. The same asymmetry is in master's",
+        "marketplace_root (outside this change). Size: 5 minutes."
+      ],
+      "evidence": [
+        "python3 -I with lib/ on sys.path, a temp repo R/real, symlink R/link, worktree R/real/.worktrees/x:",
+        "R/link -> R/link/rules/a.md",
+        "R/link/.worktrees/x -> R/real/rules/a.md"
+      ],
+      "failing_case": [
+        "Main checkout at R/real, reached as R/link (symlink); linked worktree R/real/.worktrees/x.",
+        "relay_rules.ROOT = R/link -> rules()[\"a\"][\"path\"] == R/link/rules/a.md",
+        "relay_rules.ROOT = R/link/.worktrees/x -> rules()[\"a\"][\"path\"] == R/real/rules/a.md",
+        "So a global file written from a worktree and then checked from the main checkout reads as stale (and the reverse), and each",
+        "sync flips it. Both paths stay valid, so nothing points at a removed folder; only the drift check and rewrites are affected.",
+        "It should produce the same path from both."
+      ],
+      "fix_hint": [
+        "Resolve both sides the same way: named = os.path.join(relay_setup.main_checkout(ROOT) or os.path.realpath(ROOT), \"rules\"),",
+        "and update test_full_text_paths_in_the_main_checkout_are_unchanged to expect the resolved path; or leave as is and drop it."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 41,
+      "pass_cases": [
+        "1. ROOT = R/link (symlink to the main checkout) and ROOT = R/link/.worktrees/x: rules()[\"a\"][\"path\"] is the same string.",
+        "2. ROOT = a plain main checkout (no symlink): path == os.path.join(ROOT, \"rules\", \"a.md\") as today.",
+        "3. ROOT = a linked worktree of a plain checkout: path == <main checkout>/rules/a.md (the current test)."
+      ],
+      "path": "lib/relay_rules.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_rules.py:113 test_a_symlinked_main_checkout_gives_the_same_path_as_its_worktree passes, fails at ac08cd9; fixed by bb81977."
+      ],
+      "severity": "LOW",
+      "since": "bf44de20d21e089f4899044bb10a3157ee49d73d",
+      "source": "review-rules-wt.json",
+      "source_id": "F1",
+      "summary": "the main checkout's path is resolved (realpath) only when rendered from a worktree, so a main checkout reached through a symlink renders different paths from the main checkout and from its worktrees",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "bb8197724133be5fa81b23ccd8b9de10fe10ccce.gate.log",
+  "head": "3795d32c04297d9f26f7b71fbd6eea8df2d8fcb6",
+  "item": "rules-rendered-from-a-linked-worktree-write-that",
+  "notes": [
+    "Findings listed by relay check findings: Q1 and the review F1 only (the setup-wt-market F1 is not in this record; its test passes)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fixes none. Gate log head bb81977, exit 0; relay changed lists no file after it. tests/test_rules.py 8 passed; tests/test_setup.py::SetupInWorktree::test_install_path_todo_never_names_a_linked_worktree passed (the setup F1 of the other item, fixed on master by 2b2c852, in the tree). Throwaway worktree at ac08cd9 with head test_rules.py: 3 RulesInWorktree tests failed."
+  ],
+  "type": "check"
+}
