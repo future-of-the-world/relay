@@ -1,0 +1,189 @@
+{
+  "branch": "wt/openspec-plugin",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading docs/flows.md at HEAD: the \"Binding\" section describes master's mechanism the change removed",
+        "(sync rendering the rule, core's hook reading both bindings). The change moved the rule and the stage line, so the",
+        "doc that explains them is this change's to keep true. Size: 10."
+      ],
+      "evidence": [
+        "git grep -n 'rules/openspec' -- . ':!.relay' ':!docs/handover.md' ':!docs/notes'",
+        "  docs/flows.md:36:`rules/openspec.md` in the project's `CLAUDE.local.md`, followed by the table",
+        "sed -n 35,44p docs/flows.md",
+        "  \"From the setting `relay sync` derives ... the rule `rules/openspec.md` in the project's `CLAUDE.local.md`\"",
+        "  \"The core plugin's stage hook reads both on every prompt. When a prompt starts with a trigger of a bound manifest (`/opsx:apply`, `/issue 42`, ...)\""
+      ],
+      "failing_case": [
+        "A person reads docs/flows.md \"Binding\" after this merge: line 35-37 says `relay sync` derives \"the rule",
+        "`rules/openspec.md` in the project's `CLAUDE.local.md`, followed by the table\"; lines 41-44 say \"The core plugin's",
+        "stage hook reads both on every prompt\" and answers `/opsx:apply`. Now: rules/openspec.md does not exist, sync writes",
+        "no spec rule, and core's flow-stage.py is silent on /opsx:* (the openspec plugin's spec-rule.py answers). The doc",
+        "should name plugins/openspec/rules/openspec.md, the openspec hook (SessionStart, SubagentStart, UserPromptSubmit),",
+        "and that it speaks only where the plugin is loaded and kit.toml has the method."
+      ],
+      "fix_hint": [
+        "Rewrite the two paragraphs of \"Binding\" (lines 35-44): the rule file lives in plugins/openspec/rules/, the openspec",
+        "plugin's hooks/spec-rule.py gives rule + table at SessionStart/SubagentStart and the stage line on /opsx:*; core's",
+        "flow-stage.py handles [flow] kind only."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 35,
+      "pass_cases": [
+        "- `git grep -n 'rules/openspec.md' -- docs/flows.md` prints nothing; flows.md names `plugins/openspec/rules/openspec.md`.",
+        "- flows.md says the OpenSpec rule and the steps table reach the session and every agent through the openspec plugin's hook, only where the plugin is loaded and `[specs] method = \"openspec\"`.",
+        "- flows.md says core's stage hook binds `[flow] kind` only and the `/opsx:*` line comes from the openspec plugin.",
+        "- flows.md still documents `[flow] kind = \"issues\"` + `/issue 42` -> core's line (unchanged)."
+      ],
+      "path": "docs/flows.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_openspec_hook.py:101 fails on old doc, passes now."
+      ],
+      "severity": "MEDIUM",
+      "since": "16786a81c272d6370d347cfc68dc1a35c79034ca",
+      "source": "review-openspec-plugin.json",
+      "source_id": "F1",
+      "summary": "docs/flows.md still says relay sync writes rules/openspec.md into CLAUDE.local.md and core's stage hook answers /opsx:*",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: depends on `claude plugin eval` running SessionStart hooks of the case's plugins (guard-fires proves",
+        "PreToolUse hooks run there; SessionStart not checked). The double text follows from the case files read.",
+        "Design: row 1 fixed \"the 5 eval texts equal master's minus the MARK and title lines\" while the same row moved the rule",
+        "to a hook the eval loads; no fix inside the design drops the doubled copy. The live check of row 1 is the only proof",
+        "the hook text reaches a session. Size: 15 (decide, then edit 5 prompts and system_rules.CASES or the design line)."
+      ],
+      "evidence": [
+        "evals/plugin/spec-step-on/case.yaml: plugins: [\"../../../plugins/core\", \"../../../plugins/openspec\", \"../../../plugins/delegate\"]",
+        "evals/plugin/spec-step-on/scaffold.sh: printf '\\n[specs]\\nmethod = \"openspec\"\\n' >> .claude/kit.toml",
+        "prompt.md: append_system_prompt: \"## OpenSpec\\n\\nThis project has OpenSpec spec steps turned on ...\"",
+        "tests/test_openspec_hook.py: test_the_eval_texts_are_the_same_text asserts CASES[case]() == SessionStart text"
+      ],
+      "failing_case": [
+        "spec-step-on case: case.yaml loads plugins/openspec, scaffold.sh writes `[specs] method = \"openspec\"`, and prompt.md",
+        "keeps the rule in append_system_prompt. In the run, the openspec hook's SessionStart also adds the same rule as",
+        "additional context. The session reads the rule twice, once at system-prompt rank, which no real session has (a real",
+        "one gets it only from the hook). If SessionStart's additionalContext never reached the session, the case would still",
+        "pass on the system-prompt copy, so the paid run does not measure the new channel. Expected: the eval session gets",
+        "the rule the way a real session does (hook only), or the eval says it measures something else."
+      ],
+      "fix_hint": [
+        "Owner's pick: either drop the spec-step entries from system_rules.CASES (the hook is now the channel the eval loads),",
+        "or keep them and record in the design that the eval measures system-prompt rank on purpose."
+      ],
+      "id": "F2",
+      "kind": "design",
+      "line": 39,
+      "pass_cases": [
+        "- Artifact: the design states which channel the 5 spec-step evals measure (hook alone, or system prompt kept on purpose) and why.",
+        "- If hook alone: the 5 prompt.md files have no OpenSpec text in append_system_prompt, and the stage line still comes from the hook (prompt starts with /opsx:propose).",
+        "- no-spec-step cases (no method) stay unchanged and get nothing from the hook."
+      ],
+      "path": "evals/plugin/system_rules.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_openspec_hook.py:76 fails without fix, passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "16786a81c272d6370d347cfc68dc1a35c79034ca",
+      "source": "review-openspec-plugin.json",
+      "source_id": "F2",
+      "summary": "the spec-step evals now carry the rule twice (append_system_prompt and the hook's SessionStart), so the paid run cannot show the hook channel works",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running the hook under /usr/bin/python3 and python3 on 7 kit.toml forms. The forms are not ones relay",
+        "writes, so the hook is correct today; the fallback has no test (tests run sys.executable, 3.11+). Size: 15."
+      ],
+      "evidence": [
+        "loop over kit forms, SessionStart, /usr/bin/python3 vs python3:",
+        "  method_old = \"openspec\" / method = \"none\": output <- /usr/bin/python3, nothing <- python3",
+        "  specs.method = \"openspec\": nothing <- /usr/bin/python3, output <- python3",
+        "  method = \"openspec#1\": output <- /usr/bin/python3, nothing <- python3"
+      ],
+      "failing_case": [
+        "Under /usr/bin/python3 (3.9.6, the version the docstring names):",
+        "- `[specs]\\nmethod_old = \"openspec\"\\nmethod = \"none\"` -> 3.9 gives the rule (prefix \"method\" matches), tomllib gives nothing.",
+        "- `specs.method = \"openspec\"` (dotted key) -> 3.9 nothing, tomllib the rule.",
+        "- `[specs]\\nmethod = \"openspec#1\"` -> 3.9 the rule (\"#\" cut inside the string), tomllib nothing.",
+        "Expected: the same answer as tomllib for any kit.toml."
+      ],
+      "fix_hint": [
+        "Match the key exactly (`key.strip() == \"method\"`), strip a trailing comment only outside quotes, and add a test that",
+        "calls project_method with tomllib import forced to fail."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 54,
+      "pass_cases": [
+        "- `[specs]\\nmethod = \"openspec\"   # comment` under 3.9 and 3.11+ -> the rule (what relay setup writes; works today).",
+        "- `[specs]\\nmethod_old = \"openspec\"\\nmethod = \"none\"` under 3.9 -> silent.",
+        "- `specs.method = \"openspec\"` under 3.9 -> the rule, or documented as unsupported.",
+        "- a test runs the fallback path (forcing the ImportError branch) on these inputs."
+      ],
+      "path": "plugins/openspec/hooks/spec-rule.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_openspec_hook.py:118 runs both readers, fails without fix, passes."
+      ],
+      "severity": "LOW",
+      "since": "16786a81c272d6370d347cfc68dc1a35c79034ca",
+      "source": "review-openspec-plugin.json",
+      "source_id": "F3",
+      "summary": "the python 3.9 fallback reader of [specs] method disagrees with tomllib on some kit.toml forms and no test runs it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the test: the name promises the subfolder case, the body only proves the no-git fallback.",
+        "Size: 5."
+      ],
+      "evidence": [
+        "tests/test_openspec_hook.py:84-90: \"no kit.toml in src and no git: src is the root, so the method is unset there\"; self.assertIsNone(out)"
+      ],
+      "failing_case": [
+        "The test makes a plain folder with .claude/kit.toml (method on) and runs SessionStart from its src/ subfolder; it",
+        "asserts None. The ordinary case, a session started in a subfolder of a git project whose root kit.toml has the method,",
+        "is never run: if project_root stopped using `git rev-parse --show-toplevel`, every test still passes while such a",
+        "session loses the rule. Expected: a test that `git init`s the temp project and asserts the rule from src/."
+      ],
+      "fix_hint": [
+        "Add `git init -q` on self.root in a second test and assert the SessionStart text from src/."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 84,
+      "pass_cases": [
+        "- git-initialised temp project with method on, SessionStart cwd=<root>/src -> the rule text.",
+        "- plain folder (no git) with method on at its root, cwd=<root>/src -> silent (today's assertion).",
+        "- git project, cwd=<root> -> the rule text."
+      ],
+      "path": "tests/test_openspec_hook.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_openspec_hook.py:92 git-inits the project and passes; the case was a missing test, so it passes on old code too."
+      ],
+      "severity": "LOW",
+      "since": "16786a81c272d6370d347cfc68dc1a35c79034ca",
+      "source": "review-openspec-plugin.json",
+      "source_id": "F4",
+      "summary": "test_the_hook_runs_in_a_subfolder_of_the_project never runs in a git project, so the git top-level lookup is untested",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "afc0a6fa0034fed1f44308e4ca8956f124d0b78f.gate.log",
+  "head": "6106a0a578f3773d64497009a7a605275e392ca8",
+  "item": null,
+  "notes": [
+    "Tests run at the pre-fix commit: F1, F2, F3 tests and the layout test fail there; F4 test passes there because the finding was a missing test of existing behaviour."
+  ],
+  "schema": 2,
+  "scope": [
+    "relay changed --own since 16786a81c272: all files are finding files, their tests, or bin/ci and bin/sync-lib-copies (needed for the relay_toml copy). Ran test_openspec_hook and test_eval_system_rules (24 pass). Gate log head afc0a6f, exit 0 (quick mode); HEAD only adds the gate log."
+  ],
+  "type": "check"
+}
