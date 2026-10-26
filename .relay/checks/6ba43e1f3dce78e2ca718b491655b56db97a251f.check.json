@@ -1,0 +1,157 @@
+{
+  "branch": "wt/relay-home",
+  "findings": [
+    {
+      "details": [
+        "Found 26 Oct while answering the owner's install question: install.sh:21 `home=\"${RELAY_HOME:-$HOME/relay}\"` (the code), lib/relay_config.py \"HOME_DIR: ~/.relay (RELAY_HOME overrides)\" (the state). Setting RELAY_HOME for one breaks the other.",
+        "Also: lib/relay_config.py RELAY_HOME as the state folder ~/.relay"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "RELAY_HOME=/tmp/x sh install.sh --dry-run looks for deps.toml in /tmp/x, while relay itself would put its ledger there."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 21,
+      "pass_cases": [
+        "install.sh reads RELAY_ROOT for the code folder; RELAY_HOME means only the state folder everywhere (git grep RELAY_HOME shows one meaning)."
+      ],
+      "path": "install.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_installer_doctor.py:209-233 CodeFolder test: RELAY_HOME at a deps.toml folder exits 1 with RELAY_ROOT hint, RELAY_ROOT exits 0; fails at b94850c, passes on head."
+      ],
+      "severity": "HIGH",
+      "since": "b94850ccf2f84cf799504949552af20d0184eb86",
+      "source": "queue",
+      "summary": "RELAY_HOME means two different folders",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. Routes, PythonStep and BrokenAndMissing subclass InstallScript for its helpers, so every test method defined on InstallScript runs",
+        "in each of them with identical setup (their overrides do not touch the folder lookup). Project principle 2: waste that repeats on every run",
+        "is MEDIUM. Cost is small (about 0.3 s per run), but the rule sets no threshold. The two older InstallScript tests have the same problem; that",
+        "predates the change and is F2 (outside). Size: 5 minutes."
+      ],
+      "evidence": [
+        "~/.local/bin/pytest tests/test_installer_doctor.py -q -k RELAY_ROOT --collect-only",
+        "  tests/test_installer_doctor.py::InstallScript::test_code_folder_is_RELAY_ROOT_not_RELAY_HOME",
+        "  tests/test_installer_doctor.py::Routes::test_code_folder_is_RELAY_ROOT_not_RELAY_HOME",
+        "  tests/test_installer_doctor.py::PythonStep::test_code_folder_is_RELAY_ROOT_not_RELAY_HOME",
+        "  tests/test_installer_doctor.py::BrokenAndMissing::test_code_folder_is_RELAY_ROOT_not_RELAY_HOME",
+        "grep -n '^class ' tests/test_installer_doctor.py -> class Routes(InstallScript), class PythonStep(InstallScript), class BrokenAndMissing(InstallScript)"
+      ],
+      "failing_case": [
+        "pytest tests/test_installer_doctor.py -k RELAY_ROOT --collect-only collects 4 tests (InstallScript, Routes, PythonStep, BrokenAndMissing),",
+        "each running install.sh twice with the same input; it should collect 1."
+      ],
+      "fix_hint": [
+        "Move the test into its own class derived from Fakes (e.g. class CodeFolder(Fakes)), or into a class no other class inherits."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 183,
+      "pass_cases": [
+        "1. pytest tests/test_installer_doctor.py -k RELAY_ROOT --collect-only -> exactly 1 test collected.",
+        "2. That one test still fails on the merge base install.sh (RELAY_HOME at a folder with deps.toml -> exit 0 there, asserted 1).",
+        "3. That one test passes on HEAD: RELAY_HOME -> exit 1, stderr has \"deps.toml not found\" and \"RELAY_ROOT\"; RELAY_ROOT -> exit 0."
+      ],
+      "path": "tests/test_installer_doctor.py",
+      "rank": "medium",
+      "reason": [
+        "Test moved into its own class CodeFolder (tests/test_installer_doctor.py:209), collects once."
+      ],
+      "severity": "MEDIUM",
+      "since": "c3afd27ae62ed8414093832de31ff5b156d9d6d5",
+      "source": "review-relay-home.json",
+      "source_id": "F1",
+      "summary": "principle 2 (waste): the new test sits in InstallScript, which three classes inherit, so it runs 4 times per gate",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by --durations output (each appears under all four classes). Predates this change. Fix: move the helpers to a base class without",
+        "tests (or a mixin) and keep the test methods on a leaf class. Repeats every gate, so by principle 2 it is MEDIUM-grade waste in size,",
+        "rated LOW here only because it is about 0.6 s per run and outside the change; a queue fix item. Size: 15 minutes."
+      ],
+      "evidence": [
+        "~/.local/bin/pytest tests/test_installer_doctor.py -q --durations=0 | grep dry_run_lists -> 4 lines (InstallScript, PythonStep, Routes, BrokenAndMissing)"
+      ],
+      "failing_case": [
+        "pytest tests/test_installer_doctor.py -k \"dry_run_lists or second_run\" --collect-only collects 8 tests; it should collect 2."
+      ],
+      "fix_hint": [
+        "Split InstallScript into InstallHelpers(Fakes) (run, snapshot) and InstallScript(InstallHelpers) with the tests; subclasses derive from InstallHelpers."
+      ],
+      "id": "F2",
+      "kind": "outside",
+      "line": 206,
+      "pass_cases": [
+        "1. test_dry_run_lists_what_is_missing_and_changes_nothing and test_a_second_run_with_everything_there_installs_nothing each collected once.",
+        "2. Routes, PythonStep and BrokenAndMissing keep their own tests and still reach the helpers (run, snapshot) they use today."
+      ],
+      "path": "tests/test_installer_doctor.py",
+      "rank": "low",
+      "reason": [
+        "Fixer lists it as a queue item; older tests running 4 times is outside this change. Agree."
+      ],
+      "severity": "LOW",
+      "since": "c3afd27ae62ed8414093832de31ff5b156d9d6d5",
+      "source": "review-relay-home.json",
+      "source_id": "F2",
+      "summary": "the two older InstallScript tests also run 4 times each because three classes inherit InstallScript",
+      "verdict": "OUTSIDE"
+    },
+    {
+      "details": [
+        "PLAUSIBLE as a breach: the source does use $HOME plus a relative path, which may be all the owner meant (no hard-coded folder), and printing",
+        "the folder actually searched helps. Read strictly (\"in any message ... you touch\"), the person reads two absolute paths. LOW: cheap either",
+        "way; the owner's reading decides. Size: 5 minutes."
+      ],
+      "evidence": [
+        "install.sh:26 echo \"... or in $root; put the relay folder at $HOME/relay first (or set RELAY_ROOT)\" inside double quotes, so both expand."
+      ],
+      "failing_case": [
+        "HOME=/Users/x, RELAY_ROOT unset, install.sh copied to a folder without deps.toml: stderr is",
+        "\"install.sh: deps.toml not found next to this script or in /Users/x/relay; put the relay folder at /Users/x/relay first (or set RELAY_ROOT)\".",
+        "Under the owner's 26 Oct decision (\"\u043d\u0435 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439 \u043f\u0440\u044f\u043c\u043e\u0439 \u043f\u0443\u0442\u044c, \u043e\u043f\u0438\u0440\u0430\u0439\u0441\u044f \u043d\u0430 \u043e\u0442\u043d\u043e\u0441\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u043f\u0443\u0442\u044c + \u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u0443\u044e \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f\") the hint would read",
+        "\"put the relay folder at $HOME/relay first (or set RELAY_ROOT)\" literally."
+      ],
+      "fix_hint": [
+        "Escape the hint: ... put the relay folder at \\$HOME/relay first (or set RELAY_ROOT). Keep \"$root\" expanded or write \\$RELAY_ROOT."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 26,
+      "pass_cases": [
+        "1. RELAY_ROOT unset, no deps.toml: stderr contains the literal text \"$HOME/relay\" and \"RELAY_ROOT\".",
+        "2. RELAY_ROOT=<tmp>/code holding deps.toml: exit 0 under --dry-run (unchanged).",
+        "3. RELAY_HOME=<tmp>/code holding deps.toml, RELAY_ROOT unset: exit 1, stderr names RELAY_ROOT (unchanged)."
+      ],
+      "path": "install.sh",
+      "rank": "low",
+      "reason": [
+        "Message prints expanded $root and $HOME/relay; whether the owner wants the literal variable form is the owner's reading. LOW."
+      ],
+      "severity": "LOW",
+      "since": "c3afd27ae62ed8414093832de31ff5b156d9d6d5",
+      "source": "review-relay-home.json",
+      "source_id": "F3",
+      "summary": "the touched error message prints absolute paths ($root and $HOME expand), where the owner asked for variable plus relative path",
+      "verdict": "GAP"
+    }
+  ],
+  "gate": "befc6381924136743a06a43afbfcaf7581b6f530.gate.log",
+  "head": "6ba43e1f3dce78e2ca718b491655b56db97a251f",
+  "item": "relay-home-means-two-different-folders",
+  "notes": [
+    "git grep: other RELAY_HOME uses are the state folder. No callers of install.sh's variable remain."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range b94850c..HEAD; own changed files install.sh and tests/test_installer_doctor.py. Ran test_installer_doctor.py (30 passed). Copied the test file to a worktree at b94850c: CodeFolder test fails there. Gate log head befc638 exit 0; relay changed lists no file after it."
+  ],
+  "type": "check"
+}
