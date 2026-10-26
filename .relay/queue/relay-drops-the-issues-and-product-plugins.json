@@ -1,0 +1,28 @@
+{
+  "kind": "feature",
+  "ip": 88,
+  "time": 90,
+  "found_at": "2026-10-26T18:06:09Z",
+  "found_in": "relay queue add",
+  "title": "relay drops the issues and product plugins",
+  "what": [
+    "relay keeps only the plugins relay itself uses (core, delegate, front, observe) plus openspec; the issues and product plugins, setup's flags and code paths that turn them on, their tests and docs go; nothing else changes. Queue items that only make sense with them are dropped with a reason when this lands: setup-never-sees-a-phoenix-project-as-person-fac, issues-flow-in..., issue-bindings...."
+  ],
+  "why": [
+    "Owner, 27 Oct small hours: \"Хочу убрать плагины которые не используются самим relay, кроме openspec\". Facts that night: relay's own sessions enable core, delegate, front and observe (global settings); plugins/issues holds skills create, implement, merge, read and flow.json (87 lines); plugins/product holds the ui-reviewer agent, the look-review skill and scripts/measure.mjs (a Node script; relay uses bun, not Node); lib/relay_setup.py turns them on through the issues flow and --product. Git history keeps both. Build before the-core-plugin-becomes-relay-amidman (both change marketplace.json and setup). IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "plugins/issues",
+    "plugins/product",
+    ".claude-plugin/marketplace.json",
+    "lib/relay_setup.py (flow issues, --flow, --product/--no-product, OFF_OWNER, ui-reviewer role)",
+    "tests/test_setup_off.py, tests/test_roles.py, tests/test_agents.py, plugins/core/tests/kit.test.sh",
+    "README.md, docs/flows.md, docs/variants/ui-reviewer.md, docs/plans/review-gate.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
