@@ -22,8 +22,8 @@
     "evals/plugin/design-track/ the eval case, its prompt and graders",
     "evals/plugin/it-terms-ru/ the eval case, its prompt and graders"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T03:29:52Z",
+  "taken_by": "wt/red-wave",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
