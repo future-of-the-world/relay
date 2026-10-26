@@ -208,7 +208,7 @@ while IFS=$SEP read -r kind a b; do
         # a session already working inside that worktree moves nowhere by cd'ing within it
         wtroot="${a#"$main/$wtdir/"}"; wtroot="$main/$wtdir/${wtroot%%/*}"
         case "$cwd" in "$wtroot" | "$wtroot/"*) continue ;; esac
-        [ -n "$agent" ] || block "cd into a worktree moves this session's working folder there and keeps it there; use git -C $a ... or absolute paths instead."
+        [ -n "$agent" ] || { echo "guard-main: cd into a worktree moves this session's working folder there and keeps it there; use git -C $a ... or absolute paths instead." >&2; exit 2; }
       esac
       ;;
     W)

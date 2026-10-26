@@ -35,6 +35,22 @@ class FrontCd(unittest.TestCase):
         for command in (f"cd {self.wt}; ls", f"cd {self.wt} && ls", f"cd {self.wt}", f"cd {self.wt}/sub/.."):
             self.assertEqual(self.run_hook(command), 2, command)
             self.assertIn("git -C", self.last)
+            self.assertNotIn("Work in a worktree instead", self.last)  # F2
+
+    def test_cd_in_a_child_shell_or_pipe_stage_is_allowed(self) -> None:
+        # F1: bash -c, sh -c and each pipe stage run in a child, so the session folder does not move
+        for command in (f"bash -c 'cd {self.wt} && ls'", f'sh -c "cd {self.wt}; make"', f"cd {self.wt} | cat",
+                        f"ls | cd {self.wt}"):
+            self.assertEqual(self.run_hook(command), 0, command)
+
+    def test_eval_and_braces_still_move_the_session(self) -> None:
+        for command in (f"eval cd {self.wt}", f"{{ cd {self.wt}; ls; }}"):
+            self.assertEqual(self.run_hook(command), 2, command)
+            self.assertIn("git -C", self.last)
+
+    def test_worktree_advice_stays_for_main_writes(self) -> None:
+        self.assertEqual(self.run_hook("git commit -m x"), 2)
+        self.assertIn("Work in a worktree instead", self.last)
 
     def test_other_commands_run(self) -> None:
         for command in (f"git -C {self.wt} status", f"ls {self.wt}", f"(cd {self.wt} && ls)", "cd /tmp && ls"):

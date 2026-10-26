@@ -640,7 +640,7 @@ def shell_writes(name, args, paths, cur, via_xargs):
     return []
 
 
-def analyze(cmd, cwd, flags, depth=0, merges=None, env=None):
+def analyze(cmd, cwd, flags, depth=0, merges=None, env=None, same_shell=True):
     out = []
     inherited = set(env or {})  # variables set by the command that runs this string
     states = [State(cwd, env)]
@@ -712,7 +712,9 @@ def analyze(cmd, cwd, flags, depth=0, merges=None, env=None):
                 if name == "pushd":
                     st.stack.append(cur)
                 st.prev, st.cur = cur, new
-                if len(states) == 1 and name in ("cd", "pushd"):
+                # D: a cd in the session's own shell; a child shell (bash -c) or a pipe stage cannot move the session
+                piped = around[1] == "|" or around[0].rstrip().endswith("|")
+                if same_shell and not piped and len(states) == 1 and name in ("cd", "pushd"):
                     out.append(("D", new))
             return
         if name == "git":
@@ -757,9 +759,9 @@ def analyze(cmd, cwd, flags, depth=0, merges=None, env=None):
             if name in SHELLS:
                 k = next((k for k, w in enumerate(real) if k > 0 and re.match(r"^-[A-Za-z]*c[A-Za-z]*$", w.text)), None)
                 if k is not None and k + 1 < len(real):
-                    out.extend(analyze(real[k + 1].text, cur, flags, depth + 1, merges, st.env))
+                    out.extend(analyze(real[k + 1].text, cur, flags, depth + 1, merges, st.env, False))
             elif name == "eval" and len(real) > 1:
-                out.extend(analyze(" ".join(w.text for w in real[1:]), cur, flags, depth + 1, merges, st.env))
+                out.extend(analyze(" ".join(w.text for w in real[1:]), cur, flags, depth + 1, merges, st.env, same_shell))
             elif name == "xargs":
                 k = 1
                 while k < len(real) and real[k].text.startswith("-"):
