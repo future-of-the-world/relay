@@ -1232,3 +1232,43 @@ relay has no bin/check; the worker's check is pytest or the gate.
 
 Next: after the paid run is green, relay sync, wave digest; merge wt/relay-plugins; then the core rename alone; then the
 portable items (2, 3-5, 6) as their files free up.
+
+## STATE 26 Oct evening (session 3207dc59, ~353k tokens)
+
+Merged since the afternoon: setup-wt-market (setup from a worktree registers the marketplace at the main checkout),
+rules-wt (global rule paths name the main checkout), red-wave (26 Oct red paid run: gender rule sentence + grader, eval
+grant `--allow-tools Bash Agent Write` in bin/ci, design-track ends at the agent call), train-18 = tests-tmp (every test
+gets temporary HOME/CLAUDE_CONFIG_DIR/RELAY_HOME under pytest and unittest via tests/tmp_default.py, tests/run_unittest.py;
+uv cache kept) + fix-first (queue order: fix before feature, then ip; a new fix without --ip gets 0), setup-scope
+(`relay setup <dir>` writes only the project; global only via --global/install; --off turns plugins off per project;
+one ALWAYS_ON list; reserved folder names). Closed: six-agents, setup-off feature (evidence dc1bef1).
+
+Owner decisions (verbatim):
+- "Нет я подумал что всё таки испытывать openspec плагин не стоит на relay, он заточен под другое, включим позже если потребуется".
+- core rename: "Хорошо, давай relay@amidman" (item the-core-plugin-becomes-relay-amidman; build alone).
+- setup global part: "A" (project setup never touches global files) after "почему ты настаиваешь на выводе списком"; then "Сделай это fix".
+- install: "Полностью согласен с твоими рекомендациями": code in ~/.relay/src, state beside it; `relay update` keeps the
+  user's edits and stops on conflict; plugins from relay's folder (directory marketplace); one command `curl | sh`.
+  Then "При установке через install.sh | sh, сам установочный скрипт хранится в репозитории, не отдельно".
+- "Для тестирования ты можешь использовать изолированные окружения, контейнеры alpine" -> item install-and-setup-are-tested-in-a-clean-containe.
+- Asked for time analysis per change; threshold "незначительным считаю все что меньше 25%". Result: gate 45-62% of a
+  cycle; inert reruns the whole gate (22-36%); tests on 1 of 12 cores -> fix item the-gate-runs-its-work-twice-in-a-row-on-one-cor (ip 95).
+- The owner killed a leaked test gate (pid 72877) on request.
+Front decisions (owner can reverse): pronoun after a gloss is no breach; design-track ends at the agent call; eval grant
+gets Write (one-word bin/ci edit, Python port left to the gate-speed item); tests hardlink fake tools (macOS scans each
+new executable ~0.75 s); new fix default ip 0; marketplace path stays in project settings (item setup-in-a-shared-repo).
+
+Running: the wave's full paid run (bin/ci in background, log scratchpad/ci-wave2.log, started at master before
+setup-scope; setup-scope has no rule/agent texts). Next: when green, `relay sync` from the main checkout, then the wave
+digest (owner asked earlier for one digest per wave). If red: one fix item at the top.
+
+Queue (26 Oct evening): 48 fix, 35 feature. Top fixes: a-test-leaves-a-real-gate-running (96), python-rule-tests-never-
+touch-the-live-relay-que (94), tests-write-new-executables-macos-scans (94), the-gate-runs-its-work-twice (95, after the
+inert-flake item), setup-in-a-worktree-rewrites-main-checkout-rules (95), the-front-s-cd-into-a-worktree (93),
+a-red-paid-run-keeps-no-traces (93), running-test-spec-steps-before-test-license (93), the-paid-run-estimate-misses (92),
+relay-home-means-two-different-folders (90). After fixes: relay-s-repo-records-the-plugins (needs the sync-local fix),
+then the core rename alone.
+
+Lessons: gate-waiting runner agents ran out of turns 3 times (gates now 25-60 min); the scripts now give them 40 turns
+and a "still running" report; the front can run a gate itself with run_in_background. A test leaked a real gate that held
+a machine slot for 3.7 h. The front `cd`-ed into worktrees twice (red-wave stays locked by this session).
