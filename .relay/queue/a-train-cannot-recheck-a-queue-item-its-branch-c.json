@@ -23,8 +23,8 @@
     "lib/relay_queue.py (taken_by, held_fix_items)",
     "relay check findings (Item: none on a train)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T22:43:29Z",
+  "taken_by": "wt/train-recheck",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
