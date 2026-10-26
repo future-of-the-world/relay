@@ -1373,3 +1373,18 @@ ledger hook adds the stage label and seven token fields at agent stop (design-de
 off switch proposed is one project setting written by `relay setup --off metrics` (records off) plus RELAY_COVERAGE=off
 (coverage only); awaiting the owner's word on the switch before the build. Context at ~351k: next session continues
 from the "early morning" state above.
+
+Addendum 27 Oct morning (2): off switch for metrics: "Хорошо" to a (`relay setup --off metrics` writes
+`[metrics] record = false` in the project's kit.toml; RELAY_COVERAGE=off stays for coverage only). On coverage the
+owner said: "Помни что само покрытие coverage.py не общее для всех, это лишь инструмент для получения покрытия для
+конкретной технологии" and "как мы отслеживаем покрытие кодовой базы, есть разные инструменты для этого, мы должны иметь
+способ динамически получать его для разных проектов". Front's proposal, awaiting the owner: a) a project setting names
+its coverage report path and format (LCOV or Cobertura, which coverage.py, Go via a converter, Jest/c8/istanbul and
+cargo llvm-cov all write; relay parses both with the stdlib; changed-line coverage from the report against the diff)
+instead of b) the design's invented `coverage <repo> changed <changed>` line. The design (design-dev-metrics.md 2.4) is
+revised to the owner's pick before the build. The ledger/record overlap is deliberate: the record copies only the
+change's agents (stage, role, model, start, seconds, requests, tokens), because the ledger is machine-local, mixes
+projects and holds prompts.
+20-run proof: scratchpad/proof20/proof20.py (takes the worktree lock and a slot via lib/relay_gate.py, runs
+RELAY_GATE=HEAD bin/ci --quick in .worktrees/proof20, logs run-<i>.log and summary.tsv, stops at the first red); trial
+run 1: 492 s, library tests 291 s, green. The 20 runs started 27 Oct morning in the front's background.
