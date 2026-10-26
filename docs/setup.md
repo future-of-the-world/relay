@@ -3,7 +3,7 @@
 ## A new project
 
 ```sh
-relay setup ~/new-project [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--license <SPDX id> [--holder <name>]]
+relay setup ~/new-project [--flow issues|none] [--specs openspec|none] [--product|--no-product] [--off <name@marketplace>]... [--license <SPDX id> [--holder <name>]]
 ```
 
 Detects the stack (bun, pnpm, mix, cargo, go, python), the default branch,
@@ -11,13 +11,19 @@ an `openspec/` folder, issue skills, a screen. Writes what is missing and
 never overwrites:
 
 - `.claude/kit.toml` with `[project]`, `[gate]`, `[flow]`, `[delegate]`,
-  `[observe]` (and `[issues]` or `[product]` when they apply);
+  `[observe]` (and `[issues]` or `[product]` when they apply). A project that already has a kit.toml
+  gets only the sections whose value is not what a missing section means: `[flow]` for a flow other than
+  `none`, `[specs]` for a method other than `none`;
 - `.claude/settings.json`: the relay marketplace and the plugins for the
   flow (`core`, `observe`, `delegate`, `front`, + `openspec` / `issues` /
-  `product`), `Bash(kit:*)` allowed; a backup of the old file in `<git dir>/relay-backup/` (none when git holds the file unchanged: `git restore` it);
+  `product`), `Bash(kit:*)` allowed. Relay's plugins the project does not use get `false`, and so does each plugin of
+  another marketplace named with `--off <name@marketplace>` (repeat the flag; the id must be one Claude Code's registry
+  knows, e.g. `--off gopls-lsp@claude-plugins-official`). A `false` in the project's file beats the user's `true`.
+  A re-run keeps a key that is already there, except where the run's flags or kit.toml decide it; `relay doctor`
+  lists the plugins that are off and reports a FIX when `core`, `observe`, `delegate` or `front` is off for the project; a backup of the old file in `<git dir>/relay-backup/` (none when git holds the file unchanged: `git restore` it);
 - `bin/check`, `bin/ci`, `bin/wt` from templates that follow the contract,
-  with `TODO` where the stack's commands go;
-- `CLAUDE.md` skeleton and `docs/handover.md`;
+  with `TODO` where the stack's commands go, and a `CLAUDE.md` skeleton and `docs/handover.md`: all of these only on
+  a project's first setup (when it has no kit.toml yet). Later a missing script is a to-do line and a doctor FIX;
 - the project in `projects.toml`, then `relay sync` writes its
   `CLAUDE.local.md` (never committed);
 - the flow plugins (`openspec`, `issues`, `product`) installed at project scope

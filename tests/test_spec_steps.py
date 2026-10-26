@@ -242,7 +242,7 @@ class TurnOnAndOff(Scratch):
         self.assertIn('method = "openspec"', open(os.path.join(root, ".claude", "kit.toml")).read())
         self.run_setup(root, specs="none")
         settings = json.load(open(os.path.join(root, ".claude", "settings.json")))
-        self.assertNotIn("openspec@relay", settings["enabledPlugins"])
+        self.assertIs(settings["enabledPlugins"]["openspec@relay"], False)   # turned off: kept as false, not deleted (design T6)
         self.assertEqual(calls, [("install", "openspec@relay"), ("uninstall", "openspec@relay")])
         self.assertIn('method = "none"', open(os.path.join(root, ".claude", "kit.toml")).read())
         self.assertEqual(self.tree_hash(os.path.join(root, "openspec")), before)   # byte for byte

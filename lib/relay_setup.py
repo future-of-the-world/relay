@@ -200,6 +200,11 @@ def bindings_text(d, flow, product, specs="none"):
 
 def set_specs(root, method):
     """Write [specs] method in kit.toml: replace the line when the section is there, else add the section."""
+    return set_key(root, "specs", "method", method)
+
+
+def set_key(root, name, key, value):
+    """Write `key = "value"` in the [name] section of kit.toml: replace the line when the section has it, else add it; True when the file changed."""
     path = bindings_path(root)
     text = open(path, encoding="utf-8").read()
     lines = text.split("\n")
@@ -207,22 +212,22 @@ def set_specs(root, method):
     for line in lines:
         m = re.match(r"\s*\[([^\]]+)\]", line)
         if m:
-            if section == "specs" and not written:
-                out.append(f'method = "{method}"')
+            if section == name and not written:
+                out.append(f'{key} = "{value}"')
                 written = True
             section = m.group(1).strip()
-            seen_section = seen_section or section == "specs"
-        elif section == "specs" and re.match(r"\s*method\s*=", line):
-            line, written = f'method = "{method}"', True
+            seen_section = seen_section or section == name
+        elif section == name and re.match(r"\s*" + re.escape(key) + r"\s*=", line):
+            line, written = f'{key} = "{value}"', True
         out.append(line)
-    if section == "specs" and not written:
+    if section == name and not written:
         while out and out[-1] == "":
             out.pop()
-        out += [f'method = "{method}"', ""]
+        out += [f'{key} = "{value}"', ""]
         written = True
     new = "\n".join(out)
     if not seen_section:
-        new = text.rstrip("\n") + f'\n\n[specs]\nmethod = "{method}"\n'
+        new = text.rstrip("\n") + f'\n\n[{name}]\n{key} = "{value}"\n'
     if new != text:
         backup(path)
         with open(path, "w", encoding="utf-8") as handle:
@@ -241,18 +246,20 @@ def set_license(root, license_id, holder, todo):
         return []
 
 
-def merge_bindings(root, flow, specs="none", force_specs=False):
-    """Add the relay sections a kit.toml lacks, without touching what is there. `force_specs` rewrites an existing [specs] method."""
+def merge_bindings(root, flow, specs="none", force_specs=False, force_flow=False, spec_folder=False):
+    """Add the relay sections a kit.toml lacks, only where the value differs from what a missing section means, without touching what is
+    there. `[flow]` is added for a flow other than "none"; `[specs]` for a method other than "none", or when `force_specs` (the run said
+    --specs) or `spec_folder` (an openspec/ folder would otherwise turn the steps on) holds. [delegate] and [observe] equal relay_defaults()
+    and are never added. `force_flow` / `force_specs` rewrite an existing [flow] kind / [specs] method."""
     path = bindings_path(root)
     text = open(path, encoding="utf-8").read()
     cfg = tomllib.loads(text)
     added = []
-    blocks = {
-        "flow": f'\n[flow]\nkind = "{flow}"\n',
-        "specs": f'\n[specs]\nmethod = "{specs}"\n',
-        "delegate": '\n[delegate]\ntyped_only = true\nfork_limit = 100000\nmax_parallel = 4\nbuild_tier_opus = "escalate"\n',
-        "observe": "\n[observe]\nenabled = true\nlog_prompts = false\n",
-    }
+    blocks = {}
+    if flow != "none":
+        blocks["flow"] = f'\n[flow]\nkind = "{flow}"\n'
+    if specs != "none" or force_specs or spec_folder:
+        blocks["specs"] = f'\n[specs]\nmethod = "{specs}"\n'
     for key, block in blocks.items():
         if key not in cfg:
             text = text.rstrip("\n") + "\n" + block
@@ -261,6 +268,8 @@ def merge_bindings(root, flow, specs="none", force_specs=False):
         backup(path)
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(text)
+    if force_flow and "flow" not in added and "flow" in cfg and set_key(root, "flow", "kind", flow):
+        added.append("flow kind")
     if force_specs and "specs" not in added and set_specs(root, specs):
         added.append("specs method")
     return added
@@ -301,8 +310,54 @@ def migrate_kit_toml(root, names=None):
 
 # --- settings ---------------------------------------------------------------
 
+ALWAYS_ON = ("core", "observe", "delegate", "front")   # the one list of plugins every relay project has on (and the user scope installs)
+MARKETPLACE_FILE = os.path.join(ROOT, ".claude-plugin", "marketplace.json")
+OFF_OWNER = {"issues": "--flow", "openspec": "--specs", "product": "--product / --no-product"}   # which flag decides a relay plugin that is not always on
+
+
+def marketplace() -> tuple[str, list[str]]:
+    """(the marketplace's name, its plugin names) from .claude-plugin/marketplace.json; ValueError when the file does not fit."""
+    data = read_json(MARKETPLACE_FILE)
+    plugins = data.get("plugins") if isinstance(data, dict) else None
+    if not isinstance(data, dict) or not isinstance(data.get("name"), str) or not isinstance(plugins, list) or not all(isinstance(p, dict) and isinstance(p.get("name"), str) for p in plugins):
+        raise ValueError(f"{MARKETPLACE_FILE}: needs a name and plugins[].name")
+    return data["name"], [p["name"] for p in plugins]
+
+
+def plugin_key(name: str) -> str:
+    """`name@<marketplace name>`: the one place a relay plugin's key is built."""
+    return f"{name}@{marketplace()[0]}"
+
+
+def check_always_on() -> None:
+    """ValueError naming an always-on plugin that the marketplace does not list: a rename that missed one place must not write `false` for it."""
+    listed = marketplace()[1]
+    for name in ALWAYS_ON:
+        if name not in listed:
+            raise ValueError(f"the always-on plugin '{name}' is not in {MARKETPLACE_FILE}: fix ALWAYS_ON in lib/relay_setup.py or the marketplace")
+
+
+def check_off(off: list[str]) -> None:
+    """Refuse, before anything is written, an --off id that names a plugin of relay's own marketplace or one Claude Code's registry does not know."""
+    mname, listed = marketplace()
+    registry = read_json(os.path.join(relay_config.claude_dir(), "plugins", "installed_plugins.json")).get("plugins", {})
+    known = sorted(registry) if isinstance(registry, dict) else []
+    for key in off:
+        name, at, market = key.partition("@")
+        if not name or not at or not market:
+            raise ValueError(f"--off takes <name@marketplace>, not '{key}'")
+        if market == mname:
+            if name in ALWAYS_ON:
+                why = f"{key} is always on: core, observe, delegate and front are not turned off per project"
+            else:
+                why = f"{key} is decided by {OFF_OWNER.get(name, '--flow, --specs and --product')}"
+            raise ValueError(f"--off takes plugins of other marketplaces; relay's own are decided by --flow, --specs and --product: {why}")
+        if key not in known:
+            raise ValueError(f"--off {key}: Claude Code's registry does not know that plugin; known: {', '.join(known) or 'none'}")
+
+
 def relay_plugins_for(flow, specs, product):
-    plugins = ["core", "observe", "delegate", "front"]
+    plugins = list(ALWAYS_ON)
     if specs and specs != "none" and os.path.isdir(os.path.join(ROOT, "plugins", specs)):
         plugins.append(specs)
     if flow == "issues":
@@ -326,21 +381,36 @@ def names_moved_hook(command, moved):
     return first in moved
 
 
-def merge_settings(root, plugins, remove=(), moved_hooks=()):
-    """Enable `plugins`; drop the principles marketplace, the old plugin keys and the `remove` keys. `moved_hooks`: project hook paths
-    migrate moved aside in this run; only the commands that run them are dropped."""
+def merge_settings(root, plugins, remove=(), moved_hooks=(), forced_off=(), off=()):
+    """Write the project's enabledPlugins. Relay's plugins: old names move to the new key, the always-on and `plugins` are true,
+    `remove` (spec methods not chosen) and `forced_off` (a flag said so) are false, a key already there is kept, the rest are false.
+    Another marketplace's plugin changes only when named in `off`. `moved_hooks`: project hook paths migrate moved aside in this run;
+    only the commands that run them are dropped."""
     path = os.path.join(root, ".claude", "settings.json")
     data = read_json(path)
     before = json.dumps(data, sort_keys=True)
     enabled = data.setdefault("enabledPlugins", {})
-    gone = set(load_old_names()["plugin_key"]) | set(remove)
+    for old, new in load_old_names()["plugin_key"].items():   # step 1: an old key's value moves to the new key
+        if old in enabled:
+            value = enabled.pop(old)
+            enabled.setdefault(new, value)
     for key in list(enabled):
-        if key.endswith("@principles") or key in gone:
-            enabled.pop(key)   # the principles marketplace is replaced by relay; old and turned-off plugin keys go
-    for p in plugins:
-        enabled[f"{p}@relay"] = True
+        if key.endswith("@principles"):
+            enabled.pop(key)   # the principles marketplace is replaced by relay
+    mname, listed = marketplace()
+    uses = {plugin_key(p) for p in plugins}
+    for name in listed:   # step 2: the table
+        key = plugin_key(name)
+        if name in ALWAYS_ON or key in uses:
+            enabled[key] = True
+        elif key in remove or key in forced_off:
+            enabled[key] = False
+        elif key not in enabled:
+            enabled[key] = False
+    for key in off:
+        enabled[key] = False
     markets = data.setdefault("extraKnownMarketplaces", {})
-    markets["relay"] = {"source": {"source": "directory", "path": marketplace_root()}}
+    markets[mname] = {"source": {"source": "directory", "path": marketplace_root()}}
     markets.pop("principles", None)
     perms = data.setdefault("permissions", {})
     allow = perms.setdefault("allow", [])
@@ -380,7 +450,7 @@ def merge_settings(root, plugins, remove=(), moved_hooks=()):
 def global_problem():
     """Why the user's settings do not hold relay's marketplace at relay's main checkout, None when they do."""
     user = read_json(os.path.join(claude_dir(), "settings.json"))
-    entry = user.get("extraKnownMarketplaces", {}).get("relay")
+    entry = user.get("extraKnownMarketplaces", {}).get(marketplace()[0])
     if not entry:
         return "the relay marketplace is not in ~/.claude/settings.json"
     path = entry.get("source", {}).get("path") if isinstance(entry, dict) and isinstance(entry.get("source"), dict) else None
@@ -396,10 +466,10 @@ def merge_user_settings(plugins):
     path = os.path.join(claude_dir(), "settings.json")
     data = read_json(path)
     before = json.dumps(data, sort_keys=True)
-    data.setdefault("extraKnownMarketplaces", {})["relay"] = {"source": {"source": "directory", "path": marketplace_root()}}
+    data.setdefault("extraKnownMarketplaces", {})[marketplace()[0]] = {"source": {"source": "directory", "path": marketplace_root()}}
     enabled = data.setdefault("enabledPlugins", {})
     for p in plugins:
-        enabled[f"{p}@relay"] = True
+        enabled[plugin_key(p)] = True
     hooks = data.get("hooks", {})
     removed = []
     for event, groups in list(hooks.items()):
@@ -619,9 +689,6 @@ def relay_folder(root):
     return path, True
 
 
-USER_SCOPE_PLUGINS = ("core", "observe", "delegate", "front")
-
-
 def installed_for(root, key):
     """Is plugin `key` (name@marketplace) installed for the user, or for the project at `root`? Reads Claude's own registry."""
     reg = read_json(os.path.join(relay_config.claude_dir(), "plugins", "installed_plugins.json"))
@@ -665,13 +732,16 @@ def project_installed(root, key):
 
 
 def setup(root, flow=None, product=None, relay_dir=True, install_runner=None, specs=None, uninstall_runner=None,
-          moved_hooks=(), license_id=None, holder=None):
+          moved_hooks=(), license_id=None, holder=None, off=()):
     """Set one project up. `relay_dir=False` leaves `.relay/` out: `migrate` (even as a plan) must not turn the work queue and the
     merge checks on in a project the owner has not chosen (docs/setup.md: old projects are not given a .relay/ folder)."""
     import relay_rules
     root = os.path.realpath(root)
     names = load_old_names()
     methods = relay_rules.spec_methods()
+    off = list(off)
+    check_always_on()
+    check_off(off)
     if flow == "openspec":
         raise ValueError("spec steps are their own setting now: use --specs openspec")
     if specs is not None and specs != "none" and specs not in methods:
@@ -681,12 +751,15 @@ def setup(root, flow=None, product=None, relay_dir=True, install_runner=None, sp
             raise ValueError("--license needs --holder <name>")
         relay_license.license_text(license_id, holder, 2000)   # refuses an unknown id or a missing holder before anything is written
     d = detect(root)
+    first_setup = not d["has_bindings"]   # templates are written only for a project that had no kit.toml before this run
     done, todo = [], []
     if d["has_bindings"]:
         for line in migrate_kit_toml(root, names["kit_flow"]):
             done.append(f"kit.toml: {line}")
         d = detect(root)
-    flow = flow or d["flow"]
+    flow_explicit, product_off = flow is not None, product is False
+    kit_kind = d["bindings"].get("flow", {}).get("kind") if isinstance(d["bindings"].get("flow"), dict) else None
+    flow = flow or (kit_kind if isinstance(kit_kind, str) else None) or d["flow"]
     product = d["ui"] if product is None else product
     explicit = specs is not None
     auto_on = False
@@ -698,7 +771,7 @@ def setup(root, flow=None, product=None, relay_dir=True, install_runner=None, sp
     if not d["git"]:
         todo.append("the folder is not a git repository: `git init` first; relay's worktree rules need it")
     if d["has_bindings"]:
-        added = merge_bindings(root, flow, specs, force_specs=explicit)
+        added = merge_bindings(root, flow, specs, force_specs=explicit, force_flow=flow_explicit, spec_folder=auto_on)
         done.append(f"kept .claude/kit.toml; added sections: {', '.join(added) or 'none needed'}")
     else:
         os.makedirs(os.path.join(root, ".claude"), exist_ok=True)
@@ -708,9 +781,10 @@ def setup(root, flow=None, product=None, relay_dir=True, install_runner=None, sp
     if auto_on:
         done.append(f"spec steps are ON for this project because it has an openspec/ folder; turn them off with `relay setup {root} --specs none`")
     plugins = relay_plugins_for(flow, specs, product)
-    turned_off = [f"{m}@relay" for m in methods if m != specs]
-    changed, removed = merge_settings(root, plugins, remove=turned_off, moved_hooks=moved_hooks)
-    done.append(f".claude/settings.json: plugins {', '.join(p + '@relay' for p in plugins)} enabled" + (" (unchanged)" if not changed else ""))
+    turned_off = [plugin_key(m) for m in methods if m != specs]
+    forced_off = ([plugin_key("product")] if product_off else []) + ([plugin_key("issues")] if flow_explicit and flow == "none" else [])
+    changed, removed = merge_settings(root, plugins, remove=turned_off, moved_hooks=moved_hooks, forced_off=forced_off, off=off)
+    done.append(f".claude/settings.json: plugins {', '.join(plugin_key(p) for p in plugins)} enabled" + (f"; off: {', '.join(off)}" if off else "") + (" (unchanged)" if not changed else ""))
     for r in removed:
         done.append(f"  removed a hook the plugins now provide: {r}")
     unrunner = uninstall_runner or run_plugin_uninstall
@@ -721,18 +795,24 @@ def setup(root, flow=None, product=None, relay_dir=True, install_runner=None, sp
                 done.append(f"uninstalled {key} at project scope")
             else:
                 todo.append(f"{key} is still installed: run `claude plugin uninstall {key} --scope project` in {root}" + (f" (claude said: {why})" if why else ""))
+    gate = d["bindings"].get("gate", {}) if isinstance(d["bindings"].get("gate"), dict) else {}
     for script in ("check", "ci", "wt"):
-        if not d["scripts"][script]:
+        if d["scripts"][script]:
+            continue
+        if first_setup:
             if copy_template(f"bin-{script}", os.path.join(root, "bin", script), mode_exec=True, replacements={"tool": d["tool"], "stack": d["stack"], "branch": d["default_branch"]}):
                 done.append(f"wrote bin/{script} from the template")
                 todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO (the contract is in plugins/core/README.md)")
+        elif not os.path.isfile(os.path.join(root, gate.get(script, f"bin/{script}"))):
+            todo.append(f"{gate.get(script, f'bin/{script}')} (gate.{script}) is missing: setup writes templates only on a project's first setup; copy templates/bin-{script} or point [gate] {script} at your script")
     if license_id is not None:
         done += set_license(root, license_id, holder, todo)
-    if copy_template("CLAUDE.md", os.path.join(root, "CLAUDE.md"), replacements={"name": d["name"], "stack": d["stack"]}):
-        done.append("wrote CLAUDE.md (a skeleton: what the product is, the commands, the product surface)")
-        todo.append("CLAUDE.md: write what the project is in two lines, and its product surface if a person sees it")
-    if copy_template("handover.md", os.path.join(root, "docs", "handover.md"), replacements={"name": d["name"], "date": str(dt.date.today())}):
-        done.append("wrote docs/handover.md")
+    if first_setup:
+        if copy_template("CLAUDE.md", os.path.join(root, "CLAUDE.md"), replacements={"name": d["name"], "stack": d["stack"]}):
+            done.append("wrote CLAUDE.md (a skeleton: what the product is, the commands, the product surface)")
+            todo.append("CLAUDE.md: write what the project is in two lines, and its product surface if a person sees it")
+        if copy_template("handover.md", os.path.join(root, "docs", "handover.md"), replacements={"name": d["name"], "date": str(dt.date.today())}):
+            done.append("wrote docs/handover.md")
     if register_project(d["name"], main_checkout(root) or root, flow, product, specs):
         done.append(f"registered {d['name']} in projects.toml (loads: {flow} flow rules)")
     if strip_stored_spec_rules(d["name"]):
@@ -740,9 +820,9 @@ def setup(root, flow=None, product=None, relay_dir=True, install_runner=None, sp
     todo.append("in Claude Code, run `/plugin marketplace add " + marketplace_root() + "` once, then `/reload-plugins` (or restart) so the plugins load")
     runner = install_runner or run_plugin_install
     for p in plugins:
-        if p in USER_SCOPE_PLUGINS:
+        if p in ALWAYS_ON:
             continue
-        key = f"{p}@relay"
+        key = plugin_key(p)
         cmd = f"claude plugin install {key} --scope project"
         if installed_for(root, key):
             done.append(f"{key} already installed")
@@ -975,7 +1055,7 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
 
     checks.extend(dep_checks())
     user = read_json(os.path.join(claude_dir(), "settings.json"))
-    ok("relay marketplace in ~/.claude/settings.json", "relay" in user.get("extraKnownMarketplaces", {}), "relay setup --global")
+    ok("relay marketplace in ~/.claude/settings.json", marketplace()[0] in user.get("extraKnownMarketplaces", {}), "relay setup --global")
     problem = global_problem()
     ok("relay marketplace in ~/.claude/settings.json is relay's main checkout", problem is None, f"{problem} -> relay setup --global")
     for p in ("observe", "delegate", "front", "core"):
@@ -1034,6 +1114,15 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
         ok("no old binding", flow != old_flow["old_kind"] and cfg.get("flow", {}).get("plugin") != old_flow["old_plugin"] and not stale_keys,
            "old binding: " + ", ".join(([f'[flow] kind = "{flow}"'] if flow == old_flow["old_kind"] else []) + ([f'[flow] plugin = "{old_flow["old_plugin"]}"'] if cfg.get("flow", {}).get("plugin") == old_flow["old_plugin"] else []) + stale_keys) + f" -> relay setup {root}")
         ok(f"flow bound ({flow})", True, "")
+        for name in ALWAYS_ON:
+            key = plugin_key(name)
+            on = actual_on(root, key)
+            fix = f"claude plugin enable {key} --scope local" if off_scope(root, key) == "local" else f"relay setup {root}"
+            ok(f"{key} is on for this project", on, f"{key} is off for this project: the merge checks and the main-checkout guard do not run -> {fix}")
+        project_keys = set(enabled) | set(read_json(os.path.join(root, ".claude", "settings.local.json")).get("enabledPlugins", {}))
+        off_now = sorted({plugin_key(n) for n in marketplace()[1]} | project_keys)
+        off_now = [k for k in off_now if not actual_on(root, k)]
+        ok(f"plugins off for this project: {', '.join(off_now) or 'none'}", True, "")
         if flow not in ("none", old_flow["old_kind"]):
             manifest = flow_manifest(flow)
             ok(f"flow plugin for '{flow}' found", manifest is not None, "plugins/<plugin>/flow.json")
@@ -1050,7 +1139,7 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
         else:
             ok(f"spec method '{method}' known", method in methods, f"[specs] method = {method}: no spec method of that name (`relay flows` lists them)")
         for m in sorted(methods):
-            on, wanted = bool(enabled.get(f"{m}@relay")), method == m
+            on, wanted = actual_on(root, plugin_key(m)), method == m
             if on != wanted:
                 ok(f"spec steps and {m}@relay agree", False,
                    f"spec steps are {'`' + m + '`' if wanted else 'not `' + m + '`'} but {m}@relay is {'not enabled' if wanted else 'enabled'}: relay setup {root} --specs {m if wanted else 'none'}")
@@ -1073,6 +1162,23 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
     for line in unshipped_installs():
         ok("installed plugin still shipped", False, line)
     return checks
+
+
+def actual_on(root, key):
+    """Is plugin `key` on for the project at `root`, in Claude Code's own order: .claude/settings.local.json, else .claude/settings.json,
+    else the user's settings, else off."""
+    for path in (os.path.join(root, ".claude", "settings.local.json"), os.path.join(root, ".claude", "settings.json"),
+                 os.path.join(claude_dir(), "settings.json")):
+        plugins = read_json(path).get("enabledPlugins", {})
+        if isinstance(plugins, dict) and key in plugins:
+            return bool(plugins[key])
+    return False
+
+
+def off_scope(root, key):
+    """`local` when settings.local.json holds the key (so it is the one that decides), else `project`."""
+    local = read_json(os.path.join(root, ".claude", "settings.local.json")).get("enabledPlugins", {})
+    return "local" if isinstance(local, dict) and key in local else "project"
 
 
 def names_old_plugin(root, prefix):
@@ -1158,12 +1264,12 @@ def install(run_claude=True):
     results = relay_rules.sync(profile, only={"global", "agents", "settings"}, adopt="global", wait=False)   # install renders the head the owner chose; a fresh machine has no green record
     for name, path, state in results:
         done.append(f"{name}: {state} ({path})")
-    path, changed, removed = merge_user_settings(["core", "observe", "delegate", "front"])
+    path, changed, removed = merge_user_settings(list(ALWAYS_ON))
     done.append(f"{path}: relay marketplace + user-scope plugins" + ("" if changed else " (already)"))
     for r in removed:
         done.append(f"  removed a user hook the front plugin now provides: {r}")
     if run_claude and shutil.which("claude"):
-        cmds = [["claude", "plugin", "marketplace", "add", marketplace_root()]] + [["claude", "plugin", "install", f"{p}@relay", "--scope", "user"] for p in ("core", "observe", "delegate", "front")]
+        cmds = [["claude", "plugin", "marketplace", "add", marketplace_root()]] + [["claude", "plugin", "install", plugin_key(p), "--scope", "user"] for p in ALWAYS_ON]
         for cmd in cmds:
             try:
                 proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)

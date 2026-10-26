@@ -27,8 +27,9 @@
   relay migrate --all [--apply] [--primary]      the migration plan (or the move) for every known project
   relay setup --global [--no-claude]  the user's files, once per machine (same as relay install)
   relay setup [<dir>] [--flow issues|none] [--specs openspec|none] [--product|--no-product]
-              [--license <SPDX id> [--holder <name>]]
-                                     a project onto relay (new or existing; nothing deleted)
+              [--off <name@marketplace>]... [--license <SPDX id> [--holder <name>]]
+                                     a project onto relay (new or existing; nothing deleted; writes only the project)
+                                     --off turns a plugin of another marketplace off for this project (repeat for several)
                                      --license writes LICENSE and kit.toml [license]; without it nothing about licenses is written
   relay license add <SPDX id> [--holder <name>] [--year YYYY] [--headers code|config|docs] [-C <dir>]
                                      write LICENSE, LICENSES/<id>.txt, REUSE.toml and kit.toml [license] from the bundled exact
@@ -142,6 +143,18 @@ def flag(args, name, default=None, takes_value=True):
         del args[i]
         return True
     return default
+
+
+def flags(args, name):
+    """Every value of a repeated `name <value>` flag, removed from args; Usage when one has no value."""
+    values = []
+    while name in args:
+        i = args.index(name)
+        if i + 1 >= len(args) or args[i + 1].startswith("--"):
+            raise Usage(f"{name} needs a value")
+        values.append(args[i + 1])
+        del args[i:i + 2]
+    return values
 
 
 def cmd_status(args):
@@ -390,6 +403,9 @@ def cmd_setup(args, migrate=False):
         if migrate or any(a != "--no-claude" for a in args):
             raise Usage("--global takes nothing else: relay setup --global [--no-claude]")
         return cmd_install(args)
+    off = flags(args, "--off")
+    if off and migrate:
+        raise Usage("--off is a setup flag: relay setup <dir> --off <name@marketplace>")
     license_id = flag(args, "--license")
     holder = flag(args, "--holder")
     if holder is not None and license_id is None:
@@ -414,7 +430,7 @@ def cmd_setup(args, migrate=False):
             for src, dst in moved:
                 print(f"- {src} -> {dst}")
     else:
-        d, flow, product, done, todo = relay_setup.setup(root, flow=flow, specs=specs, product=product, license_id=license_id, holder=holder)
+        d, flow, product, done, todo = relay_setup.setup(root, flow=flow, specs=specs, product=product, license_id=license_id, holder=holder, off=off)
         print(f"# {d['name']} ({root}): set up")
     print(f"\nDetected: {d['stack']} ({d['tool'] or 'no tool'}), default branch {d['default_branch']}, flow {flow}, "
           f"{'a person-facing surface' if product else 'no person-facing surface'}.")
