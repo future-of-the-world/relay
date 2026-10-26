@@ -206,6 +206,32 @@ class InstallScript(Fakes):
         self.assertEqual([ln for ln in done.stdout.splitlines() if ln.startswith(("install", "  would"))], [])
 
 
+class CodeFolder(Fakes):
+    # own class: InstallScript is inherited by three classes, which would run this test four times
+    def test_code_folder_is_RELAY_ROOT_not_RELAY_HOME(self):
+        """RELAY_HOME is relay's state folder (lib/relay_config.py), so it must not point install.sh at deps.toml;
+        RELAY_ROOT, the code folder, does."""
+        lone = os.path.join(self.tmp, "lone")           # install.sh with no deps.toml beside it
+        os.makedirs(lone)
+        shutil.copy(os.path.join(ROOT, "install.sh"), lone)
+        code = os.path.join(self.tmp, "code")           # a folder that does hold deps.toml
+        os.makedirs(code)
+        shutil.copy(os.path.join(ROOT, "deps.toml"), code)
+        script = os.path.join(lone, "install.sh")
+
+        def run(var):
+            env = {k: v for k, v in os.environ.items() if k not in ("RELAY_HOME", "RELAY_ROOT")}
+            env[var] = code
+            env["PATH"] = self.saved["PATH"]    # real tools: this test is about the folder lookup only
+            return subprocess.run(["/bin/sh", script, "--dry-run"], capture_output=True, text=True, env=env, cwd=self.tmp)
+
+        state = run("RELAY_HOME")
+        self.assertEqual(state.returncode, 1, state.stdout)      # RELAY_HOME is state: deps.toml is not looked for there
+        self.assertIn("deps.toml not found", state.stderr)
+        self.assertIn("RELAY_ROOT", state.stderr)
+        self.assertEqual(run("RELAY_ROOT").returncode, 0)
+
+
 class Routes(InstallScript):
     """F1/F5: official installers first, Homebrew/apt only the fallback; the dry run names each route."""
 
