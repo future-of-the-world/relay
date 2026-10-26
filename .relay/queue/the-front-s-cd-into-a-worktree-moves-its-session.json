@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 93,
+  "time": 45,
+  "found_at": "2026-10-26T05:23:00Z",
+  "found_in": "relay queue add",
+  "title": "The front's cd into a worktree moves its session there",
+  "what": [
+    "A Bash command of the coordinating session that starts with `cd <a linked worktree>` (alone or before ; or &&) is refused with the message to use `git -C <worktree>` or absolute paths, because Claude Code then moves the session's working folder into that worktree and keeps it there."
+  ],
+  "why": [
+    "Seen 3 times on 25-26 Oct in session 3207dc59: a `cd` once locked the session into .worktrees/train-11; on 26 Oct `cd /Users/amidman/relay/.worktrees/tests-tmp; tail ...` and `cd /Users/amidman/relay/.worktrees/red-wave; sed ...` each moved the session's primary working folder into that worktree (\"Primary working directory: ... (was /Users/amidman/relay)\"). The user's rule already says \"Use git -C <worktree>, not cd\"; text alone did not stop it (principle 5: fact to code). IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "In the front session, `cd /Users/amidman/relay/.worktrees/x; ls` runs and the session's working folder becomes the worktree."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same command from the main session is refused with the git -C message; `git -C /Users/amidman/relay/.worktrees/x status` and `ls /Users/amidman/relay/.worktrees/x` run; a subagent working inside its worktree is not refused."
+  ],
+  "where": [
+    "plugins/core/hooks/guard-main.sh or the delegate routing guard: the PreToolUse check of the main session's Bash commands"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
