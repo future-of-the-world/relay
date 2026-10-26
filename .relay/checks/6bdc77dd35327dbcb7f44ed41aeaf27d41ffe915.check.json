@@ -1,0 +1,238 @@
+{
+  "branch": "wt/tests-tmp",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED (timed). bin/types-lint runs \"uv tool run mypy==1.18.2\" and \"uv tool run ruff@0.13.3\"; uv keeps its cache and",
+        "tool environments under $HOME (~/.cache/uv on macOS unless UV_CACHE_DIR or XDG_CACHE_HOME is set). With HOME set to a",
+        "fresh folder per test, every call resolves and downloads both tools again. tests/test_types_step.py runs it 4-5 times,",
+        "tests/test_gate.py's Inert fixture runs it through a copied gate, and bin/ci's inert probe runs the library tests a second",
+        "time, so the cost lands twice per gate. The gate time roughly doubled (1412 s vs about 550 s). Project principle 2:",
+        "waste that repeats on every run is MEDIUM and fixed before the merge. Size: 15 min."
+      ],
+      "evidence": [
+        "$ ~/.local/bin/pytest tests/test_types_step.py -q --durations=3 -p no:cacheprovider",
+        "86.36s call tests/test_types_step.py::TypesStep::test_front_hooks_are_strict",
+        "85.24s call tests/test_types_step.py::TypesStep::test_clean_copy_passes",
+        "5 passed in 408.81s (0:06:48)",
+        "$ python3 -m unittest tests.test_types_step",
+        "Ran 5 tests in 5.512s  OK",
+        "$ grep library .relay/checks/fd221e0da3866b67f1cc5cf9a0bee21e70c06b71.gate.log",
+        "ci: library tests ok (1412s)",
+        "master gates 2dcbe76..0e9299c: library tests ok (728s, 561s, 570s, 532s, 523s, 528s, 586s, 596s)"
+      ],
+      "failing_case": [
+        "~/.local/bin/pytest tests/test_types_step.py -q --durations=3  ->  5 passed in 408.81s; each test 79-86 s",
+        "  (test_front_hooks_are_strict 86.36s, test_clean_copy_passes 85.24s, test_unused_import_fails 79.34s).",
+        "The same tests with the real HOME (python3 -m unittest tests.test_types_step): Ran 5 tests in 5.512s.",
+        "Gate of fd221e0: \"library tests ok (1412s)\", \"inert ok (1240s)\"; master's last 8 gates: library tests 523-728 s,",
+        "inert 669-819 s. Offline, every bin/types-lint call under a test now fails (types-lint: \"no network for the first",
+        "download fails\"), so the free gate goes red with no network. Should: these tests take seconds, as before, and run",
+        "offline once uv has the tools."
+      ],
+      "fix_hint": [
+        "In temporary_environment (it is computed before the swap, so it can read the real values): keep uv's cache and tool",
+        "folders on the real ones, e.g. \"UV_CACHE_DIR\": os.environ.get(\"UV_CACHE_DIR\") or os.path.join(real_home, \".cache\", \"uv\"),",
+        "and likewise UV_TOOL_DIR / UV_PYTHON_INSTALL_DIR if uv tool run needs them; take real_home before HOME is replaced (pass",
+        "it in, or read os.path.expanduser(\"~\") inside the function before the caller sets HOME). uv's cache is not ~/.claude or",
+        "~/.relay, so the promise holds."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 14,
+      "pass_cases": [
+        "1. pytest tests/test_types_step.py with the default active: 5 passed, total under 30 s on a warm uv cache.",
+        "2. tests/test_temporary_folders.py still passes: claude_dir() and home_dir() are under the temporary HOME, the real",
+        "   ~/.claude and ~/.relay listings and mtimes unchanged.",
+        "3. Under the default, os.environ[\"HOME\"] is still the temporary folder (only uv's cache/tool location is carried over).",
+        "4. python3 tests/run_unittest.py and pytest give the same environment (one definition in tmp_default.temporary_environment)."
+      ],
+      "path": "tests/tmp_default.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_temporary_folders.py:47 asserts UV_CACHE_DIR kept; fails at base (KeyError), passes at head; test_types_step 5 tests now fast."
+      ],
+      "severity": "MEDIUM",
+      "since": "dd2bd2da1580903d6f58d3b6597aa134784d75b1",
+      "source": "review-tests-tmp.json",
+      "source_id": "F1",
+      "summary": "Principle 2 (waste, repeats every run): the temporary HOME gives uv a cold cache, so every types-lint test re-downloads mypy and ruff: 5.5 s becomes 409 s, and the library tests need the network on every run",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading bin/ci and running the proof test under plain unittest. The change rerouted lib_tests (line 28)",
+        "but left rules_tests (line 73), the second unittest runner in bin/ci. The listed tests set their own variables today, so",
+        "nothing leaks now; but the default exists exactly for the test that forgets, and a new rule test added to the text-only",
+        "list would write to the owner's folders in the short gate only. Size: 10 min."
+      ],
+      "evidence": [
+        "$ sed -n 72,73p bin/ci",
+        "rules_tests() { local t names; names=\"$(python3 lib/relay_textonly.py tests)\" || return 1",
+        "  python3 -W ignore::ResourceWarning -m unittest $names || return 1; python3 bin/relay sync --dry; }",
+        "$ python3 -m unittest tests.test_temporary_folders  -> FAILED (failures=1)",
+        "$ PYTHONPATH=tests python3 -c 'import tmp_default,unittest; tmp_default.patch_unittest(); unittest.main(module=None, argv=[\"u\",\"tests.test_temporary_folders\"])'  -> OK"
+      ],
+      "failing_case": [
+        "A change that edits only rules/*.md: bin/ci --quick takes the rules_tests path (line 72-73),",
+        "\"python3 -W ignore::ResourceWarning -m unittest $names\", with names from lib/relay_textonly.py (test_sync_refused,",
+        "test_session_profile, test_bench, test_paid_batch, ...). No patch_unittest runs there, so HOME, CLAUDE_CONFIG_DIR and",
+        "RELAY_HOME are the owner's real ones. The same command on the proof test: python3 -m unittest",
+        "tests.test_temporary_folders -> FAILED (failures=1), while the patched runner gives OK. Should: every runner bin/ci uses",
+        "gives the default, as the brief decided (\"a default, shared by every test\")."
+      ],
+      "fix_hint": [
+        "Let tests/run_unittest.py pass its own argv through (names given: run them; none: discover), and change line 73 to",
+        "python3 -W ignore::ResourceWarning tests/run_unittest.py $names. Run from the repo root, names like tests.test_rules need",
+        "the root on sys.path, which python3 tests/run_unittest.py does not add by itself (it adds tests/): add it."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 73,
+      "pass_cases": [
+        "1. tests/run_unittest.py accepts test names (python3 tests/run_unittest.py tests.test_temporary_folders -> OK), and",
+        "   rules_tests calls it with $names.",
+        "2. python3 tests/run_unittest.py with no names still runs discover over tests/ (the library tests step), same test count.",
+        "3. A short-gate run on a rules-only change (tests/test_rules_gate.py style) still records only \"rules text tests\" and",
+        "   passes.",
+        "4. bin/ci's inert probe gives the same results as before (lib copies of run_unittest.py/tmp_default.py are in the tree)."
+      ],
+      "path": "bin/ci",
+      "rank": "medium",
+      "reason": [
+        "tests/test_temporary_folders.py:56 runs the runner with a name (Ran 1 test) and asserts bin/ci:73 uses run_unittest.py $names; passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "dd2bd2da1580903d6f58d3b6597aa134784d75b1",
+      "source": "review-tests-tmp.json",
+      "source_id": "F2",
+      "summary": "the short gate (rules text only) still runs its tests with python3 -m unittest, without the temporary-folder default, so those tests run on the real ~/.claude and ~/.relay",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Project Python rule: \"Every new or changed function has types.\" Correct today; cheap to fix in the",
+        "change. Size: 5 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "tests/tmp_default.py:24 def run(self, result=None):  # type: ignore[no-untyped-def]",
+        "tests/conftest.py:19 def _temporary_relay_and_claude(tmp_path_factory, monkeypatch):",
+        "tests/test_temporary_folders.py:14 def _listing(path):",
+        "Each is a new function with no annotations. Should: typed (e.g. run(self: unittest.TestCase, result:",
+        "unittest.result.TestResult | None = None) -> unittest.result.TestResult | None)."
+      ],
+      "fix_hint": [
+        "Annotate the three functions; the fixture can be typed with pytest.TempPathFactory and pytest.MonkeyPatch, returning",
+        "Iterator[None]."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 24,
+      "pass_cases": [
+        "1. The three functions carry parameter and return annotations; no \"type: ignore[no-untyped-def]\" left on run.",
+        "2. tests/test_temporary_folders.py passes under pytest and tests/run_unittest.py."
+      ],
+      "path": "tests/tmp_default.py",
+      "rank": "low",
+      "reason": [
+        "types added in conftest.py:21, tmp_default.py:29, test_temporary_folders.py:19."
+      ],
+      "severity": "LOW",
+      "since": "dd2bd2da1580903d6f58d3b6597aa134784d75b1",
+      "source": "review-tests-tmp.json",
+      "source_id": "F3",
+      "summary": "Python rule (every new or changed function has types): the run wrapper, the conftest fixture and _listing are untyped",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the order of statements (writes at lines 27-29, the HOME check at lines 30-31). Not reached today",
+        "(CLAUDE_CONFIG_DIR and RELAY_HOME are unset in this shell), so LOW. Size: 5 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Owner shell with CLAUDE_CONFIG_DIR=~/.claude-work (a real folder) and the file run directly (it has a __main__ block):",
+        "python3 tests/test_temporary_folders.py -> claude_dir() is ~/.claude-work, not ~/.claude, so both assertNotEqual pass,",
+        "and \"sentinel\" is written into ~/.claude-work; only then does the HOME assertion fail. Should: fail before any write."
+      ],
+      "fix_hint": [
+        "Before writing, assert HOME is not the real home and that each folder lies under os.environ[\"HOME\"]",
+        "(os.path.commonpath), then write."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 24,
+      "pass_cases": [
+        "1. Without the default and with CLAUDE_CONFIG_DIR pointing at an existing folder X: the test fails and X has no new file.",
+        "2. With the default (pytest or tests/run_unittest.py): passes, sentinel written under the temporary HOME.",
+        "3. Without the default and nothing set: fails, no write anywhere."
+      ],
+      "path": "tests/test_temporary_folders.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_temporary_folders.py:28-33 asserts HOME and folders are temporary before the sentinel write; no automated failing test, LOW."
+      ],
+      "severity": "LOW",
+      "since": "dd2bd2da1580903d6f58d3b6597aa134784d75b1",
+      "source": "review-tests-tmp.json",
+      "source_id": "F4",
+      "summary": "the proof test writes its sentinel before checking that HOME is temporary, so run without the default with CLAUDE_CONFIG_DIR or RELAY_HOME set to a real folder it writes into that real folder",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading (committed_items: git ls-tree --name-only <ref> .relay/queue/, json basenames only; the item is now",
+        "at .relay/queue/gate-log-summary.json). The brief asked to report tests that read the live queue, checks or handover;",
+        "the change's commits report none. Outside the change (no file of it touched). Size: 30 min."
+      ],
+      "evidence": [
+        "$ grep -n \"committed_items(ROOT)\\|committed_text(ROOT\" tests/*.py",
+        "tests/test_queue.py:462 / :488 / :504, tests/test_split_test_files.py:65",
+        "$ ls .relay/queue/gate-log-summary.json  -> present (not in done/)"
+      ],
+      "failing_case": [
+        "tests/test_queue.py:488 reads committed_items(ROOT)[\"gate-log-summary.json\"]; committed_items lists only the top level of",
+        ".relay/queue/ (not done/). When the owner's queue moves gate-log-summary to .relay/queue/done/ (the item is taken and",
+        "finished), the test raises KeyError and the gate goes red for a queue event, not a code change. Other live reads:",
+        "tests/test_queue.py:462 and :504 (every live item), :476-485 (git log of the live queue in ROOT),",
+        "tests/test_split_test_files.py:65 (live done item). Should: each reads a fixture copy in a temporary folder, or a",
+        "pinned commit (as :496 does with b176e6d)."
+      ],
+      "fix_hint": [
+        "Copy the needed items into the test as fixtures (or read them at a pinned commit), and drop the live-queue iteration or",
+        "move it to a check that is not a test."
+      ],
+      "id": "F5",
+      "kind": "outside",
+      "line": 488,
+      "pass_cases": [
+        "1. With .relay/queue/gate-log-summary.json moved to .relay/queue/done/ in a scratch copy, tests/test_queue.py passes.",
+        "2. test_f7 still asserts kind feature, ip 0, no failing_case, on a fixed copy of the item.",
+        "3. test_f6 (pinned b176e6d) keeps passing unchanged."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer left it as Outside (tests/test_queue.py, test_split_test_files.py unchanged) but the review rated it inside, MEDIUM; live queue reads and the test_f7 KeyError remain. Owner decision."
+      ],
+      "severity": "MEDIUM",
+      "since": "dd2bd2da1580903d6f58d3b6597aa134784d75b1",
+      "source": "review-tests-tmp.json",
+      "source_id": "F5",
+      "summary": "Python rule (tests never touch the live .relay/queue): several tests read the checkout's live queue, and test_f7 breaks with KeyError once the gate-log-summary feature is done",
+      "verdict": "NOT MET"
+    }
+  ],
+  "gate": "75fb4efd98fb7beba2f5188c10706abd870e4c14.gate.log",
+  "head": "6bdc77dd35327dbcb7f44ed41aeaf27d41ffe915",
+  "item": null,
+  "notes": [
+    "F2 test not run alone at base (base runner would discover everything); it also asserts bin/ci contains run_unittest.py $names, which the base lacks, so it fails there."
+  ],
+  "schema": 2,
+  "scope": [
+    "dd2bd2da1580..HEAD; own files: bin/ci, tests/{conftest,run_unittest,test_temporary_folders,tmp_default}.py. Ran pytest on test_temporary_folders + test_types_step: 8 passed in 5.5s. Gate 75fb4ef green (exit 0), only the gate-log commit after it. Ran new tests in a throwaway worktree at dd2bd2da1580: uv test fails (KeyError UV_CACHE_DIR)."
+  ],
+  "type": "check"
+}
