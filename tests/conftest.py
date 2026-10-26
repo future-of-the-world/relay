@@ -11,13 +11,17 @@ import sys
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tmp_default  # the shared definition; bin/ci's unittest runner (tests/run_unittest.py) uses it too
 
 
 @pytest.fixture(autouse=True)
 def _temporary_relay_and_claude(tmp_path_factory, monkeypatch):
     base = tmp_path_factory.mktemp("home")
-    monkeypatch.setenv("HOME", str(base))
-    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(base / ".claude"))
-    monkeypatch.setenv("RELAY_HOME", str(base / ".relay"))
-    monkeypatch.delenv("RELAY_CLAUDE_JSON", raising=False)
+    for key, value in tmp_default.temporary_environment(str(base)).items():
+        if value is None:
+            monkeypatch.delenv(key, raising=False)
+        else:
+            monkeypatch.setenv(key, value)
     yield

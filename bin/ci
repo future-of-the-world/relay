@@ -25,7 +25,7 @@ step() { local name="$1"; shift; local log=".ci/steps/${name// /-}.log" start rc
   echo "$name $([ "$rc" -eq 0 ] && echo ok || echo FAILED)" >> .ci/results.txt
   if [ "$rc" -eq 0 ]; then echo "ci: $name ok ($(( $(date +%s) - start ))s)"
   else echo "ci: $name FAILED ($(( $(date +%s) - start ))s, log: $log)"; grep -E 'FAIL|Error|error|✗' "$log" | head -8 | sed 's/^/    /'; status=1; fi; }
-lib_tests() { python3 -W ignore::ResourceWarning -m unittest discover -s tests -p 'test_*.py'; }
+lib_tests() { python3 -W ignore::ResourceWarning tests/run_unittest.py; }
 hook_tests() { local f rc=0 t; [ "$quick" = 1 ] && [ -z "${RELAY_INERT_FULL_HOOKS:-}" ] && export RELAY_QUICK=1   # the guard suite runs its shared cases once in quick mode (not in the inert probe of a full run: see inert_probe)
   # the tools the free tests run on: a missing one FAILS the step (a skipped test would pass a gate that checked nothing)
   for t in "git:install git" "jq:brew install jq" "python3:install python3" "bun:curl -fsSL https://bun.sh/install | bash (the packet and check-contract tests run on it)"; do
