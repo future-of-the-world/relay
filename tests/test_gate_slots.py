@@ -5,6 +5,7 @@ Every slot folder is under a temp RELAY_HOME (the Fixture sets it), never the li
 import fcntl
 import os
 import queue
+import re
 import shlex
 import signal
 import subprocess
@@ -250,6 +251,42 @@ class Slots(Fixture):
         write(self.release, "go\n")        # A's orphaned command ends; the OS frees the lock
         self.assertEqual(second.wait(timeout=BOUND), 0)
         self.assertEqual(self.runs(), 2)
+
+    def test_f1_waiting_line_after_sigkill_names_a_live_process(self):
+        """F1: A's relay is SIGKILLed while its command runs; the line B prints names the command's group, which is alive
+        (so a person can kill it), not the dead relay pid. A's relay pid is first.pid, the command's group is read from .ci/pid
+        ($$ of the gate command, its own session leader)."""
+        self.env["RELAY_GATE_SLOTS"] = "2"
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        command_pid = int(read(os.path.join(self.wt, ".ci", "pid")))
+        first.kill()
+        first.wait(timeout=BOUND)
+        second = self.start(self.wt)
+        match = re.match(r"^gate: waiting for the gate already running in this worktree \(pid (\d+)", self.line(second))
+        self.assertIsNotNone(match)
+        named = int(match.group(1))
+        self.assertNotEqual(named, first.pid)
+        self.assertEqual(named, command_pid)
+        os.kill(named, 0)      # alive while B waits
+
+    def test_f2_a_stray_holder_outside_the_group_is_named_as_such(self):
+        """F2: the lock file names a dead relay and a dead group, yet the lock is held (a detached daemon): the line says a
+        process outside the gate's group holds the lock file."""
+        path = os.path.join(self.tmp, "lockfile")
+        holder = open(path, "a+")
+        self.addCleanup(holder.close)
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        dead = subprocess.Popen([sys.executable, "-c", "pass"])
+        dead.wait()
+        write(path, "%d %d\n" % (dead.pid, dead.pid))
+        lines = []
+        waiter = threading.Thread(target=lambda: relay_gate.take_worktree_lock(path, lines.append), daemon=True)
+        waiter.start()
+        self.wait_until(lambda: lines)
+        self.assertIn("outside the gate's process group still holds " + path, lines[0])
+        fcntl.flock(holder, fcntl.LOCK_UN)
+        waiter.join(BOUND)
 
     def test_t3_a_killed_gate_whose_command_has_ended_does_not_block_the_next(self):
         self.env["RELAY_GATE_SLOTS"] = "2"

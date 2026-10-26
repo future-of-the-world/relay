@@ -119,6 +119,29 @@ def take_slot(count, folder, notify=None):
         raise
 
 
+def alive(pid, group=False):
+    """Whether the process (or, with `group`, any process of the group) `pid` exists."""
+    try:
+        (os.killpg if group else os.kill)(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:      # exists, not ours to signal
+        return True
+    return True
+
+
+def holder_words(text, path):
+    """Name who holds the worktree lock from the lock file's text: "<relay pid>" or "<relay pid> <command group>"."""
+    numbers = [int(word) for word in text.split() if word.isdigit()]
+    if not numbers or numbers[0] <= 0:
+        return "pid unknown"
+    if alive(numbers[0]):
+        return "pid %d" % numbers[0]
+    if len(numbers) > 1 and numbers[1] > 0 and alive(numbers[1], group=True):
+        return "pid %d, the gate command, whose gate process has ended" % numbers[1]
+    return "pid %d has ended; a process outside the gate's process group still holds %s" % (numbers[0], path)
+
+
 def take_worktree_lock(path, notify=None):
     """Lock the file `path` exclusively, waiting without a time limit; returns the open file, which holds the lock.
 
@@ -131,8 +154,7 @@ def take_worktree_lock(path, notify=None):
         except OSError:
             if notify is not None:
                 handle.seek(0)
-                holder = handle.read().strip() or "unknown"
-                notify("gate: waiting for the gate already running in this worktree (pid %s)" % holder)
+                notify("gate: waiting for the gate already running in this worktree (%s)" % holder_words(handle.read(), path))
             fcntl.flock(handle, fcntl.LOCK_EX)
         handle.seek(0)
         handle.truncate()
@@ -263,6 +285,11 @@ def run(worktree, args=(), environ=None):
                         # the lock file goes to the command: the OS keeps the lock until its last process ends, even if this process is killed
                         proc = subprocess.Popen(command, cwd=worktree, env=env, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT,
                                                 start_new_session=True, pass_fds=(lock.fileno(),))
+                        # the lock file names the command's process group too: if this process is killed, the command holds the lock
+                        lock.seek(0)
+                        lock.truncate()
+                        lock.write("%d %d\n" % (os.getpid(), proc.pid))
+                        lock.flush()
                         returncode = proc.wait()
                     code = returncode if returncode >= 0 else 128 - returncode
                 except OSError as exc:
