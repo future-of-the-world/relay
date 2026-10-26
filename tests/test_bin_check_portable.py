@@ -111,7 +111,7 @@ class BinCheckPortable(unittest.TestCase):
         self.write("run_step sleeper sh -c 'echo $$ > %s; exec sleep 30'" % pidfile)
         r = self.run_check("change", "1", timeout_s="1")
         self.assertEqual(r.returncode, 1)
-        self.assertFalse(self.alive(wait_pid(pidfile)))
+        self.assertFalse(self.alive(wait_pid(pidfile, writer_alive=lambda: False)))
 
     def test_timeout_zero_means_no_bound(self):
         self.write("run_step ok true")
@@ -143,7 +143,7 @@ class BinCheckPortable(unittest.TestCase):
         took = time.monotonic() - t0
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn("HUNG: sleeper exceeded 1s", r.stdout)
-        self.assertFalse(self.alive(wait_pid(pidfile)))
+        self.assertFalse(self.alive(wait_pid(pidfile, writer_alive=lambda: False)))
         # TERM ends sleep at once; the old unconditional 5 s sleep made this >= 6 s.
         self.assertLess(took, 5)
 

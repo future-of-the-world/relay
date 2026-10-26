@@ -140,7 +140,9 @@ def closing_ref(main, default, ab, path):
     check is judged, the way merging that rider alone would."""
     adding = []
     for name, tip in ab.items():
-        added = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", "refs/heads/%s...%s" % (default, tip))[1]
+        rc, added = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", "refs/heads/%s...%s" % (default, tip))
+        if rc != 0:
+            raise Refused("cannot list the files %s adds (%s)" % (name, tip))
         if path in added.split("\0"):
             rc, count = relay_git.git(main, "rev-list", "--count", tip)
             if rc != 0 or not count.strip().isdigit():

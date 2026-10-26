@@ -408,7 +408,7 @@ class LeakedGates(Fixture):
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         self.addCleanup(gate.wait)
         self.addCleanup(gate.kill)
-        return gate, wait_pid(pid_file, 60)
+        return gate, wait_pid(pid_file, 60, writer_alive=lambda: gate.poll() is None)
 
     def test_a_gate_left_under_the_folder_is_stopped_with_its_command_and_named(self):
         self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)

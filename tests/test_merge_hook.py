@@ -71,6 +71,18 @@ class FailsClosed(unittest.TestCase):
                 module.closing_ref(self.repo, "master", {"wt/gone": "0" * 40}, "queue/x.json")
         self.assertIn("wt/gone", str(caught.exception))
 
+    def test_a_diff_git_cannot_run_is_a_refusal_naming_the_branch(self):
+        module = load_hook()
+        with mock.patch.object(module.relay_git, "git", return_value=(128, "")):
+            with self.assertRaises(module.Refused) as caught:
+                module.closing_ref(self.repo, "master", {"wt/a": "0" * 40}, "queue/x.json")
+        self.assertIn("wt/a", str(caught.exception))
+
+    def test_a_diff_without_the_path_skips_the_branch(self):
+        module = load_hook()
+        with mock.patch.object(module.relay_git, "git", return_value=(0, "other.json")):
+            self.assertIsNone(module.closing_ref(self.repo, "master", {"wt/a": "0" * 40}, "queue/x.json"))
+
     def test_a_command_with_no_merge_is_silent(self):
         self.hook["tool_input"]["command"] = "git status"
         rc, err = self.run_pre(KeyError("never called"))

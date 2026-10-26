@@ -37,6 +37,22 @@ class WaitPid(unittest.TestCase):
             wait_pid(self.path, timeout=1.0)
         self.assertIn("missing", str(caught.exception))
 
+    def test_a_dead_writer_that_left_nothing_fails_at_once_naming_it(self) -> None:
+        # timeout is 60 s but the writer is already gone: one read decides, so this returns at once, not after 60 s
+        with self.assertRaises(AssertionError) as caught:
+            wait_pid(self.path, timeout=60.0, writer_alive=lambda: False)
+        self.assertIn("never wrote its pid", str(caught.exception))
+
+    def test_a_dead_writer_that_wrote_before_dying_gives_the_number(self) -> None:
+        with open(self.path, "w") as handle:
+            handle.write("77\n")
+        self.assertEqual(wait_pid(self.path, writer_alive=lambda: False), 77)
+
+    def test_a_slow_live_writer_is_waited_for(self) -> None:
+        writer = subprocess.Popen(["bash", "-c", 'sleep 0.3; echo 5 > "$0"', self.path])
+        self.addCleanup(writer.wait)
+        self.assertEqual(wait_pid(self.path, writer_alive=lambda: writer.poll() is None), 5)
+
     def test_a_timeout_outside_the_bounds_is_refused(self) -> None:
         for bad in (0.5, 901.0):
             with self.assertRaises(ValueError):
