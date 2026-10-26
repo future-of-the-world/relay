@@ -41,6 +41,12 @@ class CycleScriptsLinks(unittest.TestCase):
         self.assertNotIn("kept beside this file", text)
         self.assertNotIn("design-cycle-scripts.r1.md", text)
 
+    def test_unbuilt_label_module_not_claimed_present(self) -> None:
+        # N1: lib/relay_labels.py is a build step of dev-metrics.md, not a file yet.
+        text = plan("cycle-scripts.md").replace("\n", " ")
+        self.assertNotRegex(text, r"now lives in `lib/relay_labels\.py`")
+        self.assertIn("is to live in `lib/relay_labels.py`", text)
+
     def test_measurement_scripts_line(self) -> None:
         text = plan("cycle-scripts.md")
         self.assertIn(

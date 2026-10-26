@@ -284,7 +284,7 @@ workflow script cannot write a file anyway (no file access). So the script's who
 is labelled `<stage>[ N]: <name>`, with the stage from the list below. `<name>` is the branch name without `wt/`, or the
 design, analysis or train name.
 
-The stage list (this replaces the stage list of `docs/plans/dev-metrics.md` (sections 4.2 and 7 step 1), which now lives in `lib/relay_labels.py`):
+The stage list (this replaces the stage list of `docs/plans/dev-metrics.md` (sections 4.2 and 7 step 1), which is to live in `lib/relay_labels.py`, not built yet):
 
 | Stage | Kind or step | New? |
 |---|---|---|
