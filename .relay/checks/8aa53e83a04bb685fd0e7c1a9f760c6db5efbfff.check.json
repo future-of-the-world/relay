@@ -1,0 +1,116 @@
+{
+  "branch": "wt/setup-wt-rules",
+  "findings": [
+    {
+      "details": [
+        "Found 26 Oct as F7 of the design review of setup-turns-off-for-a-project-the-plugins-it-doe (traced by reading, not run, since it would touch live files): after setup() writes settings.json, cmd_setup calls relay_rules.sync(only={\"relay\"}) with ROOT = the worktree, which renders /Users/amidman/relay/CLAUDE.local.md (projects.toml [relay] file) from the worktree's rules, or prints \"Not synced\" and exits 1 while merges wait for a paid run. Blocks relay-s-repo-records-the-plugins-relay-developme (it runs setup in a worktree). The portable design plans that relay writes no CLAUDE.local.md at all (owner, 26 Oct); this fix may fold into that. IP chosen by the front (agent-chosen).",
+        "Also: lib/relay_rules.py the project target from projects.toml"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A reproduction in a temporary relay copy with a linked worktree and a temporary projects.toml: `relay setup <worktree> --off x` rewrites the main checkout's CLAUDE.local.md."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same run leaves the main checkout's files byte-identical; a held sync prints one line and setup exits 0."
+      ],
+      "path": "bin/relay",
+      "rank": "high",
+      "reason": [
+        "tests/test_setup_worktree_rules.py:38 main checkout file byte-identical and exit 0 from a worktree; :57 held sync exits 0 (setup in main checkout). Both fail at base."
+      ],
+      "severity": "HIGH",
+      "since": "4e059bff980776ed57203030b8752e42c591e189",
+      "source": "queue",
+      "summary": "setup in a worktree rewrites main checkout rules",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the only description of the trailing sync is docs/setup.md:27-28, unchanged by the change. Size: 5."
+      ],
+      "evidence": [
+        "grep -n -i sync docs/setup.md -> 27:- the project in `projects.toml`, then `relay sync` writes its",
+        "git diff --stat master...HEAD -> bin/relay, tests/test_setup_worktree_rules.py, gate log only"
+      ],
+      "failing_case": [
+        "A reader of docs/setup.md:27 (\"the project in projects.toml, then relay sync writes its CLAUDE.local.md\") runs `relay setup` in a",
+        "linked worktree and expects CLAUDE.local.md written; now setup prints \"Not synced from a worktree\" and writes nothing. The docs give",
+        "no word of it, nor that a held sync no longer fails setup."
+      ],
+      "fix_hint": [
+        "Two sentences after docs/setup.md:28."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 27,
+      "pass_cases": [
+        "docs/setup.md near line 27 has a line: in a linked worktree setup skips the sync and says so; run relay sync from the main checkout",
+        "after the merge.",
+        "The same place says a sync held by a waiting paid run leaves setup at exit 0 with one line."
+      ],
+      "path": "docs/setup.md",
+      "rank": "low",
+      "reason": [
+        "docs/setup.md diff adds the worktree skip and held exit 0 sentences near line 27."
+      ],
+      "severity": "LOW",
+      "since": "7a7d1b5a27262d2d8bff8a139f6361ca119ff472",
+      "source": "review-setup-wt-rules.json",
+      "source_id": "F1",
+      "summary": "docs still say setup always ends with relay sync; the worktree skip and the held exit 0 are not described",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: relay_rules spec lookup is os.path.join(os.path.dirname(spec[\"file\"]), \".claude\", \"kit.toml\"), and spec[\"file\"]",
+        "is the main checkout's CLAUDE.local.md (register_project uses main_checkout(root)). relay sync also does not depend on the cwd, so",
+        "\"from <main>\" adds nothing. Wording only; nothing wrong is written. Size: 5."
+      ],
+      "evidence": [
+        "lib/relay_rules.py:85: path = os.path.join(os.path.dirname(spec[\"file\"]), \".claude\", \"kit.toml\")",
+        "bin/relay:450: print(f\"\\nNot synced from a worktree: run `relay sync` from {main}.\")"
+      ],
+      "failing_case": [
+        "`relay setup <worktree> --specs openspec` writes .claude/kit.toml [specs] in the worktree and prints \"Not synced from a worktree:",
+        "run `relay sync` from <main>\". Run now, relay sync reads <main>/.claude/kit.toml (relay_rules.py:85, dirname of the target file),",
+        "which has no [specs] yet, so the rendered CLAUDE.local.md lacks the spec rules and nothing says why. It should say to run it after",
+        "the branch merges."
+      ],
+      "fix_hint": [
+        "\"Not synced from a worktree: run `relay sync` after this branch is merged into <default branch>.\""
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 450,
+      "pass_cases": [
+        "setup in a linked worktree prints one line naming relay sync after the branch is merged into the default branch (test asserts the",
+        "line, and still asserts the main checkout file is byte-identical).",
+        "setup in a main checkout still prints \"Synced: ...\" and writes CLAUDE.local.md (test_main_checkout_setup_still_syncs)."
+      ],
+      "path": "bin/relay",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup_worktree_rules.py:47 asserts \"after this branch is merged\" in output; bin/relay:449."
+      ],
+      "severity": "LOW",
+      "since": "7a7d1b5a27262d2d8bff8a139f6361ca119ff472",
+      "source": "review-setup-wt-rules.json",
+      "source_id": "F2",
+      "summary": "the worktree message says run relay sync now, but sync reads the main checkout's kit.toml, so the setup counts only after the merge",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "11d96dfabef3c58eab71a3d11a9ebcdda71eaf8a.gate.log",
+  "head": "8aa53e83a04bb685fd0e7c1a9f760c6db5efbfff",
+  "item": "setup-in-a-worktree-rewrites-main-checkout-rules",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "master...HEAD: bin/relay cmd_setup, docs/setup.md, tests/test_setup_worktree_rules.py. Ran the new test file (3 pass); ran it at base 4e059bf (2 fail, 1 pass). Gate log is for 11d96df, exit 0; HEAD only adds a gate log (relay changed lists nothing)."
+  ],
+  "type": "check"
+}
