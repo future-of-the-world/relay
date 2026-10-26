@@ -21,8 +21,8 @@
   "where": [
     "lib/relay_queue.py the order of `relay queue`, `relay queue count` (its \"top\") and whatever picks the next item"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-26T04:29:45Z",
+  "taken_by": "wt/fix-first",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
