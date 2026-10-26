@@ -1,0 +1,24 @@
+{
+  "kind": "feature",
+  "ip": 94,
+  "time": 45,
+  "found_at": "2026-10-26T03:18:55Z",
+  "found_in": "relay queue add",
+  "title": "Every test runs with temporary relay and Claude folders",
+  "what": [
+    "Every test, by default and without asking, runs with HOME, CLAUDE_CONFIG_DIR and RELAY_HOME pointing at a temporary folder, so a test that forgets to set them cannot read or write the owner's ~/.claude, ~/.relay or ~/.claude.json. A test that needs the real folders says so explicitly. One test proves the default: a test that writes into claude_dir() leaves the real folder untouched."
+  ],
+  "why": [
+    "Owner, 26 Oct: \"Но я бы все равно подумал, возможно мы бы добавили конфигурацию путей, по умолчанию глобально, для тестов указываем tmp директорию\". Facts, 26 Oct: the path configuration exists in lib/relay_config.py (ROOT via RELAY_ROOT, HOME_DIR via RELAY_HOME, CLAUDE_DIR via CLAUDE_CONFIG_DIR, default the user's folders); 15 of 70 test files set these themselves; there is no tests/conftest.py, so nothing sets them by default. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "tests/ a shared fixture every test gets by default",
+    "lib/relay_config.py ROOT, HOME_DIR and CLAUDE_DIR and their override variables"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
