@@ -1201,3 +1201,34 @@ Owner decisions since 00:30 (verbatim where quoted):
 Lessons: take a fix item on its branch at worktree creation (relay queue take), one fix item per branch; run relay commands of a branch that changes the queue schema with that branch's own bin/relay.
 Running: train-15 (parallel + master, conflict in lib/relay_gate.py resolved by a fixer: needs mk_merge3 + merge check, then the owner's consent), train-16 gate (hook-schema), wt/letters cycle, wt/openspec-plugin cycle.
 Next: merge train-16, then where-list; ask the owner about train-15; wave paid run (bin/ci in background, check bin/paid-cost due) after this wave, then relay sync; wave digest to the owner (mode 1a).
+
+## STATE 26 Oct afternoon (session 3207dc59)
+
+Merged today after midday: hook-schema (train-16: the merge hook judges a branch's queue records by that branch's lib),
+where-list (queue `where` is a list of places; every `relay queue add` input uses `where = [...]`), a two-record
+where fix, and train-17 = letters (option letters Latin a/b/c, Cyrillic counts the same) + openspec-plugin (the spec
+rule lives in plugins/openspec/hooks/spec-rule.py) + parallel (6 agents in relay's .claude/kit.toml, at most 3 gates
+per machine, in-slot license re-check with a test). Owner consented to the hand-resolved parallel merge ("a").
+
+Owner decisions this afternoon (verbatim):
+- OpenSpec on relay itself: first "Включи openspec plugin для самого relay, зафиксируй только нужное для разработки
+  relay, первым испытателем relay будет сам relay", then "Нет я подумал что всё таки испытывать openspec плагин не
+  стоит на relay, он заточен под другое, включим позже если потребуется". Item dropped; the plugins-only part kept by
+  the front (owner can reverse) as relay-s-repo-records-the-plugins-relay-developme (ip 90).
+- Rename: "Запланируй изменение в core plugin переименовать его в relay, мне не нравится название core", then
+  "Действительно relay@relay звучит не очень, может тогда просто relay, в данном случае это не опция и он всегда будет
+  включен", then "Хорошо, давай relay@amidman" (option a: plugin relay, marketplace renamed amidman). Item
+  the-core-plugin-becomes-relay-amidman (ip 86): build alone, with no other branch open, after the plugins item.
+- Arsenal pilot continues in the owner's own session, unchanged.
+
+Running: the wave's paid run (bin/ci, background, log scratchpad/ci-wave.log); then `relay sync` and the wave digest.
+wt/relay-plugins (.worktrees/relay-plugins): a worker runs `relay setup` on relay itself to write .claude/settings.json
+(core, delegate, front, observe on; gopls-lsp, issues, product, openspec off); stops and reports if setup cannot.
+
+Lessons: the fix-cycle script's `fixes` is an existing fixer report, `fix` is the fixer's brief (passing the findings
+as `fixes` skipped the fixer). Merging one ready branch moves master and voids the other branches' gates: gather ready
+branches into one train and gate once. A train whose branches changed the same file needs mk_merge3 + a checker.
+relay has no bin/check; the worker's check is pytest or the gate.
+
+Next: after the paid run is green, relay sync, wave digest; merge wt/relay-plugins; then the core rename alone; then the
+portable items (2, 3-5, 6) as their files free up.
