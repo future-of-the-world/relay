@@ -29,7 +29,7 @@ WRITERS: dict[str, Optional[set[str]]] = {
     "improve": {"adopt"},
     "license": {"add"},
 }
-READS = {"status", "report", "profile", "doctor", "flows", "rules", "changed"}
+READS = {"status", "report", "profile", "doctor", "flows", "rules", "changed", "precheck"}
 # the words after a writing-or-mixed subcommand that only read (the other words of WRITERS[sub] is None are writes)
 READ_WORDS = {
     "bench": {"list"},

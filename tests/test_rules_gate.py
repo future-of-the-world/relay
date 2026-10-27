@@ -30,6 +30,10 @@ def steps_run(changed: dict[str, str], dirty: dict[str, str] | None = None) -> l
     try:
         os.makedirs(os.path.join(tmp, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(tmp, "bin", "ci"))
+        # the fast "types and lint" step runs first and ends a red gate: a passing stub lets the tree reach the library tests
+        with open(os.path.join(tmp, "bin", "types-lint"), "w") as f:
+            f.write("#!/bin/sh\nexit 0\n")
+        os.chmod(os.path.join(tmp, "bin", "types-lint"), 0o755)
         shutil.copy(os.path.join(ROOT, ".gitignore"), os.path.join(tmp, ".gitignore"))  # keeps .ci/ and __pycache__ out of the status
         shutil.copytree(os.path.join(ROOT, "lib"), os.path.join(tmp, "lib"), ignore=shutil.ignore_patterns("__pycache__"))
         os.makedirs(os.path.join(tmp, "rules"))

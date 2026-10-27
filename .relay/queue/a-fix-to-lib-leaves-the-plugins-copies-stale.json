@@ -27,8 +27,8 @@
   ],
   "taken_at": "2026-10-27T13:06:05Z",
   "taken_by": "wt/precheck",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T15:41:40Z",
+  "test": "tests/test_precheck.py::TestLibCopies::test_a_stale_copy_names_the_copy_and_the_sync_command_and_nothing_is_written",
   "dropped_at": null,
   "dropped_why": null
 }

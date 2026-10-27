@@ -452,10 +452,14 @@ class Ci:
                 self.probe = Probe(self.root, gate, self.quick, self.env, self.path(".ci", "steps", "inert-nested.log"),
                                    nested=self.nested)
                 self.probe.start()   # beside the outer steps, not after them: it is waited for at the `inert` step
-            self.step("library tests", self.lib_tests)
+            # the seconds-long steps first: a red one ends the gate at once (the probe runs this same order and stops with it)
             self.step("types and lint", self.types_lint)
-            self.step("hook tests", self.hook_tests)
             self.step("lib copies identical", self.lib_copies)
+            if self.status != 0:
+                self.say("ci: RED (a fast step failed: the slow steps were not started)")
+                return self.status
+            self.step("library tests", self.lib_tests)
+            self.step("hook tests", self.hook_tests)
             self.step("eval grader tests", self.grader_tests)
             self.step("plugin validate", self.validate_all)
             if self.probe is not None:
