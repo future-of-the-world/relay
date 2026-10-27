@@ -413,8 +413,9 @@ class DirectRunsDurable(DirectRuns):
             for k, v in saved.items():
                 os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
         self.addCleanup(restore)
-        relay_paidcap.bench_estimate = (lambda orig: lambda s, b=None, home=None: 0.5)(relay_paidcap.bench_estimate)
+        # the original is read before the stub goes in: a cleanup that read it afterwards restored the stub and leaked 0.5 into later tests
         self.addCleanup(setattr, relay_paidcap, "bench_estimate", relay_paidcap.bench_estimate)
+        relay_paidcap.bench_estimate = lambda s, b=None, home=None: 0.5
         with self.assertRaises(relay_bench.PaidCapReached) as cm:
             relay_bench.run_bench([{"profile": {}}], [{"name": "s", "runs": 1}], out_root=os.path.join(self.home, "bench"))
         self.assertIn("$10.00 is spent", str(cm.exception))
