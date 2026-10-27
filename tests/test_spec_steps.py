@@ -541,6 +541,34 @@ class RouteGuard(Scratch):
         finally:
             sys.path[:] = path_before
 
+    def probe(self, code: str) -> str:
+        """Run code in a fresh interpreter with tests/ and lib/ on sys.path (as pytest collection leaves them)."""
+        run = subprocess.run([sys.executable, "-S", "-c", code, ROOT], capture_output=True, text=True, timeout=60)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        return run.stdout.strip()
+
+    def test_F2_loading_a_hook_keeps_stdlib_modules(self):
+        """A bare interpreter imports datetime, typing and tomllib only through the hook; they are not the hook's copies, so they stay."""
+        out = self.probe(
+            "import sys, os\nroot = sys.argv[1]\nsys.path[:0] = [os.path.join(root, 'tests'), os.path.join(root, 'lib')]\n"
+            "import relay_testbase\nbefore = list(sys.path)\nassert not any(m in sys.modules for m in ('datetime', 'typing', 'tomllib'))\n"
+            "relay_testbase.load_hook('g', os.path.join(root, 'plugins', 'delegate', 'hooks', 'route-guard.py'))\n"
+            "print(all(m in sys.modules for m in ('datetime', 'typing', 'tomllib')), sys.path == before, "
+            "[m for m in sys.modules if m.startswith('relay_') and m != 'relay_testbase'])")
+        self.assertEqual(out, "True True []")
+
+    def test_F1_core_hook_tests_leave_the_lib_queue_in_place(self):
+        """Importing test_mark_attach (what collection does) must not make relay_queue come from plugins/core/lib,
+        where queue_ext is missing and extensions() is empty; lib/relay_queue lists json and table."""
+        out = self.probe(
+            "import sys, os\nroot = sys.argv[1]\nsys.path[:0] = [os.path.join(root, 'tests'), os.path.join(root, 'lib')]\n"
+            "import test_mark_attach, test_check_record\n"
+            "[sys.modules.pop(m) for m in list(sys.modules) if m.startswith('relay_')]\n"
+            "import relay_queue\n"
+            "print(os.path.relpath(relay_queue.__file__, root), relay_queue.extensions(), "
+            "[p for p in sys.path if p.endswith(os.path.join('plugins', 'core', 'lib'))])")
+        self.assertEqual(out, "lib/relay_queue.py ['json', 'table'] []")
+
     def transcript(self, *entries):
         path = os.path.join(self.tmp, "t-%d.jsonl" % len(os.listdir(self.tmp)))
         self.write(path, "".join(json.dumps(e) + "\n" for e in entries))

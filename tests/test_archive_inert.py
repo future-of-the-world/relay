@@ -6,6 +6,7 @@ import os
 import subprocess
 import tempfile
 import unittest
+from relay_testbase import load_hook as _load_hook  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HOOK = os.path.join(os.path.dirname(HERE), "plugins", "core", "hooks", "merge.py")
@@ -14,10 +15,7 @@ ENV = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.de
 
 
 def load_hook():
-    spec = importlib.util.spec_from_file_location("merge_hook_archive_test", HOOK)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return _load_hook("merge_hook_archive_test", HOOK)
 
 
 class ArchiveAfterTheMark(unittest.TestCase):

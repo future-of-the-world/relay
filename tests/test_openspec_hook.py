@@ -15,6 +15,7 @@ HOOK = os.path.join(PLUGIN, "hooks", "spec-rule.py")
 FLOW_STAGE = os.path.join(ROOT, "plugins", "core", "hooks", "flow-stage.py")
 sys.path.insert(0, os.path.join(ROOT, "evals", "plugin"))
 import system_rules  # noqa: E402
+from relay_testbase import load_hook as _load_hook  # noqa: E402
 
 # The stage line master's flow-stage hook gave /opsx:propose, written out by hand from the line's template and flow.json
 # (stage plan, skill openspec:plan, no note, no roles).
@@ -116,10 +117,7 @@ class KitReader(unittest.TestCase):
              ('[specs\nmethod =', "none"))
 
     def test_F3_both_readers_agree_on_every_form(self):
-        import importlib.util
-        found = importlib.util.spec_from_file_location("openspec_spec_rule_kit", HOOK)
-        hook = importlib.util.module_from_spec(found)
-        found.loader.exec_module(hook)
+        hook = _load_hook("openspec_spec_rule_kit", HOOK)
         saved = hook.relay_toml._tomllib
         self.addCleanup(setattr, hook.relay_toml, "_tomllib", saved)
         for tomllib_on in (True, False):

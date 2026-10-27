@@ -26,6 +26,7 @@ import relay_inert as ri  # noqa: E402
 import relay_marks as rm  # noqa: E402
 import relay_queue as rq  # noqa: E402
 import relay_verdict as rv  # noqa: E402
+from relay_testbase import load_hook as _load_hook  # noqa: E402
 
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
@@ -34,10 +35,7 @@ TEST_SRC = "def test_x_stays_fixed():\n    pass\n\n\ndef test_y_stays_fixed():\n
 
 
 def load(name, relative):
-    spec = importlib.util.spec_from_file_location(name, os.path.join(ROOT, relative))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return _load_hook(name, os.path.join(ROOT, relative))
 
 
 def qjson(slug, state="taken", by="wt/a", test=None):

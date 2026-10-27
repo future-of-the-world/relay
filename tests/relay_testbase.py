@@ -35,8 +35,11 @@ def load_hook(name: str, path: str) -> types.ModuleType:
         return module
     finally:
         sys.path[:] = saved_path
+        plugins = os.path.join(ROOT, "plugins") + os.sep
         for added in set(sys.modules) - before:
-            del sys.modules[added]
+            file = getattr(sys.modules[added], "__file__", None) or ""
+            if added.startswith("relay_") or file.startswith(plugins):   # the hook's copies only; stdlib stays
+                del sys.modules[added]
 
 
 class Base(unittest.TestCase):

@@ -9,6 +9,7 @@ from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_queue as tq  # noqa: E402
+from relay_testbase import load_hook as _load_hook  # noqa: E402
 
 rq = tq.rq
 git = tq.git
@@ -191,10 +192,7 @@ def hook():
     """The merge hook module, loaded once (its Refused class must be the one the tests catch)."""
     if _HOOK:
         return _HOOK[0]
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("merge_hook_in_place", os.path.join(tq.ROOT, "plugins", "core", "hooks", "merge.py"))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = _load_hook("merge_hook_in_place", os.path.join(tq.ROOT, "plugins", "core", "hooks", "merge.py"))
     _HOOK.append(module)
     return module
 
