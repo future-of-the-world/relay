@@ -117,15 +117,41 @@ def eval_batches(home=None, roots=None):
             if isinstance(d, dict) and _num(d.get("costUsd")):
                 out.append((_day(d.get("startedAt")), float(d["costUsd"])))
                 known.add(str(d.get("startedAt")))
-    out += [(day, cost) for day, cost, _ in direct_batches(roots or [], known)]
+    if roots is not None:   # the stored-batch statistics (eval_estimate) pass no roots: a one-case direct run is not a batch
+        out += [(day, cost) for day, cost, _ in kept_direct(home, roots, known)]
     return out
+
+
+def direct_dir(home=None):
+    """Where the direct runs seen are kept ($RELAY_HOME/evals-direct), apart from evals/ so they stay out of the batch estimates."""
+    return os.path.join(home or home_dir(), "evals-direct")
+
+
+def kept_direct(home, roots, known):
+    """[(day, cost, startedAt)] of the direct runs in `roots` and of those kept earlier in direct_dir(home), none in `known`.
+    A run met in a checkout is written to direct_dir first, so removing its worktree (git deletes the ignored results) keeps its cost."""
+    folder = direct_dir(home)
+    seen_now = direct_batches(roots, known)
+    for _, cost, stamp in seen_now:
+        try:
+            os.makedirs(folder, exist_ok=True)
+            with open(os.path.join(folder, re.sub(r"[^0-9A-Za-z.-]", "-", stamp) + ".json"), "w", encoding="utf-8") as f:
+                json.dump({"startedAt": stamp, "costUsd": cost}, f)
+        except OSError:
+            pass   # unwritable: the run still counts this time
+    kept = []
+    for d in _json_files(folder):
+        if isinstance(d, dict) and isinstance(d.get("startedAt"), str) and _num(d.get("costUsd")):
+            kept.append((_day(d["startedAt"]), float(d["costUsd"]), d["startedAt"]))
+    stamps = {st for _, _, st in kept}
+    return [r for r in kept if r[2] not in known] + [r for r in seen_now if r[2] not in stamps]
 
 
 def suite_roots(repo: str) -> list[str]:
     """The checkouts of `repo` (its main checkout and every worktree) where a direct eval run may have left its results; [] when git cannot say."""
     try:
-        done = subprocess.run(["git", "-C", repo, "worktree", "list", "--porcelain"], capture_output=True, text=True, check=True)
-    except (OSError, subprocess.CalledProcessError):
+        done = subprocess.run(["git", "-C", repo, "worktree", "list", "--porcelain"], capture_output=True, text=True, check=True, timeout=30)
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return []
     return [line[len("worktree "):] for line in done.stdout.splitlines() if line.startswith("worktree ")]
 
