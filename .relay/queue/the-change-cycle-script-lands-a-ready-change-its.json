@@ -1,0 +1,27 @@
+{
+  "kind": "feature",
+  "ip": 96,
+  "time": 120,
+  "found_at": "2026-10-27T00:59:06Z",
+  "found_in": "relay queue add",
+  "title": "The change-cycle script lands a ready change itself",
+  "what": [
+    "`relay land` takes the default branch into each ready branch, builds a train when several are ready, gates it once and runs the one fast-forward the merge hook judges; a lock keeps one landing at a time across runs; cycle.js gains a land stage that calls it after the check and stops for the owner exactly where the merge rule says (a conflict a fixer resolved, an open Design/question/Disputed/Gap finding, an unanswered owner question, a person-facing change, a hold); the front reads one line per landed change."
+  ],
+  "why": [
+    "Owner, 27 Oct, answer to question 1 of the cycle-scripts design (\"Does the script also land a ready change, in this change or later?\"): \"A\" (move the cycle now; queue landing in the script as the next item). Measured 24-27 Oct: landing by hand took 135 ff-merge, 76 take-master and 139 train Bash calls of the front over 59 merges, about 3.6 front calls per landing, each re-reading a front of median 229k tokens, where a Haiku runner reads about 15k for the same command. Live case 26 Oct: wt/train-19 needed a merge, a gate, a refused merge, two re-checks and a fresh merge, all by the front. The merge hook judges a runner's `merge --ff-only` into the default branch the same way as the front's (plugins/core/hooks/merge.py:315-338), so the guard does not change. Takes over the landing part of relay-ships-the-change-cycle-as-a-saved-workflow (\"the merge goes through the train\"). Design (redo against the fresh repository when taken; inputs: design-cycle-scripts.md rev 2 sections on `relay land` and the lock, design-cycle-scripts-r3.md section 6, scratchpad of 27 Oct): about 90 agent minutes for `relay land` (take the default branch, build a train, dry-run the hook's judge) plus about 30 for the land stage. IP chosen by the front (agent-chosen) to make it the next item after the scripts move, as the owner's \"A\" says."
+  ],
+  "where": [
+    "plugins/delegate/workflows/cycle.js (after the scripts move)",
+    "bin/relay (new land command)",
+    "plugins/core/hooks/merge.py",
+    "plugins/front/skills/front/SKILL.md (the merge is the front's)",
+    "rules (merge rule, trains)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
