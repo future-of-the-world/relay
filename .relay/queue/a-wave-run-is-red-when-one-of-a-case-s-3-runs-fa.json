@@ -30,5 +30,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T13:06:45Z",
+      "fact": [
+        "Measured 27 Oct: the wave paid run at master aa8cfd1 (cost $18.29, plugin evals 5290 s) is RED on one run only: no-spec-step-typo run 1 of 3, code grader worker-started; every other case and grader passed (0 meaning graders failed). Under the owner's rule of 25 Oct (\"Согласен, сценарий проходит с большинством\") this run is green; under today's code it is red, so relay sync still waits. The same case was also 2 of 3 in the 9bc988d run that morning (run 3, grader no-openspec-command): 2 of its last 6 runs failed, each on a different grader; the traces of both are gone. Raised to IP 99 by the front: it is what stands between the wave and relay sync."
+      ]
+    }
+  ]
 }
