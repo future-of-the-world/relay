@@ -22,10 +22,18 @@
     "plugins/front/skills/front/SKILL.md",
     "lib/relay_analyze.py (report)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T22:54:25Z",
+  "taken_by": "wt/front-cmds",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T23:35:19Z",
+      "fact": [
+        "Measured 28 Oct 2026 over interactive front sessions with 5+ owner turns (scripted excluded), relay's own unit (requests by message id). Session 0cc68fe0: 534 requests over 47 turns, 11.4 per turn (the item's 952 counted transcript lines, not requests). Others, 30 days, n=76: median / 90th percentile and how many exceed 0cc68fe0: requests per turn 9.75 / 25.4 (30 of 76); tool calls per turn 9.75 / 25.9 (42); front's own non-routing calls per turn (Bash/Read/Edit not queue, merge, handover, git status, Agent, Workflow) 5.1 / 15.2 (58, bad session is 3.0, below the median); share of own calls that are not routing 0.69 / 0.91 (66, bad 0.41); tool results over 3000 chars per turn 0.79 / 3.2 (49, bad 0.40); context tokens read per turn 1.7M / 9.9M (33, bad 2.0M). 10-day window, n=21: requests per turn 9.76 / 17.1 (7 above). No measure puts 0cc68fe0 above a typical session, so no target is set: FRONT_REQUESTS_PER_TURN_TARGET stays a placeholder 15 (flags 0cc68fe0 not) until the owner picks."
+      ]
+    }
+  ]
 }
