@@ -80,6 +80,29 @@ class TestPrinciplesRule(unittest.TestCase):
         self.assertIn("## 9. Decide inside the principles", text)
         self.assertIn("## 10. Works for a newcomer: no secrets to learn", text)
 
+    def _section(self, n):
+        import re
+        with open(os.path.join(ROOT, "rules", "principles.md")) as f:
+            text = f.read()
+        m = re.search(rf"^### {n}\. .*?(?=^### |\Z)", text, re.S | re.M)
+        return m.group(0)
+
+    def test_principle_10_names_the_program_generally_and_relay_only_as_example(self):
+        # a project loading the rule has its own program; relay appears only in "In relay ..." sentences
+        import re
+        body = self._section(10)
+        general = " ".join(re.sub(r"In relay[^.]*\.", "", body).split())
+        self.assertNotIn("relay", general.lower())
+        self.assertIn("In relay the users are two", body)
+        self.assertIn("non-obvious secrets, workarounds", body)
+        self.assertIn("one month and one who just opened it stays minimal", body)
+
+    def test_principle_headings_are_numbered_once_in_order(self):
+        import re
+        with open(os.path.join(ROOT, "rules", "principles.md")) as f:
+            nums = [int(x) for x in re.findall(r"^### (\d+)\. ", f.read(), re.M)]
+        self.assertEqual(nums, list(range(1, len(nums) + 1)))
+
 
 class AutoMergeTextsTest(unittest.TestCase):
     def _read(self, rel):
