@@ -23,5 +23,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-26T18:56:56Z",
+      "fact": [
+        "Migration 27 Oct: the link in `what` line 1 points to a session file (`reports/design-dev-metrics.md` (and revision 3), in the session session folder; copies are in relay's backup folder), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
+      ]
+    }
+  ]
 }
