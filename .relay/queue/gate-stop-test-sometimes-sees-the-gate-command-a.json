@@ -23,8 +23,8 @@
     "tests/test_gate_stops.py:75",
     "lib/relay_gate.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T22:54:07Z",
+  "taken_by": "wt/gate-stops",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
