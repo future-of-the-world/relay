@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 80,
+  "time": 20,
+  "found_at": "2026-10-27T06:11:28Z",
+  "found_in": "relay queue add",
+  "title": "The cycle script ignores an unknown argument silently",
+  "what": [
+    "The cycle script ignores an unknown argument silently"
+  ],
+  "why": [
+    "Measured 27 Oct: the front resumed the change cycle (plugins/delegate/workflows/cycle.js) with `gate_fixes: 2` at the top level of args instead of under `settings`; the script ignored the key without a word, replayed every stage from cache in 8 ms and stopped at the same red gate, so one run was wasted and the cause was found only by reading the script. Principle 10: a refusal names the next step."
+  ],
+  "failing_case": [
+    "Workflow with cycle.js and args {base, relay, scratch, items, gate_fixes: 2} runs as if gate_fixes were 1, with no message."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "An unknown top-level key stops the run in one line before any agent starts, naming the key and where it belongs (for a known setting: 'gate_fixes goes under settings').",
+    "Known keys and settings run as today.",
+    "tests/test_cycle_workflow.py covers the refusal and fails with the check disabled."
+  ],
+  "where": [
+    "plugins/delegate/workflows/cycle.js (args check)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
