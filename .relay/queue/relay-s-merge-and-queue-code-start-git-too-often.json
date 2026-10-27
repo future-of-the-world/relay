@@ -36,6 +36,12 @@
       "fact": [
         "The owner's question below was asked on 27 Oct (from the saved plan test-speed.md on branch wt/plans-save). The note carries the item's creation time."
       ]
+    },
+    {
+      "at": "2026-10-26T19:45:24Z",
+      "said": [
+        "Почему наши тесты вообще выполняются 10 минут даже с оптимизацией, ускорится ли это вместе со сменой технологии, возьмем максимально возможную - rust, или параллельной обработки будет достаточно, что делает тесты долгими ?"
+      ]
     }
   ]
 }
