@@ -47,8 +47,10 @@
                                      the files changed since <sha> (to <until>, default HEAD) that are not on the
                                      inert list (handover, queue and check files): what a check of a fix looks at;
                                      --own leaves out the files only the default branch changed
-  relay gate [-C <worktree>] [-- <args>]
-                                     run the project's free gate on the committed task branch and commit its log
+  relay gate [-C <worktree>] [--paid] [-- <args>]
+                                     run the project's quick (free) gate on the committed task branch and commit its log;
+                                     --paid runs the full gate, paid evals included (bin/ci prints the estimate and the
+                                     day's spend first); -- <args> names the gate's own mode (the cycle passes --quick)
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
   relay check show [-C <repo>] [--brief] <branch>
                                      three lines: the branch's gate, check mark and outside findings; waits (at most
@@ -561,11 +563,15 @@ def cmd_changed(args):
 
 
 def cmd_gate(args):
-    usage = "relay gate [-C <worktree>] [-- <args>]"
+    usage = "relay gate [-C <worktree>] [--paid] [-- <args>]"
     args, extra = list(args), []
     if "--" in args:
         i = args.index("--")
         args, extra = args[:i], args[i + 1:]
+    paid = "--paid" in args
+    args = [a for a in args if a != "--paid"]
+    if not paid and not extra:      # the plain gate is the free one: the paid evals need the explicit flag
+        extra = ["--quick"]
     worktree = "."
     if len(args) == 2 and args[0] == "-C":
         worktree = args[1]

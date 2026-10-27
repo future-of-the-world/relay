@@ -169,6 +169,27 @@ class Gate(Fixture):
         out = run.stdout.splitlines()
         self.assertEqual(out, ["gate %s: exit 0" % head, log])
 
+    def test_a_plain_gate_runs_the_quick_mode_and_paid_runs_the_full_one(self):
+        """No arguments: the gate command gets --quick (no paid step); --paid passes nothing; an explicit `-- <args>` is kept."""
+        self.repo(gate='echo "args=[$*]" > "$(dirname "$0")/args"\nexit 0\n')
+        args_file = os.path.join(self.tmp, "args")
+        self.assertEqual(self.gate(self.wt).returncode, 0)
+        self.assertEqual(read(args_file).strip(), "args=[--quick]")
+        write(os.path.join(self.wt, "lib", "b.py"), "b\n")      # a new commit, so the green log is not reused
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "more")
+        self.assertEqual(self.gate(self.wt, "--paid").returncode, 0)
+        self.assertEqual(read(args_file).strip(), "args=[]")
+        write(os.path.join(self.wt, "lib", "c.py"), "c\n")
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "more2")
+        self.assertEqual(self.gate(self.wt, "--", "--other").returncode, 0)
+        self.assertEqual(read(args_file).strip(), "args=[--other]")
+
+    def test_the_help_names_both_gate_modes(self):
+        run = subprocess.run([sys.executable, RELAY, "help"], capture_output=True, text=True, env=self.env)
+        self.assertIn("--paid", run.stdout + run.stderr)
+
     def refused_gate(self, body):
         """Run a gate whose command does `body` to the tree; returns (run, gated head). It must be refused with no log."""
         self.repo(gate=body + "exit 0\n")
