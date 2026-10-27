@@ -94,6 +94,12 @@
       "reading": [
         "Migration note: the owner's message with these answers is not in the saved session text as a separate message; the answers \"1. a\" and \"2. a\" are from the plan on branch wt/plans-save (\"Owner's answers, 27 Oct, to section 9\") and the handover, and the time is the turn in which they arrived. The question and options are the message as the front showed it. Front's reading: the guard refuses a relay agent started by hand without a label of the form `<stage>: <name>` (`other: <name>` for work with no change)."
       ]
+    },
+    {
+      "at": "2026-10-26T20:59:58Z",
+      "said": [
+        "Вычислять из git не значит угадывать, если мы не можем сказать откуда коммит и к какому изменению может записывать более явно, механизм worktree строен, queue тоже, в чем проблема отслеживать изменения в рамках проекта"
+      ]
     }
   ]
 }
