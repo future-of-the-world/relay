@@ -1,0 +1,78 @@
+{
+  "branch": "wt/train-22b",
+  "findings": [
+    {
+      "details": [
+        "The comment tells the next reader how the eval run is built, and it is not so."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "evals/plugin/setup-fixture.sh:4-5 says bin/ci puts core's bin/ and a git shim (.ci/evalbin) first on PATH. bin/ci:50 puts only plugins/core/bin first, which holds only kit, and no .ci/evalbin or shim exists anywhere in the repository (git grep evalbin finds nothing outside the plans). The handover's other pointer, case.yaml:3, is the description line of every case and none of them was found wrong; if one is, name it here. Should describe what bin/ci really does"
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 4,
+      "pass_cases": [],
+      "path": "evals/plugin/setup-fixture.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_cases.py:191-200 passes at head and fails at 633c901 (old comment lacks plugins/core/bin, has evalbin/shim); setup-fixture.sh:4-6 now matches lib/relay_ci.py."
+      ],
+      "severity": "HIGH",
+      "since": "633c90126edba8b38f0bca5f89949095e11fb84d",
+      "source": "queue",
+      "summary": "An eval comment describes a setup that does not exist",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the assertion matches source text, not behaviour; the negative checks are word-based. Correct",
+        "today, fragile to a harmless refactor, and the item's pass case \"should describe what bin/ci really does\" is checked",
+        "only by absence of words. LOW: fix only if cheap. Size: 5."
+      ],
+      "evidence": [
+        "tests/test_eval_cases.py:195 self.assertIn('self.path(\"plugins\", \"core\", \"bin\")', gate)",
+        "tests/test_eval_cases.py:199 self.assertNotIn(\"shim\", head.replace(\"no git shim\", \"\"))",
+        "pytest tests/test_eval_cases.py -q -k FixtureComment -> 1 passed"
+      ],
+      "failing_case": [
+        "1. Refactor lib/relay_ci.py:414 to build the PATH from a variable (core_bin = self.path(\"plugins\", \"core\", \"bin\"); ... core_bin + os.pathsep ...): behaviour unchanged, yet test_setup_comment_names_no_path_setup_the_gate_does_not_make goes red on assertIn('self.path(\"plugins\", \"core\", \"bin\")', gate) with a message about relay_ci source, not the comment.",
+        "2. Reword the comment to a new false claim, \"bin/ci puts core's bin/ and a git wrapper first on PATH\": the test passes (no \"evalbin\", no \"shim\")."
+      ],
+      "fix_hint": [
+        "Assert the comment names plugins/core/bin (assertIn(\"plugins/core/bin\", head)) and drop or loosen the relay_ci source-text assertion (e.g. check '\"core\", \"bin\"' only)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 195,
+      "pass_cases": [
+        "- Current comment (names plugins/core/bin, \"makes no git shim\"): test passes.",
+        "- Old comment with \".ci/evalbin\" and \"git shim\": test fails.",
+        "- (cheap option) Accept as is: a prose test cannot catch every false rewording; drop this finding."
+      ],
+      "path": "tests/test_eval_cases.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_cases.py:195 now matches '\"core\", \"bin\"' and 196 asserts the comment names plugins/core/bin; passes. Remaining word-based negatives are a LOW and accepted."
+      ],
+      "severity": "LOW",
+      "since": "9bf5260453f0aa624d6eb49d38d9aecbd06ea263",
+      "source": "review-stale-texts.json",
+      "source_id": "F1",
+      "summary": "the comment test pins a source string of relay_ci.py and checks only that a shim is not claimed, not that the comment names what bin/ci does",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0853dace14864ac929d1358e910748b256c248c6.gate.log",
+  "head": "861355efc13c2e99cf144628d065582b6cc00c85",
+  "item": "stale-eval-texts",
+  "notes": [
+    "The F1 hint is already applied: the test asserts the source string \"core\", \"bin\" (looser) and the comment names plugins/core/bin."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merge-train recheck of rider item stale-eval-texts on train-22b. Gate log head 0853dace, exit 0; relay changed since that sha lists no file. Ran tests.test_eval_cases.FixtureComment (OK); in a throwaway worktree at 633c901 with only the test file copied it fails (plugins/core/bin not found in the old comment). The files changed since the finding's since are the train's other riders' work; the item's own change is setup-fixture.sh comment and tests/test_eval_cases.py."
+  ],
+  "type": "check"
+}
