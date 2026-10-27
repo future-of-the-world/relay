@@ -74,6 +74,8 @@ def report(data, record_path):
                 if run.get("error"):
                     unjudged += 1; bad.add(case["name"])
                     notes.append(f"    note: {case['name']} run {n}: the run errored ({str(run['error'])[:80]}), its graders were not judged")
+                    if run.get("keptTracePath"):
+                        notes.append(f"         trace: {run['keptTracePath']}")
                     continue
                 present = {g.get("name") for g in run.get("graders", [])}
                 for name in sorted(llm - present):
@@ -89,6 +91,8 @@ def report(data, record_path):
                         if g.get("passed") is False:   # a failed code (regex) grader fails the batch too
                             code_failed += 1; bad.add(case["name"])
                             fails.append(f"    FAIL {case['name']} run {n} {name}: code grader failed")
+                            if run.get("keptTracePath"):
+                                fails.append(f"         trace: {run['keptTracePath']}")
                         continue
                     votes = g.get("judgeVotes")
                     if not isinstance(votes, list) or len(votes) != 3:
@@ -102,6 +106,8 @@ def report(data, record_path):
                         fails.append(f"    FAIL {case['name']} run {n} {name}: votes {votes_text(votes)}")
                         fails.append(f"         judged: \"{judged_line(g.get('evidence'), patterns_for(name))}\"")
                         fails.append(f"         record: {record_path}")
+                        if run.get("keptTracePath"):
+                            fails.append(f"         trace: {run['keptTracePath']}")
                     if split:
                         notes.append(f"    note: {case['name']} run {n} {name} {'passed' if g.get('passed') else 'failed'} on a split vote ({votes_text(votes)})")
         if flagged:
@@ -126,19 +132,86 @@ def is_green(data):
     return "NOT A PASS" not in report(data, "")[-1]
 
 
-def store(src, data, home, repo, branch, keep, head=None):
+def record_stem(data, branch):
     stamp = re.sub(r"[^0-9A-Za-z-]", "-", re.sub(r"\.\d+Z$", "Z", data.get("startedAt", "unknown")))
+    return f"{stamp}-{re.sub(r'[^0-9A-Za-z._-]', '-', branch)}"
+
+
+def store(src, data, home, repo, branch, keep, head=None, changed=False):
     folder = os.path.join(home, "evals", repo)
     os.makedirs(folder, exist_ok=True)
-    dest = os.path.join(folder, f"{stamp}-{re.sub(r'[^0-9A-Za-z._-]', '-', branch)}.json")
-    if head:   # the record names the commit the run was made on; `bin/paid-cost due` reads it
+    dest = os.path.join(folder, record_stem(data, branch) + ".json")
+    if head or changed:   # the record names the commit the run was made on; `bin/paid-cost due` reads it
         with open(dest, "w", encoding="utf-8") as out:
-            json.dump(dict(data, head=head, branch=branch), out)
+            json.dump(dict(data, head=head, branch=branch) if head else data, out)
     else:
         shutil.copyfile(src, dest)
     for old in sorted(os.listdir(folder))[:-keep] if keep > 0 else []:
         os.remove(os.path.join(folder, old))
+    prune_traces(home, repo, os.listdir(folder))
     return dest
+
+
+def failing_run(run):
+    """A run whose cause a person may need to read: it errored, produced no graders, or a grader failed."""
+    return bool(run.get("error")) or not run.get("graders") or any(g.get("passed") is False for g in run.get("graders", []))
+
+
+def temp_folder(trace_path):
+    """The eval tool's scaffold folder of a run (<tmp>/e-XXXX/out/trace.jsonl -> <tmp>/e-XXXX), else None: only what
+    the tool itself made is ever removed."""
+    out = os.path.dirname(trace_path)
+    top = os.path.dirname(out)
+    if os.path.basename(trace_path) == "trace.jsonl" and os.path.basename(out) == "out" and os.path.basename(top).startswith("e-"):
+        return top
+    return None
+
+
+def remove_tree(top):
+    """rmtree for the tool's run folders, which are read-only (top r-x, sealed/ 000): each folder is made owner-writable first."""
+    for root, dirs, _ in os.walk(top):
+        for d in dirs:
+            try:
+                os.chmod(os.path.join(root, d), 0o700)
+            except OSError:
+                pass
+    try:
+        os.chmod(top, 0o700)
+    except OSError:
+        pass
+    shutil.rmtree(top, ignore_errors=True)
+
+
+def keep_traces(data, home, repo, stem):
+    """bin/ci runs the eval tool with --keep-temp, so every run's folder is still there. A red batch copies the failing
+    runs' output folders to $RELAY_HOME/eval-traces/<repo>/<stem>/ and names the copy in the run (keptTracePath); a green
+    batch keeps nothing. Either way the tool's temp folders are removed afterwards. When the tool writes no JSON at all
+    (a crash, a killed gate) this step never runs and that batch's kept folders stay in the tmp folder for the OS to clear. Returns the number of copies."""
+    red = not is_green(data)
+    kept = 0
+    for case in data.get("cases", []):
+        for arm, runs in (case.get("arms") or {}).items():
+            for n, run in enumerate(runs, 1):
+                path = run.get("tracePath")
+                if not isinstance(path, str) or not temp_folder(path):
+                    continue
+                if red and failing_run(run) and os.path.isdir(os.path.dirname(path)):
+                    name = re.sub(r"[^0-9A-Za-z._-]", "-", f"{case.get('name', 'case')}-{arm or 'run'}-run{n}")
+                    dest = os.path.join(home, "eval-traces", repo, stem, name)
+                    shutil.copytree(os.path.dirname(path), dest, dirs_exist_ok=True)
+                    run["keptTracePath"] = os.path.join(dest, "trace.jsonl")
+                    kept += 1
+                remove_tree(temp_folder(path))
+    return kept
+
+
+def prune_traces(home, repo, records):
+    """Trace folders live as long as the record they belong to."""
+    root = os.path.join(home, "eval-traces", repo)
+    wanted = {name[:-5] for name in records if name.endswith(".json")}
+    for name in os.listdir(root) if os.path.isdir(root) else []:
+        if name not in wanted:
+            shutil.rmtree(os.path.join(root, name), ignore_errors=True)
 
 
 def git_name(*args):
@@ -164,7 +237,8 @@ def main(argv=None):
         repo = a.repo or os.path.basename(os.path.dirname(os.path.abspath(git_name("rev-parse", "--git-common-dir")))) or "repo"
         branch = a.branch or git_name("rev-parse", "--abbrev-ref", "HEAD") or "detached"
         home = os.path.expanduser(os.environ.get("RELAY_HOME") or "~/.relay")
-        dest = store(a.json, data, home, repo, branch, a.keep, a.head)
+        kept = keep_traces(data, home, repo, record_stem(data, branch))
+        dest = store(a.json, data, home, repo, branch, a.keep, a.head, changed=bool(kept))
     except (OSError, ValueError) as e:
         print(f"ci: could not store the eval record: {e}")
         return 1

@@ -416,6 +416,7 @@ class Ci:
         argv = ["claude", "plugin", "eval", self.root, "--eval-dir", "evals/plugin", "--trust-plugin", "--scaffold",
                 "--allow-tools", "Bash", "Agent", "Write", "--ablation", "none", "-j", jobs,
                 "--judge-model", self.env.get("EVALS_JUDGE_MODEL") or "sonnet", "--no-publish", "--max-cost-usd", ceiling,
+                "--keep-temp",   # the run folders stay until bin/eval-record copies the failing ones and removes the rest
                 "--json", evals_json]
         self.step("plugin evals", lambda log: self.run(argv, log, cwd=self.path("evals", "plugin"), env=env).returncode)
         return None
