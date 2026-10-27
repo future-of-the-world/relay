@@ -29,8 +29,8 @@
   ],
   "taken_at": "2026-10-27T17:31:45Z",
   "taken_by": "wt/twin-graders",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T18:02:00Z",
+  "test": "tests/test_eval_twin_worker_grader.py::TwinWorkerStarted::test_a_scout_or_a_worker_counts",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
