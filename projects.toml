@@ -16,5 +16,6 @@ skip = ["principles", "python", "openspec"]   # a rule projects opt into by load
 [relay]
 file = "~/relay/CLAUDE.local.md"
 title = "Principles this project loads"
+lanes = 6   # changes built at once (1-8, default 4); the owner chose 6 on 27 Oct
 load = ["principles", "python"]
 read = []

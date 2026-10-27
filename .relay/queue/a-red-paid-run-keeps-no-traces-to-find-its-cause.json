@@ -21,8 +21,8 @@
   "where": [
     "bin/ci how it calls the eval tool (no --keep-temp)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T14:02:22Z",
+  "taken_by": "wt/traces",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

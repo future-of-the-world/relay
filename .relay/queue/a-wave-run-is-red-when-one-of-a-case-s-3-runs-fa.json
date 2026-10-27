@@ -37,6 +37,32 @@
       "fact": [
         "Measured 27 Oct: the wave paid run at master aa8cfd1 (cost $18.29, plugin evals 5290 s) is RED on one run only: no-spec-step-typo run 1 of 3, code grader worker-started; every other case and grader passed (0 meaning graders failed). Under the owner's rule of 25 Oct (\"Согласен, сценарий проходит с большинством\") this run is green; under today's code it is red, so relay sync still waits. The same case was also 2 of 3 in the 9bc988d run that morning (run 3, grader no-openspec-command): 2 of its last 6 runs failed, each on a different grader; the traces of both are gone. Raised to IP 99 by the front: it is what stands between the wave and relay sync."
       ]
+    },
+    {
+      "asked_at": "2026-10-27T13:34:41Z",
+      "number": 1,
+      "question": [
+        "**7. Разговор, не уложившийся в 10 минут, — это проваленный запуск?**",
+        "",
+        "По вашему правилу 25 октября проверка проходит, если прошли 2 запуска из 3. Иногда запуск вообще не получает оценки: разговор с Claude не уложился в свои 10 минут. Сейчас такой запуск делает весь прогон красным, даже если два других прошли. Живой пример: утром 27 октября два запуска английской проверки «записать ваши слова» упёрлись в 10 минут — сессия крутилась на сломанной команде очереди, то есть это был настоящий провал поведения. При трёх разговорах сразу (ваш ответ 5. a) упоров может стать больше от нагрузки. Замер: в 21 сохранённом прогоне 22 таких запуска, и ни в одном прогоне ответ на этот вопрос не поменял бы итог.",
+        "",
+        "| | a. считать проваленным запуском | b. как сейчас: прогон красный |",
+        "|---|---|---|",
+        "| Пройдено, пройдено, не уложился | зелёный, в итоге строка «2 из 3, один не уложился» | красный |",
+        "| Пройдено, не уложился, не уложился | красный | красный |",
+        "| Упоры от нагрузки при трёх сразу | видны в итоге, прогон не повторяют | каждый требует повтора, около $10-21 |"
+      ],
+      "options": [
+        "a. Считать проваленным запуском (рекомендую: так же, как любой другой провал одного из трёх; итог называет его, а падение доли прошедших отмечается)",
+        "b. Оставить как сейчас: не уложился — прогон красный"
+      ],
+      "answered_at": "2026-10-27T13:47:08Z",
+      "answer": [
+        "7. a"
+      ],
+      "reading": [
+        "A run that timed out (not judged) counts as one failed run of three: PASS, PASS, timed out is green with a summary line naming it; two timeouts are red."
+      ]
     }
   ]
 }

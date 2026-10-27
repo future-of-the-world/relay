@@ -103,6 +103,30 @@ def steps_table(manifest):
     return lines
 
 
+LANES_DEFAULT = 4
+LANES_MAX = 8
+
+
+def lanes_of(name: str, spec: dict) -> int:
+    """How many changes the project builds at once: projects.toml `lanes`, 1-8, default 4."""
+    value = spec.get("lanes", LANES_DEFAULT)
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= LANES_MAX:
+        raise Fail(f"projects.toml [{name}] lanes must be a whole number from 1 to {LANES_MAX}, got {value!r}")
+    return value
+
+
+WAVE_MIN_DEFAULT = 3
+WAVE_MIN_MAX = 6
+
+
+def wave_min_of(name: str, spec: dict) -> int:
+    """How many changes `bin/paid-cost due` lists before the front starts a paid run: projects.toml `wave_min`, 1-6, default 3."""
+    value = spec.get("wave_min", WAVE_MIN_DEFAULT)
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= WAVE_MIN_MAX:
+        raise Fail(f"projects.toml [{name}] wave_min must be a whole number from 1 to {WAVE_MIN_MAX}, got {value!r}")
+    return value
+
+
 def render_target(name, spec, all_rules, profile):
     load = list(spec.get("load", []))
     methods = spec_methods()
@@ -134,6 +158,9 @@ def render_target(name, spec, all_rules, profile):
         language = spec.get("native_language")
         if isinstance(language, str) and language.strip():
             out += [f"My native language: {language.strip()}.", ""]
+    if name != "global":
+        out += [f"Changes built at once: {lanes_of(name, spec)}.", "",
+                f"Paid run starts when `bin/paid-cost due` lists at least: {wave_min_of(name, spec)} changes.", ""]
     for r in load:
         rule = all_rules[r]
         out += [f"## {rule['title']}", "", rule["body"], ""]

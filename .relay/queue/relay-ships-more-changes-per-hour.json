@@ -127,6 +127,14 @@
       "options": [
         "a. Review на каждое исправление, как сейчас (рекомендую: при 6 полосах выигрыш пачки — около $2-3 на три исправления, а внимание review на каждое падает)",
         "b. Один review на пачку из трёх мелких исправлений"
+      ],
+      "answered_at": "2026-10-27T13:14:47Z",
+      "answer": [
+        "4. a",
+        "5. a"
+      ],
+      "reading": [
+        "Question 4 a: one review per fix, no batching; time is won by lanes. Question 5 a: the next paid run plays evals 3 at a time; back to 1 if runs start to hit the 10-minute limit."
       ]
     },
     {
@@ -146,6 +154,40 @@
       "options": [
         "a. Попробовать по три на следующем прогоне и вернуть по одному, если разговоры начнут не укладываться (рекомендую: проба стоит не больше одного повтора, $21)",
         "b. Оставить по одному"
+      ],
+      "answered_at": "2026-10-27T13:14:47Z",
+      "answer": [
+        "4. a",
+        "5. a"
+      ],
+      "reading": [
+        "Question 4 a: one review per fix, no batching; time is won by lanes. Question 5 a: the next paid run plays evals 3 at a time; back to 1 if runs start to hit the 10-minute limit."
+      ]
+    },
+    {
+      "asked_at": "2026-10-27T13:34:08Z",
+      "number": 6,
+      "question": [
+        "**6. Сколько изменений сразу в других проектах**",
+        "",
+        "Вы выбрали 6 изменений сразу для relay. Число теперь хранится в настройках проекта: у relay стоит 6. Остальные проекты (например ALIX, arsenal, linter) берут число по умолчанию, и до сегодняшнего дня правило relay говорило «не больше 4 агентов, если проект не скажет иначе». В других проектах ни разу не замерено, сколько вопросов и merge-конфликтов дают несколько изменений сразу; в relay из последних 106 merge 4 не слились сами (3,8%).",
+        "",
+        "| | a. 4 по умолчанию, 6 только в relay | b. 6 везде |",
+        "|---|---|---|",
+        "| Что меняется в других проектах | ничего | до 6 изменений сразу без отдельного решения |",
+        "| Вопросов вам | как сейчас | больше во всех проектах сразу |",
+        "| Как поднять в проекте | одна строка в настройках проекта | — |"
+      ],
+      "options": [
+        "a. 4 по умолчанию, 6 только в relay (рекомендую: вы выбирали число, глядя на relay; в других проектах оно не проверено)",
+        "b. 6 по умолчанию везде"
+      ],
+      "answered_at": "2026-10-27T13:47:07Z",
+      "answer": [
+        "6. Это конфигуриремый параметр для каждого проекта, в relay это будет 6"
+      ],
+      "reading": [
+        "A per-project setting; relay is 6. The owner names no default for other projects: the default stays 4 as built (LANES_DEFAULT), each project raises it in its own settings."
       ]
     }
   ]

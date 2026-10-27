@@ -14,8 +14,10 @@
   It is ready when the check says `open 0`, the
   gate is green on the head and the branch has taken the default branch. Agent,
   skill, role and rule texts get one paid run on the default branch after a wave
-  of merges, not one per change; `relay sync` waits for it, and a red run is one
-  fix item at the top of the queue.
+  of merges (the train of checked-path changes landed after a green run), not one per change; `relay sync` waits for it, and a red run is one
+  fix item at the top of the queue. While a paid run goes, lanes keep building; a change for which
+  `bin/paid-cost touches <branch>` prints files waits at the landing until the run ends, then lands in
+  one train after the run's `relay sync`.
   Ask me before the merge only when taking the default branch hit a conflict a
   fixer resolved by hand; a finding is open as Design, question, Disputed or
   Gap, or I have not answered a question about the change; the change is
