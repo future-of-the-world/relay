@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 78,
+  "time": 45,
+  "found_at": "2026-10-27T11:26:07Z",
+  "found_in": "relay queue add",
+  "title": "An owner answer to a review question is kept twice",
+  "what": [
+    "An owner answer to a review question is kept twice"
+  ],
+  "why": [
+    "Measured 27 Oct, wt/wave-red: review F5 was a question for the owner; the front recorded it on the item (question 2) and the owner's answer \"a\" (`relay queue note ... answer`), merged master into the branch, and ran the recheck; the checker still counted F5 as GAP, open 1 (\"the owner has not confirmed the form\"), because it reads only the review's `owner` list written by `relay check owner`, not the item's answer. The delegate skill (table, row \"a question for the owner\") asks for both records of the same words, which is principle 3 (derived data is not stored) and principle 10 (one obvious way); one recheck (about 10 minutes, a gate and a checker) was spent on the miss."
+  ],
+  "failing_case": [
+    "A review finding of kind question, its answer recorded only as an item note with `to` naming the question: the checker counts it open."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A question finding is linked to its item question (finding id beside the note, or the note naming the finding), and the checker reads the answer from the item; `relay check owner` stays only for findings with no item question (or is removed).",
+    "The skill row names one record.",
+    "A test with an item answer and no owner list counts the finding as not open, and fails with the item read disabled."
+  ],
+  "where": [
+    "lib/relay_verdict.py",
+    "plugins/delegate/agents/checker.md",
+    "plugins/delegate/skills/delegate/SKILL.md (review table)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
