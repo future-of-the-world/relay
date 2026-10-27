@@ -189,6 +189,8 @@ def step_hand_edits(main, default, ref, changed_files):
             continue                                       # a file that is not JSON is refused as malformed
         if not isinstance(before, dict) or not isinstance(after, dict):
             continue
+        if any(k in after for k in relay_queue.OLD_ONLY):
+            continue                                       # an old-shape item is refused below, naming `relay queue migrate`
         hand = "queue item %s: %%s changed by hand; use relay queue edit (a change of the item shape ships as a migrate module, lib/relay_*migrate*.py)" % slug
         for key in sorted((set(before) | set(after)) - set(EVENT_FIELDS)):
             if before.get(key) != after.get(key):

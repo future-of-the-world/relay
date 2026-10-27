@@ -297,7 +297,7 @@ import sys
 sys.path.insert(0, sys.argv[1]); import relay_marks as m
 w, c, o = sys.argv[2], sys.argv[3], int(sys.argv[4])
 import json
-q1 = {"id": "Q1", "path": "lib/a.py", "line": 1, "severity": "HIGH", "rank": "high", "kind": "inside", "summary": "x loses a row", "failing_case": ["y"],
+q1 = {"id": "Q1", "path": "lib/a.py", "line": 1, "severity": "HIGH", "rank": "high", "kind": "inside", "summary": "Item x loses a row", "failing_case": ["y"], "details": ["a row is lost"], "pass_cases": [],
       "source": "queue", "since": c, "verdict": "MET", "reason": ["tests/t.sh:1"]}
 f1 = dict(q1, id="F1", source="a.json", verdict="NOT MET", summary="a finding")
 record = {"schema": 2, "type": "check", "head": c, "branch": "wt/t", "item": "x", "gate": None, "scope": [], "notes": [], "findings": [q1] + ([f1] * o)[:1]}
@@ -440,12 +440,12 @@ git -C "$W" merge -q --no-edit master; pre "$MERGE"
 expect "T15n2 a dropped item that came through master: not judged, allowed" "$(allowed; echo $?)"
 # (n3) the dated events: an item closed in place is judged by the same rule; a malformed one is refused; one already closed on master is not this branch's
 newq() { # newq <extra json fields>: a new-shape fix item named x
-  printf '{"kind": "fix", "ip": 5, "time": 10, "found_at": "2026-10-23T21:16:10Z", "found_in": "fixture", "title": "Item x loses a row", "what": ["x loses a row"], "why": ["a row is lost"], "failing_case": ["y"], "taken_at": "2026-10-23T21:47:35Z", "taken_by": "wt/t", %s, "dropped_at": null, "dropped_why": null}' "$1"
+  printf '{"kind": "fix", "ip": 5, "time": 10, "found_at": "2026-10-22T08:00:00Z", "found_in": "fixture", "title": "Item x loses a row", "what": ["x loses a row"], "why": ["a row is lost"], "failing_case": ["y"], "taken_at": "2026-10-22T10:00:00Z", "taken_by": "wt/t", %s, "dropped_at": null, "dropped_why": null}' "$1"
 }
 m15
 commit "fix a, close x" "lib/a.py=v2\n" "tests/t.sh=case_x() { :; }\n" ".relay/queue/x.json=$(newq '"closed_at": "2026-10-24T01:00:00Z", "test": "tests/t.sh::case_x"')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n3 a well-formed new-shape item closed in place: allowed" "$(allowed; echo $?)"
-commit "closed_at before taken_at" ".relay/queue/x.json=$(newq '"closed_at": "2026-10-23T20:00:00Z", "test": "tests/t.sh::case_x"')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+commit "closed_at before taken_at" ".relay/queue/x.json=$(newq '"closed_at": "2026-10-21T20:00:00Z", "test": "tests/t.sh::case_x"')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n3 a malformed new-shape item: refused as malformed" "$(refused 'queue item x is malformed'; echo $?)"
 commit "old shape" ".relay/queue/x.json={\"kind\": \"fix\", \"state\": \"done\", \"found\": \"2026-10-22\", \"closed_by\": \"wt/t\"}\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n3 an item in the old shape (a branch started before the migration): refused, names the migration command" "$(refused 'relay queue migrate'; echo $?)"
