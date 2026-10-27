@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import unittest
+from unittest import mock
 
 from pidfile import wait_pid
 
@@ -77,6 +78,45 @@ class RunnerStopped(unittest.TestCase):
         command; a SIGKILL of the gate skips that and leaves the sleep running."""
         pid = self.stop_runner_group_with(signal.SIGINT)
         self.assertTrue(until(lambda: not alive(pid)), "the gate command is still running after its runner was interrupted")
+
+
+class StopWhilePopenReturns(unittest.TestCase):
+    def test_f3_a_stop_between_the_command_starting_and_popen_returning_leaves_no_command(self):
+        """F3 (the cause of the flaky F2): the runner's SIGINT can land after the command runs but before Popen returns, when
+        the gate has no process to kill. The signal is sent from inside a wrapped Popen, right after the real one started the
+        command and the command wrote its pid. Without the hold the gate exits with the sleep alive."""
+        import test_gate
+        import relay_gate
+        f = test_gate.Fixture("setUp")
+        f.setUp()
+        self.addCleanup(f.doCleanups)
+        f.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % f.tmp)
+        real = subprocess.Popen
+        started = []
+
+        def popen_then_stop(*args, **kwargs):
+            proc = real(*args, **kwargs)
+            if not kwargs.get("start_new_session"):      # only the gate command's own start (git and others use Popen too)
+                return proc
+            started.append(proc)
+            wait_pid(os.path.join(f.tmp, "pid"), WAIT)      # the command is running
+            os.kill(os.getpid(), signal.SIGINT)      # the stop lands before Popen returns
+            return proc
+
+        def cleanup():
+            for proc in started:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except OSError:
+                    pass
+        self.addCleanup(cleanup)
+        old = signal.signal(signal.SIGINT, signal.default_int_handler)
+        self.addCleanup(signal.signal, signal.SIGINT, old)
+        with mock.patch.object(relay_gate.subprocess, "Popen", popen_then_stop):
+            with self.assertRaises(KeyboardInterrupt):
+                relay_gate.run(f.wt, environ=f.env)
+        pid = wait_pid(os.path.join(f.tmp, "pid"), WAIT)
+        self.assertTrue(until(lambda: not alive(pid)), "the gate command is still running after the stop landed during Popen")
 
 
 if __name__ == "__main__":
