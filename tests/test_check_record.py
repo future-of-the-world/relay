@@ -432,8 +432,8 @@ class TestOnePerBranch(Flow):
         self.assertIn("(closed on it)", str(ctx.exception))
 
     def test_t11_an_item_an_older_branch_of_the_same_name_closed_is_not_held_by_this_branch(self):
-        # Case F3: `job` is in done/ on master (closed by an earlier wt/a); a new wt/a that took another item holds only that one.
-        self.write_commit(self.main, {".relay/queue/done/old.json": tq.with_fields(tq.fix_item("Old"), taken_at=tq.TAKEN_AT, taken_by="wt/a",
+        # Case F3: `old` is closed on master (closed by an earlier wt/a); a new wt/a that took another item holds only that one.
+        self.write_commit(self.main, {".relay/queue/old.json": tq.with_fields(tq.fix_item("Old"), taken_at=tq.TAKEN_AT, taken_by="wt/a",
                                                                                       closed_at=tq.CLOSED_AT, test="tests/x.py::test_x")},
                           "an older branch closed this")
         git(self.wa, "merge", "-q", "--no-edit", "master")
@@ -457,7 +457,7 @@ class TestEndToEnd(Flow):
         self.assertEqual((q1["id"], q1["verdict"], q1["source"], stored["item"]), ("Q1", "MET", "queue", "job"))
         self.assertEqual(stored["gate"], gate)
         self.assertEqual(git(self.main, "show", "master:.relay/checks/" + gate).splitlines()[-1], "exit 0")
-        self.assertIsNotNone(self.item("job", sub="done/"))
+        self.assertIsNotNone(self.item("job"))
 
     def test_t4_the_guard_refuses_the_merge_when_code_changed_after_the_check_even_if_the_item_was_closed(self):
         self.flow_to_check()

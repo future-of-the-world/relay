@@ -21,9 +21,8 @@ class TestCloseWithEvidence(tq.Base):
         self.write_commit(self.main, {".relay/queue/feat.json": tq.feature_item("Feat", ip=99)}, "seed")
         done = self.run_relay("done", "feat", "--evidence", "19c02df", "-C", self.main)
         self.assertEqual(done.returncode, 0, done.stderr)
-        # the open file is gone, the done file holds the dated close and the evidence, and it is a well formed done item
-        self.assertIsNone(self.item("feat"))
-        closed = self.item("feat", sub="done/")
+        # the one file holds the dated close and the evidence, and it is a well formed done item
+        closed = self.item("feat")
         self.assertEqual((closed["state"], closed["evidence"], closed["test"], closed["problems"]), ("done", "19c02df", None, []))
         self.assertNotIn("feat", self.run_relay("-C", self.main).stdout)
         self.assertIn("evidence 19c02df", rq.show_text(closed))
@@ -33,8 +32,8 @@ class TestCloseWithEvidence(tq.Base):
                                       ".relay/queue/job.json": tq.with_fields(tq.feature_item("Job"), **tq.taken_fields("wt/x"))}, "seed")
         with mock.patch.object(rq, "utcnow", return_value="2026-10-24T08:00:00Z"):
             rq.close_with_evidence(self.main, "feat", "docs/reports/trial.md", **tq.QUIET)
-        self.assertEqual(self.item("feat", sub="done/")["evidence"], "docs/reports/trial.md")
-        self.assertEqual(self.item("feat", sub="done/")["closed_at"], "2026-10-24T08:00:00Z")
+        self.assertEqual(self.item("feat")["evidence"], "docs/reports/trial.md")
+        self.assertEqual(self.item("feat")["closed_at"], "2026-10-24T08:00:00Z")
         tq.git(self.main, "checkout", "-q", "-b", "wt/x")      # its branch is live and not merged
         tq.git(self.main, "commit", "-q", "--allow-empty", "-m", "work")
         tq.git(self.main, "checkout", "-q", "master")
@@ -55,13 +54,13 @@ class TestCloseWithEvidence(tq.Base):
             rq.close_with_evidence(self.main, "live", "abc1234", **tq.QUIET)
         self.assertIn("taken by wt/y", str(ctx.exception))
         rq.close_with_evidence(self.main, "job", "abc1234", **tq.QUIET)
-        closed = self.item("job", sub="done/")
+        closed = self.item("job")
         self.assertEqual((closed["state"], closed["evidence"], closed["taken_by"], closed["problems"]), ("done", "abc1234", "wt/x", []))
         self.assertIsNotNone(closed["taken_at"])
         # a branch that is gone altogether is the same
         tq.git(self.main, "branch", "-D", "wt/y")
         rq.close_with_evidence(self.main, "live", "def5678", **tq.QUIET)
-        self.assertEqual(self.item("live", sub="done/")["taken_by"], "wt/y")
+        self.assertEqual(self.item("live")["taken_by"], "wt/y")
 
     def test_q1_a_fix_without_a_test_is_still_refused(self):
         self.write_commit(self.main, {".relay/queue/job.json": tq.fix_item("Job")}, "seed")
@@ -74,7 +73,7 @@ class TestCloseWithEvidence(tq.Base):
         # by hand: a fix file closed with evidence does not pass the item check either
         data = rq.changed(rq.parse("job", tq.fix_item("Job")), closed_at="2026-10-03T00:00:00Z", evidence="abc1234")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.serialize("job", data, "done")
+            rq.serialize("job", data)
         self.assertIn("a fix is closed with a test", str(ctx.exception))
 
     def test_q1_empty_evidence_and_both_flags_are_refused(self):

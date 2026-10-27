@@ -92,12 +92,12 @@ def convert(slug, data, found_at, taken_at, ended_at):
 
 
 def migrate(root):
-    """Rewrite every old-shape item file under `root`/.relay/queue and its done/ folder. Returns the paths rewritten, sorted."""
+    """Rewrite every old-shape item file under `root`/.relay/queue (and its done/ folder, if the checkout still has one). Returns the paths rewritten, sorted."""
     base = os.path.join(root, rq.QDIR)
     if not os.path.isdir(base):
         raise rq.Refused(f"no {rq.QDIR} folder under {root}")
     todo = []
-    for sub, where in (("", "open"), ("done", "done")):
+    for sub in ("", "done"):          # a checkout from before the removal of done/ still has the folder
         folder = os.path.join(base, sub)
         for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
             if not name.endswith(".json"):
@@ -111,13 +111,29 @@ def migrate(root):
             if isinstance(data, dict) and any(k in data for k in rq.OLD_ONLY):
                 if "state" not in data or data["state"] not in ("open", "taken", "done", "dropped"):
                     raise rq.Refused(f"{path} has no readable state")
-                todo.append((path, name[:-5], where, data))
+                todo.append((path, name[:-5], data))
     converted = []
-    for path, slug, where, data in todo:
+    for path, slug, data in todo:
         found_at, taken_at, ended_at = history(root, slug)
-        text = rq.serialize(slug, convert(slug, data, found_at, taken_at, ended_at), where)
+        text = rq.serialize(slug, convert(slug, data, found_at, taken_at, ended_at))
         converted.append((path, text))
     for path, text in converted:
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(text)
     return sorted(os.path.relpath(p, root) for p, _ in converted)
+
+
+def move_done_back(root: str) -> list[str]:
+    """Move every `.relay/queue/done/<slug>.json` of the checkout `root` to `.relay/queue/<slug>.json` with `git mv` (the staged result
+    is renames only, so `git log --follow` keeps each item's history). Returns the new paths, sorted. Nothing is moved when a
+    file of that name is already in the queue folder. The caller commits."""
+    stray = os.path.join(root, rq.QDIR, "done")
+    names = sorted(n for n in os.listdir(stray) if n.endswith(".json")) if os.path.isdir(stray) else []
+    clash = [n for n in names if os.path.exists(os.path.join(root, rq.QDIR, n))]
+    if clash:
+        raise rq.Refused(f"{', '.join(clash)} exist in both {rq.QDIR}/ and {rq.QDIR}/done/; nothing moved")
+    for name in names:
+        rc, _, err = rq._git(root, "mv", f"{rq.QDIR}/done/{name}", f"{rq.QDIR}/{name}")
+        if rc != 0:
+            raise rq.Refused(f"git mv {name} failed: {err}")
+    return [f"{rq.QDIR}/{n}" for n in names]

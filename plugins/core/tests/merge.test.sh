@@ -423,35 +423,35 @@ m15; commit "fix a" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 0; G2="$(head_
 expect "T15m2 green then red on the same code: refused, names the red log" "$(refused "last gate $G2: exit 1"; echo $?)"
 gate 0; pre "$MERGE"
 expect "T15m2 green again after the red, same code: allowed" "$(allowed; echo $?)"
-# (n) m-1: a fix item moved to done/ without a test; then with the test
-m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json
-commit "fix a, close x" "lib/a.py=v2\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
-expect "T15n item moved to done/ with no closed_at: refused as malformed" "$(refused 'needs closed_at or dropped_at'; echo $?)"
-commit "test" "tests/t.sh=case_x() { :; }\n" ".relay/queue/done/x.json=$(qjson done tests/t.sh::case_x)\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
-expect "T15n with the test line and the test: allowed" "$(allowed; echo $?)"
+# (n) m-1: a fix item closed in place (closed_at set) without a test; then with the test
+m15; commit "fix a, close x" "lib/a.py=v2\n" ".relay/queue/x.json=$(qjson done tests/t.sh::case_x)\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n item closed in place, its test file not in the tree: refused" "$(refused 'closed without a test or a check'; echo $?)"
+commit "test" "tests/t.sh=case_x() { :; }\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n with the test and a clean check: allowed" "$(allowed; echo $?)"
 commit "name gone" "tests/t.sh=other() { :; }\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n test file lacks the name: refused" "$(refused 'closed without a test'; echo $?)"
-# (n2) m-1 before step 3 (a move alone), with a fix and a clean mark, and a dropped item that came through master
+# (n2) done/ is gone: a file under it is refused, whatever else the branch holds; a dropped item that came through master is not judged
 m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json; git -C "$W" commit -q -m "move x"; pre "$MERGE"
-expect "T15n2 only the move (all inert): refused, no closed_at" "$(refused 'needs closed_at or dropped_at'; echo $?)"
+expect "T15n2 a file moved to done/: refused, names the migration command" "$(refused 'done/, which is gone; run relay queue migrate'; echo $?)"
 m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json; git -C "$W" commit -q -m "move x"; green; pre "$MERGE"
-expect "T15n2 the move plus a fix with clean mark and gate: refused" "$(refused 'needs closed_at or dropped_at'; echo $?)"
-m15; green; mkdir -p "$M/.relay/queue/done"; qjson dropped "" >"$M/.relay/queue/done/y.json"; git -C "$M" add -A; git -C "$M" commit -q -m "drop y"
+expect "T15n2 the move plus a fix with clean mark and gate: refused" "$(refused 'done/, which is gone; run relay queue migrate'; echo $?)"
+m15; green; qjson dropped "" >"$M/.relay/queue/y.json"; git -C "$M" add -A; git -C "$M" commit -q -m "drop y"
 git -C "$W" merge -q --no-edit master; pre "$MERGE"
 expect "T15n2 a dropped item that came through master: not judged, allowed" "$(allowed; echo $?)"
-# (n3) step 1 of dated events: a new-shape done/ file is judged by the same rule; a malformed one is refused
-newq() { # newq <extra json fields>: a closed new-shape fix item named x
+# (n3) the dated events: an item closed in place is judged by the same rule; a malformed one is refused; one already closed on master is not this branch's
+newq() { # newq <extra json fields>: a new-shape fix item named x
   printf '{"kind": "fix", "ip": 5, "time": 10, "found_at": "2026-10-23T21:16:10Z", "found_in": "fixture", "title": "Item x loses a row", "what": ["x loses a row"], "why": ["a row is lost"], "failing_case": ["y"], "taken_at": "2026-10-23T21:47:35Z", "taken_by": "wt/t", %s, "dropped_at": null, "dropped_why": null}' "$1"
 }
-m15; mkdir -p "$W/.relay/queue/done"; git -C "$W" mv .relay/queue/x.json .relay/queue/done/x.json
-commit "fix a, close x" "lib/a.py=v2\n" "tests/t.sh=case_x() { :; }\n" ".relay/queue/done/x.json=$(newq '"closed_at": "2026-10-24T01:00:00Z", "test": "tests/t.sh::case_x"')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
-expect "T15n3 a well-formed new-shape done/ file: allowed" "$(allowed; echo $?)"
-commit "closed_at before taken_at" ".relay/queue/done/x.json=$(newq '"closed_at": "2026-10-23T20:00:00Z", "test": "tests/t.sh::case_x"')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
-expect "T15n3 a malformed new-shape done/ file: refused as malformed" "$(refused 'queue item x is malformed'; echo $?)"
-commit "no end event" ".relay/queue/done/x.json=$(newq '"closed_at": null, "test": null')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
-expect "T15n3 a done/ file with neither closed_at nor dropped_at: refused" "$(refused 'needs closed_at or dropped_at'; echo $?)"
-commit "old shape" ".relay/queue/done/x.json={\"kind\": \"fix\", \"state\": \"done\", \"found\": \"2026-10-22\", \"closed_by\": \"wt/t\"}\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
-expect "T15n3 a done/ file in the old shape (a branch started before the migration): refused, names the migration command" "$(refused 'relay queue migrate'; echo $?)"
+m15
+commit "fix a, close x" "lib/a.py=v2\n" "tests/t.sh=case_x() { :; }\n" ".relay/queue/x.json=$(newq '"closed_at": "2026-10-24T01:00:00Z", "test": "tests/t.sh::case_x"')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n3 a well-formed new-shape item closed in place: allowed" "$(allowed; echo $?)"
+commit "closed_at before taken_at" ".relay/queue/x.json=$(newq '"closed_at": "2026-10-23T20:00:00Z", "test": "tests/t.sh::case_x"')\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n3 a malformed new-shape item: refused as malformed" "$(refused 'queue item x is malformed'; echo $?)"
+commit "old shape" ".relay/queue/x.json={\"kind\": \"fix\", \"state\": \"done\", \"found\": \"2026-10-22\", \"closed_by\": \"wt/t\"}\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
+expect "T15n3 an item in the old shape (a branch started before the migration): refused, names the migration command" "$(refused 'relay queue migrate'; echo $?)"
+m15; green; newq '"closed_at": "2026-10-24T01:00:00Z", "test": "tests/t.sh::case_x"' >"$M/.relay/queue/x.json"; git -C "$M" add -A; git -C "$M" commit -q -m "an older branch closed x"
+git -C "$W" merge -q --no-edit master; pre "$MERGE"
+expect "T15n3 x already closed on master, not closed by this branch: not judged, allowed" "$(allowed; echo $?)"
 m15; commit "old shape in the open folder" ".relay/queue/z.json={\"kind\": \"feature\", \"state\": \"open\", \"found\": \"2026-10-22\"}\n"; X="$(head_of)"; gate 0; mark 0; pre "$MERGE"
 expect "T15n3 an old-shape item added in the open folder: refused, names the migration command" "$(refused 'relay queue migrate'; echo $?)"
 # (n4) F1: an old-shape item that reached the branch by taking the default branch (not in the range) is still refused

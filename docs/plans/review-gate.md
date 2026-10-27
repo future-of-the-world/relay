@@ -734,6 +734,8 @@ two kinds, ip, and `relay queue`.
 
 ### 10.2 The item file
 
+27 Oct 2026: `done/` was removed; a close or a drop edits the item file in place and the state comes from its dated fields. See rules/queue.md. The text below is the record as written.
+
 `.relay/queue/<slug>.json`, committed; `<slug>` lowercase words joined by
 `-`, at most 48 characters, unique among the default branch's
 `.relay/queue/` and `done/` and the `wt/queue-*` branches. Closed items move

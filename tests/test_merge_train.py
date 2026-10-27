@@ -372,7 +372,7 @@ class FixItems(TrainCase):
         a, b = self.tree("a"), self.tree("b")
         for wt, slug, by, test in ((a, "x", "wt/a", "test_x_stays_fixed"), (b, "y", "wt/b", "test_y_stays_fixed")):
             self.git(wt, "rm", "-q", ".relay/queue/%s.json" % slug)
-            self.ready(wt, {".relay/queue/done/%s.json" % slug: qjson(slug, "done", by, "tests/test_relay.py::" + test),
+            self.ready(wt, {".relay/queue/%s.json" % slug: qjson(slug, "done", by, "tests/test_relay.py::" + test),
                             "lib/%s.py" % slug: "fixed\n"}, item=slug)
         return a, b
 
@@ -387,8 +387,7 @@ class FixItems(TrainCase):
 
     def test_t13_a_rider_that_removes_another_riders_closing_test_makes_the_train_refused(self):
         a = self.tree("a")
-        self.git(a, "rm", "-q", ".relay/queue/x.json")
-        self.ready(a, {".relay/queue/done/x.json": qjson("x", "done", "wt/a", "tests/test_relay.py::test_x_stays_fixed"), "lib/x.py": "fixed\n"}, item="x")
+        self.ready(a, {".relay/queue/x.json": qjson("x", "done", "wt/a", "tests/test_relay.py::test_x_stays_fixed"), "lib/x.py": "fixed\n"}, item="x")
         b = self.tree("b")
         self.ready(b, {"tests/test_relay.py": "def test_y_stays_fixed():\n    pass\n"})      # b removes test_x_stays_fixed
         train = self.train("a", "b")
@@ -416,7 +415,7 @@ class ATrainChecksItsRidersClosedItems(TrainCase):
         """A rider that closes `slug` with a Q1-MET check, then commits one more non-inert file (so its own check is out of date)."""
         wt = self.tree(name)
         self.git(wt, "rm", "-q", ".relay/queue/%s.json" % slug)
-        self.ready(wt, {".relay/queue/done/%s.json" % slug: qjson(slug, "done", "wt/" + name, "tests/test_relay.py::test_%s_stays_fixed" % slug),
+        self.ready(wt, {".relay/queue/%s.json" % slug: qjson(slug, "done", "wt/" + name, "tests/test_relay.py::test_%s_stays_fixed" % slug),
                         "lib/%s.py" % slug: "fixed\n"}, item=slug)
         self.commit(wt, {"lib/late_%s.py" % slug: "late\n"})
         self.gate(wt)
@@ -504,7 +503,7 @@ class ATrainChecksItsRidersClosedItems(TrainCase):
         """A rider that closes `slug` and has a Q1-MET check after its last change: the check at the rider vouches for the item."""
         wt = self.tree(name)
         self.git(wt, "rm", "-q", ".relay/queue/%s.json" % slug)
-        self.ready(wt, {".relay/queue/done/%s.json" % slug: qjson(slug, "done", "wt/" + name, "tests/test_relay.py::test_%s_stays_fixed" % slug),
+        self.ready(wt, {".relay/queue/%s.json" % slug: qjson(slug, "done", "wt/" + name, "tests/test_relay.py::test_%s_stays_fixed" % slug),
                         "lib/%s.py" % slug: "fixed\n", **(shared or {})}, item=slug)
         return wt
 
@@ -768,7 +767,7 @@ class IncomingRecordRules(TrainCase):
 
     def test_a_record_the_branchs_own_rules_refuse_is_refused_though_the_hooks_copy_accepts_it(self):
         strict = self.lib_text('KINDS = ("fix", "feature")', 'KINDS = ("feature",)')      # a tree whose rules no longer know `fix`
-        self.assertEqual(rq.parse("z", qjson("z"), "open")["problems"], [])        # the hook's copy accepts this record
+        self.assertEqual(rq.parse("z", qjson("z"))["problems"], [])        # the hook's copy accepts this record
         reason = self.verdict(self.branch({"lib/relay_queue.py": strict, ".relay/queue/z.json": qjson("z")}))
         self.assertIn("is malformed (kind is not fix or feature)", reason)     # judged by the branch's rules; the fixture's x and y fail too
 

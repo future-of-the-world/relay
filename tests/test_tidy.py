@@ -41,7 +41,7 @@ def item_text(slug, state, taken_by):
     item = relay_queue.new_item("fix", 1, 10, "2026-10-22T08:00:00Z", "test", "%s loses a row" % slug, "it loses a row", "a row is lost", failing="one row in, none out")
     events = {"open": {}, "taken": {"taken_at": "2026-10-22T09:00:00Z", "taken_by": taken_by},
               "done": {"taken_at": "2026-10-22T09:00:00Z", "taken_by": taken_by, "closed_at": "2026-10-22T10:00:00Z", "test": "t.py::t"}}[state]
-    return relay_queue.serialize(slug, relay_queue.changed(item, **events), "done" if state == "done" else "open")
+    return relay_queue.serialize(slug, relay_queue.changed(item, **events))
 
 
 class Tidy(unittest.TestCase):
@@ -87,13 +87,13 @@ class Tidy(unittest.TestCase):
         git(self.main, "fetch", "-q", "--prune")
         git(self.main, "branch", "wt/queue-x")
         commit_file(self.main, ".relay/queue/foo.json", item_text("foo", "taken", "wt/gone2"), "queue")
-        commit_file(self.main, ".relay/queue/done/bar.json", item_text("bar", "done", "wt/gone3"), "queue done")
+        commit_file(self.main, ".relay/queue/bar.json", item_text("bar", "done", "wt/gone3"), "queue done")
         os.makedirs(os.path.join(self.claude, "plugins", "cache", "relay"))
 
     def test_t17_exactly_those_lines(self):
         # Hand-worked: m is merged with its own commit -> listed; u is not merged; f has no commit of its own; l is merged
         # and locked "session s9" -> its own line; g's upstream is gone ("[gone]" after prune) -> information; wt/queue-x is
-        # a leftover queue branch; foo.json is taken by wt/gone2, which does not exist; bar.json under done/ is not an open item;
+        # a leftover queue branch; foo.json is taken by wt/gone2, which does not exist; bar.json is a done item;
         # the cache folder exists -> one information line.
         self.build()
         got = sorted(relay_tidy.lines(self.main))

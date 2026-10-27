@@ -75,13 +75,13 @@ def split_where(slug: str, text: str) -> tuple[list[str], bool]:
 
 
 def migrate(root: str) -> tuple[list[str], list[tuple[str, str, list[str]]]]:
-    """Rewrite every item under `root`/.relay/queue and its done/ folder. Returns (the paths rewritten, sorted;
+    """Rewrite every item under `root`/.relay/queue (and the done/ folder of a checkout that still has one). Returns (the paths rewritten, sorted;
     [(slug, original, written)] of the records not split cleanly)."""
     base = os.path.join(root, rq.QDIR)
     if not os.path.isdir(base):
         raise rq.Refused(f"no {rq.QDIR} folder under {root}")
     converted, unclean = [], []
-    for sub, folder_kind in (("", "open"), ("done", "done")):
+    for sub in ("", "done"):
         folder = os.path.join(base, sub)
         for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
             if not name.endswith(".json"):
@@ -98,7 +98,7 @@ def migrate(root: str) -> tuple[list[str], list[tuple[str, str, list[str]]]]:
                     unclean.append((slug, original, data["where"]))
             else:
                 del data["where"]
-            converted.append((path, rq.serialize(slug, data, folder_kind)))
+            converted.append((path, rq.serialize(slug, data)))
     for path, text in converted:
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(text)

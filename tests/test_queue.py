@@ -445,19 +445,19 @@ DROPPED = {"dropped_at": "2026-10-24T01:00:00Z", "dropped_why": ["not wanted"]}
 class TestNewShape(unittest.TestCase):
     """The item shape with dated events: states computed, every rule of the check refuses on its own."""
 
-    def parse(self, text, where=None):
-        return rq.parse("some-slug", text, where)
+    def parse(self, text):
+        return rq.parse("some-slug", text)
 
     def test_each_of_the_four_states_is_computed_from_the_events(self):
         # open: no event; taken: taken_at; done: closed_at (and taken_at); dropped: dropped_at wins
         same_second = dict(DROPPED, dropped_at="2026-10-23T21:16:10Z")      # found_at == dropped_at is in order
-        cases = [("open", {}, "open"), ("taken", TAKEN, "open"), ("done", CLOSED, "done"), ("dropped", DROPPED, "done"), ("dropped", same_second, "done")]
-        for state, fields, where in cases:
-            item = self.parse(new_shape(**fields), where)
+        cases = [("open", {}), ("taken", TAKEN), ("done", CLOSED), ("dropped", DROPPED), ("dropped", same_second)]
+        for state, fields in cases:
+            item = self.parse(new_shape(**fields))
             self.assertEqual((item["problems"], item["state"]), ([], state))
         taken = self.parse(new_shape(**TAKEN))
         self.assertEqual((taken["taken_by"], taken["test"]), ("wt/x", None))
-        self.assertEqual(self.parse(new_shape(**CLOSED), "done")["taken_by"], "wt/x")      # taken_by stays: it is the closing branch
+        self.assertEqual(self.parse(new_shape(**CLOSED))["taken_by"], "wt/x")      # taken_by stays: it is the closing branch
 
     def test_f2_utc_found_before_taken_across_midnight_is_accepted(self):
         # found 21:16 UTC and taken 21:47 UTC of the same day are in order; the old local-date pair was not
@@ -465,31 +465,29 @@ class TestNewShape(unittest.TestCase):
 
     def test_each_new_rule_refuses(self):
         cases = [
-            ("taken_by without taken_at", new_shape(taken_by="wt/x"), None, "taken_by is set exactly when taken_at"),
-            ("taken_at without taken_by", new_shape(taken_at=TAKEN["taken_at"]), None, "taken_by is set exactly when taken_at"),
-            ("closed before taken", new_shape(**dict(CLOSED, closed_at="2026-10-23T21:00:00Z")), "done", "not in order"),
-            ("found after taken", new_shape(**dict(TAKEN, found_at="2026-10-24T00:00:00Z")), None, "not in order"),
-            ("test without closed_at", new_shape(test="t.py::x"), None, "a test without closed_at"),
-            ("closed_at without a test", new_shape(**dict(CLOSED, test=None)), "done", "closed_at without a test"),
-            ("closed_at without taken_at", new_shape(closed_at=CLOSED["closed_at"], test="t.py::x"), "done", "closed_at without taken_at"),
-            ("dropped with closed", new_shape(**dict(CLOSED, **DROPPED)), "done", "dropped_at together with"),
-            ("dropped_at without why", new_shape(dropped_at=DROPPED["dropped_at"]), "done", "dropped_at without dropped_why"),
-            ("why without dropped_at", new_shape(dropped_why=["x"]), None, "dropped_why without dropped_at"),
-            ("done/ file with no end", new_shape(), "done", "needs closed_at or dropped_at"),
-            ("ended item outside done/", new_shape(**CLOSED), "open", "belongs under done/"),
-            ("bad time", new_shape(found_at="2026-10-23"), None, "found_at is not null or a UTC time"),
-            ("impossible time", new_shape(found_at="2026-13-45T00:00:00Z"), None, "found_at is not null or a UTC time"),
-            ("found_at null", new_shape(found_at=None), None, "found_at is null"),
-            ("missing key", json.dumps({k: v for k, v in json.loads(new_shape()).items() if k != "taken_at"}), None, "missing key taken_at"),
-            ("dropped before found", new_shape(dropped_at="2026-10-01T00:00:00Z", dropped_why=["no"]), "done", "not in order"),
-            ("taken_by empty string", new_shape(taken_by=""), None, "taken_by is null or a non-empty string"),
-            ("test empty string", new_shape(test=""), None, "test is null or a non-empty string"),
-            ("dropped_why empty list", new_shape(dropped_why=[]), None, "dropped_why is null or a non-empty list"),
-            ("old shape keys beside the new ones", new_shape(state="open"), None, "run `relay queue migrate`"),
-            ("old shape found beside found_at", new_shape(found="2026-10-23"), None, "run `relay queue migrate`"),
+            ("taken_by without taken_at", new_shape(taken_by="wt/x"), "taken_by is set exactly when taken_at"),
+            ("taken_at without taken_by", new_shape(taken_at=TAKEN["taken_at"]), "taken_by is set exactly when taken_at"),
+            ("closed before taken", new_shape(**dict(CLOSED, closed_at="2026-10-23T21:00:00Z")), "not in order"),
+            ("found after taken", new_shape(**dict(TAKEN, found_at="2026-10-24T00:00:00Z")), "not in order"),
+            ("test without closed_at", new_shape(test="t.py::x"), "a test without closed_at"),
+            ("closed_at without a test", new_shape(**dict(CLOSED, test=None)), "closed_at without a test"),
+            ("closed_at without taken_at", new_shape(closed_at=CLOSED["closed_at"], test="t.py::x"), "closed_at without taken_at"),
+            ("dropped with closed", new_shape(**dict(CLOSED, **DROPPED)), "dropped_at together with"),
+            ("dropped_at without why", new_shape(dropped_at=DROPPED["dropped_at"]), "dropped_at without dropped_why"),
+            ("why without dropped_at", new_shape(dropped_why=["x"]), "dropped_why without dropped_at"),
+            ("bad time", new_shape(found_at="2026-10-23"), "found_at is not null or a UTC time"),
+            ("impossible time", new_shape(found_at="2026-13-45T00:00:00Z"), "found_at is not null or a UTC time"),
+            ("found_at null", new_shape(found_at=None), "found_at is null"),
+            ("missing key", json.dumps({k: v for k, v in json.loads(new_shape()).items() if k != "taken_at"}), "missing key taken_at"),
+            ("dropped before found", new_shape(dropped_at="2026-10-01T00:00:00Z", dropped_why=["no"]), "not in order"),
+            ("taken_by empty string", new_shape(taken_by=""), "taken_by is null or a non-empty string"),
+            ("test empty string", new_shape(test=""), "test is null or a non-empty string"),
+            ("dropped_why empty list", new_shape(dropped_why=[]), "dropped_why is null or a non-empty list"),
+            ("old shape keys beside the new ones", new_shape(state="open"), "run `relay queue migrate`"),
+            ("old shape found beside found_at", new_shape(found="2026-10-23"), "run `relay queue migrate`"),
         ]
-        for name, text, where, expected in cases:
-            problems = self.parse(text, where)["problems"]
+        for name, text, expected in cases:
+            problems = self.parse(text)["problems"]
             self.assertTrue(any(expected in p for p in problems), f"{name}: {problems}")
 
     def test_a_whole_old_shape_file_is_refused_naming_the_migration(self):
@@ -754,9 +752,9 @@ class TestLanding(Base):
         self.assertIn("queued same-title-2", message)
         self.assertEqual(self.item("same-title")["why"], ["one"])
         self.assertEqual(self.item("same-title-2")["why"], ["two"])
-        self.write_commit(self.main, {".relay/queue/done/other.json": with_fields(feature_item(), **taken_fields(), closed_at=CLOSED_AT, test="t.py::t")}, "done")
+        self.write_commit(self.main, {".relay/queue/other.json": with_fields(feature_item(), **taken_fields(), closed_at=CLOSED_AT, test="t.py::t")}, "done")
         rq.add(self.main, "feature", "Other", why="w", minutes=5, **QUIET)
-        self.assertIsNotNone(self.item("other-2"))                                  # a name in done/ is taken too
+        self.assertIsNotNone(self.item("other-2"))                                  # the name of a closed item is taken too
 
     def test_q6_add_refused_when_main_is_not_on_default(self):
         git(self.main, "checkout", "-q", "-b", "side")
@@ -943,8 +941,7 @@ class TestTake(Base):
         self.assertEqual((item["state"], item["taken_at"], item["taken_by"]), ("open", None, None))
         with mock.patch.object(rq, "utcnow", return_value="2026-10-06T08:00:00Z"):
             rq.drop(self.main, "feat", "the owner said drop it", **QUIET)
-        self.assertIsNone(self.item("feat"))
-        dropped = self.item("feat", sub="done/")
+        dropped = self.item("feat")
         self.assertEqual((dropped["state"], dropped["dropped_at"], dropped["taken_at"]), ("dropped", "2026-10-06T08:00:00Z", None))
         self.assertEqual(dropped["dropped_why"], ["the owner said drop it"])
 
@@ -1000,7 +997,7 @@ class TestTake(Base):
         self.checked()
         with mock.patch.object(rq, "utcnow", return_value="2026-10-05T13:30:00Z"):
             rq.done(self.wa, "job", "tests/test_job.py::test_job_works")
-        data = json.loads(git(self.wa, "show", "HEAD:.relay/queue/done/job.json"))
+        data = json.loads(git(self.wa, "show", "HEAD:.relay/queue/job.json"))
         self.assertEqual((data["taken_at"], data["taken_by"], data["closed_at"], data["test"]),
                          ("2026-10-05T12:00:00Z", "wt/a", "2026-10-05T13:30:00Z", "tests/test_job.py::test_job_works"))
         self.assertTrue(set(data).isdisjoint(rq.OLD_ONLY))
@@ -1016,8 +1013,7 @@ class TestTake(Base):
         self.assertEqual(git(self.wa, "status", "--porcelain"), "")
         self.assertEqual(self.item("job")["state"], "taken")                         # master changes only when the branch merges
         git(self.main, "merge", "-q", "--no-edit", "wt/a")                           # no conflict
-        self.assertIsNone(self.item("job"))
-        closed = self.item("job", sub="done/")
+        closed = self.item("job")
         self.assertEqual((closed["state"], closed["taken_by"], closed["test"]),
                          ("done", "wt/a", "tests/test_job.py::test_job_works"))
         self.assertIsNotNone(self.item("meanwhile"))
@@ -1200,7 +1196,7 @@ class TestInputFile(Base):
         self.assertEqual(git(self.main, "rev-parse", "master"), before)           # nothing landed
         done = self.run_relay("drop", "feat", "--input", path, "-C", self.main)
         self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertEqual(self.item("feat", sub="done/")["dropped_why"], [words])
+        self.assertEqual(self.item("feat")["dropped_why"], [words])
 
     def test_f5_drop_of_a_taken_item_is_still_refused(self):
         self.write_commit(self.main, {".relay/queue/job.json": with_fields(fix_item("Job"), **taken_fields("wt/x"))}, "seed")
@@ -1280,11 +1276,11 @@ class TestMigrate(Base):
         self.assertEqual(out.returncode, 0, out.stderr)
         # job: first commit 10:00 is found_at; taken 11:00, released 12:00, taken again 13:00: the LAST take (13:00) counts;
         # closed 14:00, reverted back to taken 15:00 (a revert is not a take), closed again 16:00: closed_at is 16:00
-        job = self.read("done/job.json")
+        job = self.read("job.json")
         self.assertEqual((job["found_at"], job["taken_at"], job["taken_by"], job["closed_at"], job["test"], job["dropped_at"]),
                          ("2026-10-01T10:00:00Z", "2026-10-01T13:00:00Z", "wt/b", "2026-10-01T16:00:00Z", "tests/t.py::t", None))
         self.assertTrue(set(job).isdisjoint(rq.OLD_ONLY))
-        gone = self.read("done/gone.json")
+        gone = self.read("gone.json")
         self.assertEqual((gone["found_at"], gone["dropped_at"], gone["dropped_why"], gone["taken_at"], gone["taken_by"]),
                          ("2026-10-02T09:00:00Z", "2026-10-02T10:00:00Z", ["no"], None, None))
         plain = self.read("plain.json")
@@ -1327,12 +1323,13 @@ class TestMigrate(Base):
         self.run_relay("migrate", "-C", self.main)
         ok = self.run_relay("check", "-C", self.main)
         self.assertEqual((ok.returncode, ok.stdout.strip()), (0, "every queue item file is well formed"))
-        # a done/ file whose events were removed is reported with the folder rule
-        data = self.read("done/job.json")
-        data.update(closed_at=None, test=None)
-        with open(os.path.join(self.main, ".relay", "queue", "done", "job.json"), "w") as handle:
-            json.dump(data, handle)
-        self.assertIn("needs closed_at or dropped_at", self.run_relay("check", "-C", self.main).stdout)
+        # a file left in the gone done/ folder is reported with the way out
+        os.makedirs(os.path.join(self.main, ".relay", "queue", "done"), exist_ok=True)
+        with open(os.path.join(self.main, ".relay", "queue", "done", "late.json"), "w") as handle:
+            handle.write(new_shape())
+        stray = self.run_relay("check", "-C", self.main)
+        self.assertEqual(stray.returncode, 1)
+        self.assertIn(".relay/queue/done/late.json: the done/ folder is gone: run `relay queue migrate`", stray.stdout)
 
     def test_json_lists_the_done_items_too_with_their_dates_and_the_table_does_not(self):
         self.history()

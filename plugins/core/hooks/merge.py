@@ -112,7 +112,7 @@ def clean(main, default, branch, hook):
 # ---- section 7: the merge gate (PreToolUse) ----
 
 QUEUE_DIR = ".relay/queue/"
-DONE_DIR = QUEUE_DIR + "done/"
+DONE_DIR = QUEUE_DIR + "done/"      # gone: a file found there is refused, not read
 
 
 class Refused(Exception):
@@ -135,39 +135,23 @@ def blob(main, ref, path):
     return out if rc == 0 else None
 
 
-def closing_ref(main, default, ab, path):
-    """The commit of the innermost absorbed branch whose range default...branch adds `path`, or None: the ref where a rider's own
-    check is judged, the way merging that rider alone would."""
-    adding = []
-    for name, tip in ab.items():
-        rc, added = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", "refs/heads/%s...%s" % (default, tip))
-        if rc != 0:
-            raise Refused("cannot list the files %s adds (%s)" % (name, tip))
-        if path in added.split("\0"):
-            rc, count = relay_git.git(main, "rev-list", "--count", tip)
-            if rc != 0 or not count.strip().isdigit():
-                raise Refused("cannot count the commits of %s (%s): the branch tip %s is not readable" % (name, tip, tip))
-            adding.append((int(count), name, tip))
-    return min(adding)[2] if adding else None
-
-
 RULES_RUNNER = (
     "import json, sys\n"
     "sys.path.insert(0, sys.argv[1])\n"
     "import relay_queue\n"
     "rows = json.load(sys.stdin)\n"
-    "json.dump([relay_queue.parse(slug, text, where) for slug, text, where in rows], sys.stdout)\n"
+    "json.dump([relay_queue.parse(slug, text) for slug, text in rows], sys.stdout)\n"
 )
 RULES_TIMEOUT = 60   # seconds for one judge of all the records of a branch
 
 
 def record_rules(main: str, ref: str, rows: list) -> list:
-    """The metas of `rows` (slug, text, "open" or "done"), judged by the lib/ of the tree at `ref`: its lib/*.py are written to a
+    """The metas of `rows` (slug, text), judged by the lib/ of the tree at `ref`: its lib/*.py are written to a
     temporary folder (git show, so the tree is never checked out) and one `python -I` process parses all the rows there. Only the
     metas come back as JSON, so nothing the branch's code does reaches this hook's own modules. Where the tree has no
     lib/relay_queue.py (a project that is not relay) the hook's own copy judges. A process that fails raises: the merge is refused."""
     if blob(main, ref, "lib/relay_queue.py") is None:
-        return [relay_queue.parse(slug, text, where) for slug, text, where in rows]
+        return [relay_queue.parse(slug, text) for slug, text in rows]
     names = relay_git.git(main, "ls-tree", "-r", "--name-only", "-z", ref, "--", "lib/")[1].split("\0")
     with tempfile.TemporaryDirectory() as folder:
         for name in sorted(n for n in names if n.endswith(".py")):
@@ -185,27 +169,37 @@ def record_rules(main: str, ref: str, rows: list) -> list:
 def step_queue(main, default, branch, ab=None):
     """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
     `relay queue migrate`); every queue file at the branch tip, whether the range touched it or not (one that came in by taking the
-    default branch included), is well formed too; every `fix` item it moves into done/ (not dropped) passes `relay_queue.close_refusal`: its test exists and the branch's newest check
-    with no own file changed since is of that item with Q1 MET. For a train (`ab`, the absorbed branches) the test is judged at the
-    branch, the tree that lands, and the check at the absorbed branch whose range adds the item's done/ file."""
+    default branch included), is well formed too; a file in the gone done/ folder is refused; every `fix` item the branch closes
+    (`relay_queue.closed_on`: closed_at empty where the branch forked from the default branch, set at its tip; dropped ones need
+    nothing) passes `relay_queue.close_refusal`: its test exists and the branch's newest check with no own file changed since is of that
+    item with Q1 MET. For a train (`ab`, the absorbed branches) the test is judged at the branch, the tree that lands, and the check at
+    the absorbed branch whose range closes the item."""
     ab = ab or {}
+    ref = "refs/heads/" + branch
     changed_files = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=AM", "-z",
-                                  "refs/heads/%s...refs/heads/%s" % (default, branch))[1]
-    added = set(relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z",
-                              "refs/heads/%s...refs/heads/%s" % (default, branch))[1].split("\0"))
-    tip = relay_git.git(main, "ls-tree", "-r", "--name-only", "-z", "refs/heads/" + branch, "--", QUEUE_DIR)[1]
+                                  "refs/heads/%s...%s" % (default, ref))[1]
+    tip = relay_git.git(main, "ls-tree", "-r", "--name-only", "-z", ref, "--", QUEUE_DIR)[1]
     files = set(changed_files.split("\0")) | set(tip.split("\0"))
-    paths = sorted(p for p in files if p.endswith(".json") and os.path.dirname(p) in (QUEUE_DIR.rstrip("/"), DONE_DIR.rstrip("/")))
-    rows = [(os.path.basename(p)[:-5], blob(main, "refs/heads/" + branch, p) or "", "done" if p.startswith(DONE_DIR) else "open") for p in paths]
-    for path, meta in zip(paths, record_rules(main, "refs/heads/" + branch, rows)):
+    stray = sorted(p for p in files if p.startswith(DONE_DIR) and p.endswith(".json"))
+    if stray:
+        raise Refused("queue file %s is under done/, which is gone; run relay queue migrate" % stray[0])
+    paths = sorted(p for p in files if p.endswith(".json") and os.path.dirname(p) == QUEUE_DIR.rstrip("/"))
+    rows = [(os.path.basename(p)[:-5], blob(main, ref, p) or "") for p in paths]
+    base = None
+    for path, meta in zip(paths, record_rules(main, ref, rows)):
         slug = os.path.basename(path)[:-5]
-        in_done = path.startswith(DONE_DIR)
         if meta["problems"]:
             raise Refused("queue item %s is malformed (%s); fix it before the merge" % (slug, "; ".join(meta["problems"])))
-        if not in_done or path not in added or meta["kind"] != "fix" or meta["state"] == "dropped":
+        if meta["kind"] != "fix" or meta["state"] != "done":
             continue
-        closer = closing_ref(main, default, ab, path) or "refs/heads/" + branch
-        reason = relay_queue.test_refusal(main, "refs/heads/" + branch, meta["test"]) or relay_queue.check_refusal(main, closer, slug)
+        try:
+            base = base or relay_queue.merge_base(main, "refs/heads/" + default, ref)
+            if not relay_queue.closed_on(main, base, ref, slug):
+                continue
+            closer = relay_queue.closing_tip(main, default, ab, slug) or ref
+        except relay_queue.Refused as exc:
+            raise Refused(str(exc))
+        reason = relay_queue.test_refusal(main, ref, meta["test"]) or relay_queue.check_refusal(main, closer, slug)
         if reason:
             raise Refused("queue item %s is closed without a test or a check: %s" % (slug, reason))
 

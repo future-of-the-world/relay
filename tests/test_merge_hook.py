@@ -57,31 +57,35 @@ class FailsClosed(unittest.TestCase):
         self.assertEqual((rc, err.strip()), (2, "merge refused: no green gate"))
 
     def test_a_branch_tip_git_cannot_count_is_a_refusal_not_a_value_error(self):
-        # the diff names the path as added, then `rev-list --count` of a tip that does not exist fails (exit 128, no output)
+        # the range closes the item, then `rev-list --count` of a tip that does not exist fails (exit 128, no output)
         module = load_hook()
-        real = module.relay_git.git
+        rq = module.relay_queue
+        real = rq.relay_git.git
 
         def git(repo, *args, **kwargs):
-            if args[0] == "diff":
-                return 0, "queue/x.json"
+            if args[0] == "rev-list":
+                return 128, ""
             return real(repo, *args, **kwargs)
 
-        with mock.patch.object(module.relay_git, "git", side_effect=git):
-            with self.assertRaises(module.Refused) as caught:
-                module.closing_ref(self.repo, "master", {"wt/gone": "0" * 40}, "queue/x.json")
+        with mock.patch.object(rq, "merge_base", return_value="b" * 40), mock.patch.object(rq, "closed_on", return_value=True), \
+                mock.patch.object(rq.relay_git, "git", side_effect=git):
+            with self.assertRaises(rq.Refused) as caught:
+                rq.closing_tip(self.repo, "master", {"wt/gone": "0" * 40}, "x")
         self.assertIn("wt/gone", str(caught.exception))
 
-    def test_a_diff_git_cannot_run_is_a_refusal_naming_the_branch(self):
+    def test_a_merge_base_git_cannot_find_is_a_refusal_naming_the_tip(self):
         module = load_hook()
-        with mock.patch.object(module.relay_git, "git", return_value=(128, "")):
-            with self.assertRaises(module.Refused) as caught:
-                module.closing_ref(self.repo, "master", {"wt/a": "0" * 40}, "queue/x.json")
-        self.assertIn("wt/a", str(caught.exception))
+        rq = module.relay_queue
+        with mock.patch.object(rq.relay_git, "git", return_value=(128, "")):
+            with self.assertRaises(rq.Refused) as caught:
+                rq.closing_tip(self.repo, "master", {"wt/a": "0" * 40}, "x")
+        self.assertIn("0" * 40, str(caught.exception))
 
-    def test_a_diff_without_the_path_skips_the_branch(self):
+    def test_a_branch_that_did_not_close_the_item_is_skipped(self):
         module = load_hook()
-        with mock.patch.object(module.relay_git, "git", return_value=(0, "other.json")):
-            self.assertIsNone(module.closing_ref(self.repo, "master", {"wt/a": "0" * 40}, "queue/x.json"))
+        rq = module.relay_queue
+        with mock.patch.object(rq, "merge_base", return_value="b" * 40), mock.patch.object(rq, "closed_on", return_value=False):
+            self.assertIsNone(rq.closing_tip(self.repo, "master", {"wt/a": "0" * 40}, "x"))
 
     def test_a_command_with_no_merge_is_silent(self):
         self.hook["tool_input"]["command"] = "git status"

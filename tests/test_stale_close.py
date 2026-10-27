@@ -33,9 +33,8 @@ class TestFixedBy(tq.Base):
     def test_q1_an_item_fixed_on_master_closes_with_the_commit_and_test_and_leaves_the_list(self):
         self.close()
         # worked out: the test fails at the parent (flag bad), passes at the fix (flag ok), so the close is allowed and
-        # the done file names the full sha and the test, dated by the fixed clock
-        self.assertIsNone(self.item("item"))
-        closed = self.item("item", sub="done/")
+        # the item file (edited in place) names the full sha and the test, dated by the fixed clock
+        closed = self.item("item")
         self.assertEqual((closed["state"], closed["closed_at"], closed["test"], closed["fixed_by"], closed["problems"]),
                          ("done", NOW, NAME, self.fix, []))
         self.assertIn(f"fixed by {self.fix}", rq.show_text(closed))
@@ -46,8 +45,7 @@ class TestFixedBy(tq.Base):
             self.close(test=TEST_FILE + "::test_always")
         self.assertIn("passes at", str(ctx.exception))
         self.assertIn("did not fix it", str(ctx.exception))
-        self.assertIsNotNone(self.item("item"))
-        self.assertIsNone(self.item("item", sub="done/"))
+        self.assertEqual(self.item("item")["state"], "open")       # refused: the file is unchanged
 
     def test_q1_a_commit_not_on_master_a_missing_test_and_a_test_that_still_fails_are_refused(self):
         tq.git(self.main, "checkout", "-q", "-b", "side")
@@ -85,7 +83,7 @@ class TestFixedBy(tq.Base):
         tq.git(self.main, "branch", "wt/idle")      # at master: no commit of its own, so it is not live
         with mock.patch.object(rq, "utcnow", return_value=NOW):
             rq.close_fixed_by(self.main, "job", self.fix, NAME, **tq.QUIET)
-        closed = self.item("job", sub="done/")
+        closed = self.item("job")
         self.assertEqual((closed["state"], closed["taken_by"], closed["fixed_by"], closed["problems"]), ("done", "wt/idle", self.fix, []))
 
     def test_q1_the_command_line_form_closes_it_and_a_fixed_by_without_a_test_is_a_usage_error(self):
@@ -95,7 +93,7 @@ class TestFixedBy(tq.Base):
         self.assertNotEqual(bad.returncode, 0)
         good = run("done", "item", "--fixed-by", self.fix, "--test", NAME, "-C", self.main)
         self.assertEqual(good.returncode, 0, good.stderr)
-        self.assertEqual(self.item("item", sub="done/")["fixed_by"], self.fix)
+        self.assertEqual(self.item("item")["fixed_by"], self.fix)
 
     def test_f1_a_method_named_without_its_class_is_found_and_closes_with_the_full_node(self):
         # a class-method test, as every test of relay is; the file::name form must find the class by itself
@@ -104,7 +102,7 @@ class TestFixedBy(tq.Base):
         self.write_commit(self.main, {"tests/test_cls.py": text}, "class test")
         self.close(test="tests/test_cls.py::test_flag_is_ok")
         # worked out: bad flag at the parent -> fails, ok at the fix -> passes; the kept name is the full node pytest ran
-        self.assertEqual(self.item("item", sub="done/")["test"], "tests/test_cls.py::T::test_flag_is_ok")
+        self.assertEqual(self.item("item")["test"], "tests/test_cls.py::T::test_flag_is_ok")
 
     def test_f1_the_full_class_form_closes_and_a_name_in_no_class_is_still_refused(self):
         text = ("import unittest\n\n\nclass T(unittest.TestCase):\n    def test_flag_is_ok(self):\n"
@@ -114,7 +112,7 @@ class TestFixedBy(tq.Base):
             self.close(test="tests/test_cls.py::test_nothing")
         self.assertIn("does not hold a test named", str(ctx.exception))
         self.close(test="tests/test_cls.py::T::test_flag_is_ok")
-        self.assertEqual(self.item("item", sub="done/")["test"], "tests/test_cls.py::T::test_flag_is_ok")
+        self.assertEqual(self.item("item")["test"], "tests/test_cls.py::T::test_flag_is_ok")
 
     def test_f2_after_release_a_fix_taken_by_a_live_branch_closes(self):
         self.write_commit(self.main, {".relay/queue/job.json": tq.with_fields(tq.fix_item(), **tq.taken_fields("wt/live"))}, "take")
@@ -128,7 +126,7 @@ class TestFixedBy(tq.Base):
         self.assertNotIn("close it from there", str(ctx.exception))
         rq.release(self.main, "job", **tq.QUIET)
         self.close_job()
-        closed = self.item("job", sub="done/")
+        closed = self.item("job")
         self.assertEqual((closed["state"], closed["taken_by"], closed["fixed_by"]), ("done", None, self.fix))
 
     def close_job(self):
@@ -143,7 +141,7 @@ class TestFixedBy(tq.Base):
         self.write_commit(self.main, {".relay/queue/feat.json": tq.feature_item()}, "feature")
         with mock.patch.object(rq, "utcnow", return_value=NOW):
             rq.close_with_evidence(self.main, "feat", "3b28fbf", **tq.QUIET)
-        self.assertEqual(self.item("feat", sub="done/")["evidence"], "3b28fbf")
+        self.assertEqual(self.item("feat")["evidence"], "3b28fbf")
 
 
 if __name__ == "__main__":

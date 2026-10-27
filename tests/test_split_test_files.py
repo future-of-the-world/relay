@@ -62,7 +62,7 @@ class TestDoneItemsKeepTheirTests(unittest.TestCase):
         problems = []
         for slug, recorded in expected.items():
             # a pinned commit, never the live queue: a queue event must not turn this red
-            item = relay_queue.parse(slug, show_raw(ROOT, QUEUE_COMMIT, ".relay/queue/done/" + slug + ".json"), "done")
+            item = relay_queue.parse(slug, show_raw(ROOT, QUEUE_COMMIT, ".relay/queue/done/" + slug + ".json"))
             if item["problems"]:
                 problems.append(f"{slug}: {item['problems']}")
             elif item["test"] != recorded:

@@ -52,6 +52,7 @@ REQUIRED = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why"
             "dropped_at", "dropped_why")
 TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 MIGRATE_HINT = "run `relay queue migrate` on this branch"
+STRAY_DONE = "the done/ folder is gone: run `relay queue migrate` to move this file back into .relay/queue/"
 TEST_RUN_SECONDS = 120        # one run of a named test at one commit (`close_fixed_by`); a slower test is refused, not waited for
 TITLE_MAX = 60                # a title is under this many characters (rules/queue.md)
 
@@ -130,10 +131,8 @@ def _timestamp(value):
     return True
 
 
-def check(slug, data, where=None):
-    """The reasons `data` (a decoded item file) is not a well-formed item; [] when it is.
-
-    `where` is "open" (the queue folder) or "done" (its done/ folder) when the folder of the file is known."""
+def check(slug, data):
+    """The reasons `data` (a decoded item file) is not a well-formed item; [] when it is."""
     if not isinstance(data, dict):
         return ["the file is not a JSON object"]
     old = [k for k in OLD_ONLY if k in data]
@@ -206,10 +205,6 @@ def check(slug, data, where=None):
         if stamps != sorted(stamps):
             problems.append("the times are not in order: found_at <= taken_at <= closed_at, found_at <= dropped_at")
             break
-    if where is not None:
-        ended = closed is not None or dropped is not None
-        if ended != (where == "done"):
-            problems.append("an item under done/ needs closed_at or dropped_at" if where == "done" else "an item with closed_at or dropped_at belongs under done/")
     _title_problems(slug, data, problems)
     return problems
 
@@ -229,16 +224,15 @@ def _nonblank(lines):
     return _is_lines(lines) and any(x.strip() for x in lines)
 
 
-def parse(slug, text, where=None):
+def parse(slug, text):
     """An item as a dict: the fields of the file, the computed `state`, `slug` and `problems` (empty when well formed).
 
-    `where` is "open" or "done" when the folder of the file is known. A file that fails the check (an old-shape one
-    too) comes back as {"slug", "problems"} only, so nothing reads half an item."""
+    A file that fails the check (an old-shape one too) comes back as {"slug", "problems"} only, so nothing reads half an item."""
     try:
         data = json.loads(text)
     except ValueError as exc:
         return {"slug": slug, "problems": [f"not valid JSON: {exc}"]}
-    problems = check(slug, data, where)
+    problems = check(slug, data)
     if problems:
         return {"slug": slug, "problems": problems}
     item = {key: data[key] for key in ORDER if key in data}
@@ -246,12 +240,11 @@ def parse(slug, text, where=None):
     return item
 
 
-def serialize(slug, item, where=None):
-    """The file text of an item: indent 2, fixed key order, UTF-8, a trailing newline. Refused when it fails the check
-    (`where` is "open" or "done": the folder the file is written to)."""
+def serialize(slug, item):
+    """The file text of an item: indent 2, fixed key order, UTF-8, a trailing newline. Refused when it fails the check."""
     data = {key: item[key] for key in ORDER if key in item}
     extra = sorted(set(item) - set(ORDER) - {"slug", "problems", "state"})
-    problems = check(slug, data, where) + [f"unknown key {k}" for k in extra]
+    problems = check(slug, data) + [f"unknown key {k}" for k in extra]
     if problems:
         raise Refused(f"item '{slug}' is not well formed: {'; '.join(problems)}")
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
@@ -469,20 +462,16 @@ class Reader:
         return rc == 0 and _text(out) == QDIR
 
     def items(self):
+        """Every item of the folder, parsed, by slug: open, taken, done and dropped (the state is in the item)."""
         if self._items is None:
             slugs = self.names()
             blobs = cat_batch(self.main, [f"{self.rev}:{QDIR}/{s}.json" for s in slugs])
-            self._items = {s: parse(s, b.decode("utf-8", "replace"), "open") for s, b in zip(slugs, blobs) if b is not None}
+            self._items = {s: parse(s, b.decode("utf-8", "replace")) for s, b in zip(slugs, blobs) if b is not None}
         return self._items
 
-    def closed_items(self):
-        """The items of `done/` (closed or dropped), parsed, by slug."""
-        slugs = self.names("done/")
-        blobs = cat_batch(self.main, [f"{self.rev}:{QDIR}/done/{s}.json" for s in slugs])
-        return {s: parse(s, b.decode("utf-8", "replace"), "done") for s, b in zip(slugs, blobs) if b is not None}
-
     def used_slugs(self):
-        return set(self.names()) | set(self.names("done/"))
+        """The names of every item file, closed and dropped ones too (a slug is never reused)."""
+        return set(self.names())
 
     def blob(self, path):
         rc, out, _ = _git(self.main, "rev-parse", "--verify", "-q", f"{self.rev}:{path}")
@@ -516,8 +505,8 @@ def _head(main, default):
 
 
 def read_queue(repo, closed=False):
-    """Every item (parsed) of the default branch, read from git; [] when there is no queue folder.
-    With `closed`, the items of `done/` (closed and dropped) too."""
+    """The open and taken items (parsed) of the default branch, read from git; [] when there is no queue folder.
+    With `closed`, the done and dropped ones too. An item that does not parse has no state and is always listed."""
     main, default = _context(repo)
     rc, out, _ = _git(main, "rev-parse", "--verify", "-q", f"refs/heads/{default}")
     if rc != 0:
@@ -525,24 +514,27 @@ def read_queue(repo, closed=False):
     reader = Reader(main, _text(out))
     if not reader.has_folder():
         return []
-    return list(reader.items().values()) + (list(reader.closed_items().values()) if closed else [])
+    return [i for i in reader.items().values() if closed or i.get("state") in (None, "open", "taken")]
 
 
 def check_files(root):
-    """(path, reasons) for each item file under `root`/.relay/queue and its done/ folder that is not well formed, sorted by path.
-    Reads the checkout's files, so a branch is checked before its merge. Raises Refused when there is no queue folder."""
+    """(path, reasons) for each item file under `root`/.relay/queue that is not well formed, sorted by path; a file left in the
+    gone done/ folder is reported too. Reads the checkout's files, so a branch is checked before its merge. Raises Refused when
+    there is no queue folder."""
     problems = []
     base = os.path.join(root, QDIR)
     if not os.path.isdir(base):
         raise Refused(f"no {QDIR} folder under {root}")
-    for sub, where in (("", "open"), ("done", "done")):
-        folder = os.path.join(base, sub)
-        for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
-            if name.endswith(".json"):
-                with open(os.path.join(folder, name), encoding="utf-8") as handle:
-                    item = parse(name[:-5], handle.read(), where)
-                if item["problems"]:
-                    problems.append((f"{QDIR}/{sub + '/' if sub else ''}{name}", item["problems"]))
+    for name in sorted(os.listdir(base)):
+        if name.endswith(".json") and os.path.isfile(os.path.join(base, name)):
+            with open(os.path.join(base, name), encoding="utf-8") as handle:
+                item = parse(name[:-5], handle.read())
+            if item["problems"]:
+                problems.append((f"{QDIR}/{name}", item["problems"]))
+    stray = os.path.join(base, "done")
+    for name in sorted(os.listdir(stray)) if os.path.isdir(stray) else []:
+        if name.endswith(".json"):
+            problems.append((f"{QDIR}/done/{name}", [STRAY_DONE]))
     return problems
 
 
@@ -668,14 +660,16 @@ def _run(repo, planner, **kwargs):
 def _item_at(reader, slug):
     item = reader.items().get(slug)
     if item is None:
-        raise Refused(f"no open queue item '{slug}'")
+        raise Refused(f"no queue item '{slug}'")
     if item["problems"]:
         raise Refused(f"queue item '{slug}' is malformed ({'; '.join(item['problems'])})")
+    if item["state"] in ("done", "dropped"):
+        raise Refused(f"queue item '{slug}' is {item['state']} ({'closed' if item['state'] == 'done' else 'dropped'} {(item.get('closed_at') or item.get('dropped_at'))[:10]}); a finished item is not changed")
     return item
 
 
-def _path(slug, sub=""):
-    return f"{QDIR}/{sub}{slug}.json"
+def _path(slug):
+    return f"{QDIR}/{slug}.json"
 
 
 def _taken_by_refusal(item):
@@ -838,8 +832,8 @@ def drop(repo, slug, why, **engine):
         item = _item_at(reader, slug)
         if item["state"] == "taken":
             raise _taken_by_refusal(item)
-        text = serialize(slug, changed(item, dropped_at=utcnow(), dropped_why=lines_of(why)), "done")
-        return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "dropped")
+        text = serialize(slug, changed(item, dropped_at=utcnow(), dropped_why=lines_of(why)))
+        return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "dropped")
 
     return _run(repo, planner, **engine)
 
@@ -866,8 +860,8 @@ def close_with_evidence(repo, slug, evidence, **engine):
             raise Refused(f"'{slug}' is a fix: close it with --test on the branch that took it, or with --fixed-by <commit> --test <file>::<Class>::<name> when a change already on the default branch fixed it")
         if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
             raise _taken_by_refusal(item)
-        text = serialize(slug, changed(item, closed_at=utcnow(), evidence=evidence), "done")
-        return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "closed")
+        text = serialize(slug, changed(item, closed_at=utcnow(), evidence=evidence))
+        return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "closed")
 
     return _run(repo, planner, **engine)
 
@@ -965,8 +959,8 @@ def close_fixed_by(repo, slug, commit, test, run_test=_run_pytest, **engine):
         if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
             raise Refused(f"queue item '{slug}' is taken by {item['taken_by']}, which is not merged: "
                           f"relay queue release {slug}, then run this again")
-        text = serialize(slug, changed(item, closed_at=utcnow(), test=test.strip(), fixed_by=sha), "done")
-        return Plan(slug, {_path(slug): None, _path(slug, "done/"): text}, f"{item['kind']}, ip {item['ip']}", "closed")
+        text = serialize(slug, changed(item, closed_at=utcnow(), test=test.strip(), fixed_by=sha))
+        return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "closed")
 
     return _run(repo, planner, **engine)
 
@@ -991,35 +985,70 @@ def _q1(item):
             "pass_cases": list(item.get("pass_cases") or []), "evidence": [], "fix_hint": []}
 
 
+def _closed_at(blob: bytes | None) -> bool:
+    """True when the item file text `blob` (None: no such file) is a JSON object whose closed_at is set."""
+    if blob is None:
+        return False
+    try:
+        data = json.loads(blob.decode("utf-8", "replace"))
+    except ValueError:
+        return False
+    return isinstance(data, dict) and bool(data.get("closed_at"))
+
+
+def closed_on(main: str, base: str, tip: str, slug: str) -> bool:
+    """True when the branch whose fork point is `base` and whose tip is `tip` closed the item `slug`: closed_at is empty (or the file
+    is absent) at `base` and set at `tip`. The one rule of the merge hook, the train's closer search and `held_fix_items`: a close
+    edits the item file in place, so no file is added when an item is closed."""
+    before, after = cat_batch(main, [f"{base}:{_path(slug)}", f"{tip}:{_path(slug)}"])
+    return _closed_at(after) and not _closed_at(before)
+
+
+def merge_base(main: str, left: str, right: str) -> str:
+    """The merge base of two revisions; Refused when git cannot tell."""
+    rc, out = relay_git.git(main, "merge-base", left, right)
+    if rc != 0 or not out.strip():
+        raise Refused(f"cannot find the merge base of {left} and {right}")
+    return out.strip()
+
+
+def closing_tip(main: str, default: str, absorbed: dict, slug: str) -> str | None:
+    """The tip of the innermost absorbed branch (fewest commits) whose range from the default branch closes `slug` (`closed_on`), or
+    None: the ref where a rider's own check is judged, the way merging that rider alone would."""
+    closers = []
+    for name, tip in absorbed.items():
+        if closed_on(main, merge_base(main, f"refs/heads/{default}", tip), tip, slug):
+            rc, count = relay_git.git(main, "rev-list", "--count", tip)
+            if rc != 0 or not count.strip().isdigit():
+                raise Refused(f"cannot count the commits of {name} ({tip}): the branch tip is not readable")
+            closers.append((int(count), name, tip))
+    return min(closers)[2] if closers else None
+
+
 def held_fix_items(worktree: str, riders: bool = False) -> dict:
-    """{slug: item} of the fix items the branch of `worktree` holds: taken by it at HEAD, or closed on it (in done/ at HEAD
-    but not in done/ on the default branch: an item an older branch of the same name closed is not this branch's).
+    """{slug: item} of the fix items the branch of `worktree` holds: taken by it at HEAD, or closed on it (`closed_on` the default
+    branch: an item already closed there, say by an older branch of the same name, is not this branch's).
     With `riders` (a train's check) an item closed on any branch this one merged is held too, whoever took it."""
     main, default = _context(worktree)
     branch = relay_git.current_branch(worktree)
     held = {}
+    head = _text(_git(worktree, "rev-parse", "--verify", "HEAD")[1])        # a sha: closed_on reads it in the main checkout, where HEAD is another commit
     for slug, item in Reader(worktree, "HEAD").items().items():
-        if not item["problems"] and item["kind"] == "fix" and item.get("taken_by") == branch:
+        if item["problems"] or item["kind"] != "fix":
+            continue
+        if item["state"] == "taken" and item.get("taken_by") == branch:
             held[slug] = item
-    already = set(Reader(main, f"refs/heads/{default}").names("done/"))
-    for slug, item in Reader(worktree, "HEAD").closed_items().items():
-        if slug not in already and not item["problems"] and item["kind"] == "fix" and item["state"] == "done" and (riders or item.get("taken_by") == branch):
+        elif item["state"] == "done" and (riders or item.get("taken_by") == branch) and closed_on(main, f"refs/heads/{default}", head, slug):
             held[slug] = item
     return held
 
 
 def _unvouched_rider_item(worktree: str, slug: str) -> bool:
     """True when a rider-closed item still needs a check on this branch: judged the way the merge hook does (`step_queue`), at the
-    innermost absorbed branch whose range adds its done/ file, else at this branch. An item vouched for at its rider needs none."""
+    innermost absorbed branch whose range closes it (`closing_tip`), else at this branch. An item vouched for at its rider needs none."""
     import relay_inert
     main, default = _context(worktree)
-    path = _path(slug, "done/")
-    closers = []
-    for name, tip in relay_inert.absorbed(worktree, "HEAD").items():
-        rc, out = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", f"refs/heads/{default}...{tip}")
-        if rc == 0 and path in out.split("\0"):
-            closers.append((int(relay_git.git(main, "rev-list", "--count", tip)[1]), name, tip))
-    closer = min(closers)[2] if closers else "HEAD"
+    closer = closing_tip(main, default, relay_inert.absorbed(worktree, "HEAD"), slug) or "HEAD"
     return check_refusal(worktree, closer, slug) is not None
 
 
@@ -1040,9 +1069,16 @@ def record_item(worktree: str, named: str | None = None) -> tuple | None:
             raise Refused(f"this branch holds {len(held)} fix items ({', '.join(sorted(held))}); name the one to check (`item` in the input, `--item` in `relay check findings`)")
         named = next(iter(held))
     slug, item = named, held[named]
-    rc, out, err = _git(worktree, "log", "-1", "--format=%H", "--diff-filter=AM", "HEAD", "--", _path(slug))
-    since = _text(out)
-    if rc != 0 or not relay_verdict.is_sha(since):
+    rc, out, err = _git(worktree, "log", "--format=%H", "--diff-filter=AM", "HEAD", "--", _path(slug))
+    if rc != 0:
+        raise Refused(f"cannot find the commit that took '{slug}' in the history of this branch")
+    since = ""
+    for commit in _text(out).split():       # newest first: the close edits the file in place, so the take is the newest commit that left it unclosed
+        rc, blob, _ = _git(worktree, "cat-file", "blob", f"{commit}:{_path(slug)}")
+        if rc == 0 and not _closed_at(blob):
+            since = commit
+            break
+    if not relay_verdict.is_sha(since):
         raise Refused(f"cannot find the commit that took '{slug}' in the history of this branch")
     return slug, dict(_q1(item), source="queue", since=since)
 
@@ -1145,11 +1181,9 @@ def check_refusal(repo, ref, slug):
     import relay_inert
     import relay_marks
     kind = None
-    for sub in ("", "done/"):
-        rc, out, _ = _git(repo, "cat-file", "blob", f"{ref}:{_path(slug, sub)}")
-        if rc == 0:
-            kind = parse(slug, out.decode("utf-8", "replace"), "done" if sub else "open").get("kind")
-            break
+    rc, out, _ = _git(repo, "cat-file", "blob", f"{ref}:{_path(slug)}")
+    if rc == 0:
+        kind = parse(slug, out.decode("utf-8", "replace")).get("kind")
     if kind != "fix":
         return None
     default = relay_git.default_branch(repo)
@@ -1203,7 +1237,7 @@ def done(worktree, slug, test):
     rc, out, _ = _git(worktree, "cat-file", "blob", f"HEAD:{_path(slug)}")
     if rc != 0:
         raise Refused(f"no queue item '{slug}' on this branch (take it first)")
-    item = parse(slug, out.decode("utf-8", "replace"), "open")
+    item = parse(slug, out.decode("utf-8", "replace"))
     if item["problems"]:
         raise Refused(f"queue item '{slug}' is malformed ({'; '.join(item['problems'])})")
     if item["state"] != "taken" or item["taken_by"] != branch:
@@ -1212,15 +1246,11 @@ def done(worktree, slug, test):
     if reason:
         raise Refused(reason)
     root = _text(_git(worktree, "rev-parse", "--show-toplevel")[1])
-    text = serialize(slug, changed(item, closed_at=utcnow(), test=test), "done")
-    old, new = os.path.join(root, _path(slug)), os.path.join(root, _path(slug, "done/"))
-    os.makedirs(os.path.dirname(new), exist_ok=True)
-    with open(new, "w", encoding="utf-8") as handle:
+    text = serialize(slug, changed(item, closed_at=utcnow(), test=test))
+    with open(os.path.join(root, _path(slug)), "w", encoding="utf-8") as handle:
         handle.write(text)
-    if os.path.exists(old):
-        os.remove(old)
-    paths = [_path(slug), _path(slug, "done/")]
-    for args in (("add", "-A", "--", *paths), ("commit", "-m", f"queue: done {slug}", "--only", "--", *paths)):
+    paths = [_path(slug)]
+    for args in (("add", "--", *paths), ("commit", "-m", f"queue: done {slug}", "--only", "--", *paths)):
         rc, _, err = _git(worktree, *args)
         if rc != 0:
             raise Refused(f"git {args[0]} failed: {err}")
@@ -1241,7 +1271,7 @@ def land(repo, slug, **engine):
     base = parents[0]
     rc, out, _ = _git(main, "diff", "--name-only", "--no-renames", f"{base}..{tip}")
     paths = sorted(set(_text(out).split("\n")) - {""})
-    if not paths or len(paths) > 2 or any(p != _path(slug) and p != _path(slug, "done/") for p in paths):
+    if paths != [_path(slug)]:
         raise Refused(f"{branch} changes more than the item '{slug}'; delete it (relay doctor)")
     texts = dict(zip(paths, cat_batch(main, [f"{tip}:{p}" for p in paths])))
     old = Reader(main, base)
@@ -1250,7 +1280,7 @@ def land(repo, slug, **engine):
     def planner(reader):
         for p in paths:
             if texts[p] is not None:         # a kept change of the old shape (made before the migration) is refused, not landed
-                bad = parse(slug, texts[p].decode("utf-8", "replace"), "done" if "/done/" in p else "open")["problems"]
+                bad = parse(slug, texts[p].decode("utf-8", "replace"))["problems"]
                 if bad:
                     raise Refused(f"{p} on {branch} is not well formed ({'; '.join(bad)}); branch {branch} kept")
             if reader.blob(p) != old.blob(p):

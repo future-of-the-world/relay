@@ -101,7 +101,7 @@ class Migrate(unittest.TestCase):
                 item["closed_at"], item["test"] = closed, ("tests/t.py::T::t" if closed else None)
                 if closed:
                     item["fixed_by"] = "a" * 40
-                text = rq.serialize(slug, item, "done" if closed else "open")
+                text = rq.serialize(slug, item)
                 data = json.loads(text)
                 if where:
                     data["where"] = where                        # the old shape: one string
@@ -114,7 +114,7 @@ class Migrate(unittest.TestCase):
             self.assertEqual(odd, [])
             for sub, slug, want in (("", "open-one", ["lib/a.py", "docs"]), ("done", "done-one", ["lib/b.py:5-9 note"])):
                 with open(os.path.join(root, rq.QDIR, sub, slug + ".json")) as handle:
-                    item = rq.parse(slug, handle.read(), "done" if sub else "open")
+                    item = rq.parse(slug, handle.read())
                 self.assertEqual((item["problems"], item["where"]), ([], want))
             self.assertEqual(wm.migrate(root), ([], []))          # run again: nothing left to rewrite
 

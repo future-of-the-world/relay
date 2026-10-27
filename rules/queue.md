@@ -20,9 +20,9 @@ The queue is `.relay/queue/` on the project's default branch, one JSON file per 
 `relay queue` to list them, `relay queue show <slug>` to read one, `relay queue add` to add one, `relay queue take` to
 start one in a worktree (a branch holds one fix item; the check states its problem as `Q1`), `relay queue done` to close a fix with its test and the branch's check, `relay queue done <feature> --evidence <merge sha or report path>` to close a finished feature; `relay queue done <fix> --fixed-by <commit> --test <file>.py::<Class>::<name>` to close a fix that a change already on the default branch fixed (relay runs the test at the commit's parent and at the commit: it must fail, then pass); `relay
 queue -h` shows the rest. A view is a read-only script in relay's own `lib/queue_ext/`
-(`relay queue json` prints every item, `done/` included, for scripts); extensions live in relay only, they read and
+(`relay queue json` prints every item, closed and dropped ones included, for scripts); extensions live in relay only, they read and
 never write items. An item keeps dated events, not a state: `found_at`, `taken_at` and `taken_by`, `closed_at` and `test` (with `fixed_by` when another change fixed it) or `evidence`, `dropped_at` and
-`dropped_why` (UTC times, null until it happens); open, taken, done or dropped is computed from them, and `relay queue check`
+`dropped_why` (UTC times, null until it happens); open, taken, done or dropped is computed from them (there is no `done/` folder: a close or a drop edits the item file in place, and `relay queue` lists the open and taken ones), and `relay queue check`
 validates the files. Only in a project whose default branch has `.relay/`.
 
 An out-of-scope question from the owner is answered in two lines and becomes a

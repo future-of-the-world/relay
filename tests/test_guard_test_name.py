@@ -66,8 +66,7 @@ class TestMergeJudges(cr.Flow):
         self.checked([review], cr.met("Q1", "F1"))
         done = tq.new_shape(kind="fix", title="Job %d" % n, failing_case=["it fails"], taken_at="2026-10-23T21:47:35Z", taken_by="wt/m%d" % n,
                             closed_at="2026-10-24T01:00:00Z", test=test)
-        tq.git(self.wa, "rm", "-q", ".relay/queue/%s.json" % slug)
-        self.write_commit(self.wa, {".relay/queue/done/%s.json" % slug: done}, "close %s" % slug)
+        self.write_commit(self.wa, {".relay/queue/%s.json" % slug: done}, "close %s" % slug)
         hook = cr.merge_hook
         try:
             hook.step_queue(self.main, "master", "wt/m%d" % n)

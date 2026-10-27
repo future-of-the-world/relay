@@ -171,9 +171,9 @@ def _note_q1(old, item, name, head):
             if item is None:
                 raise MigrateError("%s: a note says Q1 is MET but no scope line names the queue item" % name)
             since = _sha_or(old.get("reviewed"), head)
-            return [{"id": "Q1", "path": ".relay/queue/done/%s.json" % item, "line": 1, "severity": "HIGH", "rank": "high",
+            return [{"id": "Q1", "path": ".relay/queue/%s.json" % item, "line": 1, "severity": "HIGH", "rank": "high",
                      "kind": "inside", "summary": "The queue item %s (migrated from a note of the old check)" % item,
-                     "failing_case": ["migrated: the old check recorded no Q1 finding; the item's own text is in .relay/queue/done/%s.json" % item],
+                     "failing_case": ["migrated: the old check recorded no Q1 finding; the item's own text is in .relay/queue/%s.json" % item],
                      "source": "queue", "since": since, "verdict": "MET", "reason": [MIGRATED, line]}]
     return []
 
