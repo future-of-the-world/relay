@@ -34,6 +34,12 @@
       "fact": [
         "Migration 27 Oct: the link in `failing_case` line 1 points to a session file (`reports/wave-red.md`, cause 3, in the session session folder; a copy is in relay's backup folder), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
       ]
+    },
+    {
+      "at": "2026-10-25T08:55:36Z",
+      "fact": [
+        "Causes found 27 Oct for the red paid run of e905742 (wave-red report): (1) no-spec-step, -ru, -typo: a grader fault (it matched the word openspec in any Bash input, e.g. `find .claude openspec docs`) and a real behaviour (in 3 of 3 reproduced runs the session loaded the skill openspec:plan in a project with an openspec/ folder and no [specs] setting; fixed in the skill descriptions); (2) code-reviewer-offbyone: a set-up fault (the reviewer rule was committed on a branch only, so the hook that hands it to the critic never saw it on master); (3) it-terms-es, it-terms-ru: the eval runner does not load the scaffold's CLAUDE.md (a probe case asking for the words BANANA, CHERRY, MANGO in the reply got none of them in 3 runs, cost $0.04), so the rule never reached the model; (4) spec-step-on, -ru, -en, -typo: a meaning grader judged the order of tool calls from the last message only; (5) tune-no-price: \"1 of 3 runs missing, not judged\": the run hit its money ceiling ($15.03 of $15) before the last case ran. Final paid run after the fixes: one run of each failing case, 3 runs per case, $9.62; it-terms-ru remained flaky (model behaviour)."
+      ]
     }
   ]
 }
