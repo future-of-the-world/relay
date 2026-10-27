@@ -127,6 +127,14 @@
       "options": [
         "a. Review на каждое исправление, как сейчас (рекомендую: при 6 полосах выигрыш пачки — около $2-3 на три исправления, а внимание review на каждое падает)",
         "b. Один review на пачку из трёх мелких исправлений"
+      ],
+      "answered_at": "2026-10-27T13:14:47Z",
+      "answer": [
+        "4. a",
+        "5. a"
+      ],
+      "reading": [
+        "Question 4 a: one review per fix, no batching; time is won by lanes. Question 5 a: the next paid run plays evals 3 at a time; back to 1 if runs start to hit the 10-minute limit."
       ]
     },
     {
@@ -146,6 +154,14 @@
       "options": [
         "a. Попробовать по три на следующем прогоне и вернуть по одному, если разговоры начнут не укладываться (рекомендую: проба стоит не больше одного повтора, $21)",
         "b. Оставить по одному"
+      ],
+      "answered_at": "2026-10-27T13:14:47Z",
+      "answer": [
+        "4. a",
+        "5. a"
+      ],
+      "reading": [
+        "Question 4 a: one review per fix, no batching; time is won by lanes. Question 5 a: the next paid run plays evals 3 at a time; back to 1 if runs start to hit the 10-minute limit."
       ]
     }
   ]
