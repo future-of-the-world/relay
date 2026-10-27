@@ -29,6 +29,28 @@
         "Measured 27 Oct by the speed design (thinker, critic, revision) over 08:37-16:37 local, 480 minutes: no agent ran for 187 min (39%) while a paid run was going (11:25-13:27 at 9bc988d, 15:28-16:33 at aa8cfd1); the front started no change then. Gates: 11 runs, 7.2-8.4 min each, 76 min (16%); 5 red, on steps that take seconds (ruff, mypy, Python 3.9 import, lib copies stale twice); red-gate fix rounds 32 min. Build 77 min, review 18, fix findings 53, check/close 17. Per change, first agent to merge: drop-done 114 min $3.81, owner-notes 122 min $5.42, wave-red 121 min $4.57. One change at a time all day. On 24 Oct, with several at once, 17 landed in the best 8 hours. Queue items' `where` misses 267 of 332 real file overlaps among 54 branches landed since 24 Oct; 4 of the last 106 merges conflicted (3.8%). 29 of 50 open fixes are estimated at 30 minutes or less.",
         "Decided by the front inside the principles (owner can reverse): A, the worker's quiet check runs the steps that went red today (whole type and lint step 3.9 s cold, 0.3 s warm; lib copies compared, never synced) — built now with a-fix-to-lib-leaves-the-plugins-copies-stale; D, building goes on during a paid run, changes touching the paths it checks wait at the landing, relay sync after each green run; parallel lanes start without a file-overlap filter (choose-which-unblocked-items-start-together decides later)."
       ]
+    },
+    {
+      "asked_at": "2026-10-27T13:05:32Z",
+      "number": 1,
+      "question": [
+        "**1. Сколько изменений строить одновременно**",
+        "",
+        "Каждое изменение идёт в своей рабочей копии, со своим review и своей проверкой; готовые вливаются вместе. Сегодня шло одно за раз, влилось 3; 24 октября, когда шло несколько сразу, за лучшие 8 часов влилось 17. Цена не столько в деньгах, сколько в вашем внимании: сегодня 3 изменения принесли вам 2 вопроса, больше изменений — больше вопросов. Два изменения одного файла обычно сливаются сами; из последних 106 merge 4 не слились (3,8%, замер), и каждый такой случай ждёт вашего слова. Насколько замедляется gate, когда их идёт несколько, ещё не измерено (около 15 агентских минут на замер).",
+        "",
+        "| Сразу | Изменений за 8 ч | Вопросов вам за 8 ч | Merge, ждущих вашего слова | Замедление gate |",
+        "|---:|---:|---:|---:|---|",
+        "| 3 | 10-13 (до 15) | около 7-9 | около 0,5 | не измерено |",
+        "| 2 | 8-10 (до 10) | около 5-7 | около 0,3 | не измерено |",
+        "| 4 | 13-16, догадка | около 9-11 | около 0,6 | не измерено |",
+        "",
+        "Вопросы: сегодняшние 2 на 3 изменения, умноженные (догадка)."
+      ],
+      "options": [
+        "a. 3 сразу (рекомендую)",
+        "b. 2 сразу",
+        "c. 4 сразу"
+      ]
     }
   ]
 }
