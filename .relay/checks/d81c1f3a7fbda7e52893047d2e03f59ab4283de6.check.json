@@ -1,0 +1,163 @@
+{
+  "branch": "wt/train-21",
+  "findings": [
+    {
+      "details": [
+        "26 Oct: the paid run at 13ea53b was red; for design-track run 3 (no thinker started, 5 steps, 18 s) the cause could not be established because bin/ci does not pass --keep-temp and the traces were deleted; three candidate causes stay unverified."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "After the red paid run of 26 Oct (record ~/.relay/evals/relay/2026-10-26T01-47-23Z-master.json) no transcript of design-track run 3 exists."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A red run leaves the failing runs' transcripts at a path the record names; a green run leaves none."
+      ],
+      "path": "bin/ci",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_record.py test_a_red_batch_keeps_the_failing_runs_traces_where_the_record_names_them passes at head and fails at bf2c7a6."
+      ],
+      "severity": "HIGH",
+      "since": "bf2c7a64c933a9acbd468810d4ad42f9d6b9e08e",
+      "source": "queue",
+      "summary": "A red paid run keeps no traces to find its cause",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction: a replica e-abc (chmod 500, sealed/ chmod 000) in the scratchpad survived",
+        "shutil.rmtree(p, ignore_errors=True) with all of sealed/, out/, config/ still listed. Before this change the tool",
+        "itself removed these folders (0 of the 174 trace folders of the two latest records exist), so the change turns a",
+        "clean /tmp into a leak of one folder per run on every paid run, and breaks the queue item's own pass case \"a green",
+        "run leaves none\" and the function's docstring \"Either way the tool's temp folders are removed afterwards\". The",
+        "new test passes only because its fixture folders are writable, so it passes with the removal effectively disabled",
+        "on real data. PLAUSIBLE extra: sealed/ is sealed by the tool on purpose (its content is unreadable to us); keeping it",
+        "indefinitely in /tmp is more exposure than the tool intended. Size: 15 minutes."
+      ],
+      "evidence": [
+        "$ ls -la /private/tmp/e-022TzS",
+        "dr-x------@ 5 amidman wheel 160 Oct 27 14:45 .",
+        "d---------  4 amidman wheel 128 Oct 27 14:45 sealed",
+        "$ (replica) chmod 000 e-abc/sealed; chmod 500 e-abc; python3 -c \"shutil.rmtree(p, ignore_errors=True)\"",
+        "exists after rmtree: True ['sealed', 'out', 'config']",
+        "$ live records: 2026-10-26T01-47-23Z-master.json 81 runs, 0 folders exist; 2026-10-27T11-37-58Z-master.json 93 runs, 0 exist"
+      ],
+      "failing_case": [
+        "A paid batch of 93 runs, green. The eval tool, now called with --keep-temp, leaves /private/tmp/e-XXXX for each run with",
+        "mode dr-x------ on e-XXXX and d--------- on e-XXXX/sealed (as every one of the 178 existing /private/tmp/e-* folders",
+        "has). keep_traces calls shutil.rmtree(e-XXXX, ignore_errors=True): it cannot unlink entries of a read-only folder, the",
+        "error is swallowed, and all 93 folders stay (0.35-3 MB each, holding the run's config and the sealed/ part). Expected:",
+        "no e-XXXX folder of the batch is left; a red batch keeps only the copies under $RELAY_HOME/eval-traces."
+      ],
+      "fix_hint": [
+        "Remove with an error handler that makes the failing entry's parent (and the entry, when a folder) owner-writable and",
+        "retries (os.chmod(..., 0o700); shutil.rmtree(..., onexc=...) on 3.12+, onerror before), or chmod -R u+rwx the e-*",
+        "folder with os.walk first; only after temp_folder() has matched. Make the test fixture mirror the real modes."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 184,
+      "pass_cases": [
+        "1. Fixture run folder built like the real one (e-x/out/trace.jsonl, e-x/config/, e-x/sealed/ chmod 000, then e-x chmod",
+        "   500), green batch: after bin/eval-record exits 0, e-x does not exist and $RELAY_HOME/eval-traces does not exist.",
+        "2. Same layout, red batch where run 2 fails a meaning grader: run 2's out/ is copied, keptTracePath names the copy,",
+        "   its content equals the original trace; all three e-* folders are gone.",
+        "3. A folder that is not the tool's layout (tmp/mine/out/trace.jsonl) is never touched, chmod included.",
+        "4. The existing writable-folder tests keep passing."
+      ],
+      "path": "bin/eval-record",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_record.py:208-210 fixture mirrors real modes (sealed 000, top 500); green-batch test (line 226) passes at head, fails at 24d09be; remove_tree chmods before rmtree."
+      ],
+      "severity": "HIGH",
+      "since": "e742718370ece83442e73c5e4c17aa645faae343",
+      "source": "review-traces.json",
+      "source_id": "F1",
+      "summary": "the tool's real run folders are read-only (top r-x, sealed/ 000), so rmtree(ignore_errors=True) removes nothing: with --keep-temp every paid run now leaves all its ~90 folders in /tmp, green runs included",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (depends on how the tool cleans per run without --keep-temp; not measured). Rare path, bounded by macOS's",
+        "/tmp cleanup. Size: 15 minutes, or accept and note it."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "The eval tool dies after 40 runs without writing .ci/evals.json: bin/eval-record prints \"wrote no record\" and returns",
+        "before keep_traces, so the 40 kept e-* folders stay in /tmp. Before --keep-temp the tool removed them as it went",
+        "(per run). Expected: either they are removed or the leak is bounded and stated."
+      ],
+      "fix_hint": [
+        "Accept and say so in the docstring, or have bin/ci sweep e-* folders created after the eval step started that hold",
+        "out/trace.jsonl (same layout check as temp_folder)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 212,
+      "pass_cases": [
+        "1. No evals.json: exit 2 with \"plugin evals wrote no record\", as today.",
+        "2. A normal batch: unchanged behaviour (see F1)."
+      ],
+      "path": "bin/eval-record",
+      "rank": "low",
+      "reason": [
+        "Accepted and stated in the keep_traces docstring (bin/eval-record:~238); LOW."
+      ],
+      "severity": "LOW",
+      "since": "e742718370ece83442e73c5e4c17aa645faae343",
+      "source": "review-traces.json",
+      "source_id": "F2",
+      "summary": "when the eval tool writes no JSON (a crash, a killed gate) the --keep-temp folders of that batch are never removed: nothing lists them",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading report(): the trace line is appended only in the llm-fail branch. The queue item's pass case",
+        "(\"a path the record names\") is met by the JSON. Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A red batch where run 2 errored: keep_traces copies run 2's out/ and sets keptTracePath, but the printed note",
+        "\"run 2: the run errored (...)\" carries no \"trace:\" line, so a person reading the gate log does not learn the copy",
+        "exists (it is only in the record JSON). Same for \"FAIL ... code grader failed\"."
+      ],
+      "fix_hint": [
+        "Append the trace line once per run that has keptTracePath, wherever its first FAIL or errored note is printed."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 106,
+      "pass_cases": [
+        "1. Errored run in a red batch: the output holds \"trace: <keptTracePath>\" after its note.",
+        "2. Failed meaning grader: the existing \"trace:\" line stays."
+      ],
+      "path": "bin/eval-record",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_record.py:241 test_an_errored_run_and_a_failed_code_grader_print_their_kept_trace passes; fails at 24d09be."
+      ],
+      "severity": "LOW",
+      "since": "e742718370ece83442e73c5e4c17aa645faae343",
+      "source": "review-traces.json",
+      "source_id": "F3",
+      "summary": "the printed report names the kept trace only under a failed meaning grader; an errored run or a failed code grader gets a copy but no printed path",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "2fbd7ab231743b8cb139c021a4f117eeaaa339ca.gate.log",
+  "head": "d81c1f3a7fbda7e52893047d2e03f59ab4283de6",
+  "item": "a-red-paid-run-keeps-no-traces-to-find-its-cause",
+  "notes": [
+    "The files relay changed --own lists (delegate SKILL.md, test_cycle_workflow.py) belong to other items of the train, not this item."
+  ],
+  "schema": 2,
+  "scope": [
+    "Read bin/eval-record keep_traces/remove_tree/report; ran tests.test_eval_record and tests.test_ci_python (43 OK). Gate log is for 2fbd7ab, no non-inert file changed after it (relay changed empty). Reran the tests at 24d09be (before fix) and bf2c7a6 (Q1 since) with head test file: fail there."
+  ],
+  "type": "check"
+}
