@@ -99,6 +99,18 @@ project's rules carry a list "Spec steps in the change cycle", each listed step
 runs at the step number it names. After a worker's DONE on a change that will
 be merged:
 
+The script `${CLAUDE_SKILL_DIR}/../../workflows/cycle.js` runs steps 2-7 for
+each change in a run; the steps below are the hand path when workflows are off.
+Call the Workflow tool with that file as `scriptPath` (a path is read at every
+call; the named copy `delegate:cycle` stays as the session first saw it). Args:
+`base` (the default branch), `relay` (true where the project has `.relay/`),
+`scratch`, and in a project without `.relay/` also `gate` (its own gate
+command); a missing one stops the run in one line. Each unit has a `kind`:
+`change`, `built`, `fix`, `recheck` (a branch that took the default branch, or
+a train with `items`, one check per rider item, in order). The script runs one
+checker per change, as step 7 says. It does not land a change: the merge is the
+front's.
+
 1. **Design review before a risky build.** A `delegate:critic` reviews the
    design or plan before a worker starts, when a trigger holds or the owner
    asks. The triggers are settings:

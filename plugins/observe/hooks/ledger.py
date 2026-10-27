@@ -7,13 +7,16 @@ names, never prompt or reply text (unless [observe].log_prompts = true in the
 project's kit.toml, which stores the first 200 characters of each prompt).
 
 Fails open: any error prints nothing and exits 0. It must never slow a session:
-the only file it reads besides stdin is the tail of a transcript on Stop and
-SubagentStop, to record the context size.
+the only files it reads besides stdin are the tail of a transcript on Stop and
+SubagentStop (the context size) and, for an agent that a workflow script started,
+the first 4 KB of the agent's .meta.json beside its transcript (run, stage label,
+phase: names only, and the label only when it fits the stage grammar below).
 """
 
 import datetime as dt
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +26,47 @@ sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 
 import relay_ledger  # noqa: E402
 import relay_transcripts  # noqa: E402
+
+
+# The label a workflow script gives an agent: a stage word, an optional number, a unit name (cycle.js). An agent
+# started by hand has a free-text description, which the ledger must not store, so only this form is kept.
+STAGE_LABEL = re.compile(r"^(build|gate|fix red gate|review|fix|check|check item|close queue item|check show|design|design review|design revise)( \d+)?: [a-z0-9][a-z0-9-]{0,63}$")
+PHASE_NAME = re.compile(r"^[A-Za-z][A-Za-z ]{0,29}$")
+META_HEAD_BYTES = 4096
+
+
+def meta_string(head: str, key: str) -> str:
+    """The string value of `key` in the head of a .meta.json, or "" (a truncated tail does not matter: the keys we want are early)."""
+    found = re.search(r'"%s"\s*:\s*("(?:[^"\\]|\\.)*")' % re.escape(key), head)
+    if not found:
+        return ""
+    try:
+        value = json.loads(found.group(1))
+    except ValueError:
+        return ""
+    return value if isinstance(value, str) else ""
+
+
+def workflow_fields(transcript: str) -> dict:
+    """run, label and phase of an agent a workflow script started: its transcript sits in .../workflows/wf_<id>/.
+    Empty for any other agent, and for a missing or unreadable meta file."""
+    folder = os.path.basename(os.path.dirname(transcript))
+    if not (re.fullmatch(r"wf_[A-Za-z0-9-]{1,40}", folder) and os.path.basename(os.path.dirname(os.path.dirname(transcript))) == "workflows"):
+        return {}
+    out = {"run": folder}
+    meta = transcript[:-len(".jsonl")] + ".meta.json" if transcript.endswith(".jsonl") else ""
+    try:
+        with open(meta, "r", encoding="utf-8", errors="replace") as handle:
+            head = handle.read(META_HEAD_BYTES)
+    except OSError:
+        return out
+    label = meta_string(head, "description")
+    if STAGE_LABEL.match(label):
+        out["label"] = label
+        phase = meta_string(head, "workflowPhase")
+        if PHASE_NAME.match(phase):
+            out["phase"] = phase
+    return out
 
 
 def now():
@@ -95,6 +139,7 @@ def main():
             candidate = os.path.join(session[:-len(".jsonl")], "subagents", f"agent-{aid}.jsonl") if session.endswith(".jsonl") and aid else ""
             path = candidate if os.path.isfile(candidate) else None
         if path:
+            out.update(workflow_fields(path))
             trace = relay_transcripts.read_trace(path, kind="agent")
             out["requests"] = trace.total.requests
             out["context"] = trace.last_context
