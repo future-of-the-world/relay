@@ -29,6 +29,12 @@
       "fact": [
         "Migration 27 Oct: the link in `why` line 1 points to a session file (`design-clean-env.md` revision 2 of 27 Oct, in the session session folder; a copy is in relay's backup folder on the owner's Mac), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
       ]
+    },
+    {
+      "at": "2026-10-27T01:08:35Z",
+      "fact": [
+        "Design 27 Oct (clean-environment design, revision 2, section 8): do B first, then A. B = relay becomes project-local on the host (plugins, rules and settings come from the project's own repository); A = a container per change. B is the precondition of A: A without B is either a container with no plugins, rules or memory, or a container with the host's ~/.claude copied in, which is global settings in a box."
+      ]
     }
   ]
 }
