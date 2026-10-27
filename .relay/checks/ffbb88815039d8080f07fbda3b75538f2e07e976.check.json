@@ -1,0 +1,404 @@
+{
+  "branch": "wt/precheck",
+  "findings": [
+    {
+      "details": [
+        "Measured 27 Oct, change wt/owner-notes: a fixer repaired the Python 3.9 import in lib/relay_queue.py but not its copies under plugins/core/lib and plugins/front/lib; the next gate (about 15 minutes) went red only on \"lib copies identical ... run bin/sync-lib-copies\", and a third fix round was needed. The copies are kept by hand through bin/sync-lib-copies, which nothing runs for the agent; the gate is the first place that notices. Principle 2 (waste built into the setup) and principle 10 (the obvious way is the right way).",
+        "Also: the worker's quiet check",
+        "Also: plugins/core/lib, plugins/front/lib"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Edit lib/relay_queue.py in a worktree, commit, run the quick check the worker loops on: it passes; the gate then fails on 'lib copies identical'."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After an edit to a file under lib/ that has plugin copies, the copies are brought up to date without the agent having to know bin/sync-lib-copies (the quiet check or the commit step does it, or the copies stop being copies).",
+        "The gate's 'lib copies identical' step stays as the safety net.",
+        "A test shows the stale copy is caught or refreshed before the gate, and fails with that step disabled."
+      ],
+      "path": "bin/sync-lib-copies",
+      "rank": "high",
+      "reason": [
+        "tests/test_precheck.py:53 stale copy test (met in the earlier check; module absent on base, so it fails there); the gate keeps its lib copies step"
+      ],
+      "severity": "HIGH",
+      "since": "5fa711ed314e6e518abbb71e2821f0bfe4ee9343",
+      "source": "queue",
+      "summary": "A fix to lib/ leaves the plugins' copies stale",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch test on the cycle harness. fixUnit sends `ask(it.fix, ...)` verbatim; quiet(it) is used for",
+        "the change kind's build, fix and red-gate fixer and for the checker only. The design (A.2) and the cycle comment say",
+        "\"the worker, fixer and checker prompts all carry it ... so a brief or an item that names only a test line cannot",
+        "leave it out\"; a fix unit (a re-fix after a check) is exactly the item that names only its own text. The new test",
+        "covers the change kind only, so it passes with this gap. Size: 10 min."
+      ],
+      "evidence": [
+        "scratch test (Cycle harness, kind=\"fix\"):",
+        "  fix: x | NO precheck | Fix it.",
+        "  check: x | precheck | Check: `review.json`. Fixes: ...",
+        "cycle.js:229  const f = await ask(it.fix, agentOpts('fixer', HANDBACK, 'Fix', `fix: ${it.name}`))"
+      ],
+      "failing_case": [
+        "Relay mode, items = [{kind: \"fix\", name: \"x\", wt, check: \"pytest -q\", fix: \"Fix it.\", fixes, findings, item: \"i\"}].",
+        "The prompt of \"fix: x\" is \"Fix it.\" with no `relay precheck -C <wt> && pytest -q`; only \"check: x\" carries it.",
+        "It should carry the same quiet check the change-kind fixer gets."
+      ],
+      "fix_hint": [
+        "ask(`${it.fix} Check: ${quiet(it)}.`, ...) in fixUnit, and extend the cycle test with a fix-kind unit."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 229,
+      "pass_cases": [
+        "1. Relay mode, fix-kind unit: the \"fix: x\" prompt contains \"relay precheck -C <wt> && pytest -q\".",
+        "2. Relay mode, fix-kind unit: the \"check: x\" prompt still contains it (works today).",
+        "3. Project mode (relay false), fix-kind unit: no prompt contains \"precheck\"; the \"fix: x\" prompt contains the front's fix text.",
+        "4. Relay mode, change-kind unit: build, fix red gate 1, fix and check prompts keep it (test_every_quiet_check_starts_with_the_precheck)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py fix-unit test; met in the earlier check, unchanged since"
+      ],
+      "severity": "MEDIUM",
+      "since": "957abdc3451e303cac93b1bf0575a0ed588ead7d",
+      "source": "review-precheck.json",
+      "source_id": "F1",
+      "summary": "a fix-kind unit's fixer gets the front's fix text alone: no relay precheck in its quiet check",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED in a scratch repo. run() takes realpath(worktree) as the root: bin/types-lint is looked up there (missing:",
+        "skipped), plugins/*/lib is globbed there (none: ok), and `git ls-tree -r --name-only HEAD` run from a subdirectory",
+        "lists paths relative to it, so no plugins/<p>/lib/relay_*.py matches and the step is ok. An error answered as",
+        "success: the command a person runs by hand from where they stand says green. The cycle passes -C <wt> (the root), so",
+        "the cycle path is safe; a worker or the owner in a subfolder is not. Size: 10 min."
+      ],
+      "evidence": [
+        "$ relay precheck -C r2/tests   ->  skip types and lint / ok python 3.9 / ok lib copies identical / precheck: green, rc=0",
+        "$ relay precheck -C r2         ->  FAIL plugins/core/lib/relay_q.py differs from lib/relay_q.py ... / precheck: RED"
+      ],
+      "failing_case": [
+        "A repo with lib/relay_q.py \"X = 1\" and plugins/core/lib/relay_q.py \"X = 0\", committed. `relay precheck -C <repo>/tests`",
+        "(or `relay precheck` run in <repo>/tests) prints \"skip types and lint\", \"ok python 3.9\", \"ok lib copies identical\",",
+        "\"precheck: green\", exit 0. It should check the repository the folder is in and fail naming plugins/core/lib/relay_q.py."
+      ],
+      "fix_hint": [
+        "Resolve the root with `git -C <worktree> rev-parse --show-toplevel` in run() (fail when it fails) and use it for all three steps."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 104,
+      "pass_cases": [
+        "1. -C <repo>/tests on the repo above: exit 1, output names plugins/core/lib/relay_q.py and bin/sync-lib-copies.",
+        "2. -C <repo> on the same repo: exit 1, same lines (works today).",
+        "3. -C <repo>/tests with identical copies: exit 0, \"ok lib copies identical\".",
+        "4. -C a folder that is not in a git repository: exit 1 with \"cannot read HEAD\" (works today)."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_precheck.py test_from_a_subfolder_the_repository_is_checked; met earlier, unchanged"
+      ],
+      "severity": "MEDIUM",
+      "since": "957abdc3451e303cac93b1bf0575a0ed588ead7d",
+      "source": "review-precheck.json",
+      "source_id": "F2",
+      "summary": "relay precheck from a subdirectory (or -C <subdir>) is green while a lib copy is stale",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: lib/relay_ci.py main() keeps library tests, types and lint, hook tests, lib copies in that order",
+        "and runs every step after a red one. The brief says \"build exactly A, unless the code proves it wrong; then say",
+        "where\"; A has three items and its decided list leaves out only B, C, D and the contention measure. The worker's",
+        "report says item 3 was left out as \"not in the brief's decided list, touches the inert probe comparison\", which is a",
+        "risk named in the design, not a proof that it is wrong. The front or the owner may move it to a queue item;",
+        "otherwise it is part of this change. Size: 30 min (order, early stop with the inert probe stopped, tests)."
+      ],
+      "evidence": [
+        "lib/relay_ci.py:455-460 step order: library tests, types and lint, hook tests, lib copies identical, ...",
+        "design-speed.md A.3: \"bin/ci runs the seconds-long steps first, and on the first red step reports at once\"",
+        "reports/precheck.md: \"Not built: bin/ci fail-fast step order (design A item 3 ...)\""
+      ],
+      "failing_case": [
+        "A branch whose only fault is a stale plugin copy reaches relay gate (the precheck skipped or run on an older head).",
+        "Today: library tests (263-662 s) and hook tests (149-354 s) run first; \"lib copies identical FAILED\" shows after",
+        "about 7-17 minutes. Design A.3: bin/ci runs the seconds-long steps first and reports the first red one at once; a",
+        "full green gate still runs every step."
+      ],
+      "fix_hint": [
+        "Move types and lint and lib copies identical first in main(); when one is red, stop the probe and end RED; or, by the",
+        "front's word, a queue item for A.3 and this finding recorded as moved there."
+      ],
+      "id": "F3",
+      "kind": "feature",
+      "line": 455,
+      "pass_cases": [
+        "1. A tree with a stale plugin copy: bin/ci --quick prints \"lib copies identical FAILED\" before \"library tests\" starts, and ends RED.",
+        "2. A tree with a ruff error: types and lint FAILED is printed first, gate RED, within seconds.",
+        "3. A green tree: every step runs (library tests, types and lint, hook tests, lib copies, grader tests, plugin validate, inert), ends green.",
+        "4. Under relay gate the inert step's comparison still matches outer and probe runs (the probe runs the same order)."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_ci_python.py::PaidPart three tests (stale copy reported before library tests, lint error first, green tree order); passed, 3 fail on 6c0a036; lib/relay_ci.py main() runs types and lint and lib copies first and returns RED"
+      ],
+      "severity": "MEDIUM",
+      "since": "957abdc3451e303cac93b1bf0575a0ed588ead7d",
+      "source": "review-precheck.json",
+      "source_id": "F3",
+      "summary": "design A item 3 not built: the gate still runs 7.5 minutes before a red seconds-long step shows",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE as to how often (most relay change work goes through the cycle), CONFIRMED as to the text: only cycle.js",
+        "prepends the precheck; the delegate SKILL.md template line \"Check: <command>  # the quiet check to loop on\",",
+        "plugins/delegate/agents/worker.md (\"loops on the project's quiet check\"), kit_packet_rules.md (\"Loop on the quiet",
+        "check (gate.check ...)\") and rules/quality-gate.md are unchanged, and relay's .claude/kit.toml names no gate.check.",
+        "The worker listed these as \"Callers not updated\". The brief named both routes; the change built one. A text change",
+        "in a skill or agent needs the wave's paid run. Size: 15 min."
+      ],
+      "evidence": [
+        "git grep -n -i \"quiet check\" -- roles rules plugins/delegate plugins/core:",
+        "  plugins/core/lib/kit_packet_rules.md:7: Loop on the quiet check (`gate.check` ...)",
+        "  plugins/delegate/skills/delegate/SKILL.md:61: Check: <command>  # the quiet check to loop on",
+        "cat .claude/kit.toml -> [delegate] max_parallel = 6 (no [gate] check)"
+      ],
+      "failing_case": [
+        "The front writes a brief by the delegate skill template (\"Check: ~/.local/bin/pytest tests -q -k 'queue'\") and",
+        "starts a worker on it without the cycle, in the relay repository. The worker loops on that line only; a stale",
+        "plugin copy or a mypy error reaches the gate, as in the five red gates of 27 Oct. The brief's decision: \"Whatever",
+        "command the worker brief and the cycle script name as the quiet check must include it, so every future brief gets",
+        "it without being told.\""
+      ],
+      "fix_hint": [
+        "Cheapest single source: relay's .claude/kit.toml [gate] check naming `relay precheck`, which the worker packet already",
+        "loops on; or one line in the delegate skill's Check template for projects with .relay/."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 61,
+      "pass_cases": [
+        "1. Artifact: the place a worker brief takes its quiet check from (the delegate skill's Check line, or the project's gate.check that kit_packet_rules.md points the worker at) names `relay precheck -C <worktree>` first for the relay repository.",
+        "2. Artifact: the cycle keeps prepending it (cycle.js quiet()).",
+        "3. A project without .relay/ is not told to run relay precheck."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_precheck.py::BriefTemplateNamesPrecheck test passed, fails on 6c0a036; SKILL.md:61 names relay precheck"
+      ],
+      "severity": "MEDIUM",
+      "since": "957abdc3451e303cac93b1bf0575a0ed588ead7d",
+      "source": "review-precheck.json",
+      "source_id": "F4",
+      "summary": "a worker started from a brief outside the cycle still loops on the front's test line alone",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: check_python39 repeats test_lib_modules_import and test_hooks_survive_an_empty_event line for",
+        "line, its own old_python included. Correct today, fragile. Size: 10 min."
+      ],
+      "evidence": [
+        "diff of lib/relay_precheck.py:45-70 and tests/test_py39_hooks.py:12-35: same globs, same -c code, same stderr filter."
+      ],
+      "failing_case": [
+        "Someone tightens tests/test_py39_hooks.py (the gate's test), for example to fail on ImportError in a hook. The",
+        "precheck's check_python39 keeps the old rule: precheck green, gate red, the very drift this change removes for lib copies."
+      ],
+      "fix_hint": [
+        "Make tests/test_py39_hooks.py assert relay_precheck.check_python39(ROOT) == []."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 52,
+      "pass_cases": [
+        "1. tests/test_py39_hooks.py and relay precheck judge a module by one function (the test calls relay_precheck.check_python39, or precheck runs the test).",
+        "2. A plugin lib module with `match` fails both (works today in both).",
+        "3. A plain module passes both (works today)."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "low",
+      "reason": [
+        "met earlier, unchanged since"
+      ],
+      "severity": "LOW",
+      "since": "957abdc3451e303cac93b1bf0575a0ed588ead7d",
+      "source": "review-precheck.json",
+      "source_id": "F5",
+      "summary": "the 3.9 step is a second copy of tests/test_py39_hooks.py; the two can drift",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED with a scratch hook. The filter was written for annotation TypeErrors and syntax; the failure of 27 Oct",
+        "(owner-notes a6b8fb3c) was an ImportError of TypeGuard, caught only because it was in a lib module, not a hook. The",
+        "precheck copied the same filter (F5), so a fix there covers both when they share one function. Size: 15 min."
+      ],
+      "evidence": [
+        "python3 -c \"relay_precheck.check_python39('<scratch>')\" -> []",
+        "/usr/bin/python3 <scratch>/plugins/core/hooks/new-hook.py <<< '{}' -> ModuleNotFoundError: No module named 'tomllib', rc=1"
+      ],
+      "failing_case": [
+        "plugins/core/hooks/new-hook.py with \"import tomllib\" at the top. /usr/bin/python3 (3.9.6) on it exits 1 with",
+        "ModuleNotFoundError: No module named 'tomllib'. test_hooks_survive_an_empty_event passes (it looks only for",
+        "\"TypeError\" and \"SyntaxError\"), and relay_precheck.check_python39 returns []. On a Mac whose hook PATH python3 is",
+        "3.9 the hook dies on every event. It should fail naming the hook."
+      ],
+      "fix_hint": [
+        "Also fail on \"ImportError\" / \"ModuleNotFoundError\" in stderr, or import each hook as a module under 3.9 without running main."
+      ],
+      "id": "F6",
+      "kind": "outside",
+      "line": 33,
+      "pass_cases": [
+        "1. A hook with \"import tomllib\" at module level: the 3.9 test fails naming the hook.",
+        "2. A hook with \"from typing import TypeGuard\" at module level: fails.",
+        "3. Every hook in the repo today on \"{}\": passes (none raises at import).",
+        "4. A hook that exits non-zero on \"{}\" for a reason after its imports (a KeyError in main): judged by the rule the fix picks, stated in the test."
+      ],
+      "path": "tests/test_py39_hooks.py",
+      "rank": "medium",
+      "reason": [
+        "met earlier, unchanged since"
+      ],
+      "severity": "MEDIUM",
+      "since": "957abdc3451e303cac93b1bf0575a0ed588ead7d",
+      "source": "review-precheck.json",
+      "source_id": "F6",
+      "summary": "a hook that fails to import on Python 3.9 (ImportError, ModuleNotFoundError) passes the gate's 3.9 test and the precheck",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by shell precedence; the checks the front writes today are single commands, so correct today. Size: 5 min."
+      ],
+      "evidence": [
+        "cycle.js:114 const quiet = (it) => RELAY ? `relay precheck -C ${it.wt} && ${it.check}` : it.check"
+      ],
+      "failing_case": [
+        "Unit check \"pytest tests/a.py; pytest tests/b.py\". Quiet check becomes",
+        "\"relay precheck -C wt && pytest tests/a.py; pytest tests/b.py\": with the precheck red, tests/b.py still runs and its",
+        "exit 0 is the command's status. It should exit non-zero."
+      ],
+      "fix_hint": [
+        "`relay precheck -C ${it.wt} && (${it.check})`."
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 114,
+      "pass_cases": [
+        "1. check \"a; b\", precheck red: the prompt's command is \"relay precheck -C <wt> && { a; b; }\" (or parenthesised), so it exits non-zero.",
+        "2. check \"pytest -q\": the prompt still holds \"relay precheck -C <wt> && pytest -q\" or its grouped form, and the relay-command parser of the cycle test still reads \"relay precheck -C <wt>\"."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "low",
+      "reason": [
+        "met earlier, unchanged since"
+      ],
+      "severity": "LOW",
+      "since": "957abdc3451e303cac93b1bf0575a0ed588ead7d",
+      "source": "review-precheck.json",
+      "source_id": "F7",
+      "summary": "relay precheck -C wt && <check> lets a check with ; or || hide a red precheck's exit code",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: only check_types catches TimeoutExpired; _git and the 3.9 runs do not; the comment on",
+        "STEP_TIMEOUT calls it \"the design's bound for the whole precheck\" but it bounds each call. Size: 15 min."
+      ],
+      "evidence": [
+        "lib/relay_precheck.py:20 STEP_TIMEOUT = 60  # ... the design's bound for the whole precheck",
+        "lib/relay_precheck.py:59,65 subprocess.run(..., timeout=STEP_TIMEOUT) with no except"
+      ],
+      "failing_case": [
+        "A hook that hangs on \"{}\" under /usr/bin/python3: subprocess.run raises TimeoutExpired after 60 s, uncaught in",
+        "check_python39; relay precheck ends with a Python traceback and no later step runs. With ~30 modules and hooks each",
+        "bounded at 60 s the whole precheck has no bound. Design A settings: \"precheck time budget default 30 s, bound 60 s;",
+        "a test fails when the precheck on the repo takes longer\"; no such test exists."
+      ],
+      "fix_hint": [
+        "One deadline for the run, TimeoutExpired caught per step as a RED line, and one timing test on the repo."
+      ],
+      "id": "F8",
+      "kind": "feature",
+      "line": 20,
+      "pass_cases": [
+        "1. A step whose subprocess times out: the step is RED with \"took longer than N s\", the later steps still run, exit 1.",
+        "2. A test runs the precheck on the repository and fails when it takes longer than the bound.",
+        "3. The live repo: green in under 30 s (measured 6.6 s today)."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "low",
+      "reason": [
+        "met earlier, unchanged since"
+      ],
+      "severity": "LOW",
+      "since": "957abdc3451e303cac93b1bf0575a0ed588ead7d",
+      "source": "review-precheck.json",
+      "source_id": "F8",
+      "summary": "the design's precheck time bound (30 s budget, 60 s bound, a test on the repo) is a 60 s limit per subprocess, and a timeout there is a traceback",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading and by the /nonexistent and scratch runs (\"ok python 3.9\" with no module). Not wrong in its exit",
+        "code, unclear in its words. Size: 5 min."
+      ],
+      "evidence": [
+        "relay precheck -C /nonexistent -> \"ok   python 3.9\""
+      ],
+      "failing_case": [
+        "The cycle prepends relay precheck in every project with .relay/. In a project with no plugins/*/lib and no",
+        "bin/types-lint it prints \"ok python 3.9\" and \"ok lib copies identical\": it should say skip (nothing to check), as the",
+        "types step already does."
+      ],
+      "fix_hint": [
+        "Return a \"skipped: no plugin modules here\" line when the globs or the HEAD listing find none."
+      ],
+      "id": "F9",
+      "kind": "inside",
+      "line": 110,
+      "pass_cases": [
+        "1. A repo with no plugins/*/lib files: \"skip python 3.9 (...)\" and \"skip lib copies identical (...)\", exit 0.",
+        "2. The relay repo: \"ok\" for each step (works today).",
+        "3. A stale copy: RED (works today)."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "low",
+      "reason": [
+        "met earlier, unchanged since"
+      ],
+      "severity": "LOW",
+      "since": "957abdc3451e303cac93b1bf0575a0ed588ead7d",
+      "source": "review-precheck.json",
+      "source_id": "F9",
+      "summary": "a step that found nothing to check prints ok: in another .relay project precheck says green having checked nothing",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "5ad0e9d102e8bd927d6979da327c174c34825f59.gate.log",
+  "head": "ffbb88815039d8080f07fbda3b75538f2e07e976",
+  "item": "a-fix-to-lib-leaves-the-plugins-copies-stale",
+  "notes": [
+    "F5-F9, F1, F2, Q1 were met in the earlier check and their files were not touched by 5ad0e9d. Callers of the changed step order: the probe runs the same order; tests adjusted via stubs. SKILL.md text needs the wave paid run."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix commit 5ad0e9d (F3, F4) on top of the earlier checked fixes. Gate log head 5ad0e9d exit 0 (quick mode); HEAD ffbb888 only adds the log (relay changed lists nothing). Ran test_ci_python, test_precheck, test_ci_hook_tests, test_rules_gate, test_cycle_workflow, test_py39_hooks: 84 passed. On 6c0a036 with the head test files: 4 failed (the 3 PaidPart order tests and the SKILL.md test). Files changed are the findings' files and their tests."
+  ],
+  "type": "check"
+}
