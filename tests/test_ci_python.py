@@ -117,6 +117,13 @@ class PaidPart(unittest.TestCase):
         argv = rec.find("plugin")[-1]
         self.assertEqual(argv[argv.index("--judge-model") + 1], "opus")
 
+    def test_the_eval_tool_keeps_its_run_folders_for_the_record_step(self) -> None:
+        # without --keep-temp the failing runs' traces are deleted before bin/eval-record can copy them (26 Oct)
+        rec = Recorder(self.paid_answers())
+        with redirect_stdout(io.StringIO()):
+            self.ci(rec).plugin_evals()
+        self.assertIn("--keep-temp", rec.find("plugin")[-1])
+
     def test_the_old_results_file_is_removed_before_the_eval_step(self) -> None:
         evals_json = os.path.join(self.root, ".ci", "evals.json")
         seen = []

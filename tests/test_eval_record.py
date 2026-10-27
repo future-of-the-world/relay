@@ -193,6 +193,51 @@ class Record(unittest.TestCase):
         _, out = self.run_step(fixture([[True] * 3] * 3, flagged_runs=(2,)))
         self.assertIn("a session in the run read the rule file in 1 of 3 runs (run 2, Bash), so those runs do not prove the hook delivered it", out)
 
+    def batch_with_traces(self, passes):
+        """A batch whose runs have scaffold folders <tmp>/e-x/out/trace.jsonl, as the tool leaves them under --keep-temp."""
+        data = fixture([[True] * 3 if ok else [False] * 3 for ok in passes])
+        folders = []
+        for n, run in enumerate(data["cases"][0]["arms"]["with"], 1):
+            top = os.path.join(self.tmp, f"e-run{n}"); os.makedirs(os.path.join(top, "out"))
+            with open(os.path.join(top, "out", "trace.jsonl"), "w") as handle:
+                handle.write(f"trace {n}\n")
+            run["tracePath"] = os.path.join(top, "out", "trace.jsonl"); folders.append(top)
+        return data, folders
+
+    def test_a_red_batch_keeps_the_failing_runs_traces_where_the_record_names_them(self):
+        # runs 1 and 3 pass (3 of 3 votes), run 2 fails (0 of 3): only run 2's trace is copied
+        data, folders = self.batch_with_traces([True, False, True])
+        code, out = self.run_step(data)
+        self.assertEqual(code, 2)
+        stored = json.load(open(os.path.join(self.home, "evals", "relay", os.listdir(os.path.join(self.home, "evals", "relay"))[0])))
+        runs = stored["cases"][0]["arms"]["with"]
+        self.assertEqual([("keptTracePath" in r) for r in runs], [False, True, False])
+        self.assertEqual(open(runs[1]["keptTracePath"]).read(), "trace 2\n")
+        self.assertIn("trace: " + runs[1]["keptTracePath"], out)
+        self.assertEqual([os.path.exists(f) for f in folders], [False] * 3)   # the tool's temp folders are gone
+
+    def test_a_green_batch_keeps_no_trace_and_removes_the_temp_folders(self):
+        data, folders = self.batch_with_traces([True, True, True])
+        code, _ = self.run_step(data)
+        self.assertEqual(code, 0)
+        self.assertFalse(os.path.exists(os.path.join(self.home, "eval-traces")))
+        self.assertEqual([os.path.exists(f) for f in folders], [False] * 3)
+
+    def test_a_folder_that_is_not_the_tools_scaffold_is_never_removed(self):
+        data, _ = self.batch_with_traces([True, True, True])
+        other = os.path.join(self.tmp, "mine"); os.makedirs(os.path.join(other, "out"))
+        open(os.path.join(other, "out", "trace.jsonl"), "w").close()
+        data["cases"][0]["arms"]["with"][0]["tracePath"] = os.path.join(other, "out", "trace.jsonl")
+        self.run_step(data)
+        self.assertTrue(os.path.exists(other))
+
+    def test_trace_copies_are_pruned_with_their_record(self):
+        old = os.path.join(self.home, "eval-traces", "relay", "2026-01-01T00-00-00Z-old", "c-with-run1"); os.makedirs(old)
+        os.makedirs(os.path.join(self.home, "evals", "relay"))
+        open(os.path.join(self.home, "evals", "relay", "2026-01-02T00-00-00Z-old.json"), "w").write("{}")
+        self.run_step(fixture([[True] * 3]))
+        self.assertFalse(os.path.exists(os.path.dirname(old)))
+
     def test_no_file_prints_no_record_and_exits_2(self):
         code, out = self.run_step(None)
         self.assertEqual(code, 2); self.assertIn("plugin evals wrote no record", out); self.assertFalse(os.path.exists(self.home))
