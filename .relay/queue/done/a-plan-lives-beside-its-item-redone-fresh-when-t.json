@@ -22,6 +22,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-27T01:29:26Z",
+  "dropped_why": [
+    "Owner, 27 Oct: \"Не выходит ли так что план это не план вовсе, тот пишется перед началом сессии, а то что мы сохраняем это дискуссия во время создания задачи, brainstorm\". Then, to \"how is what is decided after an item is created written into it?\": \"A\" (a list of dated notes in the item, written by one relay queue command). Replaced by an-item-keeps-dated-notes-of-later-decisions; the plan itself is not stored, it is written fresh before the work."
+  ]
 }
