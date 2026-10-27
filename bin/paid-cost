@@ -4,7 +4,7 @@
   bin/paid-cost ceiling --cap USD --jobs N [--dir DIR]   prints "<jobs> <ceiling>": what to pass as -j and --max-cost-usd
   bin/paid-cost ceiling ... --from-estimate              the --cap is only the fallback: the ceiling is the largest stored full batch times 2
   bin/paid-cost ceiling ... --within-day                 the same, with --cap lowered to what is left of the day's cap
-  bin/paid-cost estimate [--dir DIR]                     prints the mean and max cost of a stored batch, or "not measured yet"
+  bin/paid-cost estimate [--dir DIR]                     prints the cost of a run of the repo's current cases (new ones at the mean case cost), then the mean and max of a stored batch, or "not measured yet"
   bin/paid-cost paths                                      prints the paths the paid run checks (what `due` looks at), one glob per line
   bin/paid-cost due [--dir DIR] [--repo REPO]            prints the merged changes no green paid run covers yet; nothing when none
   bin/paid-cost today                                    prints the day's spend, the owner's daily cap and the run count (UTC day)
@@ -64,6 +64,53 @@ def stored(folder):
         if _num(cost) and runs:
             out.append((float(cost), partial, costs))
     return out
+
+
+def case_costs(folder: str) -> dict[str, float]:
+    """{case name: cost of its runs in the newest full stored batch that has it}; costs are run cost + judge cost.
+    Unreadable files, partial batches and cases with no numeric run cost are left out."""
+    out: dict[str, float] = {}
+    try:
+        names = sorted(os.listdir(folder))   # file names start with the UTC time, so the later file is the newer
+    except OSError:
+        return out
+    for name in names:
+        if not name.endswith(".json"):
+            continue
+        try:
+            d = json.load(open(os.path.join(folder, name), encoding="utf-8"))
+            if d.get("partial") is True:
+                continue
+            found = {}
+            for c in d["cases"]:
+                costs = [r["costUsd"] + (r["judgeCostUsd"] if _num(r.get("judgeCostUsd")) else 0)
+                         for rs in c["arms"].values() for r in rs if _num(r.get("costUsd"))]
+                if costs and isinstance(c["name"], str):
+                    found[c["name"]] = float(sum(costs))
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+        out.update(found)
+    return out
+
+
+def suite_cases(repo: str) -> list[str]:
+    """The names of the eval cases the repo has now: the folders of evals/plugin that hold a case.yaml."""
+    base = os.path.join(repo, "evals", "plugin")
+    try:
+        return sorted(n for n in os.listdir(base) if os.path.isfile(os.path.join(base, n, "case.yaml")))
+    except OSError:
+        return []
+
+
+def suite_estimate(costs: dict[str, float], cases: list[str]) -> tuple[float, int] | None:
+    """(cost of a run of `cases`, how many of them are new) or None when no case has a stored cost.
+    A case costs what its newest full batch says; a case never stored costs the mean of the stored ones."""
+    known = [costs[c] for c in cases if c in costs]
+    if not known:
+        return None
+    mean = sum(costs.values()) / len(costs)
+    new = len(cases) - len(known)
+    return sum(known) + new * mean, new
 
 
 def ceiling(cap, jobs, records):
@@ -240,7 +287,13 @@ def main(argv=None):
         return 0
     records = stored(a.dir or default_dir(a.repo))
     if a.cmd == "estimate":
-        print(estimate(records))
+        line = estimate(records)
+        folder = a.dir or default_dir(a.repo)
+        cases = suite_cases(a.repo)
+        est = suite_estimate(case_costs(folder), cases) if line != "not measured yet" else None
+        if est:
+            line = f"suite of {len(cases)} cases ({est[1]} new): ${est[0]:.2f}; {line}"
+        print(line)
         return 0
     if a.cap is None or a.cap <= 0 or a.jobs < 1:
         print("paid-cost: ceiling needs --cap above 0 and --jobs of 1 or more", file=sys.stderr)

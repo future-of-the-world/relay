@@ -88,5 +88,44 @@ class Estimate(unittest.TestCase):
         self.assertEqual(load().estimate(load().stored("/nonexistent-paid-cost-dir")), "not measured yet")
 
 
+def batch(folder, name, cases, partial=False):
+    """A stored batch: cases is {case name: [run costs]}."""
+    d = {"costUsd": sum(sum(v) for v in cases.values()), "partial": partial,
+         "cases": [{"name": n, "arms": {"with": [{"costUsd": c} for c in v]}} for n, v in cases.items()]}
+    with open(os.path.join(folder, name), "w", encoding="utf-8") as f:
+        json.dump(d, f)
+
+
+class SuiteEstimate(unittest.TestCase):
+    def test_new_cases_are_added_at_the_mean_case_cost(self):
+        with tempfile.TemporaryDirectory() as d:
+            batch(d, "a.json", {"x": [1.0, 1.0], "y": [2.0, 2.0]})   # x costs 2, y costs 4
+            batch(d, "b.json", {"x": [1.0, 1.0], "y": [2.0, 2.0]})
+            # suite grew to x, y, z, w: 2 + 4 + 2 new cases at the mean case cost 3 = 12 (the batch mean is 6)
+            self.assertEqual(load().suite_estimate(load().case_costs(d), ["x", "y", "z", "w"]), (12.0, 2))
+
+    def test_newest_full_batch_sets_a_case_cost_and_partial_is_ignored(self):
+        with tempfile.TemporaryDirectory() as d:
+            batch(d, "a.json", {"x": [1.0]}); batch(d, "b.json", {"x": [3.0]})
+            batch(d, "c.json", {"x": [9.0]}, partial=True)
+            self.assertEqual(load().case_costs(d), {"x": 3.0})
+
+    def test_removed_case_is_not_counted(self):
+        with tempfile.TemporaryDirectory() as d:
+            batch(d, "a.json", {"x": [1.0], "gone": [5.0]})
+            # suite is only x: 1.0, nothing new
+            self.assertEqual(load().suite_estimate(load().case_costs(d), ["x"]), (1.0, 0))
+
+    def test_command_line_estimate_names_the_suite(self):
+        with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as repo:
+            batch(d, "a.json", {"x": [2.0]}); batch(d, "b.json", {"x": [2.0]})
+            for n in ("x", "z"):
+                os.makedirs(os.path.join(repo, "evals", "plugin", n))
+                open(os.path.join(repo, "evals", "plugin", n, "case.yaml"), "w").close()
+            out = subprocess.run([BIN, "estimate", "--dir", d, "--repo", repo], capture_output=True, text=True)
+            # x 2 + new z at the mean 2 = 4, though the stored batches cost 2 each
+            self.assertEqual(out.stdout.strip(), "suite of 2 cases (1 new): $4.00; mean $2.00, max $2.00 over 2 stored runs")
+
+
 if __name__ == "__main__":
     unittest.main()
