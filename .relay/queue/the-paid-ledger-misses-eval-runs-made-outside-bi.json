@@ -21,8 +21,8 @@
   "where": [
     "bin/paid-cost the eval runner's aggregate-result.json, whatever records a bin/ci run in the ledger"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T18:53:22Z",
+  "taken_by": "wt/ledger-evals",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
