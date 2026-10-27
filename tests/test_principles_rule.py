@@ -100,7 +100,8 @@ class TestPrinciplesRule(unittest.TestCase):
     def test_principle_headings_are_numbered_once_in_order(self):
         import re
         with open(os.path.join(ROOT, "rules", "principles.md")) as f:
-            nums = [int(x) for x in re.findall(r"^### (\d+)\. ", f.read(), re.M)]
+            text = f.read()
+        nums = [int(x) for x in re.findall(r"^### (\d+)\. ", text, re.M)]
         self.assertEqual(nums, list(range(1, len(nums) + 1)))
 
 
