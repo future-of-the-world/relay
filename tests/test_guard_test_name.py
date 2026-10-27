@@ -64,8 +64,9 @@ class TestMergeJudges(cr.Flow):
         self.write_commit(self.wa, {"tests/t.py": SOURCE}, "test")
         review = self.review("r%d.json" % n, self.head(), [cr.review_finding(1)])
         self.checked([review], cr.met("Q1", "F1"))
-        done = tq.new_shape(kind="fix", title="Job %d" % n, failing_case=["it fails"], taken_at="2026-10-23T21:47:35Z", taken_by="wt/m%d" % n,
-                            closed_at="2026-10-24T01:00:00Z", test=test)
+        # the taken item as `take` left it, closed as `relay queue done` would (the merge hook refuses any other change of its text)
+        taken = open(os.path.join(self.wa, ".relay/queue/%s.json" % slug), encoding="utf-8").read()
+        done = tq.raw_item(taken, closed_at=rq.utcnow(), test=test)
         self.write_commit(self.wa, {".relay/queue/%s.json" % slug: done}, "close %s" % slug)
         hook = cr.merge_hook
         try:

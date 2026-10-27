@@ -1,0 +1,268 @@
+{
+  "branch": "wt/queue-edit",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by a probe in a temp repo with the live why copied in: \"NESTED accepted\". Measured over the live queue with the",
+        "branch's quoted_spans: 4 fields have Cyrillic outside every span; 3 of them are the owner's words inside nested double quotes",
+        "(the 4th, option-letters-have-no-fixed-alphabet, is the front's own text). The design (section 4 A and section 5) promised:",
+        "\"The 4 lines whose Russian lies partly outside double quotes (nested quotes) are covered by the joined-span rule or refused as",
+        "unbalanced; the build checks each of the 4 by a test\" and \"an edit of its Russian words is refused\". Neither holds: the",
+        "quotes balance, so the field is not refused, and the inner word is unprotected. This breaks the owner decision of 26 Oct",
+        "(the owner's words are kept verbatim) and the brief's \"leaves every quoted span byte-equal\": HIGH. Size: 30."
+      ],
+      "evidence": [
+        "pytest -q -s scratchpad/qe/test_probe.py -k nested  ->  NESTED accepted: ... (edit of \"\u043d\u0430 \u0433\u043b\u0430\u0437\" landed)",
+        "live scan: fields 1087 unbalanced 0; cyrillic outside spans 4:",
+        "  queue-time-estimates-are-guesses-with-no-model-b why: '... \u0437\u0430 \u044d\u0442\u043e\u0439 \u043e\u0446\u0435\u043d\u043a\u043e\u0439, \"\u043d\u0430 \u0433\u043b\u0430\u0437\" \u0438\u043b\u0438 \u0437\u0434\u0435\u0441\u044c \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u0435\u0442 \u0441\u0438\u0441\u0442\u0435\u043c\u0430 \u043e\u0446\u0435\u043d\u043a\u0438\"'",
+        "  spans: ['\"\u041d\u0430 \u0441\u043a\u043e\u043b\u044c\u043a\u043e \u043e\u0446\u0435\u043d\u043e\u0447\u043d\u043e\u0435 \u0432\u0440\u0435\u043c\u044f \u0441\u043e\u0432\u043f\u0430\u0434\u0430\u0435\u0442 \u0441 \u0440\u0435\u0430\u043b\u044c\u043d\u044b\u043c \u0432...', '\" \u0438\u043b\u0438 \u0437\u0434\u0435\u0441\u044c \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u0435\u0442 \u0441\u0438\u0441\u0442\u0435\u043c\u0430 \u043e\u0446\u0435\u043d\u043a\u0438\"']",
+        "  queue-items-store-state-instead-of-dated-events why: ... \u0438\u0441\u0445\u043e\u0434\u044f \u0438\u0437 \"\u0440\u0435\u0430\u043b\u044c\u043d\u043e\u0433\u043e\" \u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u044f \u043e\u0431\u044a\u0435\u043a\u0442\u0430\"",
+        "  relay-as-a-portable-tool-project-data-out-of-rel why: ... \u043a\u0430\u043a\u0438\u043c \u043c\u043e\u0436\u0435\u0442 \u0441\u0442\u0430\u0442\u044c \"\u0432\u043a\u0443\u0441\", \u043f\u0430\u043c\u044f\u0442\u044c \u044d\u0442\u043e \u0437\u0430\u043c\u0435\u0442\u043a\u0438 ..."
+      ],
+      "failing_case": [
+        "Live item queue-time-estimates-are-guesses-with-no-model-b, field why, holds the owner's words",
+        "  \"... \u0447\u0442\u043e \u0441\u0442\u043e\u0438\u0442 \u0437\u0430 \u044d\u0442\u043e\u0439 \u043e\u0446\u0435\u043d\u043a\u043e\u0439, \"\u043d\u0430 \u0433\u043b\u0430\u0437\" \u0438\u043b\u0438 \u0437\u0434\u0435\u0441\u044c \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u0435\u0442 \u0441\u0438\u0441\u0442\u0435\u043c\u0430 \u043e\u0446\u0435\u043d\u043a\u0438\".",
+        "quoted_spans pairs each \" with the next one, so the spans are '\"...\u043e\u0446\u0435\u043d\u043a\u043e\u0439, \"' and '\" \u0438\u043b\u0438 ... \u043e\u0446\u0435\u043d\u043a\u0438\"'; the words \u043d\u0430 \u0433\u043b\u0430\u0437 sit",
+        "between them, unprotected. relay queue edit with field = \"why\", old = \"\u043d\u0430 \u0433\u043b\u0430\u0437\", new = \"\u043f\u043e \u043e\u0449\u0443\u0449\u0435\u043d\u0438\u044e\" is accepted and lands:",
+        "the owner's verbatim words are changed. Expected: refused, \"the edit changes quoted text in why\".",
+        "The same shape holds in the live items queue-items-store-state-instead-of-dated-events (why: ... \u0438\u0441\u0445\u043e\u0434\u044f \u0438\u0437 \"\u0440\u0435\u0430\u043b\u044c\u043d\u043e\u0433\u043e\"",
+        "\u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u044f \u043e\u0431\u044a\u0435\u043a\u0442\u0430\") and relay-as-a-portable-tool-project-data-out-of-rel (why: ... \u043a\u0430\u043a\u0438\u043c \u043c\u043e\u0436\u0435\u0442 \u0441\u0442\u0430\u0442\u044c \"\u0432\u043a\u0443\u0441\", ...)."
+      ],
+      "fix_hint": [
+        "Pair double quotes by position with nesting: a \" after a line start, space, \"(\", \":\" or another opening mark and before a",
+        "non-space opens (depth + 1); a \" before a line end, space or punctuation closes (depth - 1); a span runs from an opener at",
+        "depth 0 to the closer that brings depth back to 0. A mark that fits neither, or a field that ends at depth > 0, makes the",
+        "field unbalanced (refused whole). Add the 4 live lines as fixtures in tests/test_queue_edit.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1623,
+      "pass_cases": [
+        "1. why = the live line above (owner quote with an inner \"\u043d\u0430 \u0433\u043b\u0430\u0437\"): edit old = \"\u043d\u0430 \u0433\u043b\u0430\u0437\" -> refused, field unchanged, no note.",
+        "2. Same line: edit old = \"\u0440\u0435\u0430\u043b\u044c\u043d\u043e\u0433\u043e\" in the queue-items-store-state line, and old = \"\u0432\u043a\u0443\u0441\" in the relay-as-a-portable-tool line -> refused.",
+        "3. why = ['all others green, including the new check; \"recall-decision never ran\" said the log']: edit of the text outside the quote -> accepted (test_replaces_the_fragment_and_adds_a_dated_why_note keeps passing).",
+        "4. ['a \"b c\" d \u00abe\u00bb f \u201cg\u201d'] -> spans unchanged: ['\"b c\"', '\u00abe\u00bb', '\u201cg\u201d'] (test_double_guillemet_and_curly_spans).",
+        "5. Over the live queue: every one of the 4 lines with Russian outside today's spans is either covered by a span or the edit is refused (the design's section 5 test, which the change does not have)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue_edit.py Quoted::test_nested_double_quotes_are_one_span, test_live_nested_lines_are_covered, EditCommand::test_nested_quoted_word_is_never_changed: pass, fail on base."
+      ],
+      "severity": "HIGH",
+      "since": "e42d4518c086da2704b273754b6655247515baf8",
+      "source": "review-queue-edit.json",
+      "source_id": "F1",
+      "summary": "a word the owner quoted inside his own quote (nested double quotes) lies outside every protected span, so edit rewrites the owner's words",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe: \"TEST stored: 'tests/t.py::test_new_case'\" and \"TESTNAME refused: nothing edited: --test is <test file>::...\".",
+        "The design and brief: \"`test` editable only on a closed item, to a test that exists\". The test rule runs before _edited_value",
+        "computes the result and is given `new`. failing_kind has the same order, but serialize catches its invalid result. Size: 10."
+      ],
+      "evidence": [
+        "pytest -q -s scratchpad/qe/test_probe.py -k fragment",
+        "  TEST stored: 'tests/t.py::test_new_case'",
+        "  TESTNAME refused: nothing edited: --test is <test file>::<test name>, or evals/plugin/<case>::<grader> ..."
+      ],
+      "failing_case": [
+        "Closed item with test = \"tests/t.py::test_old_case\"; tests/t.py at the default tip defines only test_new.",
+        "edit field = \"test\", old = \"tests/t.py::test_old\", new = \"tests/t.py::test_new\": test_refusal checks \"tests/t.py::test_new\"",
+        "(exists), accepts, and stores \"tests/t.py::test_new_case\", which does not exist. Expected: refused, nothing written.",
+        "And the reverse: test = \"tests/t.py::test_old\", old = \"test_old\", new = \"test_new\" is refused with the TEST_FORMS message,",
+        "though the result \"tests/t.py::test_new\" exists. Expected: accepted."
+      ],
+      "fix_hint": [
+        "Compute `after = _edited_value(...)` first and pass `after` (the whole new test) to test_refusal; likewise check failing_kind",
+        "on `after`."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1744,
+      "pass_cases": [
+        "1. test \"tests/t.py::test_old_case\", old \"tests/t.py::test_old\", new \"tests/t.py::test_new\" (only test_new defined) -> refused, test unchanged, no note.",
+        "2. test \"tests/t.py::test_old\", old \"test_old\", new \"test_new\" (test_new defined) -> accepted, test = \"tests/t.py::test_new\", one fact note.",
+        "3. test \"tests/t.py::test_old\", old = the whole value, new \"tests/t.py::test_missing\" -> refused \"does not hold a test named test_missing\" (today's test keeps passing).",
+        "4. Open item -> refused \"only after it is closed\" (today's test keeps passing)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_edit.py EditCommand::test_the_test_edit_checks_the_whole_result_not_the_fragment and test_a_test_name_fragment_giving_an_existing_test_is_accepted: pass, fail on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "e42d4518c086da2704b273754b6655247515baf8",
+      "source": "review-queue-edit.json",
+      "source_id": "F2",
+      "summary": "edit of `test` checks the `new` fragment, not the test the item ends up naming, so a test that does not exist is stored",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe (Fence setUp, temp repo): \"DELETE passed the fence\", \"ADD passed the fence\". changed_files is built with",
+        "--diff-filter=AM, so a deleted file never reaches step_hand_edits; an added one gives before = None and `continue`. The brief:",
+        "\"nothing but relay's commands writes queue files, on a task branch too\"; a lost item is lost data the queue rule exists to",
+        "prevent. Size: 15."
+      ],
+      "evidence": [
+        "pytest -q -s scratchpad/qe/test_probe.py -k hand",
+        "  ADD passed the fence",
+        "  DELETE passed the fence"
+      ],
+      "failing_case": [
+        "On a task branch (taken default tip), `git rm .relay/queue/job-item.json && git commit` (git verbs are free in the guard), then",
+        "merge: step_queue passes, the item vanishes from the default branch. Expected: refused, naming relay queue drop / relay queue.",
+        "Likewise a branch that writes a new .relay/queue/new-one.json by hand (Python, or git show > after the guard): passes.",
+        "Expected: refused, naming relay queue add (add lands on the default branch, so an item file only the branch has is hand-made)."
+      ],
+      "fix_hint": [
+        "In step_hand_edits, diff the range with --diff-filter=AMD (or compare the item lists of the default tip and the branch tip)",
+        "and refuse a missing or a new item file unless a migrate module is in the range."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 190,
+      "pass_cases": [
+        "1. Branch deletes an item file that the default tip has -> step_queue raises Refused naming relay queue.",
+        "2. Branch adds an item file the default tip lacks -> Refused naming relay queue add.",
+        "3. Branch with a migrate module lib/relay_*migrate*.py that deletes or adds item files -> passes.",
+        "4. Branch that took the default branch after a relay queue add landed there -> passes (test_a_library_edit_taken_into_the_branch_passes keeps passing).",
+        "5. Branch that closes its item with relay queue done -> passes."
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_edit.py Fence::test_deleting_an_item_file_is_refused, test_adding_an_item_file_by_hand_is_refused, test_a_migrate_module_exempts_added_and_deleted_files: pass, first two fail on base. step_hand_files in merge.py:205."
+      ],
+      "severity": "MEDIUM",
+      "since": "e42d4518c086da2704b273754b6655247515baf8",
+      "source": "review-queue-edit.json",
+      "source_id": "F3",
+      "summary": "the hand-edit fence lets a branch delete an item file or add one by hand: deletion is filtered out and a new file is skipped",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: grep of the front skill finds `said` only for notes on existing items (line 87); the add sections",
+        "(lines 84, 166, 244) are unchanged. The design (section 4 A): \"the front skill says the owner's words go there and not into why",
+        "or what\". The owner chose 2a (new items only) on the premise that new items keep words apart; that depends on the writer",
+        "being told. Skill texts get the batched paid run after the wave. Size: 10."
+      ],
+      "evidence": [
+        "grep -n \"said\" plugins/front/skills/front/SKILL.md -> only line 87 (notes), 239 (answers)",
+        "git diff master...HEAD --stat: no file under plugins/front/skills changed"
+      ],
+      "failing_case": [
+        "The front adds an item for an out-of-scope question (skill section \"An out-of-scope question\", line 244): the skill says",
+        "relay queue add --input with kind = \"feature\", nothing about `said`. The front keeps writing \"Owner, 27 Oct, verbatim: ...\"",
+        "into `why` (as this very brief and item do), where relay queue edit can reach the unquoted or nested words (F1).",
+        "Expected: the skill's add instructions say the owner's words go to the `said` key of the add input, never into why or what."
+      ],
+      "fix_hint": [
+        "One sentence in the front skill where it names relay queue add (and in the delegate skill's add row if it can carry owner words)."
+      ],
+      "id": "F4",
+      "kind": "feature",
+      "line": 244,
+      "pass_cases": [
+        "1. plugins/front/skills/front/SKILL.md, where it tells the front to run relay queue add, has a line: the owner's words verbatim go to `said` in the add input, never into why or what.",
+        "2. The same line names it for relay queue add --from (or says it does not apply there).",
+        "3. rules/queue.md keeps its line on `said` (already present)."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "plugins/front/skills/front/SKILL.md:246 says the owner's words go to the said key, add --from takes none."
+      ],
+      "severity": "MEDIUM",
+      "since": "e42d4518c086da2704b273754b6655247515baf8",
+      "source": "review-queue-edit.json",
+      "source_id": "F4",
+      "summary": "the front skill was not told to put the owner's words in `said`: the owner's answer 2a holds only in rules/queue.md",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading show_text (unchanged by the diff) and edit (Note(\"fact\", when, [\"Edited <field>: ...\"])). Readers see the",
+        "note, so nothing is wrong today; principle 4 (a field a script reads is structure, not prose) makes the note shape fragile.",
+        "Size: 20."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- lib/relay_queue.py: show_text and notes_text untouched; edit inserts Note(\"fact\", ..., [f\"Edited {field}: {line}\" ...])"
+      ],
+      "failing_case": [
+        "After relay queue edit of why, relay queue show prints \"Why:\" with the new text and the note \"Edited why: ...\" among the",
+        "notes. The design (section 4 A) promised \"Why (edited 27 Oct: ...)\" on the field and a note {at, edited: <field>, fact: [...]};",
+        "a script can find the edited field only by parsing the note's prose."
+      ],
+      "fix_hint": [
+        "Add an `edited` key to the note shape (a migrate-free addition if the parser accepts it), print it in show_text beside the field."
+      ],
+      "id": "F5",
+      "kind": "feature",
+      "line": 460,
+      "pass_cases": [
+        "1. After an edit of why on 10 Oct, show_text prints the Why heading with \"(edited 2026-10-10 ...)\" or equivalent.",
+        "2. The stored note carries the field as data (`edited = \"why\"`), and notes_text prints it.",
+        "3. An item never edited prints \"Why:\" as today."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue_edit.py EditCommand::test_the_edit_note_carries_the_field_as_data_and_show_marks_it: pass, fails on base."
+      ],
+      "severity": "LOW",
+      "since": "e42d4518c086da2704b273754b6655247515baf8",
+      "source": "review-queue-edit.json",
+      "source_id": "F5",
+      "summary": "show does not mark an edited field, and the edit note is a plain fact 'Edited why: ...' instead of a structured `edited` field",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Size: 2."
+      ],
+      "evidence": [
+        "grep -n \"Tests: plugins/core/tests/guard-main.test.sh\" guard-main.sh -> 30, 56; queue cases: check-mark.test.sh:515-526"
+      ],
+      "failing_case": [
+        "A reader following \"Tests: plugins/core/tests/guard-main.test.sh\" for the queue guard finds no queue case there; the cases",
+        "are in plugins/core/tests/check-mark.test.sh lines 515-526."
+      ],
+      "fix_hint": [
+        "Change the path in the comment."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 30,
+      "pass_cases": [
+        "1. guard-main.sh line 30 names plugins/core/tests/check-mark.test.sh (Q1-Q4).",
+        "2. The .relay/checks comment (line 28) keeps naming check-mark.test.sh."
+      ],
+      "path": "plugins/core/hooks/guard-main.sh",
+      "rank": "low",
+      "reason": [
+        "plugins/core/hooks/guard-main.sh:30 now names check-mark.test.sh (Q1-Q4)."
+      ],
+      "severity": "LOW",
+      "since": "e42d4518c086da2704b273754b6655247515baf8",
+      "source": "review-queue-edit.json",
+      "source_id": "F6",
+      "summary": "the queue-guard comment names plugins/core/tests/guard-main.test.sh, but its tests are in check-mark.test.sh (Q1-Q4)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "cbe8f0145dd3787986f0baad880d68711ee9c513.gate.log",
+  "head": "c6162b25a808f59238fb06297c30cb609978a00f",
+  "item": null,
+  "notes": [
+    "Gate was quick mode. Fixer changed only the finding files and tests."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix commit cbe8f01 over e42d451; check command run (336 passed, kit.test all passed); gate log head cbe8f01, exit 0, no file after it. New tests run on e42d451 in a throwaway worktree: 8 failed (the 8 fix tests), 31 passed."
+  ],
+  "type": "check"
+}

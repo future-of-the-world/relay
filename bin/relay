@@ -75,7 +75,7 @@
                                      `owner` list; a checker counts that finding as not wrong; show prints it.
                                      With `queue = "<slug>"` in the TOML the word is that the finding moved to that queue
                                      item (it must be on the default branch): it counts under `queued`, not `open`
-  relay queue [count|show|check|migrate|land|ip|take|release|done|drop|add|note] ...
+  relay queue [count|show|history|check|migrate|land|ip|take|release|done|drop|add|note|edit] ...
                                      the work queue (.relay/queue/ on the default branch): `relay queue` lists it,
                                      `relay queue count` gives the one-line count; see `relay queue -h`
 
@@ -734,11 +734,13 @@ QUEUE_USAGE = """relay queue                              the ordered list: ip, 
 relay queue count                        "10 fix, 12 feature; top: <slug> (fix, ip 95, 30m)"
 relay queue <view>                       a read-only view from relay's lib/queue_ext/ (also: relay queue --view <view>); `table` is the default, `json` prints the items for scripts
 relay queue show <slug or words>         one item in full, with its notes; words (title, what, why, notes) find it: one match is shown, several are listed
+relay queue history <slug>               the earlier text of an edited item, read from git
 relay queue check                        every item file of this checkout is well formed; lists the ones that are not
 relay queue migrate                      rewrite item files of the old shape (`state`) to dated events from git history, and move files out of the gone done/ folder; safe to run again
 relay queue add --input <file.toml> [--time 20m|1h|1h30m] [--ip N]
                                          the TOML holds kind, title, why, time, what, failing_case, failing_kind, pass_cases, where (a list of places: ["lib/x.py:5-9 note", "docs/"])
                                          a fix says what its failing case is: failing_kind = "test", "run" (a recorded red run) or "claim" (someone's word)
+                                         said = '''the owner's words, verbatim''' (optional): kept as a said note, never in the text
 relay queue add --from <report.json> F<n> --input <file.toml> [--time ..] [--ip N]
                                          the finding F<n> of a recorded review or check; the TOML holds why, time, ip
 relay queue note <slug> --input <file.toml>
@@ -749,6 +751,14 @@ relay queue note <slug> --input <file.toml>
                                              (the command prints the block back: show the owner exactly that)
                                            answer = '''the owner's whole reply, every explanation''' [+ to = [1, 2]] [+ reading = '''your reading''']
                                          and, optional, at = "2026-10-27T01:20:00Z" (when it was said; default now). A note is only added, never edited.
+relay queue edit <slug> --input <file.toml>
+                                         correct one exact fragment of an item's text, in any state. The TOML holds
+                                           field = "why"   (title, what, why, failing_case, failing_kind, pass_cases, where, time or test)
+                                           old = '''the exact text to replace (found once in the field)'''
+                                           new = '''the text that replaces it'''
+                                           because = '''what was found, and when''' (becomes a dated fact note)
+                                         Quoted text ("...", «...», '...') is never changed. `test` only on a closed item, to a test that exists.
+                                         This is the only way to change an item's text; a hand edit is refused (guard and merge).
 relay queue land <slug>                  try again to land a kept wt/queue-<slug>
 relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree>   (a branch holds one fix item; the check states its problem as finding Q1)
@@ -784,7 +794,7 @@ def _queue_options(args, spec):
     return opts, rest
 
 
-QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "done", "note")
+QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "done", "note", "edit")
 
 
 def cmd_queue(args):
@@ -819,6 +829,15 @@ def cmd_queue(args):
         if how == "words":
             print(f"found by words '{query}':")
         print(relay_queue.show_text(found[0]))
+        return 0
+    if sub == "history":
+        o, p = _queue_options(rest, common)
+        if len(p) != 1:
+            raise Usage("relay queue history <slug>")
+        try:
+            print(relay_queue.history(os.path.realpath(o.get("-C", ".")), p[0]))
+        except relay_queue.Refused as e:
+            raise Usage(str(e))
         return 0
     if sub in ("check", "migrate"):
         o, p = _queue_options(rest, common)
@@ -887,7 +906,7 @@ def cmd_queue(args):
             raise Usage(str(e))
         return 0
     spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--input": str}, 1),
-            "take": ({}, 1), "note": ({"--input": str}, 1), "done": ({"--test": str, "--evidence": str, "--fixed-by": str}, 1)}
+            "take": ({}, 1), "note": ({"--input": str}, 1), "edit": ({"--input": str}, 1), "done": ({"--test": str, "--evidence": str, "--fixed-by": str}, 1)}
     extra, count = spec[sub]
     o, p = _queue_options(rest, dict(common, **extra))
     if len(p) != count:
@@ -911,6 +930,13 @@ def cmd_queue(args):
             raise Usage(str(e))
     elif sub == "take":
         print(relay_queue.take(repo(o), p[0]))
+    elif sub == "edit":
+        if "--input" not in o:
+            raise Usage("relay queue edit <slug> --input <file.toml>: the TOML holds field, old, new and because; see relay queue --help")
+        try:
+            print(relay_queue.edit(repo(o), p[0], **relay_queue.read_edit_input(o["--input"])))
+        except relay_queue.Refused as e:
+            raise Usage(str(e))
     elif sub == "note":
         if "--input" not in o:
             raise Usage("relay queue note <slug> --input <file.toml>: the TOML holds one of said, fact, question (with options and number) or answer; see relay queue --help")
