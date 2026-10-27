@@ -20,6 +20,7 @@ from pidfile import wait_pid
 
 import relay_gate
 
+WAITING = "gate: waiting for a free gate slot (all 1 busy; the limit stops gates slowing each other, RELAY_GATE_SLOTS sets it)"
 BOUND = 30      # seconds any wait in these tests may last: with the feature broken a test fails inside it instead of hanging the gate
 
 # a gate that says it started, then waits for the test to let it go (polling a file, no fixed sleep in the test);
@@ -92,7 +93,7 @@ class Slots(Fixture):
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         second = self.start(self.wt2)
         # B's waiting line is the first thing it prints; reading it blocks until B has looked at the slot
-        self.assertEqual(self.line(second), "gate: waiting for a free gate slot (1 busy)")
+        self.assertEqual(self.line(second), WAITING)
         self.assertFalse(os.path.exists(os.path.join(self.wt2, ".ci", "started")))     # B holds back while A holds the slot
         write(self.release, "go\n")
         self.assertEqual(first.wait(timeout=BOUND), 0)
@@ -126,6 +127,33 @@ class Slots(Fixture):
         self.assertEqual(again.returncode, 0, again.stderr)
         self.assertNotIn("waiting", again.stderr)
 
+    def test_the_default_slot_count_comes_from_the_cores(self):
+        """cores // 6, at least 1: 12 cores give 2 (the measured knee: 2 gates at once 698 s each, 3 at once 1058 s each); 4 cores give 1, 24 give 4."""
+        self.assertEqual([relay_gate.default_slots(n) for n in (1, 4, 12, 24)], [1, 1, 2, 4])
+        self.assertEqual(relay_gate.slot_count({}, cores=12), 2)
+        self.assertEqual(relay_gate.slot_count({"RELAY_GATE_SLOTS": "5"}, cores=12), 5)       # the setting wins
+
+    def test_with_two_slots_the_third_concurrent_gate_waits(self):
+        """N=2 (the default on 12 cores): gates A and B run together, gate C prints the waiting line with its reason and does not
+        start its command until A or B exits."""
+        self.env["RELAY_GATE_SLOTS"] = "2"
+        wt3 = os.path.join(self.main, ".worktrees", "z")
+        git(self.main, "worktree", "add", "-q", wt3, "-b", "wt/z")
+        write(os.path.join(wt3, "lib", "c.py"), "c\n")
+        git(wt3, "add", "-A")
+        git(wt3, "commit", "-q", "-m", "work")
+        first = self.start(self.wt)
+        second = self.start(self.wt2)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        self.wait_for(os.path.join(self.wt2, ".ci", "started"))
+        third = self.start(wt3)
+        self.assertEqual(self.line(third), WAITING.replace("all 1 busy", "all 2 busy"))
+        self.assertFalse(os.path.exists(os.path.join(wt3, ".ci", "started")))
+        write(self.release, "go\n")
+        for proc in (first, second, third):
+            self.assertEqual(proc.wait(timeout=BOUND), 0)
+        self.assertEqual(self.runs(), 3)
+
     def test_a_bad_slot_count_is_refused(self):
         self.env["RELAY_GATE_SLOTS"] = "none"
         done = subprocess.run([sys.executable, RELAY, "gate"], cwd=self.wt, env=self.env, capture_output=True, text=True, timeout=BOUND)
@@ -155,7 +183,7 @@ class Slots(Fixture):
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         second = self.start(self.wt2)
-        self.assertEqual(self.line(second), "gate: waiting for a free gate slot (1 busy)")
+        self.assertEqual(self.line(second), WAITING)
         second.send_signal(signal.SIGINT)
         self.assertNotEqual(second.wait(timeout=BOUND), 0)
         self.assertFalse(os.path.exists(os.path.join(self.wt2, ".ci", "started")))
@@ -166,7 +194,7 @@ class Slots(Fixture):
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         second = self.start(self.wt2)
-        self.assertEqual(self.line(second), "gate: waiting for a free gate slot (1 busy)")
+        self.assertEqual(self.line(second), WAITING)
         write(os.path.join(self.wt2, "lib", "c.py"), "c\n")
         git(self.wt2, "add", "-A")
         git(self.wt2, "commit", "-q", "-m", "more")
@@ -184,7 +212,7 @@ class Slots(Fixture):
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         b1, b2 = self.start(self.wt2), self.start(self.wt2)
         lines = sorted([self.line(b1), self.line(b2)])
-        self.assertEqual(lines[0], "gate: waiting for a free gate slot (1 busy)")
+        self.assertEqual(lines[0], WAITING)
         # the holder may have locked the file but not yet written its pid when B reads it: the line then says "unknown"
         self.assertRegex(lines[1], r"^gate: waiting for the gate already running in this worktree \(pid (\d+|unknown)\)$")
         write(self.release, "go\n")
@@ -328,7 +356,7 @@ class Slots(Fixture):
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         second = self.start(self.wt2)
-        self.assertEqual(self.line(second), "gate: waiting for a free gate slot (1 busy)")
+        self.assertEqual(self.line(second), WAITING)
         os.remove(os.path.join(self.wt2, "LICENSE"))
         self.put_green_log(head, log)
         write(self.release, "go\n")
@@ -349,7 +377,7 @@ class Slots(Fixture):
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         second = self.start(self.wt2)
-        self.assertEqual(self.line(second), "gate: waiting for a free gate slot (1 busy)")
+        self.assertEqual(self.line(second), WAITING)
         write(os.path.join(self.wt2, "LICENSE"), relay_license.license_text("MIT", "me", 2026))
         self.put_green_log(head, log)
         write(self.release, "go\n")

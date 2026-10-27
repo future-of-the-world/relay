@@ -11,6 +11,8 @@ is killed). After the command it checks that the tested tree is still the gated 
 so a killed gate frees its slot by itself). The log's third line, `wait <seconds>`, is the time spent waiting for a slot.
 """
 
+from __future__ import annotations
+
 import fcntl
 import os
 import shlex
@@ -28,7 +30,7 @@ import relay_toml
 
 DEFAULT_CI = "bin/ci"
 FAILED_LINES = 8        # lines of the first failing step shown on the third output line
-DEFAULT_SLOTS = 3       # gates that may run at once on the machine (RELAY_GATE_SLOTS overrides)
+CORES_PER_SLOT = 6      # default slots = cores // CORES_PER_SLOT, at least 1: 2 on 12 cores (measured 27 Oct: 2 gates at once 698 s each, 3 at once 1058 s each, alone 420 s)
 SLOT_POLL = 0.2         # seconds between looks at the slots while all are busy
 
 
@@ -76,11 +78,16 @@ def check_ready(worktree):
     return head
 
 
-def slot_count(environ=None):
-    """How many gates may run at once: RELAY_GATE_SLOTS, else DEFAULT_SLOTS."""
+def default_slots(cores: int | None = None) -> int:
+    """Gates that may run at once by default: the machine's cores divided by CORES_PER_SLOT, at least 1."""
+    return max(1, (cores if cores is not None else os.cpu_count() or 1) // CORES_PER_SLOT)
+
+
+def slot_count(environ=None, cores: int | None = None) -> int:
+    """How many gates may run at once: RELAY_GATE_SLOTS, else default_slots(cores)."""
     value = (os.environ if environ is None else environ).get("RELAY_GATE_SLOTS")
     if value is None or not value.strip():
-        return DEFAULT_SLOTS
+        return default_slots(cores)
     try:
         count = int(value)
     except ValueError:
@@ -110,7 +117,7 @@ def take_slot(count, folder, notify=None):
                         other.close()
                 return handle, time.monotonic() - started
             if not told and notify is not None:
-                notify("gate: waiting for a free gate slot (%d busy)" % count)
+                notify("gate: waiting for a free gate slot (all %d busy; the limit stops gates slowing each other, RELAY_GATE_SLOTS sets it)" % count)
             told = True
             time.sleep(SLOT_POLL)
     except BaseException:
