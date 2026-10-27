@@ -1,6 +1,6 @@
 """Queue item no-spec-step-typo-fails-one-run-in-three.
 
-The typo prompt ("список товароф") does not say which list is meant, so in 2 of 18 kept-trace runs the coordinator
+The request does not say where the list lives (typo or not), so in 2 of 18 kept-trace runs the coordinator
 started a delegate:scout to find it; the prompt stops at the first agent's reply, so no worker followed and the
 worker-started grader (pattern "delegate:worker") failed a correct run. The grader now accepts a plain delegate
 scout or worker and still rejects an openspec agent and a run that started no agent.
@@ -9,7 +9,7 @@ import json
 import os
 import unittest
 
-from test_wave_red import ROOT, js_match
+from test_wave_red import ROOT, input_match, js_match
 
 
 def pattern() -> str:
@@ -33,3 +33,24 @@ class TypoWorkerStarted(unittest.TestCase):
     def test_an_openspec_or_other_agent_does_not_count(self) -> None:
         for kind in ("openspec:plan", "openspec:author", "Explore", "general-purpose", "delegate:thinker"):
             self.assertFalse(js_match(pattern(), agent(kind)), kind)
+
+
+def command_input(command: str, description: str) -> str:
+    return json.dumps({"command": command, "description": description}, separators=(",", ":"))
+
+
+class NoOpenspecCommandReadsOnlyTheCommand(unittest.TestCase):
+    """Review F1: the grader fired on a Bash description such as "(openspec folder too)"."""
+
+    def test_a_description_naming_openspec_is_not_a_command(self) -> None:
+        for case in ("no-spec-step", "no-spec-step-ru", "no-spec-step-typo"):
+            text = command_input("ls -la", "List the project (openspec folder too)")
+            self.assertFalse(js_match(input_match(case), text), case)
+
+    def test_real_commands_still_match_and_folder_reads_do_not(self) -> None:
+        for case in ("no-spec-step", "no-spec-step-ru", "no-spec-step-typo"):
+            pat = input_match(case)
+            self.assertTrue(js_match(pat, command_input("git log --oneline; openspec list", "x")), case)
+            self.assertTrue(js_match(pat, command_input("(openspec list)", "x")), case)
+            self.assertTrue(js_match(pat, command_input("openspec list", "x")), case)
+            self.assertFalse(js_match(pat, command_input("ls openspec/changes", "List changes")), case)
