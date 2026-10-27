@@ -29,5 +29,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-26T19:45:24Z",
+      "fact": [
+        "The owner's question below was asked on 27 Oct (from the saved plan test-speed.md on branch wt/plans-save). The note carries the item's creation time."
+      ]
+    }
+  ]
 }
