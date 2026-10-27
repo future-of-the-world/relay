@@ -22,8 +22,8 @@
     "plugins/front/skills/front/SKILL.md",
     "lib/relay_analyze.py (report)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T22:54:25Z",
+  "taken_by": "wt/front-cmds",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
