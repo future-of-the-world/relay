@@ -55,6 +55,11 @@ def judged_line(evidence, patterns):
     return " ".join(text.split())[:200]
 
 
+def timed_out(run: dict[str, Any]) -> bool:
+    """True when the eval tool stopped the run at its time limit ("timed out after 600s"). Owner, 27 Oct, "7. a": that is a failed run."""
+    return str(run.get("error") or "").startswith("timed out after")
+
+
 def run_ok(run: dict[str, Any]) -> bool:
     """True when the run did not error and none of its graders failed."""
     return not run.get("error") and all(g.get("passed") is not False for g in run.get("graders", []))
@@ -84,7 +89,7 @@ def dropped(data: dict[str, Any], earlier: list[dict[str, Any]]) -> list[str]:
 
 def report(data, record_path, earlier=()):
     """Returns the lines to print. A case passes when most of the runs of each arm pass; the failed runs of a passing case are notes."""
-    notes, fails, splits, unjudged, bad, code_failed = [], [], 0, 0, set(), 0
+    notes, fails, splits, unjudged, bad, code_failed, timeouts = [], [], 0, 0, set(), 0, 0
     pairing = line_checks()
     if data.get("partial"):
         notes.append(f"    note: partial run: {data.get('partialReason', 'no reason given')}")
@@ -105,10 +110,14 @@ def report(data, record_path, earlier=()):
                 unjudged += missing; bad.add(case["name"])
                 notes.append(f"    note: {case['name']}: {missing} of {want} runs missing, not judged")
             arm_fails, arm_code, arm_bad = [], 0, set()   # the failures of this arm, kept until the arm's majority is known
-            failed_runs = set()
+            failed_runs, arm_timeouts = set(), 0
             for n, run in enumerate(runs, 1):
                 if not run_ok(run):
                     failed_runs.add(n)
+                if timed_out(run):   # a failed run of the majority rule, not a run that was not judged
+                    arm_timeouts += 1; arm_bad.add(case["name"])
+                    arm_fails.append(f"    FAIL {case['name']} run {n}: {run['error']}")
+                    continue
                 if run.get("error"):
                     unjudged += 1; bad.add(case["name"])
                     notes.append(f"    note: {case['name']} run {n}: the run errored ({str(run['error'])[:80]}), its graders were not judged")
@@ -147,15 +156,17 @@ def report(data, record_path, earlier=()):
                 for line in arm_fails:
                     if line.startswith("    FAIL"):
                         notes.append("    note: " + line[len("    FAIL "):] + " (the case still passes by majority)")
-                notes.append(f"    note: {case['name']}{' ' + arm if arm else ''}: {len(runs) - len(failed_runs)} of {len(runs)} runs passed, the case passes by majority")
+                timed = f", {arm_timeouts} timed out" if arm_timeouts else ""
+                notes.append(f"    note: {case['name']}{' ' + arm if arm else ''}: {len(runs) - len(failed_runs)} of {len(runs)} runs passed{timed}, the case passes by majority")
             else:
-                fails += arm_fails; code_failed += arm_code; bad |= arm_bad
+                fails += arm_fails; code_failed += arm_code; timeouts += arm_timeouts; bad |= arm_bad
         if flagged:
             runs_total = max((len(r) for r in case.get("arms", {}).values()), default=0)
             where = ", ".join(f"run {n}, {'/'.join(t)}" for n, t in sorted(flagged.items()))
             notes.append(f"    note: {case['name']}: a session in the run read the rule file in {len(flagged)} of {runs_total} runs ({where}), "
                          f"so those runs do not prove the hook delivered it")
-    head = f"ci: eval record: {sum(1 for l in fails if l.startswith('    FAIL')) - code_failed} meaning grader(s) failed, {splits} split vote{'s' if splits != 1 else ''}"
+    head = f"ci: eval record: {sum(1 for l in fails if l.startswith('    FAIL')) - code_failed - timeouts} meaning grader(s) failed, {splits} split vote{'s' if splits != 1 else ''}"
+    head += f", {timeouts} run(s) timed out" if timeouts else ""
     head += f", {unjudged} not judged" if unjudged else ""
     for name in dropped(data, list(earlier)):
         p, t = case_rates(data)[name]
@@ -166,7 +177,7 @@ def report(data, record_path, earlier=()):
     failed = sum(1 for l in fails if l.startswith("    FAIL"))
     if failed or unjudged or data.get("partial"):
         cases = sorted(bad)
-        out.append(f"ci: eval record: NOT A PASS: {failed - code_failed} meaning grader(s) failed, {str(code_failed) + ' code grader(s) failed, ' if code_failed else ''}{unjudged} not judged, in {', '.join(cases) or 'a partial run'}")
+        out.append(f"ci: eval record: NOT A PASS: {failed - code_failed - timeouts} meaning grader(s) failed, {str(code_failed) + ' code grader(s) failed, ' if code_failed else ''}{str(timeouts) + ' run(s) timed out, ' if timeouts else ''}{unjudged} not judged, in {', '.join(cases) or 'a partial run'}")
     return out
 
 
