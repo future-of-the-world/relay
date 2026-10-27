@@ -1,0 +1,15 @@
+head 6c1c9fb27baa8e41262b613c8e9894ba64653564
+cmd bin/ci --quick
+wait 0.0
+ci: library tests FAILED (385s, log: .ci/steps/library-tests.log)
+    FAIL: test_no_test_parses_a_file_it_read_itself_with_int (test_pidfile.OnlyThroughTheHelper.test_no_test_parses_a_file_it_read_itself_with_int)
+    AssertionError: Lists differ: ['test_principles_rule.py:103'] != []
+    FAILED (failures=1)
+ci: types and lint ok (0s)
+ci: hook tests ok (236s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (4s)
+ci: RED
+exit 1
