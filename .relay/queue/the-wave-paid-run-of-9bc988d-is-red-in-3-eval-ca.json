@@ -30,5 +30,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T10:05:59Z",
+      "fact": [
+        "Correction, 27 Oct (worker on wt/wave-red, commit b306d65): recall-decision did NOT pass in the 9bc988d run; its case.yaml never loaded (nested quotes), so the case never ran. The why's \"all others green, including the new recall-decision\" is wrong for recall-decision. Cause of \"repository not found\": eval sessions have no RELAY_ROOT, and git cannot run in the eval sandbox at all, so a real `relay queue` can never succeed there. The said-verbatim judge sees only the final reply, never the note file. Worker built a git-free stub of `relay queue show|note` for the 3 queue cases; reruns with it, 3 runs each: keep-owner-words 0 of 3, keep-owner-words-en 1 of 3 (that one hit the 600 s limit); about $4 spent. no-spec-step-typo run 3: its trace was deleted after the run, cause unknown, 2 of 3 runs pass; left to a-wave-run-is-red-when-one-of-a-case-s-3-runs-fa."
+      ]
+    }
+  ]
 }
