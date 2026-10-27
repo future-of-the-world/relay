@@ -1,2 +1,5 @@
+[gate]
+ci_quick = "bin/ci --quick"
+
 [delegate]
 max_parallel = 6
