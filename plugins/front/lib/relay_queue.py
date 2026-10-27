@@ -26,7 +26,10 @@ import subprocess
 import tarfile
 import tempfile
 import time
-from typing import Any, NamedTuple, Optional, TypeGuard
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
+
+if TYPE_CHECKING:   # Python 3.9 has no typing.TypeGuard; annotations are never evaluated at run time
+    from typing import TypeGuard
 
 import relay_git
 import relay_verdict
