@@ -67,6 +67,20 @@ class Stub(unittest.TestCase):
             self.assertEqual(done.returncode, 0, done.stderr)
             self.assertEqual(done.stdout, 'an-item\n{"title": "An item"}\n')
 
+    def test_show_finds_a_word_inside_the_item_and_lists_several_matches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.project(tmp)
+            with open(os.path.join(work, ".relay", "queue", "other-thing.json"), "w", encoding="utf-8") as fh:
+                fh.write('{"title": "Other", "notes": [{"question": ["Is the done/ folder needed?"]}]}')
+            # "done" is only in the notes of other-thing, not in any file name: found by content, one match is shown
+            one = self.run_stub(work, "queue", "show", "done")
+            self.assertEqual(one.returncode, 0, one.stderr)
+            self.assertTrue(one.stdout.startswith("other-thing\n{"), one.stdout)
+            # "item" is in an-item (name) only; "t" is in both names: two matches are listed by name, sorted
+            many = self.run_stub(work, "queue", "show", "t")
+            self.assertEqual(many.stdout, "an-item\nother-thing\n")
+            self.assertEqual(self.run_stub(work, "queue", "list").stdout, "an-item\nother-thing\n")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 ---
 name: front
-description: How the main session talks to the owner - one reply per request, plain words, numbered choices, no agent chatter, and the handover file that carries state between sessions. Load at the start of any session that coordinates work.
+description: How the main session talks to the owner - one reply per request, plain words, numbered choices, no agent chatter, and the handover file that carries state between sessions. Load at the start of any session that coordinates work, and before answering what was decided about something.
 ---
 
 # The front desk
@@ -201,8 +201,10 @@ item waiting there is nothing to say. Rule: `rules/queue.md`.
 
 Find the item: `relay queue show <the owner's words>` (items are written in English, so try English words too; several
 matches are listed, then show one by its name). Answer from its notes alone, with no memory or handover: each question
-as it was asked (title and options), the owner's answer verbatim with any explanation, your reading marked as yours, and
-a question not answered yet said so. Rule: `rules/queue.md`.
+as it was asked (its title and all its lettered options, the chosen and the rejected ones, none left out, in the words
+they were written in, not translated or shortened), the owner's answer in quotes, character for character as recorded
+("1. a", never "you chose a"), with any explanation, your reading marked as yours, and a question not answered yet said
+so. Rule: `rules/queue.md`.
 
 ## An out-of-scope question
 
