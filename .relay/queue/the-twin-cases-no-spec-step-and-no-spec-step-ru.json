@@ -27,8 +27,8 @@
   "where": [
     "evals/plugin/no-spec-step/graders/worker-started.md:4"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T17:31:45Z",
+  "taken_by": "wt/twin-graders",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
