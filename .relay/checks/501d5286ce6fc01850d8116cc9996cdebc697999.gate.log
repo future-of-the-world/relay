@@ -1,0 +1,20 @@
+head 501d5286ce6fc01850d8116cc9996cdebc697999
+cmd bin/ci --quick
+wait 0.0
+ci: library tests ok (304s)
+ci: types and lint FAILED (1s, log: .ci/steps/types-and-lint.log)
+    FAIL mypy 1.18.2:
+    lib/relay_queue.py:187: error: Unsupported operand types for > ("int" and "None")  [operator]
+    lib/relay_queue.py:189: error: Argument 1 to "len" has incompatible type "Any | None"; expected "Sized"  [arg-type]
+    lib/relay_queue.py:189: error: Argument 1 to "enumerate" has incompatible type "Any | None"; expected "Iterable[Any]"  [arg-type]
+    lib/relay_queue.py:205: error: Argument 4 to "Note" has incompatible type "Any | None"; expected "int"  [arg-type]
+    lib/relay_queue.py:205: error: Argument 1 to "list" has incompatible type "Any | None"; expected "Iterable[Any]"  [arg-type]
+    lib/relay_queue.py:1422: error: Need type annotation for "line"  [var-annotated]
+    lib/relay_queue.py:1422: error: Argument 1 to "enumerate" has incompatible type "object"; expected "Iterable[Never]"  [arg-type]
+ci: hook tests ok (152s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (0s)
+ci: plugin validate ok (3s)
+ci: inert ok (0s)
+ci: RED
+exit 1
