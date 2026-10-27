@@ -10,6 +10,7 @@ import datetime as dt
 import os
 import statistics
 from collections import defaultdict
+from typing import Any
 
 import relay_ledger
 import relay_prices
@@ -35,9 +36,18 @@ def classify(agent_type):
     return "other"
 
 
-# Owner decision 24 Oct (front keeps Opus, saves on request count); the number is the front's pick, owner can reverse:
-# the measured bad session made ~24 requests per owner turn (952 / ~40), a front that batches should stay under 15.
+# Owner decision 24 Oct: the front keeps Opus and saves on request count. The target value is NOT decided: in relay's own
+# unit (requests by message id) the session the item names, 0cc68fe0, made 534 requests over 47 owner turns, 11.4 per
+# turn; over 30 days no measure of front requests, tool calls or context per turn separates it from typical sessions
+# (median 9.8 requests per turn, 90th percentile 25.4). 15 is a placeholder from the item's wrong basis (952 transcript
+# lines / 40), kept until the owner picks; see the fact note on the-front-runs-many-small-commands-itself.
 FRONT_REQUESTS_PER_TURN_TARGET = 15
+
+
+def _front_mains(data: dict[str, Any]) -> list[Any]:
+    """Main sessions the owner talked to: a program-started (headless, eval, bench) session is no front, and its
+    turns are zeroed, so its requests must not count against the owner's turns."""
+    return [s["main"] for s in data["sessions"] if not s["main"].scripted]
 
 
 def _ts(value):
@@ -320,11 +330,11 @@ def _sum_agg(aggs):
     return out
 
 
-def totals(data):
+def totals(data: dict[str, Any]) -> dict[str, Any]:
     mains = [s["main"] for s in data["sessions"]]
     agents = [a for s in data["sessions"] for a in s["agents"]]
     figures = [session_figures(s, data.get("exact") or {}, data.get("exact_at")) for s in data["sessions"]]
-    by_model = {}
+    by_model: dict[str, Any] = {}
     basis = defaultdict(set)
     for fig in figures:
         for model, row in fig["models"].items():
@@ -354,8 +364,8 @@ def totals(data):
         "figures": figures,
         "by_type": by_type,
         "user_turns": sum(m.user_turns for m in mains),
-        "front_requests": sum(m.total.requests for m in mains),
-        "front_tool_calls": sum(sum(m.tools.values()) for m in mains),
+        "front_requests": sum(m.total.requests for m in _front_mains(data)),
+        "front_tool_calls": sum(sum(m.tools.values()) for m in _front_mains(data)),
         "scripted_sessions": sum(1 for m in mains if m.scripted),
         "reply_chars": sum(m.reply_chars for m in mains),
         "prompt_chars": sum(m.prompt_chars for m in mains),
@@ -384,7 +394,7 @@ def _table(rows, headers):
     return "\n".join(out)
 
 
-def report(data, title="Usage"):
+def report(data: dict[str, Any], title: str = "Usage") -> str:
     t = totals(data)
     grand = t["grand"]
     lines = [f"# {title}", ""]
@@ -452,7 +462,7 @@ def report(data, title="Usage"):
     return "\n".join(lines)
 
 
-def findings(data):
+def findings(data: dict[str, Any]) -> list[dict[str, Any]]:
     """Measured anti-patterns. Each: dict(id, title, evidence, saving_usd, lever)."""
     out = []
     agents = [a for s in data["sessions"] for a in s["agents"]]
@@ -546,9 +556,10 @@ def findings(data):
             })
     # F10: the front runs many small steps itself (each request re-reads the whole context)
     if turns:
-        per_turn = sum(m.total.requests for m in mains) / turns
+        fronts = _front_mains(data)
+        per_turn = sum(m.total.requests for m in fronts) / turns
         if per_turn > FRONT_REQUESTS_PER_TURN_TARGET:
-            tools = sum(sum(m.tools.values()) for m in mains) / turns
+            tools = sum(sum(m.tools.values()) for m in fronts) / turns
             out.append({
                 "id": "F10", "title": "The front runs many small steps itself",
                 "evidence": f"{per_turn:.1f} front requests and {tools:.1f} tool calls per turn of yours "
@@ -572,7 +583,7 @@ def findings(data):
     return out
 
 
-def compare(a, b, label_a="A", label_b="B"):
+def compare(a: dict[str, Any], b: dict[str, Any], label_a: str = "A", label_b: str = "B") -> str:
     """Two collected periods side by side, normalised per user turn."""
     ta, tb = totals(a), totals(b)
 

@@ -54,7 +54,7 @@ class Analysis(Base):
         f1 = next(f for f in relay_analyze.findings(data) if f["id"] == "F1")
         self.assertGreater(f1["saving_usd"], 0)
 
-    def write_front_session(self, requests, turns):
+    def write_front_session(self, requests: int, turns: int, name: str = "sf", scripted: bool = False) -> dt.datetime:
         """A main session of `turns` owner turns with `requests` front requests, each with one Bash call."""
         base = dt.datetime(2026, 10, 18, 9, 0, tzinfo=dt.timezone.utc)
         folder = os.path.join(self.claude, "projects", "p")
@@ -62,9 +62,11 @@ class Analysis(Base):
         lines = [fixtures.user(fixtures._ts(base, t), f"ask {t}") for t in range(turns)]
         lines += [fixtures.assistant(fixtures._ts(base, 1 + i * 0.01), "claude-opus-5", 1000, 0, 10, f"r{i}",
                                      tools=[("Bash", {"command": "ls"})]) for i in range(requests)]
-        with open(os.path.join(folder, "sf.jsonl"), "w") as handle:
+        with open(os.path.join(folder, f"{name}.jsonl"), "w") as handle:
             for line in lines:
-                line["sessionId"] = "sf"
+                line["sessionId"] = name
+                if scripted:
+                    line["entrypoint"] = "sdk-cli"
                 handle.write(json.dumps(line) + "\n")
         return base
 
@@ -90,6 +92,26 @@ class Analysis(Base):
         text = relay_analyze.report(data)
         self.assertIn("10.0 requests", text)
         self.assertNotIn("ABOVE the target", text)
+        self.assertNotIn("F10", {f["id"] for f in relay_analyze.findings(data)})
+
+    def test_scripted_sessions_do_not_count_as_the_front(self):
+        import relay_analyze
+        # interactive: 10 turns, 100 requests = 10.0 per turn (under 15); a scripted run of 80 requests has its turns
+        # zeroed, so counting its requests would give 180 / 10 = 18.0 per turn and a false flag
+        base = self.write_front_session(100, 10)
+        self.write_front_session(80, 3, name="bench", scripted=True)
+        data = relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
+        text = relay_analyze.report(data)
+        self.assertIn("10.0 requests", text)
+        self.assertNotIn("ABOVE the target", text)
+        self.assertNotIn("F10", {f["id"] for f in relay_analyze.findings(data)})
+        self.assertEqual(relay_analyze.totals(data)["front_requests"], 100)
+
+    def test_only_scripted_sessions_have_no_front_line(self):
+        import relay_analyze
+        base = self.write_front_session(80, 3, name="bench", scripted=True)
+        data = relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
+        self.assertNotIn("Front (main session)", relay_analyze.report(data))
         self.assertNotIn("F10", {f["id"] for f in relay_analyze.findings(data)})
 
     def test_compare_two_periods(self):
