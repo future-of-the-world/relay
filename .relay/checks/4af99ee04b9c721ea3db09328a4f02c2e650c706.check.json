@@ -1,0 +1,266 @@
+{
+  "branch": "wt/lanes",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading. The brief points at \"D's rule text ... (sections 3, 6, 7)\"; design section 3, D item 3 \"What a",
+        "wave is under D\" says the line at front SKILL.md 153 \"becomes\" a new definition, with rule text \"in the front skill",
+        "and rules/git.md\". The change adds the hold and the green-run train but leaves line 153 as it was, and the Lanes",
+        "section's \"When a lane finishes, start the next call at once\" removes the pause the old wave rule relied on. The",
+        "design's worked case (two syncs a day) only holds if the next paid run starts on the waiting train's head; the new",
+        "text says \"After each green run, relay sync, then the waiting changes land as one train\" and stops there.",
+        "Size: 15 agent minutes (rule text and one needle in test_lanes)."
+      ],
+      "evidence": [
+        "grep -n 'Texts get one paid run per wave' plugins/front/skills/front/SKILL.md",
+        "153:... Texts get one paid run per wave: after the last merge of a wave of 3-4",
+        "design-speed.md D.3: \"The front skill's 'after the last merge of a wave of 3-4 changes (not while it is half-merged)'",
+        "becomes: a wave is the train of checked-path changes landed after a green run ...; the paid run starts right after",
+        "that train has fully landed, when `due` lists at least `wave_min` changes, or at the end of a work stretch\"",
+        "git diff master...HEAD -- plugins/front/skills/front/SKILL.md: only lines 168-184 added; line 153 unchanged."
+      ],
+      "failing_case": [
+        "6 lanes run; changes land one by one every 15-30 minutes, never pausing; no paid run is going and `bin/paid-cost due`",
+        "lists 2 changes. The front skill (line 153) still says the paid run starts \"after the last merge of a wave of 3-4",
+        "changes (not while it is half-merged)\". Under lanes there is no last merge: the next change is always half a cycle",
+        "away. Now: the front has no rule for when to start the run (it may never start one, or start one after every merge).",
+        "Should: the text says what the design D.3 says: a wave is the train of checked-path changes landed after a green run",
+        "(plus what landed beside it); the paid run starts right after that train has fully landed, or when `due` lists at",
+        "least 3 changes, or at the end of a work stretch whatever `due` holds; after a green run's waiting train lands, the",
+        "next paid run starts on that head."
+      ],
+      "fix_hint": [
+        "Rewrite the sentence at line 153 to D.3's definition (wave = the train landed after a green run; start the paid run",
+        "on that head once it has fully landed, or when `due` lists 3+ changes, or at the end of a work stretch), and add",
+        "\"then start the next paid run on that head\" to the Lanes paragraph; mirror one line in rules/git.md."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 153,
+      "pass_cases": [
+        "1. Artifact: the front skill defines a wave under lanes in one place (line 153 or the Lanes section), matching design D.3: the train of checked-path changes landed after a green run starts the next paid run on that head.",
+        "2. Artifact: the front skill names a trigger that does not need lanes to pause: `due` lists at least 3 changes (the old \"3-4\"), or the end of a work stretch.",
+        "3. Artifact: rules/git.md \"after a wave of merges\" stays consistent with the front's definition (same words or a pointer).",
+        "4. Kept: \"no paid run is going\" and the daily cap check still gate the start (bin/paid-cost today / bin/ci refusal)."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes.py:100-ish Wave::test_front_defines_wave_and_the_three_endings and test_wave_min_default_and_bounds pass; front SKILL.md defines the wave, triggers (train landed, due >= wave_min, end of stretch); git.md consistent; fail on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "c7f6bced9246571f33ece3fb7493d1925bffd606",
+      "source": "review-lanes.json",
+      "source_id": "F1",
+      "summary": "D's new wave definition is missing: with lanes landing continuously, 'after the last merge of a wave of 3-4 changes' never happens, so when the paid run starts is undefined",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the front skill as a whole: line 161-165 (a red run adds one fix item and \"the next wave's run",
+        "proves the fix\"; a not-judged run is \"run it again after the next wave\") and line 182-183 (waiting changes \"stay",
+        "waiting behind it\"). Under the hold, the checked-path changes that would form \"the next wave\" are exactly the held",
+        "ones, so the two rules wait on each other. The design D.2 says \"When it is red, the fix for the red goes first",
+        "(principle 1) and the waiting changes land after the next green run\", which still needs the next run to start without",
+        "a wave; the text does not say so. Six lanes make it likely: 56% of changes touch checked paths (design, measured).",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "plugins/front/skills/front/SKILL.md:161-165 \"the next wave's run proves the fix ... A run that is not a pass without a",
+        "failing eval (money ceiling, runs not judged, the day's cap) adds no item: tell the owner in one line and run it again",
+        "after the next wave.\"",
+        "plugins/front/skills/front/SKILL.md:181-183 \"After each green run, `relay sync`, then the waiting changes land as one",
+        "train (above). A red run is the fix item described above; the waiting changes stay waiting behind it.\""
+      ],
+      "failing_case": [
+        "A paid run goes; 4 changes touching rules/ and plugins/*/skills/ wait at the landing. Case a: the run ends red. The",
+        "text says \"the waiting changes stay waiting behind it\" (behind the fix item? until the next green run?). The fix item",
+        "lands alone; the next paid run starts \"after the last merge of a wave of 3-4 changes\", but the 4 checked-path changes",
+        "are held until a green run: the run waits for a wave and the wave waits for a green run. Case b: the run stops on the",
+        "money ceiling or the day's cap (not green, not red: \"run it again after the next wave\"); the text says the waiting",
+        "changes wait \"until the run ends\" and land \"after each green run\": it ended, it is not green, nothing says whether they",
+        "land. Should: one stated release for each ending: green (sync, then the waiting train, then the next run on its head);",
+        "red (the fix lands first; then the next paid run starts on the fix's head at once, and the waiting changes land after",
+        "it goes green, as design D.2 says); not judged (the waiting changes land as one train and the run is retried on that",
+        "head, or they keep waiting for the retried run: one of the two, stated)."
+      ],
+      "fix_hint": [
+        "Replace the last sentence of the Lanes section with the three endings: green (as now, then the next run on the",
+        "train's head); red (the fix lands first, the next paid run starts on its head without waiting for a wave, the waiting",
+        "changes land after it is green); not judged (state one choice). F1's wave text can carry the \"no wave needed\" part."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 183,
+      "pass_cases": [
+        "1. Artifact: the Lanes section says what releases the waiting changes after a red run, in a way that does not need those changes to form a wave (e.g. \"the fix item lands, the next paid run starts on its head at once, the waiting changes land after it is green\").",
+        "2. Artifact: the Lanes section says what happens to the waiting changes after a run that is neither green nor red (ceiling, cap, runs not judged).",
+        "3. Kept artifact: after a green run, `relay sync` runs before the waiting train lands (line \"After each green run, `relay sync`, then the waiting changes land as one train\").",
+        "4. Kept artifact: a change that touches no checked path lands as usual during a paid run."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes.py Wave::test_front_defines_wave_and_the_three_endings (- Green:, - Red:, - Not judged); SKILL.md lists the three endings; fails on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "c7f6bced9246571f33ece3fb7493d1925bffd606",
+      "source": "review-lanes.json",
+      "source_id": "F2",
+      "summary": "after a red or not-judged paid run the waiting changes have no release: 'stay waiting behind it' plus the wave rule can wait on each other",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: front SKILL.md 153-157 runs bin/ci \"in a detached worktree of the default branch's head\"; design",
+        "D.1 \"The paid run already runs detached in its own worktree (.worktrees/paid-<sha>)\"; design D.2 gives the reason as",
+        "sync staying refused. A rule text that relay ships to every project's front states a mechanism that is not true.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "plugins/front/skills/front/SKILL.md:180 \"landing it would change what the run is judging\"",
+        "plugins/front/skills/front/SKILL.md:155-156 \"... in a detached worktree of the default branch's head, so the primary checkout stays clean\"",
+        "design-speed.md D.2: \"If they kept landing during every paid run, `due` would never be empty and sync would stay refused all day.\""
+      ],
+      "failing_case": [
+        "The front reads line 180: a checked-path change waits \"because landing it would change what the run is judging\". Line",
+        "155 of the same file says the paid run runs \"in a detached worktree of the default branch's head\", so a landing on",
+        "the default branch changes nothing the run reads. A model that notices the contradiction can drop the hold as",
+        "pointless (then `due` lists the landed change after the green run and `relay sync` stays refused all day, the waste",
+        "design D.2 measured: 30 of 54 branches touch checked paths); one that believes it may hold other things for the same",
+        "wrong reason. Should: the reason given is the true one: a checked-path change landed during the run is not covered by",
+        "it, so `bin/paid-cost due` would not be empty after a green run and `relay sync` would stay refused."
+      ],
+      "fix_hint": [
+        "\"... waits at the landing until the run ends: the run does not cover it, so after a green run `bin/paid-cost due`",
+        "would still list it and `relay sync` would stay refused.\""
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 180,
+      "pass_cases": [
+        "1. Artifact: the Lanes paragraph gives the reason as `relay sync` refusing while `bin/paid-cost due` lists a change, and no longer says landing changes what the run judges.",
+        "2. Kept artifact: line 155's \"in a detached worktree of the default branch's head\" stays.",
+        "3. Kept artifact: rules/git.md and the delegate skill keep the hold without a contradicting reason."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "Same test asserts the false sentence is absent and \"relay sync would stay refused\" present; detached-worktree line kept."
+      ],
+      "severity": "MEDIUM",
+      "since": "c7f6bced9246571f33ece3fb7493d1925bffd606",
+      "source": "review-lanes.json",
+      "source_id": "F3",
+      "summary": "the hold's stated reason is false: the paid run judges a detached worktree, landing does not change what it judges; the real reason (keep `due` empty so sync can run) is not given",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the rule texts say \"a change whose files match `bin/paid-cost paths`\"; no code computes the",
+        "match and plugins/core/hooks/merge.py does not refuse a landing during a paid run (design D's test \"the land step",
+        "refuses a branch whose diff touches a checked path\" belongs to the landing item, ip 96, not built here). Project rule:",
+        "principle 5 (fact to code, meaning to the model). LOW: the matching globs are few and the miss costs a delay, not data.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n 'paid-cost paths' -> rules/git.md:19, front SKILL.md:178, delegate SKILL.md:86 (prose only)",
+        "bin/paid-cost:211-213: paths prints the globs; no subcommand takes a branch."
+      ],
+      "failing_case": [
+        "A paid run goes; wt/x changes `plugins/front/skills/front/SKILL.md` and `lib/relay_gate.py`. The front must compare",
+        "its file list with the globs `plugins/*/skills/**`, `rules/**`, ... printed by `bin/paid-cost paths`, by reading (or",
+        "by composing `git diff --name-only master...wt/x -- <globs>` itself). Now: the decision is a model's glob match; a",
+        "miss lands the change (sync blocked until the next paid run), a false match holds a change for up to 110 minutes.",
+        "Should: one command prints the answer, e.g. `bin/paid-cost touches wt/x` (or `paths --branch wt/x`) prints the",
+        "matching files and exits 1 when there are none."
+      ],
+      "fix_hint": [
+        "Add `touches <ref>` to bin/paid-cost: `git diff --name-only <default>...<ref> -- *CHECKED_PATHS`, print, exit 0/1;",
+        "the three rule texts name it instead of \"files match\"."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 211,
+      "pass_cases": [
+        "1. `bin/paid-cost touches <branch>` on a branch changing plugins/front/skills/front/SKILL.md prints that path, exit 0.",
+        "2. The same on a branch changing only lib/relay_gate.py prints nothing, exit 1.",
+        "3. A branch changing plugins/core/hooks/merge.py matches (plugins/*/hooks/**); one changing plugins/delegate/workflows/cycle.js does not (not in CHECKED_PATHS today).",
+        "4. Kept: `bin/paid-cost paths` prints the 7 globs without \":(glob)\"."
+      ],
+      "path": "bin/paid-cost",
+      "rank": "low",
+      "reason": [
+        "tests/test_lanes.py Touches::test_checked_path_is_printed_exit_0 and test_unchecked_paths_print_nothing_exit_1 pass, fail on base; hook path matches, cycle.js does not."
+      ],
+      "severity": "LOW",
+      "since": "c7f6bced9246571f33ece3fb7493d1925bffd606",
+      "source": "review-lanes.json",
+      "source_id": "F4",
+      "summary": "whether a branch touches the checked paths is left to the model's eye (principle 5: fact to code); no command answers it and the merge hook does not hold the landing",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: rules/delegation.md 44 drops \"unless the project says otherwise\" and adds \"in one change\";",
+        "lib/relay_rules.py LANES_DEFAULT = 4 is written into every project file. The brief set \"default 4\", so this is the",
+        "front's reading of the old agent cap as a change cap, not an owner decision; the design proposed default 3, bound 1-4.",
+        "Not measured: load and rate limits at 16 agents. Question for the owner, not a defect. Size: 5 agent minutes either way."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- rules/delegation.md: \"- At most 4 agents at once unless the project says otherwise;\" ->",
+        "\"- At most 4 agents at once in one change; ... (projects.toml `lanes`, 1-8, default 4).\"",
+        "lib/relay_gate.py:31 DEFAULT_SLOTS = 3",
+        "design-speed.md B: \"Settings: `lanes` default 3, bound 1-4.\""
+      ],
+      "failing_case": [
+        "ALIX (or any project in projects.toml without `lanes`): before, the front ran at most 4 agents in all. After sync, its",
+        "CLAUDE.local.md says \"Changes built at once: 4.\" and the delegation rule caps 4 agents per change: up to 16 agents and",
+        "4 cycle runs at once, with 3 gate slots on the machine. The owner's answer of 27 Oct (\"\u0414\u0430\u0432\u0430\u0439 6 \u0441\u0440\u0430\u0437\u0443\") was about",
+        "relay. Should: the owner decides the default for projects that set nothing (4 lanes as built, or 1 = today's",
+        "behaviour), and whether the agent cap is per change or overall."
+      ],
+      "fix_hint": [
+        "Ask the owner; if the answer is 1 for other projects, set LANES_DEFAULT = 1 and the \"default\" in the texts."
+      ],
+      "id": "F5",
+      "kind": "question",
+      "line": 44,
+      "owner": [
+        {
+          "date": "2026-10-27",
+          "words": [
+            "6. \u042d\u0442\u043e \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0438\u0440\u0435\u043c\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440 \u0434\u043b\u044f \u043a\u0430\u0436\u0434\u043e\u0433\u043e \u043f\u0440\u043e\u0435\u043a\u0442\u0430, \u0432 relay \u044d\u0442\u043e \u0431\u0443\u0434\u0435\u0442 6"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. Artifact: the queue item's notes hold the owner's answer on the default lane count for other projects.",
+        "2. Artifact: LANES_DEFAULT in lib/relay_rules.py and the \"default N\" in rules/delegation.md and the front skill match that answer.",
+        "3. Kept: relay's projects.toml `lanes = 6`."
+      ],
+      "path": "rules/delegation.md",
+      "rank": "medium",
+      "reason": [
+        "Owner question; owner answered 2026-10-27 that lanes is a per-project setting and relay uses 6. Left untouched by the fixer; the default for other projects is still 4, recorded as the owner's word."
+      ],
+      "severity": "MEDIUM",
+      "since": "c7f6bced9246571f33ece3fb7493d1925bffd606",
+      "source": "review-lanes.json",
+      "source_id": "F5",
+      "summary": "the global cap 'at most 4 agents at once' became 'per change' for every project, so a project with no setting now runs 4 changes x 4 agents = 16 agents; the owner chose 6 for relay only",
+      "verdict": "GAP"
+    }
+  ],
+  "gate": "220478215465ca2284bde4e7c38974fabde820ea.gate.log",
+  "head": "4af99ee04b9c721ea3db09328a4f02c2e650c706",
+  "item": null,
+  "notes": [
+    "Fix diff read: touches uses refs/heads/<default>...<ref> with CHECKED_PATHS, exit 0/1; front skill defines wave, wave_min, three endings, true hold reason."
+  ],
+  "schema": 2,
+  "scope": [
+    "c7f6bce..HEAD (fix commit 2204782, head adds only its gate log). Gate log head 2204782, exit 0; only inert file after it. Ran check command (204 passed) and tests/test_lanes.py (11 passed). Base worktree at c7f6bce with head test file: 4 new tests fail. Changed files all belong to the findings. Callers: render_target is the only caller of wave_min_of; paid-cost touches is new."
+  ],
+  "type": "check"
+}
