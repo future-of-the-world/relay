@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-27T05:24:27Z",
   "taken_by": "wt/owner-notes",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T07:25:11Z",
+  "test": "tests/test_queue_notes.py::SessionFiles::test_add_refuses_session_path",
   "dropped_at": null,
   "dropped_why": null
 }
