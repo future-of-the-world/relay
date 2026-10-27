@@ -37,6 +37,12 @@
       "fact": [
         "Migration 27 Oct: the link in `what` line 1 points to a session file (`proof20.py`), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
       ]
+    },
+    {
+      "at": "2026-10-26T21:44:16Z",
+      "fact": [
+        "Recovered 27 Oct: the proof script `proof20.py` runs the gate's quick check (`bin/ci --quick`) N times (default 20) in a worktree named proof20, each run under relay's worktree lock and machine slot, stops at the first red run and never deletes its logs; it was in the session session folder (folder proof20/), not in the backup copy."
+      ]
     }
   ]
 }
