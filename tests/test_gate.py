@@ -20,6 +20,7 @@ sys.path.insert(0, HERE)
 
 import leaked_gates
 from fake_tools import install_fake
+from pidfile import wait_pid
 
 GATE_TIMEOUT = 900      # seconds a test waits for its gate; the slowest (a copied bin/ci with its nested probe) takes about a minute
 GATE_STOP_GRACE = 30    # seconds the stopped gate has to end its command and free its slot
@@ -244,7 +245,7 @@ class Gate(Fixture):
         with self.assertRaises(AssertionError) as caught:
             self.gate(self.wt, timeout=3, started=os.path.join(self.tmp, "pid"))
         self.assertIn("still running", str(caught.exception))
-        pid = int(read(os.path.join(self.tmp, "pid")))
+        pid = wait_pid(os.path.join(self.tmp, "pid"))
         with self.assertRaises(ProcessLookupError):      # the gate waited for its command's end, so it is gone now
             os.kill(pid, 0)
 
@@ -256,7 +257,7 @@ class Gate(Fixture):
         with self.assertRaises(AssertionError) as caught:
             self.gate(self.wt, timeout=1, started=os.path.join(self.tmp, "pid"))
         self.assertIn("still running", str(caught.exception))
-        pid = int(read(os.path.join(self.tmp, "pid")))
+        pid = wait_pid(os.path.join(self.tmp, "pid"))
         with self.assertRaises(ProcessLookupError):
             os.kill(pid, 0)
 
@@ -407,11 +408,7 @@ class LeakedGates(Fixture):
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         self.addCleanup(gate.wait)
         self.addCleanup(gate.kill)
-        deadline = time.monotonic() + 60
-        while not os.path.exists(pid_file) and time.monotonic() < deadline and gate.poll() is None:
-            time.sleep(0.05)
-        self.assertTrue(os.path.exists(pid_file), "the gate command did not start")
-        return gate, int(read(pid_file))
+        return gate, wait_pid(pid_file, 60, writer_alive=lambda: gate.poll() is None)
 
     def test_a_gate_left_under_the_folder_is_stopped_with_its_command_and_named(self):
         self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)

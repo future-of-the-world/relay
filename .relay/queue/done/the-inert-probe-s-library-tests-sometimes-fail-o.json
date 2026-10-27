@@ -27,8 +27,8 @@
   ],
   "taken_at": "2026-10-26T22:04:45Z",
   "taken_by": "wt/probe-int",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-26T22:40:18Z",
+  "test": "tests/test_pidfile.py::OnlyThroughTheHelper::test_no_test_parses_a_file_it_read_itself_with_int",
   "dropped_at": null,
   "dropped_why": null
 }

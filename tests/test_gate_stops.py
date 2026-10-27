@@ -8,6 +8,8 @@ import sys
 import time
 import unittest
 
+from pidfile import wait_pid
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 RUNNER = '''
@@ -52,8 +54,7 @@ class RunnerStopped(unittest.TestCase):
         tmp = runner.stdout.readline().strip()
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
         pidfile = os.path.join(tmp, "pid")
-        self.assertTrue(until(lambda: os.path.exists(pidfile) and open(pidfile).read().strip()), "the gate command never started")
-        pid = int(open(pidfile).read())
+        pid = wait_pid(pidfile, WAIT)
 
         def cleanup():
             for target in (lambda: os.killpg(runner.pid, signal.SIGKILL), lambda: os.kill(pid, signal.SIGKILL)):
