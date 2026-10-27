@@ -1,0 +1,15 @@
+head d7e3ffb8d4c4387e3d5d62f333e31c9dc77d27a5
+cmd bin/ci --quick
+wait 0.0
+ci: library tests FAILED (400s, log: .ci/steps/library-tests.log)
+    FAIL: test_q1_every_relay_subcommand_is_classified_as_read_or_write (test_read_only_guard.ReadOnlyHook.test_q1_every_relay_subcommand_is_classified_as_read_or_write)
+    AssertionError: Items in the first set but not the second:
+    FAILED (failures=1)
+ci: types and lint ok (0s)
+ci: hook tests ok (245s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (5s)
+ci: RED
+exit 1

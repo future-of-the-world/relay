@@ -143,7 +143,10 @@ class Record(unittest.TestCase):
         os.environ["RELAY_HOME"] = self.home
 
     def tearDown(self):
-        os.environ.pop("RELAY_HOME", None); shutil.rmtree(self.tmp, ignore_errors=True)
+        os.environ.pop("RELAY_HOME", None)
+        for root, dirs, _ in os.walk(self.tmp):   # the fixtures mimic the tool's read-only folders
+            for d in dirs: os.chmod(os.path.join(root, d), 0o700)
+        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def run_step(self, data, **kw):
         if data is not None: json.dump(data, open(self.json, "w"))
@@ -172,7 +175,7 @@ class Record(unittest.TestCase):
         self.assertNotIn("cost $", out)
 
     def test_a_failed_grader_prints_votes_and_the_judged_line_matching_the_code_check(self):
-        _, out = self.run_step(fixture([[True] * 3, [False, False, True], [True] * 3]))
+        _, out = self.run_step(fixture([[True] * 3, [False, False, True]]))   # 1 of 2 runs pass: no majority, so the failure counts
         self.assertIn("1 meaning grader(s) failed, 1 split vote", out)
         self.assertIn("FAIL code-reviewer-offbyone run 2 reports-off-by-one: votes FAIL FAIL PASS", out)
         self.assertIn('judged: "F1 HIGH src/shelf.ts:27: slice end"', out)
@@ -192,6 +195,68 @@ class Record(unittest.TestCase):
     def test_a_rule_file_read_is_a_note_naming_the_run(self):
         _, out = self.run_step(fixture([[True] * 3] * 3, flagged_runs=(2,)))
         self.assertIn("a session in the run read the rule file in 1 of 3 runs (run 2, Bash), so those runs do not prove the hook delivered it", out)
+
+    def batch_with_traces(self, passes):
+        """A batch whose runs have scaffold folders <tmp>/e-x/out/trace.jsonl, as the tool leaves them under --keep-temp."""
+        data = fixture([[True] * 3 if ok else [False] * 3 for ok in passes])
+        folders = []
+        for n, run in enumerate(data["cases"][0]["arms"]["with"], 1):
+            top = os.path.join(self.tmp, f"e-run{n}"); os.makedirs(os.path.join(top, "out"))
+            with open(os.path.join(top, "out", "trace.jsonl"), "w") as handle:
+                handle.write(f"trace {n}\n")
+            run["tracePath"] = os.path.join(top, "out", "trace.jsonl"); folders.append(top)
+            # the real layout: sealed/ mode 000, the top folder r-x (measured on /private/tmp/e-*)
+            os.makedirs(os.path.join(top, "sealed")); os.chmod(os.path.join(top, "sealed"), 0)
+            os.chmod(top, 0o500)
+        return data, folders
+
+    def test_a_red_batch_keeps_the_failing_runs_traces_where_the_record_names_them(self):
+        # runs 1 and 2 fail (0 of 3 votes), run 3 passes: 1 of 3 runs pass, so the case is red (majority rule); the failing runs' traces are copied, run 3's is not
+        data, folders = self.batch_with_traces([False, False, True])
+        code, out = self.run_step(data)
+        self.assertEqual(code, 2)
+        stored = json.load(open(os.path.join(self.home, "evals", "relay", os.listdir(os.path.join(self.home, "evals", "relay"))[0])))
+        runs = stored["cases"][0]["arms"]["with"]
+        self.assertEqual([("keptTracePath" in r) for r in runs], [True, True, False])
+        self.assertEqual(open(runs[1]["keptTracePath"]).read(), "trace 2\n")
+        for r in runs[:2]:
+            self.assertIn("trace: " + r["keptTracePath"], out)
+        self.assertEqual([os.path.exists(f) for f in folders], [False] * 3)   # the tool's temp folders are gone
+
+    def test_a_green_batch_keeps_no_trace_and_removes_the_temp_folders(self):
+        data, folders = self.batch_with_traces([True, True, True])
+        code, _ = self.run_step(data)
+        self.assertEqual(code, 0)
+        self.assertFalse(os.path.exists(os.path.join(self.home, "eval-traces")))
+        self.assertEqual([os.path.exists(f) for f in folders], [False] * 3)
+
+    def test_a_folder_that_is_not_the_tools_scaffold_is_never_removed(self):
+        data, _ = self.batch_with_traces([True, True, True])
+        other = os.path.join(self.tmp, "mine"); os.makedirs(os.path.join(other, "out"))
+        open(os.path.join(other, "out", "trace.jsonl"), "w").close()
+        data["cases"][0]["arms"]["with"][0]["tracePath"] = os.path.join(other, "out", "trace.jsonl")
+        self.run_step(data)
+        self.assertTrue(os.path.exists(other))
+
+    def test_an_errored_run_and_a_failed_code_grader_print_their_kept_trace(self):
+        # F3: run 1 errored, run 2 fails the code grader only (meaning grader passes): both copies are named in the output
+        data, _ = self.batch_with_traces([True, True, True])
+        runs = data["cases"][0]["arms"]["with"]
+        runs[0] = dict(tracePath=runs[0]["tracePath"], error="boom")
+        runs[1]["graders"].append({"name": "names-file-and-line", "passed": False})
+        code, out = self.run_step(data)
+        self.assertEqual(code, 2)
+        stored = json.load(open(os.path.join(self.home, "evals", "relay", os.listdir(os.path.join(self.home, "evals", "relay"))[0])))
+        kept = [r["keptTracePath"] for r in stored["cases"][0]["arms"]["with"][:2]]
+        for path in kept:
+            self.assertIn("trace: " + path, out)
+
+    def test_trace_copies_are_pruned_with_their_record(self):
+        old = os.path.join(self.home, "eval-traces", "relay", "2026-01-01T00-00-00Z-old", "c-with-run1"); os.makedirs(old)
+        os.makedirs(os.path.join(self.home, "evals", "relay"))
+        open(os.path.join(self.home, "evals", "relay", "2026-01-02T00-00-00Z-old.json"), "w").write("{}")
+        self.run_step(fixture([[True] * 3]))
+        self.assertFalse(os.path.exists(os.path.dirname(old)))
 
     def test_no_file_prints_no_record_and_exits_2(self):
         code, out = self.run_step(None)

@@ -1,0 +1,174 @@
+{
+  "branch": "wt/train-21",
+  "findings": [
+    {
+      "details": [
+        "Measured 27 Oct: the plugin eval case no-spec-step-typo failed 1 of 3 runs in both wave paid runs that day: at 9bc988d run 3 (code grader no-openspec-command), at aa8cfd1 run 1 (code grader worker-started); 2 of its last 6 runs, each on a different grader; every other case passed. The traces are deleted after each run (item a-red-paid-run-keeps-no-traces-to-find-its-cause), so the cause is unknown: model behaviour on a typo prompt, or graders that are too strict. Principle 6: a repeat failure is a cause to find, not a rerun."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Run the case no-spec-step-typo 6 times with traces kept: at least one run fails worker-started or no-openspec-command."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The cause is named from a kept trace (what the session did, which grader judged it, whether the grader was right).",
+        "Fixed at the cause (skill text or grader), with the grader shown to fail a wrong call.",
+        "6 of 6 runs pass after the fix."
+      ],
+      "path": "evals/plugin/no-spec-step-typo",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_typo_worker_grader.py:31 (scout accepted) passes at head and fails at 3f60576^."
+      ],
+      "severity": "HIGH",
+      "since": "6998ce6178f79b637e24697a10ce469b62a42d72",
+      "source": "queue",
+      "summary": "no-spec-step-typo fails one run in three",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that the pattern flags a description and a heredoc line (probe below); PLAUSIBLE that this is what failed at 9bc988d",
+        "(its trace is gone; 9bc988d already contains 5485b3c, so it ran today's grader). The item's failing case covers both graders and",
+        "its pass case asks for the cause from a kept trace; for the no-openspec-command failure there is neither a cause nor a guard.",
+        "A false red on a paid wave run blocks relay sync (the item a-wave-run-is-red-... says so), so it is reachable and repeats.",
+        "Size: 15 minutes (regex anchored to the command value, two test lines in tests/test_wave_red.py, same edit in the twin graders)."
+      ],
+      "evidence": [
+        "python3 probe with tests/test_wave_red.input_match(\"no-spec-step-typo\") and js_match, compact JSON:",
+        "  True {'command': 'ls -la', 'description': 'List the project (openspec folder too)'}",
+        "  True {'command': 'cat > brief.md <<EOF\\nopenspec is off here\\nEOF', 'description': 'Write brief'}",
+        "  False {'command': 'ls openspec/changes', 'description': 'List changes'}",
+        "  True {'command': 'git log --oneline; openspec list', 'description': 'x'}",
+        "scan of /private/tmp/e-*/out/trace.jsonl: 692 Bash calls, keys {description, command, timeout}, 5 descriptions contain \"openspec\".",
+        "git merge-base --is-ancestor 5485b3c 9bc988d -> true (the failing run used the current pattern)."
+      ],
+      "failing_case": [
+        "The queue item names two failures: aa8cfd1 run 1 (worker-started, fixed here) and 9bc988d run 3 (no-openspec-command). The",
+        "change names no cause for the second; the fixer's report says \"the other graders were right\" only because it did not recur in",
+        "24 runs. The grader is applied as a JS RegExp to the whole Bash input JSON, description included, and its separator class",
+        "[;&|(] also fires inside the description or a heredoc:",
+        "  {\"command\":\"ls -la\",\"description\":\"List the project (openspec folder too)\"}  -> match (grader fails a correct run); should not match",
+        "  {\"command\":\"cat > brief.md <<EOF\\nopenspec is off here\\nEOF\",\"description\":\"Write brief\"}  -> match; should not match",
+        "Bash descriptions naming openspec are real: 5 of 692 kept Bash calls have one (e.g. \"Read brief and list openspec folder\")."
+      ],
+      "fix_hint": [
+        "Anchor the separators inside the command string: prefix the shell alternatives with \"command\":\\s*\"(?:[^\"\\\\]|\\\\.)*? so a match",
+        "cannot start in the description (JSON.stringify keeps command first, as the traces show); or record in the item, with this",
+        "probe, that the 9bc988d cause stays unknown and add the description case as a test. Keep the three twin graders identical."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 4,
+      "pass_cases": [
+        "1. js_match(no-openspec-command pattern, {\"command\":\"ls -la\",\"description\":\"List the project (openspec folder too)\"}) is false.",
+        "2. js_match(..., {\"command\":\"git log --oneline; openspec list\",\"description\":\"x\"}) stays true.",
+        "3. js_match(..., {\"command\":\"(openspec list)\",\"description\":\"x\"}) stays true (subshell).",
+        "4. js_match(..., {\"command\":\"ls openspec/changes\",\"description\":\"List changes\"}) stays false (the existing folder-read cases in tests/test_wave_red.py keep passing).",
+        "5. The same for no-spec-step and no-spec-step-ru (tests/test_wave_red.py CASES checks all three)."
+      ],
+      "path": "evals/plugin/no-spec-step-typo/graders/no-openspec-command.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_eval_typo_worker_grader.py:44-55: description and heredoc-free cases; no-openspec-command pattern anchored to the command value in all three twins; fails at 3f60576^."
+      ],
+      "severity": "MEDIUM",
+      "since": "d2fd2c5d23f418fe1282162e48388b18e4fed438",
+      "source": "review-typo-flake.json",
+      "source_id": "F1",
+      "summary": "the item's other failure (9bc988d, grader no-openspec-command) is left unexplained, and that grader fails a correct run whose Bash description has \"(openspec ...\"",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: the kept traces show the scout was sent to find where the list is and what the rules are, which the ru and en",
+        "prompts leave as open as the typo one (the fixture has \"stock items\", no \"product list\"); nothing in them is about the typos.",
+        "Kept results: twins 9 of 9 pass since the 25 Oct grader fix, no traces kept, so the scout-first rate there is not measured;",
+        "typo case 2 of 24. The fixer listed this as not done. Outside: the change does not touch these files.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "git grep: evals/plugin/no-spec-step/graders/worker-started.md:4 and evals/plugin/no-spec-step-ru/graders/worker-started.md:4: input_match: \"delegate:worker\"",
+        "script over kept results: ('no-spec-step', no-trace, pass) 9, ('no-spec-step-ru', no-trace, pass) 9, the 3+3 failures are the 25 Oct e905742 run (openspec skill loaded)."
+      ],
+      "failing_case": [
+        "no-spec-step-ru's prompt is the typo prompt without typos (\"\u0421\u0434\u0435\u043b\u0430\u0439 \u0442\u0430\u043a, \u0447\u0442\u043e\u0431\u044b \u0441\u043f\u0438\u0441\u043e\u043a \u0442\u043e\u0432\u0430\u0440\u043e\u0432 \u0441\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u043b\u0441\u044f \u043f\u043e \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u044e ...",
+        "stop at the first agent's reply\"); no-spec-step is the English twin. A run that starts delegate:scout first (\"Find product",
+        "list code\", as in e-W2XJtZ) and stops at its reply fails worker-started (Agent called 0x) although it did nothing wrong.",
+        "It should pass, as the typo case now does."
+      ],
+      "fix_hint": [
+        "Same one-line pattern change in both twin graders, and extend tests/test_eval_typo_worker_grader.py to loop over the three cases."
+      ],
+      "id": "F2",
+      "kind": "outside",
+      "line": 4,
+      "pass_cases": [
+        "1. no-spec-step and no-spec-step-ru worker-started: an Agent input with subagent_type delegate:scout matches.",
+        "2. delegate:worker still matches.",
+        "3. openspec:plan, openspec:author, Explore, general-purpose do not match.",
+        "4. The three twin cases carry the same worker-started pattern."
+      ],
+      "path": "evals/plugin/no-spec-step/graders/worker-started.md",
+      "rank": "medium",
+      "reason": [
+        "Twin worker-started graders still delegate:worker; already queued as the-twin-cases-no-spec-step-and-no-spec-step-ru. Agree: out of this change."
+      ],
+      "severity": "MEDIUM",
+      "since": "d2fd2c5d23f418fe1282162e48388b18e4fed438",
+      "source": "review-typo-flake.json",
+      "source_id": "F2",
+      "summary": "the twin cases no-spec-step and no-spec-step-ru keep pattern delegate:worker with the same stop-at-the-first-agent prompt, so a scout-first run fails them the same way (principle 6: one example fixed, not the rule)",
+      "verdict": "OUTSIDE"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the traces and the twin prompt. Text only; cheap. Size: 5 minutes."
+      ],
+      "evidence": [
+        "e-W2XJtZ Agent prompt: \"(1) What is the project, and what are its rules ... (2) Where is the product list ...\"",
+        "evals/plugin/no-spec-step-ru/prompt.md: \"\u0421\u0434\u0435\u043b\u0430\u0439 \u0442\u0430\u043a, \u0447\u0442\u043e\u0431\u044b \u0441\u043f\u0438\u0441\u043e\u043a \u0442\u043e\u0432\u0430\u0440\u043e\u0432 \u0441\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u043b\u0441\u044f \u043f\u043e \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u044e.\""
+      ],
+      "failing_case": [
+        "worker-started.md line 7 and tests/test_eval_typo_worker_grader.py line 3: \"the typo prompt does not say which list is meant\".",
+        "no-spec-step-ru says the same words without typos; the scout prompts in e-W2XJtZ and e-KlOX6s ask where the list is and what the",
+        "project's rules are, nothing about the typos. A later reader would conclude the twins are safe, which F2 doubts."
+      ],
+      "fix_hint": [
+        "Reword to \"the request does not say where the list lives, so the coordinator may send a scout first\"."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 7,
+      "pass_cases": [
+        "1. The grader text says the request does not say where the list lives (no \"typo\" as the cause).",
+        "2. The measured numbers (2 of 18 before, 16 started a worker) stay in the text."
+      ],
+      "path": "evals/plugin/no-spec-step-typo/graders/worker-started.md",
+      "rank": "low",
+      "reason": [
+        "evals/plugin/no-spec-step-typo/graders/worker-started.md:7 now says the request does not say where the list lives, keeps the 2 of 18 numbers."
+      ],
+      "severity": "LOW",
+      "since": "d2fd2c5d23f418fe1282162e48388b18e4fed438",
+      "source": "review-typo-flake.json",
+      "source_id": "F3",
+      "summary": "the grader text and the test docstring say the typo is why the coordinator scouts first; the traces show it is not typo-specific",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "427f6f3e7b0bc8ea78fd8f54a331e4ec2790e26b.gate.log",
+  "head": "88f1480060eb647575b7a7907ff2c3d3fa869fd0",
+  "item": "no-spec-step-typo-fails-one-run-in-three",
+  "notes": [
+    "Gate was bin/ci --quick (paid evals skipped); the 6 of 6 paid runs are the fixer's."
+  ],
+  "schema": 2,
+  "scope": [
+    "Read the head graders of the three twin cases, ran tests/test_eval_typo_worker_grader.py (4 pass) and tests/test_wave_red.py (12 pass). Reran the new test in a throwaway worktree at 3f60576^ (before the fix): both the scout test and the description test fail there. Gate 427f6f3 quick mode exit 0; later commits are check logs only."
+  ],
+  "type": "check"
+}

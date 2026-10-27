@@ -1,0 +1,257 @@
+{
+  "branch": "wt/majority",
+  "findings": [
+    {
+      "details": [
+        "Owner, 25 Oct: \"\u0421\u043e\u0433\u043b\u0430\u0441\u0435\u043d, \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0439 \u043f\u0440\u043e\u0445\u043e\u0434\u0438\u0442 \u0441 \u0431\u043e\u043b\u044c\u0448\u0438\u043d\u0441\u0442\u0432\u043e\u043c\". it-terms-ru misses about 7% of runs (4 of 60, part judge noise), so with all 3 runs required about 1 wave in 5 is red with no regression, and the flaky-test rule (45 clean runs in a row at that rate) has about a 4% chance to be met.",
+        "Also: bin/paid-cost or the eval ledger (pass rates)",
+        "Also: rules/quality-gate.md (flaky tests: code tests only)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A wave run where one case has runs PASS PASS FAIL and every other case passes: today \"ci: RED\"; it should be green, with the case's rate recorded."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "PASS PASS FAIL on one case: the wave is green and the rate 2/3 is recorded.",
+        "PASS FAIL FAIL on one case: the wave is red.",
+        "A case whose rate over its last runs drops below its earlier rate is named in the run's summary."
+      ],
+      "path": "bin/ci",
+      "rank": "high",
+      "reason": [
+        "tests/test_ci_python.py::PaidPart::test_the_eval_tools_exit_code_does_not_decide_the_gate_the_records_majority_does passes at head, fails at 420e059; lib/relay_ci.py:421-424 returns 0 and leaves the verdict to eval-record."
+      ],
+      "severity": "HIGH",
+      "since": "01c5216dcf1c4b8fd61fa011fae5cc3a78c994f9",
+      "source": "queue",
+      "summary": "A wave run is red when one of a case's 3 runs fails",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED on the live records. earlier_records() takes the newest HISTORY=5 files whatever they are, and dropped()",
+        "pools them. The 2026-10-25T02 record is a partial batch (partial: true, 13 meaning and 39 code graders failed, a",
+        "broken branch): it drags the baseline of every case it holds down for the next five waves, so a real fall right after",
+        "it is hidden. The queue item's pass case \"a case whose rate over its last runs drops below its earlier rate is named\"",
+        "and its promise \"a fault that hits 1 run in 3 is still seen\" are not met on the very case that started the item.",
+        "A red but complete record may be argued either way; a partial one is by definition not a measured batch.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "python3 (read-only, branch's eval-record loaded) over ~/.relay/evals/relay:",
+        "2026-10-27T07-35-44Z-master.json now [] without partial ['no-spec-step-typo']",
+        "2026-10-27T11-37-58Z-master.json now [] without partial ['no-spec-step-typo']",
+        "case_rates no-spec-step-typo: 10-25T02 (0, 3) [partial True], 10-26T01 (3, 3), 10-26T07 (3, 3), 10-27T07 (2, 3), 10-27T11 (2, 3)"
+      ],
+      "failing_case": [
+        "Stored records for no-spec-step-typo, oldest first: 2026-10-25T02-29-53Z (partial: true, 0 of 3), 2026-10-26T01 (3 of 3),",
+        "2026-10-26T07 (3 of 3), 2026-10-27T07 (2 of 3), then the aa8cfd1 record 2026-10-27T11 (2 of 3).",
+        "Now: dropped() for 2026-10-27T07 against its 5 earlier records returns [] (earlier pooled 6 of 9 = 2/3, not below);",
+        "for aa8cfd1 returns [] (8 of 12 = 2/3). The case the queue item names as the new 1-in-3 fault is never reported as falling.",
+        "Should: both name no-spec-step-typo (\"pass rate fell to 2 of 3 runs\"); with partial records left out of the baseline",
+        "they do (earlier 6/6 and 8/9)."
+      ],
+      "fix_hint": [
+        "In earlier_records (or dropped), skip records with \"partial\" true, taking the newest HISTORY complete records; add the",
+        "pass-case 1 test."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 191,
+      "pass_cases": [
+        "1. earlier = [partial batch with case c 0 of 3, batch c 3 of 3, batch c 3 of 3]; now c 2 of 3 -> report names \"c: pass rate fell to 2 of 3\".",
+        "2. earlier = [batch c 3 of 3]; now c 2 of 3 -> named (works today, test_a_falling_rate_is_named).",
+        "3. earlier = [batch c 2 of 3]; now c 2 of 3 -> not named (works today).",
+        "4. no earlier records -> not named (works today).",
+        "5. main() with RELAY_HOME holding a partial record and a full record of c 3 of 3, new c 2 of 3 -> output names the fall."
+      ],
+      "path": "bin/eval-record",
+      "rank": "medium",
+      "reason": [
+        "tests/test_eval_majority.py:66 and :119; bin/eval-record:77,208 skip partial records."
+      ],
+      "severity": "MEDIUM",
+      "since": "159d931877a3ac5d271ba434ddcd7db38ebe6877",
+      "source": "review-majority.json",
+      "source_id": "F1",
+      "summary": "the falling-rate baseline pools partial (broken) records, so the live no-spec-step-typo fall (2 of 3 twice) is never named",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: git diff master...HEAD touches no rules file; the fixer's report does not list it as a Gap. The",
+        "brief asked to stay out of other lanes' files \"where you can\"; wt/lanes does not change rules/quality-gate.md, so no",
+        "conflict stops it. A rules text change triggers the wave paid run like every rules change; that is batched by policy.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "git -C .worktrees/majority diff --stat master...HEAD: bin/eval-record, lib/relay_ci.py, two tests, the gate log only.",
+        "git -C .worktrees/lanes diff master...HEAD -- rules/quality-gate.md: empty.",
+        "rules/quality-gate.md:9-16 flaky rule, :17 \"For a flaky test or eval\"."
+      ],
+      "failing_case": [
+        "The item's What: \"rules/quality-gate.md says the max(20, ceil(3/p)) rule is for code tests; a model eval is judged by its",
+        "pass rate.\" Now: rules/quality-gate.md is unchanged; its \"Flaky tests are unacceptable\" and \"For a flaky test or eval\"",
+        "bullets give no eval exception, so an agent that sees no-spec-step-typo fail 1 run in 3 (now green) is still told it is a",
+        "flaky bug to prove fixed with max(20, 3/p) clean runs (45 at p = 7%, the item's own number). Should: the rule says the",
+        "clean-runs proof is for code tests and an eval case is judged by majority and its pass rate."
+      ],
+      "fix_hint": [
+        "Add one sentence to the flaky bullet: the clean-runs proof is for code tests; a plugin eval case passes a wave by",
+        "majority (2 of 3, bin/eval-record) and a falling pass rate is the signal to analyse its cause."
+      ],
+      "id": "F2",
+      "kind": "feature",
+      "line": 17,
+      "pass_cases": [
+        "1. rules/quality-gate.md has a line stating max(20, \u23083/p\u2309) clean runs applies to code tests.",
+        "2. rules/quality-gate.md has a line stating a model eval case passes a wave by majority (2 of 3) and is watched by its pass rate.",
+        "3. The \"Find the cause before running more\" bullet still names evals (cause analysis stays for evals)."
+      ],
+      "path": "rules/quality-gate.md",
+      "rank": "medium",
+      "reason": [
+        "rules/quality-gate.md:18 names the majority and pass rate for eval cases."
+      ],
+      "severity": "MEDIUM",
+      "since": "159d931877a3ac5d271ba434ddcd7db38ebe6877",
+      "source": "review-majority.json",
+      "source_id": "F2",
+      "summary": "the queue item's rule change is missing: quality-gate.md still treats an eval like a flaky test (max(20, 3/p) clean runs)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Text only, no behaviour. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "sed -n 8,16p lib/relay_ci.py; bin/eval-record:171-173."
+      ],
+      "failing_case": [
+        "lib/relay_ci.py:13 \"it fails the gate ... when a meaning grader failed\"; bin/eval-record:172 is_green \"no failed meaning",
+        "grader, nothing not judged, not partial\". Under the change a failed meaning grader in 1 of 3 runs is green. A reader",
+        "(or an agent) told by these lines would expect red. Should: both say \"a case fails its majority\"."
+      ],
+      "fix_hint": [
+        "Reword both docstrings."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 13,
+      "pass_cases": [
+        "1. lib/relay_ci.py module docstring names the majority rule.",
+        "2. is_green docstring names the majority rule and code graders."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "low",
+      "reason": [
+        "lib/relay_ci.py:13 and bin/eval-record:174 name the majority rule."
+      ],
+      "severity": "LOW",
+      "since": "159d931877a3ac5d271ba434ddcd7db38ebe6877",
+      "source": "review-majority.json",
+      "source_id": "F3",
+      "summary": "stale verdict text: relay_ci.py docstring and is_green docstring still say any failed meaning grader fails the gate",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading main(). Correct verdict either way; the next step is less direct than principle 10 asks.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "bin/eval-record:224 report(json.load(...), a.verdict) with no earlier; lib/relay_ci.py:438."
+      ],
+      "failing_case": [
+        "bin/eval-record --verdict ~/.relay/evals/relay/2026-10-27T11-37-58Z-master.json passes no earlier records to report(),",
+        "so a fall is never shown there; bin/ci's red line says \"--verdict <newest file in $RELAY_HOME/evals/<repo>>\" although",
+        "eval-record knows the stored path. Should: --verdict compares with the HISTORY records stored before the given one in",
+        "its folder, and the red line names the real path (eval-record can print it)."
+      ],
+      "fix_hint": [
+        "In --verdict, load earlier records from the record's folder whose names sort before it; have eval-record print the",
+        "stored path on a red result and let bin/ci's line point at it."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 224,
+      "pass_cases": [
+        "1. --verdict on a record whose folder holds an earlier record of c 3 of 3, record c 2 of 3 -> output names the fall.",
+        "2. --verdict on a record alone in its folder -> no fall note, exit as today."
+      ],
+      "path": "bin/eval-record",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_majority.py:129 and :145; bin/eval-record:231-232, 254."
+      ],
+      "severity": "LOW",
+      "since": "159d931877a3ac5d271ba434ddcd7db38ebe6877",
+      "source": "review-majority.json",
+      "source_id": "F4",
+      "summary": "--verdict never shows the falling-rate note, and bin/ci's red line names a placeholder instead of the stored record's path",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Question for the owner. How it works: an eval run that hits the time or turn limit has no grader results; the change",
+        "keeps the old rule that any not-judged run makes the wave red, and applies the majority only to judged runs. Live",
+        "example: 2026-10-27T07 run, keep-owner-words-en runs 1 and 2 timed out after 600 s. (a) keeps a timeout visible as red,",
+        "at the cost of a red wave with no regression when one run is slow; (b) treats a timeout like any other failed run,",
+        "consistent with \"\u0421\u0446\u0435\u043d\u0430\u0440\u0438\u0439 \u043f\u0440\u043e\u0445\u043e\u0434\u0438\u0442 \u0441 \u0431\u043e\u043b\u044c\u0448\u0438\u043d\u0441\u0442\u0432\u043e\u043c\", at the risk of hiding a slow environment until it hits 2 of 3.",
+        "Recommendation: (a) until a timeout shows up in a wave that would otherwise be green (not measured as frequent: 0 of 21).",
+        "Size: 10 agent minutes if (b)."
+      ],
+      "evidence": [
+        "read-only script over ~/.relay/evals/relay: 'errored runs 22 files 21'; verdict per record unchanged by this question."
+      ],
+      "failing_case": [
+        "A case with runs PASS, PASS, \"timed out after 600s\": today the wave is RED (\"1 not judged\"); if a timed-out run counts as",
+        "one failed run of three, it would be green by majority. Measured: 22 errored runs in 21 stored records; none of the 21",
+        "records changes verdict either way today (2026-10-26T01 design-track and 2026-10-27T07 keep-owner-words-en fail their",
+        "majority anyway)."
+      ],
+      "fix_hint": [],
+      "id": "F5",
+      "kind": "question",
+      "line": 110,
+      "owner": [
+        {
+          "date": "2026-10-27",
+          "words": [
+            "7. a"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "(a) kept as built: PASS, PASS, errored -> RED, \"1 not judged\".",
+        "(b) errored counts as failed: PASS, PASS, errored -> green, note \"2 of 3 runs passed\"; PASS, errored, errored -> RED."
+      ],
+      "path": "bin/eval-record",
+      "rank": "low",
+      "reason": [
+        "Owner question (timed-out run: failed or not judged); kept as built, recommendation (a) stands, LOW."
+      ],
+      "severity": "LOW",
+      "since": "159d931877a3ac5d271ba434ddcd7db38ebe6877",
+      "source": "review-majority.json",
+      "source_id": "F5",
+      "summary": "owner question: does a timed-out run count as a failed run under the majority, or keep the wave red as not judged",
+      "verdict": "GAP"
+    }
+  ],
+  "gate": "9a6bbc7f4b75d8101297ae3e7d6817e5fe6b6b9d.gate.log",
+  "head": "eb1fa2e97e9060dd133a92e54d4b4916d2a1cf7f",
+  "item": "a-wave-run-is-red-when-one-of-a-case-s-3-runs-fa",
+  "notes": [
+    "Gate was QUICK MODE (paid steps skipped); the stored paid record is on wt/majority so relay sync needs a paid run on master after merge (fixer said so)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Checked 420e059..HEAD fix (lib/relay_ci.py, tests/test_ci_python.py). Check command: 272 passed. Gate log is for 9a6bbc7, only the gate-log commit follows (relay changed lists nothing), exit 0 (quick mode). Q1 test run at 420e059 with head test file: fails (AssertionError test_ci_python.py:217); passes at head."
+  ],
+  "type": "check"
+}

@@ -1,0 +1,143 @@
+{
+  "branch": "wt/train-21",
+  "findings": [
+    {
+      "details": [
+        "Found 26 Oct by the review of wt/setup-scope, outside that change (the same on master): two test files depend on the order they run in, which is shared state between tests (principle 6), and parallel test runs (queue item the-gate-runs-its-work-twice-in-a-row-on-one-cor) would surface it."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`pytest tests/test_spec_steps.py tests/test_license.py -q` -> 1 failed: FileNotFoundError",
+        "'<repo>/plugins/delegate/data/licenses' from lib/relay_license.py:46 (relay_license is imported from a plugins/delegate/lib copy).",
+        "Same result in the primary checkout on master. Alone, or in alphabetical order, it passes.",
+        "Should: pass in any order."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. `pytest tests/test_spec_steps.py tests/test_license.py` -> all pass.",
+        "2. `pytest tests/test_license.py tests/test_spec_steps.py` -> all pass (as now).",
+        "3. `pytest tests/test_license.py -k test_f3_good` -> passes (as now)."
+      ],
+      "path": "tests/test_spec_steps.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_spec_steps.py:531 passes at head and fails with load_hook cleanup disabled on the 263a7f9 base."
+      ],
+      "severity": "HIGH",
+      "since": "263a7f9352f7bf988878693ae90d7b3f19051790",
+      "source": "queue",
+      "summary": "Running test_spec_steps before test_license makes\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the repro below. The brief said: check other tests with the same pattern and fix them if the same cause. The cause",
+        "is the same (a hook load leaves its plugin lib on sys.path and its copies in sys.modules); only the symptom differs. Base.setUp's",
+        "_drop_relay_modules does not help because the sys.path entry stays, so the next import finds the plugin copy again. Correct",
+        "today, fragile: a future in-process test of queue views, or a lib/ change not yet synced to the core copy, fails only in the",
+        "full run. LOW, cheap: load_hook already exists. Size: 15 min (8 files, mostly the same one-line swap)."
+      ],
+      "evidence": [
+        "leak probe (import each test module, list sys.path additions and relay_* modules from plugins/):",
+        "  test_check_record path+ ['plugins/core/lib', ...] plugin mods ['relay_inert']",
+        "  test_mark_attach path+ ['plugins/core/lib'] plugin mods ['relay_git', 'relay_marks', 'relay_toml', 'relay_verdict']",
+        "repro:",
+        "  alone .worktrees/test-order/lib/relay_queue.py ['json', 'table']",
+        "  after test_mark_attach .worktrees/test-order/plugins/core/hooks/../lib/relay_queue.py []",
+        "grep: plugins/core/lib/relay_queue.py:41 EXT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), \"queue_ext\")",
+        "worker report: \"the others (core hooks ...) leak only ROOT-free copies, not converted\""
+      ],
+      "failing_case": [
+        "python3 -c: sys.path gets tests and lib; import test_mark_attach (what pytest collection does); drop relay_* from sys.modules",
+        "(what Base.setUp does); import relay_queue.",
+        "Now: relay_queue.__file__ = plugins/core/hooks/../lib/relay_queue.py and relay_queue.extensions() == [] (no queue_ext beside the copy).",
+        "Should: lib/relay_queue.py and extensions() == ['json', 'table'], as without test_mark_attach.",
+        "Because pytest imports every test module before running any, from then on every in-process `import relay_queue` / relay_git /",
+        "relay_toml / relay_verdict / relay_marks / relay_inert in any test of the run resolves to the core plugin copy. test_check_record",
+        "does the same at import (leak probe: path+ plugins/core/lib, relay_inert from plugins). No test is red today: the extension tests",
+        "go through a subprocess or patch EXT_DIR."
+      ],
+      "fix_hint": [
+        "Use relay_testbase.load_hook in the 8 files that load a hook by spec_from_file_location (test_mark_attach, test_check_record,",
+        "test_merge_hook, test_archive_inert, test_queue_in_place, test_read_only_guard, test_merge_train, test_openspec_hook)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 9,
+      "pass_cases": [
+        "1. Import test_mark_attach, drop relay_* modules, import relay_queue -> lib/relay_queue.py, extensions() == ['json', 'table'].",
+        "2. Same with test_check_record -> sys.path has no plugins/core/lib entry afterwards.",
+        "3. pytest tests/test_mark_attach.py tests/test_check_record.py tests/test_merge_hook.py tests/test_archive_inert.py tests/test_queue_in_place.py tests/test_read_only_guard.py tests/test_merge_train.py tests/test_openspec_hook.py -> all pass (as now).",
+        "4. pytest tests/test_mark_attach.py tests/test_queue.py -> 101 passed (as now)."
+      ],
+      "path": "tests/test_mark_attach.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_mark_attach.py and the other hook-loading tests use relay_testbase.load_hook; test_mark_attach + test_check_record + test_queue pass."
+      ],
+      "severity": "LOW",
+      "since": "7c351553eff1a4433d09a9da64026960a75a7a8c",
+      "source": "review-test-order.json",
+      "source_id": "F1",
+      "summary": "core-hook tests still leave plugins/core/lib first on sys.path for the whole run; the worker's reason for skipping them (ROOT-free copies) is wrong: relay_queue's EXT_DIR is file-relative",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by listing set(sys.modules) - before for the three hooks loaded in a bare python3: route-guard, ledger and check-mark",
+        "each add datetime, typing and tomllib (ledger also glob). Correct today because pytest has already imported them; fragile",
+        "under another runner or import order. Size: 5 min."
+      ],
+      "evidence": [
+        "rg ['_datetime', '_typing', 'datetime', 'tomllib', 'tomllib._parser', 'tomllib._re', 'typing']",
+        "lh ['_datetime', '_typing', 'datetime', 'glob', 'tomllib', 'tomllib._parser', 'tomllib._re', 'typing']",
+        "cm ['_datetime', '_typing', 'datetime', 'tomllib', 'tomllib._parser', 'tomllib._re', 'typing']"
+      ],
+      "failing_case": [
+        "In a process where nothing imported datetime/typing/tomllib yet (python3 with only sys and unittest), load_hook of",
+        "plugins/delegate/hooks/route-guard.py.",
+        "Now: _datetime, datetime, typing, _typing, tomllib, tomllib._parser, tomllib._re are deleted from sys.modules; the returned",
+        "guard keeps its plugin relay_toml bound to the old tomllib/typing, and the next importer gets fresh copies (two typing modules",
+        "in one process; dataclasses' ClassVar check, isinstance on typing constructs, TOMLDecodeError classes can then disagree).",
+        "Should: only the hook's own copies (relay_* modules, or modules whose file is under plugins/) are dropped; stdlib stays.",
+        "Under pytest these are already imported, so nothing breaks today."
+      ],
+      "fix_hint": [
+        "In the finally block delete only added names that start with \"relay_\" (the copies), or whose __file__ lies under ROOT/plugins."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 38,
+      "pass_cases": [
+        "1. Fresh python3, sys.path gets lib; load_hook(route-guard) -> 'datetime', 'typing', 'tomllib' remain in sys.modules; no relay_* module from plugins/ remains; sys.path equal to before.",
+        "2. test_loading_the_guard_leaves_no_plugin_lib_copy_behind passes (as now).",
+        "3. pytest tests/test_spec_steps.py tests/test_license.py -> all pass (as now)."
+      ],
+      "path": "tests/relay_testbase.py",
+      "rank": "low",
+      "reason": [
+        "tests/relay_testbase.py:38 drops only relay_* and plugin-file modules; stdlib stays."
+      ],
+      "severity": "LOW",
+      "since": "7c351553eff1a4433d09a9da64026960a75a7a8c",
+      "source": "review-test-order.json",
+      "source_id": "F2",
+      "summary": "load_hook drops every module the hook imported first, stdlib included (datetime, typing, tomllib), while the returned module keeps the old objects",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "2fbd7ab231743b8cb139c021a4f117eeaaa339ca.gate.log",
+  "head": "81d7dc1891d3e8166f75f6e266b3831369c67643",
+  "item": "running-test-spec-steps-before-test-license-make",
+  "notes": [
+    "load_hook now keeps stdlib modules (F2) and the core hook tests use load_hook (F1)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Merged item on train-21. Ran at head: test_spec_steps, test_license, test_mark_attach, test_check_record, test_queue (233 OK) and test_license then test_spec_steps (91 OK). Gate log head 2fbd7ab, exit 0 (quick mode), only inert check commits after. Q1 proof: detached worktree at 263a7f9, head test files + relay_testbase copied, load_hook cleanup disabled: the new guard test and the license tests fail (4 failures, 9 errors in the pair order)."
+  ],
+  "type": "check"
+}

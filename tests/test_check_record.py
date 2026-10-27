@@ -4,7 +4,6 @@ is the one reader, `relay_queue.close_refusal` the one rule for what may change 
 Every test runs on scratch repositories in a temp dir (tests/test_queue.py's Base). The tests use the real pipeline: a review
 JSON, the TOML input of `relay check record check`, the hook's `write_mark`, `relay queue done` and the merge guard's steps.
 """
-import importlib.util
 import json
 import os
 import sys
@@ -16,6 +15,7 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 sys.path.insert(0, HERE)
 
 import relay_marks as rm  # noqa: E402
+from relay_testbase import load_hook as _load_hook  # noqa: E402
 import relay_queue as rq  # noqa: E402
 import relay_verdict as rv  # noqa: E402
 import test_queue as tq  # noqa: E402
@@ -28,10 +28,7 @@ SPREAD = "one\n" + "pad\n" * 6 + "end\n"      # edits to the first and the last 
 
 
 def load_hook(name, file):
-    spec = importlib.util.spec_from_file_location(name, os.path.join(ROOT, "plugins", "core", "hooks", file))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return _load_hook(name, os.path.join(ROOT, "plugins", "core", "hooks", file))
 
 
 check_mark = load_hook("check_mark_for_record_test", "check-mark.py")

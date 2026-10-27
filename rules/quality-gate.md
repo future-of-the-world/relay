@@ -14,6 +14,9 @@
   hand; each test owns its state; suspect the code under test first.
   Reproduce the flake under load and measure its failure rate p, then prove
   the fix with at least max(20, ⌈3/p⌉) clean runs under the same load.
+  This clean-runs proof is for code tests. A plugin eval case passes a wave by
+  majority (2 of 3 runs, `bin/eval-record`) and is watched by its pass rate; a
+  falling rate is the signal to analyse its cause.
 - **Find the cause before running more.** For a flaky test or eval, analyse
   in this order: state shared by several actors (an actor is any single act
   that reads or writes: a test, a hook, a process, a run); a slow

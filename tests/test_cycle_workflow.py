@@ -1,7 +1,6 @@
 """The change-cycle workflow script (plugins/delegate/workflows/cycle.js), run against a fake Workflow runtime
 (plugins/delegate/tests/fake-workflow.js, on Bun) with scripted agent answers: no model, no paid run.
 Expected labels and stops are worked out by hand from the design (stage order of each kind), not printed from the script."""
-import importlib.util
 import json
 import os
 import re
@@ -13,15 +12,12 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from relay_testbase import ROOT  # noqa: E402
+from relay_testbase import ROOT, load_hook  # noqa: E402
 
 SCRIPT = os.path.join(ROOT, "plugins", "delegate", "workflows", "cycle.js")
 FAKE = os.path.join(ROOT, "plugins", "delegate", "tests", "fake-workflow.js")
 def _stage_label():
-    spec = importlib.util.spec_from_file_location("ledger_hook", os.path.join(ROOT, "plugins", "observe", "hooks", "ledger.py"))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.STAGE_LABEL
+    return load_hook("ledger_hook", os.path.join(ROOT, "plugins", "observe", "hooks", "ledger.py")).STAGE_LABEL
 
 
 LABEL = _stage_label()   # one grammar: the ledger's
@@ -97,6 +93,29 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit(branch=None)], relay=False))
         self.assertEqual(out["labels"], ["build: x", "gate 1: x", "review: x", "check: x"])
 
+    def test_every_quiet_check_starts_with_the_precheck(self):
+        """In relay mode the worker, the fixers and the checker all get `relay precheck -C <wt> && <check>`; project mode keeps
+        the unit's check as it is. Disabled rule (quiet() returning it.check): the strings are missing from the prompts."""
+        want = "relay precheck -C %s && (pytest -q)" % self.wt
+        out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}, "stage:review": INSIDE})
+        for label in ("build: x", "fix red gate 1: x", "fix: x", "check: x"):
+            self.assertIn(want, out["prompts"][label], label)
+        out = self.run_cycle(self.args([self.unit(branch=None)], relay=False))
+        self.assertNotIn("precheck", out["prompts"]["check: x"])
+        self.assertIn("pytest -q", out["prompts"]["check: x"])
+
+    def test_a_fix_unit_fixer_gets_the_quiet_check_and_a_compound_check_is_grouped(self):
+        """F1: the fix text alone left the precheck out of a fix-kind unit. F7: `a; b` must sit in a group so a red precheck's
+        exit code is the command's. Project mode: no precheck, the front's fix text stays."""
+        unit = self.unit(kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="i", check="pytest a; pytest b")
+        out = self.run_cycle(self.args([unit]))
+        want = "relay precheck -C %s && (pytest a; pytest b)" % self.wt
+        self.assertIn(want, out["prompts"]["fix: x"])
+        self.assertIn(want, out["prompts"]["check: x"])
+        out = self.run_cycle(self.args([dict(unit, item=None, branch=None)], relay=False))
+        self.assertNotIn("precheck", out["prompts"]["fix: x"])
+        self.assertIn("Fix it.", out["prompts"]["fix: x"])
+
     # 2
     def test_red_gate_fixed_once_then_stops(self):
         """gate_fixes defaults to 1: red, fix red gate 1, gate 2 green. Red twice: stops at gate after gate 2."""
@@ -154,7 +173,7 @@ class Cycle(unittest.TestCase):
         fix = self.unit(kind="fix", fix="Fix it.", fixes="fix.md", findings="review.json", item="i")
         out = self.run_cycle(self.args([fix]))
         self.assertEqual(out["labels"], ["fix: x", "gate 1: x", "check: x", "close queue item: x", "check show: x"])
-        self.assertEqual(out["prompts"]["fix: x"], "Fix it.")
+        self.assertTrue(out["prompts"]["fix: x"].startswith("Fix it."))  # then the quiet check (F1)
         rider = self.unit(kind="recheck", items=[{"slug": "a", "review": "ra.json"}, {"slug": "b", "review": "rb.json"}])
         out = self.run_cycle(self.args([rider]))
         self.assertEqual(out["labels"], ["gate 1: x", "check item 1: x", "check item 2: x", "check show: x"])
@@ -244,7 +263,7 @@ class Cycle(unittest.TestCase):
         found = []
         for text in prompts:
             for span in re.findall(r"`(relay [^`]+)`", text):
-                found.append(span)
+                found.append(span.split(" && ")[0])   # `relay precheck -C <wt> && <check>`: the relay command is the first part
         return found
 
     def bad_commands(self, commands):
@@ -279,9 +298,7 @@ class Cycle(unittest.TestCase):
 
     # 10
     def test_check_and_design_review_prompts_keep_the_report_label_the_hook_reads(self):
-        spec = importlib.util.spec_from_file_location("check_mark", os.path.join(ROOT, "plugins", "core", "hooks", "check-mark.py"))
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+        mod = load_hook("check_mark", os.path.join(ROOT, "plugins", "core", "hooks", "check-mark.py"))
         units = [self.unit(), self.unit(name="z", kind="recheck", items=[{"slug": "a", "review": "ra.json"}])]
         out = self.run_cycle(self.args(units, designs=[{"name": "d", "brief": "b.md", "out": "d.md"}]))
         for label in ("check: x", "check item 1: z", "design review: d"):

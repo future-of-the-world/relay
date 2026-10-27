@@ -28,8 +28,8 @@
   ],
   "taken_at": "2026-10-27T13:05:34Z",
   "taken_by": "wt/test-order",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T14:45:03Z",
+  "test": "tests/test_spec_steps.py::RouteGuard::test_loading_the_guard_leaves_no_plugin_lib_copy_behind",
   "dropped_at": null,
   "dropped_why": null
 }

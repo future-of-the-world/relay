@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-27T14:02:25Z",
   "taken_by": "wt/typo-flake",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T15:17:33Z",
+  "test": "tests/test_eval_typo_worker_grader.py::TypoWorkerStarted::test_a_worker_or_a_scout_first_start_counts",
   "dropped_at": null,
   "dropped_why": null
 }

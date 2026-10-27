@@ -1496,3 +1496,22 @@ File: scratchpad/reports/design-learn-from-mistakes.md. Owner deferred memory ma
 - Merged: wt/lanes (relay builds up to 6 changes at once; lanes setting per project, relay 6; paid run D rule: lanes keep building, checked-path changes wait for a green run, wave_min default 3).
 - Running lanes (one cycle.js Workflow each): precheck (quiet check runs the gate's quick-red steps; closes a-fix-to-lib-leaves-the-plugins-copies-stale), test-order (93), majority-fix (99), traces (93), paid-estimate (92), typo-flake (92). Briefs in scratchpad/briefs/<name>.md.
 - Next paid run: after majority lands, with EVALS_JOBS=3, on a detached worktree of master; then relay sync.
+
+## Addendum (20), 27 Oct, night — state at about 354k tokens
+
+Merged since (19): wt/majority (a case passes a wave by 2 of 3; the gate's verdict comes from bin/eval-record's record, not the eval tool's exit code; relay sync accepts only records of runs on the default branch).
+Owner answers since (19), all recorded as notes: lanes "6. Это конфигуриремый параметр для каждого проекта, в relay это будет 6" (default 4 elsewhere, front's reading); majority item "7. a" (a timed-out run counts as a failed run). Open, asked, unanswered: question 8 in gates-run-all-at-once-and-slow-each-other-down (how many gates at once: a. 2, recommended, 10.3 gates/h, 698 s each; b. 1, 420 s, 8.6 gates/h) — wt/gate-slots is otherwise done (check open 1 = that question).
+Measured: with 6 lanes, 5 gates at once, load 24-30 on 12 cores, a quick gate took 36 min instead of 8 (fact note on relay-ships-more-changes-per-hour). The front's runner ran `relay gate -C <wt>` without `-- --quick`, which ran the full paid evals ($16.43, 6102 s) on wt/majority: queued as relay-gate-runs-the-paid-evals-unless-told-quick (96). Paid spend 27 Oct: $39.71 + $16.43 + small eval reruns.
+Ready, waiting to land: wt/train-21 (precheck, test-order, paid-estimate, traces, typo-flake; recheck of all 5 items open 0) — taking master hit conflicts in bin/eval-record and tests/test_ci_python.py (traces vs majority); a fixer resolves them, then gate, then recheck; ASK THE OWNER before landing (hand-resolved conflict rule). Then wt/queue-edit (open 0; close feature an-item-s-text-is-changed-through-a-relay-comman with the merge sha) and wt/timeouts (open 0) land after the train, one at a time or as train-22.
+Running lanes: offbyone-fix (sonnet judge measure, up to $4), gate-quick (96), land-ahead (90), twin-graders (88, up to $3 paid).
+After the train and those two land: the wave paid run on master with EVALS_JOBS=3 (owner "5. a") in a detached worktree, background, log in the scratchpad; green -> relay sync from the main checkout; red -> one fix item at the top.
+Brief template for a queue fix: scratchpad/briefs/traces.md (sed the slug, worktree name, check -k and the paid line). Workflow cycle.js settings go under args.settings (gate_fixes).
+
+## Addendum (21), 28 Oct, night
+
+- train-21 (precheck, test-order, paid-estimate, traces, typo-flake): master taken by merge 2fbd7ab, conflicts in bin/eval-record and tests/test_ci_python.py resolved by a fixer by hand (report scratchpad/reports/train-21-conflicts.md); quick gate green on 2fbd7ab; recheck of all 5 items open 0. Waiting for the owner: question 2 in item a-red-paid-run-keeps-no-traces-to-find-its-cause ("a" land now recommended). Master has moved since (queue commits only): take master again before the ff-merge.
+- Question 1 (gate slots, item gates-run-all-at-once-and-slow-each-other-down): still unanswered.
+- Ready, open 0, to land after train-21 as train-22: queue-edit, timeouts, twin-graders, gate-quick, offbyone, land-ahead, stale-texts, hook-flake, ledger-evals. After merge: close feature an-item-s-text-is-changed-through-a-relay-comman with --evidence.
+- hook-flake found the likely cause: the live hook test loaded the owner's user-level plugins and delegate's routing guard refused the first Agent call; fixed with --setting-sources project,local.
+- New fix item gate-stop-test-sometimes-sees-the-gate-command-a (ip 92): flaky tests/test_gate_stops.py f2, turned stale-texts' gate red once.
+- Then: wave paid run on master with EVALS_JOBS=3, then relay sync.

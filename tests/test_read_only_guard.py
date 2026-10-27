@@ -1,13 +1,13 @@
 """Q1: a read-only agent (critic, checker, scout) must not run a relay command that writes, and `relay migrate --all`
 must not write into a primary checkout unless asked. Free: temporary folders and HOME, no paid run."""
 import json
-import importlib.util
 import os
 import re
 import subprocess
 import sys
 import tempfile
 import unittest
+from relay_testbase import load_hook as _load_hook  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(ROOT, "plugins", "delegate", "hooks", "read-only-guard.py")
@@ -16,10 +16,7 @@ GIT = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
 
 
 def load_guard():
-    spec = importlib.util.spec_from_file_location("read_only_guard", HOOK)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return _load_hook("read_only_guard", HOOK)
 
 
 def hook(agent_type: str, command: str, tool: str = "Bash") -> str:

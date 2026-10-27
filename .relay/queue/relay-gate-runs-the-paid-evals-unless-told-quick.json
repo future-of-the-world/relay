@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 96,
+  "time": 20,
+  "found_at": "2026-10-27T15:50:04Z",
+  "found_in": "relay queue add",
+  "title": "relay gate runs the paid evals unless told --quick",
+  "what": [
+    "relay gate runs the paid evals unless told --quick"
+  ],
+  "why": [
+    "Measured 27 Oct 18:28 local: the front asked a runner to run \"relay gate -C <worktree>\" to gate wt/majority after it took master, meaning the quick gate as the cycle runs it (the cycle passes --quick); without -- --quick relay gate ran the full bin/ci, paid plugin evals included (claude plugin eval -j 1), which took over 80 minutes under the six lanes' load and spends about $18 against the daily cap (that day: $39.71 in 2 runs before it). The expensive path is the default and the cheap one needs a flag the newcomer did not know (principle 10: the obvious way is the right way)."
+  ],
+  "failing_case": [
+    "relay gate -C <worktree> with no arguments starts claude plugin eval."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "relay gate with no arguments runs the quick gate; the paid steps run only with an explicit flag (for example --paid) and print their estimate and the day's spend first.",
+    "The cycle script and bin/ci's own paid run keep working (they name their mode).",
+    "relay gate's help names both modes.",
+    "A test with a fake bin/ci shows no paid step without the flag, and fails with the old default."
+  ],
+  "where": [
+    "bin/relay (gate)",
+    "plugins/delegate/workflows/cycle.js (gate_args)"
+  ],
+  "taken_at": "2026-10-27T17:31:40Z",
+  "taken_by": "wt/gate-quick",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
