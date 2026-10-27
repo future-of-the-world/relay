@@ -21,8 +21,9 @@
   ],
   "taken_at": null,
   "taken_by": null,
-  "closed_at": null,
+  "closed_at": "2026-10-27T07:26:21Z",
   "test": null,
+  "evidence": "merged a4f6814 on master, 27 Oct (wt/owner-notes: review 0 HIGH 4 MEDIUM 3 LOW inside, all fixed; check open 0)",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
