@@ -193,7 +193,6 @@ class PaidPart(unittest.TestCase):
         self.assertEqual(ci.status, 1)
         self.assertIn("not a pass", out)
 
-<<<<<<< HEAD
     def fast_first(self, red: str) -> "tuple[list[str], str, int]":
         """Run the quick gate with every step replaced by a recorder; `red` is the step name that fails ('' for none)."""
         ci = self.ci(Recorder(self.paid_answers()), quick=True)
@@ -231,7 +230,7 @@ class PaidPart(unittest.TestCase):
         self.assertEqual(order, ["types and lint", "lib copies identical", "library tests", "hook tests",
                                  "eval grader tests", "plugin validate"])
         self.assertEqual(code, 0)
-=======
+
     def test_a_run_that_timed_out_keeps_the_gate_green_when_the_other_two_passed(self) -> None:
         # the gate's own verdict (plugin_evals + record, bin/eval-record run for real): PASS, PASS, timed out is 2 of 3
         self.assertEqual(self.gate_verdict_for([True, True, None]), 0)
@@ -265,7 +264,6 @@ class PaidPart(unittest.TestCase):
             self.assertIsNone(ci.plugin_evals())
             ci.record()
         return ci.status
->>>>>>> wt/timeouts
 
     def test_the_eval_tools_exit_code_does_not_decide_the_gate_the_records_majority_does(self) -> None:
         # Q1 of the majority item: the eval tool exits 1 when any run failed, yet the case with runs PASS PASS FAIL
