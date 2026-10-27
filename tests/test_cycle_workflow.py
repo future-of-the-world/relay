@@ -385,7 +385,7 @@ class Cycle(unittest.TestCase):
         self.assertEqual(names(change) & names(fix), set())
         self.assertIn("fixgate-x-1.md", names(change))                                 # change names as today
         self.assertIn("gate-x-1.log", names(change))
-        self.assertIn(f"fixgate-fix-x-1.md", names(fix))
+        self.assertIn("fixgate-fix-x-1.md", names(fix))
 
 
 if __name__ == "__main__":
