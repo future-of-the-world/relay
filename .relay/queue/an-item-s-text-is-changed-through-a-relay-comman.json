@@ -21,5 +21,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T12:57:01Z",
+      "fact": [
+        "Correction, measured 27 Oct by the queue-edit design: the why's \"8 commits changed queue files outside relay's commands ... against 491\" is wrong; since 20 Oct, 18 non-merge commits changed queue files by hand plus 4 merges with hand-resolved queue files, against 482 written by relay's library; the 8 was a count by commit subject (10 hand commits start with \"queue:\"). Edits to item text: 33 in 7 days, 22 of them one batch of titles. Nothing refuses a hand edit on a task branch (guard-main covers only the main checkout). The design's build estimate: about 175 agent minutes (edit command plus hand-edit fence; a guess), not the item's 60."
+      ]
+    }
+  ]
 }
