@@ -31,5 +31,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-26T21:47:02Z",
+      "fact": [
+        "Migration 27 Oct: the link in `what` line 1 points to a session file (`clean-env/img/Dockerfile`, not kept), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
+      ]
+    }
+  ]
 }
