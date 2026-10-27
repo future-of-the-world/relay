@@ -250,10 +250,11 @@ def main(argv=None):
         print(f"ci: could not store the eval record: {e}")
         return 1
     lines = report(data, dest.replace(os.path.expanduser("~"), "~", 1), earlier)
-    print("\n".join(lines))
-    if "NOT A PASS" in lines[-1]:
+    if "NOT A PASS" in lines[-1]:   # the pointer comes first: the verdict stays the last line
         print(f"ci: eval record: stored at {dest}; bin/eval-record --verdict {dest} shows why")
+        print("\n".join(lines))
         return 2
+    print("\n".join(lines))
     return 0
 
 
