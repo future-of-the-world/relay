@@ -22,8 +22,8 @@
   ],
   "taken_at": "2026-10-27T18:53:06Z",
   "taken_by": "wt/hook-flake",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T20:03:45Z",
+  "test": "tests/test_hooks_live_keeps_output.py::HooksLiveKeepsOutput::test_failure_keeps_the_four_outputs_and_prints_where",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
