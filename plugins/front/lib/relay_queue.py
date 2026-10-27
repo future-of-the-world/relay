@@ -23,6 +23,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -722,6 +723,38 @@ def _commit(main, head, plan):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# Run in a child: the default branch's own copy of lib/ reads each record the lander is about to write.
+_CHILD = ("import json, sys; sys.path.insert(0, sys.argv[1]); import relay_queue as q\n"
+          "print(json.dumps({s: q.parse(s, t)['problems'] for s, t in json.loads(sys.stdin.read()).items()}))")
+OWN_CODE = "lib/relay_queue.py"
+
+
+def _default_rejects(main: str, head: str, default: str, plan: Plan) -> list[str]:
+    """What the default branch's own code (its lib/ at `head`) finds wrong with the records `plan` writes; [] when it accepts them or
+    the branch has no such code (a project that only uses relay). Raises Refused when that code cannot be run."""
+    records = {os.path.basename(p)[:-5]: t for p, t in plan.writes.items() if t is not None and p.endswith(".json")}
+    if not records or cat_batch(main, [f"{head}:{OWN_CODE}"]) == [None]:
+        return []
+    rc, tar, err = _git(main, "archive", "--format=tar", head, "lib", timeout=60)
+    if rc != 0:
+        raise Refused(f"cannot read {default}'s code to check the record: {err}")
+    tmp = tempfile.mkdtemp(prefix="relay-queue-lib-")
+    try:
+        with tarfile.open(fileobj=io.BytesIO(tar)) as bundle:
+            bundle.extractall(tmp, filter="data") if hasattr(tarfile, "data_filter") else bundle.extractall(tmp)
+        try:
+            done = subprocess.run([sys.executable, "-I", "-c", _CHILD, os.path.join(tmp, "lib")], input=json.dumps(records),
+                                  capture_output=True, text=True, timeout=60)
+            found = json.loads(done.stdout) if done.returncode == 0 else None
+        except (OSError, subprocess.SubprocessError, ValueError) as exc:
+            raise Refused(f"cannot run {default}'s queue code to check the record: {exc}") from exc
+        if found is None:
+            raise Refused(f"cannot run {default}'s queue code to check the record: {_last_line(done.stderr)}")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return [f"{slug}: {reason}" for slug, reasons in sorted(found.items()) for reason in reasons]
+
+
 def _last_line(text):
     lines = [x for x in text.strip().split("\n") if x.strip()]
     return lines[-1].strip() if lines else "no message from git"
@@ -749,6 +782,10 @@ def _land(repo, planner, tries=None, sleep=time.sleep, after_plan=None, takeover
         plan = planner(Reader(main, head))                                 # step 2: a Refused ends the command
         if after_plan:
             after_plan(n, plan)
+        rejected = _default_rejects(main, head, default, plan)             # step 2b: the default branch's code must accept the record
+        if rejected:
+            raise Refused(f"nothing landed: {default}'s own queue code rejects the record ({'; '.join(rejected)}). The code that adds this "
+                          f"is not on {default} yet: merge the code first, or land this from the {default} checkout")
         new = _commit(main, head, plan)                                    # step 3
         branch = "wt/queue-" + plan.slug
         ref = "refs/heads/" + branch
