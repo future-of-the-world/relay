@@ -243,7 +243,8 @@ so. Rule: `rules/queue.md`.
 
 Answer it in two lines. Then add it to the work queue, `relay queue add --input
 <file.toml>` with `kind = "feature"` (the ip is the owner's, default 0), and build it in a fresh session,
-not in this one. Rule: `rules/queue.md`.
+not in this one. The owner's words, character for character, go to the `said` key of the add input (`relay queue add --from`
+takes no `said`: add the item, then `relay queue note` with `said`), never into `why` or `what`. Rule: `rules/queue.md`.
 
 ## Status, when asked
 
