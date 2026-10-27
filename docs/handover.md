@@ -1506,3 +1506,12 @@ Ready, waiting to land: wt/train-21 (precheck, test-order, paid-estimate, traces
 Running lanes: offbyone-fix (sonnet judge measure, up to $4), gate-quick (96), land-ahead (90), twin-graders (88, up to $3 paid).
 After the train and those two land: the wave paid run on master with EVALS_JOBS=3 (owner "5. a") in a detached worktree, background, log in the scratchpad; green -> relay sync from the main checkout; red -> one fix item at the top.
 Brief template for a queue fix: scratchpad/briefs/traces.md (sed the slug, worktree name, check -k and the paid line). Workflow cycle.js settings go under args.settings (gate_fixes).
+
+## Addendum (21), 28 Oct, night
+
+- train-21 (precheck, test-order, paid-estimate, traces, typo-flake): master taken by merge 2fbd7ab, conflicts in bin/eval-record and tests/test_ci_python.py resolved by a fixer by hand (report scratchpad/reports/train-21-conflicts.md); quick gate green on 2fbd7ab; recheck of all 5 items open 0. Waiting for the owner: question 2 in item a-red-paid-run-keeps-no-traces-to-find-its-cause ("a" land now recommended). Master has moved since (queue commits only): take master again before the ff-merge.
+- Question 1 (gate slots, item gates-run-all-at-once-and-slow-each-other-down): still unanswered.
+- Ready, open 0, to land after train-21 as train-22: queue-edit, timeouts, twin-graders, gate-quick, offbyone, land-ahead, stale-texts, hook-flake, ledger-evals. After merge: close feature an-item-s-text-is-changed-through-a-relay-comman with --evidence.
+- hook-flake found the likely cause: the live hook test loaded the owner's user-level plugins and delegate's routing guard refused the first Agent call; fixed with --setting-sources project,local.
+- New fix item gate-stop-test-sometimes-sees-the-gate-command-a (ip 92): flaky tests/test_gate_stops.py f2, turned stale-texts' gate red once.
+- Then: wave paid run on master with EVALS_JOBS=3, then relay sync.
