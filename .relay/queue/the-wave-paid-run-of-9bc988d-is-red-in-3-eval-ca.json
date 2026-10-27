@@ -56,6 +56,12 @@
         "a. Оставить с подменой (рекомендую: это единственная проверка вашей просьбы)",
         "b. Убрать обе проверки"
       ]
+    },
+    {
+      "at": "2026-10-27T10:36:32Z",
+      "fact": [
+        "Measured 27 Oct, after question 1 was recorded: the stand-in is 91 lines (evals/plugin/relay-stub.py 83, setup-relay-stub.sh 8 on wt/wave-red), not \"about 60\" as the question's table says; the cost line \"about $1-2 per paid run\" rests on round 1's rerun of $1.37 for 3 runs of one case."
+      ]
     }
   ]
 }
