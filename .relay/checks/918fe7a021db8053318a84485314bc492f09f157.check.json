@@ -1,0 +1,141 @@
+{
+  "branch": "wt/train-22b",
+  "findings": [
+    {
+      "details": [
+        "A full paid gate goes red for no change of its own (23 Oct: a rules-only branch, 1 of 3 runs red), so a merge waits on a re-run and its cause is unknown."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "23 Oct, wt/structured-reword at a6e379d, full bin/ci: hook-tests step \"FAIL sdd:worker gets the project's worker addition at its start: NONE\" (.ci/steps/hook-tests.log:785); re-runs of hooks-live.test.sh in that worktree and in wt/guard-batch passed."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "hooks-live.test.sh passes max(20, ceil(3/p)) clean runs in a row once the cause is fixed (rules/quality-gate.md)."
+      ],
+      "path": "plugins/core/tests/hooks-live.test.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_hooks_live_keeps_output.py:45 passes at head and fails at 320c000 (3 failures). The script now keeps the outputs and the hook events."
+      ],
+      "severity": "HIGH",
+      "since": "320c0008640ac7152adaba07a04cef787093f3e1",
+      "source": "queue",
+      "summary": "Live hook test sometimes misses the worker addition",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that the dependency exists (one live run, scratchpad/live/out/16360.out lines with hook_name PreToolUse:Agent: the first carries permissionDecision deny with the routing reason; the init event's plugins list). PLAUSIBLE as the cause of a future NONE: the routing guard came in on 24 Oct (344d62c), after the 23 Oct red run, so it is not that run's cause; but it is a live, model-dependent step that this test does not mean to test, and the user CLAUDE.md (the guard session replied in Russian) is another. The fix lies in the file the change touched and serves the item it took (find why the agent case says NONE); the front may prefer to route it to the item's next round instead.",
+        "Size: 15 (one option plus one live run to confirm the init plugins list)."
+      ],
+      "evidence": [
+        "PATH=<scratch wrapper>:$PATH bash plugins/core/tests/hooks-live.test.sh  -> 4 ok, all passed",
+        "jq ... 16360.out: tool_result \"PreToolUse:Agent hook error: Routing: load the delegate skill first (brief files, who does what), then start the agent again\"; then Skill delegate:delegate; then Agent again -> BADGER-31",
+        "init.plugins: core@inline, openspec@inline, gopls-lsp@claude-plugins-official, observe@relay, delegate@relay, front@relay, builtins",
+        "git log -S 'load the delegate skill first' -- plugins -> 344d62c 2026-10-24"
+      ],
+      "failing_case": [
+        "Live run on this machine, cec1fe6, agent session (claude -p ... --plugin-dir core --plugin-dir openspec): the init event lists, beside core@inline and openspec@inline, delegate@relay, front@relay, observe@relay and gopls-lsp from the owner's user setup. The first Agent call (subagent_type openspec:author) gets \"PreToolUse:Agent hook error: Routing: load the delegate skill first ...\"; the run passed only because Haiku then loaded delegate:delegate and called Agent again. A Haiku that answers instead with the prompt's fallback (\"or NONE if you were given none\") fails the case with \"NONE\", the exact symptom of the queue item, for a reason that is not the worktree's code. Now: the case's outcome depends on the user-level plugins and CLAUDE.md of whoever runs the gate. Should: the live sessions load only this checkout's core and openspec (plus Claude Code builtins), so a NONE means the addition did not arrive."
+      ],
+      "fix_hint": [
+        "Add --setting-sources project,local to run() (user settings, where the owner's plugins are enabled, are not loaded; --plugin-dir still loads core and openspec), or an empty CLAUDE_CONFIG_DIR-independent equivalent if that drops auth. Confirm with one live run that init.plugins lists only the two inline plugins and builtins."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 39,
+      "pass_cases": [
+        "1. A live run of hooks-live.test.sh: each session's init event lists no plugin with source \"@relay\" or from ~/.claude/plugins other than core@inline and openspec@inline (checked by reading a kept or tee'd stream-json file).",
+        "2. The agent session has no PreToolUse:Agent hook_response with permissionDecision \"deny\"; its first Agent call starts openspec:author.",
+        "3. The four cases still pass in that run (the guard case still gets 'guard-main' from core@inline's guard).",
+        "4. HOOKS_LIVE=0, or no claude on PATH, still prints SKIPPED and exits 0; tests/test_hooks_live_keeps_output.py still passes (the fake claude ignores the added option)."
+      ],
+      "path": "plugins/core/tests/hooks-live.test.sh",
+      "rank": "medium",
+      "reason": [
+        "tests/test_hooks_live_keeps_output.py:60 asserts the option on all 4 sessions; fails at cec1fe6. Live init plugin list not rerun."
+      ],
+      "severity": "MEDIUM",
+      "since": "cec1fe6248990c8bbbbdff1069d320563767c183",
+      "source": "review-hook-flake-2.json",
+      "source_id": "F1",
+      "summary": "the live sessions load the owner's user plugins and settings: delegate's routing guard refuses the agent case's first Agent call, so the case passes only if Haiku retries (a direct path to NONE)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading ck(): result \"$3\" greps only the result line; with none, the message is empty. Not wrong today (the files are kept), so LOW. Size: 5."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A fake claude that prints \"Error: not logged in\" and exits 1: every FAIL line reads \"FAIL  <case>: \" with nothing after the colon; the cause is only in the kept folder. Before the change the line showed \"Error: not logged in\". Should: when there is no result line, show the raw output's last bytes."
+      ],
+      "fix_hint": [
+        "In ck(): msg=\"$(result \"$3\")\"; [ -n \"$msg\" ] || msg=\"$(tail -c 400 \"$3\")\"; then print msg."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 50,
+      "pass_cases": [
+        "1. A session output with no \"type\":\"result\" line and the text \"Error: not logged in\": the FAIL line contains \"Error: not logged in\".",
+        "2. A session output with a result line: the FAIL line shows the result line, not hook events (as now).",
+        "3. A failing run still prints the kept folder's path and keeps the four .out files."
+      ],
+      "path": "plugins/core/tests/hooks-live.test.sh",
+      "rank": "low",
+      "reason": [
+        "tests/test_hooks_live_keeps_output.py:52 (Error: not logged in shown); fails at cec1fe6."
+      ],
+      "severity": "LOW",
+      "since": "cec1fe6248990c8bbbbdff1069d320563767c183",
+      "source": "review-hook-flake-2.json",
+      "source_id": "F2",
+      "summary": "a session that wrote no result line (crash, auth error, bad option) now prints an empty FAIL reason; before, the first 400 bytes of its output were shown",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Project rule (Python): \"Every new or changed function has types.\" Most older tests lack it (166 of 1184 test methods annotated), but this file is new. Size: 5."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "def test_failure_keeps_the_four_outputs_and_prints_where(self): and def test_success_keeps_nothing(self): carry no \"-> None\". Should: \"-> None\" on both (the helper run_script is typed)."
+      ],
+      "fix_hint": [
+        "Add \"-> None\" to both test methods."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 43,
+      "pass_cases": [
+        "1. Both test methods end with \"-> None\".",
+        "2. The file's tests still pass and the gate's type check stays green."
+      ],
+      "path": "tests/test_hooks_live_keeps_output.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_hooks_live_keeps_output.py:45,52,60,71 all carry -> None."
+      ],
+      "severity": "LOW",
+      "since": "cec1fe6248990c8bbbbdff1069d320563767c183",
+      "source": "review-hook-flake-2.json",
+      "source_id": "F3",
+      "summary": "the two new test methods have no return type (Python rule: every new function has types)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0853dace14864ac929d1358e910748b256c248c6.gate.log",
+  "head": "918fe7a021db8053318a84485314bc492f09f157",
+  "item": "live-hook-test-sometimes-misses-the-worker-addit",
+  "notes": [
+    "F1 is proven only by argument (fake claude logs --setting-sources project,local on all 4 sessions); no live run was made to confirm init.plugins lists only core and openspec."
+  ],
+  "schema": 2,
+  "scope": [
+    "Head 918fe7a. Gate log head 0853dace, exit 0, relay changed lists no file after it. Ran tests/test_hooks_live_keeps_output.py at head (4 pass). Throwaway worktrees at Q1 since 320c000 (3 of 4 fail) and at cec1fe6 (2 fail: no-result-line, setting-sources) with the head test file copied in. Read the diff of hooks-live.test.sh."
+  ],
+  "type": "check"
+}
