@@ -35,6 +35,12 @@
       "fact": [
         "Migration 27 Oct: the link in `failing_case` line 1 points to a session file (`demo/it-terms-ru.json` run 3, in the session session folder; a copy is in relay's backup folder), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
       ]
+    },
+    {
+      "at": "2026-10-25T12:04:14Z",
+      "fact": [
+        "The saved run file `demo/it-terms-ru.json` (3 runs of the it-terms-ru eval case) is kept in relay's backup folder on the owner's Mac; the failing case of this item quotes the opening of run 3 and the runs that followed."
+      ]
     }
   ]
 }
