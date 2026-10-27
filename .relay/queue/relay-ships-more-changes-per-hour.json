@@ -181,6 +181,13 @@
       "options": [
         "a. 4 по умолчанию, 6 только в relay (рекомендую: вы выбирали число, глядя на relay; в других проектах оно не проверено)",
         "b. 6 по умолчанию везде"
+      ],
+      "answered_at": "2026-10-27T13:47:07Z",
+      "answer": [
+        "6. Это конфигуриремый параметр для каждого проекта, в relay это будет 6"
+      ],
+      "reading": [
+        "A per-project setting; relay is 6. The owner names no default for other projects: the default stays 4 as built (LANES_DEFAULT), each project raises it in its own settings."
       ]
     }
   ]
