@@ -277,6 +277,17 @@ class Cycle(unittest.TestCase):
         removed = [f"relay queue done s -C {self.wt} --check x.json", f"relay gate -C {self.wt} --quick"]
         self.assertEqual(self.bad_commands(removed), removed)
 
+    def gate_command(self, **settings):
+        out = self.run_cycle(self.args([self.unit(item="the-item")], settings=settings))
+        found = [c for c in self.relay_commands(out["prompts"].values()) if c.startswith("relay gate -C")]
+        self.assertEqual(len(found), 1, found)
+        return found[0].replace(self.wt, "<wt>")
+
+    def test_f3_gate_args_choose_the_quick_or_the_full_gate(self):
+        self.assertEqual(self.gate_command(), "relay gate -C <wt> -- --quick")
+        self.assertEqual(self.gate_command(gate_args="--paid"), "relay gate -C <wt> --paid")
+        self.assertEqual(self.gate_command(gate_args=""), "relay gate -C <wt>")
+
     # 10
     def test_check_and_design_review_prompts_keep_the_report_label_the_hook_reads(self):
         spec = importlib.util.spec_from_file_location("check_mark", os.path.join(ROOT, "plugins", "core", "hooks", "check-mark.py"))

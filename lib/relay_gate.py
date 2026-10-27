@@ -36,6 +36,23 @@ class GateRefused(Exception):
     """The gate was not started; the text says why in one line."""
 
 
+def quick_binding(worktree):
+    """The command of the optional binding `gate.ci_quick` (the free mode of the gate), None when kit.toml names none."""
+    try:
+        with open(os.path.join(worktree, ".claude", "kit.toml"), "rb") as handle:
+            data = relay_toml.load(handle)
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as exc:
+        raise GateRefused("cannot read .claude/kit.toml: %s" % exc)
+    value = (data.get("gate") or {}).get("ci_quick")
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise GateRefused("gate.ci_quick in .claude/kit.toml is not a command")
+    return value
+
+
 def binding(worktree):
     """The command of the binding `gate.ci` in the worktree's `.claude/kit.toml`, `bin/ci` when it names none."""
     try:
@@ -224,11 +241,12 @@ def reusable(worktree, head, command):
     return None
 
 
-def run(worktree, args=(), environ=None):
+def run(worktree, args=(), environ=None, quick=False):
     """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red)."""
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
-    command = shlex.split(binding(worktree)) + list(args)
+    chosen = (quick_binding(worktree) if quick else None) or binding(worktree)
+    command = shlex.split(chosen) + list(args)
     # the license check is the gate's own step when kit.toml has [license]; it runs every time (cheap), so a green log of
     # the same commit never stands for a license that has since broken (kit.toml and the license files are not inert)
     try:

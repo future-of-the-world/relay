@@ -562,6 +562,20 @@ def cmd_changed(args):
     return 0
 
 
+def _print_paid_cost(worktree):
+    """To stderr, before a --paid gate starts: the estimate and the day's spend of the project's bin/paid-cost, when it has one."""
+    tool = os.path.join(worktree, "bin", "paid-cost")
+    if not os.access(tool, os.X_OK):
+        return
+    for word in ("estimate", "today"):
+        try:
+            done = subprocess.run([tool, word], cwd=worktree, capture_output=True, text=True, timeout=60)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if done.returncode == 0 and done.stdout.strip():
+            print("paid: " + done.stdout.strip(), file=sys.stderr, flush=True)
+
+
 def cmd_gate(args):
     usage = "relay gate [-C <worktree>] [--paid] [-- <args>]"
     args, extra = list(args), []
@@ -570,15 +584,18 @@ def cmd_gate(args):
         args, extra = args[:i], args[i + 1:]
     paid = "--paid" in args
     args = [a for a in args if a != "--paid"]
-    if not paid and not extra:      # the plain gate is the free one: the paid evals need the explicit flag
-        extra = ["--quick"]
+    if paid and extra:
+        raise Usage(usage + ": --paid and -- <args> do not go together")
+    quick = not paid and not extra      # the plain gate is the free one (gate.ci_quick, when kit.toml names it); the paid evals need --paid
     worktree = "."
     if len(args) == 2 and args[0] == "-C":
         worktree = args[1]
     elif args:
         raise Usage(usage)
+    if paid:
+        _print_paid_cost(worktree)
     try:
-        code, log, red = relay_gate.run(worktree, extra)
+        code, log, red = relay_gate.run(worktree, extra, quick=quick)
     except relay_gate.GateRefused as exc:
         raise ValueError(str(exc))
     print("gate %s: exit %d" % (os.path.basename(log)[:-len(".gate.log")], code))

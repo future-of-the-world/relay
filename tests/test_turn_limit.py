@@ -156,9 +156,9 @@ class GateReuse(Fixture):
         self.assertEqual(self.runs(), 2)
 
     def test_f1_a_green_gate_with_other_arguments_is_not_reused(self) -> None:
-        # pass case 4: the plain gate runs --quick, so --paid (no argument to the command) is a different cmd line
+        # pass case 4: --quick is a different cmd line from none
         self.gate(self.wt)
-        self.assertEqual(self.gate(self.wt, "--paid").returncode, 0)
+        self.assertEqual(self.gate(self.wt, "--", "--quick").returncode, 0)
         self.assertEqual(self.runs(), 2)
 
     def test_f1_no_gate_log_runs(self) -> None:
