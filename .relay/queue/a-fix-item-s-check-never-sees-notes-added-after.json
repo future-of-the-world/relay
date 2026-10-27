@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 86,
+  "time": 30,
+  "found_at": "2026-10-27T12:57:01Z",
+  "found_in": "relay queue add",
+  "title": "A fix item's check never sees notes added after it",
+  "what": [
+    "A fix item's check never sees notes added after it"
+  ],
+  "why": [
+    "Found 27 Oct by the queue-edit design: when a branch takes a fix item, its problem becomes finding Q1 from the item's text only; Q1 carries no notes, so a correction or a measurement added after `add` never reaches the check of that branch. 9 open fix items carry fact notes today. Live: the-wave-paid-run-of-9bc988d-is-red-in-3-eval-ca got a correcting fact note 36 minutes after it was taken."
+  ],
+  "failing_case": [
+    "A fix item with a fact note, taken by a branch: relay check findings --item shows Q1 without the note's text."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "Once taken, Q1's details include every note of the item, dated.",
+    "A note added after the take reaches Q1 once the branch takes the default branch.",
+    "A test in a temporary folder fails without it."
+  ],
+  "where": [
+    "lib/relay_queue.py (take, Q1)",
+    "lib/relay_verdict.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
