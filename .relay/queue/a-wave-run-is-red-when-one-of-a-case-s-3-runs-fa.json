@@ -55,6 +55,13 @@
       "options": [
         "a. Считать проваленным запуском (рекомендую: так же, как любой другой провал одного из трёх; итог называет его, а падение доли прошедших отмечается)",
         "b. Оставить как сейчас: не уложился — прогон красный"
+      ],
+      "answered_at": "2026-10-27T13:47:08Z",
+      "answer": [
+        "7. a"
+      ],
+      "reading": [
+        "A run that timed out (not judged) counts as one failed run of three: PASS, PASS, timed out is green with a summary line naming it; two timeouts are red."
       ]
     }
   ]
