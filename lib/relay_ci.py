@@ -10,7 +10,7 @@ FAILS naming the tool; only hooks-live, which makes a paid claude call, is left 
 plugin evals' grader tests, `claude plugin validate` (skipped loudly without claude), the inert step, plugin evals (full
 mode only; compared with evals/plugin/baseline), then the record step (bin/eval-record: files .ci/evals.json under
 $RELAY_HOME/evals, prints failed meaning graders, split votes and rule-file reads; it fails the gate when the copy fails,
-when a meaning grader failed, or when a run was not judged).
+when a case failed its majority of runs (2 of 3 pass), or when a run was not judged).
 
 A change of only rules/*.md files (lib/relay_textonly.py) runs just the step "rules text tests" under --quick.
 
@@ -435,7 +435,7 @@ class Ci:
             self.say("ci: RED (the eval record could not be stored)")
             self.status = 1
         elif rc != 0:
-            self.say("ci: RED (eval runs were not judged or a case failed its majority: not a pass; bin/eval-record --verdict <newest file in $RELAY_HOME/evals/<repo>> shows why)")
+            self.say("ci: RED (eval runs were not judged or a case failed its majority: not a pass; bin/eval-record --verdict <the stored path eval-record prints> shows why)")
             self.status = 1
 
     # ---- the whole gate -------------------------------------------------------------------------------------------

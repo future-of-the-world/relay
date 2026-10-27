@@ -74,6 +74,8 @@ def dropped(data: dict[str, Any], earlier: list[dict[str, Any]]) -> list[str]:
     now = case_rates(data)
     before: dict[str, tuple[int, int]] = {}
     for old in earlier:
+        if old.get("partial"):   # a broken (partial) batch is not a measured rate
+            continue
         for name, (p, t) in case_rates(old).items():
             bp, bt = before.get(name, (0, 0))
             before[name] = (bp + p, bt + t)
@@ -169,7 +171,7 @@ def report(data, record_path, earlier=()):
 
 
 def is_green(data):
-    """True when the batch is a pass: the same verdict `main` exits on (no failed meaning grader, nothing not judged, not partial)."""
+    """True when the batch is a pass: the same verdict `main` exits on (no case failed its majority of runs, meaning or code grader; nothing not judged; not partial)."""
     return "NOT A PASS" not in report(data, "")[-1]
 
 
@@ -188,19 +190,24 @@ def store(src, data, home, repo, branch, keep, head=None):
     return dest
 
 
-def earlier_records(folder: str) -> list[dict[str, Any]]:
-    """The newest HISTORY stored records that can be read (an unreadable file is skipped: it is only history)."""
+def earlier_records(folder: str, before: str = "") -> list[dict[str, Any]]:
+    """The newest HISTORY complete stored records (names sorting before `before`, when given) that can be read.
+    An unreadable file is skipped: it is only history. A partial record is skipped too: it is not a measured batch."""
     try:
-        names = sorted(n for n in os.listdir(folder) if n.endswith(".json"))[-HISTORY:]
+        names = sorted(n for n in os.listdir(folder) if n.endswith(".json") and (not before or n < before))
     except OSError:
         return []
-    out = []
-    for n in names:
+    out: list[dict[str, Any]] = []
+    for n in reversed(names):
+        if len(out) >= HISTORY:
+            break
         try:
-            out.append(json.load(open(os.path.join(folder, n), encoding="utf-8")))
+            rec = json.load(open(os.path.join(folder, n), encoding="utf-8"))
         except (OSError, ValueError):
             continue
-    return out
+        if isinstance(rec, dict) and not rec.get("partial"):
+            out.append(rec)
+    return out[::-1]
 
 
 def git_name(*args):
@@ -221,7 +228,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.verdict:
         try:
-            lines = report(json.load(open(a.verdict, encoding="utf-8")), a.verdict)
+            folder, base = os.path.split(os.path.abspath(a.verdict))
+            lines = report(json.load(open(a.verdict, encoding="utf-8")), a.verdict, earlier_records(folder, base))
         except (OSError, ValueError) as e:
             print(f"ci: could not read the eval record: {e}")
             return 1
@@ -243,7 +251,10 @@ def main(argv=None):
         return 1
     lines = report(data, dest.replace(os.path.expanduser("~"), "~", 1), earlier)
     print("\n".join(lines))
-    return 2 if "NOT A PASS" in lines[-1] else 0
+    if "NOT A PASS" in lines[-1]:
+        print(f"ci: eval record: stored at {dest}; bin/eval-record --verdict {dest} shows why")
+        return 2
+    return 0
 
 
 if __name__ == "__main__":

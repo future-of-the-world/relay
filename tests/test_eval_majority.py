@@ -63,6 +63,13 @@ class Majority(unittest.TestCase):
         self.assertNotIn("fell", "\n".join(self.rec.report(now, "", [batch(case([P, P, F]))])))
         self.assertNotIn("fell", "\n".join(self.rec.report(now, "")))
 
+    def test_a_partial_record_is_left_out_of_the_baseline(self):
+        # earlier: partial (c 0 of 3, ignored), 3 of 3, 3 of 3 -> baseline 6/6; now 2 of 3 is below it
+        broken = batch(case([F, F, F])); broken["partial"] = True
+        now = batch(case([P, P, F]))
+        text = "\n".join(self.rec.report(now, "", [broken, batch(case([P, P, P])), batch(case([P, P, P]))]))
+        self.assertIn("note: c: pass rate fell to 2 of 3 runs", text)
+
 
 class VerdictCommand(unittest.TestCase):
     def setUp(self):
@@ -106,6 +113,45 @@ class VerdictCommand(unittest.TestCase):
             with redirect_stdout(out):
                 code = self.rec.main(["--json", path, "--repo", "relay", "--branch", "master"])
             self.assertEqual(code, 0); self.assertIn("pass rate fell to 2 of 3", out.getvalue())
+        finally:
+            os.environ.pop("RELAY_HOME", None)
+
+    def test_earlier_records_skip_partial_and_take_the_newest_complete(self):
+        folder = os.path.join(self.tmp, "f"); os.makedirs(folder)
+        broken = batch(case([F, F, F])); broken["partial"] = True
+        for name, d in (("01", broken), ("02", batch(case([P, P, P]))), ("03", batch(case([P, P, F])))):
+            json.dump(d, open(os.path.join(folder, f"2026-10-{name}T00-00-00Z-master.json"), "w"))
+        got = self.rec.earlier_records(folder)
+        self.assertEqual([self.rec.case_rates(g)["c"] for g in got], [(3, 3), (2, 3)])  # 3 of 3 then 2 of 3, partial dropped
+        # before the 03 record only 02 counts
+        self.assertEqual(len(self.rec.earlier_records(folder, "2026-10-03T00-00-00Z-master.json")), 1)
+
+    def test_verdict_compares_with_earlier_records_in_its_folder(self):
+        folder = os.path.join(self.tmp, "evals"); os.makedirs(folder)
+        json.dump(batch(case([P, P, P])), open(os.path.join(folder, "2026-10-01T00-00-00Z-master.json"), "w"))
+        now = os.path.join(folder, "2026-10-02T00-00-00Z-master.json"); json.dump(batch(case([P, P, F])), open(now, "w"))
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = self.rec.main(["--verdict", now])
+        self.assertEqual(code, 0); self.assertIn("pass rate fell to 2 of 3", out.getvalue())
+        # alone in its folder: no fall note
+        lone = os.path.join(self.tmp, "lone"); os.makedirs(lone)
+        p2 = os.path.join(lone, "x.json"); json.dump(batch(case([P, P, F])), open(p2, "w"))
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = self.rec.main(["--verdict", p2])
+        self.assertEqual(code, 0); self.assertNotIn("fell", out.getvalue())
+
+    def test_a_red_store_prints_the_stored_path(self):
+        home = os.path.join(self.tmp, "home"); os.environ["RELAY_HOME"] = home
+        try:
+            path = os.path.join(self.tmp, "new.json"); json.dump(batch(case([P, F, F])), open(path, "w"))
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = self.rec.main(["--json", path, "--repo", "relay", "--branch", "master"])
+            stored = os.path.join(home, "evals", "relay")
+            self.assertEqual(code, 2)
+            self.assertIn(f"--verdict {os.path.join(stored, os.listdir(stored)[0])} shows why", out.getvalue())
         finally:
             os.environ.pop("RELAY_HOME", None)
 
