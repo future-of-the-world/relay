@@ -1,6 +1,5 @@
 """The hooks run under whatever python3 is on the hook's PATH, on macOS /usr/bin/python3 (3.9): every plugin lib module
 and hook must import there, and a hook must survive an empty event. mypy's python_version cannot see this class."""
-import glob
 import os
 import subprocess
 import sys
