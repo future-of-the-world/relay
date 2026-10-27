@@ -1,0 +1,75 @@
+{
+  "branch": "wt/conflict-rule",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading: grep -n -i rider rules/git.md gives only line 24; the train sentence that follows (\"Ready changes that wait together land as one train\") does not use the word rider. The front's brief had \"a recheck of every rider's item on the head after the resolution\", which is the train case; the delegate skill words the general case correctly (step 8: the fixer resolves, then relay gate, then the checker). Low because the merge hook enforces the recheck in code (the resolved file is listed by relay changed --own after the mark and the merge is refused without a covering check), so nothing merges unchecked today; it is a wording gap in a rule every project loads.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "$ grep -n -i rider rules/git.md",
+        "24:  person-facing; or I said to hold it. A resolved conflict still needs a green gate and a recheck of every rider's item on the head. When I say \"hold\", wait for my word on that change.",
+        "$ sed -n 200,205p plugins/delegate/skills/delegate/SKILL.md",
+        "   ... a fixer resolves a conflict first (...); then `relay gate`, then the checker."
+      ],
+      "failing_case": [
+        "A single ready change (no train) takes the default branch, a fixer resolves a conflict in lib/x.py. A front reading only rules/git.md (it is inlined into every project's CLAUDE.md) finds: \"A resolved conflict still needs a green gate and a recheck of every rider's item on the head.\" There are no riders, so the sentence names no recheck for this case. The needed recheck is the merge check of the resolved files (the checker's M<n>, delegate step 8). \"rider\" appears nowhere else in rules/git.md. Expected: the sentence names a recheck that holds for one change and for a train."
+      ],
+      "fix_hint": [
+        "Write: \"A resolved conflict still needs a green gate and a new check of the resolved files on the head (on a train, of every rider's item).\" and rewrap to the paragraph's width."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 24,
+      "pass_cases": [
+        "1. rules/git.md, the merge-ask paragraph: the sentence on a resolved conflict names a check of the resolved files (or \"a new check\") that applies to a single change, not only to a train's riders.",
+        "2. Same paragraph: it still says a fixer that could not resolve the conflict is the only conflict reason to ask the owner.",
+        "3. The other reasons to ask (a finding open as Design, question, Disputed or Gap; an unanswered question; person-facing; hold) remain in the same sentence."
+      ],
+      "path": "rules/git.md",
+      "rank": "low",
+      "reason": [
+        "rules/git.md:24-26 now reads \"a new check of the resolved files on the head (on a train, of every rider's item)\"; the ask-only-if-fixer-stopped clause and the other reasons are kept. Checked by reading."
+      ],
+      "severity": "LOW",
+      "since": "c50ff8786d38740980d471259c17bd55f09fec2f",
+      "source": "review-conflict-rule.json",
+      "source_id": "F1",
+      "summary": "the new sentence names the recheck as 'every rider's item', a train-only term the git rule never defines, so a single change's resolved conflict reads as needing no recheck",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/front/skills/front/SKILL.md came in from master (merge ec527cc5d958) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "plugins/front/skills/front/SKILL.md: master merge changed only the feature-idea paragraph (line ~247, said key); the conflict-rule text in \"A change ready to merge\" is unchanged and consistent. Gate ec527cc covers it."
+      ],
+      "severity": "MEDIUM",
+      "since": "ec527cc5d958459b6e3651ff42947a066fbdbd34",
+      "source": "merge",
+      "summary": "plugins/front/skills/front/SKILL.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "ec527cc5d958459b6e3651ff42947a066fbdbd34.gate.log",
+  "head": "bd64d80ce0df1ca72d2167ae64946f29e09de5ff",
+  "item": null,
+  "notes": [
+    "Commit d52801b (after the review) rewrote the git.md sentence as the F1 hint asked. The only other change since the review is a master merge that edited an unrelated paragraph of the front skill (owner-words/said key); the change's own text there (case a) is untouched."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range c50ff87..HEAD bd64d80. Gate log head ec527cc, exit 0; relay changed ec527cc lists nothing (only the gate log came after). Check command: precheck ok, pytest -k 'rule or skill or merge or front': 195 passed. Text-only change, no tests added or owed."
+  ],
+  "type": "check"
+}
