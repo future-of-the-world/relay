@@ -1,7 +1,6 @@
 """A queue landing must write only records the default branch's own code accepts (item a-queue-landing-writes-fields-master-s-code-reje).
 Scratch repositories in a temp dir; the default branch carries a copy of lib/ whose schema does not know the `notes` key."""
 import os
-import shutil
 import sys
 import unittest
 
