@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 45,
+  "found_at": "2026-10-27T06:10:57Z",
+  "found_in": "relay queue add",
+  "title": "A queue landing writes fields master's code rejects",
+  "what": [
+    "A queue landing writes fields master's code rejects"
+  ],
+  "why": [
+    "Measured 27 Oct: the notes change (branch wt/owner-notes, not merged) ran its migration with `relay queue note` from the worktree; the lander put 30+ commits on master that add a `notes` key to items, while master's code does not know the key yet. Right after, `relay queue check` on master reported \"unknown key notes\" for each such item (for example what-the-owner-says-about-an-item-stays-in-it.json), so master's queue check stayed red until the code merges, and a gate or hook on master in that window could refuse unrelated work. The lander's rule checks only that one file under .relay/queue/ changes, not that the default branch's own code accepts the new record."
+  ],
+  "failing_case": [
+    "From a worktree whose relay_queue.py adds a new item key, `relay queue note <slug> ...` lands on master; then `relay queue check` run with master's code fails with 'unknown key notes'."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The lander validates the record with the default branch's schema before it lands, and refuses with the next step (merge the code first, or land from the default branch) when that schema rejects it.",
+    "A record master's code accepts still lands at once, as today.",
+    "A test in a temporary repository shows the refusal and fails with the check disabled."
+  ],
+  "where": [
+    "lib/relay_queue.py (the lander)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
