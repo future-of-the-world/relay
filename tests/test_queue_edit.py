@@ -43,6 +43,23 @@ class Quoted(unittest.TestCase):
     def test_a_quote_over_two_lines_is_one_span(self):
         self.assertEqual(rq.quoted_spans(['Owner: "first', "middle", 'last"']), ['"first\nmiddle\nlast"'])
 
+    def test_nested_double_quotes_are_one_span(self):
+        # the owner's words with an inner quoted word (live item queue-time-estimates-are-guesses-with-no-model-b): one outer span
+        line = 'Owner: "что стоит за этой оценкой, "на глаз" или здесь система".'
+        self.assertEqual(rq.quoted_spans([line]), ['"что стоит за этой оценкой, "на глаз" или здесь система"'])
+
+    def test_live_nested_lines_are_covered(self):
+        for line in ['Owner: "исходя из "реального" состояния объекта" end', 'Owner: "каким может стать "вкус", память это заметки" end']:
+            spans = rq.quoted_spans([line])
+            self.assertEqual(len(spans), 1, line)
+            self.assertIn(line.split('"')[1], spans[0])
+            # every Cyrillic word of the line sits inside the span
+            outside = line.replace(spans[0], "")
+            self.assertNotRegex(outside, "[а-яё]")
+
+    def test_a_quote_mark_that_fits_neither_role_is_unbalanced(self):
+        self.assertIsNone(rq.quoted_spans(['a 5"x b']))
+
     def test_unbalanced_double_quote_is_none(self):
         self.assertIsNone(rq.quoted_spans(['one " mark']))
 
@@ -126,6 +143,52 @@ class EditCommand(tq.Base):
         self.edit("test", "tests/t.py::test_old", "tests/t.py::test_new")
         self.assertEqual(self.current()["test"], "tests/t.py::test_new")
 
+    def test_nested_quoted_word_is_never_changed(self):
+        self.seed(why=['Owner: "что стоит за этой оценкой, "на глаз" или система".'])
+        with self.assertRaisesRegex(rq.Refused, "changes quoted text"):
+            self.edit("why", "на глаз", "по ощущению")
+        self.assertEqual(self.current()["why"], ['Owner: "что стоит за этой оценкой, "на глаз" или система".'])
+        self.assertFalse(rq.notes_of(self.current()))
+
+    def test_the_test_edit_checks_the_whole_result_not_the_fragment(self):
+        self.write_commit(self.main, {"tests/t.py": "def test_new():\n    pass\n"}, "tests")
+        self.seed(taken_at="2026-10-02T00:00:00Z", taken_by="wt/z", closed_at="2026-10-03T00:00:00Z", test="tests/t.py::test_old_case")
+        # the fragment "tests/t.py::test_new" exists, but the result "tests/t.py::test_new_case" does not
+        with self.assertRaisesRegex(rq.Refused, "test_new_case"):
+            self.edit("test", "tests/t.py::test_old", "tests/t.py::test_new")
+        self.assertEqual(self.current()["test"], "tests/t.py::test_old_case")
+        self.assertFalse(rq.notes_of(self.current()))
+
+    def test_a_test_name_fragment_giving_an_existing_test_is_accepted(self):
+        self.write_commit(self.main, {"tests/t.py": "def test_new():\n    pass\n"}, "tests")
+        self.seed(taken_at="2026-10-02T00:00:00Z", taken_by="wt/z", closed_at="2026-10-03T00:00:00Z", test="tests/t.py::test_old")
+        self.edit("test", "test_old", "test_new")
+        self.assertEqual(self.current()["test"], "tests/t.py::test_new")
+        self.assertEqual(len(rq.notes_of(self.current())), 1)
+
+    def test_failing_kind_fragment_is_judged_on_the_result(self):
+        self.seed("fix")
+        with self.assertRaisesRegex(rq.Refused, "failing_kind is"):
+            self.edit("failing_kind", "cl", "run")        # "claim" -> "runaim": the result is not a kind, though "run" is
+        self.edit("failing_kind", "claim", "test")
+        self.assertEqual(self.current()["failing_kind"], "test")
+
+    def test_the_edit_note_carries_the_field_as_data_and_show_marks_it(self):
+        import json
+        import datetime as dt
+        self.seed(why=["it matters"])
+        self.edit("why", "it matters", "it matters more")
+        raw = json.loads(git(self.main, "show", "master:" + QUEUE + SLUG + ".json"))
+        # the stored note: {"at", "edited": "why", "fact": [...]}
+        self.assertEqual(raw["notes"][0]["edited"], "why")
+        note = rq.notes_of(self.current())[0]
+        self.assertEqual((note.kind, note.edited), ("fact", "why"))
+        text = rq.show_text(self.current(), tz=dt.timezone.utc)
+        # edited on 10 Oct 00:00 UTC: the heading names the date; a field never edited keeps its plain heading
+        self.assertIn("Why (edited 10 Oct):", text)
+        self.assertIn("What:", text)
+        self.assertNotIn("What (edited", text)
+
     def test_test_of_an_open_item_is_refused(self):
         self.seed(test=None)
         with self.assertRaisesRegex(rq.Refused, "only after it is closed"):
@@ -203,6 +266,22 @@ class Fence(tq.Base):
                           QUEUE + SLUG + ".json": item_text("feature", why=["it matters"], taken_at="2026-10-11T00:00:00Z", taken_by="wt/t",
                                                             closed_at="2026-10-12T00:00:00Z", test="tests/t.py::test_x",
                                                             notes=[rq.Note("fact", NOW, ["measured"])])})
+        self.judge()
+
+    def test_deleting_an_item_file_is_refused(self):
+        git(self.wt, "rm", "-q", QUEUE + SLUG + ".json")
+        git(self.wt, "commit", "-q", "-m", "drop it by hand")
+        with self.assertRaisesRegex(merge_hook.Refused, "relay queue"):
+            self.judge()
+
+    def test_adding_an_item_file_by_hand_is_refused(self):
+        self.branch_with({QUEUE + "new-one.json": item_text("feature")})
+        with self.assertRaisesRegex(merge_hook.Refused, "relay queue add"):
+            self.judge()
+
+    def test_a_migrate_module_exempts_added_and_deleted_files(self):
+        git(self.wt, "rm", "-q", QUEUE + SLUG + ".json")
+        self.branch_with({"lib/relay_thing_migrate.py": "x = 1\n", QUEUE + "new-one.json": item_text("feature")})
         self.judge()
 
     def test_a_library_edit_taken_into_the_branch_passes(self):

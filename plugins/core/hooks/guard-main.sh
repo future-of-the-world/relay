@@ -27,7 +27,7 @@
 #   code naming it with a write word); reads are allowed. Those files are written only by relay's own hook and
 #   `relay gate`. Tests: plugins/core/tests/check-mark.test.sh;
 # - the same for a queue item file `.relay/queue/<slug>.json`: only `relay queue` writes it (the message names `relay queue edit`);
-#   git's own verbs (a merge conflict) stay free. Tests: plugins/core/tests/guard-main.test.sh
+#   git's own verbs (a merge conflict) stay free. Tests: plugins/core/tests/check-mark.test.sh (Q1-Q4)
 # - everything, with the reason, when the guard cannot read its own bindings:
 #   .claude/kit.toml present but unreadable, or jq / python3 missing. A broken
 #   guard never silently allows.

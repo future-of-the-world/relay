@@ -148,10 +148,11 @@ class Note(NamedTuple):
     answered_at: Optional[str] = None
     answer: list = []            # the owner's whole reply, every explanation included
     reading: list = []           # the front's reading of the answer, always shown as the front's
+    edited: str = ""             # a fact note written by `relay queue edit`: the field it edited (data, not prose); "" for the others
 
 
 NOTE_ONE_OF = {"said", "fact", "question"}
-NOTE_KEYS = {"said": ("at", "said"), "fact": ("at", "fact"),
+NOTE_KEYS = {"said": ("at", "said"), "fact": ("at", "fact", "edited"),
              "question": ("asked_at", "number", "question", "options", "answered_at", "answer", "reading")}
 
 
@@ -160,6 +161,8 @@ def note_dict(note: Note) -> dict:
     if note.kind == "said":
         return {"at": note.at, "said": list(note.text)}
     if note.kind == "fact":
+        if note.edited:
+            return {"at": note.at, "edited": note.edited, "fact": list(note.text)}
         return {"at": note.at, "fact": list(note.text)}
     out: dict = {"asked_at": note.at, "number": note.number, "question": list(note.text), "options": list(note.options)}
     if note.answered_at:
@@ -195,8 +198,10 @@ def parse_note(raw: object) -> tuple:
         problems.append(f"{stamp} is not a UTC time YYYY-MM-DDTHH:MM:SSZ")
     if not _nonblank(raw.get(kind)):
         problems.append(f"{kind} is not a non-empty list of lines")
+    if "edited" in raw and (kind != "fact" or raw["edited"] not in EDIT_FIELDS):
+        problems.append("edited is not a field that `relay queue edit` edits")
     if kind != "question":
-        return (None, problems) if problems else (Note(kind, raw["at"], list(raw[kind])), [])
+        return (None, problems) if problems else (Note(kind, raw["at"], list(raw[kind]), edited=raw.get("edited", "")), [])
     number: Any = raw.get("number")
     options: Any = raw.get("options")
     if not isinstance(number, int) or isinstance(number, bool) or number < 1:
@@ -475,6 +480,9 @@ def show_text(item, tz=None):
         out.append(f"evidence {item['evidence']}")
     for title, key in (("What", "what"), ("Why", "why"), ("Failing case" + (f" ({item['failing_kind']})" if item.get("failing_kind") else ""), "failing_case"), ("Pass cases", "pass_cases"), ("Dropped because", "dropped_why")):
         if item.get(key):
+            mark = [n.at for n in notes_of(item) if n.edited == key]
+            if mark:
+                title += f" (edited {_local(mark[-1], tz).rsplit(' ', 1)[0]})"
             out += [f"{title}:"] + ["  " + line for line in item[key]]
         if key == "why":
             out += notes_text(item, tz)
@@ -1616,8 +1624,32 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
 EDIT_FIELDS = ("title", "what", "why", "failing_case", "failing_kind", "pass_cases", "where", "time", "test")
 EDIT_KEYS = ("field", "old", "new", "because")
 DOUBLE_QUOTES = {'"': '"', "«": "»", "“": "”"}
+QUOTE_BEFORE_OPEN = " \n(:[{=,\"«“"      # a straight quote opens after one of these and before a non-space
+QUOTE_AFTER_CLOSE = ".,;:!?)]\"»”'"  # and closes before a space, a line end or one of these
 SINGLE_OPEN = " \n(:"          # a single quote opens a span after a line start, a space, "(" or ":" ("owner's" opens nothing)
 SINGLE_CLOSE = " \n.,;:!?)"    # and closes before a line end or one of these ("repository not found'.")
+
+
+def _straight_span_end(text: str, start: int) -> int:
+    """The index of the " that closes the straight-quoted span opened at `start`, or -1. Straight quotes nest: a " after a line start,
+    space, "(", ":" or another opening mark and before a non-space opens (depth + 1); one before a line end, space, punctuation or a
+    closing mark closes (depth - 1); the span ends where depth returns to 0. A mark that fits neither role, or a span still open
+    at the end, gives -1 (the field is not edited)."""
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] != '"':
+            continue
+        before = text[i - 1] if i else "\n"
+        after = text[i + 1] if i + 1 < len(text) else "\n"
+        if before in QUOTE_BEFORE_OPEN and not after.isspace():
+            depth += 1
+        elif depth and (after.isspace() or after in QUOTE_AFTER_CLOSE):
+            depth -= 1
+            if depth == 0:
+                return i
+        else:
+            return -1
+    return -1
 
 
 def quoted_spans(lines: list) -> Optional[list]:
@@ -1628,6 +1660,13 @@ def quoted_spans(lines: list) -> Optional[list]:
     spans, i = [], 0
     while i < len(text):
         ch = text[i]
+        if ch == '"':
+            end = _straight_span_end(text, i)
+            if end < 0:
+                return None
+            spans.append(text[i:end + 1])
+            i = end + 1
+            continue
         if ch in DOUBLE_QUOTES:
             end = text.find(DOUBLE_QUOTES[ch], i + 1)
             if end < 0:
@@ -1738,16 +1777,16 @@ def edit(repo: str, slug: str, field: str, old: str, new: str, because: str, now
         if item["problems"]:
             raise Refused(f"nothing edited: queue item '{slug}' is malformed ({'; '.join(item['problems'])})")
         main, default = _context(repo)
-        if field == "test":
-            if item["state"] != "done":
-                raise Refused(f"nothing edited: the test of '{slug}' is edited only after it is closed (it is {item['state']}); `relay queue done` sets it")
-            reason = test_refusal(main, f"refs/heads/{default}", new.strip())
-            if reason:
-                raise Refused(f"nothing edited: {reason}")
-        if field == "failing_kind" and (item["kind"] != "fix" or new.strip() not in FAILING_KINDS):
-            raise Refused(f"nothing edited: failing_kind is {', '.join(FAILING_KINDS)}, and only a fix has one")
+        if field == "test" and item["state"] != "done":
+            raise Refused(f"nothing edited: the test of '{slug}' is edited only after it is closed (it is {item['state']}); `relay queue done` sets it")
         before = item["time"] if field == "time" else item.get(field)
         after = _edited_value(item, field, old, new, repo, default)
+        if field == "test":                       # the whole test the item ends up naming, not the fragment
+            reason = test_refusal(main, f"refs/heads/{default}", str(after))
+            if reason:
+                raise Refused(f"nothing edited: {reason}")
+        if field == "failing_kind" and (item["kind"] != "fix" or after not in FAILING_KINDS):
+            raise Refused(f"nothing edited: failing_kind is {', '.join(FAILING_KINDS)}, and only a fix has one")
         problem = edit_problem(item, field, before, after)
         if problem:
             raise Refused(f"nothing edited: {problem}")
@@ -1761,7 +1800,7 @@ def edit(repo: str, slug: str, field: str, old: str, new: str, because: str, now
         if when < item["found_at"]:
             raise Refused(f"nothing edited: {when} is before the item was found ({item['found_at']})")
         notes = notes_of(item)
-        notes.insert(len([n for n in notes if n.at <= when]), Note("fact", when, [f"Edited {field}: {line}" if n == 0 else line for n, line in enumerate(lines_of(because))]))
+        notes.insert(len([n for n in notes if n.at <= when]), Note("fact", when, [f"Edited {field}: {line}" if n == 0 else line for n, line in enumerate(lines_of(because))], edited=field))
         text = serialize(slug, changed(item, **{field: after}, notes=notes))
         return Plan(slug, {_path(slug): text}, f"{item['kind']}, {field} edited", "edited")
 

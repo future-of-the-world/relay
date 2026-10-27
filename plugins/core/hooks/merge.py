@@ -202,6 +202,23 @@ def step_hand_edits(main, default, ref, changed_files):
             raise Refused(hand % "test")
 
 
+def step_hand_files(main, default, ref):
+    """No item file is deleted or added by a task branch: `relay queue add` lands on the default branch, and an item is never deleted
+    (`relay queue drop` marks it). A branch that changes a migrate module is exempt. Run after the malformed check, so a bad new
+    record is named as malformed first."""
+    names = relay_git.git(main, "diff", "--name-only", "--no-renames", "-z", "refs/heads/%s...%s" % (default, ref))[1].split("\0")
+    if any(MIGRATE_MODULE.fullmatch(n) for n in names):
+        return
+    for flag, what in (("D", "deleted"), ("A", "added")):
+        gone = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=" + flag, "-z", "refs/heads/%s...%s" % (default, ref), "--", QUEUE_DIR)[1]
+        for path in sorted(p for p in gone.split("\0") if p.endswith(".json") and os.path.dirname(p) == QUEUE_DIR.rstrip("/")):
+            if what == "deleted":
+                raise Refused("queue item %s deleted by hand; an item is never deleted, `relay queue drop` marks it dropped" % os.path.basename(path)[:-5])
+            if blob(main, "refs/heads/" + default, DONE_DIR + os.path.basename(path)) is not None:
+                continue                                   # the old done/ folder moved in place: not a new item
+            raise Refused("queue item %s added by hand; use relay queue add (it lands on the default branch, not on a task branch)" % os.path.basename(path)[:-5])
+
+
 def step_queue(main, default, branch, ab=None):
     """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
     `relay queue migrate`); every queue file at the branch tip, whether the range touched it or not (one that came in by taking the
@@ -240,6 +257,7 @@ def step_queue(main, default, branch, ab=None):
         reason = relay_queue.test_refusal(main, ref, meta["test"]) or relay_queue.check_refusal(main, closer, slug)
         if reason:
             raise Refused("queue item %s is closed without a test or a check: %s" % (slug, reason))
+    step_hand_files(main, default, ref)
 
 
 def _dropped_after(main, default, commit, ref, ab):
