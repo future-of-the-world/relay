@@ -69,6 +69,26 @@
         "Round 2, 27 Oct (wt/wave-red e223878, about $2.9): cause of keep-owner-words red was the EVAL: the session did write the said note unasked, by a Bash heredoc, but the grader demanded the Write tool; fixed, now 3 of 3 in both languages. recall-decision: BEHAVIOUR plus stub: the session never loaded the front skill; the skill description now says to load it before answering what was decided; on the final text 7 of 9 runs passed (3/3 then 2/3 and earlier runs), cause of the 2 failures not found (the judge returns votes, no reasons). Review of round 2 (review-wave-red-2.json): F1 HIGH recall-decision 7 of 9, F2 MEDIUM stub show prints raw JSON not the real Notes text, F3 MEDIUM three graders untested against a wrong call, F4 LOW stub note accepts any word as slug, F5 question: the front must quote recorded options untranslated.",
         "Decision by the front on F5, 27 Oct (owner can reverse): when the front answers \"what did we decide\", it quotes the question and its options as recorded, which is exactly the block shown to the owner (the owner: \"Я вижу ответы но не вопрос - он важен\"); since questions are shown in the owner's language, the recorded options are in it too (live: the metrics question 1 options are Russian). Only a note recorded in another language (some migrated ones) gets the owner-language translation beside the quote, marked as the front's. The eval fixture is to hold its question in Russian like a real one."
       ]
+    },
+    {
+      "asked_at": "2026-10-27T11:08:34Z",
+      "number": 2,
+      "question": [
+        "**2. Как я отвечаю на «что мы решили про X»**",
+        "",
+        "Когда вы спрашиваете о решении, я отвечаю по записи в задаче: вопрос и варианты в том виде, в каком вам их показали, ваш ответ дословно, моё толкование отдельно и с пометкой. Вопросы вам показываются по-русски, поэтому и записаны они по-русски: например, вопрос 1 в задаче про метрики. Но 16 старых записей перенесены из английских планов, и в них варианты по-английски. Проверка 6 из 6 прошла на форме a, пример ответа ниже.",
+        "",
+        "| | a. как записано, перевод только у английских | b. всегда пересказ по-русски | c. всегда цитата и перевод |",
+        "|---|---|---|---|",
+        "| Видите ли вы ровно то, что вам показали | да | нет, это пересказ | да |",
+        "| Длина ответа | как сам вопрос | короче | у английских записей вдвое длиннее |",
+        "| Английские записи | цитата и мой перевод с пометкой | только перевод | цитата и перевод |"
+      ],
+      "options": [
+        "a. Как записано; у английских записей перевод рядом с пометкой «мой» (рекомендую: вы видите ровно заданный вопрос)",
+        "b. Всегда пересказывать по-русски",
+        "c. Всегда давать цитату и перевод"
+      ]
     }
   ]
 }
