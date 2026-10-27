@@ -1,0 +1,36 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 20,
+  "found_at": "2026-10-27T15:18:34Z",
+  "found_in": "finding F2 of review-typo-flake.json",
+  "title": "The twin cases no-spec-step and no-spec-step-ru keep…",
+  "what": [
+    "evals/plugin/no-spec-step/graders/worker-started.md:4: MEDIUM: F2 the twin cases no-spec-step and no-spec-step-ru keep pattern delegate:worker with the same stop-at-the-first-agent prompt, so a scout-first run fails them the same way (principle 6: one example fixed, not the rule)"
+  ],
+  "why": [
+    "Found 27 Oct by the review of wt/typo-flake, outside that change: the fix let the worker-started grader of no-spec-step-typo count a run that sends a scout before a worker (seen in a kept trace), but its twin cases no-spec-step and no-spec-step-ru still require delegate:worker first, so a correct run that looks something up first fails them the same way. Also left open there: the no-openspec-command failure at 9bc988d has no kept trace, so its cause is unknown."
+  ],
+  "failing_case": [
+    "no-spec-step-ru's prompt is the typo prompt without typos (\"Сделай так, чтобы список товаров сортировался по названию ...",
+    "stop at the first agent's reply\"); no-spec-step is the English twin. A run that starts delegate:scout first (\"Find product",
+    "list code\", as in e-W2XJtZ) and stops at its reply fails worker-started (Agent called 0x) although it did nothing wrong.",
+    "It should pass, as the typo case now does."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. no-spec-step and no-spec-step-ru worker-started: an Agent input with subagent_type delegate:scout matches.",
+    "2. delegate:worker still matches.",
+    "3. openspec:plan, openspec:author, Explore, general-purpose do not match.",
+    "4. The three twin cases carry the same worker-started pattern."
+  ],
+  "where": [
+    "evals/plugin/no-spec-step/graders/worker-started.md:4"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
