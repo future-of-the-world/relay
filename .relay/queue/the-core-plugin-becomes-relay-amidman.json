@@ -47,6 +47,12 @@
       "reading": [
         "5 = a: build it next (after the open three, first the 30-minute plugins item), no new lanes until its merge. The owner wants the new ids to reach every project that connects relay."
       ]
+    },
+    {
+      "at": "2026-10-27T21:58:44Z",
+      "fact": [
+        "28 Oct, measured: relay's plugins are turned on only in the user-level ~/.claude/settings.json (enabledPlugins core@relay, delegate@relay, front@relay, observe@relay and the marketplace relay under extraKnownMarketplaces), so every project on this Mac gets them from there; projects.toml registers only relay itself; no project's .claude/settings*.json names an @relay id. lib/relay_old_names.toml [plugin_key] already maps old ids to new ones (sdd@relay -> openspec@relay), and relay setup moves a project's settings by it. Front's decision (owner can reverse), from the owner's \"Я хочу чтобы оно было общим для всех проектов которые подключают relay\": the rename adds core@relay -> relay@amidman (and each X@relay -> X@amidman) to that map, and relay sync applies it to the user-level settings and to every project in projects.toml, so no project keeps the old ids and none silently loses the merge hook; relay doctor flags an old id left anywhere."
+      ]
     }
   ]
 }
