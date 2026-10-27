@@ -195,6 +195,8 @@ class FixtureComment(unittest.TestCase):
         self.assertIn('self.path("plugins", "core", "bin")', gate)
         self.assertNotIn("evalbin", head)
         self.assertNotIn("evalbin", gate)
+        # Any other git-shim claim is false too: "shim" may appear only as "no git shim".
+        self.assertNotIn("shim", head.replace("no git shim", ""))
 
 
 if __name__ == "__main__":
