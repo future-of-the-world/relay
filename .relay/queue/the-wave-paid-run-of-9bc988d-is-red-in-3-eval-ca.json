@@ -25,8 +25,8 @@
     "evals/plugin/no-spec-step-typo",
     "~/.relay/evals/relay/2026-10-27T07-35-44Z-master.json"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T09:29:09Z",
+  "taken_by": "wt/wave-red",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
