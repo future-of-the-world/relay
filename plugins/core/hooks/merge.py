@@ -12,8 +12,10 @@ Only in a repository whose default branch has `.relay/`; elsewhere it exits 0 an
 Cleanup checks git itself, never the tool's exit status, and never forces: no `worktree remove
 --force`, no `branch -D`.
 """
+import glob
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -96,6 +98,7 @@ def clean(main, default, branch, hook):
         changed = [l[3:] for l in status.splitlines() if not l.startswith("!! ")]
         if changed:
             return "kept %s: it holds changes not in the branch (%s); branch %s kept" % (name, named(changed), branch)
+        keep_direct_runs(path)
         rc, _ = relay_git.git(main, "worktree", "remove", path)
         if rc != 0:
             return "kept %s: git refused to remove it; branch %s kept" % (name, branch)
@@ -408,12 +411,32 @@ def take_failures(main):
     return [l for l in lines if l.startswith("could not remove")]
 
 
+def keep_direct_runs(path):
+    """Copy the cost of every direct eval run in worktree `path` to $RELAY_HOME/evals-direct before `git worktree remove` deletes the
+    ignored evals/plugin/results/ (the paid ledger, lib/relay_paidcap.py kept_direct, reads that folder; same file name and shape).
+    The eval tool writes the result itself, so there is no run-time hook: removal is the last moment the file exists."""
+    home = os.path.expanduser(os.environ.get("RELAY_HOME") or "~/.relay")
+    for result in glob.glob(os.path.join(path, "evals", "plugin", "results", "*", "aggregate-result.json")):
+        try:
+            with open(result, encoding="utf-8") as handle:
+                data = json.load(handle)
+            stamp, cost = data["startedAt"], data["costUsd"]
+            if not isinstance(stamp, str) or isinstance(cost, bool) or not isinstance(cost, (int, float)):
+                continue
+            os.makedirs(os.path.join(home, "evals-direct"), exist_ok=True)
+            with open(os.path.join(home, "evals-direct", re.sub(r"[^0-9A-Za-z.-]", "-", stamp) + ".json"), "w", encoding="utf-8") as out:
+                json.dump({"startedAt": stamp, "costUsd": cost}, out)
+        except (OSError, ValueError, KeyError, TypeError):
+            continue   # unreadable or not a result: nothing to keep
+
+
 def remove_child(path, branch):
     """Guards 6-7 for one merged worktree, run detached: `git worktree remove` (never --force), then `git branch -d`."""
     main = relay_git.main_checkout(path)
     if main is None:
         return 1
     name = rel(main, path)
+    keep_direct_runs(path)
     done = subprocess.run(["git", "-C", main, "worktree", "remove", path], capture_output=True, text=True)
     if done.returncode != 0:
         log_line(main, "could not remove %s: %s" % (name, last_line(done.stderr)))

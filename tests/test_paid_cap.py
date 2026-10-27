@@ -8,6 +8,7 @@ import relay_paidcap  # noqa: E402
 import relay_bench  # noqa: E402
 
 BIN = os.path.join(ROOT, "bin", "paid-cost")
+MERGE = os.path.join(ROOT, "plugins", "core", "hooks", "merge.py")
 
 
 class Fixture(unittest.TestCase):
@@ -59,7 +60,10 @@ class DirectRuns(Fixture):
         self.wt = os.path.join(self.home, "wt")
         git = lambda *a, cwd=self.root: subprocess.run(["git", "-C", cwd, *a], check=True, capture_output=True)
         os.makedirs(self.root)
-        git("init", "-q"); git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x")
+        git("init", "-q")
+        with open(os.path.join(self.root, ".gitignore"), "w") as f:
+            f.write("evals/plugin/results/\n")   # as the real .gitignore: a plain `git worktree remove` (never --force) then succeeds
+        git("add", ".gitignore"); git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x")
         git("worktree", "add", "-q", "--detach", self.wt)
 
     def result(self, checkout, stamp, cost):
@@ -350,15 +354,16 @@ class DirectRunsDurable(DirectRuns):
     """F1-F3 of the review: a direct run outlives its worktree; the bench guard sees direct runs; suite_roots is time-limited."""
 
     def remove_wt(self):
-        subprocess.run(["git", "-C", self.root, "worktree", "remove", "--force", self.wt], check=True, capture_output=True)
+        """What the merge hook does to a merged worktree: its remove_child (keeps the direct runs, then `git worktree remove`), no ledger call between."""
+        subprocess.run([sys.executable, "-I", MERGE, "remove", self.wt, "no-such-branch"], env=dict(os.environ, RELAY_HOME=self.home),
+                       capture_output=True)   # the branch delete fails after the removal: not the point here
 
     def test_a_direct_run_still_counts_after_its_worktree_is_removed(self):
         # F1: 4.00 + 3.00 + 1.50 + a direct 2.00 = 10.50 over 4 runs, before and after `git worktree remove` deletes the results
         self.result(self.wt, "2026-10-24T05:00:00.000Z", 2.0)
         args = ("today", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
         want = "2026-10-24: spent $10.50 of the $10 cap, 4 runs"
-        self.assertEqual(self.run_bin(*args).stdout.strip(), want)
-        self.remove_wt()
+        self.remove_wt()   # no paid-cost call before it: only the removal itself can have kept the cost
         self.assertFalse(os.path.exists(self.wt))
         self.assertEqual(self.run_bin(*args).stdout.strip(), want)
 
@@ -367,8 +372,7 @@ class DirectRunsDurable(DirectRuns):
         self.run_bin("cap", "18")
         self.result(self.wt, "2026-10-24T05:00:00.000Z", 1.5)
         args = ("guard", "eval", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
-        self.assertEqual(self.run_bin(*args).returncode, 1)
-        self.remove_wt()
+        self.remove_wt()   # no guard call before it
         done = self.run_bin(*args)
         self.assertEqual(done.returncode, 1)
         self.assertIn("$10.00 is spent", done.stdout)
@@ -377,7 +381,6 @@ class DirectRunsDurable(DirectRuns):
         # F1 pass 3: same startedAt as stored record "a" (4.00): 8.50 over 3 runs, removal or not
         self.result(self.wt, "2026-10-24T01:00:00.000Z", 4.0)
         args = ("today", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
-        self.run_bin(*args)
         self.remove_wt()
         self.assertEqual(self.run_bin(*args).stdout.strip(), "2026-10-24: spent $8.50 of the $10 cap, 3 runs")
 
