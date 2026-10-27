@@ -169,6 +169,17 @@ def note_dict(note: Note) -> dict:
     return out
 
 
+def option_problem(options: object) -> Optional[str]:
+    """Why `options` are not the stored form (at least two lines starting a. , b. , ... in order), or None. The one rule of the schema
+    check and of the `note` input."""
+    if not _is_lines(options) or len(options) < 2:
+        return "options are not at least two lines starting a. , b. , ... in order"
+    for n, line in enumerate(options):
+        if not line.startswith(f"{chr(97 + n)}. "):
+            return "options are not at least two lines starting a. , b. , ... in order"
+    return None
+
+
 def parse_note(raw: object) -> tuple:
     """(Note, []) for a well-formed note object, else (None, reasons). The one reader of a note's JSON: the schema check and `parse`
     both use it."""
@@ -190,8 +201,9 @@ def parse_note(raw: object) -> tuple:
     options: Any = raw.get("options")
     if not isinstance(number, int) or isinstance(number, bool) or number < 1:
         problems.append("number is not a whole number from 1")
-    if not _is_lines(options) or len(options) < 2 or any(not o.startswith(f"{chr(97 + n)}. ") for n, o in enumerate(options)):
-        problems.append("options are not at least two lines starting a. , b. , ... in order")
+    bad_options = option_problem(options)
+    if bad_options:
+        problems.append(bad_options)
     answered, answer, reading = raw.get("answered_at"), raw.get("answer"), raw.get("reading")
     if ("answered_at" in raw) != ("answer" in raw):
         problems.append("answer is set exactly when answered_at is")
@@ -919,9 +931,15 @@ def add_from(repo, report, fid, why="", minutes=None, ip=None, now=None, **engin
     title = summary[0].upper() + summary[1:]     # a summary is a sentence; the capital keeps `add` from taking it for the slug's words
     if len(title) >= TITLE_MAX:                   # a title is the "what" column: cut a long summary at a word (the linter line in `what` holds all of it)
         title = title[:TITLE_MAX - 2].rsplit(" ", 1)[0].rstrip(" ,;:.-") + "…"
-    return add(repo, "fix", title, why=why, what=relay_verdict.linter(found), failing="\n".join(found["failing_case"]),
-               pass_cases="\n".join(found.get("pass_cases") or []), minutes=minutes, ip=ip, where=[f"{found['path']}:{found['line']}"], context=context, now=now,
-               failing_kind="claim", **engine)     # a review's finding is its reviewer's claim
+    try:
+        return add(repo, "fix", title, why=why, what=relay_verdict.linter(found), failing="\n".join(found["failing_case"]),
+                   pass_cases="\n".join(found.get("pass_cases") or []), minutes=minutes, ip=ip, where=[f"{found['path']}:{found['line']}"], context=context, now=now,
+                   failing_kind="claim", **engine)     # a review's finding is its reviewer's claim
+    except Refused as exc:
+        if "names a session file" not in str(exc):
+            raise
+        raise Refused(f"{exc}. The text comes from the recorded review and cannot be edited here: queue the finding with "
+                      "`relay queue add --input <file.toml>` and write its failing case and pass cases without the session file")
 
 
 def set_ip(repo, slug, ip, **engine):
@@ -944,7 +962,6 @@ def set_ip(repo, slug, ip, **engine):
 def drop(repo, slug, why, **engine):
     if not why.strip():
         raise Refused("drop needs the owner's words (`why` in the input)")
-    refuse_session_paths("dropped", why=why)
 
     def planner(reader):
         item = _item_at(reader, slug)
@@ -1483,9 +1500,16 @@ def read_note_input(path: str) -> dict:
             errors.append("`to` must be a list of question numbers, like [1] or [1, 2]")
         out["to"] = raw["to"]
     if "at" in raw:
+        stamp = raw["at"]
+        if isinstance(stamp, dt.datetime) and stamp.tzinfo is not None and stamp.utcoffset() == dt.timedelta(0):
+            raw["at"] = stamp.strftime("%Y-%m-%dT%H:%M:%SZ")        # TOML reads an unquoted UTC time as a datetime: the same time
         if not _timestamp(raw["at"]):
             errors.append("`at` must be a UTC time like 2026-10-27T01:20:00Z")
         out["at"] = raw["at"]
+    if "options" in out and option_problem(out["options"]):
+        first = next((o for n, o in enumerate(out["options"]) if not o.startswith(f"{chr(97 + n)}. ")), "")
+        errors.append("each `options` line starts with its letter, a dot and a space, in order, at least two (a. ..., b. ...)" +
+                      (f"; yours: '{first}'" if first else ""))
     if errors:
         raise Refused("nothing noted: " + "; ".join(errors))
     return out
