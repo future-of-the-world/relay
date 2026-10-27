@@ -8,12 +8,16 @@ import relay_paidcap  # noqa: E402
 import relay_bench  # noqa: E402
 
 BIN = os.path.join(ROOT, "bin", "paid-cost")
+MERGE = os.path.join(ROOT, "plugins", "core", "hooks", "merge.py")
 
 
 class Fixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.home = self.tmp.name
+        # run_bench lists the worktrees of ROOT; the live repo's would add their direct runs to the fixture's day
+        self.addCleanup(setattr, relay_bench, "ROOT", relay_bench.ROOT)
+        relay_bench.ROOT = self.home
         self.projects = os.path.join(self.home, "projects.toml")
         with open(self.projects, "w") as f:
             f.write('[global]\ntitle = "t"\npaid_cap_usd_per_day = 10\n')
@@ -30,7 +34,7 @@ class Fixture(unittest.TestCase):
         self.tmp.cleanup()
 
     def run_bin(self, *args):
-        env = dict(os.environ, RELAY_HOME=self.home, RELAY_PROJECTS=self.projects)
+        env = dict(os.environ, RELAY_HOME=self.home, RELAY_PROJECTS=self.projects, RELAY_ROOT=getattr(self, 'root', self.home))
         return subprocess.run([sys.executable, BIN, *args], capture_output=True, text=True, env=env)
 
 
@@ -45,6 +49,57 @@ class Today(Fixture):
         self.assertEqual(self.run_bin("cap", "200").stdout.strip(), "200")
         self.assertEqual(relay_paidcap.cap(self.projects), 200.0)
         self.assertIn('title = "t"', open(self.projects).read())
+
+
+class DirectRuns(Fixture):
+    """A `claude plugin eval` run made by hand leaves evals/plugin/results/<stamp>/aggregate-result.json in the checkout it ran in."""
+
+    def setUp(self):
+        super().setUp()
+        self.root = os.path.join(self.home, "repo-main")
+        self.wt = os.path.join(self.home, "wt")
+        git = lambda *a, cwd=self.root: subprocess.run(["git", "-C", cwd, *a], check=True, capture_output=True)
+        os.makedirs(self.root)
+        git("init", "-q")
+        with open(os.path.join(self.root, ".gitignore"), "w") as f:
+            f.write("evals/plugin/results/\n")   # as the real .gitignore: a plain `git worktree remove` (never --force) then succeeds
+        git("add", ".gitignore"); git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x")
+        git("worktree", "add", "-q", "--detach", self.wt)
+
+    def result(self, checkout, stamp, cost):
+        folder = os.path.join(checkout, "evals", "plugin", "results", stamp.replace(":", "-").replace(".", "-"))
+        os.makedirs(folder)
+        with open(os.path.join(folder, "aggregate-result.json"), "w") as f:
+            json.dump({"startedAt": stamp, "costUsd": cost}, f)
+
+    def test_a_direct_run_in_a_worktree_counts_in_today(self):
+        # failing case: a worker's direct run of one case cost 2.25 in a worktree; the ledger showed only the stored 7.00 (4 + 3) and 1.50 bench
+        self.result(self.wt, "2026-10-24T05:00:00.000Z", 2.25)
+        done = self.run_bin("today", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        # 4.00 + 3.00 + 1.50 + 2.25 = 10.75 over 4 runs
+        self.assertEqual(done.stdout.strip(), "2026-10-24: spent $10.75 of the $10 cap, 4 runs")
+
+    def test_a_direct_run_in_the_main_checkout_counts_and_another_day_does_not(self):
+        self.result(self.root, "2026-10-24T05:00:00.000Z", 1.0)
+        self.result(self.root, "2026-10-23T05:00:00.000Z", 5.0)   # yesterday
+        done = self.run_bin("today", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        self.assertEqual(done.stdout.strip(), "2026-10-24: spent $9.50 of the $10 cap, 4 runs")   # 8.50 + 1.00
+
+    def test_a_bin_ci_run_is_counted_once(self):
+        # the stored record "a" (4.00) and the eval tool's own result have the same startedAt: one run
+        self.result(self.wt, "2026-10-24T01:00:00.000Z", 4.0)
+        done = self.run_bin("today", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        self.assertEqual(done.stdout.strip(), "2026-10-24: spent $8.50 of the $10 cap, 3 runs")
+
+    def test_the_guard_sees_a_direct_run(self):
+        # stored 7.00 + bench 1.50 = 8.50; largest stored batch 9.00 (23 Oct); cap raised to 18: 17.50 fits, but a direct 1.50 makes 10.00 + 9.00 = 19 > 18
+        self.run_bin("cap", "18")
+        args = ("guard", "eval", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        self.assertEqual(self.run_bin(*args).returncode, 0)
+        self.result(self.wt, "2026-10-24T05:00:00.000Z", 1.5)
+        done = self.run_bin(*args)
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("$10.00 is spent", done.stdout)
 
 
 class Refusal(Fixture):
@@ -250,6 +305,7 @@ class CiGuard(unittest.TestCase):
         with open(self.projects, "w") as f:
             f.write(f'[global]\npaid_cap_usd_per_day = {cap}\n')
         return dict(os.environ, RELAY_HOME=self.home, RELAY_PROJECTS=self.projects,
+                    RELAY_ROOT=self.tmp.name,   # not a git checkout: no live worktree's direct eval runs count in this test
                     PATH=os.path.join(self.tmp.name, "stub") + os.pathsep + os.environ["PATH"],
                     PYTHONPATH=os.path.join(ROOT, "lib"))
 
@@ -292,3 +348,86 @@ class CiGuard(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DirectRunsDurable(DirectRuns):
+    """F1-F3 of the review: a direct run outlives its worktree; the bench guard sees direct runs; suite_roots is time-limited."""
+
+    def remove_wt(self):
+        """What the merge hook does to a merged worktree: its remove_child (keeps the direct runs, then `git worktree remove`), no ledger call between."""
+        subprocess.run([sys.executable, "-I", MERGE, "remove", self.wt, "no-such-branch"], env=dict(os.environ, RELAY_HOME=self.home),
+                       capture_output=True)   # the branch delete fails after the removal: not the point here
+
+    def test_a_direct_run_still_counts_after_its_worktree_is_removed(self):
+        # F1: 4.00 + 3.00 + 1.50 + a direct 2.00 = 10.50 over 4 runs, before and after `git worktree remove` deletes the results
+        self.result(self.wt, "2026-10-24T05:00:00.000Z", 2.0)
+        args = ("today", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        want = "2026-10-24: spent $10.50 of the $10 cap, 4 runs"
+        self.remove_wt()   # no paid-cost call before it: only the removal itself can have kept the cost
+        self.assertFalse(os.path.exists(self.wt))
+        self.assertEqual(self.run_bin(*args).stdout.strip(), want)
+
+    def test_the_guard_counts_a_removed_direct_run(self):
+        # F1 pass 2: cap 18; 8.50 + direct 1.50 = 10.00, + estimate 9.00 (largest stored batch) = 19 > 18, after the removal too
+        self.run_bin("cap", "18")
+        self.result(self.wt, "2026-10-24T05:00:00.000Z", 1.5)
+        args = ("guard", "eval", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        self.remove_wt()   # no guard call before it
+        done = self.run_bin(*args)
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("$10.00 is spent", done.stdout)
+
+    def test_a_bin_ci_run_counts_once_after_removal(self):
+        # F1 pass 3: same startedAt as stored record "a" (4.00): 8.50 over 3 runs, removal or not
+        self.result(self.wt, "2026-10-24T01:00:00.000Z", 4.0)
+        args = ("today", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        self.remove_wt()
+        self.assertEqual(self.run_bin(*args).stdout.strip(), "2026-10-24: spent $8.50 of the $10 cap, 3 runs")
+
+    def test_a_direct_run_stays_out_of_the_batch_estimate(self):
+        # F1 pass 4: the largest stored batch is 9.00; a direct 50.00 run is not a batch
+        self.result(self.wt, "2026-10-24T05:00:00.000Z", 50.0)
+        self.run_bin("today", "--today", "2026-10-24")
+        self.assertEqual(relay_paidcap.eval_estimate(self.home), 9.0)
+
+    def test_bench_check_sees_a_direct_run(self):
+        # F2: stored 7.00 + bench 1.50 + direct 1.50 = 10.00; bench estimate 0.50 -> refused naming $10.00
+        self.result(self.wt, "2026-10-24T05:00:00.000Z", 1.5)
+        saved = {k: os.environ.get(k) for k in ("RELAY_HOME", "RELAY_PROJECTS")}
+        os.environ["RELAY_HOME"], os.environ["RELAY_PROJECTS"] = self.home, self.projects
+        real_dt, real_root = relay_bench.dt, relay_bench.ROOT
+
+        class FixedDatetime(datetime.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime.datetime(2026, 10, 24, 12, 0, 0, tzinfo=tz)
+
+        class FixedModule:
+            def __getattr__(self, name):
+                return FixedDatetime if name == "datetime" else getattr(real_dt, name)
+
+        relay_bench.dt, relay_bench.ROOT = FixedModule(), self.root
+
+        def restore():
+            relay_bench.dt, relay_bench.ROOT = real_dt, real_root
+            for k, v in saved.items():
+                os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+        self.addCleanup(restore)
+        relay_paidcap.bench_estimate = (lambda orig: lambda s, b=None, home=None: 0.5)(relay_paidcap.bench_estimate)
+        self.addCleanup(setattr, relay_paidcap, "bench_estimate", relay_paidcap.bench_estimate)
+        with self.assertRaises(relay_bench.PaidCapReached) as cm:
+            relay_bench.run_bench([{"profile": {}}], [{"name": "s", "runs": 1}], out_root=os.path.join(self.home, "bench"))
+        self.assertIn("$10.00 is spent", str(cm.exception))
+
+    def test_suite_roots_is_time_limited_and_lists_both_checkouts(self):
+        # F3: two checkouts listed; a hung git (TimeoutExpired) gives []
+        self.assertEqual(sorted(os.path.realpath(r) for r in relay_paidcap.suite_roots(self.root)),
+                         sorted(os.path.realpath(r) for r in (self.root, self.wt)))
+        real = relay_paidcap.subprocess.run
+
+        def hang(*a, **k):
+            self.assertIn("timeout", k)
+            raise subprocess.TimeoutExpired(a[0], k["timeout"])
+        relay_paidcap.subprocess.run = hang
+        self.addCleanup(setattr, relay_paidcap.subprocess, "run", real)
+        self.assertEqual(relay_paidcap.suite_roots(self.root), [])
