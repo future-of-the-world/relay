@@ -67,7 +67,7 @@ class TestPrinciplesRule(unittest.TestCase):
         spec = self._targets()["relay"]
         text = relay_rules.render_target("relay", spec, relay_rules.rules(), {})
         self.assertIn("## Principles", text)
-        for n in range(1, 10):
+        for n in range(1, 11):
             self.assertIn(f"## {n}. ", text)
         self.assertIn("waste that repeats on every run or every change is MEDIUM", text)
         self.assertNotIn("aste (experimental)", text)
@@ -78,6 +78,7 @@ class TestPrinciplesRule(unittest.TestCase):
         import relay_rules
         text = relay_rules.render_target("demo", {"load": ["principles"]}, relay_rules.rules(), {})
         self.assertIn("## 9. Decide inside the principles", text)
+        self.assertIn("## 10. Works for a newcomer: no secrets to learn", text)
 
 
 class AutoMergeTextsTest(unittest.TestCase):

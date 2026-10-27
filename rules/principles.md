@@ -1,5 +1,5 @@
 # Principles
-> Patterns of behaviour and decision, each with a signal and an action: order of work, waste, derived data, structure for scripts, facts for code, causes, simplicity, plain messages, deciding inside the principles.
+> Patterns of behaviour and decision, each with a signal and an action: order of work, waste, derived data, structure for scripts, facts for code, causes, simplicity, plain messages, deciding inside the principles, working for a newcomer.
 
 When a pattern fires, stop before the next step, say it in one line with its number, then act.
 
@@ -48,3 +48,8 @@ Every message is understood two days later without the conversation; "Working wi
 A decision that follows from the principles and recorded decisions is made and reported afterwards; the owner gets only a real choice: a trade-off, a number, a scope cut.
 - Fires on: a question a principle or past decision already answers.
 - Do: find the recorded decision, decide, record it as "owner can reverse", report after. A "why can't we / why not X?" from the owner is a question (owner-confirmed): answer it with why it is so and a recommendation; act only on the owner's word.
+
+### 10. Works for a newcomer: no secrets to learn
+Put yourself in the user's place: what relay makes works simply and is clear at first sight; if a user has to learn how to use it (non-obvious secrets, workarounds, an order to remember), it is not clear enough. The gap between a user of one month and one who just opened it stays minimal. Users are two: the person, who talks to the front, and the agent, which runs relay's commands and reads its texts.
+- Fires on: a step that works only for someone who knows a flag, an order, a hidden file or a workaround; a refusal or error that does not say what to do next; a message to the person that needs relay's internal names; "remember to ..."; a fact the person must repeat because relay did not keep it.
+- Do: make the obvious way the right way (the default does the right thing, one command, a refusal names the next step); for the person, the conversation is the interface, so relay keeps and finds what was said; check it as a newcomer: a fresh session with no memory does the task from relay's own texts, and whatever it had to be told is a defect.
