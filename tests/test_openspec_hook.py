@@ -14,6 +14,7 @@ PLUGIN = os.path.join(ROOT, "plugins", "openspec")
 HOOK = os.path.join(PLUGIN, "hooks", "spec-rule.py")
 FLOW_STAGE = os.path.join(ROOT, "plugins", "core", "hooks", "flow-stage.py")
 sys.path.insert(0, os.path.join(ROOT, "evals", "plugin"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # unittest from the repo root has only the root on sys.path
 import system_rules  # noqa: E402
 from relay_testbase import load_hook as _load_hook  # noqa: E402
 
