@@ -3,6 +3,7 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd -P)"
 "$here/../setup-fixture.sh"
+"$here/../setup-relay-stub.sh"
 mkdir -p .relay/queue
 cp "$here"/queue/*.json .relay/queue/
 git add -A

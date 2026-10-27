@@ -1,4 +1,7 @@
 ---
-type: llm
+type: tool_used
+tool: Write
+input_match: "recrod to also hold the minutes spent waiting for the check"
+min: 1
 ---
-The session wrote a `said` note (relay queue note with a TOML input) on each-change-records-its-stage-times-cost whose text is the owner's words as given, in English as the owner wrote it, typo included, not a paraphrase or a corrected copy (the part about the minutes of waiting for the check must appear). FAIL if the note is a `fact`, a paraphrase, or on another item.
+The session wrote the TOML of a `said` note carrying the owner's words as given, typo included ("recrod"), not a corrected copy. The judge sees only the final reply, not the file, so this is checked on the Write call.

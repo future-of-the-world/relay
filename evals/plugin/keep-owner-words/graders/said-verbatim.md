@@ -1,4 +1,7 @@
 ---
-type: llm
+type: tool_used
+tool: Write
+input_match: "минуты ожидания проверки"
+min: 1
 ---
-The session wrote a `said` note (relay queue note with a TOML input) on each-change-records-its-stage-times-cost whose text is the owner's words as given, in Russian, not a paraphrase or translation (the part about the minutes of waiting for the check must appear as the owner wrote it). FAIL if the note is a `fact`, a paraphrase, or on another item.
+The session wrote the TOML of a `said` note carrying the owner's words about the minutes of waiting for the check as given, in Russian. The judge sees only the final reply, not the file, so this is checked on the Write call.
