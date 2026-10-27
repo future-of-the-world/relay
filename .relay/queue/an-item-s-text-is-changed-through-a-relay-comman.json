@@ -28,6 +28,25 @@
       "fact": [
         "Correction, measured 27 Oct by the queue-edit design: the why's \"8 commits changed queue files outside relay's commands ... against 491\" is wrong; since 20 Oct, 18 non-merge commits changed queue files by hand plus 4 merges with hand-resolved queue files, against 482 written by relay's library; the 8 was a count by commit subject (10 hand commits start with \"queue:\"). Edits to item text: 33 in 7 days, 22 of them one batch of titles. Nothing refuses a hand edit on a task branch (guard-main covers only the main checkout). The design's build estimate: about 175 agent minutes (edit command plus hand-edit fence; a guess), not the item's 60."
       ]
+    },
+    {
+      "asked_at": "2026-10-27T12:57:18Z",
+      "number": 1,
+      "question": [
+        "**1. Неверную фразу в задаче исправлять или оставлять с поправкой поверх?**",
+        "",
+        "В задаче рядом с вашими словами лежит мой текст: замеры, причины. Если фраза в нём оказалась неверной, сейчас ниже добавляется датированная заметка, а неверная фраза остаётся первой. Живой пример: в задаче о красном платном прогоне 27 октября написано, что проверка «вспоминает решение» прошла, а она не запускалась. Поправка стоит ниже, а агент, взявший задачу, получает только её текст, без заметок. В обоих вариантах всё, что стоит в кавычках (ваши слова, записанный вывод программ), не меняется ни на букву: это проверяет код.",
+        "",
+        "| | a. исправлять командой | b. поправка поверх текста |",
+        "|---|---|---|",
+        "| Что лежит в задаче | исправленный текст; старый в истории git и в заметке «почему» | неверный текст и заметка-поправка |",
+        "| Кто должен знать о поправках | никто: все читают текст | 6 мест, которые читают задачу |",
+        "| Сборка (оценка) | около 120 агентских минут | около 90-120 |"
+      ],
+      "options": [
+        "a. Исправлять командой relay, с датированной заметкой «почему» (рекомендую: это то, о чём вы просили)",
+        "b. Оставлять текст, а поправку показывать на месте неверной фразы"
+      ]
     }
   ]
 }
