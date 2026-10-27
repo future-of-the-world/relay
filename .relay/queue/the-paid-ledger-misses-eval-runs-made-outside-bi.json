@@ -33,6 +33,12 @@
       "fact": [
         "Migration 27 Oct: the link in `failing_case` line 1 points to a session file (`reports/wave-red.md`), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
       ]
+    },
+    {
+      "at": "2026-10-25T08:55:37Z",
+      "fact": [
+        "Could not recover the quoted passage: the saved text of `wave-red.md` has no section \"Paid case runs made on this branch\" (its last paid-run section is \"Final paid run (one run of each failing case, 3 runs per case, $9.62)\"). The item's failing case states the claim: the ledger missed all direct runs."
+      ]
     }
   ]
 }
