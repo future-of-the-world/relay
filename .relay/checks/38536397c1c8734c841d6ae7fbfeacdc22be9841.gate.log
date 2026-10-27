@@ -1,0 +1,14 @@
+head 38536397c1c8734c841d6ae7fbfeacdc22be9841
+cmd bin/ci --quick
+wait 0.0
+ci: library tests ok (561s)
+ci: types and lint ok (0s)
+ci: hook tests ok (227s)
+ci: lib copies identical FAILED (0s, log: .ci/steps/lib-copies-identical.log)
+    FAIL plugins/front/lib/relay_queue.py differs from lib/ (run bin/sync-lib-copies)
+    FAIL plugins/core/lib/relay_queue.py differs from lib/ (run bin/sync-lib-copies)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (0s)
+ci: RED
+exit 1

@@ -1,0 +1,16 @@
+head 65cfea52d02506d9f00f21159ec111a334bda5cd
+cmd bin/ci --quick
+wait 0.0
+ci: library tests ok (507s)
+ci: types and lint FAILED (2s, log: .ci/steps/types-and-lint.log)
+    FAIL ruff 0.13.3 (pyflakes rules):
+    Found 1 error.
+ci: hook tests ok (355s)
+ci: lib copies identical FAILED (0s, log: .ci/steps/lib-copies-identical.log)
+    FAIL plugins/front/lib/relay_queue.py differs from lib/ (run bin/sync-lib-copies)
+    FAIL plugins/core/lib/relay_queue.py differs from lib/ (run bin/sync-lib-copies)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (6s)
+ci: RED
+exit 1
