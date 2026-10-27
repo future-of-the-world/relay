@@ -25,8 +25,8 @@
     "bin/paid-cost or the eval ledger (pass rates)",
     "rules/quality-gate.md (flaky tests: code tests only)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T13:11:34Z",
+  "taken_by": "wt/majority",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
