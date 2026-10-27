@@ -38,6 +38,12 @@
       "fact": [
         "Migration 27 Oct: the link in `what` line 1 points to a session file (`clean-env/img/Dockerfile`, not kept), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
       ]
+    },
+    {
+      "at": "2026-10-26T21:47:02Z",
+      "fact": [
+        "Recovered 27 Oct: the probe image's Dockerfile (clean-environment design) is FROM python:3.11-slim; apt packages git, jq, curl, ca-certificates, unzip, bash; a user `dev`; uv 0.8.24 (its installer checked against a fixed sha256), then ruff 0.13.3, mypy 1.18.2 and pytest 8.4.2 installed with `uv tool`; the bun and claude installers; a git identity `probe`; working folder /work. The tools come from relay's deps.toml and no Claude or relay settings are present. A copy is in relay's backup folder (clean-env/img/Dockerfile)."
+      ]
     }
   ]
 }
