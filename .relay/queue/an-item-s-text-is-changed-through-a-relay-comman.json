@@ -1,0 +1,25 @@
+{
+  "kind": "feature",
+  "ip": 85,
+  "time": 60,
+  "found_at": "2026-10-27T12:34:10Z",
+  "found_in": "relay queue add",
+  "title": "An item's text is changed through a relay command",
+  "what": [
+    "What the owner sees: every change to a queue item, its text included, goes through one relay command, and a fresh session reading an item sees the corrected text with the old one kept as a dated record, never silently lost; the owner's own words are never rewritten. The shape (an edit command, a correcting note kind, a guard on hand edits) comes from the design."
+  ],
+  "why": [
+    "Owner, 27 Oct, verbatim: \"Как мы работаем с файлами очереди ? Я ожидаю что для этого используются специальные команды, в том числе для редактирования\". Measured 27 Oct: relay queue has add, note, take, release, done, drop, ip, land, migrate, but no command that changes an item's title, what, why, where, time or pass cases; a wrong claim is corrected only by a later note, so `show` prints the wrong claim first (live: the-wave-paid-run-of-9bc988d-is-red-in-3-eval-ca, why says recall-decision was green; it never ran). Since 20 Oct, 8 commits changed queue files outside relay's commands (1c0d30e, 712f08a, 067934c, 234f5a4, a3de85d, 79a7e65, ce37c72, 8f446e9; by subject: schema migrations, review fixes, one revert), against 491 by relay's commands. Constraint (decision of 26 Oct): the owner's words in an item stay verbatim. Design on the design track since 27 Oct."
+  ],
+  "where": [
+    "lib/relay_queue.py",
+    "bin/relay (queue help)",
+    "rules/queue.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
