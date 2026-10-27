@@ -61,6 +61,12 @@
         "",
         "Это очень иннтересный механизм на будущее, но сейчас это никем не используется кроме меня и мы можем быть более безразличны к обратной совместимости"
       ]
+    },
+    {
+      "at": "2026-10-27T22:02:45Z",
+      "fact": [
+        "28 Oct, front's decision from the owner's words above (owner can reverse): no backward compatibility for the rename. No old-names entries, no migrate step for projects; the rename rewrites the one place that turns the plugins on (~/.claude/settings.json: enabledPlugins and the extraKnownMarketplaces entry) once, directly, as part of the change, and relay setup writes only the new ids. This replaces the previous fact note's plan. The existing lib/relay_old_names.toml mechanism stays as it is, not extended."
+      ]
     }
   ]
 }
