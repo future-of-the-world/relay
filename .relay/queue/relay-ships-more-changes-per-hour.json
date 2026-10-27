@@ -189,6 +189,12 @@
       "reading": [
         "A per-project setting; relay is 6. The owner names no default for other projects: the default stays 4 as built (LANES_DEFAULT), each project raises it in its own settings."
       ]
+    },
+    {
+      "at": "2026-10-27T15:05:09Z",
+      "fact": [
+        "Measured 27 Oct 19:04 local, with 6 lanes running: load average 23.9 / 26.6 / 30.4 on 12 cores, 5 gate processes (relay_ci.py) at once; a quick gate on wt/majority had run 36 minutes against 7.2-8.4 minutes alone (about 4-5 times slower). This is the gate slowdown the speed design marked as not measured."
+      ]
     }
   ]
 }
