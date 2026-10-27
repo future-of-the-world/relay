@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-27T14:02:22Z",
   "taken_by": "wt/traces",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T15:09:09Z",
+  "test": "tests/test_eval_record.py::Record::test_a_red_batch_keeps_the_failing_runs_traces_where_the_record_names_them",
   "dropped_at": null,
   "dropped_why": null
 }
