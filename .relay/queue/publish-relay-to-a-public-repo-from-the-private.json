@@ -80,6 +80,18 @@
       "reading": [
         "Migration: the owner answered all four questions in one reply; this question and its options are the message as the front showed it on 25 Oct. The front's reading of \"a\" here: work continues in the private repo and the public one is updated from it"
       ]
+    },
+    {
+      "asked_at": "2026-10-25T19:39:40Z",
+      "number": 3,
+      "question": [
+        "**Вопрос 3. Где живут Glonass и ваши личные настройки.**",
+        "Сейчас правило Glonass включено в профиле по умолчанию. Его получит каждый, кто поставит relay."
+      ],
+      "options": [
+        "a. рекомендую). Ваша личная папка вне публичного repo: Glonass, имена проектов, язык, лимит $200. `relay sync` добавляет её к общим правилам.",
+        "b. Glonass оставить в repo как пример, выключенный в профиле."
+      ]
     }
   ]
 }
