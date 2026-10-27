@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 84,
+  "time": 30,
+  "found_at": "2026-10-27T13:04:25Z",
+  "found_in": "relay queue add",
+  "title": "The ledger misses the start of many agents",
+  "what": [
+    "The ledger misses the start of many agents"
+  ],
+  "why": [
+    "Measured 27 Oct by the speed design: relay's agent cost log (the ledger) holds 161 agent stops for that day but only 87 agent_start events, so 76 agents have no start; idle time and per-stage wall time cannot be computed from it (the design had to read the workflow transcripts instead)."
+  ],
+  "failing_case": [
+    "For 27 Oct, count agent_stop vs agent_start lines in the ledger: 161 vs 87."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "Every agent the ledger records as stopped has a start event, workflow agents included.",
+    "A test feeds a workflow agent's hook input and finds both events.",
+    "The test fails with the start recording disabled."
+  ],
+  "where": [
+    "the ledger hooks under plugins/ (agent start)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
