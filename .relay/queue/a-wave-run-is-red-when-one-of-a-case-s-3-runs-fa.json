@@ -63,6 +63,12 @@
       "reading": [
         "A run that timed out (not judged) counts as one failed run of three: PASS, PASS, timed out is green with a summary line naming it; two timeouts are red."
       ]
+    },
+    {
+      "at": "2026-10-27T16:37:22Z",
+      "fact": [
+        "Measured 27 Oct, full gate of wt/majority at 420e059 (6102 s, $16.43, evals -j 1): the eval record judged by the new rule is green (0 meaning graders failed; no-spec-step-ru 2 of 3, passes by majority), yet bin/ci printed \"plugin evals FAILED\" and \"ci: RED\", exit 1: the step's verdict comes from the eval tool's exit code, not from the record. Q1 is therefore not met in the real gate; sent back to a fixer on the branch."
+      ]
     }
   ]
 }

@@ -1,0 +1,56 @@
+{
+  "kind": "fix",
+  "ip": 97,
+  "time": 45,
+  "found_at": "2026-10-27T15:05:25Z",
+  "found_in": "relay queue add",
+  "title": "Gates run all at once and slow each other down",
+  "what": [
+    "Gates run all at once and slow each other down"
+  ],
+  "why": [
+    "Measured 27 Oct 19:04 local, the first hour with 6 lanes (owner, 27 Oct: \"Давай 6 сразу\"): 5 gate processes ran at once, load average 23.9 / 26.6 / 30.4 on 12 cores, and a quick gate that takes 7.2-8.4 minutes alone had run 36 minutes (about 4-5 times slower). Each gate runs the library tests in several processes itself, so the gates, not the agents (model calls use little CPU), saturate the Mac; the lanes then wait on each other at the gate and the 6 lanes may land no more than 2-3 would. Principle 2 (waste that repeats on every change)."
+  ],
+  "failing_case": [
+    "With 5 lanes reaching the gate together, each quick gate takes 30+ minutes instead of about 8."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "Gates take a slot from a per-machine limit (a setting, default from the core count, for example 2 on 12 cores) and wait for a free one; the wait is printed with its reason.",
+    "Builds, reviews and checks are not limited by it.",
+    "Measured after: with 6 lanes, a gate takes no more than about 1.5 times its time alone, and the wait for a slot is shown in the gate log.",
+    "A test with a fake gate shows the third concurrent gate waits, and fails with the limit disabled."
+  ],
+  "where": [
+    "lib/relay_ci.py (gate start)",
+    "bin/relay (gate)",
+    "relay's config (the slot setting)"
+  ],
+  "taken_at": "2026-10-27T15:19:04Z",
+  "taken_by": "wt/gate-slots",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-27T15:49:21Z",
+      "number": 1,
+      "question": [
+        "**8. Сколько gate пускать одновременно**",
+        "",
+        "Gate — полная проверка перед merge; он сам запускает тесты в 4 потока. Сегодня с 6 полосами шли 5 gate разом, и каждый тянулся 36 минут вместо 8. Теперь gate ждут свободного места. Замер на этом Mac (без других полос): один gate идёт 420 с, два одновременно — по 698 с каждый, три — по 1058 с. Я сам ставил в задаче цель «не медленнее 1,5 раза»; два gate её не выполняют (1,66 раза), но проходят больше gate за час.",
+        "",
+        "| Одновременно | Один gate | Gate в час | Ждут ли полосы |",
+        "|---:|---:|---:|---|",
+        "| 1 | 7 мин | 8,6 | дольше в очереди |",
+        "| 2 | 11,6 мин | 10,3 (+20%) | меньше |",
+        "| 3 | 17,6 мин | 10,2 | меньше, но каждый gate почти втрое дольше |"
+      ],
+      "options": [
+        "a. 2 одновременно (рекомендую: больше всего gate в час, а это и есть скорость, о которой вы просили)",
+        "b. 1 одновременно: каждый gate быстрее, но в час их меньше"
+      ]
+    }
+  ]
+}

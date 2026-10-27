@@ -14,8 +14,8 @@
   "failing_case": [
     "the off-by-one rubric's FAIL clause words (\"stays within size\", \"as the doc says\") made Haiku fail right answers yes-03 (5 of 5) and yes-05 (2 of 5); Sonnet unaffected, the trap stays for any weaker judge (handover cause-measure)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T15:00:01Z",
+  "taken_by": "wt/offbyone",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

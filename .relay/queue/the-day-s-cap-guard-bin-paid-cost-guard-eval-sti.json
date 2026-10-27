@@ -1,0 +1,36 @@
+{
+  "kind": "fix",
+  "ip": 85,
+  "time": 30,
+  "found_at": "2026-10-27T14:59:20Z",
+  "found_in": "finding F2 of review-paid-estimate.json",
+  "title": "The day's-cap guard (bin/paid-cost guard eval) still…",
+  "what": [
+    "lib/relay_paidcap.py:179: MEDIUM: F2 the day's-cap guard (bin/paid-cost guard eval) still estimates the next batch as the largest stored one, so a grown suite passes the guard"
+  ],
+  "why": [
+    "Found 27 Oct by the review of wt/paid-estimate, outside that change: the paid-run estimate now adds new eval cases at the mean case cost (it estimates the 26 Oct run at $17.39 against an actual $17.43), but the day's-cap guard in lib/relay_paidcap.py still estimates a run from the largest stored batch, so it misses a suite that grew and can start a run that passes the $200 daily cap."
+  ],
+  "failing_case": [
+    "The 26 Oct records before the $17.43 run: eval_estimate() returns $9.56 (largest full batch), while the suite had",
+    "grown from 15 to 27 cases. With $12 left in the day, the guard lets the run start; the --within-day ceiling then",
+    "stops it at about $12, part-way, instead of refusing it before it starts. The per-case estimate this change adds",
+    "($17.39 for that run) would have refused it."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. Records of 26 Oct before 01-47-23Z, suite of 27 cases, $12 left of the day's cap: guard eval exits 1 naming an",
+    "   estimate near $17.",
+    "2. Same records, $30 left: guard eval exits 0.",
+    "3. No stored record: the estimate stays 0 and guard eval exits 0 (today's behaviour)."
+  ],
+  "where": [
+    "lib/relay_paidcap.py:179"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
