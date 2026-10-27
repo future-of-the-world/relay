@@ -1,0 +1,170 @@
+{
+  "branch": "wt/ledger-evals",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, wt/wave-red: two workers made about $22.7 of direct case runs; `bin/paid-cost today` showed $15.03, 1 run (the wave run only). The $200/day cap is blind to them, and an agent cannot see what it already spent. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "scratchpad reports/wave-red.md, \"Paid case runs made on this branch\": the ledger missed all direct runs."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After a direct eval run of one case, `bin/paid-cost today` shows its cost and the run."
+      ],
+      "path": "bin/paid-cost",
+      "rank": "high",
+      "reason": [
+        "tests/test_paid_cap.py::DirectRuns::test_a_direct_run_in_a_worktree_counts_in_today passes at head and fails at 21797c0."
+      ],
+      "severity": "HIGH",
+      "since": "21797c02930db6706de4bbbabc249d4cae12b9a2",
+      "source": "queue",
+      "summary": "The paid ledger misses eval runs made outside bin/ci",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced). direct_batches reads only checkouts that still exist (suite_roots = `git worktree list`). The results",
+        "folder is gitignored (.gitignore:7 evals/plugin/results/), and a plain `git worktree remove` (what the merge hook runs,",
+        "merge.py:417) deletes ignored files without refusing. Every task worktree is removed right after its merge, usually the same",
+        "UTC day, and the paid run on the default branch comes \"after a wave of merges\", so the moment the guard matters most is the",
+        "moment the direct runs are gone. The queue item's promise (\"Every paid eval run counts in bin/paid-cost today and against the",
+        "daily cap\") holds only while the worker's worktree lives. No test covers the removal.",
+        "Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "scratch repo, ignored evals/plugin/results/, worktree w2 with aggregate-result.json {\"startedAt\":\"2026-10-27T05:00:00.000Z\",\"costUsd\":2.0}:",
+        "  RELAY_ROOT=<repo> bin/paid-cost today --today 2026-10-27  -> 2026-10-27: spent $2.00 of the $10 cap, 1 run",
+        "  git worktree remove <w2>  (rc=0, folder gone)",
+        "  RELAY_ROOT=<repo> bin/paid-cost today --today 2026-10-27  -> 2026-10-27: spent $0.00 of the $10 cap, 0 runs",
+        "live: master today -> $56.13, 3 runs; branch -> $60.86, 11 runs; the 8 extra are .worktrees/typo-flake/evals/plugin/results/*"
+      ],
+      "failing_case": [
+        "A worker makes a direct `claude plugin eval` run of one case ($2.00, startedAt today 05:00Z) in its worktree; the branch merges",
+        "and the merge hook runs `git worktree remove <wt>` (never --force), which deletes the ignored evals/plugin/results/ with it.",
+        "Before the removal `bin/paid-cost today` prints \"spent $2.00 ..., 1 run\"; after it, \"spent $0.00 ..., 0 runs\". It should keep",
+        "printing $2.00, 1 run for the rest of that UTC day, and `bin/paid-cost guard eval` (bin/ci's paid run after a wave of merges)",
+        "should count it. Live: the 8 direct runs of 27 Oct ($4.73) exist only in the typo-flake worktree and vanish when it merges."
+      ],
+      "fix_hint": [
+        "Make the direct run durable in RELAY_HOME: keep each direct aggregate-result seen (cost, startedAt, checkout) in a folder of its",
+        "own, e.g. $RELAY_HOME/evals-direct/<repo>/<startedAt>.json, written by the merge hook before `git worktree remove` (and by",
+        "spend_today when it meets one), and have eval_batches read it with the same startedAt dedupe. Keep it out of",
+        "$RELAY_HOME/evals/<repo>/ so one-case runs do not enter the batch estimates. A test removes the worktree and still sees the cost."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 133,
+      "pass_cases": [
+        "1. Direct run $2.00 today in worktree W of repo R; remove W with `git worktree remove`; `bin/paid-cost today` (RELAY_ROOT=R)",
+        "   prints \"spent $2.00 of the $10 cap, 1 run\".",
+        "2. Same, then `bin/paid-cost guard eval` with stored spend 8.50 and estimate 0.00 under cap 10: refused only when 8.50 + 2.00 +",
+        "   estimate > cap (i.e. the removed run still counts).",
+        "3. A bin/ci run (stored record and aggregate-result with the same startedAt) still counts once, before and after its worktree",
+        "   is removed.",
+        "4. The direct run's cost does not enter the stored-batch statistics (eval_estimate's largest batch, bin/paid-cost estimate /",
+        "   suite_cap): estimate output unchanged by a one-case direct run."
+      ],
+      "path": "lib/relay_paidcap.py",
+      "rank": "high",
+      "reason": [
+        "Direct runs are copied to RELAY_HOME/evals-direct only when some paid-cost/bench/guard call reads them while the worktree lives. The merge hook (plugins/core/hooks/merge.py ~417) is not changed, so a worker who runs direct evals and merges without such a call still loses the cost at git worktree remove: the review's failing case in ordinary flow. Tests only cover a read before removal (test_paid_cap.py:365 reads first). Fix needs merge.py (scope extension) to snapshot before removal."
+      ],
+      "severity": "HIGH",
+      "since": "d796cdd6c6a432d414c3eef084e1a146685c529b",
+      "source": "review-ledger-evals.json",
+      "source_id": "F1",
+      "summary": "a direct run's cost disappears from the day's spend when its worktree is removed at merge, so the cap is blind again exactly when the post-merge paid run checks it",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by tracing: relay_bench.py:500 calls check(...) without roots; check -> spend_today(..., roots=None) ->",
+        "eval_batches(home, None) -> direct_batches([] ...). Only bin/paid-cost's three calls got live_roots(). The cap is one daily cap",
+        "for evals and bench together, so the item's \"against the daily cap\" covers this guard too. A caller not updated.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n 'relay_paidcap.check' -> lib/relay_bench.py:500 refusal = relay_paidcap.check(stamp[:10], relay_paidcap.bench_estimate(sessions, out_root), \"bench\", bench=out_root)",
+        "lib/relay_paidcap.py eval_batches: out += [... direct_batches(roots or [], known)]"
+      ],
+      "failing_case": [
+        "Cap $10; stored eval spend 7.00 and bench 1.50 today; a direct eval run of $1.50 sits in a live worktree. `relay bench` with an",
+        "estimate of $0.50: relay_paidcap.check(day, 0.50, \"bench\", bench=out_root) sums 8.50 + 0.50 = 9.00 <= 10 and lets it run; the",
+        "day is really 10.00 + 0.50 = 10.50, so it should refuse with \"$10.00 is spent\"."
+      ],
+      "fix_hint": [
+        "Pass roots=relay_paidcap.suite_roots(ROOT) at relay_bench.py:500 (or let check/spend_today compute the roots when None and have",
+        "tests pass roots=[]), with a test of the failing case using a temporary git repo as RELAY_ROOT."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 500,
+      "pass_cases": [
+        "1. The failing case: run_bench refuses (PaidCapReached) naming \"$10.00 is spent\".",
+        "2. Same without the direct run: 8.50 + 0.50 <= 10, run_bench goes on.",
+        "3. Existing tests/test_paid_cap.py bench tests (check(... \"bench\" ...) at :132 and :138, and :202) keep their outcomes with no",
+        "   git checkout in the fixture."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_paid_cap.py test_bench_check_sees_a_direct_run (DirectRunsDurable) passes, fails at d796cdd; lib/relay_bench.py:500 passes roots."
+      ],
+      "severity": "MEDIUM",
+      "since": "d796cdd6c6a432d414c3eef084e1a146685c529b",
+      "source": "review-ledger-evals.json",
+      "source_id": "F2",
+      "summary": "the bench's day-cap check passes no roots, so a bench run is still allowed past the cap by direct eval runs",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (git worktree list is local and fast today). Fragile only; the project sets time limits through Python's timeout=.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A git process blocked on a stale index.lock or a hung network filesystem in one listed worktree: `bin/paid-cost guard eval`",
+        "waits forever instead of failing after a few seconds; should return [] (or an error) within a bound."
+      ],
+      "fix_hint": [
+        "Add timeout=30 and catch subprocess.TimeoutExpired with the other two errors."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 127,
+      "pass_cases": [
+        "1. subprocess.run(..., timeout=<n>) and subprocess.TimeoutExpired caught: suite_roots returns [] (or the guard reports it).",
+        "2. A normal repo with two worktrees still returns both paths."
+      ],
+      "path": "lib/relay_paidcap.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_paid_cap.py test_suite_roots_is_time_limited_and_lists_both_checkouts passes, fails at d796cdd; timeout=30 in lib/relay_paidcap.py."
+      ],
+      "severity": "LOW",
+      "since": "d796cdd6c6a432d414c3eef084e1a146685c529b",
+      "source": "review-ledger-evals.json",
+      "source_id": "F3",
+      "summary": "suite_roots runs `git worktree list` with no time limit, inside the paid run's guard",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "32eeb830537e82a29de3b9186d681f717aa2aec5.gate.log",
+  "head": "65a68630d6aae03407bcce0c3df9da7b53d16ae3",
+  "item": "the-paid-ledger-misses-eval-runs-made-outside-bi",
+  "notes": [
+    "Fixer Outside: merge.py should call eval_batches before worktree remove - agreed, and it is the cause of F1 staying open (see F1)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range since each finding, files lib/relay_bench.py, lib/relay_paidcap.py, tests/test_paid_cap.py (all named). Ran pytest -k 'ledger or paid or eval': 143 passed. Gate log head 32eeb83 exit 0 (quick mode); only the gate-log commit followed. New tests run at d796cdd with head test file: 4 fail; Q1 tests fail at 21797c0."
+  ],
+  "type": "check"
+}
