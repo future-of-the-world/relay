@@ -355,8 +355,8 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                         returncode = proc.wait()
                     code = returncode if returncode >= 0 else 128 - returncode
                 except OSError as exc:
-                    with open(out_path, "w") as sink:
-                        sink.write("gate command could not start: %s\n" % exc)
+                    with open(out_path, "w") as text_sink:
+                        text_sink.write("gate command could not start: %s\n" % exc)
                     code = 127
                 finally:
                     if proc is not None:      # the command's whole process group ends before the slot is freed
