@@ -20,8 +20,8 @@
   "where": [
     "plugins/core/tests/hooks-live.test.sh"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T18:53:06Z",
+  "taken_by": "wt/hook-flake",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
