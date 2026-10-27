@@ -1,0 +1,22 @@
+head 227cc19300531527f0beb864a929eb41f1bd5b5c
+cmd bin/ci --quick
+wait 0.0
+ci: library tests FAILED (659s, log: .ci/steps/library-tests.log)
+    FAIL: test_rules_tests_command_passes_in_the_order_unittest_runs_them (test_rules_gate_isolation.RulesGateIsolation.test_rules_tests_command_passes_in_the_order_unittest_runs_them)
+    AssertionError: 1 != 0 : sers/amidman/relay/.worktrees/test-order/rules/verify.md' mode='r' encoding='utf-8'>
+    ERROR: test_openspec_hook (unittest.loader._FailedTest.test_openspec_hook)
+    ImportError: Failed to import test module: test_openspec_hook
+    ModuleNotFoundError: No module named 'relay_testbase'
+    FAILED (errors=1)
+    FAIL: test_the_rule_tests_import_the_way_the_short_gate_loads_them (test_split_test_files.TestFilesStaySplit.test_the_rule_tests_import_the_way_the_short_gate_loads_them)
+    AssertionError: "['unittest.loader._FailedTest.test_openspec_hook']" != '[]'
+ci: types and lint FAILED (0s, log: .ci/steps/types-and-lint.log)
+    FAIL ruff 0.13.3 (pyflakes rules):
+    Found 6 errors.
+ci: hook tests ok (222s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (7s)
+ci: RED
+exit 1
