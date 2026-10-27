@@ -22,11 +22,11 @@
       "asked_at": "2026-10-27T03:00:00Z",
       "number": 1,
       "question": [
-        "**1. Is the done/ folder needed?**"
+        "**1. Нужна ли папка done/?**"
       ],
       "options": [
-        "a. Remove done/: state from the dated events only.",
-        "b. Keep it."
+        "a. Убрать done/: состояние только из датированных событий.",
+        "b. Оставить."
       ],
       "answered_at": "2026-10-27T03:05:00Z",
       "answer": [

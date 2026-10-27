@@ -201,9 +201,11 @@ item waiting there is nothing to say. Rule: `rules/queue.md`.
 
 Find the item: `relay queue show <the owner's words>` (items are written in English, so try English words too; several
 matches are listed, then show one by its name). Answer from its notes alone, with no memory or handover: each question
-as it was asked (its title and all its lettered options, the chosen and the rejected ones, none left out, in the words
-they were written in, not translated or shortened), the owner's answer in quotes, character for character as recorded
-("1. a", never "you chose a"), with any explanation, your reading marked as yours, and a question not answered yet said
+as it was asked (its title and all its lettered options, the chosen and the rejected ones, none left out), quoted exactly as
+recorded: the questions were shown to the owner in the owner's language, so the recorded text is already in it; copy it,
+do not translate or shorten it. A note recorded in another language gets your translation of it in the owner's language
+beside the quote, marked as yours. The owner's answer in quotes, character for character as recorded ("1. a", never "you
+chose a"), with any explanation, your reading marked as yours, and a question not answered yet said
 so. Rule: `rules/queue.md`.
 
 ## An out-of-scope question
