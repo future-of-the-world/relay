@@ -197,6 +197,7 @@ path (write `^` to anchor it); `files` and `files_exclude` work the same way.
 | `gate.wt` | required | worktree tool: `new <name> <base>`, `rm <name>`, `ls` | `"bin/wt"` |
 | `gate.check` | required | the quiet loop; follows "The check-script contract" below (three forms, exit codes, round budget, `HUNG`, time budget) | `"bin/check"` |
 | `gate.ci` | required | the full gate; prints only what needs attention | `"bin/ci"` |
+| `gate.ci_quick` | none (a plain `relay gate` runs `gate.ci` as it is) | the free mode of the gate, run by a plain `relay gate`; `relay gate --paid` runs `gate.ci` | `"bin/ci --quick"` |
 | `gate.ci_log` | required | file holding the full gate log, read by fixers | `".ci/ci.log"` |
 | `gate.final` | `local` | where the final gate runs: `local` (here) or `remote` (CI pipeline on the pushed branch) | `"local"` |
 | `coordination.mode` | `leadless` | `leadless`, `single-lead` or `multi-lead` | `"leadless"` |
