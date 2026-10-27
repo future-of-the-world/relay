@@ -185,6 +185,44 @@ class PaidPart(unittest.TestCase):
         self.assertEqual(ci.status, 1)
         self.assertIn("not a pass", out)
 
+    def fast_first(self, red: str) -> "tuple[list[str], str, int]":
+        """Run the quick gate with every step replaced by a recorder; `red` is the step name that fails ('' for none)."""
+        ci = self.ci(Recorder(self.paid_answers()), quick=True)
+        order: List[str] = []
+        for attr, name in (("lib_tests", "library tests"), ("types_lint", "types and lint"), ("hook_tests", "hook tests"),
+                           ("lib_copies", "lib copies identical"), ("grader_tests", "eval grader tests"),
+                           ("validate_all", "plugin validate")):
+            def fn(log: Any, name: str = name) -> int:
+                order.append(name)
+                return 1 if name == red else 0
+            setattr(ci, attr, fn)
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = ci.main()
+        return order, out.getvalue(), code
+
+    def test_a_stale_lib_copy_is_reported_before_the_library_tests_start(self) -> None:
+        # design A.3: the seconds-long steps run first; a red one ends the gate before the 4-10 minute steps
+        order, out, code = self.fast_first("lib copies identical")
+        self.assertEqual(order, ["types and lint", "lib copies identical"])   # library tests never started
+        self.assertIn("lib copies identical FAILED", out)
+        self.assertEqual(code, 1)
+        self.assertIn("ci: RED", out)
+
+    def test_a_lint_error_is_reported_first_and_ends_the_gate_red(self) -> None:
+        order, out, code = self.fast_first("types and lint")
+        self.assertNotIn("library tests", order)
+        self.assertNotIn("hook tests", order)
+        self.assertEqual(order[0], "types and lint")
+        self.assertIn("types and lint FAILED", out)
+        self.assertEqual(code, 1)
+
+    def test_a_green_tree_runs_every_step_with_the_fast_ones_first(self) -> None:
+        order, out, code = self.fast_first("")
+        self.assertEqual(order, ["types and lint", "lib copies identical", "library tests", "hook tests",
+                                 "eval grader tests", "plugin validate"])
+        self.assertEqual(code, 0)
+
     def test_the_record_step_runs_in_the_full_gate_only_and_after_the_evals(self) -> None:
         for quick in (True, False):
             rec = Recorder(self.paid_answers())
@@ -274,6 +312,8 @@ class ProbeBesideTheRun(unittest.TestCase):
             finally:
                 open(flag, "w").close()   # lets a nested run end, so a failing test never hangs
         ci.lib_tests = library_tests   # type: ignore[assignment,method-assign]
+        ci.types_lint = lambda log: 0   # type: ignore[assignment,method-assign]  # the fast steps run before library tests
+        ci.lib_copies = lambda log: 0   # type: ignore[assignment,method-assign]
         with redirect_stdout(io.StringIO()), self.assertRaises(KeyboardInterrupt):
             ci.main()
         self.assertEqual(started, [True])

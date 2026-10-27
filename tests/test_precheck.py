@@ -213,3 +213,14 @@ class TestCommand(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BriefTemplateNamesPrecheck(unittest.TestCase):
+    def test_the_delegate_check_line_names_precheck_for_projects_with_relay_only(self) -> None:
+        # F4: the template line a worker brief takes its quiet check from names `relay precheck -C` first, and only where
+        # the project has `.relay/` (a project without it is not told to run it)
+        with open(os.path.join(ROOT, "plugins", "delegate", "skills", "delegate", "SKILL.md"), encoding="utf-8") as handle:
+            lines = [ln for ln in handle if ln.startswith("Check: ")]
+        self.assertEqual(len(lines), 1)
+        self.assertIn("relay precheck -C <worktree> && (<command>)", lines[0])
+        self.assertIn("project with `.relay/`", lines[0])

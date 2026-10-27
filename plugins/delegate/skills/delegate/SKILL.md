@@ -58,7 +58,7 @@ Worktree: <absolute path> (branch <name>)        # for worker/fixer
 Assembly: run `<worktree>/bin/relay sync agents` only (never the `relay` on PATH, never a full `relay sync`, never set RELAY_ROOT)   # where the job touches roles/ or agents
 Goal: <the result, in the owner's words>
 Done when: <the check that passes / the file that exists / the question answered>
-Check: <command>                                  # the quiet check to loop on
+Check: <command>                                  # the quiet check to loop on; in a project with `.relay/`: `relay precheck -C <worktree> && (<command>)`
 Read: <file:section>, <file:lines>, ...           # only what this job needs
 Files: <paths it may touch>                       # worker/fixer
 Decisions (the owner's, verbatim):
