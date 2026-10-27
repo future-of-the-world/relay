@@ -1,0 +1,188 @@
+{
+  "branch": "wt/train-recheck",
+  "findings": [
+    {
+      "details": [
+        "26 Oct evening, measured on wt/train-19: the item a-test-leaves-a-real-gate-running-that-holds-a-s was closed on wt/leaked-gate, then commit 87eddeb moved one test class in tests/test_gate.py. The merge hook refused the train (\"the check of 6ab988296859 is of no queue item, not of 'a-test-leaves-a-real-gate-running-that-holds-a-s'\"); a checker on wt/train-19 got \"Item: none\" from relay check findings because taken_by is wt/leaked-gate, and the input file has no field to name the item. The workaround is a recheck on the task branch and a fresh merge into the train. IP chosen by the front (agent-chosen).",
+        "Also: lib/relay_queue.py (taken_by, held_fix_items)",
+        "Also: relay check findings (Item: none on a train)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A temporary repo: item closed on wt/a, a non-inert commit on wt/a after the check, wt/train-1 merges wt/a; a checker on wt/train-1 cannot record a check of the item, and the merge of wt/train-1 is refused."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The checker on the train records a check of the item and the merge passes; a train whose item has no check after its last change is still refused; a check on the task branch still counts."
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_merge_train.py:497 test_a_train_with_one_closed_item_needs_no_name and test_the_checker_on_the_train_can_name_the_item_it_checks fail at 2ea2a3c, pass at HEAD."
+      ],
+      "severity": "HIGH",
+      "since": "2ea2a3c8d2ea25c784a2f8aab51795f39f62a701",
+      "source": "queue",
+      "summary": "A train cannot recheck a queue item its branch closed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a probe. record_item now calls held_fix_items(worktree, riders=True) on every branch, so every fix item closed",
+        "in the branch's history and not yet on master is held, whoever took it and whether or not anything still needs to vouch for",
+        "it. The merge hook (step_queue) judges an item at the absorbed rider that adds its done/ file (closing_ref) and only falls",
+        "back to the train when that rider is not absorbed; the findings list should follow the same rule. Before the change both",
+        "probe trains gave Item: none. Trains with closed fix items are ordinary (the 26 Oct trains 19 and 20); a refused merge check",
+        "blocks the train, and the documented merge-check prompt has no --item.",
+        "Size: 30 minutes."
+      ],
+      "evidence": [
+        "WT=... pytest -s scratchpad/probe/test_probe_train.py -k Probe",
+        "  test_merge_check_one_fresh_rider_closed_a_fix:",
+        "    FINDINGS ['Check of 688ae57...', 'Item: x', 'Q1 [queue, since e5b39b45658c] .relay/queue/x.json:1: HIGH: Q1 Item x loses a row', 'M1 [merge, ...] lib/shared.py:1: ...']",
+        "  test_merge_check_two_fresh_riders_each_closed_a_fix:",
+        "    REFUSED nothing recorded: this branch holds 2 fix items (x, y); name the one to check (`item` in the input, `--item` in `relay check findings`)",
+        "lib/relay_queue.py:1015  held = held_fix_items(worktree, riders=True)",
+        "plugins/core/hooks/merge.py:202  closer = closing_ref(main, default, ab, path) or \"refs/heads/\" + branch"
+      ],
+      "failing_case": [
+        "Train wt/train-1 merges wt/a (closed fix x, fresh Q1-MET check of x) and wt/b (closed fix y, fresh Q1-MET check of y), and",
+        "both riders changed lib/shared.py, so the train needs a merge check (relay check findings -C <train>, review = []).",
+        "Now: finding_list(train, []) raises \"nothing recorded: this branch holds 2 fix items (x, y); name the one to check\".",
+        "With one such rider (a closed x, b a plain change, both touching lib/shared.py): it lists \"Item: x\" and Q1 beside M1, so",
+        "the merge check must re-verify x (including the fails-without-the-fix run at Q1's since), although the hook judges x at",
+        "wt/a (closing_ref) where its check is valid, and SKILL.md says the merge check is \"M only\".",
+        "Should: Item: none and only the M findings, as before the change, when every rider-closed item is vouched for at its",
+        "closing rider. The same leak hits a stacked task branch that merged an unmerged branch which closed a fix item: with its own",
+        "taken item it now \"holds 2 fix items\"."
+      ],
+      "fix_hint": [
+        "Hold a rider-closed item (taken_by != branch) only when it is named, or when it is not vouched for at its closing branch:",
+        "e.g. keep riders=False by default and add such an item only when check_refusal at the absorbed rider that adds its done/ file",
+        "(relay_inert.absorbed + the closing_ref rule) refuses it. Then a fresh train stays M-only and a stale rider's item is listed."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1015,
+      "pass_cases": [
+        "1. Two fresh riders closing x and y plus a shared file: relay check findings -C <train> (no --item) prints \"Item: none\" and",
+        "   only M findings; a check with review = [] records.",
+        "2. One fresh rider closing x plus a shared file: \"Item: none\", only M1.",
+        "3. The change's own case: a rider that closed x then changed lib/late_x.py (not absorbed): finding_list(train, [review]) gives",
+        "   \"Item: x\" and Q1 (test_a_train_with_one_closed_item_needs_no_name keeps passing).",
+        "4. Two stale riders (x, y): no name refused with \"name the one to check\"; --item y gives Item: y.",
+        "5. A task branch that took z and merged an unmerged branch that closed x with a valid check: Item: z, not refused."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_merge_train.py:511 and :520 fail at ffaf1ce, pass now; :529 stale riders refused/listed; :497 own case kept."
+      ],
+      "severity": "HIGH",
+      "since": "ffaf1cea9b2bf5363db7505d031e008e9f4531db",
+      "source": "review-train-recheck.json",
+      "source_id": "F1",
+      "summary": "record_item always holds rider-closed items: a merge check of a train with fresh fix riders gets a Q1 it does not need, and with two such riders it is refused",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: git grep for \"--item\" finds only bin/relay:627 and the refusal text in lib/relay_queue.py. The queue",
+        "item's What is that \"a checker on the train can record a check of that item\"; a mechanism no checker or front text names is",
+        "reachable only by accident. Size: 15 minutes (role text then relay sync)."
+      ],
+      "evidence": [
+        "git grep -n -- '--item' -> bin/relay:627 (FINDINGS_USAGE), lib/relay_queue.py:1022 (refusal)",
+        "bin/relay:59   relay check findings [-C <worktree>] [--review <review.json> ...]",
+        "SKILL.md:235   > Merge check: `<train worktree>`. Findings: `relay check findings -C <train>` (M only, no review)."
+      ],
+      "failing_case": [
+        "A train carries two stale riders that closed x and y. The front sends the documented prompt \"Merge check: <train> ...",
+        "relay check findings -C <train>\" (SKILL.md:235); the checker's text (checker.md:105, roles/judge.md:89) says to run",
+        "relay check findings -C <path> --review ...; nothing says a train check of a rider's item exists, that two items need two",
+        "checks recorded one after the other, or that the TOML input takes `item = \"<slug>\"`. bin/relay help line 59 still shows the",
+        "old usage without --item. The checker only learns of it from a refusal, and the front never plans the second check.",
+        "Should: the help, the checker's check-mode text and the delegate skill's merge-check prompt name `--item` / `item` and when",
+        "a train needs a check of each closed item."
+      ],
+      "fix_hint": [
+        "Update the help line at bin/relay:59, one paragraph in roles/judge.md / checker.md check mode, and the SKILL.md prompt list."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 105,
+      "pass_cases": [
+        "1. bin/relay help (around line 59) shows relay check findings [-C <worktree>] [--item <slug>] [--review <review.json> ...].",
+        "2. checker.md (check mode) and roles/judge.md have a line: on a train, `--item <slug>` and `item = \"<slug>\"` in the input name",
+        "   the rider's closed item the check is of; one check per item.",
+        "3. SKILL.md has the prompt shape for a train check of a rider's item (Item, review of the stale rider's late files)."
+      ],
+      "path": "plugins/delegate/agents/checker.md",
+      "rank": "medium",
+      "reason": [
+        "bin/relay:59, roles/judge.md:98, plugins/delegate/agents/checker.md:114, SKILL.md:237 name --item."
+      ],
+      "severity": "MEDIUM",
+      "since": "ffaf1cea9b2bf5363db7505d031e008e9f4531db",
+      "source": "review-train-recheck.json",
+      "source_id": "F2",
+      "summary": "the new `item` input key and `--item` flag are documented nowhere a checker or the front reads",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep: no test input carries an `item` key (git grep \"item = \" tests/ finds none). Size: 15 minutes."
+      ],
+      "evidence": [
+        "git grep -n \"item = \\|'item'\\|\\\"item\\\"\" tests/ -> only stored-record asserts and fixtures, no record_check input with item",
+        "lib/relay_verdict.py:845  if \"item\" in raw and not (_text(raw[\"item\"]) and SLUG.match(raw[\"item\"])):"
+      ],
+      "failing_case": [
+        "The queue item's failing case is that a checker on the train \"cannot record a check of the item\". The tests call",
+        "rv.finding_list(train, ..., \"y\") and write marks directly (self.mark), but none runs rv.record_check with an input that has",
+        "item = \"y\": the CHECK_TOP addition, the `item must be the slug` validation and the hand-off raw.get(\"item\") ->",
+        "build_findings could be removed and every test still passes.",
+        "Should: a test records a check on the train from a TOML input with item = \"y\" and finds stored record[\"item\"] == \"y\" with Q1;",
+        "an input with item = \"Bad Slug\" is refused naming `item`."
+      ],
+      "fix_hint": [
+        "Add the cases to ATrainChecksItsRidersClosedItems, building the input the way tests/test_check_record.py does."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 489,
+      "pass_cases": [
+        "1. Train of two stale riders (x, y), review of the train head, input with item = \"y\" and Q1 MET: record_check writes a record",
+        "   whose item is \"y\" and whose findings start with Q1.",
+        "2. Same input without item: refused with \"name the one to check\".",
+        "3. item = \"Nope Nope\": refused \"`item` must be the slug of a queue item\".",
+        "4. item = \"nope\" (a slug not held): refused \"does not hold the fix item 'nope'\"."
+      ],
+      "path": "tests/test_merge_train.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_merge_train.py:555, :564, :570 record via TOML input with item, without, bad slug and unheld slug; fail at 2ea2a3c."
+      ],
+      "severity": "MEDIUM",
+      "since": "ffaf1cea9b2bf5363db7505d031e008e9f4531db",
+      "source": "review-train-recheck.json",
+      "source_id": "F3",
+      "summary": "no test records a check through the TOML input with `item`; the new key and its validation are untested",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b79b7e0220335085a66703ed8e0e341d2fc88ba1.gate.log",
+  "head": "9035c9140620d853badf566a9b9cd60e3499b094",
+  "item": "a-train-cannot-recheck-a-queue-item-its-branch-c",
+  "notes": [
+    "F3 tests pass at ffaf1ce by design (they cover code added earlier in the branch); they fail at 2ea2a3c."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range since ffaf1ce..HEAD; ran tests/test_merge_train.py (47 passed). Fail-without-fix: at ffaf1ce the two F1 tests fail; at 2ea2a3c the Q1 tests (ATrainChecksItsRidersClosedItems, 7) fail. Gate b79b7e0 exit 0 (bin/ci --quick); only inert commits after it. Changed files besides findings: critic.md and spec-*.md are synced copies of roles/judge.md."
+  ],
+  "type": "check"
+}
