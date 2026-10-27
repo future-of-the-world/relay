@@ -35,6 +35,12 @@
       "fact": [
         "28 Oct: the docstring says evidence may be a merge sha \"of this or another repo\" (a feature finished in another project). The fix keeps that case: a sha of another repo needs that repo named (for example --evidence <repo>:<sha>) and is checked there, not accepted unchecked."
       ]
+    },
+    {
+      "at": "2026-10-27T22:49:10Z",
+      "said": [
+        "Возьми исправление evidence параллельно с переименованием"
+      ]
     }
   ]
 }
