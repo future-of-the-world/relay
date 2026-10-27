@@ -27,8 +27,8 @@
   ],
   "taken_at": "2026-10-27T17:00:01Z",
   "taken_by": "wt/timeouts",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T17:30:32Z",
+  "test": "tests/test_eval_majority.py::Majority::test_a_timed_out_run_is_a_failed_run_of_the_majority",
   "dropped_at": null,
   "dropped_why": null
 }

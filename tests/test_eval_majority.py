@@ -70,6 +70,32 @@ class Majority(unittest.TestCase):
         text = "\n".join(self.rec.report(now, "", [broken, batch(case([P, P, P])), batch(case([P, P, P]))]))
         self.assertIn("note: c: pass rate fell to 2 of 3 runs", text)
 
+    def test_a_timed_out_run_is_a_failed_run_of_the_majority(self):
+        # owner, 27 Oct, "7. a": PASS, PASS, timed out = 2 of 3 passed -> green, the summary names the timeout
+        def timed(c, *idx):
+            for i in idx:
+                c["arms"]["with"][i] = {"error": "timed out after 600s", "graders": []}
+            return c
+        one = batch(timed(case([P, P, P]), 2))
+        text = "\n".join(self.rec.report(one, ""))
+        self.assertTrue(self.rec.is_green(one))
+        self.assertIn("2 of 3 runs passed, 1 timed out", text)
+        self.assertNotIn("not judged", text)
+        # PASS, timed out, timed out = 1 of 3 -> red, and no run is called not judged
+        two = batch(timed(case([P, P, P]), 1, 2))
+        last = self.rec.report(two, "")[-1]
+        self.assertFalse(self.rec.is_green(two))
+        self.assertEqual(last, "ci: eval record: NOT A PASS: 0 meaning grader(s) failed, 2 run(s) timed out, 0 not judged, in c")
+        # any other error stays not judged
+        other = batch(case([P, P, P])); other["cases"][0]["arms"]["with"][2] = {"error": "max_turns", "graders": []}
+        self.assertFalse(self.rec.is_green(other))
+
+    def test_a_timed_out_run_counts_against_a_falling_pass_rate(self):
+        # earlier 3 of 3; now PASS, PASS, timed out = 2 of 3, below it
+        c = case([P, P, P]); c["arms"]["with"][2] = {"error": "timed out after 600s", "graders": []}
+        text = "\n".join(self.rec.report(batch(c), "", [batch(case([P, P, P]))]))
+        self.assertIn("note: c: pass rate fell to 2 of 3 runs", text)
+
 
 class VerdictCommand(unittest.TestCase):
     def setUp(self):
