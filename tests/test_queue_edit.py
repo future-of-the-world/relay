@@ -1,6 +1,5 @@
 """`relay queue edit` (one exact fragment, quoted text byte-equal, a dated why), `add` with `said`, the stale-check rule, `history`,
 and the hand-edit fence of the merge hook. Scratch repositories in a temp dir; time is a value passed in."""
-import json
 import os
 import sys
 import unittest
