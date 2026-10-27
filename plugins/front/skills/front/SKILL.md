@@ -27,6 +27,16 @@ agents (load the `delegate` skill).
 - One screen at most. Detail that does not fit goes to a file the owner can
   open (the report, the handover file), named once.
 
+## Few requests, not many small commands
+
+Every request of this session re-reads the whole context, so the count of
+requests is the cost. Batch what you must run yourself into one call (one
+command per step, not one per probe). Three or more probing commands in a row
+(greps, reads, status checks) go to a scout or runner with one brief. The
+take-master, record, gate and check sequence is run by the workflow script, not
+here. `relay report` shows your requests per owner turn and flags a session above
+the target.
+
 ## Claims that did not reproduce
 
 A queue item whose failing case is a claim (`failing_kind` `claim`) is reproduced

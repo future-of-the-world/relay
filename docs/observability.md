@@ -119,6 +119,7 @@ anti-patterns, each with evidence, an estimated saving and the lever:
 | F6 | many agents with 3 requests or fewer | half their first reads |
 | F7 | compactions | none (a count) |
 | F8 | replies over 2,500 characters per turn | none (a measure of noise) |
+| F10 | front requests per owner turn over 15 | none (a count; each request re-reads the context) |
 
 Findings are sorted by saving. The estimates are deliberately simple and
 say so; the bench gives the real figure.

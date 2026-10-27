@@ -35,6 +35,11 @@ def classify(agent_type):
     return "other"
 
 
+# Owner decision 24 Oct (front keeps Opus, saves on request count); the number is the front's pick, owner can reverse:
+# the measured bad session made ~24 requests per owner turn (952 / ~40), a front that batches should stay under 15.
+FRONT_REQUESTS_PER_TURN_TARGET = 15
+
+
 def _ts(value):
     return relay_ledger.parse_ts(value) if value else None
 
@@ -349,6 +354,8 @@ def totals(data):
         "figures": figures,
         "by_type": by_type,
         "user_turns": sum(m.user_turns for m in mains),
+        "front_requests": sum(m.total.requests for m in mains),
+        "front_tool_calls": sum(sum(m.tools.values()) for m in mains),
         "scripted_sessions": sum(1 for m in mains if m.scripted),
         "reply_chars": sum(m.reply_chars for m in mains),
         "prompt_chars": sum(m.prompt_chars for m in mains),
@@ -408,6 +415,11 @@ def report(data, title="Usage"):
         lines.append(f"Per turn of yours: {_money(grand / t['user_turns'])}; "
                      f"reply length {t['reply_chars'] // t['user_turns']:,} characters on average; "
                      f"your prompts {t['prompt_chars'] // t['user_turns']:,} characters on average, {t['long_prompts']} over 600")
+        flag = ""
+        if t["front_requests"] / t["user_turns"] > FRONT_REQUESTS_PER_TURN_TARGET:
+            flag = f" - ABOVE the target of {FRONT_REQUESTS_PER_TURN_TARGET}: the front runs too many small steps itself"
+        lines.append(f"Front (main session) per turn of yours: {t['front_requests'] / t['user_turns']:.1f} requests, "
+                     f"{t['front_tool_calls'] / t['user_turns']:.1f} tool calls (target {FRONT_REQUESTS_PER_TURN_TARGET} requests){flag}")
     lines.append(f"Compactions: {t['compactions']}")
     lines.append("")
     lines.append("## By model")
@@ -532,6 +544,18 @@ def findings(data):
                 "evidence": f"{avg:,.0f} characters per turn on average (target under 1,500)", "saving_usd": 0.0,
                 "lever": "rules/front.md: one screen per reply; detail goes to a report file the user can open",
             })
+    # F10: the front runs many small steps itself (each request re-reads the whole context)
+    if turns:
+        per_turn = sum(m.total.requests for m in mains) / turns
+        if per_turn > FRONT_REQUESTS_PER_TURN_TARGET:
+            tools = sum(sum(m.tools.values()) for m in mains) / turns
+            out.append({
+                "id": "F10", "title": "The front runs many small steps itself",
+                "evidence": f"{per_turn:.1f} front requests and {tools:.1f} tool calls per turn of yours "
+                            f"(target {FRONT_REQUESTS_PER_TURN_TARGET} requests)",
+                "saving_usd": 0.0,
+                "lever": "rules/delegation.md: batch what the front runs into one call; hand 3+ probing commands to a scout or runner",
+            })
     # F9: long prompts from the owner: what repeats belongs in the setup
     if turns:
         avg_prompt = sum(m.prompt_chars for m in mains) / turns
@@ -574,6 +598,10 @@ def compare(a, b, label_a="A", label_b="B"):
         row("reply chars per turn", lambda t: t["reply_chars"] / max(t["user_turns"], 1), lambda t: t["reply_chars"] / max(t["user_turns"], 1), lambda x: f"{x:,.0f}"),
         row("your prompt chars per turn", lambda t: t["prompt_chars"] / max(t["user_turns"], 1), lambda t: t["prompt_chars"] / max(t["user_turns"], 1), lambda x: f"{x:,.0f}"),
         row("prompts over 600 chars", lambda t: t["long_prompts"], lambda t: t["long_prompts"], str),
+        row("front requests per turn", lambda t: t["front_requests"] / max(t["user_turns"], 1),
+            lambda t: t["front_requests"] / max(t["user_turns"], 1), lambda x: f"{x:,.1f}"),
+        row("front tool calls per turn", lambda t: t["front_tool_calls"] / max(t["user_turns"], 1),
+            lambda t: t["front_tool_calls"] / max(t["user_turns"], 1), lambda x: f"{x:,.1f}"),
         row("compactions", lambda t: t["compactions"], lambda t: t["compactions"], str),
     ]
     for tier_name in ("opus", "sonnet", "haiku"):

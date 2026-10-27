@@ -18,6 +18,13 @@ does not need; and the big model only where judgment is what is being bought.
   steps the front skill gives it (the handover file, the merge, the paid
   run in the background); a request to build or change something starts with
   the brief, not the file.
+- The front batches what it must run itself: one command per step, never one
+  per probe (a grep, then a sed, then a status). Any sequence of 3 or more
+  probing commands goes to a scout or runner in one brief. The take-master,
+  record, gate and check sequence belongs in the workflow script, not in the
+  front. Each front request re-reads the whole context (measured: 952 requests
+  at ~170k tokens in one session); `relay report` shows front requests per turn
+  of the owner against a target and flags a session above it.
 - A question from the owner about a new mechanism (a field, a command, a
   step: "can we", "would X help", "how should we") is not answered inline:
   it goes to the design track. A `thinker` gets the owner's words verbatim and

@@ -54,6 +54,44 @@ class Analysis(Base):
         f1 = next(f for f in relay_analyze.findings(data) if f["id"] == "F1")
         self.assertGreater(f1["saving_usd"], 0)
 
+    def write_front_session(self, requests, turns):
+        """A main session of `turns` owner turns with `requests` front requests, each with one Bash call."""
+        base = dt.datetime(2026, 10, 18, 9, 0, tzinfo=dt.timezone.utc)
+        folder = os.path.join(self.claude, "projects", "p")
+        os.makedirs(folder, exist_ok=True)
+        lines = [fixtures.user(fixtures._ts(base, t), f"ask {t}") for t in range(turns)]
+        lines += [fixtures.assistant(fixtures._ts(base, 1 + i * 0.01), "claude-opus-5", 1000, 0, 10, f"r{i}",
+                                     tools=[("Bash", {"command": "ls"})]) for i in range(requests)]
+        with open(os.path.join(folder, "sf.jsonl"), "w") as handle:
+            for line in lines:
+                line["sessionId"] = "sf"
+                handle.write(json.dumps(line) + "\n")
+        return base
+
+    def test_front_requests_per_turn_are_reported_and_flagged_over_the_target(self):
+        import relay_analyze
+        # 2 turns, 40 requests, 40 Bash calls: 20 requests and 20 tool calls per turn; 20 > the target of 15
+        base = self.write_front_session(40, 2)
+        window = (base - dt.timedelta(days=1), base + dt.timedelta(days=1))
+        data = relay_analyze.collect(self.claude, *window)
+        text = relay_analyze.report(data)
+        self.assertIn("20.0 requests, 20.0 tool calls", text)
+        self.assertIn("ABOVE the target", text)
+        f10 = [f for f in relay_analyze.findings(data) if f["id"] == "F10"]
+        self.assertEqual(len(f10), 1)
+        self.assertIn("20.0 front requests", f10[0]["evidence"])
+        self.assertIn("front requests per turn", relay_analyze.compare(data, data))
+
+    def test_front_within_the_target_is_not_flagged(self):
+        import relay_analyze
+        # 2 turns, 20 requests: 10 per turn, under 15
+        base = self.write_front_session(20, 2)
+        data = relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
+        text = relay_analyze.report(data)
+        self.assertIn("10.0 requests", text)
+        self.assertNotIn("ABOVE the target", text)
+        self.assertNotIn("F10", {f["id"] for f in relay_analyze.findings(data)})
+
     def test_compare_two_periods(self):
         import relay_analyze
         base = fixtures.populate(self.claude)
