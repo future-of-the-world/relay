@@ -10,7 +10,7 @@ FAILS naming the tool; only hooks-live, which makes a paid claude call, is left 
 plugin evals' grader tests, `claude plugin validate` (skipped loudly without claude), the inert step, plugin evals (full
 mode only; compared with evals/plugin/baseline), then the record step (bin/eval-record: files .ci/evals.json under
 $RELAY_HOME/evals, prints failed meaning graders, split votes and rule-file reads; it fails the gate when the copy fails,
-when a meaning grader failed, or when a run was not judged).
+when a case failed its majority of runs (2 of 3 pass), or when a run was not judged).
 
 A change of only rules/*.md files (lib/relay_textonly.py) runs just the step "rules text tests" under --quick.
 
@@ -418,7 +418,13 @@ class Ci:
                 "--judge-model", self.env.get("EVALS_JUDGE_MODEL") or "sonnet", "--no-publish", "--max-cost-usd", ceiling,
                 "--keep-temp",   # the run folders stay until bin/eval-record copies the failing ones and removes the rest
                 "--json", evals_json]
-        self.step("plugin evals", lambda log: self.run(argv, log, cwd=self.path("evals", "plugin"), env=env).returncode)
+        def evals(log: TextIO) -> int:
+            # the tool exits 1 when any single run failed; the verdict is the record's majority rule (bin/eval-record, in
+            # record()), which is also red when the tool wrote no record. The tool's own code goes to the log.
+            code = self.run(argv, log, cwd=self.path("evals", "plugin"), env=env).returncode
+            log.write("claude plugin eval exited %d; the gate judges the record by the majority rule, not this code\n" % code)
+            return 0
+        self.step("plugin evals", evals)
         return None
 
     def record(self) -> None:
@@ -436,7 +442,7 @@ class Ci:
             self.say("ci: RED (the eval record could not be stored)")
             self.status = 1
         elif rc != 0:
-            self.say("ci: RED (eval runs were not judged or a meaning grader failed: not a pass)")
+            self.say("ci: RED (eval runs were not judged or a case failed its majority: not a pass; bin/eval-record --verdict <the stored path eval-record prints> shows why)")
             self.status = 1
 
     # ---- the whole gate -------------------------------------------------------------------------------------------

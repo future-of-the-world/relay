@@ -27,10 +27,18 @@
   "where": [
     "evals/plugin/no-spec-step/graders/worker-started.md:4"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T17:31:45Z",
+  "taken_by": "wt/twin-graders",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T16:37:21Z",
+      "fact": [
+        "Measured 27 Oct, full gate of wt/majority at 420e059 (master plus the majority rule; ran the paid evals by mistake, -j 1, 6102 s, $16.43): no-spec-step-ru run 2 failed the worker-started code grader; the case passed 2 of 3 by majority, and its pass rate fell below its last 5 records. This is the twin-grader defect of this item, seen live."
+      ]
+    }
+  ]
 }

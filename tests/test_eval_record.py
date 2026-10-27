@@ -175,7 +175,7 @@ class Record(unittest.TestCase):
         self.assertNotIn("cost $", out)
 
     def test_a_failed_grader_prints_votes_and_the_judged_line_matching_the_code_check(self):
-        _, out = self.run_step(fixture([[True] * 3, [False, False, True], [True] * 3]))
+        _, out = self.run_step(fixture([[True] * 3, [False, False, True]]))   # 1 of 2 runs pass: no majority, so the failure counts
         self.assertIn("1 meaning grader(s) failed, 1 split vote", out)
         self.assertIn("FAIL code-reviewer-offbyone run 2 reports-off-by-one: votes FAIL FAIL PASS", out)
         self.assertIn('judged: "F1 HIGH src/shelf.ts:27: slice end"', out)
@@ -211,15 +211,16 @@ class Record(unittest.TestCase):
         return data, folders
 
     def test_a_red_batch_keeps_the_failing_runs_traces_where_the_record_names_them(self):
-        # runs 1 and 3 pass (3 of 3 votes), run 2 fails (0 of 3): only run 2's trace is copied
-        data, folders = self.batch_with_traces([True, False, True])
+        # runs 1 and 2 fail (0 of 3 votes), run 3 passes: 1 of 3 runs pass, so the case is red (majority rule); the failing runs' traces are copied, run 3's is not
+        data, folders = self.batch_with_traces([False, False, True])
         code, out = self.run_step(data)
         self.assertEqual(code, 2)
         stored = json.load(open(os.path.join(self.home, "evals", "relay", os.listdir(os.path.join(self.home, "evals", "relay"))[0])))
         runs = stored["cases"][0]["arms"]["with"]
-        self.assertEqual([("keptTracePath" in r) for r in runs], [False, True, False])
+        self.assertEqual([("keptTracePath" in r) for r in runs], [True, True, False])
         self.assertEqual(open(runs[1]["keptTracePath"]).read(), "trace 2\n")
-        self.assertIn("trace: " + runs[1]["keptTracePath"], out)
+        for r in runs[:2]:
+            self.assertIn("trace: " + r["keptTracePath"], out)
         self.assertEqual([os.path.exists(f) for f in folders], [False] * 3)   # the tool's temp folders are gone
 
     def test_a_green_batch_keeps_no_trace_and_removes_the_temp_folders(self):

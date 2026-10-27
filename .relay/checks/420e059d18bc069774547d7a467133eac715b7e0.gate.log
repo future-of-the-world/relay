@@ -1,0 +1,19 @@
+head 420e059d18bc069774547d7a467133eac715b7e0
+cmd bin/ci
+wait 206.8
+ci: library tests ok (678s)
+ci: types and lint ok (1s)
+ci: hook tests ok (520s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (6s)
+ci: inert ok (37s)
+plugin evals: estimate mean $10.23, max $21.41 over 20 stored runs; -j 1, ceiling $42.83 (--from-estimate --cap 15)
+ci: plugin evals FAILED (6102s, log: .ci/steps/plugin-evals.log)
+ci: eval record: 0 meaning grader(s) failed, 0 split votes, cost $16.43
+    note: critic-role-rule: a session in the run read the rule file in 1 of 3 runs (run 1, Bash), so those runs do not prove the hook delivered it
+    note: no-spec-step-ru run 2 worker-started: code grader failed (the case still passes by majority)
+    note: no-spec-step-ru with: 2 of 3 runs passed, the case passes by majority
+    note: no-spec-step-ru: pass rate fell to 2 of 3 runs, below its rate in the last 5 records
+ci: RED
+exit 1
