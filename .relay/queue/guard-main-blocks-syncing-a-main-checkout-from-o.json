@@ -33,6 +33,12 @@
       "fact": [
         "Migration 27 Oct: the link in `why` line 1 points to a session file (`reports/design-arsenal.md` of 25 Oct, section 1.2), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
       ]
+    },
+    {
+      "at": "2026-10-25T17:27:12Z",
+      "fact": [
+        "Measured 25 Oct with fake hook input (arsenal pilot design, section 1.2): arsenal's guard and relay's guard each allow exactly the merge the other blocks. arsenal's passes `git merge --ff-only origin/master` and blocks `git merge --ff-only wt/x`; relay's does the reverse. So relay's guard blocks a hand-typed Master Sync in arsenal; `bin/wt sync <name>` gets through."
+      ]
     }
   ]
 }
