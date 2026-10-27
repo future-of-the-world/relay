@@ -1,9 +1,11 @@
 """The queue has no done/ folder: a close or a drop edits the item file in place, and the state is read from its dated fields.
 Scratch repositories in a temp dir."""
+import json
 import os
 import subprocess
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_queue as tq  # noqa: E402
@@ -171,6 +173,117 @@ class MoveBack(tq.Base):
             relay_queue_migrate.move_done_back(self.main)
         self.assertTrue(os.path.exists(os.path.join(self.main, QUEUE, "done", "a.json")))
         self.assertFalse(os.path.exists(os.path.join(self.main, QUEUE, "a.json")))
+
+
+OLD_RUNNER = (       # the default branch's hook before this change: it passes (slug, text, folder) to parse
+    "import json, sys\n"
+    "sys.path.insert(0, sys.argv[1])\n"
+    "import relay_queue\n"
+    "rows = json.load(sys.stdin)\n"
+    "json.dump([relay_queue.parse(slug, text, where) for slug, text, where in rows], sys.stdout)\n"
+)
+
+
+_HOOK = []
+
+
+def hook():
+    """The merge hook module, loaded once (its Refused class must be the one the tests catch)."""
+    if _HOOK:
+        return _HOOK[0]
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("merge_hook_in_place", os.path.join(tq.ROOT, "plugins", "core", "hooks", "merge.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _HOOK.append(module)
+    return module
+
+
+def taken_y():
+    return tq.with_fields(tq.fix_item("Y"), **tq.taken_fields("wt/close"))
+
+
+class TheMoveBranch(tq.Base):
+    """A branch whose range moves closed items out of done/ closes nothing; step_queue judges only the items the range changed."""
+
+    def setUp(self):
+        super().setUp()
+        self.write_commit(self.main, {QUEUE + "done/x.json": closed("X")}, "x closed at the base, under done/")
+        self.base = git(self.main, "rev-parse", "HEAD")
+
+    def move_branch(self):
+        git(self.main, "checkout", "-q", "-b", "wt/move", self.base)
+        git(self.main, "mv", QUEUE + "done/x.json", QUEUE + "x.json")
+        git(self.main, "commit", "-q", "-m", "move")
+        git(self.main, "checkout", "-q", "master")
+
+    def test_moving_a_closed_item_out_of_done_is_not_a_close_and_is_not_refused(self):
+        # worked out: x is closed at the base (under done/) and at the tip (moved): the branch closed nothing
+        self.move_branch()
+        self.assertFalse(rq.closed_on(self.main, self.base, "wt/move", "x"))
+        hook().step_queue(self.main, "master", "wt/move")       # does not raise
+
+    def moved_on_master(self):
+        git(self.main, "mv", QUEUE + "done/x.json", QUEUE + "x.json")       # done/ is gone on the default branch, as after the migrate
+        git(self.main, "commit", "-q", "-m", "move")
+
+    def test_a_close_in_place_without_a_test_is_still_refused(self):
+        self.moved_on_master()
+        self.write_commit(self.main, {QUEUE + "y.json": taken_y()}, "y taken")
+        git(self.main, "checkout", "-q", "-b", "wt/close")
+        self.write_commit(self.main, {QUEUE + "y.json": tq.with_fields(tq.fix_item("Y"), **tq.taken_fields("wt/close"), closed_at=tq.CLOSED_AT,
+                                                                       test="tests/none.py::test_none")}, "close y")
+        git(self.main, "checkout", "-q", "master")
+        with self.assertRaises(hook().Refused) as ctx:
+            hook().step_queue(self.main, "master", "wt/close")
+        self.assertIn("closed without a test or a check", str(ctx.exception))
+
+    def test_a_new_item_added_already_closed_is_refused(self):
+        self.moved_on_master()
+        git(self.main, "checkout", "-q", "-b", "wt/new")
+        self.write_commit(self.main, {QUEUE + "z.json": closed("Z")}, "z added closed")
+        git(self.main, "checkout", "-q", "master")
+        with self.assertRaises(hook().Refused) as ctx:
+            hook().step_queue(self.main, "master", "wt/new")
+        self.assertIn("closed without a test or a check", str(ctx.exception))
+
+    def test_held_fix_items_does_not_list_a_renamed_item(self):
+        git(self.main, "checkout", "-q", "-b", "wt/move", self.base)
+        git(self.main, "mv", QUEUE + "done/x.json", QUEUE + "x.json")
+        git(self.main, "commit", "-q", "-m", "move")
+        # worked out: the move closes nothing, so the branch holds no fix item
+        self.assertEqual(rq.held_fix_items(self.main, riders=True), {})
+
+    def test_step_queue_asks_closed_on_only_for_the_items_the_range_changed(self):
+        self.move_branch()
+        git(self.main, "merge", "-q", "wt/move")
+        git(self.main, "checkout", "-q", "-b", "wt/other")
+        self.write_commit(self.main, {"a.txt": "a\n"}, "unrelated")
+        git(self.main, "checkout", "-q", "master")
+        # worked out: wt/other changed only a.txt; x (closed, in the tip) is not in its range, so closed_on is never called
+        with mock.patch.object(rq, "closed_on", side_effect=AssertionError("called")) as spy:
+            hook().step_queue(self.main, "master", "wt/other")
+        spy.assert_not_called()
+
+
+class OldHookNewLib(unittest.TestCase):
+    """The default branch's hook runs the branch's lib with three-element rows."""
+
+    def run_runner(self, runner, rows):
+        lib = os.path.join(tq.ROOT, "lib")
+        done = subprocess.run([sys.executable, "-I", "-c", runner, lib], input=json.dumps(rows), capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return json.loads(done.stdout)
+
+    def test_the_old_runner_with_three_element_rows_parses_open_and_done(self):
+        text = tq.feature_item("Feat")
+        for folder in ("open", "done"):
+            out = self.run_runner(OLD_RUNNER, [["x", text, folder]])
+            self.assertEqual(out[0]["problems"], [], folder)       # no folder rule any more
+
+    def test_the_new_runner_with_two_element_rows_works(self):
+        out = self.run_runner(hook().RULES_RUNNER, [["x", tq.feature_item("Feat")]])
+        self.assertEqual(out[0]["problems"], [])
 
 
 if __name__ == "__main__":

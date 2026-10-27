@@ -186,11 +186,12 @@ def step_queue(main, default, branch, ab=None):
     paths = sorted(p for p in files if p.endswith(".json") and os.path.dirname(p) == QUEUE_DIR.rstrip("/"))
     rows = [(os.path.basename(p)[:-5], blob(main, ref, p) or "") for p in paths]
     base = None
+    changed = set(changed_files.split("\0"))      # an item the range did not touch is the same blob at the base: not closed by the branch
     for path, meta in zip(paths, record_rules(main, ref, rows)):
         slug = os.path.basename(path)[:-5]
         if meta["problems"]:
             raise Refused("queue item %s is malformed (%s); fix it before the merge" % (slug, "; ".join(meta["problems"])))
-        if meta["kind"] != "fix" or meta["state"] != "done":
+        if meta["kind"] != "fix" or meta["state"] != "done" or path not in changed:
             continue
         try:
             base = base or relay_queue.merge_base(main, "refs/heads/" + default, ref)

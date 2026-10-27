@@ -224,8 +224,9 @@ def _nonblank(lines):
     return _is_lines(lines) and any(x.strip() for x in lines)
 
 
-def parse(slug, text):
+def parse(slug, text, where=None):
     """An item as a dict: the fields of the file, the computed `state`, `slug` and `problems` (empty when well formed).
+    `where` is ignored: it stays because the default branch's merge hook still passes a third value (the folder) until this change lands.
 
     A file that fails the check (an old-shape one too) comes back as {"slug", "problems"} only, so nothing reads half an item."""
     try:
@@ -1000,8 +1001,8 @@ def closed_on(main: str, base: str, tip: str, slug: str) -> bool:
     """True when the branch whose fork point is `base` and whose tip is `tip` closed the item `slug`: closed_at is empty (or the file
     is absent) at `base` and set at `tip`. The one rule of the merge hook, the train's closer search and `held_fix_items`: a close
     edits the item file in place, so no file is added when an item is closed."""
-    before, after = cat_batch(main, [f"{base}:{_path(slug)}", f"{tip}:{_path(slug)}"])
-    return _closed_at(after) and not _closed_at(before)
+    after, before, before_old = cat_batch(main, [f"{tip}:{_path(slug)}", f"{base}:{_path(slug)}", f"{base}:{QDIR}/done/{slug}.json"])
+    return _closed_at(after) and not _closed_at(before) and not _closed_at(before_old)     # done/ at the base: the move out of it closes nothing
 
 
 def merge_base(main: str, left: str, right: str) -> str:
