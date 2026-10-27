@@ -24,7 +24,7 @@ READ_ONLY = {"critic", "checker", "scout", "spec-reviewer", "spec-conformance"}
 WRITERS: dict[str, Optional[set[str]]] = {
     "setup": None, "migrate": None, "install": None, "sync": None, "candidate": None, "calibrate": None, "gate": None,
     "bench": None,
-    "queue": {"add", "take", "release", "done", "drop", "land", "ip", "migrate", "note"},
+    "queue": {"add", "take", "release", "done", "drop", "land", "ip", "migrate", "note", "edit"},
     "check": {"migrate", "owner"},
     "improve": {"adopt"},
     "license": {"add"},
@@ -33,7 +33,7 @@ READS = {"status", "report", "profile", "doctor", "flows", "rules", "changed"}
 # the words after a writing-or-mixed subcommand that only read (the other words of WRITERS[sub] is None are writes)
 READ_WORDS = {
     "bench": {"list"},
-    "queue": {"count", "show", "check"},
+    "queue": {"count", "show", "history", "check"},
     "check": {"show", "findings", "record"},   # record is the judge's own way to write its verdict
     "improve": {"suggest", "log"},
     "license": {"check"},

@@ -14,6 +14,7 @@ Cleanup checks git itself, never the tool's exit status, and never forces: no `w
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -166,6 +167,39 @@ def record_rules(main: str, ref: str, rows: list) -> list:
     return json.loads(done.stdout)
 
 
+EVENT_FIELDS = ("taken_at", "taken_by", "closed_at", "evidence", "fixed_by", "test", "notes")   # what take, release and done write on a branch
+MIGRATE_MODULE = re.compile(r"lib/relay_[a-z_]*migrate[a-z_]*\.py")
+
+
+def step_hand_edits(main, default, ref, changed_files):
+    """Only relay's commands change an item: for every item file the range changes that exists on the default branch, every field
+    but the ones `take`, `release` and `done` write is equal to the default branch's tip (the branch holds it already), the notes of
+    the default branch are an unchanged beginning of the branch's, and `test` changes only where the branch closed the item. A
+    refusal names `relay queue edit`. A branch that changes a migrate module (`lib/relay_*migrate*.py`) is exempt: every reshaping of
+    items ships as one."""
+    names = relay_git.git(main, "diff", "--name-only", "--no-renames", "-z", "refs/heads/%s...%s" % (default, ref))[1].split("\0")
+    if any(MIGRATE_MODULE.fullmatch(n) for n in names):
+        return
+    for path in sorted(p for p in set(changed_files.split("\0")) if p.endswith(".json") and os.path.dirname(p) == QUEUE_DIR.rstrip("/")):
+        slug = os.path.basename(path)[:-5]
+        try:
+            before = json.loads(blob(main, "refs/heads/" + default, path) or "null")
+            after = json.loads(blob(main, ref, path) or "null")
+        except ValueError:
+            continue                                       # a file that is not JSON is refused as malformed
+        if not isinstance(before, dict) or not isinstance(after, dict):
+            continue
+        hand = "queue item %s: %%s changed by hand; use relay queue edit (a change of the item shape ships as a migrate module, lib/relay_*migrate*.py)" % slug
+        for key in sorted((set(before) | set(after)) - set(EVENT_FIELDS)):
+            if before.get(key) != after.get(key):
+                raise Refused(hand % key)
+        old_notes, new_notes = before.get("notes") or [], after.get("notes") or []
+        if new_notes[:len(old_notes)] != old_notes:
+            raise Refused(hand % "an earlier note")
+        if before.get("test") != after.get("test") and (before.get("closed_at") or not after.get("closed_at")):
+            raise Refused(hand % "test")
+
+
 def step_queue(main, default, branch, ab=None):
     """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
     `relay queue migrate`); every queue file at the branch tip, whether the range touched it or not (one that came in by taking the
@@ -183,6 +217,7 @@ def step_queue(main, default, branch, ab=None):
     stray = sorted(p for p in files if p.startswith(DONE_DIR) and p.endswith(".json"))
     if stray:
         raise Refused("queue file %s is under done/, which is gone; run relay queue migrate" % stray[0])
+    step_hand_edits(main, default, ref, changed_files)
     paths = sorted(p for p in files if p.endswith(".json") and os.path.dirname(p) == QUEUE_DIR.rstrip("/"))
     rows = [(os.path.basename(p)[:-5], blob(main, ref, p) or "") for p in paths]
     base = None

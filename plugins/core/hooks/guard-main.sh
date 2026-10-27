@@ -26,6 +26,8 @@
 #   `.relay/checks/` (Write/Edit, a Bash write row, git add/rm/mv/restore/update-index/checkout -- naming it, inline
 #   code naming it with a write word); reads are allowed. Those files are written only by relay's own hook and
 #   `relay gate`. Tests: plugins/core/tests/check-mark.test.sh;
+# - the same for a queue item file `.relay/queue/<slug>.json`: only `relay queue` writes it (the message names `relay queue edit`);
+#   git's own verbs (a merge conflict) stay free. Tests: plugins/core/tests/guard-main.test.sh
 # - everything, with the reason, when the guard cannot read its own bindings:
 #   .claude/kit.toml present but unreadable, or jq / python3 missing. A broken
 #   guard never silently allows.
@@ -117,6 +119,14 @@ checks_refuse() { # <existing directory the write acts in>
   exit 2
 }
 
+# A queue item file is written only by `relay queue` (add, note, edit, take, done ...), also on a task branch: the same test as
+# checks_refuse. git's own verbs on it (a merge conflict) are not refused here; the merge hook judges the result.
+queue_refuse() { # <existing directory the write acts in>
+  python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import relay_git; sys.exit(0 if relay_git.has_relay(sys.argv[2]) else 1)' "$lib" "$1" 2>/dev/null || return 0
+  echo "guard-main: a queue item is changed only by relay queue (edit changes its text, note adds a note, take, done, release, ip, drop): use relay queue edit <slug> --input <file.toml>" >&2
+  exit 2
+}
+
 in_main() {
   case "$1" in
     "$main/$wtdir" | "$main/$wtdir/"*) return 1 ;;
@@ -134,6 +144,10 @@ case "$tool" in
     case "$target" in */.relay/checks | */.relay/checks/*)
       dir="$target"; while [ ! -d "$dir" ]; do dir="$(dirname "$dir")"; done
       checks_refuse "$dir" ;;
+    esac
+    case "$target" in */.relay/queue/*.json)
+      dir="$target"; while [ ! -d "$dir" ]; do dir="$(dirname "$dir")"; done
+      queue_refuse "$dir" ;;
     esac
     in_main "$target" && block "$tool on $target writes to the main checkout."
     exit 0
@@ -203,6 +217,7 @@ while IFS=$SEP read -r kind a b; do
   case "$kind" in
     B) echo "guard-main: $a" >&2; exit 2 ;;
     X) checks_refuse "$a" ;;
+    Y) queue_refuse "$a" ;;
     D)
       case "$a" in "$main/$wtdir/"*)
         # a session already working inside that worktree moves nowhere by cd'ing within it

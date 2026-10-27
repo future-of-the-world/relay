@@ -34,6 +34,16 @@ apart). A question about no item first adds the item; one about several is noted
 file path (`/tmp/...`, `/private/tmp/...`, a scratchpad file) in text the front writes is refused by `add`, `drop`,
 `done --evidence` and `note`; the owner's own words are kept as given.
 
+An item's text is changed only by `relay queue edit <slug> --input <file.toml>` (field, the exact `old` fragment, `new`, `because`): it
+leaves every quoted span (`"..."`, `«...»`, `'...'`) byte-equal, checked on the result, and adds a dated fact note saying why; the
+earlier text is read with `relay queue history <slug>`. A new item keeps the owner's words in a `said` note (`said` in the `add` input),
+never in `what` or `why`, so no edit can reach them. A fix's check counts only for the problem it judged: an edit of the item after the
+check makes it stale (take the default branch, check again). Nothing but `relay queue` writes a queue file, on a task branch too: the
+guard refuses a write to `.relay/queue/<slug>.json` before it is made, and the merge hook refuses a branch whose item text,
+earlier notes or `test` differ from the default branch's by hand, naming `relay queue edit`. Git's own merge and conflict resolution
+stay free. Every reshaping of items (a new key, a renamed one, a new shape) ships as a migrate module `lib/relay_*migrate*.py`
+(run by `relay queue migrate`) in the same change; a branch that changes one is the only one the hook lets rewrite items in bulk.
+
 An out-of-scope question from the owner is answered in two lines and becomes a
 `feature` item, built later in a fresh session. When a new request arrives while
 `fix` items wait, name them (how many, the top one, its time, written 30m or 1h 30m) and let the owner
