@@ -1,0 +1,27 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 90,
+  "found_at": "2026-10-27T01:08:15Z",
+  "found_in": "relay queue add",
+  "title": "A plan lives beside its item, redone fresh when taken",
+  "what": [
+    "`relay queue` knows `<slug>.md` beside each item (show prints its path; done/drop move it; the lander accepts exactly the item's .json and .md); a plan file without its item is refused by `relay queue check`; the delegate and front skills say: a design is redone against the fresh repository when its item is taken, with the plan file as input, and its facts and the owner's words are written back to the plan file; the 4 plans on wt/plans-save and the scratchpad designs that have an item move beside their items (owner words, decisions, dated measurements only); wt/plans-save is then removed."
+  ],
+  "why": [
+    "Owner, 27 Oct, on where plans live: \"Хочу чтобы мы хранили планы по легко вычисляемому пути, возможно рядом с задачами, план имеет ценность только если есть задача, являясь её частью\". Owner, 27 Oct, on stale plans: \"Проблемы с планом - ранее я упоминал проблему устаревания плана и заявлял что подобный лучше всего делать непосредственно перед исполнением с актуальной, свежей версией репозитория\". Front's reading (owner can reverse): `.relay/queue/<slug>.md` beside `.relay/queue/<slug>.json`, path computed from the slug (no link stored), moves to `done/` with the item, lands through the queue's own lander (inert, no gate). It keeps what does not go stale: the owner's words and decisions with dates, questions answered, dated measurements. The design itself is redone against the fresh repository when the item is taken, with that file as input; nobody builds from a stored design directly. A design asked before any item exists starts by adding the item. Facts 27 Oct: 19 design reports exist only in the session scratchpad under /private/tmp (outside git, lost on reboot); wt/plans-save (10 commits, 13 files, 2119 lines, gate green, not merged) copies 4 of them into docs/plans/ only to keep them safe. Live cases of staleness: the saved checks-artifacts plan said \"nothing built\" while its main recommendation (the test-times cache) was on master since 7aef441; the cycle-scripts design r3, redone fresh on 27 Oct, still went stale within hours (its question 1 rested on \"the train fix is not on master yet\", false by review time). Owner's order, 27 Oct, \"4. A\": plans and same-setup work right after the scripts move (front's IP 95); on 27 Oct the owner's \"A\" on cycle-scripts question 1 put landing-in-script first. Design source: scratchpad report design-clean-env.md rev 2 (P1). Queued late: the decision was recorded only in the handover until the owner asked for its status."
+  ],
+  "where": [
+    "lib/relay_queue.py (show, done, drop, lander, check)",
+    "plugins/delegate/skills/delegate",
+    "plugins/front/skills/front",
+    "rules/queue.md",
+    "wt/plans-save (docs/plans/)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
