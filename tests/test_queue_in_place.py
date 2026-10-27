@@ -1,6 +1,5 @@
 """The queue has no done/ folder: a close or a drop edits the item file in place, and the state is read from its dated fields.
 Scratch repositories in a temp dir."""
-import json
 import os
 import subprocess
 import sys
