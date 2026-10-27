@@ -1,7 +1,6 @@
 """The change-cycle workflow script (plugins/delegate/workflows/cycle.js), run against a fake Workflow runtime
 (plugins/delegate/tests/fake-workflow.js, on Bun) with scripted agent answers: no model, no paid run.
 Expected labels and stops are worked out by hand from the design (stage order of each kind), not printed from the script."""
-import importlib.util
 import json
 import os
 import re
@@ -13,15 +12,12 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from relay_testbase import ROOT  # noqa: E402
+from relay_testbase import ROOT, load_hook  # noqa: E402
 
 SCRIPT = os.path.join(ROOT, "plugins", "delegate", "workflows", "cycle.js")
 FAKE = os.path.join(ROOT, "plugins", "delegate", "tests", "fake-workflow.js")
 def _stage_label():
-    spec = importlib.util.spec_from_file_location("ledger_hook", os.path.join(ROOT, "plugins", "observe", "hooks", "ledger.py"))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.STAGE_LABEL
+    return load_hook("ledger_hook", os.path.join(ROOT, "plugins", "observe", "hooks", "ledger.py")).STAGE_LABEL
 
 
 LABEL = _stage_label()   # one grammar: the ledger's
@@ -279,9 +275,7 @@ class Cycle(unittest.TestCase):
 
     # 10
     def test_check_and_design_review_prompts_keep_the_report_label_the_hook_reads(self):
-        spec = importlib.util.spec_from_file_location("check_mark", os.path.join(ROOT, "plugins", "core", "hooks", "check-mark.py"))
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+        mod = load_hook("check_mark", os.path.join(ROOT, "plugins", "core", "hooks", "check-mark.py"))
         units = [self.unit(), self.unit(name="z", kind="recheck", items=[{"slug": "a", "review": "ra.json"}])]
         out = self.run_cycle(self.args(units, designs=[{"name": "d", "brief": "b.md", "out": "d.md"}]))
         for label in ("check: x", "check item 1: z", "design review: d"):

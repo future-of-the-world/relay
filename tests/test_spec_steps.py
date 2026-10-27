@@ -3,7 +3,6 @@
 Every case runs on scratch folders (no network, nothing under ~ or the repo): the design is
 docs/flows.md and the queue item spec-writing-leaves-the-main-pipeline-sdd-become (Q1 below)."""
 import hashlib
-import importlib.util
 import json
 import os
 import shutil
@@ -16,6 +15,8 @@ from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lib"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from relay_testbase import load_hook  # noqa: E402
 GIT_ENV = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
 OLD = "sd" + "d"   # the old plugin name, written so that this file's own text stays readable to the scan below
 
@@ -525,10 +526,20 @@ class ReviewFixes(unittest.TestCase):
 
 class RouteGuard(Scratch):
     def guard(self):
-        spec = importlib.util.spec_from_file_location("route_guard_spec_steps", os.path.join(ROOT, "plugins", "delegate", "hooks", "route-guard.py"))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
+        return load_hook("route_guard_spec_steps", os.path.join(ROOT, "plugins", "delegate", "hooks", "route-guard.py"))
+
+    def test_loading_the_guard_leaves_no_plugin_lib_copy_behind(self):
+        """The hook's plugins/delegate/lib is put first on sys.path and its relay_config copy imported; if either stays,
+        lib/relay_license later looks for data/licenses under plugins/delegate (the queue item's failing case)."""
+        for name in [m for m in sys.modules if m.startswith("relay_")]:
+            del sys.modules[name]       # nothing imported yet, so anything found afterwards came from the hook
+        path_before = list(sys.path)
+        try:
+            self.guard()
+            self.assertEqual(sys.path, path_before)
+            self.assertEqual([m for m in sys.modules if m.startswith("relay_")], [])
+        finally:
+            sys.path[:] = path_before
 
     def transcript(self, *entries):
         path = os.path.join(self.tmp, "t-%d.jsonl" % len(os.listdir(self.tmp)))
