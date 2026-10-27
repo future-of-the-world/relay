@@ -1,0 +1,173 @@
+{
+  "branch": "wt/offbyone",
+  "findings": [
+    {
+      "details": [
+        "A weaker judge fails right answers, so a measurement of it is wrong."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "the off-by-one rubric's FAIL clause words (\"stays within size\", \"as the doc says\") made Haiku fail right answers yes-03 (5 of 5) and yes-05 (2 of 5); Sonnet unaffected, the trap stays for any weaker judge (handover cause-measure)"
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [],
+      "path": ".relay/queue/offbyone-rubric-fail-clause.json",
+      "rank": "high",
+      "reason": [
+        "tests/test_judge_measure.py:38 (phrase test) passes now and fails at c5dc865; haiku 20 runs PASS with yes-03 and yes-05 right in every run (no wrong verdict of 480)."
+      ],
+      "severity": "HIGH",
+      "since": "c5dc865ded9623107171a1926764b6672ddca87f",
+      "source": "queue",
+      "summary": "A weaker judge fails right answers on one rubric",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. tally.py line 10: \"split items = items whose votes, over all runs, are not all alike (bar --max-split)\";",
+        "line 129: ok = wrong <= max_wrong and split <= max_split. README line 38: \"A question passes when wrong verdicts",
+        "<= 0 and split items <= 1\". yes--03 votes [T,F,T] and [F,T,T]; yes--06 votes [T,T,F] and [T,F,T]: 2 split items.",
+        "So the measurement still records haiku as failing this question; the README states half the bar. Size: 5."
+      ],
+      "evidence": [
+        "python3 (sys.path evals/judge-measure; tally.tally(d,'haiku',answers=...)) ->",
+        "  1",
+        "  FAIL measure-off-by-one: 0 wrong verdicts of 120 (max 0), 2 split items of 24 (max 1), 4 wrong votes of 360",
+        "per-item: yes--03 split votes:[[True, False, True], [False, True, True]]; yes--06 split votes:[[True, True, False], [True, False, True]]"
+      ],
+      "failing_case": [
+        "The re-measure the line cites (results/2026-10-27T15-01-49-179Z/aggregate-result.json, haiku, 5 runs) tallied",
+        "with tally.tally() gives: \"FAIL measure-off-by-one: 0 wrong verdicts of 120 (max 0), 2 split items of 24",
+        "(max 1), 4 wrong votes of 360\". The added README line says only \"0 wrong verdicts of 120\", next to the",
+        "2026-10-22 line that says haiku failed; a reader concludes haiku now passes the off-by-one question. It should",
+        "state the tally verdict: FAIL on split items (yes-03 and yes-06 each drew 2 FAIL votes of 15)."
+      ],
+      "fix_hint": [
+        "Reword the line: \"Re-measured 2026-10-27 ...: 0 wrong verdicts of 120, 2 split items (yes-03, yes-06; max 1),",
+        "4 wrong votes of 360: still FAIL by the bar above.\" Or reach a passing tally (F2) and cite that run."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 42,
+      "pass_cases": [
+        "- The README line for 2026-10-27 states the tally verdict for haiku on measure-off-by-one as the tally prints it",
+        "  (PASS or FAIL, wrong verdicts, split items, wrong votes), matching the run it cites.",
+        "- If a later run is cited instead, its numbers equal tally.tally() over that run's file.",
+        "- The 2026-10-22 result line stays as it is."
+      ],
+      "path": "evals/judge-measure/README.md",
+      "rank": "medium",
+      "reason": [
+        "evals/judge-measure/README.md:42 now states the 5-run haiku tally as still FAIL (2 split items, 4 wrong votes of 360), matching the tally."
+      ],
+      "severity": "MEDIUM",
+      "since": "2e594fe602391695d676094141494eea215eeb86",
+      "source": "review-offbyone.json",
+      "source_id": "F1",
+      "summary": "the README reports the haiku re-measure as 0 wrong of 120, but by the README's own pass bar (and tally.py) the question still FAILs: 2 split items of 24, max 1",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that votes still split (result file); PLAUSIBLE that further wording removes it. Project rule",
+        "\"Quality gate\" (flaky test or eval: find the cause, then prove the fix with max(20, ceil(3/p)) clean runs).",
+        "The cause analysis is sound for the two phrases, but a residual lean on \"A finding that names size + 1 or the",
+        "slice but calls it ... correct\" remains for answers that name the slice (yes-06) or \"at most 2\" (yes-03).",
+        "Cost of 20 haiku runs of the one case is about $0.24 (measured $0.06 per 5), inside the brief's $1 cap. Size: 30."
+      ],
+      "evidence": [
+        "aggregate-result.json: runs 5, errors []; yes--03 votes split in 2 runs, yes--06 in 2 runs; costUsd 0.0601.",
+        "rules/quality-gate.md: \"prove the fix with at least max(20, ceil(3/p)) clean runs\"."
+      ],
+      "failing_case": [
+        "Haiku, new wording, 5 runs: yes--03 (\"page([a,b,c], 0, 2) returns 3 items; a page must hold at most 2\") gets",
+        "FAIL votes in 2 of 5 runs, yes--06 (\"the slice end is start + size + 1, so ... overlaps the next page's first",
+        "item\") in 2 of 5 runs. Before the fix yes-05 failed 2 of 5 runs (p = 0.4), so ceil(3/p) = 8 and the rule asks for",
+        "max(20, 8) = 20 clean runs; the proof is 5 runs and they are not clean at vote level (tally FAIL, see F1).",
+        "Expected: a wording under which haiku's tally of measure-off-by-one passes over at least 20 runs (or the item",
+        "records that haiku cannot be brought to pass and why)."
+      ],
+      "fix_hint": [
+        "Run haiku on measure-off-by-one with --runs 20 -j 1; if splits remain, look at what yes-03/yes-06 share with the",
+        "FAIL clause (e.g. \"the slice\", \"at most\") and reword once more, then re-run 20."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 20,
+      "pass_cases": [
+        "- haiku, measure-off-by-one, --runs 20 -j 1: 0 wrong verdicts, split items <= 1 (tally PASS), on the committed rubric.",
+        "- In that run no--12, no--16, no--24 (the answers the removed phrases used to name) are FAIL in every run.",
+        "- yes--03 and yes--05 are PASS in every run (the queue item's failing case).",
+        "- make.py --check still passes (measure graders byte-equal to the production rubric)."
+      ],
+      "path": "evals/plugin/code-reviewer-offbyone/graders/reports-off-by-one.md",
+      "rank": "medium",
+      "reason": [
+        "Haiku --runs 20 re-tallied by me: PASS, 0 wrong of 480, 1 split item (yes-04), max 1; recorded in README.md:42."
+      ],
+      "severity": "MEDIUM",
+      "since": "2e594fe602391695d676094141494eea215eeb86",
+      "source": "review-offbyone.json",
+      "source_id": "F2",
+      "summary": "Quality gate: the trap is reduced, not shown gone: right answers yes-03 and yes-06 still draw FAIL votes from haiku, and the fix rests on 5 runs where the rule asks for at least 20 clean ones",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE that sonnet still passes (haiku, the weaker judge, has 0 wrong verdicts), but unmeasured; the change",
+        "edits a gating rubric for the production judge. The brief capped paid runs at one cheap case under $1; a sonnet",
+        "run of this case costs about $2.6 (24/58 of the measured $6.32 partial sonnet run), so the front needs the",
+        "owner's word for the spend. Size: 15 (mostly wait)."
+      ],
+      "evidence": [
+        "git grep EVALS_JUDGE_MODEL -> lib/relay_ci.py:418 ... self.env.get(\"EVALS_JUDGE_MODEL\") or \"sonnet\"",
+        "result file suite.judgeModel = \"haiku\"; no other results/ run in the worktree."
+      ],
+      "failing_case": [
+        "lib/relay_ci.py:418 runs the plugin evals with --judge-model ${EVALS_JUDGE_MODEL:-sonnet}. The production rubric",
+        "reports-off-by-one changed its FAIL clause (dropped \"stays within size\", \"as the doc says\"; added \"returns the",
+        "right number of items\", \"intended or required\"). The only measurement of the new text is haiku. Sonnet's",
+        "0-wrong-of-870 result of 2026-10-22 was on the old text. Expected: a sonnet measure of measure-off-by-one on the",
+        "new text (README line 4: \"This folder measures that judge on recorded replies before it gates anything\")."
+      ],
+      "fix_hint": [
+        "claude plugin eval . --eval-dir evals/judge-measure --case measure-off-by-one --runs 5 -j 1 --judge-model sonnet",
+        "--ablation none --no-publish --trust-plugin --scaffold --max-cost-usd 4 --json <scratch>/sonnet.json; tally; add",
+        "one README line."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 42,
+      "pass_cases": [
+        "- sonnet, measure-off-by-one, --runs 5 -j 1 on the committed rubric: tally PASS (0 wrong, split <= 1), recorded",
+        "  in the README with its cost.",
+        "- no--12, no--16, no--24 stay FAIL under sonnet in every run."
+      ],
+      "path": "evals/judge-measure/README.md",
+      "rank": "medium",
+      "reason": [
+        "Sonnet on the new wording, 19 runs: PASS, 0 wrong of 456, 0 split, recorded in README.md:42 with cost; tests/test_judge_measure.py:183 (20-run file with runsPerCase 5) passes and fails at c5dc865."
+      ],
+      "severity": "MEDIUM",
+      "since": "2e594fe602391695d676094141494eea215eeb86",
+      "source": "review-offbyone.json",
+      "source_id": "F3",
+      "summary": "the reworded rubric gates bin/ci with sonnet as judge, but only haiku was measured on it; the folder promises the judge is measured before it gates anything",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "ad2cde71cfc71469950436d5082ae7ba48f06c53.gate.log",
+  "head": "b54786b74dfedb58f224bdd8c6e539b77d5334c9",
+  "item": "offbyone-rubric-fail-clause",
+  "notes": [
+    "Scope: tally.py and its test were touched beyond README; this is needed to tally a --runs N file (runsPerCase stays 5) and is tied to F3, so accepted. The sonnet sample is 19 runs, not 20, because of the $4 cap (Gap named by the fixer): the owner may take it as enough since there were 0 wrong votes of 1368. The Q1 phrase test guards only the two literal phrases; the meaning is shown by the paid measure."
+  ],
+  "schema": 2,
+  "scope": [
+    "HEAD b54786b (adds only the gate log of ad2cde7; gate: head ad2cde7, bin/ci --quick, exit 0, relay changed lists no file after it). Ran the check command: 117 passed. Re-tallied the four result files with tally.tally(): haiku 20 runs PASS (0 wrong of 480, 1 split item, 4 wrong votes of 1440), sonnet 5+14 runs read as one file PASS (0 wrong of 456, 0 split, 0 wrong votes of 1368); the rubric file is unchanged since the review (same md5) and the result files carry the new FAIL clause and none carry \"stays within size\". Throwaway worktree at c5dc865: the phrase test and the 20-run tally test both fail there."
+  ],
+  "type": "check"
+}
