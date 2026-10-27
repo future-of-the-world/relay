@@ -18,7 +18,7 @@ class TestCloseWithEvidence(tq.Base):
                               env=dict(os.environ, RELAY_ROOT=tq.ROOT))
 
     def test_q1_a_feature_closes_with_a_merge_sha_and_leaves_the_list(self):
-        self.write_commit(self.main, {".relay/queue/feat.json": tq.feature_item("Feat", ip=99)}, "seed")
+        self.write_commit(self.main, {".relay/queue/feat.json": tq.feature_item("Feat", ip=99), "lib/foo.py": "x = 1\n"}, "seed")
         full = tq.git(self.main, "rev-parse", "master")
         done = self.run_relay("done", "feat", "--evidence", full[:7], "-C", self.main)
         self.assertEqual(done.returncode, 0, done.stderr)
@@ -44,7 +44,8 @@ class TestCloseWithEvidence(tq.Base):
 
     def test_f1_a_feature_taken_by_a_merged_or_gone_branch_closes_keeping_its_take(self):
         self.write_commit(self.main, {".relay/queue/job.json": tq.with_fields(tq.feature_item("Job"), **tq.taken_fields("wt/x")),
-                                      ".relay/queue/live.json": tq.with_fields(tq.feature_item("Live"), **tq.taken_fields("wt/y"))}, "seed")
+                                      ".relay/queue/live.json": tq.with_fields(tq.feature_item("Live"), **tq.taken_fields("wt/y")),
+                                      "lib/foo.py": "x = 1\n"}, "seed")
         # wt/x is merged into master (a branch at an ancestor commit); wt/y has a commit master lacks
         tq.git(self.main, "branch", "wt/x")
         tq.git(self.main, "branch", "wt/y")
@@ -95,6 +96,7 @@ class TestEvidenceIsChecked(tq.Base):
     def setUp(self):
         super().setUp()
         self.write_commit(self.main, {".relay/queue/feat.json": tq.feature_item("Feat")}, "seed")
+        self.write_commit(self.main, {"lib/foo.py": "x = 1\n", "docs/a.md": "a\n"}, "the change")      # a commit that carries a non-inert file
         self.head = tq.git(self.main, "rev-parse", "master")
         self.before = self.head
 
@@ -138,6 +140,63 @@ class TestEvidenceIsChecked(tq.Base):
         self.refused(f"{named}:{self.head}", "is not a commit of other")      # a sha of this repo is no commit there
         rq.close_with_evidence(self.main, "feat", f"{named}:{theirs[:8]}", **tq.QUIET)
         self.assertEqual(self.item("feat")["evidence"], f"{named}:{theirs}")
+
+    def test_f1_a_commit_that_changes_only_queue_files_is_refused(self):
+        self.write_commit(self.main, {".relay/queue/x.json": "{}\n"}, "queue only")
+        self.before = tq.git(self.main, "rev-parse", "master")
+        self.refused("master", "changes only inert files")
+
+    def test_f1_a_commit_that_changes_only_check_records_is_refused(self):
+        self.write_commit(self.main, {".relay/checks/abc.gate.log": "ok\n"}, "relay: check of abc")
+        self.before = tq.git(self.main, "rev-parse", "master")
+        self.refused("master", "changes only inert files")
+
+    def test_f1_a_merge_commit_is_judged_by_its_first_parent_diff(self):
+        tq.git(self.main, "checkout", "-q", "-b", "side")
+        self.write_commit(self.main, {"lib/bar.py": "y = 1\n"}, "side work")
+        tq.git(self.main, "checkout", "-q", "master")
+        self.write_commit(self.main, {".relay/queue/y.json": "{}\n"}, "queue only")
+        tq.git(self.main, "merge", "-q", "--no-ff", "-m", "merge side", "side")
+        merge = tq.git(self.main, "rev-parse", "master")
+        rq.close_with_evidence(self.main, "feat", "master", **tq.QUIET)
+        self.assertEqual(self.item("feat")["evidence"], merge)
+
+    def test_f1_a_commit_with_a_code_file_is_stored_in_full(self):
+        rq.close_with_evidence(self.main, "feat", "master", **tq.QUIET)
+        self.assertEqual(self.item("feat")["evidence"], self.head)
+
+    def test_f2_a_directory_is_no_report_file(self):
+        self.refused("docs", "nor a file on master")
+        self.refused("docs/", "nor a file on master")
+
+    def test_f2_a_queue_file_is_no_report_file(self):
+        self.refused(".relay/queue/feat.json", "nor a file on master")
+        self.refused(".relay/queue", "nor a file on master")
+
+    def test_f2_a_report_file_is_stored_as_written(self):
+        rq.close_with_evidence(self.main, "feat", "docs/a.md", **tq.QUIET)
+        self.assertEqual(self.item("feat")["evidence"], "docs/a.md")
+
+    def test_f3_a_relative_folder_of_another_repo_is_refused(self):
+        other = self.repo("other", relay=False)
+        sha = tq.git(other, "rev-parse", "HEAD")
+        cwd = os.getcwd()
+        os.chdir(self.tmp)
+        self.addCleanup(os.chdir, cwd)
+        self.refused(f"other:{sha}", "~/")
+
+    def test_f3_a_folder_that_is_no_git_repository_is_refused_naming_evidence(self):
+        os.makedirs(os.path.join(self.tmp, "plain"))
+        with mock.patch.dict(os.environ, {"HOME": self.tmp}):
+            self.refused("~/plain:abc", "--evidence", "~/plain", "not a git repository")
+
+    def test_f4_the_refusal_for_a_fix_names_the_three_forms(self):
+        self.write_commit(self.main, {"tests/x.py": "def test_t(): pass\n"}, "the test")
+        sha = tq.git(self.main, "rev-parse", "master")
+        with self.assertRaises(rq.Refused) as ctx:      # the test fails at the parent and passes at the commit: only the item's kind is wrong
+            rq.close_fixed_by(self.main, "feat", sha, "tests/x.py::test_t", run_test=mock.Mock(side_effect=[1, 0]), **tq.QUIET)
+        self.assertIn("<repo folder>:<sha>", str(ctx.exception))
+        self.assertIn("<report file>", str(ctx.exception))
 
 
 if __name__ == "__main__":

@@ -284,6 +284,7 @@ class SessionFiles(tq.Base):
         with self.assertRaises(rq.Refused) as ctx:
             rq.close_with_evidence(self.main, slug, "/private/tmp/claude-501/x/report.md", **tq.QUIET)
         self.assertIn("names a session file", str(ctx.exception))
+        self.write_commit(self.main, {"lib/foo.py": "x = 1\n"}, "code")      # the evidence must carry a non-inert file
         rq.close_with_evidence(self.main, slug, tq.git(self.main, "rev-parse", "master"), **tq.QUIET)
         self.assertEqual(self.item(slug)["state"], "done")
 

@@ -1039,6 +1039,11 @@ def _commit_on_default(repo: str, ref: str) -> str:
     sha = _text(out)
     if _git(main, "merge-base", "--is-ancestor", sha, "refs/heads/" + default)[0] != 0:
         raise Refused(f"{sha[:12]} is not on {default}: evidence is a change that is merged")
+    import relay_inert
+    has_parent = _git(main, "rev-parse", "--verify", "-q", f"{sha}^1")[0] == 0
+    rc, out, _ = _git(main, "diff-tree", "--no-commit-id", "--name-only", "-r", *((f"{sha}^1", sha) if has_parent else ("--root", sha)))
+    if rc == 0 and not any(not relay_inert.matches(n) for n in _text(out).split("\n") if n.strip()):
+        raise Refused(f"{sha[:12]} changes only inert files (queue, checks, handover): name the merge of the change")
     return sha
 
 
@@ -1047,13 +1052,24 @@ def _checked_evidence(repo: str, evidence: str) -> str:
     repo, checked there), or a repo-relative file that exists at the tip of the default branch (a report). Anything else is refused."""
     other, colon, ref = evidence.partition(":")
     if colon and os.path.isdir(os.path.expanduser(other)):
+        if not other.startswith(("~", "/")):
+            raise Refused(f"--evidence {evidence}: write the other repository's folder as ~/<folder> or an absolute path, "
+                          "so the stored text names it wherever it is read")
         folder = os.path.realpath(os.path.expanduser(other))
-        return f"{other}:{_commit_on_default(folder, ref.strip())}"
+        try:
+            return f"{other}:{_commit_on_default(folder, ref.strip())}"
+        except Refused as exc:
+            if "not a git repository" not in str(exc):
+                raise
+            raise Refused(f"--evidence {evidence}: {other} is not a git repository") from exc
     main, default = _context(repo)
     if _git(main, "rev-parse", "--verify", "-q", f"{evidence}^{{commit}}")[0] == 0:
         return _commit_on_default(repo, evidence)
-    if not os.path.isabs(evidence) and _git(main, "cat-file", "-e", f"refs/heads/{default}:{evidence}")[0] == 0:
-        return evidence
+    if not os.path.isabs(evidence):
+        import relay_inert
+        rc, kind, _ = _git(main, "cat-file", "-t", f"refs/heads/{default}:{evidence}")
+        if rc == 0 and _text(kind) == "blob" and not relay_inert.matches(evidence):
+            return evidence
     raise Refused(f"--evidence {evidence} is not a commit of this repository, nor a file on {default}; "
                   "for a commit of another repository write <repo folder>:<sha>")
 
@@ -1064,7 +1080,7 @@ def close_with_evidence(repo, slug, evidence, **engine):
     A fix is closed with a test (`done`), never with this."""
     evidence = evidence.strip()
     if not evidence or "\n" in evidence:
-        raise Refused("--evidence is a merge sha, on one line")
+        raise Refused("--evidence is one line: a sha on the default branch, <repo folder>:<sha>, or a report file")
     refuse_session_paths("closed", evidence=evidence)
 
     def planner(reader):
@@ -1168,7 +1184,7 @@ def close_fixed_by(repo, slug, commit, test, run_test=_run_pytest, **engine):
     def planner(reader):
         item = _item_at(reader, slug)
         if item["kind"] != "fix":
-            raise Refused(f"'{slug}' is a feature: close it with --evidence <merge sha>")
+            raise Refused(f"'{slug}' is a feature: close it with --evidence <sha on the default branch> | ~/<repo folder>:<sha> | <report file>")
         if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
             raise Refused(f"queue item '{slug}' is taken by {item['taken_by']}, which is not merged: "
                           f"relay queue release {slug}, then run this again")
