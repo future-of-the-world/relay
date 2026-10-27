@@ -143,7 +143,10 @@ class Record(unittest.TestCase):
         os.environ["RELAY_HOME"] = self.home
 
     def tearDown(self):
-        os.environ.pop("RELAY_HOME", None); shutil.rmtree(self.tmp, ignore_errors=True)
+        os.environ.pop("RELAY_HOME", None)
+        for root, dirs, _ in os.walk(self.tmp):   # the fixtures mimic the tool's read-only folders
+            for d in dirs: os.chmod(os.path.join(root, d), 0o700)
+        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def run_step(self, data, **kw):
         if data is not None: json.dump(data, open(self.json, "w"))
@@ -202,6 +205,9 @@ class Record(unittest.TestCase):
             with open(os.path.join(top, "out", "trace.jsonl"), "w") as handle:
                 handle.write(f"trace {n}\n")
             run["tracePath"] = os.path.join(top, "out", "trace.jsonl"); folders.append(top)
+            # the real layout: sealed/ mode 000, the top folder r-x (measured on /private/tmp/e-*)
+            os.makedirs(os.path.join(top, "sealed")); os.chmod(os.path.join(top, "sealed"), 0)
+            os.chmod(top, 0o500)
         return data, folders
 
     def test_a_red_batch_keeps_the_failing_runs_traces_where_the_record_names_them(self):
@@ -230,6 +236,19 @@ class Record(unittest.TestCase):
         data["cases"][0]["arms"]["with"][0]["tracePath"] = os.path.join(other, "out", "trace.jsonl")
         self.run_step(data)
         self.assertTrue(os.path.exists(other))
+
+    def test_an_errored_run_and_a_failed_code_grader_print_their_kept_trace(self):
+        # F3: run 1 errored, run 2 fails the code grader only (meaning grader passes): both copies are named in the output
+        data, _ = self.batch_with_traces([True, True, True])
+        runs = data["cases"][0]["arms"]["with"]
+        runs[0] = dict(tracePath=runs[0]["tracePath"], error="boom")
+        runs[1]["graders"].append({"name": "names-file-and-line", "passed": False})
+        code, out = self.run_step(data)
+        self.assertEqual(code, 2)
+        stored = json.load(open(os.path.join(self.home, "evals", "relay", os.listdir(os.path.join(self.home, "evals", "relay"))[0])))
+        kept = [r["keptTracePath"] for r in stored["cases"][0]["arms"]["with"][:2]]
+        for path in kept:
+            self.assertIn("trace: " + path, out)
 
     def test_trace_copies_are_pruned_with_their_record(self):
         old = os.path.join(self.home, "eval-traces", "relay", "2026-01-01T00-00-00Z-old", "c-with-run1"); os.makedirs(old)

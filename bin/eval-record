@@ -74,6 +74,8 @@ def report(data, record_path):
                 if run.get("error"):
                     unjudged += 1; bad.add(case["name"])
                     notes.append(f"    note: {case['name']} run {n}: the run errored ({str(run['error'])[:80]}), its graders were not judged")
+                    if run.get("keptTracePath"):
+                        notes.append(f"         trace: {run['keptTracePath']}")
                     continue
                 present = {g.get("name") for g in run.get("graders", [])}
                 for name in sorted(llm - present):
@@ -89,6 +91,8 @@ def report(data, record_path):
                         if g.get("passed") is False:   # a failed code (regex) grader fails the batch too
                             code_failed += 1; bad.add(case["name"])
                             fails.append(f"    FAIL {case['name']} run {n} {name}: code grader failed")
+                            if run.get("keptTracePath"):
+                                fails.append(f"         trace: {run['keptTracePath']}")
                         continue
                     votes = g.get("judgeVotes")
                     if not isinstance(votes, list) or len(votes) != 3:
@@ -163,10 +167,26 @@ def temp_folder(trace_path):
     return None
 
 
+def remove_tree(top):
+    """rmtree for the tool's run folders, which are read-only (top r-x, sealed/ 000): each folder is made owner-writable first."""
+    for root, dirs, _ in os.walk(top):
+        for d in dirs:
+            try:
+                os.chmod(os.path.join(root, d), 0o700)
+            except OSError:
+                pass
+    try:
+        os.chmod(top, 0o700)
+    except OSError:
+        pass
+    shutil.rmtree(top, ignore_errors=True)
+
+
 def keep_traces(data, home, repo, stem):
     """bin/ci runs the eval tool with --keep-temp, so every run's folder is still there. A red batch copies the failing
     runs' output folders to $RELAY_HOME/eval-traces/<repo>/<stem>/ and names the copy in the run (keptTracePath); a green
-    batch keeps nothing. Either way the tool's temp folders are removed afterwards. Returns the number of copies."""
+    batch keeps nothing. Either way the tool's temp folders are removed afterwards. When the tool writes no JSON at all
+    (a crash, a killed gate) this step never runs and that batch's kept folders stay in the tmp folder for the OS to clear. Returns the number of copies."""
     red = not is_green(data)
     kept = 0
     for case in data.get("cases", []):
@@ -181,7 +201,7 @@ def keep_traces(data, home, repo, stem):
                     shutil.copytree(os.path.dirname(path), dest, dirs_exist_ok=True)
                     run["keptTracePath"] = os.path.join(dest, "trace.jsonl")
                     kept += 1
-                shutil.rmtree(temp_folder(path), ignore_errors=True)
+                remove_tree(temp_folder(path))
     return kept
 
 
