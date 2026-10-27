@@ -35,6 +35,12 @@
       "fact": [
         "Design 27 Oct (clean-environment design, revision 2, section 8): do B first, then A. B = relay becomes project-local on the host (plugins, rules and settings come from the project's own repository); A = a container per change. B is the precondition of A: A without B is either a container with no plugins, rules or memory, or a container with the host's ~/.claude copied in, which is global settings in a box."
       ]
+    },
+    {
+      "at": "2026-10-27T01:08:35Z",
+      "fact": [
+        "Measured 27 Oct: a container starts in 0.33-0.52 s cached and a clone takes 1.51 s, against a 215-935 s gate; the quick gate on one tree was green on the host and gave 25 failures and 17 errors in a container; two causes are relay defects: `ps` missing (18 errors) and `sum([0.1]*100)`, which is 10.0 on Python 3.14 and 9.99999999999998 on 3.11."
+      ]
     }
   ]
 }
