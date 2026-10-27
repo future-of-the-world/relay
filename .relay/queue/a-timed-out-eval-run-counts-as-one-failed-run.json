@@ -25,8 +25,8 @@
     "bin/eval-record (verdict)",
     "lib/relay_ci.py (eval record step)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T17:00:01Z",
+  "taken_by": "wt/timeouts",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
