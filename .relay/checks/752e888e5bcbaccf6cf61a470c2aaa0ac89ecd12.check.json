@@ -1,0 +1,148 @@
+{
+  "branch": "wt/drop-done",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED. closed_on(main, base, tip, slug) reads only `<base>:.relay/queue/<slug>.json`. Before this branch lands, every closed",
+        "item at the base is at `.relay/queue/done/<slug>.json`, so `before` is None and `_closed_at(None)` is False: every closed item at",
+        "the tip counts as closed by the branch. step_queue then calls check_refusal for each, and the branch holds a check of none of",
+        "them. The design (6.2) wrote \"absent or has no closed_at\"; it did not see that the move itself makes 69 items \"absent at base\".",
+        "The gate is green because no test merges a branch whose range contains the move. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "python3 -I: closed_on over the 69 closed fix items at HEAD vs merge_base(master, HEAD) -> \"69 closed_on calls 0.83 s; true: 69\"",
+        "python3 -I: merge.step_queue('/Users/amidman/relay','master','wt/drop-done') ->",
+        "  Refused queue item a-bench-with-set-leaves-the-main-checkout-dirty is closed without a test or a check: no check of this fix: run delegate:checker on the branch's head, then close '...'",
+        "held_fix_items('.', riders=True) -> all 69 closed fix items listed as held by this branch."
+      ],
+      "failing_case": [
+        "Merge of wt/drop-done itself, judged by the branch's own hook: step_queue('/Users/amidman/relay', 'master', 'wt/drop-done').",
+        "At the merge base the file .relay/queue/a-bench-with-set-leaves-the-main-checkout-dirty.json is absent (it lives under done/ on",
+        "master); at the tip it is present with closed_at. closed_on returns True (\"absent at base\" counts as not closed), for all 69",
+        "closed fix items. Now: Refused \"queue item a-bench-with-set-leaves-the-main-checkout-dirty is closed without a test or a check:",
+        "no check of this fix ...\". Should: allowed (the move closes nothing). The same holds for any branch that took master after a",
+        "close landed with the old code and then ran relay queue migrate (design 6.1's re-run path), and for the train's closing_tip."
+      ],
+      "fix_hint": [
+        "In closed_on, read base at both paths: `<base>:.relay/queue/<slug>.json` and `<base>:.relay/queue/done/<slug>.json` (one cat_batch",
+        "of three blobs); closed at base in either place means not closed on the branch. Add a temp-repo test for pass case 1 (hook and",
+        "held_fix_items) and confirm it fails with the done/ read removed."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 280,
+      "pass_cases": [
+        "1. Temp repo: master has .relay/queue/done/x.json (fix, closed_at set); branch only does git mv done/x.json -> x.json. step_queue(master, branch) does not refuse; closed_on(main, merge_base, branch, \"x\") is False.",
+        "2. Branch sets closed_at in place on open fix x with no test: refused \"closed without a test or a check\" (today's T15n, must keep).",
+        "3. Branch adds a new fix item y already closed (absent at base, closed at tip) with no test: refused, as today a file added under done/ was.",
+        "4. held_fix_items(worktree, riders=True) on the move branch returns no item the move only renamed."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue_in_place.py:220 and :250 pass, fail at 000c8cf; :230 and :241 pass-cases pass. lib/relay_queue.py closed_on reads done/ at base."
+      ],
+      "severity": "HIGH",
+      "since": "000c8cf218b6b88dff14f9c6a635296af1ac17b7",
+      "source": "review-drop-done.json",
+      "source_id": "F1",
+      "summary": "closed_on counts every item the move brought out of done/ as closed on this branch, so the new merge hook refuses this very branch (69 fix items need a test and a check)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. The hook in force at a merge is the default branch's (the plugins load from the main checkout), but record_rules runs the",
+        "branch's lib: the parse signature is a contract between two versions, and the change broke it in one step. Only this change's own",
+        "merge (and any train holding it) hits it; after it lands the new hook passes 2 rows, which old libs accept. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "echo '[[\"x\",\"{}\",\"open\"]]' | python3 -I -c \"<master's RULES_RUNNER>\" .worktrees/drop-done/lib",
+        "  -> TypeError: parse() takes 2 positional arguments but 3 were given",
+        "~/.claude/settings.json: \"relay\": {... \"path\": \"/Users/amidman/relay\"} (plugins read from the main checkout)"
+      ],
+      "failing_case": [
+        "The hook that guards the merge is loaded from the main checkout (/Users/amidman/relay, on master; settings.json marketplace path).",
+        "Its record_rules runs the branch's lib/relay_queue.py with RULES_RUNNER `relay_queue.parse(slug, text, where) for slug, text, where",
+        "in rows`. The branch's parse is now parse(slug, text). Now: TypeError \"parse() takes 2 positional arguments but 3 were given\", the",
+        "runner exits non-zero, record_rules raises, the merge is refused. Should: master's hook judges the branch's items and lets the",
+        "merge on (or refuses only for a real reason)."
+      ],
+      "fix_hint": [
+        "Keep `where=None` as an accepted, ignored third parameter of parse (and check/serialize if any old caller passes it), with a",
+        "docstring line saying it stays for the default branch's hook until the next change; a test that runs master's runner string",
+        "against lib/ with 3-element rows."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 143,
+      "pass_cases": [
+        "1. master's RULES_RUNNER fed [[\"x\", \"<well-formed open item>\", \"open\"]] with the branch's lib/ prints [{...,\"problems\": []}] (no TypeError).",
+        "2. The same with \"done\" as the third element for a closed item: parses with no folder problem (the folder rule is gone).",
+        "3. The branch's own RULES_RUNNER with 2-element rows keeps working (parse(slug, text)).",
+        "4. A lib of an older branch (parse(slug, text, where=None)) judged by the new hook with 2-element rows keeps working."
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue_in_place.py:278 passes, fails at 000c8cf (TypeError); :284 pass-case passes. parse keeps where=None."
+      ],
+      "severity": "HIGH",
+      "since": "000c8cf218b6b88dff14f9c6a635296af1ac17b7",
+      "source": "review-drop-done.json",
+      "source_id": "F2",
+      "summary": "master's live merge hook passes (slug, text, where) to the branch's parse, which no longer takes `where`: the record-rules process dies and the merge of this change is refused",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by measurement. Project rule, principle 2 (Waste): waste that repeats on every run is MEDIUM. A file the range did not",
+        "change cannot have been closed on the branch (its blob is the same at base and tip), so the call is always False for those items",
+        "once F1 is fixed. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "python3 -I: 69 closed_on calls over the closed fix items at HEAD -> 0.83 s",
+        "merge.py 186-193: loop over every path at the tip; the closed_on call is reached for every meta with kind fix and state done"
+      ],
+      "failing_case": [
+        "Any merge of a branch that changed no queue item, in this repo after the change: step_queue iterates the 69 closed fix items at",
+        "the tip and calls relay_queue.closed_on for each (one cat-file --batch process each). Now: 69 git processes, about 0.83 s per hook",
+        "run, and one more per future close. Should: closed_on only for the item files the range changed (changed_files), as design 6.2",
+        "says (\"one cat-file --batch for every item the range changed\"); a branch that changed no item spends no closed_on call."
+      ],
+      "fix_hint": [
+        "Before closed_on, `if path not in changed: continue` where changed = set(changed_files.split(\"\\0\")); or batch the base and tip",
+        "blobs of the changed items in one cat_batch."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 192,
+      "pass_cases": [
+        "1. A branch that changes only lib/a.py over a queue with N closed fix items: step_queue makes 0 closed_on calls (count with a patched closed_on).",
+        "2. A branch that closes fix x in place without a test: still refused \"closed without a test or a check\" (T15n).",
+        "3. A branch that took master after master closed x (x in the tip, not in the range): x is not judged, allowed (T15n3 last case)."
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_in_place.py:257 passes, fails at 000c8cf; merge.py skips paths not in changed."
+      ],
+      "severity": "MEDIUM",
+      "since": "000c8cf218b6b88dff14f9c6a635296af1ac17b7",
+      "source": "review-drop-done.json",
+      "source_id": "F3",
+      "summary": "principle 2: step_queue runs closed_on (one git process) for every closed fix item at the tip, not only the items the range changed: 69 processes, 0.83 s on every merge check, growing with the queue",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "f9fe8d1af1eb22b0b70cd8a449ed66f1cb788300.gate.log",
+  "head": "752e888e5bcbaccf6cf61a470c2aaa0ac89ecd12",
+  "item": null,
+  "notes": [
+    "Callers of parse (third arg now ignored) and closed_on (also reads done/ at base) unchanged in signature. step_queue skips unchanged paths; the diff uses --no-renames --diff-filter=AM so moved items appear as added and go through closed_on, which now returns False for them."
+  ],
+  "schema": 2,
+  "scope": [
+    "000c8cf..HEAD. Own changed files: lib/relay_queue.py, its two plugin copies, plugins/core/hooks/merge.py, tests/test_queue_in_place.py (all in scope). Gate: head f9fe8d1, exit 0; relay changed lists no file after it. Ran tests/test_queue_in_place.py (22 passed); the four new failing-case tests fail at 000c8cf (4 failed, 18 passed). The wide pytest run was too slow to finish here; the green gate on f9fe8d1 covers it."
+  ],
+  "type": "check"
+}
