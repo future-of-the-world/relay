@@ -42,6 +42,24 @@
       "fact": [
         "Measured 26 Oct (metrics design, revision 3): design, design-review and design-revise agents cost $66.31 and hand-started thinkers and critics $10.92, together $77.23 of $241.86 (31.9%) of agent spend in that session. The workflow scripts label their agents (804 of 804); the front, starting agents by hand, labelled none (0 of 53; 51 of the 53 were relay agents), $13.72 (5.7%) of spend; in ci-python that lost 2 of 9 agents (7.3% of its cost). A revision 2 count of gates for ci-python gave 14 where the real number is 4, because `git log --first-parent` without `--no-merges` lists the master gates a merge brought in."
       ]
+    },
+    {
+      "asked_at": "2026-10-26T20:41:17Z",
+      "number": 1,
+      "question": [
+        "**1. Записывать ли карточку для работы, которая не вливается?**",
+        "Карточка пишется в момент merge. Но проекты решений, анализы и эксперименты никогда не вливаются: их результат — записка в рабочей папке. В этой сессии они стоили $77,23 из $241,86, то есть 31,9% всех расходов на агентов. Сейчас эти расходы видны только в ledger на этом Mac.",
+        "",
+        "| | a) карточка в конце запуска | b) только ledger |",
+        "|---|---|---|",
+        "| «Сколько стоили проекты решений» | видно из git на любой машине | видно только на этом Mac, пока цел ledger |",
+        "| Лишние commit | по одному на такой запуск, 5–10 в день | нет |",
+        "| Дополнительная сборка | около 20 агентских минут | нет |"
+      ],
+      "options": [
+        "a. Записывать карточку в конце запуска (рекомендую: это треть расходов).",
+        "b. Оставить только ledger."
+      ]
     }
   ]
 }
