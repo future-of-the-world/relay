@@ -1,0 +1,30 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 40,
+  "found_at": "2026-10-27T01:29:27Z",
+  "found_in": "relay queue add",
+  "title": "An item keeps dated notes of later decisions",
+  "what": [
+    "An item gains `notes`: a list of {at, text} written only by a new `relay queue note <slug> --input <file.toml>` (text in the TOML, owner words verbatim), landed at once like other queue changes, allowed on open and done items; `relay queue show` prints them in date order; the schema check refuses a note without a date or with empty text; the delegate and front skills say: a design is written fresh when the item is taken, and its decisions, the owner's answers and dated measurements go into the item as notes the same turn; the 4 plans on wt/plans-save and the scratchpad designs give their owner words and measurements to their items as notes, then wt/plans-save is removed."
+  ],
+  "why": [
+    "Owner, 27 Oct: \"Не выходит ли так что план это не план вовсе, тот пишется перед началом сессии, а то что мы сохраняем это дискуссия во время создания задачи, brainstorm\". Asked how what is decided after an item is created gets into it (a: a list of dated notes in the item, one relay queue command writes them; b: a discussion file beside the item; c: nothing, the handover keeps it), the owner answered \"A\". Earlier, the same day: \"план имеет ценность только если есть задача, являясь её частью\" and \"Проблемы с планом - ... подобный лучше всего делать непосредственно перед исполнением с актуальной, свежей версией репозитория\": so the plan is not stored; it is written fresh against the fresh repository when the item is taken, and what it decides or measures goes back into the item as notes. Measured 27 Oct over 188 item files: the only fields are kind, ip, time, found_at, found_in, title, what, why, failing_case, pass_cases, where, taken_at, taken_by, closed_at, test, dropped_at, dropped_why, failing_kind, evidence, fixed_by; why is written once at creation (median 348 bytes open, 391 done, max 2,447); no item holds a decision made after it was created. Live cases: the owner's \"A\" on cycle-scripts question 1 and that run's measurement (one checker saves 36-47k tokens per change) could only go to a new item and the handover; the owner had to recall an unsaved measurement on 27 Oct (\"я помню мы мерили их, ты не сохранил это\"). Front's weak spot named to the owner: notes can grow without bound; each note is short (owner words verbatim, a decision, a dated measurement), not a design. Replaces a-plan-lives-beside-its-item-redone-fresh-when-t (IP 95, dropped). IP 95 kept from that item (agent-chosen)."
+  ],
+  "where": [
+    "lib/relay_queue.py (schema, a new note command, show)",
+    "bin/relay (queue help)",
+    "plugins/delegate/skills/delegate",
+    "plugins/front/skills/front",
+    "rules/queue.md",
+    "wt/plans-save (docs/plans/)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-27T01:53:37Z",
+  "dropped_why": [
+    "Owner, 27 Oct: \"Мне не нравится, давай начнем с начала, проблема, конкретный, понятный для клиента путь решения, пока это изменение на паузе\". Restated from the user's side and replaced by what-the-owner-says-about-an-item-stays-in-it."
+  ]
+}

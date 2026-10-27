@@ -1,0 +1,28 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 90,
+  "found_at": "2026-10-27T01:53:38Z",
+  "found_in": "relay queue add",
+  "title": "What the owner says about an item stays in it",
+  "what": [
+    "What the owner sees: whatever the owner says about an item (wish, answer, explanation, decision) and every measurement shown to the owner are written into that item by relay the same turn, without \"запиши\"; \"что мы решили про X?\" is answered from the item alone, also by a fresh session without memory: the owner's words, each question as it was asked with its lettered options, the owner's answer verbatim with any explanation, and dated measurements; the front's reading of an answer, when it adds one, is marked as the front's and reversible. Underneath (the agent's, not the owner's): an item gains `notes`, each with `at` and either a fact (`text`) or a decision (`question`, `options` as asked, `answer` = the owner's whole reply verbatim, optional `reading`); one new `relay queue` command writes them and lands at once; the schema check refuses a decision note without question, options or answer; show prints notes by date. Together with queue-items-point-at-session-files-that-vanish (fix 88: add refuses a scratchpad path and says to put the fact in; the 19 items get facts instead of links), built in the same change. The rule \"words and facts in the item, no links, plan fresh when taken, later decisions as notes the same turn\" moves from the front's memory into relay's rules and reaches every project through relay sync. The owner's words and measurements on wt/plans-save move into their items as notes; the branch is then removed. Newcomer check: a fresh session with no memory asked \"что решили про метрики?\" answers with both questions, their options and the answers \"1. a\" and \"2. a\"; an add naming a scratchpad path is refused with the next step."
+  ],
+  "why": [
+    "Problem, as the owner sees it: the owner tells relay something about an item (a wish, an answer to a question, a decision); a week later, when the item is taken, relay does not know it and the owner has to remind it. Owner, 27 Oct: \"я помню мы мерили их, ты не сохранил это\". Measured 27 Oct over 188 item files: each was written once and never changed; no item holds anything decided after it was created; 3 such decisions that day had no place in their item (metrics design answers \"1. a\" and \"2. a\" for each-change-records-its-stage-times-cost-and-cov, which was never taken: taken_at empty; cycle-scripts question 1 \"A\" went to a new item; the measurement that one checker per change saves 36-47k tokens went to the handover). 19 of 89 open items name a session scratchpad path that vanishes on reboot (12 of 69 on 26 Oct). Owner, 26 Oct: \"достаточно просто сохранить запрос пользователя а дизайн будет выполнен перед выполнением, что позволяет нам освободиться от неактуальных результатов исследования\" (the plan is not stored; it is written fresh against the fresh repository when the item is taken). Owner, 27 Oct, on the shape: \"Я вижу ответы но не вопрос - он важен\"; \"Причем если я даю пояснение к ответу то ты должен и его зафиксировать а не просто вариант ответа\". Owner's view of the restated problem, 27 Oct: \"Разве проблема с метриками была не в том что задачу уже взяли в работу и у тебя не было возможности изменить запущенный процесс ?\" Front's answer: measured, the metrics item was never taken; a separate case exists (an answer arriving while a workflow already runs; seen once, 27 Oct, cycle-scripts, no loss because only the part common to every answer had been started) and is recorded here as known, not solved. Principle 10 (newcomer) applies: the owner never needs a command or a file to get this."
+  ],
+  "where": [
+    "lib/relay_queue.py (schema, a note command, show, add refusal)",
+    "bin/relay (queue help)",
+    "plugins/front/skills/front",
+    "plugins/delegate/skills/delegate",
+    "rules/queue.md",
+    "wt/plans-save (docs/plans/)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
