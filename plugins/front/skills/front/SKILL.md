@@ -110,7 +110,8 @@ Merge it, then say in your next reply, in one line: `merged: <what it does for
 the owner>`.
 
 Ask the owner first, on one chat screen, only when: (a) taking the default
-branch hit a git conflict that a fixer resolved by hand; (b) a finding is open
+branch hit a git conflict that a fixer could not resolve (it stopped on it; a resolved
+conflict does not wait for the owner, it goes on to the gate and the recheck); (b) a finding is open
 as Design, question, Disputed or Gap, or the owner has not answered a question
 about the change; (c) the change is person-facing (rules/product-work.md: the
 owner checks it live before merge); (d) the owner said to hold this

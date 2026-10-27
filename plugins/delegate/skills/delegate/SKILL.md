@@ -201,7 +201,7 @@ front's.
    `relay changed --own -C <wt> <checked sha>` lists a file (a conflict, or a
    file both sides changed that git combined), that change is a fix: the
    checker's `relay check findings` lists it as `M<n>` (one for each such file), so nothing is written
-   by hand; a fixer resolves a conflict first (none for a clean combination, `Fixes: none`); then
+   by hand; a fixer resolves a conflict first (none for a clean combination, `Fixes: none`; the owner is asked only if the fixer stops on a conflict it could not resolve); then
    `relay gate`, then the checker. Files that only the default branch changed need no new check.
    When several ready changes wait, take the default branch only into the change
    that merges next, or build a train (the front skill says who rides): a runner

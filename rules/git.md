@@ -18,10 +18,10 @@
   fix item at the top of the queue. While a paid run goes, lanes keep building; a change for which
   `bin/paid-cost touches <branch>` prints files waits at the landing until the run ends, then lands in
   one train after the run's `relay sync`.
-  Ask me before the merge only when taking the default branch hit a conflict a
-  fixer resolved by hand; a finding is open as Design, question, Disputed or
+  Ask me before the merge only when a fixer could not resolve a conflict from
+  taking the default branch (it stopped on it); a finding is open as Design, question, Disputed or
   Gap, or I have not answered a question about the change; the change is
-  person-facing; or I said to hold it. When I say "hold", wait for my word on that change.
+  person-facing; or I said to hold it. A resolved conflict still needs a green gate and a recheck of every rider's item on the head. When I say "hold", wait for my word on that change.
   After a merge into the default branch its worktree and branch are removed
   (the core plugin does it where the project has `.relay/`; `relay doctor`
   lists any left over). Nothing lives only in a task worktree: commit it, or
