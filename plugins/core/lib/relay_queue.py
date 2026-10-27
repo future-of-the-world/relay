@@ -26,7 +26,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, TypeGuard
 
 import relay_git
 import relay_verdict
@@ -67,7 +67,7 @@ def _is_int(value):
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
-def _is_lines(value):
+def _is_lines(value: object) -> TypeGuard[list[str]]:
     return isinstance(value, list) and all(isinstance(x, str) for x in value)
 
 
@@ -183,8 +183,9 @@ def parse_note(raw: object) -> tuple:
         problems.append(f"{kind} is not a non-empty list of lines")
     if kind != "question":
         return (None, problems) if problems else (Note(kind, raw["at"], list(raw[kind])), [])
-    number, options = raw.get("number"), raw.get("options")
-    if not _is_int(number) or number < 1:
+    number: Any = raw.get("number")
+    options: Any = raw.get("options")
+    if not isinstance(number, int) or isinstance(number, bool) or number < 1:
         problems.append("number is not a whole number from 1")
     if not _is_lines(options) or len(options) < 2 or any(not o.startswith(f"{chr(97 + n)}. ") for n, o in enumerate(options)):
         problems.append("options are not at least two lines starting a. , b. , ... in order")
