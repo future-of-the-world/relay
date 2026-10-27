@@ -16,7 +16,7 @@ export const meta = {
 //   recheck  {name, wt, check, findings | items: [{slug, review}], branch*}   gate, then the check(s), show
 //   (* relay mode only; item is one fix-item slug)
 // Designs, in args.designs: {name, brief, out, review (false: an analysis, one thinker)}.
-// Optional args.settings: gate_turns 20-80 (40), gate_fixes 0-3 (1), retry_dead 0-2 (1), gate_args (a string, '--quick').
+// Optional args.settings: gate_turns 20-80 (40), gate_fixes 0-3 (1), retry_dead 0-2 (1), gate_args (a string, '--quick'; '' is the plain quick gate, '--paid' the full one with the paid evals).
 // Every label is `<stage word>[ N]: <unit name>`; a stop names the stage word it stopped at (or `owner`).
 
 const A = args || {}
@@ -117,7 +117,8 @@ function gatePrompt(it, n) {
   const log = `${S}/gate-${tag(it)}-${n}.log`
   const wait = `It takes minutes to an hour and may first wait for a free slot: wait in as few turns as possible (you have ${CFG.gate_turns}; if the gate is still running at your ${CFG.gate_turns - 5}th turn, report ok=false with first_fail "still running, pid <pid>, log <path>" instead of ending silently): each Bash call one bounded loop of at most 230 s (\`for i in \$(seq 1 11); do kill -0 <pid> 2>/dev/null || break; sleep 20; done\`), never a call per check.`
   if (RELAY) {
-    const cmd = CFG.gate_args.trim() ? `relay gate -C ${it.wt} -- ${CFG.gate_args.trim()}` : `relay gate -C ${it.wt}`
+    const ga = CFG.gate_args.trim()
+    const cmd = ga === '--paid' ? `relay gate -C ${it.wt} --paid` : ga ? `relay gate -C ${it.wt} -- ${ga}` : `relay gate -C ${it.wt}`
     return `Run \`${cmd}\` detached with the limits recipe, log in ${log}. ${wait} Report ok, the gate sha, the gate log path it prints (under the worktree's .relay/checks/), and the first failing line if any.`
   }
   return `Run the project's gate in ${it.wt} detached with the limits recipe, writing the log in the form: \`{ echo "head $(git -C ${it.wt} rev-parse HEAD)"; ${A.gate}; echo "exit $?"; } > ${log} 2>&1\` (run it with ${it.wt} as the current folder) and write its pid to ${log}.pid first. If ${log}.pid already exists and that pid is alive, a gate of an earlier attempt is still running: do not start another, wait on that pid and report its log. ${wait} Report ok (the exit code was 0), the head sha, the log path ${log}, and the first failing line if any.`

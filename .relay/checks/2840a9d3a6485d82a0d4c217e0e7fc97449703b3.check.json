@@ -1,0 +1,125 @@
+{
+  "branch": "wt/train-22b",
+  "findings": [
+    {
+      "details": [
+        "Measured 27 Oct: the notes change (branch wt/owner-notes, not merged) ran its migration with `relay queue note` from the worktree; the lander put 30+ commits on master that add a `notes` key to items, while master's code does not know the key yet. Right after, `relay queue check` on master reported \"unknown key notes\" for each such item (for example what-the-owner-says-about-an-item-stays-in-it.json), so master's queue check stayed red until the code merges, and a gate or hook on master in that window could refuse unrelated work. The lander's rule checks only that one file under .relay/queue/ changes, not that the default branch's own code accepts the new record."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "From a worktree whose relay_queue.py adds a new item key, `relay queue note <slug> ...` lands on master; then `relay queue check` run with master's code fails with 'unknown key notes'."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The lander validates the record with the default branch's schema before it lands, and refuses with the next step (merge the code first, or land from the default branch) when that schema rejects it.",
+        "A record master's code accepts still lands at once, as today.",
+        "A test in a temporary repository shows the refusal and fails with the check disabled."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue_land_ahead.py:31 refuses a landing master's code rejects; fails at base e5e3eac9b51a (Refused not raised), passes at head."
+      ],
+      "severity": "HIGH",
+      "since": "e5e3eac9b51aaac9acd0b2d13a14125d2dd43ab9",
+      "source": "queue",
+      "summary": "A queue landing writes fields master's code rejects",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: master_with_old_schema copies every lib/*.py and *.toml of the worktree and string-replaces one marker.",
+        "The test is right today but tied to the exact text of one line other branches (wt/majority, wt/precheck) may touch.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "tests/test_queue_land_ahead.py:26-28: marker = '\"dropped_at\", \"dropped_why\", \"notes\")'; self.assertEqual(old.count(marker), 1)"
+      ],
+      "failing_case": [
+        "A later change adds a key after \"notes\" in ORDER (lib/relay_queue.py:51), or reflows that line: the marker",
+        "'\"dropped_at\", \"dropped_why\", \"notes\")' no longer occurs once, assertEqual(old.count(marker), 1) fails, and all three tests",
+        "of the file fail (master_with_old_schema is used by two; the import of the real lib copy is used by them too) although",
+        "the lander is still right. Expected: the test keeps passing as long as the lander refuses what the default branch's code rejects."
+      ],
+      "fix_hint": [
+        "Put a small stub lib/relay_queue.py on the default branch whose parse(slug, text) returns problems [\"unknown key notes\"]",
+        "when the JSON has `notes` and [] otherwise; drop the copy-and-patch of the real lib."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 26,
+      "pass_cases": [
+        "1. Default branch carries a lib/relay_queue.py whose parse rejects the key `notes`; `rq.note` from the scratch repo -> Refused",
+        "   containing the default branch's reason and \"merge the code first\"; master unchanged; no wt/queue-* branch.",
+        "2. Same default branch; `rq.set_ip` (no new key) -> lands, ip 40.",
+        "3. Default branch without lib/relay_queue.py; `rq.note` -> \"noted\".",
+        "4. ORDER in lib/relay_queue.py gains a key after \"notes\" -> cases 1-3 still pass unchanged."
+      ],
+      "path": "tests/test_queue_land_ahead.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue_land_ahead.py:21 uses a stub lib on the default branch, no text patch of the real lib."
+      ],
+      "severity": "LOW",
+      "since": "3e07912eed75e0c755dc6a5cc9fe15fbe640b1aa",
+      "source": "review-land-ahead.json",
+      "source_id": "F1",
+      "summary": "the refusal test patches a copy of the real lib by a text marker, so any change to the ORDER tuple's tail breaks it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: the fail-closed branch is promised by the docstring (\"Raises Refused when that code cannot be run\") and works,",
+        "reproduced with a scratch test subclassing LandAhead; it has no test, so a later edit can turn it into a silent accept.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "python3 scratchpad/broken.py -> REFUSED: cannot run master's queue code to check the record: SyntaxError: invalid syntax",
+        "grep of tests: no test names \"cannot run\"."
+      ],
+      "failing_case": [
+        "Replace the two `raise Refused(f\"cannot run ...\")` in _default_rejects (lib/relay_queue.py:750-754) with `return []`",
+        "(fail open): all tests still pass, yet a landing then writes a record no code on master has checked. Today the behaviour is",
+        "right (scratch run: default branch lib/relay_queue.py = \"def oops(:\" -> Refused \"cannot run master's queue code to check the",
+        "record: SyntaxError: invalid syntax\"), but nothing keeps it."
+      ],
+      "fix_hint": [
+        "One test in tests/test_queue_land_ahead.py: write_commit lib/relay_queue.py = \"def oops(:\\n\" on the default branch,",
+        "assert rq.set_ip raises Refused with \"cannot run\" and master's sha unchanged."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. Default branch's lib/relay_queue.py has a syntax error; rq.set_ip -> Refused containing \"cannot run\" and \"SyntaxError\"; master unchanged.",
+        "2. Default branch's lib/relay_queue.py prints non-JSON to stdout -> Refused containing \"cannot run\"; master unchanged.",
+        "3. Default branch's code accepts the record -> lands (existing test_a_record_master_s_code_accepts_lands_at_once)."
+      ],
+      "path": "tests/test_queue_land_ahead.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue_land_ahead.py:57 covers syntax error and non-JSON, asserts \"cannot run\" and master unchanged; passes."
+      ],
+      "severity": "LOW",
+      "since": "3e07912eed75e0c755dc6a5cc9fe15fbe640b1aa",
+      "source": "review-land-ahead.json",
+      "source_id": "F2",
+      "summary": "no test covers the refusal when the default branch's queue code cannot be run",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0853dace14864ac929d1358e910748b256c248c6.gate.log",
+  "head": "2840a9d3a6485d82a0d4c217e0e7fc97449703b3",
+  "item": "a-queue-landing-writes-fields-master-s-code-reje",
+  "notes": [
+    "Gate was bin/ci --quick (paid steps skipped), as the review noted."
+  ],
+  "schema": 2,
+  "scope": [
+    "Train head 2840a9d. Ran python3 -m unittest tests.test_queue_land_ahead: 4 OK. At base e5e3eac9b51a with the test file copied in: 2 failures (Refused not raised). Gate log head 0853dace, exit 0 (quick run); only gate/check log commits after it."
+  ],
+  "type": "check"
+}

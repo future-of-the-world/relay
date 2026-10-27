@@ -1,0 +1,22 @@
+head 4f9b29de353fabd1f32cb0e1cb8de1d169d182e6
+cmd bin/ci --quick
+wait 0.0
+ci: library tests ok (263s)
+ci: types and lint ok (0s)
+ci: hook tests FAILED (161s, log: .ci/steps/hook-tests.log)
+    ok   no file: dump is an error too
+    ok   no file: packet is an error too
+    ok   no file: spec-check is an error too
+    ok   path, nothing for this version: an error, not the newest
+    ok   path, that error exits 1
+    FAIL  T15n with the test and a clean check: allowed
+    FAIL  T15n3 a well-formed new-shape item closed in place: allowed
+    FAIL  T15n3 a malformed new-shape item: refused as malformed
+ci: lib copies identical FAILED (0s, log: .ci/steps/lib-copies-identical.log)
+    FAIL plugins/front/lib/relay_queue.py differs from lib/ (run bin/sync-lib-copies)
+    FAIL plugins/core/lib/relay_queue.py differs from lib/ (run bin/sync-lib-copies)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (72s)
+ci: RED
+exit 1

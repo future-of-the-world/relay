@@ -169,6 +169,10 @@ class Gate(Fixture):
         out = run.stdout.splitlines()
         self.assertEqual(out, ["gate %s: exit 0" % head, log])
 
+    def test_the_help_names_both_gate_modes(self):
+        run = subprocess.run([sys.executable, RELAY, "help"], capture_output=True, text=True, env=self.env)
+        self.assertIn("--paid", run.stdout + run.stderr)
+
     def refused_gate(self, body):
         """Run a gate whose command does `body` to the tree; returns (run, gated head). It must be refused with no log."""
         self.repo(gate=body + "exit 0\n")

@@ -497,7 +497,8 @@ class PaidCapReached(RuntimeError):
 def run_bench(profiles, scenarios, runs=None, judge_model="haiku", keep=False, out_root=None, max_cost_usd=None, isolate=False):
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
     sessions = len(profiles) * sum(runs or s.get("runs", 1) for s in scenarios)
-    refusal = relay_paidcap.check(stamp[:10], relay_paidcap.bench_estimate(sessions, out_root), "bench", bench=out_root)
+    refusal = relay_paidcap.check(stamp[:10], relay_paidcap.bench_estimate(sessions, out_root), "bench", bench=out_root,
+                                    roots=relay_paidcap.suite_roots(ROOT))
     if refusal:
         raise PaidCapReached(refusal)
     out_dir = os.path.join(out_root or bench_dir(), stamp)

@@ -28,6 +28,9 @@ separated by \\x1f:
                        refuses it from the main session when the directory is a linked worktree.
     B <reason>         a command blocked anywhere: an anonymous stash, a stash
                        pop, an environment dump.
+    Y <dir>            the same for a queue item file `.relay/queue/<slug>.json` (a redirect, cp, mv, rm, sed -i ... or inline
+                       code naming it with a write word); git's own verbs on it stay free so a conflict can be resolved.
+                       Refused in a repository with `.relay/` on its default branch: only `relay queue` writes an item.
     X <dir>            a command that writes `.relay/checks/` (a redirect, cp, mv,
                        rm, ... under it; git add/rm/mv/restore/update-index or
                        `checkout --` naming it; inline code naming it with a write
@@ -368,6 +371,8 @@ GIT_WRITE = {"commit", "merge", "switch", "checkout", "reset", "rebase", "restor
              "am", "apply", "add", "rm", "mv", "clean", "update-ref", "read-tree", "checkout-index", "filter-branch"}
 CHECKS = re.compile(r"(?:^|/)\.relay/checks(?:/|$)")
 CHECKS_NAMED = re.compile(r"(?:^|[^A-Za-z0-9_.])\.relay/checks(?:/|$|[^A-Za-z0-9_.])")
+QUEUE_FILE = re.compile(r"(?:^|/)\.relay/queue/[^/]+\.json$")
+QUEUE_NAMED = re.compile(r"(?:^|[^A-Za-z0-9_.])\.relay/queue/")
 GIT_CHECKS_WRITE = {"add", "rm", "mv", "restore", "update-index"}
 INLINE_CODE = {"python", "python3", "node", "perl", "ruby"}
 # a write in inline code: open( with a w, a or x mode, or one of these words, or a redirect
@@ -775,6 +780,8 @@ def analyze(cmd, cwd, flags, depth=0, merges=None, env=None, same_shell=True):
             code = " ".join(w.text for w in real[1:])
             if cur != UNKNOWN and CHECKS_NAMED.search(code) and INLINE_WRITE.search(code):
                 out.append(("X", existing_dir(cur)))
+            if cur != UNKNOWN and QUEUE_NAMED.search(code) and INLINE_WRITE.search(code):
+                out.append(("Y", existing_dir(cur)))
 
         # files written
         targets = [w for w in redirs if not w.dynamic and not w.text.startswith("/dev/")]
@@ -787,6 +794,8 @@ def analyze(cmd, cwd, flags, depth=0, merges=None, env=None, same_shell=True):
                 if row != UNKNOWN:
                     if CHECKS.search(row):
                         out.append(("X", existing_dir(row)))
+                    if QUEUE_FILE.search(row):
+                        out.append(("Y", existing_dir(row)))
                     out.append(("W", row))
 
     for kind, payload in events:

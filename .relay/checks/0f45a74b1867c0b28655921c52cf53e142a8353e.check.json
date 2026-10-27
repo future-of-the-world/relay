@@ -1,0 +1,220 @@
+{
+  "branch": "wt/gate-quick",
+  "findings": [
+    {
+      "details": [
+        "Measured 27 Oct 18:28 local: the front asked a runner to run \"relay gate -C <worktree>\" to gate wt/majority after it took master, meaning the quick gate as the cycle runs it (the cycle passes --quick); without -- --quick relay gate ran the full bin/ci, paid plugin evals included (claude plugin eval -j 1), which took over 80 minutes under the six lanes' load and spends about $18 against the daily cap (that day: $39.71 in 2 runs before it). The expensive path is the default and the cheap one needs a flag the newcomer did not know (principle 10: the obvious way is the right way).",
+        "Also: plugins/delegate/workflows/cycle.js (gate_args)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay gate -C <worktree> with no arguments starts claude plugin eval."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "relay gate with no arguments runs the quick gate; the paid steps run only with an explicit flag (for example --paid) and print their estimate and the day's spend first.",
+        "The cycle script and bin/ci's own paid run keep working (they name their mode).",
+        "relay gate's help names both modes.",
+        "A test with a fake bin/ci shows no paid step without the flag, and fails with the old default."
+      ],
+      "path": "bin/relay",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate_quick.py:62 test_f2_relay_itself_binds_the_quick_mode passes and fails without the fix."
+      ],
+      "severity": "HIGH",
+      "since": "0d792b2fe6fa22cacf9e339b5ef4001ff3ce7497",
+      "source": "queue",
+      "summary": "relay gate runs the paid evals unless told --quick",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: lib/relay_gate.py run() sends stdout/stderr of the command to a file under the git dir, so nothing",
+        "bin/ci prints reaches the caller during the run; lib/relay_ci.py plugin_evals() prints the estimate only after the free",
+        "steps, and `bin/paid-cost guard eval` prints only on refusal (ran it: no output, rc 0). `bin/paid-cost today` exists and",
+        "prints the day's spend, so the information is at hand. The worker's report says \"bin/ci already prints the estimate and the",
+        "day's spend\", which is not so for the spend, and not \"first\" for either under relay gate.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "$ python3 bin/paid-cost estimate  -> mean $10.53, max $21.41 over 21 stored runs",
+        "$ python3 bin/paid-cost today     -> 2026-10-27: spent $56.13 of the $200 cap, 3 runs",
+        "$ python3 bin/paid-cost guard eval; echo rc=$?  -> (no output) rc=0",
+        "lib/relay_gate.py: proc = subprocess.Popen(command, ..., stdout=sink, stderr=subprocess.STDOUT, ...)",
+        "lib/relay_ci.py:411: self.say(\"plugin evals: estimate %s; -j %s, ceiling $%s ...\"), after the six free steps"
+      ],
+      "failing_case": [
+        "relay gate -C <wt> --paid on relay. The queue item's pass case: \"the paid steps run only with an explicit flag (for example",
+        "--paid) and print their estimate and the day's spend first\". Now: relay gate prints nothing until the whole gate ends (the",
+        "command's output goes to <git dir>/relay-gate.out, run() line ~290); bin/ci prints its \"plugin evals: estimate ...\" line",
+        "only into that file, after ~15 minutes of free steps, and never prints the day's spend (paid-cost guard is silent when it",
+        "passes). The person sees the cost only in the final log, after the money is spent.",
+        "Should: before the gate starts, relay gate --paid prints (stderr) the estimate and the day's spend, e.g.",
+        "\"paid: mean $10.53, max $21.41 over 21 stored runs; 2026-10-27: spent $56.13 of the $200 cap, 3 runs\"."
+      ],
+      "fix_hint": [
+        "In cmd_gate, when paid: if <worktree>/bin/paid-cost exists, run it with \"estimate\" and \"today\" (subprocess list args,",
+        "timeout=) and print both lines to stderr before relay_gate.run. Test with a fake bin/paid-cost in the fixture."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 571,
+      "pass_cases": [
+        "1. relay gate --paid in a fixture whose bin/paid-cost prints \"EST\" for estimate and \"SPENT\" for today: stderr holds both",
+        "   lines, and they appear before the gate command runs (the fake gate writes a marker; the lines precede it / are printed",
+        "   while the marker does not yet exist).",
+        "2. relay gate (plain) in the same fixture: neither line is printed; the gate command gets --quick.",
+        "3. relay gate --paid in a project with no bin/paid-cost: the gate runs, no error, no cost line (or one line saying no",
+        "   estimate is known).",
+        "4. relay gate -- --other: no cost lines, the command gets --other (as today)."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_quick.py:74 passes, fails at base; plain/no-tool cases at :85, :92."
+      ],
+      "severity": "MEDIUM",
+      "since": "c611cbdb85d4199a6c21fae819e01f22c3fca5d8",
+      "source": "review-gate-quick.json",
+      "source_id": "F1",
+      "summary": "relay gate --paid starts the paid evals without printing the estimate or the day's spend first, a pass case of the item",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: lib/relay_gate.py run() builds `shlex.split(binding(worktree)) + list(args)`, and cmd_gate now always adds",
+        "[\"--quick\"] when no -- args are given. make and argparse both exit 2 on an unknown --quick (ran both). Measured today: the",
+        "two kit.toml files on this machine (relay, kartoteka) both use bin/ci, and relay's templates/bin-ci and kartoteka's bin/ci",
+        "ignore their arguments, so nothing breaks yet; the break comes with the first project whose gate.ci is make, npm, pytest or",
+        "any argparse script. The mode is relay-specific (only relay's gate has paid steps) but the default is applied to every",
+        "project.",
+        "Size: 20 agent minutes."
+      ],
+      "evidence": [
+        "$ make ci --quick   -> make: unrecognized option `--quick'  rc=2",
+        "$ python3 -c \"import argparse;p=argparse.ArgumentParser();p.parse_args(['--quick'])\"  -> error: unrecognized arguments: --quick rc=2",
+        "lib/relay_gate.py: command = shlex.split(binding(worktree)) + list(args)",
+        "plugins/core/README.md:199: | gate.ci | required | the full gate; prints only what needs attention | \"bin/ci\" |"
+      ],
+      "failing_case": [
+        "A project with .relay/ and .claude/kit.toml [gate] ci = \"make ci\" (or a Python script with argparse, or pytest). relay gate",
+        "-C <wt> now runs `make ci --quick` -> \"make: unrecognized option `--quick'\", exit 2: the gate is red on every plain run and",
+        "the merge is refused, though the code is green. The gate.ci contract (plugins/core/README.md:199 \"the full gate; prints",
+        "only what needs attention\") never required the command to accept --quick; only relay's own bin/ci knows it.",
+        "Should: a plain relay gate runs the project's free gate in a way that works for a gate.ci that takes no arguments, e.g.",
+        "`make ci` exactly, and still `bin/ci --quick` for relay."
+      ],
+      "fix_hint": [
+        "Name the free mode in the binding instead of in relay gate: an optional kit.toml key (e.g. gate.quick = \"--quick\", or",
+        "gate.ci_quick = \"bin/ci --quick\") that relay's own kit.toml sets; a plain relay gate adds it when present and nothing when",
+        "absent; --paid runs gate.ci alone. Document the key beside gate.ci in plugins/core/README.md."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 574,
+      "pass_cases": [
+        "1. Fixture with kit.toml ci = \"<script that exits 2 on any argument>\": plain relay gate exits 0, log line 2 is",
+        "   \"cmd <script>\" with no --quick.",
+        "2. relay's own setup (bin/ci, or a kit.toml binding that names the quick mode): plain relay gate runs bin/ci --quick",
+        "   (log \"cmd bin/ci --quick\"), as the new test asserts today.",
+        "3. relay gate --paid on relay runs bin/ci with no argument.",
+        "4. relay gate -- --other passes --other unchanged in both setups."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_quick.py:35, :43, :49, :55 pass; :35 fails at base; README.md:200 documents gate.ci_quick."
+      ],
+      "severity": "MEDIUM",
+      "since": "c611cbdb85d4199a6c21fae819e01f22c3fca5d8",
+      "source": "review-gate-quick.json",
+      "source_id": "F2",
+      "summary": "a plain relay gate appends --quick to any project's gate.ci, so a gate command that rejects unknown options goes red",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading cycle.js:116 and lib/relay_ci.py main() (any argument other than --quick/--no-evals -> usage, rc 2).",
+        "Safe direction (no money is spent by mistake), so LOW. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "cycle.js:116: const cmd = CFG.gate_args.trim() ? `relay gate -C ${it.wt} -- ${CFG.gate_args.trim()}` : `relay gate -C ${it.wt}`",
+        "lib/relay_ci.py:505-508: if arg in (\"--quick\", \"--no-evals\"): quick = True / else: print(\"usage: bin/ci [--quick]\"); return 2"
+      ],
+      "failing_case": [
+        "cycle with settings gate_args: '' -> `relay gate -C <wt>`, which used to be the full gate and is now the quick one;",
+        "gate_args: '--paid' -> `relay gate -C <wt> -- --paid` -> bin/ci prints \"usage: bin/ci [--quick]\" and exits 2 (red gate).",
+        "Should: one setting value that runs the full gate (e.g. '--paid' passed before `--`), and '' documented as the quick one."
+      ],
+      "fix_hint": [
+        "In cycle.js put '--paid' before `--` (or map gate_args '--paid' to the relay flag) and update the line-19 comment."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 116,
+      "pass_cases": [
+        "1. gate_args '--quick' (default): command is `relay gate -C <wt> -- --quick` (unchanged).",
+        "2. gate_args '--paid': command is `relay gate -C <wt> --paid`.",
+        "3. gate_args '': command is `relay gate -C <wt>` and the header comment says it is the quick gate."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "low",
+      "reason": [
+        "tests/test_cycle_workflow.py test_f3_gate_args_choose_the_quick_or_the_full_gate passes, fails at base."
+      ],
+      "severity": "LOW",
+      "since": "c611cbdb85d4199a6c21fae819e01f22c3fca5d8",
+      "source": "review-gate-quick.json",
+      "source_id": "F3",
+      "summary": "the cycle can no longer ask for the full gate: gate_args '' now runs the quick one and gate_args '--paid' is passed to bin/ci, which refuses it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading cmd_gate: `paid` only matters when extra is empty. Size: 5 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay gate -C <wt> --paid -- --quick -> extra stays [\"--quick\"], the gate runs bin/ci --quick; the --paid the person typed",
+        "is ignored without a word. Should: refuse with the usage line (\"--paid and -- <args> do not go together\"), or say which won."
+      ],
+      "fix_hint": [
+        "if paid and extra: raise Usage(usage)"
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 571,
+      "pass_cases": [
+        "1. relay gate --paid -- --quick: exit 2 with the usage line, no gate run, no log.",
+        "2. relay gate --paid: the command gets no argument.",
+        "3. relay gate -- --quick: the command gets --quick."
+      ],
+      "path": "bin/relay",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_quick.py:99 passes, fails at base."
+      ],
+      "severity": "LOW",
+      "since": "c611cbdb85d4199a6c21fae819e01f22c3fca5d8",
+      "source": "review-gate-quick.json",
+      "source_id": "F4",
+      "summary": "relay gate --paid -- --quick is accepted and silently runs the quick gate",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "f7d01a1a72a5c857a0beca873bb70af5868a2b38.gate.log",
+  "head": "0f45a74b1867c0b28655921c52cf53e142a8353e",
+  "item": "relay-gate-runs-the-paid-evals-unless-told-quick",
+  "notes": [
+    "The gate is the quick mode (ci --quick), by the item's own design. Callers of relay_gate.run: quick defaults False; cmd_gate only. cycle.js maps gate_args --paid."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range c611cbd..HEAD. Gate log head f7d01a1, cmd bin/ci --quick, exit 0; HEAD only adds the gate log (relay changed lists nothing). Ran test_gate_quick.py and test_cycle_workflow.py (36 passed). At c611cbd with the head tests copied in: 5 failed (F1, F2 x2, F4, F3 tests). Files changed are all in scope."
+  ],
+  "type": "check"
+}

@@ -1,0 +1,179 @@
+{
+  "branch": "wt/gate-slots",
+  "findings": [
+    {
+      "details": [
+        "Measured 27 Oct 19:04 local, the first hour with 6 lanes (owner, 27 Oct: \"\u0414\u0430\u0432\u0430\u0439 6 \u0441\u0440\u0430\u0437\u0443\"): 5 gate processes ran at once, load average 23.9 / 26.6 / 30.4 on 12 cores, and a quick gate that takes 7.2-8.4 minutes alone had run 36 minutes (about 4-5 times slower). Each gate runs the library tests in several processes itself, so the gates, not the agents (model calls use little CPU), saturate the Mac; the lanes then wait on each other at the gate and the 6 lanes may land no more than 2-3 would. Principle 2 (waste that repeats on every change).",
+        "Also: bin/relay (gate)",
+        "Also: relay's config (the slot setting)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "With 5 lanes reaching the gate together, each quick gate takes 30+ minutes instead of about 8."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "Gates take a slot from a per-machine limit (a setting, default from the core count, for example 2 on 12 cores) and wait for a free one; the wait is printed with its reason.",
+        "Builds, reviews and checks are not limited by it.",
+        "Measured after: with 6 lanes, a gate takes no more than about 1.5 times its time alone, and the wait for a slot is shown in the gate log.",
+        "A test with a fake gate shows the third concurrent gate waits, and fails with the limit disabled."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate_slots.py test_with_two_slots_the_third_concurrent_gate_waits passes at head and FAILS at 5a01c37 (third gate not held); the other three slot tests also fail/error there."
+      ],
+      "severity": "HIGH",
+      "since": "5a01c371197aa11c0e86fc1b10582f68a1e8d2fd",
+      "source": "queue",
+      "summary": "Gates run all at once and slow each other down",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED from the recorded measurement (handover, STATE 27 Oct early morning) and the fixer's report, which says the same.",
+        "This is a choice only the owner can make: latency per gate against gates per hour.",
+        "Introduction for the owner: relay lets only a few gates (the full test run before a merge) run at once on the Mac; the rest",
+        "wait their turn. The limit now comes from the core count: 12 cores give 2. Measured: one gate alone 7 min; two together 11.6 min",
+        "each; three together 17.6 min each. Two at once finish 10.3 gates an hour, one at a time 8.6, three 10.2.",
+        "Options: (a) 2 at once [recommended: 20% more gates per hour than 1, each gate 1.66x slower; the 1.5x target is moved to 1.7x];",
+        "(b) 1 at a time [each gate at its own speed, 1.5x met, 17% fewer gates per hour, the queue at the gate longer].",
+        "Size: 5 minutes for either (a constant or the item's text) plus one measurement when the Mac is free."
+      ],
+      "evidence": [
+        "docs/handover.md:1345-1347 \"Concurrent gates at 4 jobs: 1 = 8.6 gates/h, 2 at once 698 s each = 10.3/h, 3 at once 1058 s each = 10.2/h\"",
+        "fixer report: \"Not measured: after-number with 6 lanes (Mac loaded). Expected ~1.66x ... above the 1.5x pass case\"",
+        "relay queue show gates-run-all-at-once-and-slow-each-other-down: pass case \"no more than about 1.5 times its time alone\""
+      ],
+      "failing_case": [
+        "Item pass case 3: \"with 6 lanes, a gate takes no more than about 1.5 times its time alone\". Measured 27 Oct on this Mac (4 test",
+        "jobs): alone 420 s, 2 at once 698 s each = 1.66x, 3 at once 1058 s = 2.5x, 1 at a time 420 s (8.6 gates/h). With the new default",
+        "of 2 on 12 cores, two gates run together at about 698 s plus the load of 6 lanes' agents and quiet checks; expected >= 1.66x,",
+        "not <= 1.5x. The fixer did not measure the after-number (the Mac was loaded; the brief allowed \"not measured\")."
+      ],
+      "fix_hint": [
+        "Ask the owner; on (a) record the measured number and the revised bound in the queue item; on (b) set CORES_PER_SLOT to 12."
+      ],
+      "id": "F1",
+      "kind": "question",
+      "line": 33,
+      "owner": [
+        {
+          "date": "2026-10-28",
+          "words": [
+            "A"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. Owner picks 2 slots: the item's pass case is restated as \"a gate takes no more than about 1.7x its time alone\" (or the wait",
+        "   included), and one measured after-number with 6 lanes is recorded in the item.",
+        "2. Owner picks 1 slot: CORES_PER_SLOT (or the formula) gives 1 on 12 cores; a gate runs at about 420 s; throughput 8.6 gates/h.",
+        "3. Either way: RELAY_GATE_SLOTS still overrides, and the third concurrent gate test still waits with 2 slots set."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "Owner chose A (2 slots, not wrong), so no open work; but pass case 1 is undone: the queue item still says \"about 1.5 times\" and no after-number is recorded."
+      ],
+      "severity": "MEDIUM",
+      "since": "5060da14656ba0acd7a0b3a926199b1ae8cad314",
+      "source": "review-gate-slots.json",
+      "source_id": "F1",
+      "summary": "the default of 2 slots is expected to give 1.66x a gate's time alone, above the item's 1.5x pass case, and the after-number was not measured",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading take_slot: each process opens slot-0..count-1 of its own count, so the effective machine limit is the largest",
+        "count among running gates. Pre-existing for the env value, but this change advertises the variable as the way to set the limit",
+        "and is the item that asked for a per-machine setting. Rated LOW: the default (no variable) is the same on every gate of one",
+        "machine, so ordinary use is correct; a per-machine config is a new mechanism and goes to the design track if wanted.",
+        "Size: 15 minutes for \"the count is the minimum of the own count and a count file the setting writes\", or a queue item."
+      ],
+      "evidence": [
+        "lib/relay_gate.py:106 handles = [open(os.path.join(folder, \"slot-%d\" % i), \"a\") for i in range(count)]",
+        "lib/relay_config.py: no machine config file is read (only RELAY_HOME paths and kit.toml)"
+      ],
+      "failing_case": [
+        "Lane A's shell has RELAY_GATE_SLOTS=1 (the owner followed the new waiting line \"RELAY_GATE_SLOTS sets it\"); lanes B and C have",
+        "no such variable (default 2 on 12 cores). A holds slot-0; B opens slot-0 and slot-1 and takes slot-1; C waits. The machine runs 2",
+        "gates although the owner set 1. Same with a branch still on the old code (count 3): it takes slot-2 beside two new-code gates, so",
+        "3 run at once. The item asked for a per-machine limit (\"Where: relay's config (the slot setting)\"); an env var is per process,",
+        "and per the owner's rules a variable set only in ~/.zshrc does not reach the agents' Bash calls at all."
+      ],
+      "fix_hint": [
+        "Keep as a queue item (per-machine slot setting), or say in the waiting line that the variable must be the same for every lane."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 86,
+      "pass_cases": [
+        "1. One gate started with RELAY_GATE_SLOTS=1 holds a slot; a second gate started without the variable waits (or the limit is read",
+        "   from one per-machine place both see, e.g. a file under $RELAY_HOME/gate-slots/).",
+        "2. Two gates without the variable on 12 cores both run; a third waits (the existing test, kept).",
+        "3. RELAY_GATE_SLOTS=none is still refused with a line naming the setting."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_slots.py:147 test_gates_read_one_machine_setting_not_their_own_environment: env RELAY_GATE_SLOTS=3 ignored, file says 1, second gate waits; passes, fails at base. Bad value refused naming gate-slots (test_a_bad_slot_count_is_refused)."
+      ],
+      "severity": "LOW",
+      "since": "5060da14656ba0acd7a0b3a926199b1ae8cad314",
+      "source": "review-gate-slots.json",
+      "source_id": "F2",
+      "summary": "the limit is computed by each gate from its own environment, so gates with different counts share the slot files and the machine runs more gates than the smaller limit",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the tests. Cheap, so fixed in the change when the fixer is there anyway. Size: 5 minutes."
+      ],
+      "evidence": [
+        "tests/test_gate_slots.py:34 self.env[\"RELAY_GATE_SLOTS\"] = \"1\"",
+        "tests/test_gate_slots.py:132-134 default_slots(n) and slot_count({}, cores=12) only"
+      ],
+      "failing_case": [
+        "Change run() to take_slot(slot_count(env, cores=64), ...) or default_slots to ignore os.cpu_count() when cores is None: every",
+        "test still passes (the Slots fixture sets RELAY_GATE_SLOTS=1 in setUp; test_the_default_slot_count_comes_from_the_cores passes",
+        "cores explicitly). Should: one test fails."
+      ],
+      "fix_hint": [
+        "Add mock.patch(\"os.cpu_count\", return_value=12/4/None) cases for slot_count({}) without cores."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 130,
+      "pass_cases": [
+        "1. With os.cpu_count mocked to 12 and RELAY_GATE_SLOTS unset, slot_count({}) is 2; mocked to 4 it is 1; mocked to None it is 1.",
+        "2. The existing cases (1, 4, 12, 24 cores give 1, 1, 2, 4; RELAY_GATE_SLOTS=5 wins) keep passing."
+      ],
+      "path": "tests/test_gate_slots.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_slots.py:135 mocks os.cpu_count (12 -> 2, 4 -> 1, None -> 1) through slot_count(home) with no setting; passes."
+      ],
+      "severity": "LOW",
+      "since": "5060da14656ba0acd7a0b3a926199b1ae8cad314",
+      "source": "review-gate-slots.json",
+      "source_id": "F3",
+      "summary": "no test reaches the core-derived default through relay gate or os.cpu_count(): every gate test sets RELAY_GATE_SLOTS, and the unit test always passes cores",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "fa1241a7756e9548892d9fc3a457038a90e57aa3.gate.log",
+  "head": "95e15beb1f62e0983ee6439794a9cf65a38db1d3",
+  "item": "gates-run-all-at-once-and-slow-each-other-down",
+  "notes": [
+    "slot_count(home) has one caller (run), updated. Note: gate log is a QUICK MODE run (paid steps skipped), as the project's gate command defines it."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 5a01c371197a..HEAD, files lib/relay_gate.py and tests/test_gate_slots.py only. Ran tests/test_gate_slots.py (cd tests; unittest): 20 OK. Gate log fa1241a (bin/ci --quick, exit 0); relay changed from it lists no file. Base worktree at 5a01c37 with the head test file: 4 relied-on tests fail/error there."
+  ],
+  "type": "check"
+}

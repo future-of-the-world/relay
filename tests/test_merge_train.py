@@ -103,9 +103,8 @@ class TrainCase(unittest.TestCase):
     def mark(self, wt, commit, open_=0, item=None):
         findings = []
         if item:
-            findings.append({"id": "Q1", "path": "lib/a.py", "line": 1, "severity": "HIGH", "rank": "high", "kind": "inside",
-                             "summary": "it loses a row", "failing_case": ["y"], "source": "queue", "since": commit,
-                             "verdict": "MET", "reason": ["tests/test_relay.py:1"]})
+            # Q1 as `record_item` states the item (a check counts only for the problem the item has, `stale_check`)
+            findings.append(dict(rq._q1(rq.parse(item, qjson(item))), source="queue", since=commit, verdict="MET", reason=["tests/test_relay.py:1"]))
         record = {"schema": 2, "type": "check", "head": commit, "branch": self.git(wt, "branch", "--show-current"), "item": item,
                   "gate": None, "scope": [], "notes": [], "findings": findings}
         rm.put(wt, commit, {"schema": 2, "commit": commit, "verdict": {"open": open_, "queued": 0}, "check": commit + ".check.json",

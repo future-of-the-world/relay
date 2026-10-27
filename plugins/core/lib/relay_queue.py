@@ -23,6 +23,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -148,10 +149,11 @@ class Note(NamedTuple):
     answered_at: Optional[str] = None
     answer: list = []            # the owner's whole reply, every explanation included
     reading: list = []           # the front's reading of the answer, always shown as the front's
+    edited: str = ""             # a fact note written by `relay queue edit`: the field it edited (data, not prose); "" for the others
 
 
 NOTE_ONE_OF = {"said", "fact", "question"}
-NOTE_KEYS = {"said": ("at", "said"), "fact": ("at", "fact"),
+NOTE_KEYS = {"said": ("at", "said"), "fact": ("at", "fact", "edited"),
              "question": ("asked_at", "number", "question", "options", "answered_at", "answer", "reading")}
 
 
@@ -160,6 +162,8 @@ def note_dict(note: Note) -> dict:
     if note.kind == "said":
         return {"at": note.at, "said": list(note.text)}
     if note.kind == "fact":
+        if note.edited:
+            return {"at": note.at, "edited": note.edited, "fact": list(note.text)}
         return {"at": note.at, "fact": list(note.text)}
     out: dict = {"asked_at": note.at, "number": note.number, "question": list(note.text), "options": list(note.options)}
     if note.answered_at:
@@ -195,8 +199,10 @@ def parse_note(raw: object) -> tuple:
         problems.append(f"{stamp} is not a UTC time YYYY-MM-DDTHH:MM:SSZ")
     if not _nonblank(raw.get(kind)):
         problems.append(f"{kind} is not a non-empty list of lines")
+    if "edited" in raw and (kind != "fact" or raw["edited"] not in EDIT_FIELDS):
+        problems.append("edited is not a field that `relay queue edit` edits")
     if kind != "question":
-        return (None, problems) if problems else (Note(kind, raw["at"], list(raw[kind])), [])
+        return (None, problems) if problems else (Note(kind, raw["at"], list(raw[kind]), edited=raw.get("edited", "")), [])
     number: Any = raw.get("number")
     options: Any = raw.get("options")
     if not isinstance(number, int) or isinstance(number, bool) or number < 1:
@@ -475,6 +481,9 @@ def show_text(item, tz=None):
         out.append(f"evidence {item['evidence']}")
     for title, key in (("What", "what"), ("Why", "why"), ("Failing case" + (f" ({item['failing_kind']})" if item.get("failing_kind") else ""), "failing_case"), ("Pass cases", "pass_cases"), ("Dropped because", "dropped_why")):
         if item.get(key):
+            mark = [n.at for n in notes_of(item) if n.edited == key]
+            if mark:
+                title += f" (edited {_local(mark[-1], tz).rsplit(' ', 1)[0]})"
             out += [f"{title}:"] + ["  " + line for line in item[key]]
         if key == "why":
             out += notes_text(item, tz)
@@ -722,6 +731,38 @@ def _commit(main, head, plan):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# Run in a child: the default branch's own copy of lib/ reads each record the lander is about to write.
+_CHILD = ("import json, sys; sys.path.insert(0, sys.argv[1]); import relay_queue as q\n"
+          "print(json.dumps({s: q.parse(s, t)['problems'] for s, t in json.loads(sys.stdin.read()).items()}))")
+OWN_CODE = "lib/relay_queue.py"
+
+
+def _default_rejects(main: str, head: str, default: str, plan: Plan) -> list[str]:
+    """What the default branch's own code (its lib/ at `head`) finds wrong with the records `plan` writes; [] when it accepts them or
+    the branch has no such code (a project that only uses relay). Raises Refused when that code cannot be run."""
+    records = {os.path.basename(p)[:-5]: t for p, t in plan.writes.items() if t is not None and p.endswith(".json")}
+    if not records or cat_batch(main, [f"{head}:{OWN_CODE}"]) == [None]:
+        return []
+    rc, tar, err = _git(main, "archive", "--format=tar", head, "lib", timeout=60)
+    if rc != 0:
+        raise Refused(f"cannot read {default}'s code to check the record: {err}")
+    tmp = tempfile.mkdtemp(prefix="relay-queue-lib-")
+    try:
+        with tarfile.open(fileobj=io.BytesIO(tar)) as bundle:
+            bundle.extractall(tmp, filter="data") if hasattr(tarfile, "data_filter") else bundle.extractall(tmp)
+        try:
+            done = subprocess.run([sys.executable, "-I", "-c", _CHILD, os.path.join(tmp, "lib")], input=json.dumps(records),
+                                  capture_output=True, text=True, timeout=60)
+            found = json.loads(done.stdout) if done.returncode == 0 else None
+        except (OSError, subprocess.SubprocessError, ValueError) as exc:
+            raise Refused(f"cannot run {default}'s queue code to check the record: {exc}") from exc
+        if found is None:
+            raise Refused(f"cannot run {default}'s queue code to check the record: {_last_line(done.stderr)}")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return [f"{slug}: {reason}" for slug, reasons in sorted(found.items()) for reason in reasons]
+
+
 def _last_line(text):
     lines = [x for x in text.strip().split("\n") if x.strip()]
     return lines[-1].strip() if lines else "no message from git"
@@ -749,6 +790,10 @@ def _land(repo, planner, tries=None, sleep=time.sleep, after_plan=None, takeover
         plan = planner(Reader(main, head))                                 # step 2: a Refused ends the command
         if after_plan:
             after_plan(n, plan)
+        rejected = _default_rejects(main, head, default, plan)             # step 2b: the default branch's code must accept the record
+        if rejected:
+            raise Refused(f"nothing landed: {default}'s own queue code rejects the record ({'; '.join(rejected)}). The code that adds this "
+                          f"is not on {default} yet: merge the code first, or land this from the {default} checkout")
         new = _commit(main, head, plan)                                    # step 3
         branch = "wt/queue-" + plan.slug
         ref = "refs/heads/" + branch
@@ -825,7 +870,7 @@ def find_finding(report, fid):
     raise Refused(f"no finding {fid} in {report}")
 
 
-ADD_KEYS = ("kind", "title", "why", "what", "failing_case", "failing_kind", "pass_cases", "time", "ip", "where")
+ADD_KEYS = ("kind", "title", "why", "what", "failing_case", "failing_kind", "pass_cases", "time", "ip", "where", "said")
 FROM_KEYS = ("why", "time", "ip")
 
 
@@ -870,8 +915,9 @@ def read_add_input(path, keys, required, done="queued"):
 
 
 def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=None, ip=None, where=(),
-        context="relay queue add", now=None, failing_kind="", **engine):
-    """Queue a new item. The slug comes from the title, suffixed -2, -3, ... when taken."""
+        context="relay queue add", now=None, failing_kind="", said="", **engine):
+    """Queue a new item. The slug comes from the title, suffixed -2, -3, ... when taken. `said` is the owner's words, verbatim: they
+    become a `said` note dated now, never part of the text (so `relay queue edit` can never reach them)."""
     if kind not in KINDS:
         raise Refused("kind is fix or feature")
     if not title.strip():
@@ -917,6 +963,8 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
         if value is None:
             value = 0                                  # a fix lists above every feature by kind, so it needs no lifted ip
         item = new_item(kind, value, minutes, found, context, title.strip(), what or title.strip(), why, failing, pass_cases, where, failing_kind)
+        if said.strip():
+            item["notes"] = [Note("said", found, lines_of(said))]
         return Plan(slug, {_path(slug): serialize(slug, item)}, f"{kind}, ip {value}", "queued")
 
     return _run(repo, planner, **engine)
@@ -1311,6 +1359,27 @@ def close_refusal(repo, ref, slug, test):
     return test_refusal(repo, ref, test) or check_refusal(repo, ref, slug)
 
 
+Q1_PARTS = ("summary", "failing_case", "details", "pass_cases")
+
+
+def stale_check(repo: str, default: str, slug: str, q1: dict, commit: str) -> Optional[str]:
+    """None when the problem the check judged (its recorded Q1) is the item's problem now (the item at the default branch's tip, where
+    `relay queue edit` lands); else the refusal line. Queue files are inert, so without this an edit after a MET check would let the
+    fix close against a problem the check never saw. An item not on the default branch has no edit to compare with."""
+    rc, out, _ = _git(repo, "cat-file", "blob", f"refs/heads/{default}:{_path(slug)}")
+    if rc != 0:
+        return None
+    now = parse(slug, out.decode("utf-8", "replace"))
+    if now["problems"] or now.get("kind") != "fix":
+        return None
+    current = _q1(now)
+    differs = [part for part in Q1_PARTS if q1.get(part) != current[part]]
+    if differs:
+        return (f"the problem of '{slug}' changed on {default} after the check of {commit[:12]} ({', '.join(differs)}): "
+                f"take {default} into the branch and check the fix again")
+    return None
+
+
 def check_refusal(repo, ref, slug):
     """The check part of `close_refusal`: None when the item is not a fix, or the newest usable check at `ref` is of it with Q1 MET;
     else the refusal line."""
@@ -1353,7 +1422,7 @@ def check_refusal(repo, ref, slug):
             return f"the check of {commit[:12]} gives no verdict for Q1"
         if verdict != "MET":
             return f"the check of {commit[:12]} says Q1 {verdict}, not MET"
-        return None
+        return stale_check(repo, default, slug, next(f for f in record["findings"] if f["id"] == "Q1"), commit)
     if other:
         return other
     commit, own = first
@@ -1585,6 +1654,225 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
     if kind == "question":
         text += "\nShow the owner exactly this:\n" + question_block(Note("decision", "", fields["question"], fields["number"], fields["options"]))
     return text
+
+
+# ---------------------------------------------------------------- edit: one exact fragment, quoted text untouched
+
+EDIT_FIELDS = ("title", "what", "why", "failing_case", "failing_kind", "pass_cases", "where", "time", "test")
+EDIT_KEYS = ("field", "old", "new", "because")
+DOUBLE_QUOTES = {'"': '"', "«": "»", "“": "”"}
+QUOTE_BEFORE_OPEN = " \n(:[{=,\"«“"      # a straight quote opens after one of these and before a non-space
+QUOTE_AFTER_CLOSE = ".,;:!?)]\"»”'"  # and closes before a space, a line end or one of these
+SINGLE_OPEN = " \n(:"          # a single quote opens a span after a line start, a space, "(" or ":" ("owner's" opens nothing)
+SINGLE_CLOSE = " \n.,;:!?)"    # and closes before a line end or one of these ("repository not found'.")
+
+
+def _straight_span_end(text: str, start: int) -> int:
+    """The index of the " that closes the straight-quoted span opened at `start`, or -1. Straight quotes nest: a " after a line start,
+    space, "(", ":" or another opening mark and before a non-space opens (depth + 1); one before a line end, space, punctuation or a
+    closing mark closes (depth - 1); the span ends where depth returns to 0. A mark that fits neither role, or a span still open
+    at the end, gives -1 (the field is not edited)."""
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] != '"':
+            continue
+        before = text[i - 1] if i else "\n"
+        after = text[i + 1] if i + 1 < len(text) else "\n"
+        if before in QUOTE_BEFORE_OPEN and not after.isspace():
+            depth += 1
+        elif depth and (after.isspace() or after in QUOTE_AFTER_CLOSE):
+            depth -= 1
+            if depth == 0:
+                return i
+        else:
+            return -1
+    return -1
+
+
+def quoted_spans(lines: list) -> Optional[list]:
+    """The protected spans of a field's lines (joined with a line break, so a quote over two lines is one span): "...", «...», “...”
+    and '...' (opened after a line start, space, "(" or ":"; closed before a line end, space or punctuation). Each is returned with its
+    quote marks. None when a double quote has no closing mark: such a field is not edited. A lone single quote is an apostrophe."""
+    text = "\n".join(lines)
+    spans, i = [], 0
+    while i < len(text):
+        ch = text[i]
+        if ch == '"':
+            end = _straight_span_end(text, i)
+            if end < 0:
+                return None
+            spans.append(text[i:end + 1])
+            i = end + 1
+            continue
+        if ch in DOUBLE_QUOTES:
+            end = text.find(DOUBLE_QUOTES[ch], i + 1)
+            if end < 0:
+                return None
+            spans.append(text[i:end + 1])
+            i = end + 1
+            continue
+        if ch == "'" and (i == 0 or text[i - 1] in SINGLE_OPEN):
+            end = i + 1
+            while True:
+                end = text.find("'", end)
+                if end < 0 or end + 1 == len(text) or text[end + 1] in SINGLE_CLOSE:
+                    break
+                end += 1
+            if end >= 0 and end > i + 1:
+                spans.append(text[i:end + 1])
+                i = end + 1
+                continue
+        i += 1
+    return spans
+
+
+def read_edit_input(path: str) -> dict:
+    """The values of a `relay queue edit` TOML input: field, old, new, because (texts, kept exactly as written). Refused for an unknown
+    or missing key, a field that cannot be edited, or an empty `old` or `because`."""
+    try:
+        raw = relay_verdict.read_input(path, "edited")
+    except relay_verdict.VerdictError as exc:
+        raise Refused(str(exc))
+    problems = relay_verdict.table_errors(raw, "in the input", EDIT_KEYS, EDIT_KEYS)
+    problems += [f"`{k}` must be a text" for k in EDIT_KEYS if k in raw and not isinstance(raw[k], str)]
+    if problems:
+        raise Refused("nothing edited: " + "; ".join(problems))
+    if raw["field"] == "notes":
+        raise Refused("nothing edited: notes are only added (`relay queue note`), never edited; a wrong claim in a note is corrected by a later fact note")
+    if raw["field"] not in EDIT_FIELDS:
+        raise Refused(f"nothing edited: `field` is one of {', '.join(EDIT_FIELDS)}")
+    if not raw["old"] or not raw["because"].strip():
+        raise Refused("nothing edited: `old` (the exact text to replace) and `because` (what was found, and when) are not empty")
+    return {key: raw[key] for key in EDIT_KEYS}
+
+
+def _edited_value(item: dict, field: str, old: str, new: str, repo: str, default: str) -> object:
+    """The field's new stored value after replacing the one occurrence of `old` by `new`; Refused with the reason otherwise."""
+    slug = item["slug"]
+    if field == "time":
+        if old.strip() != format_time(item["time"]) and old.strip() != str(item["time"]):
+            raise Refused(f"nothing edited: the time of '{slug}' is {format_time(item['time'])}, not '{old}'")
+        return parse_time(new)
+    if field in ("title", "failing_kind", "test"):
+        current = item.get(field)
+        if not isinstance(current, str):
+            raise Refused(f"nothing edited: '{slug}' has no {field} to edit")
+        lines = [current]
+    else:
+        found = item.get(field)
+        if not found:
+            raise Refused(f"nothing edited: '{slug}' has no {field} to edit")
+        lines = list(found)
+    text = "\n".join(lines)
+    if text.count(old) != 1:
+        raise Refused(f"nothing edited: `old` is found {text.count(old)} times in {field} of '{slug}', not once; give more of the text around it")
+    out = text.replace(old, new, 1)
+    if field in ("title", "failing_kind", "test"):
+        if "\n" in out:
+            raise Refused(f"nothing edited: {field} is one line")
+        return out.strip()
+    return lines_of(out)
+
+
+def edit_problem(item: dict, field: str, before: object, after: object) -> Optional[str]:
+    """The refusal text when the edit of `field` from `before` to `after` changes a protected span (`quoted_spans`) or leaves quotes
+    unbalanced, else None. Checked on the result: every quoted span of the old text stays byte-equal in the new."""
+    if field in ("time",):
+        return None
+    old_lines = [before] if isinstance(before, str) else [str(x) for x in before]  # type: ignore[attr-defined]
+    new_lines = [after] if isinstance(after, str) else [str(x) for x in after]  # type: ignore[attr-defined]
+    spans = quoted_spans(old_lines)
+    if spans is None:
+        return f"quotes do not balance in {field} of '{item['slug']}'; correct it with a fact note (`relay queue note`)"
+    kept = quoted_spans(new_lines)
+    if kept is None:
+        return f"the edit leaves a quote open in {field}; quoted text is never changed"
+    for span in spans:
+        if span in kept:
+            kept.remove(span)
+        else:
+            return f"the edit changes quoted text in {field}: {span if len(span) < 80 else span[:77] + '...'}; quoted text is never changed (correct it with a fact note)"
+    return None
+
+
+def edit(repo: str, slug: str, field: str, old: str, new: str, because: str, now: Optional[str] = None, **engine: object) -> str:
+    """Replace the one exact fragment `old` of `field` of item `slug` (any state) by `new`, leaving every quoted span byte-equal, and
+    append a dated fact note saying why (`because`). The earlier text stays in git (`history`). `test` is edited only on a closed item,
+    to a test found at the default branch's tip. Returns the landing line."""
+    if field not in EDIT_FIELDS:
+        raise Refused(f"nothing edited: `field` is one of {', '.join(EDIT_FIELDS)}")
+    if not because.strip():
+        raise Refused("nothing edited: say why in `because`")
+    stamp = now or utcnow()
+    if field in ("what", "why", "failing_case", "pass_cases"):
+        refuse_session_paths("edited", **{field: new})
+
+    def planner(reader):
+        item = reader.items().get(slug)
+        if item is None:
+            raise Refused(f"nothing edited: no queue item '{slug}'")
+        if item["problems"]:
+            raise Refused(f"nothing edited: queue item '{slug}' is malformed ({'; '.join(item['problems'])})")
+        main, default = _context(repo)
+        if field == "test" and item["state"] != "done":
+            raise Refused(f"nothing edited: the test of '{slug}' is edited only after it is closed (it is {item['state']}); `relay queue done` sets it")
+        before = item["time"] if field == "time" else item.get(field)
+        after = _edited_value(item, field, old, new, repo, default)
+        if field == "test":                       # the whole test the item ends up naming, not the fragment
+            reason = test_refusal(main, f"refs/heads/{default}", str(after))
+            if reason:
+                raise Refused(f"nothing edited: {reason}")
+        if field == "failing_kind" and (item["kind"] != "fix" or after not in FAILING_KINDS):
+            raise Refused(f"nothing edited: failing_kind is {', '.join(FAILING_KINDS)}, and only a fix has one")
+        problem = edit_problem(item, field, before, after)
+        if problem:
+            raise Refused(f"nothing edited: {problem}")
+        if field == "where":
+            bad = where_problems(after)
+            if bad:
+                raise Refused("nothing edited: " + "; ".join(bad))
+        if after == before:
+            raise Refused(f"nothing edited: {field} of '{slug}' is already that")
+        when = stamp
+        if when < item["found_at"]:
+            raise Refused(f"nothing edited: {when} is before the item was found ({item['found_at']})")
+        notes = notes_of(item)
+        notes.insert(len([n for n in notes if n.at <= when]), Note("fact", when, [f"Edited {field}: {line}" if n == 0 else line for n, line in enumerate(lines_of(because))], edited=field))
+        text = serialize(slug, changed(item, **{field: after}, notes=notes))
+        return Plan(slug, {_path(slug): text}, f"{item['kind']}, {field} edited", "edited")
+
+    plan, sha = _land(repo, planner, **engine)
+    out = _result(plan, sha, _context(repo)[1])
+    item = Reader(_context(repo)[0], sha).items().get(slug) if sha else None
+    if item and not item["problems"] and item["state"] == "taken":
+        out += f"\n'{slug}' is taken by {item['taken_by']}: its check sees this once that branch takes the default branch"
+    return out
+
+
+def history(repo: str, slug: str) -> str:
+    """The earlier text of item `slug`, read from git: for every commit on the default branch that changed a text field of the item,
+    the date and the lines it replaced. Refused when the item has no file there."""
+    main, default = _context(repo)
+    rc, out, _ = _git(main, "log", "--reverse", "--format=%H %cI", f"refs/heads/{default}", "--", _path(slug))
+    commits = [line.split(" ", 1) for line in _text(out).split("\n") if line] if rc == 0 else []
+    if not commits:
+        raise Refused(f"no queue item '{slug}' in the history of {default}")
+    versions = cat_batch(main, [f"{c}:{_path(slug)}" for c, _ in commits])
+    lines, prev = [], None
+    for (_, when), blob in zip(commits, versions):
+        try:
+            data = json.loads((blob or b"{}").decode("utf-8", "replace"))
+        except ValueError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        if prev is not None:
+            for field in EDIT_FIELDS:
+                if field in prev and prev.get(field) != data.get(field):
+                    was = prev[field] if isinstance(prev[field], list) else [str(prev[field])]
+                    lines += [f"{when[:16].replace('T', ' ')} {field} was:"] + ["  " + str(x) for x in was]
+        prev = data
+    return "\n".join(lines) if lines else f"'{slug}' has no earlier text: no field was edited"
 
 
 def _haystack(item: dict) -> str:

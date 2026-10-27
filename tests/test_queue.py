@@ -948,8 +948,9 @@ class TestTake(Base):
     def checked(self, verdict="MET", item="job", ids=("Q1",)):
         """A check mark for the commit wt/a is at, as the hook commits it, with these ids at this verdict in its record."""
         head = git(self.wa, "rev-parse", "HEAD")
-        findings = [{"id": i, "path": "lib/x.py", "line": 5, "severity": "HIGH", "rank": "high", "kind": "inside", "summary": "Job",
-                     "failing_case": ["line 1"], "source": "queue", "since": head, "verdict": verdict, "reason": ["tests/test_job.py:1"]} for i in ids]
+        # Q1 as `record_item` states it (the item as the branch holds it): a check counts only for the problem the item has (`stale_check`)
+        q1 = rq._q1(rq.parse("job", git(self.wa, "show", "HEAD:.relay/queue/job.json")))
+        findings = [dict(q1, id=i, source="queue", since=head, verdict=verdict, reason=["tests/test_job.py:1"]) for i in ids]
         record = {"schema": 2, "type": "check", "head": head, "branch": "wt/a", "item": item, "gate": None, "scope": [], "notes": [], "findings": findings}
         mark = {"schema": 2, "commit": head, "verdict": {"open": 0, "queued": 0}, "check": head + ".check.json", "gate": None, "time": "t"}
         relay_marks.put(self.wa, head, mark, {head + ".check.json": json.dumps(record) + "\n"})

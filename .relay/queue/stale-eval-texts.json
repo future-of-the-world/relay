@@ -19,8 +19,8 @@
   ],
   "taken_at": "2026-10-27T18:53:09Z",
   "taken_by": "wt/stale-texts",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T19:51:25Z",
+  "test": "tests/test_eval_cases.py::FixtureComment::test_setup_comment_names_no_path_setup_the_gate_does_not_make",
   "dropped_at": null,
   "dropped_why": null
 }

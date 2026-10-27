@@ -1,0 +1,11 @@
+{
+  "check": "d7bf0fb5cf3dadc27a4f7fdecdfb9b8f0e68f5d7.check.json",
+  "commit": "d7bf0fb5cf3dadc27a4f7fdecdfb9b8f0e68f5d7",
+  "gate": "dc99815d97210a843ae247f3e3d4e1c6cfd06c85.gate.log",
+  "schema": 2,
+  "time": "2026-10-27T16:55:13Z",
+  "verdict": {
+    "open": 1,
+    "queued": 0
+  }
+}

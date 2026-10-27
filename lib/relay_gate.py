@@ -11,6 +11,8 @@ is killed). After the command it checks that the tested tree is still the gated 
 so a killed gate frees its slot by itself). The log's third line, `wait <seconds>`, is the time spent waiting for a slot.
 """
 
+from __future__ import annotations
+
 import fcntl
 import os
 import shlex
@@ -28,12 +30,29 @@ import relay_toml
 
 DEFAULT_CI = "bin/ci"
 FAILED_LINES = 8        # lines of the first failing step shown on the third output line
-DEFAULT_SLOTS = 3       # gates that may run at once on the machine (RELAY_GATE_SLOTS overrides)
+CORES_PER_SLOT = 6      # default slots = cores // CORES_PER_SLOT, at least 1: 2 on 12 cores (measured 27 Oct: 2 gates at once 698 s each, 3 at once 1058 s each, alone 420 s)
 SLOT_POLL = 0.2         # seconds between looks at the slots while all are busy
 
 
 class GateRefused(Exception):
     """The gate was not started; the text says why in one line."""
+
+
+def quick_binding(worktree):
+    """The command of the optional binding `gate.ci_quick` (the free mode of the gate), None when kit.toml names none."""
+    try:
+        with open(os.path.join(worktree, ".claude", "kit.toml"), "rb") as handle:
+            data = relay_toml.load(handle)
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as exc:
+        raise GateRefused("cannot read .claude/kit.toml: %s" % exc)
+    value = (data.get("gate") or {}).get("ci_quick")
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise GateRefused("gate.ci_quick in .claude/kit.toml is not a command")
+    return value
 
 
 def binding(worktree):
@@ -76,17 +95,30 @@ def check_ready(worktree):
     return head
 
 
-def slot_count(environ=None):
-    """How many gates may run at once: RELAY_GATE_SLOTS, else DEFAULT_SLOTS."""
-    value = (os.environ if environ is None else environ).get("RELAY_GATE_SLOTS")
-    if value is None or not value.strip():
-        return DEFAULT_SLOTS
+def default_slots(cores: int | None = None) -> int:
+    """Gates that may run at once by default: the machine's cores divided by CORES_PER_SLOT, at least 1."""
+    return max(1, (cores if cores is not None else os.cpu_count() or 1) // CORES_PER_SLOT)
+
+
+def slot_count(home: str, cores: int | None = None) -> int:
+    """How many gates may run at once on this machine: the number in the file `<home>/gate-slots/count` (one setting every gate
+    reads from the same place, so gates cannot disagree), else default_slots(cores)."""
+    path = os.path.join(home, "gate-slots", "count")
+    try:
+        with open(path) as handle:
+            value = handle.read().strip()
+    except FileNotFoundError:
+        return default_slots(cores)
+    except OSError as exc:
+        raise GateRefused("cannot read the gate slot setting %s: %s" % (path, exc))
+    if not value:
+        return default_slots(cores)
     try:
         count = int(value)
     except ValueError:
         count = 0
     if count < 1:
-        raise GateRefused("RELAY_GATE_SLOTS must be a whole number of 1 or more, not %r" % value)
+        raise GateRefused("the gate slot setting %s must hold a whole number of 1 or more, not %r" % (path, value))
     return count
 
 
@@ -110,7 +142,7 @@ def take_slot(count, folder, notify=None):
                         other.close()
                 return handle, time.monotonic() - started
             if not told and notify is not None:
-                notify("gate: waiting for a free gate slot (%d busy)" % count)
+                notify("gate: waiting for a free gate slot (all %d busy; the limit stops gates slowing each other, the file $RELAY_HOME/gate-slots/count sets it)" % count)
             told = True
             time.sleep(SLOT_POLL)
     except BaseException:
@@ -224,11 +256,12 @@ def reusable(worktree, head, command):
     return None
 
 
-def run(worktree, args=(), environ=None):
+def run(worktree, args=(), environ=None, quick=False):
     """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red)."""
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
-    command = shlex.split(binding(worktree)) + list(args)
+    chosen = (quick_binding(worktree) if quick else None) or binding(worktree)
+    command = shlex.split(chosen) + list(args)
     # the license check is the gate's own step when kit.toml has [license]; it runs every time (cheap), so a green log of
     # the same commit never stands for a license that has since broken (kit.toml and the license files are not inert)
     try:
@@ -266,7 +299,7 @@ def run(worktree, args=(), environ=None):
         # one gate at a time per worktree, taken before the slot so a gate waiting for its worktree holds no slot
         lock = take_worktree_lock(lock_path, notify)
         try:
-            slot, waited = take_slot(slot_count(env), os.path.join(home, "gate-slots"), notify)
+            slot, waited = take_slot(slot_count(home), os.path.join(home, "gate-slots"), notify)
             try:
                 # the waits can be long: the code may have moved, or the same code may have gone green meanwhile
                 now = check_ready(worktree)

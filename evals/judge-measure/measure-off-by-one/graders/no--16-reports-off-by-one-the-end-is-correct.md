@@ -17,7 +17,7 @@ Question: does the output report the planted bug as a defect at page() (src/shel
 size + 1 items, 3 items when size is 2, pages overlapping by one item) or names the slice
 end start + size + 1 as the error.
 PASS if it does. FAIL if the output only quotes the code, reports only the other things
-listed above, says the code is correct or stays within size, or makes the size claim about
-another place. It does not count, even if it names size + 1 or the slice, when the output
-calls that fine, correct, as the doc says, or no finding (for example "the slice end
-start + size + 1 is fine, no finding"): that is FAIL.
+listed above, says page() is correct or returns the right number of items, or makes the size
+claim about another place. A finding that names size + 1 or the slice but calls it fine,
+correct, intended or required, or says there is no finding (for example "the slice end
+start + size + 1 is fine, no finding"), does not count: that is FAIL.

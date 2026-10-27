@@ -2,7 +2,8 @@
 # Scaffold of every case: copies evals/fixture into the run's working
 # directory as a git repo on master with one commit. Inside `claude plugin eval`
 # the loaded plugin's bin/ is NOT on the agents' PATH and /usr/bin/git cannot run
-# (sandbox), so bin/ci puts core's bin/ and a git shim (.ci/evalbin) first on PATH.
+# (sandbox). bin/ci (lib/relay_ci.py) puts only plugins/core/bin (the `kit` command)
+# first on PATH for the eval run; it makes no git shim.
 #
 # A case that needs a worktree makes it after this, the way a coordinator does:
 # `bin/wt new <change> master` (its scaffold.sh), because the shared agents work
