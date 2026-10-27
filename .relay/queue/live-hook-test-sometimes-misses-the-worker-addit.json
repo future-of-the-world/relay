@@ -25,5 +25,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T19:26:12Z",
+      "fact": [
+        "27 Oct, hook-flake lane: did not reproduce. The case named in the item (sdd:worker) is gone with sdd; the test now starts openspec:author. 8 of 8 parallel live Haiku runs returned BADGER-31. If p were 1/3, 8 clean runs would happen about 4% of the time. No hook output was saved for the failing run. Front's decision (owner can reverse): the fix is to make the live test keep each session's stream-json output on failure, so the next failure carries its cause; the item stays open for that."
+      ]
+    }
+  ]
 }
