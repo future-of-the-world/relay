@@ -39,6 +39,7 @@ A question passes when wrong verdicts <= 0 and split items <= 1 (`--max-wrong`, 
 Result of 2026-10-22: haiku failed the off-by-one question (7 wrong verdicts of 120 on two right items; it keys
 on words of the rubric's FAIL clause), sonnet passed all four questions (0 wrong of 870 votes). So sonnet is
 the default judge of `bin/ci` (`EVALS_JUDGE_MODEL`, still overridable, e.g. `EVALS_JUDGE_MODEL=haiku bin/ci`).
+Re-measured 2026-10-27 after the FAIL clause dropped "stays within size" and "as the doc says" (`--case measure-off-by-one --runs 5 -j 1`, haiku, $0.06): 0 wrong verdicts of 120.
 Cost: see above; a sonnet-judged batch costs more than a haiku one per vote (the ledger and `bin/paid-cost estimate` hold the measured figures). A grader that
 fails on sonnet too comes out of its case until its rubric is reworded and measured again. The eval
 writes `results/` here (ignored by git); `git status --short` must be empty afterwards.

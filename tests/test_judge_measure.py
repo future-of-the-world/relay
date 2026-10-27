@@ -35,6 +35,15 @@ class MakeCheck(unittest.TestCase):
         r = check(EVALS)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
+    def test_the_off_by_one_fail_clause_has_no_words_a_right_answer_also_says(self):
+        # Haiku failed right answers yes-03 (5 of 5 runs) and yes-05 (2 of 5) because a right reply says
+        # "a page must hold at most 2" / cites the doc comment, and the FAIL clause named "stays within size"
+        # and "as the doc says". The rubric must not carry those phrases again.
+        t = open(os.path.join(EVALS, "plugin", "code-reviewer-offbyone", "graders", "reports-off-by-one.md"), encoding="utf-8").read()
+        fail = " ".join(t[t.index("PASS if it does."):].split())
+        for phrase in ("stays within size", "as the doc says"):
+            self.assertNotIn(phrase, fail)
+
     def test_a_grader_body_that_differs_from_the_production_rubric_fails(self):
         self.edit("judge-measure/measure-doc-rule/graders/yes--01-e-NnQ3lv.md", lambda t: t.replace("PASS if it does.", "PASS if it does, mostly."))
         r = check(self.root)
