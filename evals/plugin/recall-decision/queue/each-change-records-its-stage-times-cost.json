@@ -1,0 +1,62 @@
+{
+  "kind": "feature",
+  "ip": 50,
+  "time": 60,
+  "found_at": "2026-10-26T10:00:00Z",
+  "found_in": "fixture",
+  "title": "Each change records its stage times and cost",
+  "what": [
+    "Every change keeps its stage times, cost and coverage."
+  ],
+  "why": [
+    "The owner wants to see what a change costs."
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-27T01:15:00Z",
+      "number": 1,
+      "question": [
+        "**1. Should work that never lands get its own record?**",
+        "A change record is written at a landing. A design that is never built has none, so its cost is not counted anywhere.",
+        "| | a. record at the run's end | b. ledger view only |",
+        "|---|---|---|",
+        "| cost | 1 record per run | none |"
+      ],
+      "options": [
+        "a. A record at the run's end (recommended; rests on the measured 31.9%).",
+        "b. The ledger view only."
+      ],
+      "answered_at": "2026-10-27T01:20:00Z",
+      "answer": [
+        "1. a",
+        "2. a"
+      ],
+      "reading": [
+        "Front's reading: a record of kind design, analysis or experiment at the run's end."
+      ]
+    },
+    {
+      "asked_at": "2026-10-27T01:15:00Z",
+      "number": 2,
+      "question": [
+        "**2. Must the front label a design's cost as an estimate?**",
+        "Today a design's cost is shown as a plain number."
+      ],
+      "options": [
+        "a. Yes, label it (recommended).",
+        "b. No."
+      ],
+      "answered_at": "2026-10-27T01:20:00Z",
+      "answer": [
+        "1. a",
+        "2. a"
+      ]
+    }
+  ]
+}

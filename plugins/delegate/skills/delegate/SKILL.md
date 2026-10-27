@@ -228,7 +228,9 @@ Where findings go:
 | wrong outside the change | a fix item: `relay queue add --from <report.json> F<n> --input <file.toml>` (the TOML holds `why` and `time`) |
 | marked `Design:` (the design itself is wrong) | stop building on that part; it stays open and goes to the owner; it counts as open until the owner's answer is kept with `relay check owner <review.json> F<n>` and the checker runs again |
 | a feature (a judge's suggestion, an out-of-scope question) | listed for the owner; it counts as open until the owner's answer is kept with `relay check owner <review.json> F<n>` (`queue = "<slug>"` after `relay queue add --input` moves it to the queue), then the checker runs again |
-| a question for the owner | asked with its introduction; the answer is a decision recorded in the design or brief and kept with `relay check owner <review.json> F<n>` (words), then the checker runs again |
+| a question for the owner | the front records it on the item it decides (`relay queue note`, `question`, `options`, `number`) and asks it with its introduction; the owner's whole reply is recorded with `answer`, and also kept with `relay check owner <review.json> F<n>` (words), then the checker runs again |
+
+A measurement a design makes and the owner sees becomes a `fact` note on its item (`relay queue note`).
 
 The owner can say a finding is not wrong: keep the word as data, then run the
 checker again. Write a TOML file with `words = '''<the owner's words, verbatim>'''`

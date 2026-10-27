@@ -1,0 +1,20 @@
+{
+  "kind": "feature",
+  "ip": 50,
+  "time": 60,
+  "found_at": "2026-10-26T10:00:00Z",
+  "found_in": "fixture",
+  "title": "A plain item",
+  "what": [
+    "Something wanted."
+  ],
+  "why": [
+    "Because."
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

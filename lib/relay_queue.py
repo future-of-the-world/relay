@@ -44,7 +44,7 @@ FAILING_KINDS = ("test", "run", "claim")
 # The keys of an item file, in the order they are written. An item keeps dated events, never a stored state: `state_of` computes it.
 # TEXT are lists of lines (so a git diff goes line by line).
 ORDER = ("kind", "ip", "time", "found_at", "found_in", "title", "what", "why", "failing_case", "failing_kind", "pass_cases", "where",
-         "taken_at", "taken_by", "closed_at", "test", "fixed_by", "evidence", "dropped_at", "dropped_why")
+         "taken_at", "taken_by", "closed_at", "test", "fixed_by", "evidence", "dropped_at", "dropped_why", "notes")
 TEXT = ("what", "why", "failing_case", "pass_cases")
 EVENTS = ("found_at", "taken_at", "closed_at", "dropped_at")
 OLD_ONLY = ("state", "found", "closed_by")    # the keys of the shape before dated events; `relay queue migrate` rewrites them
@@ -131,6 +131,110 @@ def _timestamp(value):
     return True
 
 
+# ---------------------------------------------------------------- notes
+
+class Note(NamedTuple):
+    """One note of an item: what the owner said (`said`), a measured or observed fact (`fact`), or a decision (a question as it was
+    asked, its lettered options, and, once the owner replied, his whole reply and the front's reading of it). The one typed record
+    of a note: `parse_note` builds it, `note_dict` writes it, every reader goes through them."""
+    kind: str                    # said | fact | decision
+    at: str                      # when it was said, measured, or (a decision) asked
+    text: list                   # the lines said or measured; for a decision, the question block as asked
+    number: int = 0              # a decision: its number in the reply that asked it ("1. a" refers to it); 0 for the others
+    options: list = []           # a decision: the lettered lines as shown
+    answered_at: Optional[str] = None
+    answer: list = []            # the owner's whole reply, every explanation included
+    reading: list = []           # the front's reading of the answer, always shown as the front's
+
+
+NOTE_ONE_OF = {"said", "fact", "question"}
+NOTE_KEYS = {"said": ("at", "said"), "fact": ("at", "fact"),
+             "question": ("asked_at", "number", "question", "options", "answered_at", "answer", "reading")}
+
+
+def note_dict(note: Note) -> dict:
+    """The JSON object of a note, keys in the order they are written."""
+    if note.kind == "said":
+        return {"at": note.at, "said": list(note.text)}
+    if note.kind == "fact":
+        return {"at": note.at, "fact": list(note.text)}
+    out: dict = {"asked_at": note.at, "number": note.number, "question": list(note.text), "options": list(note.options)}
+    if note.answered_at:
+        out.update(answered_at=note.answered_at, answer=list(note.answer))
+        if note.reading:
+            out["reading"] = list(note.reading)
+    return out
+
+
+def parse_note(raw: object) -> tuple:
+    """(Note, []) for a well-formed note object, else (None, reasons). The one reader of a note's JSON: the schema check and `parse`
+    both use it."""
+    if not isinstance(raw, dict):
+        return None, ["is not an object"]
+    kinds = sorted(NOTE_ONE_OF & set(raw))
+    if len(kinds) != 1:
+        return None, ["has none of said, fact, question" if not kinds else f"has more than one of {', '.join(kinds)}"]
+    kind = kinds[0]
+    problems = [f"has the unknown key {key}" for key in sorted(set(raw) - set(NOTE_KEYS[kind]))]
+    stamp = "asked_at" if kind == "question" else "at"
+    if not _timestamp(raw.get(stamp)):
+        problems.append(f"{stamp} is not a UTC time YYYY-MM-DDTHH:MM:SSZ")
+    if not _nonblank(raw.get(kind)):
+        problems.append(f"{kind} is not a non-empty list of lines")
+    if kind != "question":
+        return (None, problems) if problems else (Note(kind, raw["at"], list(raw[kind])), [])
+    number, options = raw.get("number"), raw.get("options")
+    if not _is_int(number) or number < 1:
+        problems.append("number is not a whole number from 1")
+    if not _is_lines(options) or len(options) < 2 or any(not o.startswith(f"{chr(97 + n)}. ") for n, o in enumerate(options)):
+        problems.append("options are not at least two lines starting a. , b. , ... in order")
+    answered, answer, reading = raw.get("answered_at"), raw.get("answer"), raw.get("reading")
+    if ("answered_at" in raw) != ("answer" in raw):
+        problems.append("answer is set exactly when answered_at is")
+    elif "answered_at" in raw:
+        if not _timestamp(answered):
+            problems.append("answered_at is not a UTC time YYYY-MM-DDTHH:MM:SSZ")
+        elif _timestamp(raw.get("asked_at")) and answered < raw["asked_at"]:
+            problems.append("answered_at is before asked_at")
+        if not _nonblank(answer):
+            problems.append("answer is not a non-empty list of lines")
+    if "reading" in raw and ("answer" not in raw or not _nonblank(reading)):
+        problems.append("reading needs an answer and is a non-empty list of lines")
+    if problems:
+        return None, problems
+    return Note("decision", raw["asked_at"], list(raw["question"]), number, list(options), answered,
+                list(answer or []), list(reading or [])), []
+
+
+def notes_problems(data: dict) -> list:
+    """Why the `notes` of a decoded item are not well formed ([] when they are, or there are none)."""
+    if "notes" not in data:
+        return []
+    notes = data["notes"]
+    if not isinstance(notes, list) or not notes:
+        return ["notes is not a non-empty list (leave the key out)"]
+    problems, parsed = [], []
+    for n, raw in enumerate(notes, 1):
+        note, why = parse_note(raw)
+        problems += [f"note {n} {w}" for w in why]
+        parsed.append(note)
+    found = data.get("found_at")
+    for n, note in enumerate(parsed, 1):
+        if note is not None and _timestamp(found):
+            times = [note.at] + ([note.answered_at] if note.answered_at else [])
+            if any(t < found for t in times):
+                problems.append(f"note {n} is dated before found_at")
+    stamps = [x.at for x in parsed if x is not None]
+    if stamps != sorted(stamps):
+        problems.append("notes are not in date order")
+    return problems
+
+
+def notes_of(item: dict) -> list:
+    """The Notes of a parsed item ([] when it has none)."""
+    return list(item.get("notes") or [])
+
+
 def check(slug, data):
     """The reasons `data` (a decoded item file) is not a well-formed item; [] when it is."""
     if not isinstance(data, dict):
@@ -205,6 +309,7 @@ def check(slug, data):
         if stamps != sorted(stamps):
             problems.append("the times are not in order: found_at <= taken_at <= closed_at, found_at <= dropped_at")
             break
+    problems += notes_problems(data)
     _title_problems(slug, data, problems)
     return problems
 
@@ -237,6 +342,8 @@ def parse(slug, text, where=None):
     if problems:
         return {"slug": slug, "problems": problems}
     item = {key: data[key] for key in ORDER if key in data}
+    if "notes" in item:
+        item["notes"] = [parse_note(raw)[0] for raw in item["notes"]]
     item.update(state=state_of(data), slug=slug, problems=[])
     return item
 
@@ -244,6 +351,8 @@ def parse(slug, text, where=None):
 def serialize(slug, item):
     """The file text of an item: indent 2, fixed key order, UTF-8, a trailing newline. Refused when it fails the check."""
     data = {key: item[key] for key in ORDER if key in item}
+    if "notes" in data:
+        data["notes"] = [note_dict(n) if isinstance(n, Note) else n for n in data["notes"]]
     extra = sorted(set(item) - set(ORDER) - {"slug", "problems", "state"})
     problems = check(slug, data) + [f"unknown key {k}" for k in extra]
     if problems:
@@ -332,7 +441,7 @@ def count_text(items):
     return text
 
 
-def show_text(item):
+def show_text(item, tz=None):
     """One well-formed item in full, as the person reads it (a read-only view of the stored JSON)."""
     state = item["state"] + (f" by {item['taken_by']}" if item["taken_by"] else "")
     out = [f"{item['slug']}: {item['title']}", f"{item['kind']}, ip {item['ip']}, {format_time(item['time'])}, {state}",
@@ -351,6 +460,8 @@ def show_text(item):
     for title, key in (("What", "what"), ("Why", "why"), ("Failing case" + (f" ({item['failing_kind']})" if item.get("failing_kind") else ""), "failing_case"), ("Pass cases", "pass_cases"), ("Dropped because", "dropped_why")):
         if item.get(key):
             out += [f"{title}:"] + ["  " + line for line in item[key]]
+        if key == "why":
+            out += notes_text(item, tz)
     return "\n".join(out)
 
 
@@ -773,6 +884,7 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
         bad = where_problems(where if isinstance(where, str) else list(where))
         if bad:
             raise Refused("; ".join(bad))
+    refuse_session_paths("queued", what=what, why=why, failing_case=failing, pass_cases=pass_cases)
     base = slugify(title)
     found = now or utcnow()
 
@@ -828,6 +940,7 @@ def set_ip(repo, slug, ip, **engine):
 def drop(repo, slug, why, **engine):
     if not why.strip():
         raise Refused("drop needs the owner's words (`why` in the input)")
+    refuse_session_paths("dropped", why=why)
 
     def planner(reader):
         item = _item_at(reader, slug)
@@ -850,10 +963,11 @@ def _branch_live(repo, branch):
 
 def close_with_evidence(repo, slug, evidence, **engine):
     """Close a feature that was finished without a branch of this repo's own: `evidence` is a merge sha (of this or another
-    repo) or a report path, one line. A fix is closed with a test (`done`), never with this."""
+    repo), one line. A fix is closed with a test (`done`), never with this."""
     evidence = evidence.strip()
     if not evidence or "\n" in evidence:
-        raise Refused("--evidence is a merge sha or a report path, on one line")
+        raise Refused("--evidence is a merge sha, on one line")
+    refuse_session_paths("closed", evidence=evidence)
 
     def planner(reader):
         item = _item_at(reader, slug)
@@ -956,7 +1070,7 @@ def close_fixed_by(repo, slug, commit, test, run_test=_run_pytest, **engine):
     def planner(reader):
         item = _item_at(reader, slug)
         if item["kind"] != "fix":
-            raise Refused(f"'{slug}' is a feature: close it with --evidence <merge sha or report path>")
+            raise Refused(f"'{slug}' is a feature: close it with --evidence <merge sha>")
         if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
             raise Refused(f"queue item '{slug}' is taken by {item['taken_by']}, which is not merged: "
                           f"relay queue release {slug}, then run this again")
@@ -1290,3 +1404,258 @@ def land(repo, slug, **engine):
 
     plan, sha = _land(repo, planner, takeover=tip, **engine)
     return _result(plan, sha, default)
+
+
+# ---------------------------------------------------------------- session files in front-written text
+
+# A temporary path, or the word "scratchpad" with a file name or a path in the same sentence. Session files are deleted on reboot, so
+# an item that points at one points at nothing (design: owner-words 5.5). The owner's own words (`said`, `answer`) are never checked.
+TEMP_PATH = re.compile(r"(?<![\w.~-])(?:/private)?/(?:tmp|var/folders)/\S*")
+FILE_IN_SENTENCE = re.compile(r"[\w.-]+/[\w./-]+|[\w-]+\.(?:md|json|jsonl|py|toml|txt|sh|log|yaml|yml)\b")
+SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+
+def session_path_problem(field: str, lines: object, done: str = "queued") -> Optional[str]:
+    """The refusal text when a line of `lines` (the front's own text for item field `field`) names a session file, else None."""
+    if not _is_lines(lines):
+        return None
+    for number, line in enumerate(lines, 1):
+        hit = TEMP_PATH.search(line)
+        if hit is None:
+            for sentence in SENTENCE_END.split(line):
+                if "scratchpad" in sentence.lower() and FILE_IN_SENTENCE.search(sentence):
+                    hit = FILE_IN_SENTENCE.search(sentence)
+                    break
+        if hit is not None:
+            return (f"nothing {done}: line {number} of `{field}` names a session file (\"{hit.group(0)}\"); session files are deleted on reboot. "
+                    "Put the fact itself in (the number, the date, the owner's words) or leave it out; a design is written fresh when the item is taken")
+    return None
+
+
+def refuse_session_paths(done: str, **fields: object) -> None:
+    """Refused (the first problem) when any of the front-written `fields` (name -> text or lines) names a session file."""
+    for name, value in fields.items():
+        lines = lines_of(value) if isinstance(value, str) else value
+        problem = session_path_problem(name, lines, done)
+        if problem:
+            raise Refused(problem)
+
+
+# ---------------------------------------------------------------- notes: the command, the search, the view
+
+def read_note_input(path: str) -> dict:
+    """The values of a `relay queue note` TOML input: lines for the text keys, `number`, `to` and `at` as they are. Refused, with the
+    next step, for an unknown key, no kind, two kinds, or a key that does not go with the kind."""
+    try:
+        raw = relay_verdict.read_input(path, "noted")
+    except relay_verdict.VerdictError as exc:
+        raise Refused(str(exc))
+    allowed = ("said", "fact", "question", "options", "number", "answer", "to", "reading", "at")
+    problems = relay_verdict.table_errors(raw, "in the input", allowed, ())
+    if problems:
+        raise Refused("nothing noted: " + "; ".join(problems))
+    kinds = [k for k in ("said", "fact", "question", "answer") if k in raw]
+    if len(kinds) != 1:
+        raise Refused("nothing noted: the input has " + (f"both `{kinds[0]}` and `{kinds[1]}`" if kinds else "none of `said`, `fact`, `question`, `answer`") +
+                      "; a note is one of said (the owner's words), fact (a measurement), question (with options and number) or answer")
+    kind = kinds[0]
+    extra = {"question": ("options", "number"), "answer": ("to", "reading")}
+    for key in ("options", "number", "to", "reading"):
+        if key in raw and key not in extra.get(kind, ()):
+            raise Refused(f"nothing noted: `{key}` does not go with `{kind}`" + ("; it belongs to a question" if key in extra["question"] else "; it belongs to an answer"))
+    if kind == "question" and ("options" not in raw or "number" not in raw):
+        raise Refused("nothing noted: a question needs `options` (the lettered lines as you will show them) and `number` (its number in your reply)")
+    out: dict = {"kind": kind}
+    errors: list = []
+    for key in ("said", "fact", "question", "options", "answer", "reading"):
+        if key in raw:
+            out[key] = relay_verdict.as_lines(raw[key], key, "in the input", errors)
+    if "number" in raw:
+        if not _is_int(raw["number"]) or raw["number"] < 1:
+            errors.append("`number` must be a whole number from 1")
+        out["number"] = raw["number"]
+    if "to" in raw:
+        if not (isinstance(raw["to"], list) and raw["to"] and all(_is_int(x) and x >= 1 for x in raw["to"])):
+            errors.append("`to` must be a list of question numbers, like [1] or [1, 2]")
+        out["to"] = raw["to"]
+    if "at" in raw:
+        if not _timestamp(raw["at"]):
+            errors.append("`at` must be a UTC time like 2026-10-27T01:20:00Z")
+        out["at"] = raw["at"]
+    if errors:
+        raise Refused("nothing noted: " + "; ".join(errors))
+    return out
+
+
+def question_title(note: Note) -> str:
+    """The first line of a question as a short title: markup and the leading number dropped."""
+    first = next((x for x in note.text if x.strip()), "")
+    return re.sub(r"^\d+\.\s*", "", first.strip().strip("*").strip())
+
+
+def question_block(note: Note) -> str:
+    """The question as the owner sees it: the block, then the lettered options (what `note` prints back and `show` prints)."""
+    return "\n".join(list(note.text) + list(note.options))
+
+
+def _waiting(notes: list) -> list:
+    return [n for n in notes if n.kind == "decision" and n.answered_at is None]
+
+
+def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine: object) -> str:
+    """Append a note to item `slug` (any state), or fill the waiting question(s) with the owner's answer. `fields` is `read_note_input`'s
+    result. Never edits an earlier note. Returns the landing line, and for a question the block to paste into the reply."""
+    kind = fields["kind"]
+    refuse_session_paths("noted", **{k: fields[k] for k in ("fact", "question", "options", "reading") if k in fields})
+    stamp = now or utcnow()
+
+    def planner(reader):
+        item = reader.items().get(slug)
+        if item is None:
+            raise Refused(f"nothing noted: no queue item '{slug}'. A question or words about something no item covers: add the item first "
+                          "(`relay queue add`), then note on it")
+        if item["problems"]:
+            raise Refused(f"nothing noted: queue item '{slug}' is malformed ({'; '.join(item['problems'])})")
+        when = fields.get("at") or stamp
+        if when > stamp:
+            raise Refused(f"nothing noted: `at` {when} is in the future (now {stamp})")
+        if when < item["found_at"]:
+            raise Refused(f"nothing noted: `at` {when} is before the item was found ({item['found_at']})")
+        notes = notes_of(item)
+        if kind in ("said", "fact"):
+            new = Note(kind, when, list(fields[kind]))
+        elif kind == "question":
+            if any(w.number == fields["number"] for w in _waiting(notes)):
+                raise Refused(f"nothing noted: {slug} already has a question {fields['number']} waiting for an answer; use the next number")
+            new = Note("decision", when, list(fields["question"]), fields["number"], list(fields["options"]))
+        else:
+            waiting = _waiting(notes)
+            targets = fields.get("to")
+            if not waiting:
+                raise Refused(f"nothing noted: {slug} has no question waiting; record the question first, or keep these words as `said`")
+            if targets is None:
+                if len(waiting) > 1:
+                    named = " and ".join(f"{w.number} ('{question_title(w)}')" for w in waiting)
+                    raise Refused(f"nothing noted: {slug} waits on questions {named}; add `to = [{waiting[0].number}]`, "
+                                  f"`to = [{waiting[1].number}]` or `to = [{', '.join(str(w.number) for w in waiting)}]`")
+                targets = [waiting[0].number]
+            for target in targets:
+                hit = next((w for w in waiting if w.number == target), None)
+                if hit is None:
+                    raise Refused(f"nothing noted: question {target} is not waiting on {slug}; waiting: {', '.join(str(w.number) for w in waiting)}")
+                if when < hit.at:
+                    raise Refused(f"nothing noted: `at` {when} is before question {target} was asked ({hit.at})")
+            notes = [n._replace(answered_at=when, answer=list(fields["answer"]), reading=list(fields.get("reading") or []))
+                     if n in waiting and n.number in targets else n for n in notes]
+            return Plan(slug, {_path(slug): serialize(slug, changed(item, notes=notes))}, f"answer to {len(targets)}", "noted")
+        position = len([n for n in notes if n.at <= when])
+        notes.insert(position, new)
+        return Plan(slug, {_path(slug): serialize(slug, changed(item, notes=notes))}, "question" if kind == "question" else kind, "noted")
+
+    plan, sha = _land(repo, planner, **engine)
+    text = _result(plan, sha, _context(repo)[1])
+    if kind == "question":
+        text += "\nShow the owner exactly this:\n" + question_block(Note("decision", "", fields["question"], fields["number"], fields["options"]))
+    return text
+
+
+def _haystack(item: dict) -> str:
+    parts = [item["title"]] + item["what"] + item["why"]
+    for n in notes_of(item):
+        parts += n.text + n.options + n.answer + n.reading
+    return "\n".join(parts).lower()
+
+
+def search_items(items: list, words: str) -> list:
+    """The well-formed items whose title, what, why or notes hold every word of `words`, in queue order."""
+    wanted = words.lower().split()
+    return ordered([i for i in items if not i["problems"] and wanted and all(w in _haystack(i) for w in wanted)])
+
+
+def find_for_show(items: list, query: str) -> tuple:
+    """(items, how): the item with that exact slug, else the items the words find ([] when none)."""
+    exact = [i for i in items if i["slug"] == query]
+    if exact:
+        return exact, "slug"
+    return search_items(items, query), "words"
+
+
+def match_lines(found: list) -> list:
+    """One line per found item: slug, title, state, number of decisions."""
+    lines = []
+    for i in found:
+        decisions = sum(1 for n in notes_of(i) if n.kind == "decision")
+        lines.append(f"{i['slug']}: {i['title']} ({i['state']}, {decisions} decision{'s' if decisions != 1 else ''})")
+    return lines
+
+
+def _local(stamp: str, tz: Optional[dt.tzinfo]) -> str:
+    when = dt.datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).astimezone(tz)
+    return f"{when.day} {when.strftime('%b %H:%M')}"
+
+
+def _quoted(lines: list) -> list:
+    body = ["    " + x for x in lines]
+    body[0] = "    \u201c" + lines[0]
+    body[-1] += "\u201d"
+    return body
+
+
+def notes_text(item: dict, tz: Optional[dt.tzinfo] = None) -> list:
+    """The "Notes:" section lines of an item, oldest first, in local time (`tz`: tests pass UTC)."""
+    out = []
+    for n in notes_of(item):
+        when = _local(n.at, tz)
+        if n.kind in ("said", "fact"):
+            out.append(f"  {when} " + ("the owner said:" if n.kind == "said" else "fact (front):"))
+            if n.kind == "said":
+                out += _quoted(n.text)
+            else:
+                out += ["    " + x for x in n.text]
+            continue
+        out.append(f"  {when} question {n.number}, asked:")
+        out += ["    " + x for x in n.text] + ["    - " + x for x in n.options]
+        if n.answered_at is None:
+            out.append("    not answered yet")
+            continue
+        out.append(f"  {_local(n.answered_at, tz)} the owner answered question {n.number} (whole reply):")
+        out += _quoted(n.answer)
+        if n.reading:
+            out += ["    front's reading (owner can reverse): " + n.reading[0]] + ["    " + x for x in n.reading[1:]]
+    return ["Notes:"] + out if out else []
+
+
+def waiting_lines(cwd: str, days: int, limit: int, now: Optional[str] = None) -> list:
+    """Lines that name the questions waiting for an answer (asked within `days`, at most `limit` lines), for the front's message hook.
+    One `git grep -l` on the default branch names the files with an asked question; only those are parsed. [] outside a project
+    with `.relay/`, and when nothing waits. Never raises."""
+    try:
+        if not relay_git.has_relay(cwd):
+            return []
+        main, default = _context(cwd)
+        rc, out, _ = _git(main, "grep", "-l", '"asked_at"', f"refs/heads/{default}", "--", QDIR)
+        paths = [x.split(":", 1)[1] for x in _text(out).split("\n") if ":" in x and x.endswith(".json")] if rc == 0 else []
+        if not paths:
+            return []
+        blobs = cat_batch(main, [f"refs/heads/{default}:{p}" for p in paths])
+        stamp = now or utcnow()
+        current = dt.datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
+        waiting = []
+        for path, blob in zip(paths, blobs):
+            if blob is None:
+                continue
+            item = parse(os.path.basename(path)[:-5], blob.decode("utf-8", "replace"))
+            for n in _waiting(notes_of(item)) if not item["problems"] else []:
+                age = current - dt.datetime.strptime(n.at, "%Y-%m-%dT%H:%M:%SZ")
+                if age <= dt.timedelta(days=days):
+                    waiting.append((n.at, item["slug"], n, age))
+        waiting.sort(key=lambda w: (w[0], w[1], w[2].number))
+        lines = []
+        for _, slug, n, age in waiting[:limit]:
+            hours = int(age.total_seconds() // 3600)
+            ago = f"{hours // 24}d" if hours >= 48 else f"{hours}h" if hours else f"{int(age.total_seconds() // 60)}m"
+            lines.append(f"Waiting for the owner: {slug} question {n.number} '{question_title(n)}', asked {ago} ago; if this message answers it, "
+                         f"record the owner's whole message with `relay queue note {slug} --input <file.toml>` (answer = the message)")
+        return lines
+    except Exception:
+        return []

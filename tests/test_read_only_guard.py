@@ -35,7 +35,7 @@ class ReadOnlyHook(unittest.TestCase):
         a path, `cd x &&`, a pipe and `bash -c`."""
         for command in ("bin/relay migrate --all", "relay setup /x", "cd w && python3 bin/relay migrate --all --apply",
                         "relay install", "relay queue add foo", "echo y | relay sync", 'bash -c "relay setup ."',
-                        "relay check migrate", "relay queue take item", "FOO=1 relay setup .", "env X=1 relay install",
+                        "relay check migrate", "relay queue take item", "relay queue note x --input a.toml", "FOO=1 relay setup .", "env X=1 relay install",
                         "bash -c 'cd x; relay setup .'", "eval relay setup", "sh -c 'relay sync'",
                         "relay check owner review.json F2 --input o.toml", "relay improve adopt cand", "relay candidate x",
                         "relay calibrate", "relay gate", "relay bench a b"):

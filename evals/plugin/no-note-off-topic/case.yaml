@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: no-note-off-topic
+description: "talk that is about no item leaves no note"
+tags: [front, delegate]
+plugins: ["../../../plugins/core", "../../../plugins/front", "../../../plugins/delegate"]
+context:
+  scaffold_script: scaffold.sh

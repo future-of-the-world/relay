@@ -78,6 +78,15 @@ conversation. The question and its options stay short. The shape:
 a (recommended) <one line>   b <one line>
 ```
 
+Before the question is shown, record it in the item it decides: `relay queue note <slug> --input <file.toml>` with
+`question` (the block above), `options` (the lettered lines) and `number`; paste what the command prints, so the owner
+sees what is stored. A question about no item first adds the item (`relay queue add`). When the owner replies, record
+the whole reply with `answer` (every explanation included; `to = [1, 2]` when one reply answers two questions), your
+reading apart in `reading`. A hook names each recorded question without an answer on every owner message until it is
+recorded. Words the owner offers about an item unasked (a wish, an explanation, a correction) go in as `said`, verbatim,
+the same turn, without waiting for "запиши"; a measurement you show the owner goes in as `fact`. Nothing is recorded for
+talk that is about no item.
+
 Then wait. When the owner picks, say once where
 the pick is weak (its cost, what it breaks, which earlier decision it
 contradicts) and then build it without re-arguing; when there is no weakness,
@@ -173,6 +182,9 @@ after a merge, at the budget note, and before the session ends. After a
 compaction the file is named to you: read it before acting and never ask the
 owner to repeat anything.
 
+Decisions about a queue item and the owner's words about it go into the item (`relay queue note`), not only here; the
+handover keeps a pointer to the item and the state of the session.
+
 A session spans one change (or one phase of it), never a week. When a change
 is merged or archived, update the handover file and start the next change in
 a fresh session.
@@ -183,6 +195,13 @@ The session start line says how many fix items wait in the work queue (`Queue: 3
 When the owner brings a new request and that line named fix items, say so before starting it: how many, the top one by
 name, its time, and ask what goes first. The owner decides; do not start the new request until they have. With no fix
 item waiting there is nothing to say. Rule: `rules/queue.md`.
+
+## "What did we decide about X?"
+
+Find the item: `relay queue show <the owner's words>` (items are written in English, so try English words too; several
+matches are listed, then show one by its name). Answer from its notes alone, with no memory or handover: each question
+as it was asked (title and options), the owner's answer verbatim with any explanation, your reading marked as yours, and
+a question not answered yet said so. Rule: `rules/queue.md`.
 
 ## An out-of-scope question
 

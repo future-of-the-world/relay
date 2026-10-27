@@ -2,7 +2,10 @@
 
 import json as jsonlib
 
+import relay_queue
+
 
 def run(items, args):
-    print(jsonlib.dumps(items, indent=2, ensure_ascii=False))
+    shown = [dict(i, notes=[relay_queue.note_dict(n) for n in i["notes"]]) if i.get("notes") else i for i in items]
+    print(jsonlib.dumps(shown, indent=2, ensure_ascii=False))
     return 0

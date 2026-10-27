@@ -73,7 +73,7 @@
                                      `owner` list; a checker counts that finding as not wrong; show prints it.
                                      With `queue = "<slug>"` in the TOML the word is that the finding moved to that queue
                                      item (it must be on the default branch): it counts under `queued`, not `open`
-  relay queue [count|show|check|migrate|land|ip|take|release|done|drop|add] ...
+  relay queue [count|show|check|migrate|land|ip|take|release|done|drop|add|note] ...
                                      the work queue (.relay/queue/ on the default branch): `relay queue` lists it,
                                      `relay queue count` gives the one-line count; see `relay queue -h`
 
@@ -721,7 +721,7 @@ def show_check(repo, target, brief):
 QUEUE_USAGE = """relay queue                              the ordered list: ip, kind, time, what, name
 relay queue count                        "10 fix, 12 feature; top: <slug> (fix, ip 95, 30m)"
 relay queue <view>                       a read-only view from relay's lib/queue_ext/ (also: relay queue --view <view>); `table` is the default, `json` prints the items for scripts
-relay queue show <slug>                  one item in full
+relay queue show <slug or words>         one item in full, with its notes; words (title, what, why, notes) find it: one match is shown, several are listed
 relay queue check                        every item file of this checkout is well formed; lists the ones that are not
 relay queue migrate                      rewrite item files of the old shape (`state`) to dated events from git history, and move files out of the gone done/ folder; safe to run again
 relay queue add --input <file.toml> [--time 20m|1h|1h30m] [--ip N]
@@ -729,13 +729,21 @@ relay queue add --input <file.toml> [--time 20m|1h|1h30m] [--ip N]
                                          a fix says what its failing case is: failing_kind = "test", "run" (a recorded red run) or "claim" (someone's word)
 relay queue add --from <report.json> F<n> --input <file.toml> [--time ..] [--ip N]
                                          the finding F<n> of a recorded review or check; the TOML holds why, time, ip
+relay queue note <slug> --input <file.toml>
+                                         add a note to an item in any state: what the owner said, a fact, or a decision. The TOML holds ONE of
+                                           said = '''the owner's words, verbatim'''
+                                           fact = '''a measurement, with what and when'''
+                                           question = '''the question block as you will show it''' + options = ["a. ...", "b. ..."] + number = 1
+                                             (the command prints the block back: show the owner exactly that)
+                                           answer = '''the owner's whole reply, every explanation''' [+ to = [1, 2]] [+ reading = '''your reading''']
+                                         and, optional, at = "2026-10-27T01:20:00Z" (when it was said; default now). A note is only added, never edited.
 relay queue land <slug>                  try again to land a kept wt/queue-<slug>
 relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree>   (a branch holds one fix item; the check states its problem as finding Q1)
 relay queue release <slug>
 relay queue done <slug> -C <worktree> --test <file>::<name> | evals/<plugin|judge-measure>/<case>::<grader>   (a fix: the branch's newest check, with no own file changed since, has Q1 MET)
 relay queue done <slug> --fixed-by <commit> --test <file>.py::<Class>::<name>   (a fix that a change already on the default branch fixed: the test is there and fails at the commit's parent; no branch of its own)
-relay queue done <slug> --evidence <merge sha or report path>   (a feature finished without a branch of relay's own; a fix is refused: it needs --test)
+relay queue done <slug> --evidence <merge sha>   (a feature finished without a branch of relay's own; a fix is refused: it needs --test)
 relay queue drop <slug> --input <file.toml>
                                          the TOML holds `why`: the owner's words (text in '''...''')
 Every form takes [-C <repo>] (default: the current folder)."""
@@ -764,7 +772,7 @@ def _queue_options(args, spec):
     return opts, rest
 
 
-QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "done")
+QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "done", "note")
 
 
 def cmd_queue(args):
@@ -782,14 +790,21 @@ def cmd_queue(args):
         return 0
     if sub == "show":
         o, p = _queue_options(rest, common)
-        if len(p) != 1:
-            raise Usage("relay queue show <slug>")
-        item = next((i for i in relay_queue.read_queue(os.path.realpath(o.get("-C", ".")), closed=True) if i["slug"] == p[0]), None)
-        if item is None:
-            raise Usage(f"no queue item '{p[0]}'")
-        if item["problems"]:
-            raise Usage(f"queue item '{p[0]}' is malformed ({'; '.join(item['problems'])})")
-        print(relay_queue.show_text(item))
+        if not p:
+            raise Usage("relay queue show <slug or words>")
+        query = " ".join(p)
+        items = relay_queue.read_queue(os.path.realpath(o.get("-C", ".")), closed=True)
+        found, how = relay_queue.find_for_show(items, query)
+        if not found:
+            bad = next((i for i in items if i["slug"] == query and i["problems"]), None)
+            if bad:
+                raise Usage(f"queue item '{query}' is malformed ({'; '.join(bad['problems'])})")
+            raise Usage(f"no queue item '{query}' and no item with all these words in its title, what, why or notes; try fewer or other words (items are written in English)")
+        if len(found) > 1:
+            print(f"{len(found)} items match '{query}'; relay queue show <slug> prints one:")
+            print("\n".join(relay_queue.match_lines(found)))
+            return 0
+        print(relay_queue.show_text(found[0]))
         return 0
     if sub in ("check", "migrate"):
         o, p = _queue_options(rest, common)
@@ -858,7 +873,7 @@ def cmd_queue(args):
             raise Usage(str(e))
         return 0
     spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--input": str}, 1),
-            "take": ({}, 1), "done": ({"--test": str, "--evidence": str, "--fixed-by": str}, 1)}
+            "take": ({}, 1), "note": ({"--input": str}, 1), "done": ({"--test": str, "--evidence": str, "--fixed-by": str}, 1)}
     extra, count = spec[sub]
     o, p = _queue_options(rest, dict(common, **extra))
     if len(p) != count:
@@ -882,6 +897,13 @@ def cmd_queue(args):
             raise Usage(str(e))
     elif sub == "take":
         print(relay_queue.take(repo(o), p[0]))
+    elif sub == "note":
+        if "--input" not in o:
+            raise Usage("relay queue note <slug> --input <file.toml>: the TOML holds one of said, fact, question (with options and number) or answer; see relay queue --help")
+        try:
+            print(relay_queue.note(repo(o), p[0], relay_queue.read_note_input(o["--input"])))
+        except relay_queue.Refused as e:
+            raise Usage(str(e))
     else:
         if "--fixed-by" in o:
             if "--test" not in o or "--evidence" in o:
@@ -900,7 +922,7 @@ def cmd_queue(args):
                 raise Usage(str(e))
             return 0
         if "--test" not in o:
-            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name>   |   relay queue done <slug> --evidence <merge sha or report path>   |   relay queue done <slug> --fixed-by <commit> --test <file>.py::<Class>::<name>")
+            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name>   |   relay queue done <slug> --evidence <merge sha>   |   relay queue done <slug> --fixed-by <commit> --test <file>.py::<Class>::<name>")
         print(relay_queue.done(repo(o), p[0], o["--test"]))
     return 0
 
