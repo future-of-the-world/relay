@@ -16,8 +16,8 @@
   ],
   "taken_at": "2026-10-27T15:00:01Z",
   "taken_by": "wt/offbyone",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T18:31:48Z",
+  "test": "tests/test_judge_measure.py::MakeCheck::test_the_off_by_one_fail_clause_has_no_words_a_right_answer_also_says",
   "dropped_at": null,
   "dropped_why": null
 }
