@@ -25,5 +25,13 @@
   "closed_at": "2026-10-24T12:54:20Z",
   "test": "tests/test_spec_flaw.py::FindsTheContradiction::test_failing_run_reply_passes",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-24T09:54:00Z",
+      "fact": [
+        "Migration 27 Oct: the link in `what` line 1 points to a session file (the eval results folder `2026-10-24T09-07-34-394Z`), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
+      ]
+    }
+  ]
 }
