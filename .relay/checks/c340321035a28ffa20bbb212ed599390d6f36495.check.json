@@ -1,0 +1,53 @@
+{
+  "branch": "wt/conflict-rule",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading: grep -n -i rider rules/git.md gives only line 24; the train sentence that follows (\"Ready changes that wait together land as one train\") does not use the word rider. The front's brief had \"a recheck of every rider's item on the head after the resolution\", which is the train case; the delegate skill words the general case correctly (step 8: the fixer resolves, then relay gate, then the checker). Low because the merge hook enforces the recheck in code (the resolved file is listed by relay changed --own after the mark and the merge is refused without a covering check), so nothing merges unchecked today; it is a wording gap in a rule every project loads.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "$ grep -n -i rider rules/git.md",
+        "24:  person-facing; or I said to hold it. A resolved conflict still needs a green gate and a recheck of every rider's item on the head. When I say \"hold\", wait for my word on that change.",
+        "$ sed -n 200,205p plugins/delegate/skills/delegate/SKILL.md",
+        "   ... a fixer resolves a conflict first (...); then `relay gate`, then the checker."
+      ],
+      "failing_case": [
+        "A single ready change (no train) takes the default branch, a fixer resolves a conflict in lib/x.py. A front reading only rules/git.md (it is inlined into every project's CLAUDE.md) finds: \"A resolved conflict still needs a green gate and a recheck of every rider's item on the head.\" There are no riders, so the sentence names no recheck for this case. The needed recheck is the merge check of the resolved files (the checker's M<n>, delegate step 8). \"rider\" appears nowhere else in rules/git.md. Expected: the sentence names a recheck that holds for one change and for a train."
+      ],
+      "fix_hint": [
+        "Write: \"A resolved conflict still needs a green gate and a new check of the resolved files on the head (on a train, of every rider's item).\" and rewrap to the paragraph's width."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 24,
+      "pass_cases": [
+        "1. rules/git.md, the merge-ask paragraph: the sentence on a resolved conflict names a check of the resolved files (or \"a new check\") that applies to a single change, not only to a train's riders.",
+        "2. Same paragraph: it still says a fixer that could not resolve the conflict is the only conflict reason to ask the owner.",
+        "3. The other reasons to ask (a finding open as Design, question, Disputed or Gap; an unanswered question; person-facing; hold) remain in the same sentence."
+      ],
+      "path": "rules/git.md",
+      "rank": "low",
+      "reason": [
+        "rules/git.md:24-26 now says \"a new check of the resolved files on the head (on a train, of every rider's item)\"; the only-unresolved-conflict ask and the other reasons (Design, question, Disputed, Gap, unanswered question, person-facing, hold) are intact."
+      ],
+      "severity": "LOW",
+      "since": "c50ff8786d38740980d471259c17bd55f09fec2f",
+      "source": "review-conflict-rule.json",
+      "source_id": "F1",
+      "summary": "the new sentence names the recheck as 'every rider's item', a train-only term the git rule never defines, so a single change's resolved conflict reads as needing no recheck",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "d52801b0fd477894a29b474538c0b3348496445e.gate.log",
+  "head": "c340321035a28ffa20bbb212ed599390d6f36495",
+  "item": null,
+  "notes": [
+    "Doc-only fix, no test owed (no code behaviour); the review itself said none."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range c50ff8786d38..HEAD: only rules/git.md changed (plus the gate log). Ran relay precheck (green) and pytest -k 'rule or skill or merge or front'. Gate log head d52801b0 ends exit 0; relay changed since that sha lists no file."
+  ],
+  "type": "check"
+}
