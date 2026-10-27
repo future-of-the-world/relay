@@ -29,6 +29,13 @@
       "fact": [
         "The owner's words below were said in the small hours of 27 Oct (from the saved plan cycle-scripts.md on branch wt/plans-save); they start with \"a\", the answer to the front's question before. The note carries the item's creation time."
       ]
+    },
+    {
+      "at": "2026-10-26T19:11:31Z",
+      "said": [
+        "a, как мы можем это унифицировать, я заметил что ты запускаешь этот скрипт не тольк для feature или fix из очереди, это",
+        "базовая единица запуска, в том числе для экспериментов и анализа, как это будет доставляться до пользователей"
+      ]
     }
   ]
 }
