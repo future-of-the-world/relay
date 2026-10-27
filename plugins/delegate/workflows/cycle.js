@@ -111,7 +111,7 @@ const tag = (it) => ((it.kind || 'change') === 'change' || it.kind === 'built') 
 
 // The quiet check every agent of a unit loops on: in relay mode `relay precheck` (the gate's seconds-long steps) comes in
 // front of the unit's own check, so a brief or an item that names only a test line cannot leave it out.
-const quiet = (it) => RELAY ? `relay precheck -C ${it.wt} && ${it.check}` : it.check
+const quiet = (it) => RELAY ? `relay precheck -C ${it.wt} && (${it.check})` : it.check
 
 function gatePrompt(it, n) {
   const log = `${S}/gate-${tag(it)}-${n}.log`
@@ -226,7 +226,7 @@ async function changeUnit(it) {
 
 async function fixUnit(it) {
   const st = newState()
-  const f = await ask(it.fix, agentOpts('fixer', HANDBACK, 'Fix', `fix: ${it.name}`))
+  const f = await ask(`${it.fix} Check: ${quiet(it)}.`, agentOpts('fixer', HANDBACK, 'Fix', `fix: ${it.name}`))
   if (f.dead || f.v.status !== 'DONE') return stop(it, 'fix', f.dead || f.v.summary)
   const r = await gateGroup(it, st)
   if (r.stop) return r.stop

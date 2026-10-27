@@ -3,10 +3,13 @@ and hook must import there, and a hook must survive an empty event. mypy's pytho
 import glob
 import os
 import subprocess
+import sys
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PY = "/usr/bin/python3"
+sys.path.insert(0, os.path.join(ROOT, "lib"))
+import relay_precheck  # noqa: E402
 
 
 def old_python():
@@ -18,20 +21,9 @@ def old_python():
 
 @unittest.skipUnless(old_python(), "needs /usr/bin/python3 older than 3.11")
 class Python39(unittest.TestCase):
-    def test_lib_modules_import(self):
-        for path in sorted(glob.glob(os.path.join(ROOT, "plugins", "*", "lib", "*.py"))):
-            with self.subTest(module=os.path.relpath(path, ROOT)):
-                code = "import sys, importlib; sys.path.insert(0, %r); importlib.import_module(%r)" % (
-                    os.path.dirname(path), os.path.basename(path)[:-3])
-                r = subprocess.run([PY, "-c", code], capture_output=True, text=True)
-                self.assertEqual(r.returncode, 0, r.stderr)
-
-    def test_hooks_survive_an_empty_event(self):
-        for path in sorted(glob.glob(os.path.join(ROOT, "plugins", "*", "hooks", "*.py"))):
-            with self.subTest(hook=os.path.relpath(path, ROOT)):
-                r = subprocess.run([PY, path], input="{}", capture_output=True, text=True)
-                self.assertNotIn("TypeError", r.stderr)
-                self.assertNotIn("SyntaxError", r.stderr)
+    def test_lib_modules_import_and_hooks_survive_an_empty_event(self):
+        # One judge for the gate and `relay precheck`: relay_precheck.check_python39, so the two cannot drift.
+        self.assertEqual(relay_precheck.check_python39(ROOT), [])
 
 
 if __name__ == "__main__":

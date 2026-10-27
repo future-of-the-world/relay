@@ -100,13 +100,25 @@ class Cycle(unittest.TestCase):
     def test_every_quiet_check_starts_with_the_precheck(self):
         """In relay mode the worker, the fixers and the checker all get `relay precheck -C <wt> && <check>`; project mode keeps
         the unit's check as it is. Disabled rule (quiet() returning it.check): the strings are missing from the prompts."""
-        want = "relay precheck -C %s && pytest -q" % self.wt
+        want = "relay precheck -C %s && (pytest -q)" % self.wt
         out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}, "stage:review": INSIDE})
         for label in ("build: x", "fix red gate 1: x", "fix: x", "check: x"):
             self.assertIn(want, out["prompts"][label], label)
         out = self.run_cycle(self.args([self.unit(branch=None)], relay=False))
         self.assertNotIn("precheck", out["prompts"]["check: x"])
         self.assertIn("pytest -q", out["prompts"]["check: x"])
+
+    def test_a_fix_unit_fixer_gets_the_quiet_check_and_a_compound_check_is_grouped(self):
+        """F1: the fix text alone left the precheck out of a fix-kind unit. F7: `a; b` must sit in a group so a red precheck's
+        exit code is the command's. Project mode: no precheck, the front's fix text stays."""
+        unit = self.unit(kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="i", check="pytest a; pytest b")
+        out = self.run_cycle(self.args([unit]))
+        want = "relay precheck -C %s && (pytest a; pytest b)" % self.wt
+        self.assertIn(want, out["prompts"]["fix: x"])
+        self.assertIn(want, out["prompts"]["check: x"])
+        out = self.run_cycle(self.args([dict(unit, item=None, branch=None)], relay=False))
+        self.assertNotIn("precheck", out["prompts"]["fix: x"])
+        self.assertIn("Fix it.", out["prompts"]["fix: x"])
 
     # 2
     def test_red_gate_fixed_once_then_stops(self):
@@ -165,7 +177,7 @@ class Cycle(unittest.TestCase):
         fix = self.unit(kind="fix", fix="Fix it.", fixes="fix.md", findings="review.json", item="i")
         out = self.run_cycle(self.args([fix]))
         self.assertEqual(out["labels"], ["fix: x", "gate 1: x", "check: x", "close queue item: x", "check show: x"])
-        self.assertEqual(out["prompts"]["fix: x"], "Fix it.")
+        self.assertTrue(out["prompts"]["fix: x"].startswith("Fix it."))  # then the quiet check (F1)
         rider = self.unit(kind="recheck", items=[{"slug": "a", "review": "ra.json"}, {"slug": "b", "review": "rb.json"}])
         out = self.run_cycle(self.args([rider]))
         self.assertEqual(out["labels"], ["gate 1: x", "check item 1: x", "check item 2: x", "check show: x"])
