@@ -26,8 +26,8 @@
     "bin/relay (gate)",
     "relay's config (the slot setting)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T15:19:04Z",
+  "taken_by": "wt/gate-slots",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
