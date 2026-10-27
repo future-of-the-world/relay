@@ -1,0 +1,19 @@
+head 692b6c4c3a87910e5863eb7aeb12969bc96bcb1c
+cmd bin/ci --quick
+wait 0.0
+ci: library tests FAILED (632s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_failed_meaning_grader_exits_2_naming_the_case (test_gate_not_judged.GateNotJudged.test_a_failed_meaning_grader_exits_2_naming_the_case)
+    AssertionError: 'ci: eval record: stored at /private/var/folders/p8/dhcggy3[275 chars] why' != 'ci: eval record: NOT A PASS: 1 meaning grader(s) failed, 0[34 chars]yone'
+    FAIL: test_a_missing_meaning_grader_exits_2 (test_gate_not_judged.GateNotJudged.test_a_missing_meaning_grader_exits_2)
+    AssertionError: False is not true
+    FAIL: test_a_partial_batch_exits_2 (test_gate_not_judged.GateNotJudged.test_a_partial_batch_exits_2)
+    AssertionError: False is not true
+    FAILED (failures=3)
+ci: types and lint ok (0s)
+ci: hook tests ok (279s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (94s)
+ci: RED
+exit 1
