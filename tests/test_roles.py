@@ -78,14 +78,14 @@ class Roles(Base):
             self.assertEqual(handle.read(), rr.role_map(ROOT))   # and the role map is what their markers say
 
     def test_assembly_writes_the_role_map(self):
-        """F2: assembly writes plugins/core/lib/agent-roles.tsv (one line per marked agent, sorted), leaves it alone
+        """F2: assembly writes plugins/relay/lib/agent-roles.tsv (one line per marked agent, sorted), leaves it alone
         when current, leaves a stale one alone on a dry run, and writes none when the checkout has no core plugin."""
         rr = self.lib()
         root = self.fixture()
         self.assertFalse(os.path.exists(os.path.join(root, rr.MAP_FILE)))
         rr.assemble(root)
-        self.assertFalse(os.path.exists(os.path.join(root, rr.MAP_FILE)))   # no plugins/core/lib: no map
-        os.makedirs(os.path.join(root, "plugins/core/lib"))
+        self.assertFalse(os.path.exists(os.path.join(root, rr.MAP_FILE)))   # no plugins/relay/lib: no map
+        os.makedirs(os.path.join(root, "plugins/relay/lib"))
         with open(os.path.join(root, "plugins/x/agents/b.md"), "w") as handle:
             handle.write("---\nname: b\nmaxTurns: 80\n---\n\n<!-- relay:base build -->\n<!-- relay:end build -->\n")
         mapfile = os.path.join(root, rr.MAP_FILE)

@@ -2,6 +2,6 @@ schema_version: "1.1"
 name: spec-reviewer-flaw
 description: openspec:spec-reviewer finds the planted flaw (a stored-data requirement with no failure scenario).
 tags: [openspec, review]
-plugins: ["../../../plugins/core", "../../../plugins/openspec"]
+plugins: ["../../../plugins/relay", "../../../plugins/openspec"]
 context:
   scaffold_script: scaffold.sh

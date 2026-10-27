@@ -31,7 +31,7 @@ judge = "xhigh"
 load = ["working-with-me", "front", "delegation", "git", "secrets", "shell", "verify", "glonass"]
 
 [plugins]
-enabled = ["core", "observe", "delegate", "front"]
+enabled = ["relay", "observe", "delegate", "front"]
 
 [delegate]
 typed_only = true

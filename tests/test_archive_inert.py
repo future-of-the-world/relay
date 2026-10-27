@@ -1,4 +1,4 @@
-"""An archive-only commit after the check mark is inert for the merge guard (plugins/core/hooks/merge.py, lib/relay_inert.py).
+"""An archive-only commit after the check mark is inert for the merge guard (plugins/relay/hooks/merge.py, lib/relay_inert.py).
 Every test runs on a scratch repository in a temp dir."""
 import json
 import os
@@ -8,7 +8,7 @@ import unittest
 from relay_testbase import load_hook as _load_hook  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-HOOK = os.path.join(os.path.dirname(HERE), "plugins", "core", "hooks", "merge.py")
+HOOK = os.path.join(os.path.dirname(HERE), "plugins", "relay", "hooks", "merge.py")
 ENV = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t",
        "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
 

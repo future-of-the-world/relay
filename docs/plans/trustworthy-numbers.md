@@ -207,7 +207,7 @@ days, the weights differ.
 
 ## 5. The four open items (question 5)
 
-**S-A. `bin/kit` needs Python 3.11.** `plugins/core/bin/kit:53-56` exits 2
+**S-A. `bin/kit` needs Python 3.11.** `plugins/relay/bin/kit:53-56` exits 2
 without `tomllib`, and the guard then fails closed. The same plugin already
 ships `lib/relay_toml.py` (`load`, `loads`; added for the 3.9 hooks). Fix:
 `try: import tomllib` / `except ImportError: import relay_toml as tomllib`,
@@ -230,7 +230,7 @@ that runs a prompt (`/opsx:apply`) is a turn. Test: a fixture transcript with
 one of each; expect 2 turns (the typed text and `/opsx:apply`); today gives 6.
 
 **Guard and shell variables.** Reproduced today with
-`plugins/core/lib/kit_guard.py`: `mkdir -p $S` gives `W /Users/amidman/relay/$S`
+`plugins/relay/lib/kit_guard.py`: `mkdir -p $S` gives `W /Users/amidman/relay/$S`
 (a write in the main checkout); `git -C $W add -A` gives
 `G /Users/amidman/relay/$W`. Cause: a bare `$NAME` outside quotes falls to
 the plain-character branch (`kit_guard.py:296-299`) and never marks the word

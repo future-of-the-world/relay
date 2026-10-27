@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Allow/block cases for hooks/guard-main.sh over a temporary repository, once
 # per binding profile (a copy of Kartoteka's kit.toml, and the profiles/ examples).
-#   plugins/core/tests/guard-main.test.sh
+#   plugins/relay/tests/guard-main.test.sh
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd -P)"

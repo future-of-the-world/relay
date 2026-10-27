@@ -2,7 +2,7 @@
 # Scaffold of every case: copies evals/fixture into the run's working
 # directory as a git repo on master with one commit. Inside `claude plugin eval`
 # the loaded plugin's bin/ is NOT on the agents' PATH and /usr/bin/git cannot run
-# (sandbox). bin/ci (lib/relay_ci.py) puts only plugins/core/bin (the `kit` command)
+# (sandbox). bin/ci (lib/relay_ci.py) puts only plugins/relay/bin (the `kit` command)
 # first on PATH for the eval run; it makes no git shim.
 #
 # A case that needs a worktree makes it after this, the way a coordinator does:

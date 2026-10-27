@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A worker's inner loop, following the check-script contract in
-# plugins/core/README.md ("The check-script contract"): quick, quiet, bounded.
+# plugins/relay/README.md ("The check-script contract"): quick, quiet, bounded.
 #
 #   bin/check <change> <task>               the task's own `Check:` command
 #   bin/check <change> <task> --failed      rerun: the test files that failed last round first

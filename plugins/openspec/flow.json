@@ -3,7 +3,7 @@
   "slot": "specs",
   "description": "OpenSpec spec steps: a behaviour change is a proposal, spec deltas, design and tasks before code; the spec is reviewed, the build is checked against its scenarios, and the spec is archived into openspec/specs/. The build and the fixes are the change cycle's own.",
   "detect": { "dirs": ["openspec"] },
-  "requires_plugins": ["core", "openspec"],
+  "requires_plugins": ["relay", "openspec"],
   "bindings_required": ["project.default_branch", "project.worktrees", "gate.wt", "gate.check", "gate.ci", "gate.ci_log"],
   "steps": [
     { "at": "before 1", "does": "write the spec",                                            "skill": "openspec:plan" },

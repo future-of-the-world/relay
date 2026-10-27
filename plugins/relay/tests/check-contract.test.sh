@@ -2,9 +2,9 @@
 # Contract test for a project's check script (README, "The check-script
 # contract"): the exact behaviour the shared worker and fixer rely on.
 #
-#   plugins/core/tests/check-contract.test.sh
+#   plugins/relay/tests/check-contract.test.sh
 #       runs it against the eval fixture's bin/check (a temporary copy);
-#   KIT_CONTRACT_PROJECT=<clean checkout or worktree> plugins/core/tests/check-contract.test.sh
+#   KIT_CONTRACT_PROJECT=<clean checkout or worktree> plugins/relay/tests/check-contract.test.sh
 #       runs it against that project's own gate.check. It adds the probe change
 #       openspec/changes/contract-probe and, for the tests mode, two probe test
 #       files named by CONTRACT_PASS_FILE and CONTRACT_FAIL_FILE (paths relative

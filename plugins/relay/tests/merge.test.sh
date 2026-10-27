@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cleanup after the allowed merge (hooks/merge.sh -> merge.py), cases T1-T14, T16, T18-T20 of
 # docs/plans/review-gate.md section 12.1 and the merge gate T15 (a)-(p) of 12.2, on throwaway repositories under a temp dir (temp HOME).
-#   plugins/core/tests/merge.test.sh
+#   plugins/relay/tests/merge.test.sh
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd -P)"
 hook="$here/../hooks/merge.sh"

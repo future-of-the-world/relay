@@ -1,4 +1,4 @@
-"""The merge hook (plugins/core/hooks/merge.py) as a module: what the shell tests cannot make happen (an unexpected exception)."""
+"""The merge hook (plugins/relay/hooks/merge.py) as a module: what the shell tests cannot make happen (an unexpected exception)."""
 import contextlib
 import io
 import json
@@ -10,7 +10,7 @@ from unittest import mock
 from relay_testbase import load_hook as _load_hook  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-HOOK = os.path.join(os.path.dirname(HERE), "plugins", "core", "hooks", "merge.py")
+HOOK = os.path.join(os.path.dirname(HERE), "plugins", "relay", "hooks", "merge.py")
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
 
@@ -93,7 +93,7 @@ class FailsClosed(unittest.TestCase):
 class GuardMainSync(unittest.TestCase):
     """guard-main in a main checkout on its default branch lets it catch up with its remote, and nothing else of that kind."""
 
-    GUARD = os.path.join(os.path.dirname(HERE), "plugins", "core", "hooks", "guard-main.sh")
+    GUARD = os.path.join(os.path.dirname(HERE), "plugins", "relay", "hooks", "guard-main.sh")
 
     def setUp(self):
         self.repo = os.path.realpath(tempfile.mkdtemp())

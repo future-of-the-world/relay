@@ -107,7 +107,7 @@ def plugin_file(spec, root=None):
     if not plugin or not rel or ".." in rel.split("/") or plugin in (".", ".."):
         return None
     core_root = os.path.dirname(HERE)
-    candidates = [os.path.join(core_root, rel)] if plugin == "core" else [os.path.join(os.path.dirname(core_root), plugin, rel)]
+    candidates = [os.path.join(core_root, rel)] if plugin == "relay" else [os.path.join(os.path.dirname(core_root), plugin, rel)]
     roots = _roots(root or project_root())
     entries = _installed_entries(plugin)
     scoped = [e for e in entries if e.get("scope") in ("project", "local") and os.path.realpath(e.get("projectPath", "")) in roots]

@@ -25,9 +25,9 @@
 # - anywhere (main checkout or any worktree) in a repository whose default branch has `.relay/`: a write to
 #   `.relay/checks/` (Write/Edit, a Bash write row, git add/rm/mv/restore/update-index/checkout -- naming it, inline
 #   code naming it with a write word); reads are allowed. Those files are written only by relay's own hook and
-#   `relay gate`. Tests: plugins/core/tests/check-mark.test.sh;
+#   `relay gate`. Tests: plugins/relay/tests/check-mark.test.sh;
 # - the same for a queue item file `.relay/queue/<slug>.json`: only `relay queue` writes it (the message names `relay queue edit`);
-#   git's own verbs (a merge conflict) stay free. Tests: plugins/core/tests/check-mark.test.sh (Q1-Q4)
+#   git's own verbs (a merge conflict) stay free. Tests: plugins/relay/tests/check-mark.test.sh (Q1-Q4)
 # - everything, with the reason, when the guard cannot read its own bindings:
 #   .claude/kit.toml present but unreadable, or jq / python3 missing. A broken
 #   guard never silently allows.
@@ -53,7 +53,7 @@
 # directory, refused in main) and skipped inside double quotes; `$PWD` is the directory tracked for that part. Tests: tests/guard-diff.test.sh.
 # This catches slips, not a determined bypass.
 #
-# Tests: plugins/core/tests/guard-main.test.sh
+# Tests: plugins/relay/tests/guard-main.test.sh
 set -uo pipefail
 
 kit="$(cd "$(dirname "$0")" && pwd -P)/../bin/kit"

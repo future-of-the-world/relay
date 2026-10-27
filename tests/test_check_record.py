@@ -28,7 +28,7 @@ SPREAD = "one\n" + "pad\n" * 6 + "end\n"      # edits to the first and the last 
 
 
 def load_hook(name, file):
-    return _load_hook(name, os.path.join(ROOT, "plugins", "core", "hooks", file))
+    return _load_hook(name, os.path.join(ROOT, "plugins", "relay", "hooks", file))
 
 
 check_mark = load_hook("check_mark_for_record_test", "check-mark.py")

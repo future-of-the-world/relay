@@ -2,7 +2,7 @@
 # Tests for the parts of `kit packet` that depend on a project's stack
 # binding: Rust and Elixir module refs, smoke tests (a required test kind with
 # a command), fenced code, and the `body` ref. They need no compiler.
-#   plugins/core/tests/packet-stacks.test.sh
+#   plugins/relay/tests/packet-stacks.test.sh
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd -P)"

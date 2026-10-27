@@ -1,5 +1,5 @@
 {
-  "name": "core",
+  "name": "relay",
   "version": "0.1.0",
   "description": "Generic worker and reviewer agents, main-checkout guard, addition injection, kit helper.",
   "author": {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cases for hooks/inject-addition.sh over a temporary repository with a worktree.
-#   plugins/core/tests/inject-addition.test.sh
+#   plugins/relay/tests/inject-addition.test.sh
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd -P)"

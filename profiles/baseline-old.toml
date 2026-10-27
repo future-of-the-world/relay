@@ -30,7 +30,7 @@ judge = "high"
 load = ["working-with-me", "git", "secrets", "shell", "verify", "glonass"]
 
 [plugins]
-enabled = ["core", "observe"]
+enabled = ["relay", "observe"]
 
 [delegate]
 typed_only = false

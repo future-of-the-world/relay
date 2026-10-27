@@ -11,12 +11,12 @@
 # The commands: the 28-command list of review 1, review 2's R1/R2 cases, review 3's M1/M2/S3 cases, and every
 # Bash input of the guard-main suite (before the variable tests were dropped). Placeholders in cwd and cmd:
 # @M@ the main checkout, @W@ its worktree .worktrees/any-change, @A@ its worktree .worktrees/a, @T@ a temp dir.
-#   plugins/core/tests/guard-diff.test.sh
-#   plugins/core/tests/guard-diff.test.sh --record <a plugins/core directory of the old guard>   (rewrites "was")
+#   plugins/relay/tests/guard-diff.test.sh
+#   plugins/relay/tests/guard-diff.test.sh --record <a plugins/relay directory of the old guard>   (rewrites "was")
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd -P)"
 hook="$here/../hooks/guard-main.sh"; golden="$here/guard-diff.golden.jsonl"
-record=""; [ "${1:-}" = --record ] && record="${2:?--record needs the old plugins/core directory}"
+record=""; [ "${1:-}" = --record ] && record="${2:?--record needs the old plugins/relay directory}"
 [ -n "$record" ] && hook="$(cd "$record" && pwd -P)/hooks/guard-main.sh"
 unset CLAUDE_PROJECT_DIR
 tmp="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$tmp"' EXIT

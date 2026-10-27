@@ -9,8 +9,8 @@
 #   2. the core plugin installed for THIS project, from Claude Code's
 #      ~/.claude/plugins/installed_plugins.json: the project-scope entry whose
 #      projectPath is this project (or its main checkout), else the user-scope one;
-#   3. a source checkout: $PRINCIPLES_DIR (default ~/principles)/plugins/core.
-# It needs Python 3.11+ on PATH (kit reads TOML). Tests: plugins/core/tests/shim.test.sh
+#   3. a source checkout: $PRINCIPLES_DIR (default ~/principles)/plugins/relay.
+# It needs Python 3.11+ on PATH (kit reads TOML). Tests: plugins/relay/tests/shim.test.sh
 set -uo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd -P)"
@@ -31,7 +31,7 @@ try:
     plugins = json.load(open(registry)).get("plugins", {})
 except (OSError, ValueError):
     sys.exit(0)
-entries = [e for k, v in plugins.items() if k.split("@")[0] == "core" and isinstance(v, list) for e in v if isinstance(e, dict)]
+entries = [e for k, v in plugins.items() if k.split("@")[0] == "relay" and isinstance(v, list) for e in v if isinstance(e, dict)]
 scoped = [e for e in entries if e.get("scope") in ("project", "local") and os.path.realpath(e.get("projectPath", "")) in roots]
 wide = [e for e in entries if e.get("scope") in ("user", "managed")]
 for e in scoped + wide:
@@ -43,7 +43,7 @@ PY
 )"
 
 if [ -z "$kit" ]; then
-  src="${PRINCIPLES_DIR:-$HOME/principles}/plugins/core/bin/kit"
+  src="${PRINCIPLES_DIR:-$HOME/principles}/plugins/relay/bin/kit"
   [ -x "$src" ] && kit="$src"
 fi
 

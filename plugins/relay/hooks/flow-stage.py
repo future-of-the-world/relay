@@ -12,7 +12,7 @@ The manifest is found by `kit path <plugin>/flow.json` (the version this
 project runs), else beside this plugin in a source checkout. No binding, no
 manifest, or no matching trigger: nothing is added. Fails open.
 
-Tests: plugins/core/tests/flow-stage.test.sh
+Tests: plugins/relay/tests/flow-stage.test.sh
 """
 
 import json

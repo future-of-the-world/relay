@@ -80,7 +80,7 @@ class RulesGate(unittest.TestCase):
     def test_the_list_is_fixed_paths(self) -> None:
         self.assertTrue(relay_textonly.only(["rules/git.md"]))
         self.assertFalse(relay_textonly.only([]))
-        for path in ("rules/sub/git.md", "rules/git.py", "plugins/core/hooks/x.md", "bin/ci", "docs/handover.md"):
+        for path in ("rules/sub/git.md", "rules/git.py", "plugins/relay/hooks/x.md", "bin/ci", "docs/handover.md"):
             self.assertFalse(relay_textonly.matches(path), path)
 
     def test_an_uncommitted_code_edit_runs_the_full_quick_gate(self) -> None:

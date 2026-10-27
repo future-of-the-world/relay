@@ -14,11 +14,11 @@ never overwrites:
   `[observe]`. A project that already has a kit.toml
   gets only the sections whose value is not what a missing section means: `[specs]` for a method other than `none`;
 - `.claude/settings.json`: the relay marketplace and the plugins for the
-  flow (`core`, `observe`, `delegate`, `front`, + `openspec`), `Bash(kit:*)` allowed. Relay's plugins the project does not use get `false`, and so does each plugin of
+  flow (`relay`, `observe`, `delegate`, `front`, + `openspec`), `Bash(kit:*)` allowed. Relay's plugins the project does not use get `false`, and so does each plugin of
   another marketplace named with `--off <name@marketplace>` (repeat the flag; the id must be one Claude Code's registry
   knows, e.g. `--off gopls-lsp@claude-plugins-official`). A `false` in the project's file beats the user's `true`.
-  A key of a plugin relay no longer ships (`issues@relay`, `product@relay`) is dropped and said in the done list, and `relay doctor` reports it until setup runs. A re-run keeps a key that is already there, except where the run's flags or kit.toml decide it; `relay doctor`
-  lists the plugins that are off and reports a FIX when `core`, `observe`, `delegate` or `front` is off for the project; a backup of the old file in `<git dir>/relay-backup/` (none when git holds the file unchanged: `git restore` it);
+  A key of a plugin relay no longer ships (`issues@amidman`, `product@amidman`) is dropped and said in the done list, and `relay doctor` reports it until setup runs. A re-run keeps a key that is already there, except where the run's flags or kit.toml decide it; `relay doctor`
+  lists the plugins that are off and reports a FIX when `relay`, `observe`, `delegate` or `front` is off for the project; a backup of the old file in `<git dir>/relay-backup/` (none when git holds the file unchanged: `git restore` it);
 - `bin/check`, `bin/ci`, `bin/wt` from templates that follow the contract,
   with `TODO` where the stack's commands go, and a `CLAUDE.md` skeleton and `docs/handover.md`: all of these only on
   a project's first setup (when it has no kit.toml yet). Later a missing script is a to-do line and a doctor FIX;
@@ -87,7 +87,7 @@ What migration recognises from the principles era:
 |---|---|
 | `.claude/agents/<project>-worker.md` etc. | `openspec:<role>` (OpenSpec) or `delegate:<tier>`; project-only rules into `.claude/kit/<role>.md` |
 | `.claude/skills/<project>-plan` etc. | `openspec:<stage>`; project-only rules into `.claude/kit/<stage>.md` |
-| `.claude/hooks/guard-main.sh`, `opsx-stage.sh` + their settings entries | the core plugin (entries removed) |
+| `.claude/hooks/guard-main.sh`, `opsx-stage.sh` + their settings entries | the relay plugin (entries removed) |
 | `bin/packet`, `bin/spec-check` | `kit packet`, `kit spec-check`; `bin/kit` shim written |
 | `*@principles` plugins, the principles marketplace | `*@relay`, the relay marketplace |
 | user hooks `context-budget.py`, `session-handover.py` | the front plugin (entries removed) |

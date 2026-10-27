@@ -120,7 +120,7 @@ class SessionProfile(unittest.TestCase):
 
     # F3: a malformed settings.json is refused, not rewritten.
     def test_f3_malformed_file_is_refused_untouched(self):
-        bad = '{"enabledPlugins": {"core@relay": true}, "model": "sonnet",}'
+        bad = '{"enabledPlugins": {"relay@amidman": true}, "model": "sonnet",}'
         with open(self.path, "w") as handle:
             handle.write(bad)
         for dry, prefix in ((False, "refused: "), (True, "would refuse: ")):

@@ -16,7 +16,7 @@ import test_merge_train as tmt
 
 ROOT = tmt.ROOT
 RELAY = os.path.join(ROOT, "bin", "relay")
-HOOK = os.path.join(ROOT, "plugins", "core", "hooks", "check-mark.py")
+HOOK = os.path.join(ROOT, "plugins", "relay", "hooks", "check-mark.py")
 START = "2026-10-22T10:00:00Z"
 START_EPOCH = dt.datetime.fromisoformat(START.replace("Z", "+00:00")).timestamp()
 

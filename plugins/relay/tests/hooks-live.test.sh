@@ -14,7 +14,7 @@
 # checks read only its final "result" line, so a hook's own text cannot pass a case.
 # User-level settings and plugins are not loaded (--setting-sources project,local), so a case depends only on this checkout.
 # On a failure the four raw outputs are kept in a folder whose path is printed.
-#   plugins/core/tests/hooks-live.test.sh
+#   plugins/relay/tests/hooks-live.test.sh
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd -P)"

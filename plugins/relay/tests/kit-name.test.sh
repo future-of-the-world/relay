@@ -8,14 +8,14 @@
 # deferred: it touches every agent and skill text, every project's
 # `Bash(kit:*)` permission and the migration script; this test is the
 # cheap guard until a clash is real.)
-#   plugins/core/tests/kit-name.test.sh
+#   plugins/relay/tests/kit-name.test.sh
 set -uo pipefail
 # Only a `kit` that is NOT this plugin's own helper counts (any checkout or install of it on PATH is fine), so the
 # result does not depend on which copy of the plugin happens to be on this machine's PATH.
 here="$(cd "$(dirname "$0")" && pwd -P)"
 ours() { # <file>: is it a copy of this plugin's bin/kit (this checkout, another checkout or worktree of it, an install)?
   local real; real="$(cd "$(dirname "$1")" && pwd -P)/$(basename "$1")"
-  case "$real" in */plugins/core/bin/kit) return 0 ;; esac
+  case "$real" in */plugins/relay/bin/kit) return 0 ;; esac
   cmp -s "$1" "$here/../bin/kit"
 }
 found=""

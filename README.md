@@ -97,7 +97,7 @@ On a Mac, see [docs/macos.md](docs/macos.md) for what slows relay down and how t
 ```
 bin/relay            the command           lib/                 the library (python 3.11, no dependencies)
 profiles/            active + candidates   rules/               one rule per file -> CLAUDE.md
-plugins/core         kit, guard, flow hook plugins/observe      the ledger hook
+plugins/relay         kit, guard, flow hook plugins/observe      the ledger hook
 plugins/delegate     agents + route guard  plugins/front        budget + handover hooks, front skill
 plugins/openspec      OpenSpec spec steps   evals/plugin         `claude plugin eval` cases (regression)
 evals/scenarios      bench scenarios       templates/           files a new project gets

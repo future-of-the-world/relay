@@ -12,7 +12,7 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLUGIN = os.path.join(ROOT, "plugins", "openspec")
 HOOK = os.path.join(PLUGIN, "hooks", "spec-rule.py")
-FLOW_STAGE = os.path.join(ROOT, "plugins", "core", "hooks", "flow-stage.py")
+FLOW_STAGE = os.path.join(ROOT, "plugins", "relay", "hooks", "flow-stage.py")
 sys.path.insert(0, os.path.join(ROOT, "evals", "plugin"))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # unittest from the repo root has only the root on sys.path
 import system_rules  # noqa: E402
@@ -38,7 +38,7 @@ class Project(unittest.TestCase):
     def run_hook(self, script, event, **extra):
         data = dict({"hook_event_name": event, "cwd": self.root}, **extra)
         env = {k: v for k, v in os.environ.items() if k != "RELAY_ROOT"}
-        env["CLAUDE_PLUGIN_ROOT"] = PLUGIN if script == HOOK else os.path.join(ROOT, "plugins", "core")
+        env["CLAUDE_PLUGIN_ROOT"] = PLUGIN if script == HOOK else os.path.join(ROOT, "plugins", "relay")
         done = subprocess.run([sys.executable, script], input=json.dumps(data), capture_output=True, text=True, env=env)
         self.assertEqual(done.returncode, 0, done.stderr)
         return json.loads(done.stdout)["hookSpecificOutput"] if done.stdout else None

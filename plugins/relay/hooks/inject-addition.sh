@@ -32,7 +32,7 @@
 # `tool_input.skill`; UserPromptSubmit has `prompt`. Output is
 # `hookSpecificOutput.additionalContext`.
 #
-# Tests: plugins/core/tests/inject-addition.test.sh
+# Tests: plugins/relay/tests/inject-addition.test.sh
 set -uo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo "inject-addition: jq is not installed (brew install jq)." >&2; exit 2; }
@@ -53,7 +53,7 @@ cwd="$(jq -r '.cwd // empty' <<<"$input")"
 [ -n "$cwd" ] || cwd="$PWD"
 
 # <plugin>:<role> of a framework plugin, nothing else (no path can leave .claude/kit/).
-[[ "$name" =~ ^(core|openspec|delegate|front):([a-z][a-z0-9-]*)$ ]] || exit 0
+[[ "$name" =~ ^(relay|openspec|delegate|front):([a-z][a-z0-9-]*)$ ]] || exit 0
 role="${BASH_REMATCH[2]}"
 
 root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" || root="$cwd"

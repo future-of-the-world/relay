@@ -4,7 +4,7 @@
 # The reports are recorded by `relay check record review|check --input <file.toml>` (the agents' only way to write the JSON the hook reads;
 # nothing but JSON is stored: no .md report is written or committed).
 # K9 is the live run (a real checker, paid): tests/live_k9.sh, never part of the gate.
-#   plugins/core/tests/check-mark.test.sh
+#   plugins/relay/tests/check-mark.test.sh
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd -P)"
 hook="$here/../hooks/check-mark.py"
@@ -250,7 +250,7 @@ g allow "G4 Write on <worktree>/.ci/check.md" Write "$GW" file_path "$GW/.ci/che
 g allow "G5 relay check show wt/x" Bash "$GW" command "relay check show wt/x"
 g allow "G5 relay gate" Bash "$GW" command "relay gate"
 g allow "G5 git log" Bash "$GW" command "git log --oneline .relay/checks"
-g allow "G6 grep -rn" Bash "$GW" command "grep -rn \".relay/checks\" plugins/core"
+g allow "G6 grep -rn" Bash "$GW" command "grep -rn \".relay/checks\" plugins/relay"
 g allow "G6 cat a stored review" Bash "$GW" command "cat .relay/checks/x.review.json"
 g allow "G6 jq .verdict" Bash "$GW" command "jq .verdict .relay/checks/X.json"
 g allow "G6 inline python that only reads" Bash "$GW" command "python3 -c \"import json;print(json.load(open('.relay/checks/X.json'))['verdict'])\""

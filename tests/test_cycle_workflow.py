@@ -309,7 +309,7 @@ class Cycle(unittest.TestCase):
 
     # 10
     def test_check_and_design_review_prompts_keep_the_report_label_the_hook_reads(self):
-        mod = load_hook("check_mark", os.path.join(ROOT, "plugins", "core", "hooks", "check-mark.py"))
+        mod = load_hook("check_mark", os.path.join(ROOT, "plugins", "relay", "hooks", "check-mark.py"))
         units = [self.unit(), self.unit(name="z", kind="recheck", items=[{"slug": "a", "review": "ra.json"}])]
         out = self.run_cycle(self.args(units, designs=[{"name": "d", "brief": "b.md", "out": "d.md"}]))
         for label in ("check: x", "check item 1: z", "design review: d"):

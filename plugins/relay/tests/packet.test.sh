@@ -2,7 +2,7 @@
 # Tests for `kit packet` over a small synthetic change in a temporary repo, with
 # Kartoteka's real bindings (tests/profiles/kartoteka.toml), then the Rust and
 # Elixir module refs, smoke tests and fenced code with profiles of their own.
-#   plugins/core/tests/packet.test.sh     prints each case and exits 1 on any failure
+#   plugins/relay/tests/packet.test.sh     prints each case and exits 1 on any failure
 #
 # `module` refs of the typescript kind run the TypeScript compiler, so the
 # temporary repo links a node_modules with it. That is this folder's own

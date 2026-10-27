@@ -20,7 +20,7 @@ class Fixture(Base):
         super().setUp()
         import relay_setup
         self.rs = relay_setup
-        self.registry([GOPLS, "a@m", "b@m"] + [f"{p}@relay" for p in ("core", "observe", "delegate", "front")])
+        self.registry([GOPLS, "a@m", "b@m"] + [f"{p}@amidman" for p in ("relay", "observe", "delegate", "front")])
 
     def registry(self, ids):
         folder = os.path.join(self.claude, "plugins")
@@ -82,9 +82,9 @@ class Fixture(Base):
         self.rs.MARKETPLACE_FILE = path
 
 
-ALL = ("core", "observe", "delegate", "front", "openspec")
-T1_PLUGINS = {"core@relay": True, "observe@relay": True, "delegate@relay": True, "front@relay": True,
-              "openspec@relay": False, GOPLS: False}
+ALL = ("relay", "observe", "delegate", "front", "openspec")
+T1_PLUGINS = {"relay@amidman": True, "observe@amidman": True, "delegate@amidman": True, "front@amidman": True,
+              "openspec@amidman": False, GOPLS: False}
 
 
 class Writes(Fixture):
@@ -96,7 +96,7 @@ class Writes(Fixture):
         self.run_setup(root, off=[GOPLS])
         self.assertEqual(self.plugins(root), T1_PLUGINS)
         data = self.settings(root)
-        self.assertEqual(data["extraKnownMarketplaces"]["relay"]["source"], {"source": "directory", "path": self.rs.marketplace_root()})
+        self.assertEqual(data["extraKnownMarketplaces"]["amidman"]["source"], {"source": "directory", "path": self.rs.marketplace_root()})
         self.assertEqual(data["permissions"]["allow"], ["Bash(kit:*)", "Bash(bin/kit:*)", "Bash(relay:*)"])
         self.assertEqual(self.read(root, ".claude/kit.toml"), kit)   # [delegate] equals the default: nothing added
         self.assertEqual(self.read(root, "bin/ci"), ci)
@@ -112,18 +112,18 @@ class Writes(Fixture):
         self.assertFalse(os.path.exists(os.path.join(root, ".git", "relay-backup")))   # no backup was made
 
     def test_t3_a_retired_plugin_key_is_dropped_and_said(self):
-        # issues@relay and product@relay were removed from relay (27 Oct): an old settings.json that names them must not crash setup;
+        # issues@amidman and product@amidman were removed from relay (27 Oct): an old settings.json that names them must not crash setup;
         # the keys go, and the done list says so (a key left behind would name a plugin Claude Code can no longer load).
         root = self.relay_tree()
-        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"product@relay": True, "issues@relay": False, "core@relay": True}}))
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"product@amidman": True, "issues@amidman": False, "relay@amidman": True}}))
         *_, done, _ = self.run_setup(root)
         plugins = self.plugins(root)
-        self.assertNotIn("product@relay", plugins)
-        self.assertNotIn("issues@relay", plugins)
-        self.assertIs(plugins["core@relay"], True)
+        self.assertNotIn("product@amidman", plugins)
+        self.assertNotIn("issues@amidman", plugins)
+        self.assertIs(plugins["relay@amidman"], True)
         self.assertEqual([line for line in done if line.startswith("removed ")],
-                         ["removed issues@relay from .claude/settings.json: relay no longer ships that plugin",
-                          "removed product@relay from .claude/settings.json: relay no longer ships that plugin"])
+                         ["removed issues@amidman from .claude/settings.json: relay no longer ships that plugin",
+                          "removed product@amidman from .claude/settings.json: relay no longer ships that plugin"])
 
     def test_t4_a_key_of_another_marketplace_that_is_not_named_stays(self):
         root = self.relay_tree()
@@ -137,17 +137,17 @@ class Writes(Fixture):
 
     def test_t5_a_turned_off_spec_method_is_false_not_deleted(self):
         root = self.relay_tree()
-        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"openspec@relay": True}}))
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"openspec@amidman": True}}))
         self.run_setup(root)
-        self.assertIs(self.plugins(root)["openspec@relay"], False)
+        self.assertIs(self.plugins(root)["openspec@amidman"], False)
 
     def test_t6_specs_on_then_off(self):
         root = self.relay_tree()
         self.run_setup(root, specs="openspec")
-        self.assertIs(self.plugins(root)["openspec@relay"], True)
+        self.assertIs(self.plugins(root)["openspec@amidman"], True)
         self.assertIn('[specs]\nmethod = "openspec"', self.read(root, ".claude/kit.toml"))
         self.run_setup(root, specs="none")
-        self.assertIs(self.plugins(root)["openspec@relay"], False)
+        self.assertIs(self.plugins(root)["openspec@amidman"], False)
         self.assertIn('method = "none"', self.read(root, ".claude/kit.toml"))
 
     def test_t9_a_new_project_gets_the_templates_and_the_full_kit_toml(self):
@@ -155,8 +155,8 @@ class Writes(Fixture):
         self.run_setup(root)
         for rel in (".claude/kit.toml", "bin/check", "bin/ci", "bin/wt", "CLAUDE.md", "docs/handover.md"):
             self.assertTrue(os.path.isfile(os.path.join(root, rel)), rel)
-        self.assertEqual(self.plugins(root), {"core@relay": True, "observe@relay": True, "delegate@relay": True, "front@relay": True,
-                                              "openspec@relay": False})
+        self.assertEqual(self.plugins(root), {"relay@amidman": True, "observe@amidman": True, "delegate@amidman": True, "front@amidman": True,
+                                              "openspec@amidman": False})
         self.assertIn("[delegate]", self.read(root, ".claude/kit.toml"))
 
     def test_t10_an_existing_kit_toml_gets_no_template_and_a_todo_line(self):
@@ -198,11 +198,11 @@ class KitToml(Fixture):
         # the flow slot stays for spec methods; a kit.toml that still says kind = "issues" is the owner's text: setup leaves it
         root = self.kit("[flow]\nkind = \"issues\"\n")
         kit = self.read(root, ".claude/kit.toml")
-        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"issues@relay": True}}))
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"issues@amidman": True}}))
         d, flow, done, todo = self.run_setup(root)
         self.assertEqual(flow, "issues")
         self.assertEqual(self.read(root, ".claude/kit.toml"), kit)
-        self.assertNotIn("issues@relay", self.plugins(root))
+        self.assertNotIn("issues@amidman", self.plugins(root))
 
 
 class Refusals(Fixture):
@@ -211,11 +211,11 @@ class Refusals(Fixture):
         self.run_setup(root)
         s, k = self.stat(root, ".claude/settings.json"), self.stat(root, ".claude/kit.toml")
         with self.assertRaises(ValueError) as core:
-            self.run_setup(root, off=["core@relay"])
+            self.run_setup(root, off=["relay@amidman"])
         self.assertIn("relay's own are decided by --specs", str(core.exception))
         with self.assertRaises(ValueError) as spec:
-            self.run_setup(root, off=["openspec@relay"])
-        self.assertIn("openspec@relay is decided by --specs", str(spec.exception))
+            self.run_setup(root, off=["openspec@amidman"])
+        self.assertIn("openspec@amidman is decided by --specs", str(spec.exception))
         self.assertEqual((self.stat(root, ".claude/settings.json"), self.stat(root, ".claude/kit.toml")), (s, k))
 
     def test_t8_a_plugin_the_registry_does_not_know_is_refused(self):
@@ -230,10 +230,10 @@ class Refusals(Fixture):
         root = self.relay_tree()
         self.run_setup(root)
         before = self.stat(root, ".claude/settings.json")
-        self.marketplace_fixture("relay", [p for p in ALL if p != "core"] + ["relay"])
+        self.marketplace_fixture("amidman", [p for p in ALL if p != "relay"])
         with self.assertRaises(ValueError) as err:
             self.run_setup(root)
-        self.assertIn("core", str(err.exception))
+        self.assertIn("'relay'", str(err.exception))
         self.assertEqual(self.stat(root, ".claude/settings.json"), before)
 
     def test_t20_the_real_marketplace_lists_every_always_on_plugin(self):
@@ -276,7 +276,7 @@ class Rename(Fixture):
         self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {old: True}}))
         self.run_setup(root)
         plugins = self.plugins(root)
-        self.assertIs(plugins["openspec@relay"], False)
+        self.assertIs(plugins["openspec@amidman"], False)
         self.assertNotIn(old, plugins)
 
 
@@ -287,17 +287,17 @@ class Doctor(Fixture):
         return found[0]
 
     def test_t12_core_is_judged_by_the_scope_claude_code_reads_first(self):
-        name = "core@relay is on for this project"
+        name = "relay@amidman is on for this project"
         cases = [
-            (dict(local={"core@relay": False}, project={"core@relay": True}, user={"core@relay": True}), False),
-            (dict(local={"core@relay": True}, project={"core@relay": False}), True),
-            (dict(project={"core@relay": False}, user={"core@relay": True}), False),
-            (dict(user={"core@relay": True}), True),
+            (dict(local={"relay@amidman": False}, project={"relay@amidman": True}, user={"relay@amidman": True}), False),
+            (dict(local={"relay@amidman": True}, project={"relay@amidman": False}), True),
+            (dict(project={"relay@amidman": False}, user={"relay@amidman": True}), False),
+            (dict(user={"relay@amidman": True}), True),
             (dict(), False),
         ]
         for n, (scopes, expected) in enumerate(cases):
             self.assertIs(self.check(self.relay_tree_again(n, **scopes), name)[0], expected, n)
-        ok, detail = self.check(self.relay_tree_again(9, local={"core@relay": False}), name)
+        ok, detail = self.check(self.relay_tree_again(9, local={"relay@amidman": False}), name)
         self.assertIn("--scope local", detail)
 
     def relay_tree_again(self, n, **scopes):
@@ -319,46 +319,46 @@ class Doctor(Fixture):
         self.write(root, os.path.join("..", "claude", "settings.json"), json.dumps({"enabledPlugins": {GOPLS: True}}))
         checks = self.rs.doctor(root, profile={})
         names = [n for n, _, _ in checks]
-        self.assertIn("plugins off for this project: " + ", ".join(sorted([GOPLS, "openspec@relay"])), names)
+        self.assertIn("plugins off for this project: " + ", ".join(sorted([GOPLS, "openspec@amidman"])), names)
         project_part = checks[names.index("project has .claude/kit.toml"):]
         fixes = sorted(n for n, ok, _ in project_part if not ok)
         # relay has no quiet check and no worktree script: those two stay red, nothing else.
         self.assertEqual(fixes, ["gate.check exists and is executable", "gate.wt exists and is executable"])
 
     def test_t14_spec_steps_follow_the_actual_state(self):
-        name = "spec steps and openspec@relay agree"
+        name = "spec steps and openspec@amidman agree"
         a = self.relay_tree_named("a")
         self.write(a, ".claude/kit.toml", '[specs]\nmethod = "none"\n')
-        self.write(a, os.path.join("..", "claude", "settings.json"), json.dumps({"enabledPlugins": {"openspec@relay": True}}))
+        self.write(a, os.path.join("..", "claude", "settings.json"), json.dumps({"enabledPlugins": {"openspec@amidman": True}}))
         self.assertFalse(self.check(a, name)[0])   # no project key, user says on
         b = self.relay_tree_named("b")
         self.write(b, ".claude/kit.toml", '[specs]\nmethod = "none"\n')
-        self.write(b, ".claude/settings.json", json.dumps({"enabledPlugins": {"openspec@relay": False}}))
-        self.write(b, ".claude/settings.local.json", json.dumps({"enabledPlugins": {"openspec@relay": True}}))
+        self.write(b, ".claude/settings.json", json.dumps({"enabledPlugins": {"openspec@amidman": False}}))
+        self.write(b, ".claude/settings.local.json", json.dumps({"enabledPlugins": {"openspec@amidman": True}}))
         self.assertFalse(self.check(b, name)[0])   # local on beats project off
 
 
 class RetiredPlugins(Fixture):
     def test_doctor_reports_a_retired_plugin_in_settings_and_setup_clears_it(self):
-        # issues@relay / product@relay are named by an old project's settings.json: doctor fails one check naming both, setup fixes it
+        # issues@amidman / product@amidman are named by an old project's settings.json: doctor fails one check naming both, setup fixes it
         root = self.relay_tree()
-        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"product@relay": True, "issues@relay": True}}))
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"product@amidman": True, "issues@amidman": True}}))
         name = "no retired relay plugin in .claude/settings.json"
         found = [(ok, detail) for n, ok, detail in self.rs.doctor(root, profile={}) if n == name]
         self.assertEqual(len(found), 1)
         self.assertFalse(found[0][0])
-        self.assertIn("issues@relay, product@relay", found[0][1])
+        self.assertIn("issues@amidman, product@amidman", found[0][1])
         self.run_setup(root)
         self.assertTrue([ok for n, ok, _ in self.rs.doctor(root, profile={}) if n == name][0])
 
     def test_a_retired_plugin_installed_at_project_scope_is_uninstalled(self):
         root = self.relay_tree()
-        self.registry([GOPLS, "core@relay"] )
+        self.registry([GOPLS, "relay@amidman"] )
         with open(os.path.join(self.claude, "plugins", "installed_plugins.json"), "w") as handle:
-            json.dump({"plugins": {"issues@relay": [{"scope": "project", "projectPath": root}]}}, handle)
+            json.dump({"plugins": {"issues@amidman": [{"scope": "project", "projectPath": root}]}}, handle)
         gone = []
         self.run_setup(root, uninstall_runner=lambda r, key: (gone.append(key), (True, ""))[1])
-        self.assertEqual(gone, ["issues@relay"])
+        self.assertEqual(gone, ["issues@amidman"])
 
 
 class ReviewFixes(Fixture):
@@ -377,7 +377,7 @@ class ReviewFixes(Fixture):
                     out[os.path.relpath(path, self.claude)] = handle.read()
         return out
 
-    def user_settings(self, enabled, marketplace_name="relay"):
+    def user_settings(self, enabled, marketplace_name="amidman"):
         with open(os.path.join(self.claude, "settings.json"), "w") as handle:
             json.dump({"extraKnownMarketplaces": {marketplace_name: {"source": {"source": "directory", "path": self.rs.marketplace_root()}}},
                        "enabledPlugins": enabled}, handle)
@@ -409,15 +409,15 @@ class ReviewFixes(Fixture):
 
     def test_f3_doctor_builds_the_user_plugin_checks_from_the_marketplace_name(self):
         self.marketplace_fixture("amidman", ALL)
-        self.user_settings({f"{p}@amidman": True for p in ("core", "observe", "delegate", "front")}, "amidman")
+        self.user_settings({f"{p}@amidman": True for p in ("relay", "observe", "delegate", "front")}, "amidman")
         names = {n: ok for n, ok, _ in self.rs.doctor(None, profile={}) if "enabled for the user" in n}
-        self.assertEqual(sorted(names), sorted(f"{p}@amidman enabled for the user" for p in ("core", "observe", "delegate", "front")))
+        self.assertEqual(sorted(names), sorted(f"{p}@amidman enabled for the user" for p in ("relay", "observe", "delegate", "front")))
         self.assertTrue(all(names.values()), names)
 
     def test_f3_real_marketplace_missing_core_is_one_fix_naming_it(self):
-        self.user_settings({f"{p}@relay": True for p in ("observe", "delegate", "front")})
+        self.user_settings({f"{p}@amidman": True for p in ("observe", "delegate", "front")})
         checks = {n: ok for n, ok, _ in self.rs.doctor(None, profile={}) if "enabled for the user" in n}
-        self.assertEqual([n for n, ok in checks.items() if not ok], ["core@relay enabled for the user"])
+        self.assertEqual([n for n, ok in checks.items() if not ok], ["relay@amidman enabled for the user"])
         self.assertEqual(len(checks), 4)
 
     def test_f4_project_setup_names_the_global_command_when_the_user_plugins_are_missing(self):
@@ -427,7 +427,7 @@ class ReviewFixes(Fixture):
             *_, todo = self.run_setup(root)
             return [t for t in todo if "relay setup --global" in t]
         self.assertEqual(len(lines({})), 1)
-        self.assertEqual(lines({f"{p}@relay": True for p in ("core", "observe", "delegate", "front")}), [])
+        self.assertEqual(lines({f"{p}@amidman": True for p in ("relay", "observe", "delegate", "front")}), [])
         os.remove(os.path.join(self.claude, "settings.json"))   # no marketplace entry: one line, not two
         root = self.git_folder("p9")
         *_, todo = self.run_setup(root)

@@ -2,7 +2,7 @@
 # Tests for `kit spec-check` over synthetic spec deltas in a temporary git repo whose
 # .claude/kit.toml is Kartoteka's (tests/profiles/kartoteka.toml). Ported from
 # ~/kartoteka/bin/spec-check.test.sh.
-#   plugins/core/tests/spec-check.test.sh     prints each case and exits 1 on any failure
+#   plugins/relay/tests/spec-check.test.sh     prints each case and exits 1 on any failure
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd -P)"

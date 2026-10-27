@@ -117,7 +117,7 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
 
 1. The one merge the guard allows in the main checkout is `git merge
    --ff-only wt/<name>` with one positional argument
-   (`plugins/core/lib/kit_guard.py:405-410`, the regex at 408); `git -C
+   (`plugins/relay/lib/kit_guard.py:405-410`, the regex at 408); `git -C
    <dir>` is applied by `git_parts` (`kit_guard.py:367-382`). Mutating git
    inside a worktree is allowed (`guard-main.sh:188-192` blocks only in main).
 2. `guard-main.sh:60-61`: `anchor="${CLAUDE_PROJECT_DIR:-$cwd}"`, then `git
@@ -131,7 +131,7 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
 4. `lib/relay_inert.py:11-15` holds the fixed list; `changed(repo, since,
    until="HEAD")` (48-55) lists non-inert files of `git diff --name-only
    --no-renames since..until`. `bin/relay:408-415` is `relay changed [-C
-   <repo>] <sha>`. There is no `--own` and no copy in `plugins/core/lib/`.
+   <repo>] <sha>`. There is no `--own` and no copy in `plugins/relay/lib/`.
 5. The judge base's check mode (`roles/judge.md:71-120`): step 1 uses `relay
    changed -C <path> <Reviewed sha>`; step 2's gate rule (91-101) already
    says the gate's sha is HEAD "or `relay changed -C <path> <sha>` lists no
@@ -164,7 +164,7 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
    `agent_transcript_path`, else `<session transcript>/subagents/agent-<id>.jsonl`
    (`plugins/observe/hooks/ledger.py:90-96`).
 10. Relay has no `.relay/` folder and no `.claude/kit.toml`; the gate binding
-    `gate.ci` defaults to `bin/ci` (`plugins/core/README.md:199`).
+    `gate.ci` defaults to `bin/ci` (`plugins/relay/README.md:199`).
 11. v3 F.9 (live, 21 Oct): every typed agent's `SubagentStop` carries
     `agent_type`, `agent_id`, `cwd`; 369 untyped stops of unknown origin
     exist; a rule on `agent_type == "delegate:checker"` ignores them.
@@ -223,7 +223,7 @@ anyway).
 
 One source of truth: the JSON. The merge gate, the mark, `relay check show`, `relay check page` and the queue read only JSON,
 and no readable copy is stored: the readable text is a view that `relay check show` renders from the JSON on demand.
-`lib/relay_verdict.py` (copied to `plugins/core/lib/`) holds the schemas, the one writer and the renderers. Agents never type
+`lib/relay_verdict.py` (copied to `plugins/relay/lib/`) holds the schemas, the one writer and the renderers. Agents never type
 JSON and pass no free text through the shell: they write a TOML input file (stdlib `tomllib`; text in `'''...'''`, which keeps
 every character) and run `relay check record review|check --input <file.toml>`; the script validates every field (no outside
 library), refuses bad input with a message that names the field ("unknown key `x` in [[finding]] 2", "missing required key
@@ -318,7 +318,7 @@ hook copies its verdict into a committed mark; no model writes a mark or
 decides which later commits keep it. New: the hook also copies the review
 and the check data into `.relay/checks/`, so they outlive the scratchpad.
 
-`plugins/core/hooks/check-mark.py`, registered under `SubagentStop` in
+`plugins/relay/hooks/check-mark.py`, registered under `SubagentStop` in
 core's `hooks.json`, timeout 10 s, always exit 0 (it never blocks):
 
 1. Does nothing unless `agent_type` is exactly `delegate:checker` and the
@@ -344,7 +344,7 @@ core's `hooks.json`, timeout 10 s, always exit 0 (it never blocks):
    (a stale clean mark never outlives a failed re-check), and says in
    `systemMessage`: "check mark not written for wt/x: <reason>".
 
-`lib/relay_marks.py` (copied to `plugins/core/lib/`; `bin/ci` checks the
+`lib/relay_marks.py` (copied to `plugins/relay/lib/`; `bin/ci` checks the
 copy, fact 2.7) is the only code that touches `.relay/checks/`:
 `put(worktree, commit, mark, files)`, `commit_file(worktree, path,
 message)`, `get(repo, ref, commit)`, `drop(worktree, commit)`,
@@ -372,7 +372,7 @@ and a new gate; 1-3 mark commits per change.
 
 ## 7. Merge refused (v3 7.6, revised)
 
-`plugins/core/hooks/merge.py`, `PreToolUse` on Bash, behind the cheap
+`plugins/relay/hooks/merge.py`, `PreToolUse` on Bash, behind the cheap
 prefilter of 11.1 (`merge.sh` exits at once unless the input contains
 `merge`). For each merge `(dir, wt/<name>)` that the guard allows
 (`kit_guard.allowed_merges`, 11.1) where `dir` is the main checkout on the
@@ -441,7 +441,7 @@ merges master as `Y`):
 | `lib/relay_queue.py` | v1 | v1 | v2 | v2 | no | only master changed it |
 | `.relay/queue/foo.json` | none | none | new | new | no | inert anyway |
 | `lib/relay_marks.py`, changed by the branch before `X`, untouched after | none | a | none | a | no: not in the `X..Y` diff | the checked code |
-| `plugins/core/hooks/merge.py`, edited by the branch after `X` | none | a | none | b | yes | new code after the check |
+| `plugins/relay/hooks/merge.py`, edited by the branch after `X` | none | a | none | b | yes | new code after the check |
 | `lib/relay_inert.py`, fixed before `X`, then the fix reverted | v1 | v1+fix | v1 | v1 | yes | at `X` the branch had touched it: a revert of a checked fix is listed |
 | `bin/relay`, changed by both, merged by git without conflict | v1 | v1+a | v2 | v2+a | yes | the combined file is code nobody checked |
 
@@ -690,7 +690,7 @@ Allowed (the m-3 fix): every read (`cat`, `grep -rn .relay/checks`, `ls`,
 write word such as `python3 -c "import json;
 print(json.load(open('.relay/checks/X.json'))['verdict'])"`), `relay gate`,
 `relay check show`, `relay check page`. v3 refused "any other Bash text naming `.relay/checks`",
-which refused a critic's `grep -rn ".relay/checks" plugins/core` and every
+which refused a critic's `grep -rn ".relay/checks" plugins/relay` and every
 `cat >> report <<'EOF'` that mentions the folder; now reviewers must read
 stored reviews, so reads are allowed. Cost: none of v3's tests G1-G3 is
 weakened (they are writes or inline code).
@@ -988,7 +988,7 @@ session, after merge 2, mid-handover).
 
 ### 11.1 The hook
 
-- `plugins/core/hooks/hooks.json` gains `PreToolUse` and `PostToolUse`
+- `plugins/relay/hooks/hooks.json` gains `PreToolUse` and `PostToolUse`
   (timeout 60 s), matcher `Bash`, command `merge.sh`, and `SessionEnd`,
   command `merge.py end` (11.3). `merge.sh` reads stdin and exits 0 at
   once unless the input contains `merge` (a shell `case`, about 5 ms; no
@@ -1102,7 +1102,7 @@ hook the JSON a tool call would carry. Every keep-case asserts the hook's
 message; a case whose right output is silence runs a positive control in
 the same test, so a disabled hook fails it.
 
-### 12.1 Cleanup, `plugins/core/tests/merge.test.sh` (runs in every gate)
+### 12.1 Cleanup, `plugins/relay/tests/merge.test.sh` (runs in every gate)
 
 | # | Case | Expect |
 |---|---|---|
@@ -1165,7 +1165,7 @@ to `closed_at` set: (n2) first or second case; step 3 with rename detection:
 (o); the main-checkout test removed: (p); the merge commit handled as in
 v3's walk: (h) second half.
 
-### 12.3 Check-mark hook and guard, `plugins/core/tests/check-mark.test.sh`
+### 12.3 Check-mark hook and guard, `plugins/relay/tests/check-mark.test.sh`
 
 | # | Case | Expect |
 |---|---|---|
@@ -1191,7 +1191,7 @@ v3's walk: (h) second half.
 | G3 | `python3 -c "open('.relay/checks/a.json','w').write('x')"`; `node -e` with `writeFile` naming `.relay/checks` | refused |
 | G4 | the checker's own write: Write on `<scratchpad>/check.md` and `<worktree>/.ci/check.md`, real guard, `CLAUDE_PROJECT_DIR` = the worktree | allowed |
 | G5 | `relay check show wt/x`; `relay gate`; `git log` | allowed |
-| G6 (m-3) | `grep -rn ".relay/checks" plugins/core`; `cat .relay/checks/x.review.md`; `jq .verdict .relay/checks/X.json`; `python3 -c "import json;print(json.load(open('.relay/checks/X.json'))['verdict'])"`; `cat >> <scratchpad>/r.md <<'EOF'` whose body names `.relay/checks` | allowed |
+| G6 (m-3) | `grep -rn ".relay/checks" plugins/relay`; `cat .relay/checks/x.review.md`; `jq .verdict .relay/checks/X.json`; `python3 -c "import json;print(json.load(open('.relay/checks/X.json'))['verdict'])"`; `cat >> <scratchpad>/r.md <<'EOF'` whose body names `.relay/checks` | allowed |
 | G7 | outside any repository with `.relay/`: `mkdir -p <scratchpad>/fx/.relay/checks && printf '{}' > <scratchpad>/fx/.relay/checks/a.json`, and Write on the same path; then the same printf into `.worktrees/t/.relay/checks/a.json` | allowed, allowed; refused |
 
 Regression proof: agent-type test removed: K2; mtime test removed: K5;

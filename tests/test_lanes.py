@@ -81,11 +81,11 @@ class Touches(unittest.TestCase):
     def test_checked_path_is_printed_exit_0(self) -> None:
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
-            self.make_repo(tmp, ["plugins/front/skills/front/SKILL.md", "lib/relay_gate.py", "plugins/core/hooks/merge.py"])
+            self.make_repo(tmp, ["plugins/front/skills/front/SKILL.md", "lib/relay_gate.py", "plugins/relay/hooks/merge.py"])
             done = paid_touches(tmp, "wt/x")
             self.assertEqual(done.returncode, 0)
             # the skill and the hook are checked paths; lib/ is not
-            self.assertEqual(sorted(done.stdout.split()), ["plugins/core/hooks/merge.py", "plugins/front/skills/front/SKILL.md"])
+            self.assertEqual(sorted(done.stdout.split()), ["plugins/front/skills/front/SKILL.md", "plugins/relay/hooks/merge.py"])
 
     def test_unchecked_paths_print_nothing_exit_1(self) -> None:
         import tempfile

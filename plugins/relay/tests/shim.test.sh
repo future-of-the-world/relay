@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for templates/kit-shim: a project script reaches `kit` with no PATH help.
-#   plugins/core/tests/shim.test.sh
+#   plugins/relay/tests/shim.test.sh
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd -P)"

@@ -2,6 +2,6 @@ schema_version: "1.1"
 name: recall-decision
 description: "a fresh front session answers \"what did we decide\" from the item's notes alone: each question as asked, its options, the owner's answers verbatim"
 tags: [front, delegate]
-plugins: ["../../../plugins/core", "../../../plugins/front", "../../../plugins/delegate"]
+plugins: ["../../../plugins/relay", "../../../plugins/front", "../../../plugins/delegate"]
 context:
   scaffold_script: scaffold.sh
