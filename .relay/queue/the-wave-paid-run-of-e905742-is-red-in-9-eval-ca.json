@@ -27,5 +27,13 @@
   "closed_at": "2026-10-25T13:44:57Z",
   "test": "tests/test_claudemd_fixes.py::NoCalquesJudge::test_a_russian_gloss_beside_the_term_fails",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-25T03:40:27Z",
+      "fact": [
+        "Migration 27 Oct: the link in `failing_case` line 1 points to a session file (`ci-wave-e905742.log` and `reports/wave-red.md`), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
+      ]
+    }
+  ]
 }
