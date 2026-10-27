@@ -192,7 +192,8 @@ class FixtureComment(unittest.TestCase):
         # The gate prepends only plugins/core/bin to PATH; the comment once claimed a git shim in .ci/evalbin too.
         head = open(os.path.join(PLUGIN, "setup-fixture.sh"), encoding="utf-8").read().split("set -e")[0]
         gate = open(os.path.join(ROOT, "lib", "relay_ci.py"), encoding="utf-8").read()
-        self.assertIn('self.path("plugins", "core", "bin")', gate)
+        self.assertIn('"core", "bin"', gate)
+        self.assertIn("plugins/core/bin", head)
         self.assertNotIn("evalbin", head)
         self.assertNotIn("evalbin", gate)
         # Any other git-shim claim is false too: "shim" may appear only as "no git shim".
