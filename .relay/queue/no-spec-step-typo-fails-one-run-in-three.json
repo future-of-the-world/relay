@@ -23,8 +23,8 @@
   "where": [
     "evals/plugin/no-spec-step-typo"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T14:02:25Z",
+  "taken_by": "wt/typo-flake",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
