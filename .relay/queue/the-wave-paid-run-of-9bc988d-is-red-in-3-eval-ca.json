@@ -89,6 +89,12 @@
         "b. Всегда пересказывать по-русски",
         "c. Всегда давать цитату и перевод"
       ]
+    },
+    {
+      "at": "2026-10-27T11:08:51Z",
+      "fact": [
+        "Measured 27 Oct, right after question 2 was recorded: of 12 decision notes in .relay/queue, 0 have options without Cyrillic letters; the question's claim \"16 старых записей перенесены из английских планов, в них варианты по-английски\" is wrong (16 was the count of closed items migrated, not of English questions). So today a and c differ only for a future question recorded in another language; the real choice is a (quote as shown) against b (always retell)."
+      ]
     }
   ]
 }
