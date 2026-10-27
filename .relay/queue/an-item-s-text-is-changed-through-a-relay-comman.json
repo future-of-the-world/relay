@@ -46,6 +46,15 @@
       "options": [
         "a. Исправлять командой relay, с датированной заметкой «почему» (рекомендую: это то, о чём вы просили)",
         "b. Оставлять текст, а поправку показывать на месте неверной фразы"
+      ],
+      "answered_at": "2026-10-27T13:10:07Z",
+      "answer": [
+        "a a",
+        "",
+        "Когла я говорил о редактировании задачи я имел ввиду команды которые обслуживают цикл задачи, relay queue take X - проставляет текущее время в задаче, команда для добавления в заметку, чтобы это был один унифицированный путь контролируемый скриптом"
+      ],
+      "reading": [
+        "Question 1 a (rewrite through relay queue edit with a dated why note), question 2 a (owner words move to said notes for new items only). The explanation: what the owner meant by editing is that every change to an item, lifecycle included (take stamps the time, note appends), goes through one scripted path; that path exists for take/note/done/drop/ip, and the gap the design found is that nothing refuses a hand edit on a task branch (18 hand commits since 20 Oct) — the design's hand-edit fence closes it. The edit command of text is built as answered."
       ]
     },
     {
@@ -65,6 +74,15 @@
       "options": [
         "a. Только новые задачи (рекомендую: правок мало, 33 за 7 дней, из них 22 заголовки, а в заголовках нет ни ваших слов, ни кавычек; сколько ваших слов без кавычек, не измерено)",
         "b. Перенести все 80 сейчас, до команды правки"
+      ],
+      "answered_at": "2026-10-27T13:10:07Z",
+      "answer": [
+        "a a",
+        "",
+        "Когла я говорил о редактировании задачи я имел ввиду команды которые обслуживают цикл задачи, relay queue take X - проставляет текущее время в задаче, команда для добавления в заметку, чтобы это был один унифицированный путь контролируемый скриптом"
+      ],
+      "reading": [
+        "Question 1 a (rewrite through relay queue edit with a dated why note), question 2 a (owner words move to said notes for new items only). The explanation: what the owner meant by editing is that every change to an item, lifecycle included (take stamps the time, note appends), goes through one scripted path; that path exists for take/note/done/drop/ip, and the gap the design found is that nothing refuses a hand edit on a task branch (18 hand commits since 20 Oct) — the design's hand-edit fence closes it. The edit command of text is built as answered."
       ]
     }
   ]
