@@ -34,6 +34,12 @@
       "fact": [
         "Migration 27 Oct: the link in `why` line 1 points to a session file (`reports/demo-and-release.md`, part 1, 25 Oct, in the session session folder; a copy is in relay's backup folder), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
       ]
+    },
+    {
+      "at": "2026-10-25T19:29:55Z",
+      "fact": [
+        "Measured 25 Oct in a throwaway project with a fake HOME: `relay setup shop` with no flags wrote its files but exited 1, because its built-in `relay sync` refused: \"Not synced: waits for a green paid run; merged since the last one: no green run recorded\", followed by a list of 50 of relay's 174 commits (the hold is at lib/relay_rules.py line 284: sync writes no files outside the checkout until relay's current commit has a green paid run). The record of paid runs is in the machine's ~/.relay, which a fake HOME, like a new user, does not have. With `RELAY_SKIP_PAID_DUE=1` (the code's own path for tests that sync into temporary targets, lib/relay_rules.py lines 282-283) sync wrote CLAUDE.local.md and the other files. The documented path for a new machine, `relay install`, calls sync with wait=False, but `relay setup` after it hits the hold again."
+      ]
     }
   ]
 }
