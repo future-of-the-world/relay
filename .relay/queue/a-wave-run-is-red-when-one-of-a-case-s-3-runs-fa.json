@@ -27,8 +27,8 @@
   ],
   "taken_at": "2026-10-27T13:11:34Z",
   "taken_by": "wt/majority",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T14:26:26Z",
+  "test": "tests/test_eval_majority.py::Majority::test_pass_pass_fail_is_green_and_the_rate_is_shown",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
