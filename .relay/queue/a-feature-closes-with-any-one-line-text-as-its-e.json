@@ -23,8 +23,8 @@
   "where": [
     "lib/relay_queue.py:1033-1050"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T22:49:27Z",
+  "taken_by": "wt/evidence",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
