@@ -1,0 +1,119 @@
+{
+  "branch": "wt/timeouts",
+  "findings": [
+    {
+      "details": [
+        "Owner, 27 Oct, answering whether a run that did not finish in its 10 minutes is a failed run under the 2-of-3 majority rule: \"7. a\" (a = count it as a failed run; the summary names it; two timeouts are red). Today such a run is \"not judged\" and makes the whole wave red even when the other two passed. Measured 27 Oct: 22 such runs in 21 stored records, none of which would change its record's verdict. Needed before the next paid run, which plays 3 evals at once (owner, 27 Oct: \"5. a\"), where load may cause more timeouts. Split out of a-wave-run-is-red-when-one-of-a-case-s-3-runs-fa (review finding F5 of that change) so the majority rule lands first: relay sync waits on it.",
+        "Also: lib/relay_ci.py (eval record step)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A case with runs PASS, PASS, timed out after 600s: the wave verdict is RED ('1 not judged')."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "PASS, PASS, timed out: green, and the summary says '2 of 3 runs passed, 1 timed out'.",
+        "PASS, timed out, timed out: red.",
+        "A falling pass rate counts a timeout as a failed run.",
+        "A test fails with the rule disabled."
+      ],
+      "path": "bin/eval-record",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_majority.py::Majority::test_a_timed_out_run_is_a_failed_run_of_the_majority passes at head and fails at 462abb2 (also test_ci_python PaidPart timed-out test)."
+      ],
+      "severity": "HIGH",
+      "since": "462abb249f741df3fbaca33b571b265cf3363f43",
+      "source": "queue",
+      "summary": "A timed-out eval run counts as one failed run",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED as fragile, not wrong: the only evidence of the wording is the 3 stored timeouts. The failure direction is",
+        "safe (red, not green). Rules/python: data relay does not control goes through one checking parser at the boundary;",
+        "the prefix test is that parser, so keeping it in one function is right. A case-insensitive match, or a test pinning the",
+        "exact stored text, makes a wording drift visible. Size: 5."
+      ],
+      "evidence": [
+        "census of ~/.relay/evals/relay/*.json run errors: 19 'exit 1: Reached maximum number of turns (3)', 3 'timed out after 600s'"
+      ],
+      "failing_case": [
+        "A run {\"error\": \"Timed out after 600s\", \"durationSeconds\": 600, \"graders\": [...]} (or \"timeout after 600s\") in an arm",
+        "PASS, PASS, <that run>: timed_out() is False, the run is \"not judged\", the wave is RED. The owner's rule says it is a",
+        "failed run and the case passes 2 of 3. Today's tool writes \"timed out after 600s\" (3 of 3 stored timeouts), so it is",
+        "correct today; the match is on text relay does not control."
+      ],
+      "fix_hint": [
+        "Leave as is, or match case-insensitively (re.match(r\"timed? ?out\", ..., re.I)); either way keep it in timed_out()."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 60,
+      "pass_cases": [
+        "{\"error\": \"timed out after 600s\"} in PASS, PASS, timeout -> green, \"2 of 3 runs passed, 1 timed out\".",
+        "{\"error\": \"exit 1: Reached maximum number of turns (3)\"} in PASS, PASS, error -> red, \"1 not judged\".",
+        "PASS, timeout, timeout -> red, \"2 run(s) timed out\"."
+      ],
+      "path": "bin/eval-record",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_timeouts.py test_a_capitalised_timeout_message_is_a_failed_run_not_an_unjudged_one and test_max_turns_is_still_not_a_timeout pass; the first fails at da674b4."
+      ],
+      "severity": "LOW",
+      "since": "765b26277f4694cfc62fb2a210312a6eb1f7578c",
+      "source": "review-timeouts.json",
+      "source_id": "F1",
+      "summary": "a timeout is recognised only by the prefix of the eval tool's free-text error, so a reworded message silently goes back to 'not judged'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Docs only; cheap. Size: 5."
+      ],
+      "evidence": [
+        "bin/eval-record:7-8 \"exit 2 ... when a case fails its majority ... any run was not judged ...\""
+      ],
+      "failing_case": [
+        "A reader of bin/eval-record's docstring (lines 7-8) or lib/relay_ci.py's (line 13) learns that \"any run was not",
+        "judged\" makes the gate red and nothing about timeouts; they expect PASS, PASS, timed out to be red, while the code",
+        "now makes it green."
+      ],
+      "fix_hint": [
+        "Add one clause to the docstring at line 8: \"a run the eval tool stopped at its time limit is a failed run of the majority, not an unjudged one\"."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 8,
+      "pass_cases": [
+        "The docstring of bin/eval-record says a run that timed out counts as a failed run of the majority (owner, 27 Oct, \"7. a\").",
+        "The docstring still says any other errored run is not judged and makes the gate red."
+      ],
+      "path": "bin/eval-record",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_timeouts.py test_the_docstring_states_the_timeout_rule passes; fails at da674b4; docstring bin/eval-record:8 holds the clause."
+      ],
+      "severity": "LOW",
+      "since": "765b26277f4694cfc62fb2a210312a6eb1f7578c",
+      "source": "review-timeouts.json",
+      "source_id": "F2",
+      "summary": "the module docstring still lists the red conditions without the timeout rule",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b62f5b2dae882591bd31d5d4a90cfeb5d2f28ce5.gate.log",
+  "head": "b3982c3574ce7bd127275f2d971dd1b2d0875d1d",
+  "item": "a-timed-out-eval-run-counts-as-one-failed-run",
+  "notes": [
+    "Fix diff is a one-line .lower() in timed_out() plus a docstring clause; no callers changed."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 462abb2..HEAD (Q1) and 765b262..HEAD (F1,F2). Own changed files: bin/eval-record, tests/test_eval_timeouts.py (plus earlier tests/test_ci_python.py, tests/test_eval_majority.py), all within scope. Ran test_eval_timeouts + test_eval_majority (18 passed). Gate log head b62f5b2 exit 0; later commit is the gate log only (inert). Base worktrees at 462abb2 and da674b4 with head tests copied: Q1 tests fail at base; F1/F2 tests fail at da674b4."
+  ],
+  "type": "check"
+}

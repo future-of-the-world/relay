@@ -193,6 +193,7 @@ class PaidPart(unittest.TestCase):
         self.assertEqual(ci.status, 1)
         self.assertIn("not a pass", out)
 
+<<<<<<< HEAD
     def fast_first(self, red: str) -> "tuple[list[str], str, int]":
         """Run the quick gate with every step replaced by a recorder; `red` is the step name that fails ('' for none)."""
         ci = self.ci(Recorder(self.paid_answers()), quick=True)
@@ -230,6 +231,41 @@ class PaidPart(unittest.TestCase):
         self.assertEqual(order, ["types and lint", "lib copies identical", "library tests", "hook tests",
                                  "eval grader tests", "plugin validate"])
         self.assertEqual(code, 0)
+=======
+    def test_a_run_that_timed_out_keeps_the_gate_green_when_the_other_two_passed(self) -> None:
+        # the gate's own verdict (plugin_evals + record, bin/eval-record run for real): PASS, PASS, timed out is 2 of 3
+        self.assertEqual(self.gate_verdict_for([True, True, None]), 0)
+        self.assertEqual(self.gate_verdict_for([True, None, None]), 1)
+
+    def gate_verdict_for(self, runs: "List[Optional[bool]]") -> int:
+        """Runs the gate's eval and record steps over a case whose runs passed (True) or timed out (None); returns ci.status."""
+        def run(passed: Optional[bool]) -> dict:
+            if passed is None:
+                return {"error": "timed out after 600s", "graders": []}
+            return {"graders": [{"name": "g", "type": "llm", "passed": True, "judgeVotes": [True] * 3}]}
+        data = {"startedAt": "2026-10-27T10:00:00.000Z", "costUsd": 1.0,
+                "cases": [{"name": "c", "runsPerCase": 3, "graders": [{"name": "g", "type": "llm"}],
+                           "arms": {"with": [run(r) for r in runs]}}]}
+        real = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "eval-record")
+        home = os.path.join(self.root, "home")
+
+        def answer(argv: List[str]) -> Any:
+            if argv[0] == "claude":
+                os.makedirs(os.path.join(self.root, ".ci"), exist_ok=True)
+                with open(os.path.join(self.root, ".ci", "evals.json"), "w") as handle:
+                    json.dump(data, handle)
+                return 1, ""   # the eval tool exits 1 when a run failed
+            if "bin/eval-record" in argv:
+                done = subprocess.run([sys.executable, real, *argv[2:], "--repo", "t"], cwd=self.root, text=True, capture_output=True,
+                                      env=dict(os.environ, RELAY_HOME=home))
+                return done.returncode, done.stdout
+            return self.paid_answers()(argv)
+        ci = self.ci(Recorder(answer))
+        with redirect_stdout(io.StringIO()):
+            self.assertIsNone(ci.plugin_evals())
+            ci.record()
+        return ci.status
+>>>>>>> wt/timeouts
 
     def test_the_eval_tools_exit_code_does_not_decide_the_gate_the_records_majority_does(self) -> None:
         # Q1 of the majority item: the eval tool exits 1 when any run failed, yet the case with runs PASS PASS FAIL
