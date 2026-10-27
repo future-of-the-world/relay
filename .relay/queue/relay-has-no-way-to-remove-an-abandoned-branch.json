@@ -29,5 +29,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T20:21:42Z",
+      "fact": [
+        "28 Oct: wt/train-22 (head 85c9825, a merge committed with conflict markers) was replaced by wt/train-22b with the same tree; guard-main refused `git branch -D wt/train-22` and its worktree removal, so .worktrees/train-22 and wt/train-22 are left over, a live case of this item."
+      ]
+    }
+  ]
 }
