@@ -27,6 +27,12 @@
       "fact": [
         "27 Oct, branch wt/gate-slots (not yet merged): gates now take a slot from one per-machine setting in relay's config (default 2 on 12 cores, from the core count) read in lib/relay_gate.py; the name DEFAULT_SLOTS this item refers to changed there. Measured on this Mac, 4 test jobs per gate: one gate alone 420 s, two at once 698 s each, three 1058 s each."
       ]
+    },
+    {
+      "at": "2026-10-27T21:23:00Z",
+      "fact": [
+        "28 Oct: wt/gate-slots removes lib/relay_gate.py DEFAULT_SLOTS and limits gates to 2 at once (owner answered \"A\" in gates-run-all-at-once-and-slow-each-other-down); the slot half of this item is done there, the test-process half is not."
+      ]
     }
   ]
 }
