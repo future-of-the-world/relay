@@ -1,0 +1,26 @@
+{
+  "kind": "feature",
+  "ip": 84,
+  "time": 180,
+  "found_at": "2026-10-27T01:08:35Z",
+  "found_in": "relay queue add",
+  "title": "Each change is gated in a fresh container",
+  "what": [
+    "The gate of each change also runs in a fresh container with the tools preinstalled and only the project's files; the two results are compared per wave; after 3 waves in a row agree, the container's result decides; the container never lands anything."
+  ],
+  "why": [
+    "Owner, 26-27 Oct: \"...вплоть до того что бы можем запускать каждое изменение в новой docker контейнере где предустановлены все необходимые утилиты, как будто это запуск ci/cd в стандартных системах (woodpecker)... При этом получать тот же результат\". Owner's answers, 27 Oct: \"3. A\" (this Mac re-gates until 3 waves in a row agree with the container, then the container's gate decides), \"4. A\" (containers after the metrics build). Measured 27 Oct: container start 0.33-0.52 s cached, image 1.18 GB, cold build 311 s; same tree b10d314 quick gate green on the Mac in 935 s and red in a Linux container (25 failures, 17 errors, 215 s; queued as the-quick-gate-is-red-in-a-clean-linux-container). Needs the same-setup item first (a-change-runs-with-relay-s-settings-from-the-pro). Design source: scratchpad report design-clean-env.md rev 2 (approach A, never landing from the container); redo against the fresh repository when taken. IP 84 chosen by the front from the owner's \"4. A\" (agent-chosen)."
+  ],
+  "where": [
+    "lib/relay_gate.py",
+    "bin/ci",
+    "deps.toml",
+    "a container image definition in the repo"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
