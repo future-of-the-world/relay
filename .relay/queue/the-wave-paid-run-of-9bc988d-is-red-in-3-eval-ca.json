@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 99,
+  "time": 90,
+  "found_at": "2026-10-27T09:27:00Z",
+  "found_in": "relay queue add",
+  "title": "The wave paid run of 9bc988d is red in 3 eval cases",
+  "what": [
+    "The wave paid run of 9bc988d is red in 3 eval cases"
+  ],
+  "why": [
+    "Measured 27 Oct: bin/ci (full, paid) at master 9bc988d, log copied to the eval record ~/.relay/evals/relay/2026-10-27T07-35-44Z-master.json, cost $21.41, plugin evals 6626 s. RED in three cases; all others green, including the new recall-decision and no-note-off-topic. (1) keep-owner-words (Russian), 3 of 3 runs: said-verbatim FAIL FAIL FAIL, run 3 also note-written; the session answered \"relay queue отвечает «repository not found»\": the case's scaffold gives the session no queue repository, so the note cannot be written. (2) keep-owner-words-en: runs 1 and 2 timed out after 600 s (not judged), run 3 failed note-written and said-verbatim with the same \"repository not found\". Both cases came with the notes change (design section 9) and were never run before the merge. (3) no-spec-step-typo, run 3 of 3: code grader no-openspec-command failed (an older case; 1 of 3 runs, see also a-wave-run-is-red-when-one-of-a-case-s-3-runs-fa). Wave contents: train-recheck, cycle-scripts, principle 10, done/ removal, notes. relay sync waits for a green run."
+  ],
+  "failing_case": [
+    "bin/ci at 9bc988d: keep-owner-words and keep-owner-words-en fail note-written and said-verbatim because relay queue reports 'repository not found' inside the eval session; no-spec-step-typo run 3 fails no-openspec-command."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "keep-owner-words and keep-owner-words-en scaffold a queue repository the session's relay finds, and pass 3 of 3 runs each within the time limit.",
+    "no-spec-step-typo run 3's failure is explained from its record (model behaviour or grader) and fixed at its cause, or shown to be the known one-of-three item and left to it.",
+    "A rerun of only the changed cases is green before the full wave run is repeated."
+  ],
+  "where": [
+    "evals/plugin/keep-owner-words*",
+    "evals/plugin/no-spec-step-typo",
+    "~/.relay/evals/relay/2026-10-27T07-35-44Z-master.json"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
