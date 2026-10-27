@@ -167,6 +167,12 @@ def default_dir(repo=None):
     return os.path.join(home, "evals", repo)
 
 
+def live_roots():
+    """The checkouts whose evals/plugin/results the day's spend reads: the main checkout and its worktrees (RELAY_ROOT or this repo)."""
+    from relay_config import ROOT
+    return relay_paidcap.suite_roots(ROOT)
+
+
 def money_command(a):
     today = a.today or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
     home = os.path.dirname(os.path.dirname(a.dir)) if a.dir else None  # --dir is evals/<repo>; its home holds evals/ and bench/
@@ -179,7 +185,7 @@ def money_command(a):
             if a.arg != "eval":
                 print("paid-cost: guard takes: eval", file=sys.stderr)
                 return 2
-            line = relay_paidcap.check(today, relay_paidcap.eval_estimate(home), "plugin evals", home=home, bench=bench)
+            line = relay_paidcap.check(today, relay_paidcap.eval_estimate(home), "plugin evals", home=home, bench=bench, roots=live_roots())
             if line:
                 print(f"ci: {line}")
                 return 1
@@ -191,7 +197,7 @@ def money_command(a):
     if a.cmd == "cap":
         print(f"{limit:g}")
         return 0
-    spent, runs = relay_paidcap.spend_today(today, home, bench)
+    spent, runs = relay_paidcap.spend_today(today, home, bench, live_roots())
     print(f"{today}: spent ${spent:.2f} of the ${limit:g} cap, {runs} run{'s' if runs != 1 else ''}")
     return 0
 
@@ -251,7 +257,7 @@ def main(argv=None):
         today = a.today or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
         home = os.path.dirname(os.path.dirname(a.dir)) if a.dir else None
         try:
-            room = relay_paidcap.cap() - relay_paidcap.spend_today(today, home)[0]
+            room = relay_paidcap.cap() - relay_paidcap.spend_today(today, home, roots=live_roots())[0]
         except (ValueError, OSError) as e:
             print(f"paid-cost: {e}", file=sys.stderr)
             return 2

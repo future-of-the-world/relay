@@ -30,7 +30,7 @@ class Fixture(unittest.TestCase):
         self.tmp.cleanup()
 
     def run_bin(self, *args):
-        env = dict(os.environ, RELAY_HOME=self.home, RELAY_PROJECTS=self.projects)
+        env = dict(os.environ, RELAY_HOME=self.home, RELAY_PROJECTS=self.projects, RELAY_ROOT=getattr(self, 'root', self.home))
         return subprocess.run([sys.executable, BIN, *args], capture_output=True, text=True, env=env)
 
 
@@ -45,6 +45,54 @@ class Today(Fixture):
         self.assertEqual(self.run_bin("cap", "200").stdout.strip(), "200")
         self.assertEqual(relay_paidcap.cap(self.projects), 200.0)
         self.assertIn('title = "t"', open(self.projects).read())
+
+
+class DirectRuns(Fixture):
+    """A `claude plugin eval` run made by hand leaves evals/plugin/results/<stamp>/aggregate-result.json in the checkout it ran in."""
+
+    def setUp(self):
+        super().setUp()
+        self.root = os.path.join(self.home, "repo-main")
+        self.wt = os.path.join(self.home, "wt")
+        git = lambda *a, cwd=self.root: subprocess.run(["git", "-C", cwd, *a], check=True, capture_output=True)
+        os.makedirs(self.root)
+        git("init", "-q"); git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x")
+        git("worktree", "add", "-q", "--detach", self.wt)
+
+    def result(self, checkout, stamp, cost):
+        folder = os.path.join(checkout, "evals", "plugin", "results", stamp.replace(":", "-").replace(".", "-"))
+        os.makedirs(folder)
+        with open(os.path.join(folder, "aggregate-result.json"), "w") as f:
+            json.dump({"startedAt": stamp, "costUsd": cost}, f)
+
+    def test_a_direct_run_in_a_worktree_counts_in_today(self):
+        # failing case: a worker's direct run of one case cost 2.25 in a worktree; the ledger showed only the stored 7.00 (4 + 3) and 1.50 bench
+        self.result(self.wt, "2026-10-24T05:00:00.000Z", 2.25)
+        done = self.run_bin("today", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        # 4.00 + 3.00 + 1.50 + 2.25 = 10.75 over 4 runs
+        self.assertEqual(done.stdout.strip(), "2026-10-24: spent $10.75 of the $10 cap, 4 runs")
+
+    def test_a_direct_run_in_the_main_checkout_counts_and_another_day_does_not(self):
+        self.result(self.root, "2026-10-24T05:00:00.000Z", 1.0)
+        self.result(self.root, "2026-10-23T05:00:00.000Z", 5.0)   # yesterday
+        done = self.run_bin("today", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        self.assertEqual(done.stdout.strip(), "2026-10-24: spent $9.50 of the $10 cap, 4 runs")   # 8.50 + 1.00
+
+    def test_a_bin_ci_run_is_counted_once(self):
+        # the stored record "a" (4.00) and the eval tool's own result have the same startedAt: one run
+        self.result(self.wt, "2026-10-24T01:00:00.000Z", 4.0)
+        done = self.run_bin("today", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        self.assertEqual(done.stdout.strip(), "2026-10-24: spent $8.50 of the $10 cap, 3 runs")
+
+    def test_the_guard_sees_a_direct_run(self):
+        # stored 7.00 + bench 1.50 = 8.50; largest stored batch 9.00 (23 Oct); cap raised to 18: 17.50 fits, but a direct 1.50 makes 10.00 + 9.00 = 19 > 18
+        self.run_bin("cap", "18")
+        args = ("guard", "eval", "--today", "2026-10-24", "--dir", os.path.join(self.home, "evals", "repo"))
+        self.assertEqual(self.run_bin(*args).returncode, 0)
+        self.result(self.wt, "2026-10-24T05:00:00.000Z", 1.5)
+        done = self.run_bin(*args)
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("$10.00 is spent", done.stdout)
 
 
 class Refusal(Fixture):
@@ -250,6 +298,7 @@ class CiGuard(unittest.TestCase):
         with open(self.projects, "w") as f:
             f.write(f'[global]\npaid_cap_usd_per_day = {cap}\n')
         return dict(os.environ, RELAY_HOME=self.home, RELAY_PROJECTS=self.projects,
+                    RELAY_ROOT=self.tmp.name,   # not a git checkout: no live worktree's direct eval runs count in this test
                     PATH=os.path.join(self.tmp.name, "stub") + os.pathsep + os.environ["PATH"],
                     PYTHONPATH=os.path.join(ROOT, "lib"))
 
