@@ -76,6 +76,12 @@
       "reading": [
         "At most 2 gates at once on this machine."
       ]
+    },
+    {
+      "at": "2026-10-27T22:26:25Z",
+      "fact": [
+        "28 Oct: with the owner's \"A\" (2 gates at once) the pass case \"about 1.5 times its time alone\" is replaced by about 1.7 times (measured 27 Oct: 698 s against 420 s = 1.66x); the after-number on the merged code is not measured yet."
+      ]
     }
   ]
 }
