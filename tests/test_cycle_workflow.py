@@ -295,6 +295,9 @@ class Cycle(unittest.TestCase):
                                  **{"stage:review": INSIDE, "stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}})
             self.assertTrue(len(out["prompts"]) > 10)
             for label, prompt in out["prompts"].items():
+                # the test's own temp dir is passed in as an argument (it may sit under /private/ when TMPDIR does);
+                # only paths the script itself wrote may not appear
+                prompt = prompt.replace(self.tmp, "<tmp>")
                 for word in banned:
                     self.assertNotIn(word, prompt, label)
                 self.assertNotIn("master", prompt, label)
