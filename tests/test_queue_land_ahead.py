@@ -1,5 +1,5 @@
 """A queue landing must write only records the default branch's own code accepts (item a-queue-landing-writes-fields-master-s-code-reje).
-Scratch repositories in a temp dir; the default branch carries a copy of lib/ whose schema does not know the `notes` key."""
+Scratch repositories in a temp dir; the default branch carries a stub lib/relay_queue.py whose parse does not know the `notes` key."""
 import os
 import sys
 import unittest
@@ -14,20 +14,16 @@ NOTE = {"kind": "fact", "fact": ["Measured 27 Oct: 30 items."]}
 
 
 class LandAhead(tq.Base):
+    def master_with_code(self, code):
+        """Put `code` as lib/relay_queue.py on the default branch: the code the lander's record must pass."""
+        self.write_commit(self.main, {"lib/relay_queue.py": code}, "default branch queue code")
+
     def master_with_old_schema(self):
-        """Put a copy of lib/ on the default branch whose item keys lack `notes`: the code the lander's record must pass."""
-        files = {}
-        for name in sorted(os.listdir(LIB)):
-            full = os.path.join(LIB, name)
-            if name.endswith((".py", ".toml")) and os.path.isfile(full):
-                with open(full, encoding="utf-8") as handle:
-                    files["lib/" + name] = handle.read()
-        old = files["lib/relay_queue.py"]
-        # hand-made: the one place the keys are listed ends in `"dropped_why", "notes")`; removing "notes" is the older schema
-        marker = '"dropped_at", "dropped_why", "notes")'
-        self.assertEqual(old.count(marker), 1)
-        files["lib/relay_queue.py"] = old.replace(marker, '"dropped_at", "dropped_why")')
-        self.write_commit(self.main, files, "default branch code before notes")
+        """A stub of the older schema: parse reports the key `notes` as unknown and accepts everything else."""
+        self.master_with_code(
+            "import json\n"
+            "def parse(slug, text):\n"
+            "    return {'problems': ['unknown key notes'] if 'notes' in json.loads(text) else []}\n")
 
     def add_item(self):
         return rq.add(self.main, "feature", "A feature to note on", why="it matters", what="what is wanted here", minutes=10, **tq.QUIET)
@@ -57,6 +53,18 @@ class LandAhead(tq.Base):
         slug = self.add_item().split()[1]
         out = rq.note(self.main, slug, NOTE, now="2099-01-01T00:00:00Z", **tq.QUIET)
         self.assertIn("noted", out)
+
+    def test_a_default_branch_whose_code_cannot_run_refuses(self):
+        # fail closed: code that does not run (syntax error) or prints non-JSON must not be taken for "accepts"
+        slug = self.add_item().split()[1]
+        for code, word in (("def oops(:\n", "SyntaxError"), ("print('not json')\ndef parse(slug, text):\n    return {'problems': []}\n", "Expecting value")):
+            self.master_with_code(code)
+            head = git(self.main, "rev-parse", "master")
+            with self.assertRaises(rq.Refused) as ctx:
+                rq.set_ip(self.main, slug, 40, **tq.QUIET)
+            self.assertIn("cannot run", str(ctx.exception))
+            self.assertIn(word, str(ctx.exception))
+            self.assertEqual(git(self.main, "rev-parse", "master"), head)
 
 
 if __name__ == "__main__":
