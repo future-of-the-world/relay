@@ -26,8 +26,8 @@
   "where": [
     "tests/test_spec_steps.py:1"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T13:05:34Z",
+  "taken_by": "wt/test-order",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
