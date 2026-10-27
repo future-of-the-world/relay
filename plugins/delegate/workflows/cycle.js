@@ -109,6 +109,10 @@ const agentOpts = (type, schema, phase, label) => ({ agentType: `delegate:${type
 // File names carry the kind for a fix or recheck run, so it never overwrites what the change run wrote.
 const tag = (it) => ((it.kind || 'change') === 'change' || it.kind === 'built') ? it.name : `${it.kind}-${it.name}`
 
+// The quiet check every agent of a unit loops on: in relay mode `relay precheck` (the gate's seconds-long steps) comes in
+// front of the unit's own check, so a brief or an item that names only a test line cannot leave it out.
+const quiet = (it) => RELAY ? `relay precheck -C ${it.wt} && ${it.check}` : it.check
+
 function gatePrompt(it, n) {
   const log = `${S}/gate-${tag(it)}-${n}.log`
   const wait = `It takes minutes to an hour and may first wait for a free slot: wait in as few turns as possible (you have ${CFG.gate_turns}; if the gate is still running at your ${CFG.gate_turns - 5}th turn, report ok=false with first_fail "still running, pid <pid>, log <path>" instead of ending silently): each Bash call one bounded loop of at most 230 s (\`for i in \$(seq 1 11); do kill -0 <pid> 2>/dev/null || break; sleep 20; done\`), never a call per check.`
@@ -133,7 +137,7 @@ async function gated(it, st) {
     st.rounds += 1
     st.fn += 1
     const fx = `${S}/reports/fixgate-${tag(it)}-${st.fn}.md`
-    const f = await ask(`Fix the red gate. Worktree: ${it.wt}. Gate log: ${g.gate_log}. First failing line: ${g.first_fail}. Brief of the change: ${S}/briefs/${it.name}.md. Check: ${it.check}. Never work around a relay guard or hook. Commit the fix. Report: ${fx}.`,
+    const f = await ask(`Fix the red gate. Worktree: ${it.wt}. Gate log: ${g.gate_log}. First failing line: ${g.first_fail}. Brief of the change: ${S}/briefs/${it.name}.md. Check: ${quiet(it)}. Never work around a relay guard or hook. Commit the fix. Report: ${fx}.`,
       agentOpts('fixer', HANDBACK, 'Fix', `fix red gate ${st.fn}: ${it.name}`))
     if (f.dead || f.v.status !== 'DONE') return { stop: stop(it, 'fix red gate', f.dead || f.v.summary) }
     st.fixReports.push(fx)
@@ -164,7 +168,7 @@ async function finish(it, st, o) {
   const { findings, fixes, gateLog, review } = o
   const withItem = RELAY && !!it.item
   const c = await checkStage(it, `check: ${it.name}`,
-    `Check: \`${findings}\`. Fixes: \`${fixes}\`. Worktree: \`${it.wt}\`. Check command: \`${it.check}\`. Gate: \`${gateLog}\`.`,
+    `Check: \`${findings}\`. Fixes: \`${fixes}\`. Worktree: \`${it.wt}\`. Check command: \`${quiet(it)}\`. Gate: \`${gateLog}\`.`,
     `${S}/reports/check-${tag(it)}.json`, withItem)
   if (c.dead) return stop(it, 'check', c.dead, { review })
   const ck = c.v
@@ -192,7 +196,7 @@ async function changeUnit(it) {
   if (it.kind === 'built') {
     // the build was done by hand: nothing to run
   } else {
-    const b = await ask(`Implement the brief. Brief: \`${S}/briefs/${it.name}.md\`. Report: \`${S}/reports/${it.name}.md\`.`,
+    const b = await ask(`Implement the brief. Brief: \`${S}/briefs/${it.name}.md\`. Report: \`${S}/reports/${it.name}.md\`. Loop on this quiet check: \`${quiet(it)}\`.`,
       agentOpts('worker', HANDBACK, 'Build', `build: ${it.name}`))
     if (b.dead || b.v.status !== 'DONE') return stop(it, 'build', b.dead || b.v.summary)
   }
@@ -210,7 +214,7 @@ async function changeUnit(it) {
   let fixes = 'none'
   if (r.inside > 0) {
     fixes = `${S}/reports/fix-${it.name}.md`
-    const f = await ask(`Fix the findings inside the change, each with its failing case and pass cases (read with \`relay check show ${reviewJson}\`). Worktree: ${it.wt}. Check: ${it.check}. New tests go in the change's own new test file (see the brief). For each new test show it fails without the fix. Findings outside the change: leave them, list them as Outside. Commit. Write your report (Fixed / Disputed / Gap / Outside per finding, with the test as file::function) to ${fixes}.`,
+    const f = await ask(`Fix the findings inside the change, each with its failing case and pass cases (read with \`relay check show ${reviewJson}\`). Worktree: ${it.wt}. Check: ${quiet(it)}. New tests go in the change's own new test file (see the brief). For each new test show it fails without the fix. Findings outside the change: leave them, list them as Outside. Commit. Write your report (Fixed / Disputed / Gap / Outside per finding, with the test as file::function) to ${fixes}.`,
       agentOpts('fixer', HANDBACK, 'Fix', `fix: ${it.name}`))
     if (f.dead || f.v.status !== 'DONE') return stop(it, 'fix', f.dead || f.v.summary, { review: r })
     const r2 = await gateGroup(it, st)

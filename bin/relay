@@ -50,6 +50,8 @@
   relay gate [-C <worktree>] [-- <args>]
                                      run the project's free gate on the committed task branch and commit its log
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
+  relay precheck [-C <worktree>]     the gate's seconds-long steps (types and lint, python 3.9 imports, lib copies on HEAD),
+                                     read-only; the quiet check a worker loops on starts with it; exits 1 when one is red
   relay check show [-C <repo>] [--brief] <branch>
                                      three lines: the branch's gate, check mark and outside findings; waits (at most
                                      10 s) while the branch's worktree is committing a mark
@@ -97,6 +99,7 @@ import relay_gate  # noqa: E402
 import relay_git  # noqa: E402
 import relay_inert  # noqa: E402
 import relay_ledger  # noqa: E402
+import relay_precheck  # noqa: E402
 import relay_license  # noqa: E402
 import relay_marks  # noqa: E402
 import relay_verdict  # noqa: E402
@@ -582,6 +585,15 @@ def cmd_gate(args):
     return code
 
 
+def cmd_precheck(args):
+    usage = "relay precheck [-C <worktree>]"
+    if args and not (len(args) == 2 and args[0] == "-C"):
+        raise Usage(usage)
+    code, lines = relay_precheck.run(args[1] if args else ".")
+    print("\n".join(lines))
+    return code
+
+
 RECORD_USAGE = "relay check record review|check --input <file.toml>"
 OWNER_USAGE = "relay check owner <review.json> <id> --input <file.toml>"
 
@@ -961,7 +973,7 @@ def cmd_license(args):
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "queue": cmd_queue, "license": cmd_license,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "precheck": cmd_precheck, "queue": cmd_queue, "license": cmd_license,
 }
 
 

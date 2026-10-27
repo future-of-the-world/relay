@@ -97,6 +97,17 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit(branch=None)], relay=False))
         self.assertEqual(out["labels"], ["build: x", "gate 1: x", "review: x", "check: x"])
 
+    def test_every_quiet_check_starts_with_the_precheck(self):
+        """In relay mode the worker, the fixers and the checker all get `relay precheck -C <wt> && <check>`; project mode keeps
+        the unit's check as it is. Disabled rule (quiet() returning it.check): the strings are missing from the prompts."""
+        want = "relay precheck -C %s && pytest -q" % self.wt
+        out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}, "stage:review": INSIDE})
+        for label in ("build: x", "fix red gate 1: x", "fix: x", "check: x"):
+            self.assertIn(want, out["prompts"][label], label)
+        out = self.run_cycle(self.args([self.unit(branch=None)], relay=False))
+        self.assertNotIn("precheck", out["prompts"]["check: x"])
+        self.assertIn("pytest -q", out["prompts"]["check: x"])
+
     # 2
     def test_red_gate_fixed_once_then_stops(self):
         """gate_fixes defaults to 1: red, fix red gate 1, gate 2 green. Red twice: stops at gate after gate 2."""
@@ -244,7 +255,7 @@ class Cycle(unittest.TestCase):
         found = []
         for text in prompts:
             for span in re.findall(r"`(relay [^`]+)`", text):
-                found.append(span)
+                found.append(span.split(" && ")[0])   # `relay precheck -C <wt> && <check>`: the relay command is the first part
         return found
 
     def bad_commands(self, commands):
