@@ -3,7 +3,9 @@ import os
 import shutil
 import sys
 import tempfile
+import types
 import unittest
+import importlib.util
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -15,6 +17,29 @@ def _drop_relay_modules() -> None:
     for m in list(sys.modules):
         if m.startswith("relay_"):
             del sys.modules[m]
+
+
+def load_hook(name: str, path: str) -> types.ModuleType:
+    """Run a plugin hook file as a module without leaving its import side effects behind.
+
+    A hook puts its plugin's lib copy first on sys.path and imports relay_* modules from there. Left in sys.modules,
+    a copy such as plugins/delegate/lib/relay_config.py makes its ROOT the plugin folder, and a later test that imports
+    lib/relay_license finds no data/licenses. So sys.path is put back and the modules the hook added are dropped."""
+    saved_path = list(sys.path)
+    before = set(sys.modules)
+    try:
+        spec = importlib.util.spec_from_file_location(name, path)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path[:] = saved_path
+        plugins = os.path.join(ROOT, "plugins") + os.sep
+        for added in set(sys.modules) - before:
+            file = getattr(sys.modules[added], "__file__", None) or ""
+            if added.startswith("relay_") or file.startswith(plugins):   # the hook's copies only; stdlib stays
+                del sys.modules[added]
 
 
 class Base(unittest.TestCase):

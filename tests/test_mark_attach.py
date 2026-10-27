@@ -1,14 +1,12 @@
 """The check-mark hook reads a workflow checker's transcript: attachment entries after its prompt are not a failure."""
-import importlib.util
 import json
 import os
 import tempfile
 import unittest
+from relay_testbase import load_hook as _load_hook  # noqa: E402
 
 HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "plugins", "core", "hooks", "check-mark.py")
-spec = importlib.util.spec_from_file_location("check_mark", HOOK)
-check_mark = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(check_mark)
+check_mark = _load_hook("check_mark", HOOK)
 
 PROMPT = "[Workflow harness] task text\n  Implement the brief.\n  Report: `r/x.md`."
 
