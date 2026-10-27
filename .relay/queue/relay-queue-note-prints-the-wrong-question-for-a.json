@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 70,
+  "time": 20,
+  "found_at": "2026-10-27T11:12:40Z",
+  "found_in": "relay queue add",
+  "title": "relay queue note prints the wrong question for an answer",
+  "what": [
+    "relay queue note prints the wrong question for an answer"
+  ],
+  "why": [
+    "Measured 27 Oct on the-wave-paid-run-of-9bc988d-is-red-in-3-eval-ca: `relay queue note ... --input` with answer = \"a\" and to = [2] printed \"noted ... (answer to 1)\", while the file shows the answer stored on question 2 (answered_at and answer on the number 2 note) and `show` says \"the owner answered question 2\". The front, a newcomer, reads the printed line to confirm where the answer went (principle 10); the wrong number makes it doubt a correct write."
+  ],
+  "failing_case": [
+    "An item with questions 1 and 2; note with answer and to = [2]: the printed line names question 1."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The printed line names the question numbers the answer was stored on (to = [2] prints 'answer to 2', to = [1, 2] prints 'answer to 1, 2').",
+    "Storage is unchanged.",
+    "A test in a temporary folder fails with the old print."
+  ],
+  "where": [
+    "lib/relay_queue.py (note command output)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
