@@ -25,8 +25,8 @@
     "bin/relay (gate)",
     "plugins/delegate/workflows/cycle.js (gate_args)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T17:31:40Z",
+  "taken_by": "wt/gate-quick",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
