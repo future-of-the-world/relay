@@ -24,5 +24,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T01:53:38Z",
+      "fact": [
+        "Migration 27 Oct: the owner's words below, up to the shape of the answers, were said on 27 Oct between 01:07 and 01:53 UTC, before this item was created (01:53:38 UTC); they are noted with the creation time, in the order they were said, word for word from the session text."
+      ]
+    }
+  ]
 }
