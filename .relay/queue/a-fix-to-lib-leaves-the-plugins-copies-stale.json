@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 82,
+  "time": 30,
+  "found_at": "2026-10-27T06:26:54Z",
+  "found_in": "relay queue add",
+  "title": "A fix to lib/ leaves the plugins' copies stale",
+  "what": [
+    "A fix to lib/ leaves the plugins' copies stale"
+  ],
+  "why": [
+    "Measured 27 Oct, change wt/owner-notes: a fixer repaired the Python 3.9 import in lib/relay_queue.py but not its copies under plugins/core/lib and plugins/front/lib; the next gate (about 15 minutes) went red only on \"lib copies identical ... run bin/sync-lib-copies\", and a third fix round was needed. The copies are kept by hand through bin/sync-lib-copies, which nothing runs for the agent; the gate is the first place that notices. Principle 2 (waste built into the setup) and principle 10 (the obvious way is the right way)."
+  ],
+  "failing_case": [
+    "Edit lib/relay_queue.py in a worktree, commit, run the quick check the worker loops on: it passes; the gate then fails on 'lib copies identical'."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "After an edit to a file under lib/ that has plugin copies, the copies are brought up to date without the agent having to know bin/sync-lib-copies (the quiet check or the commit step does it, or the copies stop being copies).",
+    "The gate's 'lib copies identical' step stays as the safety net.",
+    "A test shows the stale copy is caught or refreshed before the gate, and fails with that step disabled."
+  ],
+  "where": [
+    "bin/sync-lib-copies",
+    "the worker's quiet check",
+    "plugins/core/lib, plugins/front/lib"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

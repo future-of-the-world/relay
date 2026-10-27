@@ -27,5 +27,19 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-25T17:28:29Z",
+      "fact": [
+        "Migration 27 Oct: the link in `why` line 1 points to a session file (`reports/design-arsenal.md` of 25 Oct, in the session session folder; a copy is in relay's backup folder on the owner's Mac), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
+      ]
+    },
+    {
+      "at": "2026-10-25T17:28:29Z",
+      "fact": [
+        "Read 25 Oct (arsenal pilot design, risk 4): relay's records are voided by a rebase (read: lib/relay_verdict.py lines 643-644 and plugins/core/hooks/check-mark.py line 205). Mid-October arsenal merged 4 pull requests in 3 days (13-15 Oct), so a window of about 2 hours has roughly a 10% chance of another merge forcing a rebase (an estimate); the cost then is a rebase, a gate, a new Opus review and a new check, about +25 agent minutes. The design filed it as R5: a rebase whose patch is unchanged (`git range-diff` shows no change) should keep its records."
+      ]
+    }
+  ]
 }

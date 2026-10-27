@@ -28,5 +28,19 @@
   "test": "tests/test_wave_red.py::SuiteCeiling::test_ci_uses_the_estimate_unless_the_owner_sets_a_number",
   "fixed_by": "2b4c9f014ba15ea2f6a93478907beb2d01ab47e5",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-25T08:55:36Z",
+      "fact": [
+        "Migration 27 Oct: the link in `failing_case` line 1 points to a session file (`ci-wave-e905742.keep.log`), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
+      ]
+    },
+    {
+      "at": "2026-10-25T08:55:36Z",
+      "fact": [
+        "Measured 27 Oct (wave-red report, cause 5): in the wave run of e905742 \"tune-no-price: 1 of 3 runs missing, not judged\": the run hit its money ceiling (\"partial run: cost_ceiling\", $15.03 of $15) and the last case never ran. It was not a case fault; the case passed in the final paid run."
+      ]
+    }
+  ]
 }

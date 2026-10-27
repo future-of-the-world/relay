@@ -27,5 +27,19 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-25T19:29:55Z",
+      "fact": [
+        "Migration 27 Oct: the link in `why` line 1 points to a session file (`reports/demo-and-release.md`, part 1, 25 Oct), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
+      ]
+    },
+    {
+      "at": "2026-10-25T19:29:55Z",
+      "fact": [
+        "Measured 25 Oct in the same throwaway project: `relay doctor shop` gave 31 ok and 6 to fix. The fixes: mypy not installed (the machine), the ledger empty (no sessions), and 4 plugins (core, delegate, front, observe) not installed at project scope: setup only switched them on in settings and neither ran `claude plugin install ... --scope project` nor listed it as a to-do."
+      ]
+    }
+  ]
 }

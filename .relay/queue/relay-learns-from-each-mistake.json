@@ -24,5 +24,25 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-26T22:39:43Z",
+      "fact": [
+        "Migration 27 Oct: the link in `why` line 1 points to a session file (`reports/design-learn-from-mistakes.md`, 27 Oct (without its memory-inbox change)), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
+      ]
+    },
+    {
+      "at": "2026-10-26T22:39:43Z",
+      "fact": [
+        "Measured 22-27 Oct (learn-from-mistakes design): lessons kept only as text repeated in all three kinds that had one; a lesson in code held better only when it closed a whole kind of mistake, not one case. An agent that ends without handing in its report repeated 9 times after the second fix and none was queued; a test or tool writing outside its own folder was found 9 more times, 5 of the 9 defects in the code before the first fix (a test per case missed the rest); relay using a tool or Python version missing from its list repeated (`md5sum`, `ps`, fractional numbers in Python 3.11); a rule of 24 Oct did not stop a wrong number on 27 Oct; the style rule grew from 1.8 to 5.6 KB in 12 commits and two paid runs went red."
+      ]
+    },
+    {
+      "at": "2026-10-26T22:39:43Z",
+      "fact": [
+        "Recommended mechanism of that design (approach A): the check record's finding entry gains `mistake_kind` (a slug from `.relay/mistake-kinds.toml`, one line of meaning each, one writer) and `prevent` (one of `impossible: <path>`, `guard: <test or hook>`, `step: <template, script or brief>`, `text: <file>#<anchor> eval <case>`); nothing is added to the queue item; the rule would rewrite principle 6 into \"learn from every mistake\" rather than add a tenth principle."
+      ]
+    }
+  ]
 }

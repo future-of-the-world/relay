@@ -23,5 +23,46 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T00:59:06Z",
+      "fact": [
+        "Migration 27 Oct: the link in `why` line 1 points to a session file (`reports/design-cycle-scripts-r3.md` section 6 and `design-cycle-scripts.md`, 27 Oct), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
+      ]
+    },
+    {
+      "at": "2026-10-27T00:59:06Z",
+      "fact": [
+        "Measured 24-27 Oct (cycle-scripts design, section 6): of 1231 front Bash calls, 135 hold `merge --ff-only`, 76 `merge --no-edit master` and 139 name a train (upper bounds; some only read); the default branch took 59 merges: about 3.6 front calls per landing, each re-reading a front context whose median is 229k tokens, against 15k for a Haiku runner on the same command (measured in the last run's `close queue item` stage). The merge hook judges every `git merge --ff-only wt/<name>` run through Bash (plugins/core/hooks/merge.py lines 315-338), so a runner inside a workflow is judged the same. Cost of landing by the script: about 90 agent minutes for `relay land` (take the default branch, build a train, dry-run the hook's judge) plus about 30 for the land stage; two runs landing at once need revision 2's lock."
+      ]
+    },
+    {
+      "asked_at": "2026-10-27T00:59:06Z",
+      "number": 1,
+      "question": [
+        "**1. Должен ли скрипт сам вливать готовое изменение в master?**",
+        "",
+        "Сейчас каждый прогон скрипта заканчивается тем, что я вливаю изменение сам. Я забираю свежий master в branch изменения, при нескольких готовых изменениях собираю из них общий branch, запускаю gate и делаю fast-forward, который проверяет merge hook, то есть автоматическая проверка перед merge. С 24 по 27 октября на 59 merge ушло около 3,6 моих вызовов на каждое, и каждый перечитывает мой контекст (медиана 229 тысяч токенов). Дешёвому агенту на ту же команду нужно около 15 тысяч. Пример из 26 октября: общий branch потребовал merge, gate, отказ hook, две перепроверки и новый merge, и всё это делал я. Если вливать будет скрипт, hook проверяет его так же строго. Но понадобится новая команда вливания и блокировка, чтобы два прогона не вливали одновременно. Это больше, чем весь перенос.",
+        "",
+        "| | Размер этого изменения | Мои вызовы на одно вливание | Риск |",
+        "|---|---|---|---|",
+        "| a | ~110 агентских минут | ~3,6, пока не сделана следующая задача (~120 мин) | нового нет |",
+        "| b | ~230 агентских минут | ~0 сразу | один review на два механизма; правило вливания попадёт в master до первого реального запуска |",
+        "| c | ~110 агентских минут | ~3,6 навсегда | нового нет |"
+      ],
+      "options": [
+        "a. Сейчас только перенос, вливание скриптом поставить следующей задачей. Рекомендую: сначала дешёвое, review получается меньше, а перепроверку общего branch, на которую опирается вливание, сначала проверят реальные прогоны. Опираюсь на замер 3,6 вызова на вливание; выигрыш варианта b не замерен.",
+        "b. Встроить вливание в это же изменение.",
+        "c. Вливать всегда буду я."
+      ],
+      "answered_at": "2026-10-27T00:59:06Z",
+      "answer": [
+        "A"
+      ],
+      "reading": [
+        "Migration: the front's reading of \"A\": the cycle script is moved into relay as it is now (one script instead of two); landing by the script is a separate next item (this one)."
+      ]
+    }
+  ]
 }
