@@ -102,6 +102,25 @@
       "reading": [
         "Migration: the owner answered all four questions in one reply; this question and its options are the message as the front showed it on 25 Oct. The front's reading of \"a\" here: the owner's personal overlay outside the public repo (Glonass, project names, language, limit)"
       ]
+    },
+    {
+      "asked_at": "2026-10-25T19:39:40Z",
+      "number": 4,
+      "question": [
+        "**Вопрос 4. Как устроить утилиту лицензий.**",
+        "",
+        "| | a. своя `relay license` | b. REUSE как отдельная программа |",
+        "|---|---|---|",
+        "| что делает | `add MIT --holder …` пишет LICENSE; `check` — шаг gate; SPDX-строка только в файлах кода | всё по стандарту REUSE, у каждого файла |",
+        "| лицензии | около 10 самых популярных: MIT, Apache-2.0, BSD-2/3, ISC, MPL-2.0, GPL/LGPL/AGPL-3.0, Unlicense. Тексты взяты из SPDX, их можно свободно класть в relay | все из SPDX |",
+        "| зависимости | никаких, только стандартная библиотека | 7 зависимостей и libmagic, ставится install-скриптом |",
+        "| работа агента | ~60–90 мин | ~30–45 мин на подключение, плюс файл REUSE.toml для JSON и логов в каждом проекте |",
+        "| опция | включается `relay setup --license MIT` или секцией `[license]` в `kit.toml`; без неё ничего не делает | так же |"
+      ],
+      "options": [
+        "a. рекомендую). Покрывает то, что нужно почти каждому проекту, и ничего не тянет за собой.",
+        "b. Если вам нужна строгая совместимость с REUSE, например для проектов, которые проходят проверку на соответствие лицензиям."
+      ]
     }
   ]
 }
