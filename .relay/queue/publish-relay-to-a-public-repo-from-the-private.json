@@ -52,6 +52,24 @@
       "reading": [
         "Migration: the owner answered all four questions in one reply; this question and its options are the message as the front showed it on 25 Oct. The front's reading of \"a\" here: MIT with holder \"amidman\""
       ]
+    },
+    {
+      "asked_at": "2026-10-25T19:39:40Z",
+      "number": 2,
+      "question": [
+        "**Вопрос 2. История git.**",
+        "Каждый из 1047 commits несёт ваше имя и имя ноутбука. Опубликуете — стереть это будет уже нельзя.",
+        "",
+        "| | a. новый публичный repo, один commit | b. переписать историю (`git filter-repo`) |",
+        "|---|---|---|",
+        "| личное в публичной истории | 0 | остатки в текстах commit |",
+        "| история изменений | остаётся только в частном repo | публична |",
+        "| работа агента | ~15 мин | 60+ мин и проверка |"
+      ],
+      "options": [
+        "a. рекомендую). Работаете дальше в частном repo, публичный обновляется из него.",
+        "b. Переписать историю и публиковать её."
+      ]
     }
   ]
 }
