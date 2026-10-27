@@ -30,6 +30,12 @@
       "fact": [
         "Migration 27 Oct: the link in `why` line 1 points to a session file (`reports/design-cycle-scripts-r3.md` section 6 and `design-cycle-scripts.md`, 27 Oct), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
       ]
+    },
+    {
+      "at": "2026-10-27T00:59:06Z",
+      "fact": [
+        "Measured 24-27 Oct (cycle-scripts design, section 6): of 1231 front Bash calls, 135 hold `merge --ff-only`, 76 `merge --no-edit master` and 139 name a train (upper bounds; some only read); the default branch took 59 merges: about 3.6 front calls per landing, each re-reading a front context whose median is 229k tokens, against 15k for a Haiku runner on the same command (measured in the last run's `close queue item` stage). The merge hook judges every `git merge --ff-only wt/<name>` run through Bash (plugins/core/hooks/merge.py lines 315-338), so a runner inside a workflow is judged the same. Cost of landing by the script: about 90 agent minutes for `relay land` (take the default branch, build a train, dry-run the hook's judge) plus about 30 for the land stage; two runs landing at once need revision 2's lock."
+      ]
     }
   ]
 }
