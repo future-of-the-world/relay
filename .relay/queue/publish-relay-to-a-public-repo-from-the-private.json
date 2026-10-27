@@ -69,6 +69,16 @@
       "options": [
         "a. рекомендую). Работаете дальше в частном repo, публичный обновляется из него.",
         "b. Переписать историю и публиковать её."
+      ],
+      "answered_at": "2026-10-25T19:39:40Z",
+      "answer": [
+        "1. a",
+        "2. a",
+        "3. a",
+        "4. a"
+      ],
+      "reading": [
+        "Migration: the owner answered all four questions in one reply; this question and its options are the message as the front showed it on 25 Oct. The front's reading of \"a\" here: work continues in the private repo and the public one is updated from it"
       ]
     }
   ]
