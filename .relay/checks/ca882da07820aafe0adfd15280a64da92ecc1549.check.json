@@ -1,0 +1,230 @@
+{
+  "branch": "wt/cycle-scripts",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading. Q1's verdict rests on its failing-case test (judge Check mode: \"Run the tests the fixer named for",
+        "each finding\"; \"Q1 is MET only when its failing-case test also fails without the fix\"). The only fixer of Q1 in a",
+        "change-kind unit is the build worker, whose report is S/reports/<name>.md (the build prompt, line 191). fixesText at",
+        "line 216 starts from `fixes` ('none' or fix-x.md) and the fixgate reports; the worker report is never added. The old",
+        "split had one reason the design (3.3) says was not recorded: the queue check was given the worker's report, the",
+        "whole check the review fixer's. Merging the two checkers without merging their Fixes lines leaves the checker to hunt",
+        "for Q1's test or answer q1_test empty, which stops the unit at check (line 170). Outcome on a real run is PLAUSIBLE",
+        "(an agent may find the test by itself); the missing input is confirmed. No test asserts the check prompt's Fixes.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "cycle.js:191 build prompt: Report: `${S}/reports/${it.name}.md`",
+        "cycle.js:206-216 fixes = 'none' | fix-x.md; finish(... fixes: fixesText(fixes, st) ...)",
+        "cycle.js:148-151 fixesText: [first unless 'none'] + st.fixReports",
+        "relay-change-cycle-wf_f39d3f1b-fd6.js:72 queue check: Fixes: `${S}/reports/${it.name}.md`",
+        "relay-change-cycle-wf_f39d3f1b-fd6.js:81 whole check: Fixes: `${fixes}`"
+      ],
+      "failing_case": [
+        "args {base: \"master\", relay: true, scratch: S, items: [{name: \"x\", wt, check, branch: \"wt/x\", item: \"the-item\"}]},",
+        "review answers inside 0. The check prompt reads \"Check: `S/reports/review-x.json`. Fixes: `none`. ...\" and must return",
+        "q1_test for Q1. The worker's report S/reports/x.md, which names the failing-case test for the queue item, is in no",
+        "prompt the checker sees. Today's script gave the queue check `Fixes: S/reports/x.md` (relay-change-cycle line 72).",
+        "With review inside 1 the check gets `Fixes: S/reports/fix-x.md` only: again not the worker's report.",
+        "Should be: the check of a change (kind change) names the worker's report among its fixes."
+      ],
+      "fix_hint": [
+        "In changeUnit, for kind change (not built) start the fixes list with `${S}/reports/${it.name}.md`, then the review",
+        "fix report, then the fixgate reports; add a test on the \"check: x\" prompt for cases 1-3."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 216,
+      "pass_cases": [
+        "1. kind change, item \"the-item\", review inside 0: the \"check: x\" prompt contains \"S/reports/x.md\" in its Fixes.",
+        "2. kind change, review inside 1: Fixes names both S/reports/x.md and S/reports/fix-x.md.",
+        "3. kind change, red gate before review then green: Fixes names S/reports/x.md and S/reports/fixgate-x-1.md.",
+        "4. kind fix: Fixes is the front's `fixes` (plus any fixgate report), unchanged from today.",
+        "5. kind recheck with no items and no red gate: Fixes stays `none`."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py:356 passes, fails without fix"
+      ],
+      "severity": "MEDIUM",
+      "since": "1d154810e27e8295c36872630b87735cf0ee6933",
+      "source": "review-cycle-scripts.json",
+      "source_id": "F1",
+      "summary": "the one checker of a change never gets the build worker's report, so Q1 (the queue item, which the worker fixed) has no fixer report naming its test",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading (outcome PLAUSIBLE: needs a dead runner). The design (3.4, retry_dead) calls a retry safe because",
+        "\"a second gate on the same worktree waits on relay-gate.lock and reuses the log\" \u2014 true only for relay mode. In project",
+        "mode the gate is the project's raw command; nothing locks it, and the prompt (line 116) is the same text on the retry",
+        "(ask() line 89-101 resends the prompt unchanged). The runner is told to run detached, so the first gate outlives its",
+        "runner. Gate runners died in about 10 of 151 units (design, r2's count), so the case is reachable whenever project mode",
+        "is used. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "cycle.js:89-101 ask(): for t in 0..retry_dead: agent(prompt, opts) with the same prompt",
+        "cycle.js:110 const log = `${S}/gate-${it.name}-${n}.log` (n is the same on the retry)",
+        "cycle.js:116 project prompt: `{ ...; ${A.gate}; echo \"exit $?\"; } > ${log} 2>&1`, run detached",
+        "design r3 3.4: \"safe: a second gate on the same worktree waits on relay-gate.lock and reuses the log\""
+      ],
+      "failing_case": [
+        "relay false, gate \"make test\", retry_dead 1 (default). gate 1 runner starts",
+        "`{ echo head ...; make test; echo \"exit $?\"; } > S/gate-x-1.log 2>&1` detached, then dies without StructuredOutput.",
+        "ask() retries under the same label with the same prompt: the new runner starts a second `make test` in the same",
+        "worktree writing `> S/gate-x-1.log` (truncating the file the first one still writes into). Two gates run at once on one",
+        "worktree, and the log holds both runs' lines; its head/exit lines may come from different runs, which the checker's",
+        "Gate rule then reads as the gate of the head.",
+        "Should be: the retry waits on the gate already running (or a fresh log per attempt with no second gate started)."
+      ],
+      "fix_hint": [
+        "Have the project gate prompt write the pid to `${log}.pid` and say: if that pid is alive, wait on it and report its log",
+        "instead of starting the gate. Or skip the retry for the project gate (stop at gate with the error)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 116,
+      "pass_cases": [
+        "1. project mode, gate 1 throws once then answers: the retry prompt tells the runner to look for a live gate started",
+        "   for this log (for example a pid file next to it) and wait on it rather than start one.",
+        "2. project mode, first gate runner answers: one gate prompt, as today.",
+        "3. relay mode retry: unchanged (relay gate waits on relay-gate.lock and reuses the log; the design measured it)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py:371 passes, fails without fix (prompt-level guard)"
+      ],
+      "severity": "MEDIUM",
+      "since": "1d154810e27e8295c36872630b87735cf0ee6933",
+      "source": "review-cycle-scripts.json",
+      "source_id": "F2",
+      "summary": "project mode: a retried gate runner starts a second detached gate over the same log while the dead runner's gate still runs",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Names depend only on unit name and the per-run counter (newState starts at 0 each run). The",
+        "check record itself is safe (the check-mark hook commits it into .relay/checks), so the loss is a scratch fixer report",
+        "and, in project mode, an earlier gate log. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "cycle.js:140 newState() { gn: 0, fn: 0 } per unit run; cycle.js:110, 132, 164 names from it.name and the counters",
+        "relay-fix-cycle-wf_bab65864-8fd.js:23,35,54: gate-x-f<n>.log, fixgate2-x.md, check2-x.json"
+      ],
+      "failing_case": [
+        "Change run for x: gate 1 red, fix red gate 1 writes S/reports/fixgate-x-1.md; check open 1. The front runs kind fix",
+        "with fixes \"S/reports/fix-x.md and S/reports/fixgate-x-1.md\". Its gate 1 is red: fix red gate 1 writes",
+        "S/reports/fixgate-x-1.md again, overwriting the first report, and the check's Fixes reads",
+        "\"... fixgate-x-1.md and fixgate-x-1.md\". Today's scripts used distinct names (fixgate-/fixgate3- in the change cycle,",
+        "fixgate2- and gate-x-f<n>.log in the fix cycle)."
+      ],
+      "fix_hint": [
+        "Put the kind in the names (e.g. `fixgate-${kind}-${name}-${n}`, `gate-${kind}-${name}-${n}.log`), or a run tag arg."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 132,
+      "pass_cases": [
+        "1. kind fix after a change run with a red gate: no report path the change run wrote is written again.",
+        "2. kind change: report names as today (fixgate-x-1.md, gate-x-1.log)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "low",
+      "reason": [
+        "tests/test_cycle_workflow.py:379 passes, fails without fix"
+      ],
+      "severity": "LOW",
+      "since": "1d154810e27e8295c36872630b87735cf0ee6933",
+      "source": "review-cycle-scripts.json",
+      "source_id": "F3",
+      "summary": "a fix-kind run reuses the change run's report names (fixgate-x-1.md, gate-x-1.log, check-x.json), overwriting the earlier fixer report the front passes in `fixes`",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading; the design (9, step 1) says \"the script runs steps 3-7\". Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "SKILL.md:102 \"runs steps 2-7 for each change in a run\"; SKILL.md step 2 \"Before it, the reproduce step ... before relay queue take\"",
+        "cycle.js:12-17 unit fields; cycle.js:68-79 refusals"
+      ],
+      "failing_case": [
+        "A front reads \"The script ... runs steps 2-7\" for a fix item whose failing_kind is claim, and starts the run without the",
+        "reproduce step; the script builds at once (the 24 Oct bench case cost about 34 minutes and 123k tokens). Also the",
+        "paragraph names args but no unit fields: a relay-mode unit without `branch`, or a fix unit without `findings`, is learnt",
+        "only from the refusal line."
+      ],
+      "fix_hint": [
+        "Reword to \"runs the build of step 2 and steps 3-7 (the reproduce step comes before the run)\" and add one line of unit fields."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 102,
+      "pass_cases": [
+        "1. The paragraph says the script runs the build of step 2 and steps 3-7, and the reproduce step stays before the run.",
+        "2. The paragraph names the unit fields: name, wt, check, branch (relay mode), item; fix: fix, fixes, findings; recheck:",
+        "   findings or items."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "low",
+      "reason": [
+        "SKILL.md lines 102-115 now state the reproduce step is before the run and name the unit fields"
+      ],
+      "severity": "LOW",
+      "since": "1d154810e27e8295c36872630b87735cf0ee6933",
+      "source": "review-cycle-scripts.json",
+      "source_id": "F4",
+      "summary": "the skill says the script runs steps 2-7, but step 2's reproduce step (claim items, before the take) is not in the script, and the unit fields the script requires are not named",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Also: ledger.py writes `run` for a workflow agent whose label fails the grammar or whose meta is",
+        "missing; the brief says the three fields only when the label matches (the design's wording is looser; `run` is a folder",
+        "name, not text, so no privacy loss). Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "ledger.py:33 STAGE_LABEL = re.compile(...); tests/test_cycle_workflow.py:20 LABEL = re.compile(<same text>)",
+        "ledger.py:56 out = {\"run\": folder} before the label check; tests/test_ledger_workflow_fields.py:58 asserts run present"
+      ],
+      "failing_case": [
+        "A later change adds a stage word to cycle.js (the landing item's `land: x`) and to the test's LABEL; ledger.py's",
+        "STAGE_LABEL is not changed; every test passes, and every `land` agent's ledger line has run but no label, so the",
+        "metrics item never counts it."
+      ],
+      "fix_hint": [
+        "Import STAGE_LABEL from ledger.py in the cycle test (importlib, as test 10 does for check-mark.py); decide whether run",
+        "goes only with a label and make the test say it."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 33,
+      "pass_cases": [
+        "1. tests/test_cycle_workflow.py checks the labels with ledger.STAGE_LABEL (imported), so one regex is the grammar.",
+        "2. Today's labels all still match."
+      ],
+      "path": "plugins/observe/hooks/ledger.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_cycle_workflow.py:27 LABEL is ledger.STAGE_LABEL; tests/test_ledger_workflow_fields.py:56 passes"
+      ],
+      "severity": "LOW",
+      "since": "1d154810e27e8295c36872630b87735cf0ee6933",
+      "source": "review-cycle-scripts.json",
+      "source_id": "F5",
+      "summary": "the stage grammar exists in three copies (ledger.py, the test's LABEL, cycle.js prose) with nothing tying them: a new stage word in the script is silently dropped from the ledger",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "52d570484984e2f868b5cffa5e1ad32a4c857e21.gate.log",
+  "head": "ca882da07820aafe0adfd15280a64da92ecc1549",
+  "item": null,
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "since..HEAD: cycle.js, SKILL.md, test_cycle_workflow.py only. Check command: 43 passed. Gate head 52d5704 exit 0; HEAD adds only the gate-log commit. The 3 new tests fail on 1d15481 with the head test file (3 failed)."
+  ],
+  "type": "check"
+}

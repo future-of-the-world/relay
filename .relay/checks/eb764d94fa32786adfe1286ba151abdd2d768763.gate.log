@@ -1,0 +1,15 @@
+head eb764d94fa32786adfe1286ba151abdd2d768763
+cmd bin/ci --quick
+wait 0.0
+ci: library tests FAILED (400s, log: .ci/steps/library-tests.log)
+    FAIL: test_no_fixed_path_in_any_prompt_and_no_relay_in_project_mode (test_cycle_workflow.Cycle.test_no_fixed_path_in_any_prompt_and_no_relay_in_project_mode)
+    AssertionError: '/private/' unexpectedly found in 'Implement the brief. Brief: `/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-n90stdd6/cycle-test-c7cc_wge/scratch/briefs/x.md`. Report: `/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-n90stdd6/cycle-test-c7cc_wge/scratch/reports/x.md`.' : build: x
+    FAILED (failures=1)
+ci: types and lint ok (0s)
+ci: hook tests ok (200s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (0s)
+ci: RED
+exit 1
