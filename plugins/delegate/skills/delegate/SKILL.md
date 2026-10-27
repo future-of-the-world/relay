@@ -78,6 +78,14 @@ to one agent with one brief (fewer, longer agents are cheaper than many short
 ones: every fresh agent re-pays its first read). A scout question needs no
 brief: ask it in the prompt, several questions at once.
 
+## Lanes
+
+Up to "Changes built at once: N" changes (front skill, "Lanes") are built side
+by side, each by its own cycle run with its own worktree and briefs. The 4-agent
+cap counts agents inside one change. While a paid run goes, lanes keep
+building; a change whose files match `bin/paid-cost paths` waits at the landing
+until the run ends, then lands in one train.
+
 ## Reading a hand-back
 
 The reply is at most 10 lines and starts with DONE, BLOCKED or BUDGET SPENT.

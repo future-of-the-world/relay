@@ -41,8 +41,10 @@ does not need; and the big model only where judgment is what is being bought.
   A coordinator that must wait for others is a session of its own, not an
   agent. Don't resume an agent idle over 5 minutes: start a fresh one from
   the brief and the old report.
-- At most 4 agents at once unless the project says otherwise; independent
-  lookups go to one scout in one message.
+- At most 4 agents at once in one change; independent lookups go to one scout
+  in one message. How many changes are built side by side is the project's
+  line "Changes built at once: N" in its generated instruction file (projects.toml
+  `lanes`, 1-8, default 4).
 - One good review, not several: a design review before a risky build; one
   review of the whole change in which every finding carries its failing case
   and the cases a correct fix must pass; the fix is checked against those

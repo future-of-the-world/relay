@@ -165,6 +165,23 @@ runs not judged, the day's cap) adds no item: tell the owner in one line and run
 it again after the next wave. `relay sync` waits until `bin/paid-cost due` prints
 nothing; say so when you hold a sync.
 
+## Lanes: several changes at once
+
+The number of changes built side by side is the line "Changes built at once: N"
+in your instruction file (projects.toml `lanes`, 1-8, default 4; relay's own
+is 6). Each lane is its own cycle run: one queue item per Workflow call. When a
+lane finishes, start the next call at once; its item is the top of
+`relay queue` that no running lane has taken (`relay queue take` marks it). Do
+not wait for the other lanes, and never start more than N.
+
+While a paid run goes, lanes keep building. A change whose files match
+`bin/paid-cost paths` (the paths the paid run checks; read the list from the
+command, not from memory) waits at the landing until the run ends, because
+landing it would change what the run is judging. Any other change lands as
+usual. After each green run, `relay sync`, then the waiting changes land as one
+train (above). A red run is the fix item described above; the waiting changes
+stay waiting behind it.
+
 ## A long prompt is a setup gap
 
 The owner should be able to write short requests. When a prompt is long

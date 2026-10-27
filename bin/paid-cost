@@ -5,6 +5,7 @@
   bin/paid-cost ceiling ... --from-estimate              the --cap is only the fallback: the ceiling is the largest stored full batch times 2
   bin/paid-cost ceiling ... --within-day                 the same, with --cap lowered to what is left of the day's cap
   bin/paid-cost estimate [--dir DIR]                     prints the mean and max cost of a stored batch, or "not measured yet"
+  bin/paid-cost paths                                      prints the paths the paid run checks (what `due` looks at), one glob per line
   bin/paid-cost due [--dir DIR] [--repo REPO]            prints the merged changes no green paid run covers yet; nothing when none
   bin/paid-cost today                                    prints the day's spend, the owner's daily cap and the run count (UTC day)
   bin/paid-cost cap [USD]                                prints the daily cap from projects.toml [global]; with USD it lands the change as one commit on the default branch
@@ -197,7 +198,7 @@ def money_command(a):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["ceiling", "estimate", "due", "today", "cap", "guard"])
+    ap.add_argument("cmd", choices=["ceiling", "estimate", "due", "today", "cap", "guard", "paths"])
     ap.add_argument("arg", nargs="?")
     ap.add_argument("--today", help="the UTC day as YYYY-MM-DD (default: now)")
     ap.add_argument("--cap", type=float)
@@ -207,6 +208,9 @@ def main(argv=None):
     ap.add_argument("--dir")
     ap.add_argument("--repo", default=".")
     a = ap.parse_args(argv)
+    if a.cmd == "paths":   # the paths the paid run checks, one per line, as plain globs
+        print("\n".join(p.replace(":(glob)", "", 1) for p in CHECKED_PATHS))
+        return 0
     if a.cmd in ("today", "cap", "guard"):
         return money_command(a)
     if a.cmd == "due":
