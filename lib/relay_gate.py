@@ -20,7 +20,7 @@ import signal
 import subprocess
 import sys
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 import relay_config
 import relay_git
@@ -264,6 +264,8 @@ def hold_stops() -> tuple[list[int], Callable[[], None]]:
     saved: dict[int, Any] = {}
     try:
         for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            if signal.getsignal(sig) == signal.SIG_IGN:      # an ignored stop needs no hold, and the command must inherit the ignore
+                continue
             saved[sig] = signal.signal(sig, lambda signum, frame: held.append(signum))
     except ValueError:
         pass
@@ -274,7 +276,8 @@ def hold_stops() -> tuple[list[int], Callable[[], None]]:
     return held, release
 
 
-def run(worktree, args=(), environ=None, quick=False):
+def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, str]] = None,
+        quick: bool = False) -> tuple[int, str, list[str]]:
     """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red)."""
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
@@ -342,8 +345,8 @@ def run(worktree, args=(), environ=None, quick=False):
                                                     start_new_session=True, pass_fds=(lock.fileno(),))
                         finally:
                             release()
-                        if held:
-                            os.kill(os.getpid(), held[0])      # the caller's own handler raises it now
+                            if held:      # also when Popen raised: a stop still stops the gate
+                                os.kill(os.getpid(), held[0])      # the caller's own handler raises it now
                         # the lock file names the command's process group too: if this process is killed, the command holds the lock
                         lock.seek(0)
                         lock.truncate()
