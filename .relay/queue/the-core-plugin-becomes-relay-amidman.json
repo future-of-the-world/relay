@@ -39,6 +39,13 @@
       "options": [
         "a. Следующим: после merge train-22, ограничения gate и правила о конфликтах сначала тот пункт на 30 мин, затем переименование, новые полосы не запускаются до его merge (рекомендую).",
         "b. В порядке очереди, по IP 86."
+      ],
+      "answered_at": "2026-10-27T21:58:01Z",
+      "answer": [
+        "a, как это изменение достигнет других проектов ? Я хочу чтобы оно было общим для всех проектов которые подключают relay"
+      ],
+      "reading": [
+        "5 = a: build it next (after the open three, first the 30-minute plugins item), no new lanes until its merge. The owner wants the new ids to reach every project that connects relay."
       ]
     }
   ]
