@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-27T14:02:22Z",
   "taken_by": "wt/paid-estimate",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T14:58:11Z",
+  "test": "tests/test_paid_cost_limits.py::SuiteEstimate::test_new_cases_are_added_at_the_mean_case_cost",
   "dropped_at": null,
   "dropped_why": null
 }
