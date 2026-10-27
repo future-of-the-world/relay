@@ -36,6 +36,12 @@
       "fact": [
         "Measured 26 Oct (metrics design, revision 3) on one real change, ci-python (the move of `bin/ci` to Python): the ledger holds 253 lines, 75 KB for it, and cannot say which change an agent belongs to; a change record would be 1.8 KB (2.5% of that) with 9 agents (stage, model, time, tokens); read back from git it gives cost $3.50 (review $1.52, build $1.35), a whole path of 192 minutes of which 61 minutes no agent was working, 4 gates and 4 findings. bench-set was estimated at 20 minutes and took 103 (5.2 times more)."
       ]
+    },
+    {
+      "at": "2026-10-26T18:56:56Z",
+      "fact": [
+        "Measured 26 Oct (metrics design, revision 3): design, design-review and design-revise agents cost $66.31 and hand-started thinkers and critics $10.92, together $77.23 of $241.86 (31.9%) of agent spend in that session. The workflow scripts label their agents (804 of 804); the front, starting agents by hand, labelled none (0 of 53; 51 of the 53 were relay agents), $13.72 (5.7%) of spend; in ci-python that lost 2 of 9 agents (7.3% of its cost). A revision 2 count of gates for ci-python gave 14 where the real number is 4, because `git log --first-parent` without `--no-merges` lists the master gates a merge brought in."
+      ]
     }
   ]
 }
