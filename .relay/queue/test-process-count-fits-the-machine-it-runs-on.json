@@ -20,5 +20,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T16:11:32Z",
+      "fact": [
+        "27 Oct, branch wt/gate-slots (not yet merged): gates now take a slot from one per-machine setting in relay's config (default 2 on 12 cores, from the core count) read in lib/relay_gate.py; the name DEFAULT_SLOTS this item refers to changed there. Measured on this Mac, 4 test jobs per gate: one gate alone 420 s, two at once 698 s each, three 1058 s each."
+      ]
+    }
+  ]
 }
