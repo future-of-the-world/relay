@@ -1,0 +1,306 @@
+{
+  "branch": "wt/owner-notes",
+  "findings": [
+    {
+      "details": [
+        "Owner, 26 Oct: \"\u043a\u043e\u0433\u0434\u0430 \u0442\u044b \u043f\u0440\u043e\u0432\u043e\u0434\u0438\u0448\u044c \u0438\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u0435 \u0438 \u0441\u043e\u0437\u0434\u0430\u0435\u0448\u044c \u0437\u0430\u0434\u0430\u0447\u0443, \u043a\u0443\u0434\u0430 \u0442\u044b \u0441\u043e\u0445\u0440\u0430\u043d\u044f\u0435\u0448\u044c \u043e\u0442\u0447\u0435\u0442, \u0432 \u0437\u0430\u0434\u0430\u0447\u0443 \u0442\u044b \u043f\u0438\u0448\u0435\u0448\u044c \u043b\u0438\u0448\u044c \u043a\u043e\u0440\u043e\u0442\u043a\u0438\u0439 \u043a\u0443\u0441\u043e\u0447\u0435\u043a \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u0438, \u043d\u0443\u0436\u043d\u043e \u043b\u0438 \u044d\u0442\u043e ? \u0418\u043b\u0438 \u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u043f\u0440\u043e\u0441\u0442\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f \u0430 \u0434\u0438\u0437\u0430\u0439\u043d \u0431\u0443\u0434\u0435\u0442 \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d \u043f\u0435\u0440\u0435\u0434 \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u0435\u043c, \u0447\u0442\u043e \u043f\u043e\u0437\u0432\u043e\u043b\u044f\u0435\u0442 \u043d\u0430\u043c \u043e\u0441\u0432\u043e\u0431\u043e\u0434\u0438\u0442\u044c\u0441\u044f \u043e\u0442 \u043d\u0435\u0430\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u044b\u0445 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u043e\u0432 \u0438\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u044f \u0438 \u0441\u0434\u0435\u043b\u0430\u0442\u044c \u043d\u043e\u0432\u043e\u0435 \u043d\u0435\u043f\u043e\u0441\u0440\u0435\u0434\u0441\u0442\u0432\u0435\u043d\u043d\u043e \u043f\u0435\u0440\u0435\u0434 \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u0435\u043c\", then \"\u0421\u043e\u0433\u043b\u0430\u0441\u0435\u043d \u0441 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u043e\u0432\u0430\u043d\u043d\u044b\u043c \u0432\u0430\u0440\u0438\u0430\u043d\u0442\u043e\u043c\" (owner's words plus dated facts, no report links). Measured 26 Oct: 12 of 69 open items name a scratchpad path (a /private/tmp folder cleared on reboot); this session wrote 451 report files. Build after wt/where-list merges (both rewrite queue records). IP chosen by the front (agent-chosen).",
+        "Also: lib/relay_queue.py (add), the 12 open items naming a scratchpad path"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`grep -l scratchpad .relay/queue/*.json` lists 12 open items on 26 Oct."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same grep lists none; relay queue add with a why naming /private/tmp/... is refused with the message; an item with only the owner's words and dated facts is accepted."
+      ],
+      "path": "rules/queue.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue_notes.py:267 test_add_refuses_session_path passes at head and fails at 743e8bd."
+      ],
+      "severity": "HIGH",
+      "since": "743e8bd2704447afde4d2c9918f1a8c4ab521a2c",
+      "source": "queue",
+      "summary": "Queue items point at session files that vanish",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced in the test harness, tests/test_queue_notes.py NoteCommand.note). Principle 10 (rules/principles.md, applied to `relay queue note` by the brief): a refusal names the next step and lets a newcomer get it right first try. The only option check is in parse_note, reached through serialize(); its message is the item-malformed wording.",
+        "Rule: principle 10.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "python3 scratchpad/try_note.py (subclass of NoteCommand calling self.note(question=..., options=opts, number=1)):",
+        "REFUSED item 'job' is not well formed: note 1 options are not at least two lines starting a. , b. , ... in order   (for [\"a) x\",\"b) y\"] and [\"a (recommended) x\",\"b y\"])",
+        "plugins/front/skills/front/SKILL.md:78: a (recommended) <one line>   b <one line>"
+      ],
+      "failing_case": [
+        "The front skill (plugins/front/skills/front/SKILL.md:78) shapes options as `a (recommended) <one line>   b <one line>`. A front following it writes",
+        "  question = \"**1. Q?**\" ; options = [\"a (recommended) x\", \"b y\"] ; number = 1",
+        "read_note_input accepts it; note() then refuses with",
+        "  \"item 'job' is not well formed: note 1 options are not at least two lines starting a. , b. , ... in order\"",
+        "which blames the item (and a \"note 1\" the agent never wrote) and does not say what to type. Same for options = [\"a) x\", \"b) y\"].",
+        "Expected: refused by read_note_input with \"nothing noted: each option starts with its letter, a dot and a space, in order (a. ..., b. ...); yours: 'a (recommended) x'\", and the skill's shape and the stored shape agree."
+      ],
+      "fix_hint": [
+        "In read_note_input, check `options` with the same rule as parse_note (share a helper) and refuse with \"nothing noted: ...\" naming the expected form and the first bad line; change the skill's shape line to one option per line starting \"a. \"."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1450,
+      "pass_cases": [
+        "options = [\"a (recommended) x\", \"b y\"]: refused before landing, message starts \"nothing noted:\", names `options` and the form \"a. \", nothing lands.",
+        "options = [\"a) x\", \"b) y\"]: same refusal.",
+        "options = [\"a. x (recommended)\", \"b. y\"]: noted, as today.",
+        "The front skill's question shape shows options in the form the command accepts (one per line, \"a. \", \"b. \"), or the command accepts the skill's form."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_notes.py:229 and :242 pass, fail on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "f8dd8df9c21220a8b440a85e21b5e1d6a85c5a5b",
+      "source": "review-owner-notes.json",
+      "source_id": "F1",
+      "summary": "a question noted in the front skill's own option shape is refused as a malformed item, not as a bad input",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (read_note_input on a scratch TOML). Principle 10 for the note command (brief): input and refusals must let a newcomer get it right; the usage text shows the quoted form, but the refusal is what the agent reads after the mistake.",
+        "Rule: principle 10.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "printf 'said = \"hi\"\\nat = 2026-10-27T01:20:00Z\\n' > n1.toml; python3 -c '... relay_queue.read_note_input(\"n1.toml\")'",
+        "REFUSED nothing noted: `at` must be a UTC time like 2026-10-27T01:20:00Z"
+      ],
+      "failing_case": [
+        "Input: said = \"hi\" and at = 2026-10-27T01:20:00Z (no quotes: a TOML datetime, the natural way to write a time in TOML).",
+        "Now: \"nothing noted: `at` must be a UTC time like 2026-10-27T01:20:00Z\" - the example is exactly what was typed, so the agent cannot see what to change.",
+        "Expected: either accepted (a TOML UTC datetime is converted to the string), or refused with \"write it in quotes: at = \\\"2026-10-27T01:20:00Z\\\"\"."
+      ],
+      "fix_hint": [
+        "If relay_toml returns a datetime (or a non-string) for `at`, say \"in quotes: at = \\\"...Z\\\"\" in the message (or convert a UTC datetime to the string)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1487,
+      "pass_cases": [
+        "at = 2026-10-27T01:20:00Z (unquoted): noted with at \"2026-10-27T01:20:00Z\", or refused with a message that contains the quoted form at = \"2026-10-27T01:20:00Z\".",
+        "at = \"2026-10-27T01:20:00Z\": noted, as today.",
+        "at = \"2026-10-27 01:20\": refused, as today, naming the form."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_notes.py:249 passes, fails on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "f8dd8df9c21220a8b440a85e21b5e1d6a85c5a5b",
+      "source": "review-owner-notes.json",
+      "source_id": "F2",
+      "summary": "an unquoted TOML time for `at` is refused with a message that shows the very form the agent typed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (refuse_session_paths over every finding of recorded reports, using relay_verdict.linter for `what`). add_from passes the report's failing_case and pass_cases to add(), which applies the front-text refusal. The design (5.5) lists add --from among the checked paths but gives no next step for it; principle 10 requires one. Reviewers routinely cite scratchpad logs in failing cases (3.4% here).",
+        "Rule: principle 10.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "python3 scratchpad/measure_from.py",
+        "review-design-clean-env.json F11 nothing queued: line 1 of `failing_case` names a session file (\"briefs/clean-env-design-2.md\") ...",
+        "review-plugin-cache.json F3 nothing queued: line 2 of `failing_case` names a session file (\"/private/tmp/.../d7c03a85.../scratchpad/trial/tally,\") ...",
+        "findings 2103 refused 71"
+      ],
+      "failing_case": [
+        "`relay queue add --from review-plugin-cache.json F3 --input why.toml`: the finding's failing_case line 2 names \"/private/tmp/.../scratchpad/trial/tally,\".",
+        "Now: \"nothing queued: line 2 of `failing_case` names a session file (...). Put the fact itself in ... or leave it out\" - but failing_case is copied from a recorded review the front cannot edit, so the advice cannot be followed and the outside finding cannot be queued by the documented route (rules/queue.md: wrong elsewhere is a fix item, via add --from).",
+        "Measured: 71 of 2103 recorded findings in this machine's reports and .relay/checks would be refused this way.",
+        "Expected: the refusal for --from names a step that works (for example: queue it with `relay queue add --input` and write the failing case without the path), or --from drops/keeps the reviewer's text under a rule the owner set."
+      ],
+      "fix_hint": [
+        "Give add() a `next_step` for the --from path: \"this text comes from the review; queue it with `relay queue add --input <file.toml>` and write the failing case without the session file\" (and a test on add_from)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 891,
+      "pass_cases": [
+        "add --from <report> F<n> where failing_case names /private/tmp/...: refused with a message that names a step the front can take (add --input with its own text), not \"put the fact in\" alone; nothing lands.",
+        "add --from <report> F<n> with no session path: queued, as today.",
+        "add --input with why naming /private/tmp/x: refused, as today (test_add_refuses_session_path)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_notes.py:296 passes, fails on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "f8dd8df9c21220a8b440a85e21b5e1d6a85c5a5b",
+      "source": "review-owner-notes.json",
+      "source_id": "F3",
+      "summary": "add --from refuses a finding whose recorded text names a session file, with a next step the front cannot take",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading (fixture date vs real clock; the conditional assert). The brief's rule: \"every new test shown to fail with its rule disabled\". The hook fails open (except Exception: pass, and waiting_lines returns [] on any error), so only a positive end-to-end assertion can catch a broken reminder, which is the mechanism the owner chose (question 1, B). I ran the hook on a scratch repo by hand and it works today.",
+        "Rule: brief - every new test fails with its rule disabled.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "tests/test_queue_notes.py:330 waiting = decision(asked_at=\"2026-10-09T22:00:00Z\", ...)",
+        "tests/test_queue_notes.py:365 if done.stdout:",
+        "Manual: echo '{\"hook_event_name\":\"UserPromptSubmit\",\"cwd\":\"<scratch repo>\"}' | python3 plugins/front/hooks/ask_waiting.py -> {\"hookSpecificOutput\": {... \"Waiting for the owner: job question 1 'Q?', asked 1h ago; ...\"}}"
+      ],
+      "failing_case": [
+        "test_hook_script_clamps_settings_and_prints_json runs plugins/front/hooks/ask_waiting.py on the AskHook fixture, whose question was asked 2026-10-09T22:00:00Z; with the real clock (27 Oct or later) it is older than 7 days, so stdout is always empty and `if done.stdout:` skips the only assertion on output. Replace main()'s json.dump with `pass` (or break relay_config/waiting_lines wiring inside the fail-open try): the test still passes.",
+        "Expected: a test that runs the hook script with a question asked within ask_reminder_days and asserts the JSON line, failing when the script prints nothing."
+      ],
+      "fix_hint": [
+        "In that test write a fixture item whose question is asked relative to the real now (utcnow minus 1h) and assert the JSON unconditionally."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 365,
+      "pass_cases": [
+        "Hook script on a repo whose item has a question asked 1 hour before the real now: stdout is JSON with hookSpecificOutput.additionalContext starting \"Waiting for the owner: <slug> question 1\".",
+        "Same with main()'s print removed: the test fails.",
+        "Hook script with no waiting question: stdout empty, exit 0.",
+        "Settings clamp cases (99 -> 30, 0 -> 1, missing or \"x\" -> 7) as today."
+      ],
+      "path": "tests/test_queue_notes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_notes.py:429 and :437 assert the printed reminder and silence; pass. Not failing on base because the hook code did not change (test-only finding); fixer showed failure with json.dump disabled."
+      ],
+      "severity": "MEDIUM",
+      "since": "f8dd8df9c21220a8b440a85e21b5e1d6a85c5a5b",
+      "source": "review-owner-notes.json",
+      "source_id": "F4",
+      "summary": "the hook script's end-to-end test passes when the hook prints nothing, so the reminder can break unseen",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading (bin/relay:797-807). Correct output today, but an agent that typed a wrong slug can read the wrong item's decisions as the answer.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "bin/relay:797 found, how = relay_queue.find_for_show(items, query)   # how never read"
+      ],
+      "failing_case": [
+        "`relay queue show queue-items-point-at-session-files` (a shortened slug; real slugs are cut at 48 characters): no item has that slug, the words search finds the one item whose text holds the string, and show prints it in full with no line saying it was found by words. `how` from find_for_show is unused.",
+        "Expected: a one-line header \"no item 'x'; found by words:\" before an item found by words."
+      ],
+      "fix_hint": [
+        "When how == \"words\" and one item is found, print \"found by words '<query>':\" before show_text."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 797,
+      "pass_cases": [
+        "show <exact slug>: printed with no header, as today.",
+        "show <words> matching one item: printed after a line saying it was found by words.",
+        "show <words> matching several: the list, as today."
+      ],
+      "path": "bin/relay",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue_notes.py:379 passes, fails on base."
+      ],
+      "severity": "LOW",
+      "since": "f8dd8df9c21220a8b440a85e21b5e1d6a85c5a5b",
+      "source": "review-owner-notes.json",
+      "source_id": "F5",
+      "summary": "show with a mistyped slug that matches one item by words prints that other item as if it were the one asked",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading; a contradiction inside the design that the code follows by its letter. Rare (0 of 21).",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_queue.py:945 raise Refused(\"drop needs the owner's words (`why` in the input)\")",
+        "lib/relay_queue.py:947 refuse_session_paths(\"dropped\", why=why)"
+      ],
+      "failing_case": [
+        "Owner: \"\u0434\u0443\u0431\u043b\u044c, \u0441\u043c. scratchpad reports/x.md\" given as the drop reason. bin/relay's usage and drop's own refusal say `why` is \"the owner's words\"; refuse_session_paths(\"dropped\", why=why) refuses it, so the owner's words must be altered to drop. Design 5.5 says the owner's words are \"never\" checked, and also lists drop.",
+        "Measured: 0 of 21 dropped items on master would be hit today."
+      ],
+      "fix_hint": [
+        "Leave drop's why unchecked (owner's words) or reword the usage to say it is the front's text; pick one."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 947,
+      "pass_cases": [
+        "drop with why holding /private/tmp/x as the owner's words: either kept verbatim, or the usage/rule says drop's why is front-written; the two texts agree.",
+        "drop with a plain why: dropped, as today."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue_notes.py:290 passes, fails on base."
+      ],
+      "severity": "LOW",
+      "since": "f8dd8df9c21220a8b440a85e21b5e1d6a85c5a5b",
+      "source": "review-owner-notes.json",
+      "source_id": "F6",
+      "summary": "drop refuses a session path in `why`, which relay itself defines as the owner's words",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading; the cases are not run yet (paid, in the wave run), so it is cheap to change now.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "evals/plugin/keep-owner-words/prompt.md:9 and evals/plugin/keep-owner-words-en/prompt.md:9"
+      ],
+      "failing_case": [
+        "Prompt: \"\u041a\u0441\u0442\u0430\u0442\u0438, \u043f\u0440\u043e \u0437\u0430\u0434\u0430\u0447\u0443 each-change-records-its-stage-times-cost: \u044f \u0445\u043e\u0447\u0443 ...\" (and the English one the same). The owner talks about what a thing does, never its slug (Working with me), so the case skips the hard part (finding which item the words are about) and passes more easily than real use."
+      ],
+      "fix_hint": [
+        "Replace the slug with plain words about the item in both prompts."
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 9,
+      "pass_cases": [
+        "The prompt names the subject in the owner's words (for example \"\u043f\u0440\u043e \u0437\u0430\u043f\u0438\u0441\u044c \u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u0438 \u043a\u0430\u0436\u0434\u043e\u0433\u043e \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f\"); the graders still require a `said` note on that item with the words verbatim."
+      ],
+      "path": "evals/plugin/keep-owner-words/prompt.md",
+      "rank": "low",
+      "reason": [
+        "evals/plugin/keep-owner-words/prompt.md and keep-owner-words-en/prompt.md reworded in d8deb6d (read by diff list; no behaviour test)."
+      ],
+      "severity": "LOW",
+      "since": "f8dd8df9c21220a8b440a85e21b5e1d6a85c5a5b",
+      "source": "review-owner-notes.json",
+      "source_id": "F7",
+      "summary": "the keep-owner-words cases name the item's slug in the owner's message, which the owner never does",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "9e62d22e84f830cfef9f320b22815c742ebe1736.gate.log",
+  "head": "b8dfcfcd6af04f1c0d72c42f43ff7d8a317aa654",
+  "item": "queue-items-point-at-session-files-that-vanish",
+  "notes": [
+    "Fix touched bin/relay, lib/relay_queue.py and plugin copies, front SKILL.md, eval prompts, tests: all within findings."
+  ],
+  "schema": 2,
+  "scope": [
+    "Checked f8dd8df..HEAD. tests/test_queue_notes.py 44 passed; kit.test.sh passed; gate log is for 9e62d22 with exit 0, only inert files after. F1,F2,F3,F5,F6 tests fail on base f8dd8df; F4 tests pass on base (test-only fix, fixer showed failure with json.dump disabled). Q1 test fails at 743e8bd."
+  ],
+  "type": "check"
+}
