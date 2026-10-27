@@ -92,7 +92,8 @@ def tally(data, expect_model, max_wrong=0, max_split=1, expected=None, answers=N
             raise NotJudged(f"{case['name']}: no llm graders listed")
         for arm_name, runs in arms.items():
             want_runs = case.get("runsPerCase") or len(runs)
-            if len(runs) != want_runs:
+            # runsPerCase keeps the default (5) when --runs asks for more, so more runs than it says is a full sample
+            if len(runs) < want_runs:
                 raise NotJudged(f"{case['name']} ({arm_name}): {len(runs)} runs of {want_runs} expected")
             for n, run in enumerate(runs, 1):
                 if run.get("error"):

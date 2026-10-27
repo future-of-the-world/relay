@@ -180,6 +180,12 @@ class Tally(unittest.TestCase):
                 with self.assertRaises(self.t.NotJudged):
                     self.run_tally(data)
 
+    def test_a_20_run_file_that_keeps_runsPerCase_5_tallies(self):
+        # `--runs 20` writes 20 runs per arm but the case still says runsPerCase 5; 2 items x 20 runs = 40 verdicts
+        runs = [llm_run((Y, [T, T, T]), (N, [F, F, F])) for _ in range(20)]
+        code, lines = self.run_tally(result(runs))
+        self.assertEqual(code, 0, lines); self.assertIn("PASS measure-x: 0 wrong verdicts of 40", "\n".join(lines))
+
     def test_a_case_missing_from_the_file_is_not_judged(self):
         full = [llm_run((Y, [T, T, T]), (N, [F, F, F])) for _ in range(5)]
         with self.assertRaises(self.t.NotJudged) as e:
