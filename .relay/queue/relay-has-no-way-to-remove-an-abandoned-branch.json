@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 75,
+  "time": 30,
+  "found_at": "2026-10-27T10:36:49Z",
+  "found_in": "relay queue add",
+  "title": "relay has no way to remove an abandoned branch",
+  "what": [
+    "relay has no way to remove an abandoned branch"
+  ],
+  "why": [
+    "Measured 27 Oct: after the notes change merged, branch wt/plans-save (worktree .worktrees/plans-save) was no longer needed (its owner words were migrated into items as notes), but it was never merged, so the merge hook does not remove it, and guard-main refuses `git branch -D` in the main checkout (\"mutating git command in the main checkout: git branch\"). The refusal names only \"work in a worktree\", which does not apply to deleting a branch. relay doctor lists leftovers but removes none. Leftover today: plans-save, train-19, train-20, relay-plugins, paid-e905742. Principle 10: a refusal names the next step."
+  ],
+  "failing_case": [
+    "From the main checkout: git -C ~/relay branch -D wt/plans-save is refused, and no relay command removes an unmerged worktree and branch."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "One relay command removes a named leftover worktree and its branch, after showing what is unmerged on it and refusing when that work is not kept elsewhere (merged, or recorded in items) unless told so.",
+    "guard-main's refusal of `branch -D` names that command.",
+    "A test in a temporary repository covers both, and fails with the command removed."
+  ],
+  "where": [
+    "plugins/core/hooks/guard-main.sh",
+    "bin/relay (doctor or a new command)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
