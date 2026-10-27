@@ -7,7 +7,6 @@ Case names T1..T16 are the design's test list (docs/plans/review-gate.md section
 `test_q1_ready_changes_merge_with_one_gate_for_the_wave`.
 """
 import contextlib
-import importlib.util
 import io
 import json
 import os

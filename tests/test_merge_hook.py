@@ -1,6 +1,5 @@
 """The merge hook (plugins/core/hooks/merge.py) as a module: what the shell tests cannot make happen (an unexpected exception)."""
 import contextlib
-import importlib.util
 import io
 import json
 import os

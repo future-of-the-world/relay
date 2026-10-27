@@ -1,5 +1,4 @@
 """The check-mark hook reads a workflow checker's transcript: attachment entries after its prompt are not a failure."""
-import importlib.util
 import json
 import os
 import tempfile

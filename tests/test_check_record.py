@@ -4,7 +4,6 @@ is the one reader, `relay_queue.close_refusal` the one rule for what may change 
 Every test runs on scratch repositories in a temp dir (tests/test_queue.py's Base). The tests use the real pipeline: a review
 JSON, the TOML input of `relay check record check`, the hook's `write_mark`, `relay queue done` and the merge guard's steps.
 """
-import importlib.util
 import json
 import os
 import sys

@@ -1,7 +1,6 @@
 """Q1: a read-only agent (critic, checker, scout) must not run a relay command that writes, and `relay migrate --all`
 must not write into a primary checkout unless asked. Free: temporary folders and HOME, no paid run."""
 import json
-import importlib.util
 import os
 import re
 import subprocess

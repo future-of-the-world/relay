@@ -1,6 +1,5 @@
 """An archive-only commit after the check mark is inert for the merge guard (plugins/core/hooks/merge.py, lib/relay_inert.py).
 Every test runs on a scratch repository in a temp dir."""
-import importlib.util
 import json
 import os
 import subprocess
