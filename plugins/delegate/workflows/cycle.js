@@ -106,14 +106,17 @@ function stop(it, at, detail, extra) {
 
 const agentOpts = (type, schema, phase, label) => ({ agentType: `delegate:${type}`, schema, phase, label })
 
+// File names carry the kind for a fix or recheck run, so it never overwrites what the change run wrote.
+const tag = (it) => ((it.kind || 'change') === 'change' || it.kind === 'built') ? it.name : `${it.kind}-${it.name}`
+
 function gatePrompt(it, n) {
-  const log = `${S}/gate-${it.name}-${n}.log`
+  const log = `${S}/gate-${tag(it)}-${n}.log`
   const wait = `It takes minutes to an hour and may first wait for a free slot: wait in as few turns as possible (you have ${CFG.gate_turns}; if the gate is still running at your ${CFG.gate_turns - 5}th turn, report ok=false with first_fail "still running, pid <pid>, log <path>" instead of ending silently): each Bash call one bounded loop of at most 230 s (\`for i in \$(seq 1 11); do kill -0 <pid> 2>/dev/null || break; sleep 20; done\`), never a call per check.`
   if (RELAY) {
     const cmd = CFG.gate_args.trim() ? `relay gate -C ${it.wt} -- ${CFG.gate_args.trim()}` : `relay gate -C ${it.wt}`
     return `Run \`${cmd}\` detached with the limits recipe, log in ${log}. ${wait} Report ok, the gate sha, the gate log path it prints (under the worktree's .relay/checks/), and the first failing line if any.`
   }
-  return `Run the project's gate in ${it.wt} detached with the limits recipe, writing the log in the form: \`{ echo "head $(git -C ${it.wt} rev-parse HEAD)"; ${A.gate}; echo "exit $?"; } > ${log} 2>&1\` (run it with ${it.wt} as the current folder). ${wait} Report ok (the exit code was 0), the head sha, the log path ${log}, and the first failing line if any.`
+  return `Run the project's gate in ${it.wt} detached with the limits recipe, writing the log in the form: \`{ echo "head $(git -C ${it.wt} rev-parse HEAD)"; ${A.gate}; echo "exit $?"; } > ${log} 2>&1\` (run it with ${it.wt} as the current folder) and write its pid to ${log}.pid first. If ${log}.pid already exists and that pid is alive, a gate of an earlier attempt is still running: do not start another, wait on that pid and report its log. ${wait} Report ok (the exit code was 0), the head sha, the log path ${log}, and the first failing line if any.`
 }
 
 // A gate with up to gate_fixes rounds of "fix red gate, gate again". Counters run through the whole unit, so the
@@ -129,7 +132,7 @@ async function gated(it, st) {
     if (st.rounds >= CFG.gate_fixes) return { stop: stop(it, 'gate', g.first_fail || 'gate red') }
     st.rounds += 1
     st.fn += 1
-    const fx = `${S}/reports/fixgate-${it.name}-${st.fn}.md`
+    const fx = `${S}/reports/fixgate-${tag(it)}-${st.fn}.md`
     const f = await ask(`Fix the red gate. Worktree: ${it.wt}. Gate log: ${g.gate_log}. First failing line: ${g.first_fail}. Brief of the change: ${S}/briefs/${it.name}.md. Check: ${it.check}. Never work around a relay guard or hook. Commit the fix. Report: ${fx}.`,
       agentOpts('fixer', HANDBACK, 'Fix', `fix red gate ${st.fn}: ${it.name}`))
     if (f.dead || f.v.status !== 'DONE') return { stop: stop(it, 'fix red gate', f.dead || f.v.summary) }
@@ -146,7 +149,8 @@ async function gateGroup(it, st) {
 }
 
 function fixesText(first, st) {
-  const all = (first && first !== 'none' ? [first] : []).concat(st.fixReports)
+  const firsts = [].concat(first).filter((x) => x && x !== 'none')
+  const all = firsts.concat(st.fixReports)
   return all.length ? all.join(' and ') : 'none'
 }
 
@@ -161,7 +165,7 @@ async function finish(it, st, o) {
   const withItem = RELAY && !!it.item
   const c = await checkStage(it, `check: ${it.name}`,
     `Check: \`${findings}\`. Fixes: \`${fixes}\`. Worktree: \`${it.wt}\`. Check command: \`${it.check}\`. Gate: \`${gateLog}\`.`,
-    `${S}/reports/check-${it.name}.json`, withItem)
+    `${S}/reports/check-${tag(it)}.json`, withItem)
   if (c.dead) return stop(it, 'check', c.dead, { review })
   const ck = c.v
   if (ck.open !== 0) return stop(it, 'check', ck.summary, { review, open: ck.open, fail_without_fix: ck.fail_without_fix })
@@ -213,7 +217,7 @@ async function changeUnit(it) {
     if (r2.stop) return Object.assign(r2.stop, { review: r })
     gateLog = r2.g.gate_log
   }
-  return finish(it, st, { findings: reviewJson, fixes: fixesText(fixes, st), gateLog, review: r })
+  return finish(it, st, { findings: reviewJson, fixes: fixesText([it.kind === 'built' ? 'none' : `${S}/reports/${it.name}.md`, fixes], st), gateLog, review: r })
 }
 
 async function fixUnit(it) {
@@ -237,7 +241,7 @@ async function recheckUnit(it) {
     const q = list[k]
     const c = await checkStage(it, `check item ${k + 1}: ${it.name}`,
       `Merge check of a rider's item: \`${it.wt}\`. Item: \`${q.slug}\`. Review: \`${q.review}\`. Findings: \`relay check findings -C ${it.wt} --item ${q.slug} --review ${q.review}\`. Gate: \`${r.g.gate_log}\`.`,
-      `${S}/reports/check-${it.name}-item-${k + 1}.json`, false)
+      `${S}/reports/check-${tag(it)}-item-${k + 1}.json`, false)
     if (c.dead) return stop(it, 'check item', c.dead, { checks })
     checks.push({ slug: q.slug, open: c.v.open, summary: c.v.summary, fail_without_fix: c.v.fail_without_fix })
     if (c.v.open !== 0) return stop(it, 'check item', c.v.summary, { checks, open: c.v.open })

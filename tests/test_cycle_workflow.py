@@ -17,7 +17,14 @@ from relay_testbase import ROOT  # noqa: E402
 
 SCRIPT = os.path.join(ROOT, "plugins", "delegate", "workflows", "cycle.js")
 FAKE = os.path.join(ROOT, "plugins", "delegate", "tests", "fake-workflow.js")
-LABEL = re.compile(r"^(build|gate|fix red gate|review|fix|check|check item|close queue item|check show|design|design review|design revise)( \d+)?: [a-z0-9][a-z0-9-]{0,63}$")
+def _stage_label():
+    spec = importlib.util.spec_from_file_location("ledger_hook", os.path.join(ROOT, "plugins", "observe", "hooks", "ledger.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.STAGE_LABEL
+
+
+LABEL = _stage_label()   # one grammar: the ledger's
 STOPS = {"build", "gate", "fix red gate", "review", "fix", "check", "check item", "close queue item", "check show", "owner", "crash"}
 
 DONE = {"status": "DONE", "summary": "ok"}
@@ -341,6 +348,44 @@ class Cycle(unittest.TestCase):
         self.assertIn(os.path.join(self.tmp, "d-review.json"), out["prompts"]["design revise: d"])
         out = self.run_cycle(self.args([], designs=[dict(d, review=False)]))
         self.assertEqual(out["labels"], ["design: d"])
+
+    # review-fix round: F1 fixes line of the check, F2 project gate retry, F3 report names of a fix run
+    def fixes_of(self, out, label="check: x"):
+        return re.search(r"Fixes: `([^`]*)`", out["prompts"][label]).group(1)
+
+    def test_f1_check_fixes_name_the_worker_report(self):
+        w = os.path.join(self.scratch, "reports", "x.md")
+        out = self.run_cycle(self.args([self.unit(item="the-item")]))
+        self.assertEqual(self.fixes_of(out), w)                                        # case 1
+        out = self.run_cycle(self.args([self.unit(item="the-item")]), **{"stage:review": INSIDE})
+        self.assertEqual(self.fixes_of(out), f"{w} and {self.scratch}/reports/fix-x.md")   # case 2
+        out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}})
+        self.assertEqual(self.fixes_of(out), f"{w} and {self.scratch}/reports/fixgate-x-1.md")   # case 3
+        out = self.run_cycle(self.args([self.unit(kind="fix", fix="f", fixes="F.md", findings="r.json")]))
+        self.assertEqual(self.fixes_of(out), "F.md")                                   # case 4
+        out = self.run_cycle(self.args([self.unit(kind="recheck", findings="r.json")]))
+        self.assertEqual(self.fixes_of(out), "none")                                   # case 5
+        out = self.run_cycle(self.args([self.unit(kind="built", built="b")]))
+        self.assertEqual(self.fixes_of(out), "none")                                   # built: no worker report
+
+    def test_f2_project_gate_prompt_waits_on_a_live_gate_instead_of_starting_another(self):
+        out = self.run_cycle(self.args([self.unit(branch=None)], relay=False))
+        prompt = out["prompts"]["gate 1: x"]
+        self.assertIn("gate-x-1.log.pid", prompt)
+        self.assertIn("do not start another", prompt)
+        relay = self.run_cycle(self.args([self.unit()]))["prompts"]["gate 1: x"]
+        self.assertNotIn(".pid", relay)                                                # relay mode unchanged
+
+    def test_f3_fix_run_writes_no_name_the_change_run_wrote(self):
+        gates = {"stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}}
+        change = self.run_cycle(self.args([self.unit()]), **gates)
+        fix = self.run_cycle(self.args([self.unit(kind="fix", fix="f", fixes="F.md", findings="r.json")]), **gates)
+        names = lambda o: set(re.findall(r"(?:fixgate|gate|check)-[A-Za-z0-9.-]+?\.(?:md|log|json)", " ".join(o["prompts"].values())))
+        self.assertTrue(names(change) and names(fix))
+        self.assertEqual(names(change) & names(fix), set())
+        self.assertIn("fixgate-x-1.md", names(change))                                 # change names as today
+        self.assertIn("gate-x-1.log", names(change))
+        self.assertIn(f"fixgate-fix-x-1.md", names(fix))
 
 
 if __name__ == "__main__":
