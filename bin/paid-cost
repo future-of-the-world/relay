@@ -198,7 +198,7 @@ def money_command(a):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["ceiling", "estimate", "due", "today", "cap", "guard", "paths"])
+    ap.add_argument("cmd", choices=["ceiling", "estimate", "due", "today", "cap", "guard", "paths", "touches"])
     ap.add_argument("arg", nargs="?")
     ap.add_argument("--today", help="the UTC day as YYYY-MM-DD (default: now)")
     ap.add_argument("--cap", type=float)
@@ -211,6 +211,22 @@ def main(argv=None):
     if a.cmd == "paths":   # the paths the paid run checks, one per line, as plain globs
         print("\n".join(p.replace(":(glob)", "", 1) for p in CHECKED_PATHS))
         return 0
+    if a.cmd == "touches":   # the files a branch changes against the default branch that are on the checked paths; exit 1 when none
+        if not a.arg:
+            print("paid-cost: touches needs a branch or commit", file=sys.stderr)
+            return 2
+        default = relay_git.default_branch(a.repo)
+        if not default:
+            print("paid-cost: the default branch cannot be told", file=sys.stderr)
+            return 1
+        try:
+            files = _git(a.repo, "diff", "--name-only", f"refs/heads/{default}...{a.arg}", "--", *CHECKED_PATHS).split()
+        except GitError as e:
+            print(f"paid-cost: {e}", file=sys.stderr)
+            return 1
+        if files:
+            print("\n".join(files))
+        return 0 if files else 1
     if a.cmd in ("today", "cap", "guard"):
         return money_command(a)
     if a.cmd == "due":

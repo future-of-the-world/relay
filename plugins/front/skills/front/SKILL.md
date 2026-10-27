@@ -150,19 +150,23 @@ The merge itself is the front's, in the main checkout:
 `git merge --ff-only wt/<name>` in the main checkout. The merge hook refuses it
 unless the gate is green, the check says `open 0` and the branch has taken the
 default branch; its message says what to run (a runner takes the default branch
-or runs the gate again). Texts get one paid run per wave: after the last merge of a wave of 3-4
-changes (not while it is half-merged), when `bin/paid-cost due` lists a change
-and no paid run is going, run the full paid `bin/ci` yourself (no approval
-needed, within the owner's daily cap: `bin/paid-cost today` prints the spend and the cap, bin/ci refuses past it) in a detached worktree of the default
+or runs the gate again). Texts get one paid run per wave. A wave is the train of checked-path
+changes landed after a green run (plus whatever landed beside it). Start the
+paid run, only when `bin/paid-cost due` lists a change and no paid run is going,
+at the first of: that train has fully landed (not while it is half-landed);
+`due` lists at least the number in your line "Paid run starts when
+`bin/paid-cost due` lists at least: N changes" (projects.toml `wave_min`, 1-6,
+default 3); the end of a work stretch, whatever `due` holds. Run the full paid
+`bin/ci` yourself (no approval needed, within the owner's daily cap:
+`bin/paid-cost today` prints the spend and the cap, bin/ci refuses past it) in a detached worktree of the default
 branch's head, so the primary checkout stays clean, and report its cost. It takes
 longer than the ~40 minutes a runner's turns cover, so never a runner: start it
 with Bash `run_in_background` into a log in the scratchpad (no `&`, no polling;
 the harness tells you when it exits) and, when told, read only the log's last lines.
 A red run is one fix item at the top of the queue (`relay queue add`, kind fix, `failing_kind = "run"`)
-naming each failing eval and the changes `due` listed; when an open fix item already names that eval, add none (only the record path, if `relay queue` can); the next wave's run
-proves the fix. A run that is not a pass without a failing eval (money ceiling,
+naming each failing eval and the changes `due` listed; when an open fix item already names that eval, add none (only the record path, if `relay queue` can); the next paid run proves the fix. A run that is not a pass without a failing eval (money ceiling,
 runs not judged, the day's cap) adds no item: tell the owner in one line and run
-it again after the next wave. `relay sync` waits until `bin/paid-cost due` prints
+it again as the Lanes section says. `relay sync` waits until `bin/paid-cost due` prints
 nothing; say so when you hold a sync.
 
 ## Lanes: several changes at once
@@ -174,13 +178,22 @@ lane finishes, start the next call at once; its item is the top of
 `relay queue` that no running lane has taken (`relay queue take` marks it). Do
 not wait for the other lanes, and never start more than N.
 
-While a paid run goes, lanes keep building. A change whose files match
-`bin/paid-cost paths` (the paths the paid run checks; read the list from the
-command, not from memory) waits at the landing until the run ends, because
-landing it would change what the run is judging. Any other change lands as
-usual. After each green run, `relay sync`, then the waiting changes land as one
-train (above). A red run is the fix item described above; the waiting changes
-stay waiting behind it.
+While a paid run goes, lanes keep building. A change that touches the paid
+run's paths waits at the landing until the run ends; `bin/paid-cost touches
+<branch>` answers it (prints the matching files, exit 0; prints nothing and
+exits 1 when the branch touches none; `bin/paid-cost paths` lists the globs).
+The reason: the run does not cover a checked-path change landed during it, so
+after a green run `bin/paid-cost due` would still list it and `relay sync`
+would stay refused. Any other change lands as usual. How the waiting changes
+are released depends on how the run ends:
+
+- Green: `relay sync`, then the waiting changes land as one train (above), and
+  the next paid run starts on that head.
+- Red: the fix item lands first; the next paid run starts on its head at once,
+  with no wave needed, and the waiting changes land after that run is green.
+- Not judged (money ceiling, runs not judged, the day's cap): the waiting
+  changes keep waiting; run again on the same head as soon as the cap allows,
+  and they land after that run is green.
 
 ## A long prompt is a setup gap
 

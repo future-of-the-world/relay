@@ -83,7 +83,7 @@ brief: ask it in the prompt, several questions at once.
 Up to "Changes built at once: N" changes (front skill, "Lanes") are built side
 by side, each by its own cycle run with its own worktree and briefs. The 4-agent
 cap counts agents inside one change. While a paid run goes, lanes keep
-building; a change whose files match `bin/paid-cost paths` waits at the landing
+building; a change for which `bin/paid-cost touches <branch>` prints files waits at the landing
 until the run ends, then lands in one train.
 
 ## Reading a hand-back
