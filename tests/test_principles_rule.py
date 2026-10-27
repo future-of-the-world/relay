@@ -78,7 +78,7 @@ class TestPrinciplesRule(unittest.TestCase):
         import relay_rules
         text = relay_rules.render_target("demo", {"load": ["principles"]}, relay_rules.rules(), {})
         self.assertIn("## 9. Decide inside the principles", text)
-        self.assertIn("## 10. Works for a newcomer: no secrets to learn", text)
+        self.assertIn("## 10. Works for a newcomer", text)
 
     def _section(self, n):
         import re
@@ -94,8 +94,8 @@ class TestPrinciplesRule(unittest.TestCase):
         general = " ".join(re.sub(r"In relay[^.]*\.", "", body).split())
         self.assertNotIn("relay", general.lower())
         self.assertIn("In relay the users are two", body)
-        self.assertIn("non-obvious secrets, workarounds", body)
-        self.assertIn("one month and one who just opened it stays minimal", body)
+        self.assertNotIn("non-obvious secrets", body)
+        self.assertNotIn("stays minimal", body)
 
     def test_principle_headings_are_numbered_once_in_order(self):
         import re
