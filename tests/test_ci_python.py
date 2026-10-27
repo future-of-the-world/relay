@@ -2,6 +2,7 @@
 runs beside the outer steps. Free; no model call. Programs are replaced by a recording runner or by stubs in a temporary
 PATH; every tree is a temporary folder."""
 import io
+import json
 import os
 import stat
 import subprocess
@@ -184,6 +185,37 @@ class PaidPart(unittest.TestCase):
         ci, out = self.record(2)
         self.assertEqual(ci.status, 1)
         self.assertIn("not a pass", out)
+
+    def test_the_eval_tools_exit_code_does_not_decide_the_gate_the_records_majority_does(self) -> None:
+        # Q1 of the majority item: the eval tool exits 1 when any run failed, yet the case with runs PASS PASS FAIL
+        # passes by majority (2 of 3). The gate takes the verdict from bin/eval-record, so it stays green.
+        def run(passed: bool) -> dict:
+            votes = [passed] * 3
+            return {"graders": [{"name": "g", "type": "llm", "passed": passed, "judgeVotes": votes}]}
+        data = {"startedAt": "2026-10-27T10:00:00.000Z", "costUsd": 1.0,
+                "cases": [{"name": "c", "runsPerCase": 3, "graders": [{"name": "g", "type": "llm"}],
+                           "arms": {"with": [run(True), run(True), run(False)]}}]}
+        real = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "eval-record")
+        home = os.path.join(self.root, "home")
+
+        def answer(argv: List[str]) -> Any:
+            if argv[0] == "claude":
+                os.makedirs(os.path.join(self.root, ".ci"), exist_ok=True)
+                with open(os.path.join(self.root, ".ci", "evals.json"), "w") as handle:
+                    json.dump(data, handle)
+                return 1, ""   # the eval tool's exit code for one failed run
+            if "bin/eval-record" in argv:
+                done = subprocess.run([sys.executable, real, *argv[2:], "--repo", "t"], cwd=self.root, text=True, capture_output=True,
+                                      env=dict(os.environ, RELAY_HOME=home))
+                return done.returncode, done.stdout
+            return self.paid_answers()(argv)
+        ci = self.ci(Recorder(answer))
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.assertIsNone(ci.plugin_evals())
+            ci.record()
+        self.assertEqual((ci.status, out.getvalue()), (0, out.getvalue()))
+        self.assertNotIn("FAILED", out.getvalue())
 
     def test_the_record_step_runs_in_the_full_gate_only_and_after_the_evals(self) -> None:
         for quick in (True, False):
