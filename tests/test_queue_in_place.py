@@ -81,7 +81,7 @@ class InPlace(tq.Base):
         self.wa = self.worktree("a")
 
     def test_a_close_and_a_drop_each_change_the_one_item_file(self):
-        rq.close_with_evidence(self.main, "feat", "19c02df", **tq.QUIET)
+        rq.close_with_evidence(self.main, "feat", "master", **tq.QUIET)
         rq.drop(self.main, "gone", "not wanted", **tq.QUIET)
         # worked out: each landing is one commit that touches only its own file, and no done/ folder appears
         for slug in ("feat", "gone"):

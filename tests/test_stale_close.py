@@ -139,9 +139,10 @@ class TestFixedBy(tq.Base):
         self.assertIn("--fixed-by", str(ctx.exception))
         self.assertIn("--test", str(ctx.exception))
         self.write_commit(self.main, {".relay/queue/feat.json": tq.feature_item()}, "feature")
+        feature_commit = tq.git(self.main, "rev-parse", "master")      # the close itself lands after this commit
         with mock.patch.object(rq, "utcnow", return_value=NOW):
-            rq.close_with_evidence(self.main, "feat", "3b28fbf", **tq.QUIET)
-        self.assertEqual(self.item("feat")["evidence"], "3b28fbf")
+            rq.close_with_evidence(self.main, "feat", "master", **tq.QUIET)
+        self.assertEqual(self.item("feat")["evidence"], feature_commit)
 
 
 if __name__ == "__main__":

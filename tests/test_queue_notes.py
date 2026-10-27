@@ -284,7 +284,7 @@ class SessionFiles(tq.Base):
         with self.assertRaises(rq.Refused) as ctx:
             rq.close_with_evidence(self.main, slug, "/private/tmp/claude-501/x/report.md", **tq.QUIET)
         self.assertIn("names a session file", str(ctx.exception))
-        rq.close_with_evidence(self.main, slug, "16a8c19", **tq.QUIET)
+        rq.close_with_evidence(self.main, slug, tq.git(self.main, "rev-parse", "master"), **tq.QUIET)
         self.assertEqual(self.item(slug)["state"], "done")
 
     def test_f6_drop_keeps_the_owners_words_with_a_path(self):

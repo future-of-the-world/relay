@@ -1030,9 +1030,38 @@ def _branch_live(repo, branch):
     return relay_git.git(main, "merge-base", "--is-ancestor", ref, "refs/heads/" + default)[0] != 0
 
 
+def _commit_on_default(repo: str, ref: str) -> str:
+    """The full sha of `ref` in `repo` when it is a commit on that repo's default branch; Refused (naming why) otherwise."""
+    main, default = _context(repo)
+    rc, out, _ = _git(main, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}")
+    if rc != 0:
+        raise Refused(f"--evidence {ref} is not a commit of {os.path.basename(main) or main}")
+    sha = _text(out)
+    if _git(main, "merge-base", "--is-ancestor", sha, "refs/heads/" + default)[0] != 0:
+        raise Refused(f"{sha[:12]} is not on {default}: evidence is a change that is merged")
+    return sha
+
+
+def _checked_evidence(repo: str, evidence: str) -> str:
+    """`evidence` as it is stored: the full sha of a commit on the default branch (`<repo folder>:<sha>` for a commit of another
+    repo, checked there), or a repo-relative file that exists at the tip of the default branch (a report). Anything else is refused."""
+    other, colon, ref = evidence.partition(":")
+    if colon and os.path.isdir(os.path.expanduser(other)):
+        folder = os.path.realpath(os.path.expanduser(other))
+        return f"{other}:{_commit_on_default(folder, ref.strip())}"
+    main, default = _context(repo)
+    if _git(main, "rev-parse", "--verify", "-q", f"{evidence}^{{commit}}")[0] == 0:
+        return _commit_on_default(repo, evidence)
+    if not os.path.isabs(evidence) and _git(main, "cat-file", "-e", f"refs/heads/{default}:{evidence}")[0] == 0:
+        return evidence
+    raise Refused(f"--evidence {evidence} is not a commit of this repository, nor a file on {default}; "
+                  "for a commit of another repository write <repo folder>:<sha>")
+
+
 def close_with_evidence(repo, slug, evidence, **engine):
-    """Close a feature that was finished without a branch of this repo's own: `evidence` is a merge sha (of this or another
-    repo), one line. A fix is closed with a test (`done`), never with this."""
+    """Close a feature that was finished without a branch of this repo's own: `evidence` is a commit on the default branch (of this
+    repo, or `<repo folder>:<sha>` of another), or a report file on it; one line, checked in git and stored as the full sha.
+    A fix is closed with a test (`done`), never with this."""
     evidence = evidence.strip()
     if not evidence or "\n" in evidence:
         raise Refused("--evidence is a merge sha, on one line")
@@ -1044,7 +1073,7 @@ def close_with_evidence(repo, slug, evidence, **engine):
             raise Refused(f"'{slug}' is a fix: close it with --test on the branch that took it, or with --fixed-by <commit> --test <file>::<Class>::<name> when a change already on the default branch fixed it")
         if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
             raise _taken_by_refusal(item)
-        text = serialize(slug, changed(item, closed_at=utcnow(), evidence=evidence))
+        text = serialize(slug, changed(item, closed_at=utcnow(), evidence=_checked_evidence(repo, evidence)))
         return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "closed")
 
     return _run(repo, planner, **engine)
