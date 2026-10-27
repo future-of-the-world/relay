@@ -67,7 +67,7 @@ class TestPrinciplesRule(unittest.TestCase):
         spec = self._targets()["relay"]
         text = relay_rules.render_target("relay", spec, relay_rules.rules(), {})
         self.assertIn("## Principles", text)
-        for n in range(1, 10):
+        for n in range(1, 11):
             self.assertIn(f"## {n}. ", text)
         self.assertIn("waste that repeats on every run or every change is MEDIUM", text)
         self.assertNotIn("aste (experimental)", text)
@@ -78,6 +78,31 @@ class TestPrinciplesRule(unittest.TestCase):
         import relay_rules
         text = relay_rules.render_target("demo", {"load": ["principles"]}, relay_rules.rules(), {})
         self.assertIn("## 9. Decide inside the principles", text)
+        self.assertIn("## 10. Works for a newcomer", text)
+
+    def _section(self, n):
+        import re
+        with open(os.path.join(ROOT, "rules", "principles.md")) as f:
+            text = f.read()
+        m = re.search(rf"^### {n}\. .*?(?=^### |\Z)", text, re.S | re.M)
+        return m.group(0)
+
+    def test_principle_10_names_the_program_generally_and_relay_only_as_example(self):
+        # a project loading the rule has its own program; relay appears only in "In relay ..." sentences
+        import re
+        body = self._section(10)
+        general = " ".join(re.sub(r"In relay[^.]*\.", "", body).split())
+        self.assertNotIn("relay", general.lower())
+        self.assertIn("In relay the users are two", body)
+        self.assertNotIn("non-obvious secrets", body)
+        self.assertNotIn("stays minimal", body)
+
+    def test_principle_headings_are_numbered_once_in_order(self):
+        import re
+        with open(os.path.join(ROOT, "rules", "principles.md")) as f:
+            text = f.read()
+        nums = [int(x) for x in re.findall(r"^### (\d+)\. ", text, re.M)]
+        self.assertEqual(nums, list(range(1, len(nums) + 1)))
 
 
 class AutoMergeTextsTest(unittest.TestCase):

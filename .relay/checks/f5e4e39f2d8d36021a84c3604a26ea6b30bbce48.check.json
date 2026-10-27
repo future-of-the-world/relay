@@ -1,0 +1,85 @@
+{
+  "branch": "wt/principle-newcomer",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading: projects.toml has only [relay] loading principles today, so nothing is wrong yet; the opt-in path exists and is tested, so it becomes wrong the day another project loads the rule. Relay's own two users (person via the front, agent via commands) can stay as the example (\"in relay: ...\") rather than as the rule. LOW: correct today, fragile. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "grep -n -i relay rules/principles.md -> only lines 53-55 (principle 10)",
+        "projects.toml:19 [relay] load = [\"principles\", \"python\"]; [global] skip = [\"principles\", ...]",
+        "tests/test_principles_rule.py:77 render_target(\"demo\", {\"load\": [\"principles\"]}, ...)"
+      ],
+      "failing_case": [
+        "A project target with load = [\"principles\"] (the case test_a_project_with_load_principles_carries_it renders, and the queue item principles-become-a-relay-rule-other-projects-ca exists for) gets \"what relay makes works simply\", \"the person, who talks to the front\", \"relay's internal names\", \"relay's own texts\". In that project the principle points at relay, not at the project's own program; the owner said \"\u0442\u0432\u043e\u0435\u0439 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u043c\u043e\u0439\" (your program), in general. Principles 1-9 name no product."
+      ],
+      "fix_hint": [
+        "Say \"the program\" / \"what we build\" in the rule sentence; keep relay's two users as \"In relay the users are two: ...\"."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 53,
+      "pass_cases": [
+        "1. rules/principles.md principle 10 names the program generally (e.g. \"what we build\", \"the program\") and keeps \"non-obvious secrets, workarounds\", \"gap between a user of one month and one who just opened it stays minimal\".",
+        "2. test_a_project_with_load_principles_carries_it still finds \"## 10. Works for a newcomer: no secrets to learn\".",
+        "3. The relay target still renders principles 1-10 (test_relay_target_renders_the_rule_in_full_and_nothing_else)."
+      ],
+      "path": "rules/principles.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_principles_rule.py:90 asserts no \"relay\" outside \"In relay\" sentences and keeps the secrets and gap phrases; fails on the old file, passes now. Pass cases 2 and 3 covered by existing tests (passing)."
+      ],
+      "severity": "LOW",
+      "since": "c7458733d542f2e43104599d88027e37fef6251e",
+      "source": "review-principle-newcomer.json",
+      "source_id": "F1",
+      "summary": "principle 10 alone is written about relay (\"what relay makes\", \"the front\", \"relay's texts\"), while the rule is built for any project to load",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the queue files. The brief told the builder not to touch the item and that it \"will become principle 11\"; that decision lives only in the brief, not in the item, so a later builder sees \"principle 10\". Outside: the queue is the front's record. Size: 10 agent minutes (one queue edit via relay queue, one small test)."
+      ],
+      "evidence": [
+        "git grep -n \"principle 10\" .relay/queue -> principle-10-one-subject-per-file.json:7 \"title\": \"Principle 10: one subject per file\"; :9 \"rules/principles.md gains principle 10 ...\"; 4 other items cite \"principle 10 \\\"one subject per file ...\\\"\"",
+        "tests/test_principles_rule.py:70 for n in range(1, 11): assertIn(f\"## {n}. \", text)  (presence only, no uniqueness)"
+      ],
+      "failing_case": [
+        "After this merge, a builder takes principle-10-one-subject-per-file and does what its spec says: \"rules/principles.md gains principle 10\". The file then holds two \"### 10.\" headings; test_relay_target_renders_the_rule_in_full_and_nothing_else (range(1, 11)) and the newcomer assertion both still pass. Five other queue items (every-new-relay-command-edits-bin-relay, lib-modules-are-committed-in-three-copies, relay-queue-py-and-relay-setup-py-hold-many-subj, two-branches-start-on-the-same-file-unnoticed, and the item itself) cite \"principle 10 'one subject per file'\", which after the merge names the newcomer principle. Should be: the item says principle 11, and the numbering is checked."
+      ],
+      "fix_hint": [
+        "Front: edit the item through relay queue to say principle 11 (title and spec). Add a numbering test (headings 1..N unique, in order) to tests/test_principles_rule.py when principle 11 is built."
+      ],
+      "id": "F2",
+      "kind": "outside",
+      "line": 7,
+      "pass_cases": [
+        "1. The queue item's title and spec name principle 11 (artifact fact, read with relay queue).",
+        "2. A test over rules/principles.md: the \"### <n>.\" headings are 1..N, each once, in order; it fails on a file with two \"### 10.\" headings.",
+        "3. The same test passes on today's file (1..10)."
+      ],
+      "path": ".relay/queue/principle-10-one-subject-per-file.json",
+      "rank": "medium",
+      "reason": [
+        "Fixer: the queue item edit is the front's (outside the change). The numbering test tests/test_principles_rule.py:100 was added and passes on 1..10. Front must edit principle-10-one-subject-per-file to say principle 11 (and the four citing items) before it is built."
+      ],
+      "severity": "MEDIUM",
+      "since": "c7458733d542f2e43104599d88027e37fef6251e",
+      "source": "review-principle-newcomer.json",
+      "source_id": "F2",
+      "summary": "the queued item still says 'Principle 10: one subject per file' and 'rules/principles.md gains principle 10'; built after this merge it adds a second principle 10, and no test catches a duplicate number",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "f3733a9dc6efd80c1a8cf8717efc63ac07f203f8.gate.log",
+  "head": "f5e4e39f2d8d36021a84c3604a26ea6b30bbce48",
+  "item": null,
+  "notes": [
+    "Principle 10 now general; \"In relay ...\" sentences are the only relay mentions. No callers affected (rule rendered from one file)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range c7458733..HEAD; changed own files: rules/principles.md, tests/test_principles_rule.py only. Ran tests/test_principles_rule.py (13 passed). Gate log head f3733a9, exit 0; only gate log came after (inert). Failing-without-fix run at c7458733 with head test file: 1 failed (the F1 test), numbering test passes on old file by design."
+  ],
+  "type": "check"
+}
