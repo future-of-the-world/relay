@@ -43,7 +43,7 @@ ck "agent: no addition for that role" - "$(agent openspec:fixer "$R")"
 ck "agent: a project's own agent (no plugin) gets nothing" - "$(agent worker "$R")"
 ck "agent: a built-in agent gets nothing" - "$(agent general-purpose "$R")"
 ck "agent: role cannot leave the folder" - "$(agent 'openspec:../../etc/passwd' "$R")"
-ck "agent: a core: name is served too" "WORKER-RULE" "$(ctx "$(agent core:worker "$R")")"
+ck "agent: a relay: name is served too" "WORKER-RULE" "$(ctx "$(agent relay:worker "$R")")"
 
 ck "agent: another plugin's role gets nothing" - "$(agent pr-review-toolkit:worker "$R")"
 ck "agent: an unlisted plugin's plan gets nothing" - "$(agent other:plan "$R")"
