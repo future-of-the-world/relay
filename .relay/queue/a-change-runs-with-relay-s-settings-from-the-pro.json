@@ -47,6 +47,12 @@
       "fact": [
         "Measured 27 Oct: what a change depends on differs on 8 of 10 lines of the global-state table (plugins switched on, marketplace path, model and effort, permissions, rules text, memory, old agents and hooks, ledger, gate slots, test times); a fresh container without the plugins runs no hooks and no typed agents, so merges go unguarded and nothing is recorded."
       ]
+    },
+    {
+      "at": "2026-10-27T01:08:35Z",
+      "fact": [
+        "Decided in that design (the owner can reverse each): the front and the landing stay on the host; containers run build, gate, review, fix and check but never land, take the default branch or build a train; no `--bare`; the rule files and the run's settings are generated per run and never committed; one exact Python 3.14.6 for the gate on the host and in the image; no paid runs in a container (RELAY_PAID=off). Not verified: that the Workflow tool and the InstructionsLoaded hook work under `claude -p`; that a directory marketplace accepts a relative path in project settings."
+      ]
     }
   ]
 }
