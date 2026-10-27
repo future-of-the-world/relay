@@ -146,5 +146,46 @@ class StubShowMatchesTheRealNotes(unittest.TestCase):
         self.check_item(json.dumps(base))
 
 
+def grader_pattern(case: str, name: str) -> str:
+    with open(os.path.join(PLUGIN, case, "graders", name + ".md"), encoding="utf-8") as fh:
+        head = fh.read().split("\n---\n")[0]
+    line = next(x for x in head.split("\n") if x.startswith("input_match:"))
+    return json.loads(line.partition(":")[2].strip())
+
+
+def bash_hit(case: str, name: str, command: str) -> bool:
+    """The eval tool applies input_match as a JS RegExp over JSON.stringify(input) (tests/test_wave_red.py does the same)."""
+    code = "const [p,t]=JSON.parse(require('fs').readFileSync(0,'utf8'));process.stdout.write(String(new RegExp(p).test(t)))"
+    text = json.dumps({"command": command}, separators=(",", ":"), ensure_ascii=False)
+    out = subprocess.run(["bun", "-e", code], input=json.dumps([grader_pattern(case, name), text]), capture_output=True, text=True, check=True)
+    return out.stdout == "true"
+
+
+class ToolUsedGraders(unittest.TestCase):
+    """F3: each changed tool_used grader passes the right Bash call and fails a wrong one."""
+
+    RU = "Кстати, про запись стоимости каждого изменения: я хочу, чтобы в записи были ещё и минуты ожидания проверки, это важно для меня."
+    EN = "By the way, about recording the cost of each change: i want the recrod to also hold the minutes spent waiting for the check, it matters to me."
+
+    def heredoc(self, said: str) -> str:
+        return 'cat > /tmp/n.toml <<EOF\nsaid = "%s"\nEOF\nrelay queue note each --input /tmp/n.toml' % said
+
+    def test_russian_said_verbatim(self) -> None:
+        self.assertTrue(bash_hit("keep-owner-words", "said-verbatim", self.heredoc(self.RU)))
+        # a paraphrase that keeps three of the owner's words is not verbatim
+        self.assertFalse(bash_hit("keep-owner-words", "said-verbatim", self.heredoc("Владелец хочет видеть минуты ожидания проверки")))
+        self.assertFalse(bash_hit("keep-owner-words", "said-verbatim", 'fact = "минуты ожидания проверки"'))
+
+    def test_english_said_verbatim_keeps_the_typo(self) -> None:
+        self.assertTrue(bash_hit("keep-owner-words-en", "said-verbatim", self.heredoc(self.EN)))
+        self.assertFalse(bash_hit("keep-owner-words-en", "said-verbatim", self.heredoc(self.EN.replace("recrod", "record"))))
+
+    def test_used_show_needs_a_read_of_the_notes(self) -> None:
+        for good in ("relay queue show metrics", "cat .relay/queue/each-change.json", "grep -l metrics .relay/queue/*.json"):
+            self.assertTrue(bash_hit("recall-decision", "used-show", good), good)
+        for bad in ("ls .relay/queue", "ls -la .relay/queue/ | head", "echo done"):
+            self.assertFalse(bash_hit("recall-decision", "used-show", bad), bad)
+
+
 if __name__ == "__main__":
     unittest.main()
