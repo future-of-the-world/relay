@@ -1,0 +1,27 @@
+head e3cb96f81a8cc7c287713dafb7522aba8eaaca60
+cmd bin/ci --quick
+wait 0.0
+ci: library tests ok (420s)
+ci: types and lint FAILED (1s, log: .ci/steps/types-and-lint.log)
+    FAIL mypy 1.18.2:
+    lib/relay_queue.py:1686: error: Incompatible types in assignment (expression has type "Any | None", variable has type "list[str]")  [assignment]
+    lib/relay_queue.py:1705: error: No overload variant of "list" matches argument type "object"  [call-overload]
+    lib/relay_queue.py:1706: error: No overload variant of "list" matches argument type "object"  [call-overload]
+    Found 3 errors in 1 file (checked 41 source files)
+    FAIL ruff 0.13.3 (pyflakes rules):
+    Found 1 error.
+ci: hook tests FAILED (227s, log: .ci/steps/hook-tests.log)
+    ok   no file: dump is an error too
+    ok   no file: packet is an error too
+    ok   no file: spec-check is an error too
+    ok   path, nothing for this version: an error, not the newest
+    ok   path, that error exits 1
+    FAIL  T15n with the test and a clean check: allowed
+    FAIL  T15n3 a well-formed new-shape item closed in place: allowed
+    FAIL  T15n3 a malformed new-shape item: refused as malformed
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (7s)
+ci: RED
+exit 1
