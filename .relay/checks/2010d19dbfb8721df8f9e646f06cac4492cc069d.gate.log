@@ -1,0 +1,18 @@
+head 2010d19dbfb8721df8f9e646f06cac4492cc069d
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (1s)
+ci: lib copies identical ok (0s)
+ci: library tests ok (271s)
+ci: hook tests ok (159s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert FAILED (62s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed (the probe's output is in .ci/steps/inert-nested.log):
+        --- outer run
+        +++ probe run
+        @@ -3 +3 @@
+        -library tests ok
+        +library tests FAILED
+ci: RED
+exit 1
