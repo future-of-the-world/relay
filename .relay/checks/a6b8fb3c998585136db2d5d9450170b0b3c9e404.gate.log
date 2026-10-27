@@ -1,0 +1,19 @@
+head a6b8fb3c998585136db2d5d9450170b0b3c9e404
+cmd bin/ci --quick
+wait 0.0
+ci: library tests FAILED (263s, log: .ci/steps/library-tests.log)
+    FAIL: test_lib_modules_import (test_py39_hooks.Python39.test_lib_modules_import) (module='plugins/core/lib/relay_queue.py')
+    AssertionError: 1 != 0 : Traceback (most recent call last):
+    ImportError: cannot import name 'TypeGuard' from 'typing' (/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/typing.py)
+    FAIL: test_lib_modules_import (test_py39_hooks.Python39.test_lib_modules_import) (module='plugins/front/lib/relay_queue.py')
+    AssertionError: 1 != 0 : Traceback (most recent call last):
+    ImportError: cannot import name 'TypeGuard' from 'typing' (/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/typing.py)
+    FAILED (failures=2)
+ci: types and lint ok (0s)
+ci: hook tests ok (149s)
+ci: lib copies identical ok (0s)
+ci: eval grader tests ok (0s)
+ci: plugin validate ok (3s)
+ci: inert ok (4s)
+ci: RED
+exit 1
