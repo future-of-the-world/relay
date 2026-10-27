@@ -35,6 +35,12 @@
       "fact": [
         "The owner's words below were said on the night of 26 Oct (from the saved plan checks-artifacts.md on branch wt/plans-save), before or while this item was written; \"this\" is the per-class test times the parallel test runner of the gate-speed design uses, kept in an ignored local file. The note carries the item's creation time."
       ]
+    },
+    {
+      "at": "2026-10-26T15:15:58Z",
+      "said": [
+        "Почему мы не можем записывать это в .relay/checks в файлах репозитория, что мы вообще там храним, можем ли мы складировать в папку коммита дополнительные артефакты"
+      ]
     }
   ]
 }
