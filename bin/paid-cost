@@ -42,6 +42,11 @@ def _num(v):
     return isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
 
 
+def _run_cost(r: dict) -> float:
+    """What one stored run cost: its costUsd plus its judgeCostUsd when that is numeric. The one place of this rule."""
+    return r["costUsd"] + (r["judgeCostUsd"] if _num(r.get("judgeCostUsd")) else 0)
+
+
 def stored(folder):
     """[(batch cost, partial, [cost of each run])] of the stored records that have a batch cost and runs; unreadable files are skipped.
     A run costs its costUsd + judgeCostUsd; a run with no numeric costUsd is left out."""
@@ -58,7 +63,7 @@ def stored(folder):
             runs = [r for c in d["cases"] for rs in c["arms"].values() for r in rs]
             cost = d["costUsd"]
             partial = d.get("partial") is True
-            costs = [r["costUsd"] + (r["judgeCostUsd"] if _num(r.get("judgeCostUsd")) else 0) for r in runs if _num(r.get("costUsd"))]
+            costs = [_run_cost(r) for r in runs if _num(r.get("costUsd"))]
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             continue
         if _num(cost) and runs:
@@ -83,8 +88,7 @@ def case_costs(folder: str) -> dict[str, float]:
                 continue
             found = {}
             for c in d["cases"]:
-                costs = [r["costUsd"] + (r["judgeCostUsd"] if _num(r.get("judgeCostUsd")) else 0)
-                         for rs in c["arms"].values() for r in rs if _num(r.get("costUsd"))]
+                costs = [_run_cost(r) for rs in c["arms"].values() for r in rs if _num(r.get("costUsd"))]
                 if costs and isinstance(c["name"], str):
                     found[c["name"]] = float(sum(costs))
         except (OSError, ValueError, KeyError, TypeError, AttributeError):

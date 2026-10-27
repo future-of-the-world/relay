@@ -127,5 +127,27 @@ class SuiteEstimate(unittest.TestCase):
             self.assertEqual(out.stdout.strip(), "suite of 2 cases (1 new): $4.00; mean $2.00, max $2.00 over 2 stored runs")
 
 
+class OneRunCostRule(unittest.TestCase):
+    def _rec(self, d):
+        with open(os.path.join(d, "a.json"), "w", encoding="utf-8") as f:
+            json.dump({"costUsd": 1.5, "cases": [{"name": "x", "arms": {"with": [{"costUsd": 1, "judgeCostUsd": 0.5}]}}]}, f)
+
+    def test_stored_and_case_costs_agree_on_one_run(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._rec(d)
+            m = load()
+            # run cost = 1 + judge 0.5 = 1.5 in both readers
+            self.assertEqual(m.stored(d)[0][2], [1.5])
+            self.assertEqual(m.case_costs(d), {"x": 1.5})
+
+    def test_both_readers_use_the_one_run_cost_function(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._rec(d)
+            m = load()
+            m._run_cost = lambda r: 7.0   # a changed rule in the one place must reach both readers
+            self.assertEqual(m.stored(d)[0][2], [7.0])
+            self.assertEqual(m.case_costs(d), {"x": 7.0})
+
+
 if __name__ == "__main__":
     unittest.main()
