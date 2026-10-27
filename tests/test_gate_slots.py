@@ -20,7 +20,7 @@ from pidfile import wait_pid
 
 import relay_gate
 
-WAITING = "gate: waiting for a free gate slot (all 1 busy; the limit stops gates slowing each other, RELAY_GATE_SLOTS sets it)"
+WAITING = "gate: waiting for a free gate slot (all 1 busy; the limit stops gates slowing each other, the file $RELAY_HOME/gate-slots/count sets it)"
 BOUND = 30      # seconds any wait in these tests may last: with the feature broken a test fails inside it instead of hanging the gate
 
 # a gate that says it started, then waits for the test to let it go (polling a file, no fixed sleep in the test);
@@ -31,7 +31,7 @@ HOLD = 'echo $$ > .ci/pid\necho run >> "%s"\ntouch .ci/started\nwhile [ ! -f "%s
 class Slots(Fixture):
     def setUp(self):
         super().setUp()
-        self.env["RELAY_GATE_SLOTS"] = "1"
+        self.set_slots("1")
         self.release = os.path.join(self.tmp, "release")
         self.counter = os.path.join(self.tmp, "runs")
         self.repo(gate=HOLD % (self.counter, self.release, self.tmp))
@@ -40,6 +40,11 @@ class Slots(Fixture):
         write(os.path.join(self.wt2, "lib", "b.py"), "b\n")
         git(self.wt2, "add", "-A")
         git(self.wt2, "commit", "-q", "-m", "work")
+
+    def set_slots(self, value):
+        folder = os.path.join(self.env["RELAY_HOME"], "gate-slots")
+        os.makedirs(folder, exist_ok=True)
+        write(os.path.join(folder, "count"), value + "\n")
 
     def start(self, cwd):
         proc = subprocess.Popen([sys.executable, RELAY, "gate"], cwd=cwd, env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
@@ -130,13 +135,30 @@ class Slots(Fixture):
     def test_the_default_slot_count_comes_from_the_cores(self):
         """cores // 6, at least 1: 12 cores give 2 (the measured knee: 2 gates at once 698 s each, 3 at once 1058 s each); 4 cores give 1, 24 give 4."""
         self.assertEqual([relay_gate.default_slots(n) for n in (1, 4, 12, 24)], [1, 1, 2, 4])
-        self.assertEqual(relay_gate.slot_count({}, cores=12), 2)
-        self.assertEqual(relay_gate.slot_count({"RELAY_GATE_SLOTS": "5"}, cores=12), 5)       # the setting wins
+        home = os.path.join(self.tmp, "nohome")
+        self.assertEqual(relay_gate.slot_count(home, cores=12), 2)
+        for cores, want in ((12, 2), (4, 1), (None, 1)):      # no setting: cores // 6, at least 1; os.cpu_count() None counts as 1
+            with mock.patch("os.cpu_count", return_value=cores):
+                self.assertEqual(relay_gate.slot_count(home), want)
+        os.makedirs(os.path.join(home, "gate-slots"))
+        write(os.path.join(home, "gate-slots", "count"), "5\n")
+        self.assertEqual(relay_gate.slot_count(home, cores=12), 5)       # the machine's setting wins
+
+    def test_gates_read_one_machine_setting_not_their_own_environment(self):
+        """A gate started with RELAY_GATE_SLOTS=3 in its environment still obeys the file: with the file saying 1 the second gate waits."""
+        self.env["RELAY_GATE_SLOTS"] = "3"
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        second = self.start(self.wt2)
+        self.assertEqual(self.line(second), WAITING)
+        write(self.release, "go\n")
+        for proc in (first, second):
+            self.assertEqual(proc.wait(timeout=BOUND), 0)
 
     def test_with_two_slots_the_third_concurrent_gate_waits(self):
         """N=2 (the default on 12 cores): gates A and B run together, gate C prints the waiting line with its reason and does not
         start its command until A or B exits."""
-        self.env["RELAY_GATE_SLOTS"] = "2"
+        self.set_slots("2")
         wt3 = os.path.join(self.main, ".worktrees", "z")
         git(self.main, "worktree", "add", "-q", wt3, "-b", "wt/z")
         write(os.path.join(wt3, "lib", "c.py"), "c\n")
@@ -155,10 +177,10 @@ class Slots(Fixture):
         self.assertEqual(self.runs(), 3)
 
     def test_a_bad_slot_count_is_refused(self):
-        self.env["RELAY_GATE_SLOTS"] = "none"
+        self.set_slots("none")
         done = subprocess.run([sys.executable, RELAY, "gate"], cwd=self.wt, env=self.env, capture_output=True, text=True, timeout=BOUND)
         self.assertEqual(done.returncode, 1)
-        self.assertIn("RELAY_GATE_SLOTS", done.stderr)
+        self.assertIn("gate-slots", done.stderr)
 
     def test_a_gate_stopped_with_sigterm_ends_its_command_before_the_slot_is_free(self):
         """N=1: SIGTERM to A's relay process ends A's command (its process group) too; only then can B take the slot."""
@@ -223,7 +245,7 @@ class Slots(Fixture):
     def test_t1_a_second_gate_in_one_worktree_waits_then_reuses_the_first_log(self):
         """T1: B starts in the worktree where A runs (a slot is free: N=2). B prints the worktree waiting line, its command
         never starts, and after A commits its log B reports it: 1 run, both exit 0, no zero byte in the log."""
-        self.env["RELAY_GATE_SLOTS"] = "2"
+        self.set_slots("2")
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         second = self.start(self.wt)
@@ -239,7 +261,7 @@ class Slots(Fixture):
     def test_t2_a_second_gate_after_code_moved_refuses_and_never_runs(self):
         """T2: code is committed in the worktree while A runs and B waits. B ends with 'moved' and never runs; A, whose tree
         is no longer its commit, is refused too, with no log."""
-        self.env["RELAY_GATE_SLOTS"] = "2"
+        self.set_slots("2")
         head = git(self.wt, "rev-parse", "HEAD")
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
@@ -269,7 +291,7 @@ class Slots(Fixture):
     def test_t3_a_killed_gate_leaves_the_worktree_locked_until_its_command_ends(self):
         """T3: SIGKILL of A's relay process while its command runs. B in the same worktree prints the waiting line and does
         not start its command (1 run) until A's orphan ends; then it runs (2 runs)."""
-        self.env["RELAY_GATE_SLOTS"] = "2"
+        self.set_slots("2")
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         first.kill()
@@ -285,7 +307,7 @@ class Slots(Fixture):
         """F1: A's relay is SIGKILLed while its command runs; the line B prints names the command's group, which is alive
         (so a person can kill it), not the dead relay pid. A's relay pid is first.pid, the command's group is read from .ci/pid
         ($$ of the gate command, its own session leader)."""
-        self.env["RELAY_GATE_SLOTS"] = "2"
+        self.set_slots("2")
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         command_pid = wait_pid(os.path.join(self.wt, ".ci", "pid"))
@@ -318,7 +340,7 @@ class Slots(Fixture):
         waiter.join(BOUND)
 
     def test_t3_a_killed_gate_whose_command_has_ended_does_not_block_the_next(self):
-        self.env["RELAY_GATE_SLOTS"] = "2"
+        self.set_slots("2")
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         first.kill()

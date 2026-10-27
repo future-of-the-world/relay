@@ -83,17 +83,25 @@ def default_slots(cores: int | None = None) -> int:
     return max(1, (cores if cores is not None else os.cpu_count() or 1) // CORES_PER_SLOT)
 
 
-def slot_count(environ=None, cores: int | None = None) -> int:
-    """How many gates may run at once: RELAY_GATE_SLOTS, else default_slots(cores)."""
-    value = (os.environ if environ is None else environ).get("RELAY_GATE_SLOTS")
-    if value is None or not value.strip():
+def slot_count(home: str, cores: int | None = None) -> int:
+    """How many gates may run at once on this machine: the number in the file `<home>/gate-slots/count` (one setting every gate
+    reads from the same place, so gates cannot disagree), else default_slots(cores)."""
+    path = os.path.join(home, "gate-slots", "count")
+    try:
+        with open(path) as handle:
+            value = handle.read().strip()
+    except FileNotFoundError:
+        return default_slots(cores)
+    except OSError as exc:
+        raise GateRefused("cannot read the gate slot setting %s: %s" % (path, exc))
+    if not value:
         return default_slots(cores)
     try:
         count = int(value)
     except ValueError:
         count = 0
     if count < 1:
-        raise GateRefused("RELAY_GATE_SLOTS must be a whole number of 1 or more, not %r" % value)
+        raise GateRefused("the gate slot setting %s must hold a whole number of 1 or more, not %r" % (path, value))
     return count
 
 
@@ -117,7 +125,7 @@ def take_slot(count, folder, notify=None):
                         other.close()
                 return handle, time.monotonic() - started
             if not told and notify is not None:
-                notify("gate: waiting for a free gate slot (all %d busy; the limit stops gates slowing each other, RELAY_GATE_SLOTS sets it)" % count)
+                notify("gate: waiting for a free gate slot (all %d busy; the limit stops gates slowing each other, the file $RELAY_HOME/gate-slots/count sets it)" % count)
             told = True
             time.sleep(SLOT_POLL)
     except BaseException:
@@ -273,7 +281,7 @@ def run(worktree, args=(), environ=None):
         # one gate at a time per worktree, taken before the slot so a gate waiting for its worktree holds no slot
         lock = take_worktree_lock(lock_path, notify)
         try:
-            slot, waited = take_slot(slot_count(env), os.path.join(home, "gate-slots"), notify)
+            slot, waited = take_slot(slot_count(home), os.path.join(home, "gate-slots"), notify)
             try:
                 # the waits can be long: the code may have moved, or the same code may have gone green meanwhile
                 now = check_ready(worktree)
