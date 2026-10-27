@@ -1,0 +1,26 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 180,
+  "found_at": "2026-10-27T01:08:35Z",
+  "found_in": "relay queue add",
+  "title": "A change runs with relay's settings from the project only",
+  "what": [
+    "A change cycle reads relay's settings, rules and tools from the project (and relay's pinned copy) instead of the user's global relay and Claude Code settings, so the same commit gives the same gate result on this Mac and in a clean container; the 23 pieces of global state are each removed, moved into the project, or named as a required input."
+  ],
+  "why": [
+    "Owner, 26-27 Oct: \"Как мы вообще планируем задачи, документируем эксперименты, мы должны быть устройство независимым, вплоть до того что бы можем запускать каждое изменение в новой docker контейнере где предустановлены все необходимые утилиты, как будто это запуск ci/cd в стандартных системах (woodpecker), с минимумом настроек глобального relay, хочу вообще без глобальных настроек relay и claude, полностью чистое окружение с предустановленными утилитами и файлами проекта / При этом получать тот же результат\". Owner's answers to the clean-environment design rev 2, 27 Oct: \"3. A\" (this Mac re-gates until 3 waves in a row agree with the container, then the container's gate decides), \"4. A\" (plans and same-setup work right after the scripts move; containers after the metrics build). Measured 27 Oct: 23 pieces of global state a change cycle depends on (6 fail without it, 11 differ, 3 do not care, 3 not verified); setup fingerprint differs on 8 of 10 lines between this Mac and a clean container. Design recommendation B (relay project-local on the host) first, then A (a container per change). Design source: scratchpad report design-clean-env.md rev 2, 27 Oct; redo against the fresh repository when taken. IP 95 chosen by the front from the owner's \"4. A\" (agent-chosen). Queued late: recorded only in the handover until the owner asked for the plans' status."
+  ],
+  "where": [
+    "bin/relay (setup, sync, doctor)",
+    "plugins/core/hooks",
+    "lib/relay_gate.py",
+    "deps.toml"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
