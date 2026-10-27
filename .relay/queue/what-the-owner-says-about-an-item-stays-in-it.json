@@ -94,6 +94,13 @@
       "options": [
         "a. Убрать: статус только из дат, а закрытые задачи отсекаются фильтром. Рекомендую: так меньше частей (принцип 7) и нет повтора (принцип 3). Опирается на замер 0,06 с. Сделать это стоит в изменении, которое сейчас проектируется, потому что оно и так меняет то, как пишется задача.",
         "b. Оставить."
+      ],
+      "answered_at": "2026-10-27T01:59:11Z",
+      "answer": [
+        "A"
+      ],
+      "reading": [
+        "Migration: the question and its options are the message as the front showed it on 27 Oct (the lettered options normalised to \"a. ...\"); answer \"A\" = remove the done/ folder; built before this change (merged 27 Oct)."
       ]
     }
   ]
