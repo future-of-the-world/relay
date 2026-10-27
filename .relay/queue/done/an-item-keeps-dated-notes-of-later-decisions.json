@@ -23,6 +23,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-27T01:53:37Z",
+  "dropped_why": [
+    "Owner, 27 Oct: \"Мне не нравится, давай начнем с начала, проблема, конкретный, понятный для клиента путь решения, пока это изменение на паузе\". Restated from the user's side and replaced by what-the-owner-says-about-an-item-stays-in-it."
+  ]
 }
