@@ -1,0 +1,471 @@
+{
+  "branch": "wt/train-22b",
+  "findings": [
+    {
+      "details": [
+        "Owner, 27 Oct, answering whether a run that did not finish in its 10 minutes is a failed run under the 2-of-3 majority rule: \"7. a\" (a = count it as a failed run; the summary names it; two timeouts are red). Today such a run is \"not judged\" and makes the whole wave red even when the other two passed. Measured 27 Oct: 22 such runs in 21 stored records, none of which would change its record's verdict. Needed before the next paid run, which plays 3 evals at once (owner, 27 Oct: \"5. a\"), where load may cause more timeouts. Split out of a-wave-run-is-red-when-one-of-a-case-s-3-runs-fa (review finding F5 of that change) so the majority rule lands first: relay sync waits on it.",
+        "Also: lib/relay_ci.py (eval record step)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A case with runs PASS, PASS, timed out after 600s: the wave verdict is RED ('1 not judged')."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "PASS, PASS, timed out: green, and the summary says '2 of 3 runs passed, 1 timed out'.",
+        "PASS, timed out, timed out: red.",
+        "A falling pass rate counts a timeout as a failed run.",
+        "A test fails with the rule disabled."
+      ],
+      "path": "bin/eval-record",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_majority.py:73 passes; fails without the fix at da674b4^."
+      ],
+      "severity": "HIGH",
+      "since": "462abb249f741df3fbaca33b571b265cf3363f43",
+      "source": "queue",
+      "summary": "A timed-out eval run counts as one failed run",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED as fragile, not wrong: the only evidence of the wording is the 3 stored timeouts. The failure direction is",
+        "safe (red, not green). Rules/python: data relay does not control goes through one checking parser at the boundary;",
+        "the prefix test is that parser, so keeping it in one function is right. A case-insensitive match, or a test pinning the",
+        "exact stored text, makes a wording drift visible. Size: 5."
+      ],
+      "evidence": [
+        "census of ~/.relay/evals/relay/*.json run errors: 19 'exit 1: Reached maximum number of turns (3)', 3 'timed out after 600s'"
+      ],
+      "failing_case": [
+        "A run {\"error\": \"Timed out after 600s\", \"durationSeconds\": 600, \"graders\": [...]} (or \"timeout after 600s\") in an arm",
+        "PASS, PASS, <that run>: timed_out() is False, the run is \"not judged\", the wave is RED. The owner's rule says it is a",
+        "failed run and the case passes 2 of 3. Today's tool writes \"timed out after 600s\" (3 of 3 stored timeouts), so it is",
+        "correct today; the match is on text relay does not control."
+      ],
+      "fix_hint": [
+        "Leave as is, or match case-insensitively (re.match(r\"timed? ?out\", ..., re.I)); either way keep it in timed_out()."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 60,
+      "pass_cases": [
+        "{\"error\": \"timed out after 600s\"} in PASS, PASS, timeout -> green, \"2 of 3 runs passed, 1 timed out\".",
+        "{\"error\": \"exit 1: Reached maximum number of turns (3)\"} in PASS, PASS, error -> red, \"1 not judged\".",
+        "PASS, timeout, timeout -> red, \"2 run(s) timed out\"."
+      ],
+      "path": "bin/eval-record",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_timeouts.py capitalised-message test passes (bin/eval-record:60 lowercases); fails at b62f5b2^."
+      ],
+      "severity": "LOW",
+      "since": "765b26277f4694cfc62fb2a210312a6eb1f7578c",
+      "source": "review-timeouts.json",
+      "source_id": "F1",
+      "summary": "a timeout is recognised only by the prefix of the eval tool's free-text error, so a reworded message silently goes back to 'not judged'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Docs only; cheap. Size: 5."
+      ],
+      "evidence": [
+        "bin/eval-record:7-8 \"exit 2 ... when a case fails its majority ... any run was not judged ...\""
+      ],
+      "failing_case": [
+        "A reader of bin/eval-record's docstring (lines 7-8) or lib/relay_ci.py's (line 13) learns that \"any run was not",
+        "judged\" makes the gate red and nothing about timeouts; they expect PASS, PASS, timed out to be red, while the code",
+        "now makes it green."
+      ],
+      "fix_hint": [
+        "Add one clause to the docstring at line 8: \"a run the eval tool stopped at its time limit is a failed run of the majority, not an unjudged one\"."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 8,
+      "pass_cases": [
+        "The docstring of bin/eval-record says a run that timed out counts as a failed run of the majority (owner, 27 Oct, \"7. a\").",
+        "The docstring still says any other errored run is not judged and makes the gate red."
+      ],
+      "path": "bin/eval-record",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_timeouts.py docstring test passes; bin/eval-record docstring states the rule; fails at b62f5b2^."
+      ],
+      "severity": "LOW",
+      "since": "765b26277f4694cfc62fb2a210312a6eb1f7578c",
+      "source": "review-timeouts.json",
+      "source_id": "F2",
+      "summary": "the module docstring still lists the red conditions without the timeout rule",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "bin/eval-record came in from master (merge ad9a9e0e69f2) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "bin/eval-record",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "ad9a9e0e69f20ca987876747b39f7394c70a8ca6",
+      "source": "merge",
+      "summary": "bin/eval-record was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "bin/paid-cost came in from master (merge 2010d19dbfb8) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "bin/paid-cost",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "2010d19dbfb8721df8f9e646f06cac4492cc069d",
+      "source": "merge",
+      "summary": "bin/paid-cost was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "bin/relay came in from master (merge 5e46094d9391) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "5e46094d93912af0ea990ed79760551f53e86765",
+      "source": "merge",
+      "summary": "bin/relay was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_ci.py came in from master (merge 2fbd7ab23174) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "2fbd7ab231743b8cb139c021a4f117eeaaa339ca",
+      "source": "merge",
+      "summary": "lib/relay_ci.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_queue.py came in from master (merge d9aa964e7301) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "d9aa964e73013888b5b5c77840e590da18d0a484",
+      "source": "merge",
+      "summary": "lib/relay_queue.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/core/hooks/merge.py came in from master (merge 2010d19dbfb8) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/core/hooks/merge.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "2010d19dbfb8721df8f9e646f06cac4492cc069d",
+      "source": "merge",
+      "summary": "plugins/core/hooks/merge.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/core/lib/relay_queue.py came in from master (merge d9aa964e7301) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M7",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/core/lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "d9aa964e73013888b5b5c77840e590da18d0a484",
+      "source": "merge",
+      "summary": "plugins/core/lib/relay_queue.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/hooks/read-only-guard.py came in from master (merge 1843cf1e2273) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M8",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/hooks/read-only-guard.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "1843cf1e2273fd4f3525cea877d4515d768317a3",
+      "source": "merge",
+      "summary": "plugins/delegate/hooks/read-only-guard.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/skills/delegate/SKILL.md came in from master (merge 1843cf1e2273) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M9",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "1843cf1e2273fd4f3525cea877d4515d768317a3",
+      "source": "merge",
+      "summary": "plugins/delegate/skills/delegate/SKILL.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/workflows/cycle.js came in from master (merge 5e46094d9391) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M10",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "5e46094d93912af0ea990ed79760551f53e86765",
+      "source": "merge",
+      "summary": "plugins/delegate/workflows/cycle.js was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/front/lib/relay_queue.py came in from master (merge d9aa964e7301) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M11",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/front/lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "d9aa964e73013888b5b5c77840e590da18d0a484",
+      "source": "merge",
+      "summary": "plugins/front/lib/relay_queue.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_ci_python.py came in from master (merge ad9a9e0e69f2) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M12",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_ci_python.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "ad9a9e0e69f20ca987876747b39f7394c70a8ca6",
+      "source": "merge",
+      "summary": "tests/test_ci_python.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_cycle_workflow.py came in from master (merge 5e46094d9391) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M13",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_cycle_workflow.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "5e46094d93912af0ea990ed79760551f53e86765",
+      "source": "merge",
+      "summary": "tests/test_cycle_workflow.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_eval_record.py came in from master (merge 2fbd7ab23174) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M14",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_eval_record.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "2fbd7ab231743b8cb139c021a4f117eeaaa339ca",
+      "source": "merge",
+      "summary": "tests/test_eval_record.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_merge_train.py came in from master (merge ed8057e33c5b) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M15",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_merge_train.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "ed8057e33c5b0fd87dad80a5cb08a1389d4f1102",
+      "source": "merge",
+      "summary": "tests/test_merge_train.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_paid_cap.py came in from master (merge 2010d19dbfb8) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M16",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_paid_cap.py",
+      "rank": "medium",
+      "reason": [
+        "file changed by a merge of another rider; gate 0853dace green on the merged head (exit 0), no file after it but the inert gate log."
+      ],
+      "severity": "MEDIUM",
+      "since": "2010d19dbfb8721df8f9e646f06cac4492cc069d",
+      "source": "merge",
+      "summary": "tests/test_paid_cap.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0853dace14864ac929d1358e910748b256c248c6.gate.log",
+  "head": "c34c73d62751dda847bd523ad10c33776b14423b",
+  "item": "a-timed-out-eval-run-counts-as-one-failed-run",
+  "notes": [
+    "M findings are files other riders changed in merges of master/riders; they are covered by the green gate on the merged head, and are not this item's code."
+  ],
+  "schema": 2,
+  "scope": [
+    "Item a-timed-out-eval-run-counts-as-one-failed-run on train-22b. Ran tests.test_eval_majority, test_eval_record, test_eval_timeouts (all pass). Q1 test fails at da674b4^ (is_green assertion), F1/F2 tests fail at b62f5b2^. Gate 0853dace green (exit 0), HEAD c34c73d differs only by an inert gate-log commit."
+  ],
+  "type": "check"
+}

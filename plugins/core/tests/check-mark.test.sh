@@ -264,6 +264,18 @@ EOF"
 g allow "G7 mkdir + printf under a fixture outside any repository" Bash "$GW" command "mkdir -p $tmp/fx/.relay/checks && printf '{}' > $tmp/fx/.relay/checks/a.json"
 g allow "G7 Write on the same path" Write "$GW" file_path "$tmp/fx/.relay/checks/a.json"
 g block "G7 the same printf into the worktree's .relay/checks/a.json" Bash "$GW" command "printf '{}' > .worktrees/t/.relay/checks/a.json" "$GM"
+# Q1-Q4: a queue item file is written only by relay queue, in a worktree too (design queue-edit, the hand-edit fence)
+g block "Q1 Write on the worktree's .relay/queue/x.json" Write "$GW" file_path "$GW/.relay/queue/x.json"
+expect "Q1 the message names relay queue edit" "$(has 'relay queue edit' "$LAST_ERR"; echo $?)"
+g block "Q2 a heredoc into .relay/queue/x.json" Bash "$GW" command "cat > .relay/queue/x.json <<'EOF'
+{}
+EOF"
+g block "Q2 cp over a queue item" Bash "$GW" command "cp a.txt .relay/queue/x.json"
+g block "Q3 python3 -c open(...,'w') on a queue item" Bash "$GW" command "python3 -c \"open('.relay/queue/x.json','w').write('x')\""
+g allow "Q4 relay queue note" Bash "$GW" command "relay queue note x --input $tmp/scratch/n.toml"
+g allow "Q4 git checkout --theirs on a queue item (a merge conflict)" Bash "$GW" command "git checkout --theirs -- .relay/queue/x.json"
+g allow "Q4 cat of a queue item" Bash "$GW" command "cat .relay/queue/x.json"
+g allow "Q4 Write on a queue-looking path outside any repository with .relay/" Write "$GW" file_path "$tmp/fx/.relay/queue/x.json"
 mkrepo norelay
 g allow "G7 a repository without .relay/: printf into its worktree's .relay/checks" Bash "$W" command "printf '{}' > .relay/checks/a.json" "$W"
 g allow "G7 a repository without .relay/: Write there" Write "$W" file_path "$W/.relay/checks/a.json" "$W"

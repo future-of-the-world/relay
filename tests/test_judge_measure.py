@@ -35,6 +35,15 @@ class MakeCheck(unittest.TestCase):
         r = check(EVALS)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
+    def test_the_off_by_one_fail_clause_has_no_words_a_right_answer_also_says(self):
+        # Haiku failed right answers yes-03 (5 of 5 runs) and yes-05 (2 of 5) because a right reply says
+        # "a page must hold at most 2" / cites the doc comment, and the FAIL clause named "stays within size"
+        # and "as the doc says". The rubric must not carry those phrases again.
+        t = open(os.path.join(EVALS, "plugin", "code-reviewer-offbyone", "graders", "reports-off-by-one.md"), encoding="utf-8").read()
+        fail = " ".join(t[t.index("PASS if it does."):].split())
+        for phrase in ("stays within size", "as the doc says"):
+            self.assertNotIn(phrase, fail)
+
     def test_a_grader_body_that_differs_from_the_production_rubric_fails(self):
         self.edit("judge-measure/measure-doc-rule/graders/yes--01-e-NnQ3lv.md", lambda t: t.replace("PASS if it does.", "PASS if it does, mostly."))
         r = check(self.root)
@@ -170,6 +179,12 @@ class Tally(unittest.TestCase):
             with self.subTest(what):
                 with self.assertRaises(self.t.NotJudged):
                     self.run_tally(data)
+
+    def test_a_20_run_file_that_keeps_runsPerCase_5_tallies(self):
+        # `--runs 20` writes 20 runs per arm but the case still says runsPerCase 5; 2 items x 20 runs = 40 verdicts
+        runs = [llm_run((Y, [T, T, T]), (N, [F, F, F])) for _ in range(20)]
+        code, lines = self.run_tally(result(runs))
+        self.assertEqual(code, 0, lines); self.assertIn("PASS measure-x: 0 wrong verdicts of 40", "\n".join(lines))
 
     def test_a_case_missing_from_the_file_is_not_judged(self):
         full = [llm_run((Y, [T, T, T]), (N, [F, F, F])) for _ in range(5)]

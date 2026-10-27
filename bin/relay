@@ -47,8 +47,10 @@
                                      the files changed since <sha> (to <until>, default HEAD) that are not on the
                                      inert list (handover, queue and check files): what a check of a fix looks at;
                                      --own leaves out the files only the default branch changed
-  relay gate [-C <worktree>] [-- <args>]
-                                     run the project's free gate on the committed task branch and commit its log
+  relay gate [-C <worktree>] [--paid] [-- <args>]
+                                     run the project's quick (free) gate on the committed task branch and commit its log;
+                                     --paid runs the full gate, paid evals included (bin/ci prints the estimate and the
+                                     day's spend first); -- <args> names the gate's own mode (the cycle passes --quick)
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
   relay precheck [-C <worktree>]     the gate's seconds-long steps (types and lint, python 3.9 imports, lib copies on HEAD),
                                      read-only; the quiet check a worker loops on starts with it; exits 1 when one is red
@@ -75,7 +77,7 @@
                                      `owner` list; a checker counts that finding as not wrong; show prints it.
                                      With `queue = "<slug>"` in the TOML the word is that the finding moved to that queue
                                      item (it must be on the default branch): it counts under `queued`, not `open`
-  relay queue [count|show|check|migrate|land|ip|take|release|done|drop|add|note] ...
+  relay queue [count|show|history|check|migrate|land|ip|take|release|done|drop|add|note|edit] ...
                                      the work queue (.relay/queue/ on the default branch): `relay queue` lists it,
                                      `relay queue count` gives the one-line count; see `relay queue -h`
 
@@ -563,19 +565,40 @@ def cmd_changed(args):
     return 0
 
 
+def _print_paid_cost(worktree):
+    """To stderr, before a --paid gate starts: the estimate and the day's spend of the project's bin/paid-cost, when it has one."""
+    tool = os.path.join(worktree, "bin", "paid-cost")
+    if not os.access(tool, os.X_OK):
+        return
+    for word in ("estimate", "today"):
+        try:
+            done = subprocess.run([tool, word], cwd=worktree, capture_output=True, text=True, timeout=60)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if done.returncode == 0 and done.stdout.strip():
+            print("paid: " + done.stdout.strip(), file=sys.stderr, flush=True)
+
+
 def cmd_gate(args):
-    usage = "relay gate [-C <worktree>] [-- <args>]"
+    usage = "relay gate [-C <worktree>] [--paid] [-- <args>]"
     args, extra = list(args), []
     if "--" in args:
         i = args.index("--")
         args, extra = args[:i], args[i + 1:]
+    paid = "--paid" in args
+    args = [a for a in args if a != "--paid"]
+    if paid and extra:
+        raise Usage(usage + ": --paid and -- <args> do not go together")
+    quick = not paid and not extra      # the plain gate is the free one (gate.ci_quick, when kit.toml names it); the paid evals need --paid
     worktree = "."
     if len(args) == 2 and args[0] == "-C":
         worktree = args[1]
     elif args:
         raise Usage(usage)
+    if paid:
+        _print_paid_cost(worktree)
     try:
-        code, log, red = relay_gate.run(worktree, extra)
+        code, log, red = relay_gate.run(worktree, extra, quick=quick)
     except relay_gate.GateRefused as exc:
         raise ValueError(str(exc))
     print("gate %s: exit %d" % (os.path.basename(log)[:-len(".gate.log")], code))
@@ -734,11 +757,13 @@ QUEUE_USAGE = """relay queue                              the ordered list: ip, 
 relay queue count                        "10 fix, 12 feature; top: <slug> (fix, ip 95, 30m)"
 relay queue <view>                       a read-only view from relay's lib/queue_ext/ (also: relay queue --view <view>); `table` is the default, `json` prints the items for scripts
 relay queue show <slug or words>         one item in full, with its notes; words (title, what, why, notes) find it: one match is shown, several are listed
+relay queue history <slug>               the earlier text of an edited item, read from git
 relay queue check                        every item file of this checkout is well formed; lists the ones that are not
 relay queue migrate                      rewrite item files of the old shape (`state`) to dated events from git history, and move files out of the gone done/ folder; safe to run again
 relay queue add --input <file.toml> [--time 20m|1h|1h30m] [--ip N]
                                          the TOML holds kind, title, why, time, what, failing_case, failing_kind, pass_cases, where (a list of places: ["lib/x.py:5-9 note", "docs/"])
                                          a fix says what its failing case is: failing_kind = "test", "run" (a recorded red run) or "claim" (someone's word)
+                                         said = '''the owner's words, verbatim''' (optional): kept as a said note, never in the text
 relay queue add --from <report.json> F<n> --input <file.toml> [--time ..] [--ip N]
                                          the finding F<n> of a recorded review or check; the TOML holds why, time, ip
 relay queue note <slug> --input <file.toml>
@@ -749,6 +774,14 @@ relay queue note <slug> --input <file.toml>
                                              (the command prints the block back: show the owner exactly that)
                                            answer = '''the owner's whole reply, every explanation''' [+ to = [1, 2]] [+ reading = '''your reading''']
                                          and, optional, at = "2026-10-27T01:20:00Z" (when it was said; default now). A note is only added, never edited.
+relay queue edit <slug> --input <file.toml>
+                                         correct one exact fragment of an item's text, in any state. The TOML holds
+                                           field = "why"   (title, what, why, failing_case, failing_kind, pass_cases, where, time or test)
+                                           old = '''the exact text to replace (found once in the field)'''
+                                           new = '''the text that replaces it'''
+                                           because = '''what was found, and when''' (becomes a dated fact note)
+                                         Quoted text ("...", «...», '...') is never changed. `test` only on a closed item, to a test that exists.
+                                         This is the only way to change an item's text; a hand edit is refused (guard and merge).
 relay queue land <slug>                  try again to land a kept wt/queue-<slug>
 relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree>   (a branch holds one fix item; the check states its problem as finding Q1)
@@ -784,7 +817,7 @@ def _queue_options(args, spec):
     return opts, rest
 
 
-QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "done", "note")
+QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "done", "note", "edit")
 
 
 def cmd_queue(args):
@@ -819,6 +852,15 @@ def cmd_queue(args):
         if how == "words":
             print(f"found by words '{query}':")
         print(relay_queue.show_text(found[0]))
+        return 0
+    if sub == "history":
+        o, p = _queue_options(rest, common)
+        if len(p) != 1:
+            raise Usage("relay queue history <slug>")
+        try:
+            print(relay_queue.history(os.path.realpath(o.get("-C", ".")), p[0]))
+        except relay_queue.Refused as e:
+            raise Usage(str(e))
         return 0
     if sub in ("check", "migrate"):
         o, p = _queue_options(rest, common)
@@ -887,7 +929,7 @@ def cmd_queue(args):
             raise Usage(str(e))
         return 0
     spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--input": str}, 1),
-            "take": ({}, 1), "note": ({"--input": str}, 1), "done": ({"--test": str, "--evidence": str, "--fixed-by": str}, 1)}
+            "take": ({}, 1), "note": ({"--input": str}, 1), "edit": ({"--input": str}, 1), "done": ({"--test": str, "--evidence": str, "--fixed-by": str}, 1)}
     extra, count = spec[sub]
     o, p = _queue_options(rest, dict(common, **extra))
     if len(p) != count:
@@ -911,6 +953,13 @@ def cmd_queue(args):
             raise Usage(str(e))
     elif sub == "take":
         print(relay_queue.take(repo(o), p[0]))
+    elif sub == "edit":
+        if "--input" not in o:
+            raise Usage("relay queue edit <slug> --input <file.toml>: the TOML holds field, old, new and because; see relay queue --help")
+        try:
+            print(relay_queue.edit(repo(o), p[0], **relay_queue.read_edit_input(o["--input"])))
+        except relay_queue.Refused as e:
+            raise Usage(str(e))
     elif sub == "note":
         if "--input" not in o:
             raise Usage("relay queue note <slug> --input <file.toml>: the TOML holds one of said, fact, question (with options and number) or answer; see relay queue --help")

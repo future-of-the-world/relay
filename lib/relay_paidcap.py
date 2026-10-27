@@ -2,12 +2,15 @@
 
 The cap is `paid_cap_usd_per_day` in projects.toml [global]. The spend of a UTC day is the sum of
   - the eval records bin/eval-record stores ($RELAY_HOME/evals/<repo>/*.json: startedAt, costUsd), and
+  - the direct runs: the aggregate-result.json a `claude plugin eval` leaves in <checkout>/evals/plugin/results/<stamp>/ of the
+    repo's main checkout and its worktrees, when no stored record has the same startedAt (a bin/ci run is both; it counts once), and
   - the bench results (bench_dir()/*/results.json: started, the cost_usd of every row).
 A record that cannot be read or has no numeric cost is left out (it is not counted as zero spend that was measured).
 """
 import json
 import os
 import re
+import subprocess
 
 from relay_config import bench_dir, home_dir, projects_file, read_toml
 
@@ -82,14 +85,16 @@ def _day(stamp):
     return m.group(1) if m else None
 
 
-def _json_files(folder, only_results=False):
+def _json_files(folder, only_results=False, name=None):
+    """The parsed JSON files of `folder`; with only_results the results.json of each subfolder, with `name` that file of each subfolder."""
     try:
         names = sorted(os.listdir(folder))
     except OSError:
         return
-    for name in names:
-        p = os.path.join(folder, name, "results.json") if only_results else os.path.join(folder, name)
-        if not only_results and not name.endswith(".json"):
+    for name_ in names:
+        sub = name or ("results.json" if only_results else None)
+        p = os.path.join(folder, name_, sub) if sub else os.path.join(folder, name_)
+        if not sub and not name_.endswith(".json"):
             continue
         try:
             with open(p, encoding="utf-8") as f:
@@ -98,9 +103,10 @@ def _json_files(folder, only_results=False):
             continue
 
 
-def eval_batches(home=None):
-    """[(day, cost)] of every stored eval record that has a numeric costUsd."""
+def eval_batches(home=None, roots=None):
+    """[(day, cost)] of every stored eval record that has a numeric costUsd, and of the direct runs in `roots` no record has."""
     out = []
+    known: set[str] = set()
     root = os.path.join(home or home_dir(), "evals")
     try:
         repos = sorted(os.listdir(root))
@@ -110,6 +116,57 @@ def eval_batches(home=None):
         for d in _json_files(os.path.join(root, repo)):
             if isinstance(d, dict) and _num(d.get("costUsd")):
                 out.append((_day(d.get("startedAt")), float(d["costUsd"])))
+                known.add(str(d.get("startedAt")))
+    if roots is not None:   # the stored-batch statistics (eval_estimate) pass no roots: a one-case direct run is not a batch
+        out += [(day, cost) for day, cost, _ in kept_direct(home, roots, known)]
+    return out
+
+
+def direct_dir(home=None):
+    """Where the direct runs seen are kept ($RELAY_HOME/evals-direct), apart from evals/ so they stay out of the batch estimates."""
+    return os.path.join(home or home_dir(), "evals-direct")
+
+
+def kept_direct(home, roots, known):
+    """[(day, cost, startedAt)] of the direct runs in `roots` and of those kept earlier in direct_dir(home), none in `known`.
+    A run met in a checkout is written to direct_dir first, so removing its worktree (git deletes the ignored results) keeps its cost."""
+    folder = direct_dir(home)
+    seen_now = direct_batches(roots, known)
+    for _, cost, stamp in seen_now:
+        try:
+            os.makedirs(folder, exist_ok=True)
+            with open(os.path.join(folder, re.sub(r"[^0-9A-Za-z.-]", "-", stamp) + ".json"), "w", encoding="utf-8") as f:
+                json.dump({"startedAt": stamp, "costUsd": cost}, f)
+        except OSError:
+            pass   # unwritable: the run still counts this time
+    kept = []
+    for d in _json_files(folder):
+        if isinstance(d, dict) and isinstance(d.get("startedAt"), str) and _num(d.get("costUsd")):
+            kept.append((_day(d["startedAt"]), float(d["costUsd"]), d["startedAt"]))
+    stamps = {st for _, _, st in kept}
+    return [r for r in kept if r[2] not in known] + [r for r in seen_now if r[2] not in stamps]
+
+
+def suite_roots(repo: str) -> list[str]:
+    """The checkouts of `repo` (its main checkout and every worktree) where a direct eval run may have left its results; [] when git cannot say."""
+    try:
+        done = subprocess.run(["git", "-C", repo, "worktree", "list", "--porcelain"], capture_output=True, text=True, check=True, timeout=30)
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return []
+    return [line[len("worktree "):] for line in done.stdout.splitlines() if line.startswith("worktree ")]
+
+
+def direct_batches(roots: list[str], known: set[str]) -> list[tuple[str | None, float, str]]:
+    """[(day, cost, startedAt)] of every aggregate-result.json under <root>/evals/plugin/results/*/ with a numeric costUsd whose
+    startedAt is not in `known` (the stamps of the stored records); one run seen from two checkouts counts once."""
+    out: list[tuple[str | None, float, str]] = []
+    seen = set(known)
+    for root in roots:
+        for d in _json_files(os.path.join(root, "evals", "plugin", "results"), only_results=False, name="aggregate-result.json"):
+            stamp = d.get("startedAt") if isinstance(d, dict) else None
+            if isinstance(stamp, str) and _num(d.get("costUsd")) and stamp not in seen:
+                seen.add(stamp)
+                out.append((_day(stamp), float(d["costUsd"]), stamp))
     return out
 
 
@@ -155,16 +212,16 @@ def all_bench_rows(home=None, extra=None):
     return out
 
 
-def spend_today(today, home=None, bench=None):
-    """(spend in USD, number of runs) of the UTC day `today` (YYYY-MM-DD): eval batches and bench sessions."""
-    items = [c for d, c in eval_batches(home) if d == today] + [c for d, c in all_bench_rows(home, bench) if d == today]
+def spend_today(today, home=None, bench=None, roots=None):
+    """(spend in USD, number of runs) of the UTC day `today` (YYYY-MM-DD): eval batches (direct runs in `roots` included) and bench sessions."""
+    items = [c for d, c in eval_batches(home, roots) if d == today] + [c for d, c in all_bench_rows(home, bench) if d == today]
     return sum(items), len(items)
 
 
-def check(today, estimate, kind, path=None, home=None, bench=None):
+def check(today, estimate, kind, path=None, home=None, bench=None, roots=None):
     """None when spend + estimate stays within the cap; else the refusal line naming the cap, the spend and the estimate."""
     limit = cap(path)
-    spent, _ = spend_today(today, home, bench)
+    spent, _ = spend_today(today, home, bench, roots)
     if spent + estimate > limit:
         return (f"{kind} refused: the day's cap is ${limit:g}, ${spent:.2f} is spent today ({today}) and this run is estimated at "
                 f"${estimate:.2f}; raise the cap with `bin/paid-cost cap <USD>` or run tomorrow")

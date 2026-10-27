@@ -1,0 +1,129 @@
+{
+  "branch": "wt/train-22b",
+  "findings": [
+    {
+      "details": [
+        "Found 27 Oct by the review of wt/typo-flake, outside that change: the fix let the worker-started grader of no-spec-step-typo count a run that sends a scout before a worker (seen in a kept trace), but its twin cases no-spec-step and no-spec-step-ru still require delegate:worker first, so a correct run that looks something up first fails them the same way. Also left open there: the no-openspec-command failure at 9bc988d has no kept trace, so its cause is unknown."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "no-spec-step-ru's prompt is the typo prompt without typos (\"\u0421\u0434\u0435\u043b\u0430\u0439 \u0442\u0430\u043a, \u0447\u0442\u043e\u0431\u044b \u0441\u043f\u0438\u0441\u043e\u043a \u0442\u043e\u0432\u0430\u0440\u043e\u0432 \u0441\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u043b\u0441\u044f \u043f\u043e \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u044e ...",
+        "stop at the first agent's reply\"); no-spec-step is the English twin. A run that starts delegate:scout first (\"Find product",
+        "list code\", as in e-W2XJtZ) and stops at its reply fails worker-started (Agent called 0x) although it did nothing wrong.",
+        "It should pass, as the typo case now does."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 4,
+      "pass_cases": [
+        "1. no-spec-step and no-spec-step-ru worker-started: an Agent input with subagent_type delegate:scout matches.",
+        "2. delegate:worker still matches.",
+        "3. openspec:plan, openspec:author, Explore, general-purpose do not match.",
+        "4. The three twin cases carry the same worker-started pattern."
+      ],
+      "path": "evals/plugin/no-spec-step/graders/worker-started.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_twin_worker_grader.py passes and fails (3 of 5) on the base without the fix; the grader accepts delegate:scout and delegate:worker."
+      ],
+      "severity": "HIGH",
+      "since": "d9cd9ca80a23371c87304d4a7eb0c5744d47355c",
+      "source": "queue",
+      "summary": "The twin cases no-spec-step and no-spec-step-ru keep\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The description is what the eval report shows for the case. Size: 5."
+      ],
+      "evidence": [
+        "git show wt/typo-flake:evals/plugin/no-spec-step-typo/case.yaml | grep desc",
+        "  -> \"... goes straight to a plain delegate agent (a worker, or a scout that finds the list first) ...\"",
+        "grep -n description evals/plugin/no-spec-step*/case.yaml (HEAD)",
+        "  -> no-spec-step and no-spec-step-ru: \"... goes straight to a worker for a plain request ...\""
+      ],
+      "failing_case": [
+        "evals/plugin/no-spec-step/case.yaml:3 and evals/plugin/no-spec-step-ru/case.yaml:3 read \"goes straight to a worker",
+        "for a plain request\"; their worker-started grader now passes a run whose only agent is delegate:scout. wt/typo-flake",
+        "changed no-spec-step-typo/case.yaml to \"goes straight to a plain delegate agent (a worker, or a scout that finds the",
+        "list first)\". After both merge, the three twin cases describe the same check two different ways."
+      ],
+      "fix_hint": [
+        "Copy the typo case's description wording into the two twin case.yaml files (keep \"(English)\" / \"(Russian)\")."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 3,
+      "pass_cases": [
+        "1. no-spec-step/case.yaml description names \"a plain delegate agent (a worker, or a scout that finds the list first)\", (English).",
+        "2. no-spec-step-ru/case.yaml description says the same, with \"(Russian)\".",
+        "3. The three case.yaml descriptions differ only in the language note."
+      ],
+      "path": "evals/plugin/no-spec-step/case.yaml",
+      "rank": "low",
+      "reason": [
+        "Both twin case.yaml descriptions now carry the typo case's wording with (English)/(Russian); the test asserts it."
+      ],
+      "severity": "LOW",
+      "since": "7929f40ed9d9e6e583a5563a4dbf9af19082215d",
+      "source": "review-twin-graders.json",
+      "source_id": "F1",
+      "summary": "the twin cases' descriptions still say 'goes straight to a worker' while their grader now accepts a scout, unlike the typo case's description in wt/typo-flake",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED for the wording (read); the scout-first cause of the ru failure is PLAUSIBLE: same prompt as the typo case,",
+        "same signature (turns 1, worker-started \"Agent called 0x\", all three openspec graders pass) as the typo failure at",
+        "2026-10-27T11-37-58Z that the typo fix traced to a scout. Principle 6 holds in substance; the record overstates",
+        "what was measured. Size: 5 for the wording; about 15 and roughly $1 for 3 runs of each twin with traces kept."
+      ],
+      "evidence": [
+        "python3 scan of ~/.relay/evals/relay/*.json for failing no-spec-step* runs:",
+        "  2026-10-27T14-53-11Z no-spec-step-ru with 2 turns=1 ['worker-started: Agent called 0x'] /private/tmp/e-YjTut5/out/trace.jsonl exists=False",
+        "  2026-10-27T11-37-58Z no-spec-step-typo with 1 turns=1 ['worker-started: Agent called 0x'] trace exists=False",
+        "fixer report: \"No paid runs ($0).\""
+      ],
+      "failing_case": [
+        "no-spec-step/graders/worker-started.md:7 and no-spec-step-ru/graders/worker-started.md:7 say \"measured 27 Oct: 2 of",
+        "18 runs, both scout-first, failed the old pattern\". Those 18 runs were no-spec-step-typo runs. The one live failure of a",
+        "twin (no-spec-step-ru run 2, record 2026-10-27T14-53-11Z-wt-majority.json, trace /private/tmp/e-YjTut5) has no kept",
+        "trace; the fixer ran no paid run ($0 of the $3 the brief allowed), so nothing shows it was scout-first. A reader of",
+        "the grader takes the 2-of-18 as a fact about this case."
+      ],
+      "fix_hint": [
+        "Reword the twins' parenthesis to \"(measured 27 Oct on the typo twin: ...; no-spec-step-ru failed the same way once at",
+        "420e059, trace not kept)\". Optionally one paid run of each twin with --keep to see a scout-first trace."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 7,
+      "pass_cases": [
+        "1. The twin graders' text names the measurement as the typo case's (\"measured on no-spec-step-typo ...\"), or carries the twin's own measured count.",
+        "2. If a paid run was made: the kept trace of a scout-first twin run is named (path or id) in the report or queue note.",
+        "3. The typo grader text stays as in wt/typo-flake (merge stays clean)."
+      ],
+      "path": "evals/plugin/no-spec-step-ru/graders/worker-started.md",
+      "rank": "low",
+      "reason": [
+        "Twin graders line 7 names the measurement as the typo twin's and says no-spec-step-ru failed once at 420e059, trace not kept."
+      ],
+      "severity": "LOW",
+      "since": "7929f40ed9d9e6e583a5563a4dbf9af19082215d",
+      "source": "review-twin-graders.json",
+      "source_id": "F2",
+      "summary": "the twin graders state the typo case's measurement (2 of 18 scout-first) as their own, and the cause of the live no-spec-step-ru failure was not checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0853dace14864ac929d1358e910748b256c248c6.gate.log",
+  "head": "eb2bb11f5df29d4e08b37cedf617fafb11e8002d",
+  "item": "the-twin-cases-no-spec-step-and-no-spec-step-ru",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Item check on train-22b. Ran tests/test_eval_twin_worker_grader.py (5 tests OK). At the pre-fix base d9cd9ca80a23 with the head test copied in: 3 of 5 fail. Gate log is for 0853dace, exit 0; relay changed lists no file after it. Read the three case.yaml descriptions and the twin graders."
+  ],
+  "type": "check"
+}

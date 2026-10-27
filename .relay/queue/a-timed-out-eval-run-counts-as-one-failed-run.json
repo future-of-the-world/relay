@@ -27,8 +27,33 @@
   ],
   "taken_at": "2026-10-27T17:00:01Z",
   "taken_by": "wt/timeouts",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T17:30:32Z",
+  "test": "tests/test_eval_majority.py::Majority::test_a_timed_out_run_is_a_failed_run_of_the_majority",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-27T21:35:44Z",
+      "number": 4,
+      "question": [
+        "Влить train-22 (9 изменений)? Конфликт был один, в tests/test_ci_python.py: gate-quick и правило таймаутов добавили в один и тот же конец файла свои новые тесты; fixer сохранил оба набора, код не менялся. Quick gate зелёный на 0853dac, повторная проверка 8 пунктов: open 0 у всех; девятое изменение (команда редактирования очереди) закрывает функцию, а не исправление, и прошло общий gate."
+      ],
+      "options": [
+        "a. Влить сейчас (рекомендую): конфликт только в тестах, обе стороны сохранены.",
+        "b. Сначала показать diff этого конфликта.",
+        "c. Держать."
+      ],
+      "answered_at": "2026-10-27T21:51:04Z",
+      "answer": [
+        "A ",
+        "",
+        "Разве у нас есть сценарий когда изменения могут пойти сразу в master, я полагал что они могут пойти только через merge",
+        "",
+        "Давай уберем правило по которому ты спрашиваешь меня в случае конфликта, мое слово требуется только если ты не смог его решить самостоятельно"
+      ],
+      "reading": [
+        "4 = a: land train-22 now. The rest is a question about direct writes to master and a request to drop the ask-on-hand-resolved-conflict rule."
+      ]
+    }
+  ]
 }

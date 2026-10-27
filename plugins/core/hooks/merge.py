@@ -12,8 +12,10 @@ Only in a repository whose default branch has `.relay/`; elsewhere it exits 0 an
 Cleanup checks git itself, never the tool's exit status, and never forces: no `worktree remove
 --force`, no `branch -D`.
 """
+import glob
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -96,6 +98,7 @@ def clean(main, default, branch, hook):
         changed = [l[3:] for l in status.splitlines() if not l.startswith("!! ")]
         if changed:
             return "kept %s: it holds changes not in the branch (%s); branch %s kept" % (name, named(changed), branch)
+        keep_direct_runs(path)
         rc, _ = relay_git.git(main, "worktree", "remove", path)
         if rc != 0:
             return "kept %s: git refused to remove it; branch %s kept" % (name, branch)
@@ -166,6 +169,58 @@ def record_rules(main: str, ref: str, rows: list) -> list:
     return json.loads(done.stdout)
 
 
+EVENT_FIELDS = ("taken_at", "taken_by", "closed_at", "evidence", "fixed_by", "test", "notes")   # what take, release and done write on a branch
+MIGRATE_MODULE = re.compile(r"lib/relay_[a-z_]*migrate[a-z_]*\.py")
+
+
+def step_hand_edits(main, default, ref, changed_files):
+    """Only relay's commands change an item: for every item file the range changes that exists on the default branch, every field
+    but the ones `take`, `release` and `done` write is equal to the default branch's tip (the branch holds it already), the notes of
+    the default branch are an unchanged beginning of the branch's, and `test` changes only where the branch closed the item. A
+    refusal names `relay queue edit`. A branch that changes a migrate module (`lib/relay_*migrate*.py`) is exempt: every reshaping of
+    items ships as one."""
+    names = relay_git.git(main, "diff", "--name-only", "--no-renames", "-z", "refs/heads/%s...%s" % (default, ref))[1].split("\0")
+    if any(MIGRATE_MODULE.fullmatch(n) for n in names):
+        return
+    for path in sorted(p for p in set(changed_files.split("\0")) if p.endswith(".json") and os.path.dirname(p) == QUEUE_DIR.rstrip("/")):
+        slug = os.path.basename(path)[:-5]
+        try:
+            before = json.loads(blob(main, "refs/heads/" + default, path) or "null")
+            after = json.loads(blob(main, ref, path) or "null")
+        except ValueError:
+            continue                                       # a file that is not JSON is refused as malformed
+        if not isinstance(before, dict) or not isinstance(after, dict):
+            continue
+        if any(k in after for k in relay_queue.OLD_ONLY):
+            continue                                       # an old-shape item is refused below, naming `relay queue migrate`
+        hand = "queue item %s: %%s changed by hand; use relay queue edit (a change of the item shape ships as a migrate module, lib/relay_*migrate*.py)" % slug
+        for key in sorted((set(before) | set(after)) - set(EVENT_FIELDS)):
+            if before.get(key) != after.get(key):
+                raise Refused(hand % key)
+        old_notes, new_notes = before.get("notes") or [], after.get("notes") or []
+        if new_notes[:len(old_notes)] != old_notes:
+            raise Refused(hand % "an earlier note")
+        if before.get("test") != after.get("test") and (before.get("closed_at") or not after.get("closed_at")):
+            raise Refused(hand % "test")
+
+
+def step_hand_files(main, default, ref):
+    """No item file is deleted or added by a task branch: `relay queue add` lands on the default branch, and an item is never deleted
+    (`relay queue drop` marks it). A branch that changes a migrate module is exempt. Run after the malformed check, so a bad new
+    record is named as malformed first."""
+    names = relay_git.git(main, "diff", "--name-only", "--no-renames", "-z", "refs/heads/%s...%s" % (default, ref))[1].split("\0")
+    if any(MIGRATE_MODULE.fullmatch(n) for n in names):
+        return
+    for flag, what in (("D", "deleted"), ("A", "added")):
+        gone = relay_git.git(main, "diff", "--name-only", "--no-renames", "--diff-filter=" + flag, "-z", "refs/heads/%s...%s" % (default, ref), "--", QUEUE_DIR)[1]
+        for path in sorted(p for p in gone.split("\0") if p.endswith(".json") and os.path.dirname(p) == QUEUE_DIR.rstrip("/")):
+            if what == "deleted":
+                raise Refused("queue item %s deleted by hand; an item is never deleted, `relay queue drop` marks it dropped" % os.path.basename(path)[:-5])
+            if blob(main, "refs/heads/" + default, DONE_DIR + os.path.basename(path)) is not None:
+                continue                                   # the old done/ folder moved in place: not a new item
+            raise Refused("queue item %s added by hand; use relay queue add (it lands on the default branch, not on a task branch)" % os.path.basename(path)[:-5])
+
+
 def step_queue(main, default, branch, ab=None):
     """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
     `relay queue migrate`); every queue file at the branch tip, whether the range touched it or not (one that came in by taking the
@@ -183,6 +238,7 @@ def step_queue(main, default, branch, ab=None):
     stray = sorted(p for p in files if p.startswith(DONE_DIR) and p.endswith(".json"))
     if stray:
         raise Refused("queue file %s is under done/, which is gone; run relay queue migrate" % stray[0])
+    step_hand_edits(main, default, ref, changed_files)
     paths = sorted(p for p in files if p.endswith(".json") and os.path.dirname(p) == QUEUE_DIR.rstrip("/"))
     rows = [(os.path.basename(p)[:-5], blob(main, ref, p) or "") for p in paths]
     base = None
@@ -203,6 +259,7 @@ def step_queue(main, default, branch, ab=None):
         reason = relay_queue.test_refusal(main, ref, meta["test"]) or relay_queue.check_refusal(main, closer, slug)
         if reason:
             raise Refused("queue item %s is closed without a test or a check: %s" % (slug, reason))
+    step_hand_files(main, default, ref)
 
 
 def _dropped_after(main, default, commit, ref, ab):
@@ -408,12 +465,32 @@ def take_failures(main):
     return [l for l in lines if l.startswith("could not remove")]
 
 
+def keep_direct_runs(path):
+    """Copy the cost of every direct eval run in worktree `path` to $RELAY_HOME/evals-direct before `git worktree remove` deletes the
+    ignored evals/plugin/results/ (the paid ledger, lib/relay_paidcap.py kept_direct, reads that folder; same file name and shape).
+    The eval tool writes the result itself, so there is no run-time hook: removal is the last moment the file exists."""
+    home = os.path.expanduser(os.environ.get("RELAY_HOME") or "~/.relay")
+    for result in glob.glob(os.path.join(path, "evals", "plugin", "results", "*", "aggregate-result.json")):
+        try:
+            with open(result, encoding="utf-8") as handle:
+                data = json.load(handle)
+            stamp, cost = data["startedAt"], data["costUsd"]
+            if not isinstance(stamp, str) or isinstance(cost, bool) or not isinstance(cost, (int, float)):
+                continue
+            os.makedirs(os.path.join(home, "evals-direct"), exist_ok=True)
+            with open(os.path.join(home, "evals-direct", re.sub(r"[^0-9A-Za-z.-]", "-", stamp) + ".json"), "w", encoding="utf-8") as out:
+                json.dump({"startedAt": stamp, "costUsd": cost}, out)
+        except (OSError, ValueError, KeyError, TypeError):
+            continue   # unreadable or not a result: nothing to keep
+
+
 def remove_child(path, branch):
     """Guards 6-7 for one merged worktree, run detached: `git worktree remove` (never --force), then `git branch -d`."""
     main = relay_git.main_checkout(path)
     if main is None:
         return 1
     name = rel(main, path)
+    keep_direct_runs(path)
     done = subprocess.run(["git", "-C", main, "worktree", "remove", path], capture_output=True, text=True)
     if done.returncode != 0:
         log_line(main, "could not remove %s: %s" % (name, last_line(done.stderr)))

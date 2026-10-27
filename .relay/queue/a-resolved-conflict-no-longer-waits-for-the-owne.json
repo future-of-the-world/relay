@@ -1,0 +1,30 @@
+{
+  "kind": "feature",
+  "ip": 93,
+  "time": 30,
+  "found_at": "2026-10-27T21:53:11Z",
+  "found_in": "relay queue add",
+  "title": "A resolved conflict no longer waits for the owner",
+  "what": [
+    "Drop the merge rule \"ask the owner before the merge when taking the default branch hit a conflict a fixer resolved by hand\". The owner's word is needed only when the conflict could not be resolved (the fixer stopped on it). A resolved conflict still goes through the gate and a recheck of every rider's item before the merge."
+  ],
+  "why": [
+    "Owner, 28 Oct, verbatim: \"Давай уберем правило по которому ты спрашиваешь меня в случае конфликта, мое слово требуется только если ты не смог его решить самостоятельно\""
+  ],
+  "pass_cases": [
+    "rules/git.md, the front skill (plugins/front/skills/front/SKILL.md:113) and the delegate skill (plugins/delegate/skills/delegate/SKILL.md:204) no longer list a hand-resolved conflict as a reason to ask; they say the owner is asked only when a conflict could not be resolved.",
+    "Any code that holds a merge for a hand-resolved conflict (merge hook, cycle script) is changed the same way, with a test.",
+    "Eval cases that expect the ask are updated."
+  ],
+  "where": [
+    "rules/git.md",
+    "plugins/front/skills/front/SKILL.md:113",
+    "plugins/delegate/skills/delegate/SKILL.md:204"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
