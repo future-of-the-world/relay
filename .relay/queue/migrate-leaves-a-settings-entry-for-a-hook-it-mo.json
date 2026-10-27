@@ -27,5 +27,13 @@
   "test": "tests/test_setup.py::RelayFolder::test_q1_migrate_leaves_no_settings_entry_for_a_hook_it_moved_aside",
   "fixed_by": "a4ad90db029a4fe42bed563921f4281fa5127311",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-25T17:27:12Z",
+      "fact": [
+        "Migration 27 Oct: the link in `why` line 1 points to a session file (`reports/design-arsenal.md` of 25 Oct, section 1.1), which is deleted when the machine restarts; the facts it held that this item rests on are the notes below."
+      ]
+    }
+  ]
 }
