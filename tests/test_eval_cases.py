@@ -187,5 +187,15 @@ class ToolUsedGraders(unittest.TestCase):
             self.assertFalse(bash_hit("recall-decision", "used-show", bad), bad)
 
 
+class FixtureComment(unittest.TestCase):
+    def test_setup_comment_names_no_path_setup_the_gate_does_not_make(self) -> None:
+        # The gate prepends only plugins/core/bin to PATH; the comment once claimed a git shim in .ci/evalbin too.
+        head = open(os.path.join(PLUGIN, "setup-fixture.sh"), encoding="utf-8").read().split("set -e")[0]
+        gate = open(os.path.join(ROOT, "lib", "relay_ci.py"), encoding="utf-8").read()
+        self.assertIn('self.path("plugins", "core", "bin")', gate)
+        self.assertNotIn("evalbin", head)
+        self.assertNotIn("evalbin", gate)
+
+
 if __name__ == "__main__":
     unittest.main()
