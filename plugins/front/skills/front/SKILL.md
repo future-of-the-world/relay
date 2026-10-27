@@ -75,11 +75,12 @@ conversation. The question and its options stay short. The shape:
 <intro paragraph: the mechanism, a live example, what each answer changes;
  the critique of the owner's earlier pick, if any>
 <a side-by-side table, when the options differ in several ways>
-a (recommended) <one line>   b <one line>
+a. <one line> (recommended)
+b. <one line>
 ```
 
 Before the question is shown, record it in the item it decides: `relay queue note <slug> --input <file.toml>` with
-`question` (the block above), `options` (the lettered lines) and `number`; paste what the command prints, so the owner
+`question` (the block above), `options` (the lettered lines, each starting `a. `, `b. `, ...) and `number`; paste what the command prints, so the owner
 sees what is stored. A question about no item first adds the item (`relay queue add`). When the owner replies, record
 the whole reply with `answer` (every explanation included; `to = [1, 2]` when one reply answers two questions), your
 reading apart in `reading`. A hook names each recorded question without an answer on every owner message until it is

@@ -804,6 +804,8 @@ def cmd_queue(args):
             print(f"{len(found)} items match '{query}'; relay queue show <slug> prints one:")
             print("\n".join(relay_queue.match_lines(found)))
             return 0
+        if how == "words":
+            print(f"found by words '{query}':")
         print(relay_queue.show_text(found[0]))
         return 0
     if sub in ("check", "migrate"):

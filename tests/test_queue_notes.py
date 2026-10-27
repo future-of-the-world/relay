@@ -225,6 +225,37 @@ class NoteInput(tq.Base):
                 self.read(text)
             self.assertIn(want, str(ctx.exception))
 
+    @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
+    def test_f1_options_in_another_shape_are_refused_as_input(self):
+        # the front skill used to show `a (recommended) x`; each form is refused before anything lands, naming the form and the bad line
+        for bad in ("a (recommended) x", "a) x"):
+            with self.assertRaises(rq.Refused) as ctx:
+                self.read(f"question = 'Q?'\nnumber = 1\noptions = ['{bad}', 'b. y']\n")
+            text = str(ctx.exception)
+            self.assertTrue(text.startswith("nothing noted:"), text)
+            self.assertIn("`options`", text)
+            self.assertIn("a. ", text)
+            self.assertIn(bad, text)
+        self.assertEqual(self.read("question = 'Q?'\nnumber = 1\noptions = ['a. x (recommended)', 'b. y']\n")["options"], ["a. x (recommended)", "b. y"])
+
+    @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
+    def test_f1_the_front_skill_shows_the_stored_option_form(self):
+        with open(os.path.join(ROOT, "plugins", "front", "skills", "front", "SKILL.md"), encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertNotIn("a (recommended) <one line>", text)
+        self.assertIn("a. <one line> (recommended)", text)
+
+    @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
+    def test_f2_an_unquoted_toml_time_is_taken(self):
+        # TOML reads 2026-10-27T01:20:00Z as a datetime; it is the same UTC time as the quoted string
+        self.assertEqual(self.read("said = 'hi'\nat = 2026-10-27T01:20:00Z\n")["at"], "2026-10-27T01:20:00Z")
+        self.assertEqual(self.read("said = 'hi'\nat = '2026-10-27T01:20:00Z'\n")["at"], "2026-10-27T01:20:00Z")
+        with self.assertRaises(rq.Refused) as ctx:
+            self.read("said = 'hi'\nat = '2026-10-27 01:20'\n")
+        self.assertIn("`at` must be a UTC time", str(ctx.exception))
+        with self.assertRaises(rq.Refused):
+            self.read("said = 'hi'\nat = 2026-10-27T01:20:00+03:00\n")          # not UTC: refused
+
 
 class SessionFiles(tq.Base):
     def add(self, **kw):
@@ -256,11 +287,32 @@ class SessionFiles(tq.Base):
         rq.close_with_evidence(self.main, slug, "16a8c19", **tq.QUIET)
         self.assertEqual(self.item(slug)["state"], "done")
 
-    def test_drop_refuses_session_path(self):
+    def test_f6_drop_keeps_the_owners_words_with_a_path(self):
+        # drop's `why` is the owner's words (bin/relay usage): never altered, never path-checked
         self.add()
+        rq.drop(self.main, "something-is-wrong", "дубль, см. /tmp/x/y.md", **tq.QUIET)
+        self.assertEqual(self.item("something-is-wrong")["dropped_why"], ["дубль, см. /tmp/x/y.md"])
+
+    def test_f3_add_from_names_a_step_the_front_can_take(self):
+        report = os.path.join(self.tmp, "review.json")
+        finding = {"id": "F1", "summary": "a thing is wrong", "path": "lib/x.py", "line": 3, "severity": "MEDIUM", "rank": "medium", "kind": "inside",
+                   "failing_case": ["run it", "see /private/tmp/claude-501/x/scratchpad/trial/tally"], "pass_cases": ["ok"],
+                   "details": ["d"], "evidence": ["e"], "fix_hint": ["h"]}
+        with open(report, "w", encoding="utf-8") as handle:
+            json.dump({"schema": 1, "type": "review", "base": "master", "reviewed": "a" * 40, "scope": ["s"], "notes": [], "findings": [finding]}, handle)
         with self.assertRaises(rq.Refused) as ctx:
-            rq.drop(self.main, "something-is-wrong", "no, see /tmp/x/y.md", **tq.QUIET)
-        self.assertIn("line 1 of `why`", str(ctx.exception))
+            rq.add_from(self.main, report, "F1", why="w", minutes=5, **tq.QUIET)
+        text = str(ctx.exception)
+        self.assertIn("names a session file", text)
+        self.assertIn("relay queue add --input", text)          # the step that works: its own text, without the session file
+        self.assertEqual(self.branches(), [])
+        finding["failing_case"] = ["run it"]
+        with open(report, "w", encoding="utf-8") as handle:
+            json.dump({"schema": 1, "type": "review", "base": "master", "reviewed": "a" * 40, "scope": ["s"], "notes": [], "findings": [finding]}, handle)
+        rq.add_from(self.main, report, "F1", why="w", minutes=5, **tq.QUIET)          # no session path: queued as before
+        with self.assertRaises(rq.Refused) as ctx:
+            self.add(why="see /tmp/x/y.md")
+        self.assertNotIn("relay queue add --input", str(ctx.exception))               # add --input keeps its own advice
 
     def test_check_keeps_old_links_valid(self):
         old = tq.with_fields(tq.feature_item("Job"), why=["see /private/tmp/claude-501/x/scratchpad/reports/a.md"])
@@ -323,6 +375,18 @@ class Cli(tq.Base):
         self.assertIn("hello owner words", out)
         self.assertEqual(self.run_relay("show", "nothing like it")[0], 2)
 
+    @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
+    def test_f5_show_by_words_says_it_was_found_by_words(self):
+        self.write_commit(self.main, {QUEUE + "job.json": tq.feature_item("Job")}, "seed")
+        path = os.path.join(self.tmp, "n.toml")
+        with open(path, "w") as handle:
+            handle.write("said = 'hello owner words'\n")
+        self.assertEqual(self.run_relay("note", "job", "--input", path)[0], 0)
+        _, by_words, _ = self.run_relay("show", "owner words")
+        self.assertTrue(by_words.startswith("found by words 'owner words':\n"), by_words)
+        _, by_slug, _ = self.run_relay("show", "job")
+        self.assertNotIn("found by words", by_slug)                          # the exact slug: no header
+
 
 class AskHook(tq.Base):
     def setUp(self):
@@ -354,16 +418,34 @@ class AskHook(tq.Base):
             self.assertEqual(rq.waiting_lines(self.main, 7, 5, now=NOW), [])
         self.assertEqual(parsed, [])         # no file names a question: the one git grep finds nothing and nothing is parsed
 
+    def hook_output(self):
+        hook = os.path.join(ROOT, "plugins", "front", "hooks", "ask_waiting.py")
+        data = json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": self.main})
+        done = subprocess.run([sys.executable, hook], input=data, capture_output=True, text=True, env=dict(os.environ, PYTHONPATH=""))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(done.stderr, "")
+        return done.stdout
+
+    def test_f4_hook_script_prints_the_reminder_for_a_question_asked_an_hour_ago(self):
+        # asked one real hour ago, so it is inside the 7 days whatever the clock says; the output is asserted unconditionally
+        asked = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.write_commit(self.main, {QUEUE + "job.json": with_notes(tq.feature_item("Job"), [decision(asked_at=asked)])}, "fresh question")
+        out = self.hook_output()
+        self.assertNotEqual(out, "")
+        self.assertTrue(json.loads(out)["hookSpecificOutput"]["additionalContext"].startswith("Waiting for the owner: job question 1"), out)
+
+    def test_f4_hook_script_is_silent_when_nothing_waits(self):
+        self.write_commit(self.main, {QUEUE + "job.json": tq.feature_item("Job")}, "none waiting")
+        self.assertEqual(self.hook_output(), "")
+
     def test_hook_script_clamps_settings_and_prints_json(self):
         hook = os.path.join(ROOT, "plugins", "front", "hooks", "ask_waiting.py")
         data = json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": self.main})
         done = subprocess.run([sys.executable, hook], input=data, capture_output=True, text=True,
                               env=dict(os.environ, PYTHONPATH=""))
-        # the real clock is long after 10 Oct 2026 + 7 days only if it is; the output is JSON or empty, never an error
+        # the fixture question is old by the real clock, so only the no-error exit is asserted here; the output is asserted in test_f4_*
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertEqual(done.stderr, "")
-        if done.stdout:
-            self.assertIn("Waiting for the owner", json.loads(done.stdout)["hookSpecificOutput"]["additionalContext"])
         sys.path.insert(0, os.path.join(ROOT, "plugins", "front", "hooks"))
         try:
             import ask_waiting
