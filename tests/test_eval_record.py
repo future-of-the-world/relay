@@ -172,7 +172,7 @@ class Record(unittest.TestCase):
         self.assertNotIn("cost $", out)
 
     def test_a_failed_grader_prints_votes_and_the_judged_line_matching_the_code_check(self):
-        _, out = self.run_step(fixture([[True] * 3, [False, False, True], [True] * 3]))
+        _, out = self.run_step(fixture([[True] * 3, [False, False, True]]))   # 1 of 2 runs pass: no majority, so the failure counts
         self.assertIn("1 meaning grader(s) failed, 1 split vote", out)
         self.assertIn("FAIL code-reviewer-offbyone run 2 reports-off-by-one: votes FAIL FAIL PASS", out)
         self.assertIn('judged: "F1 HIGH src/shelf.ts:27: slice end"', out)

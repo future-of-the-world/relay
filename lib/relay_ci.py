@@ -435,7 +435,7 @@ class Ci:
             self.say("ci: RED (the eval record could not be stored)")
             self.status = 1
         elif rc != 0:
-            self.say("ci: RED (eval runs were not judged or a meaning grader failed: not a pass)")
+            self.say("ci: RED (eval runs were not judged or a case failed its majority: not a pass; bin/eval-record --verdict <newest file in $RELAY_HOME/evals/<repo>> shows why)")
             self.status = 1
 
     # ---- the whole gate -------------------------------------------------------------------------------------------
