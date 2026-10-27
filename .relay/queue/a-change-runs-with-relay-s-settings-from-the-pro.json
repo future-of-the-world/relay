@@ -41,6 +41,12 @@
       "fact": [
         "Measured 27 Oct: a container starts in 0.33-0.52 s cached and a clone takes 1.51 s, against a 215-935 s gate; the quick gate on one tree was green on the host and gave 25 failures and 17 errors in a container; two causes are relay defects: `ps` missing (18 errors) and `sum([0.1]*100)`, which is 10.0 on Python 3.14 and 9.99999999999998 on 3.11."
       ]
+    },
+    {
+      "at": "2026-10-27T01:08:35Z",
+      "fact": [
+        "Measured 27 Oct: what a change depends on differs on 8 of 10 lines of the global-state table (plugins switched on, marketplace path, model and effort, permissions, rules text, memory, old agents and hooks, ledger, gate slots, test times); a fresh container without the plugins runs no hooks and no typed agents, so merges go unguarded and nothing is recorded."
+      ]
     }
   ]
 }
