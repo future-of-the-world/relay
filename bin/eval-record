@@ -5,7 +5,7 @@
   bin/eval-record --verdict RECORD        the verdict of a stored record under today's rule; stores nothing
 
 Reads the eval's --json file. Exit 1 when the copy fails; exit 2 (with a "NOT A PASS" line naming the cases) when
-a case fails its majority (most of the runs of an arm must pass: 2 of 3; the failed runs of a passing case are notes) with a failed meaning or code grader, any run was not judged (a run missing from runsPerCase, a partial batch) or there is no record, so the gate is not green; notes alone never change it.
+a case fails its majority (most of the runs of an arm must pass: 2 of 3; the failed runs of a passing case are notes) with a failed meaning or code grader, a run the eval tool stopped at its time limit is a failed run of the majority, not an unjudged one; any other run was not judged (a run missing from runsPerCase, a partial batch) or there is no record, so the gate is not green; notes alone never change it.
   - no file: prints "NOT A PASS: plugin evals wrote no record" and exits 2 (bin/ci deletes the old file before the
     eval, so a leftover from yesterday is never filed as today's batch)
   - copies the file to $RELAY_HOME/evals/<repo>/<startedAt>-<branch>.json (RELAY_HOME defaults to ~/.relay)
@@ -57,7 +57,7 @@ def judged_line(evidence, patterns):
 
 def timed_out(run: dict[str, Any]) -> bool:
     """True when the eval tool stopped the run at its time limit ("timed out after 600s"). Owner, 27 Oct, "7. a": that is a failed run."""
-    return str(run.get("error") or "").startswith("timed out after")
+    return str(run.get("error") or "").lower().startswith("timed out after")
 
 
 def run_ok(run: dict[str, Any]) -> bool:
