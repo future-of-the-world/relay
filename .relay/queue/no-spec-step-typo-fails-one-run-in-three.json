@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 45,
+  "found_at": "2026-10-27T13:06:46Z",
+  "found_in": "relay queue add",
+  "title": "no-spec-step-typo fails one run in three",
+  "what": [
+    "no-spec-step-typo fails one run in three"
+  ],
+  "why": [
+    "Measured 27 Oct: the plugin eval case no-spec-step-typo failed 1 of 3 runs in both wave paid runs that day: at 9bc988d run 3 (code grader no-openspec-command), at aa8cfd1 run 1 (code grader worker-started); 2 of its last 6 runs, each on a different grader; every other case passed. The traces are deleted after each run (item a-red-paid-run-keeps-no-traces-to-find-its-cause), so the cause is unknown: model behaviour on a typo prompt, or graders that are too strict. Principle 6: a repeat failure is a cause to find, not a rerun."
+  ],
+  "failing_case": [
+    "Run the case no-spec-step-typo 6 times with traces kept: at least one run fails worker-started or no-openspec-command."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The cause is named from a kept trace (what the session did, which grader judged it, whether the grader was right).",
+    "Fixed at the cause (skill text or grader), with the grader shown to fail a wrong call.",
+    "6 of 6 runs pass after the fix."
+  ],
+  "where": [
+    "evals/plugin/no-spec-step-typo"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
