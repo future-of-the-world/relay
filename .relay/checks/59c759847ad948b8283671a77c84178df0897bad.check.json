@@ -1,0 +1,124 @@
+{
+  "branch": "wt/train-21",
+  "findings": [
+    {
+      "details": [
+        "26 Oct: the estimate said mean $8.27 over 16 stored runs; the run cost $17.43: the 15 old cases cost $8.24, 12 new cases added $9.35. The estimate averages whole batches and misses suite growth."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "bin/paid-cost estimate on 26 Oct printed \"mean $8.27\" for a run that cost $17.43."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "With the 26 Oct records, the estimate for the current suite is within 15% of $17.43."
+      ],
+      "path": "bin/paid-cost",
+      "rank": "high",
+      "reason": [
+        "tests/test_paid_cost_limits.py:100 test_new_cases_are_added_at_the_mean_case_cost passes at head and fails (functions missing) at d1a3437."
+      ],
+      "severity": "HIGH",
+      "since": "d1a3437accae613c16c9453f2ea3545d651e3f53",
+      "source": "queue",
+      "summary": "The paid-run estimate misses new eval cases",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: two loops over d[\"cases\"] / c[\"arms\"] with the same cost expression. Project Python rule: \"A",
+        "record that several programs read ... has one typed record and one parser, shared by all of them.\" Correct today,",
+        "fragile; cheap to share. Size: 10."
+      ],
+      "evidence": [
+        "bin/paid-cost:60  costs = [r[\"costUsd\"] + (r[\"judgeCostUsd\"] if _num(r.get(\"judgeCostUsd\")) else 0) for r in runs ...]",
+        "bin/paid-cost:86  costs = [r[\"costUsd\"] + (r[\"judgeCostUsd\"] if _num(r.get(\"judgeCostUsd\")) else 0) for rs in c[\"arms\"].values() ...]"
+      ],
+      "failing_case": [
+        "The eval record (bin/eval-record's JSON) is now parsed by stored() and by case_costs() in bin/paid-cost, and by",
+        "relay_paidcap.eval_batches. The run cost \"costUsd + judgeCostUsd when numeric\" is written twice (lines 60 and 86).",
+        "A change of that rule in one place (say judge cost counted only when the judge ran, or a new field) leaves the",
+        "per-case suite estimate and the ceiling disagreeing on what one run costs. Today both agree."
+      ],
+      "fix_hint": [
+        "One helper (a typed _run_cost(r) and a reader that yields (name, partial, batch cost, {case: [run costs]}) per file)",
+        "used by both stored() and case_costs()."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 69,
+      "pass_cases": [
+        "1. Records a.json, b.json with case x runs [{costUsd 1, judgeCostUsd 0.5}] each: stored() gives run cost 1.5 and",
+        "   case_costs() gives x = 1.5, both from one shared function.",
+        "2. The four SuiteEstimate tests and the Estimate/Ceiling tests pass unchanged."
+      ],
+      "path": "bin/paid-cost",
+      "rank": "low",
+      "reason": [
+        "bin/paid-cost:45 _run_cost is the one cost rule, used at lines 66 and 91; the SuiteEstimate and Estimate tests pass unchanged."
+      ],
+      "severity": "LOW",
+      "since": "aa97c3dfbc502f2ab6bb1ce875424375c8bc40ff",
+      "source": "review-paid-estimate.json",
+      "source_id": "F1",
+      "summary": "case_costs is a second parser of the stored eval record beside stored(), with the run-cost formula copied (Python rule: one record, one parser)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading and the replay: relay_paidcap.eval_estimate is max of full batch costs; bin/paid-cost guard",
+        "(line 229) passes it to check(). The change fixed the printed estimate, which no program decides on; the number",
+        "the cap guard decides on is untouched. Outside: lib/relay_paidcap.py is not in the change and the item's Where names",
+        "only `bin/paid-cost estimate`; the earlier cap item chose \"the largest measured run of that kind\", so changing it",
+        "is a queue item. Size: 20."
+      ],
+      "evidence": [
+        "lib/relay_paidcap.py:179 def eval_estimate(home=None): return max((c for _, c in eval_batches(home)), default=0.0)",
+        "replay: 2026-10-26T01-47-23Z actual 17.43, old max $9.56, new per-case est 17.39 (12 new)"
+      ],
+      "failing_case": [
+        "The 26 Oct records before the $17.43 run: eval_estimate() returns $9.56 (largest full batch), while the suite had",
+        "grown from 15 to 27 cases. With $12 left in the day, the guard lets the run start; the --within-day ceiling then",
+        "stops it at about $12, part-way, instead of refusing it before it starts. The per-case estimate this change adds",
+        "($17.39 for that run) would have refused it."
+      ],
+      "fix_hint": [
+        "Have eval_estimate use the per-case suite estimate (the shared parser of F1) when it exists, else the largest batch."
+      ],
+      "id": "F2",
+      "kind": "outside",
+      "line": 179,
+      "pass_cases": [
+        "1. Records of 26 Oct before 01-47-23Z, suite of 27 cases, $12 left of the day's cap: guard eval exits 1 naming an",
+        "   estimate near $17.",
+        "2. Same records, $30 left: guard eval exits 0.",
+        "3. No stored record: the estimate stays 0 and guard eval exits 0 (today's behaviour)."
+      ],
+      "path": "lib/relay_paidcap.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_paidcap.py is outside the change; the queue already holds the-day-s-cap-guard-bin-paid-cost-guard-eval-sti for it. Not fixed here, as the review said."
+      ],
+      "severity": "MEDIUM",
+      "since": "aa97c3dfbc502f2ab6bb1ce875424375c8bc40ff",
+      "source": "review-paid-estimate.json",
+      "source_id": "F2",
+      "summary": "the day's-cap guard (bin/paid-cost guard eval) still estimates the next batch as the largest stored one, so a grown suite passes the guard",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "427f6f3e7b0bc8ea78fd8f54a331e4ec2790e26b.gate.log",
+  "head": "59c759847ad948b8283671a77c84178df0897bad",
+  "item": "the-paid-run-estimate-misses-new-eval-cases",
+  "notes": [
+    "Gate is a QUICK MODE run (paid steps skipped), as the log says."
+  ],
+  "schema": 2,
+  "scope": [
+    "Train head 59c7598; gate log head 427f6f3, exit 0, and relay changed lists no file after it. Ran tests/test_paid_cost_limits.py with unittest (18 OK; pytest is not installed). Q1 test copied to a throwaway worktree at d1a3437: 2 failures, 4 errors there. F1 fix read in git diff aa97c3d..HEAD (commit 4e89663, bin/paid-cost and its test only)."
+  ],
+  "type": "check"
+}
