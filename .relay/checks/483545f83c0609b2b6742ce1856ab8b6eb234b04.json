@@ -1,0 +1,11 @@
+{
+  "check": "483545f83c0609b2b6742ce1856ab8b6eb234b04.check.json",
+  "commit": "483545f83c0609b2b6742ce1856ab8b6eb234b04",
+  "gate": "a5562a6891db62cd0732a900500a6bc58b183c1e.gate.log",
+  "schema": 2,
+  "time": "2026-10-27T11:07:13Z",
+  "verdict": {
+    "open": 1,
+    "queued": 0
+  }
+}
