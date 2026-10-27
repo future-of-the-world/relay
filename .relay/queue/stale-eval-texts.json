@@ -17,8 +17,8 @@
   "where": [
     "evals/plugin/setup-fixture.sh:4"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-27T18:53:09Z",
+  "taken_by": "wt/stale-texts",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

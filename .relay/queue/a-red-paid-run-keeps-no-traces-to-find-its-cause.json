@@ -26,5 +26,26 @@
   "closed_at": "2026-10-27T15:09:09Z",
   "test": "tests/test_eval_record.py::Record::test_a_red_batch_keeps_the_failing_runs_traces_where_the_record_names_them",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-27T19:12:50Z",
+      "number": 2,
+      "question": [
+        "Влить train-21 (5 изменений) после того, как конфликт с правилом «2 из 3» решил fixer вручную? В bin/eval-record взяты списки голосов по правилу «2 из 3» из master и добавлена строка trace из train; обе группы вспомогательных функций сохранены; порядок: прежние записи, затем traces, затем запись и отчёт. В tests/test_ci_python.py сохранены обе группы тестов. В tests/test_eval_record.py тест красной серии изменён с pass/fail/pass на fail/fail/pass, потому что по правилу «2 из 3» первая серия зелёная. Quick gate зелёный на 2fbd7ab, все 5 пунктов: open 0."
+      ],
+      "options": [
+        "a. Влить сейчас (рекомендую): объединение проверено gate и пятью повторными проверками.",
+        "b. Сначала показать полный diff объединения.",
+        "c. Держать."
+      ],
+      "answered_at": "2026-10-27T21:20:10Z",
+      "answer": [
+        "Влей train, по поводу gate то думаю можно и больше, от чего вообще был лимит"
+      ],
+      "reading": [
+        "2 = a: land train-21 now."
+      ]
+    }
+  ]
 }
