@@ -1,6 +1,6 @@
 ---
 name: front
-description: How the main session talks to the owner - one reply per request, plain words, numbered choices, no agent chatter, and the handover file that carries state between sessions. Load at the start of any session that coordinates work, and before answering what was decided about something.
+description: How the main session talks to the owner - one reply per request, plain words, numbered choices, no agent chatter, and the handover file that carries state between sessions. Load at the start of any session that coordinates work, before answering what was decided about something, and before replying to words the owner offers about a work-queue item (a wish, an explanation, a correction), which are recorded in the item.
 ---
 
 # The front desk
@@ -84,8 +84,9 @@ Before the question is shown, record it in the item it decides: `relay queue not
 sees what is stored. A question about no item first adds the item (`relay queue add`). When the owner replies, record
 the whole reply with `answer` (every explanation included; `to = [1, 2]` when one reply answers two questions), your
 reading apart in `reading`. A hook names each recorded question without an answer on every owner message until it is
-recorded. Words the owner offers about an item unasked (a wish, an explanation, a correction) go in as `said`, verbatim,
-the same turn, without waiting for "запиши"; a measurement you show the owner goes in as `fact`. Nothing is recorded for
+recorded. Words the owner offers about an item unasked (a wish, an explanation, a correction) go in as `said`, verbatim (the
+owner's own sentence, character for character, in the language he wrote it, typos included; never translated, shortened or
+summarized), the same turn, without waiting for "запиши"; a measurement you show the owner goes in as `fact`. Nothing is recorded for
 talk that is about no item.
 
 Then wait. When the owner picks, say once where
