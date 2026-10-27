@@ -1683,9 +1683,10 @@ def _edited_value(item: dict, field: str, old: str, new: str, repo: str, default
             raise Refused(f"nothing edited: '{slug}' has no {field} to edit")
         lines = [current]
     else:
-        lines = item.get(field)
-        if not lines:
+        found = item.get(field)
+        if not found:
             raise Refused(f"nothing edited: '{slug}' has no {field} to edit")
+        lines = list(found)
     text = "\n".join(lines)
     if text.count(old) != 1:
         raise Refused(f"nothing edited: `old` is found {text.count(old)} times in {field} of '{slug}', not once; give more of the text around it")
@@ -1702,8 +1703,8 @@ def edit_problem(item: dict, field: str, before: object, after: object) -> Optio
     unbalanced, else None. Checked on the result: every quoted span of the old text stays byte-equal in the new."""
     if field in ("time",):
         return None
-    old_lines = [before] if isinstance(before, str) else list(before)
-    new_lines = [after] if isinstance(after, str) else list(after)
+    old_lines = [before] if isinstance(before, str) else [str(x) for x in before]  # type: ignore[attr-defined]
+    new_lines = [after] if isinstance(after, str) else [str(x) for x in after]  # type: ignore[attr-defined]
     spans = quoted_spans(old_lines)
     if spans is None:
         return f"quotes do not balance in {field} of '{item['slug']}'; correct it with a fact note (`relay queue note`)"
