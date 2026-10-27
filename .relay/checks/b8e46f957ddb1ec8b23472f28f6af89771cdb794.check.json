@@ -1,0 +1,250 @@
+{
+  "branch": "wt/wave-red",
+  "findings": [
+    {
+      "details": [
+        "Measured 27 Oct: bin/ci (full, paid) at master 9bc988d, log copied to the eval record ~/.relay/evals/relay/2026-10-27T07-35-44Z-master.json, cost $21.41, plugin evals 6626 s. RED in three cases; all others green, including the new recall-decision and no-note-off-topic. (1) keep-owner-words (Russian), 3 of 3 runs: said-verbatim FAIL FAIL FAIL, run 3 also note-written; the session answered \"relay queue \u043e\u0442\u0432\u0435\u0447\u0430\u0435\u0442 \u00abrepository not found\u00bb\": the case's scaffold gives the session no queue repository, so the note cannot be written. (2) keep-owner-words-en: runs 1 and 2 timed out after 600 s (not judged), run 3 failed note-written and said-verbatim with the same \"repository not found\". Both cases came with the notes change (design section 9) and were never run before the merge. (3) no-spec-step-typo, run 3 of 3: code grader no-openspec-command failed (an older case; 1 of 3 runs, see also a-wave-run-is-red-when-one-of-a-case-s-3-runs-fa). Wave contents: train-recheck, cycle-scripts, principle 10, done/ removal, notes. relay sync waits for a green run.",
+        "Also: evals/plugin/no-spec-step-typo",
+        "Also: ~/.relay/evals/relay/2026-10-27T07-35-44Z-master.json"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "bin/ci at 9bc988d: keep-owner-words and keep-owner-words-en fail note-written and said-verbatim because relay queue reports 'repository not found' inside the eval session; no-spec-step-typo run 3 fails no-openspec-command."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "keep-owner-words and keep-owner-words-en scaffold a queue repository the session's relay finds, and pass 3 of 3 runs each within the time limit.",
+        "no-spec-step-typo run 3's failure is explained from its record (model behaviour or grader) and fixed at its cause, or shown to be the known one-of-three item and left to it.",
+        "A rerun of only the changed cases is green before the full wave run is repeated."
+      ],
+      "path": "evals/plugin/keep-owner-words*",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_cases.py:173 test_russian_said_verbatim and :179 english variant error on 4a66734 and pass at head; stub tests fail there too."
+      ],
+      "severity": "HIGH",
+      "since": "4a667343ce61943a8b97aa9a88b6ec0e89ae60ad",
+      "source": "queue",
+      "summary": "The wave paid run of 9bc988d is red in 3 eval cases",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED from the fixer's own run JSON and traces. The quality-gate rule: a flaky eval is a bug; find the cause before running more, in order:",
+        "shared state, slow environment, changed output form, model sampling last. The fixer stopped at \"judge is strict, variance remains\"",
+        "(judge gives votes, no reasons). Two causes are visible: (a) a session still translates options (behaviour, the skill text did not hold);",
+        "(b) the llm judge fails a reply that meets the grader's own text (grader). Principle 5 (fact to code): whether \u00ab1. a\u00bb, \u00ab2. a\u00bb, \u00abA\u00bb and each",
+        "option line appear verbatim is an exact fact a regex grader can check; only \"a reading is marked as the front's\" needs the judge.",
+        "The item's pass case \"pass 3 of 3 runs each\" is met only by the last batch.",
+        "Size: 30."
+      ],
+      "evidence": [
+        "r2/*.json per run: e1 [False answers-from-notes, True, True]; f1 [True, True, False answers-from-notes (judge votes: FAIL FAIL FAIL)]; g1 [True x3].",
+        "grep -c 'character for character' on traces e-TlD52l, e-EnUDos, e-kdUMgg: 1 each (final skill text loaded).",
+        "e-TlD52l final reply: \u0412\u043e\u043f\u0440\u043e\u0441 1 \u00ab1. Should work that never lands...\u00bb, options a/b as recorded, \u00ab1. a\u00bb \u0438 \u00ab2. a\u00bb, \u0412\u043e\u043f\u0440\u043e\u0441 2 ..., done/: \u00abA\u00bb, \u041c\u043e\u0451 \u043f\u0440\u043e\u0447\u0442\u0435\u043d\u0438\u0435.",
+        "e-kdUMgg final reply: \"a. \u0417\u0430\u043f\u0438\u0441\u044c \u0432 \u043a\u043e\u043d\u0446\u0435 \u0437\u0430\u043f\u0443\u0441\u043a\u0430 ...\", \"\u041c\u043e\u044f \u0442\u0440\u0430\u043a\u0442\u043e\u0432\u043a\u0430\" (options and reading translated)."
+      ],
+      "failing_case": [
+        "The three batches whose traces contain the final SKILL.md text (\"character for character\"): e1 2/3, f1 2/3, g1 3/3 = 7 of 9 runs.",
+        "Report says \"recall-decision 3/3\". Failing replies: e-kdUMgg translated the options and the recorded reading into Russian despite the new text",
+        "(behaviour); e-TlD52l quotes both questions, all options, \"1. a\", \"2. a\", \"A\", marks the reading, yet the judge votes FAIL FAIL FAIL (grader).",
+        "At 7/9 per run, a 3-run wave case is all green about (7/9)^3 = 47% of the time: the next $21 wave paid run is red about half the time",
+        "on this case, the thing this queue item exists to remove. Should: a cause named for each failing run, fixed, and proven by clean runs."
+      ],
+      "fix_hint": [
+        "Split answers-from-notes: regex graders (with recorded good and bad replies, graders.test.sh) for the verbatim facts (\u00ab1. a\u00bb, \u00ab2. a\u00bb, \u00abA\u00bb,",
+        "each option's leading words as recorded); keep one llm grader only for the marked reading and \"no record\" claims. Then rerun 3x3."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. The reply of e-TlD52l (both questions, options as recorded, answers \u00ab1. a\u00bb, \u00ab2. a\u00bb, \u00abA\u00bb, reading marked) passes the answers-from-notes grader(s).",
+        "2. A reply that says \"you chose a\" with no quoted answer fails.",
+        "3. A reply that leaves out option b of question 1 fails.",
+        "4. A reply that says there is no record fails.",
+        "5. After the fix, recall-decision passes 3 batches of 3 runs on the final text with no failure (quality-gate rule: clean runs prove the fix)."
+      ],
+      "path": "evals/plugin/recall-decision/graders/answers-from-notes.md",
+      "rank": "high",
+      "reason": [
+        "Verbatim facts are regex graders (answers-as-recorded, questions-as-recorded) with recorded good/bad replies, graders.test.sh passes; llm only for reading-marked."
+      ],
+      "severity": "HIGH",
+      "since": "1b84111d615543530f005ed59b3ef6fd2f37ec28",
+      "source": "review-wave-red-2.json",
+      "source_id": "F1",
+      "summary": "recall-decision passes 7 of 9 runs on the final skill text, reported as 3/3; the cause of the failures is not found",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_queue.py:1632 notes_text against relay-stub.py show(). Size: 30."
+      ],
+      "evidence": [
+        "relay-stub.py:165-166 print(basename); print(open(hits[0]).read())",
+        "lib/relay_queue.py:1645-1650 \"question {n}, asked:\", \"- \" options, \"the owner answered question {n} (whole reply):\", \"front's reading (owner can reverse): \""
+      ],
+      "failing_case": [
+        "recall-decision fixture, `relay queue show cost`: the stub prints the JSON (\"answer\": [\"1. a\", \"2. a\"] under both questions, \"reading\": [...]).",
+        "The real command (lib/relay_queue.py notes_text) prints \"question 1, asked:\", \"- a. ...\", \"the owner answered question 1 (whole reply):\" and",
+        "\"front's reading (owner can reverse): ...\". The docstring says the stub \"prints what the real command prints\". The eval's verdict on how a",
+        "front quotes questions and answers is drawn from a text shape it never gets live (e-TlD52l had to explain \"the same answer under both questions\";",
+        "the real \"(whole reply)\" label says it)."
+      ],
+      "fix_hint": [
+        "Render the notes in the stub with the same lines as notes_text (or copy lib's pure renderer into the run's home by the scaffold), and add a test",
+        "comparing the stub's output with notes_text on the recall-decision fixture."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 166,
+      "pass_cases": [
+        "1. For each recall-decision fixture item, the stub's show output contains the same Notes lines as notes_text(item, UTC) of the real code.",
+        "2. A said note renders as \"the owner said:\" with the quoted text, like the real one.",
+        "3. Several matches still list the names, one per line (today's test_show_finds_a_word_inside_the_item_and_lists_several_matches).",
+        "4. An item with no notes prints no Notes section."
+      ],
+      "path": "evals/plugin/relay-stub.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_eval_cases.py:126 test_recall_decision_fixture_items_print_the_real_notes passes; fails on 4a66734."
+      ],
+      "severity": "MEDIUM",
+      "since": "1b84111d615543530f005ed59b3ef6fd2f37ec28",
+      "source": "review-wave-red-2.json",
+      "source_id": "F2",
+      "summary": "the stub's `queue show` prints the raw item JSON, not the Notes text the real command prints, so recall-decision tests a reading no real session sees",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED with bun (scratchpad/rx.py). graders.test.sh states: \"a grader changed (or written) without proof that it fails a deliberately wrong",
+        "answer is refused (Rule of review 2, M5)\"; its code enforces it for type regex only, and tests/test_wave_red.py is the project's precedent for",
+        "tool_used input_match graders (good and bad commands through bun). The English pattern is long enough to reject a correction; the Russian one",
+        "keeps only 3 of the owner's words, so \"verbatim\" is not checked. Size: 15."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/rx.py:",
+        "true  said = \"\u0412\u043b\u0430\u0434\u0435\u043b\u0435\u0446 \u0445\u043e\u0447\u0435\u0442 \u0432\u0438\u0434\u0435\u0442\u044c \u043c\u0438\u043d\u0443\u0442\u044b \u043e\u0436\u0438\u0434\u0430\u043d\u0438\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438\"",
+        "false said = \"i want the record to also hold ...\" (en, corrected)",
+        "true  ls .relay/queue  (used-show)"
+      ],
+      "failing_case": [
+        "JS RegExp over {\"command\": ...} as the eval tool applies it:",
+        "- said\\s*=.*\u043c\u0438\u043d\u0443\u0442\u044b \u043e\u0436\u0438\u0434\u0430\u043d\u0438\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438 matches `said = \"\u0412\u043b\u0430\u0434\u0435\u043b\u0435\u0446 \u0445\u043e\u0447\u0435\u0442 \u0432\u0438\u0434\u0435\u0442\u044c \u043c\u0438\u043d\u0443\u0442\u044b \u043e\u0436\u0438\u0434\u0430\u043d\u0438\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438\"` (a paraphrase): true; should be false.",
+        "- relay queue show|\\.relay/queue matches `ls .relay/queue` (lists files, reads no note): true; the grader text says \"the session read the items\".",
+        "No test in the change runs any of the three patterns (said-verbatim x2, used-show) against a good and a bad command."
+      ],
+      "fix_hint": [
+        "Russian pattern on a longer verbatim span (\"\u044f \u0445\u043e\u0447\u0443, \u0447\u0442\u043e\u0431\u044b \u0432 \u0437\u0430\u043f\u0438\u0441\u0438 \u0431\u044b\u043b\u0438 \u0435\u0449\u0451 \u0438 \u043c\u0438\u043d\u0443\u0442\u044b \u043e\u0436\u0438\u0434\u0430\u043d\u0438\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438\"); used-show on",
+        "\"relay queue show|cat[^|;]*\\.relay/queue/[^ ]*\\.json\" or similar; a test file in the shape of tests/test_wave_red.py for all three."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 4,
+      "pass_cases": [
+        "1. keep-owner-words said-verbatim: the heredoc of trace e-Ye1uvb (said = \"\u041a\u0441\u0442\u0430\u0442\u0438, ... \u043c\u0438\u043d\u0443\u0442\u044b \u043e\u0436\u0438\u0434\u0430\u043d\u0438\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438, \u044d\u0442\u043e \u0432\u0430\u0436\u043d\u043e \u0434\u043b\u044f \u043c\u0435\u043d\u044f.\") matches.",
+        "2. keep-owner-words said-verbatim: said = \"\u0412\u043b\u0430\u0434\u0435\u043b\u0435\u0446 \u0445\u043e\u0447\u0435\u0442 \u0432\u0438\u0434\u0435\u0442\u044c \u043c\u0438\u043d\u0443\u0442\u044b \u043e\u0436\u0438\u0434\u0430\u043d\u0438\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438\" does not match; fact = \"<the owner's sentence>\" does not match.",
+        "3. keep-owner-words-en said-verbatim: the sentence with \"recrod\" matches; the same with \"record\" (typo corrected) does not.",
+        "4. used-show: `relay queue show metrics` and `cat .relay/queue/x.json` match; `ls .relay/queue` does not."
+      ],
+      "path": "evals/plugin/keep-owner-words/graders/said-verbatim.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_eval_cases.py:173, :179, :183 pass; all three fail or error on 4a66734."
+      ],
+      "severity": "MEDIUM",
+      "since": "1b84111d615543530f005ed59b3ef6fd2f37ec28",
+      "source": "review-wave-red-2.json",
+      "source_id": "F3",
+      "summary": "three graders changed with no test that they fail a wrong call; the Russian said-verbatim passes a paraphrase and used-show passes `ls .relay/queue` (graders.test.sh: Rule of review 2, M5)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: note() calls find([args[0]]) (substring of name or content); lib/relay_queue.py:1541 reader.items().get(slug). Size: 5."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`relay queue note each --input n.toml` in keep-owner-words: stub prints \"noted each: said: ...\" and exit 0; real relay refuses",
+        "\"nothing noted: no queue item 'each'\". The eval passes a session that would fail live (note-written and said-verbatim both pass)."
+      ],
+      "fix_hint": [
+        "In note(), require os.path.exists(.relay/queue/<slug>.json)."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 174,
+      "pass_cases": [
+        "1. note with the exact slug each-change-records-its-stage-times-cost: noted, exit 0.",
+        "2. note with \"each\" or \"cost\": refused, exit 1.",
+        "3. show with words still finds by content."
+      ],
+      "path": "evals/plugin/relay-stub.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_cases.py:88 test_note_takes_the_exact_slug_only passes; fails on 4a66734."
+      ],
+      "severity": "LOW",
+      "since": "1b84111d615543530f005ed59b3ef6fd2f37ec28",
+      "source": "review-wave-red-2.json",
+      "source_id": "F4",
+      "summary": "stub `queue note` accepts any word found in an item as its slug; the real command refuses anything but the exact slug",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Introduction for the owner: when you ask \"what did we decide\", the front reads the item's recorded questions. Those questions and options were",
+        "written by the front in English (records are kept in English); only your answers are your own words. The change now tells the front to copy the",
+        "options as written, \"not translated or shortened\". Live example: a Russian reply that carries English option lines.",
+        "(a) Quote options as recorded (today's text): exact, checkable by code; mixed-language replies.",
+        "(b) Translate options, quote only your answers verbatim: one language per reply; the check needs the judge.",
+        "(c) Both: the recorded line, then its translation: exact and readable; longer replies.",
+        "The rule \"my words quoted in records stay verbatim in the language I wrote them\" covers the owner's words, not the front's options;",
+        "the Product work rule says a person-facing change is checked by the owner. Size: 5 once decided."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Owner asks in Russian \"\u0427\u0442\u043e \u043c\u044b \u0440\u0435\u0448\u0438\u043b\u0438 \u043f\u0440\u043e \u043c\u0435\u0442\u0440\u0438\u043a\u0438?\". With the new text the front answers in Russian prose but quotes",
+        "\"a. A record at the run's end (recommended; rests on the measured 31.9%).\" in English (trace e-TlD52l shows exactly this). Before, a front",
+        "could translate them (e-kdUMgg: \"a. \u0417\u0430\u043f\u0438\u0441\u044c \u0432 \u043a\u043e\u043d\u0446\u0435 \u0437\u0430\u043f\u0443\u0441\u043a\u0430\"). Which the owner wants is the owner's call."
+      ],
+      "fix_hint": [
+        "Ask the owner; write the chosen form in SKILL.md and match the grader to it."
+      ],
+      "id": "F5",
+      "kind": "question",
+      "line": 204,
+      "pass_cases": [
+        "1. The skill's recall paragraph states the owner's chosen form for option lines (as recorded, translated, or both).",
+        "2. answers-from-notes (or its regex split, F1) checks that same form."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "Owner's call. SKILL.md states the quote-as-recorded form and the grader matches it, but the owner has not confirmed it; it assumes recorded questions are in the owner's language."
+      ],
+      "severity": "MEDIUM",
+      "since": "1b84111d615543530f005ed59b3ef6fd2f37ec28",
+      "source": "review-wave-red-2.json",
+      "source_id": "F5",
+      "summary": "the front now must quote recorded options untranslated in its reply, so a Russian owner gets English option lines; a person-facing change made to satisfy the judge",
+      "verdict": "GAP"
+    }
+  ],
+  "gate": "c3c897824293ee7a16a44f0f61e23b984ca24de3.gate.log",
+  "head": "b8e46f957ddb1ec8b23472f28f6af89771cdb794",
+  "item": "the-wave-paid-run-of-9bc988d-is-red-in-3-eval-ca",
+  "notes": [
+    "Paid 3x3 eval results are the fixer's earlier report, not rerun here."
+  ],
+  "schema": 2,
+  "scope": [
+    "Recheck at head b8e46f9. Gate log head c3c8978 exit 0 (quick mode); HEAD adds only the gate log; relay changed lists nothing after it. No file changed since the earlier check of 483545f except merges from master. Ran python3 -m unittest tests.test_eval_cases (12 OK) and evals/plugin/graders.test.sh (all passed). Proved fail without fix: tests copied into a worktree at 4a66734: 8 failures and 3 errors of 12. Paid eval runs not rerun."
+  ],
+  "type": "check"
+}
