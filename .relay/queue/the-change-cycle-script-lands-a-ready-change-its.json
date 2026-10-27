@@ -55,6 +55,13 @@
         "a. Сейчас только перенос, вливание скриптом поставить следующей задачей. Рекомендую: сначала дешёвое, review получается меньше, а перепроверку общего branch, на которую опирается вливание, сначала проверят реальные прогоны. Опираюсь на замер 3,6 вызова на вливание; выигрыш варианта b не замерен.",
         "b. Встроить вливание в это же изменение.",
         "c. Вливать всегда буду я."
+      ],
+      "answered_at": "2026-10-27T00:59:06Z",
+      "answer": [
+        "A"
+      ],
+      "reading": [
+        "Migration: the front's reading of \"A\": the cycle script is moved into relay as it is now (one script instead of two); landing by the script is a separate next item (this one)."
       ]
     }
   ]
