@@ -1,0 +1,213 @@
+{
+  "branch": "wt/precheck-tests",
+  "findings": [
+    {
+      "details": [
+        "Twice in one run, two shapes, one rule (principle 6): the quiet check runs changed tests with another runner and a narrower set than the gate.",
+        "Also: tests/test_precheck*.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`relay precheck` on f8b4fee or 4ba4199 is green; the gate on them is red."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "relay precheck runs the test files changed on the branch under plain python3 (the gate's runner) and RuleTestsComplete, and is red on both shas with the gate's message.",
+        "A branch that changes no test file adds under 5 s to precheck.",
+        "A changed test that passes keeps precheck green; one too slow for STEP_TIMEOUT is a red line, not a skip."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_precheck.py TestChangedTests::test_a_changed_test_importing_a_module_the_gate_lacks_is_red passes at head and fails at 54bb779e."
+      ],
+      "severity": "HIGH",
+      "since": "54bb779e621170f4a53e9b128c0c9405978b40ba",
+      "source": "queue",
+      "summary": "Precheck misses tests the gate runs differently",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running it. STEP_TIMEOUT (60 s) was sized for \"about 10 s for the whole precheck when healthy\"; the new step",
+        "runs whole library test files in one process under that same budget. Measured under the gate's runner on this machine",
+        "(other lanes running): test_gate 109.8 s, test_setup 37.4 s, test_setup_off 38.8 s, test_precheck 26.6 s. On master in the",
+        "last week 29 commits touched tests/test_gate.py and 11 touched tests/test_setup.py; a lane on lib/relay_gate.py is being built",
+        "now (wt/gate-rerun) and will very likely change test_gate.py. HIGH: fails on ordinary use, and the false \"the gate would be",
+        "red\" sends a worker to fix what is not broken. The item's own pass case (\"too slow for STEP_TIMEOUT is a red line\") is met in",
+        "letter, but the item assumes changed tests fit the budget; the fix inside the design is a budget of this step's own.",
+        "Size: 15 min."
+      ],
+      "evidence": [
+        "$ (copy of 1e186223, echo \"# touched\" >> tests/test_gate.py) python3 -c \"...relay_precheck.run(wt)\"",
+        "RED  changed tests",
+        "  FAIL changed tests took longer than 60 s",
+        "precheck: RED (the gate would be red; fix these first)",
+        "python3 -c ... 1:09.82 total",
+        "$ python3 -W ignore::ResourceWarning tests/run_unittest.py tests.test_gate  -> Ran 23 tests in 109.414s OK",
+        "$ ... tests.test_setup -> Ran 46 tests in 36.754s OK;  tests.test_setup_off -> Ran 33 tests in 38.287s OK",
+        "$ git log --since=2026-10-21 --format=%h master -- tests/test_gate.py | wc -l -> 29;  -- tests/test_setup.py -> 11"
+      ],
+      "failing_case": [
+        "A copy of HEAD 1e186223 with one comment line appended to tests/test_gate.py (all tests green): relay_precheck.run prints",
+        "\"RED  changed tests / FAIL changed tests took longer than 60 s / precheck: RED (the gate would be red; fix these first)\"",
+        "after 70 s. The gate would be green. Because the quiet check is `relay precheck -C <wt> && (<check>)` (cycle.js:114), the",
+        "worker's, fixer's and checker's check never runs on such a branch, every loop. Same on 4ba4199 (test_setup + test_setup_off).",
+        "Should be: green (or red only with a real test failure) for a branch whose changed tests pass under the gate's runner."
+      ],
+      "fix_hint": [
+        "Give the step its own budget (for example a CHANGED_TESTS_TIMEOUT of 230 s, under the 4-minute command limit, set as the",
+        "step's deadline in run() through a per-step table), and say that budget in the timeout line. Optionally split the changed",
+        "modules across a few processes (parallel_unittest already does that for the gate) to keep the loop short."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 160,
+      "pass_cases": [
+        "1. A branch whose only change is a comment in tests/test_gate.py (passes alone under python3 tests/run_unittest.py in about 110 s): check_changed_tests returns [] and run() prints \"ok   changed tests\".",
+        "2. A branch changing tests/test_setup.py and tests/test_setup_off.py, both green (about 76 s together): \"ok   changed tests\".",
+        "3. A changed test that sleeps longer than this step's own budget: still \"RED  changed tests\" with \"took longer than <n> s\" naming the budget actually used (the item's pass case: a red line, not a skip).",
+        "4. A branch with no changed test: the step still runs only the registry test and adds under 5 s.",
+        "5. The other three steps keep their 60 s budget (a slow bin/types-lint is still red at 60 s)."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "high",
+      "reason": [
+        "test_a_changed_test_slower_than_the_other_steps_budget_is_green and test_the_other_steps_keep_their_own_budget pass; the first fails at 1e186223."
+      ],
+      "severity": "HIGH",
+      "since": "1e18622370e1e0008519cec01844e3b03057fe3a",
+      "source": "review-precheck-tests.json",
+      "source_id": "F1",
+      "summary": "a green branch that touches a slow test file (test_gate.py 110 s, test_setup + test_setup_off 76 s) is RED on every precheck, so the quiet check never reaches the worker's own check",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running it at 4ba4199. names = changed modules + RULES_REGISTRY_TEST go to one subprocess.run; a timeout kills the",
+        "process and keeps no output, so the 0.6 s registry verdict is lost whenever the changed tests are slow. F1's larger budget",
+        "makes this rarer but not impossible. The temp-repo test test_the_registry_test_runs_and_its_message_shows uses a fast changed",
+        "test, so it does not cover this shape. Size: 10 min."
+      ],
+      "evidence": [
+        "$ git worktree add --detach <scratch>/4b 4ba4199; python3 -c \"...relay_precheck.changed_test_modules / run\"",
+        "['tests.test_setup', 'tests.test_setup_off']",
+        "RED  changed tests",
+        "  FAIL changed tests took longer than 60 s",
+        "(1:07 total; no RuleTestsComplete line)",
+        "fixer report: \"Not run: precheck on f8b4fee / 4ba4199 themselves (covered by temp-repo tests of both shapes).\""
+      ],
+      "failing_case": [
+        "Detached worktree at 4ba4199 (the item's second failing case; changed tests: tests.test_setup, tests.test_setup_off).",
+        "relay_precheck.run prints \"RED  changed tests / FAIL changed tests took longer than 60 s\"; no RuleTestsComplete line and no",
+        "name of the unlisted class. The item's pass case asks for red \"with the gate's message\" (missing",
+        "tests.test_setup.Setup in RuleTestsComplete). The fixer did not run precheck on either sha (\"Not run\" in its report)."
+      ],
+      "fix_hint": [
+        "Run RULES_REGISTRY_TEST in its own python3 tests/run_unittest.py call first (0.6 s) and keep its failing tail; then run the",
+        "changed modules; join both outputs."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 156,
+      "pass_cases": [
+        "1. 4ba4199: precheck output contains \"RuleTestsComplete\" and \"tests.test_setup.Setup\" (the registry's own assertion message), whatever the changed tests' time.",
+        "2. Temp repo: a changed test that sleeps past the budget and a red registry stand-in: output has both the registry failure and the timeout line.",
+        "3. f8b4fee: output still contains \"No module named 'pytest'\".",
+        "4. A branch with no changed test and a green registry: \"ok   changed tests\"."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "medium",
+      "reason": [
+        "test_a_slow_changed_test_does_not_hide_the_registry_message passes, fails at 1e186223."
+      ],
+      "severity": "MEDIUM",
+      "since": "1e18622370e1e0008519cec01844e3b03057fe3a",
+      "source": "review-precheck-tests.json",
+      "source_id": "F2",
+      "summary": "the registry test runs in the same process as the changed tests, so a slow changed test hides its message: on 4ba4199 precheck says only 'took longer than 60 s', not the gate's RuleTestsComplete failure",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Text only, no behaviour. Size: 5 min."
+      ],
+      "evidence": [
+        "git grep -n precheck: bin/relay:55, plugins/delegate/workflows/cycle.js:112"
+      ],
+      "failing_case": [
+        "`relay` usage line 55: \"relay precheck [-C <worktree>]  the gate's seconds-long steps (types and lint, python 3.9 imports,",
+        "lib copies on HEAD)\"; plugins/delegate/workflows/cycle.js:112 says the same. A reader is not told precheck now runs the",
+        "branch's changed tests and the registry test (and can take tens of seconds). Should name the fourth step."
+      ],
+      "fix_hint": [
+        "Add \"changed tests under python3 and the rules registry test\" to both lines."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 55,
+      "pass_cases": [
+        "1. bin/relay usage for precheck names \"changed tests\" and the registry test.",
+        "2. cycle.js:112 comment names the changed-tests step."
+      ],
+      "path": "bin/relay",
+      "rank": "low",
+      "reason": [
+        "UsageNamesChangedTests::test_the_usage_and_the_cycle_comment_name_the_changed_tests_step passes, fails at 1e186223; bin/relay and cycle.js text updated."
+      ],
+      "severity": "LOW",
+      "since": "1e18622370e1e0008519cec01844e3b03057fe3a",
+      "source": "review-precheck-tests.json",
+      "source_id": "F3",
+      "summary": "precheck's help text and the quiet-check comment still list only the three seconds-long steps",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The code is right today (git diff <base> compares the working tree). Size: 5 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "test_an_uncommitted_and_a_new_test_count_and_a_deleted_one_does_not covers a deleted and an untracked test only; an",
+        "uncommitted edit to a tracked tests/test_*.py (the worker's usual state while looping) is not asserted, and the",
+        "checkout of wt/other and back changes nothing. A change of `git diff base` to `git diff base HEAD` would pass it."
+      ],
+      "fix_hint": [
+        "Commit a tests/test_kept.py on master in setUp, edit it without committing in this test, assert it is listed; drop the",
+        "wt/other checkout lines."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 248,
+      "pass_cases": [
+        "1. A tracked tests/test_x.py on master, edited but not committed on the branch: changed_test_modules lists tests.test_x.",
+        "2. The existing deleted and untracked cases keep their outcome."
+      ],
+      "path": "tests/test_precheck.py",
+      "rank": "low",
+      "reason": [
+        "test_an_uncommitted_edit_and_a_new_test_count_and_a_deleted_one_does_not now edits a tracked test; passes (LOW, test-only fix, passes before as well by design)."
+      ],
+      "severity": "LOW",
+      "since": "1e18622370e1e0008519cec01844e3b03057fe3a",
+      "source": "review-precheck-tests.json",
+      "source_id": "F4",
+      "summary": "the test named for an uncommitted edit never edits a tracked test; its branch switch does nothing",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "cae100fb74013ffccbdf04bc97b74e7c88791a89.gate.log",
+  "head": "9f138d1f3dd951dd350f66e57fd7db63c8cacec7",
+  "item": "precheck-misses-tests-the-gate-runs-differently",
+  "notes": [
+    "Own files: bin/relay, lib/relay_precheck.py, cycle.js, tests/test_precheck.py, all named by findings. Callers of run(): budget is per step by name; others keep 60 s. Registry test runs first alone, so its message survives a timeout of the changed tests."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 1e186223..HEAD (fix commit cae100fb plus gate log). Ran relay precheck (green) and pytest tests/test_precheck.py (31 passed). Ran the head test file in throwaway worktrees at 1e186223 (4 fail: F1 x2, F2, F3) and at 54bb779e (12 fail, incl. the Q1 test). Gate log head cae100fb, exit 0; only the gate log came after."
+  ],
+  "type": "check"
+}
