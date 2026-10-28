@@ -18,9 +18,9 @@ Claude Code 2.1.302, project-scope install from a local directory marketplace,
   `../bin/kit` from their own folder.
 
 Install (from the local marketplace; the owner's `claude plugin marketplace add ~/principles` first):
-`/plugin install core --marketplace ~/principles`. Also `openspec`;
-it needs `core` (their agents and skills start with `kit get ...`, which exists
-only while core is enabled), so enable core wherever you enable them.
+`/plugin install relay --marketplace ~/relay`. Also `openspec`;
+it needs `relay` (their agents and skills start with `kit get ...`, which exists
+only while relay is enabled), so enable relay wherever you enable them.
 
 Needs Python 3.9+ (kit and the hooks run on macOS /usr/bin/python3; only the `relay` command itself needs 3.11+ for `tomllib`), `jq`, and bash. Bindings: `.claude/kit.toml`
 of the project (`migration/kartoteka/kit.toml` is a full example; `kit dump`
@@ -35,13 +35,13 @@ waits on a permission prompt (a background agent stops there).
 `kit path <plugin>/<file>` prints the absolute path of a file shipped in a
 plugin (`kit path product/scripts/measure.mjs`, `kit path openspec/skills/plan/SKILL.md`).
 It resolves the version this project runs, never "the newest": a source
-checkout beside core first; then Claude Code's `installed_plugins.json` (the
+checkout beside relay first; then Claude Code's `installed_plugins.json` (the
 `project`/`local` entry whose `projectPath` is this project or its main
-checkout, else the `user` entry); then the same version as the running core.
+checkout, else the `user` entry); then the same version as the running relay.
 When nothing matches it is an error. (`KIT_INSTALLED_PLUGINS` overrides the
 registry's location, for tests.)
 
-## What core holds, and what it does not
+## What relay holds, and what it does not
 
 Core is for every project: the `kit` helper, the main-checkout guard and the addition
 injection. It ships no agents. The generic `worker` and `reviewer` (for projects
@@ -51,7 +51,7 @@ and know nothing of OpenSpec) are personal agents: one source in the library's
 generated-file marker; a hand-written file there is never overwritten without
 `--adopt agents`). A project with spec steps on uses `delegate:worker` and
 `delegate:critic` like any other. The stage hook (`/opsx:*` names its stage
-skill or note) is core's and reads `[flow] kind` and `[specs] method`.
+skill or note) is relay's and reads `[flow] kind` and `[specs] method`.
 
 **The name `kit`.** `kit` is a common command name (KitOps ships a `kit` CLI). Claude
 Code puts a plugin's `bin/` on the Bash tool's PATH after the user's own entries
@@ -94,7 +94,7 @@ verified on Claude Code 2.1.302 (`UserPromptSubmit` on 2.1.303).
 `kit` is on PATH only for Claude's Bash tool. A project script that must run in a
 terminal or in CI (its `bin/ci` calling the spec check, say) copies
 `templates/kit-shim` to `bin/kit` and calls `bin/kit spec-check --path
-openspec/specs`. The shim finds core by `$KIT`, else the core installed for this
+openspec/specs`. The shim finds relay by `$KIT`, else the relay installed for this
 project (the registry, as `kit path` does), else a source checkout
 (`$PRINCIPLES_DIR`, default `~/principles`), and says what to do when it finds none.
 It needs Python 3.9+ on PATH (the `relay` command itself needs 3.11+). Tested by `tests/shim.test.sh`.

@@ -1207,11 +1207,27 @@ def names_old_plugin(root, prefix):
     return found
 
 
+def pre_rename_leftovers() -> tuple[list[str], bool]:
+    """(the user-scope `<name>@relay` installs, whether marketplace `relay`) still in Claude Code's own registry after the 28 Oct rename."""
+    if marketplace()[0] == PRE_RENAME_MARKETPLACE:
+        return [], False
+    reg = read_json(os.path.join(claude_dir(), "plugins", "installed_plugins.json")).get("plugins", {})
+    reg = reg if isinstance(reg, dict) else {}
+    installs = []
+    for name in PRE_RENAME_ALWAYS_ON:
+        key = f"{name}@{PRE_RENAME_MARKETPLACE}"
+        entries = reg.get(key)
+        if isinstance(entries, list) and any(isinstance(e, dict) and e.get("scope") == "user" for e in entries):
+            installs.append(key)
+    known = read_json(os.path.join(claude_dir(), "plugins", "known_marketplaces.json"))
+    return installs, isinstance(known, dict) and PRE_RENAME_MARKETPLACE in known
+
+
 def unshipped_installs():
     """One line per project-scope install of a relay plugin the marketplace no longer ships (a rename or a removal)."""
     shipped = set(os.listdir(os.path.join(ROOT, "plugins")))
     reg = read_json(os.path.join(claude_dir(), "plugins", "installed_plugins.json")).get("plugins", {})
-    lines = []
+    lines = [f"{key} installed at user scope under the old marketplace name: claude plugin uninstall {key} --scope user" for key in pre_rename_leftovers()[0]]
     for key, entries in sorted(reg.items()):
         plugin, _, market = key.partition("@")
         if market not in (marketplace()[0], PRE_RENAME_MARKETPLACE) or plugin in shipped:   # old-names keys are still `<old>@relay`
@@ -1275,8 +1291,10 @@ def install(run_claude=True):
     done.append(f"{path}: relay marketplace + user-scope plugins" + ("" if changed else " (already)"))
     for r in removed:
         done.append(f"  removed a user hook the front plugin now provides: {r}")
+    old_installs, old_market = pre_rename_leftovers()   # Claude Code's own registry keeps the names of before the rename until told
+    old_cmds = [["claude", "plugin", "uninstall", k, "--scope", "user"] for k in old_installs] + ([["claude", "plugin", "marketplace", "remove", PRE_RENAME_MARKETPLACE]] if old_market else [])
     if run_claude and shutil.which("claude"):
-        cmds = [["claude", "plugin", "marketplace", "add", marketplace_root()]] + [["claude", "plugin", "install", plugin_key(p), "--scope", "user"] for p in ALWAYS_ON]
+        cmds = old_cmds + [["claude", "plugin", "marketplace", "add", marketplace_root()]] + [["claude", "plugin", "install", plugin_key(p), "--scope", "user"] for p in ALWAYS_ON]
         for cmd in cmds:
             try:
                 proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
@@ -1284,6 +1302,8 @@ def install(run_claude=True):
             except Exception as exc:
                 done.append(f"FAIL {' '.join(cmd[1:])}: {exc}")
     else:
+        for cmd in old_cmds:
+            todo.append("run: " + " ".join(cmd))
         todo.append(f"in Claude Code: /plugin marketplace add {marketplace_root()}, then install relay, observe, delegate, front at user scope; restart")
     link = "/usr/local/bin/relay"
     if not shutil.which("relay"):

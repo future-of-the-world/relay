@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""core: the flow stage hook (UserPromptSubmit).
+"""relay: the flow stage hook (UserPromptSubmit).
 
 A project binds where its work comes from in .claude/kit.toml: [flow] kind =
 "<kind>" (a plugin that ships a flow.json). When a prompt starts with a
 trigger of that manifest (`/<trigger> 42`, ...), this hook adds one line: load the
 stage's skill first and follow it, or, for a stage with only a note, the note.
 The spec method's own line (`/opsx:*`, [specs] method) is the openspec plugin's
-hook, not this one: core cannot know whether that plugin is loaded.
+hook, not this one: relay cannot know whether that plugin is loaded.
 
 The manifest is found by `kit path <plugin>/flow.json` (the version this
 project runs), else beside this plugin in a source checkout. No binding, no

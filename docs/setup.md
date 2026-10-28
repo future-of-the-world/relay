@@ -17,7 +17,7 @@ never overwrites:
   flow (`relay`, `observe`, `delegate`, `front`, + `openspec`), `Bash(kit:*)` allowed. Relay's plugins the project does not use get `false`, and so does each plugin of
   another marketplace named with `--off <name@marketplace>` (repeat the flag; the id must be one Claude Code's registry
   knows, e.g. `--off gopls-lsp@claude-plugins-official`). A `false` in the project's file beats the user's `true`.
-  A key of a plugin relay no longer ships (`issues@amidman`, `product@amidman`) is dropped and said in the done list, and `relay doctor` reports it until setup runs. A re-run keeps a key that is already there, except where the run's flags or kit.toml decide it; `relay doctor`
+  A key of a plugin relay no longer ships and sits under the marketplace's current name (`issues@amidman`, `product@amidman`) is dropped and said in the done list, and `relay doctor` reports it until setup runs; keys of the old marketplace name (`issues@relay`, `core@relay`) are left as they are (no backward compatibility, 28 Oct). A re-run keeps a key that is already there, except where the run's flags or kit.toml decide it; `relay doctor`
   lists the plugins that are off and reports a FIX when `relay`, `observe`, `delegate` or `front` is off for the project; a backup of the old file in `<git dir>/relay-backup/` (none when git holds the file unchanged: `git restore` it);
 - `bin/check`, `bin/ci`, `bin/wt` from templates that follow the contract,
   with `TODO` where the stack's commands go, and a `CLAUDE.md` skeleton and `docs/handover.md`: all of these only on
@@ -89,7 +89,7 @@ What migration recognises from the principles era:
 | `.claude/skills/<project>-plan` etc. | `openspec:<stage>`; project-only rules into `.claude/kit/<stage>.md` |
 | `.claude/hooks/guard-main.sh`, `opsx-stage.sh` + their settings entries | the relay plugin (entries removed) |
 | `bin/packet`, `bin/spec-check` | `kit packet`, `kit spec-check`; `bin/kit` shim written |
-| `*@principles` plugins, the principles marketplace | `*@relay`, the relay marketplace |
+| `*@principles` plugins, the principles marketplace | `*@amidman`, the amidman marketplace (the core plugin is `relay` since 28 Oct) |
 | user hooks `context-budget.py`, `session-handover.py` | the front plugin (entries removed) |
 
 Run in a linked git worktree, setup names the project after its main checkout and registers that folder, and writes the files into the worktree, so they reach the default branch through that branch's merge.

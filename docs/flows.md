@@ -54,7 +54,7 @@ a trigger of that manifest (`/<trigger> 42`, ...), it adds the same kind of line
   "slot": "specs",
   "description": "...",
   "detect": { "dirs": ["openspec"] },
-  "requires_plugins": ["core", "openspec"],
+  "requires_plugins": ["relay", "openspec"],
   "bindings_required": ["project.default_branch", "gate.check", ...],
   "steps": [ { "at": "before 1", "does": "write the spec", "skill": "openspec:plan" }, ... ],
   "stages": [ { "name": "plan", "skill": "openspec:plan", "triggers": ["/opsx:propose"] },
