@@ -24,8 +24,8 @@
     "evals/plugin/recall-decision/scaffold.sh",
     "tests/test_eval_cases.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T12:44:05Z",
+  "taken_by": "wt/an-eval-scaffold-overwrote-the-live-rela",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
