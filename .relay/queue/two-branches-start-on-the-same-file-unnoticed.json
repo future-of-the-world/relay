@@ -20,7 +20,7 @@
   ],
   "where": [
     "bin/relay (a new subcommand or relay changed)",
-    "lib/ (the branch list)",
+    "lib/relay_lanes.py (the branch list)",
     "plugins/delegate/skills/delegate/SKILL.md (when to run it)"
   ],
   "taken_at": null,
@@ -28,5 +28,14 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T17:47:58Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    }
+  ]
 }

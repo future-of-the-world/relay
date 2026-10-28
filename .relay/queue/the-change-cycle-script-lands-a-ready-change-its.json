@@ -16,7 +16,7 @@
     "bin/relay (new land command)",
     "plugins/core/hooks/merge.py",
     "plugins/front/skills/front/SKILL.md (the merge is the front's)",
-    "rules (merge rule, trains)"
+    "rules/git.md (merge rule, trains)"
   ],
   "taken_at": null,
   "taken_by": null,
@@ -62,6 +62,13 @@
       ],
       "reading": [
         "Migration: the front's reading of \"A\": the cycle script is moved into relay as it is now (one script instead of two); landing by the script is a separate next item (this one)."
+      ]
+    },
+    {
+      "at": "2026-10-28T17:47:55Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
       ]
     }
   ]

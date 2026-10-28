@@ -22,7 +22,7 @@
   ],
   "where": [
     "lib/relay_queue.py (schema, parse, add, take, a block command; lib copies)",
-    "lib/queue_ext/ (a tree view)",
+    "lib/queue_ext/tree.py (a tree view)",
     "bin/relay (queue help)",
     "rules/queue.md (name blockers when adding)"
   ],
@@ -31,5 +31,14 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T17:47:13Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    }
+  ]
 }
