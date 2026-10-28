@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lib"))
@@ -292,15 +293,30 @@ class TestChangedTests(Base):
         self.assertIn("  FAIL types and lint took longer than 1 s", lines)
 
     def test_a_slow_changed_test_does_not_hide_the_registry_message(self) -> None:
-        # F2: the registry stand-in sleeps 5 s (longer than the 3 s changed-tests budget) and is then red; a changed test is too slow.
-        # Run on the rest of the budget, the registry test would be cut at 3 s and its verdict lost; on its own allowance both lines show.
-        self.write("tests/test_rules_gate.py", "import time, unittest\nclass RuleTestsComplete(unittest.TestCase):\n    def test_x(self):\n"
-                   "        time.sleep(5)\n        self.fail('unlisted reader')\n")
-        self.write("tests/test_slow.py", self.SLEEPER % 60)
+        # F2: a changed test is too slow (its group times out) and the registry test is red. The registry group must run first, so
+        # both lines show. No wall clock: the test runs are faked (the registry run fails at once, the changed group raises
+        # TimeoutExpired), so a busy machine cannot change the outcome. Run in the other order, the timeout would end the loop
+        # before the registry test ran and its verdict would be lost.
+        self.write("tests/test_rules_gate.py", "x = 1\n")
+        self.write("tests/test_slow.py", "x = 1\n")
         self.commit()
         self._set("CHANGED_TESTS_TIMEOUT", 3)
-        code, lines = relay_precheck.run(self.repo)
+        real = subprocess.run
+        groups: list[list[str]] = []
+
+        def fake(cmd: list[str], *args: object, **kwargs: object) -> "subprocess.CompletedProcess[str]":
+            if cmd[0] != "python3" or not any(c.endswith("run_unittest.py") for c in cmd):
+                return real(cmd, *args, **kwargs)  # type: ignore[call-overload]
+            group = [c for c in cmd if c.startswith("tests.")]
+            groups.append(group)
+            if group == [relay_precheck.RULES_REGISTRY_TEST]:
+                return subprocess.CompletedProcess(cmd, 1, "FAIL: RuleTestsComplete unlisted reader\n", "")
+            raise subprocess.TimeoutExpired(cmd, 3)
+
+        with mock.patch.object(relay_precheck.subprocess, "run", fake):
+            code, lines = relay_precheck.run(self.repo)
         text = "\n".join(lines)
+        self.assertEqual(groups, [[relay_precheck.RULES_REGISTRY_TEST], ["tests.test_rules_gate", "tests.test_slow"]])   # registry alone first, then the changed files
         self.assertIn("RuleTestsComplete", text)
         self.assertIn("took longer than 3 s", text)
 
