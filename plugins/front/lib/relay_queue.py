@@ -1056,15 +1056,17 @@ def _commit_on_default(repo: str, ref: str, slug: str | None = None) -> str:
     if _carries_code(main, sha):
         return sha
     if slug:
-        base = _text(_git(main, "log", "-1", "--format=%H", sha, "--", _path(slug))[1])
-        rc, out, _ = _git(main, "rev-list", "--first-parent", f"{base}..{sha}" if base else sha)
-        if rc == 0 and any(_carries_code(main, c) for c in _text(out).split()):
-            return sha
+        rc, out, _ = _git(main, "log", "-1", "--format=%H", sha, "--", _path(slug))
+        base = _text(out) if rc == 0 else ""
+        if base:      # no base: the item is absent from sha's history (sha predates it) or the read failed; no range to judge
+            rc, out, _ = _git(main, "rev-list", "--first-parent", f"{base}..{sha}")
+            if rc == 0 and any(_carries_code(main, c) for c in _text(out).split()):
+                return sha
     rc, out, _ = _git(main, "rev-list", "--first-parent", sha)
     last = next((c for c in _text(out).split() if _carries_code(main, c)), "") if rc == 0 else ""
     hint = f": name {last[:12]}, the last commit before it that carries code" if last else ""
-    raise Refused(f"{sha[:12]} changes only inert files (queue, checks, handover), and no commit since the item was last changed "
-                  f"carries code{hint}")
+    since = ", and no commit since the item was last changed carries code" if slug else ""
+    raise Refused(f"{sha[:12]} changes only inert files (queue, checks, handover){since}{hint}")
 
 
 def _checked_evidence(repo: str, evidence: str, slug: str | None = None) -> str:

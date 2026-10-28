@@ -175,6 +175,39 @@ class TestEvidenceIsChecked(tq.Base):
         rq.close_with_evidence(self.main, "feat", self.head[:12], **tq.QUIET)
         self.assertEqual(self.item("feat")["evidence"], self.head)
 
+    def test_an_inert_commit_older_than_the_item_is_refused(self):
+        # O (inert) is made before late.json exists: the item has no range in O's history, so O closes nothing; "the change" before O is the code
+        self.write_commit(self.main, {".relay/checks/old.gate.log": "ok\n"}, "relay: check of old")
+        old = tq.git(self.main, "rev-parse", "master")
+        self.write_commit(self.main, {".relay/queue/late.json": tq.feature_item("Late", ip=2)}, "late added")
+        self.before = tq.git(self.main, "rev-parse", "master")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.close_with_evidence(self.main, "late", old, **tq.QUIET)
+        self.assertIn("changes only inert files", str(ctx.exception))
+        self.assertIn(self.head[:12], str(ctx.exception))
+        self.assertEqual(tq.git(self.main, "rev-parse", "master"), self.before)
+
+    def test_another_repos_inert_commit_is_refused_without_speaking_of_the_item(self):
+        other = self.repo("other", relay=False)
+        self.write_commit(other, {".relay/checks/x.gate.log": "ok\n"}, "relay: check of x")
+        inert = tq.git(other, "rev-parse", "HEAD")
+        with mock.patch.dict(os.environ, {"HOME": self.tmp}):
+            with self.assertRaises(rq.Refused) as ctx:
+                rq.close_with_evidence(self.main, "feat", f"~/other:{inert}", **tq.QUIET)
+        self.assertIn("changes only inert files", str(ctx.exception))
+        self.assertNotIn("the item", str(ctx.exception))
+
+    def test_this_repos_inert_head_with_no_code_since_the_take_keeps_the_item_clause(self):
+        self.touch_item()
+        self.write_commit(self.main, {".relay/checks/abc.gate.log": "ok\n"}, "relay: check of abc")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.close_with_evidence(self.main, "feat", "master", **tq.QUIET)
+        self.assertIn("since the item was last changed", str(ctx.exception))
+
+    def test_the_usage_text_asks_for_a_commit_not_a_merge_sha(self):
+        text = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "relay")).read()
+        self.assertNotIn("merge sha", text)
+
     def test_f1_a_merge_commit_is_judged_by_its_first_parent_diff(self):
         tq.git(self.main, "checkout", "-q", "-b", "side")
         self.write_commit(self.main, {"lib/bar.py": "y = 1\n"}, "side work")
