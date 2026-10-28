@@ -131,6 +131,18 @@
       "reading": [
         "Migration: the owner answered all four questions in one reply; this question and its options are the message as the front showed it on 25 Oct. The front's reading of \"a\" here: relay's own `relay license` utility."
       ]
+    },
+    {
+      "at": "2026-10-28T00:03:51Z",
+      "said": [
+        "Мне интересно, как в будущем мы будем публиковать репозиторий, в самом репозитории уже есть ссылки на коммиты, конечно, разработка в нем не ведется и это всего лишь зеркало, однако мне интересно прочитать твою позицию"
+      ]
+    },
+    {
+      "at": "2026-10-28T00:03:52Z",
+      "fact": [
+        "28 Oct, measured (a scan for 7-40 hex strings with a letter and a digit over tracked files): docs/handover.md 189 (private, not published), evals 45 (for example evals/judge-measure/measure-contradiction/judged/01.txt \"9dc290a\"), tests 22 (tests/test_eval_majority.py \"aa8cfd1\"), plugins 12 (plugins/core/tests/guard-diff.test.sh \"6a4b713\"), docs 8 (docs/plans/, private), bin 1 (bin/paid-cost \"e905742\"). Not checked which are real private commits and which are made-up fixtures. Front's position for this item (owner can reverse): the published tree cites no private commit; a fact in code or a comment is written as date plus what happened, not as a sha; test fixtures use made-up shas; the publish check refuses a tree holding a string that `git cat-file -e` resolves to a commit of the private repo (a fact code can check, principle 5)."
+      ]
     }
   ]
 }

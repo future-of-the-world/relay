@@ -25,8 +25,16 @@
   ],
   "taken_at": "2026-10-27T22:54:07Z",
   "taken_by": "wt/gate-stops",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T00:11:04Z",
+  "test": "tests/test_gate_stops.py::StopWhilePopenReturns::test_f3_a_stop_between_the_command_starting_and_popen_returning_leaves_no_command",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T23:45:30Z",
+      "fact": [
+        "Decided by the front inside the principles (owner can reverse): the 27 Oct failure is one observation, p is unmeasured (0 of 40 on the old code under load), so max(20, ceil(3/p)) cannot be computed. The cause (a stop landing while Popen returns) is proven by an injected reproduction: test_f3 fails on the old code every time (p = 1 under injection) and passes on the fix. The final code is proven by 20 clean runs of test_f2 under 4 busy loops."
+      ]
+    }
+  ]
 }

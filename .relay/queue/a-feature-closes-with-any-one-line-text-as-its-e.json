@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-27T22:49:27Z",
   "taken_by": "wt/evidence",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-27T23:39:52Z",
+  "test": "tests/test_queue_close.py::TestEvidenceIsChecked::test_text_that_is_no_commit_is_refused_naming_the_reason",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

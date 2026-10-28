@@ -20,6 +20,7 @@ import signal
 import subprocess
 import sys
 import time
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 import relay_config
 import relay_git
@@ -256,7 +257,27 @@ def reusable(worktree, head, command):
     return None
 
 
-def run(worktree, args=(), environ=None, quick=False):
+def hold_stops() -> tuple[list[int], Callable[[], None]]:
+    """Hold SIGINT, SIGTERM and SIGHUP: arrivals are appended to the returned list instead of acting. The function returned
+    puts the earlier handlers back. Not the main thread: nothing is held (the caller owns its signals)."""
+    held: list[int] = []
+    saved: dict[int, Any] = {}
+    try:
+        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            if signal.getsignal(sig) == signal.SIG_IGN:      # an ignored stop needs no hold, and the command must inherit the ignore
+                continue
+            saved[sig] = signal.signal(sig, lambda signum, frame: held.append(signum))
+    except ValueError:
+        pass
+
+    def release() -> None:
+        for sig, old in saved.items():
+            signal.signal(sig, old)
+    return held, release
+
+
+def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, str]] = None,
+        quick: bool = False) -> tuple[int, str, list[str]]:
     """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red)."""
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
@@ -316,8 +337,16 @@ def run(worktree, args=(), environ=None, quick=False):
                 try:
                     with open(out_path, "wb") as sink:
                         # the lock file goes to the command: the OS keeps the lock until its last process ends, even if this process is killed
-                        proc = subprocess.Popen(command, cwd=worktree, env=env, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT,
-                                                start_new_session=True, pass_fds=(lock.fileno(),))
+                        # a stop that lands while Popen is still returning (the command already runs, `proc` is not yet bound) would
+                        # skip the kill below and orphan the command: hold it until `proc` is bound, then raise it
+                        held, release = hold_stops()
+                        try:
+                            proc = subprocess.Popen(command, cwd=worktree, env=env, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT,
+                                                    start_new_session=True, pass_fds=(lock.fileno(),))
+                        finally:
+                            release()
+                            if held:      # also when Popen raised: a stop still stops the gate
+                                os.kill(os.getpid(), held[0])      # the caller's own handler raises it now
                         # the lock file names the command's process group too: if this process is killed, the command holds the lock
                         lock.seek(0)
                         lock.truncate()
@@ -326,8 +355,8 @@ def run(worktree, args=(), environ=None, quick=False):
                         returncode = proc.wait()
                     code = returncode if returncode >= 0 else 128 - returncode
                 except OSError as exc:
-                    with open(out_path, "w") as sink:
-                        sink.write("gate command could not start: %s\n" % exc)
+                    with open(out_path, "w") as text_sink:
+                        text_sink.write("gate command could not start: %s\n" % exc)
                     code = 127
                 finally:
                     if proc is not None:      # the command's whole process group ends before the slot is freed
