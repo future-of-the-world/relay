@@ -15,16 +15,20 @@ if [ "$ok" != 1 ]; then
   echo "setup-relay-stub.sh: refusing, HOME=$HOME is not a throwaway home. Run the scaffold with HOME set to a temporary folder." >&2
   exit 1
 fi
-if git -C "$home/relay" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "setup-relay-stub.sh: refusing, $home/relay is a git checkout; the stub would replace its bin/relay." >&2
-  exit 1
-fi
+# The eval tool gives the run's home its own .git: a checkout whose top is $home itself is fine; any other
+# checkout (one at $home/relay, or one a symlink leads to) is refused.
+refuse_checkout() { # dir
+  top="$(git -C "$1" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$top" ]; then top="$(cd "$top" && pwd -P)"; fi
+  if [ -n "$top" ] && [ "$top" != "$home" ]; then
+    echo "setup-relay-stub.sh: refusing, $1 is inside the git checkout $top; the stub would replace its bin/relay." >&2
+    exit 1
+  fi
+}
+if [ -e "$home/relay" ]; then refuse_checkout "$home/relay"; fi
 mkdir -p "$home/relay/bin"
 bin="$(cd "$home/relay/bin" && pwd -P)"
-if git -C "$bin" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "setup-relay-stub.sh: refusing, $bin is inside a git checkout." >&2
-  exit 1
-fi
+refuse_checkout "$bin"
 rm -f "$home/relay/bin/relay"  # a symlink is replaced, never written through
 cp "$here/relay-stub.py" "$home/relay/bin/relay"
 chmod +x "$home/relay/bin/relay"

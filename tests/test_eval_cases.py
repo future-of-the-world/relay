@@ -244,6 +244,15 @@ class StubSetupRefusals(unittest.TestCase):
                 with open(STUB, "rb") as want, open(os.path.join(home, "relay", "bin", "relay"), "rb") as got:
                     self.assertEqual(got.read(), want.read())
 
+    def test_a_git_dir_in_the_run_home_as_the_eval_tool_writes_it_is_accepted(self) -> None:
+        for name in ("recall-decision", "keep-owner-words", "keep-owner-words-en"):
+            with self.subTest(name), tempfile.TemporaryDirectory() as root:
+                home, tmp = self.run_root(root)
+                subprocess.run(["git", "init", "-q", home], check=True)  # the tool's own .git in the run's home
+                done = self.scaffold(home, tmp, name)
+                self.assertEqual(done.returncode, 0, done.stderr)
+                self.assertTrue(os.path.isfile(os.path.join(home, "relay", "bin", "relay")))
+
     def test_a_git_checkout_at_home_relay_is_never_written(self) -> None:
         with tempfile.TemporaryDirectory() as root:
             home, tmp = self.run_root(root)
