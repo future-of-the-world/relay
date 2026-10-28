@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import unittest
 from unittest import mock
 
@@ -107,7 +108,7 @@ class Lanes(LaneBase):
     def test_riders_of_an_open_train_are_one_lane(self):
         # a and b are merged into the open train-1: three branches, one lane (the train). Setting 2: 1 of 2 running, one item can start.
         self._train()
-        s = self.state(limit=2)
+        s = rl.lanes_state(self.main, now=time.time(), limit=2)     # the train's reflog is real time: "now" is real too
         self.assertEqual([l.branch for l in s.running], ["wt/train-1"])
         self.assertEqual(s.free, 1)
 
@@ -115,9 +116,60 @@ class Lanes(LaneBase):
         # c has own commits and is in no train: it counts besides the train. Setting 2: 2 of 2, nothing free.
         self._train()
         self.branch_with_commit("c", {"lib/c.py": "x\n"})
-        s = self.state(limit=2)
+        s = rl.lanes_state(self.main, now=time.time(), limit=2)
         self.assertEqual(sorted(l.branch for l in s.running), ["wt/c", "wt/train-1"])
         self.assertEqual(s.free, 0)
+
+    def test_f1_rider_uncommitted_edit_still_blocks_overlap(self):
+        # a's worktree has an uncommitted edit to lib/z.py after a was merged into the train; item z (where lib/z.py) must wait on it.
+        a = self._train()
+        a = os.path.join(self.tmp, "a")
+        with open(os.path.join(a, "lib", "z.py"), "w") as f:
+            f.write("edit\n")
+        git(self.main, "commit", "--allow-empty", "-q", "-m", "x")
+        self.write_commit(self.main, {Q + "z.json": item("z", where=("lib/z.py",))}, "z")
+        s = rl.lanes_state(self.main, now=time.time(), limit=3)
+        self.assertEqual([w.slug for w in s.waits], ["z"])
+        self.assertEqual(s.waits[0].file, "lib/z.py")
+        self.assertNotIn("z", [p.slug for p in s.picks])
+
+    def test_f1_committed_rider_file_blocks_while_train_open(self):
+        self._train()
+        self.write_commit(self.main, {Q + "q.json": item("q", where=("lib/a.py",))}, "q")
+        s = rl.lanes_state(self.main, now=time.time(), limit=3)
+        self.assertEqual([w.slug for w in s.waits], ["q"])
+
+    def test_f2_dead_train_does_not_fold_riders(self):
+        # the train's last activity is older than quiet hours: a and b are 2 lanes (setting 2: 0 free). Pass case: within hours, 1 lane.
+        self._train()
+        later = time.time() + 5 * 3600
+        s = rl.lanes_state(self.main, now=later, quiet_hours=3, limit=2)
+        self.assertEqual(sorted(l.branch for l in s.running), ["wt/a", "wt/b"])
+        self.assertEqual(s.free, 0)
+
+    def test_f2_train_waiting_110_minutes_is_still_one_lane(self):
+        self._train()
+        s = rl.lanes_state(self.main, now=time.time() + 110 * 60, quiet_hours=3, limit=2)
+        self.assertEqual([l.branch for l in s.running], ["wt/train-1"])
+
+    def test_f2_rider_counts_under_the_live_train_not_the_dead_one(self):
+        self._train()
+        git(self.main, "branch", "wt/train-0", "wt/train-1")        # a dead twin holding the same riders
+        git(self.main, "reflog", "expire", "--expire=all", "refs/heads/wt/train-0")
+        s = rl.lanes_state(self.main, now=time.time(), limit=3)
+        self.assertEqual([l.branch for l in s.running], ["wt/train-1"])
+
+    def test_f3_one_ref_scan_per_rider_candidate(self):
+        # with 10 unrelated wt/* refs the rider scan runs one for-each-ref per lane with own commits, not one ancestry test per ref
+        self._train()
+        for n in range(10):
+            git(self.main, "branch", f"wt/old-{n}", "master")
+        calls = []
+        real = rl._is_ancestor
+        with mock.patch.object(rl, "_is_ancestor", side_effect=lambda *a: calls.append(a) or real(*a)):
+            rl.lanes_state(self.main, now=time.time(), limit=3)
+        # a, b: held by train-1 only (itself skipped; train-1 is not an ancestor of them): at most 1 ancestry test each, plus landing's own
+        self.assertLessEqual(len([c for c in calls if c[1].startswith("refs/heads/wt/a") or c[1].startswith("refs/heads/wt/b")]), 2)
 
     def test_trains_not_lanes(self):
         self.seed({})
