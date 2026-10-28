@@ -835,7 +835,9 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
         if first_setup:
             if copy_template(f"bin-{script}", os.path.join(root, "bin", script), mode_exec=True, replacements={"tool": d["tool"], "stack": d["stack"], "branch": d["default_branch"], **template_steps(d["stack"])}):
                 done.append(f"wrote bin/{script} from the template")
-                if d["stack"] in STACK_STEPS:
+                if script == "wt":
+                    todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO")
+                elif d["stack"] in STACK_STEPS:
                     todo.append(f"bin/{script}: check the {d['stack']} steps it was given (the contract is in plugins/relay/README.md)")
                 else:
                     todo.append(f"bin/{script}: it fails with NOT CONFIGURED until you replace the placeholder step with the {d['stack']} commands (the contract is in plugins/relay/README.md)")
