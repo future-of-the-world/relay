@@ -189,6 +189,89 @@ class TestRootAndSkips(Base):
         self.assertIn("ok   lib copies identical", relay_precheck.run(self.repo)[1])
 
 
+class TestChangedTests(Base):
+    """The gate runs every library test under plain python3 (tests/run_unittest.py) and the registry test; precheck runs the
+    changed ones the same way (queue item precheck-misses-tests-the-gate-runs-differently)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        git(self.repo, "branch", "-M", "master")
+        os.makedirs(os.path.join(self.repo, "tests"), exist_ok=True)
+        for name in ("run_unittest.py", "leaked_gates.py", "tmp_default.py"):
+            shutil.copy(os.path.join(ROOT, "tests", name), os.path.join(self.repo, "tests", name))
+        self.write("tests/__init__.py", "")
+        # a stand-in for the registry test: red while rules/unlisted exists, as RuleTestsComplete is red for an unlisted reader
+        self.write("tests/test_rules_gate.py", "import os, unittest\nROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\n"
+                   "class RuleTestsComplete(unittest.TestCase):\n    def test_x(self):\n"
+                   "        self.assertFalse(os.path.exists(os.path.join(ROOT, 'unlisted')))\n")
+        self.commit()
+        git(self.repo, "checkout", "-q", "-b", "wt/task")
+
+    def test_a_changed_test_importing_a_module_the_gate_lacks_is_red(self) -> None:
+        # f8b4fee: tests imported pytest, which pytest has but plain python3 has not. Here the module is one nobody has.
+        self.write("tests/test_new.py", "import not_installed_anywhere_xyz\n")
+        self.commit()
+        found = "\n".join(relay_precheck.check_changed_tests(self.repo))
+        self.assertIn("FAIL changed tests", found)
+        self.assertIn("not_installed_anywhere_xyz", found)
+
+    def test_the_registry_test_runs_and_its_message_shows(self) -> None:
+        # 4ba4199: a changed test is fine alone, but the registry test is red; precheck shows the registry's own message
+        self.write("tests/test_new.py", "import unittest\nclass T(unittest.TestCase):\n    def test_ok(self):\n        pass\n")
+        self.write("unlisted", "x")
+        self.commit()
+        found = "\n".join(relay_precheck.check_changed_tests(self.repo))
+        self.assertIn("RuleTestsComplete", found)
+
+    def test_a_passing_changed_test_is_clean(self) -> None:
+        self.write("tests/test_new.py", "import unittest\nclass T(unittest.TestCase):\n    def test_ok(self):\n        pass\n")
+        self.commit()
+        self.assertEqual(relay_precheck.check_changed_tests(self.repo), [])
+
+    def test_a_branch_without_test_changes_still_runs_only_the_registry_test(self) -> None:
+        # no changed test: only the registry test runs (0.6 s measured), so a slow changed-test run costs nothing here
+        self.write("unlisted", "x")
+        self.commit()
+        found = "\n".join(relay_precheck.check_changed_tests(self.repo))
+        self.assertIn("RuleTestsComplete", found)
+        self.assertNotIn("test_new", found)
+
+    def test_a_branch_without_test_changes_and_a_green_registry_is_clean(self) -> None:
+        self.write("README", "x")
+        self.commit()
+        self.assertEqual(relay_precheck.check_changed_tests(self.repo), [])
+
+    def test_no_test_runner_says_skip(self) -> None:
+        os.remove(os.path.join(self.repo, "tests", "run_unittest.py"))
+        self.assertEqual(relay_precheck.check_changed_tests(self.repo), ["skipped: no tests/run_unittest.py here"])
+
+    def test_an_uncommitted_and_a_new_test_count_and_a_deleted_one_does_not(self) -> None:
+        self.write("tests/test_gone.py", "x = 1\n")
+        self.commit()
+        git(self.repo, "checkout", "-q", "-b", "wt/other", "master")
+        git(self.repo, "checkout", "-q", "wt/task")
+        os.remove(os.path.join(self.repo, "tests", "test_gone.py"))
+        self.write("tests/test_untracked.py", "x = 1\n")
+        self.assertEqual(relay_precheck.changed_test_modules(self.repo), ["tests.test_untracked"])
+
+    def test_a_changed_test_too_slow_for_the_step_is_a_red_line(self) -> None:
+        self.write("tests/test_slow.py", "import time, unittest\nclass T(unittest.TestCase):\n    def test_slow(self):\n"
+                   "        time.sleep(60)\n")
+        self.commit()
+        old = relay_precheck.STEP_TIMEOUT
+        relay_precheck.STEP_TIMEOUT = 2
+        self.addCleanup(setattr, relay_precheck, "STEP_TIMEOUT", old)
+        code, lines = relay_precheck.run(self.repo)
+        self.assertEqual(code, 1)
+        self.assertIn("RED  changed tests", lines)
+        self.assertIn("  FAIL changed tests took longer than 2 s", lines)
+
+    def test_no_default_branch_says_skip(self) -> None:
+        git(self.repo, "branch", "-m", "wt/task", "feature")
+        git(self.repo, "branch", "-m", "master", "trunk")
+        self.assertEqual(relay_precheck.check_changed_tests(self.repo), ["skipped: no master or main branch to compare with"])
+
+
 class TestCommand(Base):
     def test_run_reports_every_step_and_exits_1_when_one_is_red(self) -> None:
         self.write("lib/relay_q.py", "X = 1\n")

@@ -7,6 +7,9 @@ Steps, in this order:
   lib copies       each lib/relay_*.py and prices.toml against its copies under plugins/*/lib, read from HEAD, as the gate
                    reads them; a difference prints the copy's path and the sync command, then fails
 
+  changed tests    the tests/test_*.py files changed since the default branch, and test_rules_gate.RuleTestsComplete, under plain
+                   python3 with tests/run_unittest.py: the gate's runner (a pytest-only import or an unlisted rules reader fails here too)
+
 A copy refreshed by bin/sync-lib-copies but not committed still fails: the gate gates the commit.
 """
 
@@ -116,7 +119,55 @@ def check_lib_copies(worktree: str) -> list[str]:
     return out
 
 
-STEPS = (("types and lint", check_types), ("python 3.9", check_python39), ("lib copies identical", check_lib_copies))
+DEFAULT_BRANCHES = ("master", "main")
+RULES_REGISTRY_TEST = "tests.test_rules_gate.RuleTestsComplete"
+
+
+def changed_test_modules(worktree: str) -> list[str] | None:
+    """Dotted names of the tests/test_*.py files changed since the default branch (committed, edited or new), sorted; None when
+    there is no default branch to compare with."""
+    base = ""
+    for branch in DEFAULT_BRANCHES:
+        done = _git(worktree, "merge-base", "HEAD", branch)
+        if done.returncode == 0 and done.stdout.strip():
+            base = done.stdout.decode("utf-8").strip()
+            break
+    if not base:
+        return None
+    changed = _git(worktree, "diff", "--name-only", base, "--", "tests")
+    new = _git(worktree, "ls-files", "--others", "--exclude-standard", "--", "tests")
+    names: set[str] = set()
+    for rel in (changed.stdout + b"\n" + new.stdout).decode("utf-8").splitlines():
+        parts = rel.split("/")
+        if len(parts) == 2 and parts[1].startswith("test_") and parts[1].endswith(".py") \
+                and os.path.exists(os.path.join(worktree, rel)):   # a deleted test has nothing to run
+            names.add("tests." + parts[1][:-3])
+    return sorted(names)
+
+
+def check_changed_tests(worktree: str) -> list[str]:
+    """The gate's library tests, narrowed to what the branch changed, run the gate's way (python3, tests/run_unittest.py)."""
+    runner = os.path.join(worktree, "tests", "run_unittest.py")
+    if not os.path.exists(runner):
+        return ["skipped: no tests/run_unittest.py here"]
+    modules = changed_test_modules(worktree)
+    if modules is None:
+        return ["skipped: no master or main branch to compare with"]
+    names = sorted(set(modules) | {RULES_REGISTRY_TEST}) if os.path.exists(os.path.join(worktree, "tests", "test_rules_gate.py")) else modules
+    if not names:
+        return ["skipped: no test changed"]   # a tree without the registry test and without a changed test
+    try:
+        done = subprocess.run(["python3", "-W", "ignore::ResourceWarning", runner, *names], cwd=worktree, capture_output=True,
+                              text=True, timeout=_left())
+    except subprocess.TimeoutExpired:
+        return ["FAIL changed tests took longer than %d s" % STEP_TIMEOUT]
+    if done.returncode == 0:
+        return []
+    return ["FAIL changed tests (python3 tests/run_unittest.py %s):" % " ".join(names)] + _tail(done.stdout + done.stderr)
+
+
+STEPS = (("types and lint", check_types), ("python 3.9", check_python39), ("lib copies identical", check_lib_copies),
+         ("changed tests", check_changed_tests))
 
 
 def run(worktree: str) -> tuple[int, list[str]]:
