@@ -6,11 +6,18 @@ import os
 import relay_estimate
 
 
+def repo_top(folder: str) -> str:
+    """The repo folder: a `.worktrees/<name>` working folder stands for the repo above it, whose project folders hold the change's agents."""
+    if os.path.basename(os.path.dirname(folder)) == ".worktrees":
+        return os.path.dirname(os.path.dirname(folder))
+    return folder
+
+
 def run(items: list[dict], args: list[str]) -> int:
     """`args` may carry `--root <repo folder>`; without it the current folder is the repo."""
-    root = os.getcwd()
+    root = repo_top(os.getcwd())
     if "--root" in args and args.index("--root") + 1 < len(args):
-        root = args[args.index("--root") + 1]
+        root = repo_top(args[args.index("--root") + 1])
     projects = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"), "projects")
     rows = relay_estimate.agent_rows(projects, root)
     measured = {}
@@ -23,9 +30,7 @@ def run(items: list[dict], args: list[str]) -> int:
     for line in relay_estimate.compare_lines(items, measured):
         print(line)
     print(relay_estimate.next_estimate_text(list(measured.values())))
-    top = root
-    if os.path.basename(os.path.dirname(top)) == ".worktrees":
-        top = os.path.dirname(os.path.dirname(top))
+    top = repo_top(root)
     home = os.path.expanduser(os.environ.get("RELAY_HOME") or "~/.relay")
     print(relay_estimate.paid_run_text(os.path.join(home, "evals", os.path.basename(top))))
     closed = [i for i in items if i.get("closed_at") and i.get("taken_by") and not i["problems"]]

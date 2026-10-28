@@ -81,10 +81,14 @@ def _worktree_in(text: str, root: str | None) -> str | None:
     return None
 
 
-def change_of(cwd: str, prompt: str, root: str | None = None) -> str | None:
+def change_of(cwd: str, prompt: str, root: str | None = None, brief_first: bool = False) -> str | None:
     """The change an agent worked for: the worktree its working folder lies in, else the one its brief names (the `Worktree:` line first,
     then the first `.worktrees/<name>` path) - agents run with `git -C` from the primary checkout have only the brief to say it.
-    With `root`, only worktrees under `<root>/.worktrees/` count."""
+    With `root`, only worktrees under `<root>/.worktrees/` count. `brief_first`: the brief outranks the working folder - a workflow's agents
+    start in the folder the workflow was launched from, which is often another change's worktree (journal labels: 75 of 77 such agents
+    belong to the change their brief names)."""
+    if brief_first and (name := _worktree_in(prompt, root)):
+        return name
     if root is None and (name := worktree_of(cwd)):
         return name
     if (name := _worktree_in(cwd, root)):
@@ -147,9 +151,12 @@ def agent_rows(projects_dir: str, root: str | None = None) -> list[AgentRow]:
     prefix = "*"
     if root is not None:
         prefix = re.sub(r"[^A-Za-z0-9]", "-", os.path.realpath(root)) + "*"
-    for path in sorted(glob.glob(os.path.join(projects_dir, prefix, "*", "subagents", "agent-*.jsonl"))):
+    sessions = os.path.join(projects_dir, prefix, "*", "subagents")
+    # a workflow's agents (gate, review, check, fix of the cycle) live one level deeper: subagents/workflows/<run>/agent-*.jsonl
+    paths = glob.glob(os.path.join(sessions, "agent-*.jsonl")) + glob.glob(os.path.join(sessions, "workflows", "*", "agent-*.jsonl"))
+    for path in sorted(paths):
         cwd, prompt = _first_cwd_and_prompt(path)
-        change = change_of(cwd, prompt, root) or _worktree_read(path, root)
+        change = change_of(cwd, prompt, root, brief_first=os.sep + "workflows" + os.sep in path) or _worktree_read(path, root)
         if change is None:
             continue
         trace = relay_transcripts.read_trace(path, kind="agent")

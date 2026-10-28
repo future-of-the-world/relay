@@ -11,8 +11,8 @@ import relay_estimate as est  # noqa: E402
 A = est.AgentRow
 
 
-def write_agent(projects, session, agent_id, cwd, agent_type, start, end, prompt="go", proj="proj"):
-    folder = os.path.join(projects, proj, session, "subagents")
+def write_agent(projects, session, agent_id, cwd, agent_type, start, end, prompt="go", proj="proj", run=None):
+    folder = os.path.join(projects, proj, session, "subagents", *(["workflows", run] if run else []))
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, f"agent-{agent_id}.jsonl")
     lines = [{"type": "user", "cwd": cwd, "timestamp": start, "message": {"role": "user", "content": prompt}},
@@ -230,3 +230,30 @@ class View(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Workflow(unittest.TestCase):
+    """Agents of a workflow run live in subagents/workflows/<run>/ and start in the folder the workflow was launched from."""
+    def test_workflow_agents_are_read(self):
+        with tempfile.TemporaryDirectory() as projects:
+            write_agent(projects, "s1", "g1", "/r/.worktrees/c1", "delegate:checker", "2026-10-01T10:00:00Z", "2026-10-01T10:04:00Z", run="wf_1")
+            # 4 minutes in a workflow folder: counted (the glob used to stop at subagents/agent-*.jsonl)
+            self.assertEqual(est.agent_rows(projects), [A("c1", "delegate:checker", 240.0)])
+
+    def test_brief_outranks_launch_folder_in_a_workflow(self):
+        with tempfile.TemporaryDirectory() as projects:
+            write_agent(projects, "s1", "g1", "/r/.worktrees/old", "delegate:fixer", "2026-10-01T10:00:00Z", "2026-10-01T10:03:00Z",
+                        prompt="Worktree: /r/.worktrees/new", run="wf_1")
+            write_agent(projects, "s1", "g2", "/r/.worktrees/old", "delegate:fixer", "2026-10-01T10:00:00Z", "2026-10-01T10:03:00Z",
+                        prompt="Worktree: /r/.worktrees/new")
+            rows = est.agent_rows(projects)
+        # workflow agent: its brief names "new"; a plain subagent keeps its own working folder "old"
+        self.assertEqual(sorted(r.change for r in rows), ["new", "old"])
+
+
+class ViewRoot(unittest.TestCase):
+    def test_root_inside_worktree_is_the_repo(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib", "queue_ext"))
+        import estimate as view
+        self.assertEqual(view.repo_top("/r/.worktrees/c1"), "/r")
+        self.assertEqual(view.repo_top("/r"), "/r")
