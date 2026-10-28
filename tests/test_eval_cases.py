@@ -235,6 +235,24 @@ class StubSetupRefusals(unittest.TestCase):
             self.assertIn("refusing", done.stderr)
             self.assertFalse(os.path.exists(os.path.join(home, "relay")))
 
+    def test_a_real_home_with_tmpdir_inside_it_is_refused_and_nothing_is_written(self) -> None:
+        # TMPDIR=$HOME/tmp makes HOME the parent of TMPDIR, but the eval tool's home is <root>/home, a sibling of
+        # <root>/tmp, never the parent itself: HOME == dirname(TMPDIR) is the owner's real home and must be refused.
+        with tempfile.TemporaryDirectory() as home:
+            tmp = os.path.join(home, "tmp")
+            os.makedirs(tmp)
+            done = self.scaffold(home, tmp)
+            self.assertNotEqual(done.returncode, 0)
+            self.assertIn("refusing", done.stderr)
+            self.assertFalse(os.path.exists(os.path.join(home, "relay")))
+
+    def test_a_home_under_the_temp_folder_is_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = os.path.join(tmp, "h")
+            os.makedirs(home)
+            done = self.scaffold(home, tmp)
+            self.assertEqual(done.returncode, 0, done.stderr)
+
     def test_the_eval_tool_layout_gets_the_stub_for_every_caller(self) -> None:
         for name in ("recall-decision", "keep-owner-words", "keep-owner-words-en"):
             with self.subTest(name), tempfile.TemporaryDirectory() as root:
