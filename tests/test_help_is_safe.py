@@ -1,0 +1,68 @@
+"""`relay <cmd> --help` prints usage and writes nothing (queue item relay-cmd-help-runs-the-command-instead-of-help)."""
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+RELAY = os.path.join(ROOT, "bin", "relay")
+
+
+def snapshot(top: str) -> list[str]:
+    found = []
+    for base, dirs, files in os.walk(top):
+        found += [os.path.relpath(os.path.join(base, n), top) for n in dirs + files]
+    return sorted(found)
+
+
+def run_help(cmd: list[str]) -> tuple[subprocess.CompletedProcess, list[str]]:
+    """Run relay with --help in a temporary home and working folder; return the result and what appeared there."""
+    with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as cwd:
+        env = {**os.environ, "HOME": home, "RELAY_HOME": os.path.join(home, ".relay")}
+        done = subprocess.run([sys.executable, RELAY, *cmd], cwd=cwd, env=env, capture_output=True, text=True, timeout=60)
+        return done, snapshot(home) + ["cwd:" + n for n in snapshot(cwd)]
+
+
+def command_names() -> list[str]:
+    text = open(RELAY).read()
+    block = text[text.index("COMMANDS = {"):text.index("def help_text")]
+    return sorted(set(re.findall(r'"([a-z]+)":', block)))
+
+
+class HelpIsSafe(unittest.TestCase):
+    def test_candidate_help_creates_no_profile(self) -> None:
+        # the failing case: `relay candidate --help` used to create a profile named '--help'
+        done, written = run_help(["candidate", "--help"])
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(written, [])
+        self.assertIn("relay candidate", done.stdout)
+
+    def test_install_and_calibrate_help_write_nothing(self) -> None:
+        for cmd in ("install", "calibrate"):
+            done, written = run_help([cmd, "--help"])
+            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertEqual(written, [], cmd)
+            self.assertIn("relay " + cmd, done.stdout)
+
+    def test_every_command_in_the_table_writes_nothing(self) -> None:
+        names = command_names()
+        self.assertGreaterEqual(len(names), 20)  # the table was found
+        for name in names:
+            for flag in ("--help", "-h"):
+                done, written = run_help([name, flag])
+                self.assertEqual(done.returncode, 0, f"{name} {flag}: {done.stderr}")
+                self.assertEqual(written, [], f"{name} {flag}")
+                self.assertTrue(done.stdout.strip(), name)
+
+    def test_help_after_a_queue_action_and_after_other_args(self) -> None:
+        for cmd in (["queue", "add", "--help"], ["gate", "-C", ".", "--help"], ["queue", "note", "x", "-h"]):
+            done, written = run_help(cmd)
+            self.assertEqual(done.returncode, 0, f"{cmd}: {done.stderr}")
+            self.assertEqual(written, [], cmd)
+
+
+if __name__ == "__main__":
+    unittest.main()

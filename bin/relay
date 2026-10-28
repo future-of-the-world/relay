@@ -1056,6 +1056,30 @@ COMMANDS = {
 }
 
 
+def help_text(cmd: str) -> str:
+    """The usage lines of one command: its blocks of the module docstring (a line `  relay <cmd>` and its continuation lines)."""
+    if cmd == "queue":
+        return QUEUE_USAGE
+    out: list[str] = []
+    keep = False
+    for line in __doc__.strip().splitlines():
+        if line.startswith("  relay "):
+            keep = line.split()[1] == cmd
+        if keep:
+            out.append(line)
+    return "\n".join(out) if out else __doc__.strip()
+
+
+def wants_help(args: list[str]) -> bool:
+    """-h or --help anywhere before a bare `--` (what follows `--` belongs to another program)."""
+    for a in args:
+        if a == "--":
+            return False
+        if a in ("-h", "--help"):
+            return True
+    return False
+
+
 def main(argv):
     if len(argv) < 2 or argv[1] in ("-h", "--help", "help"):
         print(__doc__.strip())
@@ -1065,6 +1089,9 @@ def main(argv):
         print(f"relay: unknown command '{cmd}'\n", file=sys.stderr)
         print(__doc__.strip(), file=sys.stderr)
         return 2
+    if wants_help(args):
+        print(help_text(cmd))
+        return 0
     try:
         return COMMANDS[cmd](args) or 0
     except Usage as exc:
