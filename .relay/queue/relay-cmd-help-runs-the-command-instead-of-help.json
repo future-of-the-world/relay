@@ -23,8 +23,8 @@
     "bin/relay (the dispatch before COMMANDS)",
     "tests/test_help_is_safe.py (new)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T10:22:53Z",
+  "taken_by": "wt/relay-cmd-help-runs-the-command-instead",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
