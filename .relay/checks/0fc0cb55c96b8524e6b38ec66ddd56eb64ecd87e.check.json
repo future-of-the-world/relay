@@ -1,0 +1,195 @@
+{
+  "branch": "wt/relay-check-show-reports-a-mark-that-lan",
+  "findings": [
+    {
+      "details": [
+        "Found outside the change by the review of wt/merge-msg, 24 Oct: the front relies on relay check show before every merge; a false open 0 sends it to a merge that is refused. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Live, today: branch wt/merge-msg (forked from master f9bc285, own commits: one gate log, no check mark).",
+        "`relay check show -C /Users/amidman/relay/.worktrees/merge-msg wt/merge-msg` prints",
+        "  gate f9bc285...: exit 0",
+        "  mark 6b7e6a718079124a0532ce0f57de08d255188a82: open 0, queued 0",
+        "  outside: 0 in the check",
+        "The mark 6b7e6a... is another branch's, already on master (git branch --contains: master, wt/bench-set, wt/eval-close).",
+        "The merge hook's step_mark looks only at marks in `rev-list ref ^master` (relay_inert.own_marks), finds none, and",
+        "refuses \"no check mark for wt/merge-msg (run relay gate, then delegate:checker on its head)\".",
+        "It should print \"mark: no mark yet\" (and \"outside: unknown (no mark yet)\"), as it does when no mark is reachable.",
+        "This is the item's own failing case in another shape: check show prints open 0 while the merge is refused."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 260,
+      "pass_cases": [
+        "1. Repo in a temp folder: master holds a mark of commit M (open 0); branch wt/a forks after it and commits lib/a.py",
+        "   with no mark of its own -> show(repo, \"wt/a\") == [\"gate: none yet\" or its gate line, \"mark: no mark yet\",",
+        "   \"outside: unknown (no mark yet)\"]; the merge hook refuses with \"no check mark for wt/a\".",
+        "2. Same, then wt/a gets its own mark with open 0 and nothing after it -> show prints \"mark <that commit>: open 0,",
+        "   queued 0\" and three lines in all (test_t9 first half keeps passing).",
+        "3. Same as 2, then a non-inert file lib/late.py committed after the mark -> line 4 is",
+        "   \"1 non-inert file changed after the mark: lib/late.py; run relay gate, then delegate:checker\" (test_t9 keeps passing).",
+        "4. A train branch whose own files are all covered by absorbed ready branches (step_mark returns with no mark) ->",
+        "   show does not claim a refusal the merge would not make (state the line chosen, e.g. \"mark: none needed, the",
+        "   ready changes it holds are checked\")."
+      ],
+      "path": "lib/relay_marks.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_merge_train.py:597 test_show_ignores_a_mark_that_landed_on_the_default_branch passes at head and fails at 182e6bdd."
+      ],
+      "severity": "HIGH",
+      "since": "182e6bdd343b1e337bc58bb34aba41a0096cfcc2",
+      "source": "queue",
+      "summary": "Relay check show reports a mark that landed on the\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch test (TrainCase subclass): INERT verdict: None; INERT show: [..., 'mark: no mark yet', ...].",
+        "judge() runs step 3 (`if not relay_inert.changed(main, merge_base, ref): return`) before step_mark; show models step_mark's",
+        "train shortcut but not step 3, so it claims a refusal the merge would not make: the brief's pass case 4 principle",
+        "(\"show does not claim a refusal the merge would not make\"). Reachable: a lane whose only commits are a handover or check",
+        "record. The change made it worse here (before, the landed mark happened to read \"open 0\").",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "pytest -q -s scratchpad/probe/test_probe.py",
+        "INERT verdict: None",
+        "INERT show: ['gate e54e06d11aea0c04ca9f058973145073d68dd4ba: exit 0', 'mark: no mark yet', 'outside: unknown (no mark yet)']",
+        "plugins/relay/hooks/merge.py judge: `if not relay_inert.changed(main, merge_base, ref):  # 3  return`"
+      ],
+      "failing_case": [
+        "Repo: master holds a ready change wt/m (code, gate, open-0 mark) merged in. Branch wt/a forks after it and commits only",
+        "docs/handover.md (inert). The merge hook's judge returns None (step 3: relay_inert.changed(merge_base, ref) is empty, so",
+        "step_mark is not run). rm.show(main, \"wt/a\") now prints",
+        "  ['gate e54e06d...: exit 0', 'mark: no mark yet', 'outside: unknown (no mark yet)']",
+        "so the front is told the branch needs a check the merge would not ask for. Before this change it printed the landed mark",
+        "\"open 0\" (wrong sha, right answer). It should say that no mark is needed, as the train shortcut does."
+      ],
+      "fix_hint": [
+        "In show, before the train shortcut: fork = merge-base(default, ref); if not relay_inert.changed(repo, fork, ref) (no own=, as",
+        "judge step 3), return lines + [\"mark: none needed, no code changed\", \"outside: none to count\"]. Add the test; sync the plugin copy."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 294,
+      "pass_cases": [
+        "1. Fixture above (only docs/handover.md on wt/a) -> verdict(\"wt/a\") is None and show(main,\"wt/a\")[1:] says no mark is needed",
+        "   (e.g. [\"mark: none needed, no code changed\", \"outside: none to count\"]), not \"no mark yet\".",
+        "2. wt/a commits lib/a.py with no mark, after a landed mark -> show(...)[1:] == [\"mark: no mark yet\", \"outside: unknown (no mark yet)\"]",
+        "   and the hook refuses \"no check mark for wt/a\" (test_show_ignores_a_mark_that_landed_on_the_default_branch keeps passing).",
+        "3. Train of two covered riders -> show(...)[1:] == [\"mark: none needed, the ready changes it holds are checked\", \"outside: none to count\"]",
+        "   (test_show_on_a_train_of_covered_riders_claims_no_refusal keeps passing)."
+      ],
+      "path": "lib/relay_marks.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_merge_train.py:627 passes; fails at 168e4dd."
+      ],
+      "severity": "MEDIUM",
+      "since": "168e4dd38181a15c7ad159b152fe0a5812502675",
+      "source": "review-relay-check-show-reports-a-mark-that-lan.json",
+      "source_id": "F1",
+      "summary": "a branch whose own commits are all inert passes the merge hook (step 3) but show now prints 'mark: no mark yet'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by timing on the live repo. Project principle 2 (Waste): waste that repeats on every run is MEDIUM and fixed",
+        "before the merge. The full-tree read of marks was there before, but the change now needs only own commits' marks, so the",
+        "read is now pure waste inside the function it rewrote; the second absorbed() is new in this change.",
+        "(gate_logs reads every gate log too; it is the gate line's own semantics and is left aside here.)",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "python3 -I -c '... ri.absorbed(r, ref); rm.show(r, branch); rm.marks(r, ref)'",
+        "absorbed 0.77s show 32.28s {}",
+        "marks 290 11.54s",
+        "master show 33.01s (same order before the change)"
+      ],
+      "failing_case": [
+        "Live repo /Users/amidman/relay, branch wt/relay-check-show-reports-a-mark-that-lan: rm.show takes 32.3 s.",
+        "marks(repo, ref) alone parses 290 marks (11.5 s), every one landed on master, and the new code then throws away all but the",
+        "commits of `rev-list ref ^default` (here none). relay_inert.absorbed(repo, ref) is computed at line 290 and again at line 312",
+        "(0.77 s each). The front runs check show before every merge, so this repeats on every merge.",
+        "It should read only the marks of the branch's own commits (<sha>.json for each sha of rev-list ref ^default) and reuse `ab`."
+      ],
+      "fix_hint": [
+        "own = rev-list ref ^default minus the absorbed commits; stored = {c: get(repo, ref, c) for c in own if get(...) is not None};",
+        "pass absorbed=ab at line 312. Sync the plugin copy."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 298,
+      "pass_cases": [
+        "1. Fixture: master holds 20 landed marks, wt/a has one own mark -> show reads (git show) at most the marks of wt/a's own",
+        "   commits (count the reads with a mock of relay_marks.get), and still prints \"mark <own commit>: open 0, queued 0\".",
+        "2. relay_inert.absorbed is called once per show (mock count == 1).",
+        "3. The three new tests in tests/test_merge_train.py keep passing."
+      ],
+      "path": "lib/relay_marks.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_merge_train.py:635 passes; fails at 168e4dd."
+      ],
+      "severity": "MEDIUM",
+      "since": "168e4dd38181a15c7ad159b152fe0a5812502675",
+      "source": "review-relay-check-show-reports-a-mark-that-lan.json",
+      "source_id": "F2",
+      "summary": "Principle 2 (Waste): show reads all 290 stored marks to keep only the branch's own, and computes absorbed() twice; one show takes 33 s live",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the scratch probe (GATE verdict / GATE show). Same class as the item (show ready, merge refused) in the gate",
+        "shape. LOW: in the relay flow a check recorded without a gate log on its head gets an N finding (open >= 1), so an open-0",
+        "mark with no own gate is off the normal path; the printed sha also differs from the head. Size: 10 minutes."
+      ],
+      "evidence": [
+        "GATE verdict: no green gate for the code at wt/a's head: code changed since: lib/a.py; run relay gate in .worktrees/a",
+        "GATE show: ['gate 727c81ca...: exit 0', 'mark 345dcb12...: open 0, queued 0', 'outside: 0 in the check']"
+      ],
+      "failing_case": [
+        "master holds ready wt/m (its gate log G, exit 0); wt/a commits lib/a.py and an open-0 mark of it, but no gate.",
+        "show -> ['gate G: exit 0', 'mark <a>: open 0, queued 0', 'outside: 0 in the check'] (looks ready);",
+        "the hook refuses \"no green gate for the code at wt/a's head: code changed since: lib/a.py\".",
+        "Show should add a line that code changed since that gate (or say \"gate: none on this code\")."
+      ],
+      "fix_hint": [
+        "After the gate line: if relay_inert.changed(repo, gate_commit, ref, archive=True) is not empty, append",
+        "\"code changed since the gate: <files>; run relay gate\", the test step_gate applies."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 286,
+      "pass_cases": [
+        "1. Fixture above -> show prints a line naming lib/a.py as changed since the gate (or \"gate: none yet\").",
+        "2. wt/a with its own green gate on its head -> the gate line is \"gate <head>: exit 0\" and nothing more about the gate."
+      ],
+      "path": "lib/relay_marks.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_merge_train.py:658 passes; fails at 168e4dd."
+      ],
+      "severity": "LOW",
+      "since": "168e4dd38181a15c7ad159b152fe0a5812502675",
+      "source": "review-relay-check-show-reports-a-mark-that-lan.json",
+      "source_id": "F3",
+      "summary": "the gate line still counts a gate log that landed on master: a branch with no gate of its own shows master's 'exit 0' with no hint while the hook refuses",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "f502da28e8c316fc87c46976f8c6e85664317fb8.gate.log",
+  "head": "0fc0cb55c96b8524e6b38ec66ddd56eb64ecd87e",
+  "item": "relay-check-show-reports-a-mark-that-landed-on-t",
+  "notes": [
+    "Fix diff read: inert-only step 3 mirrored, own-commit mark reads, absorbed reused, gate line check added."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 168e4dd..HEAD (fix commit f502da28 + gate log). Ran the 7 show tests in tests/test_merge_train.py at head: 7 passed. Ran them at 182e6bdd (Q1 since): 5 fail; at 168e4dd: 3 fail (F1, F2, F3 tests). Gate log is for f502da28, exit 0, only the gate-log commit after it. Plugin copy identical. Did not run precheck (fixer reports a pre-existing mypy error outside the change and a timeout)."
+  ],
+  "type": "check"
+}
