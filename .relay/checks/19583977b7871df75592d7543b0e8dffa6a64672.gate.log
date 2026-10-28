@@ -1,0 +1,15 @@
+head 19583977b7871df75592d7543b0e8dffa6a64672
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (511s, log: .ci/steps/library-tests.log)
+    FAIL: test_edited_lines_not_overlong (test_option_letters.TestOptionLetters.test_edited_lines_not_overlong) (name='plugins/front/skills/front/SKILL.md')
+    AssertionError: 107 not less than or equal to 100
+    FAILED (failures=1)
+ci: hook tests ok (176s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (4s)
+ci: RED
+exit 1
