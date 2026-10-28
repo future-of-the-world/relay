@@ -115,6 +115,18 @@
       "fact": [
         "Edited pass_cases: Owner answered 'a a' on 28 Oct to the two questions of the build plan (folders in where, module size limit)."
       ]
+    },
+    {
+      "at": "2026-10-28T12:46:58Z",
+      "fact": [
+        "28 Oct ~12:45 UTC, filling 3 free lanes: of the first 8 untaken items in IP order, 6 were refused by the start filter for a shared file held by a running change: bin/relay x2 (queue-time branch), lib/relay_queue.py x2, lib/relay_gate.py x1, plugins/delegate/workflows/cycle.js x1 (relay-land branch), bin/ci x1 (hook-tests branch); the lanes were filled from IP 86 and 85."
+      ]
+    },
+    {
+      "at": "2026-10-28T12:47:16Z",
+      "fact": [
+        "Correction to the 12:45 note: the counts were 8 of the first 9 untaken items refused, not 6 of 8. The 5 refusals listed there were printed: bin/relay x2, bin/ci, lib/relay_gate.py, cycle.js. Three more were refused with their reason not printed: two-branches-start-on-the-same-file-unnoticed (88), lib-modules-are-committed-in-three-copies (87), a-fix-that-adds-a-new-module-cannot-be-closed (87). The 9th (IP 98) started."
+      ]
     }
   ]
 }
