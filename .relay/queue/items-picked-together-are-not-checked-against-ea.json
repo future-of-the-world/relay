@@ -30,5 +30,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T07:13:27Z",
+      "fact": [
+        "28 Oct, front decision on review F4 (owner can reverse), by principle 10 (the default does the right thing; a refusal names the next step): a wait is binding. `relay queue start <slug>` refuses an item that waits because its files are being changed, names the item it waits for, and takes an explicit override flag for when the front means it. Review F1 (reproduced): picks started one at a time by `relay queue start` are not compared, because a fresh branch has no changed files; a taken item must count as occupying the files in its `where` until its branch changes files."
+      ]
+    }
+  ]
 }
