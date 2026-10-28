@@ -1,0 +1,37 @@
+{
+  "kind": "feature",
+  "ip": 96,
+  "time": 40,
+  "found_at": "2026-10-28T17:37:16Z",
+  "found_in": "relay queue add",
+  "title": "Type check subfolders and cap module size at 600",
+  "what": [
+    "1. bin/types-lint becomes a thin wrapper over a Python script (the project rule: bash is on its way out). One mypy call, the pyproject config kept (mypy_path = \"lib\", explicit_package_bases = true), over lib/**/*.py, bin/relay, plugins/*/hooks/*.py and plugins/*/lib/kit_*.py. A test walks lib/ recursively and fails when a .py under lib/ is not in the list mypy is given (lib/queue_ext/json.py is the case today). Today one such call passes: \"no issues found in 47 source files\".",
+    "2. ruff stays `ruff check .` over the repository (114 test files, 5 eval files and 1 docs file stay linted). Pass case: an unused `import os` in a test file fails the step.",
+    "3. tests/test_module_sizes.py (new), beside tests/test_split_test_files.py. Setting MAX_LINES: default 600, bound 300-1500. Scope: every tracked .py outside tests/ and plugins/*/tests/, plus bin/relay; plugin copies of lib modules are skipped (byte-identical copies). An exempt file carries a marker in its first 5 lines: `# size: over the 600-line limit until its split item lands`. Add the marker to the 9 files over 600 lines today. FIRST_EXEMPT in the test is those 9 paths, written once and never edited after.",
+    "The test fails on: a file over MAX_LINES with no marker (message \"lib/relay_x.py has 601 lines, limit 600: split it by responsibility (one module per command or subject)\"); a marker in a file at or under the limit (\"remove the size marker: the file is under the limit\"); a marker in a file not in FIRST_EXEMPT (\"a new file cannot exempt itself\").",
+    "Pass cases: lib/relay_queue.py at 2046 lines stays green with no edit to the test; a split taking bin/relay from 640 to 595 lines is green with only its own files edited. An exempt file may grow until its split (accepted).",
+    "Done: full gate green; each failure above has a test.",
+    "Traps for every move: keep imports lint-clean (ruff F); tests that import from the repo root must still run under the short gate; done items name their `test` ids, which are found by name, so do not rename tests; RULE_TESTS names in lib/relay_textonly.py must stay valid; tests never touch the live .relay/queue (use a temporary folder); a move that takes a function another lane changed ports that lane's hunk by hand; the size marker leaves a file in the move that brings it under 600 lines."
+  ],
+  "why": [
+    "Move 2 of the split of relay into one module per subcommand. The owner decided it on 28 Oct: \"каждая подкоманда может и должна жить в своем модуле, этот подход должен быть распространен на весь relay\", and chose 600 lines as the module limit in the gate."
+  ],
+  "pass_cases": [
+    "a module over 600 lines with no marker fails the gate",
+    "an unused import in a test file fails the lint step"
+  ],
+  "where": [
+    "bin/types-lint",
+    "tests/test_module_sizes.py new",
+    "lib/relay_queue.py:1 size marker",
+    "lib/relay_setup.py:1 size marker",
+    "bin/relay:2 size marker"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

@@ -1,0 +1,15 @@
+head dd04167b5e02c0efc091c85e5b532e556df098e4
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (1s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (1291s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_changed_test_slower_than_the_other_steps_budget_is_green (test_precheck.TestChangedTests.test_a_changed_test_slower_than_the_other_steps_budget_is_green)
+    AssertionError: 'ok   changed tests' not found in ['skip types and lint (no bin/types-lint here)', 'skip python 3.9 (no plugin modules here)', 'skip lib copies identical (no plugin lib copies here)', 'RED  changed tests', '  FAIL rules registry test took longer than 1 s', 'precheck: RED (the gate would be red; fix these first)']
+    FAILED (failures=1)
+ci: hook tests ok (249s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (3s)
+ci: RED
+exit 1

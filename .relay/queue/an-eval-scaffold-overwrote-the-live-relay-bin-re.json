@@ -36,6 +36,18 @@
       "fact": [
         "28 Oct: the four-eval-cases lane's critic found the trigger: tests/test_eval_system_rules.py runs the three new scaffolds with the real $HOME, so one run of that test file overwrites ~/relay/bin/relay. A fix (scaffolds run with a temporary HOME) is commit 1a5f1d49 on wt/four-eval-cases-carry-hand-copies-of-the, not landed; that lane stopped at a red gate caused only by the broken live bin/relay (its eval tests: 88 passed)."
       ]
+    },
+    {
+      "at": "2026-10-28T15:29:49Z",
+      "said": [
+        "То есть только путь ~/relay, почему нельзя изменить на \"можно редактировать только\", путь папки с кодом может меняться"
+      ]
+    },
+    {
+      "at": "2026-10-28T15:29:57Z",
+      "fact": [
+        "28 Oct, read from the branch's evals/plugin/setup-relay-stub.sh (not run): the guard already allows rather than forbids. It writes only when HOME is under TMPDIR or under TMPDIR's parent, and never into a git checkout other than the home itself. The parent rule is wider than the eval layout needs, which is <root>/home beside <root>/tmp. With TMPDIR=$HOME/tmp the parent is $HOME, so \"$HOME/\" matches \"$HOME\"/* and the owner's real HOME counts as a throwaway home; only the checkout check behind it would still refuse. Tighten to exactly HOME == dirname(TMPDIR)/home, or HOME under TMPDIR, so the allowed place does not depend on where the code folder lives."
+      ]
     }
   ]
 }

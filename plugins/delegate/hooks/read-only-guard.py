@@ -23,7 +23,7 @@ READ_ONLY = {"critic", "checker", "scout", "spec-reviewer", "spec-conformance"}
 # that is in neither. WRITERS: subcommand -> the words after it that write; None means every use writes.
 WRITERS: dict[str, Optional[set[str]]] = {
     "setup": None, "migrate": None, "install": None, "sync": None, "candidate": None, "calibrate": None, "gate": None,
-    "bench": None,
+    "bench": None, "land": None,
     "queue": {"add", "take", "release", "done", "drop", "land", "ip", "migrate", "note", "edit"},
     "check": {"migrate", "owner"},
     "improve": {"adopt"},
