@@ -1,0 +1,34 @@
+{
+  "kind": "feature",
+  "ip": 0,
+  "time": 240,
+  "found_at": "2026-10-28T09:22:27Z",
+  "found_in": "relay queue add",
+  "title": "Each relay subcommand lives in its own module",
+  "what": [
+    "bin/relay becomes a thin dispatcher that finds a subcommand's module by name and holds no per-command code or help; each subcommand (and each `relay queue` action, each setup/doctor part) lives in its own module with its own help text and tests; large shared modules split by responsibility the same way. The move is mechanical, done between waves when no branch is open on these files, in a few commits each proven by the full gate and a test that every command and help line still runs."
+  ],
+  "why": [
+    "Owner, 28 Oct, after the start filter held items behind bin/relay (14 of 88 open items name it; 1079 lines, 33 handlers) and lib/relay_queue.py (10 items, 2040 lines), lib/relay_setup.py (9, 1456): the file every change must edit slows parallel work. The owner decided the approach: one module per subcommand, applied across all of relay; the cost of the move (conflicts with running branches) is a planning matter only. IP chosen by the front (the change unblocks most of the queue)."
+  ],
+  "pass_cases": [
+    "Adding a new subcommand touches no existing file except its own module and its test.",
+    "`relay <cmd> --help` and every command's behaviour are unchanged (a test runs every command's help and a smoke case).",
+    "After the move, the open items' `where` are rewritten to the new modules, and the count of open items sharing a file drops (measured before and after).",
+    "A size check in the gate names any module over an agreed line limit (limit from the design's measurement)."
+  ],
+  "where": [
+    "bin/relay",
+    "lib/relay_queue.py",
+    "lib/relay_setup.py",
+    "lib/ (new per-command modules)",
+    "plugins/front/lib/ (copies via bin/sync-lib-copies)",
+    "tests/"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
