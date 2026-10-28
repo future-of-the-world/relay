@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 86,
+  "time": 15,
+  "found_at": "2026-10-28T08:19:01Z",
+  "found_in": "relay queue add",
+  "title": "A scenario file cannot use the tool_called grader",
+  "what": [
+    "Add tool_called to GRADER_TYPES (cherry-pick the lib/relay_bench.py hunk and the test from 5377e9f5); keep the evals/scenarios/check-runs-sketch scenarios only if a scenario is needed for the test."
+  ],
+  "why": [
+    "28 Oct: lib/relay_bench.py GRADER_TYPES lacks \"tool_called\", so a scenario.toml that names it is refused at load ('unknown type'); the grader landed with bench-tools but is reachable only from code. Found and fixed on wt/spec-met in commit 5377e9f5 (one word plus tests/test_bench.py::test_check_runs_sketch_grader_wants_code_run_not_a_word_or_the_repos_tests), which will not land: its item is dropped."
+  ],
+  "failing_case": [
+    "A scenario.toml with a [[graders]] of type tool_called is refused at load with 'unknown type'."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same scenario loads and its grader runs on a stored session."
+  ],
+  "where": [
+    "lib/relay_bench.py (GRADER_TYPES)",
+    "tests/test_bench.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
