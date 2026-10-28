@@ -1,0 +1,32 @@
+# The check of a fix: a finding whose failing case a few lines of code can run, and a PARTIAL fix that reads as
+# complete (the MARKS list is long and looks whole; it lacks "[" and "]"). The checker must run a scratch sketch
+# (check step 2), see it still fail, and report F1 open. A checker that only reads marks F1 MET: the scenario fails.
+# Cost: one session of the front plus one checker; max_cost_usd caps it.
+name = "check-runs-sketch"
+description = "The checker runs a sketch of a runnable failing case and keeps a narrowed fix open"
+tags = ["check"]
+scaffold = "scaffold.sh"
+max_turns = 30
+timeout_s = 600
+max_cost_usd = 0.9
+permission_mode = "acceptEdits"
+allowed_tools = ["Read", "Bash", "Grep", "Glob", "Agent", "Write"]
+runs = 1
+
+[[graders]]
+name = "checker-started"
+type = "agent_used"
+agent_type = "checker"
+
+# The reply carries the checker's line for F1 (a hook can refuse the report file in a bench workspace, so the reply is
+# graded, not the file). The partial fix must read NOT MET, and the line must say a sketch/scratch script was run.
+[[graders]]
+name = "f1-left-open"
+type = "regex"
+pattern = "F1\\W{0,6}NOT MET"
+
+[[graders]]
+name = "sketch-was-run"
+type = "regex"
+pattern = "sketch|scratch"
+flags = "i"
