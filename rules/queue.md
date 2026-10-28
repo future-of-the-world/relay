@@ -47,8 +47,11 @@ stay free. Every reshaping of items (a new key, a renamed one, a new shape) ship
 An item's `time` is an estimate made from measurement, not by eye. `relay queue estimate` measures every closed change from the
 agent transcripts (agent minutes: the summed durations of the agents that ran in its worktree; build minutes: its workers; wall
 minutes: taken to closed), prints each closed item's estimate beside those, and prints the estimate for a new item: the median fixed cycle
-of past changes (gates, review, checks, queue close) plus the median build part, plus the paid run's wall minutes when the change edits
-agent, skill, role or rule texts. Nothing measured is stored in an item; it is computed when read. Use that number for `--time`.
+of past changes (gates, review, checks, queue close) plus the median build part. A paid run checks a wave of changes, not one, so it is
+not added to an item's estimate: the view prints the wave's paid-run minutes and cost on a line of its own, and the front tells the owner
+that line apart from the item's time. The view also prints how many closed items had agents in the transcripts (an agent is tied to a
+change by its working folder, else by the worktree its brief names). Nothing measured is stored in an item; it is computed when read.
+Use the estimate for `--time`.
 
 An out-of-scope question from the owner is answered in two lines and becomes a
 `feature` item, built later in a fresh session. When a new request arrives while

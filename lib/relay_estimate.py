@@ -3,7 +3,8 @@
 Derived data: nothing here is stored. A change's agent minutes are the summed durations of the subagents that ran in its worktree
 (`.worktrees/<name>`, the agent's own working folder); its build minutes are those of the `worker` agents among them. The estimate
 of a new item is the median fixed cycle of past changes (everything but the build: gates, review, checks, queue close) plus the median
-build part, plus the paid run's wall minutes when the change edits agent, skill, role or rule texts."""
+build part. The paid run is not part of it: one paid run checks a wave of changes, so it is shown beside the estimate as its own line
+(`paid_run_text`), not added to any item."""
 
 import glob
 import json
@@ -18,7 +19,6 @@ import relay_transcripts
 WORKTREE = re.compile(r"\.worktrees/([A-Za-z0-9._-]+)")
 WORKTREE_PATH = re.compile(r"(/[^\s\"'`]*?)/\.worktrees/([A-Za-z0-9._-]+)")
 WORKTREE_LINE = re.compile(r"Worktree:\s*(\S+)")
-TEXT_PLACES = ("agents/", "skills/", "roles/", "rules/")     # a change touching these is checked by a paid run
 BUILD_SUFFIX = "worker"       # `delegate:worker`, `ng-worker`, `worker`: the agents that build
 
 
@@ -95,6 +95,51 @@ def change_of(cwd: str, prompt: str, root: str | None = None) -> str | None:
     return _worktree_in(prompt, root) or (worktree_of(prompt) if root is None else None)
 
 
+BRANCH = re.compile(r"\bwt/([A-Za-z0-9._-]+)")
+EARLY = 4      # an agent that was handed a brief file reads it in its first steps: the first user messages and tool results say what it works on
+
+
+def _block_text(block: object) -> str:
+    if isinstance(block, str):
+        return block
+    if not isinstance(block, dict):
+        return ""
+    inner = block.get("text") if block.get("type") == "text" else block.get("content") if block.get("type") == "tool_result" else ""
+    if isinstance(inner, list):
+        return " ".join(_block_text(b) for b in inner)
+    return inner if isinstance(inner, str) else ""
+
+
+def _early_text(path: str) -> str:
+    """The text of the first few user entries of a transcript (the prompt and what the agent read first, e.g. its brief file)."""
+    out: list[str] = []
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(entry, dict) or entry.get("type") != "user":
+                    continue
+                content = (entry.get("message") or {}).get("content")
+                out.append(" ".join(_block_text(b) for b in content) if isinstance(content, list) else _block_text(content))
+                if len(out) >= EARLY:
+                    break
+    except OSError:
+        pass
+    return "\n".join(out)
+
+
+def _worktree_read(path: str, root: str | None) -> str | None:
+    """The change named in what the agent first read (its brief file): a `<root>/.worktrees/<name>` path, else a `wt/<name>` branch."""
+    text = _early_text(path)
+    if (name := _worktree_in(text, root)):
+        return name
+    found = BRANCH.search(text)
+    return found.group(1) if found else None
+
+
 def agent_rows(projects_dir: str, root: str | None = None) -> list[AgentRow]:
     """One row per subagent transcript under `projects_dir/*/*/subagents/` that worked for a change, sorted for a stable result.
     With `root` (the repo folder) only the project folders of that repo and its worktrees are read and only its worktrees count."""
@@ -104,7 +149,7 @@ def agent_rows(projects_dir: str, root: str | None = None) -> list[AgentRow]:
         prefix = re.sub(r"[^A-Za-z0-9]", "-", os.path.realpath(root)) + "*"
     for path in sorted(glob.glob(os.path.join(projects_dir, prefix, "*", "subagents", "agent-*.jsonl"))):
         cwd, prompt = _first_cwd_and_prompt(path)
-        change = change_of(cwd, prompt, root)
+        change = change_of(cwd, prompt, root) or _worktree_read(path, root)
         if change is None:
             continue
         trace = relay_transcripts.read_trace(path, kind="agent")
@@ -132,19 +177,23 @@ def _when(text: str) -> dt.datetime | None:
         return None
 
 
-def measure_item(rows: list[AgentRow], item: dict) -> Measured | None:
-    """The agents of the item's worktree (`taken_by` is `wt/<name>`) that began between its taken_at and closed_at; None when none did,
-    so two changes that reused one worktree name are not summed into each other."""
+def measure_item(rows: list[AgentRow], item: dict, items: list[dict] | None = None) -> Measured | None:
+    """The agents of the item's worktree (`taken_by` is `wt/<name>`) that began after its taken_at and before the next item taken by the
+    same worktree name (`items`) - not before its closed_at: the closing writes come before the last checks, which still run in the worktree.
+    None when none did, so two changes that reused one worktree name are not summed into each other."""
     if not item.get("taken_by") or not item.get("closed_at"):
         return None
     name = str(item["taken_by"]).removeprefix("wt/")
-    lo, hi = _when(item.get("taken_at") or ""), _when(item["closed_at"])
+    lo = _when(item.get("taken_at") or "")
+    later = [t for other in (items or []) if other is not item and other.get("taken_by") == item["taken_by"]
+             if (t := _when(other.get("taken_at") or "")) and lo and t > lo]
+    hi = min(later) if later else None
     mine = []
     for r in rows:
         if r.change != name:
             continue
         at = _when(r.start)
-        if at is None or (lo and at < lo) or (hi and at > hi):
+        if at is None or (lo and at < lo) or (hi and at >= hi):
             continue
         mine.append(r)
     if not mine:
@@ -152,24 +201,13 @@ def measure_item(rows: list[AgentRow], item: dict) -> Measured | None:
     return Measured(name, sum(r.seconds for r in mine) / 60, sum(r.seconds for r in mine if _is_build(r.kind)) / 60, len(mine))
 
 
-def edits_texts(places: list[str]) -> bool:
-    """Whether any `where` place (`path`, `path:N` ...) lies in an agent, skill, role or rule text folder (also under `plugins/*/`)."""
-    for place in places:
-        path = place.split()[0] if place.split() else ""
-        parts = path.split("/")
-        tails = ["/".join(parts[i:]) for i in range(len(parts))]
-        if any(t.startswith(TEXT_PLACES) for t in tails) and not path.startswith(("tests/", "lib/")):
-            return True
-    return False
-
-
-def estimate(history: list[Measured], paid_run_min: float = 0.0) -> int | None:
-    """Whole minutes: median fixed cycle + median build part of `history` + `paid_run_min`; None with no history (no guess is made)."""
+def estimate(history: list[Measured]) -> int | None:
+    """Whole minutes: median fixed cycle + median build part of `history`; None with no history (no guess is made)."""
     if not history:
         return None
     fixed = statistics.median(m.agent_min - m.build_min for m in history)
     build = statistics.median(m.build_min for m in history)
-    return round(fixed + build + paid_run_min)
+    return round(fixed + build)
 
 
 def _minutes_between(start: str, end: str) -> int | None:
@@ -200,10 +238,34 @@ def compare_lines(items: list[dict], measured: dict[str, Measured]) -> list[str]
     return out
 
 
+def paid_run_text(folder: str) -> str:
+    """One line on the paid run of a wave, from the full batches stored in `folder` (`$RELAY_HOME/evals/<repo>/*.json`): the median wall minutes
+    and cost. A paid run checks a wave of changes, so it is not added to an item's estimate."""
+    minutes, costs = [], []
+    try:
+        names = sorted(n for n in os.listdir(folder) if n.endswith(".json"))
+    except OSError:
+        names = []
+    for name in names:
+        try:
+            with open(os.path.join(folder, name), encoding="utf-8") as handle:
+                d = json.load(handle)
+            seconds, cost = d["durationSeconds"], d["costUsd"]
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if d.get("partial") is True or not all(isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 for v in (seconds, cost)):
+            continue
+        minutes.append(seconds / 60)
+        costs.append(float(cost))
+    if not minutes:
+        return "paid run of a wave (not part of an item's estimate): not measured yet"
+    return (f"paid run of a wave (not part of an item's estimate): median {round(statistics.median(minutes))}m and "
+            f"${statistics.median(costs):.2f} over {len(minutes)} full runs")
+
+
 def next_estimate_text(history: list[Measured]) -> str:
     """The estimate for a new item, with its parts; says so when there is nothing measured to base it on."""
     value = estimate(history)
     if value is None:
         return "no measured change yet: no estimate"
-    return (f"estimate for a new item: {value}m (median fixed cycle plus median build part of {len(history)} changes); "
-            "add the paid run's wall minutes when it edits agent, skill, role or rule texts")
+    return f"estimate for a new item: {value}m (median fixed cycle plus median build part of {len(history)} changes)"

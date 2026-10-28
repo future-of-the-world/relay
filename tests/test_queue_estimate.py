@@ -51,15 +51,31 @@ class Estimate(unittest.TestCase):
         # fixed (agents - build): 20, 30, 100 -> median 30; build: 5, 10, 8 -> median 8; estimate 38
         hist = [est.Measured("a", 25, 5, 3), est.Measured("b", 40, 10, 3), est.Measured("c", 108, 8, 3)]
         self.assertEqual(est.estimate(hist), 38)
-        self.assertEqual(est.estimate(hist, paid_run_min=12), 50)
+        self.assertNotIn("paid", est.next_estimate_text(hist))      # F3: the wave's paid run is not added to an item
 
     def test_no_history_no_guess(self):
         self.assertIsNone(est.estimate([]))
 
-    def test_text_places(self):
-        self.assertTrue(est.edits_texts(["roles/judge.txt a note"]))
-        self.assertTrue(est.edits_texts(["plugins/core/skills/x/SKILL.md:3"]))
-        self.assertFalse(est.edits_texts(["lib/relay_queue.py:5", "tests/rules/x.py"]))
+
+class PaidRun(unittest.TestCase):
+    """F3: the paid run is per wave; it is a line of its own, never added to an item's estimate."""
+    def batch(self, folder, name, seconds, cost, partial=False):
+        with open(os.path.join(folder, name), "w", encoding="utf-8") as handle:
+            json.dump({"durationSeconds": seconds, "costUsd": cost, "partial": partial}, handle)
+
+    def test_median_of_full_batches(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.batch(folder, "a.json", 1200, 4.0)
+            self.batch(folder, "b.json", 2400, 6.0)
+            self.batch(folder, "c.json", 3600, 10.0)
+            self.batch(folder, "d.json", 60, 0.5, partial=True)     # a partial batch is not a run of the suite
+            # minutes 20, 40, 60 -> median 40; costs 4, 6, 10 -> median 6
+            self.assertIn("median 40m and $6.00 over 3 full runs", est.paid_run_text(folder))
+
+    def test_none_measured_says_so(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertIn("not measured yet", est.paid_run_text(folder))
+            self.assertIn("not measured yet", est.paid_run_text(os.path.join(folder, "missing")))
 
 
 class Compare(unittest.TestCase):
@@ -99,6 +115,31 @@ class Brief(unittest.TestCase):
                          [A("train", "delegate:worker", 420.0)])
 
 
+class BriefFile(unittest.TestCase):
+    """F1: the prompt only names a brief file; the worktree is in the file the agent read first (kept in its transcript)."""
+    def write(self, projects, tool_text, prompt="Read and follow the brief /s/briefs/b.md"):
+        write_agent(projects, "s1", "a1", "/r", "delegate:worker", "2026-10-01T10:00:00Z", "2026-10-01T10:07:00Z", prompt=prompt)
+        path = os.path.join(projects, "proj", "s1", "subagents", "agent-a1.jsonl")
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write("\n" + json.dumps({"type": "user", "cwd": "/r", "timestamp": "2026-10-01T10:00:01Z", "message": {"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": "t", "content": [{"type": "text", "text": tool_text}]}]}}))
+
+    def test_worktree_from_brief_read(self):
+        with tempfile.TemporaryDirectory() as projects:
+            self.write(projects, "Fix it in /r/.worktrees/c9 (branch wt/c9)")
+            self.assertEqual(est.agent_rows(projects), [A("c9", "delegate:worker", 420.0)])
+
+    def test_branch_from_brief_read(self):
+        with tempfile.TemporaryDirectory() as projects:
+            self.write(projects, "work on branch wt/c9 only")
+            self.assertEqual(est.agent_rows(projects), [A("c9", "delegate:worker", 420.0)])
+
+    def test_nothing_named_no_row(self):
+        with tempfile.TemporaryDirectory() as projects:
+            self.write(projects, "just edit lib/x.py")
+            self.assertEqual(est.agent_rows(projects), [])
+
+
 class Repo(unittest.TestCase):
     """F2: only this repo's worktrees count."""
     def test_same_name_in_other_repo_ignored(self):
@@ -119,11 +160,15 @@ class Window(unittest.TestCase):
     def test_agents_split_by_window(self):
         rows = [A("x", "delegate:worker", 600, "2026-10-01T10:10:00Z"), A("x", "delegate:worker", 1800, "2026-10-01T12:10:00Z"),
                 A("x", "delegate:thinker", 60, "2026-10-01T09:00:00Z")]
-        a = est.measure_item(rows, self.item("2026-10-01T10:00:00Z", "2026-10-01T11:00:00Z"))
-        b = est.measure_item(rows, self.item("2026-10-01T12:00:00Z", "2026-10-01T13:00:00Z"))
+        ia, ib = self.item("2026-10-01T10:00:00Z", "2026-10-01T11:00:00Z"), self.item("2026-10-01T12:00:00Z", "2026-10-01T13:00:00Z")
+        a = est.measure_item(rows, ia, [ia, ib])
+        b = est.measure_item(rows, ib, [ia, ib])
         # A: 10 min (the 09:00 design agent began before taken_at); B: 30 min
         self.assertEqual((a.agent_min, a.agents), (10.0, 1))
         self.assertEqual((b.agent_min, b.agents), (30.0, 1))
+        # an agent still running after the item's closed_at (the last checks) counts to it: 11:30 belongs to A, not lost
+        late = rows + [A("x", "delegate:fixer", 120, "2026-10-01T11:30:00Z")]
+        self.assertEqual(est.measure_item(late, ia, [ia, ib]).agent_min, 12.0)
         both = est.measure_item(rows, self.item("2026-10-01T08:00:00Z", "2026-10-01T13:00:00Z"))
         self.assertEqual(both.agent_min, 41.0)
 
@@ -146,6 +191,8 @@ class View(unittest.TestCase):
             from contextlib import redirect_stdout
             old = os.environ.get("CLAUDE_CONFIG_DIR")
             os.environ["CLAUDE_CONFIG_DIR"] = cfg
+            old_home = os.environ.get("RELAY_HOME")
+            os.environ["RELAY_HOME"] = os.path.join(tmp, "home")
             try:
                 import importlib.util
                 spec = importlib.util.spec_from_file_location("qe", os.path.join(root, "lib", "queue_ext", "estimate.py"))
@@ -155,6 +202,10 @@ class View(unittest.TestCase):
                 with redirect_stdout(out):
                     mod.run([dict(item, problems=[])], ["--root", repo])
             finally:
+                if old_home is None:
+                    del os.environ["RELAY_HOME"]
+                else:
+                    os.environ["RELAY_HOME"] = old_home
                 if old is None:
                     del os.environ["CLAUDE_CONFIG_DIR"]
                 else:
@@ -165,6 +216,11 @@ class View(unittest.TestCase):
         out = self.run_view(True)
         self.assertIn("30 est", out)
         self.assertIn("10 agents (10 build)", out)
+
+    def test_view_prints_paid_run_and_coverage(self):
+        out = self.run_view(True)
+        self.assertIn("paid run of a wave (not part of an item's estimate)", out)
+        self.assertIn("coverage: 1 of 1 closed items", out)
 
     def test_open_item_no_line(self):
         out = self.run_view(False)
