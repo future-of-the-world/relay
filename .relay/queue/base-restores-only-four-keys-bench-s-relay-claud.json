@@ -26,8 +26,8 @@
   "where": [
     "tests/relay_testbase.py:14"
   ],
-  "taken_at": "2026-10-28T11:23:12Z",
-  "taken_by": "wt/base-restores-only-four-keys-bench-s-rel",
+  "taken_at": null,
+  "taken_by": null,
   "closed_at": null,
   "test": null,
   "dropped_at": null,
