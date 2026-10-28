@@ -28,5 +28,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T22:10:58Z",
+      "fact": [
+        "29 Oct, third case in one night: cycle run wf_4392f3f2-9ff, change wt/test-scaffolding-for-per-command-modules, the gate step after the gate fixer's commit 83641ac3 ended with 'subagent completed without calling StructuredOutput (after in-conversation nudge)' and left no gate log for 83641ac3; the front ran the gate by hand. The two earlier gates of the same run did leave logs."
+      ]
+    }
+  ]
 }
