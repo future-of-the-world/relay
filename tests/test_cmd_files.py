@@ -42,6 +42,30 @@ class CommandList(unittest.TestCase):
                 handle.write('COMMANDS = {"status": None}\n')
             self.assertFalse(relay_commands.FLOOR <= set(relay_commands.names(root)))  # what the help test's floor check catches
 
+    def test_queue_words_follow_the_usage_into_a_command_module(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            make(root, "bin/relay", "lib/relay_cmd/queue/__init__.py")
+            with open(os.path.join(root, "bin", "relay"), "w", encoding="utf-8") as handle:
+                handle.write("COMMANDS = {}\n")
+            with open(os.path.join(root, "lib", "relay_cmd", "queue", "__init__.py"), "w", encoding="utf-8") as handle:
+                handle.write('USAGE = "relay queue [count|purge]"\n')
+            # the usage lives only in the module: its words are still found
+            self.assertEqual(relay_commands.queue_words(root), {"count", "purge"})
+
+    def test_queue_floor_is_todays_fifteen_words(self) -> None:
+        today = {"count", "show", "history", "check", "migrate", "land", "ip", "take", "release", "done", "drop", "add", "note",
+                 "edit", "start"}
+        self.assertEqual(len(today), 15)
+        self.assertEqual(relay_commands.QUEUE_FLOOR, today)
+        self.assertLessEqual(today, relay_commands.queue_words())
+
+    def test_a_tree_without_the_usage_falls_below_the_queue_floor(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            make(root, "bin/relay")
+            with open(os.path.join(root, "bin", "relay"), "w", encoding="utf-8") as handle:
+                handle.write("COMMANDS = {}\n")
+            self.assertFalse(relay_commands.QUEUE_FLOOR <= relay_commands.queue_words(root))
+
     def test_live_names_and_queue_words(self) -> None:
         self.assertTrue(relay_commands.FLOOR <= set(relay_commands.names()))
         self.assertLessEqual({"add", "show", "take", "count"}, relay_commands.queue_words())

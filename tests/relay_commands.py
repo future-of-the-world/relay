@@ -18,6 +18,12 @@ NAME = re.compile(r"[a-z][a-z0-9_]*")
 FLOOR = frozenset("status report calibrate improve bench candidate profile sync setup install migrate doctor flows rules "
                   "changed gate land precheck check queue license".split())
 
+# Today's 15 words of `relay queue`, written out: queue_words() shrinking below this means the usage moved out of reach.
+QUEUE_FLOOR = frozenset("count show history check migrate land ip take release done drop add note edit start".split())
+USAGE_LINE = re.compile(r"relay queue \[([a-z|]+)\]")
+# Files that may come to hold the usage text when the help moves out of bin/relay (read as text, not imported).
+USAGE_FILES = (("lib", "relay_cli.py"), ("lib", "relay_cmd", "queue", "__init__.py"))
+
 
 def load_relay(root: str = ROOT) -> types.ModuleType:
     loader = importlib.machinery.SourceFileLoader("relay_cli_under_test", os.path.join(root, "bin", "relay"))
@@ -56,7 +62,12 @@ def queue_words(root: str = ROOT) -> set[str]:
     words = {action for cmd, action in walk(root) if cmd == "queue" and action}
     words |= set(getattr(module, "QUEUE_WRITES", ()))
     usage = (getattr(module, "__doc__", "") or "") + "\n" + str(getattr(module, "QUEUE_USAGE", ""))
-    for found in re.findall(r"relay queue \[([a-z|]+)\]", usage):
+    for parts in USAGE_FILES:
+        path = os.path.join(root, *parts)
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as handle:
+                usage += "\n" + handle.read()
+    for found in USAGE_LINE.findall(usage):
         words |= set(found.split("|"))
     return words
 

@@ -13,7 +13,7 @@ SMOKE = {
     "improve": (["improve", "log"], False, 0, "stdout", "No adoptions yet."),
     "bench": (["bench"], False, 2, "stderr", "relay bench <profileA>"),
     "candidate": (["candidate"], False, 2, "stderr", "relay candidate <name>"),
-    "profile": (["profile"], False, 1, "stderr", "no profile 'active'"),
+    "profile": (["profile", "nosuch"], False, 1, "stderr", "no profile 'nosuch'"),
     "sync": (["sync"], False, 1, "stderr", "relay sync: waits for a green paid run"),
     "setup": (["setup", "--bogus"], False, 2, "stderr", "unknown flag --bogus"),
     "install": (["install", "--bogus"], False, 1, "stderr", "relay install: [Errno 2]"),

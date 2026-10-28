@@ -5,6 +5,9 @@ action of a package command), written when the command moves to lib/relay_cmd/:
   1. `relay <cmd> --help` prints the usage lines it printed before the move (a literal, copied from before the move);
   2. one smoke case with harmless arguments asserting the exit code and one output line (for a command that cannot run
      in a temporary tree, its usage refusal, e.g. `relay land` with no branch: exit 2 and its usage line).
+Under the empty RELAY_ROOT some commands (calibrate, install, flows, rules, doctor) fail on a missing file before they read
+their arguments, so tests/test_cmd_smoke.py cannot catch an off-by-one for them: the per-command file of the move must
+replace that case with one whose outcome depends on an argument.
 Together they catch an off-by-one in how the dispatcher hands args to a module's run().
 
 `run_relay(args)` uses a temporary HOME, RELAY_HOME, RELAY_ROOT and working folder (a plain folder, not a repository,

@@ -59,11 +59,14 @@ class ReadOnlyHook(unittest.TestCase):
         self.assertLessEqual(relay_commands.FLOOR, commands)
         self.assertEqual(commands - set(guard.WRITERS) - guard.READS, set())
 
-    @unittest.skip("blocked: the guard does not classify `relay queue start` until item read-only-guard-lets-a-critic-run-relay-queue-st lands")
+    # `relay queue start` is not classified yet; item read-only-guard-lets-a-critic-run-relay-queue-st adds it. Equality below
+    # turns red when that lands, asking for this set to be emptied and removed.
+    KNOWN_UNCLASSIFIED_QUEUE_WORDS = {"start"}
+
     def test_q1_every_relay_queue_word_is_classified(self) -> None:
         guard = load_guard()
-        queue_words = relay_commands.queue_words()
-        self.assertEqual(queue_words - guard.WRITERS["queue"] - guard.READ_WORDS["queue"], set())
+        missing = relay_commands.queue_words() - guard.WRITERS["queue"] - guard.READ_WORDS["queue"]
+        self.assertEqual(missing, self.KNOWN_UNCLASSIFIED_QUEUE_WORDS)
 
 
 class MigrateAllPrimary(unittest.TestCase):
