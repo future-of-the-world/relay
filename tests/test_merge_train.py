@@ -624,6 +624,47 @@ class RefusalsNameTheSteps(TrainCase):
         lines = rm.show(self.main, "wt/train-1")
         self.assertEqual(lines[1:], ["mark: none needed, the ready changes it holds are checked", "outside: none to count"])
 
+    def test_show_on_a_branch_with_only_inert_commits_claims_no_refusal(self):
+        # F1: step 3 of the hook skips the mark when only inert files changed, so show must not say "no mark yet".
+        self.landed_mark()
+        a = self.tree("a")
+        self.commit(a, {"docs/handover.md": "x\n"})
+        self.assertIsNone(self.verdict("wt/a"))
+        self.assertEqual(rm.show(self.main, "wt/a")[1:], ["mark: none needed, no code changed", "outside: none to count"])
+
+    def test_show_reads_only_the_marks_of_the_branchs_own_commits_and_computes_absorbed_once(self):
+        # F2: master holds 3 landed marks (3 changes); wt/a has one own commit with a mark. Reads: only wt/a's commits
+        # (its code commit, gate commit, mark commit = at most 3 candidates), never the landed marks.
+        for name in ("m1", "m2", "m3"):
+            m = self.tree(name)
+            self.ready(m, {"lib/%s.py" % name: "x\n"})
+            self.git(self.main, "merge", "-q", "--no-edit", "wt/" + name)
+        a = self.tree("a")
+        commit = self.ready(a, {"lib/a.py": "a1\n"})
+        import relay_inert
+        reads, calls = [], []
+        real_get, real_abs = rm.get, relay_inert.absorbed
+        rm.get = lambda repo, ref, c: (reads.append(c), real_get(repo, ref, c))[1]
+        relay_inert.absorbed = lambda *args: (calls.append(1), real_abs(*args))[1]
+        try:
+            lines = rm.show(self.main, "wt/a")
+        finally:
+            rm.get, relay_inert.absorbed = real_get, real_abs
+        self.assertEqual(lines[1], "mark %s: open 0, queued 0" % commit)
+        own = set(self.git(self.main, "rev-list", "wt/a", "^master").split())
+        self.assertLessEqual(set(reads), own)
+        self.assertEqual(len(calls), 1)
+
+    def test_show_names_code_changed_since_the_gate(self):
+        # F3: the gate that is newest landed on master; wt/a commits lib/a.py and an open-0 mark, but no gate.
+        self.landed_mark()
+        a = self.tree("a")
+        commit = self.commit(a, {"lib/a.py": "a1\n"})
+        self.mark(a, commit)
+        self.assertIn("no green gate", self.verdict("wt/a"))
+        lines = rm.show(self.main, "wt/a")
+        self.assertEqual(lines[-1], "code changed since the gate: lib/a.py; run relay gate")
+
     def test_a_branch_with_no_mark_is_told_to_gate_and_check(self):
         a = self.tree("a")
         self.commit(a, {"lib/a.py": "a1\n"})
