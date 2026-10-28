@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 98,
+  "time": 30,
+  "found_at": "2026-10-28T11:53:28Z",
+  "found_in": "relay queue add",
+  "title": "An eval scaffold overwrote the live ~/relay/bin/relay",
+  "what": [
+    "setup-relay-stub.sh refuses unless HOME is a run's own throwaway home (a marker the eval harness sets, or HOME under the system temp folder) and never writes into a git checkout; the scaffolds call it only that way. relay doctor names a main checkout whose bin/relay differs from HEAD."
+  ],
+  "why": [
+    "28 Oct 11:49 UTC: the main checkout's bin/relay was replaced by evals/plugin/relay-stub.py (byte-identical), so every `relay` command on this machine printed two stub usage lines (`relay queue` and `relay queue count` broke for the front). evals/plugin/setup-relay-stub.sh line 7 copies the stub to \"$HOME/relay/bin/relay\", meant for the eval run's own $HOME; a scaffold.sh run (recall-decision, keep-owner-words, keep-owner-words-en) with the real HOME writes over the owner's relay. guard-main then refuses `git restore bin/relay` in the main checkout, so the front cannot undo it."
+  ],
+  "failing_case": [
+    "HOME=$HOME evals/plugin/recall-decision/scaffold.sh in a workspace: ~/relay/bin/relay becomes relay-stub.py."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same refuses and writes nothing.",
+    "Inside `claude plugin eval --scaffold` (its own HOME) the stub is placed as today and recall-decision passes."
+  ],
+  "where": [
+    "evals/plugin/setup-relay-stub.sh",
+    "evals/plugin/recall-decision/scaffold.sh",
+    "tests/test_eval_cases.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
