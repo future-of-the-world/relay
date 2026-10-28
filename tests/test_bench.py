@@ -193,5 +193,22 @@ class Bench(Base):
         self.assertFalse(out[0]["passed"])
 
 
+class ModulesPutBack(unittest.TestCase):
+    def test_a_base_test_leaves_the_relay_modules_it_found(self):
+        """Another test module holds the relay_* modules it imported (test_lanes_state: tq.rq and rl); a Base test that left
+        fresh copies behind made a later lazy import see a second relay_queue, so `Refused` never matched (gate, 28 Oct)."""
+        import relay_config  # noqa: F401  (puts the module in sys.modules for the snapshot)
+        before = sys.modules["relay_config"]
+
+        class Inner(Base):
+            def test_it(self):
+                import relay_config as fresh
+                self.assertIsNot(fresh, before)   # the test itself runs on fresh modules
+
+        result = unittest.TextTestRunner(stream=open(os.devnull, "w")).run(unittest.defaultTestLoader.loadTestsFromTestCase(Inner))
+        self.assertTrue(result.wasSuccessful())
+        self.assertIs(sys.modules["relay_config"], before)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
