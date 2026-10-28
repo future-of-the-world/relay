@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 80,
+  "time": 45,
+  "found_at": "2026-10-28T07:41:27Z",
+  "found_in": "relay queue add",
+  "title": "Inert probe leaves worktrees registered in the live repo",
+  "what": [
+    "The inert probe makes its worktree from a throwaway clone (or removes it in a finally and on a killed run), so nothing is registered in the live repo; relay doctor names and prunes leftover probe worktrees."
+  ],
+  "why": [
+    "28 Oct ~07:50 UTC: `git worktree list` in ~/relay shows 20 detached worktrees under the macOS temp folder (tmp*/wt), each HEAD an 'inert probe' commit by relay-ci; 9 still exist (2-4 days old, clean), 11 point at deleted folders. A test or the gate's inert probe registers its worktree in the live repo and does not remove it when it ends or is killed. The rule: tests use a temporary folder and never touch the live repo."
+  ],
+  "failing_case": [
+    "After a gate run, `git -C ~/relay worktree list` has a new tmp*/wt entry that stays after the gate ends."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A gate run leaves `git worktree list` as it found it.",
+    "A probe killed mid-run leaves no registered worktree after the next relay doctor."
+  ],
+  "where": [
+    "lib/relay_inert.py (the probe)",
+    "plugins/front/lib/relay_inert.py (copy)",
+    "tests/ (temporary repo)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
