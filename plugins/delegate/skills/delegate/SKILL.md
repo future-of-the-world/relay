@@ -117,8 +117,10 @@ call; the named copy `delegate:cycle` stays as the session first saw it). Args:
 `base` (the default branch), `relay` (true where the project has `.relay/`),
 `scratch`, and in a project without `.relay/` also `gate` (its own gate
 command); a missing one stops the run in one line. Each unit has a `kind`:
-`change`, `built`, `fix`, `recheck` (a branch that took the default branch, or
-a train with `items`, one check per rider item, in order). The script runs one
+`change`, `built`, `fix`, `recheck` (a branch or a train with `items`, one check per rider item, in order;
+its gate runner first merges the default branch itself, so no separate take is
+needed, and a conflict stops it at gate with "take conflict: <files>" for a fixer,
+then a new recheck). The script runs one
 checker per change, as step 7 says.
 Unit fields: `name`, `wt`, `check`, `branch` (relay mode), `item` (one fix-item
 slug); `fix` also takes `fix`, `fixes`, `findings`; `recheck` takes `findings` or
@@ -158,13 +160,16 @@ front's.
    the default branch that morning; one change cycle spent about 34 minutes and
    123k tokens before finding nothing to do).
 3. **Gate before the review.** Where the project has `.relay/`, a
-   `delegate:runner` runs `relay gate` (detached, with the limits recipe: it
-   takes minutes) in the worktree, with the project's arguments (relay:
+   `delegate:runner` runs `relay gate` (detached, with the recipe under Limits in every agent file: nohup, a log, a `kill -0` wait loop;
+   macOS has no `timeout` program, so no agent calls it; it takes minutes) in the worktree, with the project's arguments (relay:
    `relay gate -- --quick`). It runs the free checks on the committed head and
    stores the result as `.relay/checks/<G>.gate.log`. A red gate goes back to
    the worker or a fixer, then this step again: a red build is never reviewed.
    `relay gate` on code that already has a green gate (only inert files
-   changed since) reports that gate and runs nothing; a reused gate is the gate.
+   changed since) reports that gate and runs nothing; a reused gate is the gate. A finished red
+   gate with only `.relay/checks/` commits since is reported the same way
+   (stderr says so); `relay gate --again` runs the command anyway, for a red
+   that came from outside the code (killed, load, a missing tool).
    A runner that replies RUNNING with a log leaves the job running: start a
    fresh runner that waits on that pid and log; never start the gate again. A
    worker or fixer that hands back BLOCKED with still running: <log> is handled

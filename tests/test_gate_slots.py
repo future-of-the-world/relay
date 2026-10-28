@@ -258,6 +258,20 @@ class Slots(Fixture):
         head = git(self.wt, "rev-parse", "HEAD~1")
         self.assertNotIn("\0", read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
 
+    def test_f3_a_gate_that_waited_for_a_gate_that_went_red_reports_that_red(self):
+        """A runs on G and ends red (exit 1); B (same worktree, same command) waited for the lock. B takes the lock, finds A's
+        red log and reports it: exit 1, the command ran once. Not 'moved to another commit'."""
+        write(self.script, "#!/bin/sh\n" + HOLD.replace("exit 0", "exit 1") % (self.counter, self.release, self.tmp), 0o700)
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        second = self.start(self.wt)
+        self.assertIn("waiting for the gate already running", self.line(second))
+        write(self.release, "go\n")
+        self.assertEqual(first.wait(timeout=BOUND), 1)
+        self.assertEqual(second.wait(timeout=BOUND), 1)
+        self.assertNotIn("moved", second.stderr.read())
+        self.assertEqual(self.runs(), 1)
+
     def test_t2_a_second_gate_after_code_moved_refuses_and_never_runs(self):
         """T2: code is committed in the worktree while A runs and B waits. B ends with 'moved' and never runs; A, whose tree
         is no longer its commit, is refused too, with no log."""

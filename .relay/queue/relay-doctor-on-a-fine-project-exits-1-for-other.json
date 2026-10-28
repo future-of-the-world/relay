@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-28T01:58:01Z",
   "taken_by": "wt/doctor-exit",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T04:48:33Z",
+  "test": "tests/test_setup.py::Setup::test_relay_doctor_of_a_fine_project_exits_0_with_a_machine_fix",
   "dropped_at": null,
   "dropped_why": null
 }

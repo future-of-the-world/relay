@@ -79,7 +79,12 @@ run_step() { # name cmd...
 #   run_step format   bun run format --check
 #   run_step types    bun run typecheck
 #   run_step tests    bun test ${TEST_FILES:-}
-run_step placeholder true
+# --tests names the files to run: they become TEST_FILES for the steps (without --failed); a TEST_FILES already set stays.
+if [ "${1:-}" = "--tests" ]; then
+  TEST_FILES=""
+  for a in "${@:2}"; do [ "$a" = "--failed" ] || TEST_FILES="$TEST_FILES $a"; done
+fi
+{{check_steps}}
 rm -f "$fails"
 echo "passed (${elapsed} min since the first check of this task)"
 [ "$elapsed" -ge "$minutes" ] && echo "TIME BUDGET SPENT"

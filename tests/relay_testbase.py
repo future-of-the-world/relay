@@ -58,6 +58,7 @@ class Base(unittest.TestCase):
             handle.write('[global]\nfile = "~/.claude/CLAUDE.md"\ntitle = "Defaults for all projects"\nintro = "Test."\nload = []\npaid_cap_usd_per_day = 1000\n\n'
                          '[demo]\nfile = "%s"\ntitle = "Principles this project loads"\nload = ["quality-gate"]\nread = []\n' % self.project_file)
         os.environ["RELAY_PROJECTS"] = projects
+        self._saved_modules = {m: sys.modules[m] for m in sys.modules if m.startswith("relay_")}
         _drop_relay_modules()
 
     def tearDown(self):
@@ -66,5 +67,6 @@ class Base(unittest.TestCase):
         os.environ.clear()
         os.environ.update(self._saved_env)
         _drop_relay_modules()
+        sys.modules.update(self._saved_modules)   # the very objects other test modules hold (tq.rq, rl), not fresh copies
         shutil.rmtree(self.tmp, ignore_errors=True)
 

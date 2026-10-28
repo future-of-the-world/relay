@@ -1,0 +1,213 @@
+{
+  "branch": "wt/train-23",
+  "findings": [
+    {
+      "details": [
+        "The delegate skill says a runner runs relay gate detached 'with the limits recipe', but no file names or links that recipe; and the rule 'no command over 4 minutes' invites timeout.",
+        "Also: plugins/delegate/agents/runner.md:22-45"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Trial: delegate:runner wrapped relay check show in timeout and got exit 127 on macOS."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 100,
+      "pass_cases": [
+        "The skill names the recipe with a command that runs on macOS; a runner following it never calls timeout."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_agents.py:316 test_timeout_line_is_in_every_limits_carrier passes at head and fails at abfdb1e6bb96 (checker.md lacks the line)."
+      ],
+      "severity": "HIGH",
+      "since": "abfdb1e6bb969d9189529e221db31c2953da36d5",
+      "source": "queue",
+      "summary": "Agents call timeout, which macOS lacks; recipe unnamed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The item's Why names the cause: \"the rule 'no command over 4 minutes' invites timeout\". That rule is roles/parts/limits.md, assembled into 9 agent files; the change patched one of them (runner.md, by hand outside the markers) and left the source. Principle 6 (cause, not symptom) and the brief (\"Fix at the cause\") point at the shared part. The change's own text in SKILL.md (\"so no agent calls it\") is the promise not kept, which makes the fix inside. Size: 10 agent minutes (one line in limits.md, bin/relay sync agents, move the test to assert on all Limits carriers, drop the runner duplicate)."
+      ],
+      "evidence": [
+        "$ grep -l \"relay:part limits\" plugins/*/agents/*.md   -> 9 files (checker, critic, thinker, spec-reviewer, fixer, worker, author, spec-conformance, runner)",
+        "$ grep -rl \"macOS has no\" plugins/*/agents/*.md roles  -> plugins/delegate/agents/runner.md only",
+        "$ command -v timeout; echo $?  -> 1 (no timeout on this Mac)"
+      ],
+      "failing_case": [
+        "A delegate:worker or delegate:fixer brief says \"loop on <a test suite that takes 6 minutes>\". The worker reads its Limits (\"No command blocks longer than 4 minutes; no Bash `timeout` above 240000 ms\"), has no line saying macOS lacks the `timeout` program, and wraps the run as `timeout 600 pytest ...`: exit 127 on macOS. Now: only plugins/delegate/agents/runner.md has \"macOS has no `timeout` program\"; SKILL.md:160-162 says \"macOS has no `timeout` program, so no agent calls it\". Should: every agent that carries the Limits part gets the line, from the one shared source."
+      ],
+      "fix_hint": [
+        "Put \"macOS has no `timeout` program (exit 127): never wrap a command in it; bound a job with the recipe below.\" into roles/parts/limits.md right after its first line, run bin/relay sync agents, and delete the hand-written \"Bounding a long job on macOS\" section from runner.md (Limits sits right below it). Extend the test to every agent file with a limits part."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. grep -l \"macOS has no\" over plugins/*/agents/*.md lists every file that has `<!-- relay:part limits -->` (today: checker, critic, thinker, fixer, worker, runner, author, spec-reviewer, spec-conformance), after bin/relay sync agents.",
+        "2. roles/parts/limits.md holds the line once; the relay_roles check (agents match their parts) stays green.",
+        "3. runner.md still has the nohup + kill -0 recipe under Limits (tests/test_agents.py test_timeout_recipe_is_named_and_runs_on_macos still passes).",
+        "4. SKILL.md's claim and the agent texts agree: either all agents are told, or the skill says only \"the runner\"."
+      ],
+      "path": "roles/parts/limits.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_agents.py:316-330: the line is in roles/parts/limits.md once and in every agent file with a limits part (9 carriers); SKILL.md agrees."
+      ],
+      "severity": "MEDIUM",
+      "since": "797d1c6837d17e2a86582bbf18f7de0683ad9002",
+      "source": "review-timeout-recipe.json",
+      "source_id": "F1",
+      "summary": "SKILL.md now promises 'no agent calls timeout', but only the runner is told; 8 other agents carry the same Limits text that invites it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Correct today (the copies agree on the command), so LOW: fragile through drift, and the <logs> wording already differs. The item asked to \"state the recipe once\". Size: 5 agent minutes, folded into F1's fix."
+      ],
+      "evidence": [
+        "runner.md:25-29 (new section) vs runner.md:39-45 (relay:part limits); SKILL.md:160-162; cycle.js:116 `const log = `${S}/gate-${tag(it)}-${n}.log``"
+      ],
+      "failing_case": [
+        "runner.md:29 says \"`<logs>` is the scratchpad the prompt names\"; the Limits part 15 lines below says \"`<logs>` is the folder your flow names, else the scratchpad the prompt gives\". SKILL.md:160 copies the start line without `cd <path> && mkdir -p`. cycle.js:116 gives the runner an explicit log file (`${S}/gate-<name>-<n>.log`), while both runner copies hard-code `<logs>/long.log`. A change to the recipe in roles/parts/limits.md now has to be repeated by hand in two places. Should: one copy (the Limits part), referenced by the others."
+      ],
+      "fix_hint": [
+        "Drop the runner section (F1 moves its one new fact into the Limits part); in SKILL.md say \"with the recipe under Limits in every agent file (nohup, a log, a kill -0 wait loop; macOS has no `timeout` program)\"."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 29,
+      "pass_cases": [
+        "1. runner.md has the nohup/kill -0 command lines exactly once (in the Limits part).",
+        "2. SKILL.md names where the recipe lives (the Limits part of the agent files) and keeps the words \"macOS has no `timeout` program\", so tests/test_agents.py keeps passing on it.",
+        "3. The definition of <logs> appears once."
+      ],
+      "path": "plugins/delegate/agents/runner.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_agents.py:327 asserts the recipe command appears once per agent file; the runner section is gone."
+      ],
+      "severity": "LOW",
+      "since": "797d1c6837d17e2a86582bbf18f7de0683ad9002",
+      "source": "review-timeout-recipe.json",
+      "source_id": "F2",
+      "summary": "the runner section restates the Limits recipe 10 lines below and redefines <logs> differently; SKILL.md holds a third, shorter copy",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading master's runner.md. The test does fail on master through SKILL.md, so the change does have a failing-first test; this is about what it would miss later. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "git show master:plugins/delegate/agents/runner.md | grep -c \"nohup\\|kill -0\\|`timeout`\"  -> the Limits lines match",
+        "git show master:plugins/delegate/skills/delegate/SKILL.md | grep -c \"nohup\\|kill -0\" -> 0",
+        "~/.local/bin/pytest tests/test_agents.py -q -k timeout_recipe -> 1 passed"
+      ],
+      "failing_case": [
+        "On master, runner.md already contains \"nohup\", \"kill -0\" and \"`timeout`\" (from the Limits part: \"no Bash `timeout` above 240000 ms\"). Deleting the new runner section and keeping any one sentence with \"macOS has no\" keeps the test green. The name says the recipe runs on macOS, but no command is run. Should: assert the specific new line, and either run the recipe (a 1-second job through nohup and the kill -0 loop, in a temporary folder) or drop \"runs_on_macos\" from the name."
+      ],
+      "fix_hint": [
+        "Assert on \"macOS has no `timeout` program\" for each file with a limits part; rename the test to say \"is named\", or add the 1-second run in a TemporaryDirectory."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 315,
+      "pass_cases": [
+        "1. With the \"macOS has no `timeout` program\" line removed from an agent's Limits, the test fails.",
+        "2. With the line present in every Limits carrier, the test passes.",
+        "3. If the test runs the recipe: `sh -c 'echo hi; sleep 1'` started by the documented start line in a temp dir ends with \"hi\" in the log, without calling timeout."
+      ],
+      "path": "tests/test_agents.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_agents.py:335 test_timeout_free_recipe_runs runs the documented start line and wait loop on a 1-second job in a temp dir and passes."
+      ],
+      "severity": "LOW",
+      "since": "797d1c6837d17e2a86582bbf18f7de0683ad9002",
+      "source": "review-timeout-recipe.json",
+      "source_id": "F3",
+      "summary": "the test named 'runs_on_macos' runs nothing, and 3 of its 4 assertions on runner.md already held on master",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "bin/relay came in from master (merge 7668abd0bc87) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "bin/relay arrived by a merge of master; the full gate is green on this head (cf3f350, exit 0) and the change does not touch it."
+      ],
+      "severity": "MEDIUM",
+      "since": "7668abd0bc872c7bb429e262d42bade36fcfd23c",
+      "source": "merge",
+      "summary": "bin/relay was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/skills/delegate/SKILL.md came in from master (merge 7668abd0bc87) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "SKILL.md after the merge keeps the macOS no-timeout sentence and Limits pointer (test_agents.py:331-333 passes); gate green."
+      ],
+      "severity": "MEDIUM",
+      "since": "7668abd0bc872c7bb429e262d42bade36fcfd23c",
+      "source": "merge",
+      "summary": "plugins/delegate/skills/delegate/SKILL.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_lanes_state.py came in from master (merge 7668abd0bc87) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_lanes_state.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py was fixed in cf3f350 and the gate on that head is green."
+      ],
+      "severity": "MEDIUM",
+      "since": "7668abd0bc872c7bb429e262d42bade36fcfd23c",
+      "source": "merge",
+      "summary": "tests/test_lanes_state.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "cf3f350c848db01d22a96fd960c454befd28d61f.gate.log",
+  "head": "5e7408099d79e2ea314618ff27f5a71d2117e11b",
+  "item": "agents-call-timeout-which-macos-lacks-recipe-unn",
+  "notes": [
+    "Limits line now lives once in roles/parts/limits.md and all 9 carriers have it; the runner duplicate is gone; the recipe is run by a test."
+  ],
+  "schema": 2,
+  "scope": [
+    "Rechecked on train head 5e74080. Gate log head cf3f350 exit 0; relay changed lists no file after it (only the gate log). Ran tests/test_agents.py (9 passed). Proved the new tests fail without the fix in a throwaway worktree at abfdb1e6bb96."
+  ],
+  "type": "check"
+}

@@ -17,7 +17,10 @@ a fake that prints a result document, so the whole pipeline is tested without
 spending money.
 """
 
+from __future__ import annotations
+
 import datetime as dt
+import glob
 import json
 import os
 import re
@@ -271,8 +274,9 @@ def make_workspace(scenario, base_dir):
 
 # --- graders ----------------------------------------------------------------
 
-def grade(scenario, workspace, result_text, claude_bin, judge_model, session_id=None):
+def grade(scenario, workspace, result_text, claude_bin, judge_model, session_id=None, config_dir=None):
     out = []
+    calls: list[tuple[str, str]] | None = None   # read once, only when a grader needs it
     for g in scenario.get("graders", []):
         kind = g["type"]
         passed, note = False, ""
@@ -291,9 +295,15 @@ def grade(scenario, workspace, result_text, claude_bin, judge_model, session_id=
                 note = (proc.stdout + proc.stderr).strip().splitlines()[-1:] or [""]
                 note = f"exit {proc.returncode}: {note[0][:120]}"
             elif kind == "llm":
-                passed, note = llm_grade(g, result_text, workspace, claude_bin, judge_model)
+                if calls is None:
+                    calls = tool_calls(session_id, config_dir)
+                passed, note = llm_grade(g, result_text, workspace, claude_bin, judge_model, calls)
             elif kind == "agent_used":
                 passed, note = agent_used(g, session_id)
+            elif kind == "tool_called":
+                if calls is None:
+                    calls = tool_calls(session_id, config_dir)
+                passed, note = tool_called(g, session_id, calls)
         except Exception as exc:  # a grader that crashes is a failed grader, with the reason
             passed, note = False, f"grader error: {exc}"
         out.append({"name": g["name"], "type": kind, "passed": passed, "note": note, "weight": g.get("weight", 1)})
@@ -316,13 +326,92 @@ def agent_used(g, session_id):
     return not hits, f"started: {', '.join(started) or 'none'}"
 
 
-def llm_grade(g, result_text, workspace, claude_bin, judge_model):
+_SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASS|CREDENTIAL|AUTH|DATASOURCE|DSN|LOGIN|PRIVATE|CONN", re.I)
+_URL_WITH_PASSWORD = re.compile(r"://[^/\s:@]+:[^/\s@]+@")   # scheme://user:pass@host, whatever the variable is called
+
+
+def redact(text: str) -> str:
+    """Replace every secret-looking environment value (by variable name, 8+ characters) in `text`,
+    so nothing a grader reads can carry one."""
+    for name, value in os.environ.items():
+        if len(value) >= 8 and (_SECRET_NAME.search(name) or _URL_WITH_PASSWORD.search(value)):
+            text = text.replace(value, "[redacted]")
+    return text
+
+
+def _call_summary(name: str, tool_input: object) -> str:
+    """The part of a tool call a grader can match: a Bash command, a file path, else the input as JSON."""
+    if isinstance(tool_input, dict):
+        for key in ("command", "file_path", "path", "pattern"):
+            if isinstance(tool_input.get(key), str):
+                return tool_input[key]
+    return json.dumps(tool_input, sort_keys=True)
+
+
+def tool_calls(session_id: str | None, config_dir: str | None = None) -> list[tuple[str, str]]:
+    """Every tool call of the session and of its subagents, as (tool name, command or path), secrets
+    redacted, in file order. Read from the transcripts Claude Code leaves under `<config>/projects`."""
+    if not session_id:
+        return []
+    from relay_config import claude_dir
+    root = os.path.join(config_dir or claude_dir(), "projects")
+    files = sorted(glob.glob(os.path.join(root, "*", session_id + ".jsonl"))
+                   + glob.glob(os.path.join(root, "*", session_id, "subagents", "*.jsonl")))
+    uses: list[tuple[object, str, str]] = []
+    refused: set[object] = set()
+    for path in files:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue                      # a torn last line of a transcript still being written
+                message = entry.get("message") if isinstance(entry, dict) else None
+                content = message.get("content") if isinstance(message, dict) else None
+                for block in content if isinstance(content, list) else []:
+                    if not isinstance(block, dict):
+                        continue
+                    # only "assistant" lines: an api-request-blob line repeats the same tool_use
+                    if (entry.get("type") == "assistant" and block.get("type") == "tool_use"
+                            and isinstance(block.get("name"), str)):
+                        uses.append((block.get("id"), block["name"], redact(_call_summary(block["name"], block.get("input")))))
+                    elif block.get("type") == "tool_result" and block.get("is_error") and _was_refused(block.get("content")):
+                        refused.add(block.get("tool_use_id"))
+    # a call a hook or the permission check refused never ran; one that ran and failed still counts
+    return [(name, summary) for ident, name, summary in uses if ident not in refused]
+
+
+def _was_refused(content: object) -> bool:
+    """Is this tool_result error text a refusal (hook deny or permission) rather than a failed run?"""
+    if isinstance(content, list):
+        content = " ".join(b.get("text", "") for b in content if isinstance(b, dict))
+    return isinstance(content, str) and content.lstrip().startswith(
+        ("PreToolUse:", "Permission to use", "The user doesn't want to proceed", "Claude requested permissions"))
+
+
+def tool_called(g, session_id: str | None, calls: list[tuple[str, str]]) -> tuple[bool, str]:
+    """Did the session (or a subagent) call a tool matching `tool` (a regex on the name, default
+    Bash) whose command or path matches `input` (a regex, default any)? `count` calls at least
+    (default 1); `exists = false` inverts."""
+    if not session_id:
+        return False, "no session id in the result"
+    name_re, input_re = re.compile(g.get("tool", "^Bash$")), re.compile(g.get("input", ""), re.S)
+    hits = [c for c in calls if name_re.search(c[0]) and input_re.search(c[1])]
+    note = f"{len(hits)} of {len(calls)} calls matched" + (f": {hits[0][0]} {hits[0][1][:100]}" if hits else "")
+    if g.get("exists", True):
+        return len(hits) >= g.get("count", 1), note
+    return not hits, note
+
+
+def llm_grade(g, result_text, workspace, claude_bin, judge_model, calls=None):
     """A PASS/FAIL rubric judged by a cheap model in a fresh headless session."""
     rubric = g["rubric"]
+    seen = "".join(f"- {n}: {c[:200]}\n" for n, c in (calls or [])[:200])
     prompt = (
         "You are a strict grader. Read the rubric and the candidate reply, then answer with "
         "exactly one line: PASS or FAIL, then a colon and one sentence why.\n\n"
         f"Rubric:\n{rubric}\n\nCandidate reply:\n{result_text[:20000]}\n"
+        + (f"\nTool calls the candidate's session made:\n{seen}" if seen else "")
     )
     proc = subprocess.run([claude_bin, "-p", prompt, "--model", judge_model, "--output-format", "json",
                            "--max-turns", "1", "--tools", ""],
@@ -449,7 +538,7 @@ def run_one(profile, scenario, run_index, out_dir, judge_model, keep=False, conf
     row["session_id"] = result.get("session_id")
     text = result.get("result") or ""
     row["reply_chars"] = len(text)
-    row["graders"] = grade(scenario, ws, text, os.environ.get("RELAY_CLAUDE_BIN", "claude"), judge_model, session_id=row["session_id"])
+    row["graders"] = grade(scenario, ws, text, os.environ.get("RELAY_CLAUDE_BIN", "claude"), judge_model, session_id=row["session_id"], config_dir=config_dir)
     row["score"] = score(row["graders"])
     with open(os.path.join(out_dir, f"{profile['profile']['name']}-{scenario['name']}-{run_index}.log"), "w", encoding="utf-8") as handle:
         handle.write("$ " + " ".join(shell_quote(c) for c in cmd[:6]) + " ...\n\n")

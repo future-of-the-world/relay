@@ -1,0 +1,16 @@
+head c51727d66b5a3d8e96fb266fd6844d053024db9c
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (344s, log: .ci/steps/library-tests.log)
+    ERROR: test_start_refused_without_a_free_lane_or_an_open_item_and_leaves_nothing (test_lanes_state.Start.test_start_refused_without_a_free_lane_or_an_open_item_and_leaves_nothing)
+    FAIL: test_start_removes_the_worktree_when_the_take_fails (test_lanes_state.Start.test_start_removes_the_worktree_when_the_take_fails)
+    AssertionError: Refused not raised
+    FAILED (failures=1, errors=1)
+ci: hook tests ok (194s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (1s)
+ci: RED
+exit 1

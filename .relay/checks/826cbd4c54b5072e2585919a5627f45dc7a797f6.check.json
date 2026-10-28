@@ -1,0 +1,86 @@
+{
+  "branch": "wt/recheck-take",
+  "findings": [
+    {
+      "details": [
+        "A recheck exists to land a branch on the newest master; one that runs on a branch behind master proves nothing the landing needs (principle 2: waste built into the setup)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "cycle.js with a recheck unit on a branch whose merge-base with master is not master's head gates and checks it and reports ready."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A recheck unit first takes the base branch with a merge commit (or stops and says the branch is behind) before its gate.",
+        "A recheck on a branch that already contains master's head runs as today."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "high",
+      "reason": [
+        "tests/test_cycle_workflow.py test_recheck_gate_takes_the_base_first_and_a_conflict_stops_without_a_fix_round (line ~198) passes at head and fails at 336b5442 (AssertionError line 205)."
+      ],
+      "severity": "HIGH",
+      "since": "336b54428afc3ce83fc904933ec6341d2ce46f4c",
+      "source": "queue",
+      "summary": "A recheck runs on a branch that has not taken master",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: cycle.js line 16 was updated, the skill text that the front reads to choose and prepare units",
+        "was not (git grep -n -i recheck lists SKILL.md:118 and front SKILL.md:126; neither was touched by the change).",
+        "The take is a no-op on a branch already holding master, so nothing breaks, but the front's routine take stays,",
+        "which is waste on every landing: MEDIUM by principle 2. Touching a skill text joins the next paid run on master",
+        "(no run per change). Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "git diff --stat master...HEAD: only cycle.js, tests/test_cycle_workflow.py and the gate log changed.",
+        "git grep -n -i recheck: plugins/delegate/skills/delegate/SKILL.md:118 \"`recheck` (a branch that took the default branch, or\""
+      ],
+      "failing_case": [
+        "The front lands a branch behind master. It reads SKILL.md:118 \"`recheck` (a branch that took the default branch, ...)\"",
+        "and, as before, first sends a runner to merge master, then starts the recheck unit, whose gate runner merges again",
+        "(\"Already up to date\"). One extra agent per landing, the waste the queue item was taken to remove. When the",
+        "recheck stops with stopped_at \"gate\" and first_fail \"take conflict: a.py\", nothing in the skill says this is a",
+        "take conflict for a fixer (front SKILL.md:126 path), not a red gate."
+      ],
+      "fix_hint": [
+        "Rewrite SKILL.md:118-119 to: \"`recheck` (a branch or a train with `items`; its gate runner first merges the default",
+        "branch, and a conflict stops it with \"take conflict: <files>\" for a fixer)\"."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 118,
+      "pass_cases": [
+        "1. plugins/delegate/skills/delegate/SKILL.md describes recheck as: takes the default branch itself (merge commit) before its gate; no separate take is needed first.",
+        "2. The same text says a conflict on that take stops the unit at gate with first_fail \"take conflict: <files>\", and the front sends a fixer to resolve it, then a new recheck.",
+        "3. The cycle.js header line 16 (\"take the base, gate, then the check(s), show\") stays as it is."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "plugins/delegate/skills/delegate/SKILL.md:118-121 says the recheck gate runner merges the base itself, no separate take, and a conflict stops at gate with \"take conflict: <files>\" for a fixer then a new recheck; cycle.js header untouched."
+      ],
+      "severity": "MEDIUM",
+      "since": "29e340ff938d42e96c08970360151f410912d466",
+      "source": "review-recheck-take.json",
+      "source_id": "F1",
+      "summary": "principle 2: the delegate skill still describes a recheck as a branch that already took the default branch, so the front keeps a separate take before every recheck, and the new take-conflict stop is not described",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "d5ec4bd572b88254a6fafe7bdac12016deaccae1.gate.log",
+  "head": "826cbd4c54b5072e2585919a5627f45dc7a797f6",
+  "item": "a-recheck-runs-on-a-branch-that-has-not-taken-ma",
+  "notes": [
+    "Only SKILL.md and the inert log changed since the review; no caller impact."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 29e340ff..HEAD (doc fix d5ec4bd5 + gate log). Precheck green, 35 cycle/workflow tests pass. Gate log is for d5ec4bd, exit 0; only the inert log came after. Q1 test run at 336b5442 with head test file: fails there."
+  ],
+  "type": "check"
+}

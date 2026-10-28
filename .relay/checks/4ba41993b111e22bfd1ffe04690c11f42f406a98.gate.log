@@ -1,0 +1,15 @@
+head 4ba41993b111e22bfd1ffe04690c11f42f406a98
+cmd bin/ci --quick
+wait 246.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (677s, log: .ci/steps/library-tests.log)
+    FAIL: test_every_test_class_reading_rules_is_listed (test_rules_gate.RuleTestsComplete.test_every_test_class_reading_rules_is_listed)
+    AssertionError: Lists differ: ['tests.test_setup.Setup'] != []
+    FAILED (failures=1)
+ci: hook tests ok (221s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (5s)
+ci: RED
+exit 1

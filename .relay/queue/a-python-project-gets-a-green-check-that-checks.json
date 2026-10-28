@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-28T01:57:54Z",
   "taken_by": "wt/py-green",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T04:47:46Z",
+  "test": "tests/test_template_python_gate.py::PythonGate::test_setup_writes_pytest_steps_into_bin_check_and_bin_ci",
   "dropped_at": null,
   "dropped_why": null
 }

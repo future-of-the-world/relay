@@ -1,0 +1,125 @@
+{
+  "branch": "wt/train-24",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading: cycle.js line 16 was updated, the skill text that the front reads to choose and prepare units",
+        "was not (git grep -n -i recheck lists SKILL.md:118 and front SKILL.md:126; neither was touched by the change).",
+        "The take is a no-op on a branch already holding master, so nothing breaks, but the front's routine take stays,",
+        "which is waste on every landing: MEDIUM by principle 2. Touching a skill text joins the next paid run on master",
+        "(no run per change). Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "git diff --stat master...HEAD: only cycle.js, tests/test_cycle_workflow.py and the gate log changed.",
+        "git grep -n -i recheck: plugins/delegate/skills/delegate/SKILL.md:118 \"`recheck` (a branch that took the default branch, or\""
+      ],
+      "failing_case": [
+        "The front lands a branch behind master. It reads SKILL.md:118 \"`recheck` (a branch that took the default branch, ...)\"",
+        "and, as before, first sends a runner to merge master, then starts the recheck unit, whose gate runner merges again",
+        "(\"Already up to date\"). One extra agent per landing, the waste the queue item was taken to remove. When the",
+        "recheck stops with stopped_at \"gate\" and first_fail \"take conflict: a.py\", nothing in the skill says this is a",
+        "take conflict for a fixer (front SKILL.md:126 path), not a red gate."
+      ],
+      "fix_hint": [
+        "Rewrite SKILL.md:118-119 to: \"`recheck` (a branch or a train with `items`; its gate runner first merges the default",
+        "branch, and a conflict stops it with \"take conflict: <files>\" for a fixer)\"."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 118,
+      "pass_cases": [
+        "1. plugins/delegate/skills/delegate/SKILL.md describes recheck as: takes the default branch itself (merge commit) before its gate; no separate take is needed first.",
+        "2. The same text says a conflict on that take stops the unit at gate with first_fail \"take conflict: <files>\", and the front sends a fixer to resolve it, then a new recheck.",
+        "3. The cycle.js header line 16 (\"take the base, gate, then the check(s), show\") stays as it is."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "plugins/delegate/skills/delegate/SKILL.md:120-123 now says the gate runner first merges the default branch, no separate take, and a conflict stops at gate with \"take conflict: <files>\" for a fixer, then a new recheck. cycle.js:16 header kept as \"take the base, gate, then the check(s), show\". Text cases checked by reading."
+      ],
+      "severity": "MEDIUM",
+      "since": "29e340ff938d42e96c08970360151f410912d466",
+      "source": "review-recheck-take.json",
+      "source_id": "F1",
+      "summary": "principle 2: the delegate skill still describes a recheck as a branch that already took the default branch, so the front keeps a separate take before every recheck, and the new take-conflict stop is not described",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "bin/relay came in from master (merge 2cb085e10e90) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "bin/relay: merge diff shows only the gate --again rider and the precheck help text, intact, no overlap; gate passed on 2cb085e1."
+      ],
+      "severity": "MEDIUM",
+      "since": "2cb085e10e9043f81905a2989b4e898005f6cccf",
+      "source": "merge",
+      "summary": "bin/relay was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/skills/delegate/SKILL.md came in from master (merge 1cb65f58d1ea) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "SKILL.md: both riders hunks (recheck text at 118-123, gate --again text at 166-172) present side by side, auto-merged cleanly."
+      ],
+      "severity": "MEDIUM",
+      "since": "1cb65f58d1ea5f016ba822d37c042ef14f146bf8",
+      "source": "merge",
+      "summary": "plugins/delegate/skills/delegate/SKILL.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/workflows/cycle.js came in from master (merge 2cb085e10e90) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "cycle.js: takePrompt/gated changes and the quiet() comment from the precheck rider both present, no overlap; tests/test_cycle_workflow.py 30 passed."
+      ],
+      "severity": "MEDIUM",
+      "since": "2cb085e10e9043f81905a2989b4e898005f6cccf",
+      "source": "merge",
+      "summary": "plugins/delegate/workflows/cycle.js was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "2cb085e10e9043f81905a2989b4e898005f6cccf.gate.log",
+  "head": "1244114951067f9ee62582f8d7a8733088109a30",
+  "item": null,
+  "notes": [
+    "The riders' other new tests (gate, precheck) belong to other findings files not given to this check. Merges were clean; every rider's hunks are present and do not overlap."
+  ],
+  "schema": 2,
+  "scope": [
+    "Train of three riders merged no-ff into train-24 (cc2ba5f0..2cb085e1), head 12441149 is the inert gate-log commit. Gate log starts with head 2cb085e1, ends exit 0; relay changed lists no file since it. Read the merged diffs of bin/relay, cycle.js and delegate SKILL.md; ran tests/test_cycle_workflow.py (30 passed). Failing-case test run at cc2ba5f0 with the head test file: it fails."
+  ],
+  "type": "check"
+}

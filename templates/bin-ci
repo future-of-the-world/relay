@@ -13,6 +13,6 @@ step() { local name="$1"; shift; local start=$(date +%s)
 #   step "lint"   bun run lint
 #   step "tests"  bun test
 #   step "build"  bun run build
-step "placeholder" true
+{{ci_steps}}
 [ "$status" -eq 0 ] && echo "ci: green" || echo "ci: RED"
 exit $status

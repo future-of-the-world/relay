@@ -13,7 +13,7 @@ export const meta = {
 //   change   {name, wt, check, branch*, item*}                       build, gate, review, fix, gate, check, close, show
 //   built    {name, wt, check, built, branch*, item*}                the same without the build
 //   fix      {name, wt, check, fix, fixes, findings, branch*, item*} fix, gate, check, close, show
-//   recheck  {name, wt, check, findings | items: [{slug, review}], branch*}   gate, then the check(s), show
+//   recheck  {name, wt, check, findings | items: [{slug, review}], branch*}   take the base, gate, then the check(s), show
 //   (* relay mode only; item is one fix-item slug)
 // Designs, in args.designs: {name, brief, out, review (false: an analysis, one thinker)}.
 // Optional args.settings: gate_turns 20-80 (40), gate_fixes 0-3 (1), retry_dead 0-2 (1), gate_args (a string, '--quick'; '' is the plain quick gate, '--paid' the full one with the paid evals).
@@ -109,9 +109,15 @@ const agentOpts = (type, schema, phase, label) => ({ agentType: `delegate:${type
 // File names carry the kind for a fix or recheck run, so it never overwrites what the change run wrote.
 const tag = (it) => ((it.kind || 'change') === 'change' || it.kind === 'built') ? it.name : `${it.kind}-${it.name}`
 
-// The quiet check every agent of a unit loops on: in relay mode `relay precheck` (the gate's seconds-long steps) comes in
+// The quiet check every agent of a unit loops on: in relay mode `relay precheck` (the gate's quick steps, changed tests and the rules registry test included) comes in
 // front of the unit's own check, so a brief or an item that names only a test line cannot leave it out.
 const quiet = (it) => RELAY ? `relay precheck -C ${it.wt} && (${it.check})` : it.check
+
+// A recheck lands a branch on the newest base: the gate runner first takes the base with a merge commit (a no-op when the
+// branch already holds the base's head); a conflict stops the unit, the script never resolves one.
+function takePrompt(it) {
+  return `First take the base: run \`git -C ${it.wt} merge --no-edit ${A.base}\` (the branch must hold ${A.base}'s head before the gate; "Already up to date" is fine). If the merge stops on a conflict, run \`git -C ${it.wt} merge --abort\` and report ok=false with first_fail starting "take conflict:" and the conflicting files; run no gate. `
+}
 
 function gatePrompt(it, n) {
   const log = `${S}/gate-${tag(it)}-${n}.log`
@@ -119,9 +125,9 @@ function gatePrompt(it, n) {
   if (RELAY) {
     const ga = CFG.gate_args.trim()
     const cmd = ga === '--paid' ? `relay gate -C ${it.wt} --paid` : ga ? `relay gate -C ${it.wt} -- ${ga}` : `relay gate -C ${it.wt}`
-    return `Run \`${cmd}\` detached with the limits recipe, log in ${log}. ${wait} Report ok, the gate sha, the gate log path it prints (under the worktree's .relay/checks/), and the first failing line if any.`
+    return `${it.kind === 'recheck' ? takePrompt(it) : ''}Run \`${cmd}\` detached with the limits recipe, log in ${log}. ${wait} Report ok, the gate sha, the gate log path it prints (under the worktree's .relay/checks/), and the first failing line if any.`
   }
-  return `Run the project's gate in ${it.wt} detached with the limits recipe, writing the log in the form: \`{ echo "head $(git -C ${it.wt} rev-parse HEAD)"; ${A.gate}; echo "exit $?"; } > ${log} 2>&1\` (run it with ${it.wt} as the current folder) and write its pid to ${log}.pid first. If ${log}.pid already exists and that pid is alive, a gate of an earlier attempt is still running: do not start another, wait on that pid and report its log. ${wait} Report ok (the exit code was 0), the head sha, the log path ${log}, and the first failing line if any.`
+  return `${it.kind === 'recheck' ? takePrompt(it) : ''}Run the project's gate in ${it.wt} detached with the limits recipe, writing the log in the form: \`{ echo "head $(git -C ${it.wt} rev-parse HEAD)"; ${A.gate}; echo "exit $?"; } > ${log} 2>&1\` (run it with ${it.wt} as the current folder) and write its pid to ${log}.pid first. If ${log}.pid already exists and that pid is alive, a gate of an earlier attempt is still running: do not start another, wait on that pid and report its log. ${wait} Report ok (the exit code was 0), the head sha, the log path ${log}, and the first failing line if any.`
 }
 
 // A gate with up to gate_fixes rounds of "fix red gate, gate again". Counters run through the whole unit, so the
@@ -133,7 +139,7 @@ async function gated(it, st) {
     if (r.dead) return { stop: stop(it, 'gate', r.dead) }
     const g = r.v
     if (g.ok) return { g }
-    if (/^still running/i.test(g.first_fail || '')) return { stop: stop(it, 'gate', g.first_fail) }
+    if (/^(still running|take conflict)/i.test(g.first_fail || '')) return { stop: stop(it, 'gate', g.first_fail) }
     if (st.rounds >= CFG.gate_fixes) return { stop: stop(it, 'gate', g.first_fail || 'gate red') }
     st.rounds += 1
     st.fn += 1
