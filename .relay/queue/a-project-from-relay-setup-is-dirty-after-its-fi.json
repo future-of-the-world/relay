@@ -21,8 +21,8 @@
     "lib/relay_setup.py:302-346",
     "templates/ (no gitignore template)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T01:57:59Z",
+  "taken_by": "wt/setup-dirty",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
