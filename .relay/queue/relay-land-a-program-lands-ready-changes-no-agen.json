@@ -116,6 +116,13 @@
         "a. Сравнить через 7 дней после первой посадки через `relay land` (рекомендую)",
         "b. Через 3 дня",
         "c. Когда счётчик насчитает 3 момента"
+      ],
+      "answered_at": "2026-10-28T10:11:20Z",
+      "answer": [
+        "a"
+      ],
+      "reading": [
+        "Read as the answer to the question in the owner's last-shown message (when to compare relay land): a, 7 days after the first landing. The two split questions asked at 09:46 are asked again."
       ]
     }
   ]
