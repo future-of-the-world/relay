@@ -109,6 +109,27 @@ def where_problems(value: object) -> list[str]:
     return [f"where element {n} does not start with path, path:N or path:N-M" for n, element in enumerate(value, 1) if parse_place(element) is None]
 
 
+def where_folders(where: object, repo: str) -> list[str]:
+    """Why a `where` entry names a folder or a pattern instead of a file, one text per entry; [] when every entry is a file (a file
+    that does not exist yet is fine). Run by `add` and by `edit` of `where`, never by `where_problems`: `check` has no tree."""
+    if not isinstance(where, list):
+        return []
+    out = []
+    for n, element in enumerate(where, 1):
+        place = parse_place(element) if isinstance(element, str) else None
+        if place is None:
+            continue
+        path = place.path
+        if path.endswith("/") or os.path.isdir(os.path.join(repo, path)):
+            kind = "a folder"
+        elif any(mark in path for mark in "*?["):
+            kind = "a pattern"
+        else:
+            continue
+        out.append(f"where element {n} `{path}` is {kind}: name the file you will change (a new file is fine, e.g. lib/relay_cmd/digest.py)")
+    return out
+
+
 def state_of(item):
     """open, taken, done or dropped, computed from the events: dropped_at, then closed_at, then taken_at; none is open."""
     if item.get("dropped_at"):
@@ -947,6 +968,7 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
         raise Refused("ip is a whole number from 0")
     if where:
         bad = where_problems(where if isinstance(where, str) else list(where))
+        bad = bad or where_folders(None if isinstance(where, str) else list(where), repo)
         if bad:
             raise Refused("; ".join(bad))
     refuse_session_paths("queued", what=what, why=why, failing_case=failing, pass_cases=pass_cases)
@@ -1891,7 +1913,7 @@ def edit(repo: str, slug: str, field: str, old: str, new: str, because: str, now
         if problem:
             raise Refused(f"nothing edited: {problem}")
         if field == "where":
-            bad = where_problems(after)
+            bad = where_problems(after) or where_folders(after, repo)
             if bad:
                 raise Refused("nothing edited: " + "; ".join(bad))
         if after == before:
