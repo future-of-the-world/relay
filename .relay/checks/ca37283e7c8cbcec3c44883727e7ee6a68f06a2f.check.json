@@ -1,0 +1,381 @@
+{
+  "branch": "wt/train-23",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by probe. open(path) in text mode with the default newline translates \\r\\n to \\n on read, and the whole text",
+        "is written back. Reachable only for a .gitignore with CRLF endings (a repo started on Windows). Size: 5."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/probe/p.py",
+        "crlf '.ci/\\nfoo\\n.worktrees/\\n__pycache__/\\n.pytest_cache/\\n.ruff_cache/\\n.mypy_cache/\\n'"
+      ],
+      "failing_case": [
+        ".gitignore bytes \".ci/\\r\\nfoo\\r\\n\"; ensure_gitignore(root, {\"stack\": \"python\", \"bindings\": {}}) -> the file becomes",
+        "\".ci/\\nfoo\\n.worktrees/\\n__pycache__/\\n...\" : the two existing lines lost their \\r, so git diff shows them changed,",
+        "against the docstring \"Existing lines are never changed\". Expected: \".ci/\\r\\nfoo\\r\\n\" kept byte for byte, new lines appended."
+      ],
+      "fix_hint": [
+        "Read with newline=\"\" (keeps \\r\\n) and append the missing lines with open(path, \"a\", newline=\"\"), adding a newline first",
+        "only when the file does not end with one; never rewrite the existing text."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 624,
+      "pass_cases": [
+        "1. \".ci/\\r\\nfoo\\r\\n\" -> the file starts with the same bytes \".ci/\\r\\nfoo\\r\\n\"; the added lines follow.",
+        "2. \"secret.txt\\n.ci\\n/.worktrees\" (no final newline) -> \"secret.txt\\n.ci\\n/.worktrees\\n__pycache__/\\n.pytest_cache/\\n.ruff_cache/\\n.mypy_cache/\\n\" (today's test_existing_lines_are_kept_and_not_duplicated).",
+        "3. no .gitignore -> \".ci/\\n.worktrees/\\n__pycache__/\\n.pytest_cache/\\n.ruff_cache/\\n.mypy_cache/\\n\"."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup.py:189 passes at head"
+      ],
+      "severity": "LOW",
+      "since": "49674b06c7373a00b717d33958904f1636632ed0",
+      "source": "review-setup-dirty.json",
+      "source_id": "F1",
+      "summary": "an existing CRLF .gitignore is rewritten with LF endings: every existing line shows as changed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe: anchored -> added list lacks __pycache__/; neg -> file becomes \"!.ci/\\n.ci/\\n...\". The anchor is",
+        "harmless for .ci/ and .worktrees/ (they live at the root) but not for caches, which appear in every package folder.",
+        "Uncommon .gitignore shapes, so LOW. Size: 15."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/probe/p.py",
+        "neg (['.ci/', '.worktrees/', ...], '!.ci/\\n.ci/\\n.worktrees/\\n...')",
+        "anchored (['.ci/', '.worktrees/', '.pytest_cache/', '.ruff_cache/', '.mypy_cache/'], '/__pycache__/\\n...')"
+      ],
+      "failing_case": [
+        "a) .gitignore \"/__pycache__/\\n\" in a python project: __pycache__/ is counted as present and not added, so",
+        "   tests/__pycache__/ (pytest's cache in a subfolder) still shows as untracked. Expected: __pycache__/ added.",
+        "b) .gitignore \"!.ci/\\n\" (the owner un-ignored .ci on purpose): setup appends \".ci/\" after it, which re-ignores .ci.",
+        "   Expected: the owner's negation left in force (.ci/ not added, or said in the done list)."
+      ],
+      "fix_hint": [
+        "Treat a leading \"/\" as present only for the root folders (.ci/, the worktrees folder), not for the stack caches; skip a",
+        "line whose name the file names with a leading \"!\". Or ask git: `git check-ignore -q <probe path>` per line, with a",
+        "nested probe (sub/__pycache__/x) for caches."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 625,
+      "pass_cases": [
+        "1. \"/__pycache__/\\n\" -> \"__pycache__/\" is among the added lines.",
+        "2. \"!.ci/\\n\" -> \".ci/\" is not added; `git check-ignore .ci/x` stays not-ignored.",
+        "3. \".ci\\n/.worktrees\\n\" -> neither .ci/ nor .worktrees/ is added (today's behaviour; /.worktrees is root-anchored, which is where the folder lives).",
+        "4. \"__pycache__\\n\" -> __pycache__/ is not added."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup.py:200 passes at head"
+      ],
+      "severity": "LOW",
+      "since": "49674b06c7373a00b717d33958904f1636632ed0",
+      "source": "review-setup-dirty.json",
+      "source_id": "F2",
+      "summary": "the presence test compares text with slashes stripped, not what git ignores: an anchored entry counts as present, a negated one is overridden",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe. folder.strip(\"/\") turns an absolute path into a relative-looking pattern. Nothing in relay limits",
+        "the key to an inside folder (only this code reads it). Size: 5."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/probe/p.py",
+        "abs (['.ci/', 'Users/x/wt/', ...])",
+        "up (['.ci/', '../wt/', ...])"
+      ],
+      "failing_case": [
+        "kit.toml [project] worktrees = \"/Users/x/wt\" -> .gitignore gets \"Users/x/wt/\"; worktrees = \"../wt\" -> \"../wt/\".",
+        "Neither pattern matches anything git sees; the owner's file gets a junk line. Expected: no worktrees line for a folder",
+        "outside the project (and .ci/ plus the caches still added)."
+      ],
+      "fix_hint": [
+        "In gitignore_lines, drop the worktrees line when os.path.isabs(folder) or the normalised path starts with \"..\"."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 616,
+      "pass_cases": [
+        "1. worktrees = \"/Users/x/wt\" -> added lines are .ci/ and the stack caches only.",
+        "2. worktrees = \"../wt\" -> same.",
+        "3. worktrees = \"trees\" -> \"trees/\" added.",
+        "4. no [project] worktrees -> \".worktrees/\" added."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup.py:213 passes at head"
+      ],
+      "severity": "LOW",
+      "since": "49674b06c7373a00b717d33958904f1636632ed0",
+      "source": "review-setup-dirty.json",
+      "source_id": "F3",
+      "summary": "a worktrees folder outside the project (absolute or ../) becomes a meaningless .gitignore line",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: both new tests use a fresh project, where kit.toml is written with worktrees = \".worktrees\",",
+        "equal to the fallback. The code path is correct today (probe with worktrees=\"/Users/x/wt\" shows the value is read).",
+        "Size: 5."
+      ],
+      "evidence": [
+        "grep -n 'worktrees' tests/test_setup.py tests/test_setup_off.py: only \".worktrees/t/f\" and \"/.worktrees\" inputs."
+      ],
+      "failing_case": [
+        "Replace gitignore_lines' folder logic with the constant \".worktrees\" -> all SetupGitignore and setup_off tests still",
+        "pass, though the item promises \"the worktrees folder from kit.toml\". Expected: a test that fails on that change."
+      ],
+      "fix_hint": [
+        "Add a test: write .claude/kit.toml with [project] worktrees = \"trees\" before setup, assert \"trees/\" in the .gitignore lines."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 61,
+      "pass_cases": [
+        "1. Project with .claude/kit.toml [project] worktrees = \"trees\", setup run -> .gitignore has \"trees/\" and not \".worktrees/\".",
+        "2. First setup (no kit.toml) -> \".worktrees/\" (today's test_what_a_check_and_a_worktree_leave_behind_is_ignored)."
+      ],
+      "path": "tests/test_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup.py:223 passes at head"
+      ],
+      "severity": "LOW",
+      "since": "49674b06c7373a00b717d33958904f1636632ed0",
+      "source": "review-setup-dirty.json",
+      "source_id": "F4",
+      "summary": "no test reads the worktrees folder from kit.toml: hardcoding .worktrees/ passes every test",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep: no \"gitignore\" in docs/setup.md. The doc is the contract of what setup touches in a person's",
+        "project. Size: 5."
+      ],
+      "evidence": [
+        "git grep -n -i gitignore -- docs plugins/relay/README.md README.md -> no line in docs/setup.md"
+      ],
+      "failing_case": [
+        "docs/setup.md lines 8-31 list every file setup writes (kit.toml, settings.json, bin/*, CLAUDE.md, handover,",
+        "projects.toml); after this change setup also appends to the project's tracked .gitignore on every run where lines",
+        "are missing, and the doc does not say so. Expected: a bullet naming .gitignore and its lines."
+      ],
+      "fix_hint": [
+        "Add one bullet to the list in docs/setup.md after the settings.json bullet."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 12,
+      "pass_cases": [
+        "1. docs/setup.md has a bullet: \".gitignore: .ci/, the kit.toml worktrees folder and the stack's caches, appended when missing; existing lines kept\"."
+      ],
+      "path": "docs/setup.md",
+      "rank": "low",
+      "reason": [
+        "docs/setup.md:22 passes at head"
+      ],
+      "severity": "LOW",
+      "since": "49674b06c7373a00b717d33958904f1636632ed0",
+      "source": "review-setup-dirty.json",
+      "source_id": "F5",
+      "summary": "the list of what relay setup writes does not name .gitignore",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "bin/relay came in from master (merge 498ddc4609b9) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "changed by merge; gate green on this code, precheck green, 457 tests pass, conflict resolution read"
+      ],
+      "severity": "MEDIUM",
+      "since": "498ddc4609b9049e9dd2ed393ee888d9d4ab3984",
+      "source": "merge",
+      "summary": "bin/relay was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "docs/setup.md came in from master (merge cc605f9f4b24) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "docs/setup.md",
+      "rank": "medium",
+      "reason": [
+        "changed by merge; gate green on this code, precheck green, 457 tests pass, conflict resolution read"
+      ],
+      "severity": "MEDIUM",
+      "since": "cc605f9f4b2493f335f35cd0b62afdfc9939f5d3",
+      "source": "merge",
+      "summary": "docs/setup.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_setup.py came in from master (merge 498ddc4609b9) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "changed by merge; gate green on this code, precheck green, 457 tests pass, conflict resolution read"
+      ],
+      "severity": "MEDIUM",
+      "since": "498ddc4609b9049e9dd2ed393ee888d9d4ab3984",
+      "source": "merge",
+      "summary": "lib/relay_setup.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/agents/thinker.md came in from master (merge 0d30e9166673) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/agents/thinker.md",
+      "rank": "medium",
+      "reason": [
+        "changed by merge; gate green on this code, precheck green, 457 tests pass, conflict resolution read"
+      ],
+      "severity": "MEDIUM",
+      "since": "0d30e91666732ab10e2d19234b1c09b793534ea4",
+      "source": "merge",
+      "summary": "plugins/delegate/agents/thinker.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/skills/delegate/SKILL.md came in from master (merge 0d30e9166673) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "changed by merge; gate green on this code, precheck green, 457 tests pass, conflict resolution read"
+      ],
+      "severity": "MEDIUM",
+      "since": "0d30e91666732ab10e2d19234b1c09b793534ea4",
+      "source": "merge",
+      "summary": "plugins/delegate/skills/delegate/SKILL.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/openspec/agents/author.md came in from master (merge 0d30e9166673) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/openspec/agents/author.md",
+      "rank": "medium",
+      "reason": [
+        "changed by merge; gate green on this code, precheck green, 457 tests pass, conflict resolution read"
+      ],
+      "severity": "MEDIUM",
+      "since": "0d30e91666732ab10e2d19234b1c09b793534ea4",
+      "source": "merge",
+      "summary": "plugins/openspec/agents/author.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_setup.py came in from master (merge 498ddc4609b9) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M7",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_setup.py",
+      "rank": "medium",
+      "reason": [
+        "changed by merge; gate green on this code, precheck green, 457 tests pass, conflict resolution read"
+      ],
+      "severity": "MEDIUM",
+      "since": "498ddc4609b9049e9dd2ed393ee888d9d4ab3984",
+      "source": "merge",
+      "summary": "tests/test_setup.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_setup_off.py came in from master (merge 498ddc4609b9) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M8",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_setup_off.py",
+      "rank": "medium",
+      "reason": [
+        "changed by merge; gate green on this code, precheck green, 457 tests pass, conflict resolution read"
+      ],
+      "severity": "MEDIUM",
+      "since": "498ddc4609b9049e9dd2ed393ee888d9d4ab3984",
+      "source": "merge",
+      "summary": "tests/test_setup_off.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "498ddc4609b9049e9dd2ed393ee888d9d4ab3984.gate.log",
+  "head": "ca37283e7c8cbcec3c44883727e7ee6a68f06a2f",
+  "item": null,
+  "notes": [
+    "Merge resolution keeps both gitignore helpers and template_steps and the doctor split. F4 test passes on the old code too (it guards against hardcoding; the old code already read kit.toml). Plugin-file M findings come from master merges, untouched by the train's resolution."
+  ],
+  "schema": 2,
+  "scope": [
+    "Train merge check. Gate log head 498ddc46, exit 0, HEAD adds only the log. precheck green; pytest subset 457 passed. The review's F1-F5 were fixed on the setup-dirty branch in 73a07b6d (merged in). Read the doctor/setup merge diff of lib/relay_setup.py; no conflict markers. The GitignoreCases tests f1-f3 fail on 49674b06 (the reviewed commit) with the head test file, pass at head."
+  ],
+  "type": "check"
+}
