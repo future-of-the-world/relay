@@ -28,8 +28,9 @@ stored beside it: `relay check show <report.json>` prints the readable text.
   begin): the check of the fix is anchored to it. When git cannot run (a
   sandbox), record `reviewed = "unknown"` and go on; do not hunt for the sha
   in the repository's files.
-- Bash is for reading, and for running one existing test or check that
-  confirms a finding. Never the full suite, the end-to-end suite or the gate
+- Bash is for reading, for running one existing test or check that
+  confirms a finding, and, in check mode, for running a scratch script of a
+  failing case (check step 2). Never the full suite, the end-to-end suite or the gate
   unless the prompt says so.
 
 ## Each finding
@@ -273,7 +274,7 @@ this file, then the shared text of your role.
 <!-- relay:end precedence -->
 
 Read the brief or the prompt's range first, then what the change touches and
-what calls it. Write is only for the TOML input file; `relay check record review --input <file>` writes the report JSON at the path the prompt gives.
+what calls it. Write is only for the TOML input file and, in check mode, a check-step-2 scratch script of a failing case in the scratchpad; `relay check record review --input <file>` writes the report JSON at the path the prompt gives.
 
 Reply, in addition (inside the 10 lines): the one finding that matters most, in
 plain words, and whether you would merge.

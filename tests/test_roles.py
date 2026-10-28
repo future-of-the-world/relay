@@ -293,7 +293,25 @@ class Roles(Base):
             for piece in want:
                 self.assertIn(piece, flat, path)
         skill = " ".join(open(os.path.join(ROOT, "plugins", "openspec", "skills", "spec-review", "SKILL.md")).read().split())
-        self.assertIn("runs that sketch as a scratch script outside the repo", skill)
+        # review F3: the spec check writes no verdict; the result goes on the finding's line of the plain-text report
+        self.assertIn("runs that case as a scratch script outside the repo", skill)
+        self.assertIn("writes `sketch run: <what it showed>` on that finding's line of its report", skill)
+        self.assertNotIn("says so in its verdict", skill)
+
+    def test_check_flow_parts_allow_the_scratch_script(self):
+        """Review F1: the flow text outranks the shared base, so the checker's and critic's flow parts and the base Scope
+        bullet must allow the check-step-2 scratch script (in the scratchpad), else Write/Bash rules forbid what step 2 asks."""
+        for rel in ("plugins/delegate/agents/checker.md", "plugins/delegate/agents/critic.md"):
+            flat = " ".join(open(os.path.join(ROOT, rel)).read().split())
+            self.assertIn("check-step-2 scratch script of a failing case", flat, rel)
+        checker = " ".join(open(os.path.join(ROOT, "plugins/delegate/agents/checker.md")).read().split())
+        self.assertIn("lives in the scratchpad, never in the worktree", checker)   # pass case 4: no write in the repo
+        rr = self.lib()
+        paths = ["roles/judge.md"] + [os.path.relpath(p, ROOT) for p in rr.agent_files(ROOT)
+                                      if "relay:base judge" in open(p).read()]
+        for path in paths:
+            flat = " ".join(open(os.path.join(ROOT, path)).read().split())
+            self.assertIn("in check mode, for running a scratch script of a failing case (check step 2)", flat, path)
 
     def test_judge_base_part2(self):
         """A15: the judge base names `relay changed --own` in check step 1 and the linter line in "Each finding"; the

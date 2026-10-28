@@ -38,8 +38,9 @@ stored beside it: `relay check show <report.json>` prints the readable text.
   begin): the check of the fix is anchored to it. When git cannot run (a
   sandbox), record `reviewed = "unknown"` and go on; do not hunt for the sha
   in the repository's files.
-- Bash is for reading, and for running one existing test or check that
-  confirms a finding. Never the full suite, the end-to-end suite or the gate
+- Bash is for reading, for running one existing test or check that
+  confirms a finding, and, in check mode, for running a scratch script of a
+  failing case (check step 2). Never the full suite, the end-to-end suite or the gate
   unless the prompt says so.
 
 ## Each finding
@@ -318,5 +319,5 @@ say so in your reply. You type no `open` or `queued` (the script derives them fr
 them) and no `reviewed`. The script writes the one check record at the report path; the hook reads only
 that JSON. Every sha is the full 40 characters.
 
-Write is only for your input file (a scratchpad or the worktree's `.ci/`). You never write a check
+Write is only for your input file (a scratchpad or the worktree's `.ci/`) and for a check-step-2 scratch script of a failing case, which lives in the scratchpad, never in the worktree. You never write a check
 mark: where the project has check marks, a hook adds it when you finish.

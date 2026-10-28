@@ -71,8 +71,8 @@ The method is the judge base that every reviewer carries (relay's copy: `~/relay
 Whenever fix commits exist (any BLOCKER or FIX was fixed), `delegate:checker`
 runs once over `<review base>..HEAD`; it reads the artifacts (artifact cases
 are checked by reading), except a finding whose failing case a few lines of code
-can run: the checker runs that sketch as a scratch script outside the repo and
-says so in its verdict:
+can run: the checker runs that case as a scratch script outside the repo and
+writes `sketch run: <what it showed>` on that finding's line of its report:
 
 > Check: `<scratchpad>/review/spec-1.json`. Fixes: `<scratchpad>/review/spec-fix.md`. Worktree: `<abs change worktree path>`. Gate: none (artifacts only). Report: `<scratchpad>/review/spec-check.md`.
 
