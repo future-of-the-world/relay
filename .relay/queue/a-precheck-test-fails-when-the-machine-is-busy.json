@@ -23,8 +23,8 @@
     "tests/test_precheck.py:293",
     "lib/relay_precheck.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T15:23:10Z",
+  "taken_by": "wt/a-precheck-test-fails-when-the-machine-i",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
