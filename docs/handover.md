@@ -1541,3 +1541,13 @@ Owner decisions this segment (verbatim in the item notes): release loads everyth
 Open for the owner (item principle-lower-the-cost-of-a-failure-not-avoid): "Проверять ли branch после того, как он взял master" (asked 03:57:30Z) and "Что делать, если платный прогон долго red?" (03:57:45Z); the older "Что делать, если master остаётся red слишком долго?" (03:12:25Z) is superseded by the latter — answer both together. The owner is studying the demo page for the first.
 
 Next: land train-23 and autostart; paid run after the wave (agent texts changed: timeout-recipe, autostart, no-numbers); relay sync; keep lanes full (6) by queue order with the file filter. Next handover worktree: 36.
+
+## Addendum 24 (28 Oct, about 05:15 UTC; session 3207dc59, written at the 350k line)
+
+Owner decided (verbatim, recorded in principle-lower-the-cost-of-a-failure-not-avoid): "Хорошо, давай просто возьмем a. Gate после взятия master, без агента И спустя время сравним показатели на реальном примере". Queued as feature `relay-land-a-program-lands-ready-changes-no-agen` (IP 97, front's IP): `relay land` takes master, gates the exact tree unless only inert records came, fast-forwards, one at a time, waiting landings ride one train; agent recheck dropped; baseline for the later comparison is in the item's why (83/83 exact trees; 146 agent min on 6 rechecks 27-28 Oct; train riders 102 min ready-to-landing vs 1 min alone). It is a feature: design is done (design-cadence.md revision 4, approach E, sections 2, 5, 8); start it as a build from that design when a lane frees.
+
+Still open for the owner: "Что делать, если платный прогон долго red?" (asked 03:57:45Z; the older 03:12:25Z red-master question is superseded, answer both together). Recommended there: a = paid run on the train of text changes before landing.
+
+Gate demo page v3 (trains added, measured train use) published at https://claude.ai/artifact/LHpFpLYZUP5FMXAfqt81jf; measurements in $S/trains/trains.md and as a fact note in the principle item.
+
+Running when written: train-23 build (wf_562a6627-c21) then needs a recheck unit with four items (see addendum 23); autostart recheck (wf_0ec64fda-2e9); spec-met (wf_a5a82d73-dbd); precheck-tests, gate-rerun, recheck-take (wf_d88ecc78-738). Agents were over the cap (13 of 6): start no new lane until these finish. After the wave: paid run on master (texts changed), relay sync. Next handover worktree: 37.
