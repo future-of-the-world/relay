@@ -24,8 +24,8 @@
     "plugins/delegate/hooks/read-only-guard.py:27",
     "tests/test_read_only_guard.py:55-65"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T17:38:30Z",
+  "taken_by": "wt/read-only-guard-lets-a-critic-run-relay",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
