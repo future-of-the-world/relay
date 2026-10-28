@@ -1098,8 +1098,12 @@ def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[
     try:
         import relay_rules
         stale = relay_rules.check(profile or {})
+        own = detect(os.path.realpath(root))["name"] if root else None
+        own_stale = [n for n, _ in stale if n == own]   # the checked project's own rules file: its fault, not the machine's
+        stale = [(n, f) for n, f in stale if n != own]
         ok("rules in sync", not stale, "; ".join(f"{n}" for n, _ in stale) + (" -> relay sync" if stale else ""))
     except Exception as exc:
+        own_stale = []
         ok("rules in sync", False, str(exc))
     prices = read_toml(os.path.join(ROOT, "prices.toml"))
     try:
@@ -1116,6 +1120,7 @@ def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[
         root = os.path.realpath(root)
         d = detect(root)
         ok("project has .claude/kit.toml", d["has_bindings"], "relay setup " + root)
+        ok("rules for this project in sync", not own_stale, "-> relay sync")
         cfg = d["bindings"]
         flow = cfg.get("flow", {}).get("kind", "none")
         old = load_old_names()
@@ -1175,8 +1180,9 @@ def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[
         old_agents = [a for a in d["agents"] if a.startswith(d["name"] + "-")]
         ok("no old prefixed agents left", not old_agents, ", ".join(old_agents) + " -> relay migrate --apply" if old_agents else "")
     machine, project = checks[:machine_end], checks[machine_end:]
-    for line in unshipped_installs():
-        machine.append(("installed plugin still shipped", False, line))
+    for path, line in unshipped_install_entries():
+        own = root and path and os.path.realpath(path) == root
+        (project if own else machine).append(("installed plugin still shipped", False, line))
     return machine, project
 
 
@@ -1234,16 +1240,21 @@ def pre_rename_leftovers() -> tuple[list[str], bool]:
 
 def unshipped_installs():
     """One line per project-scope install of a relay plugin the marketplace no longer ships (a rename or a removal)."""
+    return [line for _, line in unshipped_install_entries()]
+
+
+def unshipped_install_entries():
+    """(projectPath or None, line) per install of a relay plugin the marketplace no longer ships; None for a user-scope one."""
     shipped = set(os.listdir(os.path.join(ROOT, "plugins")))
     reg = read_json(os.path.join(claude_dir(), "plugins", "installed_plugins.json")).get("plugins", {})
-    lines = [f"{key} installed at user scope under the old marketplace name: claude plugin uninstall {key} --scope user" for key in pre_rename_leftovers()[0]]
+    lines = [(None, f"{key} installed at user scope under the old marketplace name: claude plugin uninstall {key} --scope user") for key in pre_rename_leftovers()[0]]
     for key, entries in sorted(reg.items()):
         plugin, _, market = key.partition("@")
         if market not in (marketplace()[0], PRE_RENAME_MARKETPLACE) or plugin in shipped:   # old-names keys are still `<old>@relay`
             continue
         for e in entries if isinstance(entries, list) else []:
             if isinstance(e, dict) and e.get("scope") == "project" and e.get("projectPath"):
-                lines.append(f"{key} installed for {e['projectPath']}: run relay setup {e['projectPath']}")
+                lines.append((e["projectPath"], f"{key} installed for {e['projectPath']}: run relay setup {e['projectPath']}"))
     return lines
 
 
