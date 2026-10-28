@@ -109,7 +109,7 @@ const agentOpts = (type, schema, phase, label) => ({ agentType: `delegate:${type
 // File names carry the kind for a fix or recheck run, so it never overwrites what the change run wrote.
 const tag = (it) => ((it.kind || 'change') === 'change' || it.kind === 'built') ? it.name : `${it.kind}-${it.name}`
 
-// The quiet check every agent of a unit loops on: in relay mode `relay precheck` (the gate's seconds-long steps) comes in
+// The quiet check every agent of a unit loops on: in relay mode `relay precheck` (the gate's quick steps, changed tests and the rules registry test included) comes in
 // front of the unit's own check, so a brief or an item that names only a test line cannot leave it out.
 const quiet = (it) => RELAY ? `relay precheck -C ${it.wt} && (${it.check})` : it.check
 

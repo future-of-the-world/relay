@@ -7,6 +7,9 @@ Steps, in this order:
   lib copies       each lib/relay_*.py and prices.toml against its copies under plugins/*/lib, read from HEAD, as the gate
                    reads them; a difference prints the copy's path and the sync command, then fails
 
+  changed tests    the tests/test_*.py files changed since the default branch, and test_rules_gate.RuleTestsComplete, under plain
+                   python3 with tests/run_unittest.py: the gate's runner (a pytest-only import or an unlisted rules reader fails here too)
+
 A copy refreshed by bin/sync-lib-copies but not committed still fails: the gate gates the commit.
 """
 
@@ -19,6 +22,7 @@ import time
 PLUGINS = ("observe", "delegate", "front", "relay", "openspec")
 OLD_PYTHON = "/usr/bin/python3"
 STEP_TIMEOUT = 60       # seconds one step may take in all (about 10 s for the whole precheck when healthy); a timeout is a RED line
+CHANGED_TESTS_TIMEOUT = 230   # the changed-tests step's own budget: whole test files run (test_gate.py alone takes 110 s), under the 4-minute command limit
 _deadline = 0.0         # time.monotonic() by which the running step must end; run() sets it per step
 TAIL = 20               # lines of a failing step's output shown
 
@@ -116,7 +120,65 @@ def check_lib_copies(worktree: str) -> list[str]:
     return out
 
 
-STEPS = (("types and lint", check_types), ("python 3.9", check_python39), ("lib copies identical", check_lib_copies))
+DEFAULT_BRANCHES = ("master", "main")
+RULES_REGISTRY_TEST = "tests.test_rules_gate.RuleTestsComplete"
+
+
+def changed_test_modules(worktree: str) -> list[str] | None:
+    """Dotted names of the tests/test_*.py files changed since the default branch (committed, edited or new), sorted; None when
+    there is no default branch to compare with."""
+    base = ""
+    for branch in DEFAULT_BRANCHES:
+        done = _git(worktree, "merge-base", "HEAD", branch)
+        if done.returncode == 0 and done.stdout.strip():
+            base = done.stdout.decode("utf-8").strip()
+            break
+    if not base:
+        return None
+    changed = _git(worktree, "diff", "--name-only", base, "--", "tests")
+    new = _git(worktree, "ls-files", "--others", "--exclude-standard", "--", "tests")
+    names: set[str] = set()
+    for rel in (changed.stdout + b"\n" + new.stdout).decode("utf-8").splitlines():
+        parts = rel.split("/")
+        if len(parts) == 2 and parts[1].startswith("test_") and parts[1].endswith(".py") \
+                and os.path.exists(os.path.join(worktree, rel)):   # a deleted test has nothing to run
+            names.add("tests." + parts[1][:-3])
+    return sorted(names)
+
+
+def check_changed_tests(worktree: str) -> list[str]:
+    """The gate's library tests, narrowed to what the branch changed, run the gate's way (python3, tests/run_unittest.py)."""
+    runner = os.path.join(worktree, "tests", "run_unittest.py")
+    if not os.path.exists(runner):
+        return ["skipped: no tests/run_unittest.py here"]
+    modules = changed_test_modules(worktree)
+    if modules is None:
+        return ["skipped: no master or main branch to compare with"]
+    names = sorted(set(modules) | {RULES_REGISTRY_TEST}) if os.path.exists(os.path.join(worktree, "tests", "test_rules_gate.py")) else modules
+    if not names:
+        return ["skipped: no test changed"]   # a tree without the registry test and without a changed test
+    failed: list[str] = []
+    ran: list[list[str]] = []
+    # the registry test alone first (0.6 s): a slow changed test that times out must not hide its verdict
+    groups = [[RULES_REGISTRY_TEST]] if RULES_REGISTRY_TEST in names else []
+    rest = [n for n in names if n != RULES_REGISTRY_TEST]
+    if rest:
+        groups.append(rest)
+    for group in groups:
+        ran.append(group)
+        try:
+            done = subprocess.run(["python3", "-W", "ignore::ResourceWarning", runner, *group], cwd=worktree, capture_output=True,
+                                  text=True, timeout=_left())
+        except subprocess.TimeoutExpired:
+            failed.append("FAIL changed tests took longer than %d s" % CHANGED_TESTS_TIMEOUT)
+            break
+        if done.returncode != 0:
+            failed += ["FAIL changed tests (python3 tests/run_unittest.py %s):" % " ".join(group)] + _tail(done.stdout + done.stderr)
+    return failed
+
+
+STEPS = (("types and lint", check_types), ("python 3.9", check_python39), ("lib copies identical", check_lib_copies),
+         ("changed tests", check_changed_tests))
 
 
 def run(worktree: str) -> tuple[int, list[str]]:
@@ -129,11 +191,12 @@ def run(worktree: str) -> tuple[int, list[str]]:
     lines: list[str] = []
     code = 0
     for name, step in STEPS:
-        _deadline = time.monotonic() + STEP_TIMEOUT
+        budget = CHANGED_TESTS_TIMEOUT if name == "changed tests" else STEP_TIMEOUT
+        _deadline = time.monotonic() + budget
         try:
             found = step(worktree)
         except subprocess.TimeoutExpired:
-            found = ["FAIL %s took longer than %d s" % (name, STEP_TIMEOUT)]
+            found = ["FAIL %s took longer than %d s" % (name, budget)]
         finally:
             _deadline = 0.0
         if not found:

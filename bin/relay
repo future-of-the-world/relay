@@ -53,8 +53,8 @@
                                      day's spend first); -- <args> names the gate's own mode (the cycle passes --quick);
                                      --again runs it although the same code has a finished gate (a red one is otherwise reported, not run)
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
-  relay precheck [-C <worktree>]     the gate's seconds-long steps (types and lint, python 3.9 imports, lib copies on HEAD),
-                                     read-only; the quiet check a worker loops on starts with it; exits 1 when one is red
+  relay precheck [-C <worktree>]     the gate's quick steps (types and lint, python 3.9 imports, lib copies on HEAD,
+                                     changed tests and the rules registry test under python3), read-only; the quiet check a worker loops on starts with it; exits 1 when one is red
   relay check show [-C <repo>] [--brief] <branch>
                                      three lines: the branch's gate, check mark and outside findings; waits (at most
                                      10 s) while the branch's worktree is committing a mark
