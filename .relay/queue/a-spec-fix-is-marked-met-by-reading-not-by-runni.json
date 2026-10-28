@@ -75,6 +75,12 @@
       "answer": [
         "Давай убедимся, дострой доказательство"
       ]
+    },
+    {
+      "at": "2026-10-28T08:18:59Z",
+      "fact": [
+        "28 Oct ~08:30 UTC, proof built as the owner asked: a scenario whose defect only running reveals (strip_marks keeps 9 ASCII symbol marks), graded by the new tool-call grader. 4 runs with the rule, 4 at the commit before the rule text ($3.22): the checker ran code 4 of 4 and found the defect 4 of 4 on both sides. Offline re-grade of the 7 earlier runs: the checker ran code in 7 of 7, rule on and off; the old word grader was wrong in 4 of 6. Total spent on the proof $6.05. Verdict: the rule does not change behaviour on these scenarios; the claim does not reproduce. Caveat: in the scenario the failing case is stated in runnable form; a case stated only in prose was not tried. Branch wt/spec-met commit 5377e9f5 also fixes a master defect: lib/relay_bench.py GRADER_TYPES lacks \"tool_called\", so a scenario file cannot use that grader (queued separately)."
+      ]
     }
   ]
 }
