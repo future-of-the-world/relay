@@ -127,6 +127,12 @@
       "fact": [
         "Correction to the 12:45 note: the counts were 8 of the first 9 untaken items refused, not 6 of 8. The 5 refusals listed there were printed: bin/relay x2, bin/ci, lib/relay_gate.py, cycle.js. Three more were refused with their reason not printed: two-branches-start-on-the-same-file-unnoticed (88), lib-modules-are-committed-in-three-copies (87), a-fix-that-adds-a-new-module-cannot-be-closed (87). The 9th (IP 98) started."
       ]
+    },
+    {
+      "at": "2026-10-28T17:37:40Z",
+      "fact": [
+        "28 Oct: the build plan has 17 moves (about 900 agent minutes). Moves 1, 2, 3 and fix F are queued as refuse-folder-and-pattern-entries-in-where, type-check-subfolders-and-cap-module-size-at-600, test-scaffolding-for-per-command-modules and read-only-guard-lets-a-critic-run-relay-queue-st. Moves 4-10 are queued when move 3 lands. Move 11 is the existing item lib-modules-are-committed-in-three-copies."
+      ]
     }
   ]
 }
