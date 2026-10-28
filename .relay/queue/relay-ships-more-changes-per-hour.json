@@ -273,6 +273,18 @@
       "fact": [
         "28 Oct, after the owner's \"a, делай замер\": the bench was already run on 27 Oct and is recorded in lib/relay_gate.py:34 (CORES_PER_SLOT): one gate alone 420 s; 2 at once 698 s each (2 per 698 s = 10.3 gates an hour); 3 at once 1058 s each (3 per 1058 s = 10.2 an hour). A third slot gives no more gates an hour on this 12-core machine; each gate just takes 52 % longer. The lanes4 analysis and the front missed it before asking."
       ]
+    },
+    {
+      "asked_at": "2026-10-28T04:37:27Z",
+      "question": [
+        "**Делать ли замер заново, раз он уже есть?**",
+        "",
+        "Замер 27 октября: 1 gate 420 с (8.6 в час), 2 одновременно по 698 с (10.3 в час), 3 одновременно по 1058 с (10.2 в час). Третье место не прибавляет gate в час. Свежий замер — около 40 минут, gate изменений в это время ждут; отличаться может только из-за выросших тестов библиотеки (465-811 с в последнем прогоне)."
+      ],
+      "options": [
+        "a. Не делать, оставить 2 места (рекомендую)",
+        "b. Сделать заново на нынешних тестах"
+      ]
     }
   ]
 }
