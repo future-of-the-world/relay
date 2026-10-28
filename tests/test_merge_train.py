@@ -588,6 +588,42 @@ class RefusalsNameTheSteps(TrainCase):
         self.assertEqual(lines[3], "1 non-inert file changed after the mark: lib/late.py; run relay gate, then delegate:checker")
         self.assertEqual(lines[:3], rm.show(self.main, "wt/a")[:3])
 
+    def landed_mark(self):
+        """Another change, ready (code, gate, open-0 mark), already landed on master: its mark is reachable from any later branch."""
+        m = self.tree("m")
+        self.ready(m, {"lib/m.py": "m1\n"})
+        self.git(self.main, "merge", "-q", "--ff-only", "wt/m")
+
+    def test_show_ignores_a_mark_that_landed_on_the_default_branch(self):
+        # master holds M's mark (open 0); wt/a forks after it and has no mark of its own: the hook refuses, so show says no mark.
+        self.landed_mark()
+        a = self.tree("a")
+        self.commit(a, {"lib/a.py": "a1\n"})
+        self.assertIn("no check mark for wt/a", self.verdict("wt/a"))
+        lines = rm.show(self.main, "wt/a")
+        self.assertEqual(lines[1:], ["mark: no mark yet", "outside: unknown (no mark yet)"])
+
+    def test_show_prints_the_branchs_own_mark_after_a_landed_one(self):
+        self.landed_mark()
+        a = self.tree("a")
+        commit = self.ready(a, {"lib/a.py": "a1\n"})
+        lines = rm.show(self.main, "wt/a")
+        self.assertEqual(len(lines), 3)
+        self.assertEqual(lines[1], "mark %s: open 0, queued 0" % commit)
+        self.assertIsNone(self.verdict("wt/a"))
+        self.commit(a, {"lib/late.py": "x\n"})
+        self.assertEqual(rm.show(self.main, "wt/a")[3],
+                         "1 non-inert file changed after the mark: lib/late.py; run relay gate, then delegate:checker")
+
+    def test_show_on_a_train_of_covered_riders_claims_no_refusal(self):
+        # two riders with no shared file: the train needs no mark of its own, the hook lets it through (see test_t1).
+        self.two_riders()
+        train = self.train("a", "b")
+        self.gate(train)
+        self.assertIsNone(self.verdict("wt/train-1"))
+        lines = rm.show(self.main, "wt/train-1")
+        self.assertEqual(lines[1:], ["mark: none needed, the ready changes it holds are checked", "outside: none to count"])
+
     def test_a_branch_with_no_mark_is_told_to_gate_and_check(self):
         a = self.tree("a")
         self.commit(a, {"lib/a.py": "a1\n"})
