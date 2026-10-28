@@ -23,10 +23,10 @@
     "plugins/front/lib/relay_lanes.py (lanes_state)",
     "tests/test_lanes_state.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-28T07:59:28Z",
+  "taken_by": "wt/riders-of-a-built-train-each-count-as-a",
+  "closed_at": "2026-10-28T08:56:50Z",
+  "test": "tests/test_lanes_state.py::test_riders_of_an_open_train_are_one_lane",
   "dropped_at": null,
   "dropped_why": null
 }

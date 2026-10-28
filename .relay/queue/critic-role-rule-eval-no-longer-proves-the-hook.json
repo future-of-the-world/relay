@@ -20,10 +20,10 @@
   "where": [
     "evals/plugin/critic-role-rule (case and graders), the role-rule hook it tests (inject-addition.sh)"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-28T08:39:05Z",
+  "taken_by": "wt/critic-role-rule-eval-no-longer-proves-t",
+  "closed_at": "2026-10-28T09:47:27Z",
+  "test": "tests/test_eval_record.py::FlagPatterns::test_every_case",
   "dropped_at": null,
   "dropped_why": null
 }
