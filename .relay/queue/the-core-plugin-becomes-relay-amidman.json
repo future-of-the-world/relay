@@ -67,6 +67,12 @@
       "fact": [
         "28 Oct, front's decision from the owner's words above (owner can reverse): no backward compatibility for the rename. No old-names entries, no migrate step for projects; the rename rewrites the one place that turns the plugins on (~/.claude/settings.json: enabledPlugins and the extraKnownMarketplaces entry) once, directly, as part of the change, and relay setup writes only the new ids. This replaces the previous fact note's plan. The existing lib/relay_old_names.toml mechanism stays as it is, not extended."
       ]
+    },
+    {
+      "at": "2026-10-28T01:18:04Z",
+      "fact": [
+        "28 Oct, measured in a throwaway CLAUDE_CONFIG_DIR (scratchpad cc-test2, the real ~/.claude untouched): Claude Code keys a directory marketplace by its folder. After the folder's marketplace.json changes its name from relay to amidman, `claude plugin marketplace add <folder>` answers \"Marketplace 'relay' already on disk\" and keeps the old name; core@relay then shows \"failed to load: Plugin core not found in marketplace relay\" and relay@amidman cannot be installed. What works: `claude plugin uninstall` each X@relay, `claude plugin marketplace remove relay`, `claude plugin marketplace add <folder>` (now registered as amidman), `claude plugin install` relay, delegate, front, observe @amidman: all four \"enabled\". So editing settings.json alone (relay setup --global) is not enough; the front runs this CLI sequence after the merge."
+      ]
     }
   ]
 }

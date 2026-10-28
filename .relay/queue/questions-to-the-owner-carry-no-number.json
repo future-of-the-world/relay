@@ -1,0 +1,46 @@
+{
+  "kind": "feature",
+  "ip": 94,
+  "time": 90,
+  "found_at": "2026-10-28T00:18:53Z",
+  "found_in": "relay queue add",
+  "title": "Questions to the owner carry no number",
+  "what": [
+    "Questions to the owner are no longer numbered. A question is known by itself: its bold title, its description, or the owner's paraphrase of it. Lettered options stay. The owner's answer is matched to the question by meaning (the front's reading, recorded and reversible). In relay: `relay queue note` takes a question without `number` and an answer that names the question it answers by the question's recorded time or title instead of `to = [n]`; the waiting-question hook (plugins/front/hooks/ask_waiting.py) lists waiting questions by title; the rules (working-with-me, front), the front skill, the thinker and delegate texts stop asking for numbered questions. No backward compatibility: numbered notes already recorded stay as they are."
+  ],
+  "why": [
+    "Owner, 28 Oct, verbatim: \"Помимо этого, давай изменим flow вопросов, откажемся от нумерации, теперь вопрос идентифицируется самим вопросом, его описанием, или ссылкой на него (перефразирование, пересказ)",
+    "",
+    "Мы уже сталкивались несколько раз с проблемой нумерации, это зависит от конкретной сессии и не несет никакой конкретной пользы кроме упрощённого обозначения при моем ответе\". Live cases, 27-28 Oct: questions re-asked under new numbers left the old numbers waiting in the hook (relay-ships-more-changes-per-hour 2 and 3, gates 1); `relay queue note` printed \"answer to 1\" for an answer to question 4 (item relay-queue-note-prints-the-wrong-question-for-a); a question recorded as 2 in one item and 5 in the conversation."
+  ],
+  "pass_cases": [
+    "A question is recorded without a number; an answer is recorded as answering that question by its time or title, and `relay queue show` prints it under that question.",
+    "The waiting-question hook names each waiting question by its title, with no number.",
+    "rules/working-with-me.md, rules/front.md, the front skill, roles/think.md and the thinker agent ask for a bold question title and lettered options, with no numbering.",
+    "Eval cases that expect numbered questions are updated."
+  ],
+  "where": [
+    "lib/relay_queue.py:157-215 1588-1615",
+    "plugins/front/hooks/ask_waiting.py",
+    "rules/working-with-me.md:14",
+    "rules/front.md:22",
+    "plugins/front/skills/front/SKILL.md:61",
+    "roles/think.md:18 44",
+    "plugins/delegate/agents/thinker.md:26 52",
+    "plugins/delegate/skills/delegate/SKILL.md:217"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T00:35:28Z",
+      "said": [
+        "Возьми вопросы без нумерации параллельно с переименованием, есть ли конфликты с изменениями, взятыми в работу ?"
+      ]
+    }
+  ]
+}

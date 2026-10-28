@@ -75,6 +75,14 @@
       "options": [
         "a. Review на каждое исправление, а время выигрывать параллельными изменениями (рекомендую)",
         "b. Один review на пачку из трёх"
+      ],
+      "answered_at": "2026-10-27T22:54:22Z",
+      "answer": [
+        "4. a",
+        "5. a"
+      ],
+      "reading": [
+        "Questions 2 and 3 were asked again as 4 and 5 (27 Oct 17:10) and answered there on 27 Oct 17:14; this note links that reply to 2 and 3 so they no longer show as waiting. 2 = 4 a: one review per fix. 3 = 5 a: the next paid run plays evals 3 at a time."
       ]
     },
     {
@@ -93,6 +101,14 @@
       "options": [
         "a. Попробовать 3 на следующем прогоне; оставить, если упоров не больше прежнего, иначе вернуть 1 (рекомендую: проба стоит не больше одного повтора, $21,41)",
         "b. Оставить по одному"
+      ],
+      "answered_at": "2026-10-27T22:54:22Z",
+      "answer": [
+        "4. a",
+        "5. a"
+      ],
+      "reading": [
+        "Questions 2 and 3 were asked again as 4 and 5 (27 Oct 17:10) and answered there on 27 Oct 17:14; this note links that reply to 2 and 3 so they no longer show as waiting. 2 = 4 a: one review per fix. 3 = 5 a: the next paid run plays evals 3 at a time."
       ]
     },
     {
@@ -194,6 +210,31 @@
       "at": "2026-10-27T15:05:09Z",
       "fact": [
         "Measured 27 Oct 19:04 local, with 6 lanes running: load average 23.9 / 26.6 / 30.4 on 12 cores, 5 gate processes (relay_ci.py) at once; a quick gate on wt/majority had run 36 minutes against 7.2-8.4 minutes alone (about 4-5 times slower). This is the gate slowdown the speed design marked as not measured."
+      ]
+    },
+    {
+      "at": "2026-10-27T22:52:23Z",
+      "said": [
+        "Почему запущено всего два изменения ?"
+      ]
+    },
+    {
+      "asked_at": "2026-10-27T22:52:23Z",
+      "number": 6,
+      "question": [
+        "Добавить полосы, пока идёт переименование? Сейчас идут 2 изменения из 6 возможных: переименование и исправление evidence. Остальные не запущены по ответу «a» на вопрос 5: переименование меняет 127 файлов, и любой открытый branch, трогающий plugins/core или lib/relay_setup.py, получит конфликт. Из 6 верхних исправлений очереди 2 не трогают ни plugins/core, ни relay_setup, ни relay_queue (его правит evidence): flaky тест остановки gate (IP 92, 1 ч) и «front сам запускает много мелких команд» (IP 91, 1 ч). Ещё 2 сделаны под plugin sdd, которого больше нет (их надо сперва перепроверить), а 2 правят relay_setup или relay_queue."
+      ],
+      "options": [
+        "a. Запустить сейчас эти 2 исправления (рекомендую): 4 полосы, конфликтов с переименованием не ожидается.",
+        "b. Запустить все 6 верхних: остальные 4 почти наверняка получат конфликт и правку после переименования.",
+        "c. Ждать merge переименования, как решено в вопросе 5."
+      ],
+      "answered_at": "2026-10-27T22:53:46Z",
+      "answer": [
+        "a"
+      ],
+      "reading": [
+        "Start now the 2 fixes that touch neither plugins/core, relay_setup nor relay_queue: the flaky gate-stop test and the front running many small commands; 4 lanes."
       ]
     }
   ]

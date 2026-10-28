@@ -1,0 +1,276 @@
+{
+  "branch": "wt/front-cmds",
+  "findings": [
+    {
+      "details": [
+        "Owner, 24 Oct: \"a, \u0437\u0430\u043f\u0438\u0448\u0438 \u043f\u0440\u0430\u0432\u0438\u043b\u043e \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u044c\" (keep the front on Opus effort high; save on the number of front requests instead). Measured on session 0cc68fe0: 952 front requests, each re-reading ~170k tokens of context; context reads 60% of the front's cost, writes 19%, output incl. thinking 21%. The front's notional cost that day was $62 against $58 for all agents. Many requests were small greps, seds, merges and record commands run one by one. rules/delegation.md already says the front only routes, but nothing measures it, so it drifts. Repeats every session (MEDIUM).",
+        "Also: plugins/front/skills/front/SKILL.md",
+        "Also: lib/relay_analyze.py (report)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay report on session 0cc68fe0 shows no front-requests-per-turn figure and no flag, though the front made ~952 requests for ~40 owner turns."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "relay report prints front requests per owner turn and flags a session over the target; the rule text names the batching and the 3+ probes hand-off; a session following it shows fewer front requests per turn in relay report --compare."
+      ],
+      "path": "rules/delegation.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_transcripts_analysis.py:77 test_front_requests_per_turn_are_reported_without_a_flag passes at HEAD and fails at 637df52."
+      ],
+      "severity": "HIGH",
+      "since": "637df5236a5eca78a052ae09b63e7593d66e0f25",
+      "source": "queue",
+      "summary": "the front runs many small commands itself",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. The item's \"952 front requests\" equals the count of type=assistant lines (959 today) not of requests; Claude",
+        "Code writes one line per content block, and relay dedupes by message id (534). The front then derived the target 15 from",
+        "952/40 = 24 per turn and wrote \"a front that batches should stay under 15\". In relay's unit the bad session is 11.4,",
+        "under the target, so the change ships a flag that does not fire on the one session it was built for, and a rule shipped",
+        "to every project quotes an unmeasured number (Working style: verify against the real system before writing a claim into",
+        "docs or code). The value of the target is the owner's pick (Q1); the wrong basis is not.",
+        "Size: 15 agent minutes once the target is chosen."
+      ],
+      "evidence": [
+        "$ ./bin/relay report --since 14d --session 0cc68fe0-5942-41ed-b904-52436e54ccfd | grep -n \"turns\\|Front\\|F10\"",
+        "3:1 sessions, 81 agents, 47 of your turns from 2026-10-13 23:13",
+        "8:Front (main session) per turn of yours: 11.4 requests, 9.2 tool calls (target 15 requests)",
+        "(no F10 line)",
+        "$ python3 -I -c '... count type=assistant lines and unique message ids ...'",
+        "assistant lines 959 unique message ids 534"
+      ],
+      "failing_case": [
+        "The item's failing case: `relay report --since 14d --session 0cc68fe0-5942-41ed-b904-52436e54ccfd` with the fix prints",
+        "\"Front (main session) per turn of yours: 11.4 requests, 9.2 tool calls (target 15 requests)\" with no ABOVE flag and no",
+        "F10 finding. The item calls this session the bad case (it wants the flag). The code comment (line 39) and",
+        "rules/delegation.md:25 (\"measured: 952 requests\") state a number relay itself does not measure: the transcript has 959",
+        "assistant lines but 534 unique requests (relay counts requests by message id, test_duplicate_request_ids_count_once).",
+        "Should: the target and the comment rest on relay's own unit, and the rule text quotes a number relay report reproduces."
+      ],
+      "fix_hint": [
+        "Re-derive the target from relay's own numbers (Q1 gives the value), fix the comment at lines 38-39 and the \"952",
+        "requests\" in rules/delegation.md (and the regenerated eval prompts) to 534 requests / 11.4 per turn, and write the tests",
+        "around FRONT_REQUESTS_PER_TURN_TARGET so they follow the constant."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 39,
+      "pass_cases": [
+        "1. Session 0cc68fe0 (534 requests, 47 owner turns) run through relay report: the figure is 11.4 and the comment/rule",
+        "   quote the figure relay prints (534 requests, 11.4 per turn), not 952 / 24.",
+        "2. Whatever target the owner picks (Q1), a fixture session at target + 1 requests per turn is flagged (ABOVE and F10)",
+        "   and one at target - 1 is not (the two existing tests, rewritten around the chosen constant, not literal 20/10).",
+        "3. A fixture with each request split over 2 assistant lines with the same message id (one text, one tool_use) counts",
+        "   N requests, not 2N, in the per-turn figure (guards the unit the target is calibrated in).",
+        "4. rules/delegation.md and the comment at lib/relay_analyze.py:38-39 name the same measured figure."
+      ],
+      "path": "lib/relay_analyze.py",
+      "rank": "high",
+      "reason": [
+        "Target and 952 basis removed; rules/delegation.md quotes 534 requests, 11.4 per turn; split-line test tests/test_transcripts_analysis.py:93 passes (fails at base)."
+      ],
+      "severity": "HIGH",
+      "since": "aad76d28cb52370bb652ba7f59de230aeb456943",
+      "source": "review-front-cmds.json",
+      "source_id": "F1",
+      "summary": "the target 15 rests on 952/40 = 24 requests per turn, but 952 counts transcript lines: relay's own count for the bad session is 534 requests, 11.4 per turn, so the session the item names is not flagged",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: totals() sums m.total.requests and m.tools over all mains (lines 357-358), findings() the same",
+        "(549, 551), compare() via totals; relay_transcripts.py:175-177 sets user_turns = 0 for a scripted session but keeps its",
+        "requests. The line is labelled \"Front (main session)\", and a headless run is no front. Reachable on any day with evals",
+        "or a bench (relay's paid runs and workflow runs are scripted sessions). No test covers a scripted session.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_transcripts.py:175-177  if trace.scripted: trace.scripted_turns += trace.user_turns; trace.user_turns = ... = 0",
+        "lib/relay_analyze.py:357  \"front_requests\": sum(m.total.requests for m in mains),",
+        "$ python3 -I scratchpad/measure_front.py 10",
+        "all requests 9609 per turn 12.51171875",
+        "interactive requests 8598 per turn 11.1953125",
+        "scripted requests 1011"
+      ],
+      "failing_case": [
+        "A window with one interactive session of 10 owner turns and 100 requests (10 per turn, under 15) plus one scripted",
+        "session (entrypoint sdk-*, a bench or eval run) of 80 requests: user_turns = 10 (relay_transcripts zeroes the scripted",
+        "session's turns, line 177) but front_requests = 180, so report prints 18.0 requests per turn and \"ABOVE the target\",",
+        "and F10 fires. Should: 10.0 per turn, no flag. Live, 10 days: all mains 9609 requests / 768 turns = 12.5 per turn;",
+        "interactive only 8598 / 768 = 11.2; the 1011 requests of 284 scripted sessions are not the front."
+      ],
+      "fix_hint": [
+        "Count front requests and tool calls over `[m for m in mains if not m.scripted]` in totals() and findings() (one helper",
+        "both use), and add a fixture test with a scripted session."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 357,
+      "pass_cases": [
+        "1. Interactive 10 turns / 100 requests + scripted session with 80 requests: report shows 10.0 requests per turn, no",
+        "   ABOVE, no F10.",
+        "2. Interactive 2 turns / 40 requests, no scripted session: 20.0 per turn, ABOVE and F10 (today's test keeps passing).",
+        "3. Only scripted sessions (user_turns 0): no front line and no F10, no division error.",
+        "4. compare() \"front requests per turn\" row uses the same interactive-only count."
+      ],
+      "path": "lib/relay_analyze.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_transcripts_analysis.py test_scripted_sessions_do_not_count_as_the_front and test_share_of_cost_leaves_scripted_sessions_out pass; both fail at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "aad76d28cb52370bb652ba7f59de230aeb456943",
+      "source": "review-front-cmds.json",
+      "source_id": "F2",
+      "summary": "front requests count scripted (headless, eval, bench) sessions while their turns are zeroed, so program runs inflate the front's per-turn figure and can raise the flag",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: `grep -n -i \"master\\|merge\" plugins/delegate/workflows/cycle.js` shows only arg base (line 9, 52)",
+        "and a rider merge-check prompt (248), no step that merges the default branch into the branch. The handover records",
+        "76 take-master Bash calls by hand 24-27 Oct. The item asked for the sequence to \"go into the workflow script\"; the change",
+        "only wrote that it is there. Size: 5 agent minutes for the text; moving take-master into cycle.js is its own item."
+      ],
+      "evidence": [
+        "$ grep -n -i \"master\\|default branch\\|merge\" plugins/delegate/workflows/cycle.js",
+        "9:// Required args: base (the default branch), ...",
+        "52:  if (typeof A.base !== 'string' ...",
+        "248:      `Merge check of a rider's item: ...",
+        "SKILL.md:163: \"its message says what to run (a runner takes the default branch or runs the gate again)\""
+      ],
+      "failing_case": [
+        "A ready change whose branch is behind master: the front, reading line 35-36 (\"The take-master, record, gate and check",
+        "sequence is run by the workflow script, not here\"), leaves taking master to the cycle workflow; plugins/delegate/",
+        "workflows/cycle.js has no take-master step (no \"master\" or \"merge\" in its steps; it gates and checks the branch as it",
+        "is), so the branch is gated without the default branch and the merge hook refuses it (\"behind master ... take master",
+        "first\"), costing a second gate. Line 163 of the same skill says \"a runner takes the default branch\". Should: the skill",
+        "says what is true today: which steps the workflow runs (gate, check) and who takes the default branch."
+      ],
+      "fix_hint": [
+        "Reword SKILL.md:35-36 to \"Gate, review, fix and check run in the cycle workflow; taking the default branch and the",
+        "merge-check record go to one runner in one brief, not to a string of front commands\", and queue moving take-master",
+        "into cycle.js as its own item."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 36,
+      "pass_cases": [
+        "1. The front skill's new paragraph names only steps cycle.js runs today (gate, review, fix, check, close), or names",
+        "   take-master as the runner's step, matching line 163.",
+        "2. rules/delegation.md:23-25 states the same split (it says \"belongs in\", an aim; the skill says \"is run by\", a fact;",
+        "   they agree after the fix).",
+        "3. If take-master is meant to move into cycle.js, that is a queue item, not a sentence that claims it is done."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "plugins/front/skills/front/SKILL.md and rules/delegation.md say gate/review/fix/check run in the workflow and take-master goes to a runner."
+      ],
+      "severity": "MEDIUM",
+      "since": "aad76d28cb52370bb652ba7f59de230aeb456943",
+      "source": "review-front-cmds.json",
+      "source_id": "F3",
+      "summary": "the front skill says the take-master, record, gate and check sequence 'is run by the workflow script, not here', but cycle.js takes no master and the same skill (line 163) still has a runner take the default branch",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading (grep of def lines). Rule label: Python, \"Every new or changed function has types\". The rule sets",
+        "no severity; rated MEDIUM because the brief made it a condition of the change. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_analyze.py:323 def totals(data):  387 def report(data, title=\"Usage\"):  455 def findings(data):",
+        "575 def compare(a, b, label_a=\"A\", label_b=\"B\"):  tests/test_transcripts_analysis.py:57 def write_front_session(self, requests, turns):"
+      ],
+      "failing_case": [
+        "The change edits totals(data), report(data, title=\"Usage\"), findings(data), compare(a, b, label_a=\"A\", label_b=\"B\") and",
+        "adds tests/test_transcripts_analysis.py write_front_session(self, requests, turns); none has parameter or return types.",
+        "The project's Python rule (\"Every new or changed function has types\") and the brief (\"types on new or changed Python\")",
+        "require them. Should: each of the five has annotated parameters and return type."
+      ],
+      "fix_hint": [
+        "Annotate the five signatures; no body change."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 323,
+      "pass_cases": [
+        "1. totals(data: dict[str, Any]) -> dict[str, Any], report(...) -> str, findings(...) -> list[dict[str, Any]],",
+        "   compare(...) -> str, write_front_session(self, requests: int, turns: int) -> dt.datetime.",
+        "2. The gate's type check (bin/ci types and lint) stays green."
+      ],
+      "path": "lib/relay_analyze.py",
+      "rank": "medium",
+      "reason": [
+        "totals, report, findings, compare and write_front_session are typed in lib/relay_analyze.py and the test file."
+      ],
+      "severity": "MEDIUM",
+      "since": "aad76d28cb52370bb652ba7f59de230aeb456943",
+      "source": "review-front-cmds.json",
+      "source_id": "F4",
+      "summary": "Python rule: changed functions totals, report, findings, compare and the new test helper write_front_session carry no types",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "For the owner. How it works: relay report divides the front's API requests by the owner's turns and flags the period",
+        "when the ratio is over a constant. Live example: the session the item calls wasteful made 534 requests over 47 turns",
+        "(11.4), close to today's 10.5. Answers: (a) keep requests per turn and set the target to 11 (flags the bad session and",
+        "9 of 22 sessions; simple); (b) keep 15 (flags only the extreme sessions, 5 of 22; the bad session passes);",
+        "(c) flag on context read per owner turn instead (closer to cost; one more figure, needs a new measure). Recommendation",
+        "(a), resting on the 22-session measure above. Size: 5 minutes for (a) or (b), ~30 for (c)."
+      ],
+      "evidence": [
+        "$ python3 -I scratchpad/measure_front.py 10   (interactive sessions >= 5 turns, requests per turn, sorted)",
+        "2.2 ... 10.1 953f48dd, 10.5 3207dc59, 11.3 a51de51f, 11.4 0cc68fe0, 11.8, 13.1, 15.7, 16.6, 17.1, 18.8, 42.7 9e6730ab"
+      ],
+      "failing_case": [
+        "Live, 10 days, 22 interactive sessions with 5+ owner turns: requests per turn 2.2 .. 42.7, median ~10; the item's bad",
+        "session 0cc68fe0 is 11.4, this front session 3207dc59 10.5. Target 15 flags 5 of 22 and not 0cc68fe0; target 11 flags",
+        "0cc68fe0 and 9 of 22; a context-weighted figure (requests x context read, per owner turn) would rank sessions by what",
+        "the item says costs money (60% of the front's cost was context reads)."
+      ],
+      "fix_hint": [
+        "Ask the owner; then set the constant and its comment from the answer (F1)."
+      ],
+      "id": "F5",
+      "kind": "question",
+      "line": 40,
+      "pass_cases": [
+        "1. The owner's pick is written beside FRONT_REQUESTS_PER_TURN_TARGET with the measured numbers it rests on.",
+        "2. Under the pick, 0cc68fe0 is flagged if the owner wants the item's bad case flagged."
+      ],
+      "path": "lib/relay_analyze.py",
+      "rank": "medium",
+      "reason": [
+        "No target any more (owner 28 Oct); only numbers are reported."
+      ],
+      "severity": "MEDIUM",
+      "since": "aad76d28cb52370bb652ba7f59de230aeb456943",
+      "source": "review-front-cmds.json",
+      "source_id": "Q1",
+      "summary": "which target the front-requests flag uses: requests per owner turn barely separates the bad session (11.4) from a typical one (median ~10)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "670ae9f4eaa36f5742379a87566b59c25f498b28.gate.log",
+  "head": "514a7b59f510007c0d0894ec34282385c44cbad4",
+  "item": "the-front-runs-many-small-commands-itself",
+  "notes": [
+    "Verdicts carried from the check of 851ff71 and confirmed unchanged: owner decision 28 Oct, numbers only, no target or flag."
+  ],
+  "schema": 2,
+  "scope": [
+    "Recheck after merging master (670ae9f). Gate log head 670ae9f exit 0; HEAD 514a7b5 adds only the gate log. Since the previous check (851ff71) the merge changed only gate/queue files and their tests, none of the change's files (lib/relay_analyze.py, rules, skill, tests/test_transcripts_analysis.py). Ran tests.test_transcripts_analysis at HEAD: 25 pass. Copied the test file into a throwaway worktree at 637df52 (Q1 since): 4 fail, 2 error there; worktree removed."
+  ],
+  "type": "check"
+}

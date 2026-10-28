@@ -1,0 +1,203 @@
+{
+  "branch": "wt/evidence",
+  "findings": [
+    {
+      "details": [
+        "Owner, 28 Oct, asked: \"\u0427\u0442\u043e \u0442\u0430\u043a\u043e\u0435 evidence ? \u041a\u0430\u043a \u0442\u044b \u0435\u0433\u043e \u043f\u0440\u043e\u0441\u0442\u0430\u0432\u043b\u044f\u0435\u0448\u044c ?\". Principle 5 (fact to code): whether a commit exists and is on the default branch is a fact git can check. Live, 28 Oct: the front closed a-resolved-conflict-no-longer-waits-for-the-owne with --evidence $(git rev-parse master), which after a fast-forward is the last check-record commit 3379145, not a commit of the change; nothing would have refused a typo."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "In a temporary repo, `relay queue done <feature> --evidence deadbeef` closes the item though deadbeef is no commit."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1033,
+      "pass_cases": [
+        "--evidence that is not a commit of this repo is refused, naming the reason.",
+        "A commit that is not on the default branch is refused.",
+        "A commit of the default branch is accepted, stored as the full sha."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue_close.py:110 test_text_that_is_no_commit_is_refused_naming_the_reason passes at head and fails at 3a7725e (Refused not raised)."
+      ],
+      "severity": "HIGH",
+      "since": "3a7725ea722923f6d1ba1a7108265f781ea58736",
+      "source": "queue",
+      "summary": "A feature closes with any one-line text as its evidence",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading and the probe. The item's What names three gaps: the sha exists, it is on the default branch, and it",
+        "\"carries the change\". The fix closes the first two; the third is untouched, and the item's live example (rev-parse master",
+        "after a fast-forward, landing on a check-record commit) still passes. \"Carries the change\" in full is meaning (principle 5:",
+        "the model), but \"the commit changes at least one non-inert file\" is a fact code can check with relay_inert.matches over the",
+        "commit's diff (first parent for a merge). The owner may instead accept the narrower fix: then it is a follow-up item.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "queue item What: \"It never checks that the sha exists, that it is on the default branch, or that it carries the change\";",
+        "Why: \"Live, 28 Oct: ... --evidence $(git rev-parse master), which after a fast-forward is the last check-record commit 3379145\".",
+        "python3 probe.py r master -> 'master' -> 8c8fbff785a4577dba3f04b3e42e4588f99cb0af (an empty \"queue only\" commit)"
+      ],
+      "failing_case": [
+        "The queue item's Why: after a fast-forward, master is the check-record commit 3379145 (\"relay: check of bd64d80...\"), which",
+        "changes only .relay/checks/. Closing a feature with --evidence $(git rev-parse master) records that sha as its evidence.",
+        "Now: accepted (it is a commit on the default branch). Should: refused, naming that the commit changes only inert files",
+        "(queue, checks, handover), so it is no evidence of the feature.",
+        "Probe: in a temp repo whose master tip is an empty \"queue only\" commit, _checked_evidence(repo, \"master\") returned the tip sha."
+      ],
+      "fix_hint": [
+        "In _commit_on_default, after the ancestor check: list `git diff-tree --no-commit-id --name-only -r <sha>^1 <sha>` (or",
+        "--root for a root commit); when every path matches relay_inert.matches (this repo only), raise Refused(\"<sha12> changes only",
+        "inert files (queue, checks, handover): name the merge of the change\"). Add pass cases 1-3 as tests."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 1033,
+      "pass_cases": [
+        "1. Temp repo, master tip a commit that changes only .relay/queue/x.json: close_with_evidence(main, \"feat\", \"master\") raises Refused naming inert files; master unchanged.",
+        "2. Same with a commit that changes only .relay/checks/<sha>.gate.log: refused.",
+        "3. A commit on master that changes lib/foo.py (or a merge commit whose first-parent diff changes lib/foo.py): accepted, full sha stored.",
+        "4. A commit of another repo given as ~/other:<sha> that changes a file there: accepted as today.",
+        "5. A report file docs/reports/trial.md on master: accepted as today."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_close.py:144,149 (queue-only and check-record commits refused), :154 merge by first parent, :164 code commit stored in full, :127 other repo; pass at head, fail at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "1e5adcf27d78cc3a037fa1e25d1af39d0132b3bd",
+      "source": "review-evidence.json",
+      "source_id": "F1",
+      "summary": "a commit that carries no change (a queue or check-record commit, the item's own live case) is still accepted as evidence",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED with the probe: 'docs' -> docs, 'docs/' -> docs/, '.relay/queue' -> .relay/queue, '.relay/queue/q.json' accepted.",
+        "cat-file -e only says the object exists; a tree is an object. The change's own docstring promises a file. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "python3 probe.py r docs docs/ .relay/queue .relay/queue/q.json",
+        "'docs' -> docs / 'docs/' -> docs/ / '.relay/queue' -> .relay/queue / '.relay/queue/q.json' -> .relay/queue/q.json"
+      ],
+      "failing_case": [
+        "Closing feat with --evidence docs (a typo for docs/reports/x.md, or any folder): `git cat-file -e master:docs` succeeds",
+        "for a tree, so the feature closes with evidence \"docs\". Same for \".relay/queue\" and \".relay/queue/<slug>.json\" (the item",
+        "itself). Should: refused, the docstring says \"a repo-relative file ... (a report)\"."
+      ],
+      "fix_hint": [
+        "Use `git cat-file -t refs/heads/<default>:<path>` and accept only \"blob\"; refuse a path under .relay/ (relay_inert.matches)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1055,
+      "pass_cases": [
+        "1. close_with_evidence(main, \"feat\", \"docs\") on a repo with docs/a.md: Refused, nothing landed.",
+        "2. close_with_evidence(main, \"feat\", \".relay/queue/feat.json\"): Refused (queue files are no report).",
+        "3. close_with_evidence(main, \"feat\", \"docs/reports/trial.md\") with that file on master: accepted, stored as written (test_queue_close.py test_q1_a_report_path_is_evidence_too...).",
+        "4. close_with_evidence(main, \"feat\", \"docs/reports/none.md\") absent on master: Refused \"nor a file on master\" (as today)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_close.py:168 directory refused, :172 queue file refused, :176 report file stored as written; code requires blob and not relay_inert.matches."
+      ],
+      "severity": "MEDIUM",
+      "since": "1e5adcf27d78cc3a037fa1e25d1af39d0132b3bd",
+      "source": "review-evidence.json",
+      "source_id": "F2",
+      "summary": "a directory or the queue's own files pass as a report file: --evidence docs or .relay/queue closes the feature",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED with the probe: from the probe folder 'r:master' -> r:8c8fbff... (r is a relative folder). Correct at close time; the",
+        "stored fact is fragile. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "python3 probe.py r r:master sub:abc -> 'r:master' -> r:8c8fbff785a4577dba3f04b3e42e4588f99cb0af ; 'sub:abc' REFUSED not a git repository"
+      ],
+      "failing_case": [
+        "From ~ close a feature with -C ~/relay/.worktrees/x --evidence arsenal:abc1234: os.path.isdir(\"arsenal\") is read against",
+        "the cwd (~), the sha is checked in ~/arsenal, and \"arsenal:<full sha>\" is stored; read later from another folder it names no repo.",
+        "Run from ~/relay instead, the same text falls through to \"not a commit of this repository\". Should: the stored folder is one",
+        "that names the repo wherever it is read (as given with ~, or absolute), or a relative folder is refused.",
+        "Also, a folder that exists but is no git repository gives \"not a git repository\" with no mention of --evidence."
+      ],
+      "fix_hint": [
+        "Accept the other-repo form only when `other` starts with ~ or / ; wrap _context(folder)'s Refused into an --evidence message."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1048,
+      "pass_cases": [
+        "1. --evidence ~/other:<sha on its master> stores \"~/other:<full sha>\" (as today, test_a_commit_of_another_repo_is_checked_in_that_repo).",
+        "2. --evidence other:<sha> with ./other existing relative to the cwd: refused with a message asking for ~/ or an absolute folder (or stored as ~/other).",
+        "3. --evidence ~/plainfolder:abc where plainfolder has no .git: refused, the message names --evidence and the folder."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue_close.py:180 relative folder refused, :188 non-git folder refused naming --evidence; :127 ~/other form still works."
+      ],
+      "severity": "LOW",
+      "since": "1e5adcf27d78cc3a037fa1e25d1af39d0132b3bd",
+      "source": "review-evidence.json",
+      "source_id": "F3",
+      "summary": "another repo's folder is resolved against the process cwd and stored as written, so a relative folder is not re-checkable",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. bin/relay is outside the brief's file list (lib/relay_queue.py only), so the fixer may need the front's word",
+        "to touch it; the two texts in lib/relay_queue.py are in scope. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n \"evidence <merge sha>\" -> bin/relay:791, bin/relay:988, lib/relay_queue.py:1171"
+      ],
+      "failing_case": [
+        "The queue help line at bin/relay:791, the usage at bin/relay:988, lib/relay_queue.py:1067 (\"--evidence is a merge sha, on one line\")",
+        "and :1171 (\"close it with --evidence <merge sha>\") name only a merge sha. A front closing a feature finished in another",
+        "project learns the ~/folder:<sha> form only after a refusal. Should: the help line names the three forms."
+      ],
+      "fix_hint": [
+        "Reword the four texts; no behaviour change."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 791,
+      "pass_cases": [
+        "1. bin/relay help text names the forms: a sha on the default branch, <repo folder>:<sha>, a report file.",
+        "2. The refusal at lib/relay_queue.py:1171 names the same forms."
+      ],
+      "path": "bin/relay",
+      "rank": "low",
+      "reason": [
+        "Pass case 1 (bin/relay help names the three forms) not done: bin/relay:791 and :988 unchanged, fixer listed it as Outside. Pass case 2 (lib refusal at close_fixed_by) met by test_f4 at tests/test_queue_close.py. LOW, so not counted open; owner to take bin/relay text as a small follow-up."
+      ],
+      "severity": "LOW",
+      "since": "1e5adcf27d78cc3a037fa1e25d1af39d0132b3bd",
+      "source": "review-evidence.json",
+      "source_id": "F4",
+      "summary": "help and refusal texts still say --evidence <merge sha> only; the <repo folder>:<sha> form and the default-branch rule are not told",
+      "verdict": "NOT MET"
+    }
+  ],
+  "gate": "1dbe2b24bd821b53d1682b819c11d39a31bfde7d.gate.log",
+  "head": "1cf2a6e2fb9d349419564f8c9a061dfa5b77598d",
+  "item": "a-feature-closes-with-any-one-line-text-as-its-e",
+  "notes": [
+    "bin/relay:791 and :988 help/usage still say --evidence <merge sha> (fixer reported as Outside, brief file list). The lib texts were reworded. Callers of close_with_evidence/_checked_evidence: only bin/relay dispatch, unchanged signature."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 1e5adcf..HEAD. Gate log head 1dbe2b2 (fix commit), bin/ci --quick, exit 0; HEAD adds only that log. Ran pytest on test_queue_close, test_stale_close, test_queue_in_place, test_queue_notes: 96 passed. Copied head test_queue_close.py into a throwaway worktree at 3a7725e (before the fix): 15 failed, 5 passed; the F1-F4 tests and Q1 test all fail there. Files changed are lib/relay_queue.py, its two sync copies, and the four test files: all in scope."
+  ],
+  "type": "check"
+}

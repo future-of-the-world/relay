@@ -1,0 +1,46 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 30,
+  "found_at": "2026-10-27T22:48:02Z",
+  "found_in": "relay queue add",
+  "title": "A feature closes with any one-line text as its evidence",
+  "what": [
+    "relay queue done <slug> --evidence <sha> checks only that the text is one line, holds no session path and that the item is a feature (lib/relay_queue.py close_with_evidence, about line 1033). It never checks that the sha exists, that it is on the default branch, or that it carries the change, so \"evidence\" is the closer's word, not a fact."
+  ],
+  "why": [
+    "Owner, 28 Oct, asked: \"Что такое evidence ? Как ты его проставляешь ?\". Principle 5 (fact to code): whether a commit exists and is on the default branch is a fact git can check. Live, 28 Oct: the front closed a-resolved-conflict-no-longer-waits-for-the-owne with --evidence $(git rev-parse master), which after a fast-forward is the last check-record commit 3379145, not a commit of the change; nothing would have refused a typo."
+  ],
+  "failing_case": [
+    "In a temporary repo, `relay queue done <feature> --evidence deadbeef` closes the item though deadbeef is no commit."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "--evidence that is not a commit of this repo is refused, naming the reason.",
+    "A commit that is not on the default branch is refused.",
+    "A commit of the default branch is accepted, stored as the full sha."
+  ],
+  "where": [
+    "lib/relay_queue.py:1033-1050"
+  ],
+  "taken_at": "2026-10-27T22:49:27Z",
+  "taken_by": "wt/evidence",
+  "closed_at": "2026-10-27T23:39:52Z",
+  "test": "tests/test_queue_close.py::TestEvidenceIsChecked::test_text_that_is_no_commit_is_refused_naming_the_reason",
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-27T22:48:12Z",
+      "fact": [
+        "28 Oct: the docstring says evidence may be a merge sha \"of this or another repo\" (a feature finished in another project). The fix keeps that case: a sha of another repo needs that repo named (for example --evidence <repo>:<sha>) and is checked there, not accepted unchecked."
+      ]
+    },
+    {
+      "at": "2026-10-27T22:49:10Z",
+      "said": [
+        "Возьми исправление evidence параллельно с переименованием"
+      ]
+    }
+  ]
+}

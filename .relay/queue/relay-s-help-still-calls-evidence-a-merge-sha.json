@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 85,
+  "time": 5,
+  "found_at": "2026-10-27T23:41:54Z",
+  "found_in": "relay queue add",
+  "title": "relay's help still calls evidence a merge sha",
+  "what": [
+    "After the evidence check merged (28 Oct), bin/relay's usage and help text (about lines 791 and 988) still say `--evidence <merge sha>`, while the command now wants a commit of the default branch that carries the change (or another repo named)."
+  ],
+  "why": [
+    "Finding F4 (LOW) of the evidence change's review, not met at its check; the fixer kept bin/relay out of its file list. A help line that names the wrong input sends the next closer to the wrong sha."
+  ],
+  "failing_case": [
+    "`relay queue` usage prints \"--evidence <merge sha>\"."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The usage and help text name what the check accepts, in the words of lib/relay_queue.py's refusal."
+  ],
+  "where": [
+    "bin/relay:791",
+    "bin/relay:988"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

@@ -7,6 +7,8 @@ import subprocess
 import sys
 import time
 import unittest
+from typing import Any
+from unittest import mock
 
 from pidfile import wait_pid
 
@@ -77,6 +79,86 @@ class RunnerStopped(unittest.TestCase):
         command; a SIGKILL of the gate skips that and leaves the sleep running."""
         pid = self.stop_runner_group_with(signal.SIGINT)
         self.assertTrue(until(lambda: not alive(pid)), "the gate command is still running after its runner was interrupted")
+
+
+class StopWhilePopenReturns(unittest.TestCase):
+    def test_f3_a_stop_between_the_command_starting_and_popen_returning_leaves_no_command(self):
+        """F3 (the cause of the flaky F2): the runner's SIGINT can land after the command runs but before Popen returns, when
+        the gate has no process to kill. The signal is sent from inside a wrapped Popen, right after the real one started the
+        command and the command wrote its pid. Without the hold the gate exits with the sleep alive."""
+        import test_gate
+        import relay_gate
+        f = test_gate.Fixture("setUp")
+        f.setUp()
+        self.addCleanup(f.doCleanups)
+        f.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % f.tmp)
+        real = subprocess.Popen
+        started = []
+
+        def popen_then_stop(*args: Any, **kwargs: Any) -> "subprocess.Popen[bytes]":
+            proc = real(*args, **kwargs)
+            if not kwargs.get("start_new_session"):      # only the gate command's own start (git and others use Popen too)
+                return proc
+            started.append(proc)
+            wait_pid(os.path.join(f.tmp, "pid"), WAIT)      # the command is running
+            os.kill(os.getpid(), signal.SIGINT)      # the stop lands before Popen returns
+            return proc
+
+        def cleanup() -> None:
+            for proc in started:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except OSError:
+                    pass
+        self.addCleanup(cleanup)
+        old = signal.signal(signal.SIGINT, signal.default_int_handler)
+        self.addCleanup(signal.signal, signal.SIGINT, old)
+        with mock.patch.object(relay_gate.subprocess, "Popen", popen_then_stop):
+            with self.assertRaises(KeyboardInterrupt):
+                relay_gate.run(f.wt, environ=f.env)
+        pid = wait_pid(os.path.join(f.tmp, "pid"), WAIT)
+        self.assertTrue(until(lambda: not alive(pid)), "the gate command is still running after the stop landed during Popen")
+
+    def test_f2_review_a_stop_held_while_popen_raises_still_stops_the_gate(self):
+        """Review F2: SIGTERM lands while Popen runs and Popen raises OSError. The gate exits 143 and commits no log (it used to
+        write 'could not start', exit 127 and commit a log)."""
+        import test_gate
+        import relay_gate
+        f = test_gate.Fixture("setUp")
+        f.setUp()
+        self.addCleanup(f.doCleanups)
+        f.repo(gate="exit 0\n")
+        real = subprocess.Popen
+
+        def popen_stop_then_fail(*args: Any, **kwargs: Any) -> "subprocess.Popen[bytes]":
+            if not kwargs.get("start_new_session"):
+                return real(*args, **kwargs)
+            os.kill(os.getpid(), signal.SIGTERM)
+            raise OSError("cannot start")
+        old = signal.getsignal(signal.SIGTERM)
+        self.addCleanup(signal.signal, signal.SIGTERM, old)
+        before = subprocess.run(["git", "-C", f.wt, "rev-parse", "HEAD"], capture_output=True, text=True).stdout
+        with mock.patch.object(relay_gate.subprocess, "Popen", popen_stop_then_fail):
+            with self.assertRaises(SystemExit) as caught:
+                relay_gate.run(f.wt, environ=f.env)
+        self.assertEqual(caught.exception.code, 143)      # 128 + SIGTERM(15)
+        after = subprocess.run(["git", "-C", f.wt, "rev-parse", "HEAD"], capture_output=True, text=True).stdout
+        self.assertEqual(before, after)      # no log committed
+
+    def test_f3_review_an_ignored_sigint_stays_ignored_through_the_hold(self):
+        """Review F3: SIGINT = SIG_IGN before the hold stays SIG_IGN during it and after release; SIGTERM is still held."""
+        import relay_gate
+        old_int = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        old_term = signal.getsignal(signal.SIGTERM)
+        self.addCleanup(signal.signal, signal.SIGINT, old_int)
+        self.addCleanup(signal.signal, signal.SIGTERM, old_term)
+        held, release = relay_gate.hold_stops()
+        self.assertEqual(signal.getsignal(signal.SIGINT), signal.SIG_IGN)
+        self.assertNotEqual(signal.getsignal(signal.SIGTERM), old_term)
+        release()
+        self.assertEqual(signal.getsignal(signal.SIGINT), signal.SIG_IGN)
+        self.assertEqual(signal.getsignal(signal.SIGTERM), old_term)
+        self.assertEqual(held, [])
 
 
 if __name__ == "__main__":
