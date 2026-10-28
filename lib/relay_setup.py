@@ -26,6 +26,15 @@ STACKS = [
     ("package-lock.json", "typescript", "npm"), ("yarn.lock", "typescript", "yarn"), ("mix.exs", "elixir", "mix"),
     ("Cargo.toml", "rust", "cargo"), ("go.mod", "go", "go"), ("pyproject.toml", "python", "python"),
 ]
+# What a template's step lines become: the stack's real step where relay knows one, else a step that fails until filled in.
+NOT_CONFIGURED = "NOT CONFIGURED: this gate step is still a template placeholder; replace it with the real commands of the project"
+STACK_STEPS = {
+    "python": ('run_step tests python3 -m pytest -q -x ${TEST_FILES:-}', 'step "tests" python3 -m pytest -q'),
+}
+PLACEHOLDER_STEPS = (
+    f"run_step placeholder bash -c 'echo \"{NOT_CONFIGURED}\"; exit 1'",
+    f"step \"placeholder\" bash -c 'echo \"{NOT_CONFIGURED}\"; exit 1'",
+)
 OLD_ROLES = ("worker", "fixer", "author", "reviewer", "spec-reviewer", "spec-conformance", "code-reviewer")
 OLD_STAGES = ("plan", "spec-review", "parallel-apply", "apply-review", "archive")
 
@@ -55,6 +64,14 @@ def load_old_names(path=None):
     return data
 
 
+def has_python_files(root: str) -> bool:
+    """True when the folder, or its tests/ folder, holds a .py file (a project of plain scripts and test_*.py)."""
+    for folder in (root, os.path.join(root, "tests")):
+        if os.path.isdir(folder) and any(f.endswith(".py") for f in os.listdir(folder)):
+            return True
+    return False
+
+
 def detect(root):
     # a linked worktree is the same project as its main checkout: name it after that folder
     d = {"root": root, "name": os.path.basename(main_checkout(root) or os.path.realpath(root)), "git": os.path.isdir(os.path.join(root, ".git")) or os.path.isfile(os.path.join(root, ".git"))}
@@ -63,6 +80,8 @@ def detect(root):
         if os.path.exists(os.path.join(root, marker)):
             d["stack"], d["tool"] = stack, tool
             break
+    if d["stack"] == "unknown" and has_python_files(root):
+        d["stack"], d["tool"] = "python", "python"
     d["default_branch"] = default_branch(root)
     d["openspec"] = os.path.isdir(os.path.join(root, "openspec"))
     d["has_bindings"] = os.path.isfile(bindings_path(root))
@@ -650,6 +669,12 @@ def ensure_gitignore(root: str, d: dict) -> list[str]:
     return missing
 
 
+def template_steps(stack: str) -> dict[str, str]:
+    """The lines for the {{check_steps}} and {{ci_steps}} marks of bin-check and bin-ci."""
+    check, ci = STACK_STEPS.get(stack, PLACEHOLDER_STEPS)
+    return {"check_steps": check, "ci_steps": ci}
+
+
 def copy_template(name, dest, mode_exec=False, replacements=None):
     if os.path.exists(dest):
         return False
@@ -853,9 +878,14 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
         if d["scripts"][script]:
             continue
         if first_setup:
-            if copy_template(f"bin-{script}", os.path.join(root, "bin", script), mode_exec=True, replacements={"tool": d["tool"], "stack": d["stack"], "branch": d["default_branch"]}):
+            if copy_template(f"bin-{script}", os.path.join(root, "bin", script), mode_exec=True, replacements={"tool": d["tool"], "stack": d["stack"], "branch": d["default_branch"], **template_steps(d["stack"])}):
                 done.append(f"wrote bin/{script} from the template")
-                todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO (the contract is in plugins/relay/README.md)")
+                if script == "wt":
+                    todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO")
+                elif d["stack"] in STACK_STEPS:
+                    todo.append(f"bin/{script}: check the {d['stack']} steps it was given (the contract is in plugins/relay/README.md)")
+                else:
+                    todo.append(f"bin/{script}: it fails with NOT CONFIGURED until you replace the placeholder step with the {d['stack']} commands (the contract is in plugins/relay/README.md)")
         elif not os.path.isfile(os.path.join(root, gate.get(script, f"bin/{script}"))):
             todo.append(f"{gate.get(script, f'bin/{script}')} (gate.{script}) is missing: setup writes templates only on a project's first setup; copy templates/bin-{script} or point [gate] {script} at your script")
     if d["git"]:

@@ -21,7 +21,8 @@ never overwrites:
   lists the plugins that are off and reports a FIX when `relay`, `observe`, `delegate` or `front` is off for the project; a backup of the old file in `<git dir>/relay-backup/` (none when git holds the file unchanged: `git restore` it);
 - `.gitignore`: `.ci/`, the kit.toml worktrees folder (when inside the project) and the stack's caches, appended when missing; existing lines are kept;
 - `bin/check`, `bin/ci`, `bin/wt` from templates that follow the contract,
-  with `TODO` where the stack's commands go, and a `CLAUDE.md` skeleton and `docs/handover.md`: all of these only on
+  with `TODO` where the stack's commands go (a folder of `.py` files, in its root or in `tests/`, with no marker is python and its
+  `bin/check` and `bin/ci` run pytest; for any other stack they hold a placeholder step that fails with `NOT CONFIGURED` until you replace it), and a `CLAUDE.md` skeleton and `docs/handover.md`: all of these only on
   a project's first setup (when it has no kit.toml yet). Later a missing script is a to-do line and a doctor FIX;
 - the project in `projects.toml`, then `relay sync` writes its
   `CLAUDE.local.md` (never committed). In a linked worktree setup skips the sync and says so; run `relay sync`
