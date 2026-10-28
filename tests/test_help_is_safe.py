@@ -1,4 +1,6 @@
 """`relay <cmd> --help` prints usage and writes nothing (queue item relay-cmd-help-runs-the-command-instead-of-help)."""
+import importlib.machinery
+import importlib.util
 import os
 import re
 import subprocess
@@ -20,10 +22,10 @@ def snapshot(top: str) -> list[str]:
 
 def run_help(cmd: list[str]) -> tuple[subprocess.CompletedProcess, list[str]]:
     """Run relay with --help in a temporary home and working folder; return the result and what appeared there."""
-    with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as cwd:
-        env = {**os.environ, "HOME": home, "RELAY_HOME": os.path.join(home, ".relay")}
+    with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as cwd, tempfile.TemporaryDirectory() as root:
+        env = {**os.environ, "HOME": home, "RELAY_HOME": os.path.join(home, ".relay"), "RELAY_ROOT": root}
         done = subprocess.run([sys.executable, RELAY, *cmd], cwd=cwd, env=env, capture_output=True, text=True, timeout=60)
-        return done, snapshot(home) + ["cwd:" + n for n in snapshot(cwd)]
+        return done, snapshot(home) + ["cwd:" + n for n in snapshot(cwd)] + ["root:" + n for n in snapshot(root)]
 
 
 def command_names() -> list[str]:
@@ -62,6 +64,24 @@ class HelpIsSafe(unittest.TestCase):
             done, written = run_help(cmd)
             self.assertEqual(done.returncode, 0, f"{cmd}: {done.stderr}")
             self.assertEqual(written, [], cmd)
+
+    def test_help_after_bare_double_dash_is_not_relay_help(self) -> None:
+        loader = importlib.machinery.SourceFileLoader("relay_cli_under_test", RELAY)
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        module = importlib.util.module_from_spec(spec)
+        loader.exec_module(module)
+        self.assertFalse(module.wants_help(["-C", ".", "--", "--help"]))
+        self.assertTrue(module.wants_help(["-C", ".", "--help"]))
+        self.assertTrue(module.wants_help(["--help", "--", "x"]))
+
+    def test_top_level_help_exits_0_and_no_command_exits_2(self) -> None:
+        for args in (["--help"], ["-h"], ["help"]):
+            done, _ = run_help(args)
+            self.assertEqual(done.returncode, 0, args)
+            self.assertTrue(done.stdout.strip(), args)
+        done, _ = run_help([])
+        self.assertEqual(done.returncode, 2)
+        self.assertTrue(done.stdout.strip())
 
 
 if __name__ == "__main__":
