@@ -82,6 +82,19 @@
       "fact": [
         "28 Oct, measured: relay report came with relay's first import (930f84b, 21 Oct, \"relay as installed on the owner's Mac\"); it reads Claude Code transcripts priced by prices.toml plus the observe ledger ($RELAY_HOME/ledger/<day>.jsonl). Readers: the front skill and the tune skill run it when the owner asks what work cost or compares setups; relay bench reads the ledger for running agents; no hook or paid guard depends on the report. Runs in the last 7 days: in 7 main sessions, all by the front (the owner never typed it). `relay report --since 1d` on 28 Oct: 37 sessions, $332.10 notional (estimate), main sessions $214.29, agents $95.78 (31% agents); opus 4043 requests $295.39."
       ]
+    },
+    {
+      "asked_at": "2026-10-28T00:25:12Z",
+      "number": 9,
+      "question": [
+        "**Флаг перерасхода главной сессии в отчёте о стоимости: ставить или нет**",
+        "",
+        "Отчёт отвечает на ваш вопрос «сколько стоила работа и где деньги». За последние сутки: $332 по прейскуранту (у вас подписка, это условная цена), из них главные сессии $214, агенты $96. Главная сессия дорогая, потому что каждый её запрос перечитывает весь разговор. Пункт очереди просит добавить в отчёт «запросов главной сессии на ваш ход» и предупреждение, когда их слишком много. Число добавляется в любом случае. Порог для предупреждения из данных не выводится: сессия, из-за которой завели пункт (11,4 на ход), обычная — медиана 9,75 по 76 сессиям; порог, который её ловит, срабатывает у 35–40% всех сессий."
+      ],
+      "options": [
+        "a. Только число, без предупреждения (рекомендую): предупреждение добавим, когда будет настоящий случай перерасхода, по которому порог можно измерить.",
+        "b. Предупреждение при 25 запросах на ход: срабатывает у самых тяжёлых 10% сессий."
+      ]
     }
   ]
 }
