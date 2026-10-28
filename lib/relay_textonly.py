@@ -44,6 +44,7 @@ RULE_TESTS = (
     "tests.test_queue.TestFrontSkill",
     "tests.test_bench_worker",
     "tests.test_paid_batch",
+    "tests.test_setup.Setup",
     "tests.test_spec_steps.RenderedRules",
     "tests.test_front_measures",
 )

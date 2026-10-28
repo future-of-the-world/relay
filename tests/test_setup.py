@@ -31,6 +31,207 @@ class Setup(Base):
         d2, *_ = relay_setup.setup(proj)
         self.assertTrue(d2["has_bindings"])
 
+    def test_doctor_parts_keep_machine_checks_out_of_the_project_part(self):
+        import relay_setup
+        proj = os.path.join(self.tmp, "proj")
+        os.makedirs(proj)
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        open(os.path.join(proj, "go.mod"), "w").write("module x\n")
+        relay_setup.setup(proj)
+        machine, project = relay_setup.doctor_parts(proj, profile={})
+        # the user's settings are empty in the temp Claude folder, so the machine part has FIXes (e.g. "rules in sync" or the marketplace)
+        self.assertTrue([n for n, good, _ in machine if not good])
+        # "project has .claude/kit.toml" is the first project check; no machine check names the project
+        self.assertEqual(project[0][0], "project has .claude/kit.toml")
+        self.assertNotIn("relay marketplace in ~/.claude/settings.json", [n for n, _, _ in project])
+        self.assertEqual(relay_setup.doctor_parts(None, profile={})[1], [])
+
+    def _doctor_project(self, installed=True, leftovers=(), fresh_rules=True):
+        """A set-up temp project whose plugins are (by default) installed for it; the user's settings stay empty, so the machine part has FIXes."""
+        import relay_setup
+        proj = os.path.realpath(os.path.join(self.tmp, "proj"))
+        os.makedirs(proj)
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        relay_setup.setup(proj, install_runner=lambda r, k: (True, ""))
+        keys = [k for k, v in json.load(open(os.path.join(proj, ".claude", "settings.json")))["enabledPlugins"].items() if v] if installed else []
+        plugins = {k: [{"scope": "project", "projectPath": proj}] for k in keys}
+        for key, path in leftovers:
+            plugins[key] = [{"scope": "project", "projectPath": path}]
+        os.makedirs(os.path.join(self.claude, "plugins"), exist_ok=True)
+        with open(os.path.join(self.claude, "plugins", "installed_plugins.json"), "w") as handle:
+            json.dump({"plugins": plugins}, handle)
+        # setup registers the project in projects.toml; write its rules file as sync would, unless the test wants it stale
+        import relay_config
+        import relay_rules
+        spec = relay_rules.targets()["proj"]
+        if fresh_rules:
+            os.makedirs(os.path.dirname(spec["file"]), exist_ok=True)
+            with open(spec["file"], "w", encoding="utf-8") as handle:
+                handle.write(relay_rules.render_target("proj", spec, relay_rules.rules(), relay_config.active_profile()))
+        return proj
+
+    def _doctor(self, *args):
+        done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "doctor", *args], capture_output=True, text=True, env=os.environ.copy())
+        head, _, tail = done.stdout.partition("# This machine")
+        return done.returncode, head, tail, done.stdout + done.stderr
+
+    def test_relay_doctor_of_a_fine_project_exits_0_with_a_machine_fix(self):
+        # The project part is all ok (plugins installed for it); the empty user settings give machine FIXes. Exit 0, FIXes shown under the machine heading.
+        proj = self._doctor_project()
+        code, head, tail, out = self._doctor(proj)
+        self.assertNotIn("FIX ", head, out)
+        self.assertIn("FIX  relay marketplace in ~/.claude/settings.json ", tail)
+        self.assertEqual(code, 0, out)
+
+    def test_relay_doctor_of_a_project_with_one_project_fix_exits_1(self):
+        proj = self._doctor_project()
+        os.chmod(os.path.join(proj, "bin", "check"), 0o644) if os.path.isfile(os.path.join(proj, "bin", "check")) else self.fail("no bin/check")
+        code, head, _, out = self._doctor(proj)
+        self.assertIn("FIX  gate.check exists and is executable", head)
+        self.assertEqual(code, 1, out)
+
+    def test_relay_doctor_without_a_folder_counts_a_machine_fix(self):
+        code, _, _, out = self._doctor()
+        self.assertIn("FIX  relay marketplace in ~/.claude/settings.json ", out)
+        self.assertEqual(code, 1, out)
+
+    def test_a_stale_rules_file_of_the_checked_project_decides_its_exit_code(self):
+        # setup registered [proj], the checked folder, and its file is not written (stale); [demo] is stale too and stays machine-wide.
+        proj = self._doctor_project(fresh_rules=False)
+        code, head, tail, out = self._doctor(proj)
+        self.assertIn("FIX  rules for this project in sync", head)
+        self.assertEqual(code, 1, out)
+        rules_line = [l for l in tail.splitlines() if "rules in sync" in l][0]
+        self.assertIn("demo", rules_line)
+        self.assertNotIn("proj", rules_line.replace("project", ""))
+
+    def test_a_stale_rules_file_of_another_project_does_not_decide_the_exit_code(self):
+        proj = self._doctor_project()
+        code, head, tail, out = self._doctor(proj)
+        self.assertNotIn("rules for this project", head.replace("ok   rules for this project in sync", ""))
+        self.assertIn("FIX  rules in sync  (global; demo -> relay sync)", tail)   # only the other projects are named
+        self.assertEqual(code, 0, out)
+
+    def test_nothing_stale_shows_no_rules_fix(self):
+        import relay_setup
+        proj = self._doctor_project()
+        import relay_config
+        import relay_rules
+        for name, spec in relay_rules.targets().items():
+            os.makedirs(os.path.dirname(spec["file"]), exist_ok=True)
+            open(spec["file"], "w").write(relay_rules.render_target(name, spec, relay_rules.rules(), relay_config.active_profile()))
+        machine, project = relay_setup.doctor_parts(proj, profile=relay_config.active_profile())
+        self.assertTrue(dict((n, g) for n, g, _ in machine)["rules in sync"])
+        self.assertTrue(dict((n, g) for n, g, _ in project)["rules for this project in sync"])
+
+    def test_a_leftover_install_for_the_checked_project_counts_for_it(self):
+        proj = self._doctor_project(leftovers=[("gone@amidman", os.path.join(self.tmp, "proj"))])
+        code, head, tail, out = self._doctor(proj)
+        self.assertIn("FIX  installed plugin still shipped", head)
+        self.assertNotIn("installed plugin still shipped", tail)
+        self.assertEqual(code, 1, out)
+
+    def test_a_leftover_install_for_another_project_stays_machine_wide(self):
+        proj = self._doctor_project(leftovers=[("gone@amidman", os.path.join(self.tmp, "other"))])
+        code, head, tail, out = self._doctor(proj)
+        self.assertNotIn("installed plugin still shipped", head)
+        self.assertIn("FIX  installed plugin still shipped", tail)
+        self.assertEqual(code, 0, out)
+
+
+class SetupGitignore(Base):
+    """A fresh project stays clean (git status empty) after setup, a check's output and a worktrees folder; an existing .gitignore keeps its lines."""
+
+    def _proj(self, ignore=None):
+        import relay_setup
+        proj = os.path.join(self.tmp, "proj")
+        os.makedirs(proj)
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        open(os.path.join(proj, "pyproject.toml"), "w").write("[project]\nname = 'x'\n")
+        if ignore is not None:
+            open(os.path.join(proj, ".gitignore"), "w").write(ignore)
+        relay_setup.setup(proj)
+        return proj
+
+    def _status(self, proj):
+        return subprocess.run(["git", "-C", proj, "status", "--short", "-uall"], capture_output=True, text=True, check=True).stdout.splitlines()
+
+    def test_what_a_check_and_a_worktree_leave_behind_is_ignored(self):
+        proj = self._proj()
+        for rel in (".ci/check/a.log", ".worktrees/t/f", "__pycache__/m.pyc", ".pytest_cache/v"):
+            os.makedirs(os.path.dirname(os.path.join(proj, rel)), exist_ok=True)
+            open(os.path.join(proj, rel), "w").write("x")
+        # setup's own files (kit.toml, bin/*, settings, CLAUDE.md, docs) are the owner's to commit; nothing else may show
+        shown = [line for line in self._status(proj) if not line.startswith("?? .claude/") and not line.startswith("?? bin/") and not line.startswith("?? .relay/") and line not in ("?? CLAUDE.md", "?? docs/handover.md", "?? pyproject.toml")]
+        self.assertEqual(shown, ["?? .gitignore"])
+
+    def test_existing_lines_are_kept_and_not_duplicated(self):
+        proj = self._proj(ignore="secret.txt\n.ci\n/.worktrees")   # no final newline; two entries written without the slash form we add
+        lines = open(os.path.join(proj, ".gitignore")).read().splitlines()
+        self.assertEqual(lines[:3], ["secret.txt", ".ci", "/.worktrees"])
+        self.assertEqual(lines[3:], ["__pycache__/", ".pytest_cache/", ".ruff_cache/", ".mypy_cache/"])
+
+
+class GitignoreCases(Base):
+    """Review findings F1-F4 of the .gitignore lines: line endings, anchors and negations, a folder outside the project, the kit.toml folder."""
+
+    def _ensure(self, ignore=None, worktrees=None, name="p"):
+        import relay_setup
+        root = os.path.join(self.tmp, name)
+        os.makedirs(root, exist_ok=True)
+        if ignore is not None:
+            with open(os.path.join(root, ".gitignore"), "wb") as handle:
+                handle.write(ignore)
+        bindings = {} if worktrees is None else {"project": {"worktrees": worktrees}}
+        added = relay_setup.ensure_gitignore(root, {"stack": "python", "bindings": bindings})
+        return added, open(os.path.join(root, ".gitignore"), "rb").read()
+
+    def test_f1_crlf_file_is_kept_byte_for_byte(self):
+        _, data = self._ensure(b".ci/\r\nfoo\r\n")
+        # .ci/ is present; the other lines are appended with the file's own endings
+        self.assertEqual(data, b".ci/\r\nfoo\r\n.worktrees/\r\n__pycache__/\r\n.pytest_cache/\r\n.ruff_cache/\r\n.mypy_cache/\r\n")
+
+    def test_f1_no_final_newline_and_fresh_file(self):
+        _, data = self._ensure(b"secret.txt\n.ci\n/.worktrees", name="a")
+        self.assertEqual(data, b"secret.txt\n.ci\n/.worktrees\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n.mypy_cache/\n")
+        _, data = self._ensure(None, name="b")
+        self.assertEqual(data, b".ci/\n.worktrees/\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n.mypy_cache/\n")
+
+    def test_f2_anchored_cache_is_not_present(self):
+        added, _ = self._ensure(b"/__pycache__/\n")
+        self.assertIn("__pycache__/", added)
+
+    def test_f2_negated_entry_is_left_in_force(self):
+        added, data = self._ensure(b"!.ci/\n")
+        self.assertNotIn(".ci/", added)
+        self.assertEqual(data.count(b".ci/"), 1)
+
+    def test_f2_anchored_root_folders_and_plain_cache_count_as_present(self):
+        added, _ = self._ensure(b".ci\n/.worktrees\n__pycache__\n")
+        self.assertEqual(added, [".pytest_cache/", ".ruff_cache/", ".mypy_cache/"])
+
+    def test_f3_folder_outside_the_project_adds_no_line(self):
+        for n, outside in enumerate(("/Users/x/wt", "../wt")):
+            added, _ = self._ensure(worktrees=outside, name=f"o{n}")
+            self.assertEqual(added, [".ci/", "__pycache__/", ".pytest_cache/", ".ruff_cache/", ".mypy_cache/"], outside)
+
+    def test_f3_folder_inside_comes_from_kit_toml(self):
+        added, _ = self._ensure(worktrees="trees")
+        self.assertEqual(added[:2], [".ci/", "trees/"])
+        self.assertNotIn(".worktrees/", added)
+
+    def test_f4_setup_reads_kit_toml_worktrees(self):
+        import relay_setup
+        proj = os.path.join(self.tmp, "proj")
+        os.makedirs(os.path.join(proj, ".claude"))
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        open(os.path.join(proj, "pyproject.toml"), "w").write("[project]\nname = 'x'\n")
+        open(os.path.join(proj, ".claude", "kit.toml"), "w").write('[project]\nworktrees = "trees"\n')
+        relay_setup.setup(proj)
+        lines = open(os.path.join(proj, ".gitignore")).read().splitlines()
+        self.assertIn("trees/", lines)
+        self.assertNotIn(".worktrees/", lines)
+
 
 class SetupIsProjectOnly(Base):
     """Owner's decision A (26 Oct): `relay setup <dir>` writes only into the project; the Claude folder is the global command's."""

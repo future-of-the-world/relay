@@ -9,6 +9,7 @@ import datetime as dt
 import json
 import os
 import platform
+import posixpath
 import re
 import shutil
 import stat
@@ -25,6 +26,15 @@ STACKS = [
     ("package-lock.json", "typescript", "npm"), ("yarn.lock", "typescript", "yarn"), ("mix.exs", "elixir", "mix"),
     ("Cargo.toml", "rust", "cargo"), ("go.mod", "go", "go"), ("pyproject.toml", "python", "python"),
 ]
+# What a template's step lines become: the stack's real step where relay knows one, else a step that fails until filled in.
+NOT_CONFIGURED = "NOT CONFIGURED: this gate step is still a template placeholder; replace it with the real commands of the project"
+STACK_STEPS = {
+    "python": ('run_step tests python3 -m pytest -q -x ${TEST_FILES:-}', 'step "tests" python3 -m pytest -q'),
+}
+PLACEHOLDER_STEPS = (
+    f"run_step placeholder bash -c 'echo \"{NOT_CONFIGURED}\"; exit 1'",
+    f"step \"placeholder\" bash -c 'echo \"{NOT_CONFIGURED}\"; exit 1'",
+)
 OLD_ROLES = ("worker", "fixer", "author", "reviewer", "spec-reviewer", "spec-conformance", "code-reviewer")
 OLD_STAGES = ("plan", "spec-review", "parallel-apply", "apply-review", "archive")
 
@@ -54,6 +64,14 @@ def load_old_names(path=None):
     return data
 
 
+def has_python_files(root: str) -> bool:
+    """True when the folder, or its tests/ folder, holds a .py file (a project of plain scripts and test_*.py)."""
+    for folder in (root, os.path.join(root, "tests")):
+        if os.path.isdir(folder) and any(f.endswith(".py") for f in os.listdir(folder)):
+            return True
+    return False
+
+
 def detect(root):
     # a linked worktree is the same project as its main checkout: name it after that folder
     d = {"root": root, "name": os.path.basename(main_checkout(root) or os.path.realpath(root)), "git": os.path.isdir(os.path.join(root, ".git")) or os.path.isfile(os.path.join(root, ".git"))}
@@ -62,6 +80,8 @@ def detect(root):
         if os.path.exists(os.path.join(root, marker)):
             d["stack"], d["tool"] = stack, tool
             break
+    if d["stack"] == "unknown" and has_python_files(root):
+        d["stack"], d["tool"] = "python", "python"
     d["default_branch"] = default_branch(root)
     d["openspec"] = os.path.isdir(os.path.join(root, "openspec"))
     d["has_bindings"] = os.path.isfile(bindings_path(root))
@@ -605,6 +625,56 @@ def merge_session_settings(profile: dict, dry: bool = False) -> tuple[str, str]:
 
 # --- files ------------------------------------------------------------------
 
+STACK_CACHES = {"python": ["__pycache__/", ".pytest_cache/", ".ruff_cache/", ".mypy_cache/"], "typescript": ["node_modules/"],
+                "rust": ["target/"], "elixir": ["_build/", "deps/"]}   # what a stack's first check leaves untracked
+
+
+def gitignore_lines(d: dict) -> list[str]:
+    """The lines a relay project's .gitignore needs: the gate's .ci/, the worktrees folder from kit.toml (none when it lies
+    outside the project), the stack's caches."""
+    project = d["bindings"].get("project")
+    folder = project.get("worktrees") if isinstance(project, dict) else None
+    folder = folder if isinstance(folder, str) and folder.strip("/") else ".worktrees"
+    norm = posixpath.normpath(folder)
+    lines = [".ci/"]
+    if not (os.path.isabs(folder) or norm == ".." or norm.startswith("../")):
+        lines.append(norm.strip("/") + "/")
+    return lines + STACK_CACHES.get(d["stack"], [])
+
+
+def ensure_gitignore(root: str, d: dict) -> list[str]:
+    """Append to <root>/.gitignore the lines of gitignore_lines it lacks; return the lines added. Existing text is never
+    changed (its line endings stay). An entry with or without a trailing slash counts as present; a leading slash counts
+    only for the root folders (.ci/, the worktrees folder), not for caches, which appear in every folder; a name the file
+    un-ignores with "!" is left alone."""
+    path = os.path.join(root, ".gitignore")
+    text = ""
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8", newline="") as handle:
+            text = handle.read()
+    entries = {line.strip().rstrip("/") for line in text.splitlines()}
+    caches = STACK_CACHES.get(d["stack"], [])
+    missing = []
+    for line in gitignore_lines(d):
+        name = line.rstrip("/")
+        if name in entries or "!" + name in entries or "!/" + name in entries or (line not in caches and "/" + name in entries):
+            continue
+        missing.append(line)
+    if not missing:
+        return []
+    eol = "\r\n" if "\r\n" in text else "\n"
+    prefix = eol if text and not text.endswith("\n") else ""
+    with open(path, "a", encoding="utf-8", newline="") as handle:
+        handle.write(prefix + "".join(m + eol for m in missing))
+    return missing
+
+
+def template_steps(stack: str) -> dict[str, str]:
+    """The lines for the {{check_steps}} and {{ci_steps}} marks of bin-check and bin-ci."""
+    check, ci = STACK_STEPS.get(stack, PLACEHOLDER_STEPS)
+    return {"check_steps": check, "ci_steps": ci}
+
+
 def copy_template(name, dest, mode_exec=False, replacements=None):
     if os.path.exists(dest):
         return False
@@ -808,11 +878,20 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
         if d["scripts"][script]:
             continue
         if first_setup:
-            if copy_template(f"bin-{script}", os.path.join(root, "bin", script), mode_exec=True, replacements={"tool": d["tool"], "stack": d["stack"], "branch": d["default_branch"]}):
+            if copy_template(f"bin-{script}", os.path.join(root, "bin", script), mode_exec=True, replacements={"tool": d["tool"], "stack": d["stack"], "branch": d["default_branch"], **template_steps(d["stack"])}):
                 done.append(f"wrote bin/{script} from the template")
-                todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO (the contract is in plugins/relay/README.md)")
+                if script == "wt":
+                    todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO")
+                elif d["stack"] in STACK_STEPS:
+                    todo.append(f"bin/{script}: check the {d['stack']} steps it was given (the contract is in plugins/relay/README.md)")
+                else:
+                    todo.append(f"bin/{script}: it fails with NOT CONFIGURED until you replace the placeholder step with the {d['stack']} commands (the contract is in plugins/relay/README.md)")
         elif not os.path.isfile(os.path.join(root, gate.get(script, f"bin/{script}"))):
             todo.append(f"{gate.get(script, f'bin/{script}')} (gate.{script}) is missing: setup writes templates only on a project's first setup; copy templates/bin-{script} or point [gate] {script} at your script")
+    if d["git"]:
+        added_ignore = ensure_gitignore(root, d)
+        if added_ignore:
+            done.append(f".gitignore: added {', '.join(added_ignore)}")
     if license_id is not None:
         done += set_license(root, license_id, holder, todo)
     if first_setup:
@@ -1051,7 +1130,14 @@ def dep_checks(deps=None):
 # --- doctor -----------------------------------------------------------------
 
 def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[str, bool, str]]:
+    machine, project = doctor_parts(root, profile)
+    return machine + project
+
+
+def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[list[tuple[str, bool, str]], list[tuple[str, bool, str]]]:
+    """The check-up as (machine-wide checks, checks of the project at `root`); the second is empty with no root."""
     checks = []
+    machine_end = None
 
     def ok(name, good, detail=""):
         checks.append((name, bool(good), detail))
@@ -1091,8 +1177,12 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
     try:
         import relay_rules
         stale = relay_rules.check(profile or {})
+        own = detect(os.path.realpath(root))["name"] if root else None
+        own_stale = [n for n, _ in stale if n == own]   # the checked project's own rules file: its fault, not the machine's
+        stale = [(n, f) for n, f in stale if n != own]
         ok("rules in sync", not stale, "; ".join(f"{n}" for n, _ in stale) + (" -> relay sync" if stale else ""))
     except Exception as exc:
+        own_stale = []
         ok("rules in sync", False, str(exc))
     prices = read_toml(os.path.join(ROOT, "prices.toml"))
     try:
@@ -1104,10 +1194,12 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
     import glob
     files = sorted(glob.glob(os.path.join(ledger_dir(), "*.jsonl")))
     ok("ledger has entries", bool(files), "none yet: the observe plugin writes it once a session runs" if not files else os.path.basename(files[-1]))
+    machine_end = len(checks)
     if root:
         root = os.path.realpath(root)
         d = detect(root)
         ok("project has .claude/kit.toml", d["has_bindings"], "relay setup " + root)
+        ok("rules for this project in sync", not own_stale, "-> relay sync")
         cfg = d["bindings"]
         flow = cfg.get("flow", {}).get("kind", "none")
         old = load_old_names()
@@ -1166,11 +1258,13 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
         ok("docs/handover.md exists", d["handover"], "the front desk keeps state there")
         old_agents = [a for a in d["agents"] if a.startswith(d["name"] + "-")]
         ok("no old prefixed agents left", not old_agents, ", ".join(old_agents) + " -> relay migrate --apply" if old_agents else "")
-    for line in unshipped_installs():
-        ok("installed plugin still shipped", False, line)
+    machine, project = checks[:machine_end], checks[machine_end:]
+    for path, line in unshipped_install_entries():
+        own = root and path and os.path.realpath(path) == root
+        (project if own else machine).append(("installed plugin still shipped", False, line))
     for folder in leftover_plugin_folders():
-        ok("no leftover plugin folder", False, f"{folder} is not a plugin of the marketplace (a renamed plugin's old folder; git ignores it) -> rm -rf {folder}")
-    return checks
+        machine.append(("no leftover plugin folder", False, f"{folder} is not a plugin of the marketplace (a renamed plugin's old folder; git ignores it) -> rm -rf {folder}"))
+    return machine, project
 
 
 def actual_on(root, key):
@@ -1237,16 +1331,21 @@ def leftover_plugin_folders(code_root: str | None = None) -> list[str]:
 
 def unshipped_installs():
     """One line per project-scope install of a relay plugin the marketplace no longer ships (a rename or a removal)."""
+    return [line for _, line in unshipped_install_entries()]
+
+
+def unshipped_install_entries():
+    """(projectPath or None, line) per install of a relay plugin the marketplace no longer ships; None for a user-scope one."""
     shipped = set(marketplace()[1])
     reg = read_json(os.path.join(claude_dir(), "plugins", "installed_plugins.json")).get("plugins", {})
-    lines = [f"{key} installed at user scope under the old marketplace name: claude plugin uninstall {key} --scope user" for key in pre_rename_leftovers()[0]]
+    lines = [(None, f"{key} installed at user scope under the old marketplace name: claude plugin uninstall {key} --scope user") for key in pre_rename_leftovers()[0]]
     for key, entries in sorted(reg.items()):
         plugin, _, market = key.partition("@")
         if market not in (marketplace()[0], PRE_RENAME_MARKETPLACE) or plugin in shipped:   # old-names keys are still `<old>@relay`
             continue
         for e in entries if isinstance(entries, list) else []:
             if isinstance(e, dict) and e.get("scope") == "project" and e.get("projectPath"):
-                lines.append(f"{key} installed for {e['projectPath']}: run relay setup {e['projectPath']}")
+                lines.append((e["projectPath"], f"{key} installed for {e['projectPath']}: run relay setup {e['projectPath']}"))
     return lines
 
 

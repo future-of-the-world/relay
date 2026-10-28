@@ -33,7 +33,7 @@ class BinCheckPortable(unittest.TestCase):
         self.assertFalse((self.toolbin / "timeout").exists())
 
     def write(self, step, drop=()):
-        text = TEMPLATE.read_text().replace("run_step placeholder true", step)
+        text = TEMPLATE.read_text().replace("{{check_steps}}", step)
         script = self.proj / "bin" / "check"
         script.write_text(text)
         script.chmod(0o755)

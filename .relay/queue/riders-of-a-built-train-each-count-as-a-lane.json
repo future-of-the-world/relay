@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 89,
+  "time": 30,
+  "found_at": "2026-10-28T07:39:23Z",
+  "found_in": "relay queue add",
+  "title": "Riders of a built train each count as a lane",
+  "what": [
+    "In lanes_state, a branch already merged into another open branch (a train rider) is not a lane of its own; the train is one lane."
+  ],
+  "why": [
+    "28 Oct ~07:40 UTC: `relay queue start` refused three top fixes with 'no free lane: 6 of 6 running' while only one change was being built (bench-tools at its landing gate); train-24 and its three riders (precheck-tests, gate-rerun, recheck-take, all closed on their branches and merged into wt/train-24) counted as four lanes, picks and spec-met waited (one for the paid run, one for bench-tools). Lanes stood idle for the length of a paid run (28-110 min)."
+  ],
+  "failing_case": [
+    "Branches wt/a, wt/b merged into wt/train-1, all three open, setting 2: lanes_state says 3 of 2 running and start refuses."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same: 1 of 2 running, one item can start.",
+    "A rider not yet merged into the train still counts as its own lane."
+  ],
+  "where": [
+    "plugins/front/lib/relay_lanes.py (lanes_state)",
+    "tests/test_lanes_state.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

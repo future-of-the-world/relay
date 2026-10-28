@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-28T01:57:58Z",
   "taken_by": "wt/timeout-recipe",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T02:50:19Z",
+  "test": "tests/test_agents.py::Agents::test_timeout_line_is_in_every_limits_carrier",
   "dropped_at": null,
   "dropped_why": null
 }

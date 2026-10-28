@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 87,
+  "time": 30,
+  "found_at": "2026-10-28T05:15:28Z",
+  "found_in": "relay queue add",
+  "title": "A fix that adds a new module cannot be closed",
+  "what": [
+    "In relay queue done --fixed-by (lib/relay_queue.py, the check near line 1197), a test that fails at the parent only because it cannot import a module the fixing commit adds counts as failing before the fix; any other error still refuses."
+  ],
+  "why": [
+    "28 Oct: closing two-branches-start-on-the-same-file-unnoticed (fixed by de283320, which added plugins/front/lib/relay_lanes.py and tests/test_lanes_state.py) was refused: the test at the parent 0644594e cannot import the new module, exits neither 0 nor 1, and relay queue done says it cannot tell. Every fix whose cure is a new module hits this; the item stays open although it is fixed."
+  ],
+  "failing_case": [
+    "relay queue done two-branches-start-on-the-same-file-unnoticed --fixed-by de283320 --test tests/test_lanes_state.py::Lanes::test_overlap_skip refuses: 'cannot tell whether ... fails at 0644594e52b1 ... it did not run to a pass or a fail'."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same command closes the item.",
+    "A test that errors at the parent for another reason (a syntax error in the test, a missing fixture) still refuses.",
+    "A test that passes at the parent still refuses with 'that commit did not fix it'."
+  ],
+  "where": [
+    "lib/relay_queue.py:1190-1200 (_test_at and the before check)",
+    "tests/ (a queue-done test in a temporary folder)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

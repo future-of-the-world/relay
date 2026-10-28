@@ -82,7 +82,9 @@ brief: ask it in the prompt, several questions at once.
 
 Up to "Changes built at once: N" changes (front skill, "Lanes") are built side
 by side, each by its own cycle run with its own worktree and briefs. The 4-agent
-cap counts agents inside one change. While a paid run goes, lanes keep
+cap counts agents inside one change. A free lane is filled with
+`relay queue start <slug> --scratch <folder>` (an item that overlaps a running
+branch's files waits, and is started only with a stated reason). While a paid run goes, lanes keep
 building; a change for which `bin/paid-cost touches <branch>` prints files waits at the landing
 until the run ends, then lands in one train.
 
@@ -156,8 +158,8 @@ front's.
    the default branch that morning; one change cycle spent about 34 minutes and
    123k tokens before finding nothing to do).
 3. **Gate before the review.** Where the project has `.relay/`, a
-   `delegate:runner` runs `relay gate` (detached, with the limits recipe: it
-   takes minutes) in the worktree, with the project's arguments (relay:
+   `delegate:runner` runs `relay gate` (detached, with the recipe under Limits in every agent file: nohup, a log, a `kill -0` wait loop;
+   macOS has no `timeout` program, so no agent calls it; it takes minutes) in the worktree, with the project's arguments (relay:
    `relay gate -- --quick`). It runs the free checks on the committed head and
    stores the result as `.relay/checks/<G>.gate.log`. A red gate goes back to
    the worker or a fixer, then this step again: a red build is never reviewed.

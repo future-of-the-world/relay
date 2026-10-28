@@ -1523,3 +1523,41 @@ Owner decisions (verbatim in items): question numbering dropped ("откажем
 Running: paid run on master e904114 (EVALS_JOBS=3, log scratchpad/paid-e904114.log, Bash background); no-numbers taking master (fix unit, resumed wf_72788763-2da); lanes py-green, setup-dirty, doctor-exit, timeout-recipe (wf_a74e8dbc-fb9); core-leftover (wf_3653e64b-30e: ignore node_modules so the untracked plugins/core leftover stops dirtying old checkouts; guard-main refuses git clean in main).
 Leftover worktrees: rename (merged; hook did not run because the plugin path moved), queue-edit, train-22 (old), plans-save, train-19/20, relay-plugins, paid-e905742, paid-aa8cfd1.
 Next: paid run green -> relay sync; land no-numbers after the green paid run (it changes skill texts); show the damage design's two questions (no numbers).
+
+## Addendum 23 (28 Oct, about 05:00 UTC; session 3207dc59)
+
+Landed since addendum 22: no-numbers (questions carry no number; answers name the question by its asked time), core-leftover (node_modules ignored, doctor names the leftover plugins/core; main checkout clean), evidence-ff (an ff landing's head closes an item). Paid run on master e904114 green ($17.61); relay sync done. Items closed by hand: gates-run-all-at-once (fixed-by 68e5b21), a-note-answering-question-2 (fixed by no-numbers), the-flow-s-skills-give-a-session-opposite-orders dropped (does not reproduce).
+
+Running (scratchpad $S = /private/tmp/claude-501/-Users-amidman-relay/3207dc59-2cc6-4cd6-9463-5c3c3c8bd504/scratchpad):
+- train-23 build (fix unit, wf_562a6627-c21): merges timeout-recipe, setup-dirty, py-green, doctor-exit (all open 0 on their branches; doctor-exit item closed on its branch by the front). Next: a recheck unit of wt/train-23 with the four items and reviews $S/reports/review-<name>.json, then ff. NOTE: units in one cycle run go in parallel; never put a build and its recheck in one run. A recheck does not take master: merge master into the branch first (queued fix a-recheck-runs-on-a-branch-that-has-not-taken-ma).
+- autostart recheck after taking master (wf_0ec64fda-2e9): the lanes line + Stop hook + `relay queue start` + start-time filter (owner "a a"). Then ff; it changes skills and a hook: next paid run covers it.
+- spec-met (wf_a5a82d73-dbd), precheck-tests + gate-rerun + recheck-take (wf_d88ecc78-738).
+- Worker adding trains to the gate demo page ($S/artifacts/gate-demo.html, published at https://claude.ai/artifact/LHpFpLYZUP5FMXAfqt81jf; v1, v2 kept beside it).
+
+Designs (in $S/reports): design-cadence.md revision 4 (owner's idea holds: release the tree proven on the branch; keep the take gate run by a program, drop the agent recheck; waiting landings ride one train), design-autostart.md (built), lanes4-analysis.md (the 34-agent run: $6.02 for 4 changes, time went to gate slot waits; four fixes queued at IP 85-90).
+
+Owner decisions this segment (verbatim in the item notes): release loads everything ("В релиз входит всё - полноценная подготовка к хостингу данных relay на github и последующая установка relay с удаленного хостинга (github.com)"); release waits for the paid run; gate on the branch stays; autostart "a a"; gate slots stay 2 ("a" after the front found the 27 Oct bench: 2 at once 10.3 gates/h, 3 at once 10.2).
+
+Open for the owner (item principle-lower-the-cost-of-a-failure-not-avoid): "Проверять ли branch после того, как он взял master" (asked 03:57:30Z) and "Что делать, если платный прогон долго red?" (03:57:45Z); the older "Что делать, если master остаётся red слишком долго?" (03:12:25Z) is superseded by the latter — answer both together. The owner is studying the demo page for the first.
+
+Next: land train-23 and autostart; paid run after the wave (agent texts changed: timeout-recipe, autostart, no-numbers); relay sync; keep lanes full (6) by queue order with the file filter. Next handover worktree: 36.
+
+## Addendum 24 (28 Oct, about 05:15 UTC; session 3207dc59, written at the 350k line)
+
+Owner decided (verbatim, recorded in principle-lower-the-cost-of-a-failure-not-avoid): "Хорошо, давай просто возьмем a. Gate после взятия master, без агента И спустя время сравним показатели на реальном примере". Queued as feature `relay-land-a-program-lands-ready-changes-no-agen` (IP 97, front's IP): `relay land` takes master, gates the exact tree unless only inert records came, fast-forwards, one at a time, waiting landings ride one train; agent recheck dropped; baseline for the later comparison is in the item's why (83/83 exact trees; 146 agent min on 6 rechecks 27-28 Oct; train riders 102 min ready-to-landing vs 1 min alone). It is a feature: design is done (design-cadence.md revision 4, approach E, sections 2, 5, 8); start it as a build from that design when a lane frees.
+
+Still open for the owner: "Что делать, если платный прогон долго red?" (asked 03:57:45Z; the older 03:12:25Z red-master question is superseded, answer both together). Recommended there: a = paid run on the train of text changes before landing.
+
+Gate demo page v3 (trains added, measured train use) published at https://claude.ai/artifact/LHpFpLYZUP5FMXAfqt81jf; measurements in $S/trains/trains.md and as a fact note in the principle item.
+
+Running when written: train-23 build (wf_562a6627-c21) then needs a recheck unit with four items (see addendum 23); autostart recheck (wf_0ec64fda-2e9); spec-met (wf_a5a82d73-dbd); precheck-tests, gate-rerun, recheck-take (wf_d88ecc78-738). Agents were over the cap (13 of 6): start no new lane until these finish. After the wave: paid run on master (texts changed), relay sync. Next handover worktree: 37.
+
+## Addendum 25 (28 Oct, ~05:30 UTC): pace measured from the queue
+
+From `.relay/queue/*.json` dated events, days in UTC (28 Oct partial, to 05:18 UTC):
+added 22 Oct 27, 23 Oct 32, 24 Oct 41, 25 Oct 39, 26 Oct 45, 27 Oct 27, 28 Oct 15;
+closed 0, 5, 32, 24, 18, 24, 10; dropped 0, 5, 4, 1, 9, 2, 1; open at day end 27, 49, 54, 68, 86, 87, 91
+(83 waiting + 8 taken; 51 fix, 40 feature; 62 with IP >= 80). Median taken -> closed: 79, 120, 122, 73, 78 min
+(24-28 Oct). Open items' estimates sum 6000 min (median 40), but estimates are guesses (fix item
+queue-time-estimates-are-guesses-with-no-model-b). Owner decision 28 Oct: `relay land` without trains (the item was
+edited; owner can reverse); train-23 is the last hand-built train.

@@ -1,0 +1,209 @@
+{
+  "branch": "wt/bench-tools",
+  "findings": [
+    {
+      "details": [
+        "28 Oct, spec-met (a-spec-fix-is-marked-met-by-reading-not-by-runni): the rule 'the checker runs a sketch of a runnable failing case' could not be proven in 7 paid bench runs ($2.83): graders read only the final reply, the workspace and the ledger (agent starts, tool names, no commands), so 'a script ran' is graded by words in the reply ('sketch|scratch|script|\u0441\u043a\u0440\u0438\u043f\u0442'). Run 6 (rule on) found the defect by reading and the word grader failed; runs 4-5 (rule off) gave the same verdicts. Any rule about what an agent runs is untestable until graders see the commands (principle 5: a fact goes to code).",
+        "Also: lib/relay_ledger.py",
+        "Also: evals/scenarios/check-runs-sketch/scenario.toml (on wt/spec-met)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "evals/scenarios/check-runs-sketch on wt/spec-met: the grader sketch-was-run is a regex over the reply; a checker that writes 'I ran a script' without running one passes it."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A grader that asks for a Bash call running python passes when the checker ran one and fails when it only wrote the word.",
+        "No secret from the environment appears in what graders read (a test with a fake key in the environment)."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_bench.py:159 test_tool_called_sees_a_real_command_not_a_word fails at d57df77e (no tool_calls attribute), passes at head."
+      ],
+      "severity": "HIGH",
+      "since": "d57df77e57d7cb2d2188383c26ac66929650ab7c",
+      "source": "queue",
+      "summary": "Bench graders cannot see the commands an agent ran",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED on real data. tool_calls reads message.content of every JSON line whatever its `type`; Claude Code subagent",
+        "transcripts now hold `type: api-request-blob` lines (keys agentId, hash, sessionId, type) whose message repeats the tool_use",
+        "(same id, the command as sent, e.g. with a hook's `cd <ws> &&` prefix). The count field, the \"N of M\" note and the llm",
+        "grader's tool list are all doubled. The test fixture has no such lines, so the tests pass while real data is wrong.",
+        "Size: 15 minutes (keep the first tool_use per id, or read only type == \"assistant\" lines; add a blob line to the fixture)."
+      ],
+      "evidence": [
+        "python over the subagent file, per tool_use line: \"13 assistant ... tooluse cKxw7dQe Bash relay check show ...\" then",
+        "\"18 api-request-blob ... tooluse cKxw7dQe Bash cd /Users/amidman/.relay/bench/2026-10-2...\" (same for all 5 ids).",
+        "rb.tool_called({\"input\": r\"\\bpython3?\\b\", \"count\": 2}, sid, calls) -> (True, '2 of 13 calls matched: Bash python3 -I -c ...')"
+      ],
+      "failing_case": [
+        "Real run ~/.relay/bench/2026-10-28T06-07-08Z, session 7e59b0c6-b48f-4b55-b026-35f262a817c2. Its checker subagent made 5 tool",
+        "calls (5 tool_use ids, 5 tool_results), of which 1 ran python. tool_calls() returns 13 (3 main + 10 subagent), because each",
+        "`assistant` line is followed by an `api-request-blob` line carrying the same tool_use id. A grader",
+        "{input = '\\bpython3?\\b', count = 2} passes (\"2 of 13 calls matched\") with one python call; it should fail (\"1 of 8\")."
+      ],
+      "fix_hint": [
+        "In tool_calls, dedupe by block[\"id\"] (keep the first, or prefer the blob's input if the hook-rewritten command is wanted),",
+        "or skip lines whose top-level type is not \"assistant\". Add an api-request-blob line to the test transcript() fixture."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 369,
+      "pass_cases": [
+        "1. Transcript with one assistant line tool_use id T1 Bash \"python3 x.py\" and an api-request-blob line repeating T1 (input \"cd /w && python3 x.py\"): tool_calls gives 1 call; {input='python3', count=2} fails, count=1 passes.",
+        "2. Two distinct tool_use ids both running python: count=2 passes.",
+        "3. Existing test_tool_called_sees_a_real_command_not_a_word keeps passing (no blob lines).",
+        "4. Re-grading run 06-07-08Z gives 8 calls in total, not 13."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_bench_calls.py:29 fails at b00b2407, passes at head."
+      ],
+      "severity": "MEDIUM",
+      "since": "b00b2407577409d0e8a4de2a18f525c07930340c",
+      "source": "review-bench-tools.json",
+      "source_id": "F1",
+      "summary": "every subagent tool call is counted twice: the api-request-blob lines of real transcripts repeat each tool_use",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED on real data (tool_result flags printed for that run). tool_calls reads only tool_use blocks and ignores the matching",
+        "tool_result, so a refused call (PreToolUse hook deny, permission refusal) is indistinguishable from one that ran. In bench runs",
+        "the relay guards do refuse calls (guard-main.sh refused 2 of 5 checker calls in this run), so it is reachable on ordinary use.",
+        "Size: 15-30 minutes (map tool_use_id -> tool_result, drop calls whose result is an error starting with \"PreToolUse:\" or a",
+        "permission refusal; keep failed-but-ran calls)."
+      ],
+      "evidence": [
+        "tool_result scan of the subagent file: \"Bash is_error= True PreToolUse:Bash hook error: [.../guard-main.sh]: gu...\"",
+        "\"Write is_error= True PreToolUse:Write hook error: ...\"; main file: \"Agent is_error= True PreToolUse:Agent hook error: Routing: ...\"",
+        "rb.tool_called({\"input\": r\"cat > \\.review/spec-check\\.md\"}, sid, calls)[0] -> True; Write grader -> True"
+      ],
+      "failing_case": [
+        "Same real run 06-07-08Z: the checker's `cat > .review/spec-check.md <<'EOF' ...` Bash call and its Write were refused by",
+        "guard-main.sh (tool_result is_error=true, \"PreToolUse:Bash hook error: ... guard-main.sh\"). tool_called({input='cat > \\.review/spec-check\\.md'})",
+        "and tool_called({tool='^Write$', input='spec-check'}) both pass now; they should fail, the command never ran. Likewise the main",
+        "session's first Agent call (refused by the routing hook) counts as an agent call. The item's promise is \"a Bash call ran python\"",
+        "as a fact; a python call blocked by a guard would pass it."
+      ],
+      "fix_hint": [
+        "Collect tool_result blocks (user lines) by tool_use_id in the same pass; skip a tool_use whose result is_error and whose text",
+        "starts with \"PreToolUse:\" (hook block) or is a permission refusal. Fixture: add one blocked call."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 369,
+      "pass_cases": [
+        "1. Transcript: tool_use T1 Bash \"python3 s.py\" with a tool_result T1 is_error=true content \"PreToolUse:Bash hook error: blocked\": {input='python3'} fails.",
+        "2. tool_use T2 Bash \"python3 s.py\" with tool_result is_error=true content \"Exit code 1 ...\" (it ran, failed): {input='python3'} passes.",
+        "3. tool_use T3 with a normal tool_result: passes (as today).",
+        "4. tool_use with no tool_result yet (last line of a cut-off run): decide and test one way (counted as attempted is acceptable if documented)."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_bench_calls.py:43 and :54 fail at b00b2407, pass at head."
+      ],
+      "severity": "MEDIUM",
+      "since": "b00b2407577409d0e8a4de2a18f525c07930340c",
+      "source": "review-bench-tools.json",
+      "source_id": "F2",
+      "summary": "a call a hook refused (never ran) counts as a call that ran",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading (_SECRET_NAME against the names exported in the owner's shell; values never read). The queue item's pass",
+        "case is \"No secret from the environment appears in what graders read\"; a database URL with a password is such a secret, and",
+        "the bench copies os.environ to the session, so the agent can see and use it. Reachable only when an agent writes the literal",
+        "value into a command, hence MEDIUM, not HIGH. Size: 10 minutes."
+      ],
+      "evidence": [
+        "grep -ho '^ *export NAME' ~/.zshrc ... (names only): ... CLIENT_BACK_POSTGRES_DEV_DATASOURCE ... SORM_DWH_DATASOURCE SORM_DWH_USER GLONASS_KUBE_LOGIN ...",
+        "_SECRET_NAME = re.compile(r\"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH\", re.I)"
+      ],
+      "failing_case": [
+        "The owner's ~/.zshrc exports (names only read) CLIENT_BACK_POSTGRES_PROD_DATASOURCE, SORM_DWH_DATASOURCE, SORM_DWH_USER,",
+        "GLONASS_KUBE_LOGIN and nine more *_POSTGRES_*_DATASOURCE; none matches KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH.",
+        "A bench session that runs `psql \"<the literal postgres://user:pass@host/db value>\"` puts the password into tool_calls, the",
+        "tool_called note (results.json, report.md) and the llm grader prompt unredacted. Should be \"[redacted]\"."
+      ],
+      "fix_hint": [
+        "Add DATASOURCE|DSN|LOGIN|PASS|PRIVATE|CONN to the name list, and redact any env value that looks like a URL with userinfo",
+        "(re ://[^/\\s:@]+:[^/\\s@]+@) whatever its name. One more test with a fake DATASOURCE value."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 329,
+      "pass_cases": [
+        "1. env FAKE_PG_DATASOURCE=\"postgres://u:s3cretpass@h/db\", a Bash call containing that value: no call, note or llm prompt contains it.",
+        "2. env FAKE_BENCH_API_KEY (the existing test) still redacted.",
+        "3. env HOME / PATH-like values (no secret-looking name) are not redacted, so `python3 /Users/x/scratch.py` still matches.",
+        "4. A value of the form scheme://user:pass@host in any env var is redacted whatever its name."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_bench_calls.py:59 fails at b00b2407, passes at head; :70 shows ordinary values are kept."
+      ],
+      "severity": "MEDIUM",
+      "since": "b00b2407577409d0e8a4de2a18f525c07930340c",
+      "source": "review-bench-tools.json",
+      "source_id": "F3",
+      "summary": "redaction by variable name misses the owner's connection-string secrets (*_DATASOURCE, *_LOGIN, *_USER)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading tests/test_bench.py: only tool_called is exercised. No scenario in this tree uses an llm grader today,",
+        "so nothing breaks now. Size: 15 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Delete the `calls` argument from the llm_grade call in grade(): every test still passes, though the llm grader no longer sees",
+        "any command. Should fail one test."
+      ],
+      "fix_hint": [
+        "One test with a fake claude binary recording its prompt (the bench tests already fake claude via RELAY_CLAUDE_BIN)."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 190,
+      "pass_cases": [
+        "1. A fake claude_bin that writes its -p prompt to a file and prints {\"result\":\"PASS: ok\"}: grade() with an llm grader and a transcript holding \"python3 s.py\" gives a prompt containing \"- Bash: python3 s.py\".",
+        "2. Same with a fake API key in env and in the command: the prompt does not contain the key.",
+        "3. No session id: the prompt has no \"Tool calls\" section."
+      ],
+      "path": "tests/test_bench.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_bench_calls.py:77 asserts the llm grader receives calls without secrets; passes at head (guard test, passes at base as the code was already right)."
+      ],
+      "severity": "LOW",
+      "since": "b00b2407577409d0e8a4de2a18f525c07930340c",
+      "source": "review-bench-tools.json",
+      "source_id": "F4",
+      "summary": "no test shows the llm grader receives the tool-call list (the other grader this change feeds)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "ed7a593f23012bf71db42c92d2a31213fe46a9b8.gate.log",
+  "head": "dbe2043a1b0e76ab4f669c768011469dd7ae3ae1",
+  "item": "bench-graders-cannot-see-the-commands-an-agent-r",
+  "notes": [
+    "F4 test passes at b00b2407 because the code already passed calls to the llm grader; it is a regression guard (fixer says it fails when the argument is removed), not a fix of behaviour. Minor: a tool_result with no tool_use_id adds None to refused, dropping id-less calls; unreachable in real transcripts."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range d57df77e..HEAD (Q1) and b00b2407..HEAD (F). Precheck green; test_bench.py + test_bench_calls.py 18 passed. Gate log head ed7a593f, exit 0; relay changed since that sha lists no file. Fail-without-fix run in throwaway worktrees: test_bench_calls.py at b00b2407 gives 4 failed (F1, F2 x2, F3); test_bench.py at d57df77e gives 3 failed (Q1 tests)."
+  ],
+  "type": "check"
+}

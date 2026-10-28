@@ -1,0 +1,377 @@
+{
+  "branch": "wt/autostart",
+  "findings": [
+    {
+      "details": [
+        "Owner, 26 Oct: \"\u0430\u0433\u0435\u043d\u0442\u044b \u043f\u043e\u0437\u0432\u043e\u043b\u044f\u044e\u0442 \u043d\u0430\u043c \u0434\u0435\u043b\u0430\u0442\u044c \u043c\u043d\u043e\u0436\u0435\u0441\u0442\u0432\u043e \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439 \u043e\u0434\u043d\u043e\u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e, \u0431\u043e\u043b\u044c\u0448\u0438\u0435 \u0444\u0430\u0439\u043b\u044b - \u043d\u0430\u0448\u0438 \u0432\u0440\u0430\u0433\u0438, \u043a\u043e\u043d\u0446\u0435\u043d\u0442\u0440\u0438\u0440\u0443\u044f \u0431\u043e\u043b\u044c\u0448\u043e\u0439 \u043e\u0431\u044a\u0435\u043c \u043a\u043e\u0434\u0430 (\u0441\u043c\u044b\u0441\u043b\u0430) \u043e\u043d\u0438 \u044f\u0432\u043b\u044f\u044e\u0442\u0441\u044f \u043f\u043e\u0432\u043e\u0434\u043e\u043c \u0434\u043b\u044f \u043a\u043e\u043d\u0444\u043b\u0438\u043a\u0442\u043e\u0432\", then \"a\" (principle 10 \"one subject per file, no hub files, no copies\" plus four items). Measured over 5 days: bin/relay (887 lines) in 44 commits, lib/relay_queue.py (1189 lines) in 25 commits kept in 3 copies, lib/relay_setup.py (1134 lines) changed by 3 open branches at once (license, setup-wt, the portable-tool design). IP chosen by the front (agent-chosen). 26 Oct live: wt/where-list's rewrite of every queue record met master's changes to the same records and stopped in a conflict; R4 and R5 of the pilot wait by hand because their files are taken.",
+        "Also: lib/ (the branch list)",
+        "Also: plugins/delegate/skills/delegate/SKILL.md (when to run it)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Two worktrees on branches that both change lib/relay_setup.py: nothing in relay says so before the second one starts."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The new command, given lib/relay_setup.py, names the open branch that changes it; given a free file it says free; it reads only git, writes nothing."
+      ],
+      "path": "bin/relay",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py:133 test_overlap_skip, :149; passes; module does not exist at Q1's since."
+      ],
+      "severity": "HIGH",
+      "since": "0644594e52b1090154819e7bd6814cac2267573f",
+      "source": "queue",
+      "summary": "Two branches start on the same file unnoticed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. lanes_state appends one Lane per taken item (lines 208-216) and free = capacity - len(running) (line 229); the design",
+        "defines a lane as one change in one worktree, \"Free = setting minus running\". A branch holding a feature plus the fix it covers is",
+        "how this very change was started, so the count is wrong in ordinary use, and it errs toward idle lanes, the failure the feature",
+        "exists to remove. stop_key also lists the branch twice.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "python3 -I -c \"...rl.lanes_state('/Users/amidman/relay')...\" (worktree lib):",
+        "6 0",
+        "Lane(branch='wt/autostart', slug='choose-which-unblocked-items-start-together')",
+        "...",
+        "Lane(branch='wt/autostart', slug='two-branches-start-on-the-same-file-unnoticed')   (7 lanes)",
+        "Scratch test J.test_two_items_one_branch: running [Lane('wt/a','a'), Lane('wt/a','b')] free 0 -> AssertionError: 0 != 1"
+      ],
+      "failing_case": [
+        "Live queue, 28 Oct: wt/autostart holds the feature choose-which-unblocked-items-start-together and the fix",
+        "two-branches-start-on-the-same-file-unnoticed (the brief's own pattern: the fix covered by this branch is taken by it).",
+        "lanes_state('/Users/amidman/relay') gives 7 running lanes for 6 branches, setting 6, free 0, no line, no Stop refusal.",
+        "Should be 6 running (one per branch), free 0 here only because 6 branches run; with a 7 setting free must be 1, not 0."
+      ],
+      "fix_hint": [
+        "Count running lanes by branch: keep a set of branches already running and append a branch once (Lane.slug can stay the first item,",
+        "or become a tuple); free = capacity - number of distinct running branches."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 208,
+      "pass_cases": [
+        "1. Items a (feature) and b (fix) both taken_by wt/a, worktree wt/a, item c open, limit 2: running == one lane wt/a, free 1, picks [c].",
+        "2. Items a and b taken by wt/a and wt/b (two branches), limit 2: running 2, free 0 (as today).",
+        "3. The line counts branches: \"Lanes: 1 of 2 running; start: c ...\" for case 1.",
+        "4. Two items on one landed branch: landed_open lists both items (a feature is closed, a fix stays for the line), the branch is not running."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py:314 and :328 pass, fail without the fix."
+      ],
+      "severity": "HIGH",
+      "since": "ab5556d40ed86e9e2ce3ee1ab627c309c05408d3",
+      "source": "review-autostart.json",
+      "source_id": "F1",
+      "summary": "a branch that took two items counts as two lanes: live today 7 of 6 running, free 0 while one lane is free",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by two scratch tests built on the change's own test base. The design (6.1) says the sha is \"the newest commit of the landed",
+        "range that changes a non-inert file\"; the code takes the newest commit reachable from the tip, and taking the default branch by a",
+        "merge commit (CLAUDE.md Git rule; live master history shows \"Merge master into wt/core-leftover\", \"... wt/rename\", \"... wt/front-cmds\")",
+        "puts other changes' commits there. The queue record then names the wrong change as the evidence a feature was done: corrupt data in",
+        "ordinary use. The landing pattern _branch_name matches wt/x anywhere in the subject, so \"Merge master into wt/x\" is taken as the",
+        "landing too.",
+        "Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "scratch J.test_evidence_is_another_change_after_taking_master:",
+        "own 62fe4d0a... other 3088589d... evidence 3088589d...   AssertionError",
+        "scratch K.test_ref_gone_after_taking_master_names_the_master_merge:",
+        "own d427c8d0... master-merge 3bfc964b... evidence 3bfc964b...   AssertionError",
+        "git log master --merges -n 8 --format=%s: \"Merge master into wt/core-leftover\", \"Merge master into wt/rename\", ..."
+      ],
+      "failing_case": [
+        "Feature feat taken by wt/feat; own commit A (lib/feat.py); master then gets commit Y (lib/other.py, another change); wt/feat takes",
+        "master by a merge commit \"Merge master into wt/feat\" (the rule before every landing); landing by fast-forward.",
+        "(a) ref kept: close_landed records evidence = Y (master's commit), not A: _newest_real_commit walks `git log --no-merges <tip>`,",
+        "which includes every commit master brought in.",
+        "(b) ref deleted after the landing (the merge hook's cleanup on the same command): landing() returns the newest merge commit whose",
+        "subject names wt/feat, which is \"Merge master into wt/feat\"; its diff against its first parent is master's changes, so",
+        "_commit_on_default accepts it and the evidence is that merge.",
+        "Should be: A (the newest non-inert commit of the branch's own line), or for a rider its \"Merge wt/x into train-n\" commit."
+      ],
+      "fix_hint": [
+        "Walk the branch's own line: `git log --first-parent --no-merges <tip>` (stop at the commit where the branch left the default branch,",
+        "e.g. the merge-base before the landing or the take time), so merged-in master commits are skipped. In landing(), match only subjects",
+        "that merge wt/x INTO something (\"Merge wt/x into\", \"Merge branch 'wt/x' into\"), never \"Merge ... into wt/x\"."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 110,
+      "pass_cases": [
+        "1. Case (a) above: evidence == A.",
+        "2. Case (b) above: evidence == A, or the landing is reported without a sha and not closed with the master merge.",
+        "3. No master merge, tip an inert check commit, ref kept: evidence == the commit before the check (the change's existing test, keeps passing).",
+        "4. Train rider merged as \"Merge wt/rider into train-1\", ref deleted: evidence == that merge commit (existing test, keeps passing).",
+        "5. \"Merge master into wt/x\" and \"Merge branch 'master' into wt/x\" subjects never count as the landing of wt/x."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py:348, :354, :370 pass, fail without the fix."
+      ],
+      "severity": "HIGH",
+      "since": "ab5556d40ed86e9e2ce3ee1ab627c309c05408d3",
+      "source": "review-autostart.json",
+      "source_id": "F2",
+      "summary": "a landed feature is closed with another change's commit as its evidence once the branch has taken the default branch",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that the ref-gone fast-forward path closes nothing (scratch J.test_ff_landing_then_branch_removed). PLAUSIBLE that the race",
+        "is lost in practice: both hooks fire on `git merge --ff-only wt/<x>`; merge.py's clean() is a few git calls, lanes.py runs a full",
+        "lanes_state (2.1 s measured live) before it looks. Every master landing in the newest 400 reflog entries is a fast-forward. The",
+        "\"landed, still open\" line is the backstop, so the front sees it; it is still a promise of 6.1 (features close at their landing)",
+        "that fails in the common landing form.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "scratch J.test_ff_landing_then_branch_removed:",
+        "lines ['feat: landed, but git no longer shows its commit; close it by hand with `relay queue done feat --evidence <sha>`']",
+        "git reflog show master -n 400 | grep -ci fast-forward -> 400",
+        "plugins/relay/hooks/merge.py:108 relay_git.git(main, \"branch\", \"-d\", branch) in the PostToolUse cleanup"
+      ],
+      "failing_case": [
+        "Feature feat taken by wt/feat, one own commit, no master merge; `git merge --ff-only wt/feat` on master; plugins/relay/hooks/merge.py",
+        "(PostToolUse on the same Bash command, run beside lanes.py) removes the worktree and `branch -d wt/feat`. If the removal finishes before",
+        "lanes.py reads the ref, landing() finds only the reflog line \"merge wt/feat: Fast-forward\" and returns sha None; close_landed prints",
+        "\"landed, but git no longer shows its commit; close it by hand\" and the feature stays taken.",
+        "Should be: closed with the commit the reflog entry moved master to (or the newest non-inert commit behind it)."
+      ],
+      "fix_hint": [
+        "Read the reflog with `--format=%H %gs` and, for the matching \"merge wt/x: Fast-forward\" entry, use %H (the tip master moved to) with",
+        "the same first-parent walk as F2's fix to find the newest non-inert commit."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 137,
+      "pass_cases": [
+        "1. FF landing, branch deleted, no merge commit: feat state done, evidence == the branch's own commit (the reflog entry's new value walked to its newest non-inert commit).",
+        "2. FF landing, branch kept: closed as today.",
+        "3. A branch dropped without landing (ref gone, no reflog line): stays taken, listed \"(gone, item still taken)\" (existing test)."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py:360 pass, errors without the fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "ab5556d40ed86e9e2ce3ee1ab627c309c05408d3",
+      "source": "review-autostart.json",
+      "source_id": "F3",
+      "summary": "a feature landed by fast-forward whose branch the merge hook already removed is not closed: the reflog match gives no sha",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED with a scratch repository: a commit dated 2026-10-01, a branch made from it now: `git reflog show --format='%ct %gs' -n 1`",
+        "prints 1790812800 (1 Oct) beside \"branch: Created from master\" while now is 1793160712. The entry's own time needs the reflog",
+        "selector date (`--date=unix --format=%gd` gives wt/y@{<epoch>}). The change's test passes only because its seed commit is made seconds",
+        "before the worktree.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "git -C <scratch>/ct reflog show --format='%ct %gs' -n 1 refs/heads/wt/y",
+        "1790812800 branch: Created from master",
+        "date +%s -> 1793160712"
+      ],
+      "failing_case": [
+        "Master's head commit is 4 h old (the morning after a pause); the front makes a no-item worktree wt/y and a reader works in it without",
+        "writing a file in the worktree yet (a design writes to the scratchpad). _activity reads `git reflog --format=%ct`, which is the",
+        "committer date of the commit the entry points to (4 h ago), so wt/y is \"quiet\", not running, and the line and the Stop hook offer its",
+        "lane as free.",
+        "Should be: running for lane_quiet_hours from its creation (the design: \"newest branch reflog entry\")."
+      ],
+      "fix_hint": [
+        "`git reflog show --date=unix --format=%gd -n 1 refs/heads/<branch>` and parse the number between \"@{\" and \"}\"."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 159,
+      "pass_cases": [
+        "1. Commit dated 27 days ago, `git worktree add -b wt/y` now, no file changed: wt/y running at now, quiet at now + 4 h (setting 3).",
+        "2. A worktree with a file changed now: running (existing test).",
+        "3. A worktree whose newest reflog entry and files are 4 h old: listed \"(quiet)\" (existing test)."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py:382 pass, fails without the fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "ab5556d40ed86e9e2ce3ee1ab627c309c05408d3",
+      "source": "review-autostart.json",
+      "source_id": "F4",
+      "summary": "a worktree with no item made from an old master head counts as quiet at once: reflog %ct is the commit's date, not the entry's",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED on the live queue (1 of the open fixes). The design says \"a fix whose where says design\"; matching the substring over the",
+        "whole text, paths included, is a word match standing in for intent (principle 5). Matching only the note part of a where element",
+        "(the text after the path that parse_place returns) keeps the design's rule and drops the path hits.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "python3 -I over relay_queue.read_queue('/Users/amidman/relay'):",
+        "DESIGN-MODE a-test-still-exempts-the-old-plugins-core-bin-ki | tests/ docs/flows.md:46 plugins/relay/README.md:3 docs/design.md:127-129"
+      ],
+      "failing_case": [
+        "Live fix a-test-still-exempts-the-old-plugins-core-bin-ki has where \"tests/ docs/flows.md:46 plugins/relay/README.md:3",
+        "docs/design.md:127-129\". mode_of returns \"design\" because the joined where text contains \"design\"; `relay queue start` prints a",
+        "designs unit and a design brief for a 15-minute fix. Should be a build (\"start\")."
+      ],
+      "fix_hint": [
+        "In mode_of, use relay_queue.parse_place on each element and look for the word \"design\" only in the element's text outside its path",
+        "(or with a word boundary, not inside a path)."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 188,
+      "pass_cases": [
+        "1. Fix with where [\"docs/design.md:127-129\"]: mode \"start\".",
+        "2. Fix with where [\"plugins/x design to redo\"] (the change's test): mode \"design\".",
+        "3. Feature with any where: mode \"design\"."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py:394 pass, fails without the fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "ab5556d40ed86e9e2ce3ee1ab627c309c05408d3",
+      "source": "review-autostart.json",
+      "source_id": "F5",
+      "summary": "a fix whose where names a path containing 'design' (docs/design.md) is started as a design instead of a build",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the diff stat (no skill or doc file) and the item text. The builder's report lists the settings docs as not",
+        "done and leaves the item's skill line unmentioned. Skill texts are on the paid-run path (one run per wave), so the fix costs no",
+        "paid run of its own.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "git diff --stat master...HEAD: bin/relay, lib/relay_lanes.py, plugins/front/hooks/{hooks.json,lanes.py}, plugins/front/lib/*, tests/test_lanes_state.py",
+        "relay queue show two-branches-start-on-the-same-file-unnoticed: What \"... the delegate skill names the step\""
+      ],
+      "failing_case": [
+        "Item two-branches-start-on-the-same-file-unnoticed (taken by wt/autostart, to be closed from this branch) says in What: \"...the",
+        "delegate skill names the step\", where plugins/delegate/skills/delegate/SKILL.md (when to run it). The change touches no skill: the",
+        "front skill's Lanes rule still says \"start the next call at once; its item is the top of `relay queue` that no running lane has",
+        "taken\", with no word of `relay queue start`, the \"waits:\" reason, or the Stop refusal. The only place the front learns the command",
+        "is the Stop refusal text.",
+        "Should be: the front (or delegate) skill names `relay queue start <slug> --scratch <folder>` as the way to fill a lane and says that a",
+        "\"waits:\" item is started only with a reason."
+      ],
+      "fix_hint": [
+        "One short paragraph in the front skill's Lanes section (and a pointer in the delegate skill), plus the settings in the kit.toml docs."
+      ],
+      "id": "F6",
+      "kind": "feature",
+      "line": 190,
+      "pass_cases": [
+        "1. plugins/front/skills/front/SKILL.md (Lanes) or plugins/delegate/skills/delegate/SKILL.md has a line naming `relay queue start <slug> --scratch <folder>` and the waits rule.",
+        "2. The old prose \"its item is the top of `relay queue` that no running lane has taken\" is replaced by the reader's pick (queue order, skipping waits).",
+        "3. The three [front] settings (lanes_line_items, stop_nudge, lane_quiet_hours) are named where kit.toml settings are documented."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "plugins/front/skills/front/SKILL.md Lanes paragraph names relay queue start --scratch, the waits rule and the three settings; plugins/delegate/skills/delegate/SKILL.md names the step."
+      ],
+      "severity": "MEDIUM",
+      "since": "ab5556d40ed86e9e2ce3ee1ab627c309c05408d3",
+      "source": "review-autostart.json",
+      "source_id": "F6",
+      "summary": "the IP 88 fix item this branch closes asks that the delegate skill name the overlap step; no skill text names relay queue start or the lanes line",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by timing the hook. Harmless to data (close_landed closes only landed features), so LOW. Matching the same commands as",
+        "merge.py (kit_guard.allowed_merges) would keep the two hooks in step.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "time (echo '{...\\\"command\\\":\\\"git merge-base --is-ancestor wt/x master\\\"}' | python3 plugins/front/hooks/lanes.py) -> 3.044 total",
+        "time (echo '{...\\\"command\\\":\\\"ls\\\"}' | python3 plugins/front/hooks/lanes.py) -> 0.065 total"
+      ],
+      "failing_case": [
+        "PostToolUse Bash command \"git merge-base --is-ancestor wt/x master\": LANDING matches (\\bmerge\\b matches \"merge\" in \"merge-base\"),",
+        "the hook runs close_landed and lanes_state: 3.0 s measured, and prints the lanes line after a read-only command.",
+        "Should be: silent, as for \"ls\" (0.07 s)."
+      ],
+      "fix_hint": [
+        "Require \"merge\" followed by whitespace (r\"\\bmerge(?=\\s)\"), or reuse kit_guard.allowed_merges as merge.py does."
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 27,
+      "pass_cases": [
+        "1. \"git merge --ff-only wt/feat\": runs (existing test).",
+        "2. \"git merge-base --is-ancestor wt/x master\": nothing printed, no close.",
+        "3. \"ls wt/feat\": nothing (existing test)."
+      ],
+      "path": "plugins/front/hooks/lanes.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_lanes_state.py:400 pass, fails without the fix."
+      ],
+      "severity": "LOW",
+      "since": "ab5556d40ed86e9e2ce3ee1ab627c309c05408d3",
+      "source": "review-autostart.json",
+      "source_id": "F7",
+      "summary": "the landing pattern also fires on `git merge-base ... wt/x` and on a worktree's `git merge master -m '... wt/x'`, costing 3 s and a repeated line",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "bin/relay came in from master (merge 624ca63bd1cf) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "Master's change to bin/relay is wording only (usage text); gate 624ca63 green on the merged head."
+      ],
+      "severity": "MEDIUM",
+      "since": "624ca63bd1cf3e550520fddc22ddb1bf01e4ad2d",
+      "source": "merge",
+      "summary": "bin/relay was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "624ca63bd1cf3e550520fddc22ddb1bf01e4ad2d.gate.log",
+  "head": "50d5632dee7bed06c8819f2d187cff12ce19c5c3",
+  "item": "two-branches-start-on-the-same-file-unnoticed",
+  "notes": [
+    "Q1 overlap is covered by test_overlap_skip and test_overlap_ignores_inert_files (lib/relay_lanes.py absent at Q1's since 0644594e52b1, so they fail there). M1: master changed only usage/error text in bin/relay (merge sha vs commit wording), no behaviour."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix commit bb1eca1 (F1-F7) to head 50d5632. The prompt named item choose-which-unblocked-items-start-together, but that feature is already closed on master and the branch holds the fix item two-branches-start-on-the-same-file-unnoticed; relay check findings refused --item, so this is recorded without --item (Q1 is that fix item). Ran python3 -m unittest tests.test_lanes_state: 30 tests OK. Same test file in a worktree at bb1eca1^: 7 failures and 1 error (f1, f2 x3, f3, f4, f5, f7), so they fail without the fix. Gate 624ca63 exit 0 (quick mode), HEAD differs only by the inert gate log commit. Scope: only lane lib, its plugin copy, hook, two skills, test."
+  ],
+  "type": "check"
+}
