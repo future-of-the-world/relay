@@ -1581,3 +1581,19 @@ Queued this segment: one-change-on-bin-relay-holds (88), inert-probe-leaves-work
 a-scenario-file-cannot-use-tool-called (86; the fix is commit 5377e9f5 on the kept branch wt/spec-met), a-fix-that-adds-a-new-module
 -cannot-be-closed (87). Leftover branches (guard refuses branch -D): train-19/20/22, queue-edit, relay-plugins, plans-save, spec-met.
 Next: land the recall fix, then a full paid run on master; on green, relay sync. Next handover worktree: handover-39.
+
+## Addendum 27 (28 Oct, ~11:40 UTC; session 3207dc59 at ~350k tokens)
+
+State: recall fix (wt/paid-run-red-recall-decision-fails-0-of) has check open 0 and its item closed on the branch; causes
+found: (1) the fixture's metrics item never contained the word "metric" (fixed in the fixture), (2) the earlier proof runs
+omitted bin/ci's `--allow-tools Bash Agent Write` (not a repo defect); 6 of 6 with the right command ($1.43). It took master
+(relay_marks only, no overlap) and its gate is running (log: scratchpad gate-recall.log). base-restores-only-four-keys closed
+as fixed-by 58d5d5f9 (queued by mistake: queue-add-from-queues-a-finding-a-check-marked-m, IP 75).
+Running lanes: relay-land build, hook-tests (continue), queue-time fix round, --help guard, four-eval-cases.
+Exact next step: when the recall gate is green, take master (inert), ff-land; then the full paid run on master in a
+detached worktree in the background: `EVALS_JOBS=3 RELAY_GATE=HEAD <wt>/bin/ci > <scratchpad>/paid-<sha>.log 2>&1`; on
+green run `relay sync`; on red, one fix item at the top. Then fill lanes with `relay queue start` (top items wait on
+bin/relay until queue-time lands). Next handover worktree: handover-40.
+Owner's latest words (28 Oct): "a" (compare relay land after 7 days), "a a" (refuse folder-only where entries; module limit
+600), "Минус не относится к функционалу, лишь к планированию задачи, я согласен, каждая подкоманда может и должна жить в
+своем модуле, этот подход должен быть распространен на весь relay". No owner question is open.

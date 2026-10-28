@@ -393,7 +393,7 @@ def stop_refusal(state: State, stamp: str, nudge: int, session: str) -> Optional
         json.dump({"state": key, "count": seen + 1}, handle)
     shown = line(state) or ""
     return (f"{shown}. Free lanes and items that can start: start them with `relay queue start <slug> --scratch <folder>`, "
-            "or say in one sentence why the lane stays free.")
+            "or say in one short sentence why the lane stays free: facts only (what is free, what waits), never a reading of what the owner wants or said.")
 
 
 # ---------------------------------------------------------------- relay queue start
