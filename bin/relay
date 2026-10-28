@@ -509,16 +509,31 @@ def cmd_migrate_all(args):
 
 def cmd_doctor(args):
     root = os.path.realpath(args[0]) if args else None
-    checks = relay_setup.doctor(root, profile=relay_config.active_profile())
-    bad = 0
-    for name, good, detail in checks:
-        print(f"{'ok  ' if good else 'FIX '} {name}" + (f"  ({detail})" if detail and not good else ""))
-        bad += not good
-    good = len(checks) - bad
-    for fix, text in relay_tidy.lines(root or os.getcwd()):   # no folder given: the repository of the current folder (none: no lines)
+    machine, project = relay_setup.doctor_parts(root, profile=relay_config.active_profile())
+
+    def show(checks):
+        for name, good, detail in checks:
+            print(f"{'ok  ' if good else 'FIX '} {name}" + (f"  ({detail})" if detail and not good else ""))
+        return sum(not good for _, good, _ in checks)
+
+    # With a project folder only its checks and its repository's tidy lines decide the exit code: the machine-wide ones
+    # (the user's settings, the rules of every project) say nothing about this project, so they print apart.
+    tidy = relay_tidy.lines(root or os.getcwd())   # no folder given: the repository of the current folder (none: no lines)
+    if root:
+        print(f"# Project {root}")
+        bad = show(project)
+    else:
+        print("# This machine")
+        bad = show(machine)
+    good = len(project if root else machine) - bad
+    for fix, text in tidy:
         print(f"{'FIX ' if fix else 'note'} {text}")
         bad += fix
     print(f"\n{good} ok, {bad} to fix")
+    if root:
+        print("\n# This machine (does not change this project's exit code)")
+        other = show(machine)
+        print(f"\n{len(machine) - other} ok, {other} to fix")
     return 1 if bad else 0
 
 

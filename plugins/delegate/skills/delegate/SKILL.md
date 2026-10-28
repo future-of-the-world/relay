@@ -158,8 +158,8 @@ front's.
    the default branch that morning; one change cycle spent about 34 minutes and
    123k tokens before finding nothing to do).
 3. **Gate before the review.** Where the project has `.relay/`, a
-   `delegate:runner` runs `relay gate` (detached, with the limits recipe: it
-   takes minutes) in the worktree, with the project's arguments (relay:
+   `delegate:runner` runs `relay gate` (detached, with the recipe under Limits in every agent file: nohup, a log, a `kill -0` wait loop;
+   macOS has no `timeout` program, so no agent calls it; it takes minutes) in the worktree, with the project's arguments (relay:
    `relay gate -- --quick`). It runs the free checks on the committed head and
    stores the result as `.relay/checks/<G>.gate.log`. A red gate goes back to
    the worker or a fixer, then this step again: a red build is never reviewed.

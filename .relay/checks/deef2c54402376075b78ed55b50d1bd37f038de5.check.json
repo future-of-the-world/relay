@@ -1,0 +1,186 @@
+{
+  "branch": "wt/doctor-exit",
+  "findings": [
+    {
+      "details": [
+        "relay doctor <project> mixes machine-wide results into a project check: its one FIX was 'rules in sync' for ten other projects, so a good new project looks broken.",
+        "Also: lib/relay_setup.py:398-452"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Trial: relay doctor <tally> printed 21 ok and 1 FIX (rules in sync for alix; arsenal; ... noisegate), exit 1, nothing about tally."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 424,
+      "pass_cases": [
+        "doctor <project> exits 0 when the project is fine, and the machine-wide FIX is shown separately."
+      ],
+      "path": "bin/relay",
+      "rank": "high",
+      "reason": [
+        "tests/test_setup.py:78 test_relay_doctor_of_a_fine_project_exits_0_with_a_machine_fix passes at head and fails at 381e9d2."
+      ],
+      "severity": "HIGH",
+      "since": "381e9d267542b92c62ed7e648d4b6d1399849826",
+      "source": "queue",
+      "summary": "relay doctor on a fine project exits 1 for other projects",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. relay_rules.check() (lib/relay_rules.py:358) returns every stale target of projects.toml, the",
+        "checked project included (detect() names it after the main checkout's folder, the same key as",
+        "relay_rules.targets(), which doctor_parts already uses at the project part for \"no stored spec rule\").",
+        "The change cuts the list at machine_end, before `if root:`, so the whole rules line is machine-wide.",
+        "The probe output shows \"proj\" (the project being checked) inside the machine section.",
+        "The item's \"What\" is to stop OTHER projects deciding the exit code, not to stop the project's own rules from doing so.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/probe_doctor.py (temp project set up as in the new test):",
+        "  # This machine (does not change this project's exit code)",
+        "  ...",
+        "  FIX  rules in sync  (global; demo; proj -> relay sync)",
+        "lib/relay_setup.py:1098-1101: stale = relay_rules.check(profile or {}); ok(\"rules in sync\", not stale, ...)",
+        "lib/relay_setup.py:1114: machine_end = len(checks)   (before `if root:`)"
+      ],
+      "failing_case": [
+        "A project \"proj\" listed in projects.toml whose generated rules file differs from what relay sync would write.",
+        "`relay doctor <proj>` prints \"FIX  rules in sync  (global; demo; proj -> relay sync)\" under",
+        "\"# This machine (does not change this project's exit code)\"; if the project's other checks are ok it exits 0.",
+        "Before the change it exited 1. It should still exit 1: the project's own rules being stale is a fault of",
+        "this project (sessions there run on old rules). Only the OTHER projects' staleness (the item's",
+        "\"alix; arsenal; ... noisegate\" for tally) belongs to the machine part."
+      ],
+      "fix_hint": [
+        "In the project part, add ok(\"rules for this project in sync\", d[\"name\"] not in stale names, \"-> relay sync\")",
+        "and keep the machine line for the other targets (exclude d[\"name\"] from it when root is given)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1101,
+      "pass_cases": [
+        "1. projects.toml has [proj] (the folder checked) and [other]; only proj's file is stale: doctor_parts(proj)",
+        "   has a FIX for proj's rules in the project part; relay doctor proj exits 1 (other project checks ok).",
+        "2. Only [other]'s file is stale (the item's failing case, tally vs alix...): the project part has no rules FIX;",
+        "   the machine part shows \"rules in sync\" FIX naming other; exit code follows the project part only (0 when fine).",
+        "3. Nothing stale: \"rules in sync\" ok, no rules FIX in either part.",
+        "4. relay doctor with no folder: one \"rules in sync\" line naming every stale target, counted in the exit code as before."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup.py:98 (checked project's stale rules exit 1), :108 (another project's stale rules do not), :115 (nothing stale), :93 (no folder counts machine fix); 98, 108, 115 fail at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "8a91dca9c947a50b6e181e97d239e5d4e2cc7a85",
+      "source": "review-doctor-exit.json",
+      "source_id": "F1",
+      "summary": "the checked project's own stale rules file is now a machine line, so relay doctor <project> exits 0 while that project's CLAUDE.local.md is out of date",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running bin/relay doctor on a project set up as in the test: \"18 ok, 4 to fix\" in the project",
+        "part (delegate/front/observe/relay@amidman installed), RC 1. The assertion compares the exit code with",
+        "whether a FIX is in the project part, which is 1 for both the fixed and the unfixed counting. The test does",
+        "fail at master, but only on the new heading string, not on the exit-code behaviour the item is about.",
+        "Also: the test computes `machine, project = relay_setup.doctor_parts(...)` and never uses it, and passes",
+        "RELAY_HOME=<tmp>/home while the Base class set <tmp>/relay-home. Rule: \"For a regression test, check that it",
+        "fails with the fix disabled\". Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "probe: RC 1; project section \"18 ok, 4 to fix\" with FIX  relay@amidman installed (claude plugin install relay@amidman --scope project) etc.",
+        "tests/test_setup.py:65: self.assertEqual(done.returncode, int(\"FIX \" in head), done.stderr + out)",
+        "~/.local/bin/pytest tests/test_setup.py -k \"doctor_parts or ignores_a_machine\": 2 passed"
+      ],
+      "failing_case": [
+        "Revert only the exit-code part of cmd_doctor (bad += show(machine) for the machine section too) and keep the",
+        "headings: test_relay_doctor_of_a_project_ignores_a_machine_fix_in_its_exit_code still passes, because the temp",
+        "project prints 4 \"FIX  <plugin>@amidman installed\" lines above the machine heading, so returncode == int(\"FIX \" in head) == 1",
+        "under both behaviours. The item's pass case (\"doctor <project> exits 0 when the project is fine, and the",
+        "machine-wide FIX is shown separately\") has no test."
+      ],
+      "fix_hint": [
+        "Make the project part clean in the test (write installed_plugins.json in self.claude with project-scope",
+        "entries for the four keys and projectPath = proj, or patch installed_for) and assert returncode == 0",
+        "plus a machine FIX under the machine heading; keep a second case with one project FIX asserting 1."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 65,
+      "pass_cases": [
+        "1. A temp project whose project part is all ok (e.g. installed_for patched true, or installed_plugins.json in the",
+        "   temp Claude folder lists the four plugins for the project path) with a machine FIX present (empty user",
+        "   settings): relay doctor <proj> exits 0 and the machine FIX prints under the machine heading. Fails if the",
+        "   machine count is added to the exit code.",
+        "2. The same project with one project FIX (gate.check made non-executable): exits 1.",
+        "3. relay doctor with no folder and a machine FIX: exits 1 (unchanged)."
+      ],
+      "path": "tests/test_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup.py:78 (fine project exits 0 with a machine FIX, fails at base) and :86 (one project FIX exits 1)."
+      ],
+      "severity": "MEDIUM",
+      "since": "8a91dca9c947a50b6e181e97d239e5d4e2cc7a85",
+      "source": "review-doctor-exit.json",
+      "source_id": "F2",
+      "summary": "the exit-code test passes with machine FIXes still counted: its temp project has 4 project FIXes, so it exits 1 either way and 'exits 0 when the project is fine' is never tested",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: unshipped_installs() (lib/relay_setup.py:1235) builds per-project lines with",
+        "e['projectPath']; doctor_parts appends all of them to `machine`. LOW: the project's own \"<key> is on for this",
+        "project\" checks still catch a project whose relay plugin is actually off, so the leftover is clutter, not a",
+        "broken project. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:1178-1179: for line in unshipped_installs(): machine.append((\"installed plugin still shipped\", False, line))",
+        "lib/relay_setup.py:1245-1246: project-scope entries carry projectPath"
+      ],
+      "failing_case": [
+        "installed_plugins.json has core@amidman with scope \"project\", projectPath = /x/tally (plugins/core was renamed",
+        "to plugins/relay). `relay doctor /x/tally` prints \"FIX installed plugin still shipped (core@amidman installed",
+        "for /x/tally: run relay setup /x/tally)\" under the machine heading and it does not change tally's exit code.",
+        "It names tally and its own fix command, so it should count for tally; the same line for another project's path stays machine-wide."
+      ],
+      "fix_hint": [
+        "Have unshipped_installs return (projectPath or None, line); put the entries whose path realpaths to root into project."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1178,
+      "pass_cases": [
+        "1. Leftover install with projectPath = the checked folder: the line is in the project part; exit 1.",
+        "2. Leftover install with projectPath = another folder: machine part only; exit code of the checked project unaffected.",
+        "3. User-scope leftover under the old marketplace name: machine part."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup.py:127 (checked path counts) and :134 (other path machine-wide); :134 fails at base; :127 is a pass-case that holds at base because everything counted there, per fixer it failed against 0eeb720."
+      ],
+      "severity": "LOW",
+      "since": "8a91dca9c947a50b6e181e97d239e5d4e2cc7a85",
+      "source": "review-doctor-exit.json",
+      "source_id": "F3",
+      "summary": "an unshipped relay plugin installed for the checked project's own path is put in the machine part, so it no longer counts for that project",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "91228658c85b3b6841b8e2d29a943f903845e909.gate.log",
+  "head": "deef2c54402376075b78ed55b50d1bd37f038de5",
+  "item": "relay-doctor-on-a-fine-project-exits-1-for-other",
+  "notes": [
+    "lib/relay_textonly.py (RULE_TESTS) changed by the red-gate fix 9122865: it is a gate requirement, not a scope problem. test_setup_off.py is the updated caller test."
+  ],
+  "schema": 2,
+  "scope": [
+    "Head deef2c5; gate log head 9122865 exit 0 (bin/ci --quick); only the inert gate log came after. Ran precheck (green) and pytest -k 'doctor or setup' (150 passed). Ran the new tests in a throwaway worktree at 381e9d2 (the Q1 since): 6 of the new tests fail there."
+  ],
+  "type": "check"
+}

@@ -13,7 +13,9 @@ import test_queue as tq  # noqa: E402
 sys.path.insert(0, os.path.join(tq.ROOT, "lib"))
 import relay_lanes as rl  # noqa: E402
 
-rq = tq.rq
+# the queue module relay_lanes itself holds: a test that dropped relay_* from sys.modules before this file was imported leaves
+# tq.rq a different copy, and a mock or an exception class taken from it would miss the one relay_lanes uses
+rq = rl.relay_queue
 git = tq.git
 NOW = 2_000_000_000.0
 Q = ".relay/queue/"
