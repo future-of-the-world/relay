@@ -69,6 +69,8 @@ both name is given once).
 <!-- relay:part limits -->
 ## Limits
 - No command blocks longer than 4 minutes; no Bash `timeout` above 240000 ms.
+  macOS has no `timeout` program (exit 127): never wrap a command in it;
+  bound a job with the recipe below.
   A job that can run longer (a check over end-to-end tests, a cold build,
   load runs; the project's rules name them) starts detached with a log and
   is seen to finish before you reply:
