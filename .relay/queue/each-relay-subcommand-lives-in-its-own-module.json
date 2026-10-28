@@ -1,0 +1,99 @@
+{
+  "kind": "feature",
+  "ip": 96,
+  "time": 240,
+  "found_at": "2026-10-28T09:22:27Z",
+  "found_in": "relay queue add",
+  "title": "Each relay subcommand lives in its own module",
+  "what": [
+    "bin/relay becomes a thin dispatcher that finds a subcommand's module by name and holds no per-command code or help; each subcommand (and each `relay queue` action, each setup/doctor part) lives in its own module with its own help text and tests; large shared modules split by responsibility the same way. The move is mechanical, done between waves when no branch is open on these files, in a few commits each proven by the full gate and a test that every command and help line still runs."
+  ],
+  "why": [
+    "Owner, 28 Oct, after the start filter held items behind bin/relay (14 of 88 open items name it; 1079 lines, 33 handlers) and lib/relay_queue.py (10 items, 2040 lines), lib/relay_setup.py (9, 1456): the file every change must edit slows parallel work. The owner decided the approach: one module per subcommand, applied across all of relay; the cost of the move (conflicts with running branches) is a planning matter only. IP chosen by the front (the change unblocks most of the queue)."
+  ],
+  "pass_cases": [
+    "Adding a new subcommand touches no existing file except its own module and its test.",
+    "`relay <cmd> --help` and every command's behaviour are unchanged (a test runs every command's help and a smoke case).",
+    "After the move, the open items' `where` are rewritten to the new modules, and the count of open items sharing a file drops (measured before and after).",
+    "A size check in the gate names any module over an agreed line limit (limit from the design's measurement)."
+  ],
+  "where": [
+    "bin/relay",
+    "lib/relay_queue.py",
+    "lib/relay_setup.py",
+    "lib/ (new per-command modules)",
+    "plugins/front/lib/ (copies via bin/sync-lib-copies)",
+    "tests/"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T09:22:48Z",
+      "said": [
+        "Минус не относится к функционалу, лишь к планированию задачи, я согласен, каждая подкоманда может и должна жить в своем модуле, этот подход должен быть распространен на весь relay"
+      ]
+    },
+    {
+      "at": "2026-10-28T09:22:49Z",
+      "said": [
+        "По поводу отбора - мы должны минимизировать количество подобных файлов которые необходимо редактировать каждое изменение, это тормозит разработку, в проекте уже были изменения нацеленные на уменьшение размера файлов",
+        "",
+        "В чем причина сейчас, почему у нас есть 15 задач которые блокирует отбор, какой файл является бутылочным горлышком - как мы можем его разбить"
+      ]
+    },
+    {
+      "at": "2026-10-28T09:25:00Z",
+      "said": [
+        "Какая сейчас статическая валидация файлов существует, может мы можем контролировать это правило статическим анализатором, ruff например ?"
+      ]
+    },
+    {
+      "at": "2026-10-28T09:25:01Z",
+      "fact": [
+        "28 Oct ~09:50 UTC. Static checks today: bin/types-lint (in relay precheck and the gate) runs mypy 1.18.2 (gradual; strict flags for 9 listed modules) and ruff 0.13.3 with only the F rules (pyflakes: unused imports, undefined names). tests/test_split_test_files.py caps each test file at 1500 lines (since 24 Oct, after tests/test_relay.py at 2008 lines caused three conflicting merges). Nothing caps lib/ or bin/relay. ruff 0.13.3 has no module-length rule (checked with `ruff rule --all`: only per-function C901 and PLR0911-0915, plus preview PLR0904/0914/0916/0917/1702). Largest modules: lib/relay_queue.py 2040, lib/relay_setup.py 1456, bin/relay 1079, lib/relay_verdict.py 889, lib/relay_bench.py 796. Front's view: the module cap and \"bin/relay holds no command code\" are facts a test checks (as for test files); ruff stays for bugs, per the project's Python rule."
+      ]
+    },
+    {
+      "asked_at": "2026-10-28T09:46:40Z",
+      "question": [
+        "**Разрешать ли папку вместо файла в поле «где менять»?**",
+        "",
+        "Отбор при старте держит задачу, если файл из её поля «где менять» уже правит работающий branch; папка совпадает с любым файлом внутри неё. У 17 открытых задач там папка: `tests/` (6), `lib/` (3), `rules/` (2) и другие. Например, задачу «два branch начинают править один файл» задержит любой branch, тронувший любой файл в `lib/` — а после разбиения там будет ещё около 50 модулей команд. Замер проектировщика: разбиение больших файлов убирает 139 пар задач с общим файлом из 432 (до 323), а запрет папок — ещё до 165.",
+        "",
+        "| | a. отказ | b. предупреждение | c. как сейчас |",
+        "|---|---|---|---|",
+        "| пар задач с общим файлом | 165 | 165, потом снова растёт | 323 |",
+        "| задач с общим файлом | 59 из 85 | 59, потом растёт | 71 |",
+        "| цена | агент, заводящий задачу, называет файл (новый тоже можно) | — | — |"
+      ],
+      "options": [
+        "a. `relay queue add` и `edit` отказывают, если в «где менять» только папка, и говорят назвать файл (рекомендую)",
+        "b. Только предупреждение; 17 задач переписать один раз",
+        "c. Ничего не менять"
+      ]
+    },
+    {
+      "asked_at": "2026-10-28T09:46:41Z",
+      "question": [
+        "**Какой лимит размера модуля ставить в gate?**",
+        "",
+        "Тест в gate будет валить любой модуль relay длиннее лимита — так же, как сегодня валит тестовый файл длиннее 1500 строк. Файлы, которые уже больше лимита, записаны в исключения до своего разбиения, поэтому обычные исправления в них gate не валит. Сейчас больше 600 строк 9 модулей, больше 1000 — 4. Самый большой модуль после разбиения (закрытие задач) — около 540 строк. Исходники растут быстро: за 5 дней очередь 854 → 2040 строк.",
+        "",
+        "| | a. 600 | b. 1000 | c. 400 |",
+        "|---|---|---|---|",
+        "| сколько ещё делить после основных шагов | 6 модулей | 1 | около 15 |",
+        "| запас над самым большим новым модулем | 10 % | почти вдвое | модуль закрытия делить ещё раз |"
+      ],
+      "options": [
+        "a. 600 строк (рекомендую)",
+        "b. 1000 строк",
+        "c. 400 строк"
+      ]
+    }
+  ]
+}

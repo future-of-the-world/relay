@@ -1,0 +1,269 @@
+{
+  "branch": "wt/riders-of-a-built-train-each-count-as-a",
+  "findings": [
+    {
+      "details": [
+        "28 Oct ~07:40 UTC: `relay queue start` refused three top fixes with 'no free lane: 6 of 6 running' while only one change was being built (bench-tools at its landing gate); train-24 and its three riders (precheck-tests, gate-rerun, recheck-take, all closed on their branches and merged into wt/train-24) counted as four lanes, picks and spec-met waited (one for the paid run, one for bench-tools). Lanes stood idle for the length of a paid run (28-110 min).",
+        "Also: tests/test_lanes_state.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Branches wt/a, wt/b merged into wt/train-1, all three open, setting 2: lanes_state says 3 of 2 running and start refuses."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same: 1 of 2 running, one item can start.",
+        "A rider not yet merged into the train still counts as its own lane."
+      ],
+      "path": "plugins/front/lib/relay_lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py:108 test_riders_of_an_open_train_are_one_lane passes at head; fails with master lib (shown above)."
+      ],
+      "severity": "HIGH",
+      "since": "19c4723e31a55a50cd3c58e4e8c4cefb141631ba",
+      "source": "queue",
+      "summary": "Riders of a built train each count as a lane",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch test (reproduced with the new code, passes with master's lib). lanes_state builds",
+        "changed = {lane.branch: touched(main, default, lane.branch, trees.get(lane.branch))} from the list _one_lane_per_train returns; the rider",
+        "lanes are replaced by Lane(train, None), so the riders' worktrees are never read for modified files. The same happens in the start brief's",
+        "\"files they have changed\" list (line 395). The worktree half of touched() was there exactly for uncommitted work; the change silently loses it",
+        "for riders. A rider being worked on after it was merged into a train is the red-train fallback the delegate skill describes.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "scratchpad/probe/test_probe.py::test_rider_uncommitted_edit_still_blocks_overlap",
+        "new code:    running [('wt/train-1', None)] picks ['z'] waits []        -> 1 failed",
+        "master lib:  running [('wt/a', 'a')] picks [] waits [Wait(slug='z', file='lib/z.py', branch='wt/a')]  -> 1 passed"
+      ],
+      "failing_case": [
+        "wt/a (item a, own commit lib/a.py) merged into wt/train-1; the rider's worktree then has an uncommitted change to lib/z.py (a fixer at work",
+        "after a red train, or a check fix); open item z with where lib/z.py.",
+        "Now: running [wt/train-1 (None)], z is picked (picks ['z'], waits []): z starts and collides with the edit in wt/a.",
+        "Before the change (master): running [wt/a], z waits (Wait z, lib/z.py, wt/a). Should: z waits on lib/z.py."
+      ],
+      "fix_hint": [
+        "Keep the riders' files in the overlap map: compute touched() for each original running lane (or let _one_lane_per_train return the riders per",
+        "train) and attach the riders' files to the train lane; or count a rider whose worktree is dirty as its own lane."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 216,
+      "pass_cases": [
+        "1. The failing case: z is in waits with file lib/z.py (branch wt/a or wt/train-1), not in picks.",
+        "2. wt/a, wt/b merged into wt/train-1, no uncommitted edits, setting 2: running is one lane, free 1 (today's new test keeps passing).",
+        "3. An open item whose where names lib/a.py (committed by the rider) waits while the train is open.",
+        "4. A rider with no train and an uncommitted edit to lib/z.py: z waits on wt/<rider> (unchanged behaviour)."
+      ],
+      "path": "plugins/front/lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py:123 and :136 pass at head."
+      ],
+      "severity": "MEDIUM",
+      "since": "d97bf4e4fb836e6c6d4202cf05251a5a3ef8f5af",
+      "source": "review-riders-of-a-built-train-each-count-as-a.json",
+      "source_id": "F1",
+      "summary": "a rider's uncommitted edits drop out of the overlap check: the lane becomes the train, and touched() reads the train's worktree, not the rider's",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: heads is every refs/heads/wt/ ref; the only filter on the train is `not landing(...)`, which is always false for a ref",
+        "that holds a running rider (see notes). Nothing tells a live train from an abandoned one. Measured live: 3 leftover train refs, and",
+        "wt/relay-plugins (not landed) is an ancestor of all three, so if it becomes active again through worktree edits it shows as lane \"wt/train-19\".",
+        "The pre-existing rule for no-item worktrees already uses lane_quiet_hours for exactly this question; the train is not held to it.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "git for-each-ref refs/heads/wt/ -> wt/train-19, wt/train-20, wt/train-22 present; merge-base --is-ancestor <train> master -> no for all three",
+        "git merge-base --is-ancestor wt/relay-plugins wt/train-19|20|22 -> yes, yes, yes",
+        "git worktree list -> .worktrees/train-19, train-20, train-22 still present"
+      ],
+      "failing_case": [
+        "Train wt/train-1 with riders wt/a and wt/b goes red; per the delegate skill they fall back to landing one at a time (a fixer on wt/a,",
+        "wt/b waiting to land). The train's ref and worktree are left (live today: wt/train-19, wt/train-20, wt/train-22 all exist, none on master,",
+        "worktrees still present). Setting 2: now 1 of 2 running (the dead \"wt/train-1\", slug None), one more item starts; the line names a train",
+        "nobody builds. Should: the train is no longer being landed, so wt/a and wt/b count as 2 of 2."
+      ],
+      "fix_hint": [
+        "Treat a holding branch as an open train only when it is active within lane_quiet_hours (_activity on the train's ref and worktree), and prefer",
+        "the most recently active one when several hold the rider; otherwise the rider counts as its own lane."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 203,
+      "pass_cases": [
+        "1. Riders wt/a, wt/b in wt/train-1 whose last activity is older than lane_quiet_hours (or that is otherwise marked dead): 2 of 2 running, free 0.",
+        "2. Riders wt/a, wt/b in an active wt/train-1 (changed within lane_quiet_hours): 1 of 2 running, free 1 (the item's failing case).",
+        "3. A train waiting 110 minutes for a paid run (activity 110 min old, quiet hours 3): still one lane.",
+        "4. A rider wt/a held both by a dead wt/train-19 and a live wt/train-23: it is counted under wt/train-23, not wt/train-19."
+      ],
+      "path": "plugins/front/lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py:142, :150, :155 pass at head; :150 and :155 fail on master lib."
+      ],
+      "severity": "MEDIUM",
+      "since": "d97bf4e4fb836e6c6d4202cf05251a5a3ef8f5af",
+      "source": "review-riders-of-a-built-train-each-count-as-a.json",
+      "source_id": "F2",
+      "summary": "any leftover wt/* branch that holds a rider counts as an open train: a dead (red, abandoned) train still folds its riders into one lane",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by measurement. In the generator, relay_git.has_own_commits(main, lane.branch) (a reflog read) is re-evaluated for every head,",
+        "then two merge-base --is-ancestor calls per head; for a lane with no own commits it is still called once per head. Project principle 2",
+        "(Waste): waste that repeats on every run is MEDIUM and is fixed before the merge.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "for 3 runs: new 3.79 / 3.85 / 3.79 s, master 1.81 / 1.85 / 1.86 s (PYTHONPATH=<code>/plugins/front/lib:<code>/lib, lanes_state('/Users/amidman/relay'))",
+        "instrumented relay_git.git: {'all': 109, 'inside': 61}",
+        "plugins/front/hooks/hooks.json: lanes.py timeout 10 (UserPromptSubmit, Stop), 20 (PostToolUse)"
+      ],
+      "failing_case": [
+        "Live repo, 3 running lanes, 11 wt/* refs: lanes_state takes 3.79-3.85 s with the change vs 1.81-1.86 s on master (3 runs each); 61 of its",
+        "109 git calls come from _one_lane_per_train. The lanes hook runs it on every UserPromptSubmit and every Stop of the front, with a 10 s timeout;",
+        "at 6 lanes and more leftover refs it grows as lanes x refs x 2. Should: about one git call per running lane (or fewer)."
+      ],
+      "fix_hint": [
+        "Per running lane: skip it at once unless has_own_commits (once); then one `git for-each-ref --contains refs/heads/<lane> --format=%(refname:short) refs/heads/wt/`",
+        "gives the holding refs; drop the always-false landing() call."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 207,
+      "pass_cases": [
+        "1. Live-like fixture (3 lanes, 11 wt/* refs, no rider): _one_lane_per_train makes at most one git call per running lane plus one for-each-ref.",
+        "2. The item's failing case still gives 1 of 2 running, free 1.",
+        "3. A rider not yet in the train still counts as its own lane."
+      ],
+      "path": "plugins/front/lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py:162 test_f3_one_ref_scan_per_rider_candidate passes at head."
+      ],
+      "severity": "MEDIUM",
+      "since": "d97bf4e4fb836e6c6d4202cf05251a5a3ef8f5af",
+      "source": "review-riders-of-a-built-train-each-count-as-a.json",
+      "source_id": "F3",
+      "summary": "Waste on every front hook: has_own_commits and is-ancestor run per lane per wt/* ref, doubling lanes_state time (1.85 s to 3.8 s live)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lines 6-7 of both copies. Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A reader of the module text (the hook and `relay queue start` cite it) reads \"wt/train-* branches are never lanes\", while lanes_state now",
+        "returns Lane('wt/train-1', None) for the item's failing case. Should: the text says a train that holds running riders is their one lane."
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "inside",
+      "line": 6,
+      "pass_cases": [
+        "1. The docstring of both copies states the rider rule (a branch merged into an open wt/* branch is not its own lane; the branch is).",
+        "2. The sentence \"wt/train-* branches are never lanes\" is gone or qualified."
+      ],
+      "path": "plugins/front/lib/relay_lanes.py",
+      "rank": "low",
+      "reason": [
+        "Docstring of lib/relay_lanes.py updated (read at head), accepted in the earlier check."
+      ],
+      "severity": "LOW",
+      "since": "d97bf4e4fb836e6c6d4202cf05251a5a3ef8f5af",
+      "source": "review-riders-of-a-built-train-each-count-as-a.json",
+      "source_id": "F4",
+      "summary": "module docstring still says wt/train-* branches are never lanes; a train holding a running rider is now one",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_lanes.py came in from master (merge 3583d6f4a582) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_lanes.py after the merge: master's additions coexist with the rider fix; 47 tests pass; gate green on 3583d6f4."
+      ],
+      "severity": "MEDIUM",
+      "since": "3583d6f4a58249ec656a3c23720f59a0c704f39a",
+      "source": "merge",
+      "summary": "lib/relay_lanes.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/front/lib/relay_lanes.py came in from master (merge 3583d6f4a582) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/front/lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "plugins/front/lib/relay_lanes.py is byte-identical to lib/relay_lanes.py (cmp); gate green."
+      ],
+      "severity": "MEDIUM",
+      "since": "3583d6f4a58249ec656a3c23720f59a0c704f39a",
+      "source": "merge",
+      "summary": "plugins/front/lib/relay_lanes.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_lanes_state.py came in from master (merge 3583d6f4a582) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_lanes_state.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py runs 47 tests green at head including master's and the rider tests."
+      ],
+      "severity": "MEDIUM",
+      "since": "3583d6f4a58249ec656a3c23720f59a0c704f39a",
+      "source": "merge",
+      "summary": "tests/test_lanes_state.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "3583d6f4a58249ec656a3c23720f59a0c704f39a.gate.log",
+  "head": "66418feb7264f91983001b1e05031e7bd5982f4d",
+  "item": "riders-of-a-built-train-each-count-as-a-lane",
+  "notes": [
+    "No file changed after the previous check except by the merge of master, whose changes to the three files are master's own and tested at head."
+  ],
+  "schema": 2,
+  "scope": [
+    "Re-check after merge of master (3583d6f4). Gate log head 3583d6f4, bin/ci --quick green, exit 0; HEAD 66418feb adds only the gate log (relay changed lists no file). Ran tests.test_lanes_state at head: 47 passed. Both lib copies identical. Reviewed the merge diff of lib/relay_lanes.py: master's canonical/_shared/twin-pick additions sit beside the rider code (_one_lane_per_train) without conflict. Against master 152282c0 lib with head tests: test_riders_of_an_open_train_are_one_lane, test_rider_not_yet_in_the_train_is_its_own_lane, test_f2_train_waiting_110_minutes_is_still_one_lane, test_f2_rider_counts_under_the_live_train_not_the_dead_one fail; the other f1/f2 tests are guard cases that pass on master by design."
+  ],
+  "type": "check"
+}

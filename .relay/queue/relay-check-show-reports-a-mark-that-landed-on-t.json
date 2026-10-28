@@ -38,8 +38,8 @@
   "where": [
     "lib/relay_marks.py:260"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T09:18:35Z",
+  "taken_by": "wt/relay-check-show-reports-a-mark-that-lan",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
