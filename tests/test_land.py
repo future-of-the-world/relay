@@ -440,7 +440,7 @@ class OthersTake(test_inert.Repo):
 
     def test_f1_step_mark_names_my_own_take(self):
         # pass case 5: the refusal names the branch's own hand-resolved take, never one reachable from master
-        mark = self.other_branch_resolved_and_landed()
+        self.other_branch_resolved_and_landed()
         self.git("reset", "-q", "--hard", self.git("log", "-n1", "--format=%H", "--grep", "relay: check of", "wt/x"))
         self.edit_line("x.py", 1, "x one")
         self.commit("x change after the mark")
