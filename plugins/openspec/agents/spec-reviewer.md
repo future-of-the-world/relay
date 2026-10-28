@@ -122,7 +122,12 @@ other, each on the head the last one left; with one such item no name is needed.
    A case is `MET` when a test asserts it (`file:line`), you saw that test
    pass, and reading it shows it encodes that case (its inputs and expected
    outcome); an artifact case is `MET` when the line exists. Otherwise
-   `NOT MET`, with why. When the record has a `Q1`, it is `MET` only when its failing-case test
+   `NOT MET`, with why. A finding whose failing case a few lines of code can run
+   (an input through a function, a mutant of the fix) is not `MET` by reading: run
+   it as a scratch script outside the repo, in the scratchpad, and say so in the
+   verdict reason ("sketch run: <what it showed>"). `MET` only when the sketch gives
+   the right outcome; a fix that only narrowed the case leaves the sketch showing
+   the defect, so the finding stays `NOT MET`. When the record has a `Q1`, it is `MET` only when its failing-case test
    also fails without the fix: `git -C <path> worktree add --detach
    <scratchpad>/base <Q1's since>`, copy the test file in, run it, see it fail,
    then `git worktree remove` it.

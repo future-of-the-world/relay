@@ -278,6 +278,23 @@ class Roles(Base):
         checker = open(os.path.join(ROOT, "plugins", "delegate", "agents", "checker.md")).read()
         self.assertIn("where the project has check marks", " ".join(checker.split()))
 
+    def test_judge_check_runs_a_sketch_of_a_runnable_failing_case(self):
+        """Trial spec review F1: a fix that only narrowed a runnable case (8 of 32 marks) was marked MET by reading.
+        The judge base, every synced copy and the spec-review skill must tell the checker to run the case as a scratch
+        script, say so in the verdict, and keep a narrowed fix NOT MET. Without the text a checker may read and mark MET."""
+        rr = self.lib()
+        want = ["is not `MET` by reading: run it as a scratch script outside the repo",
+                "sketch run:", "a fix that only narrowed the case leaves the sketch showing the defect"]
+        paths = ["roles/judge.md"] + [os.path.relpath(p, ROOT) for p in rr.agent_files(ROOT)
+                                      if "relay:base judge" in open(p).read()]
+        self.assertEqual(len(paths), 5)
+        for path in paths:
+            flat = " ".join(open(os.path.join(ROOT, path)).read().split())
+            for piece in want:
+                self.assertIn(piece, flat, path)
+        skill = " ".join(open(os.path.join(ROOT, "plugins", "openspec", "skills", "spec-review", "SKILL.md")).read().split())
+        self.assertIn("runs that sketch as a scratch script outside the repo", skill)
+
     def test_judge_base_part2(self):
         """A15: the judge base names `relay changed --own` in check step 1 and the linter line in "Each finding"; the
         checker's flow part and the delegate skill name `relay gate`."""
