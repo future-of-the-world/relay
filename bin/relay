@@ -47,10 +47,11 @@
                                      the files changed since <sha> (to <until>, default HEAD) that are not on the
                                      inert list (handover, queue and check files): what a check of a fix looks at;
                                      --own leaves out the files only the default branch changed
-  relay gate [-C <worktree>] [--paid] [-- <args>]
+  relay gate [-C <worktree>] [--paid] [--again] [-- <args>]
                                      run the project's quick (free) gate on the committed task branch and commit its log;
                                      --paid runs the full gate, paid evals included (bin/ci prints the estimate and the
-                                     day's spend first); -- <args> names the gate's own mode (the cycle passes --quick)
+                                     day's spend first); -- <args> names the gate's own mode (the cycle passes --quick);
+                                     --again runs it although the same code has a finished gate (a red one is otherwise reported, not run)
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
   relay precheck [-C <worktree>]     the gate's seconds-long steps (types and lint, python 3.9 imports, lib copies on HEAD),
                                      read-only; the quiet check a worker loops on starts with it; exits 1 when one is red
@@ -580,13 +581,14 @@ def _print_paid_cost(worktree):
 
 
 def cmd_gate(args):
-    usage = "relay gate [-C <worktree>] [--paid] [-- <args>]"
+    usage = "relay gate [-C <worktree>] [--paid] [--again] [-- <args>]"
     args, extra = list(args), []
     if "--" in args:
         i = args.index("--")
         args, extra = args[:i], args[i + 1:]
     paid = "--paid" in args
-    args = [a for a in args if a != "--paid"]
+    again = "--again" in args
+    args = [a for a in args if a not in ("--paid", "--again")]
     if paid and extra:
         raise Usage(usage + ": --paid and -- <args> do not go together")
     quick = not paid and not extra      # the plain gate is the free one (gate.ci_quick, when kit.toml names it); the paid evals need --paid
@@ -598,7 +600,7 @@ def cmd_gate(args):
     if paid:
         _print_paid_cost(worktree)
     try:
-        code, log, red = relay_gate.run(worktree, extra, quick=quick)
+        code, log, red = relay_gate.run(worktree, extra, quick=quick, again=again)
     except relay_gate.GateRefused as exc:
         raise ValueError(str(exc))
     print("gate %s: exit %d" % (os.path.basename(log)[:-len(".gate.log")], code))

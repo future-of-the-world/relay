@@ -282,9 +282,17 @@ def finished_red(worktree: str, head: str, command: Sequence[str]) -> Optional[t
         if len(lines) < 3 or lines[0] != "head %s" % commit or lines[1] != wanted:
             continue
         last = lines[-1].split()
-        if len(last) == 2 and last[0] == "exit" and last[1].isdigit() and int(last[1]) != 0:
+        if len(last) == 2 and last[0] == "exit" and last[1].isdigit() and 0 < int(last[1]) < 127:      # 127 (could not start) and >= 128 (killed) came from outside the commit: not reused
             return int(last[1]), log, first_failure("\n".join(lines[3:-1]))
     return None
+
+
+def reused_red(red: tuple[int, str, list[str]]) -> tuple[int, str, list[str]]:
+    """Say on stderr that a red gate is reported, not run; hand the result back unchanged."""
+    sha = os.path.basename(red[1])[:-len(".gate.log")]
+    print("gate: the code is unchanged since the red gate of %s: reported, not run (relay gate --again runs it)" % sha,
+          file=sys.stderr, flush=True)
+    return red
 
 
 def hold_stops() -> tuple[list[int], Callable[[], None]]:
@@ -307,8 +315,9 @@ def hold_stops() -> tuple[list[int], Callable[[], None]]:
 
 
 def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, str]] = None,
-        quick: bool = False) -> tuple[int, str, list[str]]:
-    """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red)."""
+        quick: bool = False, again: bool = False) -> tuple[int, str, list[str]]:
+    """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red).
+    `again` skips both reuses (a green and a finished red gate of the same code): the command runs."""
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
     chosen = (quick_binding(worktree) if quick else None) or binding(worktree)
@@ -319,12 +328,13 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
         license_lines = relay_license.check(worktree)
     except (OSError, ValueError) as exc:
         license_lines = ["license: cannot check: %s" % exc]
-    green = None if license_lines else reusable(worktree, head, command)
+    reuse = not license_lines and not again
+    green = reusable(worktree, head, command) if reuse else None
     if green is not None:      # the same code already has a green gate: report it, run nothing
         return 0, green, []
-    red = None if license_lines else finished_red(worktree, head, command)
+    red = finished_red(worktree, head, command) if reuse else None
     if red is not None:      # the same code already has a finished red gate (only record commits since): report it, run nothing
-        return red
+        return reused_red(red)
     # the output goes under the worktree's git dir, never into the tree: a project that does not ignore .ci/ would see
     # an untracked file and the next gate (and the merge cleanup) would refuse
     rc, git_path = relay_git.git(worktree, "rev-parse", "--path-format=absolute", "--git-path", "relay-gate.out")
@@ -361,9 +371,13 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                     license_lines = relay_license.check(worktree)
                 except (OSError, ValueError) as exc:
                     license_lines = ["license: cannot check: %s" % exc]
-                green = None if license_lines else reusable(worktree, now, command)      # (a gate log committed meanwhile moves HEAD, but only by inert files)
+                reuse = not license_lines and not again
+                green = reusable(worktree, now, command) if reuse else None      # (a gate log committed meanwhile moves HEAD, but only by inert files)
                 if green is not None:
                     return 0, green, []
+                red = finished_red(worktree, now, command) if reuse else None      # the gate we waited for may have gone red
+                if red is not None:
+                    return reused_red(red)
                 if now != head:
                     raise GateRefused("%s moved to another commit while the gate waited: run it again" % worktree)
                 proc = None

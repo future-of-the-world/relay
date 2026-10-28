@@ -262,6 +262,49 @@ class Gate(Fixture):
         self.assertEqual(self.gate(self.wt).returncode, 3)
         self.assertEqual(self.runs(), 2)
 
+    def _red_then_log(self, code):
+        """a gate script that exits `code` the first time and 0 afterwards, with a counter outside the repo; returns after the
+        first (red) gate, HEAD = its record commit"""
+        self.counter = os.path.join(self.tmp, "runs")
+        self.repo(gate='echo run >> "%s"\n[ "$(wc -l < "%s")" -eq 1 ] && exit %d\nexit 0\n' % (self.counter, self.counter, code))
+        self.assertEqual(self.gate(self.wt).returncode, code)
+
+    def test_f1_a_reused_red_says_so_on_stderr(self):
+        """pass 1: plain rerun on a red record commit: exit 3, no run (counter 1), stderr names the reused gate of G."""
+        self._red_then_log(3)
+        g = git(self.wt, "rev-parse", "HEAD~1")      # the gated commit; HEAD is its record commit
+        again = self.gate(self.wt)
+        self.assertEqual(again.returncode, 3)
+        self.assertEqual(self.runs(), 1)
+        self.assertIn("unchanged since the red gate of %s: reported, not run" % g, again.stderr)
+
+    def test_f1_again_runs_the_gate_anyway_and_logs_the_new_result(self):
+        """pass 2: --again on a red record commit runs the command (counter 2); its new result (green here) is printed."""
+        self._red_then_log(3)
+        again = self.gate(self.wt, "--again")
+        self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
+        self.assertEqual(self.runs(), 2)
+
+    def test_f1_a_red_that_could_not_start_or_was_killed_is_not_reused(self):
+        """pass 3: exit 137 (killed) and exit 127 (could not start) logs are not reused: a plain rerun runs (counter 2)."""
+        for code in (137, 127):
+            with self.subTest(code=code):
+                shutil.rmtree(os.path.join(self.tmp, "main"), ignore_errors=True)
+                if os.path.exists(os.path.join(self.tmp, "runs")):
+                    os.remove(os.path.join(self.tmp, "runs"))
+                self._red_then_log(code if code < 128 else 137)
+                again = self.gate(self.wt)
+                self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
+                self.assertEqual(self.runs(), 2)
+
+    def test_f1_a_green_record_commit_is_still_reused(self):
+        """pass 4: green reuse unchanged: exit 0, nothing runs."""
+        self.counter = os.path.join(self.tmp, "runs")
+        self.repo(gate='echo run >> "%s"\nexit 0\n' % self.counter)
+        self.assertEqual(self.gate(self.wt).returncode, 0)
+        self.assertEqual(self.gate(self.wt).returncode, 0)
+        self.assertEqual(self.runs(), 1)
+
     def test_r4_red_gate_exits_with_its_status_and_names_the_failure(self):
         """R4: a red fixture gate: exit status 1 (its own), the log ends exit 1, the failing step's lines are printed."""
         self.repo(gate='echo "ci: tests ok (1s)"\necho "ci: lint FAILED (1s, log: x)"\necho "    bad line"\nexit 1\n')

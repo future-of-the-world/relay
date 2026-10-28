@@ -162,7 +162,10 @@ front's.
    stores the result as `.relay/checks/<G>.gate.log`. A red gate goes back to
    the worker or a fixer, then this step again: a red build is never reviewed.
    `relay gate` on code that already has a green gate (only inert files
-   changed since) reports that gate and runs nothing; a reused gate is the gate.
+   changed since) reports that gate and runs nothing; a reused gate is the gate. A finished red
+   gate with only `.relay/checks/` commits since is reported the same way
+   (stderr says so); `relay gate --again` runs the command anyway, for a red
+   that came from outside the code (killed, load, a missing tool).
    A runner that replies RUNNING with a log leaves the job running: start a
    fresh runner that waits on that pid and log; never start the gate again. A
    worker or fixer that hands back BLOCKED with still running: <log> is handled
