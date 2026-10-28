@@ -31,6 +31,18 @@ class ChecksInline(unittest.TestCase):
     def test_python_write_text_is_refused(self) -> None:
         self.assertIn("X", kinds("python3 -c \"import pathlib; pathlib.Path('.relay/checks/a').write_text('x')\""))
 
+    def test_node_unlinkSync_is_refused(self) -> None:
+        self.assertIn("X", kinds("node -e \"require('fs').unlinkSync('.relay/checks/a')\""))
+
+    def test_node_renameSync_is_refused(self) -> None:
+        self.assertIn("X", kinds("node -e \"require('fs').renameSync('a','.relay/checks/a')\""))
+
+    def test_perl_unlink_without_parentheses_is_refused(self) -> None:
+        self.assertIn("X", kinds("perl -e \"unlink '.relay/checks/a'\""))
+
+    def test_node_unlinkSync_on_a_queue_item_is_refused(self) -> None:
+        self.assertIn("Y", kinds("node -e \"require('fs').unlinkSync('.relay/queue/x.json')\""))
+
 
 if __name__ == "__main__":
     unittest.main()

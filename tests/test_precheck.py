@@ -274,11 +274,10 @@ class TestChangedTests(Base):
         self.assertIn("  FAIL changed tests took longer than 2 s", lines)   # the budget actually used
 
     def test_a_changed_test_slower_than_the_other_steps_budget_is_green(self) -> None:
-        # F1: the changed-tests step has its own budget; a green test that takes 11 s passes although STEP_TIMEOUT is 10 s
-        # (10 s, not 1 s: the registry test gets STEP_TIMEOUT too, and on a busy machine python starts in over a second)
-        self.write("tests/test_slow.py", self.SLEEPER % 11)
+        # F1: the changed-tests step has its own budget; a green test that takes 3 s passes although STEP_TIMEOUT is 1 s
+        self.write("tests/test_slow.py", self.SLEEPER % 3)
         self.commit()
-        self._set("STEP_TIMEOUT", 10)
+        self._set("STEP_TIMEOUT", 1)
         # the step keeps its own default budget (230 s): a 60 s one went red when the gate ran at load 50 and python took over a minute to start
         self.assertGreater(relay_precheck.CHANGED_TESTS_TIMEOUT, relay_precheck.STEP_TIMEOUT)
         code, lines = relay_precheck.run(self.repo)
