@@ -277,8 +277,6 @@ class TestChangedTests(Base):
     def test_a_changed_test_slower_than_the_other_steps_budget_is_green(self) -> None:
         # F1: the changed-tests step has its own budget; a green test that takes 3 s passes although STEP_TIMEOUT is 1 s
         self.write("tests/test_slow.py", self.SLEEPER % 3)
-        # no registry stand-in here: it runs on STEP_TIMEOUT (1 s), and a loaded machine starts python slower than that (the gate went red on it)
-        os.remove(os.path.join(self.repo, "tests", "test_rules_gate.py"))
         self.commit()
         self._set("STEP_TIMEOUT", 1)
         # the step keeps its own default budget (230 s): a 60 s one went red when the gate ran at load 50 and python took over a minute to start
