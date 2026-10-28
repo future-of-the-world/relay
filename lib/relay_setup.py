@@ -1,3 +1,4 @@
+# size: over the 600-line limit until its split item lands
 """relay setup / migrate / doctor: a project onto relay, new or existing, and a check-up.
 
 Nothing here deletes a file. Migration lists what the old setup had and what
