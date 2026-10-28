@@ -42,6 +42,12 @@
       "fact": [
         "28 Oct: train-22 landed (47a6612) with wt/queue-edit inside it; the merge hook removed the worktrees and branches of the 8 riders that held a fix item but left .worktrees/queue-edit and wt/queue-edit (a feature branch with no item of its own), though wt/queue-edit is merged into master."
       ]
+    },
+    {
+      "at": "2026-10-28T07:41:27Z",
+      "fact": [
+        "28 Oct ~07:50 UTC, checked with git: wt/queue-edit and wt/relay-plugins are ancestors of master; wt/train-19 holds only gate/check record commits not on master; wt/train-20 has no patch master lacks; wt/train-22 holds only its conflict-marker fix, replaced by train-22b; wt/plans-save has 9 commits not on master (docs/plans/, owner words since moved into notes). All five worktrees are clean. Removing the clean detached paid-run trees with `git worktree remove` worked; `git branch -D` for the five was refused by guard-main again."
+      ]
     }
   ]
 }
