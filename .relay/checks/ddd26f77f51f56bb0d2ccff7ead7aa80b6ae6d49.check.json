@@ -1,0 +1,206 @@
+{
+  "branch": "wt/gate-stops",
+  "findings": [
+    {
+      "details": [
+        "A flaky test is a bug (quality-gate rule); it turned the stale-texts gate red on a change that touches none of the gate code, and cost a fix round.",
+        "Also: lib/relay_gate.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Gate of wt/stale-texts, inert probe step: library tests failed on test_f2_an_interrupted_runner_leaves_no_gate_command; fixer saw 3 of 3 passes alone and 0 of 12 under 4 busy loops, so p is below 1/15 and unmeasured."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 75,
+      "pass_cases": [
+        "The race in the gate's SIGINT handling (or in the test's wait) is named with evidence and fixed at the cause.",
+        "max(20, ceil(3/p)) clean runs of the test under load after the fix."
+      ],
+      "path": "tests/test_gate_stops.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate_stops.py:85 passes at head, fails at 7a1a1a9^ (AssertionError, sleep alive)."
+      ],
+      "severity": "HIGH",
+      "since": "24ba0dfec29d0449e8b33ea2a7c255d18d85c4c0",
+      "source": "queue",
+      "summary": "Gate stop test sometimes sees the gate command alive",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Introduction for the owner: the gate-stop test F2 failed once in a gate run (the gate's command was still alive after its runner was",
+        "interrupted). The project rule for flaky tests says: reproduce the flake under load, measure its failure rate p, then prove the fix",
+        "with max(20, 3/p) clean runs under the same load. Here the flake would not reproduce: the fixer saw 0 of 15, I saw 0 of 40 on the old",
+        "code. The fixer found a real window instead (a Ctrl-C that lands while Python's Popen is still returning orphans the command) and",
+        "proved it with a test that sends the signal inside that window on purpose: the old code fails it every time, the new code passes.",
+        "The link from that window to the one failure seen on 27 Oct is reasoning, not a measurement (it is the most plausible cause I found;",
+        "the other one I tested, two stops landing together, does not orphan the command).",
+        "Question: is the injected reproduction enough proof to merge?",
+        "(a) yes: merge now, note in the queue item that p was measured with injection (recommended; more runs of F2 prove nothing at this p).",
+        "(b) no: before the merge, a fixer builds a load that makes F2 itself fail on the old code and runs the count the rule asks.",
+        "PLAUSIBLE that the window is the 27 Oct cause; CONFIRMED that the window exists and is closed. Size: (a) 5, (b) 60."
+      ],
+      "evidence": [
+        "relay queue show gate-stop-test-sometimes-sees-the-gate-command-a: \"fixer saw 3 of 3 passes alone and 0 of 12 under 4 busy loops,",
+        "so p is below 1/15 and unmeasured\"; fixer report: \"20/20 clean runs of the file\".",
+        "measure.sh, 40 runs each, concurrently, ambient load avg 11.7 on 12 cores + 6 busy loops: master \"runs 40 failed 0\", HEAD \"runs 40 failed 0\".",
+        "F3 copied to a worktree at master: \"test_gate_stops.py:119: AssertionError ... 1 failed in 32.32s\"; at HEAD \"3 passed in 5.23s\"."
+      ],
+      "failing_case": [
+        "Queue item pass case 2: max(20, ceil(3/p)) clean runs of test_f2 under load after the fix. Before the fix the fixer saw 0 failures in",
+        "15 runs (p < 1/15, unmeasured), so 3/p >= 45; the fixer reports 20/20 clean runs of the file, load not stated. My 40 runs of F2 on",
+        "master and 40 on HEAD under the same load were all clean: the runs cannot tell the fixed code from the unfixed one."
+      ],
+      "fix_hint": [
+        "Owner's word; for (a) one line in the queue item's notes naming the injected proof."
+      ],
+      "id": "F1",
+      "kind": "question",
+      "line": 76,
+      "pass_cases": [
+        "Either (a) owner accepts the injected reproduction as the measured p: F3 fails 1 of 1 at master (p = 1 under injection), passes 20 of",
+        "20 at HEAD; recorded in the queue item's notes as the proof.",
+        "Or (b) F2's own failure is reproduced under a named load on master (p measured, e.g. k failures of n), then ceil(3/p) clean runs of F2",
+        "on HEAD under that same load are recorded.",
+        "In both: test_f3 at master fails at tests/test_gate_stops.py:119; at HEAD it passes."
+      ],
+      "path": "tests/test_gate_stops.py",
+      "rank": "medium",
+      "reason": [
+        "Option (a): injected proof recorded in the queue item notes (earlier check); test at :85 fails at base, passes at head."
+      ],
+      "severity": "MEDIUM",
+      "since": "d45eda5259a9761bda1c7843f8a6b4b73feed777",
+      "source": "review-gate-stops.json",
+      "source_id": "F1",
+      "summary": "the flake was never reproduced, so the queue item's proof (max(20, 3/p) clean runs of F2 under load) cannot be met; the fix rests on an injected reproduction",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lines 339-346: the re-raise sits after the try/finally, so only a Popen that returns reaches it. The window is",
+        "microseconds wide, so this is rare; the cost is a committed red log for a gate that was told to stop. Size: 5."
+      ],
+      "evidence": [
+        "lib/relay_gate.py:339-346: held, release = hold_stops(); try: proc = subprocess.Popen(...) finally: release(); if held: os.kill(...)"
+      ],
+      "failing_case": [
+        "The gate command cannot start (kit.toml names a file that is not executable) and SIGTERM lands while Popen runs. Popen raises",
+        "OSError, release() runs in the finally, `if held:` is skipped because the exception propagates, the except OSError branch writes",
+        "\"could not start\", and the gate commits a log with exit 127 and returns 127. Before the change it left at once with SystemExit(143)",
+        "and committed nothing. It should still stop (143, no log)."
+      ],
+      "fix_hint": [
+        "Re-raise inside the finally, after release(): `finally: release(); if held: os.kill(os.getpid(), held[0])`."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 345,
+      "pass_cases": [
+        "SIGTERM held during a Popen that raises OSError: the gate exits 143 and commits no log.",
+        "No signal, command not executable: exit 127, log \"gate command could not start\" committed (as today).",
+        "SIGINT held during a Popen that succeeds: KeyboardInterrupt, the command's group killed (test_f3)."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_stops.py:122 passes (SystemExit 143, no log committed)."
+      ],
+      "severity": "LOW",
+      "since": "d45eda5259a9761bda1c7843f8a6b4b73feed777",
+      "source": "review-gate-stops.json",
+      "source_id": "F2",
+      "summary": "a stop held while Popen raises OSError is dropped: the gate goes on to commit a 127 log instead of stopping",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED with a scratch script. No relay code sends SIGINT to the command's own session today, so nothing breaks now; it is a silent",
+        "change of what the command inherits. Size: 5."
+      ],
+      "evidence": [
+        "python3 -I -c '... signal.signal(SIGINT, SIG_IGN); subprocess.run(child); held, release = relay_gate.hold_stops(); subprocess.run(child)'",
+        "-> \"1\" then \"<built-in function default_int_handler>\"; \"after release 1\""
+      ],
+      "failing_case": [
+        "`relay gate` started as a background job (`sh -c 'relay gate &'`, SIGINT ignored). Before: the gate command (bin/ci and its tests)",
+        "inherited SIGINT ignored. Now: hold_stops installs a Python handler, exec resets a caught signal to default, so the command starts",
+        "with SIGINT at default. Measured: a child started under the hold prints default_int_handler, one started without prints 1 (SIG_IGN).",
+        "It should inherit the disposition the gate had before the hold."
+      ],
+      "fix_hint": [
+        "In hold_stops skip a signal whose handler is SIG_IGN: `if signal.getsignal(sig) == signal.SIG_IGN: continue` (an ignored stop needs no hold)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 267,
+      "pass_cases": [
+        "Caller has SIGINT = SIG_IGN: a child started by run() reports SIGINT ignored.",
+        "Caller has SIGINT = default_int_handler: a SIGINT during Popen is held and re-raised (test_f3).",
+        "After run() returns, the caller's SIGINT handler is what it was before (SIG_IGN stays SIG_IGN)."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_stops.py:148 passes; fails at 7a1a1a9^."
+      ],
+      "severity": "LOW",
+      "since": "d45eda5259a9761bda1c7843f8a6b4b73feed777",
+      "source": "review-gate-stops.json",
+      "source_id": "F3",
+      "summary": "hold_stops replaces an ignored SIGINT with a handler during Popen, so the gate command now starts with SIGINT live instead of ignored",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Project rule label: \"Python: every new or changed function has types\". The rule sets no severity; correct today,",
+        "cheap. Size: 5."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- lib/relay_gate.py: the hunk at @@ -316 is inside def run(worktree, args=(), environ=None, quick=False)."
+      ],
+      "failing_case": [
+        "run(worktree, args=(), environ=None, quick=False) had its body changed by 7a1a1a9 and has no annotations; popen_then_stop and",
+        "cleanup in tests/test_gate_stops.py:97,106 are new and untyped. The project's Python rule says every new or changed function has",
+        "types; it should read e.g. run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, str]] = None,",
+        "quick: bool = False) -> tuple[int, str, list[str]]."
+      ],
+      "fix_hint": [
+        "Annotate run() and the two test helpers."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 277,
+      "pass_cases": [
+        "run() carries parameter and return annotations; the gate's type check stays green.",
+        "popen_then_stop(*args: Any, **kwargs: Any) -> subprocess.Popen[bytes] and cleanup() -> None annotated.",
+        "cmd_gate's call relay_gate.run(worktree, extra, quick=quick) still type-checks."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "Types added to run() and helpers (6838974); gate green."
+      ],
+      "severity": "LOW",
+      "since": "d45eda5259a9761bda1c7843f8a6b4b73feed777",
+      "source": "review-gate-stops.json",
+      "source_id": "F4",
+      "summary": "Python rule (types on new or changed functions): run() was changed and is still untyped; the new test helpers are untyped",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "d3423cd43b0f437ab7ec5f8fee1b59929fa8eee0.gate.log",
+  "head": "ddd26f77f51f56bb0d2ccff7ead7aa80b6ae6d49",
+  "item": "gate-stop-test-sometimes-sees-the-gate-command-a",
+  "notes": [
+    "hold_stops skips ignored signals (F3 fix) read in lib/relay_gate.py."
+  ],
+  "schema": 2,
+  "scope": [
+    "Recheck after merge of master. Gate log head d3423cd, exit 0, bin/ci --quick; HEAD ddd26f7 adds only the gate log. Ran tests/test_gate_stops.py at head (5 passed). Fail-without-fix at 7a1a1a9^ with head test file: test_f3_a_stop_between... FAIL, test_f3_review_an_ignored_sigint... ERROR; the other three pass there (f1/f2 flake tests, and the F2-review test, which guards the fix's own regression, not the original code)."
+  ],
+  "type": "check"
+}
