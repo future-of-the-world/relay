@@ -25,8 +25,8 @@
     "plugins/sdd/skills/plan/SKILL.md:42",
     "~/.claude/skills/openspec-apply-orchestrator/SKILL.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T04:20:31Z",
+  "taken_by": "wt/flow-orders",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
