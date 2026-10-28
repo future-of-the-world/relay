@@ -24,8 +24,8 @@
     "plugins/front/hooks/lanes.py",
     "plugins/front/skills/front/SKILL.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T07:59:24Z",
+  "taken_by": "wt/paid-run-red-recall-decision-fails-0-of",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
