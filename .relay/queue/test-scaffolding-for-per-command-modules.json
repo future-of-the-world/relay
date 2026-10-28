@@ -31,8 +31,8 @@
     "tests/cmd_harness.py new",
     "tests/test_cmd_files.py new"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T18:27:58Z",
+  "taken_by": "wt/test-scaffolding-for-per-command-modules",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

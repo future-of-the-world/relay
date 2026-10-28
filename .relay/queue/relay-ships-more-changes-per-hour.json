@@ -14,7 +14,7 @@
   "where": [
     "plugins/delegate/workflows/cycle.js",
     "lib/relay_ci.py",
-    "plugins/delegate/skills/delegate"
+    "plugins/delegate/skills/delegate/SKILL.md"
   ],
   "taken_at": null,
   "taken_by": null,
@@ -291,6 +291,13 @@
       ],
       "reading": [
         "a: no new bench; keep 2 gate slots (the 27 Oct bench shows 10.3 gates an hour with 2 against 10.2 with 3). Question recorded right after it was shown (front's slip)."
+      ]
+    },
+    {
+      "at": "2026-10-28T17:47:42Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
       ]
     }
   ]

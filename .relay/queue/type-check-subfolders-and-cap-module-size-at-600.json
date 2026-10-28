@@ -28,8 +28,8 @@
     "lib/relay_setup.py:1 size marker",
     "bin/relay:2 size marker"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T20:01:18Z",
+  "taken_by": "wt/type-check-subfolders-and-cap-module-siz",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

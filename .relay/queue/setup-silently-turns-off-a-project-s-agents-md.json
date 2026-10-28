@@ -20,12 +20,21 @@
   ],
   "where": [
     "lib/relay_setup.py (the CLAUDE.md skeleton, CLAUDE.local.md registration)",
-    "templates/"
+    "templates/CLAUDE.md"
   ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T17:47:49Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    }
+  ]
 }

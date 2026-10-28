@@ -21,7 +21,7 @@
   "where": [
     "lib/relay_marks.py",
     "plugins/core/hooks/guard-main.sh (.relay/checks writes)",
-    "docs"
+    "docs/setup.md"
   ],
   "taken_at": null,
   "taken_by": null,
@@ -40,6 +40,13 @@
       "at": "2026-10-25T17:28:28Z",
       "fact": [
         "Read 25 Oct (arsenal pilot design, risk 5): about 4 small files under `.relay/checks/` per change reach arsenal's master through the squash. They name the shas of the issue branch, which Forgejo deletes at merge, so on master they point at commits master never holds. An agent cannot drop them before the squash: relay's guard refuses any write to `.relay/checks` once `.relay/` is on the default branch (read: plugins/core/hooks/guard-main.sh lines 108-113). Decided for the pilot: keep them; filed as R4 \"on a squash-merge project the check records name commits the default branch never holds, and a pull-request merge is not gated\". Mid-October arsenal merged 4 pull requests in 3 days."
+      ]
+    },
+    {
+      "at": "2026-10-28T17:47:53Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
       ]
     }
   ]
