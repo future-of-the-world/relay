@@ -10,6 +10,7 @@ import datetime as dt
 import glob
 import json
 import os
+import re
 import sys
 import tomllib
 
@@ -40,6 +41,12 @@ def quoted(lines: list[str]) -> list[str]:
     return body
 
 
+def question_title(n: dict) -> str:
+    """The first line of a question without its markup or an old leading number (lib/relay_queue.py question_title)."""
+    first = next((x for x in n["question"] if x.strip()), "")
+    return re.sub(r"^\d+\.\s*", "", first.strip().strip("*").strip())
+
+
 def notes_text(item: dict) -> list[str]:
     """The "Notes:" lines, copied from lib/relay_queue.py notes_text (tests/test_eval_cases.py compares the two)."""
     out: list[str] = []
@@ -49,12 +56,12 @@ def notes_text(item: dict) -> list[str]:
             out.append(f"  {local(n['at'])} " + ("the owner said:" if kind == "said" else "fact (front):"))
             out += quoted(n[kind]) if kind == "said" else ["    " + x for x in n[kind]]
             continue
-        out.append(f"  {local(n['asked_at'])} question {n['number']}, asked:")
+        out.append(f"  {local(n['asked_at'])} question '{question_title(n)}', asked {n['asked_at']}:")
         out += ["    " + x for x in n["question"]] + ["    - " + x for x in n["options"]]
         if not n.get("answered_at"):
             out.append("    not answered yet")
             continue
-        out.append(f"  {local(n['answered_at'])} the owner answered question {n['number']} (whole reply):")
+        out.append(f"  {local(n['answered_at'])} the owner answered '{question_title(n)}' asked {n['asked_at']} (whole reply):")
         out += quoted(n["answer"])
         reading = n.get("reading") or []
         if reading:

@@ -128,14 +128,14 @@ class StubShowMatchesTheRealNotes(unittest.TestCase):
             with open(path, encoding="utf-8") as fh:
                 out = self.check_item(fh.read())
             self.assertNotIn('"answer"', out)  # not the raw JSON
-            self.assertIn("the owner answered question 1 (whole reply):", out)
+            self.assertRegex(out, r"the owner answered '[^']+' asked 20\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ \(whole reply\):")
 
     def test_a_said_note_a_fact_and_an_open_question(self):
         base = json.load(open(os.path.join(PLUGIN, "recall-decision", "queue", "the-owner-says-what-the-queue-keeps.json"), encoding="utf-8"))
         base["notes"] = [
             {"at": "2026-10-27T03:00:00Z", "said": ["first line", "second line"]},
             {"at": "2026-10-27T03:01:00Z", "fact": ["measured 31.9%"]},
-            {"asked_at": "2026-10-27T03:02:00Z", "number": 2, "question": ["**2. Q?**"], "options": ["a. yes", "b. no"]},
+            {"asked_at": "2026-10-27T03:02:00Z", "question": ["**Q?**"], "options": ["a. yes", "b. no"]},
         ]
         out = self.check_item(json.dumps(base))
         self.assertIn("the owner said:\n    \u201cfirst line\n    second line\u201d", out)

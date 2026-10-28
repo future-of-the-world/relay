@@ -144,7 +144,7 @@ class Note(NamedTuple):
     kind: str                    # said | fact | decision
     at: str                      # when it was said, measured, or (a decision) asked
     text: list                   # the lines said or measured; for a decision, the question block as asked
-    number: int = 0              # a decision: its number in the reply that asked it ("1. a" refers to it); 0 for the others
+    number: int = 0              # a decision recorded before 28 Oct: its number in the reply that asked it; 0 for every other note (new questions have none)
     options: list = []           # a decision: the lettered lines as shown
     answered_at: Optional[str] = None
     answer: list = []            # the owner's whole reply, every explanation included
@@ -165,7 +165,10 @@ def note_dict(note: Note) -> dict:
         if note.edited:
             return {"at": note.at, "edited": note.edited, "fact": list(note.text)}
         return {"at": note.at, "fact": list(note.text)}
-    out: dict = {"asked_at": note.at, "number": note.number, "question": list(note.text), "options": list(note.options)}
+    out: dict = {"asked_at": note.at}
+    if note.number:
+        out["number"] = note.number         # only a question recorded with a number keeps it
+    out.update(question=list(note.text), options=list(note.options))
     if note.answered_at:
         out.update(answered_at=note.answered_at, answer=list(note.answer))
         if note.reading:
@@ -203,9 +206,9 @@ def parse_note(raw: object) -> tuple:
         problems.append("edited is not a field that `relay queue edit` edits")
     if kind != "question":
         return (None, problems) if problems else (Note(kind, raw["at"], list(raw[kind]), edited=raw.get("edited", "")), [])
-    number: Any = raw.get("number")
+    number: Any = raw.get("number", 0)
     options: Any = raw.get("options")
-    if not isinstance(number, int) or isinstance(number, bool) or number < 1:
+    if "number" in raw and (not isinstance(number, int) or isinstance(number, bool) or number < 1):
         problems.append("number is not a whole number from 1")
     bad_options = option_problem(options)
     if bad_options:
@@ -1579,39 +1582,35 @@ def refuse_session_paths(done: str, **fields: object) -> None:
 # ---------------------------------------------------------------- notes: the command, the search, the view
 
 def read_note_input(path: str) -> dict:
-    """The values of a `relay queue note` TOML input: lines for the text keys, `number`, `to` and `at` as they are. Refused, with the
+    """The values of a `relay queue note` TOML input: lines for the text keys, `to` and `at` as they are. Refused, with the
     next step, for an unknown key, no kind, two kinds, or a key that does not go with the kind."""
     try:
         raw = relay_verdict.read_input(path, "noted")
     except relay_verdict.VerdictError as exc:
         raise Refused(str(exc))
-    allowed = ("said", "fact", "question", "options", "number", "answer", "to", "reading", "at")
+    allowed = ("said", "fact", "question", "options", "answer", "to", "reading", "at")
     problems = relay_verdict.table_errors(raw, "in the input", allowed, ())
     if problems:
         raise Refused("nothing noted: " + "; ".join(problems))
     kinds = [k for k in ("said", "fact", "question", "answer") if k in raw]
     if len(kinds) != 1:
         raise Refused("nothing noted: the input has " + (f"both `{kinds[0]}` and `{kinds[1]}`" if kinds else "none of `said`, `fact`, `question`, `answer`") +
-                      "; a note is one of said (the owner's words), fact (a measurement), question (with options and number) or answer")
+                      "; a note is one of said (the owner's words), fact (a measurement), question (with options) or answer")
     kind = kinds[0]
-    extra = {"question": ("options", "number"), "answer": ("to", "reading")}
-    for key in ("options", "number", "to", "reading"):
+    extra = {"question": ("options",), "answer": ("to", "reading")}
+    for key in ("options", "to", "reading"):
         if key in raw and key not in extra.get(kind, ()):
             raise Refused(f"nothing noted: `{key}` does not go with `{kind}`" + ("; it belongs to a question" if key in extra["question"] else "; it belongs to an answer"))
-    if kind == "question" and ("options" not in raw or "number" not in raw):
-        raise Refused("nothing noted: a question needs `options` (the lettered lines as you will show them) and `number` (its number in your reply)")
+    if kind == "question" and "options" not in raw:
+        raise Refused("nothing noted: a question needs `options` (the lettered lines as you will show them)")
     out: dict = {"kind": kind}
     errors: list = []
     for key in ("said", "fact", "question", "options", "answer", "reading"):
         if key in raw:
             out[key] = relay_verdict.as_lines(raw[key], key, "in the input", errors)
-    if "number" in raw:
-        if not _is_int(raw["number"]) or raw["number"] < 1:
-            errors.append("`number` must be a whole number from 1")
-        out["number"] = raw["number"]
     if "to" in raw:
-        if not (isinstance(raw["to"], list) and raw["to"] and all(_is_int(x) and x >= 1 for x in raw["to"])):
-            errors.append("`to` must be a list of question numbers, like [1] or [1, 2]")
+        if not (isinstance(raw["to"], list) and raw["to"] and all(_timestamp(x) for x in raw["to"])):
+            errors.append("`to` must be a list of the asked times of the questions answered, like [\"2026-10-27T01:20:00Z\"]")
         out["to"] = raw["to"]
     if "at" in raw:
         stamp = raw["at"]
@@ -1630,7 +1629,7 @@ def read_note_input(path: str) -> dict:
 
 
 def question_title(note: Note) -> str:
-    """The first line of a question as a short title: markup and the leading number dropped."""
+    """The first line of a question as a short title: markup and a leading number (in questions asked before 28 Oct) dropped."""
     first = next((x for x in note.text if x.strip()), "")
     return re.sub(r"^\d+\.\s*", "", first.strip().strip("*").strip())
 
@@ -1667,29 +1666,29 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
         if kind in ("said", "fact"):
             new = Note(kind, when, list(fields[kind]))
         elif kind == "question":
-            if any(w.number == fields["number"] for w in _waiting(notes)):
-                raise Refused(f"nothing noted: {slug} already has a question {fields['number']} waiting for an answer; use the next number")
-            new = Note("decision", when, list(fields["question"]), fields["number"], list(fields["options"]))
+            if any(w.at == when for w in _waiting(notes)):
+                raise Refused(f"nothing noted: {slug} already has a question asked at {when} waiting for an answer, and an answer names its "
+                              "question by that time; add `at` one second later")
+            new = Note("decision", when, list(fields["question"]), 0, list(fields["options"]))
         else:
             waiting = _waiting(notes)
             targets = fields.get("to")
             if not waiting:
                 raise Refused(f"nothing noted: {slug} has no question waiting; record the question first, or keep these words as `said`")
+            named = " and ".join(f"'{question_title(w)}' (asked {w.at})" for w in waiting)
             if targets is None:
                 if len(waiting) > 1:
-                    named = " and ".join(f"{w.number} ('{question_title(w)}')" for w in waiting)
-                    raise Refused(f"nothing noted: {slug} waits on questions {named}; add `to = [{waiting[0].number}]`, "
-                                  f"`to = [{waiting[1].number}]` or `to = [{', '.join(str(w.number) for w in waiting)}]`")
-                targets = [waiting[0].number]
+                    raise Refused(f"nothing noted: {slug} waits on questions {named}; add `to = [\"<asked time>\"]` naming the one(s) this answers")
+                targets = [waiting[0].at]
             for target in targets:
-                hit = next((w for w in waiting if w.number == target), None)
+                hit = next((w for w in waiting if w.at == target), None)
                 if hit is None:
-                    raise Refused(f"nothing noted: question {target} is not waiting on {slug}; waiting: {', '.join(str(w.number) for w in waiting)}")
+                    raise Refused(f"nothing noted: no question asked at {target} is waiting on {slug}; waiting: {named}")
                 if when < hit.at:
-                    raise Refused(f"nothing noted: `at` {when} is before question {target} was asked ({hit.at})")
+                    raise Refused(f"nothing noted: `at` {when} is before the question '{question_title(hit)}' was asked ({hit.at})")
             notes = [n._replace(answered_at=when, answer=list(fields["answer"]), reading=list(fields.get("reading") or []))
-                     if n in waiting and n.number in targets else n for n in notes]
-            return Plan(slug, {_path(slug): serialize(slug, changed(item, notes=notes))}, f"answer to {len(targets)}", "noted")
+                     if n in waiting and n.at in targets else n for n in notes]
+            return Plan(slug, {_path(slug): serialize(slug, changed(item, notes=notes))}, "answer to " + ", ".join(f"'{question_title(n)}'" for n in notes if n.kind == "decision" and n.at in targets), "noted")
         position = len([n for n in notes if n.at <= when])
         notes.insert(position, new)
         return Plan(slug, {_path(slug): serialize(slug, changed(item, notes=notes))}, "question" if kind == "question" else kind, "noted")
@@ -1697,7 +1696,7 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
     plan, sha = _land(repo, planner, **engine)
     text = _result(plan, sha, _context(repo)[1])
     if kind == "question":
-        text += "\nShow the owner exactly this:\n" + question_block(Note("decision", "", fields["question"], fields["number"], fields["options"]))
+        text += f"\nAsked at {fields.get('at') or stamp}; an answer to it names that time in `to`.\nShow the owner exactly this:\n" + question_block(Note("decision", "", fields["question"], 0, fields["options"]))
     return text
 
 
@@ -1974,12 +1973,12 @@ def notes_text(item: dict, tz: Optional[dt.tzinfo] = None) -> list:
             else:
                 out += ["    " + x for x in n.text]
             continue
-        out.append(f"  {when} question {n.number}, asked:")
+        out.append(f"  {when} question '{question_title(n)}', asked {n.at}:")
         out += ["    " + x for x in n.text] + ["    - " + x for x in n.options]
         if n.answered_at is None:
             out.append("    not answered yet")
             continue
-        out.append(f"  {_local(n.answered_at, tz)} the owner answered question {n.number} (whole reply):")
+        out.append(f"  {_local(n.answered_at, tz)} the owner answered '{question_title(n)}' asked {n.at} (whole reply):")
         out += _quoted(n.answer)
         if n.reading:
             out += ["    front's reading (owner can reverse): " + n.reading[0]] + ["    " + x for x in n.reading[1:]]
@@ -2010,13 +2009,13 @@ def waiting_lines(cwd: str, days: int, limit: int, now: Optional[str] = None) ->
                 age = current - dt.datetime.strptime(n.at, "%Y-%m-%dT%H:%M:%SZ")
                 if age <= dt.timedelta(days=days):
                     waiting.append((n.at, item["slug"], n, age))
-        waiting.sort(key=lambda w: (w[0], w[1], w[2].number))
+        waiting.sort(key=lambda w: (w[0], w[1]))
         lines = []
         for _, slug, n, age in waiting[:limit]:
             hours = int(age.total_seconds() // 3600)
             ago = f"{hours // 24}d" if hours >= 48 else f"{hours}h" if hours else f"{int(age.total_seconds() // 60)}m"
-            lines.append(f"Waiting for the owner: {slug} question {n.number} '{question_title(n)}', asked {ago} ago; if this message answers it, "
-                         f"record the owner's whole message with `relay queue note {slug} --input <file.toml>` (answer = the message)")
+            lines.append(f"Waiting for the owner: {slug} question '{question_title(n)}', asked {n.at} ({ago} ago); if this message answers it, "
+                         f"record the owner's whole message with `relay queue note {slug} --input <file.toml>` (answer = the message, to = [\"{n.at}\"])")
         return lines
     except Exception:
         return []

@@ -33,7 +33,7 @@ def problems(**changes):
 
 
 def decision(**changes):
-    out = {"asked_at": T1, "number": 1, "question": ["**1. Keep it?**"], "options": OPTIONS}
+    out = {"asked_at": T1, "question": ["**Keep it?**"], "options": OPTIONS}
     out.update(changes)
     return out
 
@@ -63,7 +63,13 @@ class NotesShape(unittest.TestCase):
         early = decision(answered_at="2026-10-05T09:00:00Z", answer=["a"])
         self.assertTrue(any("answered_at is before asked_at" in p for p in problems(notes=[early])))
 
-    def test_decision_needs_question_options_number(self):
+    def test_a_decision_needs_question_and_options_and_may_still_carry_an_old_number(self):
+        self.assertEqual(problems(notes=[decision()]), [])                    # no number: the new form
+        self.assertEqual(problems(notes=[decision(number=3)]), [])            # recorded before 28 Oct with a number: still parses
+        item = rq.parse("job", json.dumps(raw(notes=[decision(number=3), decision(asked_at=T2)])))
+        self.assertEqual([n.number for n in item["notes"]], [3, 0])
+        written = json.loads(rq.serialize("job", item))["notes"]
+        self.assertEqual(("number" in written[0], "number" in written[1]), (True, False))      # a new question stores none
         for bad, text in ((decision(question=[]), "question is not"), (decision(options=["a. only one"]), "options are not"),
                           (decision(options=["b. wrong", "a. order"]), "options are not"), (decision(number=0), "number is not")):
             self.assertTrue(any(text in p for p in problems(notes=[bad])), (bad, text))
@@ -136,28 +142,51 @@ class NoteCommand(tq.Base):
         self.assertEqual(len(after["notes"]), 2)
 
     def test_question_prints_the_block_and_the_answer_fills_it(self):
-        out = self.note(question=["**1. Keep it?**", "Intro."], options=OPTIONS, number=1, at=T1)
-        # the printed block is the question lines then the options, as the owner will see them
-        self.assertTrue(out.endswith("**1. Keep it?**\nIntro.\na. Keep it.\nb. Remove it."), out)
+        out = self.note(question=["**Keep it?**", "Intro."], options=OPTIONS, at=T1)
+        # the printed block is the question lines then the options, as the owner will see them; its asked time is named
+        self.assertTrue(out.endswith("**Keep it?**\nIntro.\na. Keep it.\nb. Remove it."), out)
+        self.assertIn(f"Asked at {T1}", out)
         self.assertEqual([(n.kind, n.answered_at) for n in self.notes()], [("decision", None)])
         self.note(answer=["1. a", "keep, it is cheap"], reading=["Front: keep"], at=T2)
         n = self.notes()[0]
-        self.assertEqual((n.answered_at, n.answer, n.reading, n.text), (T2, ["1. a", "keep, it is cheap"], ["Front: keep"], ["**1. Keep it?**", "Intro."]))
+        self.assertEqual((n.answered_at, n.answer, n.reading, n.text), (T2, ["1. a", "keep, it is cheap"], ["Front: keep"], ["**Keep it?**", "Intro."]))
 
     def test_one_reply_answers_two_questions(self):
-        self.note(question=["**1. First?**"], options=OPTIONS, number=1, at=T1)
-        self.note(question=["**2. Second?**"], options=OPTIONS, number=2, at=T1)
-        self.note(answer=["1. a", "2. a"], to=[1, 2], at=T2)
-        self.assertEqual([n.answer for n in self.notes()], [["1. a", "2. a"]] * 2)
+        self.note(question=["**First?**"], options=OPTIONS, at=T1)
+        self.note(question=["**Second?**"], options=OPTIONS, at=T2)
+        self.note(answer=["a, a"], to=[T1, T2], at=T3)
+        self.assertEqual([n.answer for n in self.notes()], [["a, a"]] * 2)
+
+    def test_an_answer_goes_to_the_question_named_by_its_time_and_the_other_keeps_waiting(self):
+        self.note(question=["**First?**"], options=OPTIONS, at=T1)
+        self.note(question=["**Second?**"], options=OPTIONS, at=T2)
+        out = self.note(answer=["b"], to=[T2], at=T3)
+        # worked out by hand: only the question asked at T2 is answered
+        self.assertEqual([n.answered_at for n in self.notes()], [None, T3])
+        self.assertIn("answer to 'Second?'", out)
+        self.assertNotRegex(out, r"answer to \d")
+
+    def test_an_answer_without_to_goes_to_the_only_waiting_question(self):
+        self.note(question=["**First?**"], options=OPTIONS, at=T1)
+        self.note(answer=["a"], at=T2)
+        self.assertEqual([n.answered_at for n in self.notes()], [T2])
+
+    def test_an_answer_to_an_unknown_time_is_refused_naming_the_waiting_questions(self):
+        self.note(question=["**First?**"], options=OPTIONS, at=T1)
+        with self.assertRaises(rq.Refused) as ctx:
+            self.note(answer=["a"], to=[T3], at=T3)
+        self.assertIn(f"no question asked at {T3} is waiting", str(ctx.exception))
+        self.assertIn(f"'First?' (asked {T1})", str(ctx.exception))
+        self.assertEqual([n.answered_at for n in self.notes()], [None])
 
     def test_answer_with_several_waiting_and_no_to_names_the_next_step(self):
-        self.note(question=["**1. First?**"], options=OPTIONS, number=1, at=T1)
-        self.note(question=["**2. Second?**"], options=OPTIONS, number=2, at=T1)
+        self.note(question=["**First?**"], options=OPTIONS, at=T1)
+        self.note(question=["**Second?**"], options=OPTIONS, at=T2)
         with self.assertRaises(rq.Refused) as ctx:
-            self.note(answer=["1. a"], at=T2)
+            self.note(answer=["a"], at=T3)
         message = str(ctx.exception)
-        self.assertIn("waits on questions 1 ('First?') and 2 ('Second?')", message)
-        self.assertIn("`to = [1]`", message)
+        self.assertIn(f"waits on questions 'First?' (asked {T1}) and 'Second?' (asked {T2})", message)
+        self.assertIn("`to = [", message)
         self.assertEqual([n.answered_at for n in self.notes()], [None, None])      # nothing noted
 
     def test_answer_with_none_waiting_names_the_next_step(self):
@@ -175,10 +204,10 @@ class NoteCommand(tq.Base):
             with self.assertRaises(rq.Refused) as ctx:
                 self.note(said=["x"], at=at)
             self.assertIn(text, str(ctx.exception))
-        self.note(question=["**1. Q?**"], options=OPTIONS, number=1, at=T2)
+        self.note(question=["**Q?**"], options=OPTIONS, at=T2)
         with self.assertRaises(rq.Refused) as ctx:
             self.note(answer=["1. a"], at=T1)                      # one hour before it was asked
-        self.assertIn("before question 1 was asked", str(ctx.exception))
+        self.assertIn("before the question 'Q?' was asked", str(ctx.exception))
 
     def test_note_refuses_session_path_in_fact(self):
         with self.assertRaises(rq.Refused) as ctx:
@@ -189,17 +218,17 @@ class NoteCommand(tq.Base):
     def test_note_keeps_owner_words_with_path(self):
         words = ["Look at /private/tmp/claude-501/x/scratchpad/reports/design.md"]
         self.note(said=words)
-        self.note(question=["**1. Q?**"], options=OPTIONS, number=1, at=T1)
+        self.note(question=["**Q?**"], options=OPTIONS, at=T1)
         self.note(answer=["a, see /tmp/foo/bar.md"], at=T2)
         notes = self.notes()
         self.assertEqual(notes[0].text if notes[0].kind == "said" else notes[1].text, words)
         self.assertEqual([n.answer for n in notes if n.kind == "decision"], [["a, see /tmp/foo/bar.md"]])
 
-    def test_a_duplicate_waiting_number_is_refused(self):
-        self.note(question=["**1. Q?**"], options=OPTIONS, number=1, at=T1)
+    def test_two_waiting_questions_cannot_share_an_asked_time(self):
+        self.note(question=["**Q?**"], options=OPTIONS, at=T1)
         with self.assertRaises(rq.Refused) as ctx:
-            self.note(question=["**1. Again?**"], options=OPTIONS, number=1, at=T2)
-        self.assertIn("use the next number", str(ctx.exception))
+            self.note(question=["**Again?**"], options=OPTIONS, at=T1)
+        self.assertIn("add `at` one second later", str(ctx.exception))
 
 
 class NoteInput(tq.Base):
@@ -211,14 +240,23 @@ class NoteInput(tq.Base):
 
     @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
     def test_the_input_forms(self):
-        got = self.read("question = '''**1. Q?**\nintro'''\noptions = ['a. x', 'b. y']\nnumber = 1\nat = '2026-10-05T10:00:00Z'\n")
-        self.assertEqual((got["kind"], got["question"], got["number"]), ("question", ["**1. Q?**", "intro"], 1))
-        self.assertEqual(self.read("answer = 'a'\nto = [1, 2]\nreading = 'r'\n")["to"], [1, 2])
+        got = self.read("question = '''**Q?**\nintro'''\noptions = ['a. x', 'b. y']\nat = '2026-10-05T10:00:00Z'\n")
+        self.assertEqual((got["kind"], got["question"]), ("question", ["**Q?**", "intro"]))
+        self.assertEqual(self.read("answer = 'a'\nto = ['2026-10-05T10:00:00Z', '2026-10-05T11:00:00Z']\nreading = 'r'\n")["to"],
+                         ["2026-10-05T10:00:00Z", "2026-10-05T11:00:00Z"])
+
+    @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
+    def test_a_number_key_and_a_number_in_to_are_refused(self):
+        for text, want in (("question = 'Q?'\nnumber = 1\noptions = ['a. x', 'b. y']\n", "unknown key `number`"),
+                           ("answer = 'a'\nto = [1]\n", "`to` must be a list of the asked times")):
+            with self.assertRaises(rq.Refused) as ctx:
+                self.read(text)
+            self.assertIn(want, str(ctx.exception))
 
     @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
     def test_two_kinds_none_or_a_stray_key_are_refused_with_the_next_step(self):
         cases = (("said = 'a'\nfact = 'b'\n", "both `said` and `fact`; a note is one of"), ("at = '2026-10-05T10:00:00Z'\n", "none of `said`"),
-                 ("said = 'a'\nto = [1]\n", "`to` does not go with `said`"), ("question = 'q'\n", "needs `options`"),
+                 ("said = 'a'\nto = ['2026-10-05T10:00:00Z']\n", "`to` does not go with `said`"), ("question = 'q'\n", "needs `options`"),
                  ("said = 'a'\nwhat = 'x'\n", "unknown key `what`"))
         for text, want in cases:
             with self.assertRaises(rq.Refused) as ctx:
@@ -230,13 +268,13 @@ class NoteInput(tq.Base):
         # the front skill used to show `a (recommended) x`; each form is refused before anything lands, naming the form and the bad line
         for bad in ("a (recommended) x", "a) x"):
             with self.assertRaises(rq.Refused) as ctx:
-                self.read(f"question = 'Q?'\nnumber = 1\noptions = ['{bad}', 'b. y']\n")
+                self.read(f"question = 'Q?'\noptions = ['{bad}', 'b. y']\n")
             text = str(ctx.exception)
             self.assertTrue(text.startswith("nothing noted:"), text)
             self.assertIn("`options`", text)
             self.assertIn("a. ", text)
             self.assertIn(bad, text)
-        self.assertEqual(self.read("question = 'Q?'\nnumber = 1\noptions = ['a. x (recommended)', 'b. y']\n")["options"], ["a. x (recommended)", "b. y"])
+        self.assertEqual(self.read("question = 'Q?'\noptions = ['a. x (recommended)', 'b. y']\n")["options"], ["a. x (recommended)", "b. y"])
 
     @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
     def test_f1_the_front_skill_shows_the_stored_option_form(self):
@@ -326,7 +364,7 @@ class ShowAndSearch(tq.Base):
         super().setUp()
         notes = [{"at": T1, "said": ["Я вижу ответы но не вопрос"]}, {"at": T2, "fact": ["Measured 5 Oct: 31.9%."]},
                  decision(asked_at=T3, answered_at="2026-10-06T10:00:00Z", answer=["1. a", "потому что дёшево"], reading=["Front: keep"]),
-                 decision(asked_at="2026-10-06T11:00:00Z", number=2, question=["**2. Second?**"])]
+                 decision(asked_at="2026-10-06T11:00:00Z", question=["**Second?**"])]
         self.write_commit(self.main, {QUEUE + "job.json": with_notes(tq.feature_item("Job metrics"), notes),
                                       QUEUE + "other.json": tq.feature_item("Other thing")}, "seed")
         self.items = rq.read_queue(self.main, closed=True)
@@ -334,11 +372,12 @@ class ShowAndSearch(tq.Base):
     def test_show_prints_notes_oldest_first_with_question_options_answer_and_reading(self):
         text = rq.show_text(next(i for i in self.items if i["slug"] == "job"), tz=dt.timezone.utc)
         lines = text[text.index("Notes:"):].split("\n")
-        # worked out by hand: said 5 Oct 10:00, fact 11:00, question 1 asked 6 Oct 09:00 and answered 10:00, question 2 unanswered
+        # worked out by hand: said 5 Oct 10:00, fact 11:00, "Keep it?" asked 6 Oct 09:00 (T3) and answered 10:00, "Second?" unanswered
         self.assertEqual(lines[:6], ["Notes:", "  5 Oct 10:00 the owner said:", "    “Я вижу ответы но не вопрос”",
-                                     "  5 Oct 11:00 fact (front):", "    Measured 5 Oct: 31.9%.", "  6 Oct 09:00 question 1, asked:"])
+                                     "  5 Oct 11:00 fact (front):", "    Measured 5 Oct: 31.9%.", f"  6 Oct 09:00 question 'Keep it?', asked {T3}:"])
         self.assertIn("    - a. Keep it.", lines)
-        self.assertIn("  6 Oct 10:00 the owner answered question 1 (whole reply):", lines)
+        self.assertIn(f"  6 Oct 10:00 the owner answered 'Keep it?' asked {T3} (whole reply):", lines)
+        self.assertFalse([x for x in lines if "question 1" in x or "question 2" in x])
         self.assertIn("    “1. a", lines)
         self.assertIn("    потому что дёшево”", lines)
         self.assertIn("    front's reading (owner can reverse): Front: keep", lines)
@@ -392,7 +431,7 @@ class Cli(tq.Base):
 class AskHook(tq.Base):
     def setUp(self):
         super().setUp()
-        waiting = decision(asked_at="2026-10-09T22:00:00Z", question=["**1. Should work that never lands get its own record?**"])
+        waiting = decision(asked_at="2026-10-09T22:00:00Z", question=["**Should work that never lands get its own record?**"])
         self.write_commit(self.main, {QUEUE + "job.json": with_notes(tq.feature_item("Job"), [waiting]),
                                       QUEUE + "plain.json": tq.feature_item("Plain")}, "seed")
 
@@ -400,14 +439,15 @@ class AskHook(tq.Base):
         # asked 9 Oct 22:00, now 10 Oct 00:00: two hours ago
         lines = rq.waiting_lines(self.main, 7, 5, now=NOW)
         self.assertEqual(len(lines), 1)
-        self.assertTrue(lines[0].startswith("Waiting for the owner: job question 1 'Should work that never lands get its own record?', asked 2h ago;"), lines[0])
+        self.assertTrue(lines[0].startswith("Waiting for the owner: job question 'Should work that never lands get its own record?', asked 2026-10-09T22:00:00Z (2h ago);"), lines[0])
+        self.assertIn('to = ["2026-10-09T22:00:00Z"]', lines[0])        # the answer names the question by this time
 
     def test_hook_skips_old_question(self):
         self.assertEqual(rq.waiting_lines(self.main, 7, 5, now="2026-10-17T00:00:01Z"), [])     # 7 days and one second
         self.assertEqual(len(rq.waiting_lines(self.main, 7, 5, now="2026-10-16T22:00:00Z")), 1)  # exactly 7 days
 
     def test_hook_limits_lines(self):
-        notes = [decision(asked_at="2026-10-09T22:0%d:00Z" % n, number=n, question=["**%d. Q%d?**" % (n, n)]) for n in range(1, 4)]
+        notes = [decision(asked_at="2026-10-09T22:0%d:00Z" % n, question=["**Q%d?**" % n]) for n in range(1, 4)]
         self.write_commit(self.main, {QUEUE + "job.json": with_notes(tq.feature_item("Job"), notes)}, "three")
         self.assertEqual(len(rq.waiting_lines(self.main, 7, 2, now=NOW)), 2)
 
@@ -433,7 +473,7 @@ class AskHook(tq.Base):
         self.write_commit(self.main, {QUEUE + "job.json": with_notes(tq.feature_item("Job"), [decision(asked_at=asked)])}, "fresh question")
         out = self.hook_output()
         self.assertNotEqual(out, "")
-        self.assertTrue(json.loads(out)["hookSpecificOutput"]["additionalContext"].startswith("Waiting for the owner: job question 1"), out)
+        self.assertTrue(json.loads(out)["hookSpecificOutput"]["additionalContext"].startswith("Waiting for the owner: job question 'Keep it?'"), out)
 
     def test_f4_hook_script_is_silent_when_nothing_waits(self):
         self.write_commit(self.main, {QUEUE + "job.json": tq.feature_item("Job")}, "none waiting")
