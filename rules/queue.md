@@ -44,6 +44,12 @@ earlier notes or `test` differ from the default branch's by hand, naming `relay 
 stay free. Every reshaping of items (a new key, a renamed one, a new shape) ships as a migrate module `lib/relay_*migrate*.py`
 (run by `relay queue migrate`) in the same change; a branch that changes one is the only one the hook lets rewrite items in bulk.
 
+An item's `time` is an estimate made from measurement, not by eye. `relay queue estimate` measures every closed change from the
+agent transcripts (agent minutes: the summed durations of the agents that ran in its worktree; build minutes: its workers; wall
+minutes: taken to closed), prints each closed item's estimate beside those, and prints the estimate for a new item: the median fixed cycle
+of past changes (gates, review, checks, queue close) plus the median build part, plus the paid run's wall minutes when the change edits
+agent, skill, role or rule texts. Nothing measured is stored in an item; it is computed when read. Use that number for `--time`.
+
 An out-of-scope question from the owner is answered in two lines and becomes a
 `feature` item, built later in a fresh session. When a new request arrives while
 `fix` items wait, name them (how many, the top one, its time, written 30m or 1h 30m) and let the owner

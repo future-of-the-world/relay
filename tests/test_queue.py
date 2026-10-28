@@ -621,7 +621,7 @@ class TestExtensions(Base):
         done = self.relay(self.repo_q, "nope")
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("no queue view 'nope'", done.stderr)
-        self.assertIn("available: json, table", done.stderr)
+        self.assertIn("available: estimate, json, table", done.stderr)
 
     def test_a_name_with_a_path_in_it_is_refused(self):
         for name in ("../table", "a/b", "..", "/etc/passwd", "table.py", "Table"):
