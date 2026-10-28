@@ -1,0 +1,23 @@
+head 837ed9fbefb3beb741bf7eacd82eae9ac330d1f9
+cmd bin/ci --quick
+wait 776.3
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (725s, log: .ci/steps/library-tests.log)
+    FAIL: test_q1_every_relay_subcommand_is_classified_as_read_or_write (test_read_only_guard.ReadOnlyHook.test_q1_every_relay_subcommand_is_classified_as_read_or_write)
+    AssertionError: Items in the first set but not the second:
+    FAILED (failures=1)
+ci: hook tests FAILED (260s, log: .ci/steps/hook-tests.log)
+    ok   no file: dump is an error too
+    ok   no file: packet is an error too
+    ok   no file: spec-check is an error too
+    ok   path, nothing for this version: an error, not the newest
+    ok   path, that error exits 1
+    FAIL  T15h behind master by 1 commit: refused
+    FAIL  T15k combined file: refused, changed bin/x
+    FAIL plugins/relay/tests/merge.test.sh
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (11s)
+ci: RED
+exit 1

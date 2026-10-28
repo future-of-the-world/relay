@@ -1,6 +1,6 @@
 export const meta = {
   name: 'cycle',
-  description: 'The change cycle: build, gate, review, fix, gate, one check, close the queue item. Kinds: change, built, fix, recheck (a branch or a train), plus a design track.',
+  description: 'The change cycle: build, gate, review, fix, gate, one check, close the queue item. Kinds: change, built, fix, plus a design track (recheck only where the project has no .relay/: `relay land` takes the base and gates in relay mode).',
   phases: [
     { title: 'Build' }, { title: 'Gate' }, { title: 'Review' }, { title: 'Fix' }, { title: 'Check' }, { title: 'Design' },
   ],
@@ -13,7 +13,7 @@ export const meta = {
 //   change   {name, wt, check, branch*, item*}                       build, gate, review, fix, gate, check, close, show
 //   built    {name, wt, check, built, branch*, item*}                the same without the build
 //   fix      {name, wt, check, fix, fixes, findings, branch*, item*} fix, gate, check, close, show
-//   recheck  {name, wt, check, findings | items: [{slug, review}], branch*}   take the base, gate, then the check(s), show
+//   recheck  {name, wt, check, findings}                              take the base, gate, check (project mode only: in relay mode `relay land` takes the base and gates)
 //   (* relay mode only; item is one fix-item slug)
 // Designs, in args.designs: {name, brief, out, review (false: an analysis, one thinker)}.
 // Optional args.settings: gate_turns 20-80 (40), gate_fixes 0-3 (1), retry_dead 0-2 (1), gate_args (a string, '--quick'; '' is the plain quick gate, '--paid' the full one with the paid evals).
@@ -73,10 +73,8 @@ function refusal() {
     if (kind !== 'built' && it.built) return `refused: ${who} gives built, which only kind built takes`
     if (kind === 'fix') for (const f of ['fix', 'fixes', 'findings']) if (typeof it[f] !== 'string' || !it[f]) return `refused: ${who} is kind fix and needs ${f}`
     if (kind === 'recheck') {
-      const list = it.items || []
-      if (!Array.isArray(list)) return `refused: ${who} items must be a list`
-      if (list.length === 0 && !it.findings) return `refused: ${who} is kind recheck and needs findings or items`
-      for (const r of list) if (!r || !SLUG.test(r.slug || '') || !r.review) return `refused: ${who} items need a slug and a review each`
+      if (RELAY) return `refused: unit ${it.name}: in relay mode relay land takes the base and gates; a take conflict is kind fix with fix 'take ${A.base} and resolve <files>', findings = the branch's last review JSON, fixes = the fixer's report, and no item`
+      if (!it.findings) return `refused: ${who} is kind recheck and needs findings`
     }
   }
   for (const d of designs) {
@@ -244,20 +242,7 @@ async function recheckUnit(it) {
   const st = newState()
   const r = await gateGroup(it, st)
   if (r.stop) return r.stop
-  const list = it.items || []
-  if (list.length === 0) return finish(it, st, { findings: it.findings, fixes: fixesText('none', st), gateLog: r.g.gate_log, review: undefined })
-  // A train: one check per rider's item, in order, each started after the one before it came back with open 0.
-  const checks = []
-  for (let k = 0; k < list.length; k++) {
-    const q = list[k]
-    const c = await checkStage(it, `check item ${k + 1}: ${it.name}`,
-      `Merge check of a rider's item: \`${it.wt}\`. Item: \`${q.slug}\`. Review: \`${q.review}\`. Findings: \`relay check findings -C ${it.wt} --item ${q.slug} --review ${q.review}\`. Gate: \`${r.g.gate_log}\`.`,
-      `${S}/reports/check-${tag(it)}-item-${k + 1}.json`, false)
-    if (c.dead) return stop(it, 'check item', c.dead, { checks })
-    checks.push({ slug: q.slug, open: c.v.open, summary: c.v.summary, fail_without_fix: c.v.fail_without_fix })
-    if (c.v.open !== 0) return stop(it, 'check item', c.v.summary, { checks, open: c.v.open })
-  }
-  return showStage(it, { ready: true, open: 0, checks, gateLog: r.g.gate_log })
+  return finish(it, st, { findings: it.findings, fixes: fixesText('none', st), gateLog: r.g.gate_log, review: undefined })
 }
 
 async function unit(it) {

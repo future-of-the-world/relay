@@ -1,0 +1,15 @@
+head 407c9068d25fa9afae51fcaa0b193b8f6866a6af
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (1482s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_slow_changed_test_does_not_hide_the_registry_message (test_precheck.TestChangedTests.test_a_slow_changed_test_does_not_hide_the_registry_message)
+    AssertionError: 'RuleTestsComplete' not found in 'skip types and lint (no bin/types-lint here)\nskip python 3.9 (no plugin modules here)\nskip lib copies identical (no plugin lib copies here)\nRED  changed tests\n  FAIL changed tests took longer than 3 s\nprecheck: RED (the gate would be red; fix these first)'
+    FAILED (failures=1)
+ci: hook tests ok (337s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (2s)
+ci: RED
+exit 1

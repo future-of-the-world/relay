@@ -6,7 +6,7 @@
   "found_in": "relay queue add",
   "title": "An eval scaffold overwrote the live ~/relay/bin/relay",
   "what": [
-    "setup-relay-stub.sh refuses unless HOME is a run's own throwaway home (a marker the eval harness sets, or HOME under the system temp folder) and never writes into a git checkout; the scaffolds call it only that way. relay doctor names a main checkout whose bin/relay differs from HEAD."
+    "setup-relay-stub.sh refuses unless HOME is a run's own throwaway home (a marker the eval harness sets, or HOME under the system temp folder) and never writes into a git checkout; the scaffolds call it only that way."
   ],
   "why": [
     "28 Oct 11:49 UTC: the main checkout's bin/relay was replaced by evals/plugin/relay-stub.py (byte-identical), so every `relay` command on this machine printed two stub usage lines (`relay queue` and `relay queue count` broke for the front). evals/plugin/setup-relay-stub.sh line 7 copies the stub to \"$HOME/relay/bin/relay\", meant for the eval run's own $HOME; a scaffold.sh run (recall-decision, keep-owner-words, keep-owner-words-en) with the real HOME writes over the owner's relay. guard-main then refuses `git restore bin/relay` in the main checkout, so the front cannot undo it."
@@ -35,6 +35,25 @@
       "at": "2026-10-28T11:55:25Z",
       "fact": [
         "28 Oct: the four-eval-cases lane's critic found the trigger: tests/test_eval_system_rules.py runs the three new scaffolds with the real $HOME, so one run of that test file overwrites ~/relay/bin/relay. A fix (scaffolds run with a temporary HOME) is commit 1a5f1d49 on wt/four-eval-cases-carry-hand-copies-of-the, not landed; that lane stopped at a red gate caused only by the broken live bin/relay (its eval tests: 88 passed)."
+      ]
+    },
+    {
+      "at": "2026-10-28T15:29:49Z",
+      "said": [
+        "То есть только путь ~/relay, почему нельзя изменить на \"можно редактировать только\", путь папки с кодом может меняться"
+      ]
+    },
+    {
+      "at": "2026-10-28T15:29:57Z",
+      "fact": [
+        "28 Oct, read from the branch's evals/plugin/setup-relay-stub.sh (not run): the guard already allows rather than forbids. It writes only when HOME is under TMPDIR or under TMPDIR's parent, and never into a git checkout other than the home itself. The parent rule is wider than the eval layout needs, which is <root>/home beside <root>/tmp. With TMPDIR=$HOME/tmp the parent is $HOME, so \"$HOME/\" matches \"$HOME\"/* and the owner's real HOME counts as a throwaway home; only the checkout check behind it would still refuse. Tighten to exactly HOME == dirname(TMPDIR)/home, or HOME under TMPDIR, so the allowed place does not depend on where the code folder lives."
+      ]
+    },
+    {
+      "at": "2026-10-28T17:42:13Z",
+      "edited": "what",
+      "fact": [
+        "Edited what: 28 Oct: the doctor line is its own item, relay-doctor-does-not-name-a-main-checkout-whose (queued from this item's check, F2), so this item keeps only the stub guard."
       ]
     }
   ]

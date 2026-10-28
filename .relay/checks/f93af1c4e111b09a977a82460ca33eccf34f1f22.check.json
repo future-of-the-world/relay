@@ -1,0 +1,234 @@
+{
+  "branch": "wt/relay-land-a-program-lands-ready-changes",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED (reproduced). The touched set already excludes master's commits with \"^<default>\", but the merges walk is `rev-list --merges <mark>..<ref>` with no \"^<default>\". In relay every landed branch's take merge (\"Merge master into wt/...\") is on master's first-parent line, so after a take a branch walks all of them (67 merges on master in the last day, measured). A file that both this branch and master changed (own lists it) and that some other branch resolved by hand on its way to master makes this branch need a re-check: the agent work relay land exists to remove. The same walk at plugins/relay/hooks/merge.py:320 picks the wrong merge for the refusal text. Cost side: resolved() runs git merge-tree once per merge, measured about 0.2 s each on this repository (30 merges, 6.1 s), and step_mark and check_refusal call own_since_mark once per mark, inside the PreToolUse hook. Size: 15."
+      ],
+      "evidence": [
+        "bash judge-land/repro_d.sh judge-land/d, then python3 with the branch's lib:",
+        "changed own: ['f.py']",
+        "own_since_mark: ['f.py']",
+        "cd3174c6 []          (wt/x's own clean take)",
+        "4d2b12f6 ['f.py']    (wt/y's hand-resolved take, on master)",
+        "git rev-list --merges --count master --since=1.day -> 67",
+        "resolved() over 30 master merges: 6.1 s total"
+      ],
+      "failing_case": [
+        "Repository: f.py with lines a..h on master. Branch wt/y changes line a; master changes line a (conflict). wt/x forks after that master commit, changes line h, gets a mark C. wt/y takes master, the conflict on f.py is resolved by hand (merge 4d2b12f), wt/y lands (fast-forward). wt/x then takes master cleanly (git merged f.py by itself: wt/x changed line h, master line a).",
+        "Now: changed(own=True) lists f.py; own_since_mark(C, wt/x) returns ['f.py'] because resolved(4d2b12f) == ['f.py'] and 4d2b12f is in C..wt/x. The merge hook (step_mark) refuses wt/x with \"after the check of C, the take 4d2b12f resolved f.py by hand\", naming wt/y's take; relay land exits 2 and an agent re-check is needed.",
+        "Should be: own_since_mark(C, wt/x) == [] (only wt/x's own takes count), wt/x lands with no new check."
+      ],
+      "fix_hint": [
+        "Walk `rev-list --merges <mark>..<ref> ^<default>` in own_since_mark (as the touched log does), and the same in step_mark's message loop (merge.py:320). Add the failing case as a test in tests/test_inert.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 267,
+      "pass_cases": [
+        "1. The failing case above: own_since_mark(C, wt/x) == []; merge.py judge <main> wt/x exits 0 (with a green gate); relay land wt/x exits 0.",
+        "2. wt/x's own take resolved f.py by hand after C: own_since_mark(C, wt/x) == ['f.py'] (test_hand_resolved_take_stays keeps passing).",
+        "3. Clean overlap take with no merge on master (test_clean_overlap_take_leaves_nothing): [].",
+        "4. A non-merge commit of wt/x after C touching f.py: ['f.py'] (test_commit_after_the_mark_stays).",
+        "5. step_mark's refusal for a hand-resolved take names a merge reachable from the branch and not from the default branch."
+      ],
+      "path": "lib/relay_inert.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_land.py OthersTake test_f1_* pass, fail on base; test_inert pass cases kept in gate."
+      ],
+      "severity": "MEDIUM",
+      "since": "8996692626b03f6b2ba859e69d308d13197f04e5",
+      "source": "review-relay-land-a-program-lands-ready-changes.json",
+      "source_id": "F1",
+      "summary": "own_since_mark counts the hand-resolved takes of other branches, brought in from master, as this branch's own, so a clean take is refused and the refusal names another branch's merge",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced with relay_land.blocking on a scratch repository). Before the take, `git diff master..branch` (two dots, tree to tree) also lists every file master changed since the branch forked, so the start check over-refuses for any file master moved that is dirty in the main checkout. The handover is the ordinary case: 30 handover commits on master in the last 2 days (measured), and the front edits docs/handover.md in the main checkout. The test for the unrelated edit uses notes.txt, which master never changed, so it passes. After the take (in _fast_forward) the same diff is right. Size: 15."
+      ],
+      "evidence": [
+        "scratch repo judge-land/h: master v1 -> branch wt/x -> master commits handover v2 -> wt/x commits a.py -> main checkout edits handover to v3:",
+        "blocking: ['docs/handover.md']",
+        "git diff --name-only master...wt/x -> a.py",
+        "git log master --since=2.days -- docs/handover.md | wc -l -> 30"
+      ],
+      "failing_case": [
+        "Master gets a handover commit (docs/handover.md v2) after wt/x forked; wt/x changes only a.py; the front has an uncommitted edit of docs/handover.md (v3) in the main checkout. relay land wt/x: blocking() returns ['docs/handover.md'] (git diff master..wt/x lists it because the branch still holds v1), so _preflight stops with exit 2 \"commit or put aside docs/handover.md\". After the take the branch holds master's v2 and the fast-forward would not write docs/handover.md at all.",
+        "Should be: the landing goes on and lands; the handover edit stays untouched (design 4.1 step 1 and section 9: \"an uncommitted handover edit the landing does not bring: landed\")."
+      ],
+      "fix_hint": [
+        "In blocking(), compare from the merge base (`git diff --name-only <default>...<branch>`, three dots: the files the branch's own side changes) for the start check, or move the start check after the take; keep the two-dot diff after the take. Add the failing case as a test beside test_land_dirty_unrelated_lands."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 227,
+      "pass_cases": [
+        "1. The failing case above: relay land wt/x exits 0, master holds wt/x's a.py, docs/handover.md in the main checkout still reads v3.",
+        "2. An untracked lib/a.py in the main checkout while the branch brings lib/a.py: exit 2 at start, no gate run (test_land_dirty_overlap_at_start).",
+        "3. An unrelated notes.txt edit: landed (test_land_dirty_unrelated_lands).",
+        "4. The file appears during the gate (test_land_ff_dirty_main): exit 2, done/dirty, master unchanged."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_land.py ReviewFixes::test_f2_handover_edit_with_newer_master_handover_lands passes, fails on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "8996692626b03f6b2ba859e69d308d13197f04e5",
+      "source": "review-relay-land-a-program-lands-ready-changes.json",
+      "source_id": "F2",
+      "summary": "the start check compares master..branch before the take, so an in-progress handover edit refuses the landing whenever master has a newer handover commit",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (called moments() with the three landers). `waiting` excludes the lander L that takes the lock, and the test asks len(waiting) >= 2, so L plus two others. Design 4.6 defines the moment as \"at a locked event of lander L, another lander had asked before it and was not yet locked\", and the item's owner words say \"moments when two or more landings waited at once (when a train would have formed)\". The owner picked \"data first with two counters\" to decide trains at the comparison; this counter undercounts that data, and the simulation already found such moments rare (1 in 84), so an undercount can read as \"never\". The test was written to the code (four landers, comment \"b at 201 s sees only c\"). Size: 10."
+      ],
+      "evidence": [
+        "python3 -c '... L.moments([Lander(wt/z,1,0,0,None,100), Lander(wt/a,2,10,101,None,200), Lander(wt/b,3,20,201,None,300)])'",
+        "three overlapping landers, moments: []",
+        "tests/test_land.py:359 asserts \"1; wt/a: 2 waited behind it\" for four landers."
+      ],
+      "failing_case": [
+        "Three overlapping landers: wt/z holds the lock 0-100 s; wt/a asks at 10 s and locks at 101 s; wt/b asks at 20 s and locks at 201 s. While z lands, a and b wait at once: a train of two would have formed.",
+        "moments() now returns [] (\"landing counter, moments with 2+ waiting: 0\").",
+        "Should be: 1 moment (at a's lock, b had asked and was not locked), the design's own worked case (section 6: \"three overlapping landers: waited behind another 2, one moment of 2+ waiting\")."
+      ],
+      "fix_hint": [
+        "Count a moment when at least one other lander waits at L's lock (`len(waiting) >= 1`), report L plus the others as the number waiting, and correct test_land_stats_counts and add the three-lander case."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 508,
+      "pass_cases": [
+        "1. The failing case above: moments() has 1 entry, for wt/a.",
+        "2. Two landers only (z, then a which asked while z held the lock): 0 moments.",
+        "3. test_land_stats_counts's four landers (z, a, b, c): the moments at a's lock (b and c waiting) and at b's lock (c waiting) are counted, 2; \"landers that waited behind another\" stays 3 and the longest wait 4.5 min.",
+        "4. A lander that asked in the same second another locked is not counted as waiting behind it (unchanged)."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_land.py test_f3_three_overlapping_landers_one_moment and corrected test_land_stats_counts pass, fail on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "8996692626b03f6b2ba859e69d308d13197f04e5",
+      "source": "review-relay-land-a-program-lands-ready-changes.json",
+      "source_id": "F3",
+      "summary": "the landing counter needs two landers waiting besides the one that takes the lock, so it counts three-at-once and misses the two-at-once moments the owner asked for",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading for the code path: relay_land has no close call; close_landed (lib/relay_lanes.py:353) is called only from plugins/front/hooks/lanes.py PostToolUse, matched on the command text; merge.py clean() removes the worktree and branch but does not touch the queue. PLAUSIBLE for the timing: that PostToolUse for a run_in_background Bash call fires when the call returns its shell id, not when the command exits (Claude Code's background shells; not tested here). Before this change the front's hand merge was a foreground Bash call and closed the item at once. Every feature landing goes this way now. Size: 15."
+      ],
+      "evidence": [
+        "git grep -n close_landed -- ':!plugins/*/lib' -> lib/relay_lanes.py:353 (definition), plugins/front/hooks/lanes.py:57 (the only caller)",
+        "plugins/front/skills/front/SKILL.md: \"start relay land <branch> with Bash run_in_background (no &, no polling)\"",
+        "lib/relay_land.py:390-394 _landed: runs merge.py landed, returns lines; no queue call"
+      ],
+      "failing_case": [
+        "The front starts `relay land wt/x` with Bash run_in_background, as the front skill now says. The lanes PostToolUse hook (LANDING now matches \"relay land \") runs close_landed when that Bash call returns, which is at once: nothing has landed, nothing closes. 17 minutes later relay land fast-forwards master and runs merge.py landed (worktree and branch removal only). The feature item of wt/x stays open, listed as \"landed, still open\", until some later `relay land` or `git merge ... wt/` call by the front; after the last landing of a stretch it stays open.",
+        "Should be: after a landing, the feature item of the branch is closed with the landed sha, as the hand merge's PostToolUse did before this change."
+      ],
+      "fix_hint": [
+        "In _landed, after merge.py landed, call relay_lanes.close_landed(main) (or relay_queue.close_with_evidence for the branch's feature item) and add its lines to the output; test it in tests/test_land.py with a feature item taken by wt/x."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 390,
+      "pass_cases": [
+        "1. A feature item taken by wt/x, relay land wt/x exits 0: the item is closed with evidence the landed commit, and relay land prints the close line.",
+        "2. A fix item on wt/x: not closed by the landing (the cycle closes it with --test), as close_landed does today.",
+        "3. A hand `git merge --ff-only wt/y` in the main checkout still closes y's feature item through the PostToolUse hook.",
+        "4. A refused or red landing closes nothing."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_land.py test_f4_landing_closes_the_feature_item_not_the_fix passes, fails on base; close_landed called at lib/relay_land.py:399."
+      ],
+      "severity": "MEDIUM",
+      "since": "8996692626b03f6b2ba859e69d308d13197f04e5",
+      "source": "review-relay-land-a-program-lands-ready-changes.json",
+      "source_id": "F4",
+      "summary": "a feature landed by relay land is not closed in the queue: the lanes hook's close runs when the background call starts, before anything has landed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: the window is the few seconds between the judge's end and the fast-forward, and a ready branch normally has no agent in it, so LOW. It is the one path around the design's \"master never moves to a tree without a green gate of that exact tree\". Size: 10."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "The full judge passes on head H of wt/x; before `git merge --ff-only wt/x` runs, something commits H2 (a code change) on wt/x. Master moves to H2, whose tree has no green gate and no check.",
+        "Should be: master moves only to H (or the landing stops and says the branch moved)."
+      ],
+      "fix_hint": [
+        "Read the branch sha before the full judge, and after the fast-forward compare master with it; or check `refs/heads/<branch>` still equals it immediately before the merge and retake when not."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 371,
+      "pass_cases": [
+        "1. wt/x moves after the full judge: master is not at the new commit; relay land retakes or exits naming the move.",
+        "2. Ordinary landing: the reflog still reads \"merge wt/x: Fast-forward\" (test_land_reflog_names_branch / relay_lanes.landing)."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_land.py test_f5_branch_moved_after_the_judge_is_not_landed passes, fails on base."
+      ],
+      "severity": "LOW",
+      "since": "8996692626b03f6b2ba859e69d308d13197f04e5",
+      "source": "review-relay-land-a-program-lands-ready-changes.json",
+      "source_id": "F5",
+      "summary": "the fast-forward names the branch, not the judged sha, so a commit made on the branch between the full judge and the fast-forward lands unjudged and ungated",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (read): only Stop is caught at lib/relay_land.py:287. Rare. Size: 10."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "merge.py landed takes longer than 300 s (or relay_inert.changed raises ValueError while classifying a move): subprocess.TimeoutExpired propagates out of _landed after master has moved; land() records no done/landed event; relay land prints a Python traceback.",
+        "Should be: the done event is recorded with the outcome that happened, and the output names what failed."
+      ],
+      "fix_hint": [
+        "Catch the cleanup's TimeoutExpired in _landed and report it as a line; wrap _locked in a broad except that records done/refused with the error before re-raising or returning."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 286,
+      "pass_cases": [
+        "1. merge.py landed made to fail after a fast-forward: a done event with outcome landed exists and the exit code is 0 with a line naming the failed cleanup.",
+        "2. Ordinary landing: unchanged."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_land.py test_f6_* (3) pass, fail on base."
+      ],
+      "severity": "LOW",
+      "since": "8996692626b03f6b2ba859e69d308d13197f04e5",
+      "source": "review-relay-land-a-program-lands-ready-changes.json",
+      "source_id": "F6",
+      "summary": "an exception other than Stop under the lock (a judge cleanup timeout after the fast-forward, a git ValueError) records no done event and prints a traceback, so a landing that happened is missing from the counters",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "413f1de1db74a429f2c3ff0d5d02fd0cb7a73a60.gate.log",
+  "head": "f93af1c4e111b09a977a82460ca33eccf34f1f22",
+  "item": null,
+  "notes": [
+    "relay precheck time cap on test_land.py needs an owner decision (cap or split); not a code defect. Callers of close_landed: hook path unchanged."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 8996692626b0..HEAD. Gate log is for 413f1de1, HEAD f93af1c4 is the gate-log commit only (relay changed lists no file). Ran tests/test_land.py -k f1..f6/stats: 15 passed. Copied test_land.py to a throwaway worktree at 8996692626b0: 12 failed, 3 passed (the 3 are pass-case tests). Files changed are the finding files, merge.py and test_land.py (plus plugin lib copies). relay precheck: only RED is \"changed tests took longer than 230 s\" (time cap, fixer reported it), gate itself is green."
+  ],
+  "type": "check"
+}

@@ -1,0 +1,138 @@
+{
+  "branch": "wt/a-scenario-file-cannot-use-the-tool-call",
+  "findings": [
+    {
+      "details": [
+        "28 Oct: lib/relay_bench.py GRADER_TYPES lacks \"tool_called\", so a scenario.toml that names it is refused at load ('unknown type'); the grader landed with bench-tools but is reachable only from code. Found and fixed on wt/spec-met in commit 5377e9f5 (one word plus tests/test_bench.py::test_check_runs_sketch_grader_wants_code_run_not_a_word_or_the_repos_tests), which will not land: its item is dropped.",
+        "Also: tests/test_bench.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A scenario.toml with a [[graders]] of type tool_called is refused at load with 'unknown type'."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same scenario loads and its grader runs on a stored session."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_bench.py::Bench::test_scenario_file_may_name_the_tool_called_grader passes on head, fails at the Q1 base."
+      ],
+      "severity": "HIGH",
+      "since": "ca61bd0086f3bd971a8d0ee05da45ed5cca9a139",
+      "source": "queue",
+      "summary": "A scenario file cannot use the tool_called grader",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: before 07d54ab9 every group ran with timeout=_left() of CHANGED_TESTS_TIMEOUT, so the message's number was",
+        "the budget used. 07d54ab9 gives the registry group float(STEP_TIMEOUT) but leaves the shared message, which still prints",
+        "CHANGED_TESTS_TIMEOUT. Reachable on the loaded machine the commit was written for. The break also skips the changed tests, as",
+        "before. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_precheck.py:171  limit = float(STEP_TIMEOUT) if group == [RULES_REGISTRY_TEST] else _left()",
+        "lib/relay_precheck.py:176  failed.append(\"FAIL changed tests took longer than %d s\" % CHANGED_TESTS_TIMEOUT)"
+      ],
+      "failing_case": [
+        "Machine loaded so tests.test_rules_gate.RuleTestsComplete takes over 60 s (the brief's own case: python took over a minute to",
+        "start at load 50). check_changed_tests now runs it with timeout=STEP_TIMEOUT (60), it times out, and the except branch appends",
+        "\"FAIL changed tests took longer than 230 s\" (CHANGED_TESTS_TIMEOUT) and breaks, so the changed tests never run.",
+        "Now: the line names 230 s although the cut came at 60 s, and the person looks for a slow changed test that does not exist.",
+        "Should: the line names the registry test and the 60 s it was given (or the budget actually used), e.g.",
+        "\"FAIL rules registry test took longer than 60 s\"."
+      ],
+      "fix_hint": [
+        "In the except branch, print the limit actually used and which group: \"FAIL %s took longer than %d s\" % (\"rules registry test\"",
+        "if group == [RULES_REGISTRY_TEST] else \"changed tests\", limit-or-budget); add pass case 1 as a test."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 176,
+      "pass_cases": [
+        "1. STEP_TIMEOUT=1, CHANGED_TESTS_TIMEOUT=230, a registry stand-in that sleeps 3 s: the output holds a line naming the registry",
+        "   test and \"1 s\", and no \"took longer than 230 s\".",
+        "2. CHANGED_TESTS_TIMEOUT=2, a changed test sleeping 60 s, healthy registry: \"  FAIL changed tests took longer than 2 s\"",
+        "   (test_a_changed_test_too_slow_for_the_step_is_a_red_line keeps passing).",
+        "3. A red registry stand-in and a 60 s changed test with CHANGED_TESTS_TIMEOUT=1: both \"RuleTestsComplete\" and",
+        "   \"took longer than 1 s\" appear (test_a_slow_changed_test_does_not_hide_the_registry_message keeps passing)."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_precheck.py:305 test_a_registry_test_cut_off_names_itself_and_its_own_allowance passes; fails on the pre-fix commit."
+      ],
+      "severity": "MEDIUM",
+      "since": "81ae0a9f4dde22f9f90b0342c4ae6777c6873a19",
+      "source": "review-a-scenario-file-cannot-use-the-tool-call.json",
+      "source_id": "F1",
+      "summary": "a registry test cut off at its new 60 s allowance is reported as 'changed tests took longer than 230 s'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "First half CONFIRMED (reproduced: head test on master's precheck, OK x3). Second half PLAUSIBLE: needs a run under load; the",
+        "reasoning is that _git uses timeout=_left() of the same 1 s deadline set in run() before check_changed_tests starts.",
+        "Rated MEDIUM because it is the quality-gate rule (flaky proven by 20 clean runs) and the user rule \"for a regression test,",
+        "check that it fails with the fix disabled\"; the brief also says each new test is shown to fail without the fix.",
+        "Size: 20 agent minutes (one test with a slow registry stand-in, then a 20-run loop)."
+      ],
+      "evidence": [
+        "cp head tests/test_precheck.py into a master worktree; python3 tests/run_unittest.py",
+        "tests.test_precheck.TestChangedTests.test_a_slow_changed_test_does_not_hide_the_registry_message -> OK, OK, OK (load 11.54)",
+        "gate 407c9068: AssertionError 'RuleTestsComplete' not found ... FAIL changed tests took longer than 3 s"
+      ],
+      "failing_case": [
+        "Disable the fix (master's lib/relay_precheck.py, registry run with timeout=_left()) and run head's",
+        "test_a_slow_changed_test_does_not_hide_the_registry_message: it passes (3 of 3 runs OK at load 11). So nothing pins the new",
+        "behaviour \"the registry test keeps its own allowance\". And the test now sets CHANGED_TESTS_TIMEOUT=1 (was 3): the git calls in",
+        "changed_test_modules (merge-base, diff, ls-files) share that 1 s deadline; at load 50 a git call over 1 s raises TimeoutExpired",
+        "in run(), giving \"FAIL changed tests took longer than 1 s\" without \"RuleTestsComplete\", the same red the commit set out to fix.",
+        "Should: a test that fails when the registry group gets _left() instead of its own allowance, and the flaky test shown clean over",
+        "max(20, ceil(3/p)) runs (rule: Quality gate, \"a flaky test is a bug, proven fixed with max(20, ceil(3/p)) clean runs\")."
+      ],
+      "fix_hint": [
+        "Make the registry stand-in in the test sleep longer than CHANGED_TESTS_TIMEOUT (e.g. 2 s with budget 1 s) so only the own",
+        "allowance lets its verdict show; keep the budget for the git calls separate or raise the test's budget so git is not cut off;",
+        "run the test 20 times and record it."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 294,
+      "pass_cases": [
+        "1. Registry stand-in that sleeps 2 s and is red, CHANGED_TESTS_TIMEOUT=1, STEP_TIMEOUT left at 60, a 60 s changed test: output",
+        "   holds \"RuleTestsComplete\" and \"took longer than 1 s\"; with the registry run on _left() the same test fails.",
+        "2. test_a_slow_changed_test_does_not_hide_the_registry_message: 20 consecutive clean runs, recorded with the load average.",
+        "3. test_a_changed_test_slower_than_the_other_steps_budget_is_green and test_a_changed_test_too_slow_for_the_step_is_a_red_line",
+        "   keep passing."
+      ],
+      "path": "tests/test_precheck.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_precheck.py:294 registry stand-in sleeps 5 s with budget 3 s, so it fails if the registry runs on the remaining budget (by reading); passes on head."
+      ],
+      "severity": "MEDIUM",
+      "since": "81ae0a9f4dde22f9f90b0342c4ae6777c6873a19",
+      "source": "review-a-scenario-file-cannot-use-the-tool-call.json",
+      "source_id": "F2",
+      "summary": "the precheck fix has no test that fails without it, and the flaky test may stay flaky with a 1 s budget (quality gate)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "f5086a571e1b17780d0ac2ac3ebb15aec4ccbb37.gate.log",
+  "head": "282112c63f4f59f2edc6eae94f94ab34c239f876",
+  "item": "a-scenario-file-cannot-use-the-tool-called-grade",
+  "notes": [
+    "Q1 test fails at ca61bd00 (ValueError unknown type). F1 test fails at 81ae0a9f (message says 230 s). F2 rewritten test: reasoned that with the registry on the remaining budget it is cut at 3 s and RuleTestsComplete is missing; not run with the fix disabled. 20-run claim is the fixer's, not repeated."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 81ae0a9f..HEAD; gate log head f5086a57 exit 0, only the gate-log commit follows. Ran tests.test_precheck (32 OK) and tests/test_bench.py (12 passed). Fix diff read; only precheck and its test changed."
+  ],
+  "type": "check"
+}

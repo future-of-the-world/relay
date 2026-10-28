@@ -169,6 +169,21 @@ class Bench(Base):
         self.assertTrue(rb.tool_called({**g, "exists": False}, "s2", rb.tool_calls("s2", cfg2))[0])
         self.assertEqual(rb.tool_calls("nope", cfg), [])
 
+    def test_scenario_file_may_name_the_tool_called_grader(self):
+        import relay_bench as rb
+        folder = os.path.join(self.tmp, "scen-tc")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "prompt.md"), "w") as handle:
+            handle.write("run a script")
+        with open(os.path.join(folder, "scenario.toml"), "w") as handle:
+            handle.write('name = "tc"\nmax_turns = 5\n[[graders]]\nname = "ran-python"\ntype = "tool_called"\ninput = "python3"\n')
+        # loads (was refused as 'unknown type'), then grades a stored session by its calls, not the reply text
+        scen = rb.load_scenario(folder)
+        cfg = self.transcript("s8", ["python3 sketch.py"])
+        self.assertTrue(rb.grade(scen, self.tmp, "ok", "claude", "haiku", session_id="s8", config_dir=cfg)[-1]["passed"])
+        cfg2 = self.transcript("s9", ["ls"])
+        self.assertFalse(rb.grade(scen, self.tmp, "I ran python3", "claude", "haiku", session_id="s9", config_dir=cfg2)[-1]["passed"])
+
     def test_no_secret_from_the_environment_reaches_a_grader(self):
         import relay_bench as rb
         fake = "sk-fake-0123456789abcdef"

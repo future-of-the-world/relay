@@ -21,8 +21,8 @@
   "where": [
     "plugins/core/hooks/guard-main.sh (the rule on writes to the checks folder)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T15:23:48Z",
+  "taken_by": "wt/guard-main-refuses-a-script-that-only-na",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

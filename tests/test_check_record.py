@@ -305,8 +305,10 @@ class TestMergeFindings(Flow):
         self.assertEqual(self.m_of(review), [])                       # the mark came after that merge
         self.master_changes({"lib/y.py": SPREAD.replace("end", "END").replace("pad\npad\nEND", "padded\npad\nEND")})
         second = self.take_master()
-        self.assertEqual(self.m_of(review), [("M1", "lib/y.py", second)])
+        # design relay-land 4.2: git merged it by itself and the branch did not touch y.py after the mark, so no M finding
+        self.assertEqual(self.m_of(review), [])
         self.assertNotEqual(first, second)
+
 
     def test_t7_a_file_only_the_fixer_changed_after_the_review_is_not_m(self):
         review = self.start()

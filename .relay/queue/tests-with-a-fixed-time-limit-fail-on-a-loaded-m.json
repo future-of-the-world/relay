@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 97,
+  "time": 90,
+  "found_at": "2026-10-28T17:22:13Z",
+  "found_in": "relay queue add",
+  "title": "Tests with a fixed time limit fail on a loaded machine",
+  "what": [
+    "12 cores; 20 test files hold a timeout of 10 s or more (grep, 28 Oct). Find the cause, not one example (principle 6): list every test that runs a subprocess or a step with a fixed wall-clock limit; for each, make the test independent of machine speed (an injected clock or budget, or a limit derived from the work) or move it where load cannot reach it. Measure what drives load to 27 (gate slots x test jobs x lanes' own test runs) and whether the gate's job count or slot count should depend on the machine's free capacity."
+  ],
+  "why": [
+    "28 Oct, the second time in one day: tests/test_rules_gate_isolation.py:22 hit its 200 s subprocess timeout in the stub-guard branch's gate (4 test jobs, 1277 s, load average 27), and passed alone in 55 s; earlier tests/test_precheck.py's 3 s budget failed the same way (fixed separately). Neither test was in the changes they turned red. Each red gate of this kind costs a gate fixer and a gate rerun (about 20-25 min) and stops a lane."
+  ],
+  "failing_case": [
+    "Run the full gate while another gate and 4 agents run their tests: tests/test_rules_gate_isolation.py fails at its 200 s timeout though it passes alone in 55 s."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same load: the gate is green 20 times in a row on those tests.",
+    "A test that really hangs still fails, by a limit tied to the work, not to the clock of a busy machine."
+  ],
+  "where": [
+    "tests/test_rules_gate_isolation.py:22",
+    "lib/relay_gate.py",
+    "bin/ci"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
