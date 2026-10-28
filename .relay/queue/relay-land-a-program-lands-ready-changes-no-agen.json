@@ -1,0 +1,38 @@
+{
+  "kind": "feature",
+  "ip": 97,
+  "time": 180,
+  "found_at": "2026-10-28T05:04:04Z",
+  "found_in": "relay queue add",
+  "title": "relay land: a program lands ready changes, no agent",
+  "what": [
+    "Build approach E of the cadence design (owner's pick \"a. Gate после взятия master, без агента\", 28 Oct): a program `relay land`, started by the front after its ready test, takes master into a ready branch (a merge commit), runs the gate on the result unless the take brought only inert records (queue records, the handover file), and fast-forwards master on green; one landing at a time; landings that wait while one gates merge into one train with one gate; a red train falls back to one at a time. The agent recheck (a checker re-reading after a take) goes; a take a fixer resolved by hand still gets a gate and a check of the resolved files. The merge hook accepts the gate of the exact landed tree. No cadence run on master."
+  ],
+  "why": [
+    "Owner, 28 Oct: \"Хорошо, давай просто возьмем a. Gate после взятия master, без агента И спустя время сравним показатели на реальном примере\". Measured 24-28 Oct: 83 of 83 code landings landed the exact tree their gate checked; the night of 27-28 Oct spent 146 agent minutes on 6 rechecks that found nothing; train riders waited a median 102 min from ready to landing against 1 min alone, because the front builds trains by hand."
+  ],
+  "failing_case": [
+    "Today a ready branch behind master needs the front to merge master, start a recheck unit (gate plus a checker agent) and fast-forward by hand; 6 such rechecks on 27-28 Oct cost 146 agent minutes."
+  ],
+  "pass_cases": [
+    "`relay land <branch>` on a branch behind master by code takes master, gates the exact tree, and fast-forwards on green with no agent started.",
+    "A take that brings only queue or handover records lands without a new gate.",
+    "Two branches ready while a landing gates land as one train with one gate; a red train lands its riders one at a time.",
+    "A take with a conflict stops and says so (a fixer resolves it; then a gate and a check of the resolved files).",
+    "Baseline for the later comparison is recorded in the item: rechecks per night, agent minutes on rechecks, ready-to-landing wait (median, p90), gates per landing."
+  ],
+  "where": [
+    "bin/relay (land)",
+    "lib/relay_land.py (new)",
+    "plugins/relay/hooks/merge.py",
+    "plugins/delegate/workflows/cycle.js (recheck kind)",
+    "plugins/front/skills/front/SKILL.md",
+    "rules/git.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

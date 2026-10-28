@@ -22,8 +22,8 @@
   "where": [
     "plugins/delegate/workflows/cycle.js (recheck kind)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T04:50:11Z",
+  "taken_by": "wt/recheck-take",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
