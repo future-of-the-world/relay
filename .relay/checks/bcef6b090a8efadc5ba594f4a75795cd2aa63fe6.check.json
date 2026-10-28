@@ -1,0 +1,214 @@
+{
+  "branch": "wt/critic-role-rule-eval-no-longer-proves-t",
+  "findings": [
+    {
+      "details": [
+        "Every paid run on 24 Oct printed the note: 2 of 3 runs in archive-inert, small-builds, checks-record and py-rule, and 3 of 3 in the wave run on 9cbb147 (record 24 Oct, $8.52, green). With 3 of 3 the case passes while proving nothing about the hook; principle 2 (output nobody reads) and principle 5."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Wave paid run 24 Oct on 9cbb147: \"critic-role-rule: a session in the run read the rule file in 3 of 3 runs (run 1, Bash, run 2, Bash, run 3, Bash), so those runs do not prove the hook delivered it\", and the case is green."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A run where the hook did not deliver the rule fails the case even if the session read the rule file; a run where the hook delivered it passes; the grader tests show both with recorded fixtures."
+      ],
+      "path": "evals/plugin/critic-role-rule",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_record.py:73-74 (FlagPatterns.test_every_case asserts max 0 for the rule-file grader); fails at 717353fe where the grader was a flag (weight 0.001)."
+      ],
+      "severity": "HIGH",
+      "since": "717353feff495e9a7fd364f31cc53e14e726822e",
+      "source": "queue",
+      "summary": "critic-role-rule eval no longer proves the hook delivers",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED for the regex: the bash pattern needs a reading verb (cat|head|...) followed by the literal kit/(code-reviewer|critic|judge).md,",
+        "or a recursive grep, or rg -u. A glob, a non-recursive grep, git show/log, find -exec cat, python open() all slip through. While the",
+        "grader was a flag a miss only lost a note; now it is the proof the queue item asks for (\"a run where the hook did not deliver the rule",
+        "fails the case even if the session read the rule file\"), so a miss is a pass that proves nothing. How often haiku takes these paths is",
+        "not measured (the records keep only counts, not commands). The brief's other option, a fact only the hook carries or a rule file the",
+        "session cannot reach (the related item critic-rule-test-does-not-prove-relay-delivered), would not depend on listing commands.",
+        "Size: 20 (widen the pattern: any non-heredoc command naming .claude/kit or kit/judge.md, plus git show/log -p; add the cases to",
+        "FlagPatterns.CASES; or keep the rule out of git history in scaffold.sh)."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/rx.py (bun new RegExp(input_match).test over {\"command\": ...}):",
+        "false cat .claude/kit/*",
+        "false cat .claude/kit/*.md",
+        "false git show master:.claude/kit/judge.md",
+        "false git log -p master",
+        "false find .claude -type f -exec cat {} +",
+        "false grep -n qty .claude/kit/judge.md",
+        "false python3 -c \"print(open('.claude/kit/judge.md').read())\"",
+        "scaffold.sh: git commit -qm \"Project rules for the judge role\" on master before wt/take."
+      ],
+      "failing_case": [
+        "The hook does not deliver judge.md (e.g. the agent-roles map is missing). The critic runs `cat .claude/kit/*` (or",
+        "`grep -n qty .claude/kit/judge.md`, or `git show master:.claude/kit/judge.md`, or `git log -p master`, the rule is a master commit),",
+        "learns ROLE-RULE and reports the breach. rule-file-read-by-bash matches none of these (probed: false for all), so the run passes:",
+        "the case is green while proving nothing about the hook, the queue item's own failing case.",
+        "Should: the run fails (rule-file-read-by-bash called 1x, expected 0..0)."
+      ],
+      "fix_hint": [
+        "In the shared bash pattern (both cases must stay equal, test_both_cases_carry_the_same_patterns) match any command outside a heredoc that",
+        "names `.claude/kit` or `kit/(code-reviewer|critic|judge).md`, and `git (show|log -p)` reaching the rule commit; or in scaffold.sh keep",
+        "judge.md untracked and excluded (.git/info/exclude) so git cannot show it. Add each command above to FlagPatterns.CASES."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 4,
+      "pass_cases": [
+        "1. Bash \"cat .claude/kit/*\" -> input_match true.",
+        "2. Bash \"grep -n qty .claude/kit/judge.md\" -> true.",
+        "3. Bash \"git show master:.claude/kit/judge.md\" and \"git log -p master\" -> true (or the scaffold keeps the rule out of git history).",
+        "4. Bash \"cat .claude/kit/judge.md\" -> true (as today).",
+        "5. Bash HEREDOC body naming .claude/kit/code-reviewer.md, \"git diff master...wt/paging -- src/shelf.ts\", \"grep -rn slice src/\" -> false (as today)."
+      ],
+      "path": "evals/plugin/critic-role-rule/graders/rule-file-read-by-bash.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_eval_record.py:40-45 cases (cat .claude/kit/*, grep qty, git show, git log -p, find, python open) pass; fail on old grader."
+      ],
+      "severity": "MEDIUM",
+      "since": "e03afb21ff52165677e900ff3fd43a9d89f1eb22",
+      "source": "review-critic-role-rule-eval-no-longer-proves-t.json",
+      "source_id": "F1",
+      "summary": "ordinary reads of the rule file (cat .claude/kit/*, grep -n qty .claude/kit/judge.md, git show master:.claude/kit/judge.md) do not fail the run, so a run without the hook can still pass",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED for the regex (bun: true for \"grep -rn takeItem .\"). Over-matching was harmless while the grader was a flag (min 0); with max 0",
+        "it is a false red. A recursive grep over . does read .claude/kit/judge.md, but its output shows only matching lines, so it exposes the",
+        "rule only when the searched word is in the rule file (ROLE-RULE, qty, amount, count, ...). Measured context: under max 0 the recorded",
+        "history would have been red in 15 of 24 batches (the counts do not say which commands), so false reds are not hypothetical.",
+        "Size: 15 (narrow the recursive-grep branch to a search term the rule file holds, or to a path under .claude; add the cases)."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/rx.py: \"true grep -rn takeItem .\"",
+        "Tally over ~/.relay/evals/relay/*.json, critic-role-rule reads per run: e.g. 2026-10-26T07-38-56Z [0, 1, 1] -> would be RED;",
+        "15 of 24 records RED, last 8: 2 RED."
+      ],
+      "failing_case": [
+        "The hook delivers the rule; the critic runs `grep -rn takeItem .` to find callers (an ordinary review step its base text asks for:",
+        "\"read ... what calls it\"). judge.md has no \"takeItem\", so nothing of the rule was read, but the pattern's branch",
+        "grep -r ... \\s\\. matches: rule-file-read-by-bash called 1x (expected 0..0), the run fails. Two such runs of three make the case red",
+        "with a working hook. Should: the run passes."
+      ],
+      "fix_hint": [
+        "Match the recursive grep only when its pattern is one of the rule file's words (ROLE-RULE|DOC-RULE|qty|amount|count) or its path is",
+        ".claude; keep \"grep -rn ROLE-RULE .\" true and add \"grep -rn takeItem .\" as false to FlagPatterns.CASES."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 4,
+      "pass_cases": [
+        "1. Bash \"grep -rn takeItem .\" with the hook delivering -> the run is not failed by rule-file-read-by-bash.",
+        "2. Bash \"grep -rn ROLE-RULE .\" -> still fails the run (true today).",
+        "3. Bash \"grep -rn qty .\" or \"grep -rn amount .\" (words the rule file holds) -> fails the run.",
+        "4. Bash \"grep -rn slice src/\" -> false (as today)."
+      ],
+      "path": "evals/plugin/critic-role-rule/graders/rule-file-read-by-bash.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_eval_record.py:46-48: grep -rn takeItem . false, qty/amount true; failed on old grader."
+      ],
+      "severity": "MEDIUM",
+      "since": "e03afb21ff52165677e900ff3fd43a9d89f1eb22",
+      "source": "review-critic-role-rule-eval-no-longer-proves-t.json",
+      "source_id": "F2",
+      "summary": "a recursive grep over . for a word not in the rule file (grep -rn takeItem .) now fails a run that never saw the rule",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: which session made the recorded reads is not known (records keep counts only; no critic-role-rule trace is kept). The outer",
+        "prompt says \"reply with the agent's findings as it gave them, nothing added\", which makes a check read less likely. Size: 5."
+      ],
+      "evidence": [
+        "prompt.md line 11: the instruction is inside the quotes of the Agent prompt. Records: rule-file-read-by-bash explanation is only",
+        "\"Bash called 1x (expected 0..inf)\", no command, no session."
+      ],
+      "failing_case": [
+        "The outer haiku session, after the critic replies, runs `cat .claude/kit/judge.md` to check the finding before replying. The",
+        "tool_used grader counts the outer session's calls too (\"a session in the run\"), so the run fails though the critic got the rule from",
+        "the hook. The line \"Do not open or search anything under .claude.\" sits inside the quoted prompt for the critic only.",
+        "Should: the outer session is told the same, or its reads do not count."
+      ],
+      "fix_hint": [
+        "Add the same sentence to the outer instructions (before or after \"Then reply with the agent's findings\")."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 11,
+      "pass_cases": [
+        "1. prompt.md has a line, outside the critic's quoted prompt, telling the outer session not to open or search .claude.",
+        "2. The critic's quoted prompt keeps its own line."
+      ],
+      "path": "evals/plugin/critic-role-rule/prompt.md",
+      "rank": "low",
+      "reason": [
+        "prompt.md gained a line for the outer session (+1 line in diff)."
+      ],
+      "severity": "LOW",
+      "since": "e03afb21ff52165677e900ff3fd43a9d89f1eb22",
+      "source": "review-critic-role-rule-eval-no-longer-proves-t.json",
+      "source_id": "F3",
+      "summary": "only the critic is told to keep out of .claude; the outer session, whose reads also fail the run, is not",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the code path (a failed code grader fails the run) is old and tested elsewhere, so this is a missing pin, not a",
+        "bug. Size: 5."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- tests/test_eval_record.py: one new Record test, 1 of 3 runs failed, asserts the majority note."
+      ],
+      "failing_case": [
+        "The new test sets one of three runs' bash grader to passed False and checks the majority note. The queue item's failing case is 3 of",
+        "3 runs reading (wave 24 Oct on 9cbb147); no test feeds report() three failed rule-file graders and asserts",
+        "\"NOT A PASS ... code grader(s) failed, ... in critic-role-rule\". The brief asked the grader tests to show both outcomes with recorded fixtures."
+      ],
+      "fix_hint": [
+        "Add one Record test with three failed rule-file graders asserting NOT A PASS."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 204,
+      "pass_cases": [
+        "1. fixture with all three runs' rule-file-read-by-bash passed False, \"Bash called 1x (expected 0..0)\" -> last line contains \"NOT A PASS\" and \"critic-role-rule\", is_green False.",
+        "2. the same with no read (called 0x, passed True) -> is_green True and no \"read the rule file\" note."
+      ],
+      "path": "tests/test_eval_record.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_record.py:224 three-runs test passes and asserts NOT A PASS; it is a pin of an existing path, so it passes at base too (as the fixer said)."
+      ],
+      "severity": "LOW",
+      "since": "e03afb21ff52165677e900ff3fd43a9d89f1eb22",
+      "source": "review-critic-role-rule-eval-no-longer-proves-t.json",
+      "source_id": "F4",
+      "summary": "no test shows the item's failing case: 3 of 3 runs reading the file now make the case NOT A PASS",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "7cceccdeaaa1dee938c762bc4c89ef47f458167d.gate.log",
+  "head": "bcef6b090a8efadc5ba594f4a75795cd2aa63fe6",
+  "item": "critic-role-rule-eval-no-longer-proves-the-hook",
+  "notes": [
+    "Changed files are the graders, prompt.md and the test only; shared pattern kept equal by test."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 717353fe..HEAD. Ran tests.test_eval_record (22 OK). Gate log is for 7cceccde, exit 0; only the gate-log commit followed. Ran new tests against base e03afb21 (14 failures) and Q1 base 717353fe."
+  ],
+  "type": "check"
+}

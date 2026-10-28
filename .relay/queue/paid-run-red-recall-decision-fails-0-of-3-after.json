@@ -54,6 +54,12 @@
       "answer": [
         "a"
       ]
+    },
+    {
+      "at": "2026-10-28T09:44:52Z",
+      "fact": [
+        "28 Oct ~10:10 UTC: option a's second half (\"graders read the whole turn\") cannot be built in relay: `claude plugin eval` (Claude Code's tool) chooses what graders read (case.yaml target: last_message or trace), and `trace` lets regex graders match tool output. Paid proof of round 1 (short facts-only refusal): recall-decision 0 of 3, $0.31, graders read the short lanes sentence. Front's decision (owner can reverse): eval cases not about lanes run with the end-of-turn reminder off (`stop_nudge = 0` in their fixtures); live sessions keep the reminder with the short facts-only sentence."
+      ]
     }
   ]
 }
