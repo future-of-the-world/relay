@@ -1,0 +1,207 @@
+{
+  "branch": "wt/train-23",
+  "findings": [
+    {
+      "details": [
+        "relay setup recognises Python only by pyproject.toml, so a project of plain .py files gets bin/check and bin/ci with placeholder steps that pass, and the owner believes the gate is on.",
+        "Also: templates/bin-check:30",
+        "Also: templates/bin-ci"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Trial: tally.py + test_tally.py, no pyproject.toml: detect() gave stack unknown; bin/check and bin/ci ran 'run_step placeholder true' and printed passed/green."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 22,
+      "pass_cases": [
+        "A folder with test_*.py is detected as python with a pytest step; a folder with an unfilled placeholder gets a failing check that says what to fill in."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_template_python_gate.py test_test_files_without_pyproject_are_python and the python check/ci tests fail at d9df4e9b (5 failures, 5 errors), pass at head."
+      ],
+      "severity": "HIGH",
+      "since": "d9df4e9bd34b8456ddedc55b0c127f50b5d28245",
+      "source": "queue",
+      "summary": "A Python project gets a green check that checks nothing",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the trial: the loop `for script in (\"check\", \"ci\", \"wt\")` applies the new step-specific messages to bin/wt too.",
+        "A person following the list looks for a NOT CONFIGURED step in bin/wt that does not exist and is not told that bin/wt still",
+        "needs its dependency setup. Reached on every first setup. Size: 10."
+      ],
+      "evidence": [
+        "python3 scratchpad/trial.py",
+        "== setup tally ... 3. bin/wt: check the python steps it was given (the contract is in plugins/relay/README.md)",
+        "== setup unk ...   3. bin/wt: it fails with NOT CONFIGURED until you replace the placeholder step with the unknown commands",
+        "grep -n \"TODO\" templates/bin-wt -> 13:    # TODO ({{stack}}): prepare the worktree so its check runs (dependencies, env).",
+        "git show master:lib/relay_setup.py:813 -> \"bin/{script}: fill in the {stack} commands where it says TODO\""
+      ],
+      "failing_case": [
+        "relay setup on a fresh folder (tally.py + test_tally.py) prints",
+        "  3. bin/wt: check the python steps it was given",
+        "and on a README-only folder",
+        "  3. bin/wt: it fails with NOT CONFIGURED until you replace the placeholder step with the unknown commands",
+        "bin/wt has no steps and no placeholder; it has \"# TODO ({{stack}}): prepare the worktree so its check runs (dependencies, env)\".",
+        "Before the change the line said \"bin/wt: fill in the python commands where it says TODO\", which was right.",
+        "Should print a bin/wt line that points at its TODO (dependencies, env), on every stack."
+      ],
+      "fix_hint": [
+        "Keep the old line for script == \"wt\" (\"bin/wt: fill in the {stack} commands where it says TODO\"); use the new two lines only for",
+        "check and ci. Add a setup test asserting the three lines."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 838,
+      "pass_cases": [
+        "1. setup on tally.py + test_tally.py: the bin/wt to-do line names the TODO to fill in (worktree preparation), not \"steps it was given\".",
+        "2. setup on a README-only folder: the bin/wt line does not say NOT CONFIGURED; the bin/check and bin/ci lines still do.",
+        "3. setup on tally.py + test_tally.py: the bin/check and bin/ci lines still say to check the python steps they were given.",
+        "4. setup on a package-lock.json folder: bin/check and bin/ci lines say NOT CONFIGURED with typescript; bin/wt names its TODO."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_template_python_gate.py:125 and :132 (bin/wt line); both fail at the parent."
+      ],
+      "severity": "MEDIUM",
+      "since": "555483f39acfdaa6777301ff79f11e29b7cd6e18",
+      "source": "review-py-green.json",
+      "source_id": "F1",
+      "summary": "the to-do line for bin/wt now says it was given python steps, or that it fails with NOT CONFIGURED; neither is true, and its TODO is no longer named",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: render() in the new test calls template_steps itself, and test_setup.py only checks that bin/check exists, so the",
+        "wiring that the item's pass case (\"a folder with test_*.py is detected as python with a pytest step\") depends on is not under",
+        "test. The template also fails open on any unreplaced mark (`set -uo pipefail` without -e), so a later edit that renames a mark",
+        "or adds a second template caller brings the green-that-checks-nothing back silently. Size: 15."
+      ],
+      "evidence": [
+        "git worktree add --detach scratchpad/nowire HEAD; sed drop **template_steps(...) from lib/relay_setup.py:836",
+        "pytest tests/test_template_python_gate.py tests/test_bin_check_portable.py tests/test_setup.py -> 62 passed",
+        "trial.py on that worktree: bin/check steps: ['{{check_steps}}\\n']  bin/check rc=0 out=['passed (0 min ...)']",
+        "bin-check rendered without the marks in a git folder: \"line 82: {{check_steps}}: command not found\" / \"passed\" / rc=0"
+      ],
+      "failing_case": [
+        "In a scratch worktree, lib/relay_setup.py:836 without `**template_steps(d[\"stack\"])`:",
+        "tests/test_template_python_gate.py, test_bin_check_portable.py, test_setup.py: 62 passed.",
+        "relay setup on tally.py + test_tally.py (failing test) then writes bin/check whose step line is `{{check_steps}}`;",
+        "bin/check prints \"{{check_steps}}: command not found\" then \"passed\", exit 0: the queue item's failing case again.",
+        "A test should fail when setup does not fill the step marks."
+      ],
+      "fix_hint": [
+        "Add a test that runs setup on the tally folder and asserts the written bin/check and bin/ci hold the pytest step (and no \"{{\"),",
+        "then runs it red. Optionally make copy_template refuse a result that still holds \"{{\" so a missed mark fails at setup."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 59,
+      "pass_cases": [
+        "1. setup() (or bin/relay setup with a temporary HOME, RELAY_HOME, RELAY_PROJECTS) on tally.py + test_tally.py: bin/check",
+        "   contains \"python3 -m pytest\" and no \"{{\"; bin/ci contains \"python3 -m pytest\".",
+        "2. Same folder with a failing test_*.py and the stand-in pytest: the written bin/check exits 1 and prints \"FAILED at tests\".",
+        "3. setup on a README-only folder: the written bin/check exits 1 and prints NOT CONFIGURED; bin/ci prints \"ci: RED\".",
+        "4. The test of case 1 fails when `**template_steps(d[\"stack\"])` is removed from the setup call."
+      ],
+      "path": "tests/test_template_python_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_template_python_gate.py:111 and :121 go through setup(), assert no \"{{\" and red/NOT CONFIGURED outcomes; pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "555483f39acfdaa6777301ff79f11e29b7cd6e18",
+      "source": "review-py-green.json",
+      "source_id": "F2",
+      "summary": "no test goes through setup: dropping the step replacements leaves {{check_steps}} in bin/check, which bash skips as a missing command and prints passed, with every test green",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: no line of templates/bin-check assigns TEST_FILES; git grep finds it only in the example comment and the",
+        "new STACK_STEPS line. The --tests gap predates the change, but the change now gives the step as configured (\"check the python",
+        "steps it was given\"). Result is a superset (slower, not wrong-green). Size: 15."
+      ],
+      "evidence": [
+        "git grep -n TEST_FILES -> lib/relay_setup.py:31 and templates/bin-check:81 (comment) only"
+      ],
+      "failing_case": [
+        "Python project from setup, `bin/check --tests test_a.py`: the template never maps the --tests arguments to TEST_FILES, so",
+        "pytest runs every test, not test_a.py. Should run only the named files (the contract's --tests mode)."
+      ],
+      "fix_hint": [
+        "In templates/bin-check, when $1 is --tests, set TEST_FILES from the remaining arguments (minus --failed) before the steps."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 31,
+      "pass_cases": [
+        "1. `bin/check --tests test_a.py` in a python project with test_a.py and test_b.py (b failing): exit 0, only test_a.py ran.",
+        "2. `bin/check` with no arguments: runs all tests, as now.",
+        "3. TEST_FILES=test_b.py bin/check: still honoured (exit 1)."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_template_python_gate.py:139 test_check_tests_runs_only_the_named_files; fails at the parent."
+      ],
+      "severity": "LOW",
+      "since": "555483f39acfdaa6777301ff79f11e29b7cd6e18",
+      "source": "review-py-green.json",
+      "source_id": "F3",
+      "summary": "the python bin/check step reads ${TEST_FILES:-}, which nothing sets: `bin/check --tests test_a.py` runs the whole suite",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Size: 5."
+      ],
+      "evidence": [
+        "sed -n 9,23p docs/setup.md"
+      ],
+      "failing_case": [
+        "docs/setup.md:9 \"Detects the stack (bun, pnpm, mix, cargo, go, python)\" and :22-23 \"templates ... with TODO where the stack's",
+        "commands go\". A reader expects a fresh bin/check to pass until filled; it now fails with NOT CONFIGURED (non-python stacks) or",
+        "runs pytest (python). Should state both."
+      ],
+      "fix_hint": [
+        "Two sentences in docs/setup.md next to the detection and template lines."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 9,
+      "pass_cases": [
+        "1. docs/setup.md has a line that a folder of .py files (root or tests/) with no marker is python, with a pytest step.",
+        "2. docs/setup.md has a line that bin/check and bin/ci of other stacks fail with NOT CONFIGURED until the placeholder is replaced."
+      ],
+      "path": "docs/setup.md",
+      "rank": "low",
+      "reason": [
+        "docs/setup.md line 24-26 now says a plain .py folder is python with pytest steps and unfilled gates fail NOT CONFIGURED."
+      ],
+      "severity": "LOW",
+      "since": "555483f39acfdaa6777301ff79f11e29b7cd6e18",
+      "source": "review-py-green.json",
+      "source_id": "F4",
+      "summary": "docs/setup.md still says python is detected by its marker and the templates only carry TODO; it does not say a plain .py folder is python with a pytest step, or that an unfilled gate fails with NOT CONFIGURED",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "cf3f350c848db01d22a96fd960c454befd28d61f.gate.log",
+  "head": "511ec4b4656cb6777acabc34cad0a2b149a6a3d2",
+  "item": "a-python-project-gets-a-green-check-that-checks",
+  "notes": [
+    "F2 tests are regression guards: they pass at the parent too (setup already filled the marks), so they cannot fail without a fix; they assert no \"{{\" and the red result through setup(), which would catch the dropped replacements."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix commit a574b98b (files: docs/setup.md, lib/relay_setup.py, templates/bin-check, tests/test_template_python_gate.py). Gate log head cf3f350c, relay changed lists nothing after it. Ran tests/test_template_python_gate.py (11 OK) and test_setup, test_bin_check_portable (86 OK). Test file run at a574b98b^ fails 3 tests (F1 x2, F3); at Q1 since d9df4e9b fails 10 of 11."
+  ],
+  "type": "check"
+}
