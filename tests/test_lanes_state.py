@@ -146,6 +146,21 @@ class Lanes(LaneBase):
         self.assertIn("waits: s (lib/relay_setup.py, wt/run), n (lib/new.py, wt/run)", rl.line(s))
         self.assertEqual((git(self.main, "status", "--porcelain"), git(self.main, "rev-parse", "master")), before)    # it reads git only
 
+    def test_picks_of_one_call_are_checked_against_each_other(self):
+        # a and b both name lib/relay_setup.py, no lane running, 2 free lanes: a (ip 95) is picked, b waits naming a; c (other file) is picked
+        self.seed({Q + "a.json": item("a", ip=95, where=("lib/relay_setup.py:1-5 x",)), Q + "b.json": item("b", ip=94, where=("lib/relay_setup.py:50-60 y",)),
+                   Q + "c.json": item("c", ip=93, where=("lib/other.py",))})
+        s = self.state(limit=2)
+        self.assertEqual([p.slug for p in s.picks], ["a", "c"])
+        self.assertEqual([(w.slug, w.file, w.pick) for w in s.waits], [("b", "lib/relay_setup.py", "a")])
+        self.assertIn("waits: b (same file as a: lib/relay_setup.py)", rl.line(s))
+
+    def test_disjoint_picks_both_start_and_a_folder_covers_its_files(self):
+        self.seed({Q + "a.json": item("a", ip=95, where=("lib/a.py",)), Q + "b.json": item("b", ip=94, where=("lib/b.py",)),
+                   Q + "d.json": item("d", ip=93, where=("lib",))})
+        s = self.state(limit=3)
+        self.assertEqual(([p.slug for p in s.picks], [w.slug for w in s.waits]), (["a", "b"], ["d"]))
+
     def test_overlap_ignores_inert_files_and_a_file_the_branch_only_has_from_master(self):
         # the branch carries master's lib/a.py (merged in) but changed nothing: nothing waits
         self.seed({Q + "run.json": item("run", **taken("wt/run")), Q + "w.json": item("w", ip=95, where=("lib/a.py",)), "lib/a.py": "0\n"})

@@ -53,6 +53,7 @@ class Wait(NamedTuple):
     slug: str
     file: str
     branch: str
+    pick: Optional[str] = None      # set when the wait is for another pick of the same call (then `branch` is empty)
 
 
 class Landed(NamedTuple):
@@ -186,6 +187,21 @@ def _overlap(where: list[str], changed: list[str]) -> Optional[str]:
     return None
 
 
+def _paths(where: list[str]) -> list[str]:
+    """The paths an item's `where` names, without line ranges or notes."""
+    places = (relay_queue.parse_place(element) for element in where)
+    return [place.path.rstrip("/") for place in places if place is not None]
+
+
+def _shared(where: list[str], others: list[str]) -> Optional[str]:
+    """The first path both `where` lists name: the same file, or one a folder holding the other; None when none."""
+    for mine in _paths(where):
+        for theirs in others:
+            if mine == theirs or mine.startswith(theirs + "/") or theirs.startswith(mine + "/"):
+                return max(mine, theirs, key=len)
+    return None
+
+
 def mode_of(item: dict) -> str:
     """A feature, or a fix whose `where` says design, starts as a design; any other fix as a build."""
     notes = []                  # the words after the path: a path such as docs/design.md says nothing about the mode
@@ -239,6 +255,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
     free = max(0, capacity - len(running))
     picks: list[Pick] = []
     waits: list[Wait] = []
+    chosen: list[tuple[str, list[str]]] = []      # the picks so far in this call, with the paths their `where` names
     if free:
         changed = {lane.branch: touched(main, default, lane.branch, trees.get(lane.branch)) for lane in running}
         for item in relay_queue.ordered(open_items):
@@ -249,6 +266,11 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
             if hit:
                 waits.append(Wait(item["slug"], hit[0], hit[1]))
                 continue
+            twin = next(((slug, shared) for slug, paths in chosen for shared in [_shared(where, paths)] if shared), None)
+            if twin:
+                waits.append(Wait(item["slug"], twin[1], "", twin[0]))
+                continue
+            chosen.append((item["slug"], _paths(where)))
             picks.append(Pick(item["slug"], item["kind"], item["ip"], mode_of(item)))
             if len(picks) == free:
                 break
@@ -263,7 +285,7 @@ def line(state: State, items: int = SETTINGS["lanes_line_items"][0]) -> Optional
     if state.picks:
         parts.append(", ".join(f"{p.mode}: {p.slug} ({p.kind}, ip {p.ip})" for p in state.picks[:items]))
     if state.waits:
-        parts.append("waits: " + ", ".join(f"{w.slug} ({w.file}, {w.branch})" for w in state.waits[:items]))
+        parts.append("waits: " + ", ".join((f"{w.slug} (same file as {w.pick}: {w.file})" if w.pick else f"{w.slug} ({w.file}, {w.branch})") for w in state.waits[:items]))
     if state.landed_open:
         parts.append("landed, still open: " + ", ".join(f"{x.slug} ({x.branch} landed)" for x in state.landed_open[:items]))
     if state.quiet:
