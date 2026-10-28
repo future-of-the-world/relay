@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-27T22:54:07Z",
   "taken_by": "wt/gate-stops",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T00:11:04Z",
+  "test": "tests/test_gate_stops.py::StopWhilePopenReturns::test_f3_a_stop_between_the_command_starting_and_popen_returning_leaves_no_command",
   "dropped_at": null,
   "dropped_why": null
 }
