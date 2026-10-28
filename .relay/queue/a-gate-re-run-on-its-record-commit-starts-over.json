@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-28T04:50:12Z",
   "taken_by": "wt/gate-rerun",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T06:01:31Z",
+  "test": "tests/test_gate.py::Gate::test_a_rerun_on_the_record_commit_of_a_red_gate_prints_the_old_result",
   "dropped_at": null,
   "dropped_why": null
 }
