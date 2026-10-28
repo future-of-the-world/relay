@@ -88,7 +88,7 @@ On a Mac, see [docs/macos.md](docs/macos.md) for what slows relay down and how t
    and the bench that justified it; `relay report --compare` checks it in
    real use a week later. `docs/improve.md`.
 6. **User-friendly** — the `front` plugin and skill: one reply per request,
-   the project first, outcomes in your terms, numbered choices with a
+   the project first, outcomes in your terms, lettered choices with a
    recommendation, state in `docs/handover.md`, never a paste of agent
    output. Reply length per turn is measured, so it can be benched.
 

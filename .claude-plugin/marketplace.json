@@ -6,7 +6,7 @@
     { "name": "core",     "source": "./plugins/core",     "description": "kit helper (bindings, task briefs, spec checks), main-checkout guard, project additions injected into shared roles, the flow stage hook." },
     { "name": "observe",  "source": "./plugins/observe",  "description": "The ledger: every session, prompt, agent, tool call and compaction as one JSON line, read by `relay report`, `relay status`, `relay improve`." },
     { "name": "delegate", "source": "./plugins/delegate", "description": "Typed agents by tier (scout, runner, worker, fixer, thinker, critic) with model and effort from the active profile; the routing guard; the delegate skill (brief files, who does what)." },
-    { "name": "front",    "source": "./plugins/front",    "description": "The front desk: context budget and handover hooks, the front skill (one reply per request, plain words, numbered choices)." },
+    { "name": "front",    "source": "./plugins/front",    "description": "The front desk: context budget and handover hooks, the front skill (one reply per request, plain words, lettered choices)." },
     { "name": "openspec", "source": "./plugins/openspec", "description": "OpenSpec spec steps (opt-in per project): plan, spec-review, archive skills; author, spec-reviewer, spec-conformance agents." }
   ]
 }
