@@ -1,0 +1,181 @@
+{
+  "branch": "wt/gate-rerun",
+  "findings": [
+    {
+      "details": [
+        "Waste that repeats on every runner death (principle 2); 12 gate runners died in 24-28 Oct.",
+        "Also: tests/test_gate*.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "HEAD = the record commit of a finished red gate: `relay gate` runs the whole gate again."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "HEAD = record commit of a finished gate: the old result is printed and its exit code returned in seconds, no slot taken.",
+        "HEAD = record commit plus any change outside .relay/checks/: a full gate.",
+        "A gate still running: joins it, as now."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate.py::test_a_rerun_on_the_record_commit_of_a_red_gate_prints_the_old_result passes at head and fails at 2bd9409e."
+      ],
+      "severity": "HIGH",
+      "since": "2bd9409e5494d0a1de924820a4b7f64c20674967",
+      "source": "queue",
+      "summary": "A gate re-run on its record commit starts over",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: finished_red() returns any non-zero exit of a log whose head is G and whose cmd matches, and run()",
+        "returns it before the lock; cmd_gate has no option that bypasses reuse (only --paid and -- <args>, which change the cmd",
+        "line). The result of a gate depends on more than the commit (the environment, installed tools, the gate script when it",
+        "lives outside the repo, machine load), and the merge hook already treats \"red then green on the same code\" as a real",
+        "sequence (merge.test.sh T15m2), so a re-run of the same code is a reachable, expected action; before this change it was",
+        "the default. The output is byte-identical to the first run (the new test asserts it), so neither a person nor a runner",
+        "can tell a reused red from a fresh one. The green case has the same silence, but a reused green is what the earlier",
+        "decision asked for; a reused red that was caused by the environment is wrong data.",
+        "Size: 20 minutes (a flag in cmd_gate threaded to run(), one printed line, skip 127 and >=128 in finished_red, 3 tests,",
+        "one sentence in delegate SKILL step 3)."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- tests/test_gate.py:",
+        "-        self.assertEqual(self.gate(self.wt).returncode, 3)",
+        "+        # another command line is a new gate: the finished red result above is not reused for it",
+        "+        self.assertEqual(self.gate(self.wt, \"--\", \"--again\").returncode, 3)",
+        "bin/relay cmd_gate: usage = \"relay gate [-C <worktree>] [--paid] [-- <args>]\" (no option to run again)",
+        "lib/relay_gate.py:286: if len(last) == 2 and last[0] == \"exit\" and last[1].isdigit() and int(last[1]) != 0:",
+        "lib/relay_gate.py:345-348: code 127 written as \"gate command could not start\"; code = 128 - returncode for a signal"
+      ],
+      "failing_case": [
+        "Worktree at G; `relay gate` runs and the gate command is killed by the OOM killer or a step times out under the load of",
+        "6 parallel gates (log ends `exit 137`, or `exit 1` with \"tests FAILED (timeout)\"), or a tool the gate needs was not",
+        "installed (`exit 127`, \"gate command could not start\"). The log is committed (HEAD = record commit R). The cause is",
+        "fixed outside the repository (tool installed, load gone). `relay gate` again: now prints the same",
+        "\"gate G: exit 137\" and the same lines in a second, runs nothing, and there is no flag to run it. Only a commit that",
+        "touches a file outside .relay/checks/ (or one that deletes the log) gets a real run; an empty commit does not",
+        "(its diff is empty, so the walk goes on). Should: a way to run the gate again on the same code, and a line saying the",
+        "result is a reused one, so a runner does not report \"red again, reproduced\".",
+        "Live in this change: tests/test_gate.py test_r4 on master changed the gate script outside the repo and expected the",
+        "rerun to exit 3; under this change it would exit 1 (the old log), so the test was switched to other arguments."
+      ],
+      "fix_hint": [
+        "Add `--again` to cmd_gate (refused together with nothing else) and an `again: bool = False` to run() that skips both",
+        "reuses; in finished_red skip exit 127 and exit >= 128; when a red is reused, print \"gate: the code is unchanged since the",
+        "red gate of <sha>: reported, not run (relay gate --again runs it)\" on stderr. One sentence in delegate SKILL step 3."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 325,
+      "pass_cases": [
+        "1. HEAD = record commit of a finished red gate (exit 3), plain `relay gate`: exit 3, the counter of real runs stays 1, and",
+        "   the output names that it is the finished gate of G reused (one extra line, e.g. \"gate: no change since the red gate of G\").",
+        "2. Same state, `relay gate --again` (or the name the fixer picks): the gate command runs (counter 2) and its new result is",
+        "   logged and printed.",
+        "3. A log that ends exit 127 (command could not start) or exit >= 128 (killed by a signal) is not reused: a plain rerun",
+        "   runs the gate (counter 2).",
+        "4. Green reuse is unchanged: HEAD = record commit of a green gate prints exit 0 and runs nothing.",
+        "5. HEAD = record commit + a change in lib/: full run (counter 2), as test_a_rerun_after_a_change_outside_the_checks_folder."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate.py:272,281,288 (stderr note, --again, 127/>=128 not reused) pass and fail at c134b705; green reuse and full-run-after-change tests pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "c134b7057e7e501c520997c53c2df1434d4003f9",
+      "source": "review-gate-rerun.json",
+      "source_id": "F1",
+      "summary": "a red result that came from outside the commit (killed command, missing tool, timeout under load) can never be re-gated on that commit, and the rerun prints the old red as if it ran",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Principle 10: the agent is a user of relay's texts. Size: 5 minutes. Fold into F1's fix."
+      ],
+      "evidence": [
+        "git grep -n \"reports that gate and runs nothing\" -> plugins/delegate/skills/delegate/SKILL.md:164-165"
+      ],
+      "failing_case": [
+        "A runner or front reading delegate SKILL step 3 after this change: \"relay gate on code that already has a green gate",
+        "(only inert files changed since) reports that gate and runs nothing\". A red gate on a record commit now also runs",
+        "nothing; the text does not say so, nor how to run it again."
+      ],
+      "fix_hint": [
+        "Extend the sentence at SKILL.md:164-165."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 164,
+      "pass_cases": [
+        "1. SKILL step 3 has one sentence: a finished red gate with only .relay/checks/ commits since is reported, not run, and",
+        "   names how to run it again (if F1 adds a flag).",
+        "2. The existing green-reuse sentence stays."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "low",
+      "reason": [
+        "plugins/delegate/skills/delegate/SKILL.md step 3 extended (in the diff)."
+      ],
+      "severity": "LOW",
+      "since": "c134b7057e7e501c520997c53c2df1434d4003f9",
+      "source": "review-gate-rerun.json",
+      "source_id": "F2",
+      "summary": "the gate step text still says only a green gate is reported without a run",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: after the wait only reusable() is asked (line ~364), finished_red() is not. Not wrong (the refusal",
+        "is quick and the rerun then reuses the red), but it is one extra round for the runner the item set out to save.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "lib/relay_gate.py:364-367: green = ... reusable(worktree, now, command); if now != head: raise GateRefused(... \"run it again\")"
+      ],
+      "failing_case": [
+        "Gate A runs on G; gate B (same command) starts and waits on the worktree lock. A ends exit 1 and commits its log",
+        "(HEAD = R). B takes the lock: reusable(now) finds no green, now != head, so B raises \"moved to another commit while the",
+        "gate waited: run it again\". Should, now that a red is reusable: B reports A's red (exit 1) at once."
+      ],
+      "fix_hint": [
+        "After the green check inside the slot: red = None if license_lines else finished_red(worktree, now, command); if red: return red."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 367,
+      "pass_cases": [
+        "1. A red, B waited: B exits 1 with A's log and lines, the counter of runs stays 1.",
+        "2. A green, B waited: B exits 0, reused (test_t1 in tests/test_gate_slots.py, as now).",
+        "3. HEAD moved by a code commit during the wait: still refused with \"moved to another commit\"."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_slots.py test_f3_a_gate_that_waited_for_a_gate_that_went_red_reports_that_red passes, fails at c134b705; test_t1 and moved-head test pass."
+      ],
+      "severity": "LOW",
+      "since": "c134b7057e7e501c520997c53c2df1434d4003f9",
+      "source": "review-gate-rerun.json",
+      "source_id": "F3",
+      "summary": "a gate that waited on the worktree lock for a gate that went red refuses with 'run it again' instead of reporting that red",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "cef0fa6e20e63eabaa762e08d91de671bdcb648b.gate.log",
+  "head": "d38c77d2c6b770db26e47b9a4ea8730011b9bb30",
+  "item": "a-gate-re-run-on-its-record-commit-starts-over",
+  "notes": [
+    "Changed files since the review: bin/relay, lib/relay_gate.py, delegate SKILL.md, tests/test_gate.py, tests/test_gate_slots.py; all belong to the findings. cmd_gate is the only caller of run()."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 2bd9409e..HEAD and c134b705..HEAD. Gate log head cef0fa6e, exit 0; only the inert record commit follows. Check command: precheck green, pytest -k gate 148 passed. Fail-without-fix run in throwaway worktrees at c134b705 and 2bd9409e with head test files."
+  ],
+  "type": "check"
+}
