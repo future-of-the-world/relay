@@ -670,7 +670,7 @@ def _merge_findings(wt, head, anchors):
         anchor = out
     try:
         ab = relay_inert.absorbed(wt, head)
-        own = set(relay_inert.changed(wt, anchor, head, own=True, absorbed=ab))
+        own = set(relay_inert.own_since_mark(wt, anchor, head, ab))
     except ValueError as exc:
         raise VerdictError("nothing recorded: %s" % exc)
     if not own:

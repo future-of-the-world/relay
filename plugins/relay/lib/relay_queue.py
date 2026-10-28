@@ -1469,7 +1469,7 @@ def check_refusal(repo, ref, slug):
     first, other = None, None
     for commit in order:
         try:
-            own = relay_inert.changed(repo, commit, ref, own=True)
+            own = relay_inert.own_since_mark(repo, commit, ref)
         except ValueError as exc:
             return str(exc)
         if own:

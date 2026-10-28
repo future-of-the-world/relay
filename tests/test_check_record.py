@@ -6,6 +6,7 @@ JSON, the TOML input of `relay check record check`, the hook's `write_mark`, `re
 """
 import json
 import os
+import subprocess
 import sys
 import unittest
 
@@ -305,8 +306,28 @@ class TestMergeFindings(Flow):
         self.assertEqual(self.m_of(review), [])                       # the mark came after that merge
         self.master_changes({"lib/y.py": SPREAD.replace("end", "END").replace("pad\npad\nEND", "padded\npad\nEND")})
         second = self.take_master()
-        self.assertEqual(self.m_of(review), [("M1", "lib/y.py", second)])
+        # design relay-land 4.2: git merged it by itself and the branch did not touch y.py after the mark, so no M finding
+        self.assertEqual(self.m_of(review), [])
         self.assertNotEqual(first, second)
+
+
+    def test_merge_findings_none_after_clean_take(self):
+        # the fixer changed y.py's first line and the review is of that commit; master changes the last line; git merges
+        # it by itself and the branch committed nothing since: nothing for the check
+        self.start()
+        review = self.review("b.json", self.head(), [review_finding(1)])
+        self.master_changes({"lib/y.py": SPREAD.replace("end", "END")})
+        self.take_master()
+        self.assertEqual(self.m_of(review), [])
+
+    def test_a_hand_resolved_take_is_an_m_finding_for_the_resolved_file(self):
+        # master and the fixer both changed y.py's first line: git stops, the author writes the result by hand
+        review = self.start()
+        self.master_changes({"lib/y.py": SPREAD.replace("one", "uno")})
+        subprocess.run(["git", "-C", self.wa, "merge", "-q", "--no-edit", "master"], capture_output=True)
+        self.write_commit(self.wa, {"lib/y.py": SPREAD.replace("one", "both")}, "resolved by hand")
+        merge = self.head()
+        self.assertEqual(self.m_of(review), [("M1", "lib/y.py", merge)])
 
     def test_t7_a_file_only_the_fixer_changed_after_the_review_is_not_m(self):
         review = self.start()
@@ -342,6 +363,26 @@ class TestOneFunction(Flow):
         with self.assertRaises(merge_hook.Refused) as ctx:
             merge_hook.step_mark(self.main, "master", "wt/a")
         self.assertIn("bin/ci", str(ctx.exception))
+
+    def test_fix_item_clean_overlap_take_lands(self):
+        # the fix (checked, Q1 MET) changed y.py's first line; master changes its last line; git merges it by itself.
+        # Red before the shared rule: check_refusal listed y.py as the branch's own file changed since the check.
+        self.after_check()
+        self.master_changes({"lib/y.py": SPREAD.replace("end", "END")})
+        self.take_master()
+        self.assertIsNone(rq.close_refusal(self.wa, "HEAD", "job", TEST_NAME))
+        self.assertEqual(merge_hook.step_mark(self.main, "master", "wt/a"), self.mark_commit())
+
+    def test_fix_item_commit_after_check_refused(self):
+        self.after_check()
+        self.commit({"lib/y.py": SPREAD.replace("pad", "pod", 1)}, message="a commit after the check")
+        self.assertIn("lib/y.py", rq.close_refusal(self.wa, "HEAD", "job", TEST_NAME))
+
+    def test_show_no_change_line_after_clean_take(self):
+        self.after_check()
+        self.master_changes({"lib/y.py": SPREAD.replace("end", "END")})
+        self.take_master()
+        self.assertFalse([l for l in rm.show(self.main, "wt/a") if "changed after the mark" in l])
 
     def test_t2_done_and_the_guard_judge_a_test_name_by_the_same_function(self):
         self.after_check()

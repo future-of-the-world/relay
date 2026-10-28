@@ -227,3 +227,41 @@ def changed(repo, since, until="HEAD", own=False, archive=False, absorbed=None):
         gone = _covered(repo, paths, until, default, absorbed)
         paths = [p for p in paths if p not in gone]
     return paths
+
+
+def resolved(repo: str, merge: str) -> list[str]:
+    """The non-inert files a merge commit's author decided by hand (design relay-land 4.2): the paths git's own merge of the
+    two parents reports as conflicted (`git merge-tree`, which also names a modify/delete conflict kept as one side) plus the
+    paths where the merge commit's tree differs from the tree git's own merge wrote (a clean merge with a hand edit). A clean
+    merge git did by itself, also of a file both sides changed, lists nothing."""
+    merge = _sha(repo, merge)
+    first, second = _sha(repo, merge + "^1"), _sha(repo, merge + "^2")
+    rc, out = relay_git.git(repo, "merge-tree", "--write-tree", "--name-only", "--no-messages", "-z", first, second, raw=True)
+    if rc not in (0, 1):
+        raise ValueError(f"git merge-tree failed in {repo} for {merge}")
+    parts = [p for p in out.split("\0") if p]
+    if not parts:
+        raise ValueError(f"git merge-tree wrote no tree in {repo} for {merge}")
+    tree, conflicted = parts[0], parts[1:] if rc == 1 else []
+    diff = _git(repo, "diff", "--name-only", "--no-renames", "-z", tree, merge + "^{tree}")
+    names = set(conflicted) | {p for p in diff.split("\0") if p}
+    return sorted(p for p in names if not matches(p))
+
+
+def own_since_mark(repo: str, mark: str, ref: str, absorbed: dict[str, str] | None = None) -> list[str]:
+    """The one rule for "the branch's own files since a check" (design relay-land 4.2): `changed(..., own=True, archive=True)`
+    from `mark` to `ref`, minus each file that no non-merge commit of the branch touched after the mark and that no merge after
+    the mark resolved by hand. So a clean take of the default branch never asks for a new check, also for a file both sides
+    changed; a commit of the branch after the mark, or a hand-resolved take, does."""
+    own = changed(repo, mark, ref, own=True, archive=True, absorbed=absorbed)
+    if not own:
+        return []
+    default = _default_ref(repo)
+    touched: set[str] = set()
+    log = _git(repo, "log", "--no-merges", "--no-renames", "--name-only", "--format=", "-z", f"{_sha(repo, mark)}..{_sha(repo, ref)}", "^" + default)
+    touched.update(p for p in log.split("\0") if p.strip("\n"))
+    touched = {p.strip("\n") for p in touched}
+    by_hand: set[str] = set()
+    for merge in _git(repo, "rev-list", "--merges", f"{_sha(repo, mark)}..{_sha(repo, ref)}").split():
+        by_hand.update(resolved(repo, merge))
+    return [p for p in own if p in touched or p in by_hand]

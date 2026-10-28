@@ -298,7 +298,7 @@ def show(repo, branch, sleep=time.sleep):
         lines.append("outside: unknown (%s)" % exc)
     import relay_inert
     try:
-        later = relay_inert.changed(repo, commit, ref, own=True, archive=True, absorbed=relay_inert.absorbed(repo, ref))
+        later = relay_inert.own_since_mark(repo, commit, ref, relay_inert.absorbed(repo, ref))
     except ValueError as exc:
         lines.append("files changed after the mark: unknown (%s)" % exc)
         later = []

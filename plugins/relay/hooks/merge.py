@@ -302,7 +302,7 @@ def step_mark(main, default, branch, ab=None):
         raise Refused("no check mark for %s (run relay gate, then delegate:checker on its head)" % branch)
     newest_list = None
     for commit in order:
-        own = relay_inert.changed(main, commit, ref, own=True, archive=True, absorbed=ab)
+        own = relay_inert.own_since_mark(main, commit, ref, ab)
         if not own:
             lost = _dropped_after(main, default, commit, ref, ab)
             if lost:
@@ -316,6 +316,11 @@ def step_mark(main, default, branch, ab=None):
         if newest_list is None:
             newest_list = (commit, own)
     commit, own = newest_list
+    for merge in relay_git.git(main, "rev-list", "--merges", "--reverse", "%s..%s" % (commit, ref))[1].split():
+        by_hand = [p for p in relay_inert.resolved(main, merge) if p in own]
+        if by_hand:
+            raise Refused("after the check of %s, the take %s resolved %s by hand; run relay gate, then delegate:checker" % (
+                commit, merge[:12], named(by_hand)))
     raise Refused("after the check of %s, %s changed %s, which %s not inert; run relay gate, then delegate:checker" % (
         commit, branch, named(own), "is" if len(own) == 1 else "are"))
 
