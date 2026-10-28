@@ -321,7 +321,8 @@ class Doctor(Fixture):
         names = [n for n, _, _ in checks]
         self.assertIn("plugins off for this project: " + ", ".join(sorted([GOPLS, "openspec@amidman"])), names)
         project_part = checks[names.index("project has .claude/kit.toml"):]
-        fixes = sorted(n for n, ok, _ in project_part if not ok)
+        # the fixture's own rules file is never written, so "rules for this project in sync" is red here: not what this test is about
+        fixes = sorted(n for n, ok, _ in project_part if not ok and n != "rules for this project in sync")
         # relay has no quiet check and no worktree script: those two stay red, nothing else.
         self.assertEqual(fixes, ["gate.check exists and is executable", "gate.wt exists and is executable"])
 
