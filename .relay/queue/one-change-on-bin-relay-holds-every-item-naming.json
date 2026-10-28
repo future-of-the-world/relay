@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 45,
+  "found_at": "2026-10-28T08:40:10Z",
+  "found_in": "relay queue add",
+  "title": "One change on bin/relay holds every item naming it",
+  "what": [
+    "Measure from git 24-28 Oct how often two branches both changing bin/relay (and other files named by many items) conflicted at take or train; from that, a short fixed list of hub files that the start filter ignores (principle 5: a fact goes to a fixed list), kept in one place the filter and its test read."
+  ],
+  "why": [
+    "28 Oct ~08:45 UTC, right after the start filter fix landed: relay-land took bin/relay, and the next two items in queue order waited ('waits for bin/relay (same file as relay-land...)'); 15 open items name bin/relay in `where`, and relay-land is a 3h feature. bin/relay is the command dispatcher: each item adds or edits its own subcommand, and git merges such edits cleanly almost always. The design for grouping (28 Oct, revision 2) measured that `where` catches 31 % of real overlaps only with such hub files left out; the start filter has no hub list, so a hub serializes the queue. Not measured: how many bin/relay merges conflicted 24-28 Oct."
+  ],
+  "failing_case": [
+    "Open items a (where bin/relay, lib/relay_x.py) and b (where bin/relay, lib/relay_y.py), a taken: b waits for bin/relay."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same: b is picked.",
+    "Two items sharing a non-hub file still wait for each other.",
+    "The measurement and the hub list's reason are in the item notes."
+  ],
+  "where": [
+    "plugins/front/lib/relay_lanes.py (the start filter)",
+    "tests/test_lanes_state.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
