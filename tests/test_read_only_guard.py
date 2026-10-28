@@ -1,5 +1,7 @@
 """Q1: a read-only agent (critic, checker, scout) must not run a relay command that writes, and `relay migrate --all`
 must not write into a primary checkout unless asked. Free: temporary folders and HOME, no paid run."""
+import importlib.machinery
+import importlib.util
 import json
 import os
 import re
@@ -63,6 +65,18 @@ class ReadOnlyHook(unittest.TestCase):
         self.assertEqual(commands - set(guard.WRITERS) - guard.READS, set())
         queue_words = set(re.search(r"relay queue \[([a-z|]+)\]", source).group(1).split("|"))
         self.assertEqual(queue_words - guard.WRITERS["queue"] - guard.READ_WORDS["queue"], set())
+
+    def test_q1_every_queue_writing_word_of_bin_relay_is_on_the_guard_list(self) -> None:
+        """Failing case: `start` (makes a worktree, takes an item) is in bin/relay QUEUE_WRITES but was not on the guard's
+        list, so a critic could run `relay queue start x --scratch y`. The usage line does not list it; QUEUE_WRITES does."""
+        loader = importlib.machinery.SourceFileLoader("relay_bin_for_guard_test", RELAY)
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        assert spec is not None
+        module = importlib.util.module_from_spec(spec)
+        loader.exec_module(module)
+        self.assertIn("start", module.QUEUE_WRITES)
+        self.assertEqual(set(module.QUEUE_WRITES) - load_guard().WRITERS["queue"], set())
+        self.assertEqual(hook("delegate:critic", "relay queue start x --scratch y"), "deny")
 
 
 class MigrateAllPrimary(unittest.TestCase):
