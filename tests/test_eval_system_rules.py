@@ -18,6 +18,14 @@ class SystemRules(unittest.TestCase):
         for case in system_rules.CASES:
             self.assertEqual(system_rules.current(case), system_rules.CASES[case](), case)
 
+    def test_the_recall_and_note_cases_are_built_not_hand_copied(self):
+        # these four once carried an old hand copy of the rules (still saying "numbered questions"); they must be listed
+        # in CASES, so the test above covers them, and their prompts must not hold the retired wording
+        for case in ("keep-owner-words", "keep-owner-words-en", "no-note-off-topic", "recall-decision"):
+            self.assertIn(case, system_rules.CASES)
+            with open(os.path.join(PLUGIN, case, "prompt.md"), encoding="utf-8") as handle:
+                self.assertNotIn("numbered questions", handle.read(), case)
+
     def test_the_line_has_no_run_of_three_hyphens(self):
         # the runner closes the frontmatter at the first `---`, even inside a quoted string: the spec cases' table separators
         for case in system_rules.CASES:
