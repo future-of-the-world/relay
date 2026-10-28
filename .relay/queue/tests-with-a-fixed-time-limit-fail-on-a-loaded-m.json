@@ -29,5 +29,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T20:35:51Z",
+      "fact": [
+        "29 Oct, gate of wt/refuse-folder-and-pattern-entries-in-whe at a91e4a4a: tests/test_rules_gate_isolation.py:22 test_rules_tests_command_passes_in_the_order_unittest_runs_them hit its own 200 s subprocess timeout while the gate's library tests took 2109 s in all; run alone it passes in 51 s (2 tests). Same day the precheck's changed-tests step hit its 230 s cap at load ~35 on 12 cores on wt/queue-time-estimates-are-guesses-with-no. Both red steps found nothing wrong in the change."
+      ]
+    }
+  ]
 }
