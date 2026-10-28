@@ -31,7 +31,7 @@ import tempfile
 import relay_paidcap
 from relay_config import ROOT, bench_dir, read_toml
 
-GRADER_TYPES = ("regex", "file_exists", "command", "llm", "agent_used")
+GRADER_TYPES = ("regex", "file_exists", "command", "llm", "agent_used", "tool_called")
 
 
 # --- profiles ---------------------------------------------------------------

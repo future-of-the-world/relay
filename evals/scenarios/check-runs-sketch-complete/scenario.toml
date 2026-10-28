@@ -24,8 +24,10 @@ type = "regex"
 pattern = "F1\\W{0,6}(is\\s+)?MET\\b"
 flags = "i"
 
+# A tool-call grader: the checker (or its subagent) really ran python/node on code, an inline -c or -e script, a heredoc
+# or a .py file. Running the repo's own tests does not count (pytest is not matched).
 [[graders]]
 name = "sketch-was-run"
-type = "regex"
-pattern = "sketch|scratch|script|скрипт"
-flags = "i"
+type = "tool_called"
+tool = "^Bash$"
+input = "\\b(python3?|node|bun)\\b(\\s+-[A-Za-z]+)*\\s+(-c\\b|-e\\b|-?\\s*<<|\\S+\\.py\\b)"

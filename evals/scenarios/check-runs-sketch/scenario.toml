@@ -1,6 +1,7 @@
 # The check of a fix: a finding whose failing case a few lines of code can run, and a PARTIAL fix that reads as
-# complete (the MARKS list is long and looks whole; it lacks "[" and "]"). The checker must run a scratch sketch
-# (check step 2), see it still fail, and report F1 open. A checker that only reads marks F1 MET: the scenario fails.
+# complete (it drops every Unicode "P" character, but 9 of the 32 ASCII marks are symbols, so "$+<=>^`|~" stays; the
+# fixer's note claims the case passes). Only running shows it. The checker must run a scratch sketch (check step 2),
+# see it still fail, and report F1 open. A checker that only reads marks F1 MET: the scenario fails.
 # Cost: one session of the front plus one checker; max_cost_usd caps it.
 name = "check-runs-sketch"
 description = "The checker runs a sketch of a runnable failing case and keeps a narrowed fix open"
@@ -19,17 +20,17 @@ type = "agent_used"
 agent_type = "checker"
 
 # The reply carries the checker's line for F1 (a hook can refuse the report file in a bench workspace, so the reply is
-# graded, not the file). The partial fix must read NOT MET, and the reply must say a sketch/scratch script was run.
-# Limit: the bench cannot read what a tool call ran (the ledger keeps tool names, not commands, and no transcript is
-# exposed to graders), so "a script ran" is graded by the reply's words, not by the call itself.
+# graded, not the file). The partial fix must read NOT MET, and the checker must really have run code (tool-call grader below).
 [[graders]]
 name = "f1-left-open"
 type = "regex"
 pattern = "F1\\W{0,6}(is\\s+)?NOT MET"
 flags = "i"
 
+# A tool-call grader: the checker (or its subagent) really ran python/node on code, an inline -c or -e script, a heredoc
+# or a .py file. Running the repo's own tests does not count (pytest is not matched).
 [[graders]]
 name = "sketch-was-run"
-type = "regex"
-pattern = "sketch|scratch|script|скрипт"
-flags = "i"
+type = "tool_called"
+tool = "^Bash$"
+input = "\\b(python3?|node|bun)\\b(\\s+-[A-Za-z]+)*\\s+(-c\\b|-e\\b|-?\\s*<<|\\S+\\.py\\b)"

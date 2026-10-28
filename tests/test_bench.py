@@ -169,6 +169,23 @@ class Bench(Base):
         self.assertTrue(rb.tool_called({**g, "exists": False}, "s2", rb.tool_calls("s2", cfg2))[0])
         self.assertEqual(rb.tool_calls("nope", cfg), [])
 
+    def test_check_runs_sketch_grader_wants_code_run_not_a_word_or_the_repos_tests(self):
+        import relay_bench as rb
+        for name in ("check-runs-sketch", "check-runs-sketch-complete"):
+            scen = rb.load_scenario(name)
+            grader = [g for g in scen["graders"] if g["name"] == "sketch-was-run"]
+            self.assertEqual([g["type"] for g in grader], ["tool_called"], name)
+            # an inline script, a heredoc and a .py file are code run (hand-listed cases of a sketch)
+            for ran in ('python3 -I -c "import marks"', "python3 - <<'EOF'\nimport marks\nEOF", "python3 sketch.py"):
+                cfg = self.transcript("s6", ["ls"], [ran])
+                self.assertTrue(rb.grade(scen, self.tmp, "ok", "claude", "haiku", session_id="s6", config_dir=cfg)[-1]["passed"], ran)
+                shutil.rmtree(cfg)
+            # reading, the repo's own tests, and a reply that only says "script" are not
+            for read in ("cat marks.py", "python3 -m pytest -q test_marks.py"):
+                cfg = self.transcript("s7", [read])
+                self.assertFalse(rb.grade(scen, self.tmp, "I ran a script", "claude", "haiku", session_id="s7", config_dir=cfg)[-1]["passed"], read)
+                shutil.rmtree(cfg)
+
     def test_no_secret_from_the_environment_reaches_a_grader(self):
         import relay_bench as rb
         fake = "sk-fake-0123456789abcdef"

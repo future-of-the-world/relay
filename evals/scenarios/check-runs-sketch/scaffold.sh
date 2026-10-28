@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # A repo whose strip_marks() is meant to remove all 32 ASCII punctuation marks. The review finding F1 says it
-# removes only 9. Branch wt/marks holds a PARTIAL fix: the MARKS table is built from code point ranges and looks whole, but the
-# ranges skip 91-93, "[", "\\" and "]" (a reader has to work out the code points; the only new test covers none of them), so a one-line sketch of the failing case still fails.
+# removes only 11. Branch wt/marks holds a fix that READS as complete and that only running disproves: it drops every
+# character whose unicodedata category starts with "P", but 9 of the 32 ASCII marks ($ + < = > ^ ` | ~) are symbols
+# (categories Sc, Sm, Sk), not punctuation, so strip_marks(string.punctuation) still returns "$+<=>^`|~". The fixer's note
+# claims the failing case passes; its tests cover only marks that are category P. Reading the code finds nothing wrong
+# unless the reader knows the category of every mark; a one-line sketch shows it at once.
 # The workspace stays on wt/marks. The review JSON (recorded by relay itself) and the fixer's note sit in .review/ beside the repo files.
 set -euo pipefail
 G=(git -c user.name=f -c user.email=f@x)
@@ -22,24 +25,24 @@ git add -A && "${G[@]}" commit -qm "strip_marks, first version"
 BASE=$(git rev-parse HEAD)
 git checkout -q -b wt/marks
 cat > marks.py <<'PY'
-MARKS = {c: None for c in (*range(33, 91), *range(94, 127)) if not chr(c).isalnum()}
+import unicodedata
 
 
 def strip_marks(text: str) -> str:
     """Remove every ASCII punctuation mark (all 32 of string.punctuation) from text."""
-    return text.translate(MARKS)
+    return "".join(c for c in text if not unicodedata.category(c).startswith("P"))
 PY
 cat >> test_marks.py <<'PY'
 
 
-def test_underscore_and_at():
-    assert strip_marks("a_b@c") == "abc"
+def test_underscore_brackets_and_at():
+    assert strip_marks("[a]_b@c") == "abc"
 PY
 git add -A && "${G[@]}" commit -qm "Fix F1: strip_marks covers more marks"
 mkdir -p .review
 cat > .review/fix.md <<'MD'
-Fixed F1: strip_marks now takes its marks from the MARKS list.
-Tests: test_marks.py::test_underscore_and_at. Commit wt/marks.
+Fixed F1: strip_marks now drops every character Unicode classes as punctuation, so all 32 marks go.
+Tests: test_marks.py::test_underscore_brackets_and_at. The failing case, strip_marks(string.punctuation) == "", passes. Commit wt/marks.
 MD
 cat > .review/spec-1.toml <<TOML
 report = "$PWD/.review/spec-1.json"
@@ -60,16 +63,16 @@ severity = "MEDIUM"
 kind = "inside"
 summary = "strip_marks leaves most of the 32 ASCII punctuation marks in the text"
 failing_case = '''
-strip_marks(string.punctuation) returns "[]" instead of "", and strip_marks("[a]_\`b\`") keeps the brackets;
-every one of the 32 marks in string.punctuation must be removed, today only 9 are.
+strip_marks(string.punctuation) returns 21 of the 32 marks instead of "";
+every one of the 32 marks in string.punctuation must be removed, today only 11 are.
 '''
 pass_cases = '''
 1. strip_marks(string.punctuation) == "".
-2. strip_marks("[a]_\`b\`") == "ab".
+2. strip_marks("[a]_b@c") == "abc".
 3. strip_marks("a.b") == "ab" (still works).
 '''
 details = '''
-CONFIRMED: the filter in marks.py:3 lists 9 marks. Size: 5 agent minutes.
+CONFIRMED: the filter in marks.py:3 lists 11 marks. Size: 5 agent minutes.
 '''
 TOML
 relay check record review --input .review/spec-1.toml >/dev/null
