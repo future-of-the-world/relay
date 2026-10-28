@@ -97,7 +97,7 @@ class CheckContract(unittest.TestCase):
         self.assertIn("round 1 of 3", out)
         self.assertNotIn("BUDGET SPENT", out)
         log = re.search(r"log: ([^)]+)\)", out)
-        self.assertTrue(log and os.path.isfile(log.group(1)), "the log path it names exists")
+        self.assertTrue(log and os.path.isfile(os.path.join(self.P, log.group(1))), "the log path it names exists")
         rc, out = self.run_check("contract-probe", "1.2", "--failed")
         self.assertEqual(rc, 1)  # --failed is accepted
         self.assertIn("round 2 of 3", out)
