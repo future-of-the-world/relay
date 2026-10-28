@@ -1,0 +1,20 @@
+head f8b4fee713034a92ecc819faeadd13f8fe71ece1
+cmd bin/ci --quick
+wait 1319.9
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (670s, log: .ci/steps/library-tests.log)
+    ERROR: test_python_check_runs_pytest_and_goes_red_on_a_failing_test (test_template_python_gate.PythonGate.test_python_check_runs_pytest_and_goes_red_on_a_failing_test)
+    ModuleNotFoundError: No module named 'pytest'
+    ERROR: test_python_ci_runs_pytest_and_is_green_on_a_passing_test (test_template_python_gate.PythonGate.test_python_ci_runs_pytest_and_is_green_on_a_passing_test)
+    ModuleNotFoundError: No module named 'pytest'
+    ERROR: test_unfilled_placeholder_fails_check_and_says_what_to_fill_in (test_template_python_gate.PythonGate.test_unfilled_placeholder_fails_check_and_says_what_to_fill_in)
+    ModuleNotFoundError: No module named 'pytest'
+    ERROR: test_unfilled_placeholder_fails_ci (test_template_python_gate.PythonGate.test_unfilled_placeholder_fails_ci)
+    ModuleNotFoundError: No module named 'pytest'
+ci: hook tests ok (249s)
+ci: eval grader tests ok (2s)
+ci: plugin validate ok (4s)
+ci: inert ok (2s)
+ci: RED
+exit 1
