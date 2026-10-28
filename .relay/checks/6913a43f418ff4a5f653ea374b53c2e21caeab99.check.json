@@ -1,0 +1,139 @@
+{
+  "branch": "wt/four-eval-cases-carry-hand-copies-of-the",
+  "findings": [
+    {
+      "details": [
+        "Outside finding of the no-numbers change (28 Oct): four eval cases run under an old, hand-copied rule text that the generator does not build, so they test rules relay no longer has. Principle 3: a copy that can be built is not stored by hand."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "evals/plugin/keep-owner-words, keep-owner-words-en, no-note-off-topic, recall-decision prompt.md hold an",
+        "append_system_prompt that system_rules.CASES does not build; it already differed from the built text on master",
+        "(10435 vs 11249 chars) and still says \"numbered questions\" / \"numbered choices\". These sessions run under an older rule set."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 41,
+      "pass_cases": [
+        "1. Each of the four cases is in system_rules.CASES and test_every_case_carries_the_text_built_from_the_rule_files covers it.",
+        "2. Their prompts no longer contain \"numbered questions\"."
+      ],
+      "path": "evals/plugin/system_rules.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_system_rules.py test_the_recall_and_note_cases_are_built_not_hand_copied fails at the Q1 since commit and passes at head."
+      ],
+      "severity": "HIGH",
+      "since": "911290b437b9bf4178b77bf223a3d27d47366dd9",
+      "source": "queue",
+      "summary": "Four eval cases carry hand copies of the rules, outside\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the new test hard-codes the four names; the coverage test loops over CASES only. The four cases drifted",
+        "exactly this way (a hand copy outside CASES), so Principle 6 (cause, not symptom) suggests a guard over the folder rather than",
+        "over the four names. Correct today, fragile: LOW. Size 5 minutes."
+      ],
+      "evidence": [
+        "grep -l append_system_prompt evals/plugin/*/prompt.md -> 8 files, all 8 now in CASES.",
+        "tests/test_eval_system_rules.py:21-27 loops over a fixed tuple of four names."
+      ],
+      "failing_case": [
+        "Add a new case evals/plugin/new-case/prompt.md with an append_system_prompt line copied by hand and do not list it in",
+        "system_rules.CASES. Now: every test in tests/test_eval_system_rules.py passes (they loop over CASES or a fixed list of four).",
+        "Should: a test fails naming new-case, as not built by system_rules."
+      ],
+      "fix_hint": [
+        "In the new test, scan evals/plugin/*/prompt.md with system_rules.current(case) and assert every case whose value is not None",
+        "is in system_rules.CASES."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 21,
+      "pass_cases": [
+        "1. A prompt.md under evals/plugin/*/ whose frontmatter has append_system_prompt but whose case is not in CASES -> test fails naming the case.",
+        "2. The eight cases now in CASES -> test passes.",
+        "3. The spec-step cases (no append_system_prompt, rule from the openspec hook) -> not required in CASES, test passes."
+      ],
+      "path": "tests/test_eval_system_rules.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_system_rules.py:29 passes on 8 cases; with a fake evals/plugin/zz-new holding append_system_prompt it fails (seen in base worktree)."
+      ],
+      "severity": "LOW",
+      "since": "5acfa90786dd2a22b823d9ba8afa274216ad2262",
+      "source": "review-four-eval-cases-carry-hand-copies-of-the.json",
+      "source_id": "F1",
+      "summary": "no test ties every prompt.md holding append_system_prompt to CASES, so a fifth hand copy can appear again unseen",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED, reproduced (by accident): I ran `python3 -m unittest tests.test_eval_system_rules` at 15:49; at 15:51",
+        "/Users/amidman/relay/bin/relay was modified (git status ` M bin/relay`, 107 insertions, 1047 deletions) and `cmp bin/relay",
+        "evals/plugin/relay-stub.py` reports identical. ~/.local/bin/relay -> /Users/amidman/relay/bin/relay, so the owner's relay command",
+        "is broken for every session and lane until restored. On master the scaffold test looped over only the four non-stub cases, so",
+        "this is new with this change. The gate's library tests run the same module (lib/relay_textonly.py lists it for the short gate",
+        "too), so every gate run on any branch after this merges clobbers the live command again. Breaks the project rule",
+        "\"Tests use a temporary folder and never touch the live ...\" (CLAUDE.local.md, Python) and the Secrets/Shell-independent",
+        "promise that tests do not touch the owner's home. I could not restore it: the main-checkout guard refuses `git checkout --",
+        "bin/relay` there; the front must restore it (git -C /Users/amidman/relay checkout -- bin/relay). Size 10 minutes."
+      ],
+      "evidence": [
+        "$ git -C /Users/amidman/relay status --short bin/relay  ->  M bin/relay",
+        "$ ls -la bin/relay -> -rwxr-xr-x 5710 Oct 28 15:49 bin/relay",
+        "$ cmp bin/relay evals/plugin/relay-stub.py && echo IDENTICAL_TO_STUB -> IDENTICAL_TO_STUB",
+        "$ ls -la ~/.local/bin/relay -> /Users/amidman/.local/bin/relay -> /Users/amidman/relay/bin/relay",
+        "$ relay check record review --input ... -> \"relay queue show <slug or words>\" / \"relay queue note <slug> --input <file.toml>\", exit 2",
+        "evals/plugin/setup-relay-stub.sh:6-8: mkdir -p \"$HOME/relay/bin\"; cp \"$here/relay-stub.py\" \"$HOME/relay/bin/relay\"",
+        "evals/plugin/{keep-owner-words,keep-owner-words-en,recall-decision}/scaffold.sh:6 call it."
+      ],
+      "failing_case": [
+        "python3 -m unittest tests.test_eval_system_rules on this branch (HOME=/Users/amidman). test_scaffolds_write_no_instruction_file_the_runner_would_ignore",
+        "now loops over keep-owner-words, keep-owner-words-en and recall-decision, whose scaffold.sh calls evals/plugin/setup-relay-stub.sh,",
+        "which copies relay-stub.py to \"$HOME/relay/bin/relay\". Now: /Users/amidman/relay/bin/relay (the primary checkout, symlinked from",
+        "~/.local/bin/relay) is replaced by the eval stub; every `relay check ...`, `relay gate`, `relay changed` in every session prints the",
+        "stub's usage (\"relay queue show <slug or words>\") and exits 2. Should: the test runs each scaffold with HOME set to a temporary",
+        "folder, and the live $HOME/relay/bin/relay is byte-for-byte unchanged."
+      ],
+      "fix_hint": [
+        "In test_scaffolds_write_no_instruction_file_the_runner_would_ignore pass env={**os.environ, \"HOME\": <a second TemporaryDirectory>}",
+        "to subprocess.run; optionally make setup-relay-stub.sh refuse when \"$HOME/relay/bin/relay\" is a tracked relay checkout (a git",
+        "work tree), so no other caller can repeat it. Restore the live file first."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 49,
+      "pass_cases": [
+        "1. Record sha256 of $HOME/relay/bin/relay, run python3 -m unittest tests.test_eval_system_rules -> the hash is unchanged.",
+        "2. The same test still fails when a scaffold writes CLAUDE.local.md or changes CLAUDE.md in its working folder.",
+        "3. For keep-owner-words, recall-decision: with HOME=<tmp>, the scaffold exits 0 and <tmp>/relay/bin/relay exists and equals evals/plugin/relay-stub.py.",
+        "4. it-terms-ru, design-track (no stub) -> scaffold test still passes."
+      ],
+      "path": "tests/test_eval_system_rules.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_system_rules.py:55 (stub lands in temp home, equals stub) and :64 (HOME temp in scaffold loop) pass; live bin/relay hash unchanged after the run."
+      ],
+      "severity": "HIGH",
+      "since": "5acfa90786dd2a22b823d9ba8afa274216ad2262",
+      "source": "review-four-eval-cases-carry-hand-copies-of-the.json",
+      "source_id": "F2",
+      "summary": "listing the three relay-stub cases in CASES makes the scaffold test run setup-relay-stub.sh with the real $HOME, overwriting the live relay command",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "1a5f1d49b5cdde074a7ec0cb47f8ad4e4e077aa5.gate.log",
+  "head": "6913a43f418ff4a5f653ea374b53c2e21caeab99",
+  "item": "four-eval-cases-carry-hand-copies-of-the-rules-o",
+  "notes": [
+    "F2 test (HOME temp) is a guard on the test itself; it cannot fail \"without the fix\" on old code except by clobbering the live command, so not run that way. Fixer's Outside note (live bin/relay restore): bin/relay now shows clean. Optional guard in setup-relay-stub.sh not done; fine."
+  ],
+  "schema": 2,
+  "scope": [
+    "Ran tests.test_eval_system_rules (8 OK), precheck and pytest -k eval. Gate log head 1a5f1d49 exit 0; only the gate-log commit follows. Live bin/relay hash unchanged (99a42a5ddeb7) across my runs. Throwaway worktree at Q1 since with the head test file and HOME set to a temp folder: 2 tests fail there."
+  ],
+  "type": "check"
+}

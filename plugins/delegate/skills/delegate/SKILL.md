@@ -86,7 +86,7 @@ cap counts agents inside one change. A free lane is filled with
 `relay queue start <slug> --scratch <folder>` (an item that overlaps a running
 branch's files waits; `relay queue start` refuses it unless `--despite-wait` is given, with a stated reason). While a paid run goes, lanes keep
 building; a change for which `bin/paid-cost touches <branch>` prints files waits at the landing
-until the run ends, then lands in one train.
+until the run ends, then lands through `relay land`.
 
 ## Reading a hand-back
 
@@ -117,10 +117,11 @@ call; the named copy `delegate:cycle` stays as the session first saw it). Args:
 `base` (the default branch), `relay` (true where the project has `.relay/`),
 `scratch`, and in a project without `.relay/` also `gate` (its own gate
 command); a missing one stops the run in one line. Each unit has a `kind`:
-`change`, `built`, `fix`, `recheck` (a branch or a train with `items`, one check per rider item, in order;
-its gate runner first merges the default branch itself, so no separate take is
-needed, and a conflict stops it at gate with "take conflict: <files>" for a fixer,
-then a new recheck). The script runs one
+`change`, `built`, `fix`, and in a project without `.relay/` `recheck` (its gate
+runner first merges the default branch itself and a conflict stops it at gate with
+"take conflict: <files>" for a fixer, then a new recheck). In relay mode `relay land`
+takes the default branch and gates; a take conflict comes back as a `fix` unit of
+the shape `relay land` prints (findings = the branch's last review JSON, no item). The script runs one
 checker per change, as step 7 says.
 Unit fields: `name`, `wt`, `check`, `branch` (relay mode), `item` (one fix-item
 slug); `fix` also takes `fix`, `fixes`, `findings`; `recheck` takes `findings` or
@@ -201,25 +202,14 @@ front's.
    Then run `relay check show <branch>` (a runner; it waits while the hook is
    committing) before the front commits the handover, so the branch carries
    the state it was merged in and the commit does not meet the hook's lock.
-8. **Take the default branch.** When the default branch has moved (the merge
-   says "behind"), a runner runs `git -C <wt> merge --no-edit <default>`: a
-   merge commit, never `git rebase` (a rebase gives every commit a new sha, and
-   the mark names the old one). When code came in, run `relay gate` again. If
-   `relay changed --own -C <wt> <checked sha>` lists a file (a conflict, or a
-   file both sides changed that git combined), that change is a fix: the
-   checker's `relay check findings` lists it as `M<n>` (one for each such file), so nothing is written
-   by hand; a fixer resolves a conflict first (none for a clean combination, `Fixes: none`; the owner is asked only if the fixer stops on a conflict it could not resolve); then
-   `relay gate`, then the checker. Files that only the default branch changed need no new check.
-   When several ready changes wait, take the default branch only into the change
-   that merges next, or build a train (the front skill says who rides): a runner
-   adds the worktree `.worktrees/train-<n>` on branch `wt/train-<n>` from the
-   default branch, runs `git -C <train> merge --no-ff --no-edit wt/<change>`
-   once for each rider (a conflict: `git merge --abort`, and that change merges
-   alone after the train), then `relay gate -- --quick` in the train. `relay
-   changed --own <base> -C <train>` (the train's merge-base with the default
-   branch) lists the files both riders changed; with none, the train needs no
-   check (each rider's own check covers its files); with some, start a merge
-   check (Prompts).
+8. **Take the default branch.** The front's `relay land` takes it (a merge
+   commit, never `git rebase`: a rebase gives every commit a new sha, and the mark
+   names the old one), runs `relay gate` on the result and fast-forwards on
+   green; no agent re-checks a clean take. A conflict comes back as a fix unit of
+   the shape `relay land` prints: a fixer resolves it (`Fixes:` names the resolved
+   files), then `relay gate`, then the checker, whose `relay check findings` lists
+   exactly the resolved files as `M<n>`; then `relay land` again. Files that only
+   the default branch changed, and files git combined by itself, need no new check.
 9. **To the owner.** What is NOT MET, new, Disputed, Gap or Outside comes as a
    list of questions, each with its bold title, and a recommendation. Another fix runs on the owner's word
    and is checked the same way (a fix, a gate, a check). Every change that
@@ -264,16 +254,6 @@ Prompts:
 > Review the change. Range: `<base>...HEAD` in `<worktree>`. Report: `<path>.json`.
 
 > Check: `<findings file>`. Fixes: `<fixer report>`. Worktree: `<path>`. Check command: `<cmd>`. Gate: `<log>`. Report: `<path>.json`.
-
-> Merge check: `<train worktree>`. Findings: `relay check findings -C <train>` (M only, no review). Gate: `<train gate log>`. Report: `<path>.json`.
-
-> Merge check of a rider's item: `<train worktree>`. Item: `<slug>`. Review: `<review of the stale rider's late files>`. Findings: `relay check findings -C <train> --item <slug> --review <review>`. Gate: `<train gate log>`. Report: `<path>.json`.
-
-A train with stale riders that closed several fix items needs one such check per item, one after the other (input `item = "<slug>"`).
-
-The merge check is a check with `review = []` in its input; `relay` allows it only
-on a branch that holds ready changes (a train). It gives a verdict for each
-combined file and no other finding.
 
 This check prompt is the one line, never `Brief: <file>`. Under `relay gate`,
 `Gate:` is `<worktree>/.relay/checks/<G>.gate.log`.

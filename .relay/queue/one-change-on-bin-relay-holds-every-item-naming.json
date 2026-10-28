@@ -1,0 +1,51 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 45,
+  "found_at": "2026-10-28T08:40:10Z",
+  "found_in": "relay queue add",
+  "title": "One change on bin/relay holds every item naming it",
+  "what": [
+    "Measure from git 24-28 Oct how often two branches both changing bin/relay (and other files named by many items) conflicted at take or train; from that, a short fixed list of hub files that the start filter ignores (principle 5: a fact goes to a fixed list), kept in one place the filter and its test read."
+  ],
+  "why": [
+    "28 Oct ~08:45 UTC, right after the start filter fix landed: relay-land took bin/relay, and the next two items in queue order waited ('waits for bin/relay (same file as relay-land...)'); 15 open items name bin/relay in `where`, and relay-land is a 3h feature. bin/relay is the command dispatcher: each item adds or edits its own subcommand, and git merges such edits cleanly almost always. The design for grouping (28 Oct, revision 2) measured that `where` catches 31 % of real overlaps only with such hub files left out; the start filter has no hub list, so a hub serializes the queue. Not measured: how many bin/relay merges conflicted 24-28 Oct."
+  ],
+  "failing_case": [
+    "Open items a (where bin/relay, lib/relay_x.py) and b (where bin/relay, lib/relay_y.py), a taken: b waits for bin/relay."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same: b is picked.",
+    "Two items sharing a non-hub file still wait for each other.",
+    "The measurement and the hub list's reason are in the item notes."
+  ],
+  "where": [
+    "plugins/front/lib/relay_lanes.py (the start filter)",
+    "tests/test_lanes_state.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-28T12:43:50Z",
+  "dropped_why": [
+    "replaced by each-relay-subcommand-lives-in-its-own-module (owner, 28 Oct: \"каждая подкоманда может и должна жить в своем модуле\"), which removes the shared file instead of serialising changes on it"
+  ],
+  "notes": [
+    {
+      "at": "2026-10-28T09:19:25Z",
+      "said": [
+        "По поводу отбора - мы должны минимизировать количество подобных файлов которые необходимо редактировать каждое изменение, это тормозит разработку, в проекте уже были изменения нацеленные на уменьшение размера файлов",
+        "",
+        "В чем причина сейчас, почему у нас есть 15 задач которые блокирует отбор, какой файл является бутылочным горлышком - как мы можем его разбить"
+      ]
+    },
+    {
+      "at": "2026-10-28T09:19:26Z",
+      "fact": [
+        "28 Oct ~09:30 UTC, open items (88) naming a file in `where`: bin/relay 14 (1079 lines, 33 command handlers in one file), lib/relay_queue.py 10 (2040 lines), lib/relay_setup.py 9 (1456 lines), bin/ci 8, plugins/delegate/workflows/cycle.js 8 (291 lines), plugins/core/hooks/guard-main.sh 5, front SKILL.md 4, lib/relay_marks.py 4, lib/relay_gate.py 4, lib/relay_verdict.py 4, lib/relay_rules.py 4. Owner's direction: remove the cause (split the files every change has to edit), not only teach the start filter to ignore them; sent to the design track."
+      ]
+    }
+  ]
+}

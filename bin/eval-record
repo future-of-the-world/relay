@@ -132,7 +132,7 @@ def report(data, record_path, earlier=()):
                     name = g["name"]
                     if name in RULE_FLAGS:
                         m = re.search(r"called (\d+)x", g.get("explanation", ""))
-                        if m and int(m.group(1)) > 0:
+                        if m and int(m.group(1)) > 0 and g.get("passed") is not False:   # a failed one is already a FAIL line
                             flagged.setdefault(n, []).append(name.rsplit("-", 1)[1].capitalize())
                     if name not in llm:
                         if g.get("passed") is False:   # a failed code (regex) grader fails the run

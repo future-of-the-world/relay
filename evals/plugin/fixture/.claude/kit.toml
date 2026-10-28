@@ -5,6 +5,10 @@ default_branch = "master"
 worktrees = ".worktrees"
 stack_skills = []
 
+[front]
+# No eval case is about lanes: the end-of-turn lanes reminder stays off so the graders read the real answer, not a second short reply.
+stop_nudge = 0
+
 [gate]
 wt = "bin/wt"
 check = "bin/check"

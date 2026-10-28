@@ -38,10 +38,10 @@
   "where": [
     "lib/relay_marks.py:260"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-28T09:18:35Z",
+  "taken_by": "wt/relay-check-show-reports-a-mark-that-lan",
+  "closed_at": "2026-10-28T10:46:29Z",
+  "test": "tests/test_merge_train.py::RefusalsNameTheSteps::test_show_ignores_a_mark_that_landed_on_the_default_branch",
   "dropped_at": null,
   "dropped_why": null
 }

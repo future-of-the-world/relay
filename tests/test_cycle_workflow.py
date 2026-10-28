@@ -174,40 +174,44 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([fix]))
         self.assertEqual(out["labels"], ["fix: x", "gate 1: x", "check: x", "close queue item: x", "check show: x"])
         self.assertTrue(out["prompts"]["fix: x"].startswith("Fix it."))  # then the quiet check (F1)
-        rider = self.unit(kind="recheck", items=[{"slug": "a", "review": "ra.json"}, {"slug": "b", "review": "rb.json"}])
-        out = self.run_cycle(self.args([rider]))
-        self.assertEqual(out["labels"], ["gate 1: x", "check item 1: x", "check item 2: x", "check show: x"])
-        self.assertIn("--item a --review ra.json", out["prompts"]["check item 1: x"])
-        self.assertIn("--item b --review rb.json", out["prompts"]["check item 2: x"])
-        order = [(e["event"], e["label"]) for e in out["events"] if e["label"].startswith("check item")]
-        self.assertEqual(order, [("start", "check item 1: x"), ("end", "check item 1: x"), ("start", "check item 2: x"), ("end", "check item 2: x")])
 
-    def test_recheck_stops_at_the_first_open_item_check(self):
-        rider = self.unit(kind="recheck", items=[{"slug": "a", "review": "ra.json"}, {"slug": "b", "review": "rb.json"}])
-        out = self.run_cycle(self.args([rider]), **{"check item 1: x": {"open": 1, "fail_without_fix": "no", "summary": "open 1"}})
-        self.assertEqual(out["labels"], ["gate 1: x", "check item 1: x"])
-        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "check item")
+    def test_recheck_with_findings_is_one_plain_check_in_project_mode(self):
+        """Project mode (no .relay/, so no `relay land`) keeps the recheck kind: take, gate, one check."""
+        out = self.run_cycle(self.args([self.unit(kind="recheck", findings="relay check findings -C t", branch=None)], relay=False))
+        self.assertEqual(out["labels"], ["gate 1: x", "check: x"])
 
-    def test_recheck_one_item_names_it_and_no_items_gives_one_plain_check(self):
-        out = self.run_cycle(self.args([self.unit(kind="recheck", items=[{"slug": "a", "review": "ra.json"}])]))
-        self.assertEqual(out["labels"], ["gate 1: x", "check item 1: x", "check show: x"])
-        self.assertIn("--item a", out["prompts"]["check item 1: x"])
-        out = self.run_cycle(self.args([self.unit(kind="recheck", findings="relay check findings -C t")]))
-        self.assertEqual(out["labels"], ["gate 1: x", "check: x", "check show: x"])
+    def test_cycle_recheck_refused_in_relay_mode(self):
+        """Design relay-land 4.5: relay land takes the base and gates, so a recheck is refused with the exact shape of the
+        fix unit a take conflict becomes (kind fix, findings = the branch's last review JSON, no item). Disabled rule: the
+        old train path would start a gate agent."""
+        out = self.run_cycle(self.args([self.unit(kind="recheck", findings="f")]))
+        self.assertEqual(out["labels"], [])
+        refused = out["result"]["refused"]
+        for words in ("relay land", "kind fix", "findings = the branch's last review JSON", "no item"):
+            self.assertIn(words, refused)
+        self.assertNotIn("\n", refused)
+
+    def test_cycle_never_prompts_land(self):
+        """Only the front starts `relay land`: no prompt any kind of unit sends an agent names it."""
+        units = [self.unit(item="i"), self.unit(name="b", kind="built", built="by hand"),
+                 self.unit(name="f", kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="j")]
+        out = self.run_cycle(self.args(units, designs=[{"name": "d", "brief": "b.md", "out": "d.md"}]), **{"stage:review": INSIDE})
+        self.assertGreater(len(out["prompts"]), 10)
+        for label, prompt in out["prompts"].items():
+            self.assertNotIn("relay land", prompt, label)
 
     def test_recheck_gate_takes_the_base_first_and_a_conflict_stops_without_a_fix_round(self):
         """The queue item's pass cases: a recheck gate prompt starts with a merge of the base (relay and project mode); other
         kinds do not; a reported take conflict stops at gate with no fixer. Disabled rule (no takePrompt): no merge text."""
         merge = "git -C %s merge --no-edit master" % self.wt
-        for relay in (True, False):
-            unit = self.unit(kind="recheck", findings="f", branch="wt/x" if relay else None)
-            out = self.run_cycle(self.args([unit], relay=relay))
-            self.assertTrue(out["prompts"]["gate 1: x"].startswith("First take the base"), relay)
-            self.assertIn(merge, out["prompts"]["gate 1: x"])
+        unit = self.unit(kind="recheck", findings="f", branch=None)
+        out = self.run_cycle(self.args([unit], relay=False))
+        self.assertTrue(out["prompts"]["gate 1: x"].startswith("First take the base"))
+        self.assertIn(merge, out["prompts"]["gate 1: x"])
         out = self.run_cycle(self.args([self.unit(item="i")]))
         self.assertNotIn("merge --no-edit", out["prompts"]["gate 1: x"])
         conflict = {"ok": False, "gate_log": "", "first_fail": "take conflict: a.py"}
-        out = self.run_cycle(self.args([self.unit(kind="recheck", findings="f")]), **{"stage:gate": conflict})
+        out = self.run_cycle(self.args([self.unit(kind="recheck", findings="f", branch=None)], relay=False), **{"stage:gate": conflict})
         self.assertEqual(out["labels"], ["gate 1: x"])
         self.assertEqual(out["result"]["changes"][0]["stopped_at"], "gate")
 
@@ -233,7 +237,7 @@ class Cycle(unittest.TestCase):
         scenarios = [
             (self.args([self.unit(item="i")]), {"stage:review": INSIDE, "stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}}),
             (self.args([self.unit(kind="fix", fix="f", fixes="f.md", findings="r.json", item="i")]), {"stage:check": dict(GREEN["stage:check"], open=2)}),
-            (self.args([self.unit(kind="recheck", items=[{"slug": "a", "review": "r"}])]), {}),
+            (self.args([self.unit(kind="recheck", findings="f", branch=None)], relay=False), {}),
             (self.args([self.unit(kind="built", built="b")]), {"stage:review": dict(GREEN["stage:review"], remaining=True)}),
             (self.args([self.unit()], designs=[{"name": "d", "brief": "b.md", "out": "d.md"}]), {"stage:build": None}),
             (self.args([self.unit()]), {"stage:gate": None}),
@@ -299,14 +303,12 @@ class Cycle(unittest.TestCase):
 
     def test_every_relay_command_the_prompts_name_still_parses(self):
         """Rendered from the script's own defaults (no gate_args). The two removed forms are the regression cases."""
-        units = [self.unit(item="the-item"), self.unit(name="y", kind="fix", fix="f", fixes="f.md", findings="r.json", item="j"),
-                 self.unit(name="z", kind="recheck", items=[{"slug": "a", "review": "ra.json"}])]
+        units = [self.unit(item="the-item"), self.unit(name="y", kind="fix", fix="f", fixes="f.md", findings="r.json", item="j")]
         out = self.run_cycle(self.args(units, designs=[{"name": "d", "brief": "b.md", "out": os.path.join(self.tmp, "d.md")}]),
                              **{"stage:review": INSIDE})
         commands = self.relay_commands(out["prompts"].values())
         self.assertTrue(any(c.startswith("relay gate -C") and c.endswith("-- --quick") for c in commands))
         self.assertTrue(any(c.startswith("relay queue done") for c in commands))
-        self.assertTrue(any(c.startswith("relay check findings") for c in commands))
         self.assertTrue(any(c.startswith("relay check show") for c in commands))
         self.assertEqual(self.bad_commands(commands), [])
         removed = [f"relay queue done s -C {self.wt} --check x.json", f"relay gate -C {self.wt} --quick"]
@@ -326,9 +328,8 @@ class Cycle(unittest.TestCase):
     # 10
     def test_check_and_design_review_prompts_keep_the_report_label_the_hook_reads(self):
         mod = load_hook("check_mark", os.path.join(ROOT, "plugins", "relay", "hooks", "check-mark.py"))
-        units = [self.unit(), self.unit(name="z", kind="recheck", items=[{"slug": "a", "review": "ra.json"}])]
-        out = self.run_cycle(self.args(units, designs=[{"name": "d", "brief": "b.md", "out": "d.md"}]))
-        for label in ("check: x", "check item 1: z", "design review: d"):
+        out = self.run_cycle(self.args([self.unit()], designs=[{"name": "d", "brief": "b.md", "out": "d.md"}]))
+        for label in ("check: x", "design review: d"):
             found = mod.report_label(out["prompts"][label])
             self.assertTrue(found and found.endswith(".json"), f"{label}: {found}")
 
@@ -341,7 +342,7 @@ class Cycle(unittest.TestCase):
             self.assertNotIn(word, text)
         for relay in (True, False):
             units = [self.unit(**({"item": "i"} if relay else {})), self.unit(name="y", kind="fix", fix="f", fixes="f.md", findings="r.json"),
-                      self.unit(name="z", kind="recheck", items=[{"slug": "a", "review": "ra.json"}]), self.unit(name="w", kind="built", built="b")]
+                      self.unit(name="w", kind="built", built="b")] + ([] if relay else [self.unit(name="z", kind="recheck", findings="f", branch=None)])
             out = self.run_cycle(self.args(units, relay=relay, base="main", designs=[{"name": "d", "brief": "b.md", "out": "d.md"}]),
                                  **{"stage:review": INSIDE, "stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}})
             self.assertTrue(len(out["prompts"]) > 10)
@@ -407,7 +408,7 @@ class Cycle(unittest.TestCase):
         self.assertEqual(self.fixes_of(out), f"{w} and {self.scratch}/reports/fixgate-x-1.md")   # case 3
         out = self.run_cycle(self.args([self.unit(kind="fix", fix="f", fixes="F.md", findings="r.json")]))
         self.assertEqual(self.fixes_of(out), "F.md")                                   # case 4
-        out = self.run_cycle(self.args([self.unit(kind="recheck", findings="r.json")]))
+        out = self.run_cycle(self.args([self.unit(kind="recheck", findings="r.json", branch=None)], relay=False))
         self.assertEqual(self.fixes_of(out), "none")                                   # case 5
         out = self.run_cycle(self.args([self.unit(kind="built", built="b")]))
         self.assertEqual(self.fixes_of(out), "none")                                   # built: no worker report

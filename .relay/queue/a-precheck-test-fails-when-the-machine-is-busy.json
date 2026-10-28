@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 97,
+  "time": 45,
+  "found_at": "2026-10-28T15:11:25Z",
+  "found_in": "relay queue add",
+  "title": "A precheck test fails when the machine is busy",
+  "what": [
+    "The test proves the registry message is not hidden by a slow changed test without depending on wall-clock speed: a fake clock or an injected budget, never a real 3 s limit. Then max(20, ceil(3/p)) clean runs under load prove it."
+  ],
+  "why": [
+    "28 Oct: tests/test_precheck.py::test_a_slow_changed_test_does_not_hide_the_registry_message (landed 28 Oct 10:06 in cae100fb) gives the registry-only test group a 3 s wall-clock budget. With several gates and agents running, that group timed out and turned the queue-time branch's gate red (the probe's library tests took 906 s). The test passed 3 of 3 runs alone at about 4 s each. Neither the test nor lib/relay_precheck.py was in that branch's diff."
+  ],
+  "failing_case": [
+    "Run tests/test_precheck.py while 2 gates and 4 agents run: test_a_slow_changed_test_does_not_hide_the_registry_message times out on the 3 s group budget."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "20 clean runs of the test with `stress`-like CPU load (e.g. 6 busy python loops).",
+    "With the registry-first order removed, the test still fails (it guards the fix, not the clock)."
+  ],
+  "where": [
+    "tests/test_precheck.py:293",
+    "lib/relay_precheck.py"
+  ],
+  "taken_at": "2026-10-28T15:23:10Z",
+  "taken_by": "wt/a-precheck-test-fails-when-the-machine-i",
+  "closed_at": "2026-10-28T16:34:34Z",
+  "test": "tests/test_precheck.py::TestChangedTests::test_a_slow_changed_test_does_not_hide_the_registry_message",
+  "dropped_at": null,
+  "dropped_why": null
+}

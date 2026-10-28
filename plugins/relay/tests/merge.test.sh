@@ -353,7 +353,7 @@ expect "T15g control with .relay/: refused" "$(refused 'no check mark'; echo $?)
 # (h) M-A: a queue commit lands on master; behind, then taken, then allowed
 m15; green; echo q >"$M/.relay/queue/y.md"; git -C "$M" add -A; git -C "$M" commit -q -m "queue y"
 pre "$MERGE"
-expect "T15h behind master by 1 commit: refused" "$(refused 'wt/t is behind master by 1 commit; take master first: git -C .worktrees/t merge --no-edit master'; echo $?)"
+expect "T15h behind master by 1 commit: refused" "$(refused 'wt/t is behind master by 1 commit; run relay land wt/t: it takes master, gates the result and lands it (one landing at a time)'; echo $?)"
 git -C "$W" merge -q --no-edit master; pre "$MERGE"
 expect "T15h after taking master: allowed" "$(allowed; echo $?)"
 expect "T15h and the real fast-forward succeeds" "$(git -C "$M" merge -q --ff-only wt/t; echo $?)"
@@ -373,7 +373,8 @@ expect "T15j reverted checked fix: refused, changed lib/a.py" "$(refused 'change
 m15; commit "fix a and x" "lib/a.py=v2\n" "bin/x=1a\n2\n3\n4\n5\n6\n"; BEFORE="$(head_of)"; X="$BEFORE"; gate 0; mark 0
 printf '1\n2\n3\n4\n5\n6a\n' >"$M/bin/x"; git -C "$M" commit -q -am "x end"; git -C "$W" merge -q --no-edit master
 pre "$MERGE"
-expect "T15k combined file: refused, changed bin/x" "$(refused 'changed bin/x'; echo $?)"
+# a clean take git did by itself needs no new check (relay land design 4.2), only a new gate: the stale gate refuses, naming bin/x
+expect "T15k combined file: no new check, refused for the stale gate, names bin/x" "$(refused 'code changed since: bin/x'; echo $?)"
 cat >"$S/review.toml" <<EOF
 report = "$S/f.json"
 reviewed = "$BEFORE"

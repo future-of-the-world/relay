@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 import kit_guard  # noqa: E402
 import relay_git  # noqa: E402
 import relay_inert  # noqa: E402
+import relay_land  # noqa: E402
 import relay_marks  # noqa: E402
 import relay_queue  # noqa: E402
 
@@ -302,7 +303,7 @@ def step_mark(main, default, branch, ab=None):
         raise Refused("no check mark for %s (run relay gate, then delegate:checker on its head)" % branch)
     newest_list = None
     for commit in order:
-        own = relay_inert.changed(main, commit, ref, own=True, archive=True, absorbed=ab)
+        own = relay_inert.own_since_mark(main, commit, ref, ab)
         if not own:
             lost = _dropped_after(main, default, commit, ref, ab)
             if lost:
@@ -316,6 +317,11 @@ def step_mark(main, default, branch, ab=None):
         if newest_list is None:
             newest_list = (commit, own)
     commit, own = newest_list
+    for merge in relay_git.git(main, "rev-list", "--merges", "--reverse", "%s..%s" % (commit, ref), "^" + base)[1].split():
+        by_hand = [p for p in relay_inert.resolved(main, merge) if p in own]
+        if by_hand:
+            raise Refused("after the check of %s, the take %s resolved %s by hand; run relay gate, then delegate:checker" % (
+                commit, merge[:12], named(by_hand)))
     raise Refused("after the check of %s, %s changed %s, which %s not inert; run relay gate, then delegate:checker" % (
         commit, branch, named(own), "is" if len(own) == 1 else "are"))
 
@@ -342,8 +348,9 @@ def step_gate(main, branch, where):
     raise Refused("no green gate for the code at %s's head: %s; run relay gate in %s" % (branch, reason, where))
 
 
-def judge(main, default, branch):
-    """The merge gate for one merge into the default branch; raises Refused with the line to print."""
+def judge(main, default, branch, gate=True):
+    """The merge gate for one merge into the default branch; raises Refused with the line to print. `gate=False` runs steps 1-5
+    and leaves the gate step out (`relay land` asks that before it spends a gate: a refusal the gate cannot change)."""
     ref, base = "refs/heads/" + branch, "refs/heads/" + default
     if relay_git.git(main, "rev-parse", "--verify", "-q", ref)[0] != 0:
         return                                                   # no such branch: git itself will say so
@@ -351,8 +358,8 @@ def judge(main, default, branch):
     where = rel(main, tree["path"]) if tree else "its worktree"
     if relay_git.git(main, "merge-base", "--is-ancestor", base, ref)[0] != 0:                    # 1
         behind = len(commit_list(main, ["rev-list", ref + ".." + base]))
-        raise Refused("%s is behind %s by %s; take %s first: git -C %s merge --no-edit %s (then relay gate if code came in)" % (
-            branch, default, plural(behind, "commit"), default, where, default))
+        raise Refused("%s is behind %s by %s; run relay land %s: it takes %s, gates the result and lands it (one landing at a time)" % (
+            branch, default, plural(behind, "commit"), branch, default))
     ab = relay_inert.absorbed(main, ref)                                                        # the ready changes it holds
     step_queue(main, default, branch, ab)                                                       # 2
     rc, merge_base = relay_git.git(main, "merge-base", base, ref)
@@ -361,7 +368,8 @@ def judge(main, default, branch):
     if not relay_inert.changed(main, merge_base, ref):                                          # 3
         return
     step_mark(main, default, branch, ab)                                                       # 4, 5
-    step_gate(main, branch, where)                                                              # 6
+    if gate:
+        step_gate(main, branch, where)                                                          # 6
 
 
 def pre(hook):
@@ -379,6 +387,10 @@ def pre(hook):
         top = relay_git.git(directory, "rev-parse", "--show-toplevel")[1]
         if not top or os.path.realpath(top) != main or relay_git.current_branch(directory) != default:
             continue                                             # not a merge into the default branch
+        busy = relay_land.holder(main)                           # a hand merge never lands while a lander runs
+        if busy is not None:
+            print("merge refused: a landing is running (%s, pid %d): run relay land %s, it waits its turn" % (busy[1], busy[0], branch), file=sys.stderr)
+            return 2
         try:
             judge(main, default, branch)
         except Refused as exc:
@@ -592,9 +604,51 @@ def end(hook):
     return 0
 
 
+def judge_mode(argv):
+    """`merge.py judge [--before-gate] <main> <branch>` (what `relay land` runs): exit 0, or the refusal line and exit 2."""
+    before_gate = argv[:1] == ["--before-gate"]
+    rest = argv[1:] if before_gate else argv
+    if len(rest) != 2:
+        print("merge refused: usage: merge.py judge [--before-gate] <main> <branch>", file=sys.stderr)
+        return 2
+    main, branch = rest
+    default = relay_git.default_branch(main)
+    if default is None:
+        print("merge refused: cannot tell the default branch", file=sys.stderr)
+        return 2
+    try:
+        judge(main, default, branch, gate=not before_gate)
+    except Refused as exc:
+        print("merge refused: %s" % exc, file=sys.stderr)
+        return 2
+    except Exception as exc:                                     # fail closed, as `pre` does
+        print("merge refused: the gate for %s could not be judged: %s" % (branch, exc), file=sys.stderr)
+        return 2
+    return 0
+
+
+def landed_mode(argv):
+    """`merge.py landed <main> <branch>`: the cleanup the PostToolUse hook does after a hand merge, for the branch and its riders."""
+    if len(argv) != 2:
+        return 2
+    main, branch = argv
+    default = relay_git.default_branch(main)
+    if default is None:
+        return 2
+    for name in [branch] + riders(main, branch):
+        line = clean(main, default, name, {"cwd": main, "session_id": "land"})
+        if line:
+            print(line)
+    return 0
+
+
 def main():
     if len(sys.argv) == 4 and sys.argv[1] == "remove":
         return remove_child(sys.argv[2], sys.argv[3])
+    if len(sys.argv) >= 2 and sys.argv[1] == "judge":
+        return judge_mode(sys.argv[2:])
+    if len(sys.argv) >= 2 and sys.argv[1] == "landed":
+        return landed_mode(sys.argv[2:])
     try:
         hook = json.loads(sys.stdin.read() or "{}")
     except ValueError:
