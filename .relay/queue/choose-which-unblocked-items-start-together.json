@@ -1,6 +1,6 @@
 {
   "kind": "feature",
-  "ip": 84,
+  "ip": 96,
   "time": 60,
   "found_at": "2026-10-24T18:39:48Z",
   "found_in": "relay queue add",
@@ -20,8 +20,8 @@
   "where": [
     ".relay/queue/choose-which-unblocked-items-start-together.json to be designed (design track first): the front skill, the change-cycle workflow, possibly a queue view"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T03:38:56Z",
+  "taken_by": "wt/autostart",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
@@ -49,6 +49,97 @@
       "at": "2026-10-28T02:47:27Z",
       "fact": [
         "28 Oct, about 03:00 UTC: the front queued two fixes (evidence-refusal-asks-for-a-merge-an-ff-landing, a-note-answering-question-2-prints-answer-to-1) with IP 0 and started neither, while 5 of the 6 lanes (projects.toml lanes = 6) were busy. Nothing in relay starts an item when a lane is free: cycle.js runs only the units the front hands it, and no hook or rule tells the front to fill a free lane. The same session also found gates-run-all-at-once-and-slow-each-other-down still open a day after its change landed (closed now with --fixed-by 68e5b21)."
+      ]
+    },
+    {
+      "asked_at": "2026-10-28T02:48:22Z",
+      "question": [
+        "**Начать ли сейчас дизайн автоматического запуска задач?**",
+        "",
+        "Сейчас задачу запускаю только я, вручную и когда вспомню. Автоматический запуск: при каждом вашем сообщении и после каждой посадки relay сам пишет мне «свободно мест: N, верхние незанятые задачи: …», а сценарий цикла берёт их без моего решения. Самое трудное: не запускать вместе задачи, которые правят одни и те же файлы, иначе цена — conflict и повторные gate. Сегодня три из пяти параллельных изменений трогают один файл настройки проектов.",
+        "",
+        "| | когда | что даёт | цена |",
+        "|---|---|---|---|",
+        "| a. дизайн сейчас | thinker и critic параллельно с остальным | напоминания не нужны | дизайн, не измерено |",
+        "| b. в порядке очереди | после задач с приоритетом выше 84 | пока ничего | 0 сейчас |"
+      ],
+      "options": [
+        "a. Поднять приоритет до 96 и начать дизайн сейчас (рекомендую)",
+        "b. Оставить в порядке очереди"
+      ],
+      "answered_at": "2026-10-28T02:48:23Z",
+      "answer": [
+        "a, начинай дизайн сейчас"
+      ],
+      "reading": [
+        "a: IP 96, the design starts now on the design track (thinker, then critic). The question was shown before it was recorded; recorded right after (front's slip)."
+      ]
+    },
+    {
+      "asked_at": "2026-10-28T03:13:58Z",
+      "question": [
+        "**Как relay добивается, чтобы свободный lane не простаивал**",
+        "",
+        "Lane — это одно изменение, которое строится в своём worktree своим запуском cycle workflow; у relay их сейчас 6. Правило",
+        "«когда lane освободился, сразу запусти следующую задачу» записано только текстом в инструкции front, и ничто не",
+        "срабатывает в момент, когда lane освобождается. Измерено за 24-28 Oct: после освобождения следующая задача стартует в",
+        "среднем (медиана) через 16 минут, 13 раз из 86 через час и больше; вы напоминали 6 раз. Из этих 6 раз 3 были против",
+        "сознательного решения front строить переименование в одиночку, и ни один вариант ниже этого не меняет: это решает вопрос",
+        "«вместо избегания чинить» из соседнего дизайна. Во всех вариантах relay сам считает по git и очереди, сколько lane занято,",
+        "и сам готовит brief для задачи. Stop hook — проверка, которая срабатывает, когда front собирается закончить ответ: она",
+        "один раз не даёт закончить, пока front не запустил задачи или не написал, почему держит lane. Landing — это",
+        "fast-forward default branch на готовый branch.",
+        "",
+        "| | кто запускает | если front занят или забыл | цена в день | сборка |",
+        "|---|---|---|---|---|",
+        "| a | front, по строке «занято 4 из 6, запустить: ...» каждый ход и после каждого landing, плюс один отказ Stop hook | его остановят один раз, пока он не запустит или не назовёт причину | около $1 | около 135 мин агентов |",
+        "| b | front, по той же строке, без отказа | строка видна, но её можно пропустить, как сейчас правило | меньше $0.01 | около 115 мин |",
+        "| c | cycle workflow сам, без front | не зависит от front, но умирает вместе с сессией, и остановить уже взятую задачу нечем | меньше $0.5 | 120-180 мин, не измерено |"
+      ],
+      "options": [
+        "a. Строка плюс один отказ Stop hook (рекомендую)",
+        "b. Только строка",
+        "c. Cycle workflow запускает сам"
+      ],
+      "answered_at": "2026-10-28T03:25:08Z",
+      "answer": [
+        "a a"
+      ],
+      "reading": [
+        "Free lanes: a, a lanes line each owner turn and after each landing plus one Stop hook refusal. Which items start together: a, skip an item whose where files a running branch has already changed, and say why in the line. Asked after the front explained both mechanisms (counter from git and the queue, hook line, Stop hook; the filter compares where files with running branches' changed files at start time; conflict repair 1-12 min but 15-30 min with the gate and check after it)."
+      ]
+    },
+    {
+      "asked_at": "2026-10-28T03:13:59Z",
+      "question": [
+        "**Какие задачи запускать вместе: пропускать ли задачу, чьи файлы уже правит соседний lane**",
+        "",
+        "Задача берётся по порядку очереди (сначала fix, потом по IP). Вопрос в том, пропускать ли задачу, если её строка `where`",
+        "называет файл, который уже запущенный branch успел изменить к моменту старта. Пропущенная задача ждёт, а lane сразу берёт",
+        "следующую по порядку, поэтому lane не простаивает (незанятых задач 82); задача стартует, когда мешающий branch дойдёт до",
+        "landing (медиана branch 2 часа). Измерено на 116 парах изменений, шедших одновременно: 28 правили общий файл; такой фильтр",
+        "поймал бы 11 из 28 и 5 раз отложил бы задачу зря. Conflict случается в 5.6 % merge и чинится за 1-12 минут агента, дороже",
+        "повторная проверка после него (до 68 минут агентов). Сколько conflict фильтр предотвратил бы: оценка около 1 в день, не",
+        "измерено. Ваши слова расходятся: 25 Oct «планировщик ... механизмом предотвращения конфликтов при слиянии изменений» и",
+        "выбор «a» 26 Oct по задаче «два branch незаметно начинают один файл» говорят за фильтр; 28 Oct «Вместо избегания -",
+        "придумай как минизировать ущерб от появления» говорит против. Мой прежний совет «без фильтра» опирался на слабую цифру",
+        "(5 из 28); новое измерение его изменило.",
+        "",
+        "| | пойманные пересечения | задачи, отложенные зря | простой lane | задача «два branch незаметно начинают один файл» |",
+        "|---|---|---|---|---|",
+        "| a | 11 из 28 | 5 из 116 пар | нет | встраивается в запуск задачи и закрывается |",
+        "| b | 0 из 28, только предупреждение в brief | 0 | нет | та же проверка, но только предупреждает; закрывается |"
+      ],
+      "options": [
+        "a. Пропускать задачу, если её файл уже правит запущенный branch, и писать в строке почему (рекомендую)",
+        "b. Брать по порядку очереди без пропуска; файлы соседних lane только как предупреждение в brief"
+      ],
+      "answered_at": "2026-10-28T03:25:08Z",
+      "answer": [
+        "a a"
+      ],
+      "reading": [
+        "Free lanes: a, a lanes line each owner turn and after each landing plus one Stop hook refusal. Which items start together: a, skip an item whose where files a running branch has already changed, and say why in the line. Asked after the front explained both mechanisms (counter from git and the queue, hook line, Stop hook; the filter compares where files with running branches' changed files at start time; conflict repair 1-12 min but 15-30 min with the gate and check after it)."
       ]
     }
   ]

@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-28T02:05:39Z",
   "taken_by": "wt/core-leftover",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T03:10:39Z",
+  "test": "tests/test_installer_doctor.py::LeftoverPluginFolder::test_git_ignores_node_modules_at_any_depth",
   "dropped_at": null,
   "dropped_why": null
 }

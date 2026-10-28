@@ -1,6 +1,7 @@
 """relay's plugins are X@amidman, the core plugin is `relay`, and relay's own repo turns its plugins on (28 Oct rename)."""
 import json
 import os
+import subprocess
 import unittest
 
 from relay_testbase import Base, ROOT
@@ -30,7 +31,9 @@ class Layout(unittest.TestCase):
         self.assertIn('"${CLAUDE_PLUGIN_ROOT}/hooks/merge.sh"', commands)
         self.assertTrue(os.access(os.path.join(ROOT, "plugins", "relay", "hooks", "merge.sh"), os.X_OK))
         self.assertTrue(os.path.isfile(os.path.join(ROOT, "plugins", "relay", "hooks", "merge.py")))
-        self.assertFalse(os.path.exists(os.path.join(ROOT, "plugins", "core")))
+        # git ships no plugins/core; ignored leftovers (__pycache__, node_modules) of an old checkout may remain on disk
+        tracked = subprocess.run(["git", "-C", ROOT, "ls-files", "--", "plugins/core"], capture_output=True, text=True, check=True)
+        self.assertEqual(tracked.stdout.strip(), "")
 
     def test_relays_own_repo_turns_on_its_plugins_and_off_the_ones_it_does_not_use(self) -> None:
         enabled = load(".claude", "settings.json")["enabledPlugins"]

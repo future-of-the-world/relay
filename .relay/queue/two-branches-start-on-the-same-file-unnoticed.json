@@ -23,8 +23,8 @@
     "lib/ (the branch list)",
     "plugins/delegate/skills/delegate/SKILL.md (when to run it)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T03:42:36Z",
+  "taken_by": "wt/autostart",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
