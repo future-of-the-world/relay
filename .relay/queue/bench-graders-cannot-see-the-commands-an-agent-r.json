@@ -24,8 +24,8 @@
     "lib/relay_ledger.py",
     "evals/scenarios/check-runs-sketch/scenario.toml (on wt/spec-met)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T06:40:32Z",
+  "taken_by": "wt/bench-tools",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
