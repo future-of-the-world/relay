@@ -94,6 +94,31 @@ class Lanes(LaneBase):
         self.assertIn("wt/y (quiet)", later.quiet)
         self.assertEqual(len(rl.lanes_state(self.main, quiet_hours=5, now=time.time() + 4 * 3600, limit=6).running), 1)
 
+    def _train(self):
+        """wt/a and wt/b with own commits, merged into the open wt/train-1; returns the train's worktree."""
+        self.seed({Q + "a.json": item("a", **taken("wt/a")), Q + "b.json": item("b", **taken("wt/b")), Q + "c.json": item("c", **taken("wt/c"))})
+        self.branch_with_commit("a", {"lib/a.py": "x\n"})
+        self.branch_with_commit("b", {"lib/b.py": "x\n"})
+        train = self.branch_with_commit("train-1", {"lib/t.py": "x\n"})
+        git(train, "merge", "-q", "--no-ff", "-m", "Merge wt/a into wt/train-1", "wt/a")
+        git(train, "merge", "-q", "--no-ff", "-m", "Merge wt/b into wt/train-1", "wt/b")
+        return train
+
+    def test_riders_of_an_open_train_are_one_lane(self):
+        # a and b are merged into the open train-1: three branches, one lane (the train). Setting 2: 1 of 2 running, one item can start.
+        self._train()
+        s = self.state(limit=2)
+        self.assertEqual([l.branch for l in s.running], ["wt/train-1"])
+        self.assertEqual(s.free, 1)
+
+    def test_rider_not_yet_in_the_train_is_its_own_lane(self):
+        # c has own commits and is in no train: it counts besides the train. Setting 2: 2 of 2, nothing free.
+        self._train()
+        self.branch_with_commit("c", {"lib/c.py": "x\n"})
+        s = self.state(limit=2)
+        self.assertEqual(sorted(l.branch for l in s.running), ["wt/c", "wt/train-1"])
+        self.assertEqual(s.free, 0)
+
     def test_trains_not_lanes(self):
         self.seed({})
         self.branch_with_commit("train-9", {"lib/t.py": "x\n"})

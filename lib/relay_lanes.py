@@ -199,6 +199,27 @@ def _waiting_question(item: dict) -> bool:
     return bool(relay_queue._waiting(relay_queue.notes_of(item)))
 
 
+def _one_lane_per_train(main: str, default: str, running: list[Lane]) -> list[Lane]:
+    """A running branch with own commits whose tip is inside another open `wt/*` branch (a train rider) is not a lane of its own:
+    the branch it was merged into is the lane (added when no item names it)."""
+    heads = [b for b in _git(main, "for-each-ref", "--format=%(refname:short)", "refs/heads/wt/")[1].split() if b]
+    kept: list[Lane] = []
+    trains: list[str] = []
+    for lane in running:
+        into = next((b for b in heads if b != lane.branch and relay_git.has_own_commits(main, lane.branch)
+                     and _is_ancestor(main, "refs/heads/" + lane.branch, "refs/heads/" + b)
+                     and not _is_ancestor(main, "refs/heads/" + b, "refs/heads/" + lane.branch)), None)
+        if into is None:
+            kept.append(lane)
+        else:
+            trains.append(into)
+    have = {lane.branch for lane in kept}
+    for train in sorted(set(trains)):
+        if train not in have and not landing(main, default, train, None)[0]:
+            kept.append(Lane(train, None))
+    return kept
+
+
 def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], now: Optional[float] = None, limit: Optional[int] = None) -> State:
     """The lanes of the project that `repo` belongs to. `now` is epoch seconds (a value the tests pass); `limit` is the lanes setting
     (read from the instruction file when None). Raises relay_queue.Refused outside a project with a queue."""
@@ -236,6 +257,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
             running.append(Lane(branch, None))
         else:
             quiet.append(f"{branch} (quiet)")
+    running = _one_lane_per_train(main, default, running)
     free = max(0, capacity - len(running))
     picks: list[Pick] = []
     waits: list[Wait] = []
