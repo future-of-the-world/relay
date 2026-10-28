@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-28T11:31:34Z",
   "taken_by": "wt/four-eval-cases-carry-hand-copies-of-the",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T12:19:56Z",
+  "test": "tests/test_eval_system_rules.py::SystemRules::test_the_recall_and_note_cases_are_built_not_hand_copied",
   "dropped_at": null,
   "dropped_why": null
 }
