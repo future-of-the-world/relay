@@ -214,7 +214,7 @@ front's.
    check (each rider's own check covers its files); with some, start a merge
    check (Prompts).
 9. **To the owner.** What is NOT MET, new, Disputed, Gap or Outside comes as a
-   numbered list with a recommendation. Another fix runs on the owner's word
+   list of questions, each with its bold title, and a recommendation. Another fix runs on the owner's word
    and is checked the same way (a fix, a gate, a check). Every change that
    will be merged gets step 4 and a verdict. When the change is ready (the front
    skill's "A change ready to merge": `open 0`, the gate green on the head, the
@@ -236,7 +236,7 @@ Where findings go:
 | wrong outside the change | a fix item: `relay queue add --from <report.json> F<n> --input <file.toml>` (the TOML holds `why` and `time`) |
 | marked `Design:` (the design itself is wrong) | stop building on that part; it stays open and goes to the owner; it counts as open until the owner's answer is kept with `relay check owner <review.json> F<n>` and the checker runs again |
 | a feature (a judge's suggestion, an out-of-scope question) | listed for the owner; it counts as open until the owner's answer is kept with `relay check owner <review.json> F<n>` (`queue = "<slug>"` after `relay queue add --input` moves it to the queue), then the checker runs again |
-| a question for the owner | the front records it on the item it decides (`relay queue note`, `question`, `options`, `number`) and asks it with its introduction; the owner's whole reply is recorded with `answer`, and also kept with `relay check owner <review.json> F<n>` (words), then the checker runs again |
+| a question for the owner | the front records it on the item it decides (`relay queue note`, `question`, `options`; no number) and asks it with its introduction; the owner's whole reply is recorded with `answer`, and also kept with `relay check owner <review.json> F<n>` (words), then the checker runs again |
 
 A measurement a design makes and the owner sees becomes a `fact` note on its item (`relay queue note`).
 

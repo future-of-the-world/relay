@@ -1,6 +1,6 @@
 ---
 name: front
-description: How the main session talks to the owner - one reply per request, plain words, numbered choices, no agent chatter, and the handover file that carries state between sessions. Load at the start of any session that coordinates work, before answering what was decided about something, and before replying to words the owner offers about a work-queue item (a wish, an explanation, a correction), which are recorded in the item.
+description: How the main session talks to the owner - one reply per request, plain words, lettered choices, no agent chatter, and the handover file that carries state between sessions. Load at the start of any session that coordinates work, before answering what was decided about something, and before replying to words the owner offers about a work-queue item (a wish, an explanation, a correction), which are recorded in the item.
 ---
 
 # The front desk
@@ -69,12 +69,13 @@ Ask only what the owner alone can decide: a trade-off, a number, a scope cut,
 what a person will see. Everything inside the principles is decided here and
 reported after.
 
-Numbered questions, lettered options, the recommendation first, and the
+A question opens with a bold title and is not numbered; options are lettered, the recommendation first, and the
 difference made visible: a number, a side-by-side, a picture; never options
 that differ only in wording. Letters are Latin a, b, c in every language; an
 answer in the owner's alphabet counts the same (Cyrillic а = a, б = b, в = c;
 a look-alike letter is read by its position in the owner's alphabet only when
-the reply is in that alphabet).
+the reply is in that alphabet). The owner may answer by the title, by a paraphrase or by a
+retelling of the question; record your reading of which question each answer is for.
 
 Every question opens with an introduction: what it is about, how the
 mechanism works, a live example from the current work, and what each answer
@@ -91,9 +92,9 @@ b. <one line>
 ```
 
 Before the question is shown, record it in the item it decides: `relay queue note <slug> --input <file.toml>` with
-`question` (the block above), `options` (the lettered lines, each starting `a. `, `b. `, ...) and `number`; paste what the command prints, so the owner
+`question` (the block above), `options` (the lettered lines, each starting `a. `, `b. `, ...); paste what the command prints, so the owner
 sees what is stored. A question about no item first adds the item (`relay queue add`). When the owner replies, record
-the whole reply with `answer` (every explanation included; `to = [1, 2]` when one reply answers two questions), your
+the whole reply with `answer` (every explanation included; `to = ["<asked time>", ...]` names the question(s) a reply answers, by the asked time the command and `relay queue show` print; without `to` the answer goes to the only waiting question; several questions asked in one reply get `at` one second apart, so each has its own asked time), your
 reading apart in `reading`. A hook names each recorded question without an answer on every owner message until it is
 recorded. Words the owner offers about an item unasked (a wish, an explanation, a correction) go in as `said`, verbatim (the
 owner's own sentence, character for character, in the language he wrote it, typos included; never translated, shortened or

@@ -770,9 +770,10 @@ relay queue note <slug> --input <file.toml>
                                          add a note to an item in any state: what the owner said, a fact, or a decision. The TOML holds ONE of
                                            said = '''the owner's words, verbatim'''
                                            fact = '''a measurement, with what and when'''
-                                           question = '''the question block as you will show it''' + options = ["a. ...", "b. ..."] + number = 1
-                                             (the command prints the block back: show the owner exactly that)
-                                           answer = '''the owner's whole reply, every explanation''' [+ to = [1, 2]] [+ reading = '''your reading''']
+                                           question = '''the question block as you will show it''' + options = ["a. ...", "b. ..."]
+                                             (the question opens with a bold title; the command prints the block back and its asked time: show the owner exactly the block)
+                                           answer = '''the owner's whole reply, every explanation''' [+ to = ["<asked time>", ...]] [+ reading = '''your reading''']
+                                             (to names the question(s) answered by the asked time `show` prints; without it the answer goes to the only waiting question)
                                          and, optional, at = "2026-10-27T01:20:00Z" (when it was said; default now). A note is only added, never edited.
 relay queue edit <slug> --input <file.toml>
                                          correct one exact fragment of an item's text, in any state. The TOML holds

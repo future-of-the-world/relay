@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 80,
+  "time": 10,
+  "found_at": "2026-10-28T02:26:46Z",
+  "found_in": "relay queue add",
+  "title": "A note answering question 2 prints answer to 1",
+  "what": [
+    "28 Oct, 02:26 UTC: an answer note with `to = [2]` on principle-lower-the-cost-of-a-failure-not-avoid printed \"noted ... (answer to 1)\". The note landed on question 2 correctly; the message prints the count of targets (lib/relay_queue.py:1692, f\"answer to {len(targets)}\"), which reads as \"answer to question 1\"."
+  ],
+  "why": [
+    "The front pastes what relay prints; a message naming the wrong question makes it believe the answer went to the wrong place (it cost one extra check today)."
+  ],
+  "failing_case": [
+    "A note with `to = [2]` prints \"(answer to 1)\"."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A note with `to = [2]` prints the question it answered, for example \"(answer to question 2: <its title>)\".",
+    "A note with `to = [1, 2]` names both questions."
+  ],
+  "where": [
+    "lib/relay_queue.py (note plan message)",
+    "plugins/relay/lib/relay_queue.py (copy)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": "2026-10-28T02:48:49Z",
+  "test": "tests/test_queue_notes.py::NoteCommand::test_an_answer_goes_to_the_question_named_by_its_time_and_the_other_keeps_waiting",
+  "fixed_by": "63b2c7d57b07e67cacf3be499da4e2424c0be797",
+  "dropped_at": null,
+  "dropped_why": null
+}

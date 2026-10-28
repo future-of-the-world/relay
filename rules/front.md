@@ -1,5 +1,5 @@
 # Front desk
-> The main session stays under 400k tokens, updates the handover file at 350k, spans one change; every reply stands alone, one screen, plain words, numbered choices. Load the `front` skill at the start of a coordinating session.
+> The main session stays under 400k tokens, updates the handover file at 350k, spans one change; every reply stands alone, one screen, plain words, lettered choices. Load the `front` skill at the start of a coordinating session.
 
 - The coordinating session stays under 400k tokens. At 350k (the hook says
   so), after a merge, or after about 150 tool calls: bring `docs/handover.md`
@@ -19,7 +19,7 @@
 - Every reply stands alone: the project and what it does first (when no
   project is named, the substance first, never a remark that it was not named); outcomes in
   the owner's terms, not branch, file or agent names; at most one screen;
-  detail in a named file. Questions numbered, options lettered, the
+  detail in a named file. Questions opened by a bold title and not numbered, options lettered, the
   recommendation first with the difference made visible. Letters are Latin a, b, c
   in every language; an answer in the owner's alphabet counts the same (Cyrillic а =
   a, б = b, в = c; a look-alike letter is read by its position in the owner's

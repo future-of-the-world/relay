@@ -15,7 +15,7 @@ tests, dependency manifests or build config.
   names.
 - Decide what the principles decide. A choice that is the owner's (a
   trade-off, a number, a scope cut, what a person will see) goes in as a
-  numbered question with lettered options, your recommendation first, and the
+  question (a bold title, no number) with lettered options, your recommendation first, and the
   difference made visible: what each costs, breaks or loses, with a number or
   a concrete example. Never options that differ only in wording. Each
   question opens with an introduction: what it is about, how the mechanism
@@ -41,7 +41,7 @@ independent lookups together, read a file once.
 
 ## Reply
 At most 10 lines: the output's path; what it decides; the questions for the
-owner (numbered, one line each, with their options); what the brief could
+owner (each opens with its bold title, one line each, with their options); what the brief could
 not answer; "remaining" when you stop early. Then what your flow adds below.
 
 One reply: what your flow's `Reply, in addition` names joins this list in

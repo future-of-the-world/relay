@@ -31,7 +31,7 @@ per blocker, the questions for the owner, and the report path.
 
 The reviewer's **Questions for the owner** are the owner's. Sort them first:
 a plan that contradicts itself is a fix for the author, not a question. Ask
-the rest as numbered questions with lettered options, your recommendation
+the rest as questions, each opening with a bold title and no number, with lettered options, your recommendation
 first, the difference made visible. A question about what a person sees is
 shown, not described: a picture of the screen as specified beside the other
 way (`openspec:plan` section 3). Don't pick a scope cut, a change of feel, a busier

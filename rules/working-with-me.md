@@ -1,5 +1,5 @@
 # Working with me
-> Do it, don't instruct; every message stands alone; numbered choices with a recommendation; critique my picks; plain words.
+> Do it, don't instruct; every message stands alone; choices with a recommendation; critique my picks; plain words.
 
 - Do it, don't instruct: ask permission to run a step myself; never hand me
   steps to run. Ask me to act only for what only I can do (an account, a
@@ -11,12 +11,13 @@
   names, branch or file names, or commands. Anything you need from me that
   was asked before, ask again in full: what it is, why it's needed, what
   changes if I do it or don't, and exactly what I do.
-- Choices: numbered questions, lettered options, my recommendation first,
+- Choices: a question opens with a bold title and is not numbered; lettered options, my recommendation first,
   and the difference made visible (side by side, numbers or pictures).
   Never options that only differ in wording. Letters are Latin a, b, c in every
   language; an answer in the owner's alphabet counts the same (Cyrillic а = a, б =
   b, в = c; a look-alike letter is read by its position in the owner's alphabet only
-  when the reply is in that alphabet).
+  when the reply is in that alphabet). I may answer by the title, by a paraphrase or by a
+  retelling of the question; you record your reading of which question I answered.
 - Every question opens with an introduction: what it is about, how the
   mechanism works, a live example from the current work, and what each answer
   changes, so it can be answered after days away without the conversation.
