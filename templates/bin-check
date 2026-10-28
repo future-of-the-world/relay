@@ -79,7 +79,7 @@ run_step() { # name cmd...
 #   run_step format   bun run format --check
 #   run_step types    bun run typecheck
 #   run_step tests    bun test ${TEST_FILES:-}
-run_step placeholder true
+{{check_steps}}
 rm -f "$fails"
 echo "passed (${elapsed} min since the first check of this task)"
 [ "$elapsed" -ge "$minutes" ] && echo "TIME BUDGET SPENT"
