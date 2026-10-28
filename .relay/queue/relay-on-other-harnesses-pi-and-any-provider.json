@@ -12,17 +12,26 @@
     "Owner, 26 Oct, verbatim: \"Пока это просто идея на будущее, до неё ещё далеко, насколько сложно будет перенести relay с claude на pi и свободный выбор провайдера, при этом унифицировав подход с дополнительной обвязкой для каждого harness (.claude, .pi and etc.)\". IP left 0 for the owner to set."
   ],
   "where": [
-    "lib/ (core vs Claude-only parts)",
-    "plugins/*/hooks (9 events, 26 registrations)",
+    "lib/relay_roles.py (core vs Claude-only parts)",
+    "plugins/relay/hooks/hooks.json (9 events, 26 registrations)",
     "lib/relay_transcripts.py",
     "lib/relay_ledger.py",
     "lib/relay_bench.py",
-    "profiles/"
+    "profiles/active.toml"
   ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T17:48:23Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    }
+  ]
 }

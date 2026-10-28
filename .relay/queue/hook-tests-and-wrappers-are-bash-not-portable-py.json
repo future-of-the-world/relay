@@ -18,9 +18,26 @@
     "After the move, the gate runs the same cases (same count) from Python; no .sh file under plugins/ holds more than a few lines of wrapper; the gate passes on macOS with no GNU tools on PATH."
   ],
   "where": [
-    "plugins/core/tests/*.test.sh",
-    "plugins/core/hooks/*.sh",
-    "evals/plugin/*.sh",
+    "plugins/relay/tests/check-contract.test.sh",
+    "plugins/relay/tests/check-mark.test.sh",
+    "plugins/relay/tests/flow-stage.test.sh",
+    "plugins/relay/tests/guard-diff.test.sh",
+    "plugins/relay/tests/guard-main.test.sh",
+    "plugins/relay/tests/hooks-live.test.sh",
+    "plugins/relay/tests/inject-addition.test.sh",
+    "plugins/relay/tests/kit-name.test.sh",
+    "plugins/relay/tests/kit.test.sh",
+    "plugins/relay/tests/merge.test.sh",
+    "plugins/relay/tests/packet-stacks.test.sh",
+    "plugins/relay/tests/packet.test.sh",
+    "plugins/relay/tests/shim.test.sh",
+    "plugins/relay/tests/spec-check.test.sh",
+    "plugins/relay/hooks/guard-main.sh",
+    "plugins/relay/hooks/inject-addition.sh",
+    "plugins/relay/hooks/merge.sh",
+    "evals/plugin/graders.test.sh",
+    "evals/plugin/setup-fixture.sh",
+    "evals/plugin/setup-relay-stub.sh",
     "bin/ci",
     "templates/bin-check"
   ],
@@ -50,6 +67,13 @@
         "a. Переписать шаблон на Python (рекомендую: правило «bash уходит», сейчас шаблоном не пользуется ни один проект, а python3 ставится вместе с relay)",
         "b. Оставить шаблон на bash, сузить задачу",
         "c. Логика переезжает в relay, в проекте одна строка (сначала на проработку)"
+      ]
+    },
+    {
+      "at": "2026-10-28T17:48:20Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
       ]
     }
   ]

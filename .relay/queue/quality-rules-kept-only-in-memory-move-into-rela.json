@@ -12,7 +12,7 @@
     "Owner, 27 Oct: \"наша задача сделать так чтобы строгие правила, применимые для широкого диапазона случаев жили в relay и доставлялись до всех проектов, чтобы качество не падало, это будет пусть и не персональный вариант для чистой сборки но вариант отвечающий критериям качества relay\" (memory management itself deferred: \"На текущий момент отложим вопрос управления памятью о проекте\"). Front's grep that day: of 23 behaviour notes in this Mac's Claude memory for relay, 15 already match text in relay's rules, 8 exist only in memory; some of those 8 are quality rules a clean run would lose. IP chosen by the front (agent-chosen)."
   ],
   "where": [
-    "rules/",
+    "rules/verify.md",
     "/Users/amidman/relay/CLAUDE.local.md principles",
     "relay sync"
   ],
@@ -21,5 +21,14 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T17:47:09Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    }
+  ]
 }
