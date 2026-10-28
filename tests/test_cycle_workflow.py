@@ -195,6 +195,22 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit(kind="recheck", findings="relay check findings -C t")]))
         self.assertEqual(out["labels"], ["gate 1: x", "check: x", "check show: x"])
 
+    def test_recheck_gate_takes_the_base_first_and_a_conflict_stops_without_a_fix_round(self):
+        """The queue item's pass cases: a recheck gate prompt starts with a merge of the base (relay and project mode); other
+        kinds do not; a reported take conflict stops at gate with no fixer. Disabled rule (no takePrompt): no merge text."""
+        merge = "git -C %s merge --no-edit master" % self.wt
+        for relay in (True, False):
+            unit = self.unit(kind="recheck", findings="f", branch="wt/x" if relay else None)
+            out = self.run_cycle(self.args([unit], relay=relay))
+            self.assertTrue(out["prompts"]["gate 1: x"].startswith("First take the base"), relay)
+            self.assertIn(merge, out["prompts"]["gate 1: x"])
+        out = self.run_cycle(self.args([self.unit(item="i")]))
+        self.assertNotIn("merge --no-edit", out["prompts"]["gate 1: x"])
+        conflict = {"ok": False, "gate_log": "", "first_fail": "take conflict: a.py"}
+        out = self.run_cycle(self.args([self.unit(kind="recheck", findings="f")]), **{"stage:gate": conflict})
+        self.assertEqual(out["labels"], ["gate 1: x"])
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "gate")
+
     def test_built_with_a_fix_prompt_is_refused_in_one_line(self):
         out = self.run_cycle(self.args([self.unit(kind="built", built="by hand", fix="Fix it.")]))
         self.assertEqual(out["labels"], [])

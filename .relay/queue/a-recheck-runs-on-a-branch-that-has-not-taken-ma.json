@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-28T04:50:11Z",
   "taken_by": "wt/recheck-take",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T05:37:36Z",
+  "test": "tests/test_cycle_workflow.py::Cycle::test_recheck_gate_takes_the_base_first_and_a_conflict_stops_without_a_fix_round",
   "dropped_at": null,
   "dropped_why": null
 }

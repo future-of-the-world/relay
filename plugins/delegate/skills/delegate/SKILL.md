@@ -117,8 +117,10 @@ call; the named copy `delegate:cycle` stays as the session first saw it). Args:
 `base` (the default branch), `relay` (true where the project has `.relay/`),
 `scratch`, and in a project without `.relay/` also `gate` (its own gate
 command); a missing one stops the run in one line. Each unit has a `kind`:
-`change`, `built`, `fix`, `recheck` (a branch that took the default branch, or
-a train with `items`, one check per rider item, in order). The script runs one
+`change`, `built`, `fix`, `recheck` (a branch or a train with `items`, one check per rider item, in order;
+its gate runner first merges the default branch itself, so no separate take is
+needed, and a conflict stops it at gate with "take conflict: <files>" for a fixer,
+then a new recheck). The script runs one
 checker per change, as step 7 says.
 Unit fields: `name`, `wt`, `check`, `branch` (relay mode), `item` (one fix-item
 slug); `fix` also takes `fix`, `fixes`, `findings`; `recheck` takes `findings` or
