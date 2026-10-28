@@ -75,6 +75,13 @@
         "a. `relay queue add` и `edit` отказывают, если в «где менять» только папка, и говорят назвать файл (рекомендую)",
         "b. Только предупреждение; 17 задач переписать один раз",
         "c. Ничего не менять"
+      ],
+      "answered_at": "2026-10-28T10:12:42Z",
+      "answer": [
+        "a a"
+      ],
+      "reading": [
+        "a to both, in the order asked again: folder-only entries in where are refused by relay queue add/edit; the module size limit is 600 lines."
       ]
     },
     {
@@ -93,6 +100,13 @@
         "a. 600 строк (рекомендую)",
         "b. 1000 строк",
         "c. 400 строк"
+      ],
+      "answered_at": "2026-10-28T10:12:42Z",
+      "answer": [
+        "a a"
+      ],
+      "reading": [
+        "a to both, in the order asked again: folder-only entries in where are refused by relay queue add/edit; the module size limit is 600 lines."
       ]
     }
   ]
