@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-28T01:57:59Z",
   "taken_by": "wt/setup-dirty",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T03:49:52Z",
+  "test": "tests/test_setup.py::SetupGitignore::test_what_a_check_and_a_worktree_leave_behind_is_ignored",
   "dropped_at": null,
   "dropped_why": null
 }

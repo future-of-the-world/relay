@@ -9,6 +9,7 @@ import datetime as dt
 import json
 import os
 import platform
+import posixpath
 import re
 import shutil
 import stat
@@ -605,6 +606,50 @@ def merge_session_settings(profile: dict, dry: bool = False) -> tuple[str, str]:
 
 # --- files ------------------------------------------------------------------
 
+STACK_CACHES = {"python": ["__pycache__/", ".pytest_cache/", ".ruff_cache/", ".mypy_cache/"], "typescript": ["node_modules/"],
+                "rust": ["target/"], "elixir": ["_build/", "deps/"]}   # what a stack's first check leaves untracked
+
+
+def gitignore_lines(d: dict) -> list[str]:
+    """The lines a relay project's .gitignore needs: the gate's .ci/, the worktrees folder from kit.toml (none when it lies
+    outside the project), the stack's caches."""
+    project = d["bindings"].get("project")
+    folder = project.get("worktrees") if isinstance(project, dict) else None
+    folder = folder if isinstance(folder, str) and folder.strip("/") else ".worktrees"
+    norm = posixpath.normpath(folder)
+    lines = [".ci/"]
+    if not (os.path.isabs(folder) or norm == ".." or norm.startswith("../")):
+        lines.append(norm.strip("/") + "/")
+    return lines + STACK_CACHES.get(d["stack"], [])
+
+
+def ensure_gitignore(root: str, d: dict) -> list[str]:
+    """Append to <root>/.gitignore the lines of gitignore_lines it lacks; return the lines added. Existing text is never
+    changed (its line endings stay). An entry with or without a trailing slash counts as present; a leading slash counts
+    only for the root folders (.ci/, the worktrees folder), not for caches, which appear in every folder; a name the file
+    un-ignores with "!" is left alone."""
+    path = os.path.join(root, ".gitignore")
+    text = ""
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8", newline="") as handle:
+            text = handle.read()
+    entries = {line.strip().rstrip("/") for line in text.splitlines()}
+    caches = STACK_CACHES.get(d["stack"], [])
+    missing = []
+    for line in gitignore_lines(d):
+        name = line.rstrip("/")
+        if name in entries or "!" + name in entries or "!/" + name in entries or (line not in caches and "/" + name in entries):
+            continue
+        missing.append(line)
+    if not missing:
+        return []
+    eol = "\r\n" if "\r\n" in text else "\n"
+    prefix = eol if text and not text.endswith("\n") else ""
+    with open(path, "a", encoding="utf-8", newline="") as handle:
+        handle.write(prefix + "".join(m + eol for m in missing))
+    return missing
+
+
 def copy_template(name, dest, mode_exec=False, replacements=None):
     if os.path.exists(dest):
         return False
@@ -813,6 +858,10 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
                 todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO (the contract is in plugins/relay/README.md)")
         elif not os.path.isfile(os.path.join(root, gate.get(script, f"bin/{script}"))):
             todo.append(f"{gate.get(script, f'bin/{script}')} (gate.{script}) is missing: setup writes templates only on a project's first setup; copy templates/bin-{script} or point [gate] {script} at your script")
+    if d["git"]:
+        added_ignore = ensure_gitignore(root, d)
+        if added_ignore:
+            done.append(f".gitignore: added {', '.join(added_ignore)}")
     if license_id is not None:
         done += set_license(root, license_id, holder, todo)
     if first_setup:

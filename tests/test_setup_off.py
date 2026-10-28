@@ -100,7 +100,7 @@ class Writes(Fixture):
         self.assertEqual(data["permissions"]["allow"], ["Bash(kit:*)", "Bash(bin/kit:*)", "Bash(relay:*)"])
         self.assertEqual(self.read(root, ".claude/kit.toml"), kit)   # [delegate] equals the default: nothing added
         self.assertEqual(self.read(root, "bin/ci"), ci)
-        self.assertEqual(self.files(root) - before, {".claude/settings.json"})   # no bin/check, bin/wt, CLAUDE.md, settings.local.json
+        self.assertEqual(self.files(root) - before, {".claude/settings.json", ".gitignore"})   # setup adds the ignore lines a check and worktrees need; no bin/check, bin/wt, CLAUDE.md, settings.local.json
 
     def test_t2_second_run_changes_nothing(self):
         root = self.relay_tree()
