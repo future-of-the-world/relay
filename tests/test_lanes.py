@@ -49,7 +49,7 @@ class Lanes(unittest.TestCase):
 
     def test_front_text_names_the_lane_rules(self) -> None:
         text = open(FRONT, encoding="utf-8").read()
-        for needle in ("bin/paid-cost paths", "lanes keep building", "one train", "Changes built at once"):
+        for needle in ("bin/paid-cost paths", "lanes keep building", "one gate apart", "Changes built at once"):
             self.assertIn(needle, text)
 
     def test_delegation_rule_points_at_the_setting(self) -> None:
@@ -106,7 +106,7 @@ class Wave(unittest.TestCase):
 
     def test_front_defines_wave_and_the_three_endings(self) -> None:
         text = " ".join(open(FRONT, encoding="utf-8").read().split())   # one line: the file wraps its sentences
-        for needle in ("A wave is the train of checked-path", "end of a work stretch", "`relay sync` would stay refused",
+        for needle in ("A wave is the checked-path", "end of a work stretch", "`relay sync` would stay refused",
                        "- Green:", "- Red:", "- Not judged", "bin/paid-cost touches"):
             self.assertIn(needle, text)
         self.assertNotIn("would change what the run is judging", text)

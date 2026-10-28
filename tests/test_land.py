@@ -144,6 +144,25 @@ class Landing(Land):
         self.assertEqual((event.outcome, event.gates_run, event.inert_moves, event.code_moves), ("landed", 1, 1, 0))
         self.assertEqual(git(self.main, "show", "master:docs/handover.md"), "moved")
 
+    def test_land_code_move_during_gate_regates(self):
+        # a code commit lands on master around the lock while the first gate runs: the gate result no longer covers the tree
+        # that would land, so the lander takes again, gates again (2 runs: 1 for the first take + 1 for the second) and lands
+        flag = os.path.join(self.tmp, "moved")
+        self.counter = os.path.join(self.tmp, "runs")
+        main_dir = os.path.join(self.tmp, "main")
+        script = ('echo run >> "%s"\nif [ ! -e "%s" ]; then touch "%s"; echo c > "%s/lib/c.py"; '
+                  'git -C "%s" add lib/c.py; git -C "%s" commit -q -m code; fi\nexit 0\n') % (
+                      self.counter, flag, flag, main_dir, main_dir, main_dir)
+        self.repo(gate=script)
+        self.mark(self.wt)
+        self.master_commit("lib/b.py", "b\n")
+        run = self.land()
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertEqual(self.runs(), 2)
+        (event,) = self.done()
+        self.assertEqual((event.outcome, event.gates_run, event.code_moves), ("landed", 2, 1))
+        self.assertEqual(git(self.main, "show", "master:lib/c.py"), "c")
+
     def test_land_conflict_stops(self):
         self.start()
         write(os.path.join(self.wt, "lib", "a.py"), "branch\n")
