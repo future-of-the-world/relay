@@ -23,6 +23,16 @@ def description_line(path: str) -> str:
 
 
 class CaseFiles(unittest.TestCase):
+    def test_shared_fixture_turns_the_lanes_stop_reminder_off(self):
+        # No plugin eval case is about lanes; with the Stop refusal on, the last reply is a short lanes sentence and the
+        # last-message graders of recall-decision read it instead of the answer. 0 = the lanes line only, no refusal.
+        import tomllib
+        with open(os.path.join(PLUGIN, "fixture", ".claude", "kit.toml"), "rb") as fh:
+            cfg = tomllib.load(fh)
+        self.assertEqual(cfg["front"]["stop_nudge"], 0)
+        for path in sorted(glob.glob(os.path.join(PLUGIN, "*", "case.yaml"))):
+            self.assertNotIn("lanes", os.path.basename(os.path.dirname(path)))  # a lanes case would need its own fixture
+
     def test_every_description_is_one_valid_double_quoted_string(self):
         # a quote inside a description broke recall-decision's case.yaml ("YAML parse failed"): `claude plugin eval` then
         # skipped the case and the gate stayed green without it. A JSON string is valid YAML, so json.loads is the check.
