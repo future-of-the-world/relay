@@ -291,15 +291,15 @@ class TestChangedTests(Base):
         self.assertIn("  FAIL types and lint took longer than 1 s", lines)
 
     def test_a_slow_changed_test_does_not_hide_the_registry_message(self) -> None:
-        # F2: the registry stand-in is red and a changed test is too slow: both lines show
+        # F2 (budget 1 s, below a loaded machine's python start-up, so the registry test must not depend on it): the registry stand-in is red and a changed test is too slow: both lines show
         self.write("tests/test_slow.py", self.SLEEPER % 60)
         self.write("unlisted", "x")
         self.commit()
-        self._set("CHANGED_TESTS_TIMEOUT", 3)
+        self._set("CHANGED_TESTS_TIMEOUT", 1)
         code, lines = relay_precheck.run(self.repo)
         text = "\n".join(lines)
         self.assertIn("RuleTestsComplete", text)
-        self.assertIn("took longer than 3 s", text)
+        self.assertIn("took longer than 1 s", text)
 
     def test_no_default_branch_says_skip(self) -> None:
         git(self.repo, "branch", "-m", "wt/task", "feature")
