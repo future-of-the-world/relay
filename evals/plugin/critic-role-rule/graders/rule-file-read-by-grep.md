@@ -3,6 +3,6 @@ type: tool_used
 tool: Grep
 input_match: "\"path\":\"[^\"]*\\.claude(?:/kit)?\"|\"pattern\":\"[^\"]*(?:DOC|ROLE)-RULE|kit/(?:code-reviewer|critic|judge)\\.md"
 min: 0
-weight: 0.001
+max: 0
 ---
-Flag, never a failure (min 0 always passes; weight 0.001 because 0 is refused): A Grep over the .claude folder or for the rule label. `bin/ci` prints a note when the explanation says it was called, because a session in the run that read the rule file itself does not prove the hook delivered it.
+The case fails a run in which a session read the rule file (max 0): such a run does not prove the hook delivered it. A Grep over the .claude folder or for the rule label.
