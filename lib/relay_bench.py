@@ -326,14 +326,15 @@ def agent_used(g, session_id):
     return not hits, f"started: {', '.join(started) or 'none'}"
 
 
-_SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH", re.I)
+_SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASS|CREDENTIAL|AUTH|DATASOURCE|DSN|LOGIN|PRIVATE|CONN", re.I)
+_URL_WITH_PASSWORD = re.compile(r"://[^/\s:@]+:[^/\s@]+@")   # scheme://user:pass@host, whatever the variable is called
 
 
 def redact(text: str) -> str:
     """Replace every secret-looking environment value (by variable name, 8+ characters) in `text`,
     so nothing a grader reads can carry one."""
     for name, value in os.environ.items():
-        if len(value) >= 8 and _SECRET_NAME.search(name):
+        if len(value) >= 8 and (_SECRET_NAME.search(name) or _URL_WITH_PASSWORD.search(value)):
             text = text.replace(value, "[redacted]")
     return text
 
@@ -356,19 +357,36 @@ def tool_calls(session_id: str | None, config_dir: str | None = None) -> list[tu
     root = os.path.join(config_dir or claude_dir(), "projects")
     files = sorted(glob.glob(os.path.join(root, "*", session_id + ".jsonl"))
                    + glob.glob(os.path.join(root, "*", session_id, "subagents", "*.jsonl")))
-    out: list[tuple[str, str]] = []
+    uses: list[tuple[object, str, str]] = []
+    refused: set[object] = set()
     for path in files:
         with open(path, encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 try:
-                    message = json.loads(line).get("message")
+                    entry = json.loads(line)
                 except ValueError:
                     continue                      # a torn last line of a transcript still being written
+                message = entry.get("message") if isinstance(entry, dict) else None
                 content = message.get("content") if isinstance(message, dict) else None
                 for block in content if isinstance(content, list) else []:
-                    if isinstance(block, dict) and block.get("type") == "tool_use" and isinstance(block.get("name"), str):
-                        out.append((block["name"], redact(_call_summary(block["name"], block.get("input")))))
-    return out
+                    if not isinstance(block, dict):
+                        continue
+                    # only "assistant" lines: an api-request-blob line repeats the same tool_use
+                    if (entry.get("type") == "assistant" and block.get("type") == "tool_use"
+                            and isinstance(block.get("name"), str)):
+                        uses.append((block.get("id"), block["name"], redact(_call_summary(block["name"], block.get("input")))))
+                    elif block.get("type") == "tool_result" and block.get("is_error") and _was_refused(block.get("content")):
+                        refused.add(block.get("tool_use_id"))
+    # a call a hook or the permission check refused never ran; one that ran and failed still counts
+    return [(name, summary) for ident, name, summary in uses if ident not in refused]
+
+
+def _was_refused(content: object) -> bool:
+    """Is this tool_result error text a refusal (hook deny or permission) rather than a failed run?"""
+    if isinstance(content, list):
+        content = " ".join(b.get("text", "") for b in content if isinstance(b, dict))
+    return isinstance(content, str) and content.lstrip().startswith(
+        ("PreToolUse:", "Permission to use", "The user doesn't want to proceed", "Claude requested permissions"))
 
 
 def tool_called(g, session_id: str | None, calls: list[tuple[str, str]]) -> tuple[bool, str]:
