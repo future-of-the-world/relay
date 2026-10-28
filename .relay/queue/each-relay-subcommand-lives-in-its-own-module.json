@@ -15,7 +15,7 @@
     "Adding a new subcommand touches no existing file except its own module and its test.",
     "`relay <cmd> --help` and every command's behaviour are unchanged (a test runs every command's help and a smoke case).",
     "After the move, the open items' `where` are rewritten to the new modules, and the count of open items sharing a file drops (measured before and after).",
-    "A size check in the gate names any module over an agreed line limit (limit from the design's measurement)."
+    "A size check in the gate names any module over 600 lines (owner, 28 Oct); files over the limit today are listed as exempt until their own split item lands. `relay queue add` and `relay queue edit` refuse a `where` entry that is only a folder and say to name a file (a new file is fine) (owner, 28 Oct); the 17 open items with folder entries are rewritten in move 1."
   ],
   "where": [
     "bin/relay",
@@ -107,6 +107,13 @@
       ],
       "reading": [
         "a to both, in the order asked again: folder-only entries in where are refused by relay queue add/edit; the module size limit is 600 lines."
+      ]
+    },
+    {
+      "at": "2026-10-28T10:12:43Z",
+      "edited": "pass_cases",
+      "fact": [
+        "Edited pass_cases: Owner answered 'a a' on 28 Oct to the two questions of the build plan (folders in where, module size limit)."
       ]
     }
   ]
