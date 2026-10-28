@@ -24,8 +24,8 @@
     "lib/relay_precheck.py (STEPS, docstring)",
     "tests/test_precheck*.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T04:50:10Z",
+  "taken_by": "wt/precheck-tests",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

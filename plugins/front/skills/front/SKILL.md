@@ -187,9 +187,20 @@ nothing; say so when you hold a sync.
 The number of changes built side by side is the line "Changes built at once: N"
 in your instruction file (projects.toml `lanes`, 1-8, default 4; relay's own
 is 6). Each lane is its own cycle run: one queue item per Workflow call. When a
-lane finishes, start the next call at once; its item is the top of
-`relay queue` that no running lane has taken (`relay queue take` marks it). Do
-not wait for the other lanes, and never start more than N.
+lane finishes, start the next call at once. The hooks print the pick as one
+line ("Lanes: 2 of 6 running; start: ...; waits: ..."): the top of the queue
+order, skipping an item with an unanswered owner question and an item whose
+`where` names a file a running branch already changed (that one is listed under
+"waits:", and is started only with a stated reason). Fill a lane with
+`relay queue start <slug> --scratch <folder>`: it makes the worktree, takes the
+item, writes the brief and prints the cycle unit. The Stop hook refuses the end
+of a turn once per lane state while a lane is free and an item can start; start
+it or say in one sentence why the lane stays free. A branch that holds two items
+is one lane. Settings under `[front]` in the project's `.claude/kit.toml`:
+`lanes_line_items` (default 3, 1-8, items named in the line), `stop_nudge`
+(default 1, 0-2, Stop refusals per lane state; 0 is the line only) and
+`lane_quiet_hours` (default 3, 1-24, how long a worktree with no item counts as
+a lane). Do not wait for the other lanes, and never start more than N.
 
 While a paid run goes, lanes keep building. A change that touches the paid
 run's paths waits at the landing until the run ends; `bin/paid-cost touches

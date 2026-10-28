@@ -24,8 +24,8 @@
     "lib/relay_gate.py",
     "tests/test_gate*.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T04:50:12Z",
+  "taken_by": "wt/gate-rerun",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

@@ -1,0 +1,66 @@
+{
+  "kind": "feature",
+  "ip": 97,
+  "time": 180,
+  "found_at": "2026-10-28T05:04:04Z",
+  "found_in": "relay queue add",
+  "title": "relay land: a program lands ready changes, no agent",
+  "what": [
+    "Build approach E of the cadence design (owner's pick \"a. Gate после взятия master, без агента\", 28 Oct): a program `relay land`, started by the front after its ready test, takes master into a ready branch (a merge commit), runs the gate on the result unless the take brought only inert records (queue records, the handover file), and fast-forwards master on green; one landing at a time; a landing that finds another gating waits for it, then takes master. No trains: the train rule leaves rules/git.md and the front skill. The agent recheck (a checker re-reading after a take) goes; a take a fixer resolved by hand still gets a gate and a check of the resolved files. The merge hook accepts the gate of the exact landed tree. No cadence run on master."
+  ],
+  "why": [
+    "Owner, 28 Oct: \"Хорошо, давай просто возьмем a. Gate после взятия master, без агента И спустя время сравним показатели на реальном примере\". Measured 24-28 Oct: 83 of 83 code landings landed the exact tree their gate checked; the night of 27-28 Oct spent 146 agent minutes on 6 rechecks that found nothing; train riders waited a median 102 min from ready to landing against 1 min alone, because the front builds trains by hand."
+  ],
+  "failing_case": [
+    "Today a ready branch behind master needs the front to merge master, start a recheck unit (gate plus a checker agent) and fast-forward by hand; 6 such rechecks on 27-28 Oct cost 146 agent minutes."
+  ],
+  "pass_cases": [
+    "`relay land <branch>` on a branch behind master by code takes master, gates the exact tree, and fast-forwards on green with no agent started.",
+    "A take that brings only queue or handover records lands without a new gate.",
+    "Two branches ready together: the second waits for the first to land, takes master, gates and lands; no train branch is made. The baseline also records landings that waited behind another and the max wait.",
+    "A take with a conflict stops and says so (a fixer resolves it; then a gate and a check of the resolved files).",
+    "Baseline for the later comparison is recorded in the item: rechecks per night, agent minutes on rechecks, ready-to-landing wait (median, p90), gates per landing."
+  ],
+  "where": [
+    "bin/relay (land)",
+    "lib/relay_land.py (new)",
+    "plugins/relay/hooks/merge.py",
+    "plugins/delegate/workflows/cycle.js (recheck kind)",
+    "plugins/front/skills/front/SKILL.md",
+    "rules/git.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T05:18:27Z",
+      "said": [
+        "Я выбрал этот вариант, потому что он показался мне перспективным, судя по твоему анализу, для train существует отдельный вариант"
+      ]
+    },
+    {
+      "at": "2026-10-28T05:18:28Z",
+      "fact": [
+        "28 Oct: the front had written trains into this item although the owner picked column \"a\" of the demo page, where \"a + train\" is a separate column; corrected to no trains (owner can reverse). What a train would add, from the design's simulation over the real landing times 24-28 Oct (measure5.out): 12 of 84 landings waited behind another; max wait 39 -> 33 min with a 17-min gate, 84 -> 51 with a 26-min gate; p50 17 and p90 20 unchanged. Demo jam scenario with the hidden incompatibility in one train: +1 gate and a later last landing (142 vs 131 min). Revisit trains after the comparison on real data if landings often wait behind another."
+      ]
+    },
+    {
+      "at": "2026-10-28T05:18:37Z",
+      "edited": "what",
+      "fact": [
+        "Edited what: Owner picked column a of the demo, not the separate a + train column (28 Oct)."
+      ]
+    },
+    {
+      "at": "2026-10-28T05:18:39Z",
+      "edited": "pass_cases",
+      "fact": [
+        "Edited pass_cases: Owner picked column a of the demo, not the separate a + train column (28 Oct)."
+      ]
+    }
+  ]
+}

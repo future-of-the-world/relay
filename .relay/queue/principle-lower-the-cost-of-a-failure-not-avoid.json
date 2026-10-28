@@ -205,6 +205,15 @@
         "a. Не останавливать, сообщить после 4 ч (рекомендую: ваше решение остаётся в силе, release защищает сессии; предел задаёт настройка `red_master_notice_hours`, от 1 до 24).",
         "b. После 4 ч пускать только fix.",
         "c. Не останавливать и не сообщать."
+      ],
+      "answered_at": "2026-10-28T05:05:53Z",
+      "answer": [
+        "Вашего ответа ждёт один вопрос: что делать при долго красном платном прогоне. Рекомендую запускать платный прогон на train изменений текстов до посадки.",
+        "",
+        "Актуален ли этот вопрос сейчас ? Остались ли у тебя ещё вопросы ?"
+      ],
+      "reading": [
+        "Not answered; deferred. The owner asks whether the question matters now. It does not yet: the release (everything in $RELAY_HOME/src, moving only on green) is not built, so sessions still load master and a red paid run is handled as today (one fix item at the top). The question becomes real when the release is built: then a long red paid run freezes the release for development too. Ask it again, in full, when the release build starts; the recommendation stays a (paid run on the train of text changes before landing)."
       ]
     },
     {
@@ -233,6 +242,16 @@
         "a. Оставить проверку после взятия master; её ждёт программа, а не агент, изменения попадают в master по одному (рекомендую: master всегда проверен, меньше частей, ночью как 27-28 Oct экономия около 146 минут агентов; цена — отмена «изменения не ждут» из вашего решения 06:34).",
         "b. Убрать её; master проверяется, только когда последнее изменение не проверено.",
         "c. Убрать её; плановая проверка master каждые 30 минут (вторая редакция, ближе всего к решению 06:34)."
+      ],
+      "answered_at": "2026-10-28T05:03:55Z",
+      "answer": [
+        "Хорошо, давай просто возьмем",
+        "a. Gate после взятия master, без агента",
+        "",
+        "И спустя время сравним показатели на реальном примере"
+      ],
+      "reading": [
+        "a: keep the gate after a branch takes master, run by a program (relay land), not by an agent; a take that brings only inert records needs no gate; waiting landings ride one train; one landing at a time. After some time compare the measures on real data against the 24-28 Oct baseline."
       ]
     },
     {
@@ -304,12 +323,45 @@
         "b. Не останавливать, сообщить один раз после 4 ч (достаточно, если во втором вопросе выбран b или c; срок задаёт настройка `red_master_notice_hours`, от 1 до 24).",
         "c. Откатывать виновное изменение текста через N ч, как Chromium.",
         "d. Как сейчас, без сообщения."
+      ],
+      "answered_at": "2026-10-28T05:05:53Z",
+      "answer": [
+        "Вашего ответа ждёт один вопрос: что делать при долго красном платном прогоне. Рекомендую запускать платный прогон на train изменений текстов до посадки.",
+        "",
+        "Актуален ли этот вопрос сейчас ? Остались ли у тебя ещё вопросы ?"
+      ],
+      "reading": [
+        "Not answered; deferred. The owner asks whether the question matters now. It does not yet: the release (everything in $RELAY_HOME/src, moving only on green) is not built, so sessions still load master and a red paid run is handled as today (one fix item at the top). The question becomes real when the release is built: then a long red paid run freezes the release for development too. Ask it again, in full, when the release build starts; the recommendation stays a (paid run on the train of text changes before landing)."
       ]
     },
     {
       "at": "2026-10-28T04:33:35Z",
       "said": [
         "Твой пример демонстрирует только одну полосу изменений - у них у всех общий master изначально, я же хочу анализ на примере как новое изменение пояляется после старого, у тебя очень узкий сфокусированный пример, к тому же ошибки при Пауза/Старт"
+      ]
+    },
+    {
+      "at": "2026-10-28T04:52:39Z",
+      "said": [
+        "Добавь на страницу train - насколько этот механизм актуален и используется сегодня"
+      ]
+    },
+    {
+      "at": "2026-10-28T05:00:31Z",
+      "fact": [
+        "Measured 28 Oct (git, 24 Oct to 28 Oct 08:53 local; $SCRATCH/trains/measure_trains.py): 17 trains landed carrying 36 of 104 code landings (35 %), 68 landed alone; 22 trains built, 5 never landed (train-15 merged into train-17, train-19 and train-20 dropped, train-22 rebuilt as 22b after conflict markers, train-23 open). Riders per train: 1 (8 trains), 2 (7), 5 (1), 9 (1); 28 train gates (1 red), 8 gates saved. Trains landed per day: 25 Oct 9, 26 Oct 6, 27 Oct 0, 28 Oct 2. Ready to landing: train riders median 102 min, alone 1 min. No code builds a train; the front builds them by hand through a fixer."
+      ]
+    },
+    {
+      "at": "2026-10-28T05:10:37Z",
+      "said": [
+        "Хорошо, последует твоей рекомендации"
+      ]
+    },
+    {
+      "at": "2026-10-28T05:10:38Z",
+      "fact": [
+        "28 Oct, owner agreed to the front's recommendation on paid-run frequency: no change now (8 runs in 24-28 Oct, $8.5-21.4 each, mean $10.5, about $21 a day against the $200 cap; intervals 2-24 h; 4 of 8 red). The rule \"a paid run before the release moves\" is built into the release build, not separately; the run then starts when the release lags master by text changes and a release is wanted (daily or on demand)."
       ]
     }
   ]
