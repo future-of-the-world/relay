@@ -310,7 +310,6 @@ class TestChangedTests(Base):
         self.write("tests/test_rules_gate.py", "x = 1\n")
         self.write("tests/test_slow.py", "x = 1\n")
         self.commit()
-        self._set("CHANGED_TESTS_TIMEOUT", 3)
         real = subprocess.run
         groups: list[list[str]] = []
 
@@ -321,14 +320,14 @@ class TestChangedTests(Base):
             groups.append(group)
             if group == [relay_precheck.RULES_REGISTRY_TEST]:
                 return subprocess.CompletedProcess(cmd, 1, "FAIL: RuleTestsComplete unlisted reader\n", "")
-            raise subprocess.TimeoutExpired(cmd, 3)
+            raise subprocess.TimeoutExpired(cmd, relay_precheck.CHANGED_TESTS_TIMEOUT)
 
         with mock.patch.object(relay_precheck.subprocess, "run", fake):
             code, lines = relay_precheck.run(self.repo)
         text = "\n".join(lines)
         self.assertEqual(groups, [[relay_precheck.RULES_REGISTRY_TEST], ["tests.test_rules_gate", "tests.test_slow"]])   # registry alone first, then the changed files
         self.assertIn("RuleTestsComplete", text)
-        self.assertIn("took longer than 3 s", text)
+        self.assertIn("took longer than %d s" % relay_precheck.CHANGED_TESTS_TIMEOUT, text)
 
     def test_a_registry_test_cut_off_names_itself_and_its_own_allowance(self) -> None:
         # F1: STEP_TIMEOUT 1 s, the registry stand-in sleeps 3 s, the changed-tests budget stays 230 s: the line names the registry test and 1 s
