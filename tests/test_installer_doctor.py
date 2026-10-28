@@ -16,6 +16,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
 import relay_setup  # noqa: E402
+
+GIT = shutil.which("git") or "git"   # found before the tests narrow PATH
 from fake_tools import install_fake  # noqa: E402
 
 ENV_KEYS = ("PATH", "HOME", "CLAUDE_CONFIG_DIR", "RELAY_HOME")
@@ -390,6 +392,41 @@ class BrokenAndMissing(InstallScript):
         sha = {d["name"]: d for d in relay_setup.load_deps()}["uv"]["installer_sha256"]
         self.assertIn(f"  would download https://github.com/astral-sh/uv/releases/download/0.8.24/uv-installer.sh, check sha256 {sha}, run it", lines)
         self.assertIn("  would run: uv tool install ruff==0.13.3", lines)
+
+
+class LeftoverPluginFolder(Fakes):
+    """A renamed plugin's old folder (28 Oct: plugins/core) is named by doctor, with the command that removes it, and git ignores its node_modules."""
+
+    def test_a_folder_the_marketplace_does_not_list_is_a_leftover(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("relay", "core", "front"):
+                os.makedirs(os.path.join(tmp, "plugins", name))
+            # the real marketplace lists relay and front but not core, so only core is left over
+            self.assertEqual(relay_setup.leftover_plugin_folders(tmp), [os.path.join(tmp, "plugins", "core")])
+
+    def test_doctor_names_the_leftover_and_the_command_that_removes_it(self) -> None:
+        self.fakes()
+        leftover = os.path.join(self.tmp, "plugins", "core")
+        original = relay_setup.leftover_plugin_folders
+        relay_setup.leftover_plugin_folders = lambda code_root=None: [leftover]
+        try:
+            rows = [(n, g, d) for n, g, d in relay_setup.doctor(None, profile={}) if n == "no leftover plugin folder"]
+        finally:
+            relay_setup.leftover_plugin_folders = original
+        self.assertEqual(len(rows), 1)
+        self.assertFalse(rows[0][1])
+        self.assertIn(f"rm -rf {leftover}", rows[0][2])
+
+    def test_git_ignores_node_modules_at_any_depth(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            shutil.copy(os.path.join(relay_setup.ROOT, ".gitignore"), tmp)
+            subprocess.run([GIT, "-C", tmp, "init", "-q"], check=True)
+            deep = os.path.join(tmp, "plugins", "core", "tests", "ts-deps", "node_modules", "typescript")
+            os.makedirs(deep)
+            open(os.path.join(deep, "x.js"), "w").close()
+            status = subprocess.run([GIT, "-C", tmp, "status", "--short"], capture_output=True, text=True, check=True).stdout
+            # only .gitignore is untracked: plugins/core holds nothing but node_modules, so git shows nothing for it
+            self.assertEqual(status.split(), ["??", ".gitignore"])
 
 
 if __name__ == "__main__":

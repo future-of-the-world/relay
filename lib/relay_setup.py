@@ -1168,6 +1168,8 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
         ok("no old prefixed agents left", not old_agents, ", ".join(old_agents) + " -> relay migrate --apply" if old_agents else "")
     for line in unshipped_installs():
         ok("installed plugin still shipped", False, line)
+    for folder in leftover_plugin_folders():
+        ok("no leftover plugin folder", False, f"{folder} is not a plugin of the marketplace (a renamed plugin's old folder; git ignores it) -> rm -rf {folder}")
     return checks
 
 
@@ -1221,6 +1223,13 @@ def pre_rename_leftovers() -> tuple[list[str], bool]:
             installs.append(key)
     known = read_json(os.path.join(claude_dir(), "plugins", "known_marketplaces.json"))
     return installs, isinstance(known, dict) and PRE_RENAME_MARKETPLACE in known
+
+
+def leftover_plugin_folders(code_root: str | None = None) -> list[str]:
+    """Folders under plugins/ that the marketplace does not list (a renamed plugin's old folder, kept untracked in an old checkout)."""
+    base = os.path.join(code_root or ROOT, "plugins")
+    listed = set(marketplace()[1])
+    return sorted(os.path.join(base, n) for n in os.listdir(base) if os.path.isdir(os.path.join(base, n)) and n not in listed)
 
 
 def unshipped_installs():
