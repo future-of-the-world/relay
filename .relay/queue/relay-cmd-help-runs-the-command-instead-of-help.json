@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 95,
+  "time": 20,
+  "found_at": "2026-10-28T09:46:39Z",
+  "found_in": "relay queue add",
+  "title": "relay <cmd> --help runs the command instead of help",
+  "what": [
+    "bin/relay answers `-h`/`--help` anywhere after a subcommand (and after `queue <action>`) with that command's usage lines and exit 0, before any command code runs. Move 1 of each-relay-subcommand-lives-in-its-own-module later moves this into the dispatcher; this fix is the guard until then."
+  ],
+  "why": [
+    "28 Oct, found by the split design's review (bin/relay:467, :206, :332): most subcommands ignore --help and run. `relay install --help` rewrites the global CLAUDE.md, user settings and plugins; `relay calibrate --help` writes the ledger; `relay candidate --help` creates a profile named '--help'. An agent that asks a command for its help changes the owner's machine. Principle 10: the obvious way must be the safe way."
+  ],
+  "failing_case": [
+    "`relay candidate --help` in a temporary RELAY_HOME creates a profile named '--help'."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "`relay install --help`, `relay calibrate --help`, `relay candidate --help` in a temporary home write nothing and exit 0 with usage text.",
+    "Every command in the command table, run with --help in a temporary home, writes nothing (a test walks the table)."
+  ],
+  "where": [
+    "bin/relay (the dispatch before COMMANDS)",
+    "tests/test_help_is_safe.py (new)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
