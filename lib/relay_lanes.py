@@ -108,8 +108,9 @@ def _branch_name(branch: str) -> "re.Pattern[str]":
 
 
 def _newest_real_commit(main: str, tip: str, since: Optional[str]) -> Optional[str]:
-    """The newest commit of `tip`'s history (taken after `since`) that changes a file which is not inert (a tip is often a check commit)."""
-    args = ["log", "--no-merges", "--format=%H", "-n", str(SHA_COMMITS)]
+    """The newest commit of the branch's own line (first parent: what the default branch brought in by a merge is skipped) taken after
+    `since` that changes a file which is not inert (a tip is often a check commit)."""
+    args = ["log", "--first-parent", "--no-merges", "--format=%H", "-n", str(SHA_COMMITS)]
     if since:
         args.append("--since=" + since)
     rc, out = _git(main, *args, tip)
@@ -132,12 +133,14 @@ def landing(main: str, default: str, branch: str, taken_at: Optional[str]) -> tu
     rc, out = _git(main, "log", base, "--merges", "--format=%H%x09%s", "-n", str(LOG_DEPTH))
     for line in out.splitlines() if rc == 0 else []:
         sha, _, subject = line.partition("\t")
-        if named.search(subject):
+        found = named.search(subject)
+        if found and not re.search(r"\binto\s+'?$", subject[:found.start()]):      # "Merge master into wt/x" takes master, it does not land wt/x
             return True, sha
-    rc, out = _git(main, "reflog", "show", "--format=%gs", "-n", str(LOG_DEPTH), base)
-    for subject in out.splitlines() if rc == 0 else []:
+    rc, out = _git(main, "reflog", "show", "--format=%H %gs", "-n", str(LOG_DEPTH), base)
+    for entry in out.splitlines() if rc == 0 else []:
+        tip, _, subject = entry.partition(" ")
         if subject.startswith("merge ") and subject.endswith("Fast-forward") and named.search(subject):
-            return True, None
+            return True, _newest_real_commit(main, tip, taken_at)       # the tip master moved to, walked to the branch's own commit
     return False, None
 
 
@@ -156,9 +159,10 @@ def touched(main: str, default: str, branch: str, worktree: Optional[str]) -> li
 def _activity(main: str, branch: str, worktree: Optional[str]) -> float:
     """Epoch seconds of the newest sign of work on a branch with no item: its newest reflog entry or the newest changed file."""
     newest = 0.0
-    rc, out = _git(main, "reflog", "show", "--format=%ct", "-n", "1", "refs/heads/" + branch)
-    if rc == 0 and out.strip().isdigit():
-        newest = float(out.strip())
+    rc, out = _git(main, "reflog", "show", "--date=unix", "--format=%gd", "-n", "1", "refs/heads/" + branch)    # the entry's own time, not its commit's
+    found = re.search(r"@\{(\d+)\}", out) if rc == 0 else None
+    if found:
+        newest = float(found.group(1))
     if worktree:
         rc, out = relay_git.git(worktree, "status", "--porcelain", "--untracked-files=all", raw=True)
         for line in out.splitlines() if rc == 0 else []:
@@ -184,8 +188,11 @@ def _overlap(where: list[str], changed: list[str]) -> Optional[str]:
 
 def mode_of(item: dict) -> str:
     """A feature, or a fix whose `where` says design, starts as a design; any other fix as a build."""
-    where = " ".join(item.get("where") or []).lower()
-    return "design" if item["kind"] == "feature" or "design" in where else "start"
+    notes = []                  # the words after the path: a path such as docs/design.md says nothing about the mode
+    for element in item.get("where") or []:
+        place = relay_queue.parse_place(element)
+        notes.append(place.note if place else element)
+    return "design" if item["kind"] == "feature" or "design" in " ".join(notes).lower() else "start"
 
 
 def _waiting_question(item: dict) -> bool:
@@ -205,6 +212,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
     running: list[Lane] = []
     landed_open: list[Landed] = []
     quiet: list[str] = []
+    counted: set[str] = set()
     for item in open_items:
         if item["state"] != "taken" or not item.get("taken_by"):
             continue
@@ -213,7 +221,9 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
         if landed:
             landed_open.append(Landed(item["slug"], item["kind"], branch, sha))
         elif _git(main, "show-ref", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0:
-            running.append(Lane(branch, item["slug"]))
+            if branch not in counted:                      # a branch that took two items is one lane
+                counted.add(branch)
+                running.append(Lane(branch, item["slug"]))
         else:
             quiet.append(f"{branch} (gone, item {item['slug']} still taken)")
     for branch in sorted(trees):

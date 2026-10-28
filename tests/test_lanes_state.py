@@ -306,3 +306,106 @@ class Start(LaneBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Review(LaneBase):
+    """Fixes of the review of the first build (F1-F5, F7)."""
+
+    def test_f1_a_branch_holding_two_items_is_one_lane(self):
+        # a (feature) and b (fix) are both taken by wt/a: one branch is one lane. Limit 2, c open: running 1, free 1, picks [c].
+        self.seed({Q + "a.json": item("a", "feature", **taken("wt/a")), Q + "b.json": item("b", **taken("wt/a")),
+                   Q + "c.json": item("c", where=("lib/c.py",))})
+        self.branch_with_commit("a", {"lib/a.py": "x\n"})
+        s = self.state(limit=2)
+        self.assertEqual([l.branch for l in s.running], ["wt/a"])
+        self.assertEqual((s.free, [p.slug for p in s.picks]), (1, ["c"]))
+        self.assertTrue(rl.line(s).startswith("Lanes: 1 of 2 running"))
+        # two branches: two lanes, free 0
+        self.seed({Q + "d.json": item("d", **taken("wt/d"))})
+        self.worktree("d")
+        self.assertEqual((len(self.state(limit=2).running), self.state(limit=2).free), (2, 0))
+
+    def test_f1_two_items_on_one_landed_branch_both_listed(self):
+        self.seed({Q + "a.json": item("a", "feature", **taken("wt/a")), Q + "b.json": item("b", **taken("wt/a"))})
+        self.branch_with_commit("a", {"lib/a.py": "x\n"})
+        git(self.main, "merge", "-q", "--ff-only", "wt/a")
+        s = self.state(limit=2)
+        self.assertEqual((sorted(x.slug for x in s.landed_open), s.running), (["a", "b"], []))
+
+    def take_master_then_land(self, delete):
+        self.seed({Q + "feat.json": item("feat", "feature", **taken("wt/feat"))})
+        feat = self.branch_with_commit("feat", {"lib/feat.py": "x\n"}, "own")
+        own = git(feat, "rev-parse", "HEAD")
+        with mock.patch.dict(os.environ, {"GIT_COMMITTER_DATE": "2030-01-01T00:00:00Z"}):       # the newest commit by date
+            self.write_commit(self.main, {"lib/other.py": "y\n"}, "another change")
+        git(feat, "merge", "-q", "--no-ff", "-m", "Merge master into wt/feat", "master")
+        git(self.main, "merge", "-q", "--ff-only", "wt/feat")
+        if delete:
+            git(self.main, "worktree", "remove", "--force", feat)
+            git(self.main, "branch", "-d", "wt/feat")
+        return own
+
+    def test_f2_evidence_is_the_branchs_own_commit_after_taking_master(self):
+        # own commit A, master gets Y, the branch merges master (M), fast-forward landing: evidence is A, not Y or M
+        own = self.take_master_then_land(delete=False)
+        rl.close_landed(self.main)
+        self.assertEqual(self.item("feat")["evidence"], own)
+
+    def test_f2_f3_ref_gone_after_a_fast_forward_and_a_master_merge(self):
+        own = self.take_master_then_land(delete=True)
+        rl.close_landed(self.main)
+        self.assertEqual(self.item("feat")["state"], "done")
+        self.assertEqual(self.item("feat")["evidence"], own)
+
+    def test_f3_fast_forward_landing_ref_gone_without_a_master_merge(self):
+        self.seed({Q + "feat.json": item("feat", "feature", **taken("wt/feat"))})
+        feat = self.branch_with_commit("feat", {"lib/feat.py": "x\n"})
+        own = git(feat, "rev-parse", "HEAD")
+        git(self.main, "merge", "-q", "--ff-only", "wt/feat")
+        git(self.main, "worktree", "remove", "--force", feat)
+        git(self.main, "branch", "-d", "wt/feat")
+        rl.close_landed(self.main)
+        self.assertEqual((self.item("feat")["state"], self.item("feat")["evidence"]), ("done", own))
+
+    def test_f2_merge_into_the_branch_is_not_its_landing(self):
+        # "Merge master into wt/x" and "Merge branch 'master' into wt/x" name wt/x but do not land it (its ref is gone)
+        self.seed({Q + "x.json": item("x", "feature", **taken("wt/x"))})
+        for n, message in enumerate(("Merge master into wt/x", "Merge branch 'master' into wt/x")):
+            git(self.main, "checkout", "-q", "-b", f"tmp{n}")
+            self.write_commit(self.main, {f"lib/t{n}.py": "t\n"}, "t")
+            git(self.main, "checkout", "-q", "master")
+            self.write_commit(self.main, {f"lib/u{n}.py": "u\n"}, "u")
+            git(self.main, "merge", "-q", "--no-ff", "-m", message, f"tmp{n}")
+            git(self.main, "branch", "-q", "-D", f"tmp{n}")
+            self.assertEqual(rl.landing(self.main, "master", "wt/x", None), (False, None), message)
+
+    def test_f4_a_new_worktree_from_an_old_commit_is_running_at_its_creation(self):
+        import time
+        env = dict(os.environ, GIT_COMMITTER_DATE="2026-10-01T00:00:00Z", GIT_AUTHOR_DATE="2026-10-01T00:00:00Z")
+        with mock.patch.dict(os.environ, env):
+            self.seed({"lib/old.py": "x\n"})                 # a head commit dated 27 days before the real clock
+        self.worktree("y")
+        now = time.time()
+        self.assertEqual([l.branch for l in rl.lanes_state(self.main, now=now, limit=6).running], ["wt/y"])
+        later = rl.lanes_state(self.main, now=now + 4 * 3600, limit=6)       # 4 h > the 3 h setting
+        self.assertEqual(later.running, [])
+        self.assertIn("wt/y (quiet)", later.quiet)
+
+    def test_f5_design_in_a_path_is_not_the_design_mode(self):
+        fx = rq.parse("f", item("f", where=("docs/design.md:127-129",)))
+        self.assertEqual(rl.mode_of(fx), "start")
+        self.assertEqual(rl.mode_of(rq.parse("g", item("g", where=("lib/x.py redo the design",)))), "design")
+        self.assertEqual(rl.mode_of(rq.parse("h", item("h", "feature", where=("lib/x.py",)))), "design")
+
+    def test_f7_merge_base_is_not_a_landing(self):
+        self.seed({})
+        hook = os.path.join(tq.ROOT, "plugins", "front", "hooks", "lanes.py")
+        sys.path.insert(0, os.path.dirname(hook))
+        try:
+            import importlib
+            lanes_hook = importlib.import_module("lanes")
+        finally:
+            sys.path.pop(0)
+        self.assertIsNone(lanes_hook.LANDING.search("git merge-base --is-ancestor wt/x master"))
+        self.assertIsNotNone(lanes_hook.LANDING.search("git merge --ff-only wt/feat"))
+        self.assertIsNone(lanes_hook.LANDING.search("ls wt/feat"))

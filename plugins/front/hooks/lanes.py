@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 import relay_config  # noqa: E402
 import relay_lanes  # noqa: E402
 
-LANDING = re.compile(r"\bgit\b[^\n;&|]*\bmerge\b[^\n;&|]*\bwt/")
+LANDING = re.compile(r"\bgit\b[^\n;&|]*\bmerge(?=\s)[^\n;&|]*\bwt/")
 
 
 def context(event: str, text: str) -> None:
