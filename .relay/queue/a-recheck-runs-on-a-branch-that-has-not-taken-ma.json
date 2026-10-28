@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 15,
+  "found_at": "2026-10-28T03:16:57Z",
+  "found_in": "relay queue add",
+  "title": "A recheck runs on a branch that has not taken master",
+  "what": [
+    "28 Oct, about 03:15 UTC: the front ran a recheck unit of cycle.js on wt/core-leftover to land it after master gained code (23 files). The recheck gated and checked the branch as it was (gate of d22df1b, open 0) without taking master, so the landing still needed a take and a second recheck: about 4.5 agent minutes and one more gate wasted."
+  ],
+  "why": [
+    "A recheck exists to land a branch on the newest master; one that runs on a branch behind master proves nothing the landing needs (principle 2: waste built into the setup)."
+  ],
+  "failing_case": [
+    "cycle.js with a recheck unit on a branch whose merge-base with master is not master's head gates and checks it and reports ready."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A recheck unit first takes the base branch with a merge commit (or stops and says the branch is behind) before its gate.",
+    "A recheck on a branch that already contains master's head runs as today."
+  ],
+  "where": [
+    "plugins/delegate/workflows/cycle.js (recheck kind)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

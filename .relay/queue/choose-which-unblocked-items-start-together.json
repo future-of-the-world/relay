@@ -100,6 +100,13 @@
         "a. Строка плюс один отказ Stop hook (рекомендую)",
         "b. Только строка",
         "c. Cycle workflow запускает сам"
+      ],
+      "answered_at": "2026-10-28T03:25:08Z",
+      "answer": [
+        "a a"
+      ],
+      "reading": [
+        "Free lanes: a, a lanes line each owner turn and after each landing plus one Stop hook refusal. Which items start together: a, skip an item whose where files a running branch has already changed, and say why in the line. Asked after the front explained both mechanisms (counter from git and the queue, hook line, Stop hook; the filter compares where files with running branches' changed files at start time; conflict repair 1-12 min but 15-30 min with the gate and check after it)."
       ]
     },
     {
@@ -126,6 +133,13 @@
       "options": [
         "a. Пропускать задачу, если её файл уже правит запущенный branch, и писать в строке почему (рекомендую)",
         "b. Брать по порядку очереди без пропуска; файлы соседних lane только как предупреждение в brief"
+      ],
+      "answered_at": "2026-10-28T03:25:08Z",
+      "answer": [
+        "a a"
+      ],
+      "reading": [
+        "Free lanes: a, a lanes line each owner turn and after each landing plus one Stop hook refusal. Which items start together: a, skip an item whose where files a running branch has already changed, and say why in the line. Asked after the front explained both mechanisms (counter from git and the queue, hook line, Stop hook; the filter compares where files with running branches' changed files at start time; conflict repair 1-12 min but 15-30 min with the gate and check after it)."
       ]
     }
   ]

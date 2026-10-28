@@ -156,6 +156,19 @@
         "a. Ждать платного прогона (рекомендую: 4 из 9 прогонов на master находили сломанное).",
         "b. Только бесплатная проверка, платный прогон потом.",
         "c. Ждать, но запускать платный прогон чаще."
+      ],
+      "answered_at": "2026-10-28T03:20:03Z",
+      "answer": [
+        "Сделай мне сравнение вариантов \"Что входит в release\", продемонстрируй на примере, какая версия используется для разработки самого relay - тонкий вопрос, с другой стороны, если сравнивать с языками программирования - новую версию компилятора пишут на предыдущей",
+        "",
+        "Ждем платного прогона, релиз только после того как убедились что всё зеленое, с другой стороны - а можем ли мы переиспользовать и пускать в релиз проверенную версию с branch этого изменения которое уже взяло master и прогнало изменения со своего branch, теоретически так как эта проверка существует то возможно нам и не стоит делать проверки на самом master, мы всё равно их проверим на конкретной branch изменения",
+        "",
+        "Что делать, если master долго остаётся красным? - ответ будет строится на исследовании выше",
+        "",
+        "Пометь ответы на вопросы, ответ на которые я дал, я продолжу отвечать на новые вопросы в следующем сообщении"
+      ],
+      "reading": [
+        "Paid-run question: a, the release waits for the paid run; it moves only once everything is green. The owner adds an idea for the design track: release the version already proven on the change's own branch (the branch took master and passed its gate), and perhaps drop the checks on master, since each branch is checked anyway. Not answered, still open: what goes into the release (the owner asks for a side-by-side comparison with a live example of which version develops relay itself, noting a new compiler is written with the previous one), and what to do when master stays red (to be built on the research above)."
       ]
     },
     {
