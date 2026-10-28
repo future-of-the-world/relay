@@ -10,11 +10,14 @@ import json
 import os
 import re
 import statistics
-from dataclasses import dataclass
+import datetime as dt
+from dataclasses import dataclass, field
 
 import relay_transcripts
 
 WORKTREE = re.compile(r"\.worktrees/([A-Za-z0-9._-]+)")
+WORKTREE_PATH = re.compile(r"(/[^\s\"'`]*?)/\.worktrees/([A-Za-z0-9._-]+)")
+WORKTREE_LINE = re.compile(r"Worktree:\s*(\S+)")
 TEXT_PLACES = ("agents/", "skills/", "roles/", "rules/")     # a change touching these is checked by a paid run
 BUILD_SUFFIX = "worker"       # `delegate:worker`, `ng-worker`, `worker`: the agents that build
 
@@ -24,6 +27,7 @@ class AgentRow:
     change: str        # the worktree folder name, `wt/` and `.worktrees/` stripped
     kind: str          # the agent type, e.g. `delegate:worker`
     seconds: float
+    start: str = field(default="", compare=False)   # when the agent began (ISO), to tell two changes that reused one worktree name apart
 
 
 @dataclass(frozen=True)
@@ -40,7 +44,9 @@ def worktree_of(cwd: str) -> str | None:
     return found.group(1) if found else None
 
 
-def _first_cwd(path: str) -> str:
+def _first_cwd_and_prompt(path: str) -> tuple[str, str]:
+    """The first working folder and the text of the first user message of a transcript ("" when absent)."""
+    cwd, prompt = "", ""
     try:
         with open(path, encoding="utf-8", errors="replace") as handle:
             for line in handle:
@@ -48,24 +54,62 @@ def _first_cwd(path: str) -> str:
                     entry = json.loads(line)
                 except ValueError:
                     continue
-                cwd = entry.get("cwd") if isinstance(entry, dict) else None
-                if isinstance(cwd, str) and cwd:
-                    return cwd
+                if not isinstance(entry, dict):
+                    continue
+                if not cwd and isinstance(entry.get("cwd"), str):
+                    cwd = entry["cwd"]
+                if not prompt and entry.get("type") == "user":
+                    content = (entry.get("message") or {}).get("content")
+                    if isinstance(content, list):
+                        content = " ".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
+                    prompt = content if isinstance(content, str) else ""
+                if cwd and prompt:
+                    break
     except OSError:
         pass
-    return ""
+    return cwd, prompt
 
 
-def agent_rows(projects_dir: str) -> list[AgentRow]:
-    """One row per subagent transcript under `projects_dir/*/*/subagents/` that ran in a worktree, sorted for a stable result."""
+def _under(root: str | None, base: str) -> bool:
+    return root is None or base in {root, os.path.realpath(root)} or os.path.realpath(base) == os.path.realpath(root)
+
+
+def _worktree_in(text: str, root: str | None) -> str | None:
+    for found in WORKTREE_PATH.finditer(text or ""):
+        if _under(root, found.group(1)):
+            return found.group(2)
+    return None
+
+
+def change_of(cwd: str, prompt: str, root: str | None = None) -> str | None:
+    """The change an agent worked for: the worktree its working folder lies in, else the one its brief names (the `Worktree:` line first,
+    then the first `.worktrees/<name>` path) - agents run with `git -C` from the primary checkout have only the brief to say it.
+    With `root`, only worktrees under `<root>/.worktrees/` count."""
+    if root is None and (name := worktree_of(cwd)):
+        return name
+    if (name := _worktree_in(cwd, root)):
+        return name
+    for line in WORKTREE_LINE.finditer(prompt or ""):
+        if (name := _worktree_in(line.group(1), root)):
+            return name
+    return _worktree_in(prompt, root) or (worktree_of(prompt) if root is None else None)
+
+
+def agent_rows(projects_dir: str, root: str | None = None) -> list[AgentRow]:
+    """One row per subagent transcript under `projects_dir/*/*/subagents/` that worked for a change, sorted for a stable result.
+    With `root` (the repo folder) only the project folders of that repo and its worktrees are read and only its worktrees count."""
     rows = []
-    for path in sorted(glob.glob(os.path.join(projects_dir, "*", "*", "subagents", "agent-*.jsonl"))):
-        change = worktree_of(_first_cwd(path))
+    prefix = "*"
+    if root is not None:
+        prefix = re.sub(r"[^A-Za-z0-9]", "-", os.path.realpath(root)) + "*"
+    for path in sorted(glob.glob(os.path.join(projects_dir, prefix, "*", "subagents", "agent-*.jsonl"))):
+        cwd, prompt = _first_cwd_and_prompt(path)
+        change = change_of(cwd, prompt, root)
         if change is None:
             continue
         trace = relay_transcripts.read_trace(path, kind="agent")
         meta = relay_transcripts.agent_meta(path)
-        rows.append(AgentRow(change, str(meta.get("agentType") or meta.get("agent_type") or ""), relay_transcripts.duration_s(trace)))
+        rows.append(AgentRow(change, str(meta.get("agentType") or meta.get("agent_type") or ""), relay_transcripts.duration_s(trace), trace.started))
     return rows
 
 
@@ -79,6 +123,33 @@ def by_change(rows: list[AgentRow]) -> dict[str, Measured]:
         mine = [r for r in rows if r.change == name]
         out[name] = Measured(name, sum(r.seconds for r in mine) / 60, sum(r.seconds for r in mine if _is_build(r.kind)) / 60, len(mine))
     return out
+
+
+def _when(text: str) -> dt.datetime | None:
+    try:
+        return dt.datetime.fromisoformat((text or "").replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def measure_item(rows: list[AgentRow], item: dict) -> Measured | None:
+    """The agents of the item's worktree (`taken_by` is `wt/<name>`) that began between its taken_at and closed_at; None when none did,
+    so two changes that reused one worktree name are not summed into each other."""
+    if not item.get("taken_by") or not item.get("closed_at"):
+        return None
+    name = str(item["taken_by"]).removeprefix("wt/")
+    lo, hi = _when(item.get("taken_at") or ""), _when(item["closed_at"])
+    mine = []
+    for r in rows:
+        if r.change != name:
+            continue
+        at = _when(r.start)
+        if at is None or (lo and at < lo) or (hi and at > hi):
+            continue
+        mine.append(r)
+    if not mine:
+        return None
+    return Measured(name, sum(r.seconds for r in mine) / 60, sum(r.seconds for r in mine if _is_build(r.kind)) / 60, len(mine))
 
 
 def edits_texts(places: list[str]) -> bool:
@@ -102,7 +173,6 @@ def estimate(history: list[Measured], paid_run_min: float = 0.0) -> int | None:
 
 
 def _minutes_between(start: str, end: str) -> int | None:
-    import datetime as dt
     try:
         a = dt.datetime.fromisoformat(start.replace("Z", "+00:00"))
         b = dt.datetime.fromisoformat(end.replace("Z", "+00:00"))
@@ -112,13 +182,13 @@ def _minutes_between(start: str, end: str) -> int | None:
 
 
 def compare_lines(items: list[dict], measured: dict[str, Measured]) -> list[str]:
-    """For each closed, well-formed item that a measured change belongs to (`taken_by` is `wt/<worktree>`): the estimate beside the agent
+    """For each closed, well-formed item that a measured change belongs to (`measured` is keyed by item slug): the estimate beside the agent
     minutes and the wall minutes (taken to closed). Sorted by close time; an item with no transcripts is left out, not shown as 0."""
     rows = []
     for item in items:
         if item.get("problems") or not item.get("closed_at") or not item.get("taken_by"):
             continue
-        change = measured.get(str(item["taken_by"]).removeprefix("wt/"))
+        change = measured.get(item["slug"])
         if change is None:
             continue
         wall = _minutes_between(item["taken_at"], item["closed_at"]) if item.get("taken_at") else None

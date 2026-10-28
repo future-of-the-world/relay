@@ -920,6 +920,8 @@ def cmd_queue(args):
                 i += 1
         try:
             # `json` lists the closed and dropped items too, with all their dates; `estimate` the closed ones, to set their actual time beside the estimate
+            if name == "estimate":
+                extra = ["--root", os.path.realpath(folder)] + extra     # the view counts only this repo's worktrees
             return relay_queue.run_extension(name, relay_queue.read_queue(os.path.realpath(folder), closed=(name in ("json", "estimate"))), extra)
         except relay_queue.Refused as e:
             raise Usage(str(e))

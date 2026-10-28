@@ -6,13 +6,21 @@ import os
 import relay_estimate
 
 
-def run(items, args):
+def run(items: list[dict], args: list[str]) -> int:
+    """`args` may carry `--root <repo folder>`; without it the current folder is the repo."""
+    root = os.getcwd()
+    if "--root" in args and args.index("--root") + 1 < len(args):
+        root = args[args.index("--root") + 1]
     projects = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"), "projects")
-    measured = relay_estimate.by_change(relay_estimate.agent_rows(projects))
-    lines = relay_estimate.compare_lines(items, measured)
-    for line in lines:
+    rows = relay_estimate.agent_rows(projects, root)
+    measured = {}
+    for item in items:
+        if item["problems"]:
+            continue
+        found = relay_estimate.measure_item(rows, item)
+        if found is not None:
+            measured[item["slug"]] = found
+    for line in relay_estimate.compare_lines(items, measured):
         print(line)
-    history = [measured[i["taken_by"].removeprefix("wt/")] for i in items
-               if not i["problems"] and i["closed_at"] and i["taken_by"] and i["taken_by"].removeprefix("wt/") in measured]
-    print(relay_estimate.next_estimate_text(history))
+    print(relay_estimate.next_estimate_text(list(measured.values())))
     return 0
