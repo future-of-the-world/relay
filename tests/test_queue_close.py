@@ -141,15 +141,39 @@ class TestEvidenceIsChecked(tq.Base):
         rq.close_with_evidence(self.main, "feat", f"{named}:{theirs[:8]}", **tq.QUIET)
         self.assertEqual(self.item("feat")["evidence"], f"{named}:{theirs}")
 
+    def touch_item(self):
+        """The item's file changes after the code (as a take does): the range a later inert head closes holds no code."""
+        self.write_commit(self.main, {".relay/queue/feat.json": tq.feature_item("Feat", ip=1)}, "item touched")
+
     def test_f1_a_commit_that_changes_only_queue_files_is_refused(self):
+        self.touch_item()
         self.write_commit(self.main, {".relay/queue/x.json": "{}\n"}, "queue only")
         self.before = tq.git(self.main, "rev-parse", "master")
         self.refused("master", "changes only inert files")
 
     def test_f1_a_commit_that_changes_only_check_records_is_refused(self):
+        self.touch_item()
         self.write_commit(self.main, {".relay/checks/abc.gate.log": "ok\n"}, "relay: check of abc")
         self.before = tq.git(self.main, "rev-parse", "master")
         self.refused("master", "changes only inert files")
+
+    def test_an_ff_landing_head_that_is_a_gate_log_is_accepted_when_the_range_carries_code(self):
+        # the item was last changed (a take) before the branch's code; the branch landed by fast-forward, then a check record
+        self.touch_item()
+        self.write_commit(self.main, {"lib/bar.py": "y = 1\n"}, "the branch's code")
+        self.write_commit(self.main, {".relay/checks/abc.gate.log": "ok\n"}, "relay: check of abc")
+        head = tq.git(self.main, "rev-parse", "master")
+        rq.close_with_evidence(self.main, "feat", "master", **tq.QUIET)
+        self.assertEqual(self.item("feat")["evidence"], head)
+
+    def test_a_refusal_names_the_last_commit_that_carries_code_and_it_is_accepted(self):
+        self.touch_item()
+        self.write_commit(self.main, {".relay/checks/abc.gate.log": "ok\n"}, "relay: check of abc")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.close_with_evidence(self.main, "feat", "master", **tq.QUIET)
+        self.assertIn(self.head[:12], str(ctx.exception))      # "the change" commit of setUp is the last one with code
+        rq.close_with_evidence(self.main, "feat", self.head[:12], **tq.QUIET)
+        self.assertEqual(self.item("feat")["evidence"], self.head)
 
     def test_f1_a_merge_commit_is_judged_by_its_first_parent_diff(self):
         tq.git(self.main, "checkout", "-q", "-b", "side")
