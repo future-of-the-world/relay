@@ -35,7 +35,7 @@ class ReadOnlyHook(unittest.TestCase):
                         "relay check migrate", "relay queue take item", "relay queue note x --input a.toml", "FOO=1 relay setup .", "env X=1 relay install",
                         "bash -c 'cd x; relay setup .'", "eval relay setup", "sh -c 'relay sync'",
                         "relay check owner review.json F2 --input o.toml", "relay improve adopt cand", "relay candidate x",
-                        "relay calibrate", "relay gate", "relay bench a b"):
+                        "relay calibrate", "relay gate", "relay bench a b", "relay land wt/x"):
             for agent in ("delegate:critic", "delegate:checker", "delegate:scout"):
                 self.assertEqual(hook(agent, command), "deny", (agent, command))
 
