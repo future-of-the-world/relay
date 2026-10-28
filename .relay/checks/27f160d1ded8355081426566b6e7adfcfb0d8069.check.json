@@ -1,0 +1,181 @@
+{
+  "branch": "wt/an-eval-scaffold-overwrote-the-live-rela",
+  "findings": [
+    {
+      "details": [
+        "28 Oct 11:49 UTC: the main checkout's bin/relay was replaced by evals/plugin/relay-stub.py (byte-identical), so every `relay` command on this machine printed two stub usage lines (`relay queue` and `relay queue count` broke for the front). evals/plugin/setup-relay-stub.sh line 7 copies the stub to \"$HOME/relay/bin/relay\", meant for the eval run's own $HOME; a scaffold.sh run (recall-decision, keep-owner-words, keep-owner-words-en) with the real HOME writes over the owner's relay. guard-main then refuses `git restore bin/relay` in the main checkout, so the front cannot undo it.",
+        "Also: evals/plugin/recall-decision/scaffold.sh",
+        "Also: tests/test_eval_cases.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "HOME=$HOME evals/plugin/recall-decision/scaffold.sh in a workspace: ~/relay/bin/relay becomes relay-stub.py."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same refuses and writes nothing.",
+        "Inside `claude plugin eval --scaffold` (its own HOME) the stub is placed as today and recall-decision passes."
+      ],
+      "path": "evals/plugin/setup-relay-stub.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_cases.py StubSetupRefusals::test_a_home_outside_the_temp_folder_is_refused_and_nothing_is_written passes at head, fails at 49d2ff49."
+      ],
+      "severity": "HIGH",
+      "since": "49d2ff49668aaf6dddc32a3edb07c9d5e616e12e",
+      "source": "queue",
+      "summary": "An eval scaffold overwrote the live ~/relay/bin/relay",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the eval tool and by simulation. Oa(): `let e=I()===\"macos\"?\"/tmp\":_d.tmpdir(),n=...?\"e-\":...,",
+        "r=..., s=le.join(r,\"home\"), h=le.join(s,\"cwd\"), b=le.join(r,\"tmp\")`; hg() spawns `bash <scaffold>` with",
+        "env {PATH, HOME:n.home, USERPROFILE, TMPDIR:n.tmpDir, TMP, TEMP, TERM:\"dumb\", GIT_CONFIG_NOSYSTEM, USER_TYPE, NODE_ENV}.",
+        "So the run's home and its TMPDIR are siblings under the run root, and RELAY_EVAL_HOME (said in the script to be \"set by the",
+        "eval harness\") is set by nothing and could not pass through. The new test test_a_home_under_the_temp_folder_gets_the_stub",
+        "models the eval with TMPDIR = dirname(HOME), a layout the tool never uses, so it passes while the real run fails; the gate is",
+        "quick mode (paid steps skipped), so nothing caught it. The next paid run on master would turn these three cases red (each costs",
+        "a run that does nothing). Note: the eval home also holds its own .git (Oa writes home/.git), so a \"is $home inside a git work",
+        "tree\" check on $home itself would refuse too; the check on $home/relay is fine because that folder does not exist yet.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "$ strings claude-2.1.312 | (Oa) ... \"/tmp\" ... \"e-\" ... s=le.join(r,\"home\"),h=le.join(s,\"cwd\"),...,b=le.join(r,\"tmp\")",
+        "$ (hg) ug(\"bash\",[e],{cwd:n.cwd,...,env:{PATH:i.PATH,HOME:n.home,USERPROFILE:n.home,TMPDIR:n.tmpDir,TMP:n.tmpDir,TEMP:n.tmpDir,TERM:\"dumb\",GIT_CONFIG_NOSYSTEM:\"1\",USER_TYPE:\"external\",NODE_ENV:\"production\"}})",
+        "$ grep of stored eval records: paths like /private/tmp/e-02dwkv/home/cwd/.ci/spec-review.toml (the run's HOME is /private/tmp/e-XXXX/home)",
+        "$ bash scratchpad/sim-eval-scaffold.sh recall-decision   (that layout and env against the branch's script)",
+        "setup-relay-stub.sh: refusing, HOME=/tmp/e-LMe02h/home is not a throwaway home. ...",
+        "exit 1",
+        "ls: /tmp/e-LMe02h/home/relay/bin: No such file or directory",
+        "$ git grep -n RELAY_EVAL_HOME  -> only setup-relay-stub.sh and tests/test_eval_cases.py; nothing sets it"
+      ],
+      "failing_case": [
+        "The eval tool (Claude Code 2.1.312, macOS) makes the run folder /tmp/e-XXXX and runs the scaffold with HOME=/tmp/e-XXXX/home,",
+        "TMPDIR=/tmp/e-XXXX/tmp, cwd=/tmp/e-XXXX/home/cwd and no other variable of the caller (so no RELAY_EVAL_HOME). HOME is a sibling",
+        "of TMPDIR, not under it, so `case \"$home/\" in \"$tmp\"/*` does not match and the script exits 1:",
+        "\"setup-relay-stub.sh: refusing, HOME=/tmp/e-LMe02h/home is not a throwaway home.\" The case records \"scaffold failed (exit 1)\",",
+        "score 0. Should: place the stub at /tmp/e-XXXX/home/relay/bin/relay, as before the change (the brief's second pass case)."
+      ],
+      "fix_hint": [
+        "Accept the eval tool's real layout: treat HOME as throwaway when it lies under the parent of TMPDIR as well as under TMPDIR",
+        "(<r>/home beside <r>/tmp), or when it lies under the resolved /tmp (/private/tmp on macOS) or $TMPDIR; keep the git-checkout",
+        "refusal as the hard stop (it alone covers the owner's ~/relay). Drop RELAY_EVAL_HOME (it cannot reach a run) or keep it only for",
+        "local runs and fix the comment. Change the pass test to the tool's layout (root/home + root/tmp, env -i) instead of TMPDIR=dirname(HOME)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 10,
+      "pass_cases": [
+        "1. HOME=<r>/home, TMPDIR=<r>/tmp, cwd=<r>/home/cwd, env limited to PATH/HOME/TMPDIR/TERM/GIT_CONFIG_NOSYSTEM, r=a fresh",
+        "   mktemp -d folder: recall-decision/scaffold.sh exits 0 and <r>/home/relay/bin/relay is byte-identical to evals/plugin/relay-stub.py.",
+        "2. Same for keep-owner-words and keep-owner-words-en.",
+        "3. HOME=<a temp folder>, TMPDIR=<another unrelated temp folder>, no marker (the owner's-real-HOME stand-in in the current test):",
+        "   exits non-zero, writes nothing under HOME.",
+        "4. HOME=$HOME with ~/relay a git checkout (the original failing case): refuses, ~/relay/bin/relay unchanged.",
+        "5. HOME with HOME/relay a git checkout, in the eval-tool layout of case 1: refuses, the file unchanged."
+      ],
+      "path": "evals/plugin/setup-relay-stub.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_cases.py StubSetupRefusals::test_the_eval_tool_layout_gets_the_stub_for_every_caller passes; script accepts HOME under TMPDIR's parent (not when parent is /)."
+      ],
+      "severity": "HIGH",
+      "since": "cf9146adeea6f53ad75367bf47dc570854df8305",
+      "source": "review-an-eval-scaffold-overwrote-the-live-rela.json",
+      "source_id": "F1",
+      "summary": "inside the real `claude plugin eval --scaffold` run the guard refuses, so recall-decision, keep-owner-words and keep-owner-words-en all fail with 'scaffold failed (exit 1)'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the diff touches only setup-relay-stub.sh and tests/test_eval_cases.py; no doctor code mentions bin/relay",
+        "vs HEAD (grep of lib/relay_setup.py, lib/relay_tidy.py, bin/relay). The brief's What line holds the promise verbatim (\"relay doctor",
+        "names a main checkout whose bin/relay differs from HEAD\"), though its Where list omits the doctor file. If the owner meant to cut",
+        "it, it needs his word; otherwise it is part of this fix item. Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "$ git diff --stat master...HEAD -> evals/plugin/setup-relay-stub.sh, tests/test_eval_cases.py, a gate log; nothing else",
+        "$ grep -n \"differs from HEAD|bin/relay.*HEAD\" lib/relay_setup.py lib/relay_tidy.py bin/relay -> no match"
+      ],
+      "failing_case": [
+        "Main checkout ~/relay with bin/relay replaced by evals/plugin/relay-stub.py (the 28 Oct incident): `relay doctor` prints no line",
+        "about it (the change touches no doctor code). Should: a failing doctor line naming bin/relay in the main checkout as differing",
+        "from HEAD, with the next step (how to restore it, given guard-main refuses `git restore` there)."
+      ],
+      "fix_hint": [
+        "In doctor_parts(): when the relay root is a main checkout (not a linked worktree), run `git -C <root> diff --quiet HEAD -- bin/relay`",
+        "and add a failing line when it exits 1, naming the restore step. One test with a temporary repo."
+      ],
+      "id": "F2",
+      "kind": "feature",
+      "line": 1137,
+      "pass_cases": [
+        "1. A temporary git repo as the relay checkout, bin/relay committed, then overwritten with other bytes: doctor_parts() returns a",
+        "   failing entry that names bin/relay and says it differs from HEAD.",
+        "2. Same repo with bin/relay equal to HEAD: no failing entry for bin/relay.",
+        "3. Doctor run from a task worktree whose bin/relay differs (a branch editing bin/relay): not flagged; only the main checkout is."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer says doctor_parts in lib/relay_setup.py is not in the change's files (bin/relay held by other lanes). The queue item promised a doctor naming; left to the owner as a follow-up item."
+      ],
+      "severity": "MEDIUM",
+      "since": "cf9146adeea6f53ad75367bf47dc570854df8305",
+      "source": "review-an-eval-scaffold-overwrote-the-live-rela.json",
+      "source_id": "F2",
+      "summary": "relay doctor does not name a main checkout whose bin/relay differs from HEAD, which the queue item's What promises",
+      "verdict": "OUTSIDE"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: no current caller builds such a home; it is the remaining way the promise \"never writes into a git checkout\" can be",
+        "broken. Cheap to close by resolving the destination (or `cp --remove-destination`-like: rm then copy) before the check.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "RELAY_EVAL_HOME=1 HOME=<temp> where <temp>/relay is a plain folder and <temp>/relay/bin/relay is a symlink to",
+        "~/relay/bin/relay: the git check passes (<temp>/relay is not a work tree) and `cp` writes the stub through the symlink into the",
+        "live checkout. Should: refuse when the target resolves into a git work tree."
+      ],
+      "fix_hint": [
+        "Remove an existing $home/relay/bin/relay before copying (rm -f, so a symlink is replaced, not followed), and run the git check on",
+        "the resolved bin folder."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 16,
+      "pass_cases": [
+        "1. <home>/relay/bin/relay a symlink into a git checkout: refuses, the linked file unchanged.",
+        "2. A fresh temp home with no relay folder: the stub is placed (as today)."
+      ],
+      "path": "evals/plugin/setup-relay-stub.sh",
+      "rank": "low",
+      "reason": [
+        "tests/test_eval_cases.py test_a_bin_relay_symlink_into_a_checkout_is_replaced_not_written_through and test_a_bin_folder_symlinked_into_a_checkout_is_refused pass; both fail at base."
+      ],
+      "severity": "LOW",
+      "since": "cf9146adeea6f53ad75367bf47dc570854df8305",
+      "source": "review-an-eval-scaffold-overwrote-the-live-rela.json",
+      "source_id": "F3",
+      "summary": "the git-checkout guard checks only $HOME/relay as a folder; a bin/relay symlink or a HOME inside a checkout still gets written through",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "2a5e699825f40317dbc0c318fffe1921748d96e0.gate.log",
+  "head": "27f160d1ded8355081426566b6e7adfcfb0d8069",
+  "item": "an-eval-scaffold-overwrote-the-live-relay-bin-re",
+  "notes": [
+    "The eval-layout test passes at base because the base script has no guard (expected); the refusal tests carry the proof."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range cf9146ad..HEAD; changed own files: setup-relay-stub.sh and tests/test_eval_cases.py only. Ran tests.test_eval_cases via tests/run_unittest.py (19 ok). Ran the new StubSetupRefusals tests at base 49d2ff49: 4 of 5 fail there. Gate log head 2a5e6998 exit 0; relay changed lists no file after it."
+  ],
+  "type": "check"
+}

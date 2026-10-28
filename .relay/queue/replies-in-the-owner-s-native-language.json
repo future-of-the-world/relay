@@ -12,7 +12,7 @@
     "The owner, verbatim: \"My native lang is russian - I don't like speak in English\"; then \"a - can we fix this in relay, but not hard rules, use native language term for this, model can detect or ask directly\"."
   ],
   "where": [
-    "rules/ (the \"Working with me\" rule)",
+    "rules/working-with-me.md (the \"Working with me\" rule)",
     "memory"
   ],
   "taken_at": null,
@@ -20,5 +20,14 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T17:47:45Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    }
+  ]
 }

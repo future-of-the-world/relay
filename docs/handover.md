@@ -1597,3 +1597,19 @@ bin/relay until queue-time lands). Next handover worktree: handover-40.
 Owner's latest words (28 Oct): "a" (compare relay land after 7 days), "a a" (refuse folder-only where entries; module limit
 600), "Минус не относится к функционалу, лишь к планированию задачи, я согласен, каждая подкоманда может и должна жить в
 своем модуле, этот подход должен быть распространен на весь relay". No owner question is open.
+
+## Addendum 28 (28 Oct, ~18:30 UTC; session 3207dc59)
+
+**Landed since 27:** recall-decision fix (6 of 6), --help guard, four eval cases built by system_rules, train-25 (tool_called grader loader; day's cap takes max(per-case, largest batch)), **relay land** (first landing ~17:30 UTC; compare its counters with the old way on **4 Nov**, owner's pick), the precheck flaky-test fix (first landing through `relay land`, gate 17.4 min). Paid run on 824af153 green ($17.49), `relay sync` done. Dropped: one-change-on-bin-relay-holds (replaced by the split).
+
+**Incident:** 11:49 UTC an eval scaffold overwrote the live ~/relay/bin/relay with evals/plugin/relay-stub.py (tests/test_eval_system_rules.py ran scaffolds with the real HOME). guard-main refused the front's restore; the owner ran `git -C ~/relay restore bin/relay`. Cause fixed in the four-eval-cases change; the stub guard item (IP 98) is in its last check.
+
+**Owner decisions (verbatim):** publishing relay: "A" then "Только локальные файлы, публикацию сделаем потом" (no remote, no push; memory relay-not-published). On the stub guard: "То есть только путь ~/relay, почему нельзя изменить на "можно редактировать только", путь папки с кодом может меняться" — built: the guard allows exactly HOME under TMPDIR or dirname(TMPDIR)/home.
+
+**Open question to the owner** (asked 16:19:46Z, recorded on hook-tests-and-wrappers-are-bash-not-portable-py): port templates/bin-check to Python? a (recommended) / b keep bash / c one-line call into relay. That lane holds until answered; its other open finding (743 bash cases vs 155 Python) goes to the same fix.
+
+**Module split:** plan revision 4 (17 moves, ~900 agent min, critic-reviewed, nothing open for the owner) in the session scratchpad reports/design-each-relay-subcommand-lives-in-its-own-m.md. Moves 1, 2, 3 and fix F are queue items at IP 96; moves 4-10 get queued when move 3 lands; move 11 = lib-modules-are-committed-in-three-copies. Running: move 1 and F. Leftover empty branch wt/each-relay-subcommand-lives-in-its-own-m (guard-main refused `branch -d`).
+
+**Flaky-under-load:** second case today (tests/test_rules_gate_isolation.py 200 s timeout at load 27 on 12 cores) → item tests-with-a-fixed-time-limit-fail-on-a-loaded-m, IP 97; it waits for bin/ci (hook-tests lane).
+
+**Next:** land guard-main, queue-time, stub guard, F and move 1 via `relay land` (background, log in scratchpad); start moves 2 and 3; paid run after the wave (relay land and move 1 touch paid paths), then `relay sync`.

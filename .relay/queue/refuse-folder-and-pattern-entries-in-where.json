@@ -26,8 +26,8 @@
     "rules/queue.md:53 where example",
     "tests/test_queue_where.py new"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T17:41:11Z",
+  "taken_by": "wt/refuse-folder-and-pattern-entries-in-whe",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

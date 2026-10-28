@@ -19,7 +19,7 @@
     "relay doctor on relay lists no FIX for gate.check or gate.wt; the quiet check runs the named test files and exits non-zero on a failure."
   ],
   "where": [
-    "bin/ the quiet check and worktree script the gate keys gate.check and gate.wt call for",
+    "bin/check the quiet check and worktree script the gate keys gate.check and gate.wt call for",
     ".claude/kit.toml relay's own bindings"
   ],
   "taken_at": null,
@@ -27,5 +27,14 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T17:47:34Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    }
+  ]
 }
