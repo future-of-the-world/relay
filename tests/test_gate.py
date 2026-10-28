@@ -221,6 +221,47 @@ class Gate(Fixture):
         self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
         self.assertEqual(git(self.wt, "status", "--porcelain"), "")
 
+    def _counting_red_gate(self):
+        """a red gate script that appends a line to a counter file outside the repo each time it runs"""
+        self.counter = os.path.join(self.tmp, "runs")
+        self.repo(gate='echo run >> "%s"\necho "ci: lint FAILED (1s, log: x)"\necho "    bad line"\nexit 3\n' % self.counter)
+
+    def runs(self):
+        return len(read(self.counter).splitlines()) if os.path.exists(self.counter) else 0
+
+    def test_a_rerun_on_the_record_commit_of_a_red_gate_prints_the_old_result(self):
+        """HEAD = the record commit of a finished red gate: no second run (the counter stays 1), the same exit code (3),
+        the same log and failing lines are printed."""
+        self._counting_red_gate()
+        head = git(self.wt, "rev-parse", "HEAD")
+        first = self.gate(self.wt)
+        self.assertEqual(first.returncode, 3)
+        self.assertNotEqual(git(self.wt, "rev-parse", "HEAD"), head)      # HEAD is now the record commit
+        again = self.gate(self.wt)
+        self.assertEqual(again.returncode, 3)
+        self.assertEqual(self.runs(), 1)
+        self.assertEqual(again.stdout, first.stdout)
+
+    def test_a_rerun_after_a_change_outside_the_checks_folder_gates_in_full(self):
+        """record commit plus a code change: the old red result must not stand; the gate runs again (counter 2)."""
+        self._counting_red_gate()
+        self.assertEqual(self.gate(self.wt).returncode, 3)
+        write(os.path.join(self.wt, "lib", "b.py"), "b\n")
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "more work")
+        self.assertEqual(self.gate(self.wt).returncode, 3)
+        self.assertEqual(self.runs(), 2)
+
+    def test_a_rerun_after_an_inert_file_change_still_gates_a_red_result_in_full(self):
+        """a red result is reused only across .relay/checks/ files: a docs file in between means a full run (counter 2)."""
+        self._counting_red_gate()
+        self.assertEqual(self.gate(self.wt).returncode, 3)
+        write(os.path.join(self.wt, "docs", "n.md"), "n\n")
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "docs")
+        self.assertEqual(self.gate(self.wt).returncode, 3)
+        self.assertEqual(self.runs(), 2)
+
     def test_r4_red_gate_exits_with_its_status_and_names_the_failure(self):
         """R4: a red fixture gate: exit status 1 (its own), the log ends exit 1, the failing step's lines are printed."""
         self.repo(gate='echo "ci: tests ok (1s)"\necho "ci: lint FAILED (1s, log: x)"\necho "    bad line"\nexit 1\n')
@@ -232,7 +273,8 @@ class Gate(Fixture):
         self.assertEqual(run.stdout.splitlines(), ["gate %s: exit 1" % head, log, "ci: lint FAILED (1s, log: x)", "    bad line"])
         # a different status passes through: 3 stays 3
         write(self.script, "#!/bin/sh\nexit 3\n", stat.S_IRWXU)    # the script lives outside the repo: the worktree is still clean
-        self.assertEqual(self.gate(self.wt).returncode, 3)
+        # another command line is a new gate: the finished red result above is not reused for it
+        self.assertEqual(self.gate(self.wt, "--", "--again").returncode, 3)
 
     def test_r5_refused_in_the_main_checkout(self):
         """R5: the gate runs on a task branch, not in the main checkout."""
