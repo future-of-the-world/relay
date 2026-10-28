@@ -197,7 +197,7 @@ item, writes the brief and prints the cycle unit. The Stop hook refuses the end
 of a turn once per lane state while a lane is free and an item can start; start
 it, or say in one short sentence why the lane stays free: facts only (what is free,
 what waits), never a reading of what the owner wants or said. Do not repeat your
-earlier answer; the eval graders read the whole turn. A branch that holds two items
+earlier answer. A branch that holds two items
 is one lane. Settings under `[front]` in the project's `.claude/kit.toml`:
 `lanes_line_items` (default 3, 1-8, items named in the line), `stop_nudge`
 (default 1, 0-2, Stop refusals per lane state; 0 is the line only) and
