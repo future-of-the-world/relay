@@ -47,6 +47,21 @@
       "options": [
         "a. Ждать: сейчас только B; relay считает ожидания посадки из git за каждую волну и открывает этот дизайн, когда они превысят 60 минут в день (рекомендую)",
         "b. Строить очередь сейчас, после B"
+      ],
+      "answered_at": "2026-10-28T02:34:57Z",
+      "answer": [
+        "Давай поступим следующим путем - проверки должны быть обязательно, однако зачастую шанс ошибки после слияния в master мал, как мы можем поступить",
+        "",
+        "Изменения не ждут пока пройдет проверка, но и проверка не запускается на каждое изменение, тем более не наслаивается на другие проверки в master, master проверяет одна проверка одновременно, здесь я не хочу чтобы ты подумал - одна проверка на весь репозиторий одновременно",
+        "",
+        "Необходимо запускать проверку раз в N времени или раз в N залитых изменений, необходимо подобрать так чтобы момент N когда необходимо запускать проверку наступал уже когда проверка с предыдущего запуска прошла",
+        "",
+        "Что делать если проверка на master не прошла ?",
+        "",
+        "Процесс изменений не останавливается, останавливается лишь запланированный запуск проверок на master до разрешения ошибки, мы документируем эту ошибку (ты можешь создать fix с самым высоким приоритетом, достаточным для того чтобы задача немедленно была взята в работу) и приступаем к починке, после починки мы запускаем заново вместе с теми изменениями которые были внесены за время починки, далее цикл возобновляется"
+      ],
+      "reading": [
+        "Neither a nor b: the owner proposes a new direction instead of the speculative queue. Changes land without waiting for a check after taking master; master is checked by one run at a time, every N minutes or every N landed changes, with N chosen so the next run is due only after the previous one has finished. A red master run does not stop changes: only the scheduled master runs pause; the failure becomes a fix item with an IP high enough to be taken at once; after the fix one run covers it and everything landed meanwhile, then the schedule resumes. Goes to the design track (thinker + critic) before building."
       ]
     },
     {
