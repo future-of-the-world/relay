@@ -28,8 +28,10 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null,
+  "dropped_at": "2026-10-28T12:43:50Z",
+  "dropped_why": [
+    "replaced by each-relay-subcommand-lives-in-its-own-module (owner, 28 Oct: \"каждая подкоманда может и должна жить в своем модуле\"), which removes the shared file instead of serialising changes on it"
+  ],
   "notes": [
     {
       "at": "2026-10-28T09:19:25Z",
