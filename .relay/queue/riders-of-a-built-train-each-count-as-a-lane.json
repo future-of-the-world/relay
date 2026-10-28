@@ -23,8 +23,8 @@
     "plugins/front/lib/relay_lanes.py (lanes_state)",
     "tests/test_lanes_state.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T07:59:28Z",
+  "taken_by": "wt/riders-of-a-built-train-each-count-as-a",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
