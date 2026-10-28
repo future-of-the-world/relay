@@ -21,8 +21,8 @@
     "plugins/sdd/skills/spec-review/SKILL.md:72-84",
     "roles/judge.md (step 1)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T04:27:05Z",
+  "taken_by": "wt/spec-met",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

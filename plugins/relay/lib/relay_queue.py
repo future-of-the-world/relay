@@ -1033,8 +1033,19 @@ def _branch_live(repo, branch):
     return relay_git.git(main, "merge-base", "--is-ancestor", ref, "refs/heads/" + default)[0] != 0
 
 
-def _commit_on_default(repo: str, ref: str) -> str:
-    """The full sha of `ref` in `repo` when it is a commit on that repo's default branch; Refused (naming why) otherwise."""
+def _carries_code(main: str, sha: str) -> bool:
+    """True when `sha` (judged against its first parent) changes a file that is not inert; a failed read counts as inert."""
+    import relay_inert
+    has_parent = _git(main, "rev-parse", "--verify", "-q", f"{sha}^1")[0] == 0
+    rc, out, _ = _git(main, "diff-tree", "--no-commit-id", "--name-only", "-r", *((f"{sha}^1", sha) if has_parent else ("--root", sha)))
+    return rc == 0 and any(not relay_inert.matches(n) for n in _text(out).split("\n") if n.strip())
+
+
+def _commit_on_default(repo: str, ref: str, slug: str | None = None) -> str:
+    """The full sha of `ref` in `repo` when it is a commit on that repo's default branch; Refused (naming why) otherwise.
+    A commit that changes only inert files is accepted for `slug` when the range it closes does carry code: the commits on the
+    default branch (first parent) since the item's file last changed. A fast-forward landing leaves no merge of the change, so the
+    head of the default branch is often such a commit. Refused, it names the last commit before it that carries code."""
     main, default = _context(repo)
     rc, out, _ = _git(main, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}")
     if rc != 0:
@@ -1042,15 +1053,23 @@ def _commit_on_default(repo: str, ref: str) -> str:
     sha = _text(out)
     if _git(main, "merge-base", "--is-ancestor", sha, "refs/heads/" + default)[0] != 0:
         raise Refused(f"{sha[:12]} is not on {default}: evidence is a change that is merged")
-    import relay_inert
-    has_parent = _git(main, "rev-parse", "--verify", "-q", f"{sha}^1")[0] == 0
-    rc, out, _ = _git(main, "diff-tree", "--no-commit-id", "--name-only", "-r", *((f"{sha}^1", sha) if has_parent else ("--root", sha)))
-    if rc == 0 and not any(not relay_inert.matches(n) for n in _text(out).split("\n") if n.strip()):
-        raise Refused(f"{sha[:12]} changes only inert files (queue, checks, handover): name the merge of the change")
-    return sha
+    if _carries_code(main, sha):
+        return sha
+    if slug:
+        rc, out, _ = _git(main, "log", "-1", "--format=%H", sha, "--", _path(slug))
+        base = _text(out) if rc == 0 else ""
+        if base:      # no base: the item is absent from sha's history (sha predates it) or the read failed; no range to judge
+            rc, out, _ = _git(main, "rev-list", "--first-parent", f"{base}..{sha}")
+            if rc == 0 and any(_carries_code(main, c) for c in _text(out).split()):
+                return sha
+    rc, out, _ = _git(main, "rev-list", "--first-parent", sha)
+    last = next((c for c in _text(out).split() if _carries_code(main, c)), "") if rc == 0 else ""
+    hint = f": name {last[:12]}, the last commit before it that carries code" if last else ""
+    since = ", and no commit since the item was last changed carries code" if slug else ""
+    raise Refused(f"{sha[:12]} changes only inert files (queue, checks, handover){since}{hint}")
 
 
-def _checked_evidence(repo: str, evidence: str) -> str:
+def _checked_evidence(repo: str, evidence: str, slug: str | None = None) -> str:
     """`evidence` as it is stored: the full sha of a commit on the default branch (`<repo folder>:<sha>` for a commit of another
     repo, checked there), or a repo-relative file that exists at the tip of the default branch (a report). Anything else is refused."""
     other, colon, ref = evidence.partition(":")
@@ -1067,7 +1086,7 @@ def _checked_evidence(repo: str, evidence: str) -> str:
             raise Refused(f"--evidence {evidence}: {other} is not a git repository") from exc
     main, default = _context(repo)
     if _git(main, "rev-parse", "--verify", "-q", f"{evidence}^{{commit}}")[0] == 0:
-        return _commit_on_default(repo, evidence)
+        return _commit_on_default(repo, evidence, slug)
     if not os.path.isabs(evidence):
         import relay_inert
         rc, kind, _ = _git(main, "cat-file", "-t", f"refs/heads/{default}:{evidence}")
@@ -1092,7 +1111,7 @@ def close_with_evidence(repo, slug, evidence, **engine):
             raise Refused(f"'{slug}' is a fix: close it with --test on the branch that took it, or with --fixed-by <commit> --test <file>::<Class>::<name> when a change already on the default branch fixed it")
         if item["state"] == "taken" and _branch_live(repo, item["taken_by"]):
             raise _taken_by_refusal(item)
-        text = serialize(slug, changed(item, closed_at=utcnow(), evidence=_checked_evidence(repo, evidence)))
+        text = serialize(slug, changed(item, closed_at=utcnow(), evidence=_checked_evidence(repo, evidence, slug)))
         return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "closed")
 
     return _run(repo, planner, **engine)

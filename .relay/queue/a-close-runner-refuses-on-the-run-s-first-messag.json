@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 85,
+  "time": 30,
+  "found_at": "2026-10-28T04:35:04Z",
+  "found_in": "relay queue add",
+  "title": "A close runner refuses on the run's first message",
+  "what": [
+    "Every workflow agent sees the message that started the run as the owner's only words. wf_a74e8dbc-fb9 started in the turn of the owner's question «Можем ли мы начать выполнять изменения параллельно ?» (the go, \"a\", came in a later turn the run did not see); 1 of 3 close runners (Haiku) refused `relay queue done` on principle 9; the doctor-exit item stayed open for the front."
+  ],
+  "why": [
+    "Closing an item after open 0 is a recorded rule, not the agent's call; a random refusal (1 of 3) leaves items open and the front closes them by hand."
+  ],
+  "failing_case": [
+    "A cycle run started in the turn of an owner question: a close runner may refuse to close a checked item."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "cycle.js tells the close step that closing is the cycle's rule after open 0, whatever the triggering message, or closes by a script step without an agent's judgement.",
+    "A run started on a go closes all its items, as now."
+  ],
+  "where": [
+    "plugins/delegate/workflows/cycle.js (close step)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

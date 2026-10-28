@@ -791,7 +791,7 @@ relay queue release <slug>
 relay queue start <slug> --scratch <folder>   makes the worktree, takes the item, writes its brief into <folder>/briefs and prints the cycle unit (JSON); refused when no lane is free
 relay queue done <slug> -C <worktree> --test <file>::<name> | evals/<plugin|judge-measure>/<case>::<grader>   (a fix: the branch's newest check, with no own file changed since, has Q1 MET)
 relay queue done <slug> --fixed-by <commit> --test <file>.py::<Class>::<name>   (a fix that a change already on the default branch fixed: the test is there and fails at the commit's parent; no branch of its own)
-relay queue done <slug> --evidence <merge sha>   (a feature finished without a branch of relay's own; a fix is refused: it needs --test)
+relay queue done <slug> --evidence <sha>   (a feature finished without a branch of relay's own; a fix is refused: it needs --test)
 relay queue drop <slug> --input <file.toml>
                                          the TOML holds `why`: the owner's words (text in '''...''')
 Every form takes [-C <repo>] (default: the current folder)."""
@@ -990,14 +990,14 @@ def cmd_queue(args):
             return 0
         if "--evidence" in o:
             if "--test" in o:
-                raise Usage("--test and --evidence do not go together: a fix has a test, a feature a merge sha or report")
+                raise Usage("--test and --evidence do not go together: a fix has a test, a feature a commit or report")
             try:
                 print(relay_queue.close_with_evidence(repo(o), p[0], o["--evidence"]))
             except relay_queue.Refused as e:
                 raise Usage(str(e))
             return 0
         if "--test" not in o:
-            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name>   |   relay queue done <slug> --evidence <merge sha>   |   relay queue done <slug> --fixed-by <commit> --test <file>.py::<Class>::<name>")
+            raise Usage("relay queue done <slug> -C <worktree> --test <file>::<name>   |   relay queue done <slug> --evidence <sha>   |   relay queue done <slug> --fixed-by <commit> --test <file>.py::<Class>::<name>")
         print(relay_queue.done(repo(o), p[0], o["--test"]))
     return 0
 

@@ -236,6 +236,62 @@
       "reading": [
         "Start now the 2 fixes that touch neither plugins/core, relay_setup nor relay_queue: the flaky gate-stop test and the front running many small commands; 4 lanes."
       ]
+    },
+    {
+      "asked_at": "2026-10-28T04:35:26Z",
+      "question": [
+        "**Сколько gate могут идти одновременно?**",
+        "",
+        "Что это: relay запускает не больше N gates одновременно (файл `$RELAY_HOME/gate-slots/count`, сейчас 2),",
+        "чтобы они не замедляли друг друга. В этом запуске 10 законченных gates шли в сумме ~147 минут (library",
+        "tests 465-811 с плюс hook tests 195-276 с, одно после другого). При двух slots на эти 10 gates нужно не",
+        "меньше 74 минут, сколько бы lanes ни шло; lanes, сверх двух, только ждут (130 минут ожидания в сумме).",
+        "Третий slot сократит минимум до 49 минут, если gates не замедлятся. Замедлятся ли — не измерено. Есть",
+        "только намёк: два первых gate, шедшие вместе с четырьмя builders, гоняли library tests 801-811 с, а",
+        "поздние, тоже по два, 465-677 с.",
+        "",
+        "| | a. сначала замер | b. 3 slots сразу | c. оставить 2 |",
+        "|---|---|---|---|",
+        "| минимум на 10 gates | известен после замера | 49 мин, если нет замедления | 74 мин |",
+        "| риск | ~20 агентских минут на bench | gates медленнее, flaky по времени | 4 lanes снова ждут ~2 часа |"
+      ],
+      "options": [
+        "a. (рекомендую) Один bench: три gates одновременно против двух, сравнить время library tests; затем решить.",
+        "b. Поставить 3 сейчас.",
+        "c. Оставить 2 и запускать не больше двух lanes, которым нужен gate (на скорость пачки не влияет)."
+      ],
+      "answered_at": "2026-10-28T04:36:26Z",
+      "answer": [
+        "a, делай замер"
+      ],
+      "reading": [
+        "a: one bench, three gates at once against two (and one alone), comparing the library-test time; then decide the slot count."
+      ]
+    },
+    {
+      "at": "2026-10-28T04:36:42Z",
+      "fact": [
+        "28 Oct, after the owner's \"a, делай замер\": the bench was already run on 27 Oct and is recorded in lib/relay_gate.py:34 (CORES_PER_SLOT): one gate alone 420 s; 2 at once 698 s each (2 per 698 s = 10.3 gates an hour); 3 at once 1058 s each (3 per 1058 s = 10.2 an hour). A third slot gives no more gates an hour on this 12-core machine; each gate just takes 52 % longer. The lanes4 analysis and the front missed it before asking."
+      ]
+    },
+    {
+      "asked_at": "2026-10-28T04:37:27Z",
+      "question": [
+        "**Делать ли замер заново, раз он уже есть?**",
+        "",
+        "Замер 27 октября: 1 gate 420 с (8.6 в час), 2 одновременно по 698 с (10.3 в час), 3 одновременно по 1058 с (10.2 в час). Третье место не прибавляет gate в час. Свежий замер — около 40 минут, gate изменений в это время ждут; отличаться может только из-за выросших тестов библиотеки (465-811 с в последнем прогоне)."
+      ],
+      "options": [
+        "a. Не делать, оставить 2 места (рекомендую)",
+        "b. Сделать заново на нынешних тестах"
+      ],
+      "answered_at": "2026-10-28T04:37:28Z",
+      "answer": [
+        "a"
+      ],
+      "reading": [
+        "a: no new bench; keep 2 gate slots (the 27 Oct bench shows 10.3 gates an hour with 2 against 10.2 with 3). Question recorded right after it was shown (front's slip)."
+      ]
     }
   ]
 }

@@ -1,0 +1,206 @@
+{
+  "branch": "wt/evidence-ff",
+  "findings": [
+    {
+      "details": [
+        "The front paid 4 attempts to find an accepted sha; every landing in relay is a fast-forward, so the hint never fits.",
+        "Also: plugins/relay/lib/relay_queue.py (copy)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "After a fast-forward landing, `relay queue done <slug> --evidence $(git rev-parse master)` refuses and names a merge that does not exist."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After a fast-forward landing, master's head (or the branch head) is accepted as evidence when the range it closes carries non-inert changes of the change.",
+        "A refusal names a sha that would be accepted (for example the last non-inert commit of the change) instead of \"the merge of the change\"."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue_close.py:160 and :169 pass at head and fail at 84ce9be (the ff-landing acceptance and refusal-hint tests)."
+      ],
+      "severity": "HIGH",
+      "since": "84ce9beb2d7daa1e009b969757c5a80c1b610dec",
+      "source": "queue",
+      "summary": "Evidence refusal asks for a merge an ff landing lacks",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch test. In _commit_on_default the range branch computes base with `git log -1 --format=%H sha -- <item>`",
+        "and, when base is empty, uses `rev-list --first-parent sha` (all history). An empty base means the item's file is absent",
+        "from sha's history (sha predates the item) or the read failed; in neither case does \"the range it closes carry code\".",
+        "The code even documents \"a failed read counts as inert\" for _carries_code, yet here a failed read widens to accept.",
+        "Reachable by a wrong or stale sha typed into --evidence (the front tried 4 shas in the incident that raised the item).",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "scratchpad/probe/test_probe_evidence.py::test_probe_inert_commit_older_than_the_item:",
+        "  ACCEPTED d82e7a2c2bf69496ea61b1133564cfdff13168fa d82e7a2c2bf69496ea61b1133564cfdff13168fa",
+        "(sha O stored as evidence for item \"late\", added after O)",
+        "lib/relay_queue.py:1059-1061:",
+        "  base = _text(_git(main, \"log\", \"-1\", \"--format=%H\", sha, \"--\", _path(slug))[1])",
+        "  rc, out, _ = _git(main, \"rev-list\", \"--first-parent\", f\"{base}..{sha}\" if base else sha)"
+      ],
+      "failing_case": [
+        "Repo: seed item feat, \"the change\" (lib/foo.py), then an inert commit O (.relay/checks/old.gate.log), then a new item",
+        "late.json added. `relay queue done late --evidence <O>`: now ACCEPTED, evidence stored = O, a commit made before the item",
+        "existed. `git log -1 O -- .relay/queue/late.json` is empty, so rev-list runs over all of O's history, which holds",
+        "\"the change\". The old code refused O (\"changes only inert files\"). Should: refuse, as before.",
+        "The same path opens when `git log` fails (its exit code is ignored): base \"\" again, whole history, accepted."
+      ],
+      "fix_hint": [
+        "Take the range branch only when `git log` exits 0 and base is non-empty; otherwise fall through to the refusal. Add pass",
+        "case 1 as a test (fails on the current branch, passes after)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1059,
+      "pass_cases": [
+        "1. Inert commit O made before the item's file exists, a code commit before O: done --evidence O is refused, the message",
+        "   names a code commit, master unchanged.",
+        "2. Item touched (take), then code commit C, then inert gate-log head H: done --evidence master accepted, evidence = H",
+        "   (tests/test_queue_close.py:160 keeps passing).",
+        "3. Item touched, then only an inert head H: refused naming the last code commit, which is then accepted",
+        "   (tests/test_queue_close.py:169 keeps passing).",
+        "4. A code commit as evidence is accepted whatever its age (test_a_short_sha_of_the_default_branch_is_stored_as_the_full_sha)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_close.py test_an_inert_commit_older_than_the_item_is_refused passes at head, fails at 7bea9f4; lib/relay_queue.py:1059 now falls through to refusal on empty base."
+      ],
+      "severity": "MEDIUM",
+      "since": "7bea9f4bc4e924b5b6db657f8e4d29c5173b70c8",
+      "source": "review-evidence-ff.json",
+      "source_id": "F1",
+      "summary": "an inert commit older than the item (or any failed `git log`) is accepted: an empty base makes the range the whole history",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch probe (test_probe_unrelated_code_after_take printed \"ACCEPTED unrelated\"). Not a regression: the old",
+        "check accepted any code commit as evidence, so it never tied evidence to the change; the new path keeps that level. LOW:",
+        "fragile rather than wrong today. A tie to the change would need the taken_by branch, which is removed after landing.",
+        "Size: 30 agent minutes if wanted."
+      ],
+      "evidence": [
+        "~/.local/bin/pytest -q -s scratchpad/probe/test_probe_evidence.py  -> \"ACCEPTED unrelated\", 19 passed"
+      ],
+      "failing_case": [
+        "Item feat taken (item file touched), then another change's code lands (lib/other.py), then a queue-only commit.",
+        "`done feat --evidence master`: accepted, though feat's own change never landed. The item's pass case says \"carries",
+        "non-inert changes of the change\"."
+      ],
+      "fix_hint": [
+        "Leave as is, or for a taken item require a code commit in the range whose message or branch names taken_by."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1061,
+      "pass_cases": [
+        "1. Taken item, only an unrelated change's code after the take, inert head: today accepted; a stricter fix would refuse.",
+        "2. Taken item, its branch's code ff-landed, inert head: accepted (tests/test_queue_close.py:160)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "LOW, left as is (review said leave); not fixed."
+      ],
+      "severity": "LOW",
+      "since": "7bea9f4bc4e924b5b6db657f8e4d29c5173b70c8",
+      "source": "review-evidence-ff.json",
+      "source_id": "F2",
+      "summary": "the range accepts any code commit, not the change's: another change's code after the take lets an inert head close the item",
+      "verdict": "GAP"
+    },
+    {
+      "details": [
+        "CONFIRMED by git grep. The change fixed the refusal text but not the usage text that leads the front to the same wrong",
+        "sha. Cheap, so fixed in the change. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n -i evidence bin/relay | grep -i merge",
+        "bin/relay:792:relay queue done <slug> --evidence <merge sha>   (a feature finished without a branch of relay's own ...)",
+        "bin/relay:989: ... relay queue done <slug> --evidence <merge sha> ..."
+      ],
+      "failing_case": [
+        "`relay queue done` usage (bin/relay:792 and :989, and :982 \"a feature a merge sha or report\") tells the front to name a",
+        "merge sha; after a fast-forward landing there is none, the very misdirection the item reports. Should say a commit of the",
+        "default branch (its head after landing, or a commit that carries the change)."
+      ],
+      "fix_hint": [
+        "Replace \"<merge sha>\" with \"<sha>\" and \"a merge sha\" with \"a commit\" in those three lines."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 792,
+      "pass_cases": [
+        "1. bin/relay:792 and :989 read `--evidence <commit>` (or `<sha>`), not `<merge sha>`.",
+        "2. :982 reads \"a feature a commit or report\"."
+      ],
+      "path": "bin/relay",
+      "rank": "low",
+      "reason": [
+        "test_the_usage_text_asks_for_a_commit_not_a_merge_sha passes at head, fails at 7bea9f4; bin/relay no longer says merge sha."
+      ],
+      "severity": "LOW",
+      "since": "7bea9f4bc4e924b5b6db657f8e4d29c5173b70c8",
+      "source": "review-evidence-ff.json",
+      "source_id": "F3",
+      "summary": "help and usage still ask for `--evidence <merge sha>`, the hint an ff landing cannot meet",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_queue.py:1065-1067 and :1080 (other-repo call passes no slug). Misleading text only.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_queue.py:1080: return f\"{other}:{_commit_on_default(folder, ref.strip())}\"",
+        "lib/relay_queue.py:1066: raise Refused(f\"... and no commit since the item was last changed carries code{hint}\")"
+      ],
+      "failing_case": [
+        "`done feat --evidence ~/other:<inert sha>`: _commit_on_default runs with slug None, skips the range, and refuses with",
+        "\"... and no commit since the item was last changed carries code: name <x>\". No item range was looked at in ~/other;",
+        "the message should only say the commit changes only inert files and name the code commit."
+      ],
+      "fix_hint": [
+        "Add the \"since the item was last changed\" clause only when slug is set."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1066,
+      "pass_cases": [
+        "1. Another repo's inert commit: refused with \"changes only inert files\" and a named code commit of that repo; no mention of the item.",
+        "2. This repo's inert head with no code since the take: the message keeps \"since the item was last changed\"."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "test_another_repos_inert_commit_is_refused_without_speaking_of_the_item passes at head, fails at 7bea9f4."
+      ],
+      "severity": "LOW",
+      "since": "7bea9f4bc4e924b5b6db657f8e4d29c5173b70c8",
+      "source": "review-evidence-ff.json",
+      "source_id": "F4",
+      "summary": "the refusal for another repo's inert commit speaks of \"the item\" though no item range was checked there",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "ebcfc15197e1dd329d023eaed95fcab01eaf9176.gate.log",
+  "head": "595d0083f86ea4b74b8006ee9cad877b2a17edcf",
+  "item": "evidence-refusal-asks-for-a-merge-an-ff-landing",
+  "notes": [
+    "F2 is a LOW the review itself said to leave; not changed."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix commit 8061b92 on top of 7bea9f4; ran tests/test_queue_close.py at head (26 passed). Gate log head ebcfc15 ends exit 0; relay changed lists no file after it. Ran the test file in throwaway worktrees at 84ce9be (Q1 since: 5 fail) and 7bea9f4 (3 new tests fail). Three lib copies identical."
+  ],
+  "type": "check"
+}
