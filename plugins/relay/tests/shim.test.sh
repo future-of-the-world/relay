@@ -29,7 +29,7 @@ ck "kit is not on PATH" "$(run bash -c 'command -v kit || echo none')" "none"
 # 1. the registry's project-scope entry
 reg="$tmp/installed_plugins.json"
 cat >"$reg" <<JSON
-{"version": 2, "plugins": {"core@principles": [
+{"version": 2, "plugins": {"relay@amidman": [
   {"scope": "project", "projectPath": "$tmp/elsewhere", "installPath": "$tmp/nowhere", "version": "9.9.9"},
   {"scope": "project", "projectPath": "$P", "installPath": "$core", "version": "0.1.0"}]}}
 JSON

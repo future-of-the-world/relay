@@ -15,7 +15,8 @@ set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd -P)"
 ours() { # <file>: is it a copy of this plugin's bin/kit (this checkout, another checkout or worktree of it, an install)?
   local real; real="$(cd "$(dirname "$1")" && pwd -P)/$(basename "$1")"
-  case "$real" in */plugins/relay/bin/kit) return 0 ;; esac
+  # plugins/core/bin/kit is this plugin under its pre-rename folder name (a checkout from before the rename may still be on PATH).
+  case "$real" in */plugins/relay/bin/kit|*/plugins/core/bin/kit) return 0 ;; esac
   cmp -s "$1" "$here/../bin/kit"
 }
 found=""
