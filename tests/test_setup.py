@@ -32,6 +32,39 @@ class Setup(Base):
         self.assertTrue(d2["has_bindings"])
 
 
+class SetupGitignore(Base):
+    """A fresh project stays clean (git status empty) after setup, a check's output and a worktrees folder; an existing .gitignore keeps its lines."""
+
+    def _proj(self, ignore=None):
+        import relay_setup
+        proj = os.path.join(self.tmp, "proj")
+        os.makedirs(proj)
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        open(os.path.join(proj, "pyproject.toml"), "w").write("[project]\nname = 'x'\n")
+        if ignore is not None:
+            open(os.path.join(proj, ".gitignore"), "w").write(ignore)
+        relay_setup.setup(proj)
+        return proj
+
+    def _status(self, proj):
+        return subprocess.run(["git", "-C", proj, "status", "--short", "-uall"], capture_output=True, text=True, check=True).stdout.splitlines()
+
+    def test_what_a_check_and_a_worktree_leave_behind_is_ignored(self):
+        proj = self._proj()
+        for rel in (".ci/check/a.log", ".worktrees/t/f", "__pycache__/m.pyc", ".pytest_cache/v"):
+            os.makedirs(os.path.dirname(os.path.join(proj, rel)), exist_ok=True)
+            open(os.path.join(proj, rel), "w").write("x")
+        # setup's own files (kit.toml, bin/*, settings, CLAUDE.md, docs) are the owner's to commit; nothing else may show
+        shown = [line for line in self._status(proj) if not line.startswith("?? .claude/") and not line.startswith("?? bin/") and not line.startswith("?? .relay/") and line not in ("?? CLAUDE.md", "?? docs/handover.md", "?? pyproject.toml")]
+        self.assertEqual(shown, ["?? .gitignore"])
+
+    def test_existing_lines_are_kept_and_not_duplicated(self):
+        proj = self._proj(ignore="secret.txt\n.ci\n/.worktrees")   # no final newline; two entries written without the slash form we add
+        lines = open(os.path.join(proj, ".gitignore")).read().splitlines()
+        self.assertEqual(lines[:3], ["secret.txt", ".ci", "/.worktrees"])
+        self.assertEqual(lines[3:], ["__pycache__/", ".pytest_cache/", ".ruff_cache/", ".mypy_cache/"])
+
+
 class SetupIsProjectOnly(Base):
     """Owner's decision A (26 Oct): `relay setup <dir>` writes only into the project; the Claude folder is the global command's."""
 

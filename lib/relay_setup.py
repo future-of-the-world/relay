@@ -605,6 +605,34 @@ def merge_session_settings(profile: dict, dry: bool = False) -> tuple[str, str]:
 
 # --- files ------------------------------------------------------------------
 
+STACK_CACHES = {"python": ["__pycache__/", ".pytest_cache/", ".ruff_cache/", ".mypy_cache/"], "typescript": ["node_modules/"],
+                "rust": ["target/"], "elixir": ["_build/", "deps/"]}   # what a stack's first check leaves untracked
+
+
+def gitignore_lines(d: dict) -> list[str]:
+    """The lines a relay project's .gitignore needs: the gate's .ci/, the worktrees folder from kit.toml, the stack's caches."""
+    project = d["bindings"].get("project")
+    folder = project.get("worktrees") if isinstance(project, dict) else None
+    folder = folder if isinstance(folder, str) and folder.strip("/") else ".worktrees"
+    return [".ci/", folder.strip("/") + "/", *STACK_CACHES.get(d["stack"], [])]
+
+
+def ensure_gitignore(root: str, d: dict) -> list[str]:
+    """Append to <root>/.gitignore the lines of gitignore_lines it lacks (an existing line, with or without a leading or
+    trailing slash, counts as present); return the lines added. Existing lines are never changed."""
+    path = os.path.join(root, ".gitignore")
+    text = open(path, encoding="utf-8").read() if os.path.isfile(path) else ""
+    have = {line.strip().strip("/") for line in text.splitlines()}
+    missing = [line for line in gitignore_lines(d) if line.strip("/") not in have]
+    if not missing:
+        return []
+    if text and not text.endswith("\n"):
+        text += "\n"
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text + "\n".join(missing) + "\n")
+    return missing
+
+
 def copy_template(name, dest, mode_exec=False, replacements=None):
     if os.path.exists(dest):
         return False
@@ -813,6 +841,10 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
                 todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO (the contract is in plugins/relay/README.md)")
         elif not os.path.isfile(os.path.join(root, gate.get(script, f"bin/{script}"))):
             todo.append(f"{gate.get(script, f'bin/{script}')} (gate.{script}) is missing: setup writes templates only on a project's first setup; copy templates/bin-{script} or point [gate] {script} at your script")
+    if d["git"]:
+        added_ignore = ensure_gitignore(root, d)
+        if added_ignore:
+            done.append(f".gitignore: added {', '.join(added_ignore)}")
     if license_id is not None:
         done += set_license(root, license_id, holder, todo)
     if first_setup:
