@@ -63,8 +63,8 @@ difference made visible: a number, a side-by-side, a picture; never options
 that differ only in wording. Letters are Latin a, b, c in every language; an
 answer in the owner's alphabet counts the same (Cyrillic а = a, б = b, в = c;
 a look-alike letter is read by its position in the owner's alphabet only when
-the reply is in that alphabet). The owner may answer by the title, by a paraphrase or by a retelling of the
-question; record your reading of which question each answer is for.
+the reply is in that alphabet). The owner may answer by the title, by a paraphrase or by a
+retelling of the question; record your reading of which question each answer is for.
 
 Every question opens with an introduction: what it is about, how the
 mechanism works, a live example from the current work, and what each answer
