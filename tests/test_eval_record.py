@@ -37,6 +37,16 @@ class FlagPatterns(unittest.TestCase):
         ("Bash", 'cat ".claude/kit/judge.md"', True),
         ("Bash", 'echo "x" ; cat .claude/kit/judge.md', True),
         ("Bash", "sed -n 1,20p ./.claude/kit/judge.md", True),
+        ("Bash", "cat .claude/kit/*", True),                               # review F1: ways round the reading verb
+        ("Bash", "grep -n qty .claude/kit/judge.md", True),
+        ("Bash", "git show master:.claude/kit/judge.md", True),
+        ("Bash", "git log -p master", True),
+        ("Bash", "find .claude -type f -exec cat {} +", True),
+        ("Bash", "python3 -c \"print(open('.claude/kit/judge.md').read())\"", True),
+        ("Bash", "grep -rn qty .", True),
+        ("Bash", "grep -rn amount .", True),
+        ("Bash", "grep -rn takeItem .", False),                            # review F2: a word the rule file does not hold
+        ("Bash", "git log -p master...wt/take", False),
         ("Bash", "ls -la", False),
         ("Bash", "git diff master...wt/paging -- src/shelf.ts", False),
         ("Bash", HEREDOC, False),
@@ -210,6 +220,18 @@ class Record(unittest.TestCase):
         _, out = self.run_step(data)
         self.assertIn("run 1 rule-file-read-by-bash: code grader failed", out)
         self.assertNotIn("do not prove the hook delivered it", out)
+
+    def test_three_runs_reading_the_rule_file_make_the_case_not_a_pass(self):
+        # review F4: 3 of 3 runs read the file (max 0 failed in each): the case is red
+        data = fixture([[True] * 3] * 3)
+        for run in data["cases"][0]["arms"]["with"]:
+            run["graders"][1]["passed"] = False; run["graders"][1]["explanation"] = "Bash called 1x (expected 0..0)"
+        code, out = self.run_step(data)
+        self.assertEqual(code, 2)
+        self.assertIn("NOT A PASS", out.strip().split("\n")[-1])
+        # no read in any run: green, no note about the rule file
+        code, out = self.run_step(fixture([[True] * 3] * 3))
+        self.assertEqual(code, 0); self.assertNotIn("read the rule file", out)
 
     def batch_with_traces(self, passes):
         """A batch whose runs have scaffold folders <tmp>/e-x/out/trace.jsonl, as the tool leaves them under --keep-temp."""
