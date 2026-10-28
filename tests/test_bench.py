@@ -140,6 +140,58 @@ class Bench(Base):
         self.assertTrue(doc["partial"])
         self.assertEqual(len(doc["rows"]), 2)
 
+    def transcript(self, session_id, calls, subagent_calls=()):
+        """A config folder holding a session transcript (and a subagent's) with the given Bash commands."""
+        config = os.path.join(self.tmp, "cfg")
+        proj = os.path.join(config, "projects", "-some-folder")
+        os.makedirs(os.path.join(proj, session_id, "subagents"))
+
+        def lines(commands):
+            return "".join(json.dumps({"type": "assistant", "message": {"content": [
+                {"type": "text", "text": "ran it"},
+                {"type": "tool_use", "id": "t", "name": "Bash", "input": {"command": c}}]}}) + "\n" for c in commands) + "{torn"
+        with open(os.path.join(proj, session_id + ".jsonl"), "w") as handle:
+            handle.write(lines(calls))
+        with open(os.path.join(proj, session_id, "subagents", "agent-1.jsonl"), "w") as handle:
+            handle.write(lines(subagent_calls))
+        return config
+
+    def test_tool_called_sees_a_real_command_not_a_word(self):
+        import relay_bench as rb
+        g = {"tool": "^Bash$", "input": r"\bpython3?\b.*scratch"}
+        # the checker's subagent ran python on a scratch file: 1 hit of 3 calls
+        cfg = self.transcript("s1", ["ls"], ["python3 /tmp/scratch/check.py", "echo hi"])
+        self.assertTrue(rb.tool_called(g, "s1", rb.tool_calls("s1", cfg))[0])
+        # a session that only wrote "I ran a script" in its reply made no such call
+        cfg2 = self.transcript("s2", ["ls", "cat notes.md"])
+        self.assertFalse(rb.tool_called(g, "s2", rb.tool_calls("s2", cfg2))[0])
+        # exists = false inverts
+        self.assertTrue(rb.tool_called({**g, "exists": False}, "s2", rb.tool_calls("s2", cfg2))[0])
+        self.assertEqual(rb.tool_calls("nope", cfg), [])
+
+    def test_no_secret_from_the_environment_reaches_a_grader(self):
+        import relay_bench as rb
+        fake = "sk-fake-0123456789abcdef"
+        os.environ["FAKE_BENCH_API_KEY"] = fake
+        self.addCleanup(os.environ.pop, "FAKE_BENCH_API_KEY", None)
+        cfg = self.transcript("s3", [f"curl -H 'x-api-key: {fake}' https://example.test"])
+        calls = rb.tool_calls("s3", cfg)
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn(fake, calls[0][1])
+        passed, note = rb.tool_called({"input": "curl"}, "s3", calls)
+        self.assertTrue(passed)
+        self.assertNotIn(fake, note)
+        self.assertFalse(rb.tool_called({"input": fake}, "s3", calls)[0])   # a grader cannot match the secret either
+
+    def test_grade_runs_a_tool_called_grader_from_the_runs_config_folder(self):
+        import relay_bench as rb
+        cfg = self.transcript("s4", ["python3 scratch.py"])
+        scen = {"graders": [{"name": "ran", "type": "tool_called", "input": "python3"}]}
+        out = rb.grade(scen, self.tmp, "I ran a script", "claude", "haiku", session_id="s4", config_dir=cfg)
+        self.assertTrue(out[0]["passed"])
+        out = rb.grade(scen, self.tmp, "python3 scratch.py", "claude", "haiku", session_id="s5", config_dir=cfg)
+        self.assertFalse(out[0]["passed"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
