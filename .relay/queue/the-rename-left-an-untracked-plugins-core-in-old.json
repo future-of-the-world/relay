@@ -23,8 +23,8 @@
     ".gitignore",
     "lib/relay_setup.py (doctor)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T02:05:39Z",
+  "taken_by": "wt/core-leftover",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
