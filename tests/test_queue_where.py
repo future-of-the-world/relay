@@ -57,6 +57,20 @@ class WhereFiles(tq.Base):
         self.edit("lib/relay_cmd/digest.py", "lib/relay_other.py:103")
         self.assertEqual(self.item(SLUG)["where"], ["lib/relay_other.py:103"])
 
+    def test_edit_judges_only_the_entries_it_brings(self):
+        # two stored folder entries; fixing one is accepted, the untouched one is not re-judged
+        self.seed_item(["lib/ (modules)", "docs/ (notes)"])
+        self.edit("lib/ (modules)", "lib/relay_cmd/digest.py")
+        self.assertEqual(self.item(SLUG)["where"], ["lib/relay_cmd/digest.py", "docs/ (notes)"])
+        # a new folder entry is still refused, numbered by its place in the new list
+        with self.assertRaisesRegex(rq.Refused, "where element 1 `lib/` is a folder"):
+            self.edit("lib/relay_cmd/digest.py", "lib/")
+
+    def test_edit_replaces_every_folder_entry_in_one_edit(self):
+        self.seed_item(["lib/ (a)", "docs/ (b)"])
+        self.edit("lib/ (a)\ndocs/ (b)", "lib/relay_other.py\nplans/a.md")
+        self.assertEqual(self.item(SLUG)["where"], ["lib/relay_other.py", "plans/a.md"])
+
     def test_check_stays_green_on_a_stored_item_with_a_folder(self):
         # check has no tree to look at: a folder entry written before this rule is not a malformed item
         self.seed_item(["lib/", "plans/*.md"])

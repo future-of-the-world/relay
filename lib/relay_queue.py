@@ -109,15 +109,15 @@ def where_problems(value: object) -> list[str]:
     return [f"where element {n} does not start with path, path:N or path:N-M" for n, element in enumerate(value, 1) if parse_place(element) is None]
 
 
-def where_folders(where: object, repo: str) -> list[str]:
+def where_folders(where: object, repo: str, stored: object = None) -> list[str]:
     """Why a `where` entry names a folder or a pattern instead of a file, one text per entry; [] when every entry is a file (a file
-    that does not exist yet is fine). Run by `add` and by `edit` of `where`, never by `where_problems`: `check` has no tree."""
+    that does not exist yet is fine). Entries also in `stored` (the old list of an edit) are not judged. Run by `add` and by `edit` of `where`, never by `where_problems`: `check` has no tree."""
     if not isinstance(where, list):
         return []
     out = []
     for n, element in enumerate(where, 1):
         place = parse_place(element) if isinstance(element, str) else None
-        if place is None:
+        if place is None or (isinstance(stored, list) and element in stored):
             continue
         path = place.path
         if path.endswith("/") or os.path.isdir(os.path.join(repo, path)):
@@ -1913,7 +1913,7 @@ def edit(repo: str, slug: str, field: str, old: str, new: str, because: str, now
         if problem:
             raise Refused(f"nothing edited: {problem}")
         if field == "where":
-            bad = where_problems(after) or where_folders(after, repo)
+            bad = where_problems(after) or where_folders(after, repo, before)
             if bad:
                 raise Refused("nothing edited: " + "; ".join(bad))
         if after == before:
