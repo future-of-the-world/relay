@@ -51,6 +51,12 @@
       "said": [
         "Какая сейчас статическая валидация файлов существует, может мы можем контролировать это правило статическим анализатором, ruff например ?"
       ]
+    },
+    {
+      "at": "2026-10-28T09:25:01Z",
+      "fact": [
+        "28 Oct ~09:50 UTC. Static checks today: bin/types-lint (in relay precheck and the gate) runs mypy 1.18.2 (gradual; strict flags for 9 listed modules) and ruff 0.13.3 with only the F rules (pyflakes: unused imports, undefined names). tests/test_split_test_files.py caps each test file at 1500 lines (since 24 Oct, after tests/test_relay.py at 2008 lines caused three conflicting merges). Nothing caps lib/ or bin/relay. ruff 0.13.3 has no module-length rule (checked with `ruff rule --all`: only per-function C901 and PLR0911-0915, plus preview PLR0904/0914/0916/0917/1702). Largest modules: lib/relay_queue.py 2040, lib/relay_setup.py 1456, bin/relay 1079, lib/relay_verdict.py 889, lib/relay_bench.py 796. Front's view: the module cap and \"bin/relay holds no command code\" are facts a test checks (as for test files); ruff stays for bugs, per the project's Python rule."
+      ]
     }
   ]
 }
