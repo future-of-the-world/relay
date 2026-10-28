@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 84,
+  "time": 60,
+  "found_at": "2026-10-28T06:36:26Z",
+  "found_in": "relay queue add",
+  "title": "Bench graders cannot see the commands an agent ran",
+  "what": [
+    "Give bench graders the agent sessions' tool calls (tool name and command, secrets never printed), from the session transcripts the bench run leaves, so a grader can say 'a Bash call ran python on a scratch file' as a fact."
+  ],
+  "why": [
+    "28 Oct, spec-met (a-spec-fix-is-marked-met-by-reading-not-by-runni): the rule 'the checker runs a sketch of a runnable failing case' could not be proven in 7 paid bench runs ($2.83): graders read only the final reply, the workspace and the ledger (agent starts, tool names, no commands), so 'a script ran' is graded by words in the reply ('sketch|scratch|script|скрипт'). Run 6 (rule on) found the defect by reading and the word grader failed; runs 4-5 (rule off) gave the same verdicts. Any rule about what an agent runs is untestable until graders see the commands (principle 5: a fact goes to code)."
+  ],
+  "failing_case": [
+    "evals/scenarios/check-runs-sketch on wt/spec-met: the grader sketch-was-run is a regex over the reply; a checker that writes 'I ran a script' without running one passes it."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A grader that asks for a Bash call running python passes when the checker ran one and fails when it only wrote the word.",
+    "No secret from the environment appears in what graders read (a test with a fake key in the environment)."
+  ],
+  "where": [
+    "lib/relay_bench.py (grader inputs)",
+    "lib/relay_ledger.py",
+    "evals/scenarios/check-runs-sketch/scenario.toml (on wt/spec-met)"
+  ],
+  "taken_at": "2026-10-28T06:40:32Z",
+  "taken_by": "wt/bench-tools",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

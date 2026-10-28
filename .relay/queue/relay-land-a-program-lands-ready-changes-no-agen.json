@@ -17,7 +17,7 @@
   "pass_cases": [
     "`relay land <branch>` on a branch behind master by code takes master, gates the exact tree, and fast-forwards on green with no agent started.",
     "A take that brings only queue or handover records lands without a new gate.",
-    "Two branches ready together: the second waits for the first to land, takes master, gates and lands; no train branch is made. The baseline also records landings that waited behind another and the max wait.",
+    "Two branches ready together: the second waits for the first to land, takes master, gates and lands; no train branch is made. The baseline also records landings that waited behind another and the max wait. Two counters are kept from the first landing: moments when two or more landings waited at once (when a train would have formed), and items held at start because a pick shares a file (the wait line of items-picked-together-are-not-checked-against-ea); `relay land` prints both on request for the comparison on real data.",
     "A take with a conflict stops and says so (a fixer resolves it; then a gate and a check of the resolved files).",
     "Baseline for the later comparison is recorded in the item: rechecks per night, agent minutes on rechecks, ready-to-landing wait (median, p90), gates per landing."
   ],
@@ -60,6 +60,43 @@
       "edited": "pass_cases",
       "fact": [
         "Edited pass_cases: Owner picked column a of the demo, not the separate a + train column (28 Oct)."
+      ]
+    },
+    {
+      "at": "2026-10-28T06:24:58Z",
+      "said": [
+        "Это навело меня на мысли, можем ли мы делать слияние нескольких соседствующих изменений (по ip) в одно, при этом сохраняя исходные файлы задач, мы не убираем train а унифицируем механизм его работы, применяя там где нужно"
+      ]
+    },
+    {
+      "asked_at": "2026-10-28T06:47:21Z",
+      "question": [
+        "**Группировать ли соседние задачи уже сейчас или сначала собрать данные?**",
+        "",
+        "Вы предложили строить соседние по приоритету задачи на одних файлах одним изменением (каждая задача сохраняет свой файл и свой тест) и сделать train той же механикой. Проектировщик измерил, критик проверил. Итог: (1) утренние три готовых изменения при `relay land` ни разу не ждали бы вместе — они стали готовы в 09:37, 10:01 и 10:17, gate 17 мин, train не собрался бы; ждали они только из-за ручного train-23. (2) Группа при старте экономит время для задач на одном файле, но не деньги: ~$2 экономии на всей очереди против ~$6 на постройку. (3) Ночная беда с тремя задачами на одном файле — это дефект отбора при старте: он не сравнивает задачи, выбранные вместе. Его я поставил в очередь как fix, он нужен при любом выборе. Красный gate в группе задевает всех: 17 % lane в одиночку, 32 % в группе из двух, 44 % из трёх.",
+        "",
+        "| | a. сначала данные | b. train в `relay land` сейчас | c. группы при старте и train сейчас |",
+        "|---|---|---|---|",
+        "| построить | fix отбора + 2 счётчика (~60 мин агентов) | + 60–90 мин | + 220–300 мин |",
+        "| утро 28 Oct | 3 gate, последний 10:35 | то же: train не собрался бы | то же |",
+        "| три задачи на одном файле | по очереди, без конфликтов, последняя через ~200 мин | как a | одной группой, ~66 мин (100 при красном gate) |",
+        "| сравнение на реальных данных | счётчики покажут, где группа окупится | train до сравнения | всё до сравнения |"
+      ],
+      "options": [
+        "a. Сначала данные: fix отбора и счётчики в `relay land`, группы — при сравнении (рекомендую)",
+        "b. Добавить train в `relay land` сейчас",
+        "c. Строить и группы при старте, и train сейчас"
+      ],
+      "answered_at": "2026-10-28T06:49:36Z",
+      "answer": [
+        "Сначала данные, возможно train действительно не понадобится в новом relay land"
+      ]
+    },
+    {
+      "at": "2026-10-28T06:49:36Z",
+      "edited": "pass_cases",
+      "fact": [
+        "Edited pass_cases: Owner, 28 Oct, chose data first (design-batch revision 2, option D+): grouping is decided at the comparison."
       ]
     }
   ]

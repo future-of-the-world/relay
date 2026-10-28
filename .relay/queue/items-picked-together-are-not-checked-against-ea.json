@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 89,
+  "time": 45,
+  "found_at": "2026-10-28T06:47:28Z",
+  "found_in": "relay queue add",
+  "title": "Items picked together are not checked against each other",
+  "what": [
+    "In lanes_state, a pick is also compared with the picks already chosen in the same call (by `where` files, hubs as today); the later pick waits and its line names the other ('waits: same file as <slug>'), which is also the start counter the design asks for."
+  ],
+  "why": [
+    "28 Oct, design-batch revision 2 section 3: lanes_state (plugins/front/lib/relay_lanes.py 243-254) compares each pick only with files running branches changed, never with the other picks of the same call. py-green, setup-dirty and doctor-exit started within 7 s with lib/relay_setup.py in each `where`; the night then cost a hand-built train-23 with merge conflicts. Holds under every grouping option."
+  ],
+  "failing_case": [
+    "Two open fixes whose `where` names lib/relay_setup.py, no lane running, 2 free lanes: both are picked."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same input: one pick, one wait naming the other.",
+    "Two picks with disjoint `where`: both picked.",
+    "A pick that overlaps a running branch still waits as today."
+  ],
+  "where": [
+    "plugins/front/lib/relay_lanes.py:243-254 (lanes_state)",
+    "lib/relay_lanes.py (the copy; bin/sync-lib-copies)",
+    "tests/test_lanes_state.py"
+  ],
+  "taken_at": "2026-10-28T06:47:49Z",
+  "taken_by": "wt/picks",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
