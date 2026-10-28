@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 0,
+  "time": 30,
+  "found_at": "2026-10-28T04:34:58Z",
+  "found_in": "relay queue add",
+  "title": "A gate re-run on its record commit starts over",
+  "what": [
+    "When HEAD differs from a sha with a finished gate log only by relay's record commits (files under .relay/checks/), `relay gate` gates it from scratch. 28 Oct, wf_a74e8dbc-fb9, py-green: the gate of f8b4fee went red at 03:05:58; the runner died; the retry gated 44a45c8 (\"relay: gate of f8b4fee\") from scratch: 39.4 lane minutes and 13.8 slot minutes other lanes waited for, same 4 errors. The already-running case is handled (setup-dirty joined pid 37966); the just-finished case is not."
+  ],
+  "why": [
+    "Waste that repeats on every runner death (principle 2); 12 gate runners died in 24-28 Oct."
+  ],
+  "failing_case": [
+    "HEAD = the record commit of a finished red gate: `relay gate` runs the whole gate again."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "HEAD = record commit of a finished gate: the old result is printed and its exit code returned in seconds, no slot taken.",
+    "HEAD = record commit plus any change outside .relay/checks/: a full gate.",
+    "A gate still running: joins it, as now."
+  ],
+  "where": [
+    "lib/relay_gate.py",
+    "tests/test_gate*.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
