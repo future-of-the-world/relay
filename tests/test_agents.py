@@ -1,4 +1,5 @@
 """Library tests: agent files and the texts they carry."""
+import glob
 import os
 import shutil
 import subprocess
@@ -312,17 +313,39 @@ class Agents(unittest.TestCase):
         self.assertEqual("".join(l + "\n" for l in lines), relay_roles.role_map(ROOT))
 
 
-    def test_timeout_recipe_is_named_and_runs_on_macos(self):
-        """A runner wrapped a command in `timeout` and got exit 127 on macOS. The skill and the runner both name the
-        portable recipe (nohup, a log, a kill -0 wait loop) and say that no agent calls timeout."""
-        for rel in ("plugins/delegate/agents/runner.md", "plugins/delegate/skills/delegate/SKILL.md"):
-            with open(os.path.join(ROOT, rel), encoding="utf-8") as handle:
+    def test_timeout_line_is_in_every_limits_carrier(self):
+        """A runner wrapped a command in `timeout` and got exit 127 on macOS. Every agent that carries the Limits part
+        says so (one shared source, roles/parts/limits.md), and the skill points at that recipe."""
+        carriers = []
+        for path in sorted(glob.glob(os.path.join(ROOT, "plugins", "*", "agents", "*.md"))):
+            with open(path, encoding="utf-8") as handle:
                 text = handle.read()
-            self.assertIn("nohup", text, rel)
-            self.assertIn("kill -0", text, rel)
-            self.assertIn("macOS has no", text, rel)
-            self.assertIn("`timeout`", text, rel)
+            if "<!-- relay:part limits -->" in text:
+                carriers.append(path)
+                self.assertIn("macOS has no `timeout` program", text, path)
+                self.assertEqual(text.count("nohup <command>"), 1, path)
+        self.assertGreaterEqual(len(carriers), 9)
+        with open(os.path.join(ROOT, "roles", "parts", "limits.md"), encoding="utf-8") as handle:
+            self.assertEqual(handle.read().count("macOS has no `timeout` program"), 1)
+        with open(os.path.join(ROOT, "plugins/delegate/skills/delegate/SKILL.md"), encoding="utf-8") as handle:
+            skill = handle.read()
+        self.assertIn("macOS has no `timeout` program", skill)
+        self.assertIn("Limits", skill)
 
+    def test_timeout_free_recipe_runs(self):
+        """The documented start line and wait loop, run on a 1-second job in a temp dir, end with its output and
+        never call timeout."""
+        with open(os.path.join(ROOT, "roles", "parts", "limits.md"), encoding="utf-8") as handle:
+            lines = [l.strip() for l in handle.read().splitlines()]
+        start = next(l for l in lines if l.startswith("cd <path> && mkdir -p <logs> && nohup"))
+        wait = next(l for l in lines if l.startswith("i=0; while kill -0"))
+        self.assertNotIn("timeout", start + wait)
+        with tempfile.TemporaryDirectory() as tmp:
+            start = start.replace("<path>", tmp).replace("<logs>", tmp + "/logs").replace("<command>", "sh -c 'echo hi; sleep 1'")
+            out = subprocess.run(["sh", "-c", start], capture_output=True, text=True, check=True).stdout.split()[-1]
+            wait = wait.replace("<pid>", out).replace("<logs>", tmp + "/logs")
+            done = subprocess.run(["sh", "-c", wait], capture_output=True, text=True, check=True).stdout
+            self.assertIn("hi", done)  # worked: the loop ended before 230 s and tailed the log
 
 
 if __name__ == "__main__":
