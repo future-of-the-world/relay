@@ -278,7 +278,8 @@ class TestChangedTests(Base):
         self.write("tests/test_slow.py", self.SLEEPER % 3)
         self.commit()
         self._set("STEP_TIMEOUT", 1)
-        self._set("CHANGED_TESTS_TIMEOUT", 60)
+        # the step keeps its own default budget (230 s): a 60 s one went red when the gate ran at load 50 and python took over a minute to start
+        self.assertGreater(relay_precheck.CHANGED_TESTS_TIMEOUT, relay_precheck.STEP_TIMEOUT)
         code, lines = relay_precheck.run(self.repo)
         self.assertIn("ok   changed tests", lines)
 
