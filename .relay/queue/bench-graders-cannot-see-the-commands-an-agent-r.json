@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-28T06:40:32Z",
   "taken_by": "wt/bench-tools",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T07:36:26Z",
+  "test": "tests/test_bench.py::Bench::test_tool_called_sees_a_real_command_not_a_word",
   "dropped_at": null,
   "dropped_why": null
 }

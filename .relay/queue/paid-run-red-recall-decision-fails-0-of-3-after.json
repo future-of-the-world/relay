@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 99,
+  "time": 60,
+  "found_at": "2026-10-28T07:47:49Z",
+  "found_in": "relay queue add",
+  "title": "Paid run red: recall-decision fails 0 of 3 after autostart",
+  "what": [
+    "Find from the three traces why recall-decision fails (the session's behaviour, the lanes hook text, or a grader that expects the old numbered questions) and fix the cause; prove it with the case passing 3 of 3 in one paid run of that case alone."
+  ],
+  "why": [
+    "28 Oct 07:10 UTC paid run on master cc2ba5f0 ($19.80, 31 cases) is RED: recall-decision passed 0 of 3 (below its last 5 records); code graders answers-as-recorded and questions-as-recorded failed in all 3 runs, meaning grader reading-marked failed (votes FAIL PASS FAIL, FAIL FAIL FAIL). The judged replies talk about lanes instead of the recorded decisions: 'Обе полосы остаются свободными: вы только спросили, что решено, и ничего не просили строить.' The lanes line and Stop refusal (autostart, de283320) and no-numbers (questions carry no number) landed in this wave; one of them, or the case's graders, no longer fits. Also in this run: keep-owner-words-en 2 of 3 (1 timed out at 600 s). Record ~/.relay/evals/relay/2026-10-28T07-10-29Z-master.json; traces ~/.relay/eval-traces/relay/2026-10-28T07-10-29Z-master/recall-decision-with-run{1,2,3}/trace.jsonl."
+  ],
+  "failing_case": [
+    "bin/ci on master cc2ba5f0: recall-decision 0 of 3, ci RED."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "recall-decision alone passes 3 of 3 on the fixed tree.",
+    "The lanes line still appears and the Stop refusal still fires when a lane is free and an item can start (tests/test_lanes_state.py)."
+  ],
+  "where": [
+    "evals/plugin/recall-decision/",
+    "plugins/front/hooks/lanes.py",
+    "plugins/front/skills/front/SKILL.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
