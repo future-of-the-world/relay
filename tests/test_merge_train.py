@@ -322,17 +322,13 @@ class StackedBranches(TrainCase):
         self.assertIsNone(self.verdict("wt/s"))
 
     def test_t10_a_clean_take_of_master_is_not_refused(self):
-        # Q changed line 10, P line 1: git combines lib/f.py cleanly, nothing is dropped. As before the change, the combined
-        # file is S's own file changed since its mark (the old refusal), not the new "dropped" one; a newer mark lets it land.
+        # Q changed line 10, P line 1: git combines lib/f.py cleanly, nothing is dropped and nobody resolved anything by hand.
+        # Design relay-land 4.2: a clean take never asks for a new check, also for a file both sides changed.
         p, s = self.stacked()
         self.ready(s, {"lib/g.py": "g1\n"})
         self.commit(self.main, {"lib/f.py": SHARED.replace("line 10\n", "Q ten\n")}, "Q")
         self.git(s, "merge", "--no-edit", "master")
         self.gate(s)
-        reason = self.verdict("wt/s")
-        self.assertIn("lib/f.py", reason)
-        self.assertNotIn("dropped", reason)
-        self.mark(s, self.git(s, "rev-parse", "HEAD"))
         self.assertIsNone(self.verdict("wt/s"))
 
     def test_t12_a_stacked_branch_is_checked_for_its_own_files_only(self):
