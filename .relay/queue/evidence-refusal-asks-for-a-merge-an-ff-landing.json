@@ -23,8 +23,8 @@
     "lib/relay_queue.py (done --evidence)",
     "plugins/relay/lib/relay_queue.py (copy)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T02:47:32Z",
+  "taken_by": "wt/evidence-ff",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
