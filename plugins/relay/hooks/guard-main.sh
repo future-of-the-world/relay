@@ -25,9 +25,9 @@
 # - anywhere (main checkout or any worktree) in a repository whose default branch has `.relay/`: a write to
 #   `.relay/checks/` (Write/Edit, a Bash write row, git add/rm/mv/restore/update-index/checkout -- naming it, inline
 #   code naming it with a write word); reads are allowed. Those files are written only by relay's own hook and
-#   `relay gate`. Tests: plugins/relay/tests/check-mark.test.sh;
+#   `relay gate`. Tests: tests/test_hook_check_mark.py;
 # - the same for a queue item file `.relay/queue/<slug>.json`: only `relay queue` writes it (the message names `relay queue edit`);
-#   git's own verbs (a merge conflict) stay free. Tests: plugins/relay/tests/check-mark.test.sh (Q1-Q4)
+#   git's own verbs (a merge conflict) stay free. Tests: tests/test_hook_check_mark.py (Q1-Q4)
 # - everything, with the reason, when the guard cannot read its own bindings:
 #   .claude/kit.toml present but unreadable, or jq / python3 missing. A broken
 #   guard never silently allows.
@@ -50,10 +50,10 @@
 # `&&` or `||`, in a pipe or in the background; or HOME, TMPDIR, USER from the hook's own environment. The resolved
 # path is judged like a literal one (`M=<main>; touch $M/x` is refused from a worktree). A variable whose value is not
 # known (set in another call, `$(...)`, `${X:-d}`, `$1`) is read literally when unquoted (a path under the current
-# directory, refused in main) and skipped inside double quotes; `$PWD` is the directory tracked for that part. Tests: tests/guard-diff.test.sh.
+# directory, refused in main) and skipped inside double quotes; `$PWD` is the directory tracked for that part. Tests: tests/test_hook_guard_diff.py.
 # This catches slips, not a determined bypass.
 #
-# Tests: plugins/relay/tests/guard-main.test.sh
+# Tests: tests/test_hook_guard_main.py
 set -uo pipefail
 
 kit="$(cd "$(dirname "$0")" && pwd -P)/../bin/kit"

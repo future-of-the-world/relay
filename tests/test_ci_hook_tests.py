@@ -1,12 +1,12 @@
-"""bin/ci's hook-test step: which plugin test files it runs in quick mode. Free; no model call.
-Each case copies bin/ci into a temporary tree holding stub test files and reads that run's hook-tests log."""
+"""bin/ci's hook-test step: the tools it needs, and the live session test (tests/hooks_live.py), left for the full run. The hook suites
+themselves are tests/test_hook_*.py, run with the library tests. Free; no model call.
+Each case copies bin/ci into a temporary tree holding a stub hooks_live.py and reads that run's hook-tests log."""
 import os, shutil, subprocess, sys, tempfile, unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fake_tools import install_fake  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STUBS = ["inject-addition", "packet", "check-contract", "shim", "spec-check", "hooks-live"]
 
 
 def copy_gate(tree):
@@ -25,10 +25,9 @@ def run_ci(args, drop=(), env_extra=None):
     tmp = tempfile.mkdtemp()
     try:
         copy_gate(tmp)
-        d = os.path.join(tmp, "plugins", "relay", "tests"); os.makedirs(d)
-        for n in STUBS:
-            with open(os.path.join(d, n + ".test.sh"), "w") as f:
-                f.write("echo STUB-RAN %s\n" % n)
+        d = os.path.join(tmp, "tests"); os.makedirs(d)
+        with open(os.path.join(d, "hooks_live.py"), "w") as f:
+            f.write("print('STUB-RAN hooks-live')\n")
         env = dict(os.environ); env.pop("RELAY_GATE", None); env.pop("RELAY_INERT_FULL_HOOKS", None); env.update(env_extra or {})
         if drop:  # hide tools by shadowing them with a PATH that lacks their directories' copies
             bindir = os.path.join(tmp, "fakebin"); os.makedirs(bindir)
@@ -46,16 +45,10 @@ def run_ci(args, drop=(), env_extra=None):
 
 
 class HookTestsStep(unittest.TestCase):
-    def test_quick_runs_the_free_core_tests(self):
-        _, log = run_ci(["--quick"])
-        for n in STUBS[:-1]:
-            self.assertIn("STUB-RAN " + n, log)  # inject-addition among them: a role-injection regression must fail the quick gate
-        self.assertNotIn("skipped", log)
-
     def test_quick_leaves_hooks_live_for_the_full_run_and_says_so(self):
         _, log = run_ci(["--quick"])
         self.assertNotIn("STUB-RAN hooks-live", log)
-        self.assertIn("hooks-live.test.sh (left for the full bin/ci", log)
+        self.assertIn("hooks_live.py (left for the full bin/ci", log)
 
     def test_missing_bun_fails_naming_the_tool(self):
         _, log = run_ci(["--quick"], drop=("bun",))
@@ -65,13 +58,13 @@ class HookTestsStep(unittest.TestCase):
     def test_full_without_claude_fails_hooks_live(self):
         # a full run makes no model call without claude on PATH (evals and validate are skipped too)
         _, log = run_ci([], drop=("claude",))
-        self.assertIn("FAIL plugins/relay/tests/hooks-live.test.sh needs claude on PATH", log)
+        self.assertIn("FAIL tests/hooks_live.py needs claude on PATH", log)
         self.assertNotIn("STUB-RAN hooks-live", log)
 
     def test_the_inert_probes_nested_quick_run_never_runs_hooks_live(self):
         _, log = run_ci(["--quick"], env_extra={"RELAY_INERT_FULL_HOOKS": "1"})
         self.assertNotIn("STUB-RAN hooks-live", log)
-        self.assertIn("hooks-live.test.sh (left for the full bin/ci", log)
+        self.assertIn("hooks_live.py (left for the full bin/ci", log)
 
     def test_full_gate_runs_hooks_live_once_and_the_inert_comparison_ignores_its_ok_lines(self):
         # Under RELAY_GATE the full run runs the (stub) hooks-live, which prints an "ok" line; the nested quick run does not.
@@ -82,11 +75,9 @@ class HookTestsStep(unittest.TestCase):
             install_fake(os.path.join(fake, "claude"), "#!/bin/sh\nexit 0\n")
             tree = os.path.join(tmp, "tree"); os.makedirs(tree)
             copy_gate(tree)
-            d = os.path.join(tree, "plugins", "relay", "tests"); os.makedirs(d)
-            with open(os.path.join(d, "hooks-live.test.sh"), "w") as f:
-                f.write("echo STUB-RAN hooks-live\necho 'ok    live case'\n")
-            with open(os.path.join(d, "free.test.sh"), "w") as f:
-                f.write("echo 'ok    free case'\n")
+            d = os.path.join(tree, "tests"); os.makedirs(d)
+            with open(os.path.join(d, "hooks_live.py"), "w") as f:
+                f.write("print('STUB-RAN hooks-live')\nprint('ok    live case')\n")
             g = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
             for c in (["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "x"]):
                 subprocess.run(g[:5] + c if c[0] == "commit" else ["git"] + c, cwd=tree, check=True, capture_output=True)

@@ -5,7 +5,7 @@ failing step's first findings; the full log in .ci/ci.log. Exit 0 only when gree
     bin/ci --quick      the free steps only; ends "QUICK MODE" and never releases
 
 Steps: library tests (python), types and lint (mypy + ruff pyflakes rules through uv; needs uv and, the first time, the
-network), hook tests (bash: every plugins/*/tests/*.test.sh runs in quick mode too; bun/jq must be on PATH or the step
+network), hook tests (the live session test; bun/jq must be on PATH or the step
 FAILS naming the tool; only hooks-live, which makes a paid claude call, is left for the full run), lib copies identical,
 plugin evals' grader tests, `claude plugin validate` (skipped loudly without claude), the inert step, plugin evals (full
 mode only; compared with evals/plugin/baseline), then the record step (bin/eval-record: files .ci/evals.json under
@@ -58,7 +58,7 @@ def outcome(directory: str) -> list[str]:
     skip, cases = False, 0
     for ln in _read_lines(os.path.join(directory, ".ci", "steps", "hook-tests.log")):
         if ln.startswith("--- "):
-            skip = "hooks-live" in ln
+            skip = "hooks_live" in ln
         if not skip and ln.startswith("ok"):
             cases += 1
     lines.append("hook cases ok: %d" % cases)
@@ -278,7 +278,11 @@ class Ci:
 
     # ---- steps ----------------------------------------------------------------------------------------------------
     def lib_tests(self, log: TextIO) -> int:
-        return self.run(["python3", "-W", "ignore::ResourceWarning", "tests/run_unittest.py"], log).returncode
+        env = dict(self.env)
+        # the guard suite (tests/test_hook_guard_main.py) runs its shared cases once in quick mode (not in the inert probe of a full run: see Probe)
+        if self.quick and not env.get("RELAY_INERT_FULL_HOOKS"):
+            env["RELAY_QUICK"] = "1"
+        return self.run(["python3", "-W", "ignore::ResourceWarning", "tests/run_unittest.py"], log, env=env).returncode
 
     def types_lint(self, log: TextIO) -> int:
         # mypy and ruff F, pinned, through uv (bin/types-lint, pyproject.toml)
@@ -286,9 +290,6 @@ class Ci:
 
     def hook_tests(self, log: TextIO) -> int:
         env = dict(self.env)
-        # the guard suite runs its shared cases once in quick mode (not in the inert probe of a full run: see Probe)
-        if self.quick and not env.get("RELAY_INERT_FULL_HOOKS"):
-            env["RELAY_QUICK"] = "1"
         rc = 0
         # the tools the free tests run on: a missing one FAILS the step (a skipped test would pass a gate that checked nothing)
         for tool, how in HOOK_TOOLS:
@@ -297,28 +298,23 @@ class Ci:
                 rc = 1
         if rc:
             return 1
-        for f in sorted(glob.glob(self.path("plugins", "*", "tests", "*.test.sh"))):
-            rel = os.path.relpath(f, self.root)
-            if "hooks-live" in rel:
-                # hooks-live runs a real Claude Code session (claude -p, Haiku, a few cents): the full gate only
-                # every --quick run leaves it, the inert probe's nested run too: a second paid call, and a model-dependent count in the comparison
-                if self.quick:
-                    log.write("--- %s (left for the full bin/ci: it makes a paid claude call)\n" % rel)
-                    continue
-                if self.which("claude") is None:
-                    log.write("FAIL %s needs claude on PATH: install Claude Code\n" % rel)
-                    rc = 1
-                    continue
-                log.write("--- %s\n" % rel)
-                if self.run(["bash", rel], log, env=dict(env, HOOKS_LIVE="1")).returncode != 0:
-                    log.write("FAIL %s\n" % rel)
-                    rc = 1
-                continue
-            log.write("--- %s\n" % rel)
-            if self.run(["bash", rel], log, env=env).returncode != 0:
-                log.write("FAIL %s\n" % rel)
-                rc = 1
-        return rc
+        # the hook suites are tests/test_hook_*.py: the library tests step runs them. What is left here is the live session.
+        rel = os.path.join("tests", "hooks_live.py")
+        # hooks-live runs a real Claude Code session (claude -p, Haiku, a few cents): the full gate only
+        # every --quick run leaves it, the inert probe's nested run too: a second paid call, and a model-dependent count in the comparison
+        if self.quick:
+            log.write("--- %s (left for the full bin/ci: it makes a paid claude call)\n" % rel)
+            return 0
+        if not os.path.exists(self.path(rel)):
+            return 0
+        if self.which("claude") is None:
+            log.write("FAIL %s needs claude on PATH: install Claude Code\n" % rel)
+            return 1
+        log.write("--- %s\n" % rel)
+        if self.run(["python3", rel], log, env=dict(env, HOOKS_LIVE="1")).returncode != 0:
+            log.write("FAIL %s\n" % rel)
+            return 1
+        return 0
 
     def lib_copies(self, log: TextIO) -> int:
         rc = 0
@@ -336,7 +332,7 @@ class Ci:
         return rc
 
     def grader_tests(self, log: TextIO) -> int:
-        return self.run(["bash", "evals/plugin/graders.test.sh"], log).returncode
+        return self.run(["python3", "-I", "evals/plugin/graders.py"], log).returncode
 
     def tracks_something(self, folder: str) -> bool:
         """False only when git answers and tracks no file in `folder` (a renamed plugin's old folder holding ignored files);

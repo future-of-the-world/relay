@@ -374,7 +374,7 @@ class Inert(Fixture):
         write(os.path.join(main, ".relay", "README.md"), "x\n")
         write(os.path.join(main, "docs", "handover.md"), "state\n")
         write(os.path.join(main, "tests", "test_x.py"), self.TEST % body)
-        write(os.path.join(main, "evals", "plugin", "graders.test.sh"), "exit 0\n")
+        write(os.path.join(main, "evals", "plugin", "graders.py"), "raise SystemExit(0)\n")
         os.makedirs(os.path.join(main, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(main, "bin", "ci"))
         os.makedirs(os.path.join(main, "lib"))

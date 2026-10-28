@@ -21,7 +21,7 @@ the project's .claude/kit.toml [delegate] section (defaults in brackets):
 - A prompt over 3000 characters that names no `Brief:` file gets a note: write
   a brief file; the prompt is re-read on every request of the agent.
 
-Fails open on any error. Tests: plugins/delegate/tests/route-guard.test.sh
+Fails open on any error. Tests: tests/test_hook_route_guard.py
 """
 
 import json

@@ -10,7 +10,7 @@ recorded replies before it gates anything. Nothing here runs in `bin/ci`.
   length and form of a real reply (1,000+ characters). A template never mentions the finding outside
   its slot.
 - `make.py` writes `judged/NN.txt` and `graders/<yes|no>--NN-name.md` (the grader body is the production
-  rubric byte for byte); `make.py --check` (also run by `evals/plugin/graders.test.sh`) fails on any
+  rubric byte for byte); `make.py --check` (also run by `evals/plugin/graders.py`) fails on any
   difference, a short item, an item the code check refuses, a template that mentions the finding, or a
   recorded wrong reply that is in no items.txt, or a known wrong answer (`known_wrong` in questions.json:
   wrong replies the code graders let through, so only the judge refuses them) that no "no" item says.

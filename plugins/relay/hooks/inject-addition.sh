@@ -32,7 +32,7 @@
 # `tool_input.skill`; UserPromptSubmit has `prompt`. Output is
 # `hookSpecificOutput.additionalContext`.
 #
-# Tests: plugins/relay/tests/inject-addition.test.sh
+# Tests: tests/test_hook_inject_addition.py
 set -uo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo "inject-addition: jq is not installed (brew install jq)." >&2; exit 2; }
