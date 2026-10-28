@@ -284,8 +284,20 @@ def show(repo, branch, sleep=time.sleep):
     if relay_git.git(repo, "rev-parse", "--verify", "-q", ref)[0] != 0:
         raise MarkError("no branch %s" % branch)
     gate = newest(repo, ref, gate_logs(repo, ref))
-    mark = newest(repo, ref, marks(repo, ref))
+    import relay_inert
+    try:
+        default = relay_inert._default_ref(repo)
+        ab = relay_inert.absorbed(repo, ref)
+    except ValueError as exc:
+        raise MarkError(str(exc))
     lines = ["gate %s: exit %d" % gate if gate else "gate: none yet"]
+    if ab and not relay_inert.changed(repo, relay_git.git(repo, "merge-base", default, ref)[1], ref, own=True, archive=True, absorbed=ab):
+        return lines + ["mark: none needed, the ready changes it holds are checked", "outside: none to count"]    # the merge hook skips the mark step
+    # the merge hook's own view (step_mark): only marks on the branch itself count, not ones that landed on the default branch,
+    # and not a rider's mark inside an absorbed branch
+    stored = dict(marks(repo, ref))
+    own = relay_inert.own_marks(repo, ref, default, ab, stored)
+    mark = (own[0], stored[own[0]]) if own else None
     if mark is None:
         return lines + ["mark: no mark yet", "outside: unknown (no mark yet)"]
     commit, data = mark
@@ -296,7 +308,6 @@ def show(repo, branch, sleep=time.sleep):
         lines.append("outside: %s" % ("check not stored" if record is None else "%d in the check" % relay_verdict.outside_of(record)))
     except MarkError as exc:
         lines.append("outside: unknown (%s)" % exc)
-    import relay_inert
     try:
         later = relay_inert.changed(repo, commit, ref, own=True, archive=True, absorbed=relay_inert.absorbed(repo, ref))
     except ValueError as exc:
