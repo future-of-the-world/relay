@@ -281,7 +281,17 @@ class TestChangedTests(Base):
         self._set("STEP_TIMEOUT", 1)
         # the step keeps its own default budget (230 s): a 60 s one went red when the gate ran at load 50 and python took over a minute to start
         self.assertGreater(relay_precheck.CHANGED_TESTS_TIMEOUT, relay_precheck.STEP_TIMEOUT)
-        code, lines = relay_precheck.run(self.repo)
+        real = subprocess.run
+
+        def fake(cmd: list[str], *args: object, **kwargs: object) -> "subprocess.CompletedProcess[str]":
+            # the registry test runs under STEP_TIMEOUT (1 s here) and takes longer than that on a busy machine: fake it green, so
+            # only the slow changed test runs for real, under its own budget
+            if cmd[0] == "python3" and cmd[-1] == relay_precheck.RULES_REGISTRY_TEST:
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+            return real(cmd, *args, **kwargs)  # type: ignore[call-overload]
+
+        with mock.patch.object(relay_precheck.subprocess, "run", fake):
+            code, lines = relay_precheck.run(self.repo)
         self.assertIn("ok   changed tests", lines)
 
     def test_the_other_steps_keep_their_own_budget(self) -> None:
