@@ -31,8 +31,8 @@
   ],
   "taken_at": "2026-10-28T08:38:26Z",
   "taken_by": "wt/relay-land-a-program-lands-ready-changes",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T15:11:25Z",
+  "test": "tests/test_land.py::Landing::test_land_takes_gates_lands",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
