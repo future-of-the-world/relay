@@ -1,0 +1,179 @@
+{
+  "branch": "wt/spec-met",
+  "findings": [
+    {
+      "details": [
+        "The check of spec-review fixes reads artifacts only, so a finding whose failing case a few lines of code can run is marked MET after a fix that only narrowed it; the same defect came back as MEDIUM in the apply review and cost a second fix round.",
+        "Also: roles/judge.md (step 1)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Trial spec review F1: scenarios did not cover brackets, underscore, backtick, so a 9-mark strip passes; the fix added 8 marks of 32; delegate:checker marked F1 MET by reading; sdd:reviewer then found that a mutant stripping 14 of the 32 ASCII marks passes all 15 tests."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 72,
+      "pass_cases": [
+        "The same F1 after a partial fix is reported open by the checker because its sketch still passes; a complete fix is MET."
+      ],
+      "path": "plugins/sdd/skills/spec-review/SKILL.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_roles.py::test_judge_check_runs_a_sketch_of_a_runnable_failing_case passes at head, fails at base 2a46798e (earlier check); unchanged by this fix."
+      ],
+      "severity": "HIGH",
+      "since": "2a46798ecdbb7b65411f7f190578caed03db99bb",
+      "source": "queue",
+      "summary": "A spec fix is marked met by reading, not by running",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: checker.md \"Write is only for your input file (a scratchpad or the worktree's `.ci/`).\"",
+        "critic.md \"Write is only for the TOML input file\". Precedence part: \"the project's rules for this agent win,",
+        "then the project's rules for your role, then the text of your flow in this file, then the shared text of your",
+        "role.\" The new rule sits in the shared text, the lowest rank. Whether a model actually skips the sketch is",
+        "PLAUSIBLE (no eval, see F2), but the text the item adds is the weakest of three conflicting texts.",
+        "Size: 10 agent minutes (two flow lines, one base line, relay sync, the text test)."
+      ],
+      "evidence": [
+        "awk '/relay:end precedence/{p=1} p' plugins/delegate/agents/checker.md",
+        "  -> \"Write is only for your input file (a scratchpad or the worktree's `.ci/`). You never write a check mark\"",
+        "critic.md flow: \"Write is only for the TOML input file; `relay check record review --input <file>` writes ...\"",
+        "grep -n 'Bash is for reading' roles/judge.md -> 25:- Bash is for reading, and for running one existing test or check that"
+      ],
+      "failing_case": [
+        "A checker gets a finding whose failing case is \"strip_marks('[a]_`b`') keeps the brackets\". The base (step 2)",
+        "now says: run it as a scratch script in the scratchpad. Its own flow part says \"Write is only for your input",
+        "file (a scratchpad or the worktree's .ci/)\", and the precedence part says the flow text wins over the shared",
+        "role text; the base Scope bullet also says \"Bash is for reading, and for running one existing test or check\".",
+        "Now: two instructions that forbid writing the script outrank the one that requires it; a checker that obeys",
+        "precedence reads and marks MET (the very failure of the item). Should: the flow part allows the sketch file."
+      ],
+      "fix_hint": [
+        "checker.md: \"Write is only for your input file and a check-step-2 sketch script, both in the scratchpad (or",
+        "the input in the worktree's .ci/)\". Same in critic.md. In the judge base Scope bullet add \"and, in check mode,",
+        "a sketch of a failing case (check step 2)\". Extend the new test to assert the flow lines."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 321,
+      "pass_cases": [
+        "1. checker.md flow part: the Write sentence names a scratch sketch script in the scratchpad beside the input file.",
+        "2. critic.md flow part (\"Write is only for the TOML input file\"): same allowance, since the critic carries check mode too.",
+        "3. roles/judge.md Scope bullet \"Bash is for reading, and for running one existing test\" names the check-mode sketch as allowed (or is scoped to review mode), in all five synced copies.",
+        "4. The checker still may not write in the worktree outside .ci/ (the sketch is outside the repo)."
+      ],
+      "path": "plugins/delegate/agents/checker.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_roles.py::test_check_flow_parts_allow_the_scratch_script, earlier check; unchanged."
+      ],
+      "severity": "MEDIUM",
+      "since": "650eb892a6cb579f6db61fa9750d518aa7b4ff08",
+      "source": "review-spec-met.json",
+      "source_id": "F1",
+      "summary": "the checker's flow part still says Write is only for the TOML input, and its flow text outranks the base that now asks for a scratch script",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that no behavioural check exists: evals/scenarios has add-function, lookup, review-offbyone,",
+        "small-script; evals/plugin cases are front cases; evals/judge-measure grades review prose. Principle 5 (meaning",
+        "to the model is \"tested with paid checks\"), and the brief allowed one paid eval of one cheap case \"if the fix",
+        "can only be shown that way\", which is the case here: a text-presence test passes with the behaviour off.",
+        "Size: 30 agent minutes (one scenario on the review-offbyone model, one paid run under $1)."
+      ],
+      "evidence": [
+        "ls evals/scenarios -> add-function lookup review-offbyone small-script",
+        "git grep -n -i -l checker -- evals -> only evals/plugin/*/prompt.md front cases",
+        "worker report: \"Check green (296 passed)\" , no eval run named."
+      ],
+      "failing_case": [
+        "Item pass case: \"The same F1 after a partial fix is reported open by the checker because its sketch still",
+        "passes; a complete fix is MET.\" Disable the behaviour (a checker that ignores the new sentence and reads):",
+        "test_judge_check_runs_a_sketch_of_a_runnable_failing_case still passes, since it only greps the text.",
+        "No eval case under evals/ drives a checker at all (grep finds none), so the paid run after the wave does",
+        "not cover it either. Now: nothing shows the checker runs the sketch. Should: one cheap eval case shows it."
+      ],
+      "fix_hint": [
+        "Add evals/scenarios/check-narrowed-fix (copy review-offbyone's scaffold): a tiny strip function, a review JSON",
+        "with the 32-mark failing case, a fix commit covering 8; grade that F1 is NOT MET with \"sketch run:\". Run it once."
+      ],
+      "id": "F2",
+      "kind": "feature",
+      "line": 281,
+      "pass_cases": [
+        "1. An eval case: a review JSON with F1 \"strip removes all 32 ASCII marks\", a fix that covers 8 marks; the checker's verdict for F1 is NOT MET and its reason holds \"sketch run:\".",
+        "2. Same case with a fix covering all 32: F1 MET, reason holds \"sketch run:\".",
+        "3. A finding whose failing case is prose only (a doc line): checked by reading, no sketch demanded.",
+        "4. The text test stays, as the cheap guard against the words being lost in a sync."
+      ],
+      "path": "tests/test_roles.py",
+      "rank": "medium",
+      "reason": [
+        "Pass case 1 (narrowed fix reported NOT MET) is shown by one real run per the fixer (checker ran a scratch script, F1 NOT MET), but only in the fixer's report, not repeated by me. Cases 2 (complete fix is MET) and 3 (prose-only finding) have no scenario. The graders are weak: the scenario was not run with the behaviour off, a checker that only reads could also see \"[\" missing and pass f1-left-open, and the regex \"sketch|scratch\" matches any mention of the word, so it does not prove a script was run. The changed graders were not re-run with the model. Owner decides whether this one-run evidence is enough."
+      ],
+      "severity": "MEDIUM",
+      "since": "650eb892a6cb579f6db61fa9750d518aa7b4ff08",
+      "source": "review-spec-met.json",
+      "source_id": "F2",
+      "summary": "the item's pass case (a narrowed fix is reported open by the checker) is never shown: the only test checks that words exist",
+      "verdict": "GAP"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading SKILL.md lines 71-83 and plugins/openspec/skills/plan/SKILL.md:66-75. Correct today in",
+        "intent; unclear on the one path the item names. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "sed -n 60,100p plugins/openspec/skills/spec-review/SKILL.md -> \"says so in its verdict\" ... \"The spec check writes no verdict\"",
+        "git grep -n sketch -> plugins/openspec/skills/plan/SKILL.md:75 \"openspec/changes/<change>/sketch/\""
+      ],
+      "failing_case": [
+        "spec-review step 4, the path the item is about: \"the checker runs that sketch ... and says so in its verdict\",",
+        "and a few lines down \"The spec check writes no verdict (it is not a merge)\"; the checker flow: with",
+        "`Gate: none (artifacts only)` \"the report writes no verdict ... a plain text file\". The base says \"say so in",
+        "the verdict reason\". In openspec, plan/SKILL.md uses \"sketch\" for the picture saved in",
+        "openspec/changes/<change>/sketch/. Now: a checker of a spec review has no verdict reason to write into and",
+        "\"that sketch\" can be read as the saved design sketch. Should: \"says so in the report's line for that finding",
+        "(sketch run: ...)\", and a word not taken in openspec (a probe script)."
+      ],
+      "fix_hint": [
+        "\"... the checker runs it as a scratch script outside the repo and writes `sketch run: <what it showed>` on",
+        "that finding's line of its report\". Optionally say \"probe\" instead of \"sketch\" in both texts."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 73,
+      "pass_cases": [
+        "1. SKILL.md step 4 names where the sketch result goes in the plain-text spec-check report.",
+        "2. The base's \"verdict reason\" wording also covers the plain-text report (or names it).",
+        "3. The word used for the script is not \"sketch\" in the openspec plugin, or is qualified (\"a scratch script\")."
+      ],
+      "path": "plugins/openspec/skills/spec-review/SKILL.md",
+      "rank": "low",
+      "reason": [
+        "Wording test in tests/test_roles.py, earlier check; unchanged."
+      ],
+      "severity": "LOW",
+      "since": "650eb892a6cb579f6db61fa9750d518aa7b4ff08",
+      "source": "review-spec-met.json",
+      "source_id": "F3",
+      "summary": "spec-review says the checker reports the sketch 'in its verdict', but the spec check writes no verdict, and 'sketch' already names the saved design sketch in openspec",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "d40376deaf2d6a440b8b30ffdd53a53d7c551991.gate.log",
+  "head": "d7f64278efb011b958dd83b7f38bb262aaf1d7d0",
+  "item": "a-spec-fix-is-marked-met-by-reading-not-by-runni",
+  "notes": [
+    "The scenario adds no pytest test, so there is no fail-without-fix run to make; an eval run with the behaviour off was not made."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix commit d40376de adds only evals/scenarios/check-runs-sketch (prompt, scaffold, scenario.toml). Gate log is for d40376de, exit 0; HEAD adds only the gate log. Ran pytest -k 'scenario or eval or bench': 103 passed. Read the scaffold and graders. The one paid run (fixer report) was not repeated. F1/F3/Q1 carry the earlier check (tests pass at head, fail at base; no file of theirs changed since)."
+  ],
+  "type": "check"
+}
