@@ -67,6 +67,20 @@
         "  - **Fake modules:** in a temporary tree with a fake `lib/relay_cmd/hello.py`, `relay hello` is refused for a critic while the module declares no `WRITES`, and allowed with `WRITES = False`, with no edit to the guard.",
         "- Between moves 4 and 5 the guard still reads only its table. A new command module added then would fail the completeness test, which now reads the module walk. So the new-command items (digest, two-branches) start after move 5, not after move 4."
       ]
+    },
+    {
+      "at": "2026-10-28T17:37:40Z",
+      "fact": [
+        "Known traps (from the build plan, section 4.7), pass into every move's brief:",
+        "### 4.7 Known traps (pass into every move's brief)",
+        "- lint imports;",
+        "- tests that import from the repo root under the short gate;",
+        "- done items' `test` ids, found by name;",
+        "- `RULE_TESTS` names in lib/relay_textonly.py;",
+        "- tests never touch the live `.relay/queue`;",
+        "- a move that takes a function a lane changed: rule 4.0;",
+        "- the size marker leaves a file in the move that brings it under 600 (4.3)."
+      ]
     }
   ]
 }
