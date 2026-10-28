@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 45,
+  "found_at": "2026-10-28T21:33:50Z",
+  "found_in": "relay queue add",
+  "title": "The cycle's gate step still ends with no result",
+  "what": [
+    "When the cycle's gate agent ends without its structured result, the change stops at 'gate' and nobody finds out whether the gate ran. Make the gate step robust: the gate runs detached with its log in the worktree, and the step reads the committed gate log (.relay/checks/<sha>.gate.log) for the head instead of trusting the agent's reply; an agent that ends with no result while a gate log for the head exists reports that log, and with no log the step reruns the gate once before stopping."
+  ],
+  "why": [
+    "Same failure as the item a-gate-waited-on-by-a-runner-dies-at-its-turn-li, closed 25 Oct, now back: 29 Oct the gate step of wt/type-check-subfolders-and-cap-module-siz (head 0311f194) ended with 'subagent completed without calling StructuredOutput (after in-conversation nudge)', left no gate log, and no gate process was running; the front had to restart the change by hand. Machine load was about 35 on 12 cores with 6 lanes. Repeats under parallel load (MEDIUM by the waste principle). IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "29 Oct, cycle run wf_21bb938f-13f: the gate step for head 0311f194 returned no result and no .relay/checks/0311f194*.gate.log exists; the cycle stopped at 'gate'."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A gate agent that ends without a result while the head's gate log exists: the step reports that log's exit.",
+    "With no gate log for the head, the step runs the gate once more instead of stopping."
+  ],
+  "where": [
+    "plugins/delegate/workflows/cycle.js",
+    "plugins/delegate/agents/runner.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
