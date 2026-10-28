@@ -21,12 +21,21 @@
   ],
   "where": [
     "plugins/relay/hooks/guard-main.sh",
-    "tests/ (guard tests)"
+    "tests/test_read_only_guard.py (guard tests)"
   ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T17:46:25Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    }
+  ]
 }
