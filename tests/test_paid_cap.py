@@ -51,6 +51,60 @@ class Today(Fixture):
         self.assertIn('title = "t"', open(self.projects).read())
 
 
+class GuardEstimate(unittest.TestCase):
+    """The day's-cap guard estimates the next batch from the repo's current cases (new ones at the mean case cost), not the largest stored batch."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.home = self.tmp.name
+        self.repo = os.path.join(self.home, "checkout")
+        self.folder = os.path.join(self.home, "evals", "repo")
+        os.makedirs(self.folder)
+        self.projects = os.path.join(self.home, "projects.toml")
+        with open(self.projects, "w") as f:
+            f.write('[global]\ntitle = "t"\npaid_cap_usd_per_day = 200\n')
+
+    def suite(self, n):
+        for i in range(n):
+            d = os.path.join(self.repo, "evals", "plugin", f"c{i:02d}")
+            os.makedirs(d)
+            open(os.path.join(d, "case.yaml"), "w").close()
+
+    def stored_batch(self, cases):
+        # a full batch of `cases` cases at 0.60 each, on 25 Oct (not the day under test)
+        runs = [{"name": f"c{i:02d}", "arms": {"with": [{"costUsd": 0.6}]}} for i in range(cases)]
+        with open(os.path.join(self.folder, "2026-10-25T01-00-00Z.json"), "w") as f:
+            json.dump({"startedAt": "2026-10-25T01:00:00.000Z", "costUsd": 0.6 * cases, "cases": runs}, f)
+
+    def spend(self, usd):
+        os.makedirs(os.path.join(self.home, "bench", "2026-10-26T00-10-00Z"))
+        with open(os.path.join(self.home, "bench", "2026-10-26T00-10-00Z", "results.json"), "w") as f:
+            json.dump({"started": "2026-10-26T00-10-00Z", "rows": [{"cost_usd": usd}]}, f)
+
+    def guard(self):
+        env = dict(os.environ, RELAY_HOME=self.home, RELAY_PROJECTS=self.projects, RELAY_ROOT=self.home)
+        return subprocess.run([sys.executable, BIN, "guard", "eval", "--today", "2026-10-26", "--dir", self.folder, "--repo", self.repo],
+                              capture_output=True, text=True, env=env)
+
+    def test_a_grown_suite_is_refused_when_the_room_is_short(self):
+        # stored: 15 cases x 0.60 = 9.00 (the largest batch); suite of 27: 9.00 + 12 new x 0.60 mean = 16.20
+        # spent 188.00 leaves 12.00: 188 + 9 = 197 would pass, 188 + 16.2 = 204.2 > 200 is refused
+        self.stored_batch(15); self.suite(27); self.spend(188.0)
+        done = self.guard()
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("estimated at $16.20", done.stdout)
+
+    def test_a_grown_suite_passes_with_room(self):
+        # spent 170.00 leaves 30.00: 170 + 16.2 = 186.2 <= 200
+        self.stored_batch(15); self.suite(27); self.spend(170.0)
+        self.assertEqual(self.guard().returncode, 0)
+
+    def test_no_stored_record_estimates_zero_and_passes(self):
+        self.suite(27); self.spend(199.0)
+        self.assertEqual(self.guard().returncode, 0)
+
+
 class DirectRuns(Fixture):
     """A `claude plugin eval` run made by hand leaves evals/plugin/results/<stamp>/aggregate-result.json in the checkout it ran in."""
 

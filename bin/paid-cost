@@ -9,7 +9,7 @@
   bin/paid-cost due [--dir DIR] [--repo REPO]            prints the merged changes no green paid run covers yet; nothing when none
   bin/paid-cost today                                    prints the day's spend, the owner's daily cap and the run count (UTC day)
   bin/paid-cost cap [USD]                                prints the daily cap from projects.toml [global]; with USD it lands the change as one commit on the default branch
-  bin/paid-cost guard eval                               exits 1 with a refusal line when the next plugin eval batch (the largest stored one) would pass the day's cap
+  bin/paid-cost guard eval                               exits 1 with a refusal line when the next plugin eval batch (the repo's current cases, new ones at the mean case cost) would pass the day's cap
 
 DIR holds the eval records bin/eval-record stores ($RELAY_HOME/evals/<repo>/*.json, RELAY_HOME defaults to ~/.relay).
 The eval tool enforces the ceiling itself but lets the runs in flight finish, so a batch can end up to one run per
@@ -236,7 +236,10 @@ def money_command(a):
             if a.arg != "eval":
                 print("paid-cost: guard takes: eval", file=sys.stderr)
                 return 2
-            line = relay_paidcap.check(today, relay_paidcap.eval_estimate(home), "plugin evals", home=home, bench=bench, roots=live_roots())
+            # the repo's current cases at their stored cost, new ones at the mean case cost; the largest stored batch when no case has a cost
+            suite = suite_estimate(case_costs(a.dir or default_dir(a.repo)), suite_cases(a.repo))
+            est = suite[0] if suite else relay_paidcap.eval_estimate(home)
+            line = relay_paidcap.check(today, est, "plugin evals", home=home, bench=bench, roots=live_roots())
             if line:
                 print(f"ci: {line}")
                 return 1
