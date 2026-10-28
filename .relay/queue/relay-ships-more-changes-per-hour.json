@@ -284,6 +284,13 @@
       "options": [
         "a. Не делать, оставить 2 места (рекомендую)",
         "b. Сделать заново на нынешних тестах"
+      ],
+      "answered_at": "2026-10-28T04:37:28Z",
+      "answer": [
+        "a"
+      ],
+      "reading": [
+        "a: no new bench; keep 2 gate slots (the 27 Oct bench shows 10.3 gates an hour with 2 against 10.2 with 3). Question recorded right after it was shown (front's slip)."
       ]
     }
   ]
