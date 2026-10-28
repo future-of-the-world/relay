@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 0,
+  "time": 20,
+  "found_at": "2026-10-28T04:35:02Z",
+  "found_in": "relay queue add",
+  "title": "A dead workflow agent leaves no error text",
+  "what": [
+    "21 of 1,296 workflow agents ended failed over 24-28 Oct, 12 of them gate runners after 15-71 minutes. The journal stores only {\"type\":\"failed\"} and ask() in cycle.js keeps the error only when every retry fails, so the cause cannot be measured (wf_a74e8dbc-fb9 journal lines 26 and 39)."
+  ],
+  "why": [
+    "Principle 6: evidence first, then one fix for the runner deaths."
+  ],
+  "failing_case": [
+    "An agent that throws once and succeeds on retry leaves no trace of the error."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "Each thrown attempt writes its message, label and time to $S/reports/dead-<label>-<n>.txt before the retry.",
+    "An agent that does not throw leaves no file."
+  ],
+  "where": [
+    "plugins/delegate/workflows/cycle.js (ask)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
