@@ -17,7 +17,7 @@
   "pass_cases": [
     "`relay land <branch>` on a branch behind master by code takes master, gates the exact tree, and fast-forwards on green with no agent started.",
     "A take that brings only queue or handover records lands without a new gate.",
-    "Two branches ready while a landing gates land as one train with one gate; a red train lands its riders one at a time.",
+    "Two branches ready together: the second waits for the first to land, takes master, gates and lands; no train branch is made. The baseline also records landings that waited behind another and the max wait.",
     "A take with a conflict stops and says so (a fixer resolves it; then a gate and a check of the resolved files).",
     "Baseline for the later comparison is recorded in the item: rechecks per night, agent minutes on rechecks, ready-to-landing wait (median, p90), gates per landing."
   ],
@@ -53,6 +53,13 @@
       "edited": "what",
       "fact": [
         "Edited what: Owner picked column a of the demo, not the separate a + train column (28 Oct)."
+      ]
+    },
+    {
+      "at": "2026-10-28T05:18:39Z",
+      "edited": "pass_cases",
+      "fact": [
+        "Edited pass_cases: Owner picked column a of the demo, not the separate a + train column (28 Oct)."
       ]
     }
   ]
