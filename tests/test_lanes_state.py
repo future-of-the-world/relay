@@ -179,8 +179,10 @@ class Stop(LaneBase):
         stamp = os.path.join(self.tmp, "stamps", "s1.json")
         first = rl.stop_refusal(s, stamp, 1, "s1")
         self.assertIn("Lanes: 0 of 2 running; start: a (fix, ip 90)", first)
-        # the refusal makes a second reply; the owner reads only the last one, so it must carry the earlier answer (recall-decision eval)
-        self.assertIn("repeat the answer you already gave in full", first)
+        # the second reply is one short sentence of facts; it does not repeat the earlier answer
+        self.assertIn("one short sentence", first)
+        self.assertIn("facts only", first)
+        self.assertNotIn("repeat", first)
         self.assertIsNone(rl.stop_refusal(s, stamp, 1, "s1"))                     # the same state: once
         self.assertIsNotNone(rl.stop_refusal(s, os.path.join(self.tmp, "stamps", "s2.json"), 1, "s2"))     # another session has its own stamp
         self.worktree("w")                                                        # the state changed (a lane runs): refused again
