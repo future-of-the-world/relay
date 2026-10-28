@@ -12,7 +12,7 @@ import time
 import unittest
 from typing import Tuple
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 KIT = os.path.join(ROOT, "plugins", "relay", "bin", "kit")
 FIXTURE = os.path.join(ROOT, "evals", "plugin", "fixture")
@@ -33,7 +33,7 @@ def git(cwd: str, *args: str) -> None:
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t"] + list(args), cwd=cwd, check=True, capture_output=True)
 
 
-class CheckContract(unittest.TestCase):
+class CheckContract(SoftCases):
     pass_file = ""
     fail_file = ""
 

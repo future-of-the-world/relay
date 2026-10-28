@@ -5,12 +5,12 @@ import tempfile
 import unittest
 from typing import Optional
 
-from hook_helpers import ROOT, run_hook
+from hook_helpers import ROOT, run_hook, SoftCases
 
 GUARD = os.path.join(ROOT, "plugins", "delegate", "hooks", "route-guard.py")
 
 
-class RouteGuard(unittest.TestCase):
+class RouteGuard(SoftCases):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

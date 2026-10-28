@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from typing import Dict, Optional
 
-from hook_helpers import ROOT, run_hook
+from hook_helpers import ROOT, run_hook, SoftCases
 
 HOOK = os.path.join(ROOT, "plugins", "observe", "hooks", "ledger.py")
 TRANSCRIPT_LINE = {"type": "assistant", "timestamp": "2026-10-19T10:00:00Z", "requestId": "r1",
@@ -15,7 +15,7 @@ TRANSCRIPT_LINE = {"type": "assistant", "timestamp": "2026-10-19T10:00:00Z", "re
                                                                        "cache_creation_input_tokens": 0, "output_tokens": 5}}}
 
 
-class Ledger(unittest.TestCase):
+class Ledger(SoftCases):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

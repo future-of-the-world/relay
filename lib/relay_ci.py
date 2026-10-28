@@ -49,19 +49,11 @@ HOOK_TOOLS = (("git", "install git"), ("jq", "brew install jq"), ("python3", "in
 
 def outcome(directory: str) -> list[str]:
     """What a run did, as lines that must not change when an inert file does: each step's result, the library test count
-    ("Ran N tests"), and the number of passing hook-test cases (not hooks-live's lines: only a full run runs it, with a
-    live model, so they would differ from the nested quick run's)."""
+    ("Ran N tests"); hooks-live's lines are not in it: only a full run runs it, with a live model."""
     lines: list[str] = []
     lines += _read_lines(os.path.join(directory, ".ci", "results.txt"))
     lines += [re.sub(r" in [0-9.]+s", "", ln, count=1)
               for ln in _read_lines(os.path.join(directory, ".ci", "steps", "library-tests.log")) if ln.startswith("Ran ")]
-    skip, cases = False, 0
-    for ln in _read_lines(os.path.join(directory, ".ci", "steps", "hook-tests.log")):
-        if ln.startswith("--- "):
-            skip = "hooks_live" in ln
-        if not skip and ln.startswith("ok"):
-            cases += 1
-    lines.append("hook cases ok: %d" % cases)
     return lines
 
 

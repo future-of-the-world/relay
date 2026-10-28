@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from typing import List, Tuple
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 PLUGINS = os.path.join(ROOT, "plugins")
 KIT = os.path.join(PLUGINS, "relay", "bin", "kit")
@@ -18,7 +18,7 @@ def git(cwd: str, *args: str) -> None:
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t"] + list(args), cwd=cwd, check=True, capture_output=True)
 
 
-class KitBase(unittest.TestCase):
+class KitBase(SoftCases):
     def setUp(self) -> None:
         self.tmp = os.path.realpath(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, True)

@@ -8,7 +8,7 @@ import sys
 import tempfile
 import unittest
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 CORE = os.path.join(ROOT, "plugins", "relay")
 HOOK = os.path.join(CORE, "hooks", "inject-addition.sh")
@@ -70,7 +70,7 @@ def golden_out(k: str) -> str:
     return "".join(o if o.endswith("\n") or not o else o for o in (s + ("" if s.endswith("\n") else "\n") for s in out))
 
 
-class Inject(unittest.TestCase):
+class Inject(SoftCases):
     @classmethod
     def setUpClass(cls) -> None:
         cls.tmp = os.path.realpath(tempfile.mkdtemp())
@@ -169,6 +169,7 @@ class Inject(unittest.TestCase):
         os.makedirs(os.path.join(h, "lib"))
         hook = os.path.join(h, "hooks", "inject-addition.sh")
         shutil.copy(HOOK, hook)
+        shutil.copy(HOOK[:-3] .replace('inject-addition', 'inject_addition') + '.py', os.path.join(h, 'hooks'))  # the wrapper execs the .py beside it
         tsv = os.path.join(h, "lib", "agent-roles.tsv")
         write(tsv, "openspec:author\tthink\n")
         out = agent("openspec:reviewer", self.J, hook)  # missing from the map: its own file only

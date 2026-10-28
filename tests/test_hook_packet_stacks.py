@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from typing import Tuple
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 KIT = os.path.join(ROOT, "plugins", "relay", "bin", "kit")
 DESIGN = "# Design\n\n## Decisions\n\n### D1. Spin\n\nD1-MARKER\n\n## Interfaces\n\nNone.\n"
@@ -239,7 +239,7 @@ def write(path: str, text: str) -> None:
         handle.write(text)
 
 
-class Packet(unittest.TestCase):
+class Packet(SoftCases):
     def setUp(self) -> None:
         self.tmp = os.path.realpath(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, True)

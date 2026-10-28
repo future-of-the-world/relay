@@ -12,7 +12,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 CORE = os.path.join(ROOT, "plugins", "relay")
 GOLDEN = os.path.join(CORE, "tests", "guard-diff.golden.jsonl")
@@ -59,7 +59,7 @@ def load() -> List[Dict[str, str]]:
         return [json.loads(line) for line in handle if line.strip()]
 
 
-class GuardDiff(unittest.TestCase):
+class GuardDiff(SoftCases):
     hook = os.path.join(CORE, "hooks", "guard-main.sh")
 
     def test_every_golden_command_gets_its_recorded_verdict(self) -> None:

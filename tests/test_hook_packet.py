@@ -12,7 +12,7 @@ import tempfile
 import unittest
 from typing import Tuple
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 CORE = os.path.join(ROOT, "plugins", "relay")
 KIT = os.path.join(CORE, "bin", "kit")
@@ -173,7 +173,7 @@ def write(path: str, text: str) -> None:
         handle.write(text)
 
 
-class Packet(unittest.TestCase):
+class Packet(SoftCases):
     @classmethod
     def setUpClass(cls) -> None:
         cls.modules = os.environ.get("KIT_TEST_NODE_MODULES") or os.path.join(TS_DEPS, "node_modules")

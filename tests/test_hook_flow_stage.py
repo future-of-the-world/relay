@@ -4,12 +4,12 @@ import os
 import tempfile
 import unittest
 
-from hook_helpers import ROOT, run_hook
+from hook_helpers import ROOT, run_hook, SoftCases
 
 HOOK = os.path.join(ROOT, "plugins", "relay", "hooks", "flow-stage.py")
 
 
-class FlowStage(unittest.TestCase):
+class FlowStage(SoftCases):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

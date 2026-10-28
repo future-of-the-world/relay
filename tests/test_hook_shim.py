@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from typing import List, Tuple
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 CORE = os.path.join(ROOT, "plugins", "relay")
 SHIM = os.path.join(CORE, "templates", "kit-shim")
@@ -19,7 +19,7 @@ def git(cwd: str, *args: str) -> None:
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t"] + list(args), cwd=cwd, check=True, capture_output=True)
 
 
-class Shim(unittest.TestCase):
+class Shim(SoftCases):
     @classmethod
     def setUpClass(cls) -> None:
         cls.tmp = os.path.realpath(tempfile.mkdtemp())

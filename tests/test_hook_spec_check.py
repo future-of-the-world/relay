@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from typing import Tuple
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 CORE = os.path.join(ROOT, "plugins", "relay")
 KIT = os.path.join(CORE, "bin", "kit")
@@ -185,7 +185,7 @@ def write(path: str, text: str) -> None:
         handle.write(text)
 
 
-class SpecCheck(unittest.TestCase):
+class SpecCheck(SoftCases):
     @classmethod
     def setUpClass(cls) -> None:
         cls.tmp = os.path.realpath(tempfile.mkdtemp())

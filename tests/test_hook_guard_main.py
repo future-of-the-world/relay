@@ -14,7 +14,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Tuple
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 CORE = os.path.join(ROOT, "plugins", "relay")
 HOOK = os.path.join(CORE, "hooks", "guard-main.sh")
@@ -258,7 +258,7 @@ def git(cwd: str, *args: str) -> None:
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t"] + list(args), cwd=cwd, check=True, capture_output=True)
 
 
-class Guard(unittest.TestCase):
+class Guard(SoftCases):
     @classmethod
     def setUpClass(cls) -> None:
         cls.tmp = os.path.realpath(tempfile.mkdtemp())

@@ -5,7 +5,7 @@ import filecmp
 import os
 import unittest
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 OURS = os.path.join(ROOT, "plugins", "relay", "bin", "kit")
 
@@ -19,7 +19,7 @@ def is_ours(candidate: str) -> bool:
     return filecmp.cmp(candidate, OURS, shallow=False)
 
 
-class KitName(unittest.TestCase):
+class KitName(SoftCases):
     def test_no_other_kit_on_path(self) -> None:
         for directory in os.environ.get("PATH", "").split(os.pathsep):
             candidate = os.path.join(directory, "kit")

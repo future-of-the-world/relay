@@ -4,7 +4,7 @@ import os
 import tempfile
 import unittest
 
-from hook_helpers import ROOT, run_hook
+from hook_helpers import ROOT, run_hook, SoftCases
 
 HOOKS = os.path.join(ROOT, "plugins", "front", "hooks")
 
@@ -14,7 +14,7 @@ def line(cache_read: int) -> str:
     return json.dumps({"type": "assistant", "timestamp": "2026-10-19T10:00:00Z", "message": {"usage": usage}}) + "\n"
 
 
-class Budget(unittest.TestCase):
+class Budget(SoftCases):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

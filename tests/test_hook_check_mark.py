@@ -13,7 +13,7 @@ import threading
 import unittest
 from typing import List, Optional, Tuple
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 CORE = os.path.join(ROOT, "plugins", "relay")
 HOOK = os.path.join(CORE, "hooks", "check-mark.py")
@@ -35,7 +35,7 @@ def write(path: str, text: str) -> None:
         handle.write(text)
 
 
-class Base(unittest.TestCase):
+class Base(SoftCases):
     @classmethod
     def setUpClass(cls) -> None:
         cls.tmp = os.path.realpath(tempfile.mkdtemp())

@@ -12,7 +12,7 @@ import time
 import unittest
 from typing import Callable, Dict, List, Optional
 
-from hook_helpers import ROOT
+from hook_helpers import ROOT, SoftCases
 
 CORE = os.path.join(ROOT, "plugins", "relay")
 HOOK = os.path.join(CORE, "hooks", "merge.sh")
@@ -42,7 +42,7 @@ def wait_for(pred: Callable[[], bool], timeout: float = 10.0) -> bool:
     return pred()
 
 
-class Base(unittest.TestCase):
+class Base(SoftCases):
     @classmethod
     def setUpClass(cls) -> None:
         cls.tmp = os.path.realpath(tempfile.mkdtemp())
