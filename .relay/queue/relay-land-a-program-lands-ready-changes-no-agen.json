@@ -6,7 +6,7 @@
   "found_in": "relay queue add",
   "title": "relay land: a program lands ready changes, no agent",
   "what": [
-    "Build approach E of the cadence design (owner's pick \"a. Gate после взятия master, без агента\", 28 Oct): a program `relay land`, started by the front after its ready test, takes master into a ready branch (a merge commit), runs the gate on the result unless the take brought only inert records (queue records, the handover file), and fast-forwards master on green; one landing at a time; landings that wait while one gates merge into one train with one gate; a red train falls back to one at a time. The agent recheck (a checker re-reading after a take) goes; a take a fixer resolved by hand still gets a gate and a check of the resolved files. The merge hook accepts the gate of the exact landed tree. No cadence run on master."
+    "Build approach E of the cadence design (owner's pick \"a. Gate после взятия master, без агента\", 28 Oct): a program `relay land`, started by the front after its ready test, takes master into a ready branch (a merge commit), runs the gate on the result unless the take brought only inert records (queue records, the handover file), and fast-forwards master on green; one landing at a time; a landing that finds another gating waits for it, then takes master. No trains: the train rule leaves rules/git.md and the front skill. The agent recheck (a checker re-reading after a take) goes; a take a fixer resolved by hand still gets a gate and a check of the resolved files. The merge hook accepts the gate of the exact landed tree. No cadence run on master."
   ],
   "why": [
     "Owner, 28 Oct: \"Хорошо, давай просто возьмем a. Gate после взятия master, без агента И спустя время сравним показатели на реальном примере\". Measured 24-28 Oct: 83 of 83 code landings landed the exact tree their gate checked; the night of 27-28 Oct spent 146 agent minutes on 6 rechecks that found nothing; train riders waited a median 102 min from ready to landing against 1 min alone, because the front builds trains by hand."
@@ -46,6 +46,13 @@
       "at": "2026-10-28T05:18:28Z",
       "fact": [
         "28 Oct: the front had written trains into this item although the owner picked column \"a\" of the demo page, where \"a + train\" is a separate column; corrected to no trains (owner can reverse). What a train would add, from the design's simulation over the real landing times 24-28 Oct (measure5.out): 12 of 84 landings waited behind another; max wait 39 -> 33 min with a 17-min gate, 84 -> 51 with a 26-min gate; p50 17 and p90 20 unchanged. Demo jam scenario with the hidden incompatibility in one train: +1 gate and a later last landing (142 vs 131 min). Revisit trains after the comparison on real data if landings often wait behind another."
+      ]
+    },
+    {
+      "at": "2026-10-28T05:18:37Z",
+      "edited": "what",
+      "fact": [
+        "Edited what: Owner picked column a of the demo, not the separate a + train column (28 Oct)."
       ]
     }
   ]
