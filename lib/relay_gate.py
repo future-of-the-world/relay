@@ -257,6 +257,44 @@ def reusable(worktree, head, command):
     return None
 
 
+def finished_red(worktree: str, head: str, command: Sequence[str]) -> Optional[tuple[int, str, list[str]]]:
+    """(exit code, log path, failing lines) of a finished red gate log for the same command on a commit at or before
+    `head`, when only relay's own record commits (files under .relay/checks/) lie between, else None.
+
+    This is stricter than `reusable`: a red result must not stand for code that changed, so any file outside the
+    checks folder (inert or not) ends the walk. A log counts only when its first line is `head <that commit>`, its
+    `cmd` line is the command about to run and its last line is `exit <n>` with n not 0."""
+    wanted = "cmd %s" % " ".join(shlex.quote(c) for c in command)
+    rc, listing = relay_git.git(worktree, "rev-list", head)
+    if rc != 0:
+        return None
+    for commit in listing.split():
+        rc, names = relay_git.git(worktree, "diff", "--name-only", "--no-renames", "%s..%s" % (commit, head))
+        if rc != 0 or any(not name.startswith(relay_marks.FOLDER + "/") for name in names.splitlines()):
+            return None
+        log = os.path.join(worktree, relay_marks.FOLDER, "%s.gate.log" % commit)
+        try:
+            with open(log, encoding="utf-8", errors="replace") as handle:
+                text = handle.read()
+        except OSError:
+            continue
+        lines = text.splitlines()
+        if len(lines) < 3 or lines[0] != "head %s" % commit or lines[1] != wanted:
+            continue
+        last = lines[-1].split()
+        if len(last) == 2 and last[0] == "exit" and last[1].isdigit() and 0 < int(last[1]) < 127:      # 127 (could not start) and >= 128 (killed) came from outside the commit: not reused
+            return int(last[1]), log, first_failure("\n".join(lines[3:-1]))
+    return None
+
+
+def reused_red(red: tuple[int, str, list[str]]) -> tuple[int, str, list[str]]:
+    """Say on stderr that a red gate is reported, not run; hand the result back unchanged."""
+    sha = os.path.basename(red[1])[:-len(".gate.log")]
+    print("gate: the code is unchanged since the red gate of %s: reported, not run (relay gate --again runs it)" % sha,
+          file=sys.stderr, flush=True)
+    return red
+
+
 def hold_stops() -> tuple[list[int], Callable[[], None]]:
     """Hold SIGINT, SIGTERM and SIGHUP: arrivals are appended to the returned list instead of acting. The function returned
     puts the earlier handlers back. Not the main thread: nothing is held (the caller owns its signals)."""
@@ -277,8 +315,9 @@ def hold_stops() -> tuple[list[int], Callable[[], None]]:
 
 
 def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, str]] = None,
-        quick: bool = False) -> tuple[int, str, list[str]]:
-    """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red)."""
+        quick: bool = False, again: bool = False) -> tuple[int, str, list[str]]:
+    """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red).
+    `again` skips both reuses (a green and a finished red gate of the same code): the command runs."""
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
     chosen = (quick_binding(worktree) if quick else None) or binding(worktree)
@@ -289,9 +328,13 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
         license_lines = relay_license.check(worktree)
     except (OSError, ValueError) as exc:
         license_lines = ["license: cannot check: %s" % exc]
-    green = None if license_lines else reusable(worktree, head, command)
+    reuse = not license_lines and not again
+    green = reusable(worktree, head, command) if reuse else None
     if green is not None:      # the same code already has a green gate: report it, run nothing
         return 0, green, []
+    red = finished_red(worktree, head, command) if reuse else None
+    if red is not None:      # the same code already has a finished red gate (only record commits since): report it, run nothing
+        return reused_red(red)
     # the output goes under the worktree's git dir, never into the tree: a project that does not ignore .ci/ would see
     # an untracked file and the next gate (and the merge cleanup) would refuse
     rc, git_path = relay_git.git(worktree, "rev-parse", "--path-format=absolute", "--git-path", "relay-gate.out")
@@ -328,9 +371,13 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                     license_lines = relay_license.check(worktree)
                 except (OSError, ValueError) as exc:
                     license_lines = ["license: cannot check: %s" % exc]
-                green = None if license_lines else reusable(worktree, now, command)      # (a gate log committed meanwhile moves HEAD, but only by inert files)
+                reuse = not license_lines and not again
+                green = reusable(worktree, now, command) if reuse else None      # (a gate log committed meanwhile moves HEAD, but only by inert files)
                 if green is not None:
                     return 0, green, []
+                red = finished_red(worktree, now, command) if reuse else None      # the gate we waited for may have gone red
+                if red is not None:
+                    return reused_red(red)
                 if now != head:
                     raise GateRefused("%s moved to another commit while the gate waited: run it again" % worktree)
                 proc = None

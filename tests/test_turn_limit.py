@@ -148,10 +148,16 @@ class GateReuse(Fixture):
         self.assertEqual(self.runs(), 2)
         self.assertTrue(os.path.exists(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
 
-    def test_f1_a_red_gate_is_never_reused(self) -> None:
-        # pass case 3: the log of G ends exit 1, so the next gate (on the inert log commit) runs again
+    def test_f1_a_red_gate_is_reused_only_across_record_commits(self) -> None:
+        # a finished red gate stands for its record commit (queue item a-gate-re-run-on-its-record-commit-starts-over):
+        # the second gate on the log commit prints exit 1 and runs nothing (1 run); a code change after it runs again (2)
         self.env["GATE_EXIT"] = "1"
         self.assertEqual(self.gate(self.wt).returncode, 1)
+        self.assertEqual(self.gate(self.wt).returncode, 1)
+        self.assertEqual(self.runs(), 1)
+        write(os.path.join(self.wt, "lib", "c.py"), "c\n")
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "code")
         self.assertEqual(self.gate(self.wt).returncode, 1)
         self.assertEqual(self.runs(), 2)
 
