@@ -211,47 +211,77 @@ class FixtureComment(unittest.TestCase):
 
 
 class StubSetupRefusals(unittest.TestCase):
-    def scaffold(self, home: str, tmpdir: str, extra: "dict[str, str] | None" = None) -> "subprocess.CompletedProcess[str]":
-        env = {k: v for k, v in os.environ.items() if k != "RELAY_EVAL_HOME"}
-        env.update({"HOME": home, "TMPDIR": tmpdir})
-        env.update(extra or {})
+    def scaffold(self, home: str, tmpdir: str, name: str = "recall-decision") -> "subprocess.CompletedProcess[str]":
+        # The eval tool's environment: only these variables, no marker.
+        env = {"PATH": os.environ["PATH"], "HOME": home, "TMPDIR": tmpdir, "TERM": "dumb", "GIT_CONFIG_NOSYSTEM": "1"}
         with tempfile.TemporaryDirectory() as work:
-            return subprocess.run(["bash", os.path.join(PLUGIN, "recall-decision", "scaffold.sh")], cwd=work, env=env,
+            return subprocess.run(["bash", os.path.join(PLUGIN, name, "scaffold.sh")], cwd=work, env=env,
                                   capture_output=True, text=True)
 
+    def run_root(self, root: str) -> "tuple[str, str]":
+        # The eval tool's layout: <root>/home beside <root>/tmp.
+        home, tmp = os.path.join(root, "home"), os.path.join(root, "tmp")
+        os.makedirs(os.path.join(home, "cwd"))
+        os.makedirs(tmp)
+        return home, tmp
+
     def test_a_home_outside_the_temp_folder_is_refused_and_nothing_is_written(self) -> None:
-        # HOME in one temp folder, TMPDIR another: HOME is "not throwaway", as the owner's real home is.
-        with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as other:
+        # TMPDIR's parent is a private folder, so HOME (a sibling temp folder elsewhere) is under neither.
+        with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as box:
+            other = os.path.join(box, "tmp")
+            os.makedirs(other)
             done = self.scaffold(home, other)
             self.assertNotEqual(done.returncode, 0)
             self.assertIn("refusing", done.stderr)
             self.assertFalse(os.path.exists(os.path.join(home, "relay")))
 
-    def test_a_home_under_the_temp_folder_gets_the_stub(self) -> None:
-        with tempfile.TemporaryDirectory() as home:
-            done = self.scaffold(home, os.path.dirname(home))
-            self.assertEqual(done.returncode, 0, done.stderr)
-            with open(STUB, "rb") as want, open(os.path.join(home, "relay", "bin", "relay"), "rb") as got:
-                self.assertEqual(got.read(), want.read())
+    def test_the_eval_tool_layout_gets_the_stub_for_every_caller(self) -> None:
+        for name in ("recall-decision", "keep-owner-words", "keep-owner-words-en"):
+            with self.subTest(name), tempfile.TemporaryDirectory() as root:
+                home, tmp = self.run_root(root)
+                done = self.scaffold(home, tmp, name)
+                self.assertEqual(done.returncode, 0, done.stderr)
+                with open(STUB, "rb") as want, open(os.path.join(home, "relay", "bin", "relay"), "rb") as got:
+                    self.assertEqual(got.read(), want.read())
 
-    def test_the_eval_marker_allows_a_home_outside_the_temp_folder(self) -> None:
-        with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as other:
-            done = self.scaffold(home, other, {"RELAY_EVAL_HOME": "1"})
-            self.assertEqual(done.returncode, 0, done.stderr)
-            self.assertTrue(os.path.exists(os.path.join(home, "relay", "bin", "relay")))
-
-    def test_a_git_checkout_at_home_relay_is_never_written_even_under_the_marker(self) -> None:
-        with tempfile.TemporaryDirectory() as home:
+    def test_a_git_checkout_at_home_relay_is_never_written(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            home, tmp = self.run_root(root)
             checkout = os.path.join(home, "relay")
             os.makedirs(os.path.join(checkout, "bin"))
             subprocess.run(["git", "init", "-q", checkout], check=True)
             live = os.path.join(checkout, "bin", "relay")
             with open(live, "w", encoding="utf-8") as fh:
                 fh.write("live\n")
-            done = self.scaffold(home, os.path.dirname(home), {"RELAY_EVAL_HOME": "1"})
+            done = self.scaffold(home, tmp)
             self.assertNotEqual(done.returncode, 0)
             with open(live, encoding="utf-8") as fh:
                 self.assertEqual(fh.read(), "live\n")
+
+    def test_a_bin_relay_symlink_into_a_checkout_is_replaced_not_written_through(self) -> None:
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as elsewhere:
+            home, tmp = self.run_root(root)
+            subprocess.run(["git", "init", "-q", elsewhere], check=True)
+            live = os.path.join(elsewhere, "relay")
+            with open(live, "w", encoding="utf-8") as fh:
+                fh.write("live\n")
+            os.makedirs(os.path.join(home, "relay", "bin"))
+            os.symlink(live, os.path.join(home, "relay", "bin", "relay"))
+            done = self.scaffold(home, tmp)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            with open(live, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), "live\n")
+            self.assertFalse(os.path.islink(os.path.join(home, "relay", "bin", "relay")))
+
+    def test_a_bin_folder_symlinked_into_a_checkout_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as elsewhere:
+            home, tmp = self.run_root(root)
+            subprocess.run(["git", "init", "-q", elsewhere], check=True)
+            os.makedirs(os.path.join(home, "relay"))
+            os.symlink(elsewhere, os.path.join(home, "relay", "bin"))
+            done = self.scaffold(home, tmp)
+            self.assertNotEqual(done.returncode, 0)
+            self.assertEqual(os.listdir(elsewhere), [".git"])
 
 
 if __name__ == "__main__":
