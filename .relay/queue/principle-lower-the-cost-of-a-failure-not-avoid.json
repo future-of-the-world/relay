@@ -1,0 +1,33 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 60,
+  "found_at": "2026-10-28T01:52:55Z",
+  "found_in": "relay queue add",
+  "title": "Principle: lower the cost of a failure, not avoid it",
+  "what": [
+    "A principle for relay: where a failure (a git conflict, a red gate, a flaky run) is cheap to repair, relay does not pay to avoid it (building alone, holding lanes, serial landings); it makes the failure cheap and fast to repair instead. Design first: where relay avoids today, what each avoidance costs, what a cheap repair would be."
+  ],
+  "why": [
+    "Owner, 28 Oct, verbatim: \"Вместо избегания - придумай как минизировать ущерб от появления",
+    "",
+    "Этот принцип прекрасно ложится на git coflicts, мы жертвуем производительностью, при этом починка конфликтов быстра и дешева, окупает возможность параллельного изменений, мы уже предприняли шаги по уменьшению размера файлов - это снизит частоту их появления",
+    "",
+    "Проведи анализ и предложи применение к relay и его принципам\""
+  ],
+  "pass_cases": [
+    "A design with measured numbers: where relay avoids failures today and what it costs, at least two approaches plus do nothing, how leading tools handle it; reviewed by a critic."
+  ],
+  "where": [
+    "/Users/amidman/relay/CLAUDE.local.md (principles)",
+    "rules/principles.md",
+    "rules/git.md",
+    "plugins/delegate/workflows/cycle.js"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
