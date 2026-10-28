@@ -267,6 +267,12 @@
       "reading": [
         "a: one bench, three gates at once against two (and one alone), comparing the library-test time; then decide the slot count."
       ]
+    },
+    {
+      "at": "2026-10-28T04:36:42Z",
+      "fact": [
+        "28 Oct, after the owner's \"a, делай замер\": the bench was already run on 27 Oct and is recorded in lib/relay_gate.py:34 (CORES_PER_SLOT): one gate alone 420 s; 2 at once 698 s each (2 per 698 s = 10.3 gates an hour); 3 at once 1058 s each (3 per 1058 s = 10.2 an hour). A third slot gives no more gates an hour on this 12-core machine; each gate just takes 52 % longer. The lanes4 analysis and the front missed it before asking."
+      ]
     }
   ]
 }
