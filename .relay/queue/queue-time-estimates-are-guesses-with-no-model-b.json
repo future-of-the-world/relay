@@ -26,5 +26,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T10:06:50Z",
+      "fact": [
+        "28 Oct ~10:20 UTC, check of round 1: the estimator tied agents to a change by their start folder only, so 8 of 105 closed items got a measured time and the view printed 3m against 26-53 agent minutes measured on 24 Oct. Front's decision on review F3 (owner can reverse): a paid run is per wave, not per change, so it is not added to an item's estimate; the view shows the wave's paid-run minutes and cost on its own line."
+      ]
+    }
+  ]
 }
