@@ -6,7 +6,7 @@
   "found_in": "fixture",
   "title": "Each change records its stage times and cost",
   "what": [
-    "Every change keeps its stage times, cost and coverage."
+    "Every change keeps its metrics (метрики): stage times, cost and coverage."
   ],
   "why": [
     "The owner wants to see what a change costs."
