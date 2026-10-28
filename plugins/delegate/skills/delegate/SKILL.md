@@ -157,7 +157,9 @@ front's.
    123k tokens before finding nothing to do).
 3. **Gate before the review.** Where the project has `.relay/`, a
    `delegate:runner` runs `relay gate` (detached, with the limits recipe: it
-   takes minutes) in the worktree, with the project's arguments (relay:
+   takes minutes; the recipe is `nohup <command> > <log> 2>&1 < /dev/null & echo $!`, then a
+   `kill -0 <pid>` wait loop of at most 230 s per call, as in the Limits of `agents/runner.md`; macOS has no
+   `timeout` program, so no agent calls it) in the worktree, with the project's arguments (relay:
    `relay gate -- --quick`). It runs the free checks on the committed head and
    stores the result as `.relay/checks/<G>.gate.log`. A red gate goes back to
    the worker or a fixer, then this step again: a red build is never reviewed.

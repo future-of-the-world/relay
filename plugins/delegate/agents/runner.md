@@ -22,6 +22,13 @@ Turn limit: you have 12 turns. Wait on a long job in one call per wait (the loop
 turns remain and it still runs, reply `RUNNING` with the log path instead of waiting on.
 <!-- relay:end run -->
 
+## Bounding a long job on macOS
+
+macOS has no `timeout` program (exit 127): never wrap a command in it. Bound a job with the recipe under Limits:
+start it with `nohup <command> > <logs>/long.log 2>&1 < /dev/null & echo $!`, then wait with the
+`kill -0 <pid>` loop, at most 230 seconds per call. `<logs>` is the scratchpad the prompt names.
+
+
 <!-- relay:part limits -->
 ## Limits
 - No command blocks longer than 4 minutes; no Bash `timeout` above 240000 ms.

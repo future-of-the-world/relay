@@ -312,5 +312,18 @@ class Agents(unittest.TestCase):
         self.assertEqual("".join(l + "\n" for l in lines), relay_roles.role_map(ROOT))
 
 
+    def test_timeout_recipe_is_named_and_runs_on_macos(self):
+        """A runner wrapped a command in `timeout` and got exit 127 on macOS. The skill and the runner both name the
+        portable recipe (nohup, a log, a kill -0 wait loop) and say that no agent calls timeout."""
+        for rel in ("plugins/delegate/agents/runner.md", "plugins/delegate/skills/delegate/SKILL.md"):
+            with open(os.path.join(ROOT, rel), encoding="utf-8") as handle:
+                text = handle.read()
+            self.assertIn("nohup", text, rel)
+            self.assertIn("kill -0", text, rel)
+            self.assertIn("macOS has no", text, rel)
+            self.assertIn("`timeout`", text, rel)
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
