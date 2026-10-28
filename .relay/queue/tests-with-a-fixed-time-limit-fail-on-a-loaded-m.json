@@ -36,6 +36,12 @@
       "fact": [
         "29 Oct, gate of wt/refuse-folder-and-pattern-entries-in-whe at a91e4a4a: tests/test_rules_gate_isolation.py:22 test_rules_tests_command_passes_in_the_order_unittest_runs_them hit its own 200 s subprocess timeout while the gate's library tests took 2109 s in all; run alone it passes in 51 s (2 tests). Same day the precheck's changed-tests step hit its 230 s cap at load ~35 on 12 cores on wt/queue-time-estimates-are-guesses-with-no. Both red steps found nothing wrong in the change."
       ]
+    },
+    {
+      "at": "2026-10-28T21:41:12Z",
+      "fact": [
+        "29 Oct ~01:00 UTC, relay land of wt/guard-main-refuses-a-script-that-only-na, gate of f2f761db: library tests took 3521 s (about 240 s on a quiet machine, measured the same day on wt/type-check-subfolders-and-cap-module-siz) and failed only on two timing tests: test_rules_gate_isolation test_rules_tests_command_passes_in_the_order_unittest_runs_them (200 s subprocess timeout) and test_numbers test_session_end_hook_is_fast_on_a_large_ledger (0.61 s against a 0.3 s limit). Load averages after it: 11.5 / 23.5 / 29.8 on 12 cores, with 5 lanes gating. Second red gate from timing in one night that found nothing wrong in the change."
+      ]
     }
   ]
 }
