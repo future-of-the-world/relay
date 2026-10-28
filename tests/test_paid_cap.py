@@ -71,11 +71,12 @@ class GuardEstimate(unittest.TestCase):
             os.makedirs(d)
             open(os.path.join(d, "case.yaml"), "w").close()
 
-    def stored_batch(self, cases):
-        # a full batch of `cases` cases at 0.60 each, on 25 Oct (not the day under test)
-        runs = [{"name": f"c{i:02d}", "arms": {"with": [{"costUsd": 0.6}]}} for i in range(cases)]
-        with open(os.path.join(self.folder, "2026-10-25T01-00-00Z.json"), "w") as f:
-            json.dump({"startedAt": "2026-10-25T01:00:00.000Z", "costUsd": 0.6 * cases, "cases": runs}, f)
+    def stored_batch(self, cases, costs=None, stamp="2026-10-25T01-00-00Z"):
+        # a full batch of `cases` cases at 0.60 each (or the given per-case costs), on 25 Oct by default (not the day under test)
+        costs = costs or [0.6] * cases
+        runs = [{"name": f"c{i:02d}", "arms": {"with": [{"costUsd": c}]}} for i, c in enumerate(costs)]
+        with open(os.path.join(self.folder, stamp + ".json"), "w") as f:
+            json.dump({"startedAt": stamp[:10] + "T" + stamp[11:13] + ":" + stamp[14:16] + ":00.000Z", "costUsd": sum(costs), "cases": runs}, f)
 
     def spend(self, usd):
         os.makedirs(os.path.join(self.home, "bench", "2026-10-26T00-10-00Z"))
@@ -99,6 +100,27 @@ class GuardEstimate(unittest.TestCase):
         # spent 170.00 leaves 30.00: 170 + 16.2 = 186.2 <= 200
         self.stored_batch(15); self.suite(27); self.spend(170.0)
         self.assertEqual(self.guard().returncode, 0)
+
+    def test_the_estimate_is_the_mean_cost_of_the_stored_cases(self):
+        # stored 5 x 0.40 + 10 x 0.80 = 10.00 over 15 cases, mean 0.6667; suite of 27: 10.00 + 12 x 0.6667 = 18.00
+        # (the max case cost 0.80 would give 19.60); room 17 refuses, room 19 passes
+        self.stored_batch(15, [0.4] * 5 + [0.8] * 10); self.suite(27); self.spend(183.0)
+        done = self.guard()
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("estimated at $18.00", done.stdout)
+
+    def test_the_mean_estimate_passes_with_room(self):
+        self.stored_batch(15, [0.4] * 5 + [0.8] * 10); self.suite(27); self.spend(181.0)   # 181 + 18 = 199 <= 200
+        self.assertEqual(self.guard().returncode, 0)
+
+    def test_a_cheaper_newest_batch_does_not_lower_the_estimate_below_the_largest(self):
+        # no growth: 15 cases; an older batch cost 12.00 (0.80 each), the newest 6.00 (0.40 each); per-case sum 6.00
+        # spent 190.00 leaves 10.00: 190 + 6 would pass, the largest batch 12.00 does not
+        self.stored_batch(15, [0.8] * 15, "2026-10-24T01-00-00Z"); self.stored_batch(15, [0.4] * 15, "2026-10-25T01-00-00Z")
+        self.suite(15); self.spend(190.0)
+        done = self.guard()
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("estimated at $12.00", done.stdout)
 
     def test_no_stored_record_estimates_zero_and_passes(self):
         self.suite(27); self.spend(199.0)

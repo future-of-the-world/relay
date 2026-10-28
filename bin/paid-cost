@@ -224,7 +224,7 @@ def live_roots():
     return relay_paidcap.suite_roots(ROOT)
 
 
-def money_command(a):
+def money_command(a: argparse.Namespace) -> int:
     today = a.today or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
     home = os.path.dirname(os.path.dirname(a.dir)) if a.dir else None  # --dir is evals/<repo>; its home holds evals/ and bench/
     bench = os.path.join(home, "bench") if home else None
@@ -236,9 +236,9 @@ def money_command(a):
             if a.arg != "eval":
                 print("paid-cost: guard takes: eval", file=sys.stderr)
                 return 2
-            # the repo's current cases at their stored cost, new ones at the mean case cost; the largest stored batch when no case has a cost
+            # the larger of: the repo's current cases at their stored cost (new ones at the mean case cost), and the largest stored batch
             suite = suite_estimate(case_costs(a.dir or default_dir(a.repo)), suite_cases(a.repo))
-            est = suite[0] if suite else relay_paidcap.eval_estimate(home)
+            est = max(suite[0], relay_paidcap.eval_estimate(home)) if suite else relay_paidcap.eval_estimate(home)
             line = relay_paidcap.check(today, est, "plugin evals", home=home, bench=bench, roots=live_roots())
             if line:
                 print(f"ci: {line}")
