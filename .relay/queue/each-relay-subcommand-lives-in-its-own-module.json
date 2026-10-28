@@ -115,6 +115,12 @@
       "fact": [
         "Edited pass_cases: Owner answered 'a a' on 28 Oct to the two questions of the build plan (folders in where, module size limit)."
       ]
+    },
+    {
+      "at": "2026-10-28T12:46:58Z",
+      "fact": [
+        "28 Oct ~12:45 UTC, filling 3 free lanes: of the first 8 untaken items in IP order, 6 were refused by the start filter for a shared file held by a running change: bin/relay x2 (queue-time branch), lib/relay_queue.py x2, lib/relay_gate.py x1, plugins/delegate/workflows/cycle.js x1 (relay-land branch), bin/ci x1 (hook-tests branch); the lanes were filled from IP 86 and 85."
+      ]
     }
   ]
 }
