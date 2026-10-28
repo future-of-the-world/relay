@@ -29,5 +29,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T11:55:25Z",
+      "fact": [
+        "28 Oct: the four-eval-cases lane's critic found the trigger: tests/test_eval_system_rules.py runs the three new scaffolds with the real $HOME, so one run of that test file overwrites ~/relay/bin/relay. A fix (scaffolds run with a temporary HOME) is commit 1a5f1d49 on wt/four-eval-cases-carry-hand-copies-of-the, not landed; that lane stopped at a red gate caused only by the broken live bin/relay (its eval tests: 88 passed)."
+      ]
+    }
+  ]
 }
