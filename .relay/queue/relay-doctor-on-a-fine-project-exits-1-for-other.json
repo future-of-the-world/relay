@@ -21,8 +21,8 @@
     "bin/relay:424-431",
     "lib/relay_setup.py:398-452"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T01:58:01Z",
+  "taken_by": "wt/doctor-exit",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
