@@ -1,0 +1,189 @@
+{
+  "branch": "wt/rename",
+  "findings": [
+    {
+      "details": [
+        "PLAUSIBLE: the leftover registry state is CONFIRMED (read live, read-only); what Claude Code does with `marketplace add` of a folder already",
+        "registered under another name, and whether an installed plugin with no enabledPlugins key still loads, is not measured (needs a run of the",
+        "claude CLI against a temporary config dir). Either outcome is wrong: a refused add leaves the owner's sessions with no relay plugins until",
+        "fixed by hand (the merge hook among them), an accepted add leaves stale installs that sync_agents keeps rewriting",
+        "(installed_plugin_dirs matches by plugin name in any marketplace) and that doctor never names.",
+        "The brief asks setup --global to remove \"the four X@relay keys and the relay marketplace entry\"; it does that in settings.json, the file it",
+        "names, but the transition is only clean when Claude Code's own registry follows. Size: 20 agent minutes."
+      ],
+      "evidence": [
+        "python3 read of ~/.claude (keys only):",
+        "  known: {'claude-plugins-official': ..., 'principles': {...}, 'relay': {'source': 'directory', 'path': '/Users/amidman/relay'}}",
+        "  core@relay [('user', None, '/Users/amidman/.claude/plugins/cache/relay/core/0.1.0'), ...]  (same for observe, delegate, front)",
+        "lib/relay_setup.py:1279-1280: cmds = [[\"claude\",\"plugin\",\"marketplace\",\"add\",marketplace_root()]] + [[\"claude\",\"plugin\",\"install\",plugin_key(p),\"--scope\",\"user\"] ...]",
+        "lib/relay_setup.py:1217: unshipped_installs skips `plugin in shipped` and considers only scope == \"project\".",
+        "relay doctor on the worktree: \"FIX relay@amidman installed (claude plugin install relay@amidman --scope project)\" x4; no line names the X@relay installs."
+      ],
+      "failing_case": [
+        "This machine, after the merge: ~/.claude/plugins/known_marketplaces.json holds \"relay\" -> /Users/amidman/relay; installed_plugins.json holds",
+        "core@relay, observe@relay, delegate@relay, front@relay at user scope. `relay setup --global` (install(run_claude=True)) edits settings.json, then runs",
+        "`claude plugin marketplace add /Users/amidman/relay` and `claude plugin install relay@amidman --scope user` (x4).",
+        "Now: nothing removes the \"relay\" marketplace from Claude Code's registry or uninstalls the four X@relay installs; the same folder is added a second",
+        "time under a new name (Claude Code may refuse it as already added, and then each `plugin install X@amidman` fails because marketplace amidman",
+        "is unknown); relay doctor never reports the leftovers (unshipped_installs looks only at project-scope installs, and observe/delegate/front are",
+        "\"still shipped\" by folder name).",
+        "Should: after setup --global the registry holds marketplace amidman only (for that folder), X@amidman installed at user scope, no X@relay install",
+        "left, or doctor names each leftover with the command that removes it."
+      ],
+      "fix_hint": [
+        "In install(), when the registry (installed_plugins.json / known_marketplaces.json) holds PRE_RENAME keys, run",
+        "`claude plugin uninstall <name>@relay --scope user` for PRE_RENAME_ALWAYS_ON and `claude plugin marketplace remove relay` before the",
+        "marketplace add; extend unshipped_installs to report user-scope @relay installs. Test with a fake claude on PATH and a temp CLAUDE_CONFIG_DIR."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1279,
+      "pass_cases": [
+        "1. Fake claude on PATH recording argv; registry with marketplace relay -> <root> and core@relay at user scope; install(run_claude=True):",
+        "   the recorded calls include `plugin uninstall core@relay --scope user` (and observe/delegate/front) and `plugin marketplace remove relay`,",
+        "   both before `plugin marketplace add <root>`; then `plugin install relay@amidman --scope user`.",
+        "2. Same, with no X@relay in the registry and no relay marketplace: no uninstall or remove call is made; marketplace add and the four installs run as today.",
+        "3. run_claude=False: settings.json is cleaned as test_rename.GlobalSettings asserts, and the todo line names the uninstall/remove steps.",
+        "4. relay doctor with a user-scope observe@relay in the registry: one FIX line naming observe@relay and the command that removes it."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_rename.py RegistryLeftovers (uninstall and marketplace remove before add; clean registry makes no call; todo names steps; doctor line). Fail at a05b43e, pass at head."
+      ],
+      "severity": "MEDIUM",
+      "since": "a05b43e7122e5f833fd578a9ad26fac910c23f46",
+      "source": "review-rename.json",
+      "source_id": "F1",
+      "summary": "setup --global drops the old ids only from settings.json; Claude Code's registry keeps marketplace relay -> ~/relay and four user-scope X@relay installs, and then marketplace add is run for a folder already registered under the old name",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_setup.py:346-348 (retired_keys uses marketplace()[0]) and the doc line. Correct under the owner's decision,",
+        "but the doc states a cleanup of keys that cannot exist, and the code keeps a dead path. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:348: return sorted(k for k in (f\"{n}@{mname}\" for n in RETIRED) if k in enabled)",
+        "docs/setup.md:20 (diff): -`issues@relay`, `product@relay` +`issues@amidman`, `product@amidman`"
+      ],
+      "failing_case": [
+        "A project .claude/settings.json with \"issues@relay\": true. Before: relay setup dropped it and doctor reported it. Now: retired_keys() builds",
+        "issues@amidman and product@amidman only, so issues@relay stays and doctor is silent; docs/setup.md:20 promises \"A key of a plugin relay no longer",
+        "ships (`issues@amidman`, `product@amidman`) is dropped\". Should: the doc describes what happens (the old-marketplace keys are left, by the",
+        "owner's no-backward-compatibility word), or RETIRED goes, since no project can hold an @amidman key of a retired plugin."
+      ],
+      "fix_hint": [
+        "Reword the doc line (keys of the old marketplace are left as they are, owner 28 Oct), or drop RETIRED and its tests."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 20,
+      "pass_cases": [
+        "1. docs/setup.md no longer names issues@amidman or product@amidman as keys that setup drops.",
+        "2. A project with issues@amidman: true: setup still drops it (if RETIRED is kept), or RETIRED and retired_keys are removed with their tests.",
+        "3. A project with only relay@amidman keys: setup output unchanged."
+      ],
+      "path": "docs/setup.md",
+      "rank": "low",
+      "reason": [
+        "docs/setup.md:20 now says old-marketplace keys are left and only current-name keys are dropped; RETIRED kept, pass case 2 holds."
+      ],
+      "severity": "LOW",
+      "since": "a05b43e7122e5f833fd578a9ad26fac910c23f46",
+      "source": "review-rename.json",
+      "source_id": "F2",
+      "summary": "retired-plugin cleanup now looks for issues@amidman / product@amidman, keys that never existed; the doc says they are dropped while issues@relay no longer is",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The exemption was added (6241137) because the gate ran from the worktree while the live PATH still held",
+        "~/relay/plugins/core/bin (core@relay enabled); after setup --global that PATH entry becomes plugins/relay/bin and the exemption is no longer",
+        "needed. It contradicts the no-backward-compatibility decision. Size: 5 agent minutes, but it can only be dropped once the live PATH has",
+        "moved (after the merge and setup --global), so listing it is acceptable."
+      ],
+      "evidence": [
+        "plugins/relay/tests/kit-name.test.sh:18-19: case \"$real\" in */plugins/relay/bin/kit|*/plugins/core/bin/kit) return 0 ;; esac",
+        "echo $PATH (this session): /Users/amidman/relay/plugins/core/bin"
+      ],
+      "failing_case": [
+        "After the merge relay has no plugins/core. A different program installed at ~/somewhere/plugins/core/bin/kit (another marketplace's plugin",
+        "named core, shipping its own kit) on PATH: the test says \"ok, no other kit on PATH\", though that kit shadows the helper inside Claude's Bash",
+        "tool, the exact case the test exists to catch. Should: only this plugin's own folder name, or a byte-identical copy, counts as ours."
+      ],
+      "fix_hint": [
+        "Remove the */plugins/core/bin/kit alternative in a follow-up once setup --global has run (a fix item), or now if the gate is run after it."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 19,
+      "pass_cases": [
+        "1. PATH with a dir ending plugins/core/bin holding a different `kit`: the test FAILs and names it.",
+        "2. PATH with plugins/relay/bin/kit of this or another checkout: passes.",
+        "3. PATH with a byte-identical copy of bin/kit elsewhere: passes (cmp)."
+      ],
+      "path": "plugins/relay/tests/kit-name.test.sh",
+      "rank": "low",
+      "reason": [
+        "Fixer kept the kit-name exemption until the live PATH moves after the merge; follow-up fix item. Agree: removal before setup --global would break the gate."
+      ],
+      "severity": "LOW",
+      "since": "a05b43e7122e5f833fd578a9ad26fac910c23f46",
+      "source": "review-rename.json",
+      "source_id": "F3",
+      "summary": "kit-name test now accepts any program at a path ending plugins/core/bin/kit, a transition-only exemption that stays for good",
+      "verdict": "GAP"
+    },
+    {
+      "details": [
+        "CONFIRMED by git grep -nw core. Docs only; no code reads these. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "git grep -nw core -- docs rules plugins/*/README.md: docs/flows.md:57, docs/design.md:50,65, rules/git.md:28, plugins/relay/README.md:21,22,23,38,40,44,54,97"
+      ],
+      "failing_case": [
+        "A reader of docs/flows.md:57 copies \"requires_plugins\": [\"core\", \"openspec\"], which no longer matches plugins/openspec/flow.json ([\"relay\",\"openspec\"]).",
+        "rules/git.md:28 tells every session \"the core plugin does it\" (removes merged worktrees); docs/design.md:65 still records",
+        "\"Plugins keep their names (`core`)\"; docs/setup.md:92 says migrate maps *@principles to \"*@relay, the relay marketplace\";",
+        "plugins/relay/README.md:21-23,38-40,44,97 and plugins/relay/bin/kit:98 (\"beside core\") and hooks/flow-stage.py:2 (\"core:\") name core.",
+        "Also evals/plugin/baseline/aggregate-result.json had the path of a past measurement rewritten to a folder that did not exist when it was measured.",
+        "Should: each names the plugin relay (or says \"named core before 28 Oct\" where history is the point); past measurement records keep their paths."
+      ],
+      "fix_hint": [
+        "Replace the names in those lines; revert the one-line change to the baseline record."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 57,
+      "pass_cases": [
+        "1. docs/flows.md example requires_plugins reads [\"relay\", \"openspec\"].",
+        "2. rules/git.md names the relay plugin (one paid run per wave covers the rule text).",
+        "3. docs/design.md:65 and docs/setup.md:92 state the 28 Oct names (relay, *@amidman, marketplace amidman).",
+        "4. evals/plugin/baseline/aggregate-result.json keeps its recorded path .../plugins/core."
+      ],
+      "path": "docs/flows.md",
+      "rank": "low",
+      "reason": [
+        "git grep for plugins/core, core@, core: in rules, docs, plugins, lib finds only a historical plan and the principles-marketplace shim text, both correct."
+      ],
+      "severity": "LOW",
+      "since": "a05b43e7122e5f833fd578a9ad26fac910c23f46",
+      "source": "review-rename.json",
+      "source_id": "F4",
+      "summary": "texts still name the plugin core: rules/git.md (rendered into every CLAUDE.md), docs/flows.md manifest example, docs/design.md decision, docs/setup.md migration table, the plugin's own README",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "ed570aac344100e0decb2813e6648f20e28b62c3.gate.log",
+  "head": "272dfcabc49ad3f80ca701342c45d67e97d51490",
+  "item": null,
+  "notes": [
+    "Only F1 has code and tests; F2 and F4 are doc text. Remaining core@principles in kit-shim is the other marketplace, correct."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range a05b43e..HEAD (fix commit ed570aa plus gate-log commit). Gate log head ed570aa, exit 0, no code after it. precheck green; tests/test_rename.py 8 passed. Ran the 3 new RegistryLeftovers tests at a05b43e: 3 failed there, so they fail without the fix. Read the lib diff and grepped for leftover core names."
+  ],
+  "type": "check"
+}
