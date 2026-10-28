@@ -357,6 +357,12 @@
       "said": [
         "Хорошо, последует твоей рекомендации"
       ]
+    },
+    {
+      "at": "2026-10-28T05:10:38Z",
+      "fact": [
+        "28 Oct, owner agreed to the front's recommendation on paid-run frequency: no change now (8 runs in 24-28 Oct, $8.5-21.4 each, mean $10.5, about $21 a day against the $200 cap; intervals 2-24 h; 4 of 8 red). The rule \"a paid run before the release moves\" is built into the release build, not separately; the run then starts when the release lags master by text changes and a release is wanted (daily or on demand)."
+      ]
     }
   ]
 }
