@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 89,
+  "time": 30,
+  "found_at": "2026-10-28T01:37:46Z",
+  "found_in": "relay queue add",
+  "title": "A recheck without a queue item forgets the fixes made",
+  "what": [
+    "The cycle script's recheck unit (plugins/delegate/workflows/cycle.js recheckUnit) passes `Fixes: none` to the checker when it gets `findings` and no `items`, so after a branch takes the default branch every finding already fixed on it is judged again with no fix named and comes back NOT MET. A recheck should take the fix report (`fixes`) or the branch's newest check record and carry its verdicts."
+  ],
+  "why": [
+    "Live, 28 Oct: wt/rename (a feature with no fix item) took master; recheck rename-after-master returned open 1 and F1, F2, F4 NOT MET though fix-rename.md had fixed them and the check before the merge had them MET. It cost a second checker run (about 19 minutes) and a confirm-fix round. Principle 2: waste that repeats on every feature branch that takes the default branch."
+  ],
+  "failing_case": [
+    "Recheck unit {findings: <review>, no items} on a branch whose findings were fixed: the checker prompt says Fixes: none and the verdicts are NOT MET."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A recheck unit accepts `fixes` and passes it to the checker.",
+    "Without `fixes`, it passes the branch's newest check record so verdicts already MET are rechecked against their fixes.",
+    "A test of the cycle script shows the checker prompt names the fixes."
+  ],
+  "where": [
+    "plugins/delegate/workflows/cycle.js:232-252"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
