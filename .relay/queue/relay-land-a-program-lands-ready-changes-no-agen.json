@@ -124,6 +124,12 @@
       "reading": [
         "Read as the answer to the question in the owner's last-shown message (when to compare relay land): a, 7 days after the first landing. The two split questions asked at 09:46 are asked again."
       ]
+    },
+    {
+      "at": "2026-10-28T11:22:56Z",
+      "fact": [
+        "Baseline for the relay land comparison (measured 28 Oct 2026; sources named). From `relay land --stats --since 2026-10-24 --until 2026-10-28T08:53` (one function for both sides): 88 code landings; all gate logs per code landing 4.8 (421 gate logs); take gates per code landing 1.1 (94 take gates). Landings by relay land: 0 so far. Re-checks by agents: 12 on the night 27-28 Oct (3 train, 9 one branch), 19 from 27 Oct 15:23 to 28 Oct 12:36; 146 agent minutes on the 6 re-checks of one branch that night (65.6 waiting for gates, 80.7 checkers), no defect found (reports/design-damage.md). Ready to landing (ready = the branch's last `relay: check of` commit), trains/measure_trains.py from 24 Oct to 28 Oct afternoon: all 116 code landings together p50 15 min, p90 201, max 397; alone p50 1, p90 29, max 77 (n=73); train riders p50 125, p90 281, max 397 (n=43). Landings that waited behind another and the max wait are counted by `relay land --stats` from the first landing on."
+      ]
     }
   ]
 }
