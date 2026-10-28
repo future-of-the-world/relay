@@ -20,8 +20,8 @@
   "where": [
     ".relay/queue/choose-which-unblocked-items-start-together.json to be designed (design track first): the front skill, the change-cycle workflow, possibly a queue view"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T03:38:56Z",
+  "taken_by": "wt/autostart",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
