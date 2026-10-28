@@ -76,6 +76,12 @@
       "said": [
         "Что за отчет, это период ранней разреботки, 4 дня назад, вероятно какая-то часть плагина observe, я не понимаю зачем это вообще, давай погрузимся ещё глубже"
       ]
+    },
+    {
+      "at": "2026-10-28T00:24:59Z",
+      "fact": [
+        "28 Oct, measured: relay report came with relay's first import (930f84b, 21 Oct, \"relay as installed on the owner's Mac\"); it reads Claude Code transcripts priced by prices.toml plus the observe ledger ($RELAY_HOME/ledger/<day>.jsonl). Readers: the front skill and the tune skill run it when the owner asks what work cost or compares setups; relay bench reads the ledger for running agents; no hook or paid guard depends on the report. Runs in the last 7 days: in 7 main sessions, all by the front (the owner never typed it). `relay report --since 1d` on 28 Oct: 37 sessions, $332.10 notional (estimate), main sessions $214.29, agents $95.78 (31% agents); opus 4043 requests $295.39."
+      ]
     }
   ]
 }
