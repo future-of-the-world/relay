@@ -24,8 +24,8 @@
   "where": [
     "evals/plugin/system_rules.py:41"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T11:31:34Z",
+  "taken_by": "wt/four-eval-cases-carry-hand-copies-of-the",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
