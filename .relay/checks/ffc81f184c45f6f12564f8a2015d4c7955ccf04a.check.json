@@ -1,0 +1,104 @@
+{
+  "branch": "wt/base-restores-only-four-keys-bench-s-rel",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, review of wt/rules-red (LOW, merged as is): the test base restores four listed environment variables by hand; Bench's RELAY_CLAUDE_BIN still leaks a deleted fake binary to every later test, the same kind of shared state that made the rules-only gate red. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "In one unittest process run tests.test_bench.Bench then any later class that reaches relay_bench.claude_command or",
+        "relay_setup's install runner without setting RELAY_CLAUDE_BIN: the env still holds <tmp>/relay-test-*/.../claude from",
+        "Bench.fake_claude (test_bench.py:28), whose folder Base.tearDown deleted, so the later test gets FileNotFoundError (order",
+        "dependent, the same shape as Q1). No such test is on RULE_TESTS today, so nothing is red now."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 14,
+      "pass_cases": [
+        "1. After a Bench test finishes, os.environ.get(\"RELAY_CLAUDE_BIN\") equals its value before setUp (None in a clean env).",
+        "2. The bin/ci rules_tests command still runs 128 tests, OK.",
+        "3. tests.test_rules_gate_isolation still passes, and still fails with master's relay_testbase."
+      ],
+      "path": "tests/relay_testbase.py",
+      "rank": "high",
+      "reason": [
+        "Problem is already fixed on master by 58d5d5f9; tests/test_rules_gate_isolation.py::RulesGateIsolation::test_base_restores_any_variable_a_test_sets passes but also passes at Q1's since (ffc81f18), so the rule \"fails without the fix at since\" cannot hold. Close manually: relay queue done <item> --fixed-by 58d5d5f9 --test <that test>."
+      ],
+      "severity": "HIGH",
+      "since": "ffc81f184c45f6f12564f8a2015d4c7955ccf04a",
+      "source": "queue",
+      "summary": "Base restores only four keys; Bench's RELAY_CLAUDE_BIN\u2026",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED for the one case: the item's found_in \"finding F1 of review-rules-red.json\" is exactly add_from's context string",
+        "(lib/relay_queue.py:980), and add_from (976-994) reads only the review (find_finding) and never looks at stored checks or their",
+        "verdicts. The check marked F1 MET two minutes before the item was filed. PLAUSIBLE that it repeats: any LOW finding fixed",
+        "inside its change (\"fixed in the change when cheap\") and then queued from the review file after the merge takes the same path,",
+        "and each costs a lane, a builder and a review (here: about 20 agent minutes and one Opus review). Rated MEDIUM under",
+        "Principle 2 (waste built into the setup that repeats per change); LOW if the owner sees it as a one-off front slip.",
+        "The same item also cannot close by the cycle (Q1 can never be MET: the test passes at the take-time base), so it ends in a",
+        "manual --fixed-by close. Size: 30 agent minutes (look up checks naming the review, by relay_marks or .relay/checks, and a test)."
+      ],
+      "evidence": [
+        "$ relay queue show base-restores-only-four-keys-bench-s-relay-claud",
+        "  found 2026-10-25T16:57:05Z in finding F1 of review-rules-red.json",
+        "$ git log --all -S \"Base restores only four keys\" --format='%h %ad %s' --date=iso",
+        "  d6545df5 2026-10-25 20:57:06 +0400 queue: base-restores-only-four-keys-bench-s-relay-claud",
+        "  1802d392 2026-10-25 20:55:27 +0400 relay: check of c73891d54be2cccd890c3bdd8067f81806651572",
+        "$ relay check show .relay/checks/c73891d5....check.json",
+        "  tests/relay_testbase.py:14: LOW: F1 Base restores only four keys; ...",
+        "  Source: review-rules-red.json F1, since fce1189413d9",
+        "  Verdict: MET",
+        "$ git log -1 --date=iso 58d5d5f9  -> 2026-10-25 20:26:01 +0400 F1: Base restores the whole environment, not four keys",
+        "$ git merge-base --is-ancestor 58d5d5f9 master && echo ANCESTOR -> ANCESTOR"
+      ],
+      "failing_case": [
+        "review-rules-red.json F1 (tests/relay_testbase.py:14, LOW). Commit 58d5d5f9 fixed it on wt/rules-red; the check",
+        ".relay/checks/c73891d54be2cccd890c3bdd8067f81806651572.check.json (committed 1802d392, 25 Oct 20:55:27 +0400) records",
+        "\"Source: review-rules-red.json F1 ... Verdict: MET\". At 20:57:06 (d6545df5) `relay queue add --from review-rules-red.json F1`",
+        "created base-restores-only-four-keys-bench-s-relay-claud, with Why \"merged as is\". Now: the item is accepted; on 28 Oct a",
+        "lane was started, a builder ran, and this review ran, for a problem that was already fixed. Should: refuse with a line such",
+        "as \"F1 of review-rules-red.json is MET in the check of c73891d5 (fixed by the change): nothing to queue\"."
+      ],
+      "fix_hint": [
+        "In add_from, before add(): look up the stored checks (relay_marks / .relay/checks) whose findings carry Source = this review",
+        "and id = fid; if any has verdict MET, raise Refused naming the check and pointing to `relay check show`. Alternatively the",
+        "front's step that queues LOW findings after a merge lists only findings not MET in the last check."
+      ],
+      "id": "F1",
+      "kind": "outside",
+      "line": 976,
+      "pass_cases": [
+        "1. A review JSON with finding F1, and a stored check whose findings list F1 from that review with verdict MET:",
+        "   `relay queue add --from <review.json> F1 --input <toml>` is refused, the message names the check and says MET; no item file is written.",
+        "2. Same review, check records F1 NOT MET (or no check names that review): the item is created as today.",
+        "3. A review with F1 and F2, check has F1 MET, F2 NOT MET: --from F2 creates the item; --from F1 is refused.",
+        "4. A finding with kind outside (never fixed in the change, so never MET): queued as today."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "Outside the change (queue add --from does not check stored MET verdicts); goes to the owner as a fix item, not fixed here."
+      ],
+      "severity": "MEDIUM",
+      "since": "ffc81f184c45f6f12564f8a2015d4c7955ccf04a",
+      "source": "review-base-restores-only-four-keys-bench-s-rel.json",
+      "source_id": "F1",
+      "summary": "Principle 2 (Waste): queue add --from files a review finding that a later check of the same change already recorded MET",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "283cde4db0aee48ec88a4905e94e9d6ec8d5c11a.gate.log",
+  "head": "ffc81f184c45f6f12564f8a2015d4c7955ccf04a",
+  "item": "base-restores-only-four-keys-bench-s-relay-claud",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Branch has no commit of its own; no files changed. Gate log green (exit 0), no file changed since its head. Ran test_base_restores_any_variable_a_test_sets: passes at HEAD, fails at 58d5d5f9^ (before the fix on master)."
+  ],
+  "type": "check"
+}
