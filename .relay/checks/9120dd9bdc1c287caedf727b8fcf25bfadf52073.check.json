@@ -1,0 +1,195 @@
+{
+  "branch": "wt/no-numbers",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading. The change updated the front skill, rules, roles/think.md, the thinker, delegate skill and the",
+        "openspec author, but missed this skill, which is the one that turns the reviewer's questions into the owner's",
+        "questions. Severity: breaks an owner decision in what the owner sees. Size: 5."
+      ],
+      "evidence": [
+        "git grep -n -i 'numbered (question' -> plugins/openspec/skills/spec-review/SKILL.md:34:the rest as numbered questions with lettered options, your recommendation"
+      ],
+      "failing_case": [
+        "The front runs openspec:spec-review and reaches step 2 \"Questions first\": the skill says \"Ask the rest as numbered",
+        "questions with lettered options\". The owner gets \"1. ... 2. ...\" again, the opposite of his 28 Oct word",
+        "\"\u043e\u0442\u043a\u0430\u0436\u0435\u043c\u0441\u044f \u043e\u0442 \u043d\u0443\u043c\u0435\u0440\u0430\u0446\u0438\u0438\". Should say: each question opens with a bold title, not numbered, options lettered."
+      ],
+      "fix_hint": [
+        "\"Ask the rest as questions, each opening with a bold title and no number, with lettered options, ...\""
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 34,
+      "pass_cases": [
+        "1. plugins/openspec/skills/spec-review/SKILL.md step 2 says questions open with a bold title and carry no number.",
+        "2. The same paragraph still says lettered options, recommendation first, the difference made visible.",
+        "3. `git grep -n -i \"numbered questions\" -- rules roles plugins` prints nothing."
+      ],
+      "path": "plugins/openspec/skills/spec-review/SKILL.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_no_numbers_texts.py:14 and :21; spec-review SKILL.md step 2 now says bold title, no number, lettered options; fails at base."
+      ],
+      "severity": "HIGH",
+      "since": "7435258ea455a0dd0f86417b9913fb9321e79b8a",
+      "source": "review-no-numbers.json",
+      "source_id": "F1",
+      "summary": "spec-review skill still tells the front to ask the owner numbered questions, against the owner's decision",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading and by tests/test_queue_notes.py:250 (number = 1 is refused as unknown key). The refusal is",
+        "recoverable, but every front that reads the rule hits it once. Present in the merged tree with wt/rename too. Size: 5."
+      ],
+      "evidence": [
+        "sed -n 31p rules/queue.md -> shown (`question`, `options`, `number`), the owner's whole reply when it comes (`answer`, ..."
+      ],
+      "failing_case": [
+        "A front that follows rules/queue.md (loaded through the global CLAUDE.md \"Work queue\" rule) writes",
+        "question + options + number = 1. `relay queue note` now refuses: \"unknown key `number`\". The rule should list",
+        "`question` and `options` only, and say an answer names its question by asked time in `to`."
+      ],
+      "fix_hint": [
+        "Drop `number`; add \"(`to` = the asked time when several wait)\" beside `answer`."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 31,
+      "pass_cases": [
+        "1. rules/queue.md line about notes lists (`question`, `options`) with no `number`.",
+        "2. It still names `answer` with the front's `reading` apart.",
+        "3. The generated global instructions' Work queue summary carries no `number` for a question after the rules are synced."
+      ],
+      "path": "rules/queue.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_no_numbers_texts.py:28; rules/queue.md lists question, options only and `to`."
+      ],
+      "severity": "MEDIUM",
+      "since": "7435258ea455a0dd0f86417b9913fb9321e79b8a",
+      "source": "review-no-numbers.json",
+      "source_id": "F2",
+      "summary": "the work-queue rule still lists `number` as a key of a question note, which the command now refuses",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep. Descriptive only; no behaviour. docs/variants/spec-review.md:15 is a dated comparison table and can",
+        "stay. Size: 5."
+      ],
+      "evidence": [
+        "git grep -n -i numbered -> README.md:91, .claude-plugin/marketplace.json:9"
+      ],
+      "failing_case": [
+        "README.md:91 \"numbered choices with a recommendation\" and .claude-plugin/marketplace.json:9 front description",
+        "\"(one reply per request, plain words, numbered choices)\". The front skill's own description now says \"lettered choices\"."
+      ],
+      "fix_hint": [
+        "Replace \"numbered choices\" with \"lettered choices\" in both."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 91,
+      "pass_cases": [
+        "1. README.md item 6 says lettered choices (or questions with a bold title) instead of numbered.",
+        "2. marketplace.json front description matches the front skill description (\"lettered choices\")."
+      ],
+      "path": "README.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_no_numbers_texts.py:36; README and marketplace say lettered choices."
+      ],
+      "severity": "LOW",
+      "since": "7435258ea455a0dd0f86417b9913fb9321e79b8a",
+      "source": "review-no-numbers.json",
+      "source_id": "F3",
+      "summary": "README and the front plugin's marketplace description still promise numbered choices",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading note() and the measurement. Correct today (identity needs a unique time) but it is the",
+        "ordinary pattern, and the instruction lives only in the refusal text. Size: 5 (a sentence in the front skill)."
+      ],
+      "evidence": [
+        "python3 over .relay/queue/*.json: 4 items with two questions sharing asked_at, 0 waiting questions."
+      ],
+      "failing_case": [
+        "The front asks two questions in one reply and records both with at = \"2026-10-27T13:05:32Z\" (as it did before).",
+        "The second note is refused: \"already has a question asked at ... add `at` one second later\". The recorded asked time",
+        "then differs from the real one by a second. Measured: 4 live items hold two questions sharing an asked_at",
+        "(what-the-owner-says-about-an-item-stays-in-it, relay-ships-more-changes-per-hour, publish-relay-..., each-change-records-...)."
+      ],
+      "fix_hint": [
+        "One sentence in the front skill's note paragraph: several questions in one reply get `at` one second apart."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1669,
+      "pass_cases": [
+        "1. Two questions on one item with the same `at`: the second is refused with a message naming the next step (today: holds).",
+        "2. If kept: the front skill says to give each question of one reply its own `at`, one second apart, so the refusal is not hit.",
+        "3. An answer with to = [first asked time] fills only the first question."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_no_numbers_texts.py:45; front skill says one second apart; refusal case already in tests/test_queue_notes.py."
+      ],
+      "severity": "LOW",
+      "since": "7435258ea455a0dd0f86417b9913fb9321e79b8a",
+      "source": "review-no-numbers.json",
+      "source_id": "F4",
+      "summary": "two questions asked in one reply with the same `at` are now refused; the front must shift one by a second",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by md5 of master's prompts (three share one stale text, design-track another). Pre-existing drift, not",
+        "caused by this change; none of the four graders depends on numbering. Size: 15."
+      ],
+      "evidence": [
+        "grep 'numbered' evals/plugin/*/prompt.md -> the four cases; grep CASES evals/plugin/system_rules.py -> 4 cases only."
+      ],
+      "failing_case": [
+        "evals/plugin/keep-owner-words, keep-owner-words-en, no-note-off-topic, recall-decision prompt.md hold an",
+        "append_system_prompt that system_rules.CASES does not build; it already differed from the built text on master",
+        "(10435 vs 11249 chars) and still says \"numbered questions\" / \"numbered choices\". These sessions run under an older rule set."
+      ],
+      "fix_hint": [
+        "Add the four cases to system_rules.CASES and regenerate."
+      ],
+      "id": "F5",
+      "kind": "outside",
+      "line": 41,
+      "pass_cases": [
+        "1. Each of the four cases is in system_rules.CASES and test_every_case_carries_the_text_built_from_the_rule_files covers it.",
+        "2. Their prompts no longer contain \"numbered questions\"."
+      ],
+      "path": "evals/plugin/system_rules.py",
+      "rank": "low",
+      "reason": [
+        "Pre-existing drift in four eval prompts, outside this change; goes to a fix item."
+      ],
+      "severity": "LOW",
+      "since": "7435258ea455a0dd0f86417b9913fb9321e79b8a",
+      "source": "review-no-numbers.json",
+      "source_id": "F5",
+      "summary": "four eval cases carry hand copies of the rules, outside the generator, still saying numbered questions",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "fe49577526b62f0040560d145137fc21e8941966.gate.log",
+  "head": "9120dd9bdc1c287caedf727b8fcf25bfadf52073",
+  "item": null,
+  "notes": [
+    "Files changed are exactly those the findings name plus the new test file. The front SKILL.md line was rewrapped by a later fix; test_option_letters passes."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 7435258..HEAD (one fix commit fe49577 plus gate record). Gate log head fe49577, exit 0, no code after it. Ran tests/test_no_numbers_texts.py and test_option_letters.py (8 passed); all 5 new tests fail at 7435258 in a throwaway worktree. Fix diff read: text-only edits to the named files. Grep for \"numbered questions\" in rules/roles/plugins is empty."
+  ],
+  "type": "check"
+}
