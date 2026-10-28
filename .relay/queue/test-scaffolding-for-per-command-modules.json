@@ -36,5 +36,37 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T17:37:38Z",
+      "fact": [
+        "Module interface and guard resolution order (from the build plan, section 4.4), needed by moves 4-10:",
+        "### 4.4 The module interface and the guard (F2, changed)",
+        "- Interface per module, as revision 2 section 2.1:",
+        "  - `USAGE: str`, whose first line is `relay <cmd> ...`;",
+        "  - `WRITES: bool`;",
+        "  - optional `READ_FLAGS` (sync's `--dry`);",
+        "  - `def run(args: list[str]) -> int`.",
+        "",
+        "  A package's `__init__.py` has the header `USAGE`, `WRITES` for its bare use, and an optional `fallback(args)`. Names match `[a-z][a-z0-9_]*`, and a typed `-` maps to `_`. No new field: mixed commands (queue, check, improve, bench, license) become packages with one module per action, as revision 2 had and as the owner's \"across all of relay\" asks.",
+        "- **The guard's resolution order, from move 5:**",
+        "  1. the action module `lib/relay_cmd/<cmd>/<word>.py`, if it exists: its `WRITES`;",
+        "  2. the guard's own table, while it has `<cmd>`: today's rule, unchanged;",
+        "  3. `lib/relay_cmd/<cmd>.py`, or `<cmd>/__init__.py` for its bare use and for words with no action module: its `WRITES` and `READ_FLAGS`;",
+        "  4. otherwise refused (fails closed, with a message naming the module to add).",
+        "",
+        "  The guard reads the module with `ast` and never imports it.",
+        "",
+        "  Because the table comes before the command module, moving queue whole in move 7 leaves `relay queue add` decided by the table until move 8 adds add.py. The verdict never passes through the package's bare `WRITES = False`. The table is not edited in moves 6-9 (no paid-path change). Move 10 deletes it.",
+        "- **Tests in move 5**, in tests/test_read_only_guard.py:",
+        "  - **Frozen verdicts**, written literally and kept through every move:",
+        "    - `delegate:critic` is allowed `relay queue show x`, `relay queue count`, `relay license check`, `relay improve suggest`, `relay bench list` and `relay sync --dry`;",
+        "    - it is refused `relay queue add --input f`, `relay queue take x`, `relay queue start x --scratch y` (after F), `relay license add`, `relay improve adopt`, `relay bench run`, `relay sync`, `relay migrate --all` and `relay land`.",
+        "  - **Agreement:** for every command in both the table and the module walk, and every word in the table's words for it plus `\"\"` and `zzz`, the verdict from steps 1 and 3 alone equals the table's, wherever step 1 or a plain module answers. A `WRITES` written wrong in moves 6-9 is red in the move that wrote it, not in move 10.",
+        "  - **Fake modules:** in a temporary tree with a fake `lib/relay_cmd/hello.py`, `relay hello` is refused for a critic while the module declares no `WRITES`, and allowed with `WRITES = False`, with no edit to the guard.",
+        "- Between moves 4 and 5 the guard still reads only its table. A new command module added then would fail the completeness test, which now reads the module walk. So the new-command items (digest, two-branches) start after move 5, not after move 4."
+      ]
+    }
+  ]
 }
