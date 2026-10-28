@@ -245,26 +245,61 @@ class TestChangedTests(Base):
         os.remove(os.path.join(self.repo, "tests", "run_unittest.py"))
         self.assertEqual(relay_precheck.check_changed_tests(self.repo), ["skipped: no tests/run_unittest.py here"])
 
-    def test_an_uncommitted_and_a_new_test_count_and_a_deleted_one_does_not(self) -> None:
+    def test_an_uncommitted_edit_and_a_new_test_count_and_a_deleted_one_does_not(self) -> None:
+        # F4: a tracked test edited but not committed is the worker's usual state while looping
+        git(self.repo, "checkout", "-q", "master")
+        self.write("tests/test_kept.py", "x = 1\n")
         self.write("tests/test_gone.py", "x = 1\n")
         self.commit()
-        git(self.repo, "checkout", "-q", "-b", "wt/other", "master")
         git(self.repo, "checkout", "-q", "wt/task")
+        git(self.repo, "merge", "-q", "master")
+        self.write("tests/test_kept.py", "x = 2\n")
         os.remove(os.path.join(self.repo, "tests", "test_gone.py"))
         self.write("tests/test_untracked.py", "x = 1\n")
-        self.assertEqual(relay_precheck.changed_test_modules(self.repo), ["tests.test_untracked"])
+        self.assertEqual(relay_precheck.changed_test_modules(self.repo), ["tests.test_kept", "tests.test_untracked"])
+
+    SLEEPER = "import time, unittest\nclass T(unittest.TestCase):\n    def test_slow(self):\n        time.sleep(%d)\n"
+
+    def _set(self, name: str, value: int) -> None:
+        self.addCleanup(setattr, relay_precheck, name, getattr(relay_precheck, name))
+        setattr(relay_precheck, name, value)
 
     def test_a_changed_test_too_slow_for_the_step_is_a_red_line(self) -> None:
-        self.write("tests/test_slow.py", "import time, unittest\nclass T(unittest.TestCase):\n    def test_slow(self):\n"
-                   "        time.sleep(60)\n")
+        self.write("tests/test_slow.py", self.SLEEPER % 60)
         self.commit()
-        old = relay_precheck.STEP_TIMEOUT
-        relay_precheck.STEP_TIMEOUT = 2
-        self.addCleanup(setattr, relay_precheck, "STEP_TIMEOUT", old)
+        self._set("CHANGED_TESTS_TIMEOUT", 2)
         code, lines = relay_precheck.run(self.repo)
         self.assertEqual(code, 1)
         self.assertIn("RED  changed tests", lines)
-        self.assertIn("  FAIL changed tests took longer than 2 s", lines)
+        self.assertIn("  FAIL changed tests took longer than 2 s", lines)   # the budget actually used
+
+    def test_a_changed_test_slower_than_the_other_steps_budget_is_green(self) -> None:
+        # F1: the changed-tests step has its own budget; a green test that takes 3 s passes although STEP_TIMEOUT is 1 s
+        self.write("tests/test_slow.py", self.SLEEPER % 3)
+        self.commit()
+        self._set("STEP_TIMEOUT", 1)
+        self._set("CHANGED_TESTS_TIMEOUT", 60)
+        code, lines = relay_precheck.run(self.repo)
+        self.assertIn("ok   changed tests", lines)
+
+    def test_the_other_steps_keep_their_own_budget(self) -> None:
+        # F1 pass 5: a slow bin/types-lint is still red at STEP_TIMEOUT
+        self.write("bin/types-lint", "sleep 30\n")
+        self.commit()
+        self._set("STEP_TIMEOUT", 1)
+        code, lines = relay_precheck.run(self.repo)
+        self.assertIn("  FAIL types and lint took longer than 1 s", lines)
+
+    def test_a_slow_changed_test_does_not_hide_the_registry_message(self) -> None:
+        # F2: the registry stand-in is red and a changed test is too slow: both lines show
+        self.write("tests/test_slow.py", self.SLEEPER % 60)
+        self.write("unlisted", "x")
+        self.commit()
+        self._set("CHANGED_TESTS_TIMEOUT", 3)
+        code, lines = relay_precheck.run(self.repo)
+        text = "\n".join(lines)
+        self.assertIn("RuleTestsComplete", text)
+        self.assertIn("took longer than 3 s", text)
 
     def test_no_default_branch_says_skip(self) -> None:
         git(self.repo, "branch", "-m", "wt/task", "feature")
@@ -307,3 +342,16 @@ class BriefTemplateNamesPrecheck(unittest.TestCase):
         self.assertEqual(len(lines), 1)
         self.assertIn("relay precheck -C <worktree> && (<command>)", lines[0])
         self.assertIn("project with `.relay/`", lines[0])
+
+
+class UsageNamesChangedTests(unittest.TestCase):
+    def test_the_usage_and_the_cycle_comment_name_the_changed_tests_step(self) -> None:
+        # F3: text only
+        with open(RELAY, encoding="utf-8") as handle:
+            usage = handle.read()
+        start = usage.index("relay precheck [-C <worktree>]")
+        self.assertIn("changed tests", usage[start:start + 400])
+        with open(os.path.join(ROOT, "plugins", "delegate", "workflows", "cycle.js"), encoding="utf-8") as handle:
+            js = handle.read()
+        start = js.index("`relay precheck` (")
+        self.assertIn("changed tests", js[start:start + 150])

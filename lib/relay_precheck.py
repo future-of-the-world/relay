@@ -22,6 +22,7 @@ import time
 PLUGINS = ("observe", "delegate", "front", "relay", "openspec")
 OLD_PYTHON = "/usr/bin/python3"
 STEP_TIMEOUT = 60       # seconds one step may take in all (about 10 s for the whole precheck when healthy); a timeout is a RED line
+CHANGED_TESTS_TIMEOUT = 230   # the changed-tests step's own budget: whole test files run (test_gate.py alone takes 110 s), under the 4-minute command limit
 _deadline = 0.0         # time.monotonic() by which the running step must end; run() sets it per step
 TAIL = 20               # lines of a failing step's output shown
 
@@ -156,14 +157,24 @@ def check_changed_tests(worktree: str) -> list[str]:
     names = sorted(set(modules) | {RULES_REGISTRY_TEST}) if os.path.exists(os.path.join(worktree, "tests", "test_rules_gate.py")) else modules
     if not names:
         return ["skipped: no test changed"]   # a tree without the registry test and without a changed test
-    try:
-        done = subprocess.run(["python3", "-W", "ignore::ResourceWarning", runner, *names], cwd=worktree, capture_output=True,
-                              text=True, timeout=_left())
-    except subprocess.TimeoutExpired:
-        return ["FAIL changed tests took longer than %d s" % STEP_TIMEOUT]
-    if done.returncode == 0:
-        return []
-    return ["FAIL changed tests (python3 tests/run_unittest.py %s):" % " ".join(names)] + _tail(done.stdout + done.stderr)
+    failed: list[str] = []
+    ran: list[list[str]] = []
+    # the registry test alone first (0.6 s): a slow changed test that times out must not hide its verdict
+    groups = [[RULES_REGISTRY_TEST]] if RULES_REGISTRY_TEST in names else []
+    rest = [n for n in names if n != RULES_REGISTRY_TEST]
+    if rest:
+        groups.append(rest)
+    for group in groups:
+        ran.append(group)
+        try:
+            done = subprocess.run(["python3", "-W", "ignore::ResourceWarning", runner, *group], cwd=worktree, capture_output=True,
+                                  text=True, timeout=_left())
+        except subprocess.TimeoutExpired:
+            failed.append("FAIL changed tests took longer than %d s" % CHANGED_TESTS_TIMEOUT)
+            break
+        if done.returncode != 0:
+            failed += ["FAIL changed tests (python3 tests/run_unittest.py %s):" % " ".join(group)] + _tail(done.stdout + done.stderr)
+    return failed
 
 
 STEPS = (("types and lint", check_types), ("python 3.9", check_python39), ("lib copies identical", check_lib_copies),
@@ -180,11 +191,12 @@ def run(worktree: str) -> tuple[int, list[str]]:
     lines: list[str] = []
     code = 0
     for name, step in STEPS:
-        _deadline = time.monotonic() + STEP_TIMEOUT
+        budget = CHANGED_TESTS_TIMEOUT if name == "changed tests" else STEP_TIMEOUT
+        _deadline = time.monotonic() + budget
         try:
             found = step(worktree)
         except subprocess.TimeoutExpired:
-            found = ["FAIL %s took longer than %d s" % (name, STEP_TIMEOUT)]
+            found = ["FAIL %s took longer than %d s" % (name, budget)]
         finally:
             _deadline = 0.0
         if not found:
