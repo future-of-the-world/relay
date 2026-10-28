@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 70,
+  "time": 20,
+  "found_at": "2026-10-28T07:41:28Z",
+  "found_in": "relay queue add",
+  "title": "guard-main refuses a read-only look at a queue file",
+  "what": [
+    "guard-main refuses only commands that write a queue file (open with a write mode, redirection into .relay/queue, sed -i, mv, rm, tee), not reads."
+  ],
+  "why": [
+    "28 Oct: `python3 -c \"import json; d=json.load(open('.relay/queue/<slug>.json')); print(d.get('closed_at'))\"` in the main checkout was refused: 'a queue item is changed only by relay queue'. The command only reads. A read is the cheapest way to get one field; `relay queue show` prints the whole item. Principle 10: a refusal for a harmless step costs a turn."
+  ],
+  "failing_case": [
+    "The command above is refused."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same read passes.",
+    "`python3 -c \"open('.relay/queue/x.json','w')\"` and `echo > .relay/queue/x.json` are still refused."
+  ],
+  "where": [
+    "plugins/relay/hooks/guard-main.sh",
+    "tests/ (guard tests)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
