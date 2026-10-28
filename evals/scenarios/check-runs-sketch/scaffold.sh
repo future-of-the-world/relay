@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # A repo whose strip_marks() is meant to remove all 32 ASCII punctuation marks. The review finding F1 says it
-# removes only 9. Branch wt/marks holds a PARTIAL fix: the MARKS list now looks complete to a reader but still
-# lacks "[" and "]" (and the only new test covers neither), so a one-line sketch of the failing case still fails.
+# removes only 9. Branch wt/marks holds a PARTIAL fix: the MARKS table is built from code point ranges and looks whole, but the
+# ranges skip 91-93, "[", "\\" and "]" (a reader has to work out the code points; the only new test covers none of them), so a one-line sketch of the failing case still fails.
 # The workspace stays on wt/marks. The review JSON (recorded by relay itself) and the fixer's note sit in .review/ beside the repo files.
 set -euo pipefail
 G=(git -c user.name=f -c user.email=f@x)
@@ -22,12 +22,12 @@ git add -A && "${G[@]}" commit -qm "strip_marks, first version"
 BASE=$(git rev-parse HEAD)
 git checkout -q -b wt/marks
 cat > marks.py <<'PY'
-MARKS = ".,;:!?'\"()-_/\\@#$%&*+<=>^`{|}~"
+MARKS = {c: None for c in (*range(33, 91), *range(94, 127)) if not chr(c).isalnum()}
 
 
 def strip_marks(text: str) -> str:
     """Remove every ASCII punctuation mark (all 32 of string.punctuation) from text."""
-    return "".join(c for c in text if c not in MARKS)
+    return text.translate(MARKS)
 PY
 cat >> test_marks.py <<'PY'
 
