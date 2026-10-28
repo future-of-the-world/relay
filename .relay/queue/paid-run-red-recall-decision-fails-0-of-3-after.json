@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-28T07:59:24Z",
   "taken_by": "wt/paid-run-red-recall-decision-fails-0-of",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T10:22:46Z",
+  "test": "tests/test_eval_cases.py::CaseFiles::test_shared_fixture_turns_the_lanes_stop_reminder_off",
   "dropped_at": null,
   "dropped_why": null
 }
