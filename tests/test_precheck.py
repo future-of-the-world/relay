@@ -292,15 +292,28 @@ class TestChangedTests(Base):
         self.assertIn("  FAIL types and lint took longer than 1 s", lines)
 
     def test_a_slow_changed_test_does_not_hide_the_registry_message(self) -> None:
-        # F2 (budget 1 s, below a loaded machine's python start-up, so the registry test must not depend on it): the registry stand-in is red and a changed test is too slow: both lines show
+        # F2: the registry stand-in sleeps 5 s (longer than the 3 s changed-tests budget) and is then red; a changed test is too slow.
+        # Run on the rest of the budget, the registry test would be cut at 3 s and its verdict lost; on its own allowance both lines show.
+        self.write("tests/test_rules_gate.py", "import time, unittest\nclass RuleTestsComplete(unittest.TestCase):\n    def test_x(self):\n"
+                   "        time.sleep(5)\n        self.fail('unlisted reader')\n")
         self.write("tests/test_slow.py", self.SLEEPER % 60)
-        self.write("unlisted", "x")
         self.commit()
-        self._set("CHANGED_TESTS_TIMEOUT", 1)
+        self._set("CHANGED_TESTS_TIMEOUT", 3)
         code, lines = relay_precheck.run(self.repo)
         text = "\n".join(lines)
         self.assertIn("RuleTestsComplete", text)
-        self.assertIn("took longer than 1 s", text)
+        self.assertIn("took longer than 3 s", text)
+
+    def test_a_registry_test_cut_off_names_itself_and_its_own_allowance(self) -> None:
+        # F1: STEP_TIMEOUT 1 s, the registry stand-in sleeps 3 s, the changed-tests budget stays 230 s: the line names the registry test and 1 s
+        self.write("tests/test_rules_gate.py", "import time, unittest\nclass RuleTestsComplete(unittest.TestCase):\n    def test_x(self):\n"
+                   "        time.sleep(3)\n")
+        self.commit()
+        self._set("STEP_TIMEOUT", 1)
+        code, lines = relay_precheck.run(self.repo)
+        text = "\n".join(lines)
+        self.assertIn("FAIL rules registry test took longer than 1 s", text)
+        self.assertNotIn("230", text)
 
     def test_no_default_branch_says_skip(self) -> None:
         git(self.repo, "branch", "-m", "wt/task", "feature")

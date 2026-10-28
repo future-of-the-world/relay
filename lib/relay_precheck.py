@@ -173,7 +173,10 @@ def check_changed_tests(worktree: str) -> list[str]:
             done = subprocess.run(["python3", "-W", "ignore::ResourceWarning", runner, *group], cwd=worktree, capture_output=True,
                                   text=True, timeout=limit)
         except subprocess.TimeoutExpired:
-            failed.append("FAIL changed tests took longer than %d s" % CHANGED_TESTS_TIMEOUT)
+            if group == [RULES_REGISTRY_TEST]:
+                failed.append("FAIL rules registry test took longer than %d s" % STEP_TIMEOUT)   # the allowance it was given
+            else:
+                failed.append("FAIL changed tests took longer than %d s" % CHANGED_TESTS_TIMEOUT)
             break
         if done.returncode != 0:
             failed += ["FAIL changed tests (python3 tests/run_unittest.py %s):" % " ".join(group)] + _tail(done.stdout + done.stderr)
