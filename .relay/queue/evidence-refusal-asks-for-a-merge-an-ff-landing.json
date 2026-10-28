@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-28T02:47:32Z",
   "taken_by": "wt/evidence-ff",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T04:06:26Z",
+  "test": "tests/test_queue_close.py::TestEvidenceIsChecked::test_an_ff_landing_head_that_is_a_gate_log_is_accepted_when_the_range_carries_code",
   "dropped_at": null,
   "dropped_why": null
 }
