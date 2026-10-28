@@ -41,6 +41,12 @@
       "said": [
         "Я выбрал этот вариант, потому что он показался мне перспективным, судя по твоему анализу, для train существует отдельный вариант"
       ]
+    },
+    {
+      "at": "2026-10-28T05:18:28Z",
+      "fact": [
+        "28 Oct: the front had written trains into this item although the owner picked column \"a\" of the demo page, where \"a + train\" is a separate column; corrected to no trains (owner can reverse). What a train would add, from the design's simulation over the real landing times 24-28 Oct (measure5.out): 12 of 84 landings waited behind another; max wait 39 -> 33 min with a 17-min gate, 84 -> 51 with a 26-min gate; p50 17 and p90 20 unchanged. Demo jam scenario with the hidden incompatibility in one train: +1 gate and a later last landing (142 vs 131 min). Revisit trains after the comparison on real data if landings often wait behind another."
+      ]
     }
   ]
 }
