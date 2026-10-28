@@ -264,6 +264,6 @@ def own_since_mark(repo: str, mark: str, ref: str, absorbed: dict[str, str] | No
     touched.update(p for p in log.split("\0") if p.strip("\n"))
     touched = {p.strip("\n") for p in touched}
     by_hand: set[str] = set()
-    for merge in _git(repo, "rev-list", "--merges", f"{_sha(repo, mark)}..{_sha(repo, ref)}").split():
+    for merge in _git(repo, "rev-list", "--merges", f"{_sha(repo, mark)}..{_sha(repo, ref)}", "^" + default).split():       # only this branch's own takes
         by_hand.update(resolved(repo, merge))
     return [p for p in own if p in touched or p in by_hand]

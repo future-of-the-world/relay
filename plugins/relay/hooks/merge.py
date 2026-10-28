@@ -317,7 +317,7 @@ def step_mark(main, default, branch, ab=None):
         if newest_list is None:
             newest_list = (commit, own)
     commit, own = newest_list
-    for merge in relay_git.git(main, "rev-list", "--merges", "--reverse", "%s..%s" % (commit, ref))[1].split():
+    for merge in relay_git.git(main, "rev-list", "--merges", "--reverse", "%s..%s" % (commit, ref), "^" + base)[1].split():
         by_hand = [p for p in relay_inert.resolved(main, merge) if p in own]
         if by_hand:
             raise Refused("after the check of %s, the take %s resolved %s by hand; run relay gate, then delegate:checker" % (

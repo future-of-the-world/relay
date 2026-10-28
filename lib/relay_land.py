@@ -224,7 +224,7 @@ def blocking(main: str, branch: str) -> list[str]:
                     dirty.add(entries[i])
         i += 1
     default = relay_git.current_branch(main) or ""
-    rc, names = relay_git.git(main, "diff", "--name-only", "--no-renames", "-z", f"refs/heads/{default}..refs/heads/{branch}", raw=True)
+    rc, names = relay_git.git(main, "diff", "--name-only", "--no-renames", "-z", f"refs/heads/{default}...refs/heads/{branch}", raw=True)      # three dots: what the branch's side changed, not what master moved since the fork
     brought = {n for n in names.split("\0") if n} if rc == 0 else set()
     return sorted(dirty & brought)
 
@@ -288,6 +288,8 @@ def land(repo: str, branch: str, notify: Callable[[str], None]) -> Result:
             result = Result(stop.outcome, stop.lines)
             for key, value in stop.fields.items():
                 setattr(stats, key, value)
+        except Exception as exc:        # anything else under the lock still gets its done event, so the counters see the landing
+            result = Result(REFUSED, [f"land: stopped by an unexpected error ({type(exc).__name__}: {exc}); the default branch is at {_sha(main, 'refs/heads/' + default)[:12]}"])
         stats.outcome, stats.ts = result.outcome, now()
         record(main, stats)
         return result
@@ -345,11 +347,12 @@ def _locked(main: str, default: str, branch: str, tree: str, stats: Event, tries
             raise Stop(RED, [f"land: the gate of {branch} is red (exit {code}); log {log}", *red[:5]], code_moves=code_moves, inert_moves=inert_moves)
         landed = False
         if _sha(main, ref) == base:         # (a moved default branch makes the judge say "behind": count the move and take again)
+            judged = _sha(main, "refs/heads/" + branch)
             reason = _judge(main, branch, before_gate=False)
             if reason:
                 raise Stop(REFUSED, [reason], code_moves=code_moves, inert_moves=inert_moves)
             stats.code_moves, stats.inert_moves = code_moves, inert_moves
-            landed = _fast_forward(main, default, branch, base, ff_tries, notify)
+            landed = _fast_forward(main, default, branch, base, ff_tries, notify, judged)
         if landed:
             stats.before = base
             return _landed(main, default, branch, stats, started)
@@ -363,11 +366,13 @@ def _locked(main: str, default: str, branch: str, tree: str, stats: Event, tries
                        code_moves=code_moves, inert_moves=inert_moves)
 
 
-def _fast_forward(main: str, default: str, branch: str, base: str, ff_tries: int, notify: Callable[[str], None]) -> bool:
+def _fast_forward(main: str, default: str, branch: str, base: str, ff_tries: int, notify: Callable[[str], None], judged: str) -> bool:
     """True when landed; False when the default branch moved since `base` (the caller retakes); a Stop for every other end.
     The short branch name is used so the reflog reads `merge wt/x: Fast-forward`, which relay_lanes.landing matches."""
     ref = "refs/heads/" + default
     for attempt in range(ff_tries):
+        if _sha(main, "refs/heads/" + branch) != judged:      # a commit after the judge would land with no gate and no check
+            raise Stop(HANDED_BACK, [f"land: {branch} moved after the judge passed: relay land {branch} again"])
         done = subprocess.run(["git", "-C", main, "merge", "--ff-only", branch], capture_output=True, text=True)
         if done.returncode == 0:
             return True
@@ -387,11 +392,29 @@ def _fast_forward(main: str, default: str, branch: str, base: str, ff_tries: int
     raise Stop(HANDED_BACK, [f"land: another git command holds {os.path.join(_common_dir(main), 'index.lock')}: relay land {branch} again"])
 
 
+def _close_features(main: str) -> list[str]:
+    """Close the feature items of landed branches with the landed sha (a fix is closed by the cycle's --test)."""
+    try:
+        import relay_lanes
+        return relay_lanes.close_landed(main)
+    except Exception as exc:        # the landing already happened: a queue problem is a line, never a lost done event
+        return [f"land: the landing happened, but the queue could not be updated: {exc}"]
+
+
 def _landed(main: str, default: str, branch: str, stats: Event, started: float) -> Result:
     stats.sha = _sha(main, "refs/heads/" + default)
-    done = subprocess.run([sys.executable, "-I", HOOK, "landed", main, branch], capture_output=True, text=True, timeout=JUDGE_TIMEOUT_S)
+    lines: list[str] = []
+    try:
+        done = subprocess.run([sys.executable, "-I", HOOK, "landed", main, branch], capture_output=True, text=True, timeout=JUDGE_TIMEOUT_S)
+        lines = done.stdout.splitlines()
+        if done.returncode != 0:
+            lines.append(f"land: {branch} landed, but the cleanup of its worktree and branch failed (exit {done.returncode}): "
+                         f"{(done.stderr.strip().splitlines() or ['no reason given'])[-1]}")
+    except subprocess.TimeoutExpired:
+        lines.append(f"land: {branch} landed, but the cleanup of its worktree and branch did not finish in {JUDGE_TIMEOUT_S} s")
+    closed = _close_features(main)
     how = f"gate {stats.gate_seconds / 60:.1f} min" if stats.gates_run else "gate reused: only queue records or the handover came in"
-    return Result(LANDED, [f"landed {branch} on {default} at {stats.sha[:12]} ({how})", *done.stdout.splitlines()])
+    return Result(LANDED, [f"landed {branch} on {default} at {stats.sha[:12]} ({how})", *lines, *closed])
 
 
 # ---- the counters: computed from the events and from git, never stored ----
@@ -498,14 +521,14 @@ def ready_to_landing(main: str, lander: Lander) -> Optional[float]:
 
 
 def moments(all_landers: list[Lander]) -> list[tuple[str, int, float]]:
-    """The landing counter: each lock passed to lander L while two or more others had asked and were not yet locked, as
-    (branch of L, how many waited, the minutes L held the lock)."""
+    """The landing counter: each lock passed to lander L while at least one other had asked and was not yet locked (L and that
+    one are two landings at once, where a train would have formed), as (branch of L, how many waited, the minutes L held the lock)."""
     found = []
     for lander in all_landers:
         if lander.locked is None:
             continue
         waiting = [o for o in all_landers if o is not lander and o.asked < lander.locked and (o.locked is None or o.locked > lander.locked)]
-        if len(waiting) >= 2:
+        if len(waiting) >= 1:
             held = (lander.done_at - lander.locked) / 60 if lander.done_at is not None else 0.0
             found.append((lander.branch, len(waiting), held))
     return found

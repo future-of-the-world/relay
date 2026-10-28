@@ -17,8 +17,11 @@ sys.path.insert(0, HERE)
 from relay_testbase import load_hook  # noqa: E402
 from test_gate import RELAY, Fixture, git, read, write  # noqa: E402
 
+import relay_inert  # noqa: E402
 import relay_lanes  # noqa: E402
 import relay_land  # noqa: E402
+import test_inert  # noqa: E402
+import test_lanes_state as tls  # noqa: E402
 
 HOOK = os.path.join(ROOT, "plugins", "relay", "hooks", "merge.py")
 WAIT = 60       # seconds a test waits for a condition (a file, a line, an exit)
@@ -355,8 +358,9 @@ class Counters(Land):
         # waits: a 91 s, b 181 s, c 271 s (z 0): three waited behind another, the longest 271 s = 4.5 min
         self.assertEqual(lines["landers that waited behind another"].split(";")[0], "3")
         self.assertEqual(lines["landers that waited behind another"], "3; longest wait minutes: 4.5")
-        # a gets the lock at 101 s while b and c have asked and wait: one moment (b at 201 s sees only c)
-        self.assertTrue(lines["landing counter, moments with 2+ waiting"].startswith("1; wt/a: 2 waited behind it"))
+        # a gets the lock at 101 s while b and c wait (2 behind it); b gets it at 201 s while c waits (1 behind it): two moments
+        self.assertTrue(lines["landing counter, moments with 2+ waiting"].startswith("2; wt/a: 2 waited behind it"))
+        self.assertIn("; wt/b: 1 waited behind it", lines["landing counter, moments with 2+ waiting"])
         # unreadable lines are counted, not guessed
         with open(relay_land.events_path(self.main), "a") as handle:
             handle.write("not json\n")
@@ -400,6 +404,166 @@ class Counters(Land):
                      '{"kind": "asked", "ts": "yesterday"}', '{"kind": "asked", "ts": "2026-10-20T10:00:00+00:00", "pid": "7"}'):
             self.assertIsNone(relay_land.parse_event(line), line)
         self.assertIsNotNone(relay_land.parse_event('{"kind": "asked", "ts": "2026-10-20T10:00:00+00:00", "pid": 7, "branch": "wt/x"}'))
+
+
+class OthersTake(test_inert.Repo):
+    """F1: the hand-resolved take of another branch, brought in from master, is not this branch's own take."""
+
+    def other_branch_resolved_and_landed(self):
+        self.git("branch", "wt/y")                                      # y forks from the same start as x
+        self.edit_line("x.py", 8, "branch eight")
+        self.commit("x change")
+        mark = self.mark()
+        self.on_master(lambda: self.edit_line("x.py", 1, "master one"), "master change")
+        self.git("checkout", "-q", "wt/y")
+        self.edit_line("x.py", 1, "y one")
+        self.commit("y change")
+        self.git("merge", "-q", "--no-edit", "master", ok=False)         # both changed line 1: y resolves it by hand
+        self.write("x.py", "".join("line %d\n" % i if i else "both one\n" for i in range(10)))
+        self.commit("y take")
+        self.git("checkout", "-q", "master")
+        self.git("merge", "-q", "--ff-only", "wt/y")
+        self.git("checkout", "-q", "wt/x")
+        self.git("merge", "-q", "--no-edit", "master")                  # x takes master cleanly (line 8 vs line 1)
+        return mark
+
+    def test_f1_other_branchs_hand_resolved_take_is_not_mine(self):
+        mark = self.other_branch_resolved_and_landed()
+        # x.py changed on both sides since the mark, so it is "own"; but only y's take resolved it by hand, and y's take is on master
+        self.assertEqual(relay_inert.changed(self.repo, mark, "HEAD", own=True), ["x.py"])
+        self.assertEqual(relay_inert.own_since_mark(self.repo, mark, "HEAD"), [])
+
+    def test_f1_step_mark_accepts(self):
+        mark = self.other_branch_resolved_and_landed()
+        hook = test_inert._load_hook("merge_hook_f1_test", test_inert.HOOK)
+        self.assertEqual(hook.step_mark(self.repo, "master", "wt/x"), mark)
+
+    def test_f1_step_mark_names_my_own_take(self):
+        # pass case 5: the refusal names the branch's own hand-resolved take, never one reachable from master
+        mark = self.other_branch_resolved_and_landed()
+        self.git("reset", "-q", "--hard", self.git("log", "-n1", "--format=%H", "--grep", "relay: check of", "wt/x"))
+        self.edit_line("x.py", 1, "x one")
+        self.commit("x change after the mark")
+        self.git("merge", "-q", "--no-edit", "master", ok=False)
+        self.write("x.py", "".join("line %d\n" % i if i else "x resolved\n" for i in range(10)))
+        self.commit("x own take")
+        own_take = self.git("rev-parse", "HEAD")
+        hook = test_inert._load_hook("merge_hook_f1b_test", test_inert.HOOK)
+        with self.assertRaises(hook.Refused) as caught:
+            hook.step_mark(self.repo, "master", "wt/x")
+        self.assertIn(own_take[:12], str(caught.exception))
+
+
+class ReviewFixes(Land):
+    def test_f2_handover_edit_with_newer_master_handover_lands(self):
+        # master has a handover commit the branch lacks; the front's uncommitted v3 is in the main checkout. The take brings v2 and
+        # the fast-forward writes nothing there.
+        self.start()
+        self.master_commit("docs/handover.md", "v2\n")
+        self.master_commit("lib/b.py", "b\n")
+        write(os.path.join(self.main, "docs", "handover.md"), "v3\n")
+        run = self.land()
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertEqual(read(os.path.join(self.main, "docs", "handover.md")), "v3\n")
+        self.assertEqual(git(self.main, "show", "master:lib/a.py"), "a")
+
+    def test_f2_branch_brings_the_dirty_file_still_refused(self):
+        self.start()
+        write(os.path.join(self.main, "lib", "a.py"), "mine\n")         # the branch itself brings lib/a.py
+        self.assertEqual(relay_land.blocking(self.main, "wt/x"), ["lib/a.py"])
+
+    def test_f3_three_overlapping_landers_one_moment(self):
+        z, a, b = relay_land.Lander("wt/z", 1, 0, 0, None, 100), relay_land.Lander("wt/a", 2, 10, 101, None, 200), relay_land.Lander("wt/b", 3, 20, 201, None, 300)
+        # at a's lock (101 s) b asked at 20 s and is not locked: one moment; at b's lock nobody waits; at z's nobody had asked
+        self.assertEqual([(m[0], m[1]) for m in relay_land.moments([z, a, b])], [("wt/a", 1)])
+        # pass case 2: two landers only, a asked while z held the lock: a moment is the lock passing to z's waiter, z locked first
+        self.assertEqual(relay_land.moments([z, a]), [])
+        # pass case 4: asked in the same second another locked: not waiting behind it
+        self.assertEqual(relay_land.moments([relay_land.Lander("wt/z", 1, 0, 5, None, 50), relay_land.Lander("wt/a", 2, 5, 51, None, 60)]), [])
+
+    def test_f4_landing_closes_the_feature_item_not_the_fix(self):
+        self.start()
+        self.master_commit(".relay/queue/feat.json", tls.item("feat", "feature", **tls.taken("wt/x")))
+        self.master_commit(".relay/queue/fx.json", tls.item("fx", "fix", **tls.taken("wt/x")))
+        run = self.land()
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        queue = {i["slug"]: i for i in tls.rq.read_queue(self.main, closed=True)}
+        self.assertEqual(queue["feat"]["state"], "done")
+        self.assertEqual(queue["feat"]["evidence"], git(self.main, "log", "-n1", "--no-merges", "--format=%H", "--", "lib/a.py"))
+        self.assertEqual(queue["fx"]["state"], "taken")
+        self.assertIn("feat", run.stdout)
+
+    def test_f4_refused_landing_closes_nothing(self):
+        self.start(gate="exit 1\n")
+        self.master_commit(".relay/queue/feat.json", tls.item("feat", "feature", **tls.taken("wt/x")))
+        self.master_commit("lib/b.py", "b\n")
+        self.assertNotEqual(self.land().returncode, 0)
+        queue = {i["slug"]: i for i in tls.rq.read_queue(self.main, closed=True)}
+        self.assertEqual(queue["feat"]["state"], "taken")
+
+    def test_f5_branch_moved_after_the_judge_is_not_landed(self):
+        self.start()
+        judged = git(self.wt, "rev-parse", "HEAD")
+        write(os.path.join(self.wt, "lib", "late.py"), "late\n")
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "late code")
+        before = self.master()
+        with self.assertRaises(relay_land.Stop) as caught:
+            relay_land._fast_forward(self.main, "master", "wt/x", before, 2, print, judged)
+        self.assertIn("moved", caught.exception.lines[0])
+        self.assertEqual(self.master(), before)
+
+    def test_f5_judged_head_lands_and_reflog_names_branch(self):
+        self.start()
+        before = self.master()
+        head = git(self.wt, "rev-parse", "HEAD")
+        self.assertTrue(relay_land._fast_forward(self.main, "master", "wt/x", before, 2, print, head))
+        self.assertEqual(self.master(), head)
+        self.assertTrue(relay_lanes.landing(self.main, "master", "wt/x", None)[0])
+
+    def run_in_process(self, fake):
+        real = relay_land.subprocess.run
+
+        def run(cmd, *a, **kw):
+            if len(cmd) > 3 and cmd[2] == relay_land.HOOK and cmd[3] == "landed":
+                return fake(cmd)
+            return real(cmd, *a, **kw)
+        relay_land.subprocess.run = run
+        try:
+            return relay_land.land(self.main, "wt/x", lambda text: None)
+        finally:
+            relay_land.subprocess.run = real
+
+    def test_f6_cleanup_timeout_after_the_move_is_still_a_landing(self):
+        self.start()
+
+        def timed_out(cmd):
+            raise subprocess.TimeoutExpired(cmd, 1)
+        result = self.run_in_process(timed_out)
+        self.assertEqual(result.code, 0, result.lines)
+        self.assertTrue(any("cleanup" in l for l in result.lines), result.lines)
+        self.assertEqual([e.outcome for e in self.done()], ["landed"])
+
+    def test_f6_cleanup_failure_is_named(self):
+        self.start()
+        result = self.run_in_process(lambda cmd: subprocess.CompletedProcess(cmd, 3, "", "boom\n"))
+        self.assertEqual(result.code, 0, result.lines)
+        self.assertTrue(any("cleanup" in l and "boom" in l for l in result.lines), result.lines)
+
+    def test_f6_unexpected_error_under_the_lock_records_done(self):
+        self.start()
+        real = relay_land._judge
+
+        def broken(*args, **kw):
+            raise ValueError("git said no")
+        relay_land._judge = broken
+        try:
+            result = relay_land.land(self.main, "wt/x", lambda text: None)
+        finally:
+            relay_land._judge = real
+        self.assertEqual(result.outcome, relay_land.REFUSED)
+        self.assertTrue(any("git said no" in l for l in result.lines), result.lines)
+        self.assertEqual([e.outcome for e in self.done()], [relay_land.REFUSED])
 
 
 if __name__ == "__main__":
