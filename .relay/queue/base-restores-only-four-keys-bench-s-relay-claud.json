@@ -28,8 +28,9 @@
   ],
   "taken_at": null,
   "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T11:30:54Z",
+  "test": "tests/test_rules_gate_isolation.py::RulesGateIsolation::test_base_restores_any_variable_a_test_sets",
+  "fixed_by": "58d5d5f98ad931ad91c21daa18069c86bf10eab1",
   "dropped_at": null,
   "dropped_why": null
 }
