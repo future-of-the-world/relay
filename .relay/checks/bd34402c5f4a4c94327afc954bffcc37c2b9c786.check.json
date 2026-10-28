@@ -1,0 +1,213 @@
+{
+  "branch": "wt/picks",
+  "findings": [
+    {
+      "details": [
+        "28 Oct, design-batch revision 2 section 3: lanes_state (plugins/front/lib/relay_lanes.py 243-254) compares each pick only with files running branches changed, never with the other picks of the same call. py-green, setup-dirty and doctor-exit started within 7 s with lib/relay_setup.py in each `where`; the night then cost a hand-built train-23 with merge conflicts. Holds under every grouping option.",
+        "Also: lib/relay_lanes.py (the copy; bin/sync-lib-copies)",
+        "Also: tests/test_lanes_state.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Two open fixes whose `where` names lib/relay_setup.py, no lane running, 2 free lanes: both are picked."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 243,
+      "pass_cases": [
+        "The same input: one pick, one wait naming the other.",
+        "Two picks with disjoint `where`: both picked.",
+        "A pick that overlaps a running branch still waits as today."
+      ],
+      "path": "plugins/front/lib/relay_lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py::Lanes::test_picks_of_one_call_are_checked_against_each_other passes at head and fails at a49cc97d."
+      ],
+      "severity": "HIGH",
+      "since": "a49cc97d8fc395f2ff5c1d27b3fbf30d6037d567",
+      "source": "queue",
+      "summary": "Items picked together are not checked against each other",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction. The change compares a candidate with the picks of the same lanes_state call (`chosen`), but nothing",
+        "starts two picks from one call: `relay queue start <slug>` starts one item and the front calls it once per item (the Stop",
+        "refusal says \"start them with relay queue start <slug>\"). After the first start, the first item is taken and its branch counts",
+        "as a running lane; the candidate is compared with that lane only through touched(), the files the branch has changed, which is",
+        "empty for a branch just made. So the second item is picked and started. The item's failing case (one call) is met by the new",
+        "test, but the cause in its Why (items started seconds apart) is not fixed (principle 6). Size: 20 minutes."
+      ],
+      "evidence": [
+        "pytest -q -s scratchpad/repro/test_repro_picks.py",
+        "before start: ['a'] [('b', 'lib/relay_setup.py', '', 'a')]",
+        "start a other_waits: ['b waits for lib/relay_setup.py ()']",
+        "after start a: ['wt/a'] ['b'] []",
+        "line: Lanes: 1 of 2 running; start: b (fix, ip 94)",
+        "start b: b wt/b"
+      ],
+      "failing_case": [
+        "Queue: a (fix, ip 95, where lib/relay_setup.py:1-5) and b (fix, ip 94, where lib/relay_setup.py:50-60), no lane running, setting 2.",
+        "The front does what the line and the Stop refusal tell it: `relay queue start a`, then reads the line again.",
+        "Now: lanes_state -> running [wt/a], picks [b], waits []; line \"Lanes: 1 of 2 running; start: b (fix, ip 94)\"; `relay queue start b`",
+        "succeeds (wt/b). Both branches edit lib/relay_setup.py: the incident in the item's Why (py-green, setup-dirty, doctor-exit started",
+        "within 7 s) replays unchanged, because those were separate start calls, not one call.",
+        "Should: after a is taken, b waits naming a (\"waits: b (same file as a: lib/relay_setup.py)\") until wt/a lands."
+      ],
+      "fix_hint": [
+        "Seed `chosen` with the items of the running lanes: for each taken item whose branch is in `running` (not landed), add",
+        "(slug, _paths(item.where)) before the pick loop, so a candidate sharing a path with a running item's `where` waits naming it.",
+        "Keep the touched() check for what a branch changed beyond its `where`."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 258,
+      "pass_cases": [
+        "1. a taken by wt/a (worktree exists, no commit yet), b open with where naming the same file: lanes_state picks [] and waits b naming a, the file lib/relay_setup.py.",
+        "2. Same, but wt/a has committed lib/relay_setup.py: b still waits (once, with the file), as today.",
+        "3. a taken by wt/a with where lib/x.py, b open with where lib/y.py: b is picked.",
+        "4. One call, a and b open on the same file, no lane running, 2 free: a picked, b waits naming a (the change's test, kept).",
+        "5. a taken by wt/a, wt/a landed (landed_open): b is picked again."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py test_f1_a_taken_item_holds_its_where_files_before_its_branch_changed_any (cases 1, 3, 5) and test_f1_a_committed_file_still_waits_naming_the_branch (case 2); the first fails at 407f059a."
+      ],
+      "severity": "HIGH",
+      "since": "7c08af0e1d57a5e6cce96fb4fc737658a660b289",
+      "source": "review-picks.json",
+      "source_id": "F1",
+      "summary": "the second item is still started: once the first pick is taken it is a running lane with no changed files, and its `where` is no longer compared",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (repro output). The change gave Wait a `pick` field with `branch` left empty, and updated line() but not the",
+        "other reader of state.waits, start(), whose JSON the front reads. A caller not updated. Size: 5 minutes."
+      ],
+      "evidence": [
+        "git grep -n '\\.waits' -> lib/relay_lanes.py:453 waits = [f\"{w.slug} waits for {w.file} ({w.branch})\" for w in state.waits]",
+        "repro: start a other_waits: ['b waits for lib/relay_setup.py ()']"
+      ],
+      "failing_case": [
+        "Queue a and b on lib/relay_setup.py, no lane running, 2 free; `relay queue start a`.",
+        "Now: other_waits is [\"b waits for lib/relay_setup.py ()\"]: an empty branch in parentheses, and no word that b waits for a.",
+        "Should: \"b waits for lib/relay_setup.py (same file as a)\" or the line()'s wording."
+      ],
+      "fix_hint": [
+        "Format the wait in one helper used by both line() and start(), choosing the \"same file as <pick>\" wording when w.pick is set."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 453,
+      "pass_cases": [
+        "1. The case above: other_waits names a and has no \"()\".",
+        "2. b waits for a running branch wt/run that changed lib/relay_setup.py: \"b waits for lib/relay_setup.py (wt/run)\", as today.",
+        "3. No waits: other_waits is []."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py test_f2_f4_start_refuses... (other_waits names a, no \"()\") and test_f2_other_waits_names_the_running_branch (running-branch wording kept)."
+      ],
+      "severity": "MEDIUM",
+      "since": "7c08af0e1d57a5e6cce96fb4fc737658a660b289",
+      "source": "review-picks.json",
+      "source_id": "F2",
+      "summary": "`relay queue start` prints a wait for another pick as 'b waits for lib/relay_setup.py ()' with an empty branch",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: _paths/_shared compare `where` strings literally. The running-branch check does not have this gap because",
+        "touched() lists both copies once a branch has synced. Measured on the live queue: 24 pairs of open items name the two sides of a",
+        "copy (lib/relay_queue.py vs plugins/front/lib/relay_queue.py, bin/relay vs plugins/front/bin/relay), so the case is ordinary.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "python3 -I script over .relay/queue (read only): \"copy pairs 24\", e.g.",
+        "copy pair a-feature-is-written-once-in-the-queue-or-in-ope lib-modules-are-committed-in-three-copies lib/relay_queue.py plugins/front/lib/relay_queue.py",
+        "bin/sync-lib-copies: for p in observe delegate front relay openspec; cp lib/<name> plugins/$p/lib/<name>"
+      ],
+      "failing_case": [
+        "Queue: a (where lib/relay_queue.py), b (where plugins/front/lib/relay_queue.py), no lane running, 2 free.",
+        "Now: both picked; the two branches both end up changing both files (bin/sync-lib-copies copies lib/ over the plugin copy), so they collide.",
+        "Should: b waits naming a (the shared module)."
+      ],
+      "fix_hint": [
+        "In _paths, map plugins/<p>/lib/relay_*.py (and prices.toml) to lib/<name> before comparing, the same mapping bin/sync-lib-copies uses."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 190,
+      "pass_cases": [
+        "1. The case above: picks [a], waits b naming a.",
+        "2. a lib/relay_queue.py, b plugins/front/lib/relay_lanes.py: both picked.",
+        "3. a lib/relay_queue.py, b lib/relay_queue.py: b waits (the change's test shape, kept)."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py test_f3_a_lib_module_and_its_plugin_copy_are_one_file and test_f3_a_running_branch_that_changed_the_lib_file_holds_its_plugin_copy_name; both fail at 407f059a."
+      ],
+      "severity": "MEDIUM",
+      "since": "7c08af0e1d57a5e6cce96fb4fc737658a660b289",
+      "source": "review-picks.json",
+      "source_id": "F3",
+      "summary": "two picks naming a lib module and its plugin copy (lib/relay_queue.py vs plugins/front/lib/relay_queue.py) are not seen as the same file",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Questions for the owner. What it is about: the lanes line and the Stop refusal list the items that can start and the ones that",
+        "wait because their files are already being changed; `relay queue start <slug>` is the command that starts one. How it works",
+        "today: start refuses only when no lane is free, the item is not open, or an owner question is unanswered; an item that waits is",
+        "started if the front names it (its docstring says so, so this is by design, not a bug of this change). Live example: in the repro,",
+        "start b succeeded while the line had just said b waits. Answer a makes the wait binding (the front can no longer start a colliding",
+        "item by mistake, and needs an override flag when it means to); answer b keeps the front's judgement and the wait advisory.",
+        "Question: should starting an item that waits be refused? a. Refuse, with an override (recommended). b. Keep as today.",
+        "PLAUSIBLE as a risk; Size: 15 minutes for a."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Queue a and b on the same file; a started; with F1 fixed b waits naming a. `relay queue start b` still makes wt/b and takes b:",
+        "start() checks only a free lane, an open item and an unanswered question, never state.waits."
+      ],
+      "fix_hint": [
+        "In start(), refuse when slug is in [w.slug for w in state.waits] unless an explicit override is given."
+      ],
+      "id": "F4",
+      "kind": "question",
+      "line": 411,
+      "pass_cases": [
+        "1. (if a) `relay queue start b` while b waits: refused, the message names the file and what it waits for, and how to override.",
+        "2. `relay queue start c` for a pick: starts as today."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "low",
+      "reason": [
+        "Owner question was answered in the fix as option a (refuse with --despite-wait). tests/test_lanes_state.py test_f2_f4_start_refuses_an_item_that_waits_and_names_it_and_the_flag_overrides and test_f4_flag_through_bin_relay; both fail at 407f059a. Needs the owner to confirm the choice since it was a question."
+      ],
+      "severity": "LOW",
+      "since": "7c08af0e1d57a5e6cce96fb4fc737658a660b289",
+      "source": "review-picks.json",
+      "source_id": "F4",
+      "summary": "`relay queue start` starts an item that waits (for a running branch or another pick) without a word",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "ce737ad310ed063b33a5d359681a5c3bafe52fde.gate.log",
+  "head": "bd34402c5f4a4c94327afc954bffcc37c2b9c786",
+  "item": "items-picked-together-are-not-checked-against-ea",
+  "notes": [
+    "Two SKILL.md files changed (front, delegate) to document --despite-wait: outside the test files but they are the callers' instructions for F4; noted, not counted as a problem."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 7c08af0e..HEAD (fix commit ce737ad3 + gate log). Gate log head ce737ad3, exit 0; HEAD adds only the log. relay precheck green; tests/test_lanes_state.py 39 passed. Throwaway worktrees at a49cc97d and 407f059a with the head test file: 8 and 5 tests fail there, so the new tests fail without the fix. Callers of Wait/wait_text/start read: hook line() unchanged and compatible; bin/relay passes the flag."
+  ],
+  "type": "check"
+}

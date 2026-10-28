@@ -55,6 +55,7 @@ class Wait(NamedTuple):
     slug: str
     file: str
     branch: str
+    pick: Optional[str] = None      # set when the wait is for another pick of the same call (then `branch` is empty)
 
 
 class Landed(NamedTuple):
@@ -175,16 +176,40 @@ def _activity(main: str, branch: str, worktree: Optional[str]) -> float:
     return newest
 
 
+def canonical(path: str) -> str:
+    """A file's name with a plugin's copy mapped to its source, as bin/sync-lib-copies copies them: plugins/<p>/lib/relay_*.py and
+    prices.toml come from lib/ (prices.toml from the root); plugins/<p>/bin/relay is bin/relay. Two names of one file compare equal."""
+    found = re.fullmatch(r"plugins/[^/]+/(lib/relay_[^/]*\.py|lib/prices\.toml|bin/relay)", path)
+    if not found:
+        return path
+    return "prices.toml" if found.group(1) == "lib/prices.toml" else found.group(1)
+
+
 def _overlap(where: list[str], changed: list[str]) -> Optional[str]:
     """The first changed file an item's `where` names (a file, or a folder holding it); None when none."""
     for element in where:
         place = relay_queue.parse_place(element)
         if place is None:
             continue
-        stem = place.path.rstrip("/")
-        for name in changed:
+        stem = canonical(place.path.rstrip("/"))
+        for name in map(canonical, changed):
             if name == stem or name.startswith(stem + "/"):
                 return name
+    return None
+
+
+def _paths(where: list[str]) -> list[str]:
+    """The paths an item's `where` names, without line ranges or notes."""
+    places = (relay_queue.parse_place(element) for element in where)
+    return [canonical(place.path.rstrip("/")) for place in places if place is not None]
+
+
+def _shared(where: list[str], others: list[str]) -> Optional[str]:
+    """The first path both `where` lists name: the same file, or one a folder holding the other; None when none."""
+    for mine in _paths(where):
+        for theirs in others:
+            if mine == theirs or mine.startswith(theirs + "/") or theirs.startswith(mine + "/"):
+                return max(mine, theirs, key=len)
     return None
 
 
@@ -279,6 +304,10 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
     free = max(0, capacity - len(running))
     picks: list[Pick] = []
     waits: list[Wait] = []
+    chosen: list[tuple[str, list[str]]] = []      # the picks so far in this call, with the paths their `where` names
+    for item in open_items:                       # a running lane holds the files its taken item names, before its branch has changed any
+        if item["state"] == "taken" and any(lane.branch == item.get("taken_by") for lane in running):
+            chosen.append((item["slug"], _paths(item.get("where") or [])))
     if free:
         changed = {lane.branch: _lane_files(main, default, lane, trees) for lane in running}
         for item in relay_queue.ordered(open_items):
@@ -289,10 +318,20 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
             if hit:
                 waits.append(Wait(item["slug"], hit[0], hit[1]))
                 continue
+            twin = next(((slug, shared) for slug, paths in chosen for shared in [_shared(where, paths)] if shared), None)
+            if twin:
+                waits.append(Wait(item["slug"], twin[1], "", twin[0]))
+                continue
+            chosen.append((item["slug"], _paths(where)))
             picks.append(Pick(item["slug"], item["kind"], item["ip"], mode_of(item)))
             if len(picks) == free:
                 break
     return State(capacity, running, free, picks, waits, landed_open, quiet)
+
+
+def wait_text(w: Wait) -> str:
+    """One wait in words: the item, the file, and what it waits for (a running branch, or another item that holds the file)."""
+    return f"{w.slug} waits for {w.file} (same file as {w.pick})" if w.pick else f"{w.slug} waits for {w.file} ({w.branch})"
 
 
 def line(state: State, items: int = SETTINGS["lanes_line_items"][0]) -> Optional[str]:
@@ -303,7 +342,7 @@ def line(state: State, items: int = SETTINGS["lanes_line_items"][0]) -> Optional
     if state.picks:
         parts.append(", ".join(f"{p.mode}: {p.slug} ({p.kind}, ip {p.ip})" for p in state.picks[:items]))
     if state.waits:
-        parts.append("waits: " + ", ".join(f"{w.slug} ({w.file}, {w.branch})" for w in state.waits[:items]))
+        parts.append("waits: " + ", ".join((f"{w.slug} (same file as {w.pick}: {w.file})" if w.pick else f"{w.slug} ({w.file}, {w.branch})") for w in state.waits[:items]))
     if state.landed_open:
         parts.append("landed, still open: " + ", ".join(f"{x.slug} ({x.branch} landed)" for x in state.landed_open[:items]))
     if state.quiet:
@@ -426,10 +465,10 @@ def design_brief(item: dict, worktree: str, scratch: str, name: str) -> str:
         f"Output: {scratch}/reports/design-{name}.md"]) + "\n"
 
 
-def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0]) -> str:
+def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], despite_wait: bool = False) -> str:
     """`relay queue start <slug>`: make the worktree and branch, take the item, write its brief into `<scratch>/briefs/`, and print the
     cycle unit (JSON for the Workflow: a `change` unit for a fix, a design for a feature). Refused when no lane is free, the item is not
-    open, or an owner question about it is unanswered; nothing is left behind when the take fails."""
+    open, an owner question about it is unanswered, or it waits for a file another change holds (unless `despite_wait`); nothing is left behind when the take fails."""
     if not os.path.isabs(scratch):
         raise relay_queue.Refused("--scratch is an absolute folder (the session's reports/briefs folder)")
     main, default = relay_queue._context_with_relay(repo)
@@ -439,6 +478,9 @@ def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_
         raise relay_queue.Refused(f"queue item '{slug}' is not an open, well-formed item of the default branch")
     if _waiting_question(item):
         raise relay_queue.Refused(f"queue item '{slug}' has an owner question without an answer: record the answer first")
+    waiting = next((w for w in state.waits if w.slug == slug), None)
+    if waiting and not despite_wait:
+        raise relay_queue.Refused(f"{wait_text(waiting)}: start it after that change lands, or start it anyway with --despite-wait")
     if state.free < 1:
         raise relay_queue.Refused(f"no free lane: {len(state.running)} of {state.setting} running")
     name = _short(slug)
@@ -468,7 +510,7 @@ def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_
         unit = {"items": [{"kind": "change", "name": name, "wt": worktree, "check": check, "branch": branch, "item": slug}]}
     with open(brief, "w", encoding="utf-8") as handle:
         handle.write(text)
-    waits = [f"{w.slug} waits for {w.file} ({w.branch})" for w in state.waits]
+    waits = [wait_text(w) for w in state.waits if w.slug != slug]
     return json.dumps({"started": slug, "branch": branch, "worktree": worktree, "brief": brief, "mode": mode, "cycle_args": unit, "other_waits": waits}, indent=2)
 
 

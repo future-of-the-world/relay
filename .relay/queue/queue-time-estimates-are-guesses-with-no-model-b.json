@@ -21,8 +21,8 @@
     "lib/relay_queue.py (add, the table)",
     "rules/queue.md a measuring script over agent transcripts"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T08:38:31Z",
+  "taken_by": "wt/queue-time-estimates-are-guesses-with-no",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

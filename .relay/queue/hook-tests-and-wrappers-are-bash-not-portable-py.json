@@ -24,8 +24,8 @@
     "bin/ci",
     "templates/bin-check"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T08:38:59Z",
+  "taken_by": "wt/hook-tests-and-wrappers-are-bash-not-por",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

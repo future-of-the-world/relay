@@ -191,7 +191,8 @@ lane finishes, start the next call at once. The hooks print the pick as one
 line ("Lanes: 2 of 6 running; start: ...; waits: ..."): the top of the queue
 order, skipping an item with an unanswered owner question and an item whose
 `where` names a file a running branch already changed (that one is listed under
-"waits:", and is started only with a stated reason). Fill a lane with
+"waits:"; `relay queue start` refuses it, naming what it waits for, and
+`--despite-wait` starts it anyway, only with a stated reason). Fill a lane with
 `relay queue start <slug> --scratch <folder>`: it makes the worktree, takes the
 item, writes the brief and prints the cycle unit. The Stop hook refuses the end
 of a turn once per lane state while a lane is free and an item can start; start

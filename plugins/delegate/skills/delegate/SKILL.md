@@ -84,7 +84,7 @@ Up to "Changes built at once: N" changes (front skill, "Lanes") are built side
 by side, each by its own cycle run with its own worktree and briefs. The 4-agent
 cap counts agents inside one change. A free lane is filled with
 `relay queue start <slug> --scratch <folder>` (an item that overlaps a running
-branch's files waits, and is started only with a stated reason). While a paid run goes, lanes keep
+branch's files waits; `relay queue start` refuses it unless `--despite-wait` is given, with a stated reason). While a paid run goes, lanes keep
 building; a change for which `bin/paid-cost touches <branch>` prints files waits at the landing
 until the run ends, then lands in one train.
 

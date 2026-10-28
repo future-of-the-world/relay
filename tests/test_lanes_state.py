@@ -225,9 +225,59 @@ class Lanes(LaneBase):
         self.assertIn("waits: s (lib/relay_setup.py, wt/run), n (lib/new.py, wt/run)", rl.line(s))
         self.assertEqual((git(self.main, "status", "--porcelain"), git(self.main, "rev-parse", "master")), before)    # it reads git only
 
+    def test_picks_of_one_call_are_checked_against_each_other(self):
+        # a and b both name lib/relay_setup.py, no lane running, 2 free lanes: a (ip 95) is picked, b waits naming a; c (other file) is picked
+        self.seed({Q + "a.json": item("a", ip=95, where=("lib/relay_setup.py:1-5 x",)), Q + "b.json": item("b", ip=94, where=("lib/relay_setup.py:50-60 y",)),
+                   Q + "c.json": item("c", ip=93, where=("lib/other.py",))})
+        s = self.state(limit=2)
+        self.assertEqual([p.slug for p in s.picks], ["a", "c"])
+        self.assertEqual([(w.slug, w.file, w.pick) for w in s.waits], [("b", "lib/relay_setup.py", "a")])
+        self.assertIn("waits: b (same file as a: lib/relay_setup.py)", rl.line(s))
+
+    def test_f1_a_taken_item_holds_its_where_files_before_its_branch_changed_any(self):
+        # a is taken by wt/a (worktree, no commit); b names the same file: b waits naming a (the second `start` in a row sees the first)
+        self.seed({Q + "a.json": item("a", ip=95, where=("lib/relay_setup.py:1-5 x",), **taken("wt/a")),
+                   Q + "b.json": item("b", ip=94, where=("lib/relay_setup.py:50-60 y",)), Q + "c.json": item("c", ip=93, where=("lib/y.py",))})
+        path = self.worktree("a")
+        s = self.state(limit=3)
+        self.assertEqual([p.slug for p in s.picks], ["c"])                       # pass case 3: a different file is picked
+        self.assertEqual([(w.slug, w.file, w.pick) for w in s.waits], [("b", "lib/relay_setup.py", "a")])
+        # once wt/a has landed, b is picked again
+        self.write_commit(path, {"lib/relay_setup.py": "1\n"}, "edit")
+        git(self.main, "merge", "-q", "--ff-only", "wt/a")
+        s = self.state(limit=3)
+        self.assertEqual(([p.slug for p in s.picks], s.waits), (["b", "c"], []))
+
+    def test_f1_a_committed_file_still_waits_naming_the_branch(self):
+        self.seed({Q + "a.json": item("a", where=("lib/relay_setup.py",), **taken("wt/a")), "lib/relay_setup.py": "0\n",
+                   Q + "b.json": item("b", ip=94, where=("lib/relay_setup.py",))})
+        self.write_commit(self.worktree("a"), {"lib/relay_setup.py": "1\n"}, "edit")
+        s = self.state()
+        self.assertEqual([(w.slug, w.file, w.branch, w.pick) for w in s.waits], [("b", "lib/relay_setup.py", "wt/a", None)])
+
+    def test_f3_a_lib_module_and_its_plugin_copy_are_one_file(self):
+        self.seed({Q + "a.json": item("a", ip=95, where=("lib/relay_queue.py",)), Q + "b.json": item("b", ip=94, where=("plugins/front/lib/relay_queue.py",)),
+                   Q + "c.json": item("c", ip=93, where=("plugins/front/lib/relay_lanes.py",)), Q + "d.json": item("d", ip=92, where=("plugins/front/bin/relay",)),
+                   Q + "e.json": item("e", ip=91, where=("bin/relay",))})
+        s = self.state(limit=5)
+        self.assertEqual([p.slug for p in s.picks], ["a", "c", "d"])             # pass case 2: another module is picked
+        self.assertEqual([(w.slug, w.file, w.pick) for w in s.waits], [("b", "lib/relay_queue.py", "a"), ("e", "bin/relay", "d")])
+
+    def test_f3_a_running_branch_that_changed_the_lib_file_holds_its_plugin_copy_name(self):
+        self.seed({Q + "r.json": item("r", where=("lib/z.py",), **taken("wt/r")), "lib/relay_queue.py": "0\n",
+                   Q + "b.json": item("b", where=("plugins/front/lib/relay_queue.py",))})
+        self.write_commit(self.worktree("r"), {"lib/relay_queue.py": "1\n"}, "edit")
+        self.assertEqual([(w.slug, w.branch) for w in self.state().waits], [("b", "wt/r")])
+
+    def test_disjoint_picks_both_start_and_a_folder_covers_its_files(self):
+        self.seed({Q + "a.json": item("a", ip=95, where=("lib/a.py",)), Q + "b.json": item("b", ip=94, where=("lib/b.py",)),
+                   Q + "d.json": item("d", ip=93, where=("lib",))})
+        s = self.state(limit=3)
+        self.assertEqual(([p.slug for p in s.picks], [w.slug for w in s.waits]), (["a", "b"], ["d"]))
+
     def test_overlap_ignores_inert_files_and_a_file_the_branch_only_has_from_master(self):
         # the branch carries master's lib/a.py (merged in) but changed nothing: nothing waits
-        self.seed({Q + "run.json": item("run", **taken("wt/run")), Q + "w.json": item("w", ip=95, where=("lib/a.py",)), "lib/a.py": "0\n"})
+        self.seed({Q + "run.json": item("run", where=("lib/z.py",), **taken("wt/run")), Q + "w.json": item("w", ip=95, where=("lib/a.py",)), "lib/a.py": "0\n"})
         self.worktree("run")
         self.write_commit(self.main, {"lib/a.py": "1\n"}, "master moves on")
         s = self.state()
@@ -373,6 +423,42 @@ class Start(LaneBase):
                 rl.start(self.main, "a", os.path.join(self.tmp, "scratch"))
         self.assertFalse(os.path.exists(os.path.join(self.main, ".worktrees", "a")))
         self.assertEqual(git(self.main, "branch", "--list", "wt/a"), "")
+
+    def test_f2_f4_start_refuses_an_item_that_waits_and_names_it_and_the_flag_overrides(self):
+        # a and b on one file, 2 free: start a; the line now says b waits for a; start b is refused naming a and the flag; with the flag it starts
+        self.seed({Q + "a.json": item("a", ip=95, where=("lib/relay_setup.py:1-5",)), Q + "b.json": item("b", ip=94, where=("lib/relay_setup.py:50-60",)),
+                   Q + "c.json": item("c", ip=93, where=("lib/c.py",))})
+        scratch = os.path.join(self.tmp, "scratch")
+        with mock.patch.object(rl, "lanes_setting", return_value=3):
+            out = json.loads(rl.start(self.main, "a", scratch))
+            self.assertEqual(out["other_waits"], ["b waits for lib/relay_setup.py (same file as a)"])      # no empty "()"
+            with self.assertRaises(rq.Refused) as ctx:
+                rl.start(self.main, "b", scratch)
+            self.assertIn("b waits for lib/relay_setup.py (same file as a)", str(ctx.exception))
+            self.assertIn("--despite-wait", str(ctx.exception))
+            self.assertFalse(os.path.exists(os.path.join(self.main, ".worktrees", "b")))
+            self.assertEqual(json.loads(rl.start(self.main, "c", scratch))["other_waits"], ["b waits for lib/relay_setup.py (same file as a)"])
+            self.assertEqual(json.loads(rl.start(self.main, "b", scratch, despite_wait=True))["started"], "b")
+
+    def test_f2_other_waits_names_the_running_branch(self):
+        self.seed({Q + "r.json": item("r", where=("lib/z.py",), **taken("wt/r")), "lib/relay_setup.py": "0\n",
+                   Q + "b.json": item("b", ip=94, where=("lib/relay_setup.py",)), Q + "c.json": item("c", ip=93, where=("lib/c.py",))})
+        self.write_commit(self.worktree("r"), {"lib/relay_setup.py": "1\n"}, "edit")
+        out = json.loads(rl.start(self.main, "c", os.path.join(self.tmp, "scratch")))
+        self.assertEqual(out["other_waits"], ["b waits for lib/relay_setup.py (wt/r)"])
+
+    def test_f4_flag_through_bin_relay(self):
+        self.seed({Q + "a.json": item("a", ip=95), Q + "b.json": item("b", ip=94)})
+        scratch = os.path.join(self.tmp, "scratch")
+        def run(*extra):
+            return subprocess.run([sys.executable, os.path.join(tq.ROOT, "bin", "relay"), "queue", "start", *extra, "--scratch", scratch, "-C", self.main],
+                                  capture_output=True, text=True, env=dict(os.environ, RELAY_ROOT=tq.ROOT))
+        self.assertEqual(run("a").returncode, 0)
+        refused = run("b")
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("--despite-wait", refused.stderr + refused.stdout)
+        done = run("b", "--despite-wait")
+        self.assertEqual(done.returncode, 0, done.stderr)
 
     def test_start_command_through_bin_relay(self):
         self.seed({Q + "a.json": item("a")})
