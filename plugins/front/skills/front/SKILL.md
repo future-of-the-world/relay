@@ -118,12 +118,18 @@ the numbers: `relay check show <branch>` prints three lines (the gate, the
 check, the findings outside the change). You never read the review, the check
 report or the gate log. No page and no Artifact.
 
-Merge it, then say in your next reply, in one line: `merged: <what it does for
-the owner>`.
+Land it: start `relay land <branch>` with Bash `run_in_background` (no `&`, no
+polling); when told it exited, read its last 3 lines. It takes the default
+branch, gates the result and fast-forwards on green, one landing at a time, no
+agent. Exit 0 landed: say in your next reply, in one line: `merged: <what it
+does for the owner>`. Exit 1 red gate: a fix unit. Exit 3 take conflict: the fix
+unit the output prints (kind fix, findings = the branch's last review JSON, no
+item), then `relay land` again. Exit 2 refused or dirty main checkout: do what
+the line says. Exit 4 handed back: run it again.
 
 Ask the owner first, on one chat screen, only when: (a) taking the default
 branch hit a git conflict that a fixer could not resolve (it stopped on it; a resolved
-conflict does not wait for the owner, it goes on to the gate and the recheck); (b) a finding is open
+conflict does not wait for the owner, it goes to a fix unit, then `relay land`); (b) a finding is open
 as Design, question, Disputed or Gap, or the owner has not answered a question
 about the change; (c) the change is person-facing (rules/product-work.md: the
 owner checks it live before merge); (d) the owner said to hold this
@@ -144,30 +150,13 @@ Why I ask: <which case (a)-(d)>
    a (recommended) merge   b hold (say what to change)
 ```
 
-Ready changes that wait together ride one train, so the wave pays one gate
-instead of one per change. Riders are the ready changes that need no question
-for the owner, in queue order, at most `TRAIN_MAX` = 4 (bound 2-8). With one
-ready change there is no train: it takes the default branch and merges as
-above. A runner builds the train (delegate skill, step 8); one landing at a
-time: while a train is open (built, not yet landed or dropped) no other change
-lands, and a change that becomes ready meanwhile waits for it (two or more
-waiting form the next train; `relay queue` commits are inert and only need the
-train to take the default branch again). When the train's gate is green and
-`relay changed --own <base>` in the train lists no file, merge it with
-`git merge --ff-only wt/train-<n>`; with files, start the merge check first.
-When the gate is red, drop the train (a runner removes its worktree and
-branch; the riders are untouched) and merge the riders one at a time. Say one
-`merged:` line per rider. The wave's paid run (below) follows the train.
-
-The merge itself is the front's, in the main checkout:
-`git merge --ff-only wt/<name>` in the main checkout. The merge hook refuses it
-unless the gate is green, the check says `open 0` and the branch has taken the
-default branch; its message says what to run (a runner takes the default branch
-or runs the gate again). Texts get one paid run per wave. A wave is the train of checked-path
+The merge itself is `relay land`, started from the main checkout. The merge hook
+judges it (and a hand `git merge --ff-only`, which it refuses while a landing
+runs): the gate must be green, the check `open 0` and the branch must have taken
+the default branch; its message says what to run. Texts get one paid run per wave. A wave is the checked-path
 changes landed after a green run (plus whatever landed beside it). Start the
 paid run, only when `bin/paid-cost due` lists a change and no paid run is going,
-at the first of: that train has fully landed (not while it is half-landed);
-`due` lists at least the number in your line "Paid run starts when
+at the first of: `due` lists at least the number in your line "Paid run starts when
 `bin/paid-cost due` lists at least: N changes" (projects.toml `wave_min`, 1-6,
 default 3); the end of a work stretch, whatever `due` holds. Run the full paid
 `bin/ci` yourself (no approval needed, within the owner's daily cap:
@@ -212,8 +201,8 @@ after a green run `bin/paid-cost due` would still list it and `relay sync`
 would stay refused. Any other change lands as usual. How the waiting changes
 are released depends on how the run ends:
 
-- Green: `relay sync`, then the waiting changes land as one train (above), and
-  the next paid run starts on that head.
+- Green: `relay sync`, then start `relay land` for each waiting change (they land
+  one gate apart), and the next paid run starts on that head.
 - Red: the fix item lands first; the next paid run starts on its head at once,
   with no wave needed, and the waiting changes land after that run is green.
 - Not judged (money ceiling, runs not judged, the day's cap): the waiting
