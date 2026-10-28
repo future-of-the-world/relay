@@ -65,6 +65,67 @@ class SetupGitignore(Base):
         self.assertEqual(lines[3:], ["__pycache__/", ".pytest_cache/", ".ruff_cache/", ".mypy_cache/"])
 
 
+class GitignoreCases(Base):
+    """Review findings F1-F4 of the .gitignore lines: line endings, anchors and negations, a folder outside the project, the kit.toml folder."""
+
+    def _ensure(self, ignore=None, worktrees=None, name="p"):
+        import relay_setup
+        root = os.path.join(self.tmp, name)
+        os.makedirs(root, exist_ok=True)
+        if ignore is not None:
+            with open(os.path.join(root, ".gitignore"), "wb") as handle:
+                handle.write(ignore)
+        bindings = {} if worktrees is None else {"project": {"worktrees": worktrees}}
+        added = relay_setup.ensure_gitignore(root, {"stack": "python", "bindings": bindings})
+        return added, open(os.path.join(root, ".gitignore"), "rb").read()
+
+    def test_f1_crlf_file_is_kept_byte_for_byte(self):
+        _, data = self._ensure(b".ci/\r\nfoo\r\n")
+        # .ci/ is present; the other lines are appended with the file's own endings
+        self.assertEqual(data, b".ci/\r\nfoo\r\n.worktrees/\r\n__pycache__/\r\n.pytest_cache/\r\n.ruff_cache/\r\n.mypy_cache/\r\n")
+
+    def test_f1_no_final_newline_and_fresh_file(self):
+        _, data = self._ensure(b"secret.txt\n.ci\n/.worktrees", name="a")
+        self.assertEqual(data, b"secret.txt\n.ci\n/.worktrees\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n.mypy_cache/\n")
+        _, data = self._ensure(None, name="b")
+        self.assertEqual(data, b".ci/\n.worktrees/\n__pycache__/\n.pytest_cache/\n.ruff_cache/\n.mypy_cache/\n")
+
+    def test_f2_anchored_cache_is_not_present(self):
+        added, _ = self._ensure(b"/__pycache__/\n")
+        self.assertIn("__pycache__/", added)
+
+    def test_f2_negated_entry_is_left_in_force(self):
+        added, data = self._ensure(b"!.ci/\n")
+        self.assertNotIn(".ci/", added)
+        self.assertEqual(data.count(b".ci/"), 1)
+
+    def test_f2_anchored_root_folders_and_plain_cache_count_as_present(self):
+        added, _ = self._ensure(b".ci\n/.worktrees\n__pycache__\n")
+        self.assertEqual(added, [".pytest_cache/", ".ruff_cache/", ".mypy_cache/"])
+
+    def test_f3_folder_outside_the_project_adds_no_line(self):
+        for n, outside in enumerate(("/Users/x/wt", "../wt")):
+            added, _ = self._ensure(worktrees=outside, name=f"o{n}")
+            self.assertEqual(added, [".ci/", "__pycache__/", ".pytest_cache/", ".ruff_cache/", ".mypy_cache/"], outside)
+
+    def test_f3_folder_inside_comes_from_kit_toml(self):
+        added, _ = self._ensure(worktrees="trees")
+        self.assertEqual(added[:2], [".ci/", "trees/"])
+        self.assertNotIn(".worktrees/", added)
+
+    def test_f4_setup_reads_kit_toml_worktrees(self):
+        import relay_setup
+        proj = os.path.join(self.tmp, "proj")
+        os.makedirs(os.path.join(proj, ".claude"))
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        open(os.path.join(proj, "pyproject.toml"), "w").write("[project]\nname = 'x'\n")
+        open(os.path.join(proj, ".claude", "kit.toml"), "w").write('[project]\nworktrees = "trees"\n')
+        relay_setup.setup(proj)
+        lines = open(os.path.join(proj, ".gitignore")).read().splitlines()
+        self.assertIn("trees/", lines)
+        self.assertNotIn(".worktrees/", lines)
+
+
 class SetupIsProjectOnly(Base):
     """Owner's decision A (26 Oct): `relay setup <dir>` writes only into the project; the Claude folder is the global command's."""
 
