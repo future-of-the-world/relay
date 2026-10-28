@@ -44,6 +44,12 @@
       "said": [
         "Возьми fix evidence в работу параллельно, почему мне приходится напоминать об этом каждый раз, что блокирует автоматический процесс взятия задачи в исполнение ?"
       ]
+    },
+    {
+      "at": "2026-10-28T02:47:27Z",
+      "fact": [
+        "28 Oct, about 03:00 UTC: the front queued two fixes (evidence-refusal-asks-for-a-merge-an-ff-landing, a-note-answering-question-2-prints-answer-to-1) with IP 0 and started neither, while 5 of the 6 lanes (projects.toml lanes = 6) were busy. Nothing in relay starts an item when a lane is free: cycle.js runs only the units the front hands it, and no hook or rule tells the front to fill a free lane. The same session also found gates-run-all-at-once-and-slow-each-other-down still open a day after its change landed (closed now with --fixed-by 68e5b21)."
+      ]
     }
   ]
 }
