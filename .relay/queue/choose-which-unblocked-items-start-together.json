@@ -22,8 +22,8 @@
   ],
   "taken_at": "2026-10-28T03:38:56Z",
   "taken_by": "wt/autostart",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T04:49:20Z",
+  "test": "tests/test_lanes_state.py::Lanes::test_overlap_skip",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
