@@ -22,7 +22,7 @@ class Setup(Base):
         self.assertEqual(d["stack"], "go")
         self.assertTrue(os.path.isfile(os.path.join(proj, ".claude", "kit.toml")))
         settings = json.load(open(os.path.join(proj, ".claude", "settings.json")))
-        self.assertTrue(settings["enabledPlugins"]["delegate@relay"])
+        self.assertTrue(settings["enabledPlugins"]["delegate@amidman"])
         checks = relay_setup.doctor(proj, profile={})
         names = {n: ok for n, ok, _ in checks}
         self.assertTrue(names["project has .claude/kit.toml"])
@@ -53,7 +53,7 @@ class SetupIsProjectOnly(Base):
         # The failing case: setup <project> with no flags rewrote the relay marketplace path in the user's settings.json.
         import relay_setup
         with open(os.path.join(self.claude, "settings.json"), "w") as handle:
-            json.dump({"extraKnownMarketplaces": {"relay": {"source": {"source": "directory", "path": "/somewhere/else"}}}, "model": "x"}, handle)
+            json.dump({"extraKnownMarketplaces": {"amidman": {"source": {"source": "directory", "path": "/somewhere/else"}}}, "model": "x"}, handle)
         with open(os.path.join(self.claude, "CLAUDE.md"), "w") as handle:
             handle.write("my own file\n")
         before = self._snapshot()
@@ -76,10 +76,10 @@ class SetupIsProjectOnly(Base):
 
     def test_the_global_command_writes_the_marketplace_at_relays_main_checkout(self):
         import relay_setup
-        path, changed, _ = relay_setup.merge_user_settings(["core"])
+        path, changed, _ = relay_setup.merge_user_settings(["relay"])
         data = json.load(open(path))
         self.assertTrue(changed)
-        self.assertEqual(data["extraKnownMarketplaces"]["relay"]["source"]["path"], relay_setup.marketplace_root())
+        self.assertEqual(data["extraKnownMarketplaces"]["amidman"]["source"]["path"], relay_setup.marketplace_root())
 
     def test_doctor_flags_a_marketplace_path_that_is_missing_or_is_a_linked_worktree(self):
         import relay_setup
@@ -94,7 +94,7 @@ class SetupIsProjectOnly(Base):
 
         def verdict(path):
             with open(os.path.join(self.claude, "settings.json"), "w") as handle:
-                json.dump({"extraKnownMarketplaces": {"relay": {"source": {"source": "directory", "path": path}}}}, handle)
+                json.dump({"extraKnownMarketplaces": {"amidman": {"source": {"source": "directory", "path": path}}}}, handle)
             return {n: ok for n, ok, _ in relay_setup.doctor(None, profile={})}[name]
 
         self.assertFalse(verdict(os.path.join(self.tmp, "gone")))   # does not exist
@@ -129,7 +129,7 @@ class SetupInWorktree(Base):
         self.assertNotIn("somewt", registry)
 
     def _marketplace_path(self):
-        return json.load(open(os.path.join(self.claude, "settings.json")))["extraKnownMarketplaces"]["relay"]["source"]["path"]
+        return json.load(open(os.path.join(self.claude, "settings.json")))["extraKnownMarketplaces"]["amidman"]["source"]["path"]
 
     def test_user_settings_marketplace_never_points_at_a_linked_worktree(self):
         # relay run from a linked worktree of itself: the global marketplace entry must name the main checkout, not the worktree
@@ -137,14 +137,14 @@ class SetupInWorktree(Base):
         import relay_setup
         main, wt = self._repo_with_worktree()
         relay_setup.ROOT = wt
-        relay_setup.merge_user_settings(["core"])
+        relay_setup.merge_user_settings(["relay"])
         self.assertEqual(self._marketplace_path(), os.path.realpath(main))
 
     def test_user_settings_marketplace_in_the_main_checkout_is_that_checkout(self):
         import relay_setup
         main, _ = self._repo_with_worktree()
         relay_setup.ROOT = main
-        relay_setup.merge_user_settings(["core"])
+        relay_setup.merge_user_settings(["relay"])
         self.assertEqual(self._marketplace_path(), main)
 
     def _path_todo(self, root, on_path=False):
@@ -296,9 +296,9 @@ class PluginInstall(Base):
             return True, ""
         _, _, done, todo = relay_setup.setup(proj, specs="openspec", install_runner=runner)
         # only the flow plugin openspec is project-scope; core/observe/delegate/front are user-level
-        self.assertEqual(calls, [(os.path.realpath(proj), "openspec@relay")])
-        self.assertIn("installed openspec@relay at project scope", done)
-        self.assertFalse([t for t in todo if "openspec@relay" in t])
+        self.assertEqual(calls, [(os.path.realpath(proj), "openspec@amidman")])
+        self.assertIn("installed openspec@amidman at project scope", done)
+        self.assertFalse([t for t in todo if "openspec@amidman" in t])
 
     def test_setup_install_failure_todo_names_the_command(self):
         import relay_setup
@@ -306,8 +306,8 @@ class PluginInstall(Base):
         proj = self._proj()
         _, _, done, todo = relay_setup.setup(proj, specs="openspec",
                                                 install_runner=lambda root, key: (False, "no claude"))
-        self.assertTrue([t for t in todo if "claude plugin install openspec@relay --scope project" in t])
-        self.assertFalse([d for d in done if "installed openspec@relay" in d])
+        self.assertTrue([t for t in todo if "claude plugin install openspec@amidman --scope project" in t])
+        self.assertFalse([d for d in done if "installed openspec@amidman" in d])
 
     def test_doctor_fixes_enabled_but_not_installed(self):
         import relay_setup
@@ -315,17 +315,17 @@ class PluginInstall(Base):
         proj = self._proj()
         relay_setup.setup(proj, specs="openspec", install_runner=lambda r, k: (False, ""))
         names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
-        self.assertFalse(names["openspec@relay installed"])
-        self._registry({"openspec@relay": [{"scope": "project", "projectPath": proj}]})
+        self.assertFalse(names["openspec@amidman installed"])
+        self._registry({"openspec@amidman": [{"scope": "project", "projectPath": proj}]})
         names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
-        self.assertTrue(names["openspec@relay installed"])
+        self.assertTrue(names["openspec@amidman installed"])
 
     def test_doctor_checks_plugins_of_any_marketplace(self):
         import relay_setup
         self._registry({"other@mk": [{"scope": "user"}]})
         proj = self._proj()
         os.makedirs(os.path.join(proj, ".claude"))
-        json.dump({"enabledPlugins": {"openspec@relay": True, "superpowers@official": True, "other@mk": True, "x@y": False}},
+        json.dump({"enabledPlugins": {"openspec@amidman": True, "superpowers@official": True, "other@mk": True, "x@y": False}},
                   open(os.path.join(proj, ".claude", "settings.json"), "w"))
         names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
         self.assertFalse(names["superpowers@official installed"])
@@ -338,7 +338,7 @@ class PluginInstall(Base):
         proj = self._proj()
         _, _, _, todo = relay_setup.setup(proj, specs="openspec",
                                              install_runner=lambda r, k: (False, "marketplace relay not found"))
-        line = [i for i, t in enumerate(todo) if "claude plugin install openspec@relay --scope project" in t]
+        line = [i for i, t in enumerate(todo) if "claude plugin install openspec@amidman --scope project" in t]
         market = [i for i, t in enumerate(todo) if "/plugin marketplace add" in t]
         self.assertTrue(line and market)
         self.assertIn("marketplace relay not found", todo[line[0]])
@@ -347,11 +347,11 @@ class PluginInstall(Base):
     def test_already_installed_does_not_call_runner(self):
         import relay_setup
         proj = self._proj()
-        self._registry({"openspec@relay": [{"scope": "project", "projectPath": os.path.realpath(proj)}]})
+        self._registry({"openspec@amidman": [{"scope": "project", "projectPath": os.path.realpath(proj)}]})
         def boom(r, k):
             raise AssertionError("runner called")
         _, _, done, _ = relay_setup.setup(proj, specs="openspec", install_runner=boom)
-        self.assertIn("openspec@relay already installed", done)
+        self.assertIn("openspec@amidman already installed", done)
 
     def _fake_claude(self, body):
         script = os.path.join(self.tmp, "fakeclaude")
@@ -371,15 +371,15 @@ class PluginInstall(Base):
         root = os.path.realpath(self._proj())
         out = os.path.join(self.tmp, "argv")
         self._fake_claude(f'echo "$@" > {out}; pwd >> {out}\nexit 0\n')
-        ok, _ = relay_setup.run_plugin_install(root, "openspec@relay")
+        ok, _ = relay_setup.run_plugin_install(root, "openspec@amidman")
         self.assertTrue(ok)
         lines = open(out).read().split("\n")
-        self.assertEqual(lines[0], "plugin install openspec@relay --scope project")
+        self.assertEqual(lines[0], "plugin install openspec@amidman --scope project")
         self.assertEqual(os.path.realpath(lines[1]), root)
         self._fake_claude("echo boom >&2\nexit 1\n")
-        self.assertEqual(relay_setup.run_plugin_install(root, "openspec@relay"), (False, "boom"))
+        self.assertEqual(relay_setup.run_plugin_install(root, "openspec@amidman"), (False, "boom"))
         os.environ["RELAY_CLAUDE_BIN"] = os.path.join(self.tmp, "missing")
-        ok, why = relay_setup.run_plugin_install(root, "openspec@relay")
+        ok, why = relay_setup.run_plugin_install(root, "openspec@amidman")
         self.assertFalse(ok)
         self.assertTrue(why)
 

@@ -41,10 +41,10 @@ class Base(unittest.TestCase):
 class TestLibCopies(Base):
     def setUp(self) -> None:
         super().setUp()
-        for rel in ("lib/relay_q.py", "plugins/core/lib/relay_q.py", "plugins/front/lib/relay_q.py"):
+        for rel in ("lib/relay_q.py", "plugins/relay/lib/relay_q.py", "plugins/front/lib/relay_q.py"):
             self.write(rel, "X = 1\n")
         self.write("prices.toml", "a = 1\n")
-        self.write("plugins/core/lib/prices.toml", "a = 1\n")
+        self.write("plugins/relay/lib/prices.toml", "a = 1\n")
         self.commit()
 
     def test_identical_copies_are_clean(self) -> None:
@@ -59,17 +59,17 @@ class TestLibCopies(Base):
         # both copies differ from lib/, in the gate's plugin order (front before core)
         self.assertEqual(len(found), 2)
         self.assertIn("plugins/front/lib/relay_q.py", found[0])
-        self.assertIn("plugins/core/lib/relay_q.py", found[1])
+        self.assertIn("plugins/relay/lib/relay_q.py", found[1])
         self.assertIn("bin/sync-lib-copies", found[0])
         self.assertEqual(git(self.repo, "status", "--porcelain") + git(self.repo, "rev-parse", "HEAD"), before)
-        with open(os.path.join(self.repo, "plugins/core/lib/relay_q.py"), encoding="utf-8") as handle:
+        with open(os.path.join(self.repo, "plugins/relay/lib/relay_q.py"), encoding="utf-8") as handle:
             self.assertEqual(handle.read(), "X = 1\n")
 
     def test_copies_synced_but_not_committed_still_fail(self) -> None:
         # the gate gates HEAD: a refreshed working copy that is not committed is still red there
         self.write("lib/relay_q.py", "X = 2\n")
         self.commit()
-        for rel in ("plugins/core/lib/relay_q.py", "plugins/front/lib/relay_q.py"):
+        for rel in ("plugins/relay/lib/relay_q.py", "plugins/front/lib/relay_q.py"):
             self.write(rel, "X = 2\n")
         self.assertEqual(len(relay_precheck.check_lib_copies(self.repo)), 2)
         self.commit()
@@ -80,7 +80,7 @@ class TestLibCopies(Base):
         self.commit()
         found = relay_precheck.check_lib_copies(self.repo)
         self.assertEqual(len(found), 1)
-        self.assertIn("plugins/core/lib/prices.toml", found[0])
+        self.assertIn("plugins/relay/lib/prices.toml", found[0])
 
 
 class TestTypesStep(Base):
@@ -106,12 +106,12 @@ class TestTypesStep(Base):
 class TestPython39(Base):
     def test_a_module_that_needs_a_newer_python_fails(self) -> None:
         # `match` is a syntax error before 3.10, which mypy's python_version setting cannot see
-        self.write("plugins/core/lib/relay_new.py", "def f(x):\n    match x:\n        case 1:\n            return 2\n")
+        self.write("plugins/relay/lib/relay_new.py", "def f(x):\n    match x:\n        case 1:\n            return 2\n")
         found = relay_precheck.check_python39(self.repo)
-        self.assertIn("plugins/core/lib/relay_new.py", found[0])
+        self.assertIn("plugins/relay/lib/relay_new.py", found[0])
 
     def test_a_plain_module_is_clean(self) -> None:
-        self.write("plugins/core/lib/relay_ok.py", "X = 1\n")
+        self.write("plugins/relay/lib/relay_ok.py", "X = 1\n")
         self.assertEqual(relay_precheck.check_python39(self.repo), [])
 
 
@@ -120,16 +120,16 @@ class TestPython39Hooks(Base):
     def test_a_hook_that_cannot_import_fails_naming_it(self) -> None:
         # tomllib is new in 3.11: the hook dies at import on every event. Rule: ImportError / ModuleNotFoundError at import fails;
         # a hook that exits non-zero later (a KeyError in main) is its own business and passes.
-        self.write("plugins/core/hooks/new-hook.py", "import tomllib\n")
-        self.write("plugins/core/hooks/typing-hook.py", "from typing import TypeGuard\n")
-        self.write("plugins/core/hooks/late-hook.py", "import sys\nsys.stdin.read()\n{}['k']\n")
+        self.write("plugins/relay/hooks/new-hook.py", "import tomllib\n")
+        self.write("plugins/relay/hooks/typing-hook.py", "from typing import TypeGuard\n")
+        self.write("plugins/relay/hooks/late-hook.py", "import sys\nsys.stdin.read()\n{}['k']\n")
         found = "\n".join(relay_precheck.check_python39(self.repo))
-        self.assertIn("plugins/core/hooks/new-hook.py", found)
-        self.assertIn("plugins/core/hooks/typing-hook.py", found)
+        self.assertIn("plugins/relay/hooks/new-hook.py", found)
+        self.assertIn("plugins/relay/hooks/typing-hook.py", found)
         self.assertNotIn("late-hook", found)
 
     def test_a_hanging_hook_is_a_red_line_and_later_steps_still_run(self) -> None:
-        self.write("plugins/core/hooks/hang.py", "import time\ntime.sleep(60)\n")
+        self.write("plugins/relay/hooks/hang.py", "import time\ntime.sleep(60)\n")
         self.commit()
         old = relay_precheck.STEP_TIMEOUT
         relay_precheck.STEP_TIMEOUT = 1
@@ -144,7 +144,7 @@ class TestPython39Hooks(Base):
 class TestRootAndSkips(Base):
     def stale(self) -> None:
         self.write("lib/relay_q.py", "X = 1\n")
-        self.write("plugins/core/lib/relay_q.py", "X = 0\n")
+        self.write("plugins/relay/lib/relay_q.py", "X = 0\n")
         self.write("tests/keep.txt", "x\n")
         self.commit()
 
@@ -153,11 +153,11 @@ class TestRootAndSkips(Base):
         self.stale()
         code, lines = relay_precheck.run(os.path.join(self.repo, "tests"))
         self.assertEqual(code, 1)
-        self.assertTrue(any("plugins/core/lib/relay_q.py" in ln for ln in lines))
+        self.assertTrue(any("plugins/relay/lib/relay_q.py" in ln for ln in lines))
 
     def test_from_a_subfolder_identical_copies_are_green(self) -> None:
         self.write("lib/relay_q.py", "X = 1\n")
-        self.write("plugins/core/lib/relay_q.py", "X = 1\n")
+        self.write("plugins/relay/lib/relay_q.py", "X = 1\n")
         self.write("tests/keep.txt", "x\n")
         self.commit()
         code, lines = relay_precheck.run(os.path.join(self.repo, "tests"))
@@ -184,7 +184,7 @@ class TestRootAndSkips(Base):
 
     def test_a_checked_copy_is_still_ok(self) -> None:
         self.write("lib/relay_q.py", "X = 1\n")
-        self.write("plugins/core/lib/relay_q.py", "X = 1\n")
+        self.write("plugins/relay/lib/relay_q.py", "X = 1\n")
         self.commit()
         self.assertIn("ok   lib copies identical", relay_precheck.run(self.repo)[1])
 
@@ -192,7 +192,7 @@ class TestRootAndSkips(Base):
 class TestCommand(Base):
     def test_run_reports_every_step_and_exits_1_when_one_is_red(self) -> None:
         self.write("lib/relay_q.py", "X = 1\n")
-        self.write("plugins/core/lib/relay_q.py", "X = 1\n")
+        self.write("plugins/relay/lib/relay_q.py", "X = 1\n")
         self.commit()
         self.write("lib/relay_q.py", "X = 2\n")
         self.commit()
@@ -203,11 +203,11 @@ class TestCommand(Base):
 
     def test_the_relay_command_runs_it_and_passes_the_exit_code(self) -> None:
         self.write("lib/relay_q.py", "X = 1\n")
-        self.write("plugins/core/lib/relay_q.py", "X = 0\n")
+        self.write("plugins/relay/lib/relay_q.py", "X = 0\n")
         self.commit()
         done = subprocess.run([sys.executable, RELAY, "precheck", "-C", self.repo], capture_output=True, text=True)
         self.assertEqual(done.returncode, 1, done.stderr)
-        self.assertIn("plugins/core/lib/relay_q.py", done.stdout)
+        self.assertIn("plugins/relay/lib/relay_q.py", done.stdout)
         self.assertIn("bin/sync-lib-copies", done.stdout)
 
 

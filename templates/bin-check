@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bin/check: the quiet check a worker loops on. The contract (plugins/core/README.md):
+# bin/check: the quiet check a worker loops on. The contract (plugins/relay/README.md):
 #   check <change> <task>            the quick steps, then the task's Check: command (OpenSpec flows)
 #   check <change> <task> --failed   failed test files first, then the whole check
 #   check --tests <file>... [--failed]

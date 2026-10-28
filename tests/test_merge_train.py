@@ -64,7 +64,7 @@ class TrainCase(unittest.TestCase):
                                ".relay/queue/x.json": qjson("x"), ".relay/queue/y.json": qjson("y", by="wt/b")})
         self.git(self.main, "add", "-A")
         self.git(self.main, "commit", "-q", "-m", "init")
-        self.hook = load("merge_hook_under_test", os.path.join("plugins", "core", "hooks", "merge.py"))
+        self.hook = load("merge_hook_under_test", os.path.join("plugins", "relay", "hooks", "merge.py"))
 
     # ---- fixtures ----
     def git(self, cwd, *args, check=True):
@@ -614,7 +614,7 @@ class MergeCheck(TrainCase):
         with open(report) as handle:
             record = rv.load_record(handle.read())
         self.assertEqual([f["id"] for f in record["findings"]], ["M1"])
-        load("check_mark_under_test", os.path.join("plugins", "core", "hooks", "check-mark.py")).write_mark(train, record)
+        load("check_mark_under_test", os.path.join("plugins", "relay", "hooks", "check-mark.py")).write_mark(train, record)
         self.assertIsNone(self.verdict("wt/train-1"))
 
     def test_t14_a_normal_branch_still_needs_a_review(self):

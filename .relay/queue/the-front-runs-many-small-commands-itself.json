@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-27T22:54:25Z",
   "taken_by": "wt/front-cmds",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T00:44:19Z",
+  "test": "tests/test_transcripts_analysis.py::Analysis::test_front_requests_per_turn_are_reported_without_a_flag",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

@@ -16,7 +16,7 @@ import subprocess
 import sys
 import time
 
-PLUGINS = ("observe", "delegate", "front", "core", "openspec")
+PLUGINS = ("observe", "delegate", "front", "relay", "openspec")
 OLD_PYTHON = "/usr/bin/python3"
 STEP_TIMEOUT = 60       # seconds one step may take in all (about 10 s for the whole precheck when healthy); a timeout is a RED line
 _deadline = 0.0         # time.monotonic() by which the running step must end; run() sets it per step

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from relay_testbase import load_hook as _load_hook  # noqa: E402
 
-HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "plugins", "core", "hooks", "check-mark.py")
+HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "plugins", "relay", "hooks", "check-mark.py")
 check_mark = _load_hook("check_mark", HOOK)
 
 PROMPT = "[Workflow harness] task text\n  Implement the brief.\n  Report: `r/x.md`."

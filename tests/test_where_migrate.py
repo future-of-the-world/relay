@@ -14,10 +14,10 @@ import relay_where_migrate as wm  # noqa: E402
 
 class SplitWhere(unittest.TestCase):
     def test_a_string_of_places_becomes_one_element_each(self):
-        # "lib/relay_marks.py, plugins/core/hooks/guard-main.sh (writes), docs": three places; the comma inside the
+        # "lib/relay_marks.py, plugins/relay/hooks/guard-main.sh (writes), docs": three places; the comma inside the
         # parentheses of a note does not split; "docs" is a bare word that is the whole piece, so a place.
-        text = "lib/relay_marks.py, plugins/core/hooks/guard-main.sh (writes, reads), docs"
-        self.assertEqual(wm.split_where("s", text), (["lib/relay_marks.py", "plugins/core/hooks/guard-main.sh (writes, reads)", "docs"], True))
+        text = "lib/relay_marks.py, plugins/relay/hooks/guard-main.sh (writes, reads), docs"
+        self.assertEqual(wm.split_where("s", text), (["lib/relay_marks.py", "plugins/relay/hooks/guard-main.sh (writes, reads)", "docs"], True))
 
     def test_lines_and_notes_are_kept(self):
         self.assertEqual(wm.split_where("s", "lib/a.py:325-333 merge_settings, b.py:7"), (["lib/a.py:325-333 merge_settings", "b.py:7"], True))

@@ -1390,10 +1390,10 @@ class WhereList(unittest.TestCase):
     def test_q1_takes_the_first_place_of_a_list_and_keeps_the_others_in_its_details(self):
         # The item squash-merge-projects-keep-check-records-of-lost named three places in one string and Q1 took the whole string
         # as its path at line 1. Now the first element is Q1's place; by hand: path lib/relay_marks.py, no line so line 1.
-        item = self.item_with(["lib/relay_marks.py", "plugins/core/hooks/guard-main.sh (writes)", "docs"])
+        item = self.item_with(["lib/relay_marks.py", "plugins/relay/hooks/guard-main.sh (writes)", "docs"])
         q1 = rq._q1(item)
         self.assertEqual((q1["path"], q1["line"]), ("lib/relay_marks.py", 1))
-        self.assertEqual(q1["details"], ["it matters", "Also: plugins/core/hooks/guard-main.sh (writes)", "Also: docs"])
+        self.assertEqual(q1["details"], ["it matters", "Also: plugins/relay/hooks/guard-main.sh (writes)", "Also: docs"])
 
     def test_an_element_with_a_line_range_gives_the_path_and_its_first_line(self):
         # "lib/relay_setup.py:325-333 merge_settings": path lib/relay_setup.py, lines 325 to 333, note merge_settings

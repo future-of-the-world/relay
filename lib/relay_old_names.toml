@@ -2,8 +2,8 @@
 # (it is OpenSpec, and is named so). This is the one place the old names live; tests/test_spec_steps.py checks the shape.
 
 [plugin_key]            # enabledPlugins / installed_plugins.json keys: old -> new
-"sdd@relay" = "openspec@relay"
-"sdd@principles" = "openspec@relay"
+"sdd@relay" = "openspec@amidman"
+"sdd@principles" = "openspec@amidman"
 
 [kit_flow]              # .claude/kit.toml [flow] forms from before spec steps were their own setting
 old_kind = "openspec"   # [flow] kind = "openspec" becomes [flow] kind = "none" and [specs] method = <specs_method>

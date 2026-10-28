@@ -2,10 +2,10 @@
 
 Read 2026-10-19: each project's `bin/packet`, `bin/spec-check` and
 `.claude/hooks/guard-main.sh`, compared line by line with Kartoteka's copy
-(`diff | grep -c '^[<>]'`). Shared files: `plugins/core/lib/kit_packet.py`
-(`kit packet`), `plugins/core/lib/kit_spec_check.py` (`kit spec-check`),
-`plugins/core/hooks/guard-main.sh`. Everything a project did differently is
-now a binding in its `.claude/kit.toml` (keys: `plugins/core/README.md`).
+(`diff | grep -c '^[<>]'`). Shared files: `plugins/relay/lib/kit_packet.py`
+(`kit packet`), `plugins/relay/lib/kit_spec_check.py` (`kit spec-check`),
+`plugins/relay/hooks/guard-main.sh`. Everything a project did differently is
+now a binding in its `.claude/kit.toml` (keys: `plugins/relay/README.md`).
 `migration/kartoteka/kit.toml` is the worked, tested example; the snippets
 below are what the other projects add when they migrate. Kartoteka's own
 copy is the base because Clean's is the same.
@@ -29,7 +29,7 @@ Taken for the shared file:
   Rust: Sight. Elixir: ALIX. Chosen by `packet.module`.
 - Smoke tests for a command-line tool or a task: Sight and ALIX, as the
   general `[[packet.required_test]]` with `command` (tested by
-  `plugins/core/tests/packet-stacks.test.sh`).
+  `plugins/relay/tests/packet-stacks.test.sh`).
 - The e2e rule (a component or end-to-end spec must name an e2e test or
   `e2e none (<reason>)`): Kartoteka and Clean, as a `required_test` kind.
 
@@ -62,7 +62,7 @@ cases; the shared file has fence masking (Kartoteka) and any number of groups.
 - **Kartoteka, Clean**: stored data (without "load": in a media app it means
   media arriving) and the native shell (Plain browser) groups, in
   `migration/kartoteka/kit.toml`; tested by
-  `plugins/core/tests/spec-check.test.sh` (ported from
+  `plugins/relay/tests/spec-check.test.sh` (ported from
   `~/kartoteka/bin/spec-check.test.sh`).
 - **Mind**: the stored-data group with two changes: trigger adds
   `load(?:s|ed|ing)?` and `profile version` (all of its stored data goes

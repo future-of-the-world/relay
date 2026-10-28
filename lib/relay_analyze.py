@@ -10,6 +10,7 @@ import datetime as dt
 import os
 import statistics
 from collections import defaultdict
+from typing import Any
 
 import relay_ledger
 import relay_prices
@@ -33,6 +34,15 @@ def classify(agent_type):
     if any(w in name for w in ("review", "critic", "thinker", "author", "plan", "design", "spec")):
         return "think"
     return "other"
+
+
+# Owner decision 24 Oct / 28 Oct: the front keeps Opus; numbers only, no flag and no target. Overspending is relative: the
+# figure to watch is the main sessions' share of the cost and their requests per owner turn, expected to fall over time.
+
+def _front_mains(data: dict[str, Any]) -> list[Any]:
+    """Main sessions the owner talked to: a program-started (headless, eval, bench) session is no front, and its
+    turns are zeroed, so its requests must not count against the owner's turns."""
+    return [s["main"] for s in data["sessions"] if not s["main"].scripted]
 
 
 def _ts(value):
@@ -315,11 +325,11 @@ def _sum_agg(aggs):
     return out
 
 
-def totals(data):
+def totals(data: dict[str, Any]) -> dict[str, Any]:
     mains = [s["main"] for s in data["sessions"]]
     agents = [a for s in data["sessions"] for a in s["agents"]]
     figures = [session_figures(s, data.get("exact") or {}, data.get("exact_at")) for s in data["sessions"]]
-    by_model = {}
+    by_model: dict[str, Any] = {}
     basis = defaultdict(set)
     for fig in figures:
         for model, row in fig["models"].items():
@@ -349,6 +359,12 @@ def totals(data):
         "figures": figures,
         "by_type": by_type,
         "user_turns": sum(m.user_turns for m in mains),
+        "front_requests": sum(m.total.requests for m in _front_mains(data)),
+        "front_tool_calls": sum(sum(m.tools.values()) for m in _front_mains(data)),
+        # interactive sessions only (a scripted run is no front): main cost and main + agents cost, transcript estimates
+        "front_cost": sum(s["main"].total.cost for s in data["sessions"] if not s["main"].scripted),
+        "interactive_cost": sum(s["main"].total.cost + sum(a.total.cost for a in s["agents"])
+                                for s in data["sessions"] if not s["main"].scripted),
         "scripted_sessions": sum(1 for m in mains if m.scripted),
         "reply_chars": sum(m.reply_chars for m in mains),
         "prompt_chars": sum(m.prompt_chars for m in mains),
@@ -377,7 +393,7 @@ def _table(rows, headers):
     return "\n".join(out)
 
 
-def report(data, title="Usage"):
+def report(data: dict[str, Any], title: str = "Usage") -> str:
     t = totals(data)
     grand = t["grand"]
     lines = [f"# {title}", ""]
@@ -408,6 +424,11 @@ def report(data, title="Usage"):
         lines.append(f"Per turn of yours: {_money(grand / t['user_turns'])}; "
                      f"reply length {t['reply_chars'] // t['user_turns']:,} characters on average; "
                      f"your prompts {t['prompt_chars'] // t['user_turns']:,} characters on average, {t['long_prompts']} over 600")
+        lines.append(f"Front (main session) per turn of yours: {t['front_requests'] / t['user_turns']:.1f} requests, "
+                     f"{t['front_tool_calls'] / t['user_turns']:.1f} tool calls")
+    if t["interactive_cost"]:
+        lines.append(f"Main sessions' share of cost: {t['front_cost'] / t['interactive_cost'] * 100:.0f}% "
+                     f"({_money(t['front_cost'])} of {_money(t['interactive_cost'])}, interactive sessions and their agents)")
     lines.append(f"Compactions: {t['compactions']}")
     lines.append("")
     lines.append("## By model")
@@ -440,7 +461,7 @@ def report(data, title="Usage"):
     return "\n".join(lines)
 
 
-def findings(data):
+def findings(data: dict[str, Any]) -> list[dict[str, Any]]:
     """Measured anti-patterns. Each: dict(id, title, evidence, saving_usd, lever)."""
     out = []
     agents = [a for s in data["sessions"] for a in s["agents"]]
@@ -548,7 +569,7 @@ def findings(data):
     return out
 
 
-def compare(a, b, label_a="A", label_b="B"):
+def compare(a: dict[str, Any], b: dict[str, Any], label_a: str = "A", label_b: str = "B") -> str:
     """Two collected periods side by side, normalised per user turn."""
     ta, tb = totals(a), totals(b)
 
@@ -574,6 +595,12 @@ def compare(a, b, label_a="A", label_b="B"):
         row("reply chars per turn", lambda t: t["reply_chars"] / max(t["user_turns"], 1), lambda t: t["reply_chars"] / max(t["user_turns"], 1), lambda x: f"{x:,.0f}"),
         row("your prompt chars per turn", lambda t: t["prompt_chars"] / max(t["user_turns"], 1), lambda t: t["prompt_chars"] / max(t["user_turns"], 1), lambda x: f"{x:,.0f}"),
         row("prompts over 600 chars", lambda t: t["long_prompts"], lambda t: t["long_prompts"], str),
+        row("main sessions' share of cost %", lambda t: t["front_cost"] / max(t["interactive_cost"], 1e-9) * 100,
+            lambda t: t["front_cost"] / max(t["interactive_cost"], 1e-9) * 100, lambda x: f"{x:.0f}"),
+        row("front requests per turn", lambda t: t["front_requests"] / max(t["user_turns"], 1),
+            lambda t: t["front_requests"] / max(t["user_turns"], 1), lambda x: f"{x:,.1f}"),
+        row("front tool calls per turn", lambda t: t["front_tool_calls"] / max(t["user_turns"], 1),
+            lambda t: t["front_tool_calls"] / max(t["user_turns"], 1), lambda x: f"{x:,.1f}"),
         row("compactions", lambda t: t["compactions"], lambda t: t["compactions"], str),
     ]
     for tier_name in ("opus", "sonnet", "haiku"):

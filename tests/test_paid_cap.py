@@ -8,7 +8,7 @@ import relay_paidcap  # noqa: E402
 import relay_bench  # noqa: E402
 
 BIN = os.path.join(ROOT, "bin", "paid-cost")
-MERGE = os.path.join(ROOT, "plugins", "core", "hooks", "merge.py")
+MERGE = os.path.join(ROOT, "plugins", "relay", "hooks", "merge.py")
 
 
 class Fixture(unittest.TestCase):

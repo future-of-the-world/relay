@@ -2,6 +2,6 @@ schema_version: "1.1"
 name: spec-step-on-en
 description: "a project with [specs] method = openspec loads openspec:plan for a feature request (plain English) before any worker starts"
 tags: [delegate, openspec]
-plugins: ["../../../plugins/core", "../../../plugins/openspec", "../../../plugins/delegate"]
+plugins: ["../../../plugins/relay", "../../../plugins/openspec", "../../../plugins/delegate"]
 context:
   scaffold_script: scaffold.sh

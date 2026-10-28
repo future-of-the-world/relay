@@ -2,6 +2,6 @@ schema_version: "1.1"
 name: keep-owner-words-en
 description: "an unasked remark, in English with a typo, about an item is recorded as a said note the same turn, without being told to"
 tags: [front, delegate]
-plugins: ["../../../plugins/core", "../../../plugins/front", "../../../plugins/delegate"]
+plugins: ["../../../plugins/relay", "../../../plugins/front", "../../../plugins/delegate"]
 context:
   scaffold_script: scaffold.sh

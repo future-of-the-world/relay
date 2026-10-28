@@ -1,0 +1,10 @@
+{
+  "enabledPlugins": {
+    "relay@amidman": true,
+    "delegate@amidman": true,
+    "front@amidman": true,
+    "observe@amidman": true,
+    "openspec@amidman": false,
+    "gopls-lsp@claude-plugins-official": false
+  }
+}

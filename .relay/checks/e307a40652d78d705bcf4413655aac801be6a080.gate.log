@@ -1,0 +1,20 @@
+head e307a40652d78d705bcf4413655aac801be6a080
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests ok (469s)
+ci: hook tests FAILED (250s, log: .ci/steps/hook-tests.log)
+    FAIL  agent: a core: name is served too: expected [WORKER-RULE], got: 
+    FAIL plugins/relay/tests/inject-addition.test.sh
+    FAIL  '/Users/amidman/relay/plugins/core/bin/kit' is on PATH and would shadow the plugin's kit helper inside Claude's Bash tool.
+    FAIL plugins/relay/tests/kit-name.test.sh
+    ok   no file: dump is an error too
+    ok   no file: packet is an error too
+    ok   no file: spec-check is an error too
+    FAIL path, core itself: got [] want [/Users/amidman/relay/.worktrees/rename/plugins/relay/lib/kit_packet.py]
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (85s)
+ci: RED
+exit 1

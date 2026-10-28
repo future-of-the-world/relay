@@ -12,7 +12,7 @@ named file (its frontmatter stripped) and touches nothing outside markers. A
 base or part may hold a line `<!-- relay:include tests -->`, expanded to that
 part's body (one level). `{maxTurns}` becomes the agent's own frontmatter value.
 
-assemble(root) writes <root>/plugins/*/agents/*.md and plugins/core/lib/agent-roles.tsv (agent -> role, for the
+assemble(root) writes <root>/plugins/*/agents/*.md and plugins/relay/lib/agent-roles.tsv (agent -> role, for the
 per-role project files) only; never an installed copy, a bench candidate or another checkout.
 """
 
@@ -149,7 +149,7 @@ def has_markers(text):
     return any(OPEN.match(line) or END.match(line) for line in text.split("\n"))
 
 
-MAP_FILE = os.path.join("plugins", "core", "lib", "agent-roles.tsv")
+MAP_FILE = os.path.join("plugins", "relay", "lib", "agent-roles.tsv")
 
 
 def role_map(root):
@@ -187,7 +187,7 @@ def write_role_map(root, dry=False):
 
 def assemble_detail(root, dry=False):
     """Assemble every agent file under root/plugins/*/agents; return [(path, [(kind, name), ...])] for the files that
-    changed (or would), with the regions whose text differed. Also writes plugins/core/lib/agent-roles.tsv."""
+    changed (or would), with the regions whose text differed. Also writes plugins/relay/lib/agent-roles.tsv."""
     changed = []
     for path in agent_files(root):
         with open(path, encoding="utf-8") as handle:

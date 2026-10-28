@@ -235,13 +235,13 @@ class TurnOnAndOff(Scratch):
         before = self.tree_hash(os.path.join(root, "openspec"))
         calls = self.run_setup(root, specs="openspec")
         settings = json.load(open(os.path.join(root, ".claude", "settings.json")))
-        self.assertTrue(settings["enabledPlugins"]["openspec@relay"])
-        self.assertEqual(calls, [("install", "openspec@relay")])
+        self.assertTrue(settings["enabledPlugins"]["openspec@amidman"])
+        self.assertEqual(calls, [("install", "openspec@amidman")])
         self.assertIn('method = "openspec"', open(os.path.join(root, ".claude", "kit.toml")).read())
         self.run_setup(root, specs="none")
         settings = json.load(open(os.path.join(root, ".claude", "settings.json")))
-        self.assertIs(settings["enabledPlugins"]["openspec@relay"], False)   # turned off: kept as false, not deleted (design T6)
-        self.assertEqual(calls, [("install", "openspec@relay"), ("uninstall", "openspec@relay")])
+        self.assertIs(settings["enabledPlugins"]["openspec@amidman"], False)   # turned off: kept as false, not deleted (design T6)
+        self.assertEqual(calls, [("install", "openspec@amidman"), ("uninstall", "openspec@amidman")])
         self.assertIn('method = "none"', open(os.path.join(root, ".claude", "kit.toml")).read())
         self.assertEqual(self.tree_hash(os.path.join(root, "openspec")), before)   # byte for byte
 
@@ -275,9 +275,9 @@ class Migration(Scratch):
         self.assertNotIn("plugin", cfg["flow"])
         self.assertEqual(cfg["specs"]["method"], "openspec")   # the project had the steps on; it keeps them
         enabled = json.load(open(os.path.join(root, ".claude", "settings.json")))["enabledPlugins"]
-        self.assertTrue(enabled["openspec@relay"])
+        self.assertTrue(enabled["openspec@amidman"])
         self.assertNotIn(OLD + "@relay", enabled)
-        self.assertEqual(calls, [("uninstall", OLD + "@relay"), ("install", "openspec@relay")])
+        self.assertEqual(calls, [("uninstall", OLD + "@relay"), ("install", "openspec@amidman")])
         snapshot = {f: open(os.path.join(root, f), "rb").read() for f in (".claude/kit.toml", ".claude/settings.json")}
         calls.clear()
         self.run_setup(root)
@@ -286,7 +286,7 @@ class Migration(Scratch):
 
     def test_old_names_file_passes_its_schema_check_and_a_bad_one_fails(self):
         data = self.setup.load_old_names()
-        self.assertEqual(data["plugin_key"][OLD + "@relay"], "openspec@relay")
+        self.assertEqual(data["plugin_key"][OLD + "@relay"], "openspec@amidman")
         bad = os.path.join(self.tmp, "bad.toml")
         self.write(bad, '[plugin_key]\n"x" = "y"\n')
         with self.assertRaises(ValueError):
@@ -337,16 +337,16 @@ class Doctor(Scratch):
 
     def test_method_on_without_the_plugin_is_drift(self):
         root = self.project("theta", specs="openspec")
-        good, detail = self.checks(root)["spec steps and openspec@relay agree"]
+        good, detail = self.checks(root)["spec steps and openspec@amidman agree"]
         self.assertFalse(good)
         self.assertIn("not enabled", detail)
-        self.write(os.path.join(root, ".claude", "settings.json"), json.dumps({"enabledPlugins": {"openspec@relay": True}}))
-        self.assertNotIn("spec steps and openspec@relay agree", self.checks(root))
+        self.write(os.path.join(root, ".claude", "settings.json"), json.dumps({"enabledPlugins": {"openspec@amidman": True}}))
+        self.assertNotIn("spec steps and openspec@amidman agree", self.checks(root))
 
     def test_plugin_on_with_the_steps_off_is_drift_too(self):
         root = self.project("iota", specs="none")
-        self.write(os.path.join(root, ".claude", "settings.json"), json.dumps({"enabledPlugins": {"openspec@relay": True}}))
-        self.assertFalse(self.checks(root)["spec steps and openspec@relay agree"][0])
+        self.write(os.path.join(root, ".claude", "settings.json"), json.dumps({"enabledPlugins": {"openspec@amidman": True}}))
+        self.assertFalse(self.checks(root)["spec steps and openspec@amidman agree"][0])
 
     def test_unknown_method_is_named(self):
         root = self.project("kappa", specs="nonesuch")
@@ -375,7 +375,7 @@ class Doctor(Scratch):
 # --- case 10: the stage hook --------------------------------------------------------------------------------------
 
 class StageHook(Scratch):
-    def say(self, root, prompt, hook=("core", "flow-stage.py")):
+    def say(self, root, prompt, hook=("relay", "flow-stage.py")):
         data = json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": root, "prompt": prompt})
         run = subprocess.run([sys.executable, os.path.join(ROOT, "plugins", hook[0], "hooks", hook[1])], input=data,
                              capture_output=True, text=True,
@@ -464,10 +464,10 @@ class Packet(Scratch):
         return root
 
     def kit(self, root, *args):
-        return subprocess.run([os.path.join(ROOT, "plugins", "core", "bin", "kit"), "packet", *args], cwd=root, capture_output=True, text=True)
+        return subprocess.run([os.path.join(ROOT, "plugins", "relay", "bin", "kit"), "packet", *args], cwd=root, capture_output=True, text=True)
 
     def test_every_packet_ends_with_the_building_rules(self):
-        rules = open(os.path.join(ROOT, "plugins", "core", "lib", "kit_packet_rules.md"), encoding="utf-8").read().strip()
+        rules = open(os.path.join(ROOT, "plugins", "relay", "lib", "kit_packet_rules.md"), encoding="utf-8").read().strip()
         root = self.change("## 1. A\n\n" + self.TASK % "1.1")
         for target in ("1", "1.1"):   # a group packet and a task packet
             run = self.kit(root, "c", target)
@@ -487,7 +487,7 @@ class ReviewFixes(unittest.TestCase):
         return open(os.path.join(ROOT, *parts), encoding="utf-8").read()
 
     def test_F2_the_packet_rules_carry_the_removed_workers_build_rules(self):
-        text = self.read("plugins", "core", "lib", "kit_packet_rules.md")
+        text = self.read("plugins", "relay", "lib", "kit_packet_rules.md")
         self.assertIn("black-box", text)
         self.assertIn("same-process test does not count", text)
         self.assertIn("whole", text)
@@ -510,8 +510,8 @@ class ReviewFixes(unittest.TestCase):
         self.assertIn("every task in `tasks.md` is ticked", self.read("plugins", "openspec", "skills", "archive", "SKILL.md"))
 
     def test_F6_no_alias_table_and_no_wave_in_kit_packet(self):
-        self.assertNotIn("ALIASES", self.read("plugins", "core", "hooks", "flow-stage.py"))
-        self.assertNotIn("wave", self.read("plugins", "core", "lib", "kit_packet.py").lower())
+        self.assertNotIn("ALIASES", self.read("plugins", "relay", "hooks", "flow-stage.py"))
+        self.assertNotIn("wave", self.read("plugins", "relay", "lib", "kit_packet.py").lower())
 
     def test_F5_the_spec_step_twins_carry_the_same_request(self):
         for suffix in ("en", "ru", "typo"):
@@ -558,7 +558,7 @@ class RouteGuard(Scratch):
         self.assertEqual(out, "True True []")
 
     def test_F1_core_hook_tests_leave_the_lib_queue_in_place(self):
-        """Importing test_mark_attach (what collection does) must not make relay_queue come from plugins/core/lib,
+        """Importing test_mark_attach (what collection does) must not make relay_queue come from plugins/relay/lib,
         where queue_ext is missing and extensions() is empty; lib/relay_queue lists json and table."""
         out = self.probe(
             "import sys, os\nroot = sys.argv[1]\nsys.path[:0] = [os.path.join(root, 'tests'), os.path.join(root, 'lib')]\n"
@@ -566,7 +566,7 @@ class RouteGuard(Scratch):
             "[sys.modules.pop(m) for m in list(sys.modules) if m.startswith('relay_')]\n"
             "import relay_queue\n"
             "print(os.path.relpath(relay_queue.__file__, root), relay_queue.extensions(), "
-            "[p for p in sys.path if p.endswith(os.path.join('plugins', 'core', 'lib'))])")
+            "[p for p in sys.path if p.endswith(os.path.join('plugins', 'relay', 'lib'))])")
         self.assertEqual(out, "lib/relay_queue.py ['json', 'table'] []")
 
     def transcript(self, *entries):

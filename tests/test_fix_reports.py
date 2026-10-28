@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KIT = os.path.join(ROOT, "plugins", "core", "bin", "kit")
+KIT = os.path.join(ROOT, "plugins", "relay", "bin", "kit")
 SKILL = os.path.join(ROOT, "plugins", "openspec", "skills", "spec-review", "SKILL.md")
 AUTHOR = os.path.join(ROOT, "plugins", "openspec", "agents", "author.md")
 

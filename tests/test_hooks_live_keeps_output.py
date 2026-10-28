@@ -2,7 +2,7 @@
 import os, subprocess, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPT = os.path.join(ROOT, "plugins", "core", "tests", "hooks-live.test.sh")
+SCRIPT = os.path.join(ROOT, "plugins", "relay", "tests", "hooks-live.test.sh")
 
 # The fake emits a hook event that holds every codeword (as the real hooks do), then a result line.
 # `broken` makes the agent session answer NONE; the other sessions answer correctly.

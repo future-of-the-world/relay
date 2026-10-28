@@ -189,11 +189,11 @@ class ToolUsedGraders(unittest.TestCase):
 
 class FixtureComment(unittest.TestCase):
     def test_setup_comment_names_no_path_setup_the_gate_does_not_make(self) -> None:
-        # The gate prepends only plugins/core/bin to PATH; the comment once claimed a git shim in .ci/evalbin too.
+        # The gate prepends only plugins/relay/bin to PATH; the comment once claimed a git shim in .ci/evalbin too.
         head = open(os.path.join(PLUGIN, "setup-fixture.sh"), encoding="utf-8").read().split("set -e")[0]
         gate = open(os.path.join(ROOT, "lib", "relay_ci.py"), encoding="utf-8").read()
-        self.assertIn('"core", "bin"', gate)
-        self.assertIn("plugins/core/bin", head)
+        self.assertIn('"relay", "bin"', gate)
+        self.assertIn("plugins/relay/bin", head)
         self.assertNotIn("evalbin", head)
         self.assertNotIn("evalbin", gate)
         # Any other git-shim claim is false too: "shim" may appear only as "no git shim".

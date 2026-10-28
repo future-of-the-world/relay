@@ -47,7 +47,7 @@ Around it:
   the `delegate` skill (who does what, the brief template).
 - **front**: the budget hook (handover note at 350k, wrap note for agents
   over 200k), the handover pointer after compaction, the `front` skill.
-- **core**: unchanged from principles (`kit`, guard, addition injection)
+- **relay** (named core before 28 Oct): unchanged from principles (`kit`, guard, addition injection)
   plus the generic flow stage hook.
 - **flows and spec methods**: `openspec` (opt-in spec steps) is a plugin with `flow.json`; the work-flow slot (where work comes from) has no plugin today.
 - **profiles**: one `active.toml` and candidates; a profile is the whole
@@ -62,7 +62,7 @@ and every migrated project keep their file; `kit get` keeps working; the
 `.claude/kit/<role>.md` additions keep being injected (now for `delegate:`
 and `front:` roles too).
 
-**Plugins keep their names (`core`), except the spec plugin.**
+**Plugins keep their names, except the spec plugin (and, on 28 Oct, `core`, which became `relay`; the marketplace became `amidman`).**
 The marketplace is renamed `relay` because its source directory moves;
 `relay setup` rewrites `*@principles` to `*@relay` in a project's settings.
 The plugin first named after its method is renamed `openspec`: the earlier

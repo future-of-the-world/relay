@@ -193,7 +193,7 @@ def hook():
     """The merge hook module, loaded once (its Refused class must be the one the tests catch)."""
     if _HOOK:
         return _HOOK[0]
-    module = _load_hook("merge_hook_in_place", os.path.join(tq.ROOT, "plugins", "core", "hooks", "merge.py"))
+    module = _load_hook("merge_hook_in_place", os.path.join(tq.ROOT, "plugins", "relay", "hooks", "merge.py"))
     _HOOK.append(module)
     return module
 

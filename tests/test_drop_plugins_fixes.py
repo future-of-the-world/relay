@@ -20,7 +20,7 @@ class DropPluginsFixes(Fixture):
         kit = self.read(root, ".claude/kit.toml")
         self.assertIn("[product]", kit)
         self.assertIn('run_skill = "scr-run"', kit)
-        self.assertNotIn("product@relay", self.plugins(root))
+        self.assertNotIn("product@amidman", self.plugins(root))
         from relay_config import projects_file
         self.assertIn('"product-work"', open(projects_file()).read())
 
@@ -59,11 +59,11 @@ class DropPluginsFixes(Fixture):
 
     def test_f3_retired_key_in_local_settings_is_reported(self):
         root = self.relay_tree()
-        self.write(root, ".claude/settings.local.json", json.dumps({"enabledPlugins": {"product@relay": True}}))
+        self.write(root, ".claude/settings.local.json", json.dumps({"enabledPlugins": {"product@amidman": True}}))
         name = "no retired relay plugin in .claude/settings.json"
         found = self.doctor(root, name)
         self.assertFalse(found[0][0])
-        self.assertIn("product@relay", found[0][1])
+        self.assertIn("product@amidman", found[0][1])
 
     def test_f3_clean_passes(self):
         root = self.relay_tree()

@@ -19,7 +19,7 @@ printf '{"hooks":{"SubagentStop":[{"hooks":[{"type":"command","command":"python3
 line="Check: \`$out/f.md\`. Fixes: \`none\`. Worktree: \`$wt\`. Check command: \`python3 -c 'print(1)'\`. Gate: \`none\`. Report: \`$wt/.ci/report.md\`."
 ask="Start the agent delegate:checker with exactly this prompt (one line, nothing added): $line  When it hands back, run: git -C $wt log --format='%H %ct %s' -3 ; date +%s ; and print its output unchanged."
 mkdir -p "$wt/.ci"; mkdir -p "$wt/.ci"   # the checker's report goes inside the session folder, where a headless run may write
-cd "$wt" && claude -p "$ask" --plugin-dir "$root/plugins/core" --plugin-dir "$root/plugins/delegate" --settings "$out/settings.json" \
+cd "$wt" && claude -p "$ask" --plugin-dir "$root/plugins/relay" --plugin-dir "$root/plugins/delegate" --settings "$out/settings.json" \
   --permission-mode acceptEdits --allowedTools Agent Bash Read Write Grep Glob --max-budget-usd 1.5 --output-format json >"$out/claude.json" 2>"$out/claude.err"
 echo "claude exit $?" >"$out/mark.txt"
 git -C "$wt" log --format='%H %ct %s' -4 >>"$out/mark.txt"

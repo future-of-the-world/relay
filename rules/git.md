@@ -25,7 +25,7 @@
   gate and a new check of the resolved files on the head (on a train, of every
   rider's item). When I say "hold", wait for my word on that change.
   After a merge into the default branch its worktree and branch are removed
-  (the core plugin does it where the project has `.relay/`; `relay doctor`
+  (the relay plugin does it where the project has `.relay/`; `relay doctor`
   lists any left over). Nothing lives only in a task worktree: commit it, or
   keep it in the session scratchpad; ignored files there go with it. Before
   its merge a task branch takes the default branch by a merge commit, never a

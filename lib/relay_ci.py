@@ -322,7 +322,7 @@ class Ci:
 
     def lib_copies(self, log: TextIO) -> int:
         rc = 0
-        for plugin in ("observe", "delegate", "front", "core", "openspec"):
+        for plugin in ("observe", "delegate", "front", "relay", "openspec"):
             for f in sorted(glob.glob(self.path("plugins", plugin, "lib", "relay_*.py"))):
                 lib = self.path("lib", os.path.basename(f))
                 if not (os.path.exists(lib) and filecmp.cmp(f, lib, shallow=False)):
@@ -411,7 +411,7 @@ class Ci:
         jobs, ceiling = words
         estimate = self.run(["python3", "bin/paid-cost", "estimate"], capture=True).stdout.strip()
         self.say("plugin evals: estimate %s; -j %s, ceiling $%s (%s)" % (estimate, jobs, ceiling, " ".join(cap_args)))
-        env = dict(self.env, PATH=self.path("plugins", "core", "bin") + os.pathsep + self.env.get("PATH", ""))
+        env = dict(self.env, PATH=self.path("plugins", "relay", "bin") + os.pathsep + self.env.get("PATH", ""))
         # Write is granted because a real session has it: the Write graders error when it is not granted
         argv = ["claude", "plugin", "eval", self.root, "--eval-dir", "evals/plugin", "--trust-plugin", "--scaffold",
                 "--allow-tools", "Bash", "Agent", "Write", "--ablation", "none", "-j", jobs,

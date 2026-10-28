@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HOOK = os.path.join(ROOT, "plugins", "core", "hooks", "guard-main.sh")
+HOOK = os.path.join(ROOT, "plugins", "relay", "hooks", "guard-main.sh")
 GIT = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
 
 

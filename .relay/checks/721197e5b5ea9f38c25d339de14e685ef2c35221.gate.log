@@ -1,0 +1,20 @@
+head 721197e5b5ea9f38c25d339de14e685ef2c35221
+cmd bin/ci --quick
+wait 44.6
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests ok (539s)
+ci: hook tests FAILED (171s, log: .ci/steps/hook-tests.log)
+    FAIL  '/Users/amidman/relay/plugins/core/bin/kit' is on PATH and would shadow the plugin's kit helper inside Claude's Bash tool.
+    FAIL plugins/relay/tests/kit-name.test.sh
+    ok   no file: dump is an error too
+    ok   no file: packet is an error too
+    ok   no file: spec-check is an error too
+    ok   path, nothing for this version: an error, not the newest
+    ok   path, that error exits 1
+    FAIL registry: get: got [] want [bin/check]
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (4s)
+ci: RED
+exit 1

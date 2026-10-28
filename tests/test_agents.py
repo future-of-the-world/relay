@@ -247,7 +247,7 @@ class Agents(unittest.TestCase):
         m0 = git(main, "rev-parse", "HEAD")
         git(main, "worktree", "add", "-q", wt, "-b", "wt/x")
         write(wt, "lib/relay_marks.py", "a\n")
-        write(wt, "plugins/core/hooks/merge.py", "a\n")
+        write(wt, "plugins/relay/hooks/merge.py", "a\n")
         write(wt, "lib/relay_inert.py", "v1 fixed\n")
         write(wt, "bin/relay", "1a\n2\n3\n4\n5\n6\n")
         git(wt, "add", "-A")
@@ -258,7 +258,7 @@ class Agents(unittest.TestCase):
         write(main, "bin/relay", "1\n2\n3\n4\n5\n6a\n")
         git(main, "add", "-A")
         git(main, "commit", "-q", "-m", "master moves")
-        write(wt, "plugins/core/hooks/merge.py", "b\n")
+        write(wt, "plugins/relay/hooks/merge.py", "b\n")
         write(wt, "lib/relay_inert.py", "v1\n")
         git(wt, "add", "-A")
         git(wt, "commit", "-q", "-m", "after the check")
@@ -271,12 +271,12 @@ class Agents(unittest.TestCase):
             self.assertEqual(run.returncode, 0, run.stderr)
             return sorted(run.stdout.split())
 
-        self.assertEqual(listed("--own", x, "HEAD"), ["bin/relay", "lib/relay_inert.py", "plugins/core/hooks/merge.py"])
-        self.assertEqual(listed("--own", x), ["bin/relay", "lib/relay_inert.py", "plugins/core/hooks/merge.py"])   # until defaults to HEAD
-        self.assertEqual(listed(x), ["bin/relay", "lib/relay_inert.py", "lib/relay_queue.py", "plugins/core/hooks/merge.py"])
+        self.assertEqual(listed("--own", x, "HEAD"), ["bin/relay", "lib/relay_inert.py", "plugins/relay/hooks/merge.py"])
+        self.assertEqual(listed("--own", x), ["bin/relay", "lib/relay_inert.py", "plugins/relay/hooks/merge.py"])   # until defaults to HEAD
+        self.assertEqual(listed(x), ["bin/relay", "lib/relay_inert.py", "lib/relay_queue.py", "plugins/relay/hooks/merge.py"])
         # without a merge from master B_U = B_S: --own lists what plain changed lists
         self.assertEqual(listed("--own", m0, x), listed(m0, x))
-        self.assertEqual(listed(m0, x), ["bin/relay", "lib/relay_inert.py", "lib/relay_marks.py", "plugins/core/hooks/merge.py"])
+        self.assertEqual(listed(m0, x), ["bin/relay", "lib/relay_inert.py", "lib/relay_marks.py", "plugins/relay/hooks/merge.py"])
         # no default branch: --own cannot tell and says so
         git(main, "branch", "-m", "master", "trunk2")
         git(main, "branch", "-m", "trunk2", "other")
@@ -287,13 +287,13 @@ class Agents(unittest.TestCase):
 
     def test_role_names_are_not_agent_or_skill_names(self):
         """A13: a role file `.claude/kit/<role>.md` must not also be the per-agent or per-skill file of a served plugin
-        (one file would serve both); the map plugins/core/lib/agent-roles.tsv is what the agents' base markers say."""
+        (one file would serve both); the map plugins/relay/lib/agent-roles.tsv is what the agents' base markers say."""
         import glob
         sys.path.insert(0, os.path.join(ROOT, "lib"))
         import relay_roles
         roles = {os.path.basename(f)[:-3] for f in glob.glob(os.path.join(ROOT, "roles", "*.md"))}
         self.assertEqual(roles, {"lookup", "run", "build", "fix", "think", "judge"})
-        served = {"core", "openspec", "delegate", "front"}
+        served = {"relay", "openspec", "delegate", "front"}
         names = {}
         for kind, pattern in (("agent", "plugins/*/agents/*.md"), ("skill", "plugins/*/skills/*/SKILL.md")):
             for path in glob.glob(os.path.join(ROOT, pattern)):

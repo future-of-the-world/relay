@@ -25,7 +25,7 @@ def run_ci(args, drop=(), env_extra=None):
     tmp = tempfile.mkdtemp()
     try:
         copy_gate(tmp)
-        d = os.path.join(tmp, "plugins", "core", "tests"); os.makedirs(d)
+        d = os.path.join(tmp, "plugins", "relay", "tests"); os.makedirs(d)
         for n in STUBS:
             with open(os.path.join(d, n + ".test.sh"), "w") as f:
                 f.write("echo STUB-RAN %s\n" % n)
@@ -65,7 +65,7 @@ class HookTestsStep(unittest.TestCase):
     def test_full_without_claude_fails_hooks_live(self):
         # a full run makes no model call without claude on PATH (evals and validate are skipped too)
         _, log = run_ci([], drop=("claude",))
-        self.assertIn("FAIL plugins/core/tests/hooks-live.test.sh needs claude on PATH", log)
+        self.assertIn("FAIL plugins/relay/tests/hooks-live.test.sh needs claude on PATH", log)
         self.assertNotIn("STUB-RAN hooks-live", log)
 
     def test_the_inert_probes_nested_quick_run_never_runs_hooks_live(self):
@@ -82,7 +82,7 @@ class HookTestsStep(unittest.TestCase):
             install_fake(os.path.join(fake, "claude"), "#!/bin/sh\nexit 0\n")
             tree = os.path.join(tmp, "tree"); os.makedirs(tree)
             copy_gate(tree)
-            d = os.path.join(tree, "plugins", "core", "tests"); os.makedirs(d)
+            d = os.path.join(tree, "plugins", "relay", "tests"); os.makedirs(d)
             with open(os.path.join(d, "hooks-live.test.sh"), "w") as f:
                 f.write("echo STUB-RAN hooks-live\necho 'ok    live case'\n")
             with open(os.path.join(d, "free.test.sh"), "w") as f:

@@ -2,6 +2,6 @@ schema_version: "1.1"
 name: critic-role-rule
 description: delegate:critic (judge role, no per-agent file) follows a rule that only the project's per-role file .claude/kit/judge.md states.
 tags: [delegate, review, role-file]
-plugins: ["../../../plugins/core", "../../../plugins/delegate"]
+plugins: ["../../../plugins/relay", "../../../plugins/delegate"]
 context:
   scaffold_script: scaffold.sh
