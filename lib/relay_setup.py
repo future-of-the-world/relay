@@ -1051,7 +1051,14 @@ def dep_checks(deps=None):
 # --- doctor -----------------------------------------------------------------
 
 def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[str, bool, str]]:
+    machine, project = doctor_parts(root, profile)
+    return machine + project
+
+
+def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[list[tuple[str, bool, str]], list[tuple[str, bool, str]]]:
+    """The check-up as (machine-wide checks, checks of the project at `root`); the second is empty with no root."""
     checks = []
+    machine_end = None
 
     def ok(name, good, detail=""):
         checks.append((name, bool(good), detail))
@@ -1104,6 +1111,7 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
     import glob
     files = sorted(glob.glob(os.path.join(ledger_dir(), "*.jsonl")))
     ok("ledger has entries", bool(files), "none yet: the observe plugin writes it once a session runs" if not files else os.path.basename(files[-1]))
+    machine_end = len(checks)
     if root:
         root = os.path.realpath(root)
         d = detect(root)
@@ -1166,9 +1174,10 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
         ok("docs/handover.md exists", d["handover"], "the front desk keeps state there")
         old_agents = [a for a in d["agents"] if a.startswith(d["name"] + "-")]
         ok("no old prefixed agents left", not old_agents, ", ".join(old_agents) + " -> relay migrate --apply" if old_agents else "")
+    machine, project = checks[:machine_end], checks[machine_end:]
     for line in unshipped_installs():
-        ok("installed plugin still shipped", False, line)
-    return checks
+        machine.append(("installed plugin still shipped", False, line))
+    return machine, project
 
 
 def actual_on(root, key):

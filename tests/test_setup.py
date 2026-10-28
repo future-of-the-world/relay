@@ -31,6 +31,39 @@ class Setup(Base):
         d2, *_ = relay_setup.setup(proj)
         self.assertTrue(d2["has_bindings"])
 
+    def test_doctor_parts_keep_machine_checks_out_of_the_project_part(self):
+        import relay_setup
+        proj = os.path.join(self.tmp, "proj")
+        os.makedirs(proj)
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        open(os.path.join(proj, "go.mod"), "w").write("module x\n")
+        relay_setup.setup(proj)
+        machine, project = relay_setup.doctor_parts(proj, profile={})
+        # the user's settings are empty in the temp Claude folder, so the machine part has FIXes (e.g. "rules in sync" or the marketplace)
+        self.assertTrue([n for n, good, _ in machine if not good])
+        # "project has .claude/kit.toml" is the first project check; no machine check names the project
+        self.assertEqual(project[0][0], "project has .claude/kit.toml")
+        self.assertNotIn("relay marketplace in ~/.claude/settings.json", [n for n, _, _ in project])
+        self.assertEqual(relay_setup.doctor_parts(None, profile={})[1], [])
+
+    def test_relay_doctor_of_a_project_ignores_a_machine_fix_in_its_exit_code(self):
+        import relay_setup
+        proj = os.path.join(self.tmp, "proj")
+        os.makedirs(proj)
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        relay_setup.setup(proj)
+        env = {**os.environ, "CLAUDE_CONFIG_DIR": self.claude, "RELAY_HOME": os.path.join(self.tmp, "home")}
+        machine, project = relay_setup.doctor_parts(proj, profile={})
+        done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "doctor", proj], capture_output=True, text=True, env=env)
+        out = done.stdout
+        # the machine section prints after the project section, under its own heading
+        self.assertIn("# This machine (does not change this project's exit code)", out)
+        head, _, tail = out.partition("# This machine")
+        self.assertNotIn("FIX  relay marketplace in ~/.claude/settings.json ", head)
+        self.assertIn("FIX  relay marketplace in ~/.claude/settings.json ", tail)
+        # exit code follows the project part only: 1 exactly when a project FIX shows above the machine heading
+        self.assertEqual(done.returncode, int("FIX " in head), done.stderr + out)
+
 
 class SetupIsProjectOnly(Base):
     """Owner's decision A (26 Oct): `relay setup <dir>` writes only into the project; the Claude folder is the global command's."""
