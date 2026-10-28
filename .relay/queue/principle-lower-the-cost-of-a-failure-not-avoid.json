@@ -132,6 +132,19 @@
       "options": [
         "a. Разделить (рекомендую: меньше частей, данные и их код меняются вместе; в GitHub release позже код и данные так же переедут вместе, при `relay update`).",
         "b. Выпускать всё сразу, с выносом настроек в $RELAY_HOME."
+      ],
+      "answered_at": "2026-10-28T04:20:44Z",
+      "answer": [
+        "В релиз входит всё - полноценная подготовка к хостингу данных relay на github и последующая установка relay с удаленного хостинга (github.com)",
+        "",
+        "Главное: ваша идея верна, и плановая проверка master больше не нужна. Изменение попадает в master через fast-forward, то есть master становится в точности последним commit branch. Сейчас branch перед этим берёт свежий master и снова проходит gate. Замер за 24-28 октября: все 83 изменения кода легли в master ровно в том виде, в каком прошли gate на branch. Прогон на master повторил бы ту же проверку.",
+        "",
+        "Но ваша идея и ваше решение, принятое этой ночью в 06:34 («изменения не ждут проверки, проверка не на каждое изменение»), вместе не держатся. Идея работает, только пока gate после взятия master остаётся. Без него 34 из 83 изменений легли бы в master непроверенными. Экономия при этом сохраняется: повторную проверку будет ждать программа, а не агент, и это около 146 агентских минут за ночь.",
+        "",
+        "Давай продолжим дискуссию - в чем опасность непроверенных изменений, являются ли они таковыми, кажется ты противоречишь сам себе, я не понял, можешь мне визуально показать как и когда мы делаем gate, полный цикл, ты можешь изобразить это в claude artifacts - для clean я делал живые демонстрации, не текст но визуальное и полностью рабочая демонстрация, сравнить подходы можно прямо на странице"
+      ],
+      "reading": [
+        "What goes into the release: a, everything (compiler-style bootstrap), as full preparation for hosting relay on GitHub and installing it later from github.com. The owner quotes the front's summary and asks to continue: what is the danger of \"unchecked\" changes, are they really unchecked; the front seems to contradict itself (dropping the re-gate saved 146 agent minutes, now keeping it also saves them). The owner asks for a visual, fully working interactive demo as a Claude artifact of when the gate runs in the full cycle, comparing the approaches on the page (as was done for clean). The take-gate and red paid-run questions stay open."
       ]
     },
     {
@@ -250,6 +263,19 @@
         "a. Всё в release, новая версия только в проверках (рекомендую: так работают компиляторы; совместимость данных проверяет код, а совместимость текста и команды кодом не проверить).",
         "b. В release только тексты и hooks сессий, `relay` из master (вторая редакция).",
         "c. Ничего не выпускать, всё из master, как сейчас."
+      ],
+      "answered_at": "2026-10-28T04:20:44Z",
+      "answer": [
+        "В релиз входит всё - полноценная подготовка к хостингу данных relay на github и последующая установка relay с удаленного хостинга (github.com)",
+        "",
+        "Главное: ваша идея верна, и плановая проверка master больше не нужна. Изменение попадает в master через fast-forward, то есть master становится в точности последним commit branch. Сейчас branch перед этим берёт свежий master и снова проходит gate. Замер за 24-28 октября: все 83 изменения кода легли в master ровно в том виде, в каком прошли gate на branch. Прогон на master повторил бы ту же проверку.",
+        "",
+        "Но ваша идея и ваше решение, принятое этой ночью в 06:34 («изменения не ждут проверки, проверка не на каждое изменение»), вместе не держатся. Идея работает, только пока gate после взятия master остаётся. Без него 34 из 83 изменений легли бы в master непроверенными. Экономия при этом сохраняется: повторную проверку будет ждать программа, а не агент, и это около 146 агентских минут за ночь.",
+        "",
+        "Давай продолжим дискуссию - в чем опасность непроверенных изменений, являются ли они таковыми, кажется ты противоречишь сам себе, я не понял, можешь мне визуально показать как и когда мы делаем gate, полный цикл, ты можешь изобразить это в claude artifacts - для clean я делал живые демонстрации, не текст но визуальное и полностью рабочая демонстрация, сравнить подходы можно прямо на странице"
+      ],
+      "reading": [
+        "What goes into the release: a, everything (compiler-style bootstrap), as full preparation for hosting relay on GitHub and installing it later from github.com. The owner quotes the front's summary and asks to continue: what is the danger of \"unchecked\" changes, are they really unchecked; the front seems to contradict itself (dropping the re-gate saved 146 agent minutes, now keeping it also saves them). The owner asks for a visual, fully working interactive demo as a Claude artifact of when the gate runs in the full cycle, comparing the approaches on the page (as was done for clean). The take-gate and red paid-run questions stay open."
       ]
     },
     {
