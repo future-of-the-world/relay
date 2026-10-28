@@ -21,8 +21,8 @@
     "plugins/delegate/skills/delegate/SKILL.md:100",
     "plugins/delegate/agents/runner.md:22-45"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-28T01:57:58Z",
+  "taken_by": "wt/timeout-recipe",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
