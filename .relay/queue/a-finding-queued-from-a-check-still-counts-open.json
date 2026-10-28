@@ -22,12 +22,21 @@
   "where": [
     "lib/relay_queue.py",
     "lib/relay_verdict.py:296-306",
-    "lib/relay_check.py"
+    "bin/relay (the `check owner` handler)"
   ],
   "taken_at": null,
   "taken_by": null,
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T18:24:16Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: lib/relay_check.py does not exist; `relay check owner` is handled in bin/relay (grep, 28 Oct)."
+      ]
+    }
+  ]
 }
