@@ -1551,3 +1551,13 @@ Still open for the owner: "Что делать, если платный прог
 Gate demo page v3 (trains added, measured train use) published at https://claude.ai/artifact/LHpFpLYZUP5FMXAfqt81jf; measurements in $S/trains/trains.md and as a fact note in the principle item.
 
 Running when written: train-23 build (wf_562a6627-c21) then needs a recheck unit with four items (see addendum 23); autostart recheck (wf_0ec64fda-2e9); spec-met (wf_a5a82d73-dbd); precheck-tests, gate-rerun, recheck-take (wf_d88ecc78-738). Agents were over the cap (13 of 6): start no new lane until these finish. After the wave: paid run on master (texts changed), relay sync. Next handover worktree: 37.
+
+## Addendum 25 (28 Oct, ~05:30 UTC): pace measured from the queue
+
+From `.relay/queue/*.json` dated events, days in UTC (28 Oct partial, to 05:18 UTC):
+added 22 Oct 27, 23 Oct 32, 24 Oct 41, 25 Oct 39, 26 Oct 45, 27 Oct 27, 28 Oct 15;
+closed 0, 5, 32, 24, 18, 24, 10; dropped 0, 5, 4, 1, 9, 2, 1; open at day end 27, 49, 54, 68, 86, 87, 91
+(83 waiting + 8 taken; 51 fix, 40 feature; 62 with IP >= 80). Median taken -> closed: 79, 120, 122, 73, 78 min
+(24-28 Oct). Open items' estimates sum 6000 min (median 40), but estimates are guesses (fix item
+queue-time-estimates-are-guesses-with-no-model-b). Owner decision 28 Oct: `relay land` without trains (the item was
+edited; owner can reverse); train-23 is the last hand-built train.
