@@ -38,6 +38,12 @@
       "fact": [
         "Measured 24 Oct with a dry run of a `relay queue ready` prototype: the running branches were openspec-optional (153 changed lines), rules-gate (3) and quick-head (3); of the 28 queue items with ip 88 and above it listed, 17 had to WAIT because their files overlap a running branch (most through plugins/delegate/skills/delegate/SKILL.md, lib/relay_setup.py, bin/relay and rules/*.md with openspec-optional) and 11 could START."
       ]
+    },
+    {
+      "at": "2026-10-28T02:47:26Z",
+      "said": [
+        "Возьми fix evidence в работу параллельно, почему мне приходится напоминать об этом каждый раз, что блокирует автоматический процесс взятия задачи в исполнение ?"
+      ]
     }
   ]
 }
