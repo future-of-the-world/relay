@@ -385,7 +385,8 @@ class Inert(Fixture):
         for name in ("relay_config.py", "relay_toml.py"):      # parallel_unittest finds $RELAY_HOME through relay_config
             shutil.copy(os.path.join(ROOT, "lib", name), os.path.join(main, "lib", name))
         # the "types and lint" step of the copied gate: its script, its config and one python file to check
-        shutil.copy(os.path.join(ROOT, "bin", "types-lint"), os.path.join(main, "bin", "types-lint"))
+        for name in ("types-lint", "types_lint.py"):      # the wrapper runs bin/types_lint.py
+            shutil.copy(os.path.join(ROOT, "bin", name), os.path.join(main, "bin", name))
         shutil.copy(os.path.join(ROOT, "pyproject.toml"), main)
         write(os.path.join(main, "lib", "relay_x.py"), "X = 1\n")
         git(main, "add", "-A")
