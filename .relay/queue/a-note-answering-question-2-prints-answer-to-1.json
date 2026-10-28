@@ -25,8 +25,9 @@
   ],
   "taken_at": null,
   "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T02:48:49Z",
+  "test": "tests/test_queue_notes.py::NoteCommand::test_an_answer_goes_to_the_question_named_by_its_time_and_the_other_keeps_waiting",
+  "fixed_by": "63b2c7d57b07e67cacf3be499da4e2424c0be797",
   "dropped_at": null,
   "dropped_why": null
 }
