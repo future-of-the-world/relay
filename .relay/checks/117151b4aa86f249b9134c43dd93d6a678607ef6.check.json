@@ -1,0 +1,169 @@
+{
+  "branch": "wt/relay-cmd-help-runs-the-command-instead",
+  "findings": [
+    {
+      "details": [
+        "28 Oct, found by the split design's review (bin/relay:467, :206, :332): most subcommands ignore --help and run. `relay install --help` rewrites the global CLAUDE.md, user settings and plugins; `relay calibrate --help` writes the ledger; `relay candidate --help` creates a profile named '--help'. An agent that asks a command for its help changes the owner's machine. Principle 10: the obvious way must be the safe way.",
+        "Also: tests/test_help_is_safe.py (new)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`relay candidate --help` in a temporary RELAY_HOME creates a profile named '--help'."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "`relay install --help`, `relay calibrate --help`, `relay candidate --help` in a temporary home write nothing and exit 0 with usage text.",
+        "Every command in the command table, run with --help in a temporary home, writes nothing (a test walks the table)."
+      ],
+      "path": "bin/relay",
+      "rank": "high",
+      "reason": [
+        "tests/test_help_is_safe.py:38 test_candidate_help_creates_no_profile passes at HEAD and fails at 74ec19fc."
+      ],
+      "severity": "HIGH",
+      "since": "74ec19fcd6b420936c0db5db9727bfd77bb3cb83",
+      "source": "queue",
+      "summary": "relay <cmd> --help runs the command instead of help",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction. relay_bench.new_candidate writes os.path.join(ROOT, \"profiles\", \"candidates\", f\"{name}.toml\");",
+        "ROOT = $RELAY_ROOT or the repo (lib/relay_config.py:19). run_help sets HOME and RELAY_HOME to a temp dir but not",
+        "RELAY_ROOT, and snapshot() covers only HOME and cwd. So for the brief's own failing case the \"writes nothing\"",
+        "assertion is blind; the test still goes red without the fix only because of the stdout assertion. The same",
+        "blindness holds for improve adopt (ROOT/profiles, ROOT/improve/log.md) and setup --relay-folder. Project rule",
+        "(CLAUDE.local.md, Python): tests use a temporary folder and never touch live state.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "git worktree add --detach <scratch>/base master; cp tests/test_help_is_safe.py base/tests/; python3 -m unittest ...test_candidate_help_creates_no_profile",
+        "  AssertionError: 'relay candidate' not found in 'Candidate --help: active with \\n  profile: <scratch>/base/profiles/candidates/--help.toml ...'",
+        "  (the written == [] assertion before it passed)",
+        "git -C <scratch>/base status --short",
+        "  ?? profiles/candidates/--help.toml"
+      ],
+      "failing_case": [
+        "Master's bin/relay with the new test copied in: `python3 -m unittest tests.test_help_is_safe.HelpIsSafe.test_candidate_help_creates_no_profile`.",
+        "`relay candidate --help` writes <repo>/profiles/candidates/--help.toml (ROOT, not HOME). The assertion",
+        "`assertEqual(written, [])` PASSES (it snapshots only HOME and cwd); the test fails only later on the stdout text",
+        "check, and the run leaves `?? profiles/candidates/--help.toml` in the checkout. The test the brief names as the",
+        "failing case does not see the failing write; a disabled-fix run (the rule \"each new test shown to fail without the",
+        "fix\") pollutes the repository, and with RELAY_ROOT set in the environment (the test passes os.environ through)",
+        "it would write into that checkout instead. Expected: the write is seen by the written-files assertion and lands",
+        "in a temporary folder."
+      ],
+      "fix_hint": [
+        "In run_help, also set RELAY_ROOT to a temporary folder (without the fix candidate then fails on the missing",
+        "active profile, which also goes red) and add that folder to the snapshot; or record `git status --porcelain` of",
+        "the repo before and after and assert it unchanged."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 22,
+      "pass_cases": [
+        "1. Master's bin/relay, `relay candidate --help` under the test's run_help: `written` is non-empty (names profiles/candidates/--help.toml), or the run exits non-zero; and no file appears in the repository checkout (git status clean after the test).",
+        "2. Fixed bin/relay, `relay candidate --help`: exit 0, stdout contains \"relay candidate\", written == [] across HOME, cwd and the relay root the run used.",
+        "3. Fixed bin/relay, every command of COMMANDS with --help and -h: exit 0, non-empty stdout, written == [] across the same three folders.",
+        "4. The test passes with RELAY_ROOT set to some folder in the caller's environment and leaves that folder unchanged."
+      ],
+      "path": "tests/test_help_is_safe.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_help_is_safe.py:23-27 run_help sets RELAY_ROOT to a temp dir and snapshots it (root: entries); test passes; on base no stray file appears in the checkout."
+      ],
+      "severity": "MEDIUM",
+      "since": "7ee43dabe936f99c8d4e4ece8ff793b59ae90203",
+      "source": "review-relay-cmd-help-runs-the-command-instead.json",
+      "source_id": "F1",
+      "summary": "the 'writes nothing' check never looks at the relay repository (ROOT), where the failing case writes its '--help' profile; with the fix disabled the test writes into the repo",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: test_help_after_a_queue_action_and_after_other_args covers args before the flag but never a",
+        "`--`. Cheap unit test (load bin/relay with importlib and call wants_help).",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "grep -n '\"--\"' tests/test_help_is_safe.py  -> no match"
+      ],
+      "failing_case": [
+        "Remove the `if a == \"--\": return False` lines from wants_help: all four tests stay green, and",
+        "`relay <gate command> -C <wt> -- --help` would print relay's usage instead of handing --help to bin/ci.",
+        "Expected: a test fails."
+      ],
+      "fix_hint": [
+        "Add a case: wants_help on a list with `--` before --help is False (load bin/relay with importlib.machinery.SourceFileLoader)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 61,
+      "pass_cases": [
+        "1. wants_help([\"-C\", \".\", \"--\", \"--help\"]) is False.",
+        "2. wants_help([\"-C\", \".\", \"--help\"]) is True.",
+        "3. wants_help([\"--help\", \"--\", \"x\"]) is True."
+      ],
+      "path": "tests/test_help_is_safe.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_help_is_safe.py:68 test_help_after_bare_double_dash_is_not_relay_help passes; fails with the \"--\" stop removed."
+      ],
+      "severity": "LOW",
+      "since": "7ee43dabe936f99c8d4e4ece8ff793b59ae90203",
+      "source": "review-relay-cmd-help-runs-the-command-instead.json",
+      "source_id": "F2",
+      "summary": "no test that -h/--help after a bare `--` is passed on, so dropping the `--` stop in wants_help goes unnoticed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading main(): one branch serves both \"no command\" and an explicit help request. Pre-existing, but",
+        "the change sits beside it in the same function and sets the opposite convention for subcommands. Size: 5 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`relay --help; echo $?` prints the usage and 2; `relay status --help; echo $?` prints usage and 0. An agent that",
+        "checks the exit status reads the top-level help as a failure. Expected: 0 for -h/--help/help, 2 only when no",
+        "command is given."
+      ],
+      "fix_hint": [
+        "Split the branch: len(argv) < 2 -> print usage, return 2; argv[1] in (\"-h\", \"--help\", \"help\") -> print usage, return 0."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1084,
+      "pass_cases": [
+        "1. `relay --help` -> usage on stdout, exit 0.",
+        "2. `relay help` -> usage on stdout, exit 0.",
+        "3. `relay` with no arguments -> usage, exit 2.",
+        "4. `relay status --help` -> status usage, exit 0 (unchanged)."
+      ],
+      "path": "bin/relay",
+      "rank": "low",
+      "reason": [
+        "tests/test_help_is_safe.py:77 test_top_level_help_exits_0_and_no_command_exits_2 passes; fails on base; bin/relay main split."
+      ],
+      "severity": "LOW",
+      "since": "7ee43dabe936f99c8d4e4ece8ff793b59ae90203",
+      "source": "review-relay-cmd-help-runs-the-command-instead.json",
+      "source_id": "F3",
+      "summary": "`relay --help` still exits 2 while `relay <cmd> --help` now exits 0",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "eae51bccc9f279081716e32242043b7aebcd621b.gate.log",
+  "head": "117151b4aa86f249b9134c43dd93d6a678607ef6",
+  "item": "relay-cmd-help-runs-the-command-instead-of-help",
+  "notes": [
+    "Fix diff is small: main splits the no-command case (exit 2) from explicit help (exit 0). Callers of main: only the entry point."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 74ec19fc..HEAD. Changed files: bin/relay and tests/test_help_is_safe.py only. Gate log eae51bcc: exit 0, HEAD adds only the log. Check command: precheck green, 64 passed. tests/test_help_is_safe.py: 6 passed. Base worktree at 74ec19fc with the test copied in: all 6 fail; HEAD with the \"--\" stop removed from wants_help: the bare-double-dash test fails."
+  ],
+  "type": "check"
+}

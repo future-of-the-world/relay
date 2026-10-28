@@ -166,11 +166,17 @@ def check_changed_tests(worktree: str) -> list[str]:
         groups.append(rest)
     for group in groups:
         ran.append(group)
+        # the registry test (0.6 s healthy) gets the step allowance, not what is left of the changed-tests budget: on a loaded machine
+        # a tight budget must not cut off its verdict
+        limit = float(STEP_TIMEOUT) if group == [RULES_REGISTRY_TEST] else _left()
         try:
             done = subprocess.run(["python3", "-W", "ignore::ResourceWarning", runner, *group], cwd=worktree, capture_output=True,
-                                  text=True, timeout=_left())
+                                  text=True, timeout=limit)
         except subprocess.TimeoutExpired:
-            failed.append("FAIL changed tests took longer than %d s" % CHANGED_TESTS_TIMEOUT)
+            if group == [RULES_REGISTRY_TEST]:
+                failed.append("FAIL rules registry test took longer than %d s" % STEP_TIMEOUT)   # the allowance it was given
+            else:
+                failed.append("FAIL changed tests took longer than %d s" % CHANGED_TESTS_TIMEOUT)
             break
         if done.returncode != 0:
             failed += ["FAIL changed tests (python3 tests/run_unittest.py %s):" % " ".join(group)] + _tail(done.stdout + done.stderr)

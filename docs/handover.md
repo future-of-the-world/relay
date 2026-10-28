@@ -1561,3 +1561,39 @@ closed 0, 5, 32, 24, 18, 24, 10; dropped 0, 5, 4, 1, 9, 2, 1; open at day end 27
 (24-28 Oct). Open items' estimates sum 6000 min (median 40), but estimates are guesses (fix item
 queue-time-estimates-are-guesses-with-no-model-b). Owner decision 28 Oct: `relay land` without trains (the item was
 edited; owner can reverse); train-23 is the last hand-built train.
+
+## Addendum 26 (28 Oct, ~11:00 UTC)
+
+Landed since addendum 25: train-23 (timeout recipe, setup dirty, python green, doctor exit), bench-tools (graders see tool
+calls), train-24 (precheck tests, gate rerun, recheck takes master), picks (start filter compares picks and taken items;
+`relay queue start --despite-wait`), riders (train riders are one lane), critic-role-rule eval, relay check show marks.
+Dropped: a-spec-fix-is-marked-met-by-reading (15 paid runs, the checker runs code with or without the rule; $6.05).
+Paid run on cc2ba5f0 RED ($19.80): recall-decision 0 of 3. relay sync waits. Fix in wt/paid-run-red-recall-decision-fails-0-of:
+stop_nudge = 0 in the eval fixture (owner chose a; graders cannot read the whole turn, claude plugin eval picks last_message);
+still 3 of 6 for a second cause (the session says no record mentions metrics); cause-first fix running (fix-recall4).
+Owner decisions 28 Oct (recorded in items): relay land without trains, data first with two counters, compare 7 days after
+its first landing; each relay subcommand in its own module across relay (IP 96, after relay land), where entries that are
+only a folder refused, module limit 600 lines; a wait from the start filter is binding (front decision).
+Running lanes: relay-land build (plan: scratchpad reports/design-relay-land.md rev 2), hook-tests (6 of 14 suites ported,
+continuing), queue-time estimates (fix round: tie agents to changes by workflow items), --help guard (started with
+--despite-wait: `relay install --help` rewrites global files), recall fix, base-restores-only-four-keys.
+Queued this segment: one-change-on-bin-relay-holds (88), inert-probe-leaves-worktrees (80), guard-main-refuses-a-read (70),
+a-scenario-file-cannot-use-tool-called (86; the fix is commit 5377e9f5 on the kept branch wt/spec-met), a-fix-that-adds-a-new-module
+-cannot-be-closed (87). Leftover branches (guard refuses branch -D): train-19/20/22, queue-edit, relay-plugins, plans-save, spec-met.
+Next: land the recall fix, then a full paid run on master; on green, relay sync. Next handover worktree: handover-39.
+
+## Addendum 27 (28 Oct, ~11:40 UTC; session 3207dc59 at ~350k tokens)
+
+State: recall fix (wt/paid-run-red-recall-decision-fails-0-of) has check open 0 and its item closed on the branch; causes
+found: (1) the fixture's metrics item never contained the word "metric" (fixed in the fixture), (2) the earlier proof runs
+omitted bin/ci's `--allow-tools Bash Agent Write` (not a repo defect); 6 of 6 with the right command ($1.43). It took master
+(relay_marks only, no overlap) and its gate is running (log: scratchpad gate-recall.log). base-restores-only-four-keys closed
+as fixed-by 58d5d5f9 (queued by mistake: queue-add-from-queues-a-finding-a-check-marked-m, IP 75).
+Running lanes: relay-land build, hook-tests (continue), queue-time fix round, --help guard, four-eval-cases.
+Exact next step: when the recall gate is green, take master (inert), ff-land; then the full paid run on master in a
+detached worktree in the background: `EVALS_JOBS=3 RELAY_GATE=HEAD <wt>/bin/ci > <scratchpad>/paid-<sha>.log 2>&1`; on
+green run `relay sync`; on red, one fix item at the top. Then fill lanes with `relay queue start` (top items wait on
+bin/relay until queue-time lands). Next handover worktree: handover-40.
+Owner's latest words (28 Oct): "a" (compare relay land after 7 days), "a a" (refuse folder-only where entries; module limit
+600), "Минус не относится к функционалу, лишь к планированию задачи, я согласен, каждая подкоманда может и должна жить в
+своем модуле, этот подход должен быть распространен на весь relay". No owner question is open.

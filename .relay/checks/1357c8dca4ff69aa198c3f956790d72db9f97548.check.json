@@ -1,0 +1,171 @@
+{
+  "branch": "wt/the-day-s-cap-guard-bin-paid-cost-guard",
+  "findings": [
+    {
+      "details": [
+        "Found 27 Oct by the review of wt/paid-estimate, outside that change: the paid-run estimate now adds new eval cases at the mean case cost (it estimates the 26 Oct run at $17.39 against an actual $17.43), but the day's-cap guard in lib/relay_paidcap.py still estimates a run from the largest stored batch, so it misses a suite that grew and can start a run that passes the $200 daily cap."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "The 26 Oct records before the $17.43 run: eval_estimate() returns $9.56 (largest full batch), while the suite had",
+        "grown from 15 to 27 cases. With $12 left in the day, the guard lets the run start; the --within-day ceiling then",
+        "stops it at about $12, part-way, instead of refusing it before it starts. The per-case estimate this change adds",
+        "($17.39 for that run) would have refused it."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 179,
+      "pass_cases": [
+        "1. Records of 26 Oct before 01-47-23Z, suite of 27 cases, $12 left of the day's cap: guard eval exits 1 naming an",
+        "   estimate near $17.",
+        "2. Same records, $30 left: guard eval exits 0.",
+        "3. No stored record: the estimate stays 0 and guard eval exits 0 (today's behaviour)."
+      ],
+      "path": "lib/relay_paidcap.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_paid_cap.py GuardEstimate::test_a_grown_suite_is_refused_when_the_room_is_short fails at Q1's since 5911086d and passes at head."
+      ],
+      "severity": "HIGH",
+      "since": "5911086d32585268359d4039889a1a936b37e629",
+      "source": "queue",
+      "summary": "The day's-cap guard (bin/paid-cost guard eval) still\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by replay. The guard is a safety check: it should not let a run start that will pass the day's cap.",
+        "The largest stored batch was conservative except when the suite grew; the per-case sum is a central estimate",
+        "(each case at its newest cost), so it is below the actual cost about half the time. Replay over the 20 stored full",
+        "batches (records before each one, its own case list): new < actual in 10 of 20 (worst: 27 Oct 07-35 by $4.36,",
+        "28 Oct 07-10 by $1.93); old < actual in 5 of 20, all of them suite growth or a new maximum. max(old, new) is below",
+        "actual in 3 of 20 (16-45 23 Oct, 16-31 24 Oct, 07-35 27 Oct). So the change fixes suite growth but loosens the guard",
+        "for every run where the newest batch was cheaper than the largest; SUITE_MARGIN's own comment measures failing runs",
+        "at 1.57x the green ones. The fix hint of the earlier review (\"per-case when it exists, else the largest batch\")",
+        "was followed literally; taking the larger of the two keeps both protections. Size: 15 minutes."
+      ],
+      "evidence": [
+        "python3 bin/paid-cost guard eval --today 2026-10-26 --dir <copy before 01-47-23Z> --repo <27 cases>, spent 188:",
+        "  branch: \"... this run is estimated at $17.39 ...\" rc=1; master: \"... estimated at $15.03 ...\" rc=1; spent 170: rc=0",
+        "replay over stored full batches (actual / old max / new per-case):",
+        "  2026-10-27T07-35-44Z cases 30 actual 21.41 old 17.43 new 17.05 (3 new)",
+        "  2026-10-28T02-07-20Z cases 31 actual 17.61 old 21.41 new 16.61 (0 new)",
+        "  2026-10-28T07-10-29Z cases 31 actual 19.80 old 21.41 new 17.87 (0 new)",
+        "  2026-10-24T16-31-45Z cases 15 actual 9.56 old 9.31 new 8.62 (0 new)"
+      ],
+      "failing_case": [
+        "Real records in ~/.relay/evals/relay before 2026-10-28T07-10-29Z, the 31 cases of that run, $19.00 left of the",
+        "day's cap. Now: the guard estimates $17.87 (each case at its newest stored cost) and lets the run start; it cost",
+        "$19.80, so the --within-day ceiling stops it part-way, the very harm the item set out to remove. Master estimated",
+        "$21.41 (largest batch) and refused it. Should: refuse (an estimate of at least $21.41).",
+        "Same on 2026-10-27T07-35-44Z: new $17.05, old $17.43, actual $21.41."
+      ],
+      "fix_hint": [
+        "est = max(suite[0], relay_paidcap.eval_estimate(home)) if suite else relay_paidcap.eval_estimate(home)",
+        "(home is None in production, the same root default_dir reads); add a test with a stored expensive batch and a",
+        "cheaper newest batch of the same cases, no growth, where the room lies between them: refused."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 241,
+      "pass_cases": [
+        "1. Records before 2026-10-26T01-47-23Z, the 27 cases of that run, $12 left: guard eval exits 1 naming $17.39.",
+        "2. Same records, $30 left: guard eval exits 0.",
+        "3. Records before 2026-10-28T07-10-29Z, its 31 cases, $19 left: guard eval exits 1 (estimate >= $21.41, the largest stored batch).",
+        "4. A suite that did not grow, whose newest batch per case sums below the largest stored batch: the estimate is the largest stored batch.",
+        "5. No stored record: estimate 0, guard eval exits 0."
+      ],
+      "path": "bin/paid-cost",
+      "rank": "medium",
+      "reason": [
+        "tests/test_paid_cap.py:test_a_cheaper_newest_batch_does_not_lower_the_estimate_below_the_largest passes; fails at 72c549a4. bin/paid-cost:241 takes max."
+      ],
+      "severity": "MEDIUM",
+      "since": "72c549a41b183007a843305ae8a787f60d58c4eb",
+      "source": "review-the-day-s-cap-guard-bin-paid-cost-guard.json",
+      "source_id": "F1",
+      "summary": "the guard now takes the per-case estimate instead of the largest stored batch, so it under-estimates 10 of 20 real runs (old: 5) and starts runs the old guard refused",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: uniform costs make mean = max = min, and 9.00 x 27/15 = 16.20 as well. The behaviour is",
+        "right today (the real replay gives $17.39); the test is weak. Size: 5 minutes."
+      ],
+      "evidence": [
+        "tests/test_paid_cap.py:76 runs = [{\"name\": f\"c{i:02d}\", \"arms\": {\"with\": [{\"costUsd\": 0.6}]}} for i in range(cases)]"
+      ],
+      "failing_case": [
+        "Replace suite_estimate's mean with the max case cost, or set est = largest_batch * len(cases) / stored_cases:",
+        "with 15 cases at 0.60 each all give $16.20, and test_a_grown_suite_is_refused_when_the_room_is_short still passes.",
+        "Should: a test whose case costs differ (e.g. 0.40 and 0.80) pins the mean."
+      ],
+      "fix_hint": [
+        "Give the stored cases two different costs and assert the mean-based figure."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 76,
+      "pass_cases": [
+        "1. Stored full batch of 15 cases, 5 at 0.40 and 10 at 0.80 (8.00 total); suite of 27: estimate 8.00 + 12 x 0.6667 = 16.00, named in the refusal.",
+        "2. The same suite with room 17: guard eval exits 0."
+      ],
+      "path": "tests/test_paid_cap.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_paid_cap.py:test_the_estimate_is_the_mean_cost_of_the_stored_cases uses differing costs, asserts $18.00; passes."
+      ],
+      "severity": "LOW",
+      "since": "72c549a41b183007a843305ae8a787f60d58c4eb",
+      "source": "review-the-day-s-cap-guard-bin-paid-cost-guard.json",
+      "source_id": "F2",
+      "summary": "every stored case costs 0.60, so the test cannot tell the mean-cost rule from scaling the largest batch by case count",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Project rule (CLAUDE.local.md, Python): \"Every new or changed function has types\"; the brief",
+        "repeats \"types on new or changed code\". The rule sets no severity; correct today, cheap. Size: 5 minutes."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- bin/paid-cost: hunk @@ -236,7 +236,10 @@ def money_command(a):"
+      ],
+      "failing_case": [
+        "def money_command(a): -- changed by this commit (lines 239-242), no parameter or return type.",
+        "Should: def money_command(a: argparse.Namespace) -> int:"
+      ],
+      "fix_hint": [
+        "Annotate money_command (argparse.Namespace -> int)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 227,
+      "pass_cases": [
+        "1. bin/paid-cost:227 reads def money_command(a: argparse.Namespace) -> int: and the type check of bin/ci --quick stays green."
+      ],
+      "path": "bin/paid-cost",
+      "rank": "low",
+      "reason": [
+        "bin/paid-cost:227 def money_command(a: argparse.Namespace) -> int."
+      ],
+      "severity": "LOW",
+      "since": "72c549a41b183007a843305ae8a787f60d58c4eb",
+      "source": "review-the-day-s-cap-guard-bin-paid-cost-guard.json",
+      "source_id": "F3",
+      "summary": "Python rule (types on new or changed code): money_command was changed and still has no annotations",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "79dea3d81687e25707a143d507508fce9d443f04.gate.log",
+  "head": "1357c8dca4ff69aa198c3f956790d72db9f97548",
+  "item": "the-day-s-cap-guard-bin-paid-cost-guard-eval-sti",
+  "notes": [
+    "Fixer said bin/ci --quick hung locally; the gate log shows green, which is what counts. Case 3 (real records replay) not replayed by fixer; the logic is max(per-case, largest batch), covered by the new test."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 72c549a4..HEAD (fix 79dea3d8 + its gate log). Files: bin/paid-cost, tests/test_paid_cap.py only. Ran GuardEstimate (6 OK). Gate log head 79dea3d8, bin/ci --quick, exit 0; HEAD adds only the log. Tests copied to the commits before the fix and to Q1's since: they fail there."
+  ],
+  "type": "check"
+}

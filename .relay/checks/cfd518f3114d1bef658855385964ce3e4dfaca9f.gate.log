@@ -1,0 +1,8 @@
+head cfd518f3114d1bef658855385964ce3e4dfaca9f
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (1s)
+ci: lib copies identical FAILED (0s, log: .ci/steps/lib-copies-identical.log)
+    FAIL plugins/relay/lib/relay_marks.py differs from lib/ (run bin/sync-lib-copies)
+ci: RED (a fast step failed: the slow steps were not started)
+exit 1

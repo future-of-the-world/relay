@@ -1,0 +1,35 @@
+{
+  "kind": "fix",
+  "ip": 84,
+  "time": 30,
+  "found_at": "2026-10-28T14:53:11Z",
+  "found_in": "finding F2 of check-an-eval-scaffold-overwrote-the-live-rela.json",
+  "title": "Relay doctor does not name a main checkout whose…",
+  "what": [
+    "lib/relay_setup.py:1137: MEDIUM: F2 relay doctor does not name a main checkout whose bin/relay differs from HEAD, which the queue item's What promises"
+  ],
+  "why": [
+    "28 Oct: the main checkout's bin/relay was overwritten by an eval stub and nothing told the front; every relay command broke silently until the front noticed. The stub-guard change kept to the eval scripts, so relay doctor still does not name a main checkout whose bin/relay differs from HEAD."
+  ],
+  "failing_case": [
+    "Main checkout ~/relay with bin/relay replaced by evals/plugin/relay-stub.py (the 28 Oct incident): `relay doctor` prints no line",
+    "about it (the change touches no doctor code). Should: a failing doctor line naming bin/relay in the main checkout as differing",
+    "from HEAD, with the next step (how to restore it, given guard-main refuses `git restore` there)."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. A temporary git repo as the relay checkout, bin/relay committed, then overwritten with other bytes: doctor_parts() returns a",
+    "   failing entry that names bin/relay and says it differs from HEAD.",
+    "2. Same repo with bin/relay equal to HEAD: no failing entry for bin/relay.",
+    "3. Doctor run from a task worktree whose bin/relay differs (a branch editing bin/relay): not flagged; only the main checkout is."
+  ],
+  "where": [
+    "lib/relay_setup.py:1137"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
