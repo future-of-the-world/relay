@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 0,
+  "time": 45,
+  "found_at": "2026-10-28T04:35:00Z",
+  "found_in": "relay queue add",
+  "title": "Precheck misses tests the gate runs differently",
+  "what": [
+    "The worker's quiet check is pytest with -k; the gate runs every library test under plain python3 and the registry test test_rules_gate.RuleTestsComplete. 28 Oct, wf_a74e8dbc-fb9: py-green f8b4fee added tests importing pytest (ModuleNotFoundError under the gate); doctor-exit 4ba4199 made tests.test_setup.Setup read the rules folder without listing it in relay_textonly.RULE_TESTS. `relay precheck` was green on both; the gate went red: about 118 lane minutes and $0.29 of fixers."
+  ],
+  "why": [
+    "Twice in one run, two shapes, one rule (principle 6): the quiet check runs changed tests with another runner and a narrower set than the gate."
+  ],
+  "failing_case": [
+    "`relay precheck` on f8b4fee or 4ba4199 is green; the gate on them is red."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "relay precheck runs the test files changed on the branch under plain python3 (the gate's runner) and RuleTestsComplete, and is red on both shas with the gate's message.",
+    "A branch that changes no test file adds under 5 s to precheck.",
+    "A changed test that passes keeps precheck green; one too slow for STEP_TIMEOUT is a red line, not a skip."
+  ],
+  "where": [
+    "lib/relay_precheck.py (STEPS, docstring)",
+    "tests/test_precheck*.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
