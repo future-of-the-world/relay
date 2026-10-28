@@ -29,6 +29,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-28T04:22:12Z",
+  "dropped_why": [
+    "Does not reproduce on master of 28 Oct (worker report, wt/flow-orders): every conflict the item lists is gone. apply-review, parallel-apply and openspec-apply-orchestrator no longer exist (sdd became plugins/openspec); the delegate skill alone rules models (no `model:` except on `Escalated:`); max agents is one setting, `[delegate] max_parallel`; only `kit packet` remains; plan section 2 says repo first; only rules/front.md mentions /clear, to forbid it; plugins/delegate/hooks/route-guard.py enforces the delegate skill before the first agent; no skill assigns the wave check to the coordinator."
+  ]
 }
