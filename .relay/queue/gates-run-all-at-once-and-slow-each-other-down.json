@@ -28,8 +28,9 @@
   ],
   "taken_at": "2026-10-27T15:19:04Z",
   "taken_by": "wt/gate-slots",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T02:47:06Z",
+  "test": "tests/test_gate_slots.py::Slots::test_with_one_slot_a_second_gate_waits_until_the_first_exits",
+  "fixed_by": "68e5b215cbe7c30e5ff2994ed7ce5e1e2d63a0ff",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
