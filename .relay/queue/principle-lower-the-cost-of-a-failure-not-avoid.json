@@ -233,6 +233,16 @@
         "a. Оставить проверку после взятия master; её ждёт программа, а не агент, изменения попадают в master по одному (рекомендую: master всегда проверен, меньше частей, ночью как 27-28 Oct экономия около 146 минут агентов; цена — отмена «изменения не ждут» из вашего решения 06:34).",
         "b. Убрать её; master проверяется, только когда последнее изменение не проверено.",
         "c. Убрать её; плановая проверка master каждые 30 минут (вторая редакция, ближе всего к решению 06:34)."
+      ],
+      "answered_at": "2026-10-28T05:03:55Z",
+      "answer": [
+        "Хорошо, давай просто возьмем",
+        "a. Gate после взятия master, без агента",
+        "",
+        "И спустя время сравним показатели на реальном примере"
+      ],
+      "reading": [
+        "a: keep the gate after a branch takes master, run by a program (relay land), not by an agent; a take that brings only inert records needs no gate; waiting landings ride one train; one landing at a time. After some time compare the measures on real data against the 24-28 Oct baseline."
       ]
     },
     {
