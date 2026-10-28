@@ -90,6 +90,12 @@
       "reading": [
         "Question 2: a, keep loading the live plugins from master; no last-green copy. The owner notes that an install puts relay into .relay/src, which is in effect the release and will follow the GitHub release, at least several days away, so nothing changes now. Question 1 is not answered: the owner asks what a landing wait is and how B lowers the cost; to be explained and asked again."
       ]
+    },
+    {
+      "at": "2026-10-28T02:37:05Z",
+      "said": [
+        "Да, ты понял верно, gate на branch остаётся"
+      ]
     }
   ]
 }
