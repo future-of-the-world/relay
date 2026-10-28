@@ -65,6 +65,15 @@
       "options": [
         "a. Оставить master живой копией; без посадки до проверки (рекомендую: B даёт измеренный выигрыш и без этого)",
         "b. Построить копию «последний зелёный», потом решать о посадке до проверки"
+      ],
+      "answered_at": "2026-10-28T02:26:08Z",
+      "answer": [
+        "Не понял что значат ожидания посадки, я лишь понимаю что твоя рекомендация ведет к снижению издержек, мне это нравится но я не до конца понимаю каким способом это достигается",
+        "",
+        "Загружай из master как и сейчас, при установке relay загружается в .relay/src, это фактически релиз и он будет зависеть от того что будет в самом релизе на github, но до этого ещё как минимум несколько дней так что не меняем"
+      ],
+      "reading": [
+        "Question 2: a, keep loading the live plugins from master; no last-green copy. The owner notes that an install puts relay into .relay/src, which is in effect the release and will follow the GitHub release, at least several days away, so nothing changes now. Question 1 is not answered: the owner asks what a landing wait is and how B lowers the cost; to be explained and asked again."
       ]
     }
   ]
