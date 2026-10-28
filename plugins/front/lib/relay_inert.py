@@ -6,6 +6,8 @@ or more). `changed()` lists what changed since a commit and is not inert: it is 
 With `own=True` it leaves out the files that only the default branch changed (design section 7.2).
 """
 
+from __future__ import annotations
+
 import re
 import subprocess
 

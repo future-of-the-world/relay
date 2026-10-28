@@ -8,7 +8,6 @@ import subprocess
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
-from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
