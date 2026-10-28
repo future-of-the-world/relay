@@ -35,8 +35,8 @@ command per step, not one per probe). Three or more probing commands in a row
 (greps, reads, status checks) go to a scout or runner with one brief. The
 gate, review, fix and check run in the cycle workflow; taking the default branch
 and the merge-check record go to one runner in one brief, not to a string of
-your own commands. `relay report` shows your requests per owner turn and flags a session above
-the target.
+your own commands. `relay report` shows your requests per owner turn and the main sessions'
+share of the cost, with no target.
 
 ## Claims that did not reproduce
 

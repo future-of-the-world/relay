@@ -36,13 +36,8 @@ def classify(agent_type):
     return "other"
 
 
-# Owner decision 24 Oct: the front keeps Opus and saves on request count. The target value is NOT decided: in relay's own
-# unit (requests by message id) the session the item names, 0cc68fe0, made 534 requests over 47 owner turns, 11.4 per
-# turn; over 30 days no measure of front requests, tool calls or context per turn separates it from typical sessions
-# (median 9.8 requests per turn, 90th percentile 25.4). 15 is a placeholder from the item's wrong basis (952 transcript
-# lines / 40), kept until the owner picks; see the fact note on the-front-runs-many-small-commands-itself.
-FRONT_REQUESTS_PER_TURN_TARGET = 15
-
+# Owner decision 24 Oct / 28 Oct: the front keeps Opus; numbers only, no flag and no target. Overspending is relative: the
+# figure to watch is the main sessions' share of the cost and their requests per owner turn, expected to fall over time.
 
 def _front_mains(data: dict[str, Any]) -> list[Any]:
     """Main sessions the owner talked to: a program-started (headless, eval, bench) session is no front, and its
@@ -366,6 +361,10 @@ def totals(data: dict[str, Any]) -> dict[str, Any]:
         "user_turns": sum(m.user_turns for m in mains),
         "front_requests": sum(m.total.requests for m in _front_mains(data)),
         "front_tool_calls": sum(sum(m.tools.values()) for m in _front_mains(data)),
+        # interactive sessions only (a scripted run is no front): main cost and main + agents cost, transcript estimates
+        "front_cost": sum(s["main"].total.cost for s in data["sessions"] if not s["main"].scripted),
+        "interactive_cost": sum(s["main"].total.cost + sum(a.total.cost for a in s["agents"])
+                                for s in data["sessions"] if not s["main"].scripted),
         "scripted_sessions": sum(1 for m in mains if m.scripted),
         "reply_chars": sum(m.reply_chars for m in mains),
         "prompt_chars": sum(m.prompt_chars for m in mains),
@@ -425,11 +424,11 @@ def report(data: dict[str, Any], title: str = "Usage") -> str:
         lines.append(f"Per turn of yours: {_money(grand / t['user_turns'])}; "
                      f"reply length {t['reply_chars'] // t['user_turns']:,} characters on average; "
                      f"your prompts {t['prompt_chars'] // t['user_turns']:,} characters on average, {t['long_prompts']} over 600")
-        flag = ""
-        if t["front_requests"] / t["user_turns"] > FRONT_REQUESTS_PER_TURN_TARGET:
-            flag = f" - ABOVE the target of {FRONT_REQUESTS_PER_TURN_TARGET}: the front runs too many small steps itself"
         lines.append(f"Front (main session) per turn of yours: {t['front_requests'] / t['user_turns']:.1f} requests, "
-                     f"{t['front_tool_calls'] / t['user_turns']:.1f} tool calls (target {FRONT_REQUESTS_PER_TURN_TARGET} requests){flag}")
+                     f"{t['front_tool_calls'] / t['user_turns']:.1f} tool calls")
+    if t["interactive_cost"]:
+        lines.append(f"Main sessions' share of cost: {t['front_cost'] / t['interactive_cost'] * 100:.0f}% "
+                     f"({_money(t['front_cost'])} of {_money(t['interactive_cost'])}, interactive sessions and their agents)")
     lines.append(f"Compactions: {t['compactions']}")
     lines.append("")
     lines.append("## By model")
@@ -554,19 +553,6 @@ def findings(data: dict[str, Any]) -> list[dict[str, Any]]:
                 "evidence": f"{avg:,.0f} characters per turn on average (target under 1,500)", "saving_usd": 0.0,
                 "lever": "rules/front.md: one screen per reply; detail goes to a report file the user can open",
             })
-    # F10: the front runs many small steps itself (each request re-reads the whole context)
-    if turns:
-        fronts = _front_mains(data)
-        per_turn = sum(m.total.requests for m in fronts) / turns
-        if per_turn > FRONT_REQUESTS_PER_TURN_TARGET:
-            tools = sum(sum(m.tools.values()) for m in fronts) / turns
-            out.append({
-                "id": "F10", "title": "The front runs many small steps itself",
-                "evidence": f"{per_turn:.1f} front requests and {tools:.1f} tool calls per turn of yours "
-                            f"(target {FRONT_REQUESTS_PER_TURN_TARGET} requests)",
-                "saving_usd": 0.0,
-                "lever": "rules/delegation.md: batch what the front runs into one call; hand 3+ probing commands to a scout or runner",
-            })
     # F9: long prompts from the owner: what repeats belongs in the setup
     if turns:
         avg_prompt = sum(m.prompt_chars for m in mains) / turns
@@ -609,6 +595,8 @@ def compare(a: dict[str, Any], b: dict[str, Any], label_a: str = "A", label_b: s
         row("reply chars per turn", lambda t: t["reply_chars"] / max(t["user_turns"], 1), lambda t: t["reply_chars"] / max(t["user_turns"], 1), lambda x: f"{x:,.0f}"),
         row("your prompt chars per turn", lambda t: t["prompt_chars"] / max(t["user_turns"], 1), lambda t: t["prompt_chars"] / max(t["user_turns"], 1), lambda x: f"{x:,.0f}"),
         row("prompts over 600 chars", lambda t: t["long_prompts"], lambda t: t["long_prompts"], str),
+        row("main sessions' share of cost %", lambda t: t["front_cost"] / max(t["interactive_cost"], 1e-9) * 100,
+            lambda t: t["front_cost"] / max(t["interactive_cost"], 1e-9) * 100, lambda x: f"{x:.0f}"),
         row("front requests per turn", lambda t: t["front_requests"] / max(t["user_turns"], 1),
             lambda t: t["front_requests"] / max(t["user_turns"], 1), lambda x: f"{x:,.1f}"),
         row("front tool calls per turn", lambda t: t["front_tool_calls"] / max(t["user_turns"], 1),

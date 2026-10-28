@@ -54,9 +54,9 @@ class Analysis(Base):
         f1 = next(f for f in relay_analyze.findings(data) if f["id"] == "F1")
         self.assertGreater(f1["saving_usd"], 0)
 
-    def write_front_session(self, requests: int, turns: int, name: str = "sf", scripted: bool = False) -> dt.datetime:
+    def write_front_session(self, requests: int, turns: int, name: str = "sf", scripted: bool = False, day: int = 18) -> dt.datetime:
         """A main session of `turns` owner turns with `requests` front requests, each with one Bash call."""
-        base = dt.datetime(2026, 10, 18, 9, 0, tzinfo=dt.timezone.utc)
+        base = dt.datetime(2026, 10, day, 9, 0, tzinfo=dt.timezone.utc)
         folder = os.path.join(self.claude, "projects", "p")
         os.makedirs(folder, exist_ok=True)
         lines = [fixtures.user(fixtures._ts(base, t), f"ask {t}") for t in range(turns)]
@@ -70,49 +70,87 @@ class Analysis(Base):
                 handle.write(json.dumps(line) + "\n")
         return base
 
-    def test_front_requests_per_turn_are_reported_and_flagged_over_the_target(self):
+    def collect_all(self, base):
         import relay_analyze
-        # 2 turns, 40 requests, 40 Bash calls: 20 requests and 20 tool calls per turn; 20 > the target of 15
-        base = self.write_front_session(40, 2)
-        window = (base - dt.timedelta(days=1), base + dt.timedelta(days=1))
-        data = relay_analyze.collect(self.claude, *window)
+        return relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
+
+    def test_front_requests_per_turn_are_reported_without_a_flag(self):
+        import relay_analyze
+        # 2 turns, 40 requests, 40 Bash calls: 40 / 2 = 20 requests and 20 tool calls per turn of the owner
+        data = self.collect_all(self.write_front_session(40, 2))
         text = relay_analyze.report(data)
         self.assertIn("20.0 requests, 20.0 tool calls", text)
-        self.assertIn("ABOVE the target", text)
-        f10 = [f for f in relay_analyze.findings(data) if f["id"] == "F10"]
-        self.assertEqual(len(f10), 1)
-        self.assertIn("20.0 front requests", f10[0]["evidence"])
+        # numbers only (owner, 28 Oct): no target, no flag, no finding
+        for word in ("target", "ABOVE", "F10"):
+            self.assertNotIn(word, text)
+        self.assertNotIn("F10", {f["id"] for f in relay_analyze.findings(data)})
         self.assertIn("front requests per turn", relay_analyze.compare(data, data))
 
-    def test_front_within_the_target_is_not_flagged(self):
+    def test_requests_split_over_two_lines_count_once_per_turn(self):
         import relay_analyze
-        # 2 turns, 20 requests: 10 per turn, under 15
-        base = self.write_front_session(20, 2)
-        data = relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
-        text = relay_analyze.report(data)
-        self.assertIn("10.0 requests", text)
-        self.assertNotIn("ABOVE the target", text)
-        self.assertNotIn("F10", {f["id"] for f in relay_analyze.findings(data)})
+        # Claude Code writes one line per content block; 6 requests as 12 lines with 6 ids, 3 turns: 6 / 3 = 2.0 per turn
+        base = dt.datetime(2026, 10, 18, 9, 0, tzinfo=dt.timezone.utc)
+        folder = os.path.join(self.claude, "projects", "p")
+        os.makedirs(folder)
+        lines = [fixtures.user(fixtures._ts(base, t), f"ask {t}") for t in range(3)]
+        for i in range(6):
+            for part in range(2):
+                lines.append(fixtures.assistant(fixtures._ts(base, 1 + i * 0.01 + part * 0.001), "claude-opus-5",
+                                                1000, 0, 10, f"r{i}"))
+        with open(os.path.join(folder, "split.jsonl"), "w") as handle:
+            for line in lines:
+                line["sessionId"] = "split"
+                handle.write(json.dumps(line) + "\n")
+        text = relay_analyze.report(self.collect_all(base))
+        self.assertIn("2.0 requests", text)
+
+    def test_main_sessions_share_of_cost_is_reported(self):
+        import re
+        import relay_analyze
+        # a session with agents: the main share and the agents share (existing line) cover the same total
+        base = fixtures.populate(self.claude)
+        text = relay_analyze.report(self.collect_all(base))
+        share = int(re.search(r"Main sessions' share of cost: (\d+)%", text).group(1))
+        agents = int(re.search(r"\((\d+)% agents\)", text).group(1))
+        self.assertGreater(agents, 0)
+        self.assertLess(share, 100)
+        self.assertEqual(share + agents, 100)   # same denominator, main + agents
+
+    def test_share_of_cost_leaves_scripted_sessions_out(self):
+        import relay_analyze
+        # interactive front alone is 100% of its own cost; a big scripted run must not dilute it (it would give < 100%)
+        base = self.write_front_session(10, 2)
+        self.write_front_session(200, 3, name="bench", scripted=True)
+        text = relay_analyze.report(self.collect_all(base))
+        self.assertIn("Main sessions' share of cost: 100%", text)
+
+    def test_compare_shows_share_and_requests_per_turn_for_both_periods(self):
+        import relay_analyze
+        # period A: 20 requests / 2 turns = 10.0; period B (later day): 60 / 2 = 30.0
+        base = self.write_front_session(20, 2, name="a")
+        later = self.write_front_session(60, 2, name="b", day=19)
+        a = relay_analyze.collect(self.claude, base - dt.timedelta(hours=1), base + dt.timedelta(hours=12))
+        b = relay_analyze.collect(self.claude, later - dt.timedelta(hours=1), later + dt.timedelta(hours=12))
+        rows = {l.split("  ")[0].strip(): l for l in relay_analyze.compare(a, b, "old", "new").splitlines()}
+        self.assertRegex(rows["front requests per turn"], r"10\.0\s+30\.0\s+\+20\.0")
+        self.assertRegex(rows["main sessions' share of cost %"], r"100\s+100\s+\+0")
 
     def test_scripted_sessions_do_not_count_as_the_front(self):
         import relay_analyze
-        # interactive: 10 turns, 100 requests = 10.0 per turn (under 15); a scripted run of 80 requests has its turns
-        # zeroed, so counting its requests would give 180 / 10 = 18.0 per turn and a false flag
+        # interactive: 10 turns, 100 requests = 10.0 per turn; a scripted run of 80 requests has its turns zeroed,
+        # so counting its requests would give 180 / 10 = 18.0 per turn
         base = self.write_front_session(100, 10)
         self.write_front_session(80, 3, name="bench", scripted=True)
-        data = relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
-        text = relay_analyze.report(data)
-        self.assertIn("10.0 requests", text)
-        self.assertNotIn("ABOVE the target", text)
-        self.assertNotIn("F10", {f["id"] for f in relay_analyze.findings(data)})
+        data = self.collect_all(base)
+        self.assertIn("10.0 requests", relay_analyze.report(data))
         self.assertEqual(relay_analyze.totals(data)["front_requests"], 100)
 
     def test_only_scripted_sessions_have_no_front_line(self):
         import relay_analyze
         base = self.write_front_session(80, 3, name="bench", scripted=True)
-        data = relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))
-        self.assertNotIn("Front (main session)", relay_analyze.report(data))
-        self.assertNotIn("F10", {f["id"] for f in relay_analyze.findings(data)})
+        text = relay_analyze.report(self.collect_all(base))
+        self.assertNotIn("Front (main session)", text)
+        self.assertNotIn("Main sessions' share", text)
 
     def test_compare_two_periods(self):
         import relay_analyze

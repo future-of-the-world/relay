@@ -24,8 +24,8 @@ does not need; and the big model only where judgment is what is being bought.
   and check run in the cycle workflow; taking the default branch and the
   merge-check record go to one runner in one brief, not to a string of front
   commands. Each front request re-reads the whole context (measured: 534
-  requests at ~170k tokens, 11.4 per owner turn, in one session); `relay report` shows front requests per turn
-  of the owner against a target and flags a session above it.
+  requests at ~170k tokens, 11.4 per owner turn, in one session); `relay report` shows the main sessions' share of
+  the cost and front requests per turn of the owner, with no target (`--compare` shows the trend).
 - A question from the owner about a new mechanism (a field, a command, a
   step: "can we", "would X help", "how should we") is not answered inline:
   it goes to the design track. A `thinker` gets the owner's words verbatim and
