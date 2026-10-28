@@ -205,6 +205,15 @@
         "a. Не останавливать, сообщить после 4 ч (рекомендую: ваше решение остаётся в силе, release защищает сессии; предел задаёт настройка `red_master_notice_hours`, от 1 до 24).",
         "b. После 4 ч пускать только fix.",
         "c. Не останавливать и не сообщать."
+      ],
+      "answered_at": "2026-10-28T05:05:53Z",
+      "answer": [
+        "Вашего ответа ждёт один вопрос: что делать при долго красном платном прогоне. Рекомендую запускать платный прогон на train изменений текстов до посадки.",
+        "",
+        "Актуален ли этот вопрос сейчас ? Остались ли у тебя ещё вопросы ?"
+      ],
+      "reading": [
+        "Not answered; deferred. The owner asks whether the question matters now. It does not yet: the release (everything in $RELAY_HOME/src, moving only on green) is not built, so sessions still load master and a red paid run is handled as today (one fix item at the top). The question becomes real when the release is built: then a long red paid run freezes the release for development too. Ask it again, in full, when the release build starts; the recommendation stays a (paid run on the train of text changes before landing)."
       ]
     },
     {
@@ -314,6 +323,15 @@
         "b. Не останавливать, сообщить один раз после 4 ч (достаточно, если во втором вопросе выбран b или c; срок задаёт настройка `red_master_notice_hours`, от 1 до 24).",
         "c. Откатывать виновное изменение текста через N ч, как Chromium.",
         "d. Как сейчас, без сообщения."
+      ],
+      "answered_at": "2026-10-28T05:05:53Z",
+      "answer": [
+        "Вашего ответа ждёт один вопрос: что делать при долго красном платном прогоне. Рекомендую запускать платный прогон на train изменений текстов до посадки.",
+        "",
+        "Актуален ли этот вопрос сейчас ? Остались ли у тебя ещё вопросы ?"
+      ],
+      "reading": [
+        "Not answered; deferred. The owner asks whether the question matters now. It does not yet: the release (everything in $RELAY_HOME/src, moving only on green) is not built, so sessions still load master and a red paid run is handled as today (one fix item at the top). The question becomes real when the release is built: then a long red paid run freezes the release for development too. Ask it again, in full, when the release build starts; the recommendation stays a (paid run on the train of text changes before landing)."
       ]
     },
     {
