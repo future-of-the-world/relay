@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 0,
+  "time": 15,
+  "found_at": "2026-10-28T02:43:10Z",
+  "found_in": "relay queue add",
+  "title": "Evidence refusal asks for a merge an ff landing lacks",
+  "what": [
+    "28 Oct: closing questions-to-the-owner-carry-no-number after its fast-forward landing, `relay queue done --evidence` refused master's head cd0eebf (a merge of master into the branch), db0fa6d (gate log) and 079efa6 (the branch's merge of the rename) with \"changes only inert files (queue, checks, handover): name the merge of the change\". A fast-forward landing has no merge of the change on master; only fe49577, a plain commit of the branch's code, was accepted. 079efa6 brought 138 files of the rename, so \"only inert files\" is also wrong for it (it seems compared with the wrong parent)."
+  ],
+  "why": [
+    "The front paid 4 attempts to find an accepted sha; every landing in relay is a fast-forward, so the hint never fits."
+  ],
+  "failing_case": [
+    "After a fast-forward landing, `relay queue done <slug> --evidence $(git rev-parse master)` refuses and names a merge that does not exist."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "After a fast-forward landing, master's head (or the branch head) is accepted as evidence when the range it closes carries non-inert changes of the change.",
+    "A refusal names a sha that would be accepted (for example the last non-inert commit of the change) instead of \"the merge of the change\"."
+  ],
+  "where": [
+    "lib/relay_queue.py (done --evidence)",
+    "plugins/relay/lib/relay_queue.py (copy)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
