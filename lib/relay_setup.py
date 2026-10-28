@@ -1229,12 +1229,15 @@ def leftover_plugin_folders(code_root: str | None = None) -> list[str]:
     """Folders under plugins/ that the marketplace does not list (a renamed plugin's old folder, kept untracked in an old checkout)."""
     base = os.path.join(code_root or ROOT, "plugins")
     listed = set(marketplace()[1])
-    return sorted(os.path.join(base, n) for n in os.listdir(base) if os.path.isdir(os.path.join(base, n)) and n not in listed)
+    def only_ignored(folder: str) -> bool:   # git tracks nothing in it and shows nothing untracked: removing it loses no work
+        return (_git_out(base, "ls-files", "--", folder) == "" and _git_out(base, "status", "--porcelain", "--", folder) == "")
+    return sorted(os.path.join(base, n) for n in os.listdir(base)
+                  if os.path.isdir(os.path.join(base, n)) and n not in listed and only_ignored(n))
 
 
 def unshipped_installs():
     """One line per project-scope install of a relay plugin the marketplace no longer ships (a rename or a removal)."""
-    shipped = set(os.listdir(os.path.join(ROOT, "plugins")))
+    shipped = set(marketplace()[1])
     reg = read_json(os.path.join(claude_dir(), "plugins", "installed_plugins.json")).get("plugins", {})
     lines = [f"{key} installed at user scope under the old marketplace name: claude plugin uninstall {key} --scope user" for key in pre_rename_leftovers()[0]]
     for key, entries in sorted(reg.items()):

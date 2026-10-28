@@ -338,12 +338,19 @@ class Ci:
     def grader_tests(self, log: TextIO) -> int:
         return self.run(["bash", "evals/plugin/graders.test.sh"], log).returncode
 
+    def tracks_something(self, folder: str) -> bool:
+        """False only when git answers and tracks no file in `folder` (a renamed plugin's old folder holding ignored files);
+        when git cannot answer the folder is kept, so it is still validated."""
+        run = self.run(["git", "ls-files", "--", os.path.relpath(folder, self.root)], capture=True)
+        return run.returncode != 0 or bool((run.stdout or "").strip())
+
     def validate_all(self, log: TextIO) -> int:
         if self.which("claude") is None:
             log.write("skipped: claude is not on PATH (install Claude Code to validate plugins)\n")
             return 0
         rc = 0
-        dirs = ["."] + [os.path.relpath(d, self.root) + "/" for d in sorted(glob.glob(self.path("plugins", "*/")))]
+        dirs = ["."] + [os.path.relpath(d, self.root) + "/" for d in sorted(glob.glob(self.path("plugins", "*/")))
+                        if self.tracks_something(d)]
         for d in dirs:
             log.write("--- %s\n" % d)
             if self.run(["claude", "plugin", "validate", d], log).returncode != 0:

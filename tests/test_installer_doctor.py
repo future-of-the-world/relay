@@ -3,6 +3,7 @@
 Every tool is a fake script on a temp PATH and every folder a temp folder; nothing is installed, and the real
 PATH, HOME and relay settings are put back after each test.
 """
+import json
 import os
 import shutil
 import hashlib
@@ -10,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from typing import Any
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -397,12 +399,52 @@ class BrokenAndMissing(InstallScript):
 class LeftoverPluginFolder(Fakes):
     """A renamed plugin's old folder (28 Oct: plugins/core) is named by doctor, with the command that removes it, and git ignores its node_modules."""
 
-    def test_a_folder_the_marketplace_does_not_list_is_a_leftover(self) -> None:
+    def repo(self, tmp: str, tracked: tuple[str, ...] = ("relay", "front")) -> None:
+        """A git repo with `plugins/<n>/.claude-plugin/plugin.json` committed for each tracked name."""
+        env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+        os.environ["PATH"] += os.pathsep + os.path.dirname(GIT)   # Fakes narrowed PATH; relay_setup runs `git` by name (restored in tearDown)
+        subprocess.run([GIT, "-C", tmp, "init", "-q"], check=True, env=env)
+        with open(os.path.join(tmp, ".gitignore"), "w") as f:
+            f.write("__pycache__/\nnode_modules/\n")
+        for n in tracked:
+            os.makedirs(os.path.join(tmp, "plugins", n, ".claude-plugin"))
+            open(os.path.join(tmp, "plugins", n, ".claude-plugin", "plugin.json"), "w").close()
+        subprocess.run([GIT, "-C", tmp, "add", "-A"], check=True, env=env)
+        subprocess.run([GIT, "-C", tmp, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"], check=True, env=env)
+
+    def test_a_folder_holding_only_ignored_files_the_marketplace_does_not_list_is_a_leftover(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            for name in ("relay", "core", "front"):
-                os.makedirs(os.path.join(tmp, "plugins", name))
-            # the real marketplace lists relay and front but not core, so only core is left over
+            self.repo(tmp)
+            os.makedirs(os.path.join(tmp, "plugins", "core", "lib", "__pycache__"))
+            open(os.path.join(tmp, "plugins", "core", "lib", "__pycache__", "x.pyc"), "w").close()
+            # the real marketplace lists relay and front but not core; core holds only ignored files
             self.assertEqual(relay_setup.leftover_plugin_folders(tmp), [os.path.join(tmp, "plugins", "core")])
+
+    def test_an_unlisted_folder_with_untracked_work_is_not_named_for_removal(self) -> None:
+        # F4: a plugin being built (untracked plugin.json, not in the marketplace yet) must not get an rm -rf line
+        with tempfile.TemporaryDirectory() as tmp:
+            self.repo(tmp)
+            os.makedirs(os.path.join(tmp, "plugins", "newp", ".claude-plugin"))
+            open(os.path.join(tmp, "plugins", "newp", ".claude-plugin", "plugin.json"), "w").close()
+            self.assertEqual(relay_setup.leftover_plugin_folders(tmp), [])
+
+    def test_a_stale_install_is_listed_although_the_leftover_folder_exists(self) -> None:
+        # F3: "shipped" is the marketplace's list, not the folders on disk; core@relay is not shipped though plugins/core exists
+        claude = os.path.join(self.tmp, "claude")
+        os.makedirs(os.path.join(claude, "plugins"))
+        with open(os.path.join(claude, "plugins", "installed_plugins.json"), "w") as f:
+            json.dump({"plugins": {"core@amidman": [{"scope": "project", "projectPath": "/p"}],
+                                   "relay@amidman": [{"scope": "project", "projectPath": "/q"}]}}, f)
+        saved = (relay_setup.ROOT, relay_setup.claude_dir)
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "plugins", "core"))
+            os.makedirs(os.path.join(tmp, "plugins", "relay"))
+            relay_setup.ROOT, relay_setup.claude_dir = tmp, lambda: claude
+            try:
+                lines = relay_setup.unshipped_installs()
+            finally:
+                relay_setup.ROOT, relay_setup.claude_dir = saved
+        self.assertEqual(lines, ["core@amidman installed for /p: run relay setup /p"])
 
     def test_doctor_names_the_leftover_and_the_command_that_removes_it(self) -> None:
         self.fakes()
@@ -431,3 +473,54 @@ class LeftoverPluginFolder(Fakes):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ValidateSkipsLeftover(unittest.TestCase):
+    """F1: the gate's plugin validate step skips a plugin folder in which git tracks nothing (the renamed plugin's old folder)."""
+
+    def run_validate(self, extra_untracked: dict[str, bool], broken_tracked: bool = False) -> tuple[int, list[str]]:
+        import relay_ci
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+            root = os.path.join(tmp, "repo")
+            os.makedirs(os.path.join(root, ".claude-plugin"))
+            open(os.path.join(root, ".claude-plugin", "marketplace.json"), "w").close()
+            os.makedirs(os.path.join(root, "plugins", "relay", ".claude-plugin"))
+            open(os.path.join(root, "plugins", "relay", ".claude-plugin", "plugin.json"), "w").close()
+            if broken_tracked:
+                os.makedirs(os.path.join(root, "plugins", "broken"))
+                open(os.path.join(root, "plugins", "broken", "x.txt"), "w").close()
+            subprocess.run([GIT, "-C", root, "init", "-q"], check=True, env=env)
+            subprocess.run([GIT, "-C", root, "add", "-A"], check=True, env=env)
+            subprocess.run([GIT, "-C", root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"], check=True, env=env)
+            for n in extra_untracked:
+                os.makedirs(os.path.join(root, "plugins", n, "lib", "__pycache__"))
+                open(os.path.join(root, "plugins", n, "lib", "__pycache__", "x.pyc"), "w").close()
+            calls: list[str] = []
+
+            def runner(argv: list[str], **kw: Any) -> subprocess.CompletedProcess[Any]:
+                if argv[0] == "claude":
+                    calls.append(argv[3])
+                    # a fake validator: a folder is valid when it holds a manifest
+                    ok = os.path.exists(os.path.join(root, argv[3], ".claude-plugin"))
+                    return subprocess.CompletedProcess(argv, 0 if ok else 1)
+                return subprocess.run(argv, **kw)
+
+            bindir = os.path.join(tmp, "bin")
+            os.makedirs(bindir)
+            fake = os.path.join(bindir, "claude")
+            open(fake, "w").close()
+            os.chmod(fake, 0o755)
+            ci = relay_ci.Ci(root, quick=True, env={**env, "PATH": bindir + os.pathsep + os.path.dirname(GIT)}, runner=runner)
+            with open(os.path.join(tmp, "log"), "w") as log:
+                return ci.validate_all(log), calls
+
+    def test_a_folder_git_tracks_nothing_in_is_not_validated(self) -> None:
+        rc, calls = self.run_validate({"core": True})
+        self.assertEqual(calls, [".", "plugins/relay/"])
+        self.assertEqual(rc, 0)
+
+    def test_a_tracked_broken_plugin_is_still_validated_and_fails(self) -> None:
+        rc, calls = self.run_validate({}, broken_tracked=True)
+        self.assertEqual(calls, [".", "plugins/broken/", "plugins/relay/"])
+        self.assertEqual(rc, 1)
