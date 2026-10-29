@@ -22,8 +22,8 @@
     "tests/test_merge_train.py (ATrainChecksItsRidersClosedItems.test_the_checker_on_the_train_can_name_the_item_it_checks)",
     "lib/relay_verdict.py (VerdictError 'the worktree is not on a branch')"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T04:49:15Z",
+  "taken_by": "wt/a-train-test-fails-in-the-inert-probe-ru",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
