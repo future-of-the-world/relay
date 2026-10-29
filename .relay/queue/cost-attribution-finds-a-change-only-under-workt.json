@@ -26,8 +26,8 @@
   "where": [
     "lib/relay_estimate.py:19"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T16:52:00Z",
+  "taken_by": "wt/cost-attribution-finds-a-change-only-und",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
