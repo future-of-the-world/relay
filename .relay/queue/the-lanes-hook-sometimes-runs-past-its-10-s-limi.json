@@ -25,8 +25,8 @@
     "plugins/front/hooks/hooks.json",
     "tests/test_lanes.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T11:56:54Z",
+  "taken_by": "wt/the-lanes-hook-sometimes-runs-past-its-1",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
