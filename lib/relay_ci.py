@@ -489,6 +489,22 @@ class Ci:
         return self.status
 
 
+def python_problem(root: str, running: tuple[int, int, int] | None = None) -> str | None:
+    """A refusal line when the python running the gate is not the one deps.toml pins (exact python3 entry), else None."""
+    import tomllib
+    with open(os.path.join(root, "deps.toml"), "rb") as handle:
+        entries = tomllib.load(handle).get("dep", [])
+    pins = [d for d in entries if d.get("name") == "python3" and d.get("exact") is True and isinstance(d.get("min"), str)]
+    if not pins:
+        return None
+    want = pins[0]["min"]
+    have = running or (sys.version_info[0], sys.version_info[1], sys.version_info[2])
+    if ".".join(map(str, have)) == want:
+        return None
+    return ("ci: python3 is %s but relay pins %s (deps.toml): put python %s first on PATH (uv python install %s), then run bin/ci again"
+            % (".".join(map(str, have)), want, want, want))
+
+
 def _read_lines_keep(path: str) -> list[str]:
     with open(path, encoding="utf-8", errors="replace") as handle:
         return handle.readlines()
@@ -507,6 +523,10 @@ def main(argv: list[str], root: str | None = None) -> int:
         else:
             print("usage: bin/ci [--quick]", file=sys.stderr)
             return 2
+    problem = python_problem(root)
+    if problem:
+        print(problem, file=sys.stderr)
+        return 1
     # a stopped gate leaves through an exception, so the probe is stopped and its worktree removed
     for sig in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, _raise_exit)

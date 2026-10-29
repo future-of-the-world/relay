@@ -1,0 +1,18 @@
+# A clean Linux image for relay's quick gate: the pinned python and the tools of deps.toml, no relay or Claude settings.
+# Build from the repository root, run the gate on a fresh clone (nothing of the host is mounted):
+#   podman build -f container/Containerfile -t relay-clean-gate .
+#   podman run --rm -v "$PWD:/src:ro" relay-clean-gate sh -c 'git clone -q /src /work/relay && cd /work/relay && git checkout -q <commit> && bin/ci --quick'
+# The python tag must equal the python3 pin in deps.toml (bin/ci refuses another python3).
+FROM docker.io/library/python:3.14.6-slim
+# git, bash, curl, unzip: what the installers need; procps: ps, which a slim image lacks (deps.toml lists it)
+RUN apt-get update && apt-get install -y --no-install-recommends git bash curl ca-certificates unzip jq procps \
+    && rm -rf /var/lib/apt/lists/*
+RUN useradd --create-home --shell /bin/bash dev
+USER dev
+ENV HOME=/home/dev PATH=/home/dev/.local/bin:/home/dev/.bun/bin:$PATH
+RUN git config --global user.name probe && git config --global user.email probe@example.invalid
+# the rest of deps.toml (uv, ruff, mypy, pytest, bun, claude) is installed by relay's own installer
+COPY --chown=dev:dev install.sh deps.toml /opt/relay-install/
+RUN sh /opt/relay-install/install.sh; true
+RUN python3 --version && ps -p1 >/dev/null && uv --version && ruff --version && mypy --version && pytest --version && bun --version
+WORKDIR /work

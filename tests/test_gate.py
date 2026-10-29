@@ -377,6 +377,7 @@ class Inert(Fixture):
         write(os.path.join(main, "evals", "plugin", "graders.py"), "raise SystemExit(0)\n")
         os.makedirs(os.path.join(main, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(main, "bin", "ci"))
+        shutil.copy(os.path.join(ROOT, "deps.toml"), os.path.join(main, "deps.toml"))   # bin/ci reads the python pin
         os.makedirs(os.path.join(main, "lib"))
         shutil.copy(os.path.join(ROOT, "lib", "relay_ci.py"), os.path.join(main, "lib", "relay_ci.py"))   # the wrapper runs it
         # the copied gate's library tests run through the unittest runner that gives every test its temporary folders

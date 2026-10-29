@@ -40,6 +40,33 @@ def alive(pid: int) -> bool:
     return True
 
 
+class PythonPin(unittest.TestCase):
+    def root(self, text: str) -> str:
+        tmp = tempfile.mkdtemp(prefix="relay-ci-pin-")
+        self.addCleanup(__import__("shutil").rmtree, tmp, True)
+        with open(os.path.join(tmp, "deps.toml"), "w") as handle:
+            handle.write(text)
+        return tmp
+
+    PIN = '[[dep]]\nname = "python3"\nmin = "3.14.6"\nexact = true\n'
+
+    def test_another_python_is_refused_with_the_version_it_wants(self) -> None:
+        got = relay_ci.python_problem(self.root(self.PIN), (3, 11, 9))
+        assert got is not None
+        self.assertIn("python3 is 3.11.9", got)
+        self.assertIn("pins 3.14.6", got)
+
+    def test_the_pinned_python_passes(self) -> None:
+        self.assertIsNone(relay_ci.python_problem(self.root(self.PIN), (3, 14, 6)))
+
+    def test_no_pin_means_no_refusal(self) -> None:
+        self.assertIsNone(relay_ci.python_problem(self.root('[[dep]]\nname = "python3"\nmin = "3.11"\n'), (3, 9, 1)))
+
+    def test_main_refuses_before_any_step(self) -> None:
+        root = self.root(self.PIN.replace("3.14.6", "2.7.1"))   # a pin this python can never be
+        self.assertEqual(relay_ci.main([], root), 1)
+
+
 class Recorder:
     """A runner that records every program and answers from `answers`: a function (argv) -> (returncode, stdout)."""
 

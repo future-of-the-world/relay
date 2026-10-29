@@ -24,9 +24,9 @@ from fake_tools import install_fake  # noqa: E402
 
 ENV_KEYS = ("PATH", "HOME", "CLAUDE_CONFIG_DIR", "RELAY_HOME")
 # what every tool of deps.toml prints for --version when it is at the right version
-GOOD = {"python3": "Python 3.12.1", "git": "git version 2.44.0", "jq": "jq-1.7.1", "uv": "uv 0.8.24 (abc 2025-10-07)",
+GOOD = {"python3": "Python 3.14.6", "git": "git version 2.44.0", "jq": "jq-1.7.1", "uv": "uv 0.8.24 (abc 2025-10-07)",
         "ruff": "ruff 0.13.3", "mypy": "mypy 1.18.2 (compiled: yes)", "pytest": "pytest 8.4.2", "claude": "2.1.0 (Claude Code)",
-        "bun": "1.2.0"}
+        "bun": "1.2.0", "ps": "PID TTY"}
 
 
 class Fakes(unittest.TestCase):
@@ -70,10 +70,26 @@ class DepsFile(unittest.TestCase):
             self.assertTrue(dep["command"] and dep["version_arg"], dep["name"])
             self.assertTrue(any(r in dep for r in relay_setup.DEP_ROUTES), dep["name"])
         by = {d["name"]: d for d in deps}
-        self.assertEqual(by["python3"]["min"], "3.11")
+        self.assertEqual(by["python3"]["min"], "3.14.6")   # one exact python for the host and the container image
+        self.assertTrue(by["python3"]["exact"])
+        # a slim Linux image has no ps; the gate's process scans need it, so deps.toml lists it with its apt package
+        self.assertEqual(by["ps"]["apt"], "procps")
+        self.assertTrue(by["ps"]["presence"])
         for tool in ("ruff", "mypy", "pytest"):   # a gate tool is pinned: an exact version, installed through uv
             self.assertTrue(by[tool]["exact"] and by[tool]["uv_tool"].endswith("==" + by[tool]["min"]), tool)
         self.assertEqual(len(by["uv"]["installer_sha256"]), 64)   # the pinned installer carries its checksum
+
+    def test_presence_cannot_go_with_a_minimum(self):
+        text = '[[dep]]\nname="a"\ncommand="a"\nversion_arg="-v"\nmanual="x"\npresence=true\nmin="1.0"\n'
+        tmp = tempfile.mkdtemp(prefix="relay-deps-test-")
+        try:
+            path = os.path.join(tmp, "deps.toml")
+            with open(path, "w") as handle:
+                handle.write(text)
+            with self.assertRaises(ValueError):
+                relay_setup.load_deps(path)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
     def test_a_bad_entry_is_refused(self):
         cases = {
@@ -110,11 +126,24 @@ class DoctorDeps(Fakes):
         self.assertFalse(good)
         self.assertIn("uv tool install mypy==1.18.2", detail)
 
+    def test_ps_missing_is_a_fix_naming_procps_and_ps_that_runs_is_ok_without_a_version(self):
+        # ps prints no version on macOS: it counts when it runs. A slim Linux image has none: the fix names procps.
+        self.fakes(ps=None)
+        got = {n: (g, d) for n, g, d in relay_setup.dep_checks()}
+        good, detail = got["ps on PATH"]
+        self.assertFalse(good)
+        self.assertIn("not found", detail)
+        by = {d["name"]: d for d in relay_setup.load_deps()}
+        self.assertEqual(relay_setup.install_hint(by["ps"], "linux", "x86_64"), "sudo apt-get install -y procps")
+        self.fakes()
+        got = {n: g for n, g, _ in relay_setup.dep_checks()}
+        self.assertTrue(got["ps on PATH"])
+
     def test_a_too_old_tool_is_a_fix(self):
-        # the macOS system python is 3.9, below the 3.11 minimum; ruff 0.13.2 is not the pinned 0.13.3
+        # the macOS system python is 3.9, below the pinned 3.14.6; ruff 0.13.2 is not the pinned 0.13.3
         self.fakes(python3="Python 3.9.6", ruff="ruff 0.13.2")
         got = {n: (g, d) for n, g, d in relay_setup.dep_checks()}
-        good, detail = got["python3 3.11+"]
+        good, detail = got["python3 3.14.6 (pinned)"]
         self.assertFalse(good)
         self.assertIn("found 3.9.6", detail)
         good, detail = got["ruff 0.13.3 (pinned)"]
@@ -122,11 +151,11 @@ class DoctorDeps(Fakes):
         self.assertIn("found 0.13.2", detail)
         self.assertTrue(got["git on PATH"][0])
 
-    def test_a_newer_minimum_tool_is_ok_but_a_newer_pin_is_not(self):
-        # 3.13 >= 3.11 passes; the pin means exactly 0.13.3, so 0.14.0 fails
-        self.fakes(python3="Python 3.13.0", ruff="ruff 0.14.0")
+    def test_a_newer_python_is_not_ok_either_because_it_is_pinned(self):
+        # the pin means exactly: python 3.14.7 and ruff 0.14.0 both fail
+        self.fakes(python3="Python 3.14.7", ruff="ruff 0.14.0")
         got = {n: g for n, g, _ in relay_setup.dep_checks()}
-        self.assertTrue(got["python3 3.11+"])
+        self.assertFalse(got["python3 3.14.6 (pinned)"])
         self.assertFalse(got["ruff 0.13.3 (pinned)"])
 
     def test_relay_doctor_carries_the_checks(self):
@@ -194,7 +223,7 @@ class InstallScript(Fakes):
         self.assertIn("install  jq (missing)", lines)
         self.assertIn("install  mypy (missing)", lines)
         self.assertIn("install  claude (missing)", lines)
-        self.assertIn("install  python3 (found 3.9.6, needs 3.11+)", lines)
+        self.assertIn("install  python3 (found 3.9.6, pinned 3.14.6)", lines)
         self.assertIn("  would run: uv tool install mypy==1.18.2", lines)   # uv is there, so a gate tool goes through it
         self.assertIn("ok       git 2.44.0", lines)
         self.assertIn("ok       ruff 0.13.3", lines)
@@ -249,11 +278,11 @@ class Routes(InstallScript):
         lines = self.dry()
         self.assertNotIn("  would run: brew install jq", lines)
         self.assertNotIn("  would run: brew install git", lines)
-        self.assertNotIn("  would run: brew install python@3.11", lines)
+        self.assertNotIn("  would run: brew install python@3.14", lines)
         # jq: the pinned release binary for darwin/arm64 with its sha256 (the publisher's sha256sum.txt value)
         self.assertIn(f"  would download {self.JQ_MAC}, check sha256 {self.JQ_MAC_SUM}, put it at {self.home}/.local/bin/jq", lines)
         self.assertIn("  would run: xcode-select --install", lines)   # git on macOS
-        self.assertIn("  would run: uv python install 3.11", lines)   # python 3.9.6 -> 3.11 through uv
+        self.assertIn("  would run: uv python install 3.14.6", lines)   # python 3.9.6 -> 3.14.6 through uv
         self.assertIn("  would download https://claude.ai/install.sh and run it with bash", lines)
         self.assertIn("  would download https://bun.sh/install and run it with bash", lines)
         # no node step on macOS (the owner wants bun, no Node)
@@ -285,38 +314,38 @@ class Routes(InstallScript):
         hint = relay_setup.install_hint
         self.assertIn(self.JQ_MAC, hint(by["jq"], "darwin", "arm64"))
         self.assertEqual(hint(by["git"], "darwin", "arm64"), "xcode-select --install")
-        self.assertEqual(hint(by["python3"], "darwin", "arm64"), "uv python install 3.11")
+        self.assertEqual(hint(by["python3"], "darwin", "arm64"), "uv python install 3.14.6")
         self.assertEqual(hint(by["claude"], "darwin", "arm64"), "curl -fsSL https://claude.ai/install.sh | bash")
         self.assertNotIn("node", by)
         self.assertEqual(hint(by["git"], "linux", "x86_64"), "sudo apt-get install -y git")
 
 
 class PythonStep(InstallScript):
-    """F2: the doctor runs under a 3.11+ python, or the installer says there is none."""
+    """F2: the doctor runs under the pinned python, or the installer says there is none."""
 
-    DEPS = '[[dep]]\nname = "python3"\ncommand = "python3"\nmin = "3.11"\nversion_arg = "--version"\nmanual = "get python"\n'
+    DEPS = '[[dep]]\nname = "python3"\ncommand = "python3"\nmin = "3.14.6"\nexact = true\nversion_arg = "--version"\nmanual = "get python"\n'
 
     def python(self, name, version):
         self.script(name, f'case "$1" in --version) echo "Python {version}";; *) echo "RAN {name} $*";; esac')
 
-    def test_doctor_runs_under_the_311_python_when_python3_is_old(self):
+    def test_doctor_runs_under_the_pinned_python_when_python3_is_another(self):
         self.python("python3", "3.9.6")
-        self.python("python3.11", "3.11.9")
+        self.python("python3.14", "3.14.6")
         done = self.real(self.relay_copy(self.DEPS))
         self.assertEqual(done.returncode, 0, done.stdout)
-        self.assertRegex(done.stdout, r"RAN python3\.11 \S+/relay-copy/bin/relay doctor")
+        self.assertRegex(done.stdout, r"RAN python3\.14 \S+/relay-copy/bin/relay doctor")
         self.assertNotIn("RAN python3 ", done.stdout)
         self.assertIn("python3 on PATH is 3.9.6; the doctor runs under", done.stdout)
 
-    def test_no_311_python_stops_with_a_clear_line(self):
+    def test_no_pinned_python_stops_with_a_clear_line(self):
         self.python("python3", "3.9.6")
         done = self.real(self.relay_copy(self.DEPS))
         self.assertEqual(done.returncode, 1)
-        self.assertIn("python3 is still 3.9.6; relay needs 3.11+:", done.stdout)
+        self.assertIn("python3 is still 3.9.6; relay needs python 3.14.6 (exactly):", done.stdout)
         self.assertNotIn("RAN", done.stdout)
 
-    def test_a_new_python3_runs_the_doctor_as_before(self):
-        self.python("python3", "3.12.1")
+    def test_the_pinned_python3_runs_the_doctor_as_before(self):
+        self.python("python3", "3.14.6")
         done = self.real(self.relay_copy(self.DEPS))
         self.assertEqual(done.returncode, 0, done.stdout)
         self.assertRegex(done.stdout, r"RAN python3 \S+/relay-copy/bin/relay doctor")
@@ -326,7 +355,7 @@ class PythonStep(InstallScript):
         self.fakes(python3="Python 3.9.6")
         lines = self.dry()
         self.assertTrue(lines[-1].startswith("dry run done: python3 is 3.9.6;"), lines[-1])
-        self.assertIn("python3.11", lines[-1])
+        self.assertIn("python 3.14.6", lines[-1])
 
 
 class BrokenAndMissing(InstallScript):
