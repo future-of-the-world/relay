@@ -29,5 +29,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T22:44:25Z",
+      "fact": [
+        "30 Oct, measured by the build (load 17-25): tests/test_gate.py (36 tests) on the main volume 105.4 s wall, fseventsd 128-140% CPU and 5.8-7.0 GB; the same on a 2 GB APFS RAM disk with .fseventsd/no_log holding the tests' temporary folders 105.6 s, fseventsd 116-162% CPU and 6.7-7.1 GB. fseventsd was at about 130% before the run started: the load is machine-wide (other gate lanes, podman, git worktrees), not the tests' temporary folders. Nothing was changed."
+      ]
+    }
+  ]
 }
