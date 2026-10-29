@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-29T15:34:44Z",
   "taken_by": "wt/alix-bin-wt-makes-worktree-but-relay-exp",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T16:16:39Z",
+  "test": "tests/test_hook_guard_main.py::Guard::test_the_cd_guard_knows_a_worktree_of_any_folder",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
