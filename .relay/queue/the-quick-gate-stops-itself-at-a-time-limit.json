@@ -38,6 +38,12 @@
         "b. 25 минут, как вы сказали: каждая восьмая нормальная проверка будет остановлена и прогнана заново",
         "c. 25 минут после ускорения проверки: сначала убрать повторный прогон библиотечных тестов внутри шага inert (медиана 284 с), потом ставить 25"
       ]
+    },
+    {
+      "at": "2026-10-29T02:58:59Z",
+      "fact": [
+        "29 Oct ~06:15-07:00, master at 4888efb3, all library tests run one after another under pytest --durations=40, while two other gates ran (load 22-25 on 12 cores): 1594 passed in 2675 s wall; CPU user 607 s, system 1022 s (system time above user time: the cost is starting processes - git, python, bin/relay - not Python code). The 40 slowest tests took 755 s (28%); by file among them: test_merge_train 170 s, test_check_mark_hook 101, test_guard_test_name 80, test_gate 80, test_queue 80, test_claudemd_fixes 66, test_rules_gate_isolation 63, test_check_record 47. The gate runs them 4 at a time (tests/parallel_unittest.py), and under relay gate the inert step starts a second whole quick run beside the first."
+      ]
     }
   ]
 }
