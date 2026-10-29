@@ -1,0 +1,235 @@
+{
+  "branch": "wt/a-gate-test-is-stopped-by-an-unknown-sig",
+  "findings": [
+    {
+      "details": [
+        "On 29 Oct a quick gate of the git-could-not-answer branch (head 7aa0030d) went red on two tests with 143 != 0: a fixture gate script (echo ok; exit 0) was killed by SIGTERM from outside its own tree. Both tests pass alone, a rerun of the gate on 45188584 was green, and a fixer that logged every os.kill/os.killpg in a probe run saw no stray signal. Nothing in the gate records who sent a stop signal, so such a red cannot be explained after the fact and turns into a rerun (principle 6). A scout refuted the leak-scan overlap theory: run folders never nest (tests/run_unittest.py:18, tests/parallel_unittest.py:151, lib/relay_ci.py:124). Real shared state it found: the inert probe is not a session leader (lib/relay_ci.py:157), so it shares the outer bin/ci process group.",
+        "Also: lib/relay_gate.py",
+        "Also: tests/leaked_gates.py",
+        "Also: tests/test_gate.py",
+        "Also: tests/test_land.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "tests/test_gate.py::test_f11_a_project_that_does_not_ignore_ci_can_run_the_gate_twice and tests/test_land.py::test_land_inert_take_reuses_gate red with 143 != 0 in a quick gate while each passes alone; the gate log does not say who sent the SIGTERM."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "a test gate command killed by SIGTERM from another process leaves a line in the gate log naming the signal and, on macOS and Linux, the sender pid or 'sender unknown'",
+        "the inert probe runs in its own session: a SIGTERM to the outer bin/ci group does not reach the probe's tests, and the probe's stop does not reach the outer run"
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate_stops.py::RunnerStopped::test_a_gate_command_ended_by_a_signal_leaves_a_line_in_the_gate_log passes and fails at e41418af (line absent). But the 29 Oct sender is still not found (see F2)."
+      ],
+      "severity": "HIGH",
+      "since": "e41418afb6565c35f5d9e7e0e9169761c914c367",
+      "source": "queue",
+      "summary": "A gate test is stopped by an unknown SIGTERM",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by trace and reproduction. relay_ci.py:129 still says \"relay gate SIGKILLs the group\" as the reason the record",
+        "exists; the group kill was the only thing that ended the probe on that path, and the change removed the probe from the",
+        "group without giving relay gate (or reclaim) another way to reach it. Also the brief's own rationale does not hold: the",
+        "probe's stop used stop_tree over pids, never a group signal, so \"the probe's stop could reach the outer run\" was not a",
+        "real path before this change; the only group signal it adds is the new killpg in stop. And the process killed on 29 Oct",
+        "(a fixture gate command) already leads its own session, so the probe's group cannot have been the route (see F2).",
+        "Severity HIGH: ordinary use (stopping a gate) leaves an unbounded wait on the next gate of the worktree and a run outside",
+        "the slot limit. Size: 30."
+      ],
+      "evidence": [
+        "python3 -I gate2.py outer.py <branch worktree> repo sp",
+        "  == branch: next gate CANNOT take the worktree lock: held by ['15955', '16034']",
+        "  == master: next gate takes the worktree lock",
+        "python3 -I gate.py (ps of the probe after the group kill, branch):",
+        "  80271 80271     1 SNs  sleep 600   -> \"probe pid 80271 ALIVE after the gate killed bin/ci's group\"; master: \"gone\"",
+        "lib/relay_gate.py:566-569  finally: os.killpg(proc.pid, signal.SIGKILL)",
+        "lib/relay_gate.py:205-210  reclaim: members = {p.pid ... if p.pgid == group}; held = [pid for pid in holders if pid in members]; if not held: return False",
+        "lib/relay_ci.py:480-483   timer only when self.quick and not RELAY_INERT_PROBE"
+      ],
+      "failing_case": [
+        "`relay gate` on relay's own worktree is stopped while bin/ci runs (Ctrl-C, SIGTERM or SIGHUP to relay gate, e.g. a lane",
+        "stopped by the front or a hang bound). relay_gate.run's finally does os.killpg(bin/ci's pgid, SIGKILL): bin/ci dies with no",
+        "cleanup. Before this change the probe was in that group and died with it. Now (start_new_session=True) the probe and its",
+        "whole nested quick run keep running with ppid 1, holding the inherited worktree lock fd (close_fds=False), outside the gate",
+        "slot, and with no time limit (the nested run has RELAY_INERT_PROBE set, so Ci.main starts no watchdog). The next relay gate",
+        "of that worktree waits on the lock: reclaim only stops holders that are members of the group named in the lock file",
+        "(bin/ci's, now empty), so `held` is empty and it waits until the orphan's whole run ends (minutes; forever if it hangs).",
+        "Reproduced: outer process (own session) runs relay_ci.Probe with a sleeping nested command and inherits a flocked fd; the",
+        "\"gate\" SIGKILLs the outer group; on the branch the probe is alive (ppid 1, STAT SNs) and a new flock on the lock file",
+        "fails; on master the probe is gone and the lock is free. Should be: a stopped gate leaves no probe process and no held lock."
+      ],
+      "fix_hint": [
+        "Simplest: drop start_new_session (back to the shared group; stop already ends the probe by pids) and remove the new killpg.",
+        "If the own session is kept: bin/ci must make every way it can die end the probe's group too, e.g. write the probe's pgid",
+        "into the lock file line (\"<gate pid> <command group> <probe group>\") and have relay_gate.run's finally and reclaim",
+        "killpg every listed group, or have reclaim stop all lsof holders of the lock whose gate pid is dead."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 163,
+      "pass_cases": [
+        "1. A command run like relay_gate.run runs it (start_new_session=True, a flocked lock fd passed) starts a Probe whose nested",
+        "   command sleeps; killpg(command pid, SIGKILL): within 2 s no process of the probe is alive and flock(LOCK_EX|LOCK_NB) on",
+        "   the lock file succeeds.",
+        "2. bin/ci stopped by SIGTERM (its handler raises SystemExit): Probe.stop runs, the probe and its children end, the worktree",
+        "   is removed (works today, must keep working).",
+        "3. The quick watchdog (_stop_at_limit) still ends the probe with everything below bin/ci (works today).",
+        "4. A signal sent to the outer bin/ci group while bin/ci keeps running does not reach the probe's processes (the brief's",
+        "   pass case), or, if the fix drops the own session, the item records why that pass case is withdrawn.",
+        "5. The F1 leftover test (test_ci_python.py:684) still passes: the next prepare() removes a killed probe's worktree, and no",
+        "   probe process runs in a removed worktree."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_ci_python.py test_a_group_kill_of_the_run_ends_the_probe_and_frees_the_lock passes (probe gone, flock succeeds); fails/hangs with the own session restored. Pass cases 2, 3, 5 covered by existing tests that pass; case 4 withdrawn with the own session (sibling test shows stop leaves outer group alone)."
+      ],
+      "severity": "HIGH",
+      "since": "0ced458fd77d041ab14f49802c0d80db4e0b2450",
+      "source": "review-a-gate-test-is-stopped-by-an-unknown-sig.json",
+      "source_id": "F1",
+      "summary": "the probe in its own session survives relay gate's group SIGKILL of bin/ci, keeps the worktree's gate lock, and reclaim cannot free it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the brief, the item, both commits and the builder report. The signal line is correct and useful but is",
+        "the symptom half; the item exists because a red with no named cause becomes a rerun. Whether to add a Linux sender capture",
+        "(e.g. a tiny wrapper using signal.sigwaitinfo for test fixture commands) is a choice the fixer can make inside the item;",
+        "the investigation itself is promised. Size: 60."
+      ],
+      "evidence": [
+        "reports/a-gate-test-is-stopped-by-an-unknown-sig.md: \"DONE 3123ae24: signal line in gate log (sender unknown), probe in own session; sender of 29 Oct kill NOT found\"",
+        "lib/relay_gate.py:547-548 Popen(command, ..., start_new_session=True, pass_fds=(lock.fileno(),))",
+        "git diff master...HEAD --stat: no change to the sweep, relay_tokens, relay_procs or the test runners"
+      ],
+      "failing_case": [
+        "The item's What has three parts; the third, \"find the sender of the 29 Oct kill or show that group signalling caused it\",",
+        "and the brief's \"Hypotheses to test first\" (the leftover sweep, the machine-wide test-token pool, the hang bounds that send",
+        "SIGTERM) have no result: no evidence, no test, nothing in the commits or the report beyond \"NOT found\". The one cause-side",
+        "change (the probe's own session) cannot affect the 29 Oct kill: the killed process was the fixture gate command, which",
+        "relay_gate.run already starts in its own session (relay_gate.py:548), so no signal to bin/ci's or the probe's group reaches",
+        "it. On a recurrence (f11 or test_land_inert_take_reuses_gate red with 143) the log now says \"gate command ended by SIGTERM",
+        "(sender unknown ...)\", which 143 already implied; the red still cannot be explained and turns into a rerun (principle 6, the",
+        "item's Why). Should be: the sender named with evidence, or the hypotheses each refuted with evidence, and on Linux (where",
+        "the owner now develops) the sender pid where it can be read."
+      ],
+      "fix_hint": [
+        "Test each front hypothesis against the 29 Oct logs and code (sweep and reclaim signalling a group number read earlier is",
+        "the closest fit for a SIGTERM to a session-leading fixture command); record the result in the item; fix the sender found",
+        "with a regression test, or record the refutations."
+      ],
+      "id": "F2",
+      "kind": "feature",
+      "line": 428,
+      "pass_cases": [
+        "1. The queue item (or the change's report) names, for each front hypothesis (sweep, token pool, hang bounds) and for the",
+        "   pid/pgid-reuse lead in the notes, the evidence that rules it in or out.",
+        "2. If a sender is found: a regression test that reproduces that sender hitting a fixture gate command fails without the",
+        "   fix and passes with it.",
+        "3. The existing signal line stays: a fixture gate `kill -TERM $$` gives exit 143 and the log line naming SIGTERM",
+        "   (test_gate_stops.py:51).",
+        "4. If the sender pid is recorded: on Linux, a fixture gate command killed by SIGTERM from a known helper process logs that",
+        "   helper's pid and command; on macOS it logs \"sender unknown\"."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer reports the 29 Oct sender investigation not done; the signal line still says sender unknown. Needs owner decision: separate queue item or sender capture. My view: agree it is a gap, the cause remains unknown so a recurrence still ends in a rerun."
+      ],
+      "severity": "MEDIUM",
+      "since": "0ced458fd77d041ab14f49802c0d80db4e0b2450",
+      "source": "review-a-gate-test-is-stopped-by-an-unknown-sig.json",
+      "source_id": "F2",
+      "summary": "the 29 Oct sender is neither found nor the group theory shown; the recorded line always says 'sender unknown', so a recurrence still ends in a rerun",
+      "verdict": "GAP"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Cheap to fix alongside F1. Size: 5."
+      ],
+      "evidence": [
+        "tests/test_ci_python.py:583  self.assertEqual(os.getpgrp(), os.getpgrp())   # we are still here"
+      ],
+      "failing_case": [
+        "self.assertEqual(os.getpgrp(), os.getpgrp()) is always true; had Probe.stop signalled the test's own group, the test",
+        "process would die rather than fail this line, and nothing asserts that a process in the outer group survives the stop.",
+        "Should be: a sibling process in the test's (outer) group is alive after probe.stop()."
+      ],
+      "fix_hint": [
+        "Replace the tautology with a helper process in the outer group that must survive the stop."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 583,
+      "pass_cases": [
+        "1. Start a helper `sleep 60` in the test's own process group, start and stop a probe: the helper is alive afterwards.",
+        "2. With Probe.stop changed to killpg(os.getpgrp(), SIGTERM) in a scratch copy, the test fails."
+      ],
+      "path": "tests/test_ci_python.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_ci_python.py test_the_probe_stop_leaves_a_process_of_the_outer_group_alone asserts a sibling sleep survives (assertIsNone(sibling.poll())); passes."
+      ],
+      "severity": "LOW",
+      "since": "0ced458fd77d041ab14f49802c0d80db4e0b2450",
+      "source": "review-a-gate-test-is-stopped-by-an-unknown-sig.json",
+      "source_id": "F3",
+      "summary": "the 'probe's stop leaves the outer run alone' half of the new test is a tautology",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (small window, needs pid wrap). Disappears if F1 is fixed by dropping the own session. Size: 5."
+      ],
+      "evidence": [
+        "lib/relay_ci.py:176-179 stop_tree(...); proc.wait(); os.killpg(proc.pid, signal.SIGKILL)"
+      ],
+      "failing_case": [
+        "proc.wait() reaps the probe leader; when every member is already gone, the number proc.pid is free and a new process that",
+        "starts a session (every fixture gate command and test runner does) may get it before os.killpg(proc.pid, SIGKILL) runs; it",
+        "is then killed. This is the same class of stray signal (a signal to a number read earlier) the item hunts. Should be: the",
+        "group signal goes only while the group is known to exist (before the wait, or not at all)."
+      ],
+      "fix_hint": [
+        "killpg before proc.wait() (the zombie leader keeps the group number reserved), or drop it with the own session."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 179,
+      "pass_cases": [
+        "1. Probe.stop on a probe whose children all ended: no signal sent after proc.wait().",
+        "2. Probe.stop on a probe with a child that left the tree but kept the group: that child ends."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "low",
+      "reason": [
+        "The post-wait killpg was removed in lib/relay_ci.py (stop no longer signals a group number)."
+      ],
+      "severity": "LOW",
+      "since": "0ced458fd77d041ab14f49802c0d80db4e0b2450",
+      "source": "review-a-gate-test-is-stopped-by-an-unknown-sig.json",
+      "source_id": "F4",
+      "summary": "Probe.stop SIGKILLs the probe's group number after the leader was reaped; an emptied group's number can be reused",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "e6467ec6dce1d645fd16796bd1ca257c9c5f64c4.gate.log",
+  "head": "5b5ed2af0ae49ebe59d347c3637ddc0d7b9726d7",
+  "item": "a-gate-test-is-stopped-by-an-unknown-sigterm",
+  "notes": [
+    "Leftover sleep 600 processes from the no-fix hang run may remain on the machine (my kill was denied); harmless."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix range 0ced458f..HEAD: changed files lib/relay_ci.py, tests/test_ci_python.py only (in scope). Gate log head e6467ec6, exit 0; only the gate-log commit follows. Ran tests/test_ci_python.py (Probe and leftover tests, 14 passed) and tests/test_gate_stops.py (6 passed). Without the fix: the new gate-stops test fails at e41418af; the group-kill test at 0ced458f did not finish (probe alive, lock held; hung past 200 s, stopped). Callers of Probe.start/stop unchanged in signature."
+  ],
+  "type": "check"
+}
