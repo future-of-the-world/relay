@@ -48,6 +48,20 @@ def alive(pid):
 
 
 class RunnerStopped(unittest.TestCase):
+    def test_a_gate_command_ended_by_a_signal_leaves_a_line_in_the_gate_log(self):
+        """Live case 29 Oct: a fixture gate script was killed by SIGTERM and the log only said 143. The script stops itself with
+        SIGTERM (killed by a signal, returncode -15): the log must name SIGTERM and say the sender is unknown."""
+        import test_gate
+        import relay_gate
+        f = test_gate.Fixture("setUp")
+        f.setUp()
+        self.addCleanup(f.doCleanups)
+        f.repo(gate="kill -TERM $$\n")
+        code, log, _ = relay_gate.run(f.wt, environ=f.env)
+        self.assertEqual(code, 143)      # 128 + 15
+        text = test_gate.read(log)
+        self.assertIn("gate command ended by SIGTERM (sender unknown", text)
+
     def stop_runner_group_with(self, sig):
         """A runner (its own process group) runs Fixture.gate on a command that sleeps; its group gets `sig`. Returns the
         command's pid once it is running, and the runner."""

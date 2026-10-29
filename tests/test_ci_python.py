@@ -569,6 +569,20 @@ class ProbeBesideTheRun(unittest.TestCase):
             self.assertEqual(handle.read(), "1")
         probe.stop()
 
+    def test_the_probe_runs_in_a_session_of_its_own_and_its_stop_leaves_the_outer_run_alone(self) -> None:
+        # a SIGTERM to the outer bin/ci group must not reach the probe (own session: its pgid is its own pid, not ours),
+        # and the probe's stop (a group kill) must not reach us
+        probe = self.probe("sleep 600 & wait")
+        probe.start()
+        assert probe.proc is not None
+        pid = probe.proc.pid
+        self.assertEqual(os.getpgid(pid), pid)
+        self.assertNotEqual(os.getpgid(pid), os.getpgrp())
+        self.assertEqual(os.getsid(pid), pid)
+        probe.stop()
+        self.assertEqual(os.getpgrp(), os.getpgrp())   # we are still here
+        self.assertIsNotNone(probe.proc.poll())
+
     def test_stop_ends_the_probe_and_everything_below_it_and_removes_the_worktree(self) -> None:
         # case 3: the outer run leaves early; the nested run's own child (sleep) must not outlive it, and no worktree stays
         probe = self.probe("sleep 600 & wait")
