@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 sys.path.insert(0, HERE)
 
 from relay_testbase import load_hook  # noqa: E402
+from pidfile import wait_pid  # noqa: E402
 from test_gate import RELAY, Fixture, git, read, write  # noqa: E402
 
 import relay_inert  # noqa: E402
@@ -356,7 +357,7 @@ class Lock(Land):
         proc.communicate(timeout=WAIT)
         self.assertIsNone(relay_land.holder(self.main))           # the OS freed it, no cleanup ran
         write(os.path.join(self.tmp, "go"), "")                   # let the orphaned gate script end
-        self.wait_gone(int(read(os.path.join(self.tmp, "gate.pid")).strip()))  # and wait for it, before the cleanup
+        self.wait_gone(wait_pid(os.path.join(self.tmp, "gate.pid"), WAIT))  # and wait for it, before the cleanup
 
 
 class Counters(Land):
