@@ -262,6 +262,13 @@ def step_queue(main, default, branch, ab=None):
         if reason:
             raise Refused("queue item %s is closed without a test or a check: %s" % (slug, reason))
     step_hand_files(main, default, ref)
+    held = {branch, *ab}                          # the branch and the ready changes it holds: none may leave its fix item taken
+    for path, meta in zip(paths, record_rules(main, ref, rows)):
+        if meta["kind"] == "fix" and meta["state"] == "taken" and meta.get("taken_by") in held:
+            slug = os.path.basename(path)[:-5]
+            where = next((w["path"] for w in relay_git.worktrees(main) if w["branch"] == meta["taken_by"]), "<its worktree>")
+            raise Refused("queue item %s is taken by %s and still open: close it first, relay queue done %s -C %s --test <file>::<name>"
+                          % (slug, meta["taken_by"], slug, where))
 
 
 def _dropped_after(main, default, commit, ref, ab):
