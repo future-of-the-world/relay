@@ -1,0 +1,144 @@
+{
+  "branch": "wt/cost-attribution-finds-a-change-only-und",
+  "findings": [
+    {
+      "details": [
+        "29 Oct, review of the lane-start worktree-folder fix, outside that change: the worktree-folder rule lives in several copies; cost attribution misses ALIX's lanes. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "An agent of an ALIX lane works in /x/alix/.worktree/fx/lib, or its brief says \"Worktree: /x/alix/.worktree/fx (branch wt/fx)\".",
+        "Now: relay_estimate.worktree_of('/x/alix/.worktree/fx/lib') -> None; change_of('/x/alix', 'Worktree: /x/alix/.worktree/fx (branch wt/fx)') -> None; queue_ext/estimate.repo_top keeps the worktree as the repo.",
+        "Expected: \"fx\", as for '/x/relay/.worktrees/fx/lib' (-> \"fx\" today)."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 19,
+      "pass_cases": [
+        "1. worktree_of('/x/alix/.worktree/fx/lib') with the project's folder \".worktree\" -> \"fx\".",
+        "2. change_of('/x/alix', 'Worktree: /x/alix/.worktree/fx (branch wt/fx)', root='/x/alix') with kit.toml \".worktree\" -> \"fx\".",
+        "3. worktree_of('/x/relay/.worktrees/fx/lib') -> \"fx\" (unchanged).",
+        "4. repo_top('/x/alix/.worktree/fx') -> '/x/alix'."
+      ],
+      "path": "lib/relay_estimate.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue_estimate.py::ViewRoot::test_repo_top_of_a_project_with_its_own_worktrees_folder passes; fails on base 5b26425."
+      ],
+      "severity": "HIGH",
+      "since": "5b26425cde46dee37843d511aeb0e521347e1bc9",
+      "source": "queue",
+      "summary": "Cost attribution finds a change only under .worktrees/\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading and a probe. The brief asked to reuse the existing reader; on master the only one is a method of the guard hook",
+        "(not importable) and the setup's gitignore helper, so \"reuse\" needed a shared reader in relay_config, which the lane-start lane is",
+        "adding right now (relay_config.worktrees_folder). The project's Python rule: a record several programs read has one parser shared by",
+        "all of them. With two copies the values with \"/\", \"../\" or an absolute path already give different answers, and a later change of the",
+        "rule (the next folder form) must be made in four places. The worker did not raise it as a Gap.",
+        "Severity MEDIUM: breaks the brief's recorded decision (front's, owner can reverse) and the project's one-parser rule; the divergent",
+        "values are not used by any project today (all kit.toml values found are \".worktree\"/\".worktrees\"), so no live attribution is wrong.",
+        "Size: 15 agent minutes after the lane-start change lands (take master, call relay_config.worktrees_folder, compare by path)."
+      ],
+      "evidence": [
+        "git diff master...wt/relay-s-lane-start-hardcodes-main-worktr -- lib/relay_config.py",
+        "  + def worktrees_folder(main: str) -> str: ... return os.path.normpath(os.path.join(main, folder or \".worktrees\"))",
+        "probe at head (scratchpad/probe):",
+        "  outside folder, brief: None",
+        "  outside cwd: None",
+        "  nested repo_top: .../probe/nest/build/wt/fx",
+        "  absolute folder, brief: None",
+        "git grep: lib/relay_setup.py:637 folder = project.get(\"worktrees\"); plugins/relay/hooks/guard_main.py:231 wt = self.get(\"project\", \"worktrees\")"
+      ],
+      "failing_case": [
+        "The brief's decision: \"reuse the reader the guard and lane start already use, no new copy of the rule\". The change adds",
+        "relay_estimate.worktree_folder, a new reader that returns a bare name; readers now: relay_setup.py:637, guard_main.py:231,",
+        "relay_estimate.py:41, and (parallel lane wt/relay-s-lane-start-hardcodes-main-worktr) relay_config.worktrees_folder, which returns",
+        "an absolute path and accepts \"../x\" and absolute values. Where they disagree (probe at head):",
+        "- kit.toml worktrees = \"../out-wt\", brief \"Worktree: <parent>/out-wt/fx (branch wt/fx)\": change_of(root, brief, root=root) -> None; should be \"fx\".",
+        "- kit.toml worktrees = \"/abs/wt\" (absolute): change_of(root, \"Worktree: /abs/wt/fx\", root=root) -> None (the name becomes \"abs/wt\").",
+        "- kit.toml worktrees = \"build/wt\": repo_top(\"<root>/build/wt/fx\") -> \"<root>/build/wt/fx\"; should be \"<root>\".",
+        "After both lanes land, lane start would create lanes where relay_config says and cost attribution would look where its own copy says."
+      ],
+      "fix_hint": [
+        "Land after the lane-start change (or move its relay_config.worktrees_folder here first): drop relay_estimate.worktree_folder; in",
+        "_worktree_in match \"<realpath of relay_config.worktrees_folder(root)>/<name>\" (plus \"<root>/.worktrees/<name>\" for old transcripts)",
+        "against realpath'd paths in the text; in repo_top compare dirname(folder) with relay_config.worktrees_folder of the candidate repo."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 41,
+      "pass_cases": [
+        "1. kit.toml worktrees = \".worktree\": change_of(root, \"Worktree: <root>/.worktree/fx (branch wt/fx)\", root=root) -> \"fx\" (works today).",
+        "2. No kit.toml: change_of(\"<root>/.worktrees/fx/lib\", \"\", root=root) -> \"fx\" and repo_top(\"<root>/.worktrees/fx\") -> root (works today).",
+        "3. kit.toml worktrees = \"build/wt\": repo_top(\"<root>/build/wt/fx\") -> root; change_of(\"<root>/build/wt/fx/lib\", \"\", root=root) -> \"fx\".",
+        "4. git grep 'get(\"worktrees\")\\|\"project\", \"worktrees\"\\|project.worktrees' over lib/ shows relay_estimate using relay_config's reader, not its own."
+      ],
+      "path": "lib/relay_estimate.py",
+      "rank": "medium",
+      "reason": [
+        "worktree_folder in lib/relay_estimate.py still reads kit.toml itself. The shared reader relay_config.worktrees_folder is on master now (fixer said it was not); take master and use it."
+      ],
+      "severity": "MEDIUM",
+      "since": "b7386e102f98eff06e6307eacdefdb4e3ba13fb7",
+      "source": "review-cost-attribution-finds-a-change-only-und.json",
+      "source_id": "F1",
+      "summary": "a fourth reader of kit.toml project.worktrees, against the brief's 'no new copy of the rule'; it differs from the shared reader the lane-start lane adds",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe (worktree_of unanchored -> \"fx\"; change_of with cwd under .worktree and root -> \"fx\", so behaviour is right today).",
+        "Correct today for every value in use; fragile and under-tested. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "probe: worktree_of wt unanchored: fx ; alix cwd root: fx",
+        "git grep -n 'worktree_of(' lib: only relay_estimate.py:111 and :118, both without folder."
+      ],
+      "failing_case": [
+        "worktree_of(\"/x/relay/lib/newt/fx\", \"wt\") -> \"fx\" (the folder is matched inside \"newt\"); should be None.",
+        "No production code passes `folder` to worktree_of (change_of calls worktree_of(cwd) only when root is None), so pass case 1 is met",
+        "only through a parameter nothing uses. The brief's own failing case, an ALIX agent working in <root>/.worktree/fx/lib, and the brief's",
+        "\"Test with transcripts whose paths use .worktree/ and .worktrees/\" have no test: removing the cwd branch of change_of for root would",
+        "leave all 26 tests green only if the brief-line test still passes (it does, through the same regex), so the cwd route is untested."
+      ],
+      "fix_hint": [
+        "Anchor the regex on \"/\" before the folder, drop the unused `folder` parameter (or use it), and add the cwd-under-.worktree and",
+        "agent_rows transcript tests."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 33,
+      "pass_cases": [
+        "1. kit.toml \".worktree\": change_of(\"<root>/.worktree/fx/lib\", \"\", root=root) -> \"fx\" (a test asserts it).",
+        "2. agent_rows over a fake transcript whose first cwd is \"<root>/.worktree/fx\" -> one row with change \"fx\".",
+        "3. worktree_of(\"/x/relay/lib/newt/fx\", \"wt\") -> None; worktree_of(\"/x/relay/.worktrees/fx/lib\") -> \"fx\"."
+      ],
+      "path": "tests/test_queue_estimate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue_estimate.py:33 whole-path-part test, plus the two cwd tests; pass at head, whole-path test fails on 02e84019."
+      ],
+      "severity": "LOW",
+      "since": "b7386e102f98eff06e6307eacdefdb4e3ba13fb7",
+      "source": "review-cost-attribution-finds-a-change-only-und.json",
+      "source_id": "F2",
+      "summary": "the new folder parameter of worktree_of is used by no caller and matches unanchored; the main failing case (an agent cwd under .worktree/ with root) has no test",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "9d4ae8e96a1fe8c4c612a165cfd96fd07781253d.gate.log",
+  "head": "4b99e332fa0db5d731df397ebcebcc564d39f9f3",
+  "item": "cost-attribution-finds-a-change-only-under-workt",
+  "notes": [
+    "Fixer's Outside on F1 is stale: relay_config.worktrees_folder(main) is now on master (lib/relay_config.py:97). Branch has not taken master since."
+  ],
+  "schema": 2,
+  "scope": [
+    "Ran tests/test_queue_estimate.py (28 passed). Q1 tests fail on 5b26425 (5 failed). F2 test fails on 02e84019. Gate green on 9d4ae8e, only the gate log came after."
+  ],
+  "type": "check"
+}
