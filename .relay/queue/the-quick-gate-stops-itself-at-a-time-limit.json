@@ -1,0 +1,68 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 45,
+  "found_at": "2026-10-29T02:08:22Z",
+  "found_in": "relay queue add",
+  "title": "The quick gate stops itself at a time limit",
+  "what": [
+    "The quick gate (`relay gate -- --quick`, bin/ci --quick) stops itself when its run time passes a limit, counted from the start of its own run, not from the wait for a gate slot; it kills its whole process tree, writes 'gate: stopped at the N-minute limit, step <name> was running' as the first failing line and exits red with a distinct status, so the cycle's gate fixer does not treat it as a failing test. The paid full gate is not limited (one run measured at 122 min). The limit is a setting with a default, value set by the owner's answer to the question noted on this item."
+  ],
+  "why": [
+    "Tonight leaked test processes made quick gates run 1-3 hours; a limit turns such a run into a fast, named red instead of hours of waiting. Measured 29 Oct over 510 recorded quick gate logs (sum of step times; bin/ci runs its steps one after another): median 14.4 min, over 25 min 67 (13%), over 30 min 9 (1.8%), over 35 min 4 (0.8%). Longest steps: library tests median 461 s, p95 774 s; inert (reruns the library tests nested) median 284 s, p95 802 s; hook tests median 149 s."
+  ],
+  "where": [
+    "bin/ci",
+    "bin/relay (relay gate)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T02:08:22Z",
+      "said": [
+        "Давай добавим тайм-аут на gate, не дольше 25 минут, даже при нагрузке этого ограничения должно хватать"
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T02:08:32Z",
+      "question": [
+        "Какой предел времени поставить на быструю проверку перед merge? Замер 29 Oct по 510 записанным быстрым проверкам: медиана 14.4 мин; дольше 25 мин шли 67 (13%), дольше 30 мин 9 (1.8%), дольше 35 мин 4 (0.8%). Каждая остановленная проверка прогоняется заново (ещё около 15 мин)."
+      ],
+      "options": [
+        "a. 30 минут (рекомендация: останавливает 1.8% нормальных проверок против 13% при 25, а зависшие ночные по 1-3 часа ловит так же)",
+        "b. 25 минут, как вы сказали: каждая восьмая нормальная проверка будет остановлена и прогнана заново",
+        "c. 25 минут после ускорения проверки: сначала убрать повторный прогон библиотечных тестов внутри шага inert (медиана 284 с), потом ставить 25"
+      ],
+      "answered_at": "2026-10-29T04:33:10Z",
+      "answer": [
+        "30 минут сейчас, 25 после ускорения"
+      ]
+    },
+    {
+      "at": "2026-10-29T02:58:59Z",
+      "fact": [
+        "29 Oct ~06:15-07:00, master at 4888efb3, all library tests run one after another under pytest --durations=40, while two other gates ran (load 22-25 on 12 cores): 1594 passed in 2675 s wall; CPU user 607 s, system 1022 s (system time above user time: the cost is starting processes - git, python, bin/relay - not Python code). The 40 slowest tests took 755 s (28%); by file among them: test_merge_train 170 s, test_check_mark_hook 101, test_guard_test_name 80, test_gate 80, test_queue 80, test_claudemd_fixes 66, test_rules_gate_isolation 63, test_check_record 47. The gate runs them 4 at a time (tests/parallel_unittest.py), and under relay gate the inert step starts a second whole quick run beside the first."
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T04:18:26Z",
+      "question": [
+        "Какой предел времени поставить на быструю проверку перед merge (после проработки ускорения)? Из 523 проверок дольше 25 мин шли 70 (63 нормальных), дольше 30 мин 12 (7 из них зависшие, дольше 37 мин). С настоящим git проверка идёт примерно в 0.6 раза дольше прежнего."
+      ],
+      "options": [
+        "a. 30 мин сейчас, 25 мин когда настоящий git на месте (рекомендация: зависшие ловятся с сегодня, нормальных останавливается 5 из 523, потом не больше 2 из 523)",
+        "b. 25 мин, но только после ускорения; до тех пор предела нет",
+        "c. 25 мин сейчас: 63 нормальные проверки из 523 будут остановлены и прогнаны заново до ускорения"
+      ],
+      "answered_at": "2026-10-29T04:33:10Z",
+      "answer": [
+        "30 минут сейчас, 25 после ускорения"
+      ]
+    }
+  ]
+}

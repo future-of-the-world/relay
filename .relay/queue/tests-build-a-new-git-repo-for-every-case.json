@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 90,
+  "found_at": "2026-10-29T04:45:09Z",
+  "found_in": "relay queue add",
+  "title": "Tests build a new git repo for every case",
+  "what": [
+    "Build a test repository once per test class (or once per run) and give each case a copy of it (a folder copy takes a few ms against about 160 ms for git init plus commits), as git's own test suite and pytest's class-scoped fixtures do. Start with the files that start the most git: test_guard_test_name (one test starts 1524 git in 91 s), test_queue (7228 git in 97 tests, 6766 from the test process itself), test_gate (1937)."
+  ],
+  "why": [
+    "Measured 29 Oct by the gate-speed design: one run of the 1753 library tests starts 61,379 git processes, about 35 per test; inside these tests one git call costs 60-67 ms of wall at load 20. Owner, 29 Oct, verbatim: \"А почему вообще так много вызовов git ?\". IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "29 Oct, master ee932b26: tests/test_guard_test_name.py, one test starts 1524 git processes and takes 91 s."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same tests pass with the repository built once per class; their git starts and wall time are measured before and after."
+  ],
+  "where": [
+    "tests/test_guard_test_name.py",
+    "tests/test_queue.py",
+    "tests/test_gate.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

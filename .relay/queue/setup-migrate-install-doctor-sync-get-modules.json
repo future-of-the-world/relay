@@ -1,0 +1,53 @@
+{
+  "kind": "feature",
+  "ip": 96,
+  "time": 50,
+  "found_at": "2026-10-29T04:33:25Z",
+  "found_in": "relay queue add",
+  "title": "setup, migrate, install, doctor, sync get modules",
+  "what": [
+    "Move the commands setup, migrate, install, doctor and sync out of bin/relay into lib/relay_cmd/setup.py, migrate.py, install.py, doctor.py and sync.py. Line numbers are bin/relay on 29 Oct and drift: find the functions by name.",
+    "- `cmd_setup(args, migrate=False)` serves both setup and migrate (COMMANDS has `lambda a: cmd_setup(a, migrate=...)`): put its body in one place both modules call, e.g. setup.py with a function both setup.run and migrate.run use; `cmd_migrate_all` goes with migrate. `report_refused` (used by sync and setup) lives in lib/relay_cli.py after move 4.",
+    "- Each module gets `USAGE` (its docstring block moved from bin/relay, first line `relay <cmd> ...`), `WRITES` (setup, migrate, install, doctor, sync: True; sync has `READ_FLAGS` for `--dry`; check each against the guard's table in plugins/delegate/hooks/read-only-guard.py, which must give the same verdict) and `run(args)`.",
+    "- Moved verbatim (commit A), then the wiring (commit B).",
+    "- Each module gets its test file per the convention. Move 3 as built: under the empty RELAY_ROOT, install fails on a missing file before it reads its arguments, and doctor too; so for install and doctor the smoke case must have an outcome that depends on an argument (e.g. a flag the command rejects or accepts), not the \"[Errno 2]\" line tests/test_cmd_smoke.py has. setup and migrate (`--bogus` gives exit 2 \"unknown flag --bogus\") and sync (exit 1, \"relay sync: waits for a green paid run\") already have working cases there.",
+    "Done: full gate green; each of the five commands prints the same help and refusals as before.",
+    "",
+    "Module interface (every moved command): `USAGE: str` whose first line is `relay <cmd> ...`; `WRITES: bool`; optional `READ_FLAGS` (sync's `--dry`); `def run(args: list[str]) -> int`. Names match [a-z][a-z0-9_]*, a typed `-` maps to `_`. A package's `__init__.py` has the header `USAGE`, `WRITES` for its bare use, and an optional `fallback(args)`; mixed commands (queue, check, improve, bench, license) become packages with one module per action.",
+    "",
+    "Test convention (tests/cmd_harness.py docstring, move 3): each command's own test file tests/test_cmd_<cmd>.py (tests/test_cmd_<cmd>_<action>.py for an action of a package) holds two cases: (1) `relay <cmd> --help` prints the usage lines it printed before the move, copied as a literal; (2) one smoke case with harmless arguments asserting the exit code and one output line, run through `run_relay` from tests/cmd_harness.py (it returns code, stdout, stderr and the files written, in temporary HOME, RELAY_HOME, RELAY_ROOT and cwd). For a command that cannot run in a temporary tree, the case is its usage refusal. tests/test_cmd_files.py fails, naming the file, for any module under lib/relay_cmd/ without its test file. tests/test_cmd_smoke.py already holds one table SMOKE with a case per command (all 21); keep the moved command's case there working, and note that under the empty RELAY_ROOT calibrate, install, flows, rules and doctor fail on a missing file before they read their arguments, so for those the command's own file must replace the case with one whose outcome depends on an argument. This catches an off-by-one in how the dispatcher hands args to run() (with or without the command name), which the help tests (they stop before run) and ruff do not see.",
+    "",
+    "After the move, in the same change: delete the moved commands from bin/relay's docstring, COMMANDS and imports (same commit as the new modules; commit A is \"moved verbatim\", reviewed with `git diff -M --color-moved=zebra`); do not edit plugins/delegate/hooks/read-only-guard.py (the guard keeps its table until move 10); rewrite the `where` of open queue items that name the moved commands in bin/relay to the new module files, and record how many items the start filter holds before and after. tests/relay_commands.py (names(), queue_words()) already reads the module walk joined with bin/relay's COMMANDS, so the help test and the guard completeness test need no edit.",
+    "",
+    "Start rule: the move takes named top-level functions and constants out of bin/relay. It starts when no running lane has changed anything it takes: read a lane's change with `git diff -U0 master...<lane> -- bin/relay` and compare each hunk's line range on master with the spans of the taken names (a hunk inside another function does not block). The item names bin/relay, so the start filter refuses it; start it with `relay queue start --despite-wait` when this rule says it is free. If a lane holding a taken function has not landed within 60 minutes, start anyway and that lane ports its hunk. Before landing, read again: the move lands whatever the second read shows; a lane that changed a moved function ports its hunk when it takes the default branch (git shows a conflict in the deleted function; the fixer reapplies the hunk to the new module); the landing note names the lane, the function and the new file.",
+    "",
+    "Traps for this move: keep imports lint-clean (ruff F; a dropped import of a helper is ruff F821); tests that import from the repo root must still run under the short gate; done items name their `test` ids, which are found by name, so do not rename tests; RULE_TESTS names in lib/relay_textonly.py must stay valid; tests never touch the live .relay/queue (use a temporary folder); a move that takes a function another running lane changed ports that lane's hunk by hand (start rule below); the size marker leaves a file in the move that brings it under 600 lines."
+  ],
+  "why": [
+    "Move 6 of the split of relay into one module per subcommand. The owner decided it on 28 Oct: \"каждая подкоманда может и должна жить в своем модуле, этот подход должен быть распространен на весь relay\". Waits for move 4 (dispatcher and land); it runs side by side with move 5. Six queue items stop naming bin/relay and the shared-file pairs among open items fall from 18 to 15."
+  ],
+  "where": [
+    "bin/relay:372-395 cmd_sync",
+    "bin/relay:386 report_refused",
+    "bin/relay:396-471 cmd_setup",
+    "bin/relay:472-485 cmd_install",
+    "bin/relay:486-515 cmd_migrate_all",
+    "bin/relay:516-545 cmd_doctor",
+    "lib/relay_cmd/setup.py new",
+    "lib/relay_cmd/migrate.py new",
+    "lib/relay_cmd/install.py new",
+    "lib/relay_cmd/doctor.py new",
+    "lib/relay_cmd/sync.py new",
+    "tests/test_cmd_setup.py new",
+    "tests/test_cmd_migrate.py new",
+    "tests/test_cmd_install.py new",
+    "tests/test_cmd_doctor.py new",
+    "tests/test_cmd_sync.py new"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

@@ -1,0 +1,37 @@
+{
+  "kind": "feature",
+  "ip": 0,
+  "time": 50,
+  "found_at": "2026-10-29T04:33:18Z",
+  "found_in": "relay queue add",
+  "title": "Refuse folder and pattern entries in where",
+  "what": [
+    "Add `where_folders(where, repo) -> list[str]` to lib/relay_queue.py. It is called by `add` (about line 949) and by `edit` of the `where` field (about line 1894), and NOT by `where_problems`, which also runs inside `relay queue check` with no tree.",
+    "Refused: a path ending in `/`; a path naming an existing directory (also without a slash); a path containing `*`, `?` or `[`. A path that does not exist yet is accepted. Message example: \"where element 2 `lib/` is a folder: name the file you will change (a new file is fine, e.g. lib/relay_cmd/digest.py)\".",
+    "Tests in tests/test_queue_where.py (new), in a temporary repository: `lib/`, `docs` and `rules/*.md` are refused; `lib/relay_cmd/digest.py` and `lib/relay_queue.py:103` are accepted; `edit` gives the same verdicts; `relay queue check` stays green on a stored item with `lib/` (this test fails if the rule is put into where_problems). Rule-text cases: `add` with [\"lib/relay_setup.py:325-333 merge_settings\", \"docs/handover.md\"] is accepted; `add` with [\"docs/\"] is refused with the next step.",
+    "Rewrite the stored items: 24 open items have a folder entry, 6 entries are patterns. Fix each with one `relay queue edit` call, `because` = \"folder entry named as a file\"; a pattern becomes the files it covers today. Record which items the start filter holds before and after.",
+    "Rules text: rules/queue.md line 53 gets the example [\"lib/relay_setup.py:325-333 merge_settings\", \"docs/handover.md\"] and one sentence: \"a folder, a directory name without a slash and a pattern are refused; name the file, a new one is fine.\" This makes the move a paid-path change (rules/**): it may wait at the landing while a paid run goes. Its hunk at line 53 does not overlap another lane's insert after line 46.",
+    "Done: the full gate is green, the tests above pass, the 24 items are rewritten, a refusal names the next step.",
+    "Traps for every move: keep imports lint-clean (ruff F); tests that import from the repo root must still run under the short gate; done items name their `test` ids, which are found by name, so do not rename tests; RULE_TESTS names in lib/relay_textonly.py must stay valid; tests never touch the live .relay/queue (use a temporary folder); a move that takes a function another lane changed ports that lane's hunk by hand; the size marker leaves a file in the move that brings it under 600 lines."
+  ],
+  "why": [
+    "Move 1 of the split of relay into one module per subcommand. The owner decided it on 28 Oct: \"каждая подкоманда может и должна жить в своем модуле, этот подход должен быть распространен на весь relay\", and answered yes to refusing a folder as a where entry. The start filter holds an item when a running branch changed any file inside a folder named in its where: 13 of the 29 held items are held by folders."
+  ],
+  "pass_cases": [
+    "a folder, a no-slash directory and a pattern are refused by add and edit with the next step",
+    "check stays green on stored items with a folder"
+  ],
+  "where": [
+    "lib/relay_queue.py",
+    "rules/queue.md:53 where example",
+    "tests/test_queue_where.py new"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-29T04:34:35Z",
+  "dropped_why": [
+    "Duplicate queued by mistake on 29 Oct: a worker ran relay queue add over old input files of moves 1-3 and fix F; the original item exists and is landed or in progress."
+  ]
+}

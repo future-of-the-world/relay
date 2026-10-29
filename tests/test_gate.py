@@ -374,7 +374,7 @@ class Inert(Fixture):
         write(os.path.join(main, ".relay", "README.md"), "x\n")
         write(os.path.join(main, "docs", "handover.md"), "state\n")
         write(os.path.join(main, "tests", "test_x.py"), self.TEST % body)
-        write(os.path.join(main, "evals", "plugin", "graders.test.sh"), "exit 0\n")
+        write(os.path.join(main, "evals", "plugin", "graders.py"), "raise SystemExit(0)\n")
         os.makedirs(os.path.join(main, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(main, "bin", "ci"))
         os.makedirs(os.path.join(main, "lib"))
@@ -463,15 +463,16 @@ class Inert(Fixture):
         self.assertEqual(len(git(self.wt, "worktree", "list").splitlines()), 2)
 
     def test_a_full_run_is_probed_with_its_hook_suites_in_full(self):
-        """The hook case count must not depend on the mode: a suite that prints 2 ok lines in full mode and 1 under
-        RELAY_QUICK=1 (as guard-main does) gives 2 in a full outer run; the nested probe run is quick for the paid steps
-        only, so it must count 2 as well, else `inert` was red with 932 against 448 cases. The full outer run ends red
-        here (the fixture has no eval-record); only the `inert` line is asserted."""
+        """The case count must not depend on the mode: a test file with 2 tests in full mode and 1 under RELAY_QUICK=1
+        (as guard-main's shared cases) gives "Ran 3" in a full outer run (1 sample test of the fixture + 2); the nested
+        probe run is quick for the paid steps only, so it must count the same, else `inert` was red. The full outer run
+        ends red here (the fixture has no eval-record); only the `inert` line is asserted."""
         self.project()
-        write(os.path.join(self.wt, "plugins", "x", "tests", "a.test.sh"),
-              'echo "ok   one"\n[ "${RELAY_QUICK:-0}" = 1 ] || echo "ok   two"\n')
+        write(os.path.join(self.wt, "tests", "test_y.py"),
+              "import os, unittest\n\nclass Y(unittest.TestCase):\n    def test_one(self):\n        pass\n\n"
+              "if os.environ.get('RELAY_QUICK') != '1':\n    Y.test_two = lambda self: None\n")
         git(self.wt, "add", "-A")
-        git(self.wt, "commit", "-q", "-m", "hook suite")
+        git(self.wt, "commit", "-q", "-m", "mode dependent suite")
         self.gate(self.wt, "--")
         head = git(self.wt, "rev-parse", "HEAD~1")
         log = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))

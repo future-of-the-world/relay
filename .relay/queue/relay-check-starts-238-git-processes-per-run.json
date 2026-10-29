@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 60,
+  "found_at": "2026-10-29T04:45:08Z",
+  "found_in": "relay queue add",
+  "title": "relay check starts 238 git processes per run",
+  "what": [
+    "Measure which reads `relay check` repeats (per file, per record, per sha) and read the same data with few git calls: one ls-tree or cat-file --batch for many objects, values computed once per run and passed down. Same for the hook that runs it (the check mark hook)."
+  ],
+  "why": [
+    "Measured 29 Oct by the gate-speed design: one `relay check` run makes 238 git calls; test_check_mark_hook (7 tests) started 2479 git in 167 s. The same code runs in the owner's sessions as a hook, so every call there pays it too. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "29 Oct, master ee932b26: tracing one `relay check` run counts 238 git process starts."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "One relay check run starts a small fixed number of git processes (target set by the measurement, independent of the number of records)."
+  ],
+  "where": [
+    "bin/relay (relay check)",
+    "lib/relay_git.py",
+    "tests/test_check_mark_hook.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

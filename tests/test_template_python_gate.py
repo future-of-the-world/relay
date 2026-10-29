@@ -112,7 +112,7 @@ class PythonGate(Base):
         self.setup_proj({"tally.py": "", "test_tally.py": "def test_x():\n    assert 1 == 2\n"})
         for script in ("check", "ci"):
             text = open(os.path.join(self.proj, "bin", script)).read()
-            self.assertIn("python3 -m pytest", text)
+            self.assertIn('"-m", "pytest"' if script == "check" else "python3 -m pytest", text)
             self.assertNotIn("{{", text)
         r = self.run_script(os.path.join(self.proj, "bin", "check"))
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
