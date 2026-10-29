@@ -21,6 +21,7 @@ from test_gate import RELAY, Fixture, git, read, write  # noqa: E402
 import relay_inert  # noqa: E402
 import relay_lanes  # noqa: E402
 import relay_land  # noqa: E402
+import relay_queue  # noqa: E402
 import test_inert  # noqa: E402
 import test_lanes_state as tls  # noqa: E402
 
@@ -217,6 +218,29 @@ class Landing(Land):
         self.assertIn("open", run.stdout + run.stderr)
         self.assertEqual(self.runs(), 0)
         self.assertEqual(self.done()[0].outcome, "refused")
+
+    def test_land_refuses_a_branch_whose_taken_fix_item_is_still_open(self):
+        # a fix item taken by wt/x and not closed with `relay queue done` on it: landing would leave it taken by a branch that is gone
+        self.counter = os.path.join(self.tmp, "runs")
+        self.repo(gate=self.GATE % {"counter": self.counter})
+        made = relay_queue.new_item("fix", 91, 10, "2026-10-01T00:00:00Z", "t", "A fix", "w", "y", failing="f", where=["lib/a.py:1"])
+        item = relay_queue.serialize("job", relay_queue.changed(made, taken_at="2026-10-02T00:00:00Z", taken_by="wt/x"))
+        write(os.path.join(self.wt, ".relay", "queue", "job.json"), item)
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "take")
+        self.mark(self.wt)
+        before = self.master()
+        run = self.land()
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+        out = run.stdout + run.stderr
+        self.assertIn("relay queue done job -C " + self.wt + " --test", out)
+        self.assertEqual(self.master(), before)
+        self.assertEqual(self.runs(), 0)          # refused before the gate
+
+    def test_land_of_a_branch_with_no_item_is_not_refused_for_one(self):
+        self.start()
+        run = self.land()
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
 
     def test_land_red_gate_keeps_master(self):
         self.start(gate="exit 1\n")
