@@ -1,0 +1,97 @@
+{
+  "branch": "wt/tests-leave-temp-worktrees-registered-in",
+  "findings": [
+    {
+      "details": [
+        "29 Oct 06:12: 11 detached temp worktrees registered in the main checkout, 8 of them 3-5 days old. Each shows up in relay doctor and git worktree list, and a test that registers worktrees in the live repo breaks the rule that tests never touch live state. Found by the leaked-processes design review. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "29 Oct 06:12: `git -C ~/relay worktree list` lists 11 detached entries under the system temp folder ($TMPDIR)."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After a full test run, git worktree list in the main checkout shows no entry under $TMPDIR."
+      ],
+      "path": "tests/test_ci_python.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_ci_python.py:491 lane-removed test passes at head; at 909aec5a the file fails to import (no relay_ci_probe), and the reviewer saw 3 != 2 on master code."
+      ],
+      "severity": "HIGH",
+      "since": "909aec5a9093345c30bfc1a4d0b580e1fde7afa3",
+      "source": "queue",
+      "summary": "Tests leave temp worktrees registered in the live repo",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction. The scan loop reads every record and, for a dead owner, runs _remove_probe (git worktree remove,",
+        "rmtree, git worktree prune: hundreds of milliseconds) and then a bare os.remove. drop_shared_record suppresses",
+        "FileNotFoundError, the loop does not. Ci.prepare() is the first call of Ci._run with no try around it, so the exception",
+        "leaves Ci.main and the gate ends exit 1 with a traceback. Reachable: 6 lanes gate at once, each gate also starts a nested",
+        "probe run whose prepare() scans the same shared folder, and a dead-owner record exists exactly in the case this change",
+        "is for (a lane removed after its gate was killed). Size: 15 minutes."
+      ],
+      "evidence": [
+        "$ python3 -I scratchpad/race/race.py <worktree>/lib scratchpad/race",
+        "errors: [\"FileNotFoundError(2, 'No such file or directory')\"]",
+        "(race.py: temp repo, one probe worktree, record \"<missing lane>\\n<tmpd>\\n\" in shared_dir, two threads call",
+        "remove_leftover_probe(repo))",
+        "lib/relay_ci_probe.py:59-62:",
+        "    owner = _read_lines(os.path.join(folder, name))",
+        "    if len(owner) == 2 and not os.path.isdir(owner[0]):",
+        "        _remove_probe(root, owner[1])",
+        "        os.remove(os.path.join(folder, name))"
+      ],
+      "failing_case": [
+        "A temporary repository with one probe worktree whose shared record names an owner folder that does not exist. Two",
+        "threads (two gates of two lanes starting at once; every gate's nested probe run scans too) call",
+        "relay_ci_probe.remove_leftover_probe(repo) together. Now: both list and read the record, both remove the probe, both call",
+        "os.remove on the record; the second raises FileNotFoundError, which escapes Ci.prepare() and ends that gate with a",
+        "traceback (a red gate that found nothing wrong). It should: the probe is removed once and both calls return normally."
+      ],
+      "fix_hint": [
+        "Claim the record before cleaning: try os.remove(record) first (or os.rename it to a private name) and only the call that",
+        "succeeded removes the probe; on FileNotFoundError skip it. At the least, suppress FileNotFoundError on that os.remove",
+        "(contextlib.suppress), as drop_shared_record already does. Add the two-thread test of pass-case 1."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 62,
+      "pass_cases": [
+        "1. Dead-owner record + probe; two concurrent remove_leftover_probe(repo) calls (threads): neither raises; afterwards git",
+        "   worktree list shows only the main checkout and the record folder is empty.",
+        "2. Dead-owner record whose file is removed between listdir and the removal (simulate: delete it inside a patched",
+        "   _remove_probe): remove_leftover_probe returns normally.",
+        "3. Existing: test_a_probe_whose_lane_worktree_was_removed_is_removed_by_the_next_gate_of_any_worktree still passes (4 -> 3 -> 2).",
+        "4. Existing: test_a_probe_of_a_live_lane_is_not_touched_by_the_gate_of_another_lane still passes (4 worktrees kept)."
+      ],
+      "path": "lib/relay_ci_probe.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_ci_python.py:512 two-thread test passes; fails at f26f158b (AssertionError at line 545). Pass cases 3, 4 (lines 491, 549) pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "f26f158b8df5ec756ff565baad4439dfe7d65443",
+      "source": "review-tests-leave-temp-worktrees-registered-in.json",
+      "source_id": "F1",
+      "summary": "two gates that start together and both see one dead-owner probe record: the second crashes with FileNotFoundError in prepare()",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "e644f5ed352211b55869646dc1f4a9219a4d8be5.gate.log",
+  "head": "7fac719ebda637813da5a35170105b38e4a1142b",
+  "item": "tests-leave-temp-worktrees-registered-in-the-liv",
+  "notes": [
+    "Fix claims the record by os.remove before cleaning; FileNotFoundError skips. Callers of remove_leftover_probe unchanged in behaviour."
+  ],
+  "schema": 2,
+  "scope": [
+    "f26f158b..HEAD (fix 88542f34, e644f5ed): lib/relay_ci_probe.py and tests/test_ci_python.py only. Gate log e644f5ed green, only a gate log after it. Precheck + test_ci_python: 41 passed; whole check command green. F1 test run at f26f158b with the head test file: fails; Q1 base 909aec5a lacks relay_ci_probe so the test file does not even import."
+  ],
+  "type": "check"
+}

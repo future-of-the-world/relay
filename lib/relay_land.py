@@ -29,7 +29,7 @@ FF_LOCK_WAIT_S = 1.0          # seconds between two fast-forwards refused by an 
 JUDGE_TIMEOUT_S = 300         # one judge reads git only; far above its seconds, finite so a stuck git cannot hold the lock forever
 LANDED, RED, CONFLICT, REFUSED, HANDED_BACK, DIRTY = "landed", "red", "conflict", "refused", "handed_back", "dirty"
 EXIT = {LANDED: 0, RED: 1, REFUSED: 2, DIRTY: 2, CONFLICT: 3, HANDED_BACK: 4}
-HOOK = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "plugins", "relay", "hooks", "merge.py")
+HOOK = next((h for n in (2, 4) if os.path.exists(h := os.path.join(os.path.realpath(__file__).rsplit("/", n)[0], "plugins", "relay", "hooks", "merge.py"))), os.path.join(os.path.realpath(__file__).rsplit("/", 2)[0], "plugins", "relay", "hooks", "merge.py"))   # the repository's merge hook: lib/ is 2 path parts below the root, plugins/<name>/lib/ copies 4
 
 
 def setting(cfg: Any, key: str) -> int:

@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-29T12:13:39Z",
   "taken_by": "wt/tests-leave-temp-worktrees-registered-in",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T13:57:14Z",
+  "test": "tests/test_ci_python.py::ProbeBesideTheRun::test_a_probe_whose_lane_worktree_was_removed_is_removed_by_the_next_gate_of_any_worktree",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

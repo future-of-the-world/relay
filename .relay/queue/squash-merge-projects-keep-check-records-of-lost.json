@@ -23,8 +23,8 @@
     "plugins/core/hooks/guard-main.sh (.relay/checks writes)",
     "docs/setup.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T14:09:54Z",
+  "taken_by": "wt/squash-merge-projects-keep-check-records",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

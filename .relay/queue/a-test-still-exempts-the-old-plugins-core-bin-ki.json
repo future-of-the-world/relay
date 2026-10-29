@@ -25,8 +25,8 @@
     "plugins/relay/README.md:3",
     "docs/design.md:127-129"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T14:09:31Z",
+  "taken_by": "wt/a-test-still-exempts-the-old-plugins-cor",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

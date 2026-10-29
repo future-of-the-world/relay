@@ -1,0 +1,246 @@
+{
+  "branch": "wt/the-lanes-hook-sometimes-runs-past-its-1",
+  "findings": [
+    {
+      "details": [
+        "29 Oct, twice in the owner's session (about 14:45 and 15:20 local) Claude Code showed the owner 'UserPromptSubmit hook [python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lanes.py] timed out after 10s \u2014 output discarded. Raise the hook's \"timeout\" to allow more time.' The owner asked twice what it means. Measured right after, at load 48 on 12 cores: 0.7-0.9 s per run (3 runs), so the slow runs are rare and the cause is not known (a git lock held by a landing or a gate commit, swap while the podman machine held 20 GB, or a slow git call). A hook that runs at every owner message must never block it, and a warning that names an internal file tells the owner nothing (principle 10).",
+        "Also: plugins/front/hooks/hooks.json",
+        "Also: tests/test_lanes.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "On a loaded machine, during a landing or a gate commit, the UserPromptSubmit lanes hook takes over 10 s and Claude Code shows the owner the timeout warning."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "a lanes hook run whose git call blocks (a test holding the index lock or a fake slow git) returns within 5 s with one line that the lanes are unknown",
+        "a normal run prints the same lanes line as today",
+        "a run over 2 s leaves a log line naming the slow step"
+      ],
+      "path": "plugins/front/hooks/lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes.py:148 test_blocked_git_gives_one_unknown_line passes at head and fails at the queue base (30.2 s not less than 5.0)."
+      ],
+      "severity": "HIGH",
+      "since": "19d5dedae87bf34b32a7e54edcf4a4c7968f2e56",
+      "source": "queue",
+      "summary": "The lanes hook sometimes runs past its 10 s limit",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (traced, not reproduced: needs a landed-feature fixture). main() arms signal.setitimer(ITIMER_REAL, budget) for every event,",
+        "work() runs close_landed for PostToolUse with no distinction between reading and writing. relay_queue._git uses subprocess.run, whose",
+        "`except: process.kill(); raise` sends SIGKILL to git when the handler's Overrun passes through; git cannot remove its index.lock on",
+        "SIGKILL. Before this change Claude Code's 20 s limit could kill the python hook, but the git child ran to its end; now the hook kills",
+        "git itself, and 5x sooner. A stale index.lock in the main checkout blocks merges, queue writes and landings: HIGH (fails on ordinary",
+        "use, during exactly the landing the item names). Size: 30."
+      ],
+      "evidence": [
+        "plugins/front/hooks/lanes.py:99-101 signal.signal(SIGALRM, deadline); signal.setitimer(ITIMER_REAL, budget) for every event",
+        "plugins/front/hooks/lanes.py:131 closed = relay_lanes.close_landed(root)  (inside work(), under the timer)",
+        "plugins/front/lib/relay_queue.py:822-838 _commit, update-ref wt/queue-<slug>, diff, merge --ff-only, branch -d",
+        "plugins/front/lib/relay_queue.py:39-41 QUEUE_LAND_TRIES = 5, WAITS = (0.2, 0.4, 0.8, 1.0)",
+        "plugins/front/hooks/hooks.json: PostToolUse lanes.py \"timeout\": 20"
+      ],
+      "failing_case": [
+        "A feature branch lands (`relay land wt/x`); the PostToolUse lanes hook runs close_landed(root) on a loaded machine (the very case of the",
+        "item: \"during a landing\"). close_landed computes lanes_state, then relay_queue.close_with_evidence -> _land: rev-parse, planner,",
+        "_default_rejects, _commit, update-ref wt/queue-<slug>, diff, merge --ff-only (up to 5 tries with 0.2-1 s sleeps), then lanes_state",
+        "again. hooks.json gives this hook 20 s; the change arms a 4 s timer for every event. When it fires inside _land, Overrun is raised in",
+        "the middle of subprocess.run, which SIGKILLs the git child:",
+        "- after update-ref, before merge: wt/queue-<slug> is left behind; the next close says \"wt/queue-<slug> exists (relay queue land, or relay doctor)\";",
+        "- during `git merge --ff-only` in the main checkout: git is SIGKILLed while holding .git/index.lock, so every later git write in the",
+        "  owner's main checkout fails with \"Unable to create index.lock\" until someone removes it by hand;",
+        "- a close that did land is reported as \"Lanes: not known this time\" and its \"closed <slug>\" line is lost.",
+        "Should be: a write that started finishes (or is never started); the deadline bounds only the read-only work."
+      ],
+      "fix_hint": [
+        "Arm the deadline only around reads: for PostToolUse cancel (or block) SIGALRM while close_landed's relay_queue writes run, or give",
+        "PostToolUse its own budget under its 20 s limit and run close_with_evidence with the timer off; better, have close_landed decide the",
+        "closes under the deadline and write them after signal.setitimer(..., 0)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 101,
+      "pass_cases": [
+        "1. PostToolUse landing event, a landed feature item, a fake git that sleeps 6 s on `merge`: the hook finishes the close, the item is done on the default branch, no wt/queue-* branch and no .git/index.lock remain.",
+        "2. PostToolUse landing event, git blocked on every call (fake git that never answers): the hook ends within the 20 s limit of hooks.json with the one \"not known\" line, and no queue write was started.",
+        "3. PostToolUse landing event, normal speed, a landed feature: the output holds the \"closed <slug> ...\" line and the lanes line, as today.",
+        "4. UserPromptSubmit with git blocked: still the one \"not known\" line within 5 s (the existing pass case)."
+      ],
+      "path": "plugins/front/hooks/lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes.py LanesHookBounds::test_a_landing_close_finishes_its_writes_past_the_deadline passes, fails on pre-fix; blocked-git landing test passes."
+      ],
+      "severity": "HIGH",
+      "since": "630a06352dd7e69f1f998b0bd7d1717d7600ef4a",
+      "source": "review-the-lanes-hook-sometimes-runs-past-its-1.json",
+      "source_id": "F1",
+      "summary": "the 4 s SIGALRM deadline now also cuts the PostToolUse landing path mid-write: close_landed's queue landing can be killed between update-ref and merge --ff-only",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced). timed() sets _step[0] = step on entry and never restores the outer step on exit, so after a nested git call",
+        "returns, _step still names it while the outer \"lanes\" step goes on into relay_queue._git / cat_batch, which bypass relay_git.git and",
+        "are neither bounded by GIT_TIMEOUT_S nor timed. The item's first goal is \"find what the lanes hook waits on\"; a log that names the",
+        "wrong git call sends the next investigation to the wrong place. Size: 15."
+      ],
+      "evidence": [
+        "scratchpad/probe/test_probe_step.py (fake git: exec sleep 60 when an argument is \"cat-file\", else the real git), default budget:",
+        "  elapsed 4.1, output \"Lanes: not known this time ...\"",
+        "  2026-10-29T17:07:29 lanes hook: lanes took 3.0 s",
+        "  2026-10-29T17:07:29 lanes hook: overrun in git show-ref --verify --quiet took 4.0 s"
+      ],
+      "failing_case": [
+        "A git that hangs only on `cat-file` (relay_queue.read_queue reads the items through its own _git, not relay_git.git), default budget.",
+        "Now the slow log holds:",
+        "  lanes hook: lanes took 3.0 s",
+        "  lanes hook: overrun in git show-ref --verify --quiet took 4.0 s",
+        "show-ref had already returned; the hang was in cat-file. Should name the step in progress (here \"lanes\", or the queue read)."
+      ],
+      "fix_hint": [
+        "Make timed() a stack: save the previous _step[0] and restore it in finally, so the deadline reports the innermost step still running;",
+        "optionally time relay_queue's reads (read_queue, _context_with_relay) as their own steps."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 61,
+      "pass_cases": [
+        "1. Fake git that sleeps on `cat-file` only: the overrun line names \"lanes\" (or a queue-read step), not a git command that returned.",
+        "2. Fake git that sleeps on every call: the overrun line names the first git call (\"git rev-parse ...\" or \"config\"), as the step that hung.",
+        "3. A git call that took 2.5 s and returned, then a fast run: one line \"<that git call> took 2.5 s\", no overrun line (as today)."
+      ],
+      "path": "plugins/front/hooks/lanes.py",
+      "rank": "medium",
+      "reason": [
+        "test_overrun_names_the_step_in_progress_not_a_git_call_that_returned passes, fails on pre-fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "630a06352dd7e69f1f998b0bd7d1717d7600ef4a",
+      "source": "review-the-lanes-hook-sometimes-runs-past-its-1.json",
+      "source_id": "F2",
+      "summary": "the overrun log names the last git call that finished, not the step that hangs, so it points the diagnosis at the wrong git command",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced). The test passes budget=\"1\" and asserts only the output text; without the timer, relay_config.main_checkout",
+        "(5 s timeout) and project_root (5 s) run before the bounded git, and the 2.5 s per-call bound then yields the same line. The default",
+        "BUDGET_S = 4.0 is never exercised, so raising it to 9 would also pass. Project rule: a regression test is checked to fail with the",
+        "fix disabled. Size: 10."
+      ],
+      "evidence": [
+        "scratchpad/probe/test_probe_noalarm.py (copy of plugins/front with the setitimer guard set to False):",
+        "  elapsed without deadline 12.8",
+        "  1 passed"
+      ],
+      "failing_case": [
+        "Disable the SIGALRM deadline (hasattr(signal, \"setitimer\") -> False) in a copy of the hook and run",
+        "test_blocked_git_gives_one_unknown_line against it: the hook takes 12.8 s (over the 10 s limit in hooks.json, the bug of the item)",
+        "and the test passes. It should fail: the pass case is \"returns within 5 s with one line that the lanes are unknown\"."
+      ],
+      "fix_hint": [
+        "Run the blocked case with the default budget and assert time.monotonic() elapsed < 5 around the subprocess; keep budget=\"1\" only for the log test."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 149,
+      "pass_cases": [
+        "1. Default budget (no RELAY_LANES_HOOK_BUDGET_S), git that never answers: the run ends in under 5 s (asserted on the elapsed time) with exactly the one \"not known\" line.",
+        "2. Same test against the hook with the deadline disabled: fails (over 5 s).",
+        "3. Normal run: the lanes line \"start: a (fix, ip 90)\" as today."
+      ],
+      "path": "tests/test_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes.py:154 asserts elapsed < 5.0 at the default budget; fails at the queue base with no deadline (30 s)."
+      ],
+      "severity": "MEDIUM",
+      "since": "630a06352dd7e69f1f998b0bd7d1717d7600ef4a",
+      "source": "review-the-lanes-hook-sometimes-runs-past-its-1.json",
+      "source_id": "F3",
+      "summary": "the blocked-git test passes with the deadline disabled: it shortens the budget to 1 s and never asserts the 5 s bound",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE, a narrow window. work() prints from inside the timed region; the timer is cancelled only in main()'s finally. Size: 10."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "The timer expires inside context(event, shown) (json.dump to stdout) near the end of a slow run: a partial object is written, Overrun is",
+        "caught, and context(event, UNKNOWN) writes a second object; Claude Code gets invalid JSON. Should be: exactly one JSON object."
+      ],
+      "fix_hint": [
+        "Have work() return the text; cancel the timer (setitimer 0) before printing either the lanes line or UNKNOWN."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 126,
+      "pass_cases": [
+        "1. Overrun before the line is ready: one JSON object with the \"not known\" text.",
+        "2. Normal run: one JSON object with the lanes line."
+      ],
+      "path": "plugins/front/hooks/lanes.py",
+      "rank": "low",
+      "reason": [
+        "test_nothing_is_printed_with_the_deadline_armed passes, fails on pre-fix."
+      ],
+      "severity": "LOW",
+      "since": "630a06352dd7e69f1f998b0bd7d1717d7600ef4a",
+      "source": "review-the-lanes-hook-sometimes-runs-past-its-1.json",
+      "source_id": "F4",
+      "summary": "the deadline can fire while the lanes line is being written, so stdout gets half a JSON object followed by the not-known JSON",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading; not reached today since every copy lives in the repository. Size: 5."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A relay_land.py copy whose root has no plugins/relay/hooks/merge.py at 2 or 4 levels up: HOOK = \"merge.py\", so `python -I merge.py judge ...`",
+        "runs whatever merge.py sits in the process's cwd, or fails naming cwd/merge.py. Before, the error named the expected absolute path."
+      ],
+      "fix_hint": [
+        "Fall back to the n=2 path (the old value) instead of \"merge.py\", in all three copies."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 32,
+      "pass_cases": [
+        "1. lib/, plugins/front/lib/, plugins/relay/lib/ copies: HOOK is <root>/plugins/relay/hooks/merge.py (the new test).",
+        "2. No merge.py found: HOOK is an absolute path that names where it was expected, never a cwd-relative name."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_land.py::ReviewFixes::test_hook_path_without_a_merge_hook_is_absolute_and_names_where_it_was_expected passes, fails on pre-fix (merge.py)."
+      ],
+      "severity": "LOW",
+      "since": "630a06352dd7e69f1f998b0bd7d1717d7600ef4a",
+      "source": "review-the-lanes-hook-sometimes-runs-past-its-1.json",
+      "source_id": "F5",
+      "summary": "HOOK falls back to the bare name merge.py, which Python resolves against the current folder",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "56a3627d63d04b27c7349bc2e4676c539efe5e4b.gate.log",
+  "head": "943df31e5cebed49d5ec69512dadb58e64c876d6",
+  "item": "the-lanes-hook-sometimes-runs-past-its-10-s-limi",
+  "notes": [
+    "Fix diff read: timed restores the outer step, landing writes run unbound with the timer off, printing happens after disarm. No broken caller seen."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 19d5dedae87b..HEAD; changed files are lanes.py, relay_land copies, tests/test_lanes.py, tests/test_land.py (all named by findings). Gate log head 56a3627d, exit 0; only the gate-log commit follows. Check command: precheck plus pytest on 3 files, 107 passed. Tests run on the pre-fix commit with head tests: 3 lanes tests and the HOOK test fail; the Q1 blocked-git test fails at the queue base (30 s vs 5 s)."
+  ],
+  "type": "check"
+}

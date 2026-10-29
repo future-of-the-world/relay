@@ -510,7 +510,7 @@ class Inert(Fixture):
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(main, "bin", "ci"))
         shutil.copy(os.path.join(ROOT, "deps.toml"), os.path.join(main, "deps.toml"))   # bin/ci reads the python pin
         os.makedirs(os.path.join(main, "lib"))
-        for module in ("relay_ci.py", "relay_ci_lines.py", "relay_ci_python.py"):   # the wrapper runs relay_ci, which imports the other two
+        for module in ("relay_ci.py", "relay_ci_lines.py", "relay_ci_python.py", "relay_ci_probe.py"):   # the wrapper runs relay_ci, which imports the others
             shutil.copy(os.path.join(ROOT, "lib", module), os.path.join(main, "lib", module))
         # the copied gate's library tests run through the unittest runner that gives every test its temporary folders
         for name in ("run_unittest.py", "parallel_unittest.py", "tmp_default.py", "leaked_gates.py"):

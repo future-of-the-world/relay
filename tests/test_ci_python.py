@@ -12,12 +12,14 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from contextlib import redirect_stdout
 from typing import Any, Callable, List, Optional
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 import relay_ci  # noqa: E402
+import relay_ci_probe  # noqa: E402
 from pidfile import wait_pid  # noqa: E402
 
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t",
@@ -486,6 +488,77 @@ class ProbeBesideTheRun(unittest.TestCase):
         log = os.path.join(self.root, ".ci", "steps", "inert-nested.log")
         return relay_ci.Probe(self.root, self.head, True, self.env, log, nested=("sh", "-c", script))
 
+    def test_a_probe_whose_lane_worktree_was_removed_is_removed_by_the_next_gate_of_any_worktree(self) -> None:
+        # live case 29 Oct: a lane worktree removed (or killed) while its probe existed; the probe stays registered in the main
+        # repository because the record sat in the lane's own .ci. Two lanes: lane_a dies with its probe, lane_b runs a gate.
+        lanes = []
+        for name in ("lane_a", "lane_b"):
+            path = os.path.join(self.root, ".worktrees", name)
+            subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", path, self.head], check=True, env=self.env)
+            lanes.append(path)
+        log = os.path.join(lanes[0], ".ci", "steps", "inert-nested.log")
+        probe = relay_ci.Probe(lanes[0], self.head, True, self.env, log, nested=("true",))
+        probe.start()
+        probe.wait()
+        # 1 main + 2 lanes + 1 probe; the gate of lane_a is gone without stop() (killed) and so is its worktree
+        self.assertEqual(len(self.worktrees()), 4)
+        subprocess.run(["git", "-C", self.root, "worktree", "remove", "--force", lanes[0]], check=True, env=self.env)
+        self.assertEqual(len(self.worktrees()), 3)   # the probe is still registered: the leak
+        relay_ci.remove_leftover_probe(lanes[1])
+        self.assertEqual(len(self.worktrees()), 2)   # main + lane_b
+        assert probe.tmpd is not None
+        self.assertFalse(os.path.exists(probe.tmpd))
+
+    def test_two_gates_that_read_one_dead_owner_record_at_once_both_return(self) -> None:
+        # a probe worktree whose shared record names an owner folder that does not exist; two gates start together and both
+        # read the record before either removes it: the probe is removed once and neither raises
+        tmpd = tempfile.mkdtemp(dir=self.root)
+        subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", os.path.join(tmpd, "wt"), self.head],
+                       check=True, env=self.env)
+        folder = relay_ci_probe.shared_dir(self.root)
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, os.path.basename(tmpd)), "w") as handle:
+            handle.write(os.path.join(self.root, "missing-lane") + "\n" + tmpd + "\n")
+        barrier = threading.Barrier(2)
+        real = relay_ci_probe._read_lines
+
+        def reading(path: str) -> List[str]:
+            lines = real(path)
+            if os.path.dirname(path) == folder:
+                barrier.wait(timeout=WAIT)   # both threads hold the record's lines before either goes on
+            return lines
+
+        errors: List[BaseException] = []
+
+        def gate() -> None:
+            try:
+                relay_ci_probe.remove_leftover_probe(self.root)
+            except BaseException as err:  # noqa: BLE001 - the test reports whatever escaped
+                errors.append(err)
+
+        with mock.patch.object(relay_ci_probe, "_read_lines", reading):
+            threads = [threading.Thread(target=gate) for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        self.assertEqual(errors, [])
+        self.assertEqual(len(self.worktrees()), 1)   # main only
+        self.assertEqual(os.listdir(folder), [])
+
+    def test_a_probe_of_a_live_lane_is_not_touched_by_the_gate_of_another_lane(self) -> None:
+        lanes = []
+        for name in ("lane_a", "lane_b"):
+            path = os.path.join(self.root, ".worktrees", name)
+            subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", path, self.head], check=True, env=self.env)
+            lanes.append(path)
+        probe = relay_ci.Probe(lanes[0], self.head, True, self.env, os.path.join(lanes[0], ".ci", "n.log"), nested=("true",))
+        probe.start()
+        probe.wait()
+        self.addCleanup(probe.stop)
+        relay_ci.remove_leftover_probe(lanes[1])
+        self.assertEqual(len(self.worktrees()), 4)   # main + 2 lanes + the live probe
+
     def test_the_probe_run_is_marked_so_its_test_runner_only_reads_the_class_times(self) -> None:
         # the nested run gets RELAY_INERT_PROBE=1 (the outer run's environment does not have it)
         mark = os.path.join(self.root, "mark.txt")
@@ -656,9 +729,11 @@ class LockFdReachesChildren(unittest.TestCase):
                                       env=genv).stdout.strip()
                 probe = relay_ci.Probe(root, head, True, genv, os.path.join(root, ".ci", "n.log"),
                                        nested=("sh", "-c", "test -e /dev/fd/%d" % fd))
-                probe.start()
-                self.assertEqual(probe.wait(), 0)
-                probe.stop()
+                try:
+                    probe.start()
+                    self.assertEqual(probe.wait(), 0)
+                finally:
+                    probe.stop()   # also when an assertion fails: the worktree and its temporary folder never stay
             finally:
                 os.close(fd)
 
