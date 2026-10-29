@@ -49,6 +49,12 @@
       "fact": [
         "29 Oct 06:05: `git worktree list` in the main checkout shows 10 detached worktrees under $TMPDIR (tmp.*/wt and tmp*/wt) left by tests, besides the leaked gate scripts: tests that make worktrees of the live repository leave them registered when they die. Belongs to the same class the leaked-processes design covers."
       ]
+    },
+    {
+      "at": "2026-10-29T02:11:53Z",
+      "fact": [
+        "Correction, 29 Oct: the question above says quick gates take '1-3 часа вместо 4 минут'; 4 minutes was wrong. 241 s was only the library tests step of one gate on 28 Oct. The whole quick gate, measured over 510 recorded gate logs: median 14.4 min, 90% under 25.6 min. Under the leak the slowest gates took 1-3 hours."
+      ]
     }
   ]
 }
