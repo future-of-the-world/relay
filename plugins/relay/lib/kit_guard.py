@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# size: over the 600-line limit until its split item lands
 """Splits a Bash command into its simple commands for hooks/guard-main.sh.
 
     kit_guard.py <cwd> [target-flag ...]      the command on stdin
@@ -377,8 +378,9 @@ GIT_CHECKS_WRITE = {"add", "rm", "mv", "restore", "update-index"}
 INLINE_CODE = {"python", "python3", "node", "perl", "ruby"}
 # a write in inline code: open( with a w, a or x mode, or one of these words, or a redirect
 # (a `>` inside the code is a comparison, never a redirect: a real redirect is a shell word and is checked as a target;
-# printing with sys.stdout.write or sys.stderr.write is not a file write)
-INLINE_WRITE = re.compile(r"open\([^)]*['\"][wax][+bt]*['\"]|(?<!sys\.stdout\.)(?<!sys\.stderr\.)write|unlink|remove|rename|rmtree|copy|move")
+# printing with sys.stdout.write or sys.stderr.write is not a file write; a word is a write only as a call, so text
+# like ".relay/checks writes" in a printed string is not)
+INLINE_WRITE = re.compile(r"open\([^)]*['\"][wax][+bt]*['\"]|(?<!sys\.stdout\.)(?<!sys\.stderr\.)\b(?:write|unlink|remove|rename|rmtree|copy|move)\w*\s*\(|\b(?:unlink|rename)\s+['\"$]")
 GIT_GLOBAL_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix"}
 
 

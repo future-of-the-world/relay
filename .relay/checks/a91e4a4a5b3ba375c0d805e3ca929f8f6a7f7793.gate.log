@@ -1,0 +1,14 @@
+head a91e4a4a5b3ba375c0d805e3ca929f8f6a7f7793
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (2109s, log: .ci/steps/library-tests.log)
+    ERROR: test_rules_tests_command_passes_in_the_order_unittest_runs_them (test_rules_gate_isolation.RulesGateIsolation.test_rules_tests_command_passes_in_the_order_unittest_runs_them)
+    FAILED (errors=1)
+ci: hook tests ok (417s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (10s)
+ci: RED
+exit 1

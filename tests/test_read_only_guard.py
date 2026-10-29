@@ -1,12 +1,14 @@
 """Q1: a read-only agent (critic, checker, scout) must not run a relay command that writes, and `relay migrate --all`
 must not write into a primary checkout unless asked. Free: temporary folders and HOME, no paid run."""
+import importlib.machinery
+import importlib.util
 import json
 import os
-import re
 import subprocess
 import sys
 import tempfile
 import unittest
+import relay_commands
 from relay_testbase import load_hook as _load_hook  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,14 +57,26 @@ class ReadOnlyHook(unittest.TestCase):
     def test_q1_every_relay_subcommand_is_classified_as_read_or_write(self) -> None:
         """A subcommand bin/relay gains must be put on the guard's list (WRITERS) or its READS: none is left unclassified."""
         guard = load_guard()
-        with open(RELAY, encoding="utf-8") as handle:
-            source = handle.read()
-        table = source[source.index("COMMANDS = {"):source.index("\n}\n", source.index("COMMANDS = {"))]
-        commands = set(re.findall(r'"(\w+)":', table))
-        self.assertGreater(len(commands), 10)
+        commands = set(relay_commands.names())
+        self.assertLessEqual(relay_commands.FLOOR, commands)
         self.assertEqual(commands - set(guard.WRITERS) - guard.READS, set())
-        queue_words = set(re.search(r"relay queue \[([a-z|]+)\]", source).group(1).split("|"))
-        self.assertEqual(queue_words - guard.WRITERS["queue"] - guard.READ_WORDS["queue"], set())
+
+    def test_q1_every_relay_queue_word_is_classified(self) -> None:
+        guard = load_guard()
+        missing = relay_commands.queue_words() - guard.WRITERS["queue"] - guard.READ_WORDS["queue"]
+        self.assertEqual(missing, set())
+
+    def test_q1_every_queue_writing_word_of_bin_relay_is_on_the_guard_list(self) -> None:
+        """Failing case: `start` (makes a worktree, takes an item) is in bin/relay QUEUE_WRITES but was not on the guard's
+        list, so a critic could run `relay queue start x --scratch y`. The usage line does not list it; QUEUE_WRITES does."""
+        loader = importlib.machinery.SourceFileLoader("relay_bin_for_guard_test", RELAY)
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        assert spec is not None
+        module = importlib.util.module_from_spec(spec)
+        loader.exec_module(module)
+        self.assertIn("start", module.QUEUE_WRITES)
+        self.assertEqual(set(module.QUEUE_WRITES) - load_guard().WRITERS["queue"], set())
+        self.assertEqual(hook("delegate:critic", "relay queue start x --scratch y"), "deny")
 
 
 class MigrateAllPrimary(unittest.TestCase):

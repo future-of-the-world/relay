@@ -22,7 +22,7 @@
     "projects.toml",
     "lib/relay_rules.py",
     "bin/relay (setup, sync)",
-    "rules/*.md",
+    "rules/principles.md",
     "rules/taste.md",
     "plugins/core/hooks/guard-main.sh"
   ],
@@ -43,6 +43,13 @@
       "at": "2026-10-23T22:53:54Z",
       "fact": [
         "Recovered 27 Oct: `gen_taste.py` (438 lines, in the other session's session folder) builds taste-draft.html, the page the item links: the taste sections (rule texts), the memory map, the capture path and the owner questions. It is not copied to the backup folder; the page itself is the claude.ai artifact the item links."
+      ]
+    },
+    {
+      "at": "2026-10-28T17:47:22Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
       ]
     }
   ]

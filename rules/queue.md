@@ -59,8 +59,9 @@ An out-of-scope question from the owner is answered in two lines and becomes a
 decide what goes first.
 
 An item's `where` is a list of places, one string each: the place as its first word (`path`, `path:N` or `path:N-M`), then an
-optional note for people after a space, for example `["lib/relay_setup.py:325-333 merge_settings", "docs/"]`. The check refuses a
-string and an element whose first word has another shape. When the item is taken, its Q1 gets the first place (line N of N-M);
+optional note for people after a space, for example `["lib/relay_setup.py:325-333 merge_settings", "docs/handover.md"]`. The check refuses a
+string and an element whose first word has another shape; `add` and `edit` also refuse a folder, a directory name without a slash and a
+pattern: name the file, a new one is fine. When the item is taken, its Q1 gets the first place (line N of N-M);
 the other places go into Q1's details.
 
 An item's `title` is one plain sentence saying what is wrong or wanted, under 60

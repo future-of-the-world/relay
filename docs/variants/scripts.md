@@ -29,7 +29,7 @@ Taken for the shared file:
   Rust: Sight. Elixir: ALIX. Chosen by `packet.module`.
 - Smoke tests for a command-line tool or a task: Sight and ALIX, as the
   general `[[packet.required_test]]` with `command` (tested by
-  `plugins/relay/tests/packet-stacks.test.sh`).
+  `tests/test_hook_packet_stacks.py`).
 - The e2e rule (a component or end-to-end spec must name an e2e test or
   `e2e none (<reason>)`): Kartoteka and Clean, as a `required_test` kind.
 
@@ -44,7 +44,7 @@ What each project puts in its `kit.toml` to keep its old behaviour:
 - **ALIX**: `module = "elixir"`, `source = ['^lib/']`, and
   `[[packet.required_test]] kind = "smoke"`, `files =
   ['^lib/mix/tasks/(.+)\.ex$']`, `command = "mix {name}"` (the exact block in
-  `packet-stacks.test.sh`); `module_dirs = ["lib", "test/support"]`.
+  `tests/test_hook_packet_stacks.py`); `module_dirs = ["lib", "test/support"]`.
 - **Sight**: `module = "rust"`, `source = ['^(crates/[^/]+/)?src/.+\.rs$']`,
   and the smoke kind with `files =
   ['^(?:crates/[^/]+/)?src/cli/(?!mod\.rs$)([a-z0-9_]+)\.rs$']`,
@@ -62,7 +62,7 @@ cases; the shared file has fence masking (Kartoteka) and any number of groups.
 - **Kartoteka, Clean**: stored data (without "load": in a media app it means
   media arriving) and the native shell (Plain browser) groups, in
   `migration/kartoteka/kit.toml`; tested by
-  `plugins/relay/tests/spec-check.test.sh` (ported from
+  `tests/test_hook_spec_check.py` (ported from
   `~/kartoteka/bin/spec-check.test.sh`).
 - **Mind**: the stored-data group with two changes: trigger adds
   `load(?:s|ed|ing)?` and `profile version` (all of its stored data goes
@@ -117,5 +117,5 @@ What each project puts in its `kit.toml`:
 - **Mind** also sets `[guard] target_flags = ["--cwd", "--manifest-path"]`
   (the hook turns a file target such as `Cargo.toml` into its folder).
 - **Weak points**: the Mind `--manifest-path` and tauri blocks above are not
-  yet covered by `guard-main.test.sh` (only the bun and cargo cases are); the
+  yet covered by `tests/test_hook_guard_main.py` (only the bun and cargo cases are); the
   hook catches slips, not a determined bypass, as before.

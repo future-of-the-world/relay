@@ -11,7 +11,7 @@
 
 Forks are the routing guard's business (delegate plugin). Limits per shell:
 RELAY_CTX_HANDOVER_AT (350000), RELAY_CTX_WRAP_AT (200000), RELAY_CTX_STEP (30000).
-Fails open. Tests: plugins/front/tests/budget.test.sh
+Fails open. Tests: tests/test_hook_budget.py
 """
 
 from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated

@@ -1,0 +1,189 @@
+{
+  "branch": "wt/guard-main-refuses-a-script-that-only-na",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, live: a python3 heredoc in the main checkout that only read .relay/queue/*.json and printed a string containing \".relay/checks writes\" was refused (\"files in .relay/checks are written only by relay\"). A false refusal costs a retry each time and teaches agents to rephrase around the guard. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "guard-main.sh fed a Bash tool input whose command is a python3 heredoc that prints the text \".relay/checks writes\" and writes no file: refused."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "That input is allowed; `echo x > .relay/checks/a.json`, `cp f .relay/checks/` and a python heredoc that opens a file there for writing stay refused."
+      ],
+      "path": "plugins/core/hooks/guard-main.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_guard_checks_inline.py:17 test_script_that_prints_the_folder_name_is_allowed passes on HEAD; fails at base 0866af369bac (shown in the previous check; file unchanged)."
+      ],
+      "severity": "HIGH",
+      "since": "0866af369bac3b62dd73a9d751b610548fb7c092",
+      "source": "queue",
+      "summary": "guard-main refuses a script that only names the checks dir",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running master's and HEAD's kit_guard.py on the commands (evidence). The old pattern matched the words anywhere (`unlink` inside `unlinkSync`, `rename` inside `renameSync`, a perl call without parentheses). The new one is `\\b(?:write\\w*|unlink|remove|rename|rmtree|copy\\w*|move)\\s*\\(`: `write` and `copy` got a `\\w*` suffix, but unlink/remove/rename/move did not, so node's ...Sync names no longer match, and perl's paren-less `unlink '...'` never matches a call form. The guard's promise (guard-main.sh:25-28: a write to .relay/checks is refused anywhere; \"a broken guard never silently allows\") now fails for cases that were refused yesterday. No existing test covers them (only G3 writeFileSync in check-mark.test.sh), so the gate stayed green.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "p(){ printf '%s' \"$1\" | python3 -I plugins/relay/lib/kit_guard.py /Users/amidman/relay | grep -v '^C '; echo \"-- master:\"; printf '%s' \"$1\" | python3 -I kg_master.py /Users/amidman/relay | grep -v '^C '; }",
+        "== node -e \"require('fs').unlinkSync('.relay/checks/a')\"",
+        "-- master:",
+        "X/Users/amidman/relay",
+        "== node -e \"require('fs').renameSync('a','.relay/checks/a')\"",
+        "-- master:",
+        "X/Users/amidman/relay",
+        "== perl -e \"unlink '.relay/checks/a'\"",
+        "-- master:",
+        "X/Users/amidman/relay",
+        "(HEAD printed no X row for any of the three)",
+        "git grep -n \"Sync\\|perl\\|unlink\" -- plugins/relay/tests tests | grep checks -> only check-mark.test.sh:247 (writeFileSync)"
+      ],
+      "failing_case": [
+        "In the main checkout of a repository with .relay/ on its default branch:",
+        "  node -e \"require('fs').unlinkSync('.relay/checks/a')\"     master: X (refused)   HEAD: no X (allowed)",
+        "  node -e \"require('fs').renameSync('a','.relay/checks/a')\" master: X (refused)   HEAD: no X (allowed)",
+        "  perl -e \"unlink '.relay/checks/a'\"                         master: X (refused)   HEAD: no X (allowed)",
+        "The same pattern drives the Y rule, so `node -e \"require('fs').unlinkSync('.relay/queue/x.json')\"` lost its refusal too.",
+        "Should: all four stay refused; only text that names a write word without calling it is allowed."
+      ],
+      "fix_hint": [
+        "Give every word the `\\w*` suffix (`(?:write|unlink|remove|rename|rmtree|copy|move)\\w*\\s*\\(`) and add a perl form for a paren-less call followed by a quoted or `$` argument (`\\b(?:unlink|rename)\\s+['\"$]`); add the five cases to tests/test_guard_checks_inline.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 382,
+      "pass_cases": [
+        "1. kinds(\"node -e \\\"require('fs').unlinkSync('.relay/checks/a')\\\"\") contains \"X\".",
+        "2. kinds(\"node -e \\\"require('fs').renameSync('a','.relay/checks/a')\\\"\") contains \"X\".",
+        "3. kinds(\"perl -e \\\"unlink '.relay/checks/a'\\\"\") contains \"X\".",
+        "4. kinds(\"python3 -c \\\"import glob; print('.relay/checks writes', glob.glob('.relay/queue/*.json'))\\\"\") has no \"X\" (the item's failing case stays fixed).",
+        "5. kinds(\"node -e \\\"require('fs').unlinkSync('.relay/queue/x.json')\\\"\") contains \"Y\"."
+      ],
+      "path": "plugins/relay/lib/kit_guard.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_guard_checks_inline.py:34,37,40,43 pass; kit_guard.py:382 unchanged by this fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "07de32a68f91d77cd51fca6833d53ea17bec0747",
+      "source": "review-guard-main-refuses-a-script-that-only-na.json",
+      "source_id": "F1",
+      "summary": "the new call-only pattern lets node unlinkSync/renameSync and perl unlink into .relay/checks or a queue item through: refused on master, allowed now",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the diff, the brief (Where: only the guard; \"say which shared files you touched\"), and `relay queue show a-precheck-test-fails-when-the-machine-is-busy`. The edit is outside the brief's scope and contradicts the owning item's stated approach (fake clock / injected budget). It also changes test_a_changed_test_slower_than_the_other_steps_budget_is_green, whose real flake target in the item is test_a_slow_changed_test_does_not_hide_the_registry_message (line 293); the registry test now gets 10 s of real time, so the flake is moved, not removed. If the owner wants the stopgap kept until the other lane lands, an owner entry decides it.",
+        "Size: 5 minutes (revert the hunk) or a word from the owner."
+      ],
+      "evidence": [
+        "git diff master...HEAD --stat: tests/test_precheck.py | 7 +++--",
+        "relay queue show a-precheck-test-fails-when-the-machine-is-busy: Where: tests/test_precheck.py:293, lib/relay_precheck.py; taken by wt/a-precheck-test-fails-when-the-machine-i; What: \"... never a real 3 s limit\"",
+        "grep test_precheck .relay/checks/7bb491c9...gate.log: FAIL: test_a_changed_test_slower_than_the_other_steps_budget_is_green"
+      ],
+      "failing_case": [
+        "This branch changes tests/test_precheck.py:276-281 (sleep 3 s -> 11 s, STEP_TIMEOUT 1 -> 10) to make its own gate green. The file and lib/relay_precheck.py are the \"Where\" of the queue item a-precheck-test-fails-when-the-machine-is-busy, taken at 15:23:10 by the lane wt/a-precheck-test-fails-when-the-machine-i, whose What reads: \"without depending on wall-clock speed: a fake clock or an injected budget, never a real 3 s limit\". Now: two lanes edit the same test file (a merge conflict, or a second fix of the same flake), and this one still depends on wall clock (10 s for the registry test, where the code comment notes python took over a minute to start at load 50). Should: this branch leaves tests/test_precheck.py as on master and the flake goes to the lane that owns it; or the owner moves the edit to that item."
+      ],
+      "fix_hint": [
+        "Revert the tests/test_precheck.py hunk (git checkout master -- tests/test_precheck.py) and add a note to the other item that this test went red in this branch's gate at 7bb491c9; run bin/ci --quick again."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 276,
+      "pass_cases": [
+        "1. git diff master...HEAD --stat lists no tests/test_precheck.py (the guard change is the only code).",
+        "2. bin/ci --quick on the branch head ends `exit 0` (if the flake still turns it red, it is the other item's work, said in the report, not hidden here).",
+        "3. tests/test_guard_checks_inline.py still passes (5 tests)."
+      ],
+      "path": "tests/test_precheck.py",
+      "rank": "medium",
+      "reason": [
+        "git diff master...HEAD no longer lists tests/test_precheck.py; the file equals the merge-base a6f388d8 version; gate green on 60930a03."
+      ],
+      "severity": "MEDIUM",
+      "since": "07de32a68f91d77cd51fca6833d53ea17bec0747",
+      "source": "review-guard-main-refuses-a-script-that-only-na.json",
+      "source_id": "F2",
+      "summary": "the change rewrites a precheck test that a running lane's queue item owns, in the wall-clock way that item rules out",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Project rule, principle 2 (Waste): \"waste that repeats on every run or every change is MEDIUM and is fixed before the merge\". CONFIRMED by timing the single test. Fixed together with F2 if the hunk is reverted (the cost then goes back to 3 s and the flake to its own item).",
+        "Size: 5 minutes with F2's revert; 30 minutes if the test is rewritten here."
+      ],
+      "evidence": [
+        "/usr/bin/time -p python3 -m unittest tests.test_precheck.TestChangedTests.test_a_changed_test_slower_than_the_other_steps_budget_is_green",
+        "OK",
+        "real 11.90",
+        "diff: self.write(\"tests/test_slow.py\", self.SLEEPER % 11) ; self._set(\"STEP_TIMEOUT\", 10)"
+      ],
+      "failing_case": [
+        "python3 -m unittest tests.test_precheck.TestChangedTests.test_a_changed_test_slower_than_the_other_steps_budget_is_green: real 11.90 s on HEAD (sleep 11), was about 3-4 s on master (sleep 3). Every gate of every branch pays the extra 8 s. Should: the test proves \"a changed test may run longer than STEP_TIMEOUT\" without sleeping past a real 10 s limit (an injected budget or fake clock), at most the old few seconds."
+      ],
+      "fix_hint": [
+        "Revert the hunk (F2); the wall-clock-free rewrite belongs to the item a-precheck-test-fails-when-the-machine-is-busy."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 278,
+      "pass_cases": [
+        "1. The test takes under 4 s alone (python3 -m unittest of that one test).",
+        "2. With CHANGED_TESTS_TIMEOUT forced equal to STEP_TIMEOUT (the separate budget removed), the test fails.",
+        "3. Under 6 busy CPU loops the test passes 20 runs of 20."
+      ],
+      "path": "tests/test_precheck.py",
+      "rank": "medium",
+      "reason": [
+        "The 11 s sleep is gone: tests/test_precheck.py:278 is back to SLEEPER % 3, STEP_TIMEOUT 1 as on master."
+      ],
+      "severity": "MEDIUM",
+      "since": "07de32a68f91d77cd51fca6833d53ea17bec0747",
+      "source": "review-guard-main-refuses-a-script-that-only-na.json",
+      "source_id": "F3",
+      "summary": "principle 2 Waste: the edited test now sleeps 11 s of real time on every gate run, 8 s more than before",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_precheck.py came in from master (merge b4650abdc9b5) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_precheck.py",
+      "rank": "medium",
+      "reason": [
+        "The branch makes no change of its own to tests/test_precheck.py (diff to merge-base is empty); master's newer fixes of that file arrive with the next merge of master."
+      ],
+      "severity": "MEDIUM",
+      "since": "b4650abdc9b5d6f848d083313929d029c25cd896",
+      "source": "merge",
+      "summary": "tests/test_precheck.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "60930a03fdc5dbf1441dcac4101313b93fc79015.gate.log",
+  "head": "3493c380faf09af7a98450c357f4395ff0b481c6",
+  "item": "guard-main-refuses-a-script-that-only-names-the",
+  "notes": [
+    "No new test for F2/F3: they are a revert, and the pass case is the diff fact. The fail-without-fix proof for Q1 was done in the earlier check (base 0866af369bac) and the test file did not change."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix commit 60930a03 reverts tests/test_precheck.py to the merge-base version. Gate log head 60930a03, exit 0; HEAD 3493c380 adds only the gate log (relay changed lists nothing). Ran tests/test_guard_checks_inline.py (9 OK). git diff a6f388d8 HEAD -- tests/test_precheck.py is empty; git diff master...HEAD lists no tests/test_precheck.py. The prompt's Check file was a check record, not a review; I used the review JSON as the findings file. Q1 failing-case test was shown failing at base in the previous check; the test file is unchanged since."
+  ],
+  "type": "check"
+}

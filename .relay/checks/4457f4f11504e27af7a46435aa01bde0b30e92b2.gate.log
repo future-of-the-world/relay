@@ -1,0 +1,18 @@
+head 4457f4f11504e27af7a46435aa01bde0b30e92b2
+cmd bin/ci --quick
+wait 131.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (379s, log: .ci/steps/library-tests.log)
+    FAIL: test_conflict_fix_unit_then_land (test_land.Landing.test_conflict_fix_unit_then_land)
+    AssertionError: 1 != 0 : land: the gate of wt/x is red (exit 143); log /private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-mz5k6pf8/relay-gate-c5o0e6bn/main/.worktrees/x/.relay/checks/bb1c3b1a20c9d5166b72447dcd013cb576a2d399.gate.log
+    FAIL: test_the_timeout_counts_from_the_start_of_the_command_not_of_the_gate (test_gate.Gate.test_the_timeout_counts_from_the_start_of_the_command_not_of_the_gate)
+        with self.assertRaises(AssertionError) as caught:
+    AssertionError: AssertionError not raised
+    FAILED (failures=2)
+ci: hook tests ok (149s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (25s)
+ci: RED
+exit 1

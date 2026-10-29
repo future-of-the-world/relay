@@ -57,7 +57,7 @@ skill or note) is relay's and reads `[flow] kind` and `[specs] method`.
 Code puts a plugin's `bin/` on the Bash tool's PATH after the user's own entries
 (verified 2026-10-19: with a fake `kit` first on PATH, an agent's `kit get ...` ran
 the fake), so another `kit` would silently take over every agent's call.
-`tests/kit-name.test.sh` fails when one exists on this machine's PATH (none does).
+`tests/test_hook_kit_name.py` (at the repository root) fails when one exists on this machine's PATH (none does).
 A rename was weighed and deferred: it touches every agent and skill text, every
 project's `Bash(kit:*)` permission and the migration script.
 
@@ -97,15 +97,15 @@ terminal or in CI (its `bin/ci` calling the spec check, say) copies
 openspec/specs`. The shim finds relay by `$KIT`, else the relay installed for this
 project (the registry, as `kit path` does), else a source checkout
 (`$PRINCIPLES_DIR`, default `~/principles`), and says what to do when it finds none.
-It needs Python 3.9+ on PATH (the `relay` command itself needs 3.11+). Tested by `tests/shim.test.sh`.
+It needs Python 3.9+ on PATH (the `relay` command itself needs 3.11+). Tested by `tests/test_hook_shim.py` (at the repository root).
 
 ## The check-script contract
 
 `gate.check` is the project's own script (the stack differs), but the shared
 `delegate:worker` and `delegate:fixer` rely on all of the following. A project's script
-follows it, and `tests/check-contract.test.sh` proves it (the eval fixture's
+follows it, and `tests/test_hook_check_contract.py` (at the repository root) proves it (the eval fixture's
 `bin/check` is the reference implementation; run the test against a project's own
-script with `KIT_CONTRACT_PROJECT=<clean checkout>`).
+script with `KIT_CONTRACT_PROJECT=<clean checkout> python3 tests/test_hook_check_contract.py`, run from the repository root).
 
 Forms (the script is `<check>`):
 
@@ -146,7 +146,7 @@ The stop words are exactly `BUDGET SPENT`, `HUNG`, `TIME BUDGET SPENT`.
 
 `hooks/guard-main.sh` (PreToolUse on Edit, Write, MultiEdit, NotebookEdit and Bash)
 keeps the main checkout clean and secrets out of the output. Tests:
-`tests/guard-main.test.sh`.
+`tests/test_hook_guard_main.py` (at the repository root).
 
 - **Writes by file tools** inside the main checkout, outside the worktrees folder.
 - **Writes through the shell** in the main checkout: a redirect or heredoc, `tee`,
@@ -217,11 +217,11 @@ path (write `^` to anchor it); `files` and `files_exclude` work the same way.
 
 ## Tests and the gate
 
-`tests/*.test.sh`, all run by the library's `bin/ci` (`bin/ci --no-evals` ends
+The hook suites (`tests/test_hook_*.py` at the repository root), all run by the library's `bin/ci` (`bin/ci --no-evals` ends
 `ci: green (QUICK MODE: evals skipped, not a release gate)`; only the full gate,
-with the evals, may release). `tests/hooks-live.test.sh` is the hook smoke test: four
+with the evals, may release). `tests/hooks_live.py` is the hook smoke test: four
 `claude -p --model haiku` calls (about 10 s, a few cents) prove in a real session that a
 typed `/openspec:archive` and the `openspec:author` agent get the project's additions and that the
 guard refuses a shell write in main but not in a worktree; it is skipped, loudly, when
-`claude` is missing or `HOOKS_LIVE=0`. `tests/packet.test.sh` installs its own TypeScript
+`claude` is missing or `HOOKS_LIVE=0`. `tests/test_hook_packet.py` (at the repository root) installs its own TypeScript
 compiler from `tests/ts-deps/` (pinned by `bun.lock`) on first run.

@@ -13,8 +13,8 @@
   ],
   "where": [
     "lib/relay_ledger.py (model usage per session and agent)",
-    ".relay/checks (gate step times)",
-    ".relay/queue (dated events)",
+    "lib/relay_gate.py (gate step times)",
+    "lib/relay_queue.py (dated events)",
     "the gate's library-tests step (coverage.py)",
     "deps.toml, install.sh (pinned gate tools)"
   ],
@@ -111,6 +111,13 @@
       "at": "2026-10-27T01:46:30Z",
       "said": [
         "Разве проблема с метриками была не в том что задачу уже взяли в работу и у тебя не было возможности изменить запущенный процесс ?"
+      ]
+    },
+    {
+      "at": "2026-10-28T17:48:15Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
       ]
     }
   ]
