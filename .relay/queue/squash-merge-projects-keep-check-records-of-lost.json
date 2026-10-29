@@ -58,6 +58,13 @@
       "options": [
         "a. Document only: amend the item to 'docs and setup state the limit', fix the setup README wording, close (about 5 agent minutes)",
         "b. Move check records out of the branch tree (git notes, a side ref or a per-machine store): a redesign of where checks live, 60+ agent minutes plus a design review"
+      ],
+      "answered_at": "2026-10-29T21:20:38Z",
+      "answer": [
+        "a a a a, закрыть"
+      ],
+      "reading": [
+        "Answer to question 2 of 4: a. Document only: the item pass case is amended to \"docs and setup state the limit\"; check records stay in the squashed tree."
       ]
     }
   ]
