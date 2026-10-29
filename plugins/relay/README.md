@@ -148,7 +148,7 @@ The stop words are exactly `BUDGET SPENT`, `HUNG`, `TIME BUDGET SPENT`.
 keeps the main checkout clean and secrets out of the output. Tests:
 `tests/test_hook_guard_main.py` (at the repository root).
 
-- **Writes by file tools** inside the main checkout, outside the worktrees folder.
+- **Writes by file tools** inside the main checkout, outside every worktree git lists for this repository (a path inside such a worktree is a task worktree); `project.worktrees` adds one more folder.
 - **Writes through the shell** in the main checkout: a redirect or heredoc, `tee`,
   `sed -i`, `perl -i`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `ln`, `install`,
   `truncate`, `find -delete`, `xargs rm`, `rsync`, `patch`, `tar -x`, `unzip`,
@@ -192,7 +192,7 @@ path (write `^` to anchor it); `files` and `files_exclude` work the same way.
 |---|---|---|---|
 | `project.name` | informational | project name | `"kartoteka"` |
 | `project.default_branch` | required | branch worktrees start from and merge into | `"master"` |
-| `project.worktrees` | required (guard: `.worktrees`) | folder of the project's worktrees | `".worktrees"` |
+| `project.worktrees` | optional (guard: an extra folder; git's own worktree list already counts) | folder of the project's worktrees | `".worktrees"` |
 | `project.stack_skills` | required (may be `[]`) | skills a worker or fixer loads | `["ts-dev"]` |
 | `gate.wt` | required | worktree tool: `new <name> <base>`, `rm <name>`, `ls` | `"bin/wt"` |
 | `gate.check` | required | the quiet loop; follows "The check-script contract" below (three forms, exit codes, round budget, `HUNG`, time budget) | `"bin/check"` |
