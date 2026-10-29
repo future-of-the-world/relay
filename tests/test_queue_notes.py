@@ -653,3 +653,15 @@ class AgentDecisions(tq.Base):
         self.assertEqual(relay_metrics.owner_lines([q, d, confirmed]),
                          ["owner: 1 answers, 3.0 min waited", "agents decided: 2, owner overruled: 1"])
         self.assertEqual(relay_metrics.owner_lines([]), [])
+
+    def test_search_finds_a_decision_by_a_word_of_its_reason(self):
+        # F1: the reason is the part most likely to hold the search word; the other words still find the item as before
+        item = self.item("job")
+        item["notes"] = [rq.parse_note(dict(decision(question=["**Timer length**"]), decided_by="front", chosen="a",
+                                            because=["Principle 2: cache rewrite"]))[0]]
+        self.assertEqual(rq.search_items([item], "rewrite"), [item])
+        self.assertEqual(rq.search_items([item], "timer"), [item])
+        self.assertEqual(rq.search_items([item], "zebra"), [])
+        owner = self.item("job")
+        owner["notes"] = [rq.parse_note(decision(asked_at=T1, answered_at=T2, answer=["давай 30"]))[0]]
+        self.assertEqual(rq.search_items([owner], "давай"), [owner])

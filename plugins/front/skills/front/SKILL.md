@@ -94,7 +94,7 @@ b. <one line>
 Before the question is shown, record it in the item it decides: `relay queue note <slug> --input <file.toml>` with
 `question` (the block above), `options` (the lettered lines, each starting `a. `, `b. `, ...); paste what the command prints, so the owner
 sees what is stored. A question about no item first adds the item (`relay queue add`). When the owner replies, record
-the whole reply with `answer` (every explanation included; `to = ["<asked time>", ...]` names the question(s) a reply answers, by the asked time the command and `relay queue show` print; without `to` the answer goes to the only waiting question; several questions asked in one reply get `at` one second apart, so each has its own asked time), your
+the whole reply with `answer` (every explanation included; `to = ["<asked time>", ...]` names the question(s) a reply answers, by the asked time the command and `relay queue show` print; without `to` the answer goes to the only waiting question, and only when the item has no unanswered decision of yours (otherwise name it in `to`); several questions asked in one reply get `at` one second apart, so each has its own asked time), your
 reading apart in `reading` and, when the reply names an option, its letter in `chosen = ["a", ...]` (one per question, in the order of `to`). A hook names each recorded question without an answer on every owner message until it is
 recorded. Words the owner offers about an item unasked (a wish, an explanation, a correction) go in as `said`, verbatim (the
 owner's own sentence, character for character, in the language he wrote it, typos included; never translated, shortened or

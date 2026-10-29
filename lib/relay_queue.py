@@ -2094,7 +2094,7 @@ def history(repo: str, slug: str) -> str:
 def _haystack(item: dict) -> str:
     parts = [item["title"]] + item["what"] + item["why"]
     for n in notes_of(item):
-        parts += n.text + n.options + n.answer + n.reading
+        parts += n.text + n.options + n.because + n.answer + n.reading
     return "\n".join(parts).lower()
 
 
