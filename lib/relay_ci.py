@@ -39,6 +39,9 @@ import time
 import traceback
 from typing import Any, Callable, NoReturn, TextIO
 
+from relay_ci_lines import _read_lines, _read_lines_keep, outcome  # noqa: F401  (outcome is called by other programs through relay_ci)
+from relay_ci_python import python_problem  # noqa: F401  (re-exported: tests call relay_ci.python_problem)
+
 StepFn = Callable[[TextIO], int]
 
 FINDING = re.compile(r"FAIL|Error|error|✗|^ERROR: ")   # "ERROR: <test id>" names a test that raised, not failed
@@ -51,24 +54,6 @@ LIMIT_EXIT = 124            # the exit of a gate stopped at its time limit (GNU 
 PROBE_LINE = "inert probe line"
 HOOK_TOOLS = (("git", "install git"), ("jq", "brew install jq"), ("python3", "install python3"),
               ("bun", "curl -fsSL https://bun.sh/install | bash (the packet and check-contract tests run on it)"))
-
-
-def outcome(directory: str) -> list[str]:
-    """What a run did, as lines that must not change when an inert file does: each step's result, the library test count
-    ("Ran N tests"); hooks-live's lines are not in it: only a full run runs it, with a live model."""
-    lines: list[str] = []
-    lines += _read_lines(os.path.join(directory, ".ci", "results.txt"))
-    lines += [re.sub(r" in [0-9.]+s", "", ln, count=1)
-              for ln in _read_lines(os.path.join(directory, ".ci", "steps", "library-tests.log")) if ln.startswith("Ran ")]
-    return lines
-
-
-def _read_lines(path: str) -> list[str]:
-    try:
-        with open(path, encoding="utf-8", errors="replace") as handle:
-            return handle.read().splitlines()
-    except FileNotFoundError:
-        return []
 
 
 def _descendants(pid: int) -> list[int]:
@@ -570,27 +555,6 @@ class Ci:
         else:
             self.say("ci: green")
         return self.status
-
-
-def python_problem(root: str, running: tuple[int, int, int] | None = None) -> str | None:
-    """A refusal line when the python running the gate is not the one deps.toml pins (exact python3 entry), else None."""
-    import tomllib
-    with open(os.path.join(root, "deps.toml"), "rb") as handle:
-        entries = tomllib.load(handle).get("dep", [])
-    pins = [d for d in entries if d.get("name") == "python3" and d.get("exact") is True and isinstance(d.get("min"), str)]
-    if not pins:
-        return None
-    want = pins[0]["min"]
-    have = running or (sys.version_info[0], sys.version_info[1], sys.version_info[2])
-    if ".".join(map(str, have)) == want:
-        return None
-    return ("ci: python3 is %s but relay pins %s (deps.toml): make python3 %s (uv python install --default %s, with ~/.local/bin first on PATH), then run bin/ci again"
-            % (".".join(map(str, have)), want, want, want))
-
-
-def _read_lines_keep(path: str) -> list[str]:
-    with open(path, encoding="utf-8", errors="replace") as handle:
-        return handle.readlines()
 
 
 def _raise_exit(signum: int, _frame: object) -> None:
