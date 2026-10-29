@@ -58,12 +58,17 @@ def slow_log(step: str, seconds: float) -> None:
 
 
 def timed(step: str, call: Callable[[], Any]) -> Any:
+    outer = _step[0]
     _step[0] = step
     began = CLOCK()
     try:
         return call()
     finally:
+        _step[0] = outer      # the deadline names the step still running, not a nested call that returned
         slow_log(step, CLOCK() - began)
+
+
+_plain_git = relay_git.git
 
 
 def bound_git() -> None:
@@ -75,6 +80,21 @@ def bound_git() -> None:
             raise Overrun("git " + " ".join(args[:3]))
 
     relay_git.git = bounded     # relay_lanes and relay_git.worktrees look it up at call time
+
+
+def unbound_git() -> None:
+    relay_git.git = _plain_git
+
+
+def arm(seconds: float) -> None:
+    if hasattr(signal, "setitimer"):
+        signal.signal(signal.SIGALRM, deadline)
+        signal.setitimer(signal.ITIMER_REAL, seconds)
+
+
+def disarm() -> None:
+    if hasattr(signal, "setitimer"):
+        signal.setitimer(signal.ITIMER_REAL, 0)
 
 
 def deadline(signum: int, frame: Any) -> None:
@@ -96,21 +116,25 @@ def main() -> None:
     landing = data.get("tool_name") == "Bash" and isinstance(command, str) and bool(LANDING.search(command))
     bound_git()
     budget = float(os.environ.get("RELAY_LANES_HOOK_BUDGET_S") or BUDGET_S)     # a test shortens it
-    if hasattr(signal, "setitimer"):
-        signal.signal(signal.SIGALRM, deadline)
-        signal.setitimer(signal.ITIMER_REAL, budget)
+    arm(budget)
+    text: Optional[str] = None
+    block: Optional[dict] = None
     try:
-        work(data, event)
+        text, block = work(data, event, budget)
     except Overrun as exc:
         slow_log("overrun in " + str(exc), max(budget, SLOW_S + 0.1))
         if event == "UserPromptSubmit" or (event == "PostToolUse" and landing):
-            context(event, UNKNOWN)
+            text = UNKNOWN
     finally:
-        if hasattr(signal, "setitimer"):
-            signal.setitimer(signal.ITIMER_REAL, 0)
+        disarm()        # before anything is printed, so stdout never holds half an object
+    if block is not None:
+        json.dump(block, sys.stdout)
+    elif text:
+        context(event or "", text)
 
 
-def work(data: "dict[str, Any]", event: Optional[str]) -> None:
+def work(data: "dict[str, Any]", event: Optional[str], budget: float) -> "tuple[Optional[str], Optional[dict]]":
+    """The text to show (or the Stop refusal) for the event; nothing is printed here, so the deadline can never cut a write to stdout."""
     root = timed("config", lambda: relay_config.main_checkout(data["cwd"]))
     cfg = relay_config.load_bindings(root)
     quiet = relay_lanes.setting(cfg, "lane_quiet_hours")
@@ -121,26 +145,31 @@ def work(data: "dict[str, Any]", event: Optional[str]) -> None:
             relay_land.note_held(root, state.waits)      # the start counter: the first time an item is held at start, once
         except Exception:
             pass                                         # a counter must never hide the lanes line
-        shown = relay_lanes.line(state, cap)
-        if shown:
-            context(event, shown)
-    elif event == "PostToolUse":
+        return relay_lanes.line(state, cap) or None, None
+    if event == "PostToolUse":
         command = (data.get("tool_input") or {}).get("command")
         if data.get("tool_name") != "Bash" or not isinstance(command, str) or not LANDING.search(command):
-            return
+            return None, None
+        timed("lanes", lambda: relay_lanes.lanes_state(root, quiet))      # the read under the deadline: nothing is written when git is blocked
+        disarm()
+        unbound_git()       # the writes of a close finish whole: no deadline and no timeout kills a git that holds index.lock
         closed = relay_lanes.close_landed(root)
-        shown = relay_lanes.line(relay_lanes.lanes_state(root, quiet), cap)
-        text = "\n".join(closed + ([shown] if shown else []))
-        if text:
-            context(event, text)
-    elif event == "Stop":
+        bound_git()
+        arm(budget)         # a fresh deadline for the final read; on an overrun the closes already made are still shown
+        try:
+            shown = relay_lanes.line(relay_lanes.lanes_state(root, quiet), cap)
+        except Overrun:
+            shown = UNKNOWN
+        return "\n".join(closed + ([shown] if shown else [])) or None, None
+    if event == "Stop":
         session = data.get("session_id")
         if data.get("stop_hook_active") or not isinstance(session, str):
-            return
+            return None, None
         stamp = os.path.join(relay_config.home_dir(), "state", "lanes-stop", session + ".json")
-        reason = relay_lanes.stop_refusal(relay_lanes.lanes_state(root, quiet), stamp, relay_lanes.setting(cfg, "stop_nudge"), session)
+        reason = relay_lanes.stop_refusal(timed("lanes", lambda: relay_lanes.lanes_state(root, quiet)), stamp, relay_lanes.setting(cfg, "stop_nudge"), session)
         if reason:
-            json.dump({"decision": "block", "reason": reason}, sys.stdout)
+            return None, {"decision": "block", "reason": reason}
+    return None, None
 
 
 if __name__ == "__main__":
