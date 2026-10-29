@@ -24,8 +24,8 @@
     "lib/relay_gate.py",
     "bin/ci"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T04:01:58Z",
+  "taken_by": "wt/tests-with-a-fixed-time-limit-fail-on-a",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
