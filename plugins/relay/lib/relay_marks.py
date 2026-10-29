@@ -194,6 +194,29 @@ def marks(repo, ref):
             mark = get(repo, ref, name[:-5])
             if mark is not None:
                 found.append((name[:-5], mark))
+    return found + rebased(repo, ref, {c for c, _ in found})
+
+
+def rebased(repo, ref, have):
+    """[(twin, mark)] for each mark the branch at `ref` holds of a commit a rebase replaced with one of the same patch
+    (`relay_inert.twin`): the check and the review still count, only a new gate is needed. A mark whose commit is in the
+    history, is on the default branch already, or has no twin is left out, and so is a twin that has a mark of its own."""
+    import relay_inert
+    name = relay_git.default_branch(repo)
+    if name is None:
+        return []
+    merged = set(_names(repo, "refs/heads/" + name))
+    found = []
+    for commit in sorted(have):
+        if "%s.json" % commit in merged:
+            continue
+        try:
+            moved = relay_inert.twin(repo, commit, ref)
+        except ValueError:
+            continue
+        mark = get(repo, ref, commit)
+        if moved is not None and moved != commit and moved not in have and mark is not None:
+            found.append((moved, mark))
     return found
 
 
@@ -300,6 +323,8 @@ def show(repo, branch, sleep=time.sleep):
     # and not a rider's mark inside an absorbed branch; read just those commits' marks, not every stored one
     candidates = relay_git.git(repo, "rev-list", "--topo-order", ref, "^" + default)[1].split()
     stored = {c: m for c in candidates for m in [get(repo, ref, c)] if m is not None}
+    for moved, kept in rebased(repo, ref, {c for c, _ in marks(repo, ref)} - set(candidates)):    # a rebase that left the patch alone
+        stored.setdefault(moved, kept)
     own = relay_inert.own_marks(repo, ref, default, ab, stored)
     mark = (own[0], stored[own[0]]) if own else None
     if mark is None:

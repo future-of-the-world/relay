@@ -589,6 +589,118 @@ class GitDiedOrFailed(unittest.TestCase):
         self.assertNotIn("no common commit", str(caught.exception))
 
 
+class RebasedRecords(unittest.TestCase):
+    """A rebase that leaves the branch's patch unchanged keeps the review and the check mark (queue item
+    a-rebase-that-changes-nothing-voids-the-review); a rebase that changes the patch voids them."""
+
+    def setUp(self):
+        self.tmp = os.path.realpath(tempfile.mkdtemp(prefix="relay-rebased-"))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.wt = os.path.join(self.tmp, "r")
+        os.makedirs(self.wt)
+        self.env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t",
+                    "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        self.git("init", "-q", "-b", "master")
+        self.commit("base.txt", "base\n")
+        self.git("checkout", "-q", "-b", "wt/x")
+        self.commit("lib_x.py", "x = 1\n")
+        self.old = self.git("rev-parse", "HEAD")
+        sys.path.insert(0, os.path.join(ROOT, "lib"))
+        import relay_marks
+        self.marks = relay_marks
+        mark = {"schema": relay_marks.MARK_SCHEMA, "commit": self.old, "verdict": {"open": 0, "queued": 0},
+                "check": self.old + ".check.json", "gate": None, "time": "2026-10-29T00:00:00Z"}
+        relay_marks.put(self.wt, self.old, mark, {self.old + ".check.json": "{}\n"})
+        self.review = os.path.join(self.tmp, "rev.json")
+        rv.write_review(self.review, rv.review_data(self.old, "master", [finding()]))
+
+    def git(self, *args):
+        done = subprocess.run(["git", "-C", self.wt, *args], capture_output=True, text=True, env=self.env, check=True)
+        return done.stdout.strip()
+
+    def commit(self, name, text, branch=None):
+        with open(os.path.join(self.wt, name), "w", encoding="utf-8") as handle:
+            handle.write(text)
+        self.git("add", name)
+        self.git("commit", "-q", "-m", "add " + name)
+
+    def main_moves(self):
+        self.git("checkout", "-q", "master")
+        self.commit("unrelated.txt", "u\n")
+        self.git("checkout", "-q", "wt/x")
+
+    def head(self):
+        return self.git("rev-parse", "HEAD")
+
+    def test_a_review_of_a_commit_a_clean_rebase_replaced_still_counts(self):
+        # the rebase moves lib_x.py's commit onto the new master tip; its patch (add lib_x.py) is the same, so the
+        # review of the old commit is a review of the new one: `since` is the new twin, not a refusal
+        self.main_moves()
+        self.git("rebase", "-q", "master")
+        found = rv._review_findings(self.wt, self.head(), [self.review])
+        self.assertEqual([f["source_id"] for f in found], ["F1"])
+        self.assertNotEqual(found[0]["since"], self.old)
+        self.assertEqual(self.git("show", found[0]["since"] + ":lib_x.py"), "x = 1")
+
+    def rebase_changing_the_patch(self):
+        """A rebase whose code commit also changed lib_x.py (x = 2); the mark commit is carried over as the rebase does."""
+        self.main_moves()
+        self.git("rebase", "-q", "master")
+        self.git("reset", "-q", "--hard", "HEAD~1")        # the mark commit goes; the rebased code commit is the tip
+        with open(os.path.join(self.wt, "lib_x.py"), "w", encoding="utf-8") as handle:
+            handle.write("x = 2\n")
+        self.git("commit", "-q", "-a", "--amend", "--no-edit")
+        mark = {"schema": self.marks.MARK_SCHEMA, "commit": self.old, "verdict": {"open": 0, "queued": 0},
+                "check": self.old + ".check.json", "gate": None, "time": "2026-10-29T00:00:00Z"}
+        self.marks.put(self.wt, self.old, mark, {self.old + ".check.json": "{}\n"})
+
+    def test_a_review_of_a_commit_a_rebase_with_a_changed_patch_replaced_is_refused(self):
+        self.rebase_changing_the_patch()
+        with self.assertRaises(rv.VerdictError) as caught:
+            rv._review_findings(self.wt, self.head(), [self.review])
+        self.assertIn("not in the history", str(caught.exception))
+
+    def test_the_mark_of_a_commit_a_clean_rebase_replaced_is_read_at_the_new_commit(self):
+        self.main_moves()
+        self.git("rebase", "-q", "master")
+        stored = dict(self.marks.marks(self.wt, "refs/heads/wt/x"))
+        twin = self.head()      # the newest commit with the same patch (check files left out) is the rebased mark commit
+        self.assertIn(twin, stored)
+        self.assertEqual(stored[twin]["commit"], self.old)
+
+    def test_the_mark_of_a_commit_a_rebase_with_a_changed_patch_replaced_is_not_carried(self):
+        self.rebase_changing_the_patch()
+        # only the old name: the rebased code commit's patch (x = 2) is not the one the mark checked (x = 1), so no twin
+        self.assertEqual([c for c, _ in self.marks.marks(self.wt, "refs/heads/wt/x")], [self.old])
+
+
+    def merge_step(self):
+        sys.path.insert(0, HERE)
+        from relay_testbase import load_hook
+        hook = load_hook("merge_hook_for_rebased_test", os.path.join(ROOT, "plugins", "relay", "hooks", "merge.py"))
+        self.git("checkout", "-q", "master")
+        return hook, hook.step_mark(self.wt, "master", "wt/x")
+
+    def test_the_merge_hook_takes_the_mark_after_a_clean_rebase_and_refuses_after_a_changed_patch(self):
+        self.main_moves()
+        self.git("rebase", "-q", "master")
+        hook, mark = self.merge_step()
+        self.assertEqual(self.git("rev-parse", "wt/x"), mark)          # the mark is read at the rebased commit
+        self.git("checkout", "-q", "wt/x")
+        self.git("reset", "-q", "--hard", "HEAD~1")
+        self.rebase_changing_the_patch_from_here()
+        with self.assertRaises(hook.Refused):
+            hook.step_mark(self.wt, "master", "wt/x")
+
+    def rebase_changing_the_patch_from_here(self):
+        with open(os.path.join(self.wt, "lib_x.py"), "w", encoding="utf-8") as handle:
+            handle.write("x = 2\n")
+        self.git("commit", "-q", "-a", "--amend", "--no-edit")
+        mark = {"schema": self.marks.MARK_SCHEMA, "commit": self.old, "verdict": {"open": 0, "queued": 0},
+                "check": self.old + ".check.json", "gate": None, "time": "2026-10-29T00:00:00Z"}
+        self.marks.put(self.wt, self.old, mark, {self.old + ".check.json": "{}\n"})
+
+
 if __name__ == "__main__":
     unittest.main()
 

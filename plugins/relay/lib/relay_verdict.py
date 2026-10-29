@@ -643,6 +643,14 @@ def _review_findings(wt, head, paths):
         if not _is_commit(wt, since):
             raise VerdictError("nothing recorded: the review data %s is of %s, which is not a commit of this worktree" % (path, since))
         if not _is_ancestor(wt, since, head):
+            import relay_inert
+            try:
+                moved = relay_inert.twin(wt, since, head)         # a rebase that left the patch alone: the review is of the new commit
+            except ValueError:
+                moved = None
+            if moved is not None:
+                since = moved
+        if not _is_ancestor(wt, since, head):
             raise VerdictError("nothing recorded: the review data %s is of %s, which is not in the history of head %s" % (path, since, head))
         for finding in review["findings"]:
             number += 1
