@@ -1,0 +1,173 @@
+{
+  "branch": "wt/tests-with-a-fixed-time-limit-fail-on-a",
+  "findings": [
+    {
+      "details": [
+        "28 Oct, the second time in one day: tests/test_rules_gate_isolation.py:22 hit its 200 s subprocess timeout in the stub-guard branch's gate (4 test jobs, 1277 s, load average 27), and passed alone in 55 s; earlier tests/test_precheck.py's 3 s budget failed the same way (fixed separately). Neither test was in the changes they turned red. Each red gate of this kind costs a gate fixer and a gate rerun (about 20-25 min) and stops a lane.",
+        "Also: lib/relay_gate.py",
+        "Also: bin/ci"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Run the full gate while another gate and 4 agents run their tests: tests/test_rules_gate_isolation.py fails at its 200 s timeout though it passes alone in 55 s."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 22,
+      "pass_cases": [
+        "The same load: the gate is green 20 times in a row on those tests.",
+        "A test that really hangs still fails, by a limit tied to the work, not to the clock of a busy machine."
+      ],
+      "path": "tests/test_rules_gate_isolation.py",
+      "rank": "high",
+      "reason": [
+        "As in the previous check (tests and base-failure run unchanged, code unchanged)."
+      ],
+      "severity": "HIGH",
+      "since": "e3b8922ee0d4c08750c9015655cd71c347686c5c",
+      "source": "queue",
+      "summary": "Tests with a fixed time limit fail on a loaded machine",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep on HEAD (see evidence) and by the fixer's own report (\"DONE (partial scope) ... Not done: ... other 15",
+        "files with 20-120 s subprocess timeouts ... gate job/slot count vs free capacity (not measured further)\"). The brief and",
+        "the item ask for the cause across all tests (principle 6), not the four cases seen tonight; the two elapsed-time asserts",
+        "are the exact kind (test_numbers' 0.3 s) the item opened with. test_rules_gate_isolation and test_numbers are rightly",
+        "left to the scaffolding branch. HIGH: merging closes a fix item whose promise is mostly not kept, which the queue rule",
+        "counts as leaving the defect behind. If the owner prefers to land the partial fix now, the remainder must become a new",
+        "queue item before relay queue done (that choice is the owner's; recommended: finish it here, the work is mechanical).",
+        "Size: 60 agent minutes for the limits, 20 for the load measurement."
+      ],
+      "evidence": [
+        "git grep -nE 'timeout=[0-9]|assertLess' tests  (HEAD 28969c8d), among the lines:",
+        "tests/test_hook_check_contract.py:122:        self.assertLess(time.monotonic() - start, 15)",
+        "tests/test_bin_check_portable.py:174/180: took = time.monotonic() - t0 ... self.assertLess(took, 5)",
+        "tests/test_setup.py:432: ... timeout=120)",
+        "tests/test_read_only_guard.py:104: ... \"migrate\", \"--all\" ... timeout=120)",
+        "tests/test_temporary_folders.py:59: ... timeout=120)",
+        "tests/test_land.py:27:WAIT = 60",
+        "tests/test_gate.py:509:        gate.wait(timeout=30)",
+        "tests/test_gate.py:510:        deadline = time.monotonic() + 30",
+        "Fixer report: \"Not done: tests/test_gate.py:509-525 (30 s waits ...), other 15 files with 20-120 s subprocess timeouts",
+        "(test_cycle_workflow, test_setup, test_read_only_guard, ...), ... gate job/slot count vs free capacity (slots already",
+        "cores//6; not measured further).\""
+      ],
+      "failing_case": [
+        "The item says: list every test that runs a subprocess or step with a fixed wall-clock limit and make each independent of",
+        "machine speed; measure what drives load to 27 and whether gate jobs/slots should follow free capacity. After this change,",
+        "on HEAD 28969c8d, at the load average 27-35 the item records:",
+        "- tests/test_hook_check_contract.py:122 assertLess(elapsed, 15) and tests/test_bin_check_portable.py:174 assertLess(took, 5)",
+        "  assert on the wall clock itself (the test_numbers 0.3 s class): a loaded machine fails them with nothing wrong.",
+        "- subprocess timeouts of 20-120 s remain in test_setup.py:432 (120), test_read_only_guard.py:104 (120, migrate --all) and",
+        "  :26/:90-101 (20), test_temporary_folders.py:59 (120), test_parallel_unittest.py:143 (120), test_cycle_workflow.py:70/257/278/298",
+        "  (60/30), test_help_is_safe.py:27 (60), test_spec_steps.py:546 (60), test_hooks_live_keeps_output.py:33 (60),",
+        "  test_front_cd.py:30, test_front_measures.py:77, test_ledger_workflow_fields.py:35, test_turn_limit.py:79/109 (30),",
+        "  test_land.py:27 WAIT=60, test_gate.py:509/510/525 (30) in a file this change touched.",
+        "- no measurement of load drivers or of slots/jobs vs free capacity (\"not measured further\" in the fixer's report).",
+        "When the cycle runs relay queue done, the item is closed and this list is lost: the next red gate from any of these",
+        "costs another 20-25 min gate fixer and rerun, as the item's four fact notes record.",
+        "Should be: every listed limit is either a polled hang bound / event wait, or the remainder is named in a new queue item",
+        "before the item closes, and the load question has a measured answer."
+      ],
+      "fix_hint": [
+        "Apply the same treatment file by file (raise to a polled hang bound, or wait on the event: wait_pid's writer_alive, proc",
+        "end); replace the two elapsed-time asserts with a check on what was killed (the pid is gone) plus a hang bound. Extend",
+        "test_hang_limits.py to scan all of tests/ for these patterns. Then measure gate slots x RELAY_TEST_JOBS x lanes against",
+        "load average from the gate logs and write the numbers in the item. Files shared with the leaked-gates and scaffolding",
+        "lanes (test_land.py, test_read_only_guard.py, test_help_is_safe.py) can be done after the take of master that brings them."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 1,
+      "owner": [
+        {
+          "date": "2026-10-29",
+          "queue": "gate-jobs-and-slots-follow-the-machine-s-free-ca",
+          "words": [
+            "\u0414\u0443\u043c\u0430\u044e \u0437\u0430\u043f\u0443\u0441\u043a \u0442\u0435\u0441\u0442\u043e\u0432 \u0432 podman \u043d\u0430 \u043b\u0438\u043d\u0443\u043a\u0441 \u043f\u0435\u0440\u0441\u043f\u0435\u043a\u0442\u0438\u0432\u043d\u0435\u0435, \u0431\u0443\u0434\u0443\u0449\u0435\u043c \u044f \u043f\u043b\u0430\u043d\u0438\u0440\u0443\u044e \u0438\u043c\u0435\u0442\u044c \u043c\u043d\u043e\u0433\u043e \u0432\u0438\u0440\u0442\u0443\u0430\u043b\u044c\u043d\u044b\u0445 \u043c\u0430\u0448\u0438\u043d relay \u0438 \u0432\u0441\u0435 \u043e\u043d\u0438 \u0431\u0443\u0434\u0443\u0442 \u043d\u0430 Linux, \u0438\u0441\u043f\u0440\u0430\u0432\u0438\u0442\u044c 52 \u0442\u0435\u0441\u0442\u0430 \u043d\u0435 \u0442\u0430\u043a \u0441\u043b\u043e\u0436\u043d\u043e, \u043f\u043e\u043b\u0430\u0433\u0430\u044e",
+            "",
+            "\u041f\u043e \u043f\u043e\u0432\u043e\u0434\u0443 \u0430\u0434\u0430\u043f\u0442\u0438\u0432\u043d\u043e\u0433\u043e \u0447\u0438\u0441\u043b\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043e\u043a \u043c\u0430\u0448\u0438\u043d\u044b - \u0434\u0430, \u0437\u0430\u0432\u0435\u0434\u0438 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u0443\u044e \u0437\u0430\u0434\u0430\u0447\u0443"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. grep of tests/ for assertLess on a monotonic() difference: each remaining one either compares against a bound derived",
+        "   from the work (e.g. a count of reads, a kill seen via the pid) or is >= 10x its quiet-machine time; test_hook_check_contract.py:122",
+        "   and test_bin_check_portable.py:174 included.",
+        "2. Each subprocess timeout listed in the failing case is a hang bound (>= 10x the quiet time measured for that call) or",
+        "   the call waits on its event; the call still fails with TimeoutExpired when its child really hangs (e.g. a child that",
+        "   runs sleep 100000 still ends the test, not the gate).",
+        "3. test_gate.py:509/510/525: the 30 s waits after leaked_gates.stop are hang bounds (or a wait on the process' end) and",
+        "   test_a_gate_left_under_the_folder_is_stopped_with_its_command_and_named still fails when stop() leaves the command alive.",
+        "4. The item (or a new queue item it links) states the measured load drivers (gate slots x RELAY_TEST_JOBS x lanes) and",
+        "   the decision on slots/jobs vs free capacity, with the numbers.",
+        "5. Existing passes keep: test_hang_limits.py, test_gate_slots.py, test_gate_stops.py, test_ci_python.py stay green."
+      ],
+      "path": "tests/test_hang_limits.py",
+      "rank": "high",
+      "reason": [
+        "Owner moved the open part to queue item gate-jobs-and-slots-follow-the-machine-s-free-ca; the precheck 230 s cap is the-precheck-s-changed-tests-step-has-a-fixed-23."
+      ],
+      "severity": "HIGH",
+      "since": "28969c8de72397af85dc006aad46bf86db5a7043",
+      "source": "review-tests-with-a-fixed-time-limit-fail-on-a.json",
+      "source_id": "F1",
+      "summary": "the change closes the queue item but fixes 6 waits in 5 files; about 15 files of fixed limits, two elapsed-time asserts and the load measurement the item asks for are left",
+      "verdict": "QUEUED"
+    },
+    {
+      "details": [
+        "CONFIRMED by the probe below. The check encodes the two numbers this change replaced rather than the rule it states, so",
+        "it cannot catch a regression of the class or the leftovers. LOW: correct today for the lines it was written for, but it",
+        "misstates what it guards. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "python3 probe with the test's regex and filter on \"gate.wait(timeout=30)\" and \"timeout=45)\": flagged: []",
+        "python3 -m unittest tests.test_hang_limits: Ran 2 tests ... OK (with test_gate.py:509/525 still at timeout=30)"
+      ],
+      "failing_case": [
+        "tests/test_gate.py:509 `gate.wait(timeout=30)` (and :525) match the regex `timeout=(\\d+)\\)` but 30 is not in (60, 120):",
+        "test_template_gate_and_orphan_waits_are_hang_bounds passes. A probe text \"gate.wait(timeout=30)\\n subprocess.run([], timeout=45)\"",
+        "gives flagged: []. The comment says \"a literal timeout= ... number under the hang bound is a clock a loaded machine",
+        "overruns\"; the test should flag every literal under HANG (600), except the deliberate expected-timeout cases",
+        "(test_gate.py:335/347, where the command is meant to outlive the timeout)."
+      ],
+      "fix_hint": [
+        "Flag int(value) < HANG, skip lines with an explicit marker (e.g. `# expected timeout`) on the deliberate short ones, and",
+        "scan tests/*.py rather than two files."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 39,
+      "pass_cases": [
+        "1. A file containing `x.wait(timeout=30)` makes the guard fail, naming the file.",
+        "2. A file containing `wait_pid(pid_file, 600, ...)` and `timeout=1200)` passes.",
+        "3. test_gate.py's expected-timeout calls `self.gate(self.wt, timeout=3, started=...)` are not flagged (an allow-list or a",
+        "   marker comment), and the guard still flags a new short wait added beside them."
+      ],
+      "path": "tests/test_hang_limits.py",
+      "rank": "low",
+      "reason": [
+        "As in the previous check; code unchanged."
+      ],
+      "severity": "LOW",
+      "since": "28969c8de72397af85dc006aad46bf86db5a7043",
+      "source": "review-tests-with-a-fixed-time-limit-fail-on-a.json",
+      "source_id": "F2",
+      "summary": "the guard against short literal limits flags only the values 60 and 120, so the 30 s waits its comment forbids pass it",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "c886241d4009367ac14096b989e4ac50abe4d2fd.gate.log",
+  "head": "22defeaa0eb6423b9e9e250a118f57a7634f1075",
+  "item": "tests-with-a-fixed-time-limit-fail-on-a-loaded-m",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Re-record of the earlier check. No code changed since: head 22defeaa is only relay check/gate records after c886241d (relay changed lists no file). Gate log for c886241d: exit 0. F1 now carries the owner word and moved to queue item gate-jobs-and-slots-follow-the-machine-s-free-ca."
+  ],
+  "type": "check"
+}

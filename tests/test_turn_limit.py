@@ -76,7 +76,7 @@ class TurnCountHook(unittest.TestCase):
                         {"type": "text", "text": "step"}, {"type": "tool_use", "id": "t%d" % number, "name": "Bash", "input": {}}]}}) + "\n")
                     handle.write(json.dumps({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "t%d" % number}]}}) + "\n")
             data = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "transcript_path": session, "agent_id": agent_id, "agent_type": agent_type}
-            done = subprocess.run([sys.executable, self.HOOK], input=json.dumps(data), capture_output=True, text=True, timeout=30)
+            done = subprocess.run([sys.executable, self.HOOK], input=json.dumps(data), capture_output=True, text=True, timeout=600)
         self.assertEqual(done.returncode, 0)
         return json.loads(done.stdout) if done.stdout.strip() else {}
 
@@ -106,7 +106,7 @@ class TurnCountHook(unittest.TestCase):
         import json
         import subprocess
         data = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "transcript_path": "/nonexistent.jsonl"}
-        done = subprocess.run([sys.executable, self.HOOK], input=json.dumps(data), capture_output=True, text=True, timeout=30)
+        done = subprocess.run([sys.executable, self.HOOK], input=json.dumps(data), capture_output=True, text=True, timeout=600)
         self.assertEqual((done.returncode, done.stdout), (0, ""))
 
     def test_f3_an_agent_of_another_plugin_gets_nothing(self) -> None:

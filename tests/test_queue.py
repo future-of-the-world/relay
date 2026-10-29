@@ -125,7 +125,7 @@ class Base(unittest.TestCase):
         return out
 
     def barrier(self):
-        gate = threading.Barrier(2, timeout=30)
+        gate = threading.Barrier(2, timeout=600)
 
         def hook(n, plan):
             if n == 0:

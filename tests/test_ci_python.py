@@ -19,7 +19,7 @@ import relay_ci  # noqa: E402
 
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t",
            "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
-WAIT = 60.0   # seconds a test waits for a condition (a process, a file); it never sleeps a fixed time
+WAIT = 600.0  # seconds a test waits for a condition (a process, a file); it never sleeps a fixed time
 
 
 def wait_for(condition: Callable[[], Any]) -> Any:

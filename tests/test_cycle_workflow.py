@@ -67,7 +67,7 @@ class Cycle(unittest.TestCase):
         path = os.path.join(self.tmp, "scenario.json")
         with open(path, "w") as handle:
             json.dump({"args": args, "answers": table}, handle)
-        done = subprocess.run(["bun", FAKE, "run", SCRIPT, path], capture_output=True, text=True, timeout=60)
+        done = subprocess.run(["bun", FAKE, "run", SCRIPT, path], capture_output=True, text=True, timeout=600)
         self.assertEqual(done.returncode, 0, done.stderr)
         out = json.loads(done.stdout)
         out["labels"] = [e["label"] for e in out["events"] if e["event"] == "start"]
@@ -294,7 +294,7 @@ class Cycle(unittest.TestCase):
 
     # 8
     def test_meta_is_a_pure_literal_naming_every_phase_and_the_file_is_small(self):
-        done = subprocess.run(["bun", FAKE, "meta", SCRIPT], capture_output=True, text=True, timeout=30)
+        done = subprocess.run(["bun", FAKE, "meta", SCRIPT], capture_output=True, text=True, timeout=600)
         self.assertEqual(done.returncode, 0, done.stderr)
         meta = json.loads(done.stdout)
         self.assertEqual(meta["name"], "cycle")
@@ -315,7 +315,7 @@ class Cycle(unittest.TestCase):
         bad = os.path.join(self.tmp, "bad.js")
         with open(bad, "w") as handle:
             handle.write("export const meta = { name: 'x', phases: [{ title: PHASE }] }\n")
-        done = subprocess.run(["bun", FAKE, "meta", bad], capture_output=True, text=True, timeout=30)
+        done = subprocess.run(["bun", FAKE, "meta", bad], capture_output=True, text=True, timeout=600)
         self.assertEqual(done.returncode, 3)
 
     # 9
@@ -335,7 +335,7 @@ class Cycle(unittest.TestCase):
         for cmd in commands:
             words = shlex.split(cmd)[1:]
             done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay")] + words, cwd=self.wt, env=env,
-                                  capture_output=True, text=True, timeout=60)
+                                  capture_output=True, text=True, timeout=600)
             text = done.stdout + done.stderr
             if done.returncode == 2 or "unknown option" in text or "unknown command" in text or "usage" in text.lower():
                 bad.append(cmd)

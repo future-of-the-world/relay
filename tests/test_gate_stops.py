@@ -27,7 +27,7 @@ print(f.tmp, flush=True)
 f.gate(f.wt)
 ''' % HERE
 
-WAIT = 30      # seconds a condition has to become true; it is polled, so a pass returns at once
+WAIT = 600     # seconds a condition has to become true; it is polled, so a pass returns at once
 
 
 def until(condition):

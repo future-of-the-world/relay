@@ -25,7 +25,7 @@ import test_inert  # noqa: E402
 import test_lanes_state as tls  # noqa: E402
 
 HOOK = os.path.join(ROOT, "plugins", "relay", "hooks", "merge.py")
-WAIT = 60       # seconds a test waits for a condition (a file, a line, an exit)
+WAIT = 600      # seconds a test waits for a condition (a file, a line, an exit)
 
 
 class Land(Fixture):
@@ -65,7 +65,7 @@ class Land(Fixture):
                                 stderr=subprocess.PIPE, text=True, cwd=self.main, env=env or self.env)
         if not wait:
             return proc
-        out, err = proc.communicate(timeout=WAIT * 5)
+        out, err = proc.communicate(timeout=WAIT)
         return subprocess.CompletedProcess(proc.args, proc.returncode, out, err)
 
     def events(self):
@@ -267,7 +267,7 @@ class Dirty(Land):
             if "trying again" in line:
                 os.remove(os.path.join(self.main, ".git", "index.lock"))
                 break
-        out, err = proc.communicate(timeout=WAIT * 3)
+        out, err = proc.communicate(timeout=WAIT)
         self.assertIn("trying again", said)
         self.assertEqual(proc.returncode, 0, out + err)
 
@@ -321,8 +321,8 @@ class Lock(Land):
             self.assertLess(time.monotonic(), end)
             time.sleep(0.05)
         write(os.path.join(self.tmp, "go"), "")
-        out1, err1 = first.communicate(timeout=WAIT * 3)
-        out2, err2 = second.communicate(timeout=WAIT * 3)
+        out1, err1 = first.communicate(timeout=WAIT)
+        out2, err2 = second.communicate(timeout=WAIT)
         self.assertEqual((first.returncode, second.returncode), (0, 0), out1 + err1 + out2 + err2)
         self.assertIn("waits for the landing of wt/x", err2)
         events = self.events()
