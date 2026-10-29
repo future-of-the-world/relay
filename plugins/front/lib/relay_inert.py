@@ -9,6 +9,7 @@ With `own=True` it leaves out the files that only the default branch changed (de
 from __future__ import annotations
 
 import re
+import subprocess
 
 import relay_git
 
@@ -172,18 +173,18 @@ def twin(repo: str, old: str, ref: str) -> str | None:
     of the branch whose change from its merge-base with the default branch has the same patch id as `old`'s (the check files
     left out). None when `old` is not a commit here, is already in the history (then it is itself the answer, `old`), or no
     commit of the branch has that patch: a rebase that changed the patch has no twin."""
-    if relay_git.git(repo, "cat-file", "-e", old + "^{commit}")[0] != 0:
+    if relay_git.resolve_commit(repo, old) is None:
         return None
     if _is_ancestor(repo, old, ref):
         return old
     default = _default_ref(repo)
-    rc, base = relay_git.git(repo, "merge-base", old, default)
-    wanted = _patch_id(repo, base, old) if rc == 0 else None
+    base = relay_git.merge_base(repo, old, default)
+    wanted = _patch_id(repo, base, old) if base is not None else None
     if wanted is None:
         return None
     for commit in _git(repo, "rev-list", "--topo-order", ref, "^" + default).split():
-        rc, fork = relay_git.git(repo, "merge-base", commit, default)
-        if rc == 0 and _patch_id(repo, fork, commit) == wanted:
+        fork = relay_git.merge_base(repo, commit, default)
+        if fork is not None and _patch_id(repo, fork, commit) == wanted:
             # the default branch changed a file the branch also changed: the combined file was never checked (as by a merge)
             return None if changed(repo, old, commit, own=True) else commit
     return None
