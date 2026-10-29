@@ -1,0 +1,27 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 120,
+  "found_at": "2026-10-29T04:18:06Z",
+  "found_in": "relay queue add",
+  "title": "Speed up the quick gate",
+  "what": [
+    "Designed and critic-reviewed 29 Oct (revision 2). A, real git: on a Mac /usr/bin/git is Apple's launcher (18 ms CPU per start against 4.4 ms for the real git); one library run starts git 51,000-61,000 times; a link to the real git first on PATH cut the library run from 1225 s to 720 s side by side. Where the link comes from is the owner's choice (question noted here). B, the inert check inside the one run: instead of running every test a second time with queue files, check records and the handover scrambled (half the gate's CPU, median 276 s wait at the end, p95 802 s), record every test or program a test starts that opens one of those files of the gated repository (every folder of it, the main checkout included, by its shared .git) or asks git for their content at a moving revision; hits go to a side file, never raised as errors; git commands on the live repository go through a list of allowed forms. Form of B is the owner's choice (question noted here). In 523 gates the second run found 1 real case (a test that read a live queue file, 25 Oct) and 15 flaky tests. Then measure RELAY_TEST_JOBS 4 against 6 with two gates at once."
+  ],
+  "why": [
+    "Owner, 29 Oct, verbatim: \"А почему gate так долго длится ? Это же просто python скрипты\". Measured: quick gate median 14.4 min over 510 logs; a sequential run of all tests took CPU user 607 s, system 1022 s: process starts, not Python, are the cost. The owner decided 27 Oct to fix the git launcher only on this machine (\"в PATH я укажу прямой путь к git\"); it was never applied."
+  ],
+  "where": [
+    "bin/ci",
+    "lib/relay_ci.py:17-22 inert step",
+    "lib/relay_ci.py:360-380 inert probe",
+    "tests/parallel_unittest.py:35-44 jobs",
+    "docs/macos.md:30 git launcher"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
