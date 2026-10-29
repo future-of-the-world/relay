@@ -21,5 +21,50 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T10:29:20Z",
+      "fact": [
+        "29 Oct afternoon, metrics worker: load average 34 on the 12-core Mac with 6 lanes plus the podman machine (10 CPUs, 20 GiB); the full library suite did not finish in 35 min and the precheck's changed-tests step (old 230 s cap, still on that branch) went red from load alone."
+      ]
+    },
+    {
+      "at": "2026-10-29T10:32:18Z",
+      "fact": [
+        "29 Oct ~15:30, front, measured with sysctl, ps, top, vm_stat: load 27-31 on 12 cores (8 performance, 4 efficiency). Process limit not near: 392 processes of the user's limit 5333 (564 of 8000 on the machine). Memory is the bottleneck: 32 GB Mac, 152 MB unused, compressor 14 GB, swap 6.4 of 7 GB, CPU 74% system, 26% user, 0% idle. The podman machine (applehv, 10 CPUs, 20 GiB) holds 20 GB plus 24 GB compressed while idle, with no container running: applehv returns no guest memory until the machine stops. fseventsd holds 6.9 GB (file events from test churn)."
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T10:32:19Z",
+      "question": [
+        "**Сколько памяти отдать podman на Mac с 32 GB**",
+        "Машина podman держит 20 GB из 32 и не отдаёт их, пока её не остановить; без контейнеров она простаивает, а Mac тратит 74% процессора на сжатие памяти и swap."
+      ],
+      "options": [
+        "a. Уменьшить до 8 GiB и 6 ядер, перезапустить сейчас (контейнеров нет)",
+        "b. Оставить 20 GiB, но останавливать машину между запусками контейнеров",
+        "c. Оставить как есть"
+      ],
+      "answered_at": "2026-10-29T10:33:51Z",
+      "answer": [
+        "a"
+      ],
+      "reading": [
+        "Shrink the podman machine to 8 GiB and 6 CPUs and restart it now."
+      ]
+    },
+    {
+      "at": "2026-10-29T10:57:51Z",
+      "fact": [
+        "29 Oct afternoon, front: relay precheck's changed-tests step went red on its 600 s limit three times in 3 hours, on three branches (metrics, landed-branch item, gates-and-tests sweep), with no test failing; load 36-50 on 12 cores, CPU 38-24% user, 62-76% system, 0% idle. At ~16:30 the test processes were 7 in the metrics worktree, 7 in the landed-branch worktree, 1 landing train, 6 in temp test folders, while 2 gate slots were busy: prechecks take no gate slot, and every precheck and gate sizes its workers for the whole machine. Front decision (owner can reverse): this item takes the next free lane, ahead of the container gate, because the same failure repeated (principle 6) and every rerun is waste (principle 2)."
+      ]
+    },
+    {
+      "at": "2026-10-29T10:57:59Z",
+      "fact": [
+        "29 Oct, front, correction to the note of ~16:30: that prechecks take no gate slot and that each run sizes its workers for the whole machine is a front assumption, not measured; the build measures it first."
+      ]
+    }
+  ]
 }

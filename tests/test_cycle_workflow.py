@@ -104,6 +104,18 @@ class Cycle(unittest.TestCase):
         self.assertNotIn("precheck", out["prompts"]["check: x"])
         self.assertIn("pytest -q", out["prompts"]["check: x"])
 
+    def test_every_quiet_check_says_to_run_detached(self):
+        """The precheck may run past the 4-minute foreground limit: worker, fixers and checker are told to run it detached.
+        Project mode (no precheck) gets no such note. Disabled note (quietNote() returning ''): the phrase is missing."""
+        note = "run this check detached with a log"
+        out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}, "stage:review": INSIDE})
+        for label in ("build: x", "fix red gate 1: x", "fix: x", "check: x"):
+            self.assertIn(note, out["prompts"][label], label)
+        unit = self.unit(kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="i")
+        self.assertIn(note, self.run_cycle(self.args([unit]))["prompts"]["fix: x"])
+        out = self.run_cycle(self.args([self.unit(branch=None)], relay=False))
+        self.assertNotIn(note, out["prompts"]["check: x"])
+
     def test_a_fix_unit_fixer_gets_the_quiet_check_and_a_compound_check_is_grouped(self):
         """F1: the fix text alone left the precheck out of a fix-kind unit. F7: `a; b` must sit in a group so a red precheck's
         exit code is the command's. Project mode: no precheck, the front's fix text stays."""
@@ -237,6 +249,25 @@ class Cycle(unittest.TestCase):
         """Project mode (no .relay/, so no `relay land`) keeps the recheck kind: take, gate, one check."""
         out = self.run_cycle(self.args([self.unit(kind="recheck", findings="relay check findings -C t", branch=None)], relay=False))
         self.assertEqual(out["labels"], ["gate 1: x", "check: x"])
+
+    def test_recheck_checker_prompt_names_the_fixes(self):
+        """A recheck given `fixes` passes that report to the checker, not `Fixes: none` (the live 28 Oct case: fixed findings
+        came back NOT MET). Disabled change (recheckUnit passing 'none'): the prompt says Fixes: `none`."""
+        unit = self.unit(kind="recheck", findings="review.json", fixes="fix-x.md", branch=None)
+        out = self.run_cycle(self.args([unit], relay=False))
+        self.assertIn("Fixes: `fix-x.md`.", out["prompts"]["check: x"])
+        self.assertNotIn("Fixes: `none`", out["prompts"]["check: x"])
+
+    def test_recheck_without_fixes_names_the_scratch_check_records(self):
+        """No `fixes`, with or without a branch: the checker is pointed at the check records in <scratch>/reports (readable with
+        relay check show <file>), never `Fixes: none` and never `relay check show <branch>` (it prints no verdicts)."""
+        for branch in ("wt/x", None):
+            unit = self.unit(kind="recheck", findings="review.json", branch=branch)
+            out = self.run_cycle(self.args([unit], relay=False))
+            prompt = out["prompts"]["check: x"]
+            self.assertNotIn("Fixes: `none`", prompt)
+            self.assertNotIn("relay check show wt/x", prompt)
+            self.assertIn("/reports/check-*.json whose worktree is %s (read each with relay check show <file>)" % self.wt, prompt)
 
     def test_cycle_recheck_refused_in_relay_mode(self):
         """Design relay-land 4.5: relay land takes the base and gates, so a recheck is refused with the exact shape of the
@@ -467,7 +498,7 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit(kind="fix", fix="f", fixes="F.md", findings="r.json")]))
         self.assertEqual(self.fixes_of(out), "F.md")                                   # case 4
         out = self.run_cycle(self.args([self.unit(kind="recheck", findings="r.json", branch=None)], relay=False))
-        self.assertEqual(self.fixes_of(out), "none")                                   # case 5
+        self.assertIn(f"{self.scratch}/reports/check-*.json", self.fixes_of(out))      # case 5: a recheck names the earlier records, not none
         out = self.run_cycle(self.args([self.unit(kind="built", built="b")]))
         self.assertEqual(self.fixes_of(out), "none")                                   # built: no worker report
 
