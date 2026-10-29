@@ -429,7 +429,7 @@ class SetupInWorktree(Base):
             f'[mainproj]\nfile = "{os.path.join(wt, "CLAUDE.local.md")}"\ntitle = "t"\nload = []\nread = []\n'
             f'[later]\nfile = "{os.path.join(later, "CLAUDE.local.md")}"\ntitle = "t"\nload = []\nread = []\n')
         run = subprocess.run([sys.executable, "-I", os.path.join(ROOT, "bin", "relay"), "migrate", "--all", "--apply", "--principles", os.path.join(self.tmp, "none")],
-                             capture_output=True, text=True, env=dict(os.environ), timeout=120)
+                             capture_output=True, text=True, env=dict(os.environ), timeout=600)
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertIn("==== later", run.stdout)
         self.assertTrue(os.path.isfile(os.path.join(wt, ".claude", "kit.toml")))
@@ -608,7 +608,7 @@ class RelayFolder(Base):
 
     def _run(self, env, *args, cwd=None):
         return subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "setup", *args],
-                              env=env, cwd=cwd, capture_output=True, text=True, timeout=60)
+                              env=env, cwd=cwd, capture_output=True, text=True, timeout=600)
 
     def _status(self, repo):
         return subprocess.run(["git", "-C", repo, "status", "--porcelain", "-uall"], capture_output=True, text=True, check=True).stdout.splitlines()

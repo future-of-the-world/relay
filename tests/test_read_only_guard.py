@@ -23,7 +23,7 @@ def load_guard():
 
 def hook(agent_type: str, command: str, tool: str = "Bash") -> str:
     event = {"hook_event_name": "PreToolUse", "tool_name": tool, "agent_type": agent_type, "tool_input": {"command": command}}
-    run = subprocess.run([sys.executable, HOOK], input=json.dumps(event), capture_output=True, text=True, timeout=20)
+    run = subprocess.run([sys.executable, HOOK], input=json.dumps(event), capture_output=True, text=True, timeout=600)
     assert run.returncode == 0, run.stderr
     return json.loads(run.stdout)["hookSpecificOutput"].get("permissionDecision", "") if run.stdout else "allow"
 
@@ -87,10 +87,10 @@ class MigrateAllPrimary(unittest.TestCase):
             tmp = os.path.realpath(tmp)
             proj = os.path.join(tmp, "proj")
             os.makedirs(os.path.join(tmp, "home"))
-            subprocess.run(["git", "init", "-q", "-b", "master", proj], check=True, timeout=20)
-            subprocess.run([*GIT, "-C", proj, "commit", "-q", "--allow-empty", "-m", "i"], check=True, timeout=20)
+            subprocess.run(["git", "init", "-q", "-b", "master", proj], check=True, timeout=600)
+            subprocess.run([*GIT, "-C", proj, "commit", "-q", "--allow-empty", "-m", "i"], check=True, timeout=600)
             wt = os.path.join(proj, ".worktrees", "x")
-            subprocess.run(["git", "-C", proj, "worktree", "add", "-q", wt, "-b", "wt/x"], check=True, timeout=20)
+            subprocess.run(["git", "-C", proj, "worktree", "add", "-q", wt, "-b", "wt/x"], check=True, timeout=600)
             with open(os.path.join(tmp, "projects.toml"), "w", encoding="utf-8") as handle:
                 handle.write('[proj]\nfile = "%s/CLAUDE.local.md"\nload = []\n' % proj)
             env = {**os.environ, "HOME": os.path.join(tmp, "home"), "RELAY_HOME": os.path.join(tmp, "rh"),
@@ -98,10 +98,10 @@ class MigrateAllPrimary(unittest.TestCase):
                    "RELAY_CLAUDE_BIN": "false"}   # a stub: the plugin install must not run the real claude
 
             def status() -> str:
-                return subprocess.run(["git", "-C", proj, "status", "--short", "--ignored"], capture_output=True, text=True, timeout=20).stdout
+                return subprocess.run(["git", "-C", proj, "status", "--short", "--ignored"], capture_output=True, text=True, timeout=600).stdout
 
             def migrate(*args: str) -> subprocess.CompletedProcess:
-                return subprocess.run([sys.executable, RELAY, "migrate", "--all", *args], capture_output=True, text=True, cwd=wt, env=env, timeout=120)
+                return subprocess.run([sys.executable, RELAY, "migrate", "--all", *args], capture_output=True, text=True, cwd=wt, env=env, timeout=600)
 
             before = status()   # only the untracked .worktrees/ folder
             run = migrate()

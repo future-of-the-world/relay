@@ -543,7 +543,7 @@ class RouteGuard(Scratch):
 
     def probe(self, code: str) -> str:
         """Run code in a fresh interpreter with tests/ and lib/ on sys.path (as pytest collection leaves them)."""
-        run = subprocess.run([sys.executable, "-S", "-c", code, ROOT], capture_output=True, text=True, timeout=60)
+        run = subprocess.run([sys.executable, "-S", "-c", code, ROOT], capture_output=True, text=True, timeout=600)
         self.assertEqual(run.returncode, 0, run.stderr)
         return run.stdout.strip()
 

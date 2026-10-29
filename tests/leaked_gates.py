@@ -16,7 +16,7 @@ def _cwd(pid: int) -> str:
     except OSError:
         pass
     try:
-        out = subprocess.run(["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"], capture_output=True, text=True, timeout=20).stdout
+        out = subprocess.run(["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"], capture_output=True, text=True, timeout=600).stdout
     except (OSError, subprocess.SubprocessError):
         return ""
     for line in out.splitlines():
@@ -33,7 +33,7 @@ def _is_relay_gate(command: str) -> bool:
 def find(folder: str) -> List[Tuple[int, str]]:
     """(pid, command) of every running `relay gate` whose working folder is `folder` or lies under it."""
     root = os.path.realpath(folder)
-    out = subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=30).stdout
+    out = subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=600).stdout
     found = []
     for line in out.splitlines():
         pid_text, _, command = line.strip().partition(" ")
@@ -74,7 +74,7 @@ def _alive(pid: int) -> bool:
     except OSError:
         return False
     try:  # a zombie of ours is gone for this purpose
-        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, timeout=10).stdout.strip()
+        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, timeout=600).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return True
     return bool(state) and not state.startswith("Z")

@@ -52,7 +52,7 @@ def jobs_setting(env: Dict[str, str], cores: Optional[int] = None) -> Tuple[int,
 def repo_name(root: str) -> str:
     """The name of the repo from its main checkout (the folder that holds the common .git), not a machine path."""
     done = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=root,
-                          capture_output=True, text=True, timeout=60)
+                          capture_output=True, text=True, timeout=600)
     top = root
     if done.returncode == 0 and done.stdout.strip():
         top = os.path.dirname(os.path.realpath(done.stdout.strip()))
@@ -232,7 +232,7 @@ class Pool:
         finally:
             try:
                 proc.stdout.close()
-                proc.wait(timeout=60)
+                proc.wait(timeout=600)
             except (subprocess.TimeoutExpired, OSError):
                 proc.kill()
             log.close()

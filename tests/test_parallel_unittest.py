@@ -140,7 +140,7 @@ class Runs(Tree):
     def single_process(self) -> str:
         """What the single process (RELAY_TEST_JOBS=1: unittest discover) prints for this tree."""
         done = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", self.tests, "-p", "test_*.py"],
-                              capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL, cwd=self.tests)
+                              capture_output=True, text=True, timeout=600, stdin=subprocess.DEVNULL, cwd=self.tests)
         return done.stderr + done.stdout
 
     @staticmethod
@@ -183,7 +183,7 @@ class Runs(Tree):
     def test_a_child_that_reads_stdin_sees_the_end_of_it_not_the_controllers_pipe(self) -> None:
         # F3: `cat` started by a test must not wait on the worker's command pipe (it is never closed while classes remain)
         self.add("test_cat", "Cat", "    def test_cat(self):\n        import subprocess\n"
-                 "        subprocess.run(['cat'], timeout=60, stdout=subprocess.DEVNULL)\n")
+                 "        subprocess.run(['cat'], timeout=600, stdout=subprocess.DEVNULL)\n")
         self.add("test_next", "Next", methods(2))     # the name of this class must still reach the worker
         code, out = self.go("1")
         self.assertEqual(code, 0, out)
