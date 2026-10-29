@@ -13,6 +13,14 @@ from relay_testbase import Base, ROOT  # noqa: E402
 
 
 class Setup(Base):
+    def test_setup_doc_states_squash_merge_limit(self):
+        # A project that squash-merges pull requests on its server gets the check records in the squashed tree, naming
+        # commits of the deleted branch; relay land never squashes. The doc must say both, plainly.
+        text = open(os.path.join(ROOT, "docs", "setup.md"), encoding="utf-8").read()
+        self.assertIn("squash", text)
+        self.assertIn("not gated", text)
+        self.assertIn("name commits", text)
+
     def test_setup_then_doctor(self):
         import relay_setup
         proj = os.path.join(self.tmp, "proj")
