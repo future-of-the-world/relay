@@ -38,6 +38,16 @@
       "options": [
         "a. Разрешить: front останавливает только процессы из временных папок тестов (совпадение по пути) и 7 заменённых проверок, живые проверки 10491, 77910, 36412, 97164 не трогает (рекомендация: измерено, что нагрузку даёт именно это)",
         "b. Не трогать до исправления теста: проверки остаются по 1-3 часа, каждая новая проверка добавляет ещё около двух таких процессов"
+      ],
+      "answered_at": "2026-10-29T01:58:36Z",
+      "answer": [
+        "Можешь остановить забытые процессы, как не допустить этого в будущем"
+      ]
+    },
+    {
+      "at": "2026-10-29T02:04:57Z",
+      "fact": [
+        "29 Oct 06:05: `git worktree list` in the main checkout shows 10 detached worktrees under $TMPDIR (tmp.*/wt and tmp*/wt) left by tests, besides the leaked gate scripts: tests that make worktrees of the live repository leave them registered when they die. Belongs to the same class the leaked-processes design covers."
       ]
     }
   ]
