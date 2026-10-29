@@ -323,7 +323,8 @@ def show(repo, branch, sleep=time.sleep):
     # and not a rider's mark inside an absorbed branch; read just those commits' marks, not every stored one
     candidates = relay_git.git(repo, "rev-list", "--topo-order", ref, "^" + default)[1].split()
     stored = {c: m for c in candidates for m in [get(repo, ref, c)] if m is not None}
-    for moved, kept in rebased(repo, ref, {c for c, _ in marks(repo, ref)} - set(candidates)):    # a rebase that left the patch alone
+    named = {n[:-5] for n in _names(repo, ref) if n.endswith(".json") and is_sha(n[:-5])}    # names only: no mark of another branch is read
+    for moved, kept in rebased(repo, ref, named - set(candidates)):    # a rebase that left the patch alone
         stored.setdefault(moved, kept)
     own = relay_inert.own_marks(repo, ref, default, ab, stored)
     mark = (own[0], stored[own[0]]) if own else None
