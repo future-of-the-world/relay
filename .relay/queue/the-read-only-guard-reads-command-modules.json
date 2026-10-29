@@ -1,0 +1,41 @@
+{
+  "kind": "feature",
+  "ip": 0,
+  "time": 45,
+  "found_at": "2026-10-29T04:33:22Z",
+  "found_in": "relay queue add",
+  "title": "The read-only guard reads command modules",
+  "what": [
+    "Make the guard (plugins/delegate/hooks/read-only-guard.py) decide a relay command from the command modules when its own table has no answer, and fail closed on an unknown command. The guard reads modules with `ast` and never imports them.",
+    "Resolution order for `relay <cmd> <word> ...`:",
+    "1. the action module lib/relay_cmd/<cmd>/<word>.py, if it exists: its `WRITES`;",
+    "2. the guard's own table, while it has <cmd>: today's rule, unchanged;",
+    "3. lib/relay_cmd/<cmd>.py, or <cmd>/__init__.py for the bare use and for words with no action module: its `WRITES` and `READ_FLAGS` (sync's `--dry` is a read flag);",
+    "4. otherwise refused (fails closed), with a message naming the module to add.",
+    "Because the table comes before the command module, moving queue whole (move 7) leaves `relay queue add` decided by the table until move 8 adds add.py; the verdict never passes through the package's bare `WRITES = False`. The table is not edited in moves 6-9; move 10 deletes it.",
+    "Tests in tests/test_read_only_guard.py:",
+    "- Frozen verdicts, written literally and kept through every move: `delegate:critic` is allowed `relay queue show x`, `relay queue count`, `relay license check`, `relay improve suggest`, `relay bench list`, `relay sync --dry`; it is refused `relay queue add --input f`, `relay queue take x`, `relay queue start x --scratch y`, `relay license add`, `relay improve adopt`, `relay bench run`, `relay sync`, `relay migrate --all`, `relay land`.",
+    "- Agreement: for every command in both the table and the module walk (tests/relay_commands.py `names()`/`walk()`), and every word in the table's words for it plus \"\" and \"zzz\", the verdict from steps 1 and 3 alone equals the table's, wherever step 1 or a plain module answers. A `WRITES` written wrong in moves 6-9 is red in the move that wrote it, not in move 10.",
+    "- Fake modules: in a temporary tree with a fake lib/relay_cmd/hello.py, `relay hello` is refused for a critic while the module declares no `WRITES`, and allowed with `WRITES = False`, with no edit to the guard.",
+    "- Move 3 as built: the completeness test (tests/test_read_only_guard.py) already uses tests/relay_commands.py; `lib/relay_cmd/land.py` from move 4 declares `WRITES = True`.",
+    "Between moves 4 and 5 the guard still reads only its table, so a new command module added in that gap would fail the completeness test; new-command items start after this move.",
+    "Done: full gate green; the three test groups pass; the frozen verdicts hold. Do not edit the guard in any other way (it is on a paid path).",
+    "",
+    "Module interface (every moved command): `USAGE: str` whose first line is `relay <cmd> ...`; `WRITES: bool`; optional `READ_FLAGS` (sync's `--dry`); `def run(args: list[str]) -> int`. Names match [a-z][a-z0-9_]*, a typed `-` maps to `_`. A package's `__init__.py` has the header `USAGE`, `WRITES` for its bare use, and an optional `fallback(args)`; mixed commands (queue, check, improve, bench, license) become packages with one module per action.",
+    "",
+    "Traps for this move: keep imports lint-clean (ruff F; a dropped import of a helper is ruff F821); tests that import from the repo root must still run under the short gate; done items name their `test` ids, which are found by name, so do not rename tests; RULE_TESTS names in lib/relay_textonly.py must stay valid; tests never touch the live .relay/queue (use a temporary folder); a move that takes a function another running lane changed ports that lane's hunk by hand (start rule below); the size marker leaves a file in the move that brings it under 600 lines."
+  ],
+  "why": [
+    "Move 5 of the split of relay into one module per subcommand. The owner decided it on 28 Oct: \"каждая подкоманда может и должна жить в своем модуле, этот подход должен быть распространен на весь relay\". Waits for move 4 (dispatcher and land) and the done fix that made `start` a writing queue word; it runs side by side with move 6. New commands no longer edit the guard: the digest, two-branches and every-new-relay-command items depend on it. This is a paid-path change (plugins/**)."
+  ],
+  "where": [
+    "plugins/delegate/hooks/read-only-guard.py",
+    "tests/test_read_only_guard.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
