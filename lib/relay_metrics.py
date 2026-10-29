@@ -12,7 +12,7 @@ import os
 import re
 import statistics
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
 import relay_git
@@ -26,6 +26,7 @@ KINDS = ("change", "design", "other", "front")
 SETTINGS = {"sweep_quiet_min": (60, 10, 1440)}   # default, lowest, highest
 BACKFILL_FROM = "2026-10-27T00:00:00+00:00"
 DESIGN_STAGES = ("design", "design review", "design revise")
+FRONT_KEYS = {"day", "cost_usd", "sessions", "basis"}      # basis: "exact" or "estimate", as `relay report` labels a session
 
 
 # ---- the record: one typed shape, one checking parser ----
@@ -46,6 +47,9 @@ def parse(text: str) -> dict[str, Any]:
         for row in rec.get(key, []):
             if not isinstance(row, dict) or set(row) - allowed:
                 raise ValueError(f"{key} row with keys outside the schema: {sorted(set(row) - allowed) if isinstance(row, dict) else row}")
+    front = rec.get("front")
+    if front is not None and (not isinstance(front, dict) or set(front) - FRONT_KEYS or front.get("basis") not in ("exact", "estimate")):
+        raise ValueError(f"front figure outside the schema: {front}")
     return rec
 
 
@@ -157,8 +161,34 @@ def _record(kind: str, unit: str, item: Optional[str], agents: list[dict[str, An
     return {"schema": 1, "kind": kind, "unit": unit, "item": item, "branch": None, "before": None, "head": None, "agents": rows, "land": []}
 
 
+def front_days(main: str, rev: str, now: float) -> list[str]:
+    """The complete UTC days (BACKFILL_FROM to yesterday) that have no front record at `rev`, oldest first."""
+    have = {r["front"]["day"] for r in stored(main, rev) if r.get("front")}
+    day = datetime.fromisoformat(BACKFILL_FROM).date()
+    today = datetime.fromtimestamp(now, timezone.utc).date()
+    out = []
+    while day < today:
+        if day.isoformat() not in have:
+            out.append(day.isoformat())
+        day += timedelta(days=1)
+    return out
+
+
+def front_figures(days: list[str]) -> dict[str, dict[str, Any]]:
+    """{day: front figure} for `days`, from the main sessions' transcripts with the one rule of `relay report` (relay_analyze); a day with
+    no front session is a stored zero, so it is not looked up again."""
+    import relay_analyze
+    import relay_config
+    if not days:
+        return {}
+    since = datetime.fromisoformat(days[0] + "T00:00:00+00:00")
+    found = relay_analyze.front_cost_by_day(relay_analyze.collect(relay_config.claude_dir(), since=since))
+    return {d: {"day": d, **found.get(d, {"cost_usd": 0.0, "sessions": 0, "basis": "exact"})} for d in days}
+
+
 def plan(main: str, rev: str, ledger: list[dict[str, Any]], items: list[dict[str, Any]], landing: dict[str, dict[str, Any]],
-         now: float, quiet_min: int, notes: list[str], held: Optional[dict[str, list[dict[str, Any]]]] = None) -> dict[str, str]:
+         now: float, quiet_min: int, notes: list[str], held: Optional[dict[str, list[dict[str, Any]]]] = None,
+         front: Optional[dict[str, dict[str, Any]]] = None) -> dict[str, str]:
     """The files to add at `rev`: a `land-<head>` record per landing unit (its agents not yet stored, its events, its range) and a
     `sweep-<stamp>` record per other unit whose agents all stopped `quiet_min` ago. Each agent id is stored once in the repository.
     `held` is the hold rows by slug: a dropped item never lands, so the sweep stores its rows (once) under its slug."""
@@ -203,6 +233,12 @@ def plan(main: str, rev: str, ledger: list[dict[str, Any]], items: list[dict[str
         rec = parse(writes[path]) if path in writes else _record("change", slug, slug, [])
         rec["land"] = rec["land"] + fresh
         writes[path] = dump(rec)
+    for day, figure in sorted((front or {}).items()):
+        path = f"{DIR}/front/{day}.json"
+        if path not in have:
+            rec = _record("front", "front", None, [])
+            rec["front"] = {**figure, "cost_usd": round(figure["cost_usd"], 4)}
+            writes[path] = dump(rec)
     return writes
 
 
@@ -272,7 +308,7 @@ def record_landing(repo: str, units: list[tuple[str, str]], before: Optional[str
         held: dict[str, list[dict[str, Any]]] = {}
         for item in items:
             held[item["slug"]] = _held_rows(events, item["slug"])
-        return plan(main, rev, ledger, items, landing, moment, quiet, notes, held)
+        return plan(main, rev, ledger, items, landing, moment, quiet, notes, held, front_figures(front_days(main, rev, moment)))
 
     for branch in _riders(main, before, head) - {b for _, b in units}:
         notes.append(f"metrics: {branch} landed in {head[:12]} with no queue item; no record")
@@ -328,8 +364,12 @@ def summary(main: str, rev: str) -> list[str]:
             stage.setdefault((week, a["stage"]), []).append(_minutes(a))
             cost[(week, rec["unit"])] = cost.get((week, rec["unit"]), 0.0) + a["cost_usd"]
     lines = [f"records: {len(records)}; units: {len({r['unit'] for r in records})}"]
+    front: dict[str, list[dict[str, Any]]] = {}
+    for rec in records:
+        if rec.get("front"):
+            front.setdefault(_week(_epoch(rec["front"]["day"] + "T00:00:00Z")), []).append(rec["front"])
     coverage = coverage_by_week(main, rev)
-    for week in sorted({w for w, _ in stage} | set(coverage)):
+    for week in sorted({w for w, _ in stage} | set(coverage) | set(front)):
         lines.append(week + ":")
         for (w, name), mins in sorted(stage.items()):
             if w == week:
@@ -339,6 +379,9 @@ def summary(main: str, rev: str) -> list[str]:
         week_cost = [v for (w, _), v in cost.items() if w == week]
         if week_cost:
             lines.append(f"  cost per unit: median ${statistics.median(week_cost):.2f}, total ${sum(week_cost):.2f}")
+        if week in front:
+            estimated = sum(1 for f in front[week] if f["basis"] == "estimate")
+            lines.append(f"  front: ${sum(f['cost_usd'] for f in front[week]):.2f} over {len(front[week])} days ({estimated} estimated, the rest exact)")
         if week in coverage:
             lines.append(f"  coverage: median {_fmt(statistics.median(coverage[week]))}% over {len(coverage[week])} gates")
     return lines

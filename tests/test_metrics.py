@@ -138,6 +138,11 @@ class Records(Fixture):
         patcher = mock.patch("relay_config.ledger_dir", return_value=self.ledger)
         patcher.start()
         self.addCleanup(patcher.stop)
+        # no front days by default (the front's transcripts are the owner's, outside the test); the front tests set them
+        self.real_front_days = relay_metrics.front_days
+        front = mock.patch.object(relay_metrics, "front_days", return_value=[])
+        self.front_days = front.start()
+        self.addCleanup(front.stop)
 
     def files(self):
         out = git(self.main, "ls-tree", "-r", "--name-only", "master", "--", ".relay/changes")
@@ -159,6 +164,44 @@ class Records(Fixture):
         relay_metrics.record_landing(self.main, [("item-a", "wt/a")], head, head, [], 0, lines.append, now=1.8e9)
         self.assertEqual(git(self.main, "rev-parse", "master"), before)
         self.assertEqual(git(self.main, "status", "--porcelain"), "")
+
+    def test_f8_front_days_without_a_record_get_one_with_the_reports_figure(self):
+        claude = os.path.join(self.tmp, "claude")
+        folder = os.path.join(claude, "projects", "p")
+        os.makedirs(folder)
+        stamps = ["2026-10-28T10:00:00Z", "2026-10-28T10:05:00Z"]
+        lines = [{"type": "user", "timestamp": stamps[0], "message": {"role": "user", "content": "ask"}}]
+        lines += [{"type": "assistant", "timestamp": t, "requestId": f"r{i}", "isSidechain": False, "message": {
+                   "role": "assistant", "model": "claude-opus-5", "content": [], "usage": {
+                       "input_tokens": 50, "cache_read_input_tokens": 1000, "cache_creation_input_tokens": 0, "output_tokens": 10}}}
+                  for i, t in enumerate(stamps)]
+        write(os.path.join(folder, "s1.jsonl"), "".join(json.dumps({**x, "sessionId": "s1"}) + "\n" for x in lines))
+        usage = {"input_tokens": 50, "output_tokens": 10, "cache_read_input_tokens": 1000, "cache_creation_input_tokens": 0, "web_search_requests": 0}
+        import relay_prices
+        two = 2 * relay_prices.cost("claude-opus-5", usage)       # two identical requests on 28 Oct
+        self.front_days.return_value = ["2026-10-28", "2026-10-29"]
+        head = git(self.main, "rev-parse", "HEAD")
+        with mock.patch("relay_config.claude_dir", return_value=claude):
+            relay_metrics.record_landing(self.main, [], None, head, [], 0, print, now=1.8e9)
+        got = {f.rsplit("/", 1)[1]: json.loads(git(self.main, "show", "master:" + f)) for f in self.files() if "/front/" in f}
+        self.assertEqual(sorted(got), ["2026-10-28.json", "2026-10-29.json"])
+        busy, empty = got["2026-10-28.json"], got["2026-10-29.json"]
+        self.assertEqual((busy["kind"], busy["agents"]), ("front", []))
+        self.assertAlmostEqual(busy["front"]["cost_usd"], round(two, 4), places=4)
+        self.assertEqual((busy["front"]["day"], busy["front"]["sessions"], busy["front"]["basis"]), ("2026-10-28", 1, "estimate"))
+        # a day with no front session is a stored zero, nothing to estimate
+        self.assertEqual(empty["front"], {"day": "2026-10-29", "cost_usd": 0.0, "sessions": 0, "basis": "exact"})
+        # written once: a second write adds nothing
+        before = git(self.main, "rev-parse", "master")
+        with mock.patch("relay_config.claude_dir", return_value=claude):
+            relay_metrics.record_landing(self.main, [], None, head, [], 0, print, now=1.8e9)
+        self.assertEqual(git(self.main, "rev-parse", "master"), before)
+
+    def test_f8_front_days_are_the_complete_days_without_a_record(self):
+        have = [{"front": {"day": "2026-10-28", "cost_usd": 1.0, "sessions": 1, "basis": "exact"}}]
+        now = relay_metrics._epoch("2026-10-30T12:00:00Z")      # 30 Oct is not complete; 27 and 29 Oct have no record, 28 Oct has one
+        with mock.patch.object(relay_metrics, "stored", return_value=have):
+            self.assertEqual(self.real_front_days("m", "r", now), ["2026-10-27", "2026-10-29"])
 
     def test_a_sweep_waits_for_the_quiet_time(self):
         head = git(self.main, "rev-parse", "HEAD")
