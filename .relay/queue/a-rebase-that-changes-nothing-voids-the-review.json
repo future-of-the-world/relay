@@ -22,8 +22,8 @@
     "lib/relay_verdict.py (around 643: a review whose reviewed commit is not in the head's history is refused)",
     "plugins/core/hooks/check-mark.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T14:09:28Z",
+  "taken_by": "wt/a-rebase-that-changes-nothing-voids-the",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
