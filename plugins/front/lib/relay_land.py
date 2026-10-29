@@ -29,20 +29,7 @@ FF_LOCK_WAIT_S = 1.0          # seconds between two fast-forwards refused by an 
 JUDGE_TIMEOUT_S = 300         # one judge reads git only; far above its seconds, finite so a stuck git cannot hold the lock forever
 LANDED, RED, CONFLICT, REFUSED, HANDED_BACK, DIRTY = "landed", "red", "conflict", "refused", "handed_back", "dirty"
 EXIT = {LANDED: 0, RED: 1, REFUSED: 2, DIRTY: 2, CONFLICT: 3, HANDED_BACK: 4}
-
-
-def _hook_path() -> str:
-    """The merge hook of the repository this file sits in. The copies under plugins/<name>/lib have no plugins/relay
-    beside them, so the walk goes up to the first folder that has plugins/relay/hooks/merge.py (the repository root)."""
-    folder = os.path.dirname(os.path.realpath(__file__))
-    while True:
-        folder = os.path.dirname(folder)
-        hook = os.path.join(folder, "plugins", "relay", "hooks", "merge.py")
-        if os.path.exists(hook) or folder == os.path.dirname(folder):
-            return hook
-
-
-HOOK = _hook_path()
+HOOK = next((h for n in (2, 4) if os.path.exists(h := os.path.join(os.path.realpath(__file__).rsplit("/", n)[0], "plugins", "relay", "hooks", "merge.py"))), "merge.py")   # the repository's merge hook: lib/ is 2 path parts below the root, plugins/<name>/lib/ copies 4
 
 
 def setting(cfg: Any, key: str) -> int:
@@ -320,8 +307,7 @@ def _preflight(main: str, default: str, branch: str) -> str:
         raise Stop(REFUSED, [f"land: {branch} has no worktree: make one (git worktree add) so the take of {default} has a place to run"])
     rc, status = relay_git.git(tree["path"], "status", "--porcelain", "--untracked-files=normal")
     if rc != 0 or status:
-        shown = ", ".join(l[3:] for l in status.splitlines()[:5])
-        raise Stop(REFUSED, [f"land: the worktree of {branch} has uncommitted changes ({shown}): commit them or remove them, then relay land {branch} again"])
+        raise Stop(REFUSED, [f"land: the worktree of {branch} has uncommitted changes ({', '.join(l[3:] for l in status.splitlines()[:5])}): commit them or remove them, then relay land {branch} again"])
     if relay_git.current_branch(main) != default:
         raise Stop(REFUSED, [f"land: the main checkout is not on {default}: switch it back, then relay land {branch} again"])
     files = blocking(main, branch)
