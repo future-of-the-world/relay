@@ -14,7 +14,7 @@ import relay_tokens as rt  # noqa: E402
 
 
 def st(home, slots=2, cpus=12):
-    return rt.settings(home, slots, 4, cpus)
+    return rt.settings(home, slots, cpus)
 
 
 class Base(unittest.TestCase):
@@ -54,8 +54,45 @@ class SettingsTest(Base):
         self.write("count", "1000")
         self.write("per-gate", "99")
         s = st(self.home)
-        self.assertEqual(s.per_gate, 8)          # 2 x RELAY_TEST_JOBS 4
+        self.assertEqual(s.per_gate, 8)          # 2 x DEFAULT_JOBS 4
         self.assertEqual(s.total, 48)            # 4 x 12 cpus
+
+    def test_the_split_does_not_depend_on_the_callers_jobs(self):
+        # F1: the gate/shared split is one fact for the machine: a process with RELAY_TEST_JOBS=1 sees the same 8 gate tokens as one with 4
+        for jobs in ("1", "4", "16"):
+            self.assertEqual(rt.settings_for_run({"RELAY_TEST_JOBS": jobs}, self.home).gate_tokens, rt.settings_for_run({}, self.home).gate_tokens)
+        self.write("per-gate", "99")
+        self.assertEqual(rt.settings_for_run({"RELAY_TEST_JOBS": "1"}, self.home).per_gate, 8)      # clamped to 2 x 4, the same for everyone
+        self.write("per-gate", "1")
+        self.assertEqual(rt.settings_for_run({"RELAY_TEST_JOBS": "1"}, self.home).per_gate, 2)
+
+    def test_a_run_with_one_job_waits_for_a_shared_token_and_leaves_gate_tokens(self):
+        # F1: 12 cpus, 2 slots: gate 0..7, shared 8..11. All shared held, gate A holds 0..3: a RELAY_TEST_JOBS=1 run must wait, not take 4
+        os.makedirs(os.path.join(self.home, "gate-slots"))
+        with open(os.path.join(self.home, "gate-slots", "count"), "w") as handle:
+            handle.write("2")
+        self.write("count", "12")
+        s = rt.settings(self.home, 2, 12)
+        shared = [rt.take_base(self.home, s, rt.SHARED, 1)[0] for _ in range(4)]
+        gate_a, _ = rt.take_base(self.home, s, rt.GATE, 4)
+        out = {}
+        thread = threading.Thread(target=lambda: out.update(r=rt.acquire_run_base({"RELAY_HOME": self.home, "RELAY_TEST_JOBS": "1"})), daemon=True)
+        thread.start()
+        waiting = os.path.join(rt.pool_dir(self.home), "waiting")
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline and not (os.path.isdir(waiting) and os.listdir(waiting)):
+            time.sleep(0.05)
+        self.assertTrue(os.listdir(waiting))      # a shared waiter file: it waits
+        self.assertNotIn("r", out)
+        gate_b, waited = rt.take_base(self.home, s, rt.GATE, 4)      # gate B gets 4..7 at once
+        self.assertEqual(len(gate_b), 4)
+        self.assertLess(waited, 1)
+        shared[0].release()
+        thread.join(20)
+        self.assertEqual(len(out["r"].held), 1)
+        out["r"].held.release()
+        for held in shared[1:] + [gate_a, gate_b]:
+            held.release()
 
     def test_not_a_number_uses_default_with_note(self):
         self.write("per-gate", "many")
@@ -130,6 +167,35 @@ class PoolTest(Base):
         self.assertIsNotNone(again)              # the waiter is gone: SHARED is free again
         again.release()
 
+    def test_a_released_token_reaches_a_base_waiter_not_an_extra_loop(self):
+        # F2: 2 shared tokens (count = R + 2 with 1 slot x 2 = 4). A holds one as base and takes the other as an extra again and
+        # again; B waits for a base while A holds the base and the extra. A's next extra must be refused as B waits, so B gets it.
+        self.write("per-gate", "2")
+        self.write("count", "4")
+        s = rt.settings(self.home, 1, 12)
+        gate_held, _ = rt.take_base(self.home, s, rt.GATE, 2)      # the gate tokens are busy, so an extra can only be a shared one
+        base_a, _ = rt.take_base(self.home, s, rt.SHARED, 1)
+        extra = rt.try_extra(self.home, s, rt.SHARED)
+        self.assertIsNotNone(extra)
+        out = {}
+        thread = threading.Thread(target=lambda: out.update(r=rt.take_base(self.home, s, rt.SHARED, 1)))
+        thread.start()
+        waiting = os.path.join(rt.pool_dir(self.home), "waiting")
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline and not (os.path.isdir(waiting) and os.listdir(waiting)):
+            time.sleep(0.05)
+        names = os.listdir(waiting)
+        self.assertEqual(len(names), 1)
+        self.assertTrue(names[0].startswith("shared-%d-" % os.getpid()), names)      # take_base wrote its waiter file
+        extra.release()
+        self.assertIsNone(rt.try_extra(self.home, s, rt.SHARED))      # the waiter wins over the extra loop of A
+        thread.join(20)
+        self.assertEqual(len(out["r"][0]), 1)      # B got the released token while A still holds its base
+        self.assertEqual(os.listdir(waiting), [])      # and its waiter file is gone
+        out["r"][0].release()
+        base_a.release()
+        gate_held.release()
+
     def test_dead_waiter_file_is_ignored(self):
         s = st(self.home)
         os.makedirs(os.path.join(rt.pool_dir(self.home), "waiting"))
@@ -153,7 +219,7 @@ class PoolTest(Base):
 
     def test_a_killed_holder_frees_its_tokens(self):
         code = ("import sys,time; sys.path.insert(0, %r); import relay_tokens as rt; "
-                "s=rt.settings(%r, 2, 4, 12); h=rt.take_base(%r, s, rt.GATE, 8)[0]; print('held', flush=True); time.sleep(60)"
+                "s=rt.settings(%r, 2, 12); h=rt.take_base(%r, s, rt.GATE, 8)[0]; print('held', flush=True); time.sleep(60)"
                 % (os.path.join(os.path.dirname(HERE), "lib"), self.home, self.home))
         proc = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, text=True)
         try:
@@ -181,7 +247,7 @@ class NestedTest(Base):
         # one shared token in the whole pool (count = R+1 with 1 slot x 2): the holder has it; its child must run without waiting
         self.write("per-gate", "2")
         self.write("count", "3")
-        s = rt.settings(self.home, 1, 4, 12)
+        s = rt.settings(self.home, 1, 12)
         held, _ = rt.take_base(self.home, s, rt.SHARED, 1)
         env = {"RELAY_HOME": self.home, rt.ENV_HOLD: rt.hold_value(1, self.home)}
         base = rt.acquire_run_base(env)
@@ -197,6 +263,23 @@ class NestedTest(Base):
             self.assertFalse(base.passed)
             self.assertEqual(len(base.held), 1)
             base.held.release()
+
+    def test_the_slot_count_is_read_without_importing_relay_gate(self):
+        # F7: a broken lib module (relay_gate imports a chain of them) must not stop a test run: make "import relay_gate" fail
+        os.makedirs(os.path.join(self.home, "gate-slots"))
+        with open(os.path.join(self.home, "gate-slots", "count"), "w") as handle:
+            handle.write("3")
+        code = ("import sys; sys.modules['relay_gate'] = None; sys.path.insert(0, %r); import relay_tokens as rt; "
+                "print(rt.settings_for_run({}, %r).slots)" % (os.path.join(os.path.dirname(HERE), "lib"), self.home))
+        run = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+        self.assertEqual((run.returncode, run.stdout.strip()), (0, "3"), run.stderr)
+
+    def test_a_bad_slot_count_gives_the_default(self):
+        os.makedirs(os.path.join(self.home, "gate-slots"))
+        for text in ("0", "x", "-2", ""):
+            with open(os.path.join(self.home, "gate-slots", "count"), "w") as handle:
+                handle.write(text)
+            self.assertEqual(rt.read_slots(self.home), rt.default_slots(), text)
 
     def test_malformed_value_is_ignored(self):
         for bad in ("", "x@/tmp", "0@/tmp", "3", "-1@/tmp"):

@@ -1,17 +1,22 @@
 """`relay precheck`: the gate's seconds-long steps, read-only, before the gate (speed approach A; queue item
 a-fix-to-lib-leaves-the-plugins-copies-stale). Every repo here is a temporary one."""
+import io
 import os
 import shutil
 import stat
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
+from contextlib import redirect_stderr
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 import relay_precheck  # noqa: E402
+import relay_tokens  # noqa: E402
 
 RELAY = os.path.join(ROOT, "bin", "relay")
 
@@ -348,6 +353,64 @@ class TestChangedTests(Base):
         git(self.repo, "branch", "-m", "wt/task", "feature")
         git(self.repo, "branch", "-m", "master", "trunk")
         self.assertEqual(relay_precheck.check_changed_tests(self.repo), ["skipped: no master or main branch to compare with"])
+
+    # F3: the precheck holds one test token for its changed tests and passes it down; its test runs take no second one.
+    ONE_SHARED = ("1", "2", "3")      # gate-slots/count 1, per-gate 2, count 3: gate tokens 0 and 1, one shared token (2)
+
+    def pool(self) -> str:
+        home = tempfile.mkdtemp(prefix="precheck-home-")
+        self.addCleanup(shutil.rmtree, home, True)
+        for rel, text in (("gate-slots/count", self.ONE_SHARED[0]), ("test-tokens/per-gate", self.ONE_SHARED[1]), ("test-tokens/count", self.ONE_SHARED[2])):
+            os.makedirs(os.path.dirname(os.path.join(home, rel)), exist_ok=True)
+            with open(os.path.join(home, rel), "w") as handle:
+                handle.write(text)
+        env = mock.patch.dict(os.environ, {"RELAY_HOME": home})
+        env.start()
+        self.addCleanup(env.stop)
+        steps = mock.patch.object(relay_precheck, "STEPS", (("changed tests", relay_precheck.check_changed_tests),))
+        steps.start()
+        self.addCleanup(steps.stop)
+        # a deadlock (the child waiting for a second token) ends as "FAIL changed tests took longer" after this budget, not after 600 s
+        budget = mock.patch.object(relay_precheck, "CHANGED_TESTS_TIMEOUT", 30)
+        budget.start()
+        self.addCleanup(budget.stop)
+        self.write("tests/test_new.py", "import unittest\nclass T(unittest.TestCase):\n    def test_ok(self):\n        pass\n")
+        self.commit()
+        return home
+
+    def test_a_pool_with_one_shared_token_does_not_deadlock_the_changed_tests(self) -> None:
+        self.pool()
+        err = io.StringIO()
+        with redirect_stderr(err):
+            code, lines = relay_precheck.run(self.repo)
+        self.assertEqual((code, lines[0]), (0, "ok   changed tests"), lines)      # the child took the passed-down base, not a second token
+        self.assertNotIn("waiting", err.getvalue())
+
+    def test_the_precheck_waits_for_the_one_token_and_says_so_once(self) -> None:
+        home = self.pool()
+        st = relay_tokens.settings(home, 1, 12)
+        other, _ = relay_tokens.take_base(home, st, relay_tokens.SHARED, 1)
+        err = io.StringIO()
+        out = {}
+
+        def go() -> None:
+            with redirect_stderr(err):
+                out["r"] = relay_precheck.run(self.repo)
+
+        thread = threading.Thread(target=go, daemon=True)
+        thread.start()
+        waiting = os.path.join(relay_tokens.pool_dir(home), "waiting")
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline and not (os.path.isdir(waiting) and os.listdir(waiting)):
+            time.sleep(0.05)
+        self.assertTrue(os.listdir(waiting))      # the precheck is waiting
+        other.release()
+        thread.join(60)
+        code, lines = out["r"]
+        self.assertEqual((code, lines[0]), (0, "ok   changed tests"), lines)      # the wait did not count against the 30 s budget of the tests
+        self.assertEqual(err.getvalue().count("precheck: waiting for a test token"), 1, err.getvalue())
+
+
 
 
 class TestCommand(Base):

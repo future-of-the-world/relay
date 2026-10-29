@@ -15,7 +15,8 @@ A run's BASE tokens are held for the whole run; its EXTRA tokens are held for on
 
 Settings (files in the pool folder; a value outside its bounds is brought into them with a note):
   count     tokens in all; default the usable CPUs; bounds R+1 .. 4 x CPUs
-  per-gate  tokens a gate holds; default 4; bounds 2 .. 2 x the per-run worker ceiling (RELAY_TEST_JOBS, default 4)
+  per-gate  tokens a gate holds; default 4; bounds 2 .. 2 x DEFAULT_JOBS (the same on the whole machine: every process must
+            compute the same gate/shared split, so no caller's RELAY_TEST_JOBS enters it)
   retry     seconds an idle extra waits before it looks again; default 1; bounds 0.2 .. 10
 """
 
@@ -36,6 +37,7 @@ GATE = "gate"
 SHARED = "shared"
 DEFAULT_PER_GATE = 4
 MIN_PER_GATE = 2
+CORES_PER_SLOT = 6      # default slots = cores // CORES_PER_SLOT, at least 1: 2 on 12 cores (measured 27 Oct: 2 gates at once 698 s each, 3 at once 1058 s each, alone 420 s)
 DEFAULT_JOBS = 4         # the per-run worker ceiling when RELAY_TEST_JOBS is not set (tests/parallel_unittest.py DEFAULT_JOBS)
 DEFAULT_RETRY = 1.0
 RETRY_LOW, RETRY_HIGH = 0.2, 10.0
@@ -132,10 +134,10 @@ def read_setting(path: str, default: float, low: float, high: float, whole: bool
     return value, ""
 
 
-def settings(home: str, slots: int, jobs: int = DEFAULT_JOBS, cpus: Optional[int] = None) -> Settings:
+def settings(home: str, slots: int, cpus: Optional[int] = None) -> Settings:
     folder = pool_dir(home)
     cpus = cpus or usable_cpus()
-    per_gate, note1 = read_setting(os.path.join(folder, "per-gate"), DEFAULT_PER_GATE, MIN_PER_GATE, max(MIN_PER_GATE, 2 * jobs))
+    per_gate, note1 = read_setting(os.path.join(folder, "per-gate"), DEFAULT_PER_GATE, MIN_PER_GATE, 2 * DEFAULT_JOBS)
     gate_tokens = int(per_gate) * slots
     total, note2 = read_setting(os.path.join(folder, "count"), cpus, gate_tokens + 1, max(CPU_FACTOR * cpus, gate_tokens + 1))
     retry, note3 = read_setting(os.path.join(folder, "retry"), DEFAULT_RETRY, RETRY_LOW, RETRY_HIGH, whole=False)
@@ -261,14 +263,25 @@ def jobs_from(environ: Mapping[str, str]) -> int:
     return int(raw) if raw.isdigit() and int(raw) > 0 else DEFAULT_JOBS
 
 
-def settings_for_run(environ: Mapping[str, str], home: str) -> Settings:
-    """The settings as a test run reads them (the gate slot count comes from relay_gate, imported late: it imports this module)."""
-    import relay_gate
+def default_slots(cores: Optional[int] = None) -> int:
+    """Gates that may run at once by default: the machine's cores divided by CORES_PER_SLOT, at least 1."""
+    return max(1, (cores if cores is not None else os.cpu_count() or 1) // CORES_PER_SLOT)
+
+
+def read_slots(home: str) -> int:
+    """The gate slot count as a test run reads it: the whole number in `<home>/gate-slots/count`, else the default. It does not
+    import relay_gate (a broken lib module must not stop the tests); a bad value, which the gate itself refuses, gives the default."""
     try:
-        slots = relay_gate.slot_count(home)
-    except relay_gate.GateRefused:
-        slots = relay_gate.default_slots()
-    return settings(home, slots, jobs_from(environ))
+        with open(os.path.join(home, "gate-slots", "count")) as handle:
+            text = handle.read().strip()
+    except OSError:
+        return default_slots()
+    return int(text) if text.isdigit() and int(text) >= 1 else default_slots()
+
+
+def settings_for_run(environ: Mapping[str, str], home: str) -> Settings:
+    """The settings as a test run reads them."""
+    return settings(home, read_slots(home))
 
 
 def run_home(environ: Mapping[str, str]) -> str:

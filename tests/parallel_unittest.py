@@ -302,8 +302,6 @@ def _run(root: str, env: Dict[str, str], tests_dir: str, jobs: int, note: str, r
         print(note)
     base = min(jobs, probe_share(run_base.workers, env.get("RELAY_INERT_PROBE") == "1") if run_base.passed else run_base.workers)
     st = run_base.settings
-    for text in st.notes:
-        print("NOTE test tokens: " + text)
     start = time.monotonic()
     sys.path.insert(0, tests_dir)
     sys.path.insert(0, root)
