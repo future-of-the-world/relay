@@ -23,8 +23,8 @@
   "where": [
     "plugins/delegate/workflows/cycle.js:232-252"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T09:56:32Z",
+  "taken_by": "wt/a-recheck-without-a-queue-item-forgets-t",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
