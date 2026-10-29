@@ -9,11 +9,13 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
+import relay_git  # noqa: E402
 import relay_verdict as rv  # noqa: E402
 
 RELAY = os.path.join(ROOT, "bin", "relay")
@@ -489,3 +491,39 @@ class ReviewHandoff(RecordBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GitCouldNotAnswer(unittest.TestCase):
+    """A git that times out is reported as its own error, not as a detached HEAD."""
+
+    def setUp(self):
+        self.tmp = os.path.realpath(tempfile.mkdtemp(prefix="relay-verdict-git-"))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        subprocess.run(["git", "init", "-q", "-b", "wt/x", self.tmp], check=True)
+        # a fake git that sleeps far past the lowered limit; the sleep is killed by the timeout
+        fake = os.path.join(self.tmp, "fakebin")
+        os.mkdir(fake)
+        with open(os.path.join(fake, "git"), "w", encoding="utf-8") as handle:
+            handle.write("#!/bin/sh\nexec sleep 30\n")
+        os.chmod(os.path.join(fake, "git"), 0o755)
+        patcher = mock.patch.dict(os.environ, {"PATH": fake + os.pathsep + os.environ["PATH"]})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        limit = mock.patch.object(relay_git, "TIMEOUT", 0.2)
+        limit.start()
+        self.addCleanup(limit.stop)
+
+    def test_current_branch_strict_raises_when_git_times_out(self):
+        with self.assertRaises(relay_git.GitError) as caught:
+            relay_git.current_branch(self.tmp, strict=True)
+        self.assertIn("git could not answer: git -C", str(caught.exception))
+
+    def test_current_branch_default_still_answers_none(self):
+        # the hooks that read it as a plain question keep their old answer
+        self.assertIsNone(relay_git.current_branch(self.tmp))
+
+    def test_the_verdict_says_git_could_not_answer_not_that_it_is_not_on_a_branch(self):
+        with self.assertRaises(rv.VerdictError) as caught:
+            rv.build_findings(self.tmp, "a" * 40, [])
+        self.assertIn("git could not answer", str(caught.exception))
+        self.assertNotIn("not on a branch", str(caught.exception))

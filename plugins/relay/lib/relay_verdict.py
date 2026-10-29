@@ -769,7 +769,10 @@ def build_findings(wt, head, review_paths, item=None):
     VerdictError ("nothing recorded: ...") when a part cannot be read."""
     import relay_marks
     import relay_queue
-    branch = relay_git.current_branch(wt)
+    try:
+        branch = relay_git.current_branch(wt, strict=True)
+    except relay_git.GitError as exc:
+        raise VerdictError("nothing recorded: %s" % exc)
     if branch is None:
         raise VerdictError("nothing recorded: the worktree is not on a branch")
     try:
