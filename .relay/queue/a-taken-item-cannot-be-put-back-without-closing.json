@@ -1,0 +1,55 @@
+{
+  "kind": "fix",
+  "ip": 80,
+  "time": 30,
+  "found_at": "2026-10-29T22:45:23Z",
+  "found_in": "relay queue add",
+  "title": "relay queue --help does not list release",
+  "what": [
+    "relay queue --help lists every queue subcommand bin/relay accepts (release was missing), and a test compares the help text with the accepted subcommands so a new one cannot be left out."
+  ],
+  "why": [
+    "30 Oct: the fseventsd item's build found nothing to change and stopped BLOCKED; the item stays taken by its empty branch and holds one of 6 lanes until the owner answers a question, because relay queue has take, done and drop but no way to return a taken item to the queue. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "30 Oct, /Users/amidman/relay: `bin/relay queue --help` lists take, done and drop but not release, which exists and returns test-churn-keeps-fseventsd-at-a-full-core-and-7 (taken by wt/test-churn-keeps-fseventsd-at-a-full-cor, no own commit) to the queue; the lanes hook counts it as running."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "An item taken by a branch with no own commit is released and the lanes line counts one more free lane",
+    "A branch with its own commits is refused, the refusal names them"
+  ],
+  "where": [
+    "lib/relay_queue.py",
+    "lib/relay_lanes.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T22:46:13Z",
+      "edited": "title",
+      "fact": [
+        "Edited title: 30 Oct: relay queue release exists (bin/relay:1024, lib/relay_queue.py:1265) and works; the real defect is that relay queue --help does not list it, so the front concluded it was missing."
+      ]
+    },
+    {
+      "at": "2026-10-29T22:46:15Z",
+      "edited": "what",
+      "fact": [
+        "Edited what: 30 Oct: relay queue release exists (bin/relay:1024, lib/relay_queue.py:1265) and works; the real defect is that relay queue --help does not list it, so the front concluded it was missing."
+      ]
+    },
+    {
+      "at": "2026-10-29T22:46:16Z",
+      "edited": "failing_case",
+      "fact": [
+        "Edited failing_case: 30 Oct: relay queue release exists (bin/relay:1024, lib/relay_queue.py:1265) and works; the real defect is that relay queue --help does not list it, so the front concluded it was missing."
+      ]
+    }
+  ]
+}

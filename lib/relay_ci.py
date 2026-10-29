@@ -158,7 +158,8 @@ class Probe:
         env["RELAY_INERT_FULL_HOOKS"] = "" if self.quick else "1"
         os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
         self._log = open(self.log_path, "wb")
-        # the same process group as this run: whatever stops the gate's group stops the probe too
+        # same process group as bin/ci on purpose: relay gate SIGKILLs that group when it stops the gate, which must end the probe too
+        # (a probe in a session of its own outlived it, kept the worktree lock and had no time limit)
         self.proc = subprocess.Popen(list(self.nested), cwd=self.work, env=env, stdin=subprocess.DEVNULL,
                                      stdout=self._log, stderr=subprocess.STDOUT, close_fds=False)   # keeps an inherited lock fd
 

@@ -23,8 +23,8 @@
     "lib/relay_git.py",
     "tests/test_check_mark_hook.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T21:23:40Z",
+  "taken_by": "wt/relay-check-starts-238-git-processes-per",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

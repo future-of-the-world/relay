@@ -1,0 +1,389 @@
+{
+  "branch": "wt/a-rebase-that-changes-nothing-voids-the",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, the arsenal pilot design, scratchpad reports/design-arsenal.md (copy in ~/.relay/backup/scratch-3207dc59), risk 4: projects that rebase (arsenal's Master Sync) lose relay's review and check at every rebase, about +25 agent minutes and a new Opus review each time, roughly 10% of changes at arsenal's merge rate. IP chosen by the front (agent-chosen).",
+        "Also: plugins/core/hooks/check-mark.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A branch with a review and check record is rebased onto a new main commit that touches an unrelated file; git range-diff shows no patch change; the merge hook refuses for a missing review of the new head."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same rebase keeps the review and check valid (a new gate still required); a rebase that changes the patch still voids them."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_verdict.py RebasedRecords test_a_review_of_a_commit_a_clean_rebase_replaced_still_counts passes and errors at e64a51f3."
+      ],
+      "severity": "HIGH",
+      "since": "e64a51f33e1c2ac56dcb975cc1eab1eada3d624f",
+      "source": "queue",
+      "summary": "A rebase that changes nothing voids the review",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe. `git patch-id --stable` strips all whitespace before hashing (git docs: \"with whitespace and line numbers",
+        "ignored\"); `--verbatim` keeps it (and cannot be combined with --stable; it implies a stable id). With the default mode the two",
+        "patches above hash to the same id c5a54cfd..., with --verbatim to 934a7aef... and adc04abb.... The owner's item defines \"unchanged\"",
+        "as range-diff showing no change; range-diff does show this change. Indentation is semantics in Python and YAML, relay's own",
+        "languages, so a behaviour change lands under an old check; only the gate stands between it and the merge.",
+        "Size: 15 minutes (one flag and one test)."
+      ],
+      "evidence": [
+        "bash scratchpad/probe/ws.sh (repo with the two versions above)",
+        "  git diff master HEAD | git patch-id --stable      -> c5a54cfd637589a282c4a454a2d69c3f043bf929",
+        "  git diff master <old> | git patch-id --stable     -> c5a54cfd637589a282c4a454a2d69c3f043bf929",
+        "  relay_inert.twin(r, old, 'refs/heads/wt/x')       -> 7b9de6c7c44d... (== new head)",
+        "  git range-diff old~1..old master..wt/x            -> 1: fabb5f9 ! 1: 7b9de6c change ... -+    h()  ++        h()",
+        "  git patch-id --verbatim on each                   -> 934a7aef... vs adc04abb... (different)"
+      ],
+      "failing_case": [
+        "Branch wt/x adds to lib_x.py:",
+        "    if a:",
+        "        g()",
+        "    h()",
+        "A check mark and a review are recorded on that commit (old). The commit is then amended (or rebased with a conflict edit) so h() is",
+        "indented under the if (a behaviour change in Python). `git range-diff` shows `1: fabb5f9 ! 1: 7b9de6c change` (a changed patch).",
+        "relay_inert.twin(repo, old, \"refs/heads/wt/x\") now returns the new commit 7b9de6c..., so relay_marks.marks() carries the old mark to",
+        "it and _review_findings accepts the old review: the merge hook takes a check of code nobody checked. It should return None (records",
+        "voided), as the item promises: \"a rebase that changes the patch still voids them\"."
+      ],
+      "fix_hint": [
+        "In _patch_id use [\"git\", \"-C\", repo, \"patch-id\", \"--verbatim\"] instead of \"--stable\"; add a RebasedRecords test that re-indents a",
+        "line after the mark and asserts marks() does not carry it and _review_findings refuses."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 147,
+      "pass_cases": [
+        "1. Whitespace-only change of indentation in a .py line of the branch's patch after the review: twin(old) is None;",
+        "   _review_findings raises VerdictError \"not in the history\"; marks() holds no entry for the new head; step_mark refuses.",
+        "2. Rebase onto a default-branch commit that touches an unrelated file, patch byte-identical: twin returns the rebased commit (as",
+        "   test_a_review_of_a_commit_a_clean_rebase_replaced_still_counts today).",
+        "3. Rebase whose patch changes content (x = 1 -> x = 2): twin is None (as the existing changed-patch tests).",
+        "4. A trailing-space-only change on a branch line: twin is None (the patch changed; range-diff shows `!`)."
+      ],
+      "path": "lib/relay_inert.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_verdict.py:679-709 re-indent and trailing-space tests pass; fail at b6961152."
+      ],
+      "severity": "HIGH",
+      "since": "13cf46537193eaeee3c5e6ccba725b66d4c66433",
+      "source": "review-a-rebase-that-changes-nothing-voids-the.json",
+      "source_id": "F1",
+      "summary": "git patch-id ignores whitespace, so a rebase or amend that only re-indents code (a changed Python patch) keeps the old review and check",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe (scratchpad/probe/same.sh): twin -> 0e36c75..., relay_inert.changed(old, head, own=True) -> ['lib_x.py'].",
+        "Mechanism: relay's design (merge hook step_mark and the M findings of build_findings) holds that when the default branch changes a",
+        "file the branch also changed, the combined file is checked again, even when git merged it cleanly. git's patch id hashes only the",
+        "branch's own hunks with line numbers dropped, so a default-branch edit outside the hunks' 3 context lines leaves the patch id the",
+        "same. The item says \"git range-diff shows no change\" keeps the records, which this case satisfies, so the item and the merge rule",
+        "disagree; only the owner can pick. Answer (a) is the item as written; (b) costs one more relay_inert.changed call per twin and",
+        "loses the saving for rebases over shared files (not measured how often arsenal's Master Sync hits a shared file).",
+        "Size: 15 minutes for (b), 5 for (a)."
+      ],
+      "evidence": [
+        "bash scratchpad/probe/same.sh",
+        "  git range-diff old~1..old master..wt/x   -> 1:  e383d7b = 1:  0e36c75 branch",
+        "  relay_inert.twin(r, old, 'refs/heads/wt/x')            -> 0e36c75321b699c181d4c7f02060bd872c8c8f03",
+        "  relay_inert.changed(r, old, 'refs/heads/wt/x', own=True) -> ['lib_x.py']"
+      ],
+      "failing_case": [
+        "lib_x.py has lines x1..x30. Branch wt/x changes x3 and is checked (mark on old). The default branch then changes x28 of the same",
+        "file. Taken by a merge commit, the merge hook refuses (\"after the check of <old>, wt/x changed lib_x.py\") and the next check gets an",
+        "M finding for lib_x.py. Taken by a rebase, range-diff shows `1: e383d7b = 1: 0e36c75 branch`, twin() returns the rebased commit and",
+        "the old mark is accepted: the combined lib_x.py, which no checker read, merges with only a gate."
+      ],
+      "fix_hint": [
+        "For (b): in twin(), after finding the candidate, return it only when changed(repo, old, candidate, own=True) is empty."
+      ],
+      "id": "F2",
+      "kind": "question",
+      "line": 152,
+      "owner": [
+        {
+          "date": "2026-10-30",
+          "words": [
+            "a a a a, \u0437\u0430\u043a\u0440\u044b\u0442\u044c"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "Depends on the owner's answer:",
+        "a) Keep the item's rule (range-diff \"=\" keeps the records): the case above keeps the mark; documented in the item's design note.",
+        "b) Match the merge rule: twin() also requires that no own file of the old patch differs between the old and new merge-base",
+        "   (relay_inert.changed(old, twin, own=True) is empty); the case above then yields no twin and step_mark refuses, while the",
+        "   unrelated-file rebase (test_a_review_of_a_commit_a_clean_rebase_replaced_still_counts) still keeps the records."
+      ],
+      "path": "lib/relay_inert.py",
+      "rank": "medium",
+      "reason": [
+        "Owner said a (keep records on range-diff equal) but the fix implements b (lib/relay_inert.py twin returns None when own files changed). Test passes, but it contradicts the owner decision. Owner entry present."
+      ],
+      "severity": "MEDIUM",
+      "since": "13cf46537193eaeee3c5e6ccba725b66d4c66433",
+      "source": "review-a-rebase-that-changes-nothing-voids-the.json",
+      "source_id": "F2",
+      "summary": "a rebase over a default-branch change to one of the branch's own files keeps the check, where the same change by merge needs a new check (M finding)",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: RebasedRecords tests twin, marks(), _review_findings and step_mark only; grep of tests for show( finds only",
+        "older test_marks.py cases with no rebase. Behaviour is correct today (step_gate reads gate logs by history commit), so LOW.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "git diff master...HEAD --stat -- tests/   -> tests/test_verdict.py only",
+        "grep -n \"relay_marks.show\" tests/test_marks.py -> lines 199-221, none after a rebase"
+      ],
+      "failing_case": [
+        "Disable the rebased() call in relay_marks.show() (line 326-328) or make gate_logs() carry an old gate log to its twin: every test in",
+        "tests/test_verdict.py and tests/test_marks.py still passes. The item's pass case says the rebase keeps the review and check \"(a new",
+        "gate still required)\", and the second commit fixed show(); neither is asserted."
+      ],
+      "fix_hint": [
+        "Add the three cases to RebasedRecords using merge.py step_gate and relay_marks.show."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 590,
+      "pass_cases": [
+        "1. Clean rebase with a green gate log of the old commit and a mark: step_gate(main, \"wt/x\", ...) raises Refused (\"no gate has run on",
+        "   it yet\") while step_mark returns the rebased head.",
+        "2. Same, plus a green gate log of the rebased head: step_gate returns.",
+        "3. relay_marks.show(main, \"wt/x\") after a clean rebase names the mark at the rebased head (not \"no check mark\")."
+      ],
+      "path": "tests/test_verdict.py",
+      "rank": "low",
+      "reason": [
+        "Gate-log and show tests in tests/test_verdict.py pass and encode the cases; they pass without the fix too, since behaviour was already correct."
+      ],
+      "severity": "LOW",
+      "since": "13cf46537193eaeee3c5e6ccba725b66d4c66433",
+      "source": "review-a-rebase-that-changes-nothing-voids-the.json",
+      "source_id": "F3",
+      "summary": "no test for the item's pass case 'a new gate still required' after a clean rebase, nor for the show() change of d0c05067",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Project rule (CLAUDE.local.md, Python: \"Every new or changed function has types\"). twin and _patch_id are",
+        "typed; the rest is not. Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "lib/relay_marks.py:200 `def rebased(repo, ref, have):` is a new function with no types; marks() (189), show() (300) and",
+        "relay_verdict._review_findings (631) changed and stay untyped. The project rule \"Every new or changed function has types\" is not met."
+      ],
+      "fix_hint": [
+        "Annotate the four functions; mirror into plugins/relay/lib and plugins/front/lib copies."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 200,
+      "pass_cases": [
+        "1. rebased(repo: str, ref: str, have: set[str]) -> list[tuple[str, dict]] (or the mark's typed record).",
+        "2. marks, show and _review_findings carry parameter and return types; the type checker the gate runs stays green."
+      ],
+      "path": "lib/relay_marks.py",
+      "rank": "low",
+      "reason": [
+        "Types added to marks, rebased, show, _review_findings; the types-and-lint step of precheck is ok."
+      ],
+      "severity": "LOW",
+      "since": "13cf46537193eaeee3c5e6ccba725b66d4c66433",
+      "source": "review-a-rebase-that-changes-nothing-voids-the.json",
+      "source_id": "F4",
+      "summary": "Python rule: new function rebased() and changed marks()/show()/_review_findings have no type annotations",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (git docs: git diff uses diff.external and textconv unless --no-ext-diff / --no-textconv). Not probed. Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A repository with diff.external set (or a textconv driver on a file type): `git diff` prints the external tool's output or the",
+        "converted text, not the patch. With diff.external, the output is not a patch, patch-id prints nothing and every twin is None (the",
+        "feature silently off); with textconv, two different binaries whose converted text is equal give one patch id (a false twin)."
+      ],
+      "fix_hint": [
+        "Add \"--no-ext-diff\", \"--no-textconv\", \"--no-color\" to the git diff call (or use git diff-tree -p)."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 143,
+      "pass_cases": [
+        "1. With `git config diff.external /bin/true` in the test repo, a clean rebase still keeps the records.",
+        "2. Without that config, results are unchanged."
+      ],
+      "path": "lib/relay_inert.py",
+      "rank": "low",
+      "reason": [
+        "diff.external test passes and fails at b6961152; flags --no-ext-diff --no-textconv --no-color are in _patch_id."
+      ],
+      "severity": "LOW",
+      "since": "13cf46537193eaeee3c5e6ccba725b66d4c66433",
+      "source": "review-a-rebase-that-changes-nothing-voids-the.json",
+      "source_id": "F5",
+      "summary": "_patch_id runs porcelain `git diff`, which honours the user's diff.external and textconv drivers",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_inert.py came in from master (merge b696115259f3) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_inert.py",
+      "rank": "medium",
+      "reason": [
+        "The master side of the merge changed one line (.relay/changes/** inert entry, archive=True in _gate); read, benign; gate green."
+      ],
+      "severity": "MEDIUM",
+      "since": "b696115259f3c37c2a6cfb9af447cdc8c08a8aa0",
+      "source": "merge",
+      "summary": "lib/relay_inert.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_verdict.py came in from master (merge b696115259f3) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "The master side of the merge changed one line (.relay/changes/** inert entry, archive=True in _gate); read, benign; gate green."
+      ],
+      "severity": "MEDIUM",
+      "since": "b696115259f3c37c2a6cfb9af447cdc8c08a8aa0",
+      "source": "merge",
+      "summary": "lib/relay_verdict.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/front/lib/relay_inert.py came in from master (merge b696115259f3) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/front/lib/relay_inert.py",
+      "rank": "medium",
+      "reason": [
+        "The master side of the merge changed one line (.relay/changes/** inert entry, archive=True in _gate); read, benign; gate green."
+      ],
+      "severity": "MEDIUM",
+      "since": "b696115259f3c37c2a6cfb9af447cdc8c08a8aa0",
+      "source": "merge",
+      "summary": "plugins/front/lib/relay_inert.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/front/lib/relay_verdict.py came in from master (merge b696115259f3) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/front/lib/relay_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "The master side of the merge changed one line (.relay/changes/** inert entry, archive=True in _gate); read, benign; gate green."
+      ],
+      "severity": "MEDIUM",
+      "since": "b696115259f3c37c2a6cfb9af447cdc8c08a8aa0",
+      "source": "merge",
+      "summary": "plugins/front/lib/relay_verdict.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/relay/lib/relay_inert.py came in from master (merge b696115259f3) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/relay/lib/relay_inert.py",
+      "rank": "medium",
+      "reason": [
+        "The master side of the merge changed one line (.relay/changes/** inert entry, archive=True in _gate); read, benign; gate green."
+      ],
+      "severity": "MEDIUM",
+      "since": "b696115259f3c37c2a6cfb9af447cdc8c08a8aa0",
+      "source": "merge",
+      "summary": "plugins/relay/lib/relay_inert.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/relay/lib/relay_verdict.py came in from master (merge b696115259f3) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/relay/lib/relay_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "The master side of the merge changed one line (.relay/changes/** inert entry, archive=True in _gate); read, benign; gate green."
+      ],
+      "severity": "MEDIUM",
+      "since": "b696115259f3c37c2a6cfb9af447cdc8c08a8aa0",
+      "source": "merge",
+      "summary": "plugins/relay/lib/relay_verdict.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "8fe2da7e7e26acb73abcda956b04e415a1dcd6d1.gate.log",
+  "head": "e2ce91a465960ac633998713ec477fb0117e84e5",
+  "item": "a-rebase-that-changes-nothing-voids-the-review",
+  "notes": [
+    "The fixer report file is missing, so no Disputed/Gap/Outside lines were read. F2: the owner chose a (keep the item rule, not wrong) but the code and test implement option b (twin voided when the default branch changed an own file), and the test comment calls that \"the owner's answer a\". This contradicts the owner word; the owner entry keeps it out of open, but the owner should decide whether to keep b or revert it."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix commit 8fe2da7e over b6961152; HEAD e2ce91a4 adds only the gate log. Gate log head 8fe2da7e, exit 0 (relay changed lists no file after it). Ran relay precheck + pytest tests/test_verdict.py (ok, 52 passed) and unittest RebasedRecords (11 OK). The fixer report file does not exist. In a throwaway worktree at b6961152 with the head test file, 4 tests fail (re-indent, trailing space, own-file, diff.external); Q1 test errors at e64a51f3."
+  ],
+  "type": "check"
+}

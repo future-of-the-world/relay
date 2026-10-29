@@ -171,13 +171,67 @@ class Cycle(unittest.TestCase):
 
     # 3
     def test_design_finding_stops_at_owner_and_open_check_stops_at_check(self):
-        review = dict(GREEN["stage:review"], design_or_question=True, inside=2, main_point="design is wrong")
+        review = dict(GREEN["stage:review"], design_or_question=True, inside=1, other_inside=0, main_point="design is wrong")
         out = self.run_cycle(self.args([self.unit()]), **{"stage:review": review})
         self.assertEqual(out["result"]["changes"][0]["stopped_at"], "owner")
         self.assertFalse([l for l in out["labels"] if l.startswith("fix")])
         out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], open=1)})
         self.assertEqual(out["result"]["changes"][0]["stopped_at"], "check")
         self.assertNotIn("close queue item: x", out["labels"])
+
+    def test_a_question_does_not_hold_the_other_findings(self):
+        """30 Oct failing case: F1 HIGH inside + F2 question. Hand count: other_inside is 1 (F1), so the fixer runs, its prompt
+        says the question/Design finding is left alone, then gate 2, then the check, then the unit stops at owner with the
+        item not closed. Disabled fix (stop before fixing): labels end at review, no fix or gate 2."""
+        review = dict(GREEN["stage:review"], design_or_question=True, inside=2, other_inside=1, main_point="F2 asks the owner")
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:review": review, "stage:check": dict(GREEN["stage:check"], open=1)})
+        self.assertEqual(out["labels"], ["build: i", "gate 1: i", "review: i", "fix: i", "gate 2: i", "check: i"])
+        change = out["result"]["changes"][0]
+        self.assertEqual(change["stopped_at"], "owner")
+        self.assertEqual(change["open"], 1)
+        self.assertIn("waits for the owner", out["prompts"]["fix: i"])
+        self.assertNotIn("close queue item: i", out["labels"])
+
+    def test_f1_a_review_without_other_inside_still_fixes_before_the_owner(self):
+        """F1: question flagged, other_inside absent, inside 3. By design the fixer falls back to inside (3 > 0): fix, gate 2,
+        check, then owner. Disabled fix (|| 0): labels end at review."""
+        review = {k: v for k, v in GREEN["stage:review"].items()}
+        review.update(design_or_question=True, inside=3, main_point="q")
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:review": review, "stage:check": dict(GREEN["stage:check"], open=1)})
+        self.assertEqual(out["labels"], ["build: i", "gate 1: i", "review: i", "fix: i", "gate 2: i", "check: i"])
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "owner")
+
+    def test_f2_the_fix_prompt_names_the_rule_for_every_waiting_finding(self):
+        """F2: two waiting findings (question, Design): the prompt covers every finding of kind question or Design, not 'One
+        finding'. No question: no waiting sentence."""
+        review = dict(GREEN["stage:review"], design_or_question=True, inside=3, other_inside=1, main_point="q")
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:review": review, "stage:check": dict(GREEN["stage:check"], open=1)})
+        prompt = out["prompts"]["fix: i"]
+        self.assertIn("Every finding of kind question or Design", prompt)
+        self.assertNotIn("One finding", prompt)
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:review": INSIDE})
+        self.assertNotIn("kind question or Design", out["prompts"]["fix: i"])
+
+    def test_f3_a_fix_unit_after_a_waits_stop_runs_fix_gate_check_and_closes_the_item(self):
+        """F3: the unit the skill names for after the owner's answer: kind fix, findings = review JSON, fixes = two reports."""
+        unit = self.unit(kind="fix", fix="Owner says keep it.", fixes="f1.md f2.md", findings="r.json", item="i")
+        out = self.run_cycle(self.args([unit]))
+        self.assertEqual(out["labels"], ["fix: i", "gate 1: i", "check: i", "close queue item: i", "check show: i"])
+        self.assertTrue(out["result"]["changes"][0]["ready"])
+        self.assertIn("f1.md", out["prompts"]["check: i"])
+        self.assertIn("f2.md", out["prompts"]["check: i"])
+
+    def test_f4_a_not_met_fix_on_the_waits_path_is_not_hidden(self):
+        """F4: waits path, check open 2 with F1 NOT MET: the result carries the check summary and fail_without_fix; the check
+        prompt no longer says to report the question as open."""
+        review = dict(GREEN["stage:review"], design_or_question=True, inside=2, other_inside=1, main_point="q")
+        ck = dict(GREEN["stage:check"], open=2, summary="F1 NOT MET", fail_without_fix="no")
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:review": review, "stage:check": ck})
+        change = out["result"]["changes"][0]
+        self.assertEqual(change["check"], "F1 NOT MET")
+        self.assertEqual(change["fail_without_fix"], "no")
+        self.assertEqual(change["gateLog"], "gate.log")
+        self.assertNotIn("report it as open", out["prompts"]["check: i"])
 
     # 4
     def test_a_dead_agent_is_retried_once_under_the_same_label(self):

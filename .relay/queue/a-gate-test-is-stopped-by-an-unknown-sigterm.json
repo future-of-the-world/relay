@@ -28,8 +28,8 @@
   ],
   "taken_at": "2026-10-29T17:19:04Z",
   "taken_by": "wt/a-gate-test-is-stopped-by-an-unknown-sig",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T21:22:54Z",
+  "test": "tests/test_gate_stops.py::test_a_gate_command_ended_by_a_signal_leaves_a_line_in_the_gate_log",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
@@ -42,6 +42,13 @@
       "options": [
         "a. Land now; a new queue item records the sender next time (which of relay's own time limits fired, with its process id) so the next occurrence names it",
         "b. Hold this change until the sender is found (no fixed time: it needs the failure to happen again under watch)"
+      ],
+      "answered_at": "2026-10-29T21:20:38Z",
+      "answer": [
+        "a a a a, закрыть"
+      ],
+      "reading": [
+        "Answer to question 4 of 4: a. Land the gate-lock fix and the signal line; finding the sender moves to queue item a-sigterm-in-a-gate-does-not-name-its-sender."
       ]
     }
   ]
