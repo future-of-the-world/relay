@@ -68,6 +68,14 @@
         "b. Проба сейчас на пустом тестовом репозитории, данные relay не выгружаются",
         "c. Проба сейчас с замером проверки на 4 ядрах: выгружает текущие файлы relay (2.75 MB, очередь с твоими словами и handover)",
         "d. Облачные lanes для workers сейчас"
+      ],
+      "answered_at": "2026-10-29T10:49:00Z",
+      "answer": [
+        "Хорошо, сначала освоим Linux VM, облачные оставим на потом или откажемся от них",
+        "Пока это нигде не хранится отложим вопрос касательно синхронизации, но сейчас я склоняюсь к репозиторию на github"
+      ],
+      "reading": [
+        "Cloud sessions: a (later, own Linux VMs first; maybe never), no probe item filed now. Branch sync: a (decide when a second machine exists), the owner leans to a private GitHub repo."
       ]
     },
     {
@@ -79,6 +87,14 @@
         "a. Нигде, пока нет второй машины; решить тогда",
         "b. Bare-репозиторий на первой Linux VM",
         "c. Приватный репозиторий на GitHub"
+      ],
+      "answered_at": "2026-10-29T10:49:00Z",
+      "answer": [
+        "Хорошо, сначала освоим Linux VM, облачные оставим на потом или откажемся от них",
+        "Пока это нигде не хранится отложим вопрос касательно синхронизации, но сейчас я склоняюсь к репозиторию на github"
+      ],
+      "reading": [
+        "Cloud sessions: a (later, own Linux VMs first; maybe never), no probe item filed now. Branch sync: a (decide when a second machine exists), the owner leans to a private GitHub repo."
       ]
     },
     {
