@@ -656,9 +656,11 @@ class LockFdReachesChildren(unittest.TestCase):
                                       env=genv).stdout.strip()
                 probe = relay_ci.Probe(root, head, True, genv, os.path.join(root, ".ci", "n.log"),
                                        nested=("sh", "-c", "test -e /dev/fd/%d" % fd))
-                probe.start()
-                self.assertEqual(probe.wait(), 0)
-                probe.stop()
+                try:
+                    probe.start()
+                    self.assertEqual(probe.wait(), 0)
+                finally:
+                    probe.stop()   # also when an assertion fails: the worktree and its temporary folder never stay
             finally:
                 os.close(fd)
 
