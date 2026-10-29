@@ -1,0 +1,166 @@
+{
+  "branch": "wt/test-scaffolding-for-per-command-modules",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED. Master's logic (usage line only) against the live guard: missing set(). The new helper: missing {'start'}.",
+        "Un-skipping in a scratch worktree at HEAD: FAIL, \"Items in the first set but not the second: 'start'\". So the skip removes a",
+        "check that held on master and is the only test of queue words in the guard. Rated HIGH: it breaks the item's explicit promise",
+        "that both tests see what they see today, and a safety guard's completeness test becomes one that passes with the check disabled.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "python3 -c '... usage-only missing / helper missing ...'",
+        "  usage-only missing: set()",
+        "  helper missing: {'start'}",
+        "(scratch worktree, skip line deleted) python3 tests/run_unittest.py test_read_only_guard.ReadOnlyHook.test_q1_every_relay_queue_word_is_classified",
+        "  AssertionError: Items in the first set but not the second: 'start'"
+      ],
+      "failing_case": [
+        "On master test_q1_every_relay_subcommand_is_classified_as_read_or_write also asserted that every word of the",
+        "`relay queue [count|show|...|edit]` usage line is in the guard's WRITERS[\"queue\"] or READ_WORDS[\"queue\"]; it passed.",
+        "The change moves that assertion into a new test and marks it @unittest.skip, because the helper now also adds QUEUE_WRITES,",
+        "which brings in 'start' (the guard lacks it; the other lane fixes that). Now: add a word \"purge\" to the usage line without",
+        "classifying it in the guard -> every guard test passes. Expected: the completeness test fails naming 'purge'.",
+        "The item says \"both tests must see exactly what they see now\"; this test sees no queue words at all. Nothing removes the skip",
+        "when the other lane lands, so it stays off for good."
+      ],
+      "fix_hint": [
+        "Drop the skip and subtract a literal known gap: KNOWN_UNCLASSIFIED = {\"start\"} with the item's name in a comment, plus",
+        "assertLessEqual(KNOWN_UNCLASSIFIED, queue_words - classified) style check so it turns red (asking for its removal) once the",
+        "guard lane lands; or, if this lands after that lane, just remove the skip."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 62,
+      "pass_cases": [
+        "- A queue word added to bin/relay's usage line and not to the guard -> the queue-word test fails naming it.",
+        "- Today's tree (usage words all classified, 'start' known missing) -> the test passes and is not skipped.",
+        "- Once the guard classifies 'start' (other lane), the test still runs, with no exemption left for 'start' (e.g. an exemption that",
+        "  fails when it is no longer needed, or none at all after that lane lands).",
+        "- tests/test_read_only_guard.py has no @unittest.skip on a completeness test."
+      ],
+      "path": "tests/test_read_only_guard.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_read_only_guard.py:64 test has no skip and asserts missing == set(); fails at e7064c3e."
+      ],
+      "severity": "HIGH",
+      "since": "e7064c3e392f818b469b6a0ffa314d7607b10921",
+      "source": "review-test-scaffolding-for-per-command-modules.json",
+      "source_id": "F1",
+      "summary": "the guard's queue-word completeness check, green on master, is now skipped entirely, so a new unclassified queue word passes",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the cases and the harness (RELAY_ROOT is a fresh empty temporary folder, as the item asked). Correct today",
+        "since nothing has moved; it weakens the proof the later moves rely on. The per-command test files of moves 4-10 are where the",
+        "real cases go, so this can be fixed there. Size: 15 minutes."
+      ],
+      "evidence": [
+        "tests/test_cmd_smoke.py:12,18,13,22,23,21 (\"[Errno 2]\", \"no profile 'active'\", \"relay doctor: \")",
+        "tests/cmd_harness.py:43 env RELAY_ROOT=root (empty temporary folder)"
+      ],
+      "failing_case": [
+        "calibrate, install --bogus, flows, rules (Errno 2), profile (\"no profile 'active'\") and doctor (\"relay doctor: \") fail because the",
+        "harness's RELAY_ROOT is an empty folder. `install --bogus` exits 1 with Errno 2 before reading its flag: if a later move's",
+        "dispatcher handed run() [\"install\", \"--bogus\"] instead of [\"--bogus\"], the case would still pass. Expected (the item's",
+        "convention): each case's outcome depends on the arguments it passes, so an off-by-one turns it red."
+      ],
+      "fix_hint": [
+        "For these six, pick an argument whose effect shows (a bad flag the command rejects before reading files, or point RELAY_ROOT",
+        "at a minimal copy), or note in the harness docstring that the per-command file must replace a missing-file case."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 18,
+      "pass_cases": [
+        "- For each SMOKE entry, changing or dropping its arguments changes the asserted exit code or line (e.g. install with a bad flag",
+        "  reports the flag, or the case uses an argument the command echoes back).",
+        "- Commands that refuse on usage today (land, bench, candidate, changed, check, license) keep their current cases.",
+        "- The set of SMOKE keys still equals FLOOR."
+      ],
+      "path": "tests/test_cmd_smoke.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_cmd_smoke.py profile case now echoes its argument; harness docstring (tests/cmd_harness.py:8) tells the per-command file to replace the missing-file cases (the fix hint's second option)."
+      ],
+      "severity": "LOW",
+      "since": "e7064c3e392f818b469b6a0ffa314d7607b10921",
+      "source": "review-test-scaffolding-for-per-command-modules.json",
+      "source_id": "F2",
+      "summary": "6 of 21 smoke cases assert a missing-file error under the empty RELAY_ROOT, which cannot catch an argument passed off by one",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the regex runs only on load_relay(root).__doc__ and QUEUE_USAGE. names() is protected by FLOOR; queue_words()",
+        "has no such floor (test_live_names_and_queue_words checks only add/show/take/count). Correct today. Size: 10 minutes."
+      ],
+      "evidence": [
+        "tests/relay_commands.py:57-60; tests/test_cmd_files.py:46"
+      ],
+      "failing_case": [
+        "After move 4 moves the top help text to lib/relay_cli.py (or move 7 moves QUEUE_USAGE into lib/relay_cmd/queue/__init__.py as",
+        "USAGE), the read words count, show, history, check, migrate drop out of queue_words() with no error; the guard completeness test",
+        "then checks fewer words and stays green. The item asks for \"the queue usage words, wherever they are defined\". Expected: the",
+        "helper follows them, or a floor of today's queue words fails when it shrinks."
+      ],
+      "fix_hint": [
+        "Add a literal QUEUE_FLOOR of today's 15 words asserted by test_cmd_files, and read USAGE of lib/relay_cmd/queue/__init__.py and",
+        "lib/relay_cli.py when present."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 54,
+      "pass_cases": [
+        "- Today: queue_words() >= {count, show, history, check, migrate, land, ip, take, release, done, drop, add, note, edit, start}.",
+        "- A temporary tree whose usage line lives only in lib/relay_cmd/queue/__init__.py USAGE still yields its words.",
+        "- A temporary tree where the usage line is gone from everywhere -> a test using the floor fails."
+      ],
+      "path": "tests/relay_commands.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_cmd_files.py:55 floor of 15 words, :45 usage follows into a command module, :62 tree without usage falls below floor; these fail at e7064c3e."
+      ],
+      "severity": "LOW",
+      "since": "e7064c3e392f818b469b6a0ffa314d7607b10921",
+      "source": "review-test-scaffolding-for-per-command-modules.json",
+      "source_id": "F3",
+      "summary": "queue_words reads the usage words only from bin/relay's docstring and QUEUE_USAGE and has no floor, so it shrinks silently when they move",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_read_only_guard.py came in from master (merge f71466a48890) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_read_only_guard.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_read_only_guard.py passes on head after the merge (tests/test_read_only_guard.py:70 covers QUEUE_WRITES with start)."
+      ],
+      "severity": "MEDIUM",
+      "since": "f71466a48890171969c839756800736f162989a0",
+      "source": "merge",
+      "summary": "tests/test_read_only_guard.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "512a2404a8e0fdfacf77ab6c6429975327456337.gate.log",
+  "head": "72d9db875a998f603e385f2c2aecad3572893655",
+  "item": null,
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range e7064c3e..HEAD. Gate log head 512a2404 exit 0; HEAD 72d9db87 adds only the gate log. Ran test_cmd_files, test_cmd_smoke, test_read_only_guard (18 OK) and relay precheck (green). Ran the head test files at e7064c3e in a scratch worktree: 5 tests fail there (queue floor x2, usage follow, queue word classified, queue writing words), removed after."
+  ],
+  "type": "check"
+}
