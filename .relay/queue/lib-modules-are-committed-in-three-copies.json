@@ -24,8 +24,8 @@
     "plugins/front/lib/relay_queue.py (and the other copied modules)",
     "bin/sync-lib-copies"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T21:14:42Z",
+  "taken_by": "wt/lib-modules-are-committed-in-three-copie",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
