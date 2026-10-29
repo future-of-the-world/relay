@@ -13,6 +13,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -341,8 +342,11 @@ def _locked(main: str, default: str, branch: str, tree: str, stats: Event, tries
             raise Stop(REFUSED, [f"land: the gate could not run: {exc}"], code_moves=code_moves, inert_moves=inert_moves)
         ran = os.path.basename(log) == head + ".gate.log"      # a reused log is named for an earlier commit
         if ran:
-            stats.gates_run += 1
-            stats.gate_seconds += time.monotonic() - started
+            stats.gates_run, stats.gate_seconds = stats.gates_run + 1, stats.gate_seconds + time.monotonic() - started
+        if code == relay_gate.LIMIT_EXIT:     # stopped at the time limit: not a red gate (no fixer, no fall back to one change at a time)
+            m = re.search(r"stopped at the (\S+ limit)(?:, step (.+) was running)?", " ".join(red))
+            how = f"stopped at the {m[1]}" + (f" (step {m[2]} was running)" if m[2] else "") if m else "stopped at its time limit"
+            raise Stop(RED if (twice := relay_gate.earlier_stop(tree, head, True) is not None) else HANDED_BACK, [f"land: the gate of {branch} {how}" + (" twice on the same code: a hang, not load: a fix unit or the owner, not a rerun" if twice else f": relay land {branch} again")], code_moves=code_moves, inert_moves=inert_moves)
         if code != 0:
             raise Stop(RED, [f"land: the gate of {branch} is red (exit {code}); log {log}", *red[:5]], code_moves=code_moves, inert_moves=inert_moves)
         landed = False

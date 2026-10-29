@@ -61,5 +61,17 @@ class ReuseAfterTake(Fixture):
         self.assertEqual(self.runs(), 1)
 
 
+class StoppedGate(Fixture):
+    def test_t8_a_gate_stopped_at_its_time_limit_is_run_again_not_reported(self):
+        """The command exits 124 the first time (stopped at the limit), 0 afterwards. A plain second `relay gate` on the same
+        code runs it (2 runs) and is green; a red 3 would be reported without a run (test_gate), 124 is not."""
+        counter = os.path.join(self.tmp, "runs")
+        self.repo(gate='echo run >> "%s"\n[ "$(wc -l < "%s")" -eq 1 ] && exit 124\nexit 0\n' % (counter, counter))
+        self.assertEqual(self.gate(self.wt).returncode, 124)
+        again = self.gate(self.wt)
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertEqual(len(read(counter).splitlines()), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
