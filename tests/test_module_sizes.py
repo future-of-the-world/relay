@@ -83,9 +83,32 @@ class ModuleSizes(unittest.TestCase):
 
     def test_first_exempt_files_exist_and_carry_the_marker(self) -> None:
         for path in sorted(FIRST_EXEMPT):
+            if not os.path.exists(os.path.join(ROOT, path)):
+                continue   # a finished split that deleted the module is fine
             with self.subTest(path=path), open(os.path.join(ROOT, path)) as handle:
                 text = handle.read()
             self.assertTrue(has_marker(text) or len(text.splitlines()) <= MAX_LINES, path)
+
+    def test_a_missing_first_exempt_path_is_a_finished_split(self) -> None:
+        # same loop as the test above, with a path that no longer exists: it must not raise
+        gone = "lib/relay_bench_gone.py"
+        self.assertFalse(os.path.exists(os.path.join(ROOT, gone)))
+        original = globals()["FIRST_EXEMPT"]
+        globals()["FIRST_EXEMPT"] = original | {gone}
+        try:
+            self.test_first_exempt_files_exist_and_carry_the_marker()
+        finally:
+            globals()["FIRST_EXEMPT"] = original
+
+    def test_a_shebang_stays_on_line_one(self) -> None:
+        # the marker above "#!" makes the kernel skip the shebang and a shell run the Python text
+        bad = []
+        for path in tracked():
+            with open(os.path.join(ROOT, path)) as handle:
+                lines = handle.read().splitlines()
+            if has_marker("\n".join(lines)) and any(line.startswith("#!") for line in lines[:5]) and not lines[0].startswith("#!"):
+                bad.append(path)
+        self.assertEqual(bad, [])
 
     def test_a_long_file_without_a_marker_fails(self) -> None:
         # 601 lines is one over the limit of 600
