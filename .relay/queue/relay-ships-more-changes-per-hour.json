@@ -305,6 +305,17 @@
       "fact": [
         "29 Oct, measured from master's reflog, gate logs, the queue and relay report: 132 changes landed 21-29 Oct (54 on 23-25 Oct, 74 on 26-29 Oct); machinery's share of landings 57% -> 70%; cost per landed change $11.8 -> $6.5 (all projects); quick gate library tests median 131 s (23 Oct) -> 270-700 s now while tests grew 298 -> 1807 (0.44 -> 0.16 s per test); 4.4 gate runs per landing in both periods; 46% of 29 Oct gates red (mostly exit-143 kills from the leak); gate slot wait up to 2.9 h on 29 Oct. Queue: 272 added, 157 closed or dropped in 8 days, open 27 -> 103 (+10 a day). Of 51 open features about 28 are for projects; 14 of the 17 at IP 94-96 are machinery, 9 of them (740 min) the module split. Containers (Docker, measured): --rm ends every child at run end; a container keeps running after its client is SIGKILLed (still up 35 s later; 6 postgres containers of another project up 18 h to 7 days); with docker run -i and a main process that exits when its input closes, gone 3 s after the client died; of 59 leftovers on 29 Oct 56 ran inside test runs, 3 plus four relay gate processes on one worktree on the host."
       ]
+    },
+    {
+      "asked_at": "2026-10-29T07:04:00Z",
+      "question": [
+        "Когда relay перестаёт работать над собой и переходит к фичам для проектов? Замер 29 Oct: 14 из 17 фич с IP 94-96 — механика relay (около 1280 агентских минут, из них 740 — разделение команд на модули); ускорение не сократило проверку одного изменения (131 с на 23 Oct, 270-700 с сейчас при вшестеро большем числе тестов), каждое изменение по-прежнему проходит 4.4 проверки; изменения тормозят дефекты (46% проверок 29 Oct красные, ожидание до 2.9 ч)."
+      ],
+      "options": [
+        "a. Доделать 3 задачи корректности (около 180 мин), затем фичи для проектов выше остальной механики; механика возвращается по правилу остановки: медиана тестов выше 600 с или больше 4.4 проверок на изменение (рекомендация)",
+        "b. Оставить текущий порядок (около 1460 мин до первой фичи для проектов)",
+        "c. Остановить механику сейчас, включая взятые задачи"
+      ]
     }
   ]
 }
