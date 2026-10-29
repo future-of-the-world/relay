@@ -1,0 +1,35 @@
+{
+  "kind": "fix",
+  "ip": 87,
+  "time": 30,
+  "found_at": "2026-10-29T12:15:20Z",
+  "found_in": "finding F4 of review-a-landed-branch-can-leave-its-queue-item.json",
+  "title": "A merge through the merge hook (a train, or any merge not…",
+  "what": [
+    "plugins/relay/hooks/merge.py:226: MEDIUM: F4 a merge through the merge hook (a train, or any merge not made by relay land) still lands a branch whose fix item is taken and open"
+  ],
+  "why": [
+    "29 Oct, review of wt/a-landed-branch-can-leave-its-queue-item, F4 (outside): relay land now refuses a branch whose taken fix item is still open, but a merge through the merge hook (a train, or any merge not made by relay land) still lands it, leaving the item taken by a deleted branch; three items were left that way on 29 Oct."
+  ],
+  "failing_case": [
+    "Train wt/train-9 merges rider wt/a, whose fix item `a-item` is taken by wt/a and was never closed with relay queue done; the",
+    "front merges the train into master (relay land has no trains, owner 28 Oct). step_queue judges only items the range closes",
+    "(state done), so the merge passes and a-item stays taken by wt/a, which is then deleted.",
+    "Should: the merge is refused naming relay queue done a-item -C <wt/a worktree> --test ..."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. Train holding a rider with its fix item taken and open: the merge hook refuses, naming the item and the done command.",
+    "2. Train whose riders closed their items with a check of Q1 MET: merges as today.",
+    "3. Branch with no item: merges as today."
+  ],
+  "where": [
+    "plugins/relay/hooks/merge.py:226"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
