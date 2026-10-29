@@ -132,13 +132,14 @@ def match_unit(agent: dict[str, Any], items: list[dict[str, Any]], notes: list[s
 # ---- reading the records at a commit ----
 
 def stored(main: str, rev: str) -> list[dict[str, Any]]:
-    """Every record under .relay/changes at `rev`; a file that does not parse is skipped (the gate's tests parse them)."""
+    """Every record under .relay/changes at `rev`, read in one batch; a file that does not parse is skipped (the gate's tests parse them)."""
+    import relay_queue
     rc, out = relay_git.git(main, "ls-tree", "-r", "--name-only", rev, "--", DIR)
+    paths = out.splitlines() if rc == 0 else []
     found = []
-    for path in out.splitlines() if rc == 0 else []:
-        rc, text = relay_git.git(main, "show", f"{rev}:{path}", raw=True)
+    for blob in relay_queue.cat_batch(main, [f"{rev}:{path}" for path in paths]):
         try:
-            found.append(parse(text)) if rc == 0 else None
+            found.append(parse(blob.decode("utf-8", "replace"))) if blob is not None else None
         except ValueError:
             continue
     return found
@@ -157,10 +158,12 @@ def _record(kind: str, unit: str, item: Optional[str], agents: list[dict[str, An
 
 
 def plan(main: str, rev: str, ledger: list[dict[str, Any]], items: list[dict[str, Any]], landing: dict[str, dict[str, Any]],
-         now: float, quiet_min: int, notes: list[str]) -> dict[str, str]:
+         now: float, quiet_min: int, notes: list[str], held: Optional[dict[str, list[dict[str, Any]]]] = None) -> dict[str, str]:
     """The files to add at `rev`: a `land-<head>` record per landing unit (its agents not yet stored, its events, its range) and a
-    `sweep-<stamp>` record per other unit whose agents all stopped `quiet_min` ago. Each agent id is stored once in the repository."""
-    done = {a["id"] for rec in stored(main, rev) for a in rec["agents"]}
+    `sweep-<stamp>` record per other unit whose agents all stopped `quiet_min` ago. Each agent id is stored once in the repository.
+    `held` is the hold rows by slug: a dropped item never lands, so the sweep stores its rows (once) under its slug."""
+    records = stored(main, rev)
+    done = {a["id"] for rec in records for a in rec["agents"]}
     have = _stored_paths(main, rev)
     by_unit: dict[str, list[dict[str, Any]]] = {}
     for agent in ledger:
@@ -189,10 +192,26 @@ def plan(main: str, rev: str, ledger: list[dict[str, Any]], items: list[dict[str
         kind = "design" if stages <= set(DESIGN_STAGES) else ("other" if stages <= {"other"} else "change")
         path = f"{DIR}/{name}/sweep-{stamp}.json"
         writes[path] = dump(_record(kind, name, item, agents))
+    for slug, rows in sorted((held or {}).items()):
+        if states.get(slug, {}).get("state") != "dropped" or slug in landing:
+            continue
+        kept = {tuple(sorted(r.items())) for rec in records if rec["unit"] == slug for r in rec["land"]}
+        fresh = [r for r in rows if tuple(sorted(r.items())) not in kept]
+        if not fresh:
+            continue
+        path = f"{DIR}/{slug}/sweep-{stamp}.json"
+        rec = parse(writes[path]) if path in writes else _record("change", slug, slug, [])
+        rec["land"] = rec["land"] + fresh
+        writes[path] = dump(rec)
     return writes
 
 
+def _held_rows(events: list[Any], slug: str) -> list[dict[str, Any]]:
+    return [{"kind": "held", "at": e.ts, "file": e.file, "holder": e.holder} for e in events if e.kind == "held" and e.slug == slug]
+
+
 def _land_rows(events: list[Any], slug: str, branch: str, pid: int) -> list[dict[str, Any]]:
+    """The rows of one landing: asked, locked and done of the landed `branch` (the train's branch for a rider) and `pid`, and the slug's held rows."""
     rows = []
     for e in events:
         if e.kind in ("asked", "locked", "done") and e.branch == branch and e.pid == pid:
@@ -202,15 +221,24 @@ def _land_rows(events: list[Any], slug: str, branch: str, pid: int) -> list[dict
     return rows
 
 
-def landed_units(main: str, before: Optional[str]) -> list[tuple[str, str]]:
-    """(item id, branch) of the open items this landing brought in: their landed commit is not reachable from `before`. Ask before the
-    cleanup removes the branches. An item that landed earlier and is still open is not a unit of this landing."""
+def landed_units(main: str, before: Optional[str], head: Optional[str] = None, branch: Optional[str] = None) -> list[tuple[str, str]]:
+    """(item id, branch) of the items this landing brought in. Two sources: open items whose landed commit is not reachable from
+    `before` (a feature still `taken`, closed afterwards), and items `taken` at `before` by the landed branch or a rider of the train
+    (a fix closed on its branch is `done` at the new head). Ask before the cleanup removes the branches. An item that landed earlier
+    and is still open is not a unit of this landing."""
     import relay_lanes
+    import relay_queue
     out = []
     for x in relay_lanes.lanes_state(main, limit=relay_lanes.LANES_MAX).landed_open:
         if before and x.sha and relay_git.git(main, "merge-base", "--is-ancestor", x.sha, before)[0] == 0:
             continue
         out.append((x.slug, x.branch))
+    if before and head and branch:
+        brought = {branch} | _riders(main, before, head)
+        have = {slug for slug, _ in out}
+        for slug, item in sorted(relay_queue.Reader(main, before).items().items()):
+            if item.get("state") == "taken" and item.get("taken_by") in brought and slug not in have and not item.get("problems"):
+                out.append((slug, item["taken_by"]))
     return out
 
 
@@ -223,8 +251,9 @@ def _riders(main: str, before: Optional[str], head: str) -> set[str]:
 
 
 def record_landing(repo: str, units: list[tuple[str, str]], before: Optional[str], head: str, events: list[Any], pid: int,
-                   notify: Callable[[str], None], now: Optional[float] = None) -> None:
-    """Write the records of a landing (one per unit, none for a train branch) and the sweep, in one commit on the default branch."""
+                   notify: Callable[[str], None], now: Optional[float] = None, landed: Optional[str] = None) -> None:
+    """Write the records of a landing (one per unit, none for a train branch) and the sweep, in one commit on the default branch.
+    `landed` is the branch `relay land` was called with (a train's own branch for its riders); its events are the landing's, shared by every unit."""
     import relay_config
     import relay_queue
     main, _ = relay_queue._context(repo)
@@ -239,8 +268,11 @@ def record_landing(repo: str, units: list[tuple[str, str]], before: Optional[str
     notes: list[str] = []
 
     def writes_at(rev: str) -> dict[str, str]:
-        landing = {slug: {"branch": branch, "before": before, "head": head, "land": _land_rows(events, slug, branch, pid)} for slug, branch in units}
-        return plan(main, rev, ledger, items, landing, moment, quiet, notes)
+        landing = {slug: {"branch": branch, "before": before, "head": head, "land": _land_rows(events, slug, landed or branch, pid)} for slug, branch in units}
+        held: dict[str, list[dict[str, Any]]] = {}
+        for item in items:
+            held[item["slug"]] = _held_rows(events, item["slug"])
+        return plan(main, rev, ledger, items, landing, moment, quiet, notes, held)
 
     for branch in _riders(main, before, head) - {b for _, b in units}:
         notes.append(f"metrics: {branch} landed in {head[:12]} with no queue item; no record")
@@ -367,7 +399,7 @@ def backfill(repo: str, notify: Callable[[str], None]) -> list[str]:
             continue
         done = [e for e in events if e.kind == "done" and e.sha == new]
         record_landing(repo, units, done[0].before if done else old, new, [e for e in events if e.pid == done[0].pid and e.branch == done[0].branch] if done else [],
-                       done[0].pid if done else 0, lines.append)
+                       done[0].pid if done else 0, lines.append, landed=done[0].branch if done else None)
     return lines
 
 

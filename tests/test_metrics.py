@@ -52,6 +52,15 @@ class Labels(unittest.TestCase):
         self.assertEqual(relay_labels.label_of("land: some-item"), "land: some-item")
         self.assertIsNone(relay_labels.label_of("look at the queue"))
 
+    def test_f4_the_delegate_skill_states_the_label_form_with_an_example_that_matches_the_grammar(self):
+        text = open(os.path.join(ROOT, "plugins", "delegate", "skills", "delegate", "SKILL.md"), encoding="utf-8").read()
+        self.assertIn("`<stage>[ n]: <item id>`", text)
+        self.assertIn("`land: <item id>`", text)
+        self.assertIn("`other: <name>`", text)
+        example = "other: docker-deps"
+        self.assertIn(f"`{example} - read the lockfile`", text)
+        self.assertEqual(relay_labels.label_of(example + " - read the lockfile"), example)
+
     def test_window_matching_old_forty_char_labels(self):
         # the 40-char slug is shared by items A and A-2; each owns the agents that started inside its own taken..closed window
         a, b = "refuse-folder-and-pattern-entries-in-where", "refuse-folder-and-pattern-entries-in-where-2"
@@ -224,6 +233,121 @@ class Records(Fixture):
         with mock.patch.dict(os.environ, self.env), mock.patch("relay_gate.run", spy):
             relay_land.land(self.main, "wt/x", lambda line: None)
         self.assertEqual(seen, ["1"])
+
+    # ---- review findings F1, F5, F7, F10 ----
+
+    def ev(self, kind, **kw):
+        return relay_land.Event(kind, kw.pop("ts", "2026-10-29T11:00:00Z"), **kw)
+
+    def changes(self, unit):
+        return {f: json.loads(git(self.main, "show", "master:" + f)) for f in self.files() if f.split("/")[2] == unit}
+
+    def test_f1_train_riders_each_hold_the_landings_events(self):
+        """Train wt/train-25 lands riders item-a (wt/a) and item-b (wt/b); the events are on the train's branch, pid 77. By the
+        design each rider's record holds the landing's asked, locked and done rows, shared (done: 1 gate, 358.8 s)."""
+        head = git(self.main, "rev-parse", "HEAD")
+        events = [self.ev("asked", branch="wt/train-25", pid=77), self.ev("locked", branch="wt/train-25", pid=77),
+                  self.ev("done", branch="wt/train-25", pid=77, gates_run=1, gate_seconds=358.8, outcome="landed"),
+                  self.ev("asked", branch="wt/train-25", pid=78),                  # another landing: never in a record
+                  self.ev("held", slug="item-a", file="lib/x.py", holder="item-c")]
+        relay_metrics.record_landing(self.main, [("item-a", "wt/a"), ("item-b", "wt/b")], head, head, events, 77, print, now=1.8e9, landed="wt/train-25")
+        for unit, extra in (("item-a", ["held"]), ("item-b", [])):         # the held row belongs to item-a only
+            (rec,) = [r for f, r in self.changes(unit).items() if "/land-" in f]
+            self.assertEqual(sorted(r["kind"] for r in rec["land"]), sorted(["asked", "locked", "done"] + extra), unit)
+            done = next(r for r in rec["land"] if r["kind"] == "done")
+            self.assertEqual((done["gates_run"], done["gate_seconds"]), (1, 358.8))
+
+    def test_f1_a_plain_landing_keeps_its_three_rows(self):
+        head = git(self.main, "rev-parse", "HEAD")
+        events = [self.ev("asked", branch="wt/a", pid=5), self.ev("locked", branch="wt/a", pid=5), self.ev("done", branch="wt/a", pid=5, gates_run=1, gate_seconds=2.0)]
+        relay_metrics.record_landing(self.main, [("item-a", "wt/a")], head, head, events, 5, print, now=1.8e9, landed="wt/a")
+        (rec,) = [r for f, r in self.changes("item-a").items() if "/land-" in f]
+        self.assertEqual([r["kind"] for r in rec["land"]], ["asked", "locked", "done"])
+
+    def queue_commit(self, items, message="queue"):
+        for slug, item in items.items():
+            write(os.path.join(self.main, ".relay", "queue", slug + ".json"), relay_queue.serialize(slug, item))
+        git(self.main, "add", "-A")
+        git(self.main, "commit", "-q", "-m", message)
+
+    def test_f5_a_fix_closed_on_its_branch_is_a_landing_unit(self):
+        """Fix item F is taken by wt/f on master; the cycle's --test close commits it as done on wt/f; wt/f then fast-forwards.
+        At the new head F is `done`, yet it belongs to this landing (and a feature still taken, X on wt/fx, does too).
+        An item taken by wt/old that landed in an earlier fast-forward (and is still open) does not."""
+        taken = "2026-10-24T00:00:00Z"
+        base = relay_queue.new_item("fix", 50, 10, "2026-10-23T13:49:21Z", "test", "T", "w", "y", failing="it fails", pass_cases="it passes")
+        old_item = relay_queue.new_item("feature", 50, 10, "2026-10-23T13:49:21Z", "test", "T", "w", "y")
+        self.queue_commit({"fix-f": relay_queue.changed(base, taken_at=taken, taken_by="wt/f"),
+                           "feat-x": relay_queue.changed(old_item, taken_at=taken, taken_by="wt/fx"),
+                           "feat-old": relay_queue.changed(old_item, taken_at=taken, taken_by="wt/old")})
+        for branch in ("wt/old", "wt/fx"):
+            git(self.main, "checkout", "-q", "-b", branch)
+            write(os.path.join(self.main, "lib", branch[3:] + ".py"), "x\n")
+            git(self.main, "add", "-A")
+            git(self.main, "commit", "-q", "-m", branch)
+            git(self.main, "checkout", "-q", "master")
+            if branch == "wt/old":
+                git(self.main, "merge", "-q", "--ff-only", branch)          # an earlier landing
+        before = git(self.main, "rev-parse", "master")
+        git(self.main, "checkout", "-q", "-b", "wt/f")
+        self.queue_commit({"fix-f": relay_queue.changed(base, taken_at=taken, taken_by="wt/f", closed_at="2026-10-25T00:00:00Z", test="t.py::t", fixed_by="abc")}, "closed on its branch")
+        git(self.main, "checkout", "-q", "master")
+        git(self.main, "merge", "-q", "--no-ff", "-m", "Merge wt/f into wt/train-1", "wt/f")
+        git(self.main, "merge", "-q", "--no-ff", "-m", "Merge wt/fx into wt/train-1", "wt/fx")
+        head = git(self.main, "rev-parse", "master")
+        units = relay_metrics.landed_units(self.main, before, head, "wt/train-1")
+        self.assertEqual(sorted(units), [("feat-x", "wt/fx"), ("fix-f", "wt/f")])
+
+    def test_f7_a_dropped_items_held_rows_are_swept_once(self):
+        """A landing recorded held(slug=gone, lib/x.py, holder item-c) and `gone` was dropped: no landing has it as a unit, so the sweep
+        stores the row under `gone`; a second sweep after the drop stores nothing more."""
+        head = git(self.main, "rev-parse", "HEAD")
+        item = relay_queue.new_item("feature", 50, 10, "2026-10-23T13:49:21Z", "test", "T", "w", "y")
+        self.queue_commit({"gone": relay_queue.changed(item, dropped_at="2026-10-24T00:00:00Z", dropped_why=["no"])})
+        events = [self.ev("held", slug="gone", file="lib/x.py", holder="item-c")]
+        relay_metrics.record_landing(self.main, [], None, head, events, 0, print, now=1.8e9)
+        first = self.changes("gone")
+        self.assertEqual(len(first), 1)
+        (rec,) = first.values()
+        self.assertEqual([(r["kind"], r["file"], r["holder"]) for r in rec["land"]], [("held", "lib/x.py", "item-c")])
+        self.assertIn("/sweep-", list(first)[0])
+        relay_metrics.record_landing(self.main, [], None, head, events, 0, print, now=1.8e9 + 7200)
+        self.assertEqual(list(self.changes("gone")), list(first))
+
+    def test_f3_a_records_landing_that_fails_its_last_try_leaves_no_branch_and_names_no_queue_land(self):
+        """land_files whose fast-forward is refused on every try: Refused, no wt/queue-* ref left (a record is not a queue item, so
+        `relay queue land` would refuse it and the kept branch would block `relay metrics backfill`); landing again then works."""
+        real = relay_queue._git
+
+        def refuse_ff(main, *args, **kwargs):
+            if args[:2] == ("merge", "--ff-only"):
+                return 1, b"", "not possible to fast-forward"
+            return real(main, *args, **kwargs)
+
+        write_at = lambda rev: {".relay/changes/u/land-x.json": relay_metrics.dump(relay_metrics._record("change", "u", None, []))}
+        with mock.patch.object(relay_queue, "_git", refuse_ff), mock.patch.object(relay_queue, "QUEUE_LAND_TRIES", 2), \
+                mock.patch.object(relay_queue, "WAITS", (0,)):
+            with self.assertRaises(relay_queue.Refused) as ctx:
+                relay_queue.land_files(self.main, "metrics-abc", write_at, "change records")
+        self.assertNotIn("relay queue land", str(ctx.exception))
+        self.assertEqual(git(self.main, "for-each-ref", "refs/heads/wt/queue-*"), "")
+        self.assertIsNotNone(relay_queue.land_files(self.main, "metrics-abc", write_at, "change records"))
+
+    def test_f10_stored_reads_all_records_in_a_constant_number_of_git_processes(self):
+        head = git(self.main, "rev-parse", "HEAD")
+        for n in range(5):
+            write(os.path.join(self.main, ".relay", "changes", f"u{n}", "land-x.json"), relay_metrics.dump(relay_metrics._record("change", f"u{n}", None, [])))
+        write(os.path.join(self.main, ".relay", "changes", "bad", "land-x.json"), "{not json")      # skipped, not fatal
+        git(self.main, "add", "-A")
+        git(self.main, "commit", "-q", "-m", "records")
+        calls = []
+        real_git, real_queue = relay_metrics.relay_git.git, relay_queue._git
+        with mock.patch.object(relay_metrics.relay_git, "git", lambda *a, **k: calls.append(a[1:2]) or real_git(*a, **k)), \
+                mock.patch.object(relay_queue, "_git", lambda *a, **k: calls.append(a[1:2]) or real_queue(*a, **k)):
+            found = relay_metrics.stored(self.main, "master")
+        self.assertEqual(sorted(r["unit"] for r in found), ["u0", "u1", "u2", "u3", "u4"])
+        self.assertEqual(calls, [("ls-tree",), ("cat-file",)])         # one listing and one batch, however many records
+        del head
 
 
 class Reader(unittest.TestCase):
