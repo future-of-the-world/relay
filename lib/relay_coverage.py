@@ -71,3 +71,17 @@ def run_tests(root: str, env: dict[str, str], run: Callable[..., "object"], log:
                        f"({totals['covered_lines']} of {totals['num_statements']} lines)")
     except (OSError, ValueError, KeyError):
         return tests, "ci: coverage not measured (no total in the coverage report)"
+
+
+def library_tests(root: str, base: dict[str, str], quick: bool, run: Callable[..., "object"], log: TextIO,
+                  which: Callable[[str], Optional[str]]) -> tuple[int, str]:
+    """(exit code, coverage line or "") of the library tests: under coverage when the settings and the pin allow, else plain."""
+    import relay_config
+    env = dict(base)
+    # the guard suite (tests/test_hook_guard_main.py) runs its shared cases once in quick mode (not in the inert probe of a full run: see Probe)
+    if quick and not env.get("RELAY_INERT_FULL_HOOKS"):
+        env["RELAY_QUICK"] = "1"
+    rc, line = run_tests(root, env, run, log, which, effective_mode(relay_config.load_bindings(root), env))
+    if rc is None:
+        rc = run(["python3", "-W", "ignore::ResourceWarning", "tests/run_unittest.py"], log, env=env).returncode   # type: ignore[attr-defined]
+    return rc, line or ""

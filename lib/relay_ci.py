@@ -314,19 +314,9 @@ class Ci:
 
     # ---- steps ----------------------------------------------------------------------------------------------------
     def lib_tests(self, log: TextIO) -> int:
-        env = dict(self.env)
-        # the guard suite (tests/test_hook_guard_main.py) runs its shared cases once in quick mode (not in the inert probe of a full run: see Probe)
-        if self.quick and not env.get("RELAY_INERT_FULL_HOOKS"):
-            env["RELAY_QUICK"] = "1"
-        import relay_config      # lib/ is on the path of the gate (bin/ci); not at the top, like the other relay modules here
-        import relay_coverage
-        mode = relay_coverage.effective_mode(relay_config.load_bindings(self.root), env)
-        rc, line = relay_coverage.run_tests(self.root, env, self.run, log, self.which, mode)
-        if line:
-            self.coverage_line = line
-        if rc is not None:
-            return rc
-        return self.run(["python3", "-W", "ignore::ResourceWarning", "tests/run_unittest.py"], log, env=env).returncode
+        import relay_coverage      # lib/ is on the path of the gate (bin/ci); not at the top, like the other relay modules here
+        rc, self.coverage_line = relay_coverage.library_tests(self.root, self.env, self.quick, self.run, log, self.which)
+        return rc
 
     def types_lint(self, log: TextIO) -> int:
         # mypy and ruff F, pinned, through uv (bin/types-lint, pyproject.toml)
@@ -553,8 +543,7 @@ class Ci:
                 self.say("ci: RED (a fast step failed: the slow steps were not started)")
                 return self.status
             self.step("library tests", self.lib_tests)
-            if self.coverage_line:
-                self.say(self.coverage_line)
+            if self.coverage_line: self.say(self.coverage_line)
             self.step("hook tests", self.hook_tests)
             self.step("eval grader tests", self.grader_tests)
             self.step("plugin validate", self.validate_all)
