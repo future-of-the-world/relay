@@ -1,0 +1,245 @@
+{
+  "branch": "wt/queue-time-estimates-are-guesses-with-no",
+  "findings": [
+    {
+      "details": [
+        "Owner, verbatim: \"\u041d\u0430 \u0441\u043a\u043e\u043b\u044c\u043a\u043e \u043e\u0446\u0435\u043d\u043e\u0447\u043d\u043e\u0435 \u0432\u0440\u0435\u043c\u044f \u0441\u043e\u0432\u043f\u0430\u0434\u0430\u0435\u0442 \u0441 \u0440\u0435\u0430\u043b\u044c\u043d\u044b\u043c \u0432\u0440\u0435\u043c\u0435\u043d\u0435\u043c \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f, \u043f\u0440\u043e\u0432\u0435\u0434\u0438 \u0430\u043d\u0430\u043b\u0438\u0437, \u0432\u043e\u0437\u043c\u043e\u0436\u043d\u043e \u0442\u0435\u0431\u0435 \u0441\u043b\u0435\u0434\u0443\u0435\u0442 \u0441\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043c\u043e\u0434\u0435\u043b\u044c \u043e\u0446\u0435\u043d\u043a\u0438 \u0432\u0440\u0435\u043c\u0435\u043d\u0438, \u043a\u0430\u043a \u0442\u044b \u0432\u043e\u043e\u0431\u0449\u0435 \u044d\u0442\u043e \u0434\u0435\u043b\u0430\u0435\u0448\u044c, \u0447\u0442\u043e \u0441\u0442\u043e\u0438\u0442 \u0437\u0430 \u044d\u0442\u043e\u0439 \u043e\u0446\u0435\u043d\u043a\u043e\u0439, \"\u043d\u0430 \u0433\u043b\u0430\u0437\" \u0438\u043b\u0438 \u0437\u0434\u0435\u0441\u044c \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u0435\u0442 \u0441\u0438\u0441\u0442\u0435\u043c\u0430 \u043e\u0446\u0435\u043d\u043a\u0438\". No rule or code says how to estimate (lib/relay_queue.py only requires a number); 24 Oct: build agents took 3-14 min for items estimated 20-60, the whole cycle took 26-53 agent minutes whatever the estimate (20 -> 50, 60 -> 48), eval-tally 90 for an estimate of 23.",
+        "Also: rules/queue.md a measuring script over agent transcripts"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "24 Oct sample of 12 changes: all-agents minutes / estimate median 1.2, range 0.8-3.9; build minutes / estimate about 0.2; the estimate does not order the changes by real cost (est 20 -> 50 agent min, est 60 -> 48)."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "On the 24 Oct sample, the new estimate (fixed cycle + build part + paid run) is within a factor of 1.5 of the measured agent minutes for at least 9 of 12 changes; `relay queue` shows actual beside estimate for closed items; the actuals are computed from transcripts, not stored by hand."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "Test tests/test_queue_estimate.py::Estimate::test_median_fixed_plus_median_build fails on base 3f3c1b05 (module missing), but the pass case (within 1.5x for at least 9 of 12 on the 24 Oct sample) is not met: fixer measured 7 of 15. Actuals beside estimate are shown (Compare test :88)."
+      ],
+      "severity": "HIGH",
+      "since": "3f3c1b05bb91bb8685b95e46aada8d7eb271a0ae",
+      "source": "queue",
+      "summary": "Queue time estimates are guesses with no model behind them",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the live probes. agent_rows() calls worktree_of(_first_cwd(path)) only; the brief asked \"mapped by brief or worktree\".",
+        "Because relay's own rules tell agents to use git -C from the primary checkout, the cwd rule misses most build, fix and check agents,",
+        "so agent minutes, build minutes and the fixed cycle are all undercounted, and the median is taken over a biased sample of 8.",
+        "rules/queue.md now tells the front to \"Use that number for --time\": a wrong number is now presented as measured, worse than a guess",
+        "labelled as one. HIGH: the change's own promise (pass case 1, actuals per change) fails on ordinary use.",
+        "Size: 30."
+      ],
+      "evidence": [
+        "$ bin/relay queue estimate      (9.3 s)",
+        "    150 est     1 agents (0 build)    149 wall  checks-keep-two-finding-lists-and-three-rule-set",
+        "estimate for a new item: 17m (... of 8 changes)",
+        "probe over -Users-amidman-relay/*/subagents: [('worktree', 154), ('/Users/amidman/relay', 130)];",
+        "  outside-worktree types: runner 30, worker 26, fixer 24, checker 20, critic 11, scout 10, thinker 8",
+        "probe: closed taken_by matched 8 of 105",
+        "grep -l '\\.worktrees/drop-plugins' */subagents/agent-*.jsonl -> 1 file, its first cwd /Users/amidman/relay"
+      ],
+      "failing_case": [
+        "Live data, 28 Oct: in ~/.claude/projects/-Users-amidman-relay, 130 of 284 subagent transcripts have first cwd /Users/amidman/relay",
+        "(26 of them delegate:worker, 24 fixer, 20 checker), because briefs say \"git -C and absolute paths; never cd into it\".",
+        "Closed item taken by wt/drop-plugins: its worker transcript names .worktrees/drop-plugins in the prompt but cwd is /Users/amidman/relay,",
+        "so `relay queue estimate` leaves the item out. Of 105 closed items with taken_by, 8 are measured; those show e.g.",
+        "\"150 est 1 agents (0 build) 149 wall checks-keep-two-finding-lists...\" and 0 build for 6 of 8.",
+        "Printed estimate: 17m, against 26-53 agent minutes measured for the cycle on 24 Oct. The brief's pass case",
+        "\"within 1.5x for at least 9 of 12 changes of the 24 Oct sample\" is not met (builder's Gap line says so).",
+        "Should: an agent whose prompt/brief names `.worktrees/<name>` (or the brief file of the change) is counted to that change even when",
+        "its cwd is the primary checkout, and the 24 Oct sample reaches 9 of 12 within 1.5x."
+      ],
+      "fix_hint": [
+        "In agent_rows, when the first cwd names no worktree, take the worktree from the first user message (the brief's `Worktree:` line or",
+        "the first `.worktrees/<name>` path in it); test with a fixture transcript of that shape; then measure the 24 Oct sample and record it."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 60,
+      "pass_cases": [
+        "1. Transcript with first cwd /r and first user message \"Worktree: /r/.worktrees/c1 ... \" of type delegate:worker, 7 min -> one AgentRow(\"c1\", \"delegate:worker\", 420).",
+        "2. Transcript with cwd /r/.worktrees/c1 (today's case) -> still AgentRow(\"c1\", ...).",
+        "3. Transcript with cwd /r and no worktree or brief named -> no row.",
+        "4. Transcript naming two worktrees (a train brief naming riders) -> counted once, to the worktree it works in (the first `Worktree:` line), not to every name.",
+        "5. On the 24 Oct sample of 12 changes, estimate() of the other changes is within 1.5x of measured agent minutes for >= 9 of 12 (a recorded measurement in the item or a test over a fixture of their numbers)."
+      ],
+      "path": "lib/relay_estimate.py",
+      "rank": "high",
+      "reason": [
+        "Brief-file mapping added and tested (tests/test_queue_estimate.py:127,132,137 fail on fc945b71, pass now; cases 1-4 met). Pass case 5 (9 of 12 within 1.5x) not met; coverage 28 of 105 closed items."
+      ],
+      "severity": "HIGH",
+      "since": "69a9f641de84828e1cc48a721bc3614dd30a390e",
+      "source": "review-queue-time-estimates-are-guesses-with-no.json",
+      "source_id": "F1",
+      "summary": "agents are tied to a change only by their first cwd, so the ones run from the primary checkout (git -C) are lost: 97 of 105 closed items get no actual and the estimate rests on 8 partial changes",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the probe (names from other projects present); a collision is PLAUSIBLE today (no shared name found among the 8),",
+        "reachable whenever two repos reuse a short worktree name such as `desktop` or `installer`. The repo root is known in cmd_queue",
+        "(the -C folder); the view does not receive it. Size: 15."
+      ],
+      "evidence": [
+        "probe: rows 917 changes 91 [('LES-12990', 80), ('practice-stages', 70), ('redo-reader-experience', 54), ...]",
+        "ls ~/.claude/projects | grep worktrees -> -private-var-folders-...-tmp-1a24eqgGnC-repo--worktrees-w ..."
+      ],
+      "failing_case": [
+        "agent_rows(~/.claude/projects) returns 917 rows over 91 names, most from other repos (LES-12990 80, practice-stages 70,",
+        "desktop 28, ...) and test temp repos (-private-var-folders-...-repo--worktrees-w). A relay item taken by wt/desktop or wt/w would",
+        "get those agents as its actual and they would enter the history median. Every call also reads all 917 transcripts: 9.3 s.",
+        "Should: only agents whose worktree lies under this repo (cwd or named path starts with <repo>/.worktrees/) count."
+      ],
+      "fix_hint": [
+        "Pass the repo root to the view (or use the queue folder's parent) and keep only rows whose worktree path is under <root>/.worktrees/;",
+        "limit the glob to the project slugs of that root and its worktrees."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 10,
+      "pass_cases": [
+        "1. Transcripts for /a/.worktrees/x and /b/.worktrees/x; queue of repo /a with an item taken by wt/x -> actual from /a's agent only.",
+        "2. Transcript for /a/.worktrees/x alone -> the item of repo /a gets it (today's case).",
+        "3. Transcripts of an unrelated repo only -> \"no measured change yet: no estimate\"."
+      ],
+      "path": "lib/queue_ext/estimate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_estimate.py:145 passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "69a9f641de84828e1cc48a721bc3614dd30a390e",
+      "source": "review-queue-time-estimates-are-guesses-with-no.json",
+      "source_id": "F2",
+      "summary": "every project's transcripts are scanned and matched by bare worktree name, so another repo's worktree of the same name (or a test temp repo) is counted as this queue's change",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: git grep edits_texts shows only the definition and the test. The builder's Gap says paid-run wall minutes have no measured",
+        "source; $RELAY_HOME holds ledger/ and evals/ which may give run start and end (PLAUSIBLE, not checked). If no source exists, the",
+        "owner must decide whether a fixed recorded number is acceptable; until then the brief's third term is missing. Size: 30."
+      ],
+      "evidence": [
+        "git grep -n edits_texts -> lib/relay_estimate.py:84 (def), tests/test_queue_estimate.py (3 asserts); no other caller"
+      ],
+      "failing_case": [
+        "An item whose where lists roles/judge.md (a change checked by a paid run): `relay queue estimate` prints the same 17m as for an item in",
+        "lib/ and the text \"add the paid run's wall minutes\" with no number. edits_texts() is called nowhere except its test.",
+        "Should (brief, What): estimate = fixed cycle + build part + the paid run's wall time when the change edits agent, skill, role or rule texts."
+      ],
+      "fix_hint": [
+        "Let the view take an item slug or --where places, call edits_texts on them, and add the paid run's measured wall minutes",
+        "(median from the ledger/eval run records) when true; print \"paid run: unknown\" when none is recorded."
+      ],
+      "id": "F3",
+      "kind": "feature",
+      "line": 84,
+      "pass_cases": [
+        "1. Item (or `--where`) with roles/judge.md and a measured paid run of 40 wall minutes, history giving 30 -> estimate 70.",
+        "2. Item with lib/relay_queue.py only, same history -> 30.",
+        "3. No paid run measured yet -> the estimate says the paid part is unknown, not 0."
+      ],
+      "path": "lib/relay_estimate.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer (front's decision, owner can reverse) removed the paid-run term from the estimate and prints a per-wave line (median minutes and cost of full batches, \"not measured yet\" when none; tests :66,:75,:220). Pass case 3 is met; cases 1-2 (item with texts edited gets +paid run) are deliberately not. My view: reasonable, one paid run covers a wave; owner confirms."
+      ],
+      "severity": "MEDIUM",
+      "since": "69a9f641de84828e1cc48a721bc3614dd30a390e",
+      "source": "review-queue-time-estimates-are-guesses-with-no.json",
+      "source_id": "F3",
+      "summary": "the paid run part is never added: edits_texts() is dead code, and the estimate is one number for any new item, not for a given item's places",
+      "verdict": "DISPUTED"
+    },
+    {
+      "details": [
+        "CONFIRMED from data (taken_by list shows 'installer' twice) and code (by_change groups by name only). Size: 15."
+      ],
+      "evidence": [
+        "probe: sample taken_by [..., 'installer', 'installer', 'drop-plugins']"
+      ],
+      "failing_case": [
+        "Live queue: two closed items are taken_by wt/installer. by_change() keys only on the name, so both items show the sum of both",
+        "changes' agent minutes, and the history list in estimate.py appends that same Measured twice.",
+        "Should: an agent counts to an item only when it ran between the item's taken_at and closed_at (or another per-change key)."
+      ],
+      "fix_hint": [
+        "Keep each row's start time; in compare_lines and in the history, filter rows to the item's taken_at..closed_at window."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 76,
+      "pass_cases": [
+        "1. Items A (taken 10:00, closed 11:00) and B (taken 12:00, closed 13:00) both wt/x; agents 10:10-10:20 and 12:10-12:40 -> A 10 agent min, B 30.",
+        "2. One item wt/x with both agents in its window -> 40 (today's case).",
+        "3. Agent started before taken_at (a design agent) -> not counted to that item."
+      ],
+      "path": "lib/relay_estimate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_estimate.py:160 passes (window to next taken_at, late agent counted)."
+      ],
+      "severity": "MEDIUM",
+      "since": "69a9f641de84828e1cc48a721bc3614dd30a390e",
+      "source": "review-queue-time-estimates-are-guesses-with-no.json",
+      "source_id": "F4",
+      "summary": "a worktree name reused by two changes sums both changes' agents into each item's actual and counts it twice in the median",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Rule label: Python (types on every new or changed function). Size: 15."
+      ],
+      "evidence": [
+        "lib/queue_ext/estimate.py:9 def run(items, args):"
+      ],
+      "failing_case": [
+        "def run(items, args): has no annotations. Reverting bin/relay to closed=(name == \"json\") makes `relay queue estimate` print only",
+        "the header and \"no measured change yet\" and every test still passes (no test runs the view through bin/relay)."
+      ],
+      "fix_hint": [
+        "Annotate run; add one end-to-end test of the view in tests/test_queue_estimate.py using a temp CLAUDE_CONFIG_DIR."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 9,
+      "pass_cases": [
+        "1. run is annotated (items: list[dict], args: list[str]) -> int.",
+        "2. A test with CLAUDE_CONFIG_DIR set to a temp folder holding one worktree transcript and a closed item runs `relay queue estimate` and sees its est/agents line.",
+        "3. The same test with the item open -> no item line."
+      ],
+      "path": "lib/queue_ext/estimate.py",
+      "rank": "low",
+      "reason": [
+        "run typed; View tests at :215,:225 pass. bin/relay closed= change still untested through bin/relay (LOW)."
+      ],
+      "severity": "LOW",
+      "since": "69a9f641de84828e1cc48a721bc3614dd30a390e",
+      "source": "review-queue-time-estimates-are-guesses-with-no.json",
+      "source_id": "F5",
+      "summary": "new function run(items, args) has no types (project rule Python: every new or changed function has types), and the bin/relay closed=True change for the view has no test",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "6436dfb6f604b45bcd44b9f3833728d187c016dd.gate.log",
+  "head": "8131b0f5f94b535953140d2e8a0aa140dacec496",
+  "item": "queue-time-estimates-are-guesses-with-no-model-b",
+  "notes": [
+    "Callers: estimate(paid_run_min) and edits_texts removed with no remaining caller; measure_item gets items from the one view caller. The live view could not be run (primary checkout lacks the view). The fixer's own measure on live data: 7 of 15 on 24 Oct within 1.5x, median estimate 9-10m against 0.6-27.7 real: the item's accuracy promise is not met and the fixer says so."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix commit dd408aa4 (after check fc945b71) plus merge 6436dfb6. Gate log head 6436dfb6, bin/ci --quick, exit 0; HEAD 8131b0f5 adds only the log. tests/test_queue_estimate.py 20 passed. Copied the test file to fc945b71: 7 fail (paid-run, brief-file, window, estimate). At 3f3c1b05 (Q1 since): collection error, no relay_estimate module. Did not rerun full precheck (gate is green on the merge head)."
+  ],
+  "type": "check"
+}

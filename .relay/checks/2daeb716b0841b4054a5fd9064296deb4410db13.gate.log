@@ -1,0 +1,21 @@
+head 2daeb716b0841b4054a5fd9064296deb4410db13
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (1s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (735s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_gate_killed_with_sigkill_frees_its_slot (test_gate_slots.Slots.test_a_gate_killed_with_sigkill_frees_its_slot)
+    AssertionError: condition not reached within 30 s
+    FAILED (failures=1)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert FAILED (7s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed (the probe's output is in .ci/steps/inert-nested.log):
+        --- outer run
+        +++ probe run
+        @@ -3 +3 @@
+        -library tests FAILED
+        +library tests ok
+ci: RED
+exit 1

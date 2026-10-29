@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 sys.path.insert(0, HERE)
 
 from relay_testbase import load_hook  # noqa: E402
+from pidfile import wait_pid  # noqa: E402
 from test_gate import RELAY, Fixture, git, read, write  # noqa: E402
 
 import relay_inert  # noqa: E402
@@ -273,8 +274,34 @@ class Dirty(Land):
 
 class Lock(Land):
     def slow_gate(self):
-        return ('echo run >> "%(counter)s"\ntouch "%(tmp)s/started"\n'
-                'while [ ! -e "%(tmp)s/go" ]; do sleep 0.05; done\nexit 0\n')
+        # the loop also ends when the folder is gone, so an orphaned script cannot outlive its test
+        return ('echo run >> "%(counter)s"\necho $$ > "%(tmp)s/gate.pid"\ntouch "%(tmp)s/started"\n'
+                'while [ ! -e "%(tmp)s/go" ] && [ -d "%(tmp)s" ]; do sleep 0.05; done\nexit 0\n')
+
+    def wait_gone(self, pid):
+        import time
+        end = time.monotonic() + WAIT
+        while True:
+            try:
+                os.kill(pid, 0)
+            except OSError:
+                return
+            self.assertLess(time.monotonic(), end, "still running: %d" % pid)
+            time.sleep(0.05)
+
+    def test_slow_gate_ends_when_its_folder_is_gone(self):
+        # nobody writes `go`; removing the folder is the only thing that can end the loop
+        import shutil
+        import tempfile
+        folder = tempfile.mkdtemp(prefix="slow-gate-")
+        self.addCleanup(shutil.rmtree, folder, True)
+        script = os.path.join(folder, "gate.sh")
+        write(script, self.slow_gate() % {"counter": os.path.join(folder, "runs"), "tmp": folder})
+        proc = subprocess.Popen(["/bin/sh", script], stdin=subprocess.DEVNULL)
+        self.addCleanup(proc.kill)
+        self.wait_for(os.path.join(folder, "started"))
+        shutil.rmtree(folder)
+        self.assertEqual(proc.wait(timeout=WAIT), 0)
 
     def test_land_two_wait_in_turn(self):
         self.start(gate=self.slow_gate())
@@ -330,6 +357,7 @@ class Lock(Land):
         proc.communicate(timeout=WAIT)
         self.assertIsNone(relay_land.holder(self.main))           # the OS freed it, no cleanup ran
         write(os.path.join(self.tmp, "go"), "")                   # let the orphaned gate script end
+        self.wait_gone(wait_pid(os.path.join(self.tmp, "gate.pid"), WAIT))  # and wait for it, before the cleanup
 
 
 class Counters(Land):

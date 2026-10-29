@@ -140,6 +140,12 @@
       "fact": [
         "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
       ]
+    },
+    {
+      "at": "2026-10-29T04:33:48Z",
+      "fact": [
+        "29 Oct: moves 4-10 of the build plan are queued: move 4 dispatcher-moves-to-relay-cli-land-to-its-module (1h); move 5 the-read-only-guard-reads-command-modules (45m); move 6 setup-migrate-install-doctor-sync-get-modules (50m); move 7 relay-queue-becomes-a-package-with-its-handler (40m); move 8 each-relay-queue-action-in-its-own-module (1h); move 9 changed-gate-precheck-and-check-get-modules (55m); move 10 last-commands-leave-bin-relay-the-tables-go (1h). Move 11 is the existing item lib-modules-are-committed-in-three-copies. Remaining after move 11 per the plan: moves 12-14 (split lib/relay_queue.py into six modules, three moves of about 60m, after moves 8 and 11) and moves 15-17 (split lib/relay_setup.py into modules, three moves of about 50m, after move 6, side by side with 12-14); this item closes when move 17 lands. Not queued yet: the split items for the six other over-limit files and lib/relay_land.py, planned for when move 2 lands."
+      ]
     }
   ]
 }

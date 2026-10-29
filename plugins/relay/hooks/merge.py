@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# size: over the 600-line limit until its split item lands
 """The merge hook (design docs/plans/review-gate.md, section 11).
 
     merge.py     the hook JSON on stdin; `hook_event_name` picks the work:

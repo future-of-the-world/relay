@@ -1,12 +1,11 @@
 """`relay <cmd> --help` prints usage and writes nothing (queue item relay-cmd-help-runs-the-command-instead-of-help)."""
-import importlib.machinery
-import importlib.util
 import os
-import re
 import subprocess
 import sys
 import tempfile
 import unittest
+
+import relay_commands
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -29,9 +28,20 @@ def run_help(cmd: list[str]) -> tuple[subprocess.CompletedProcess, list[str]]:
 
 
 def command_names() -> list[str]:
-    text = open(RELAY).read()
-    block = text[text.index("COMMANDS = {"):text.index("def help_text")]
-    return sorted(set(re.findall(r'"([a-z]+)":', block)))
+    return relay_commands.names()
+
+
+def defines_wants_help() -> object:
+    """The module that defines wants_help: bin/relay now, lib/relay_cli.py once it moves there (move 4)."""
+    relay = relay_commands.load_relay()
+    if hasattr(relay, "wants_help"):
+        return relay
+    import importlib
+    sys.path.insert(0, os.path.join(ROOT, "lib"))
+    try:
+        return importlib.import_module("relay_cli")
+    finally:
+        sys.path.remove(os.path.join(ROOT, "lib"))
 
 
 class HelpIsSafe(unittest.TestCase):
@@ -51,7 +61,8 @@ class HelpIsSafe(unittest.TestCase):
 
     def test_every_command_in_the_table_writes_nothing(self) -> None:
         names = command_names()
-        self.assertGreaterEqual(len(names), 20)  # the table was found
+        # the floor: today's 21 names must all be listed, whether from the walk or the table (no exact count)
+        self.assertLessEqual(relay_commands.FLOOR, set(names))
         for name in names:
             for flag in ("--help", "-h"):
                 done, written = run_help([name, flag])
@@ -66,10 +77,7 @@ class HelpIsSafe(unittest.TestCase):
             self.assertEqual(written, [], cmd)
 
     def test_help_after_bare_double_dash_is_not_relay_help(self) -> None:
-        loader = importlib.machinery.SourceFileLoader("relay_cli_under_test", RELAY)
-        spec = importlib.util.spec_from_loader(loader.name, loader)
-        module = importlib.util.module_from_spec(spec)
-        loader.exec_module(module)
+        module = defines_wants_help()
         self.assertFalse(module.wants_help(["-C", ".", "--", "--help"]))
         self.assertTrue(module.wants_help(["-C", ".", "--help"]))
         self.assertTrue(module.wants_help(["--help", "--", "x"]))

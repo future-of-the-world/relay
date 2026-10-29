@@ -25,13 +25,34 @@ class Worktree(TypedDict):
     locked: str | None     # the reason ("" if none given); None when not locked
 
 
-def git(repo: str, *args: str, timeout: float = TIMEOUT, raw: bool = False) -> tuple[int, str]:
-    """(exit code, stdout stripped unless raw) of `git -C repo args`; (127, "") when git cannot run."""
+class GitError(Exception):
+    """git could not answer (it did not run or timed out): "git could not answer: <command>, <reason>"."""
+
+
+def _run(repo: str, args: tuple[str, ...], timeout: float | None, raw: bool) -> tuple[int, str]:
+    command = ["git", "-C", repo, *args]
+    timeout = TIMEOUT if timeout is None else timeout      # read at call time, so a test can lower the module's limit
     try:
-        done = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, timeout=timeout)
-    except (OSError, subprocess.SubprocessError):
-        return 127, ""
+        done = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise GitError("git could not answer: %s, no answer within %s s" % (" ".join(command), timeout))
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise GitError("git could not answer: %s, %s" % (" ".join(command), exc))
     return done.returncode, done.stdout if raw else done.stdout.strip()
+
+
+def git(repo: str, *args: str, timeout: float | None = None, raw: bool = False) -> tuple[int, str]:
+    """(exit code, stdout stripped unless raw) of `git -C repo args`; (127, "") when git cannot run or times out
+    (callers that must tell that from an empty answer use `git_strict`)."""
+    try:
+        return _run(repo, args, timeout, raw)
+    except GitError:
+        return 127, ""
+
+
+def git_strict(repo: str, *args: str, timeout: float | None = None, raw: bool = False) -> tuple[int, str]:
+    """Like `git`, but raises GitError when git cannot run or times out."""
+    return _run(repo, args, timeout, raw)
 
 
 def main_checkout(repo: str) -> str | None:
@@ -72,9 +93,14 @@ def default_branch(repo: str) -> str | None:
     return None
 
 
-def current_branch(directory: str) -> str | None:
-    """The branch checked out in `directory`, None when detached or not a repository."""
-    rc, out = git(directory, "symbolic-ref", "--short", "-q", "HEAD")
+def current_branch(directory: str, strict: bool = False) -> str | None:
+    """The branch checked out in `directory`, None when detached or not a repository.
+    With `strict`, GitError when git itself could not answer (timeout), instead of None."""
+    rc, out = (git_strict if strict else git)(directory, "symbolic-ref", "--short", "-q", "HEAD")
+    if strict and rc not in (0, 1):      # `symbolic-ref -q` exits 1 and only 1 for a detached HEAD; a signal (rc < 0) or a fatal 128 is no answer
+        command = "git -C %s symbolic-ref --short -q HEAD" % directory
+        why = "killed by signal %d" % -rc if rc < 0 else "exit %d" % rc
+        raise GitError("git could not answer: %s, %s" % (command, why))
     return out if rc == 0 and out else None
 
 

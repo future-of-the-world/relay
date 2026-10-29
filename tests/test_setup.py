@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # unittest from the repo root has only the root on sys.path
 from relay_testbase import Base, ROOT  # noqa: E402
@@ -397,10 +398,18 @@ class SetupInWorktree(Base):
         open(os.path.join(src, "f"), "w").write("x")
         subprocess.run(g + ["add", "f"], check=True)
         subprocess.run(g + ["commit", "-q", "-m", "i"], check=True)
+        # `submodule add` clones a child repository and an ambient GIT_ALLOW_PROTOCOL or GIT_CONFIG_COUNT/KEY/VALUE from the
+        # caller of the gate overrides the -c below (the gate of 6a204966 failed on it), so it runs with every GIT_* variable dropped.
+        clean = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
         subprocess.run(["git", "-C", main, "-c", "protocol.file.allow=always", "-c", "user.name=t", "-c", "user.email=t@t",
-                        "submodule", "add", "-q", src, "mods/sub"], check=True)
+                        "submodule", "add", "-q", src, "mods/sub"], check=True, env=clean, capture_output=True, text=True)
         self.assertTrue(os.path.isfile(os.path.join(sub, ".git")))
         self.assertIsNone(relay_setup.main_checkout(sub))
+
+    def test_submodule_check_ignores_ambient_git_protocol_settings(self):
+        # the caller's GIT_ALLOW_PROTOCOL (only https) would refuse the file transport the submodule clone needs
+        with mock.patch.dict(os.environ, {"GIT_ALLOW_PROTOCOL": "https"}):
+            self.test_main_checkout_is_exact_for_each_kind_of_checkout()
 
     def _old_agent(self, wt):
         os.makedirs(os.path.join(wt, ".claude", "agents"))

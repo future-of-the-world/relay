@@ -7,7 +7,7 @@ on a pipe (its stdout is moved to its stderr, so a test's own prints cannot corr
 step log: the controller prints exactly one summed "Ran N tests" line and every failing test by name.
 
 Each worker keeps the guards of tests/run_unittest.py: a TMPDIR of its own, the per-test temporary HOME and RELAY_HOME
-(tests/tmp_default.py), and the leaked-gate scan (tests/leaked_gates.py) over its own folder when it ends.
+(tests/tmp_default.py), and the leaked-process scan (tests/leaked_gates.py) over its own folder when it ends.
 
 The class times live in ONE file per machine, $RELAY_HOME/test-times/<repo>.json (<repo> is the name of the main
 checkout's folder, so every worktree of the repo shares it). Only an outer run writes it (RELAY_INERT_PROBE=1 marks the
@@ -167,8 +167,9 @@ def worker_main(tests_dir: str) -> int:
             reply = {"class": name, "ran": result.testsRun, "seconds": time.monotonic() - start, "problems": problems}
             out.write(json.dumps(reply) + "\n")
             out.flush()
-        leaked = leaked_gates.stop(run_dir)
-        out.write(json.dumps({"leaked": leaked}) + "\n")
+        notes: List[str] = []
+        leaked = leaked_gates.stop(run_dir, notes)
+        out.write(json.dumps({"leaked": leaked, "notes": notes}) + "\n")
         out.flush()
         return 0
     finally:
@@ -187,6 +188,7 @@ class Pool:
         self.replies: List[Dict[str, Any]] = []
         self.deaths: List[str] = []
         self.leaks: List[Tuple[int, str]] = []
+        self.notes: List[str] = []
 
     def _loop(self, index: int) -> None:
         log: TextIO
@@ -225,10 +227,12 @@ class Pool:
                 line = ""
             if not line:
                 with self.lock:
-                    self.deaths.append("worker %d died before it reported its leaked-gate scan" % (index + 1))
+                    self.deaths.append("worker %d died before it reported its leaked-process scan" % (index + 1))
                 return
             with self.lock:
-                self.leaks += [(int(p), str(c)) for p, c in json.loads(line).get("leaked", [])]
+                reply = json.loads(line)
+                self.leaks += [(int(p), str(c)) for p, c in reply.get("leaked", [])]
+                self.notes += [str(n) for n in reply.get("notes", []) if str(n) not in self.notes]
         finally:
             try:
                 proc.stdout.close()
@@ -289,8 +293,10 @@ def run(root: str = ROOT, env: Optional[Dict[str, str]] = None, tests_dir: str =
     expected = len(tests)
     if not pool.deaths and ran != expected:
         problems.append(("count", "ERROR", "ran %d tests but discovery found %d\n" % (ran, expected)))
+    for note in pool.notes:
+        print("NOTE leak scan: " + note)
     for pid, command in pool.leaks:
-        problems.append(("leaked gate", "FAIL", "leaked gate: pid %d was still running after the tests, in a temporary "
+        problems.append(("leaked process", "FAIL", "leaked process: pid %d was still running after the tests, in a temporary "
                          "folder of a worker (stopped): %s\n" % (pid, command)))
     for name, kind, text in sorted(problems):
         print("=" * 70)

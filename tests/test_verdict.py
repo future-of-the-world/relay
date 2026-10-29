@@ -9,11 +9,13 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
+import relay_git  # noqa: E402
 import relay_verdict as rv  # noqa: E402
 
 RELAY = os.path.join(ROOT, "bin", "relay")
@@ -487,5 +489,106 @@ class ReviewHandoff(RecordBase):
         self.assertIn("Report: `<path>.json`", checks[0])
 
 
+class GitCouldNotAnswer(unittest.TestCase):
+    """A git that times out is reported as its own error, not as a detached HEAD."""
+
+    def setUp(self):
+        self.tmp = os.path.realpath(tempfile.mkdtemp(prefix="relay-verdict-git-"))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        subprocess.run(["git", "init", "-q", "-b", "wt/x", self.tmp], check=True)
+        # a fake git that sleeps far past the lowered limit; the sleep is killed by the timeout
+        fake = os.path.join(self.tmp, "fakebin")
+        os.mkdir(fake)
+        with open(os.path.join(fake, "git"), "w", encoding="utf-8") as handle:
+            handle.write("#!/bin/sh\nexec sleep 30\n")
+        os.chmod(os.path.join(fake, "git"), 0o755)
+        patcher = mock.patch.dict(os.environ, {"PATH": fake + os.pathsep + os.environ["PATH"]})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        limit = mock.patch.object(relay_git, "TIMEOUT", 0.2)
+        limit.start()
+        self.addCleanup(limit.stop)
+
+    def test_current_branch_strict_raises_when_git_times_out(self):
+        with self.assertRaises(relay_git.GitError) as caught:
+            relay_git.current_branch(self.tmp, strict=True)
+        self.assertIn("git could not answer: git -C", str(caught.exception))
+
+    def test_current_branch_default_still_answers_none(self):
+        # the hooks that read it as a plain question keep their old answer
+        self.assertIsNone(relay_git.current_branch(self.tmp))
+
+    def test_the_verdict_says_git_could_not_answer_not_that_it_is_not_on_a_branch(self):
+        with self.assertRaises(rv.VerdictError) as caught:
+            rv.build_findings(self.tmp, "a" * 40, [])
+        self.assertIn("git could not answer", str(caught.exception))
+        self.assertNotIn("not on a branch", str(caught.exception))
+
+
+class GitDiedOrFailed(unittest.TestCase):
+    """A git killed by a signal or failing fatally is no answer; only `symbolic-ref -q` exit 1 is a detached HEAD."""
+
+    def setUp(self):
+        self.tmp = os.path.realpath(tempfile.mkdtemp(prefix="relay-verdict-git-"))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.repo = os.path.join(self.tmp, "repo")
+        self.git("init", "-q", "-b", "master", self.repo)
+        self.git("-C", self.repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "one")
+        self.git("-C", self.repo, "checkout", "-q", "-b", "wt/x")
+        self.real = shutil.which("git")
+
+    def git(self, *args):
+        subprocess.run(["git", *args], check=True)
+
+    def fake(self, body):
+        fake = os.path.join(self.tmp, "fakebin")
+        os.makedirs(fake, exist_ok=True)
+        with open(os.path.join(fake, "git"), "w", encoding="utf-8") as handle:
+            handle.write("#!/bin/sh\n" + body)
+        os.chmod(os.path.join(fake, "git"), 0o755)
+        patcher = mock.patch.dict(os.environ, {"PATH": fake + os.pathsep + os.environ["PATH"]})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_git_killed_by_a_signal_is_no_answer_not_a_detached_head(self):
+        self.fake("kill -TERM $$\n")
+        with self.assertRaises(relay_git.GitError) as caught:
+            relay_git.current_branch(self.repo, strict=True)
+        self.assertIn("killed by signal 15", str(caught.exception))
+        with self.assertRaises(rv.VerdictError) as caught:
+            rv.build_findings(self.repo, "a" * 40, [])
+        self.assertIn("git could not answer", str(caught.exception))
+        self.assertNotIn("not on a branch", str(caught.exception))
+
+    def test_a_git_failing_fatally_is_no_answer(self):
+        self.fake("exit 128\n")
+        with self.assertRaises(relay_git.GitError) as caught:
+            relay_git.current_branch(self.repo, strict=True)
+        self.assertIn("exit 128", str(caught.exception))
+        self.assertIn("git -C", str(caught.exception))
+
+    def test_a_detached_head_is_none_and_a_branch_is_its_name(self):
+        self.assertEqual(relay_git.current_branch(self.repo, strict=True), "wt/x")     # symbolic-ref gives the name
+        self.git("-C", self.repo, "checkout", "-q", "--detach")
+        self.assertIsNone(relay_git.current_branch(self.repo, strict=True))            # symbolic-ref -q exits 1: detached
+        with self.assertRaises(rv.VerdictError) as caught:
+            rv.build_findings(self.repo, "a" * 40, [])
+        self.assertIn("not on a branch", str(caught.exception))
+
+    def test_a_merge_base_that_fails_says_git_could_not_answer(self):
+        # symbolic-ref and the rest answer through the real git; merge-base sleeps past the lowered limit
+        self.fake('for a in "$@"; do [ "$a" = merge-base ] && exec sleep 30; done\nexec %s "$@"\n' % self.real)
+        head = subprocess.run(["git", "-C", self.repo, "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        import relay_inert
+        # a branch inside this one is what lets build_findings go on to the merge-base without a review
+        with mock.patch.object(relay_git, "TIMEOUT", 0.5), mock.patch.object(relay_inert, "absorbed", return_value={"b": head}):
+            with self.assertRaises(rv.VerdictError) as caught:
+                rv.build_findings(self.repo, head, [])
+        self.assertIn("git could not answer", str(caught.exception))
+        self.assertIn("merge-base", str(caught.exception))
+        self.assertNotIn("no common commit", str(caught.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
+

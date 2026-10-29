@@ -385,7 +385,8 @@ class Inert(Fixture):
         for name in ("relay_config.py", "relay_toml.py"):      # parallel_unittest finds $RELAY_HOME through relay_config
             shutil.copy(os.path.join(ROOT, "lib", name), os.path.join(main, "lib", name))
         # the "types and lint" step of the copied gate: its script, its config and one python file to check
-        shutil.copy(os.path.join(ROOT, "bin", "types-lint"), os.path.join(main, "bin", "types-lint"))
+        for name in ("types-lint", "types_lint.py"):      # the wrapper runs bin/types_lint.py
+            shutil.copy(os.path.join(ROOT, "bin", name), os.path.join(main, "bin", name))
         shutil.copy(os.path.join(ROOT, "pyproject.toml"), main)
         write(os.path.join(main, "lib", "relay_x.py"), "X = 1\n")
         git(main, "add", "-A")
@@ -504,13 +505,28 @@ class LeakedGates(Fixture):
         self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
         gate, command_pid = self.start_orphan("pid")
         found = leaked_gates.stop(self.tmp)
-        # one gate, found by its pid; it and its sleeping command are both gone afterwards
-        self.assertEqual([pid for pid, _ in found], [gate.pid])
+        # the gate is found by its pid (its sleeping command runs from the same folder, so it is found too); both are gone after
+        self.assertIn(gate.pid, [pid for pid, _ in found])
         gate.wait(timeout=600)
         deadline = time.monotonic() + 600
         while time.monotonic() < deadline and leaked_gates._alive(command_pid):
             time.sleep(0.05)
         self.assertFalse(leaked_gates._alive(command_pid))
+
+    def test_any_child_left_in_the_folder_is_found_and_stopped(self):
+        """A process that is not a `relay gate` (a sleeping child with its working folder in the run's folder, and a script
+        whose command path is in it) is a leak too."""
+        folder = os.path.realpath(tempfile.mkdtemp(prefix="relay-leak-"))
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        by_cwd = subprocess.Popen(["sleep", "600"], cwd=folder, stdin=subprocess.DEVNULL)
+        by_path = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)", os.path.join(folder, "x")], stdin=subprocess.DEVNULL)
+        self.addCleanup(by_cwd.kill)
+        self.addCleanup(by_path.kill)
+        found = [pid for pid, _ in leaked_gates.find(folder)]
+        self.assertEqual(sorted(found), sorted([by_cwd.pid, by_path.pid]))
+        leaked_gates.stop(folder)
+        by_cwd.wait(timeout=30)
+        by_path.wait(timeout=30)
 
     def test_a_gate_outside_the_folder_is_left_running(self):
         """Pass case 3: a legitimately detached gate elsewhere is not touched."""
@@ -521,7 +537,7 @@ class LeakedGates(Fixture):
         self.assertEqual(leaked_gates.stop(other), [])
         self.assertIsNone(gate.poll())
         self.assertTrue(leaked_gates._alive(command_pid))
-        self.assertEqual(len(leaked_gates.stop(self.tmp)), 1)  # cleanup: the gate and its command end
+        self.assertIn(gate.pid, [pid for pid, _ in leaked_gates.stop(self.tmp)])  # cleanup: the gate and its command end
         gate.wait(timeout=600)
 
 

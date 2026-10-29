@@ -1,0 +1,46 @@
+{
+  "kind": "feature",
+  "ip": 96,
+  "time": 60,
+  "found_at": "2026-10-29T04:33:13Z",
+  "found_in": "relay queue add",
+  "title": "Dispatcher moves to relay_cli, land to its module",
+  "what": [
+    "Build lib/relay_cli.py and move `land` out of bin/relay.",
+    "- lib/relay_cli.py gets (moved from bin/relay): `Usage`, `flag`, `flags`, `parse_span`, `_day`, `report_refused`, `help_text`, `wants_help`, and the error-to-exit wrapper that is now inside `main` (Usage -> exit 2 with \"relay <cmd>: <msg>\"; relay_rules.Fail, FileNotFoundError, ValueError -> exit 1), plus `find(name)`: returns the module lib/relay_cmd/<name>.py (or package <name>/__init__.py) for a command, or None; a typed `-` maps to `_`.",
+    "- bin/relay's `main` tries `relay_cli.find(name)` first, then the old `COMMANDS` table. `relay --help` prints the header, then every module's `USAGE` and the remaining docstring blocks, in name order. `relay <cmd> --help` prints the module's USAGE for a module. bin/relay still re-exports what its remaining commands use (they call flag, flags, Usage, parse_span, _day, report_refused), by importing them from relay_cli.",
+    "- lib/relay_cmd/land.py: `cmd_land` (bin/relay:634-663) moved verbatim as `run(args)`, with `USAGE` (its docstring block, first line `relay land <branch>`) and `WRITES = True`. Delete it from COMMANDS and the docstring.",
+    "- Tests, in temporary trees: with bin/relay, relay_cli.py and a fake lib/relay_cmd/hello.py, `relay hello` runs and `relay --help` lists it with no other file changed; tests/test_cmd_land.py per the test convention (`relay land --help` literal; `relay land` with no branch gives exit 2 and its usage line \"relay land <branch>\"). `wants_help` in tests/test_help_is_safe.py is asserted on whichever module defines it: now lib/relay_cli.py.",
+    "- Real-file note (move 3 as built): tests/relay_commands.py loads bin/relay as a module and takes `COMMANDS`; its USAGE_FILES already lists lib/relay_cli.py and lib/relay_cmd/queue/__init__.py as places the queue usage may live. The land smoke case already exists in tests/test_cmd_smoke.py (exit 2, \"relay land <branch>\") and must stay green.",
+    "Done: full gate green; relay land and every other command behave as before; the fake-module test and test_cmd_land.py pass.",
+    "",
+    "Module interface (every moved command): `USAGE: str` whose first line is `relay <cmd> ...`; `WRITES: bool`; optional `READ_FLAGS` (sync's `--dry`); `def run(args: list[str]) -> int`. Names match [a-z][a-z0-9_]*, a typed `-` maps to `_`. A package's `__init__.py` has the header `USAGE`, `WRITES` for its bare use, and an optional `fallback(args)`; mixed commands (queue, check, improve, bench, license) become packages with one module per action.",
+    "",
+    "Test convention (tests/cmd_harness.py docstring, move 3): each command's own test file tests/test_cmd_<cmd>.py (tests/test_cmd_<cmd>_<action>.py for an action of a package) holds two cases: (1) `relay <cmd> --help` prints the usage lines it printed before the move, copied as a literal; (2) one smoke case with harmless arguments asserting the exit code and one output line, run through `run_relay` from tests/cmd_harness.py (it returns code, stdout, stderr and the files written, in temporary HOME, RELAY_HOME, RELAY_ROOT and cwd). For a command that cannot run in a temporary tree, the case is its usage refusal. tests/test_cmd_files.py fails, naming the file, for any module under lib/relay_cmd/ without its test file. tests/test_cmd_smoke.py already holds one table SMOKE with a case per command (all 21); keep the moved command's case there working, and note that under the empty RELAY_ROOT calibrate, install, flows, rules and doctor fail on a missing file before they read their arguments, so for those the command's own file must replace the case with one whose outcome depends on an argument. This catches an off-by-one in how the dispatcher hands args to run() (with or without the command name), which the help tests (they stop before run) and ruff do not see.",
+    "",
+    "After the move, in the same change: delete the moved commands from bin/relay's docstring, COMMANDS and imports (same commit as the new modules; commit A is \"moved verbatim\", reviewed with `git diff -M --color-moved=zebra`); do not edit plugins/delegate/hooks/read-only-guard.py (the guard keeps its table until move 10); rewrite the `where` of open queue items that name the moved commands in bin/relay to the new module files, and record how many items the start filter holds before and after. tests/relay_commands.py (names(), queue_words()) already reads the module walk joined with bin/relay's COMMANDS, so the help test and the guard completeness test need no edit.",
+    "",
+    "Start rule: the move takes named top-level functions and constants out of bin/relay. It starts when no running lane has changed anything it takes: read a lane's change with `git diff -U0 master...<lane> -- bin/relay` and compare each hunk's line range on master with the spans of the taken names (a hunk inside another function does not block). The item names bin/relay, so the start filter refuses it; start it with `relay queue start --despite-wait` when this rule says it is free. If a lane holding a taken function has not landed within 60 minutes, start anyway and that lane ports its hunk. Before landing, read again: the move lands whatever the second read shows; a lane that changed a moved function ports its hunk when it takes the default branch (git shows a conflict in the deleted function; the fixer reapplies the hunk to the new module); the landing note names the lane, the function and the new file.",
+    "",
+    "Traps for this move: keep imports lint-clean (ruff F; a dropped import of a helper is ruff F821); tests that import from the repo root must still run under the short gate; done items name their `test` ids, which are found by name, so do not rename tests; RULE_TESTS names in lib/relay_textonly.py must stay valid; tests never touch the live .relay/queue (use a temporary folder); a move that takes a function another running lane changed ports that lane's hunk by hand (start rule below); the size marker leaves a file in the move that brings it under 600 lines."
+  ],
+  "why": [
+    "Move 4 of the split of relay into one module per subcommand. The owner decided it on 28 Oct: \"каждая подкоманда может и должна жить в своем модуле, этот подход должен быть распространен на весь relay\". Waits for move 3 (test scaffolding), which has landed; it is free of the queue-time lane by the start rule. It lets later moves add a command by adding one file, and lets the item that makes the cycle script land name lib/relay_cmd/land.py."
+  ],
+  "where": [
+    "bin/relay:634-663 cmd_land",
+    "bin/relay:1095-1145 help_text, wants_help, main",
+    "bin/relay:124-170 Usage, parse_span, _day, flag, flags",
+    "bin/relay:386 report_refused",
+    "lib/relay_cli.py new",
+    "lib/relay_cmd/land.py new",
+    "tests/test_cmd_land.py new",
+    "tests/test_help_is_safe.py wants_help assertion"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

@@ -1,0 +1,17 @@
+head 7aa0030d0ac48af75ac26986af47b6599633c8e6
+cmd bin/ci --quick
+wait 42.8
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (425s, log: .ci/steps/library-tests.log)
+    FAIL: test_f11_a_project_that_does_not_ignore_ci_can_run_the_gate_twice (test_gate.Gate.test_f11_a_project_that_does_not_ignore_ci_can_run_the_gate_twice)
+    AssertionError: 143 != 0 : gate 700e03834e154ed8fb7c35617ec68ce2439df548: exit 143
+    FAIL: test_land_inert_take_reuses_gate (test_land.Landing.test_land_inert_take_reuses_gate)
+    AssertionError: 143 != 0
+    FAILED (failures=2)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (5s)
+ci: RED
+exit 1

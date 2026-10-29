@@ -1,0 +1,9 @@
+head c004ec7eaa6cb1da4d440b8cebe47bc85cd74be2
+cmd bin/ci --quick
+wait 399.9
+ci: types and lint ok (1s)
+ci: lib copies identical FAILED (0s, log: .ci/steps/lib-copies-identical.log)
+    FAIL plugins/front/lib/relay_queue.py differs from lib/ (run bin/sync-lib-copies)
+    FAIL plugins/relay/lib/relay_queue.py differs from lib/ (run bin/sync-lib-copies)
+ci: RED (a fast step failed: the slow steps were not started)
+exit 1

@@ -17,8 +17,8 @@
     "tests/leaked_gates.py",
     "bin/relay (relay gate start)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T06:43:22Z",
+  "taken_by": "wt/gates-and-tests-stop-what-an-earlier-tes",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

@@ -1,0 +1,264 @@
+{
+  "branch": "wt/a-train-test-fails-in-the-inert-probe-ru",
+  "findings": [
+    {
+      "details": [
+        "29 Oct ~08:50, relay land of wt/refuse-folder-and-pattern-entries-in-whe (gate 9b393dd2): the outer run was green, the probe run failed only on this test with relay_verdict.VerdictError: nothing recorded: the worktree is not on a branch, so the landing stopped. The branch touches no train or verdict code. A test whose result depends on the checkout it runs in breaks the rule that tests use a temporary folder. IP chosen by the front (agent-chosen): it can stop any landing.",
+        "Also: lib/relay_verdict.py (VerdictError 'the worktree is not on a branch')"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "29 Oct, gate 9b393dd2 of wt/refuse-folder-and-pattern-entries-in-whe: probe run ERROR test_the_checker_on_the_train_can_name_the_item_it_checks, VerdictError 'the worktree is not on a branch'; outer run green."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A git call that times out, is killed by a signal or fails fatally is reported as 'git could not answer: <command>, <reason>', never as 'the worktree is not on a branch'; a real detached HEAD still reads as not on a branch."
+      ],
+      "path": "tests/test_merge_train.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_verdict.py::GitCouldNotAnswer (timeout) and GitDiedOrFailed fail at d29f01d6 and pass at head; gate green."
+      ],
+      "severity": "HIGH",
+      "since": "d29f01d6453b29c5539046429616a70e7aa4f258",
+      "source": "queue",
+      "summary": "A train test fails in the inert probe run: not on a branch",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a probe. `_run` raises only on TimeoutExpired/OSError; a git that ran and died by a signal returns returncode -15",
+        "(subprocess raises nothing) and one that hit a fatal error returns 128. current_branch(strict=True) then does",
+        "`out if rc == 0 and out else None`, so both read as a detached HEAD, which is exactly what the front's 29 Oct decision says must",
+        "never happen (\"a git call that failed or timed out must surface as 'git could not answer' ... and never be read as a detached HEAD\").",
+        "`git symbolic-ref -q HEAD` exits 1 (and only 1) for a detached HEAD, so the distinction is exact. Given the concurrent SIGTERM item,",
+        "a killed git is a likely real cause of the 29 Oct failure, and this change would still print the misleading message for it.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "fake git `#!/bin/sh\\nkill -TERM $$` on PATH, repo on wt/x:",
+        "  relay_git.git_strict(repo, \"symbolic-ref\", \"--short\", \"-q\", \"HEAD\") -> (-15, '')",
+        "  rv.build_findings(repo, \"a\"*40, []) -> ERR nothing recorded: the worktree is not on a branch",
+        "git -C <non-repo> symbolic-ref --short -q HEAD -> exit 128; build_findings(<non-repo>) -> \"the worktree is not on a branch\""
+      ],
+      "failing_case": [
+        "A fake git on PATH that does `kill -TERM $$` (what a stray SIGTERM to the gate's process group does to a git child, see the",
+        "open item a-gate-test-is-stopped-by-an-unknown-sigterm), repo on branch wt/x:",
+        "relay_git.git_strict(repo, \"symbolic-ref\", \"--short\", \"-q\", \"HEAD\") -> (-15, \"\"), no GitError;",
+        "rv.build_findings(repo, \"a\"*40, []) -> VerdictError \"nothing recorded: the worktree is not on a branch\".",
+        "Should be: \"nothing recorded: git could not answer: git -C <repo> symbolic-ref --short -q HEAD, killed by signal 15\".",
+        "Same for rc 128 (git ran and hit a fatal error): read as detached today."
+      ],
+      "fix_hint": [
+        "In current_branch with strict: rc 0 and out -> branch; rc 1 -> None; any other rc -> raise GitError(\"git could not answer: <command>,",
+        "exit <rc>\" or \"killed by signal <n>\" when rc < 0). Optionally make _run raise for rc < 0 in strict mode. Add pass cases 1-3 to",
+        "GitCouldNotAnswer."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 99,
+      "pass_cases": [
+        "1. fake git that kills itself with SIGTERM, repo on a branch -> build_findings raises VerdictError containing \"git could not answer\" and not \"not on a branch\".",
+        "2. fake git that exits 128 -> current_branch(dir, strict=True) raises GitError naming the command and \"exit 128\".",
+        "3. a real repo with a detached HEAD (git checkout --detach) -> current_branch(dir, strict=True) is None and build_findings says \"the worktree is not on a branch\" (symbolic-ref -q exits 1).",
+        "4. a real repo on wt/x -> current_branch(dir, strict=True) == \"wt/x\".",
+        "5. the existing timeout test (fake git sleeping past a 0.2 s limit) still gives \"git could not answer\"."
+      ],
+      "path": "lib/relay_git.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_verdict.py GitDiedOrFailed signal, fatal and detached-head tests pass; the first two fail without the fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "eff7cefef06686a973b50f7f60e74e8befad63a7",
+      "source": "review-a-train-test-fails-in-the-inert-probe-ru.json",
+      "source_id": "F1",
+      "summary": "a git killed by a signal (rc -15) or failing fatally (rc 128) is still reported as 'the worktree is not on a branch'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lines 797-813: merge-base, rev-list and relay_git.default_branch use the non-strict git. The front's decision",
+        "scoped the build to current_branch first and a list of the rest; these are in the touched function and were not listed, so the",
+        "front cannot file them. Cheap to fix with git_strict and the same try/except. Size: 15 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "build_findings with no review on a branch whose merge-base call times out: relay_git.git returns (127, \"\") and the verdict says",
+        "\"nothing recorded: no common commit of master and <head>\" instead of \"git could not answer: ...\". The rev-list at line 810 that",
+        "times out gives own = set(), so the branch's own check marks are silently ignored. The fixer's \"Callers still reading a failed git\"",
+        "list names relay_land/relay_queue/hooks but not these lines in the file it changed."
+      ],
+      "fix_hint": [
+        "Use relay_git.git_strict for the merge-base and rev-list calls in build_findings, wrapped in one try/except GitError ->",
+        "VerdictError(\"nothing recorded: %s\"); or at least add these lines to the report's list of callers."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 797,
+      "pass_cases": [
+        "1. merge-base call fails (fake git timing out after symbolic-ref answered) -> VerdictError contains \"git could not answer\", not \"no common commit\".",
+        "2. a real branch with no common commit with master -> still \"no common commit of master and <head>\".",
+        "3. the train tests in tests/test_merge_train.py stay green."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_verdict.py test_a_merge_base_that_fails_says_git_could_not_answer passes, fails without the fix; rev-list change read, train tests green."
+      ],
+      "severity": "LOW",
+      "since": "eff7cefef06686a973b50f7f60e74e8befad63a7",
+      "source": "review-a-train-test-fails-in-the-inert-probe-ru.json",
+      "source_id": "F2",
+      "summary": "build_findings' other git reads still turn a failed git into a misleading answer, and the fixer's list of such callers omits them",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the class was appended after the __main__ guard. Fragile, not wrong in the gate. Size: 5 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "python3 tests/test_verdict.py: unittest.main() runs (and exits) before class GitCouldNotAnswer is defined, so its 3 tests never run.",
+        "Discovery (tests/run_unittest.py `discover`) and `-m unittest test_verdict` do find it."
+      ],
+      "fix_hint": [
+        "Move the class above the `if __name__ == \"__main__\":` block."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 496,
+      "pass_cases": [
+        "1. python3 tests/test_verdict.py -v lists GitCouldNotAnswer's 3 tests.",
+        "2. python3 -m unittest test_verdict.GitCouldNotAnswer still runs them."
+      ],
+      "path": "tests/test_verdict.py",
+      "rank": "low",
+      "reason": [
+        "GitCouldNotAnswer (line 492) and GitDiedOrFailed (528) now sit above the __main__ block at line 592."
+      ],
+      "severity": "LOW",
+      "since": "eff7cefef06686a973b50f7f60e74e8befad63a7",
+      "source": "review-a-train-test-fails-in-the-inert-probe-ru.json",
+      "source_id": "F3",
+      "summary": "the new test class sits after `if __name__ == '__main__': unittest.main()`, so running the file directly skips it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Question for the owner. What it is about: a gate test that failed once on 29 Oct in the inert probe (a second run of the whole test",
+        "suite in a temporary copy of the branch, run at the same time as the main run) and so stopped a landing. How it works: the test asks",
+        "git which branch the train is on; when git does not answer, relay read that as \"not on a branch\". Live example: the 29 Oct landing",
+        "of the queue-entries change stopped on exactly this. The front decided to fix the message, not the cause, so the next such failure",
+        "will be explained (\"git could not answer ... killed by signal 15\" once F1 is fixed) but will still stop the landing.",
+        "Options: (a) keep it so; the cause is chased by the open SIGTERM item, which is where the stray kills come from (recommended:",
+        "it is the measured shared state, a 20 s git timeout is not measured); (b) also add a follow-up item to make the probe tolerate one",
+        "transient git failure. PLAUSIBLE. Size: 0 (a note) or 30 agent minutes for (b)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Item pass case: \"The test passes when run from a detached worktree and from a branch.\" After this change, a git that times out or",
+        "is killed during test_the_checker_on_the_train_can_name_the_item_it_checks still fails the probe run and stops the landing; only",
+        "the message changes (\"git could not answer\" instead of \"not on a branch\")."
+      ],
+      "fix_hint": [],
+      "id": "F4",
+      "kind": "question",
+      "line": 473,
+      "pass_cases": [
+        "1. artifact: the item's notes record that the pass case is replaced by \"a timed-out git is reported as such\" (front decision, owner can reverse), or a follow-up item covers the flaky landing."
+      ],
+      "path": "tests/test_merge_train.py",
+      "rank": "low",
+      "reason": [
+        "Owner question, not a fix: a transient git failure still stops the landing, only the message changes. View: keep it and chase the cause in the SIGTERM item."
+      ],
+      "severity": "LOW",
+      "since": "eff7cefef06686a973b50f7f60e74e8befad63a7",
+      "source": "review-a-train-test-fails-in-the-inert-probe-ru.json",
+      "source_id": "F4",
+      "summary": "the queue item's pass case (the train test passes in the probe run) is not what was built: a transient git failure still stops the landing",
+      "verdict": "GAP"
+    },
+    {
+      "failing_case": [
+        "lib/relay_verdict.py came in from master (merge ba2015130a0f) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_verdict.py re-read on head including the fix diff; gate green on it, tests pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "ba2015130a0fb00464305ee8a8cb228f88ca4417",
+      "source": "merge",
+      "summary": "lib/relay_verdict.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/front/lib/relay_verdict.py came in from master (merge ba2015130a0f) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/front/lib/relay_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "plugins/front copy identical to lib (relay precheck: lib copies identical)."
+      ],
+      "severity": "MEDIUM",
+      "since": "ba2015130a0fb00464305ee8a8cb228f88ca4417",
+      "source": "merge",
+      "summary": "plugins/front/lib/relay_verdict.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/relay/lib/relay_verdict.py came in from master (merge ba2015130a0f) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/relay/lib/relay_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "plugins/relay copy identical to lib (relay precheck: lib copies identical)."
+      ],
+      "severity": "MEDIUM",
+      "since": "ba2015130a0fb00464305ee8a8cb228f88ca4417",
+      "source": "merge",
+      "summary": "plugins/relay/lib/relay_verdict.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "70995bb32278b71b29ac6d31920cc886bf48de4c.gate.log",
+  "head": "cedb34b68dd4b606871b4dcc067e9737a45d2b67",
+  "item": "a-train-test-fails-in-the-inert-probe-run-not-on",
+  "notes": [
+    "Fix diff read: current_branch strict raises on rc not in (0,1); build_findings merge-base and rev-list strict. Callers: non-strict callers unchanged. F4 is a question for the owner, recommended (a) keep, chase the SIGTERM item."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range eff7cefe..HEAD; own changed files are lib/relay_git.py, lib/relay_verdict.py, their two plugin copies and tests/test_verdict.py (all in scope). relay precheck green; pytest tests/test_verdict.py tests/test_merge_train.py 94 passed. Gate log is for 70995bb3, exit 0, and relay changed lists no file after it. Fail-without-fix: test_verdict.py copied to ba201513 (before fix): the 3 GitDiedOrFailed tests failed; at d29f01d6 (Q1 since) the timeout tests and all GitDiedOrFailed tests failed."
+  ],
+  "type": "check"
+}

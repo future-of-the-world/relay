@@ -1,0 +1,46 @@
+{
+  "kind": "fix",
+  "ip": 98,
+  "time": 40,
+  "found_at": "2026-10-29T04:48:29Z",
+  "found_in": "relay queue add",
+  "title": "A train test fails in the inert probe run: not on a branch",
+  "what": [
+    "Find why this test, in the inert probe's run (a detached temporary worktree of the gated branch), reaches relay_verdict with a worktree that is not on a branch: it most likely records a verdict in the folder it runs from instead of its own temporary repository, so it depends on the live checkout's state. Make it use only its temporary repository; show it fails when run from a detached worktree before the fix and passes after."
+  ],
+  "why": [
+    "29 Oct ~08:50, relay land of wt/refuse-folder-and-pattern-entries-in-whe (gate 9b393dd2): the outer run was green, the probe run failed only on this test with relay_verdict.VerdictError: nothing recorded: the worktree is not on a branch, so the landing stopped. The branch touches no train or verdict code. A test whose result depends on the checkout it runs in breaks the rule that tests use a temporary folder. IP chosen by the front (agent-chosen): it can stop any landing."
+  ],
+  "failing_case": [
+    "29 Oct, gate 9b393dd2 of wt/refuse-folder-and-pattern-entries-in-whe: probe run ERROR test_the_checker_on_the_train_can_name_the_item_it_checks, VerdictError 'the worktree is not on a branch'; outer run green."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A git call that times out, is killed by a signal or fails fatally is reported as 'git could not answer: <command>, <reason>', never as 'the worktree is not on a branch'; a real detached HEAD still reads as not on a branch."
+  ],
+  "where": [
+    "tests/test_merge_train.py (ATrainChecksItsRidersClosedItems.test_the_checker_on_the_train_can_name_the_item_it_checks)",
+    "lib/relay_verdict.py (VerdictError 'the worktree is not on a branch')"
+  ],
+  "taken_at": "2026-10-29T04:49:15Z",
+  "taken_by": "wt/a-train-test-fails-in-the-inert-probe-ru",
+  "closed_at": "2026-10-29T06:41:47Z",
+  "test": "tests/test_verdict.py::GitCouldNotAnswer::test_the_verdict_says_git_could_not_answer_not_that_it_is_not_on_a_branch",
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T04:52:19Z",
+      "fact": [
+        "29 Oct, front's decision (owner can reverse): the worker could not reproduce the failure from a detached worktree (the test makes its own repo and its train worktree is always on a branch) and found the likely cause: lib/relay_git.py git() returns (127, '') when a call times out (20 s) or cannot start, current_branch then returns None exactly as for a detached HEAD, and relay_verdict reports 'not on a branch'. Fix the message, not the limit: a git call that failed or timed out must surface as 'git could not answer: <command>, <reason>' and never be read as a detached HEAD or an empty answer; a test shows a timed-out git is reported as such. No new time limit is invented."
+      ]
+    },
+    {
+      "at": "2026-10-29T06:28:50Z",
+      "edited": "pass_cases",
+      "fact": [
+        "Edited pass_cases: Front decision, owner can reverse (principle 6, cause not symptom): the probe will not tolerate a transient git failure by retrying; the cause of the 29 Oct stray kill is chased by a-gate-test-is-stopped-by-an-unknown-sigterm, the measured shared state (the probe shares the outer run's process group). Review F4, option a."
+      ]
+    }
+  ]
+}
