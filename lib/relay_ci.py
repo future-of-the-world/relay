@@ -320,9 +320,7 @@ class Ci:
             env["RELAY_QUICK"] = "1"
         import relay_config      # lib/ is on the path of the gate (bin/ci); not at the top, like the other relay modules here
         import relay_coverage
-        mode = str(relay_config.get(relay_config.load_bindings(self.root), "metrics.coverage", "every"))
-        if relay_config.get(relay_config.load_bindings(self.root), "metrics.enabled", True) is False:
-            mode = "off"
+        mode = relay_coverage.effective_mode(relay_config.load_bindings(self.root), env)
         rc, line = relay_coverage.run_tests(self.root, env, self.run, log, self.which, mode)
         if line:
             self.coverage_line = line

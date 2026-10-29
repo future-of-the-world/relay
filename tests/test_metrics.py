@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import unittest
 from unittest import mock
 
@@ -15,7 +16,9 @@ sys.path.insert(0, HERE)
 
 from test_gate import Fixture, git, write  # noqa: E402
 
+import relay_config  # noqa: E402
 import relay_coverage  # noqa: E402
+import relay_queue  # noqa: E402
 import relay_labels  # noqa: E402
 import relay_land  # noqa: E402
 import relay_metrics  # noqa: E402
@@ -165,6 +168,101 @@ class Records(Fixture):
         self.assertEqual(result.outcome, relay_land.LANDED)
         self.assertTrue(any("relay metrics backfill" in line and "boom" in line for line in result.lines), result.lines)
 
+    def test_a_rider_with_no_queue_item_is_named_and_gets_no_record(self):
+        before = git(self.main, "rev-parse", "HEAD")
+        git(self.main, "checkout", "-q", "-b", "wt/c")
+        write(os.path.join(self.main, "lib", "c.py"), "c\n")
+        git(self.main, "add", "-A")
+        git(self.main, "commit", "-q", "-m", "c")
+        git(self.main, "checkout", "-q", "master")
+        git(self.main, "merge", "-q", "--no-ff", "-m", "Merge wt/c into wt/train-1", "wt/c")
+        head = git(self.main, "rev-parse", "HEAD")
+        lines = []
+        # the train brought in item-a (has an item) and wt/c (has none): one line names wt/c, and item-a still gets its record
+        relay_metrics.record_landing(self.main, [("item-a", "wt/a")], before, head, [], 0, lines.append, now=1.8e9)
+        self.assertEqual([x for x in lines if "wt/c" in x], [f"metrics: wt/c landed in {head[:12]} with no queue item; no record"])
+        self.assertNotIn("wt/a", " ".join(lines))
+        self.assertTrue(any(f.startswith(".relay/changes/item-a/land-") for f in self.files()))
+        self.assertFalse(any("/c/" in f or "train" in f for f in self.files()))
+
+    def test_a_queue_landing_and_a_records_landing_started_together_both_land(self):
+        head = git(self.main, "rev-parse", "HEAD")
+        write(os.path.join(self.main, "staged.txt"), "mine\n")
+        git(self.main, "add", "staged.txt")
+        item = relay_queue.new_item("feature", 50, 10, "2026-10-23T13:49:21Z", "test", "T", "w", "y")
+        queue_path = ".relay/queue/zz-test-item.json"
+        errors = []
+
+        def queue_side():
+            try:
+                relay_queue.land_files(self.main, "zz-test-item", lambda rev: {queue_path: relay_queue.serialize("zz-test-item", item)}, "test item")
+            except Exception as exc:       # the test names it below
+                errors.append(exc)
+
+        thread = threading.Thread(target=queue_side)
+        thread.start()
+        relay_metrics.record_landing(self.main, [("item-a", "wt/a")], head, head, [], 0, print, now=1.8e9)
+        thread.join()
+        self.assertEqual(errors, [])
+        # both ended on the default branch, each with only its files; the staged file is still staged and in neither commit
+        self.assertIn(queue_path, git(self.main, "ls-tree", "-r", "--name-only", "master").splitlines())
+        self.assertTrue(any(f.startswith(".relay/changes/item-a/") for f in self.files()))
+        self.assertEqual(git(self.main, "diff", "--cached", "--name-only"), "staged.txt")
+        self.assertNotIn("staged.txt", git(self.main, "ls-tree", "-r", "--name-only", "master"))
+
+    def test_relay_land_marks_its_gate_for_the_landing_coverage_mode(self):
+        git(self.wt, "merge", "-q", "--no-edit", "master")
+        self.mark(self.wt)
+        seen = []
+        import relay_gate
+        real = relay_gate.run
+
+        def spy(tree, **kwargs):
+            seen.append((kwargs.get("environ") or {}).get("RELAY_LAND"))
+            return real(tree, **kwargs)
+
+        with mock.patch.dict(os.environ, self.env), mock.patch("relay_gate.run", spy):
+            relay_land.land(self.main, "wt/x", lambda line: None)
+        self.assertEqual(seen, ["1"])
+
+
+class Reader(unittest.TestCase):
+    def rec(self, unit, start, stop, cost):
+        return {"schema": 1, "kind": "change", "unit": unit, "agents": [{"id": unit + start, "stage": "build", "start": start, "stop": stop, "cost_usd": cost}], "land": []}
+
+    def test_summary_groups_by_week(self):
+        # 2026-10-29 is a Thursday of ISO week 44, 2026-11-03 a Tuesday of week 45; build minutes 10 and 20 in week 44 (median 15), 30 in week 45
+        recs = [self.rec("a", "2026-10-29T10:00:00Z", "2026-10-29T10:10:00Z", 1.0), self.rec("b", "2026-10-29T11:00:00Z", "2026-10-29T11:20:00Z", 3.0),
+                self.rec("c", "2026-11-03T10:00:00Z", "2026-11-03T10:30:00Z", 2.0)]
+        with mock.patch.object(relay_metrics, "stored", return_value=recs), mock.patch.object(relay_metrics, "coverage_by_week", return_value={"2026-W45": [80.0, 90.0]}):
+            lines = relay_metrics.summary("main", "rev")
+        self.assertEqual(lines[1:], ["2026-W44:", "  build: 2 agents, median 15.0 min, p90 20.0 min, total 30.0 min", "  cost per unit: median $2.00, total $4.00",
+                                     "2026-W45:", "  build: 1 agents, median 30.0 min, p90 30.0 min, total 30.0 min", "  cost per unit: median $2.00, total $2.00",
+                                     "  coverage: median 85.0% over 2 gates"])
+
+    def test_owner_wait_is_asked_to_answered(self):
+        # two answered questions: 30 min and 90 min = 120 min; a third is unanswered and counts for nothing
+        notes = [relay_queue.Note("decision", "2026-10-29T10:00:00Z", ["q"], answered_at="2026-10-29T10:30:00Z", answer=["a"]),
+                 relay_queue.Note("decision", "2026-10-29T11:00:00Z", ["q"], answered_at="2026-10-29T12:30:00Z", answer=["a"]),
+                 relay_queue.Note("decision", "2026-10-29T13:00:00Z", ["q"]), relay_queue.Note("said", "2026-10-29T09:00:00Z", ["hi"])]
+        rec = self.rec("a", "2026-10-29T10:00:00Z", "2026-10-29T10:10:00Z", 1.0)
+        with mock.patch.object(relay_metrics, "stored", return_value=[rec]), mock.patch("relay_queue.read_queue", return_value=[{"slug": "a", "notes": notes}]):
+            lines = relay_metrics.unit_lines("main", "rev", "a")
+        self.assertIn("owner: 2 answers, 120.0 min waited", lines)
+
+    def test_coverage_trend_places_a_log_in_the_week_of_its_commit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            main = os.path.join(tmp, "m")
+            os.makedirs(main)
+            git(main, "init", "-q", "-b", "master")
+            for name, value, when in (("a", "80.0", "2026-10-29T12:00:00Z"), ("b", "90.0", "2026-10-29T13:00:00Z"), ("c", "50.0", "2026-11-03T12:00:00Z")):
+                write(os.path.join(main, ".relay", "checks", name * 40 + ".gate.log"), f"head x\nci: coverage {value}% of lib, bin, plugins (1 of 2 lines)\n")
+                git(main, "add", "-A")
+                with mock.patch.dict(os.environ, {"GIT_COMMITTER_DATE": when, "GIT_AUTHOR_DATE": when}):
+                    git(main, "commit", "-q", "-m", name)
+            weeks = relay_metrics.coverage_by_week(main, "refs/heads/master")
+        self.assertEqual({k: sorted(v) for k, v in weeks.items()}, {"2026-W44": [80.0, 90.0], "2026-W45": [50.0]})
+
 
 class Coverage(unittest.TestCase):
     def run_tests(self, tests_rc, mode="every", uv=True):
@@ -196,6 +294,14 @@ class Coverage(unittest.TestCase):
 
     def test_the_tests_own_exit_code_passes_through(self):
         self.assertEqual(self.run_tests(1)[0][0], 1)
+
+    def test_landing_mode_measures_only_the_gate_relay_land_runs(self):
+        with tempfile.TemporaryDirectory() as root:
+            write(os.path.join(root, ".claude", "kit.toml"), '[metrics]\ncoverage = "landing"\n')
+            cfg = relay_config.load_bindings(root)
+            self.assertEqual(relay_coverage.effective_mode(cfg, {"RELAY_LAND": "1"}), "every")
+            self.assertEqual(relay_coverage.effective_mode(cfg, {}), "off")
+            self.assertEqual(relay_coverage.effective_mode({}, {}), "every")
 
     def test_off_and_no_uv_leave_the_plain_run(self):
         self.assertEqual(self.run_tests(0, mode="off")[0], (None, None))

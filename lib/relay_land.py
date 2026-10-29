@@ -352,7 +352,7 @@ def _locked(main: str, default: str, branch: str, tree: str, stats: Event, tries
         started = time.monotonic()
         head = _sha(tree, "HEAD")
         try:
-            code, log, red = relay_gate.run(tree, quick=True)
+            code, log, red = relay_gate.run(tree, quick=True, environ={**os.environ, "RELAY_LAND": "1"})
         except relay_gate.GateRefused as exc:
             raise Stop(REFUSED, [f"land: the gate could not run: {exc}"], code_moves=code_moves, inert_moves=inert_moves)
         ran = os.path.basename(log) == head + ".gate.log"      # a reused log is named for an earlier commit

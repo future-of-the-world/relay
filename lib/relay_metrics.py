@@ -214,6 +214,14 @@ def landed_units(main: str, before: Optional[str]) -> list[tuple[str, str]]:
     return out
 
 
+def _riders(main: str, before: Optional[str], head: str) -> set[str]:
+    """The branches a train merged into itself inside before..head (none for a plain landing)."""
+    if not before or before == head:
+        return set()
+    rc, log = relay_git.git(main, "log", "--merges", "--format=%s", f"{before}..{head}")
+    return set(re.findall(r"^Merge (wt/\S+) into wt/train-", log, re.M)) if rc == 0 else set()
+
+
 def record_landing(repo: str, units: list[tuple[str, str]], before: Optional[str], head: str, events: list[Any], pid: int,
                    notify: Callable[[str], None], now: Optional[float] = None) -> None:
     """Write the records of a landing (one per unit, none for a train branch) and the sweep, in one commit on the default branch."""
@@ -234,6 +242,8 @@ def record_landing(repo: str, units: list[tuple[str, str]], before: Optional[str
         landing = {slug: {"branch": branch, "before": before, "head": head, "land": _land_rows(events, slug, branch, pid)} for slug, branch in units}
         return plan(main, rev, ledger, items, landing, moment, quiet, notes)
 
+    for branch in _riders(main, before, head) - {b for _, b in units}:
+        notes.append(f"metrics: {branch} landed in {head[:12]} with no queue item; no record")
     relay_queue.land_files(repo, f"metrics-{head[:12]}", writes_at, "change records")
     for line in sorted(set(notes)):
         notify(line)
@@ -249,22 +259,56 @@ def _fmt(value: float) -> str:
     return f"{value:.1f}"
 
 
+def _week(stamp: float) -> str:
+    return datetime.fromtimestamp(stamp, timezone.utc).strftime("%G-W%V")
+
+
+def coverage_by_week(main: str, rev: str) -> dict[str, list[float]]:
+    """{week: coverage percents} from the `ci: coverage N%` lines of the committed gate logs; a log is placed in the week of the commit that added it."""
+    rc, hits = relay_git.git(main, "grep", "-e", "^ci: coverage ", rev, "--", ".relay/checks")
+    percent = {m.group(1): float(m.group(2)) for m in re.finditer(r"^[^:\n]*:(\S+\.gate\.log):ci: coverage ([\d.]+)%", hits, re.M)} if rc == 0 else {}
+    if not percent:
+        return {}
+    rc, log = relay_git.git(main, "log", "--format=@%ct", "--name-only", rev, "--", ".relay/checks")
+    when: dict[str, float] = {}
+    moment = 0.0
+    for line in log.splitlines() if rc == 0 else []:
+        if line.startswith("@"):
+            moment = float(line[1:])
+        elif line in percent or line.rsplit("/", 1)[-1] in percent:
+            when[line.rsplit("/", 1)[-1]] = moment      # newest first, so the oldest commit of the file wins
+    weeks: dict[str, list[float]] = {}
+    for name, value in percent.items():
+        name = name.rsplit("/", 1)[-1]
+        if name in when:
+            weeks.setdefault(_week(when[name]), []).append(value)
+    return weeks
+
+
 def summary(main: str, rev: str) -> list[str]:
-    """The repository: agent minutes and cost per stage, cost per change, from every record at `rev`."""
+    """The repository, per week: median and p90 agent minutes per stage, cost per change, and the coverage of the gates, from the records at `rev`."""
     records = stored(main, rev)
-    stage: dict[str, list[float]] = {}
-    cost: dict[str, float] = {}
+    stage: dict[tuple[str, str], list[float]] = {}
+    cost: dict[tuple[str, str], float] = {}
     for rec in records:
         for a in rec["agents"]:
-            stage.setdefault(a["stage"], []).append(_minutes(a))
-            cost[rec["unit"]] = cost.get(rec["unit"], 0.0) + a["cost_usd"]
+            week = _week(_epoch(a["start"]))
+            stage.setdefault((week, a["stage"]), []).append(_minutes(a))
+            cost[(week, rec["unit"])] = cost.get((week, rec["unit"]), 0.0) + a["cost_usd"]
     lines = [f"records: {len(records)}; units: {len({r['unit'] for r in records})}"]
-    for name, mins in sorted(stage.items()):
-        ordered = sorted(mins)
-        lines.append(f"{name}: {len(mins)} agents, median {_fmt(statistics.median(ordered))} min, p90 {_fmt(ordered[min(len(ordered) - 1, int(0.9 * len(ordered)))])} min, "
-                     f"total {_fmt(sum(mins))} min")
-    if cost:
-        lines.append(f"cost per unit: median ${statistics.median(cost.values()):.2f}, total ${sum(cost.values()):.2f}")
+    coverage = coverage_by_week(main, rev)
+    for week in sorted({w for w, _ in stage} | set(coverage)):
+        lines.append(week + ":")
+        for (w, name), mins in sorted(stage.items()):
+            if w == week:
+                ordered = sorted(mins)
+                lines.append(f"  {name}: {len(mins)} agents, median {_fmt(statistics.median(ordered))} min, p90 {_fmt(ordered[min(len(ordered) - 1, int(0.9 * len(ordered)))])} min, "
+                             f"total {_fmt(sum(mins))} min")
+        week_cost = [v for (w, _), v in cost.items() if w == week]
+        if week_cost:
+            lines.append(f"  cost per unit: median ${statistics.median(week_cost):.2f}, total ${sum(week_cost):.2f}")
+        if week in coverage:
+            lines.append(f"  coverage: median {_fmt(statistics.median(coverage[week]))}% over {len(coverage[week])} gates")
     return lines
 
 
@@ -280,6 +324,9 @@ def unit_lines(main: str, rev: str, unit: str) -> list[str]:
         mine = [a for a in agents if a["stage"] == name]
         lines.append(f"{name}: {len(mine)} agents, {_fmt(sum(_minutes(a) for a in mine))} min, ${sum(a['cost_usd'] for a in mine):.2f}")
     item = next((i for i in relay_queue.read_queue(main, closed=True) if i["slug"] == unit), None)
+    waits = [_epoch(n.answered_at) - _epoch(n.at) for n in (item.get("notes") or [] if item else []) if n.kind == "decision" and n.answered_at]
+    if waits:
+        lines.append(f"owner: {len(waits)} answers, {_fmt(sum(waits) / 60)} min waited")
     done = [r for r in records if r.get("head") and r["land"]]
     if item and item.get("taken_at") and done and agents:
         end = max(_epoch(x["at"]) for r in done for x in r["land"])

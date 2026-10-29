@@ -11,7 +11,19 @@ from typing import Callable, Optional, TextIO
 import relay_toml
 
 SOURCE = ("lib", "bin", "plugins")
-MODES = ("every", "off")       # [metrics] coverage; the default is the owner's answer of 29 Oct (every gate)
+MODES = ("every", "landing", "off")       # [metrics] coverage; the default is the owner's answer of 29 Oct (every gate); landing: only the gate `relay land` runs (RELAY_LAND)
+
+
+def effective_mode(cfg: object, env: dict[str, str]) -> str:
+    """`every` or `off` for this gate: `landing` means every only in the gate `relay land` started; metrics off or an unknown value of the
+    setting leaves the default (every) or off as written."""
+    import relay_config
+    if relay_config.get(cfg, "metrics.enabled", True) is False:
+        return "off"
+    mode = str(relay_config.get(cfg, "metrics.coverage", "every"))
+    if mode == "landing":
+        return "every" if env.get("RELAY_LAND") else "off"
+    return mode if mode in MODES else "every"
 
 
 def pin(root: str) -> Optional[str]:
