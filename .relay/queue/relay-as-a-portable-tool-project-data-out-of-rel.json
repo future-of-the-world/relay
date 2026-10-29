@@ -51,6 +51,12 @@
       "fact": [
         "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
       ]
+    },
+    {
+      "at": "2026-10-29T10:26:37Z",
+      "said": [
+        "Давай подумаем над следующим сценарием применения - использование и подключение relay в claude environments, я вполне могу создать свой кастомный environment и подключить туда relay, какие есть ограничения у такого подхода"
+      ]
     }
   ]
 }

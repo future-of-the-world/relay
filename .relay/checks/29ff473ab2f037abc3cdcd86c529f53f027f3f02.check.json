@@ -1,0 +1,201 @@
+{
+  "branch": "wt/the-quick-gate-stops-itself-at-a-time-li",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reproduction. _stop_at_limit runs stop_tree once: it lists the descendants, SIGTERMs them, waits up to STOP_GRACE,",
+        "then SIGKILLs the list plus whatever is below at that moment. Nothing stops the step function itself: step() only raises",
+        "_LimitStop after fn returns. Any step that runs several programs in a row keeps going after the kill: validate_all loops over",
+        "`.` and every plugin folder (9 today), rules_tests runs three programs (it returns early on the first non-zero, so it is safe),",
+        "hook_tests on the full path runs more. A hung `claude plugin validate` (the claude CLI waiting on network or auth) hangs every",
+        "call, so the gate the limit exists to bound runs forever, the failure the queue item names. The same one-shot design leaves a",
+        "tiny race: if the timer fires between step()'s `if self.stopped` check and the child's Popen, stopped_step is set (or \"\")",
+        "and the child starts after the last listing, unkilled.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "$ python3 scratchpad/probe/validate_hang.py <worktree>/lib     (limit 2 s, fake claude = exec sleep 600, plugins a b c)",
+        "STILL RUNNING after 25 s (limit 2 s) None 25.0",
+        "--- .",
+        "--- plugins/a/",
+        "--- plugins/b/",
+        "lib/relay_ci.py:485-490 _stop_at_limit: one stop_tree(_descendants(me), me), then the thread ends.",
+        "lib/relay_ci.py:278-301 step(): _LimitStop only after fn(log) returns."
+      ],
+      "failing_case": [
+        "Quick Ci, RELAY_CI_QUICK_LIMIT=2, plugins/a, plugins/b, plugins/c in the root, a `claude` on PATH that runs `sleep 600`",
+        "(a hung `claude plugin validate`), every other step stubbed to 0. Now: the watchdog at 2 s kills the validate of `.` and the",
+        "one started during the grace (plugins/a), then validate_all's loop starts plugins/b, which nobody kills: main() has not",
+        "returned after 25 s and would not before 600 s per dir. Should: main() returns 124 within limit + STOP_GRACE + a few seconds,",
+        "with \"gate: stopped at the 2-second limit, step plugin validate was running\"."
+      ],
+      "fix_hint": [
+        "In Ci.run, once self.stopped is set, start nothing: write \"stopped at the time limit: <argv[0]> not started\" to the log and",
+        "return CompletedProcess(argv, LIMIT_EXIT). That ends validate_all's loop at once (each later call returns at once) and closes",
+        "the step-start race except for the few bytecodes between the check and Popen; for those, the watchdog can stop the tree a",
+        "second time after a short sleep, or step() can check self.stopped after setting self.running."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 485,
+      "pass_cases": [
+        "1. The failing case above: main() returns 124 in under 15 s; results.txt has \"plugin validate STOPPED\"; no `sleep 600` below the test process is left.",
+        "2. A step fn that calls ci.run twice, each a `sleep 600` (limit 2 s): main() returns 124 in under 15 s (the second program is never started or is killed).",
+        "3. T1 as today: one child plus a grandchild, both gone, 124, the exact line.",
+        "4. T2 as today: a normal 0.1 s run with limit 3 s is green, exit 0, no Timer alive after main()."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_ci_python.py:407 and :421 pass; :421 fails on base. Loop test bounded at 15 s, fixer saw it hang unfixed."
+      ],
+      "severity": "MEDIUM",
+      "since": "f04164d726fcabc91a7df8589134b974c3749b7b",
+      "source": "review-the-quick-gate-stops-itself-at-a-time-li.json",
+      "source_id": "F1",
+      "summary": "the watchdog kills only once: a step that starts another program after the kill (plugin validate's loop) runs unbounded",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. relay_land._locked maps relay_gate.LIMIT_EXIT to HANDED_BACK on every run with no look at earlier logs;",
+        "relay_gate.finished_red skips exit 124, so every land runs the gate again; plugins/front/skills/front/SKILL.md:128 turns",
+        "exit 4 into \"run it again\". The existing HANDED_BACK causes (default branch moved, index.lock held) are transient; a stop may",
+        "not be (no per-test timeout in tests/parallel_unittest.py: grep finds only timeout=60 on helper calls). This is a wait with",
+        "no bound, and it costs a gate slot (2 on 12 cores) for 30 min each round. The design decided \"handed back, not red\" for a",
+        "stop (owner can reverse); a bound on a repeat stop fits inside that decision: the first stop is still handed back.",
+        "The state is derivable (principle 3): the committed <sha>.gate.log of the same code ending \"exit 124\".",
+        "Size: 20 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_land.py:346-349: if code == relay_gate.LIMIT_EXIT: raise Stop(HANDED_BACK, [... \"relay land {branch} again\"])",
+        "lib/relay_gate.py:289: finished_red ... and int(last[1]) != LIMIT_EXIT  (a stopped log is never reused)",
+        "plugins/front/skills/front/SKILL.md:128: \"Exit 4 handed back: run it again.\"",
+        "plugins/delegate/workflows/cycle.js:143-147: the cycle stops after gate_reruns; land has no such count."
+      ],
+      "failing_case": [
+        "A branch whose merged code has a test that deadlocks (it hangs on every run). `relay land wt/x`: the gate stops at 30 min,",
+        "exit 4 \"relay land wt/x again\"; the front skill says \"Exit 4 handed back: run it again\", so it runs it again: stopped again,",
+        "exit 4, and so on, 30 min of a gate slot each time, never a fixer and never the owner. The cycle bounds the same case",
+        "(gate_reruns, default 1, then the unit stops with the line); land does not. Should: the second stop on the same code is not",
+        "\"run it again\" (red with the stopped line, or a refusal that names the step and sends it to a fix unit or the owner)."
+      ],
+      "fix_hint": [
+        "Before the gate (or on a 124), walk the same code's logs as finished_red does (only .relay/checks commits between) for one",
+        "ending \"exit 124\" with the same cmd; when one exists, this is the second stop: raise Stop(RED, [\"land: the gate of <branch>",
+        "stopped at the limit twice on the same code (step <name>): a hang, not load\", ...]) so the front sends a fix unit. Or a",
+        "refusal with that line; either keeps the first stop as handed back."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 346,
+      "pass_cases": [
+        "1. Gate stub exits 124 on every run: the first `relay land wt/x` exits 4 with \"relay land wt/x again\"; the second on the same code exits non-4 (1 or 2) and its output names the stopped step and that it stopped twice.",
+        "2. Gate stub exits 124 once, then 0: first land exits 4, second lands (exit 0, master moved).",
+        "3. Gate stub exits 124, the branch gets a new code commit, gate exits 124 again: exit 4 again (a different code is a fresh first stop).",
+        "4. T11 as today: one stop gives exit 4, outcome handed_back, master unchanged."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_land.py:242, :253, :260 pass; :242 fails on base; t11 still passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "f04164d726fcabc91a7df8589134b974c3749b7b",
+      "source": "review-the-quick-gate-stops-itself-at-a-time-li.json",
+      "source_id": "F2",
+      "summary": "relay land hands back a stopped gate with no bound: code that hangs a test every time is run again every 30 min forever",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: traced, not reproduced (T6 passed 16 of 16 runs). The main thread joins the timer only in main()'s finally, which",
+        "runs after _run's finally has already called probe.stop(). stop_tree's final SIGKILL covers `set(pids) | set(_descendants(root))`",
+        "taken at the end of the grace, so any program the main thread started in the meantime is killed. The window is the time",
+        "between the last child's death and the watchdog's last `ps` (tens of ms). Harm is small (a stale worktree entry that git",
+        "prunes later), hence LOW.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_ci.py:485-490 (_stop_at_limit -> stop_tree), lib/relay_ci.py:114-124 (stop_tree: final kill of _descendants(root)),",
+        "lib/relay_ci.py _run finally: self.probe.stop() before main()'s timer.join().",
+        "16 runs of ProbeBesideTheRun.test_t6...: 16 OK."
+      ],
+      "failing_case": [
+        "A quick gate under relay gate stops at the limit while every child dies at SIGTERM at once: the main thread's step returns,",
+        "_LimitStop runs Probe.stop, which starts `git worktree remove --force` and `git worktree prune`; the watchdog thread, its grace",
+        "loop just ended, lists `_descendants(me)` and SIGKILLs that git. Now (when the timing meets): the probe's .git/worktrees entry",
+        "is left (the folder is then removed by rmtree, the record file too), a stale prunable worktree in the repository. Should: the",
+        "cleanup starts only after the watchdog's kills are done."
+      ],
+      "fix_hint": [
+        "Set a threading.Event at the end of _stop_at_limit and wait on it in step() before raising _LimitStop (or join the timer",
+        "there), so Probe.stop and every later program start after the watchdog is done."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 301,
+      "pass_cases": [
+        "1. T6 as today, and `git worktree list --porcelain` shows only the main worktree with no \"prunable\" line, over 20 runs.",
+        "2. A stop where the probe ignores SIGTERM for 1 s: the probe worktree is still removed and no prunable entry is left.",
+        "3. T1 and T5 unchanged."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_ci_python.py:525 passes and fails on base."
+      ],
+      "severity": "LOW",
+      "since": "f04164d726fcabc91a7df8589134b974c3749b7b",
+      "source": "review-the-quick-gate-stops-itself-at-a-time-li.json",
+      "source_id": "F3",
+      "summary": "after a stop the main thread cleans the probe while the watchdog may still SIGKILL every descendant, its git worktree remove included",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep over the item's show output (no match). Outside the change: the queue is the front's record.",
+        "Size: 5 agent minutes (front, relay queue note)."
+      ],
+      "evidence": [
+        "$ bin/relay queue show speed-up-the-quick-gate | grep -n \"1500\\|25 \u043f\u043e\u0441\u043b\u0435\\|QUICK_LIMIT\"   (no output)"
+      ],
+      "failing_case": [
+        "`relay queue show speed-up-the-quick-gate` has no line with 1500, QUICK_LIMIT or the owner's words; the design's follow-up",
+        "(\"add the note ... to speed-up-the-quick-gate\") is the front's and is not done. When part A lands, nothing makes anyone set",
+        "QUICK_LIMIT_SECONDS to 1500 (principle 10: \"remember to ...\")."
+      ],
+      "fix_hint": [
+        "The front adds the note with `relay queue` before or right after the merge."
+      ],
+      "id": "F4",
+      "kind": "outside",
+      "line": 1,
+      "pass_cases": [
+        "1. `relay queue show speed-up-the-quick-gate` shows a note with the owner's words \u00ab30 \u043c\u0438\u043d\u0443\u0442 \u0441\u0435\u0439\u0447\u0430\u0441, 25 \u043f\u043e\u0441\u043b\u0435 \u0443\u0441\u043a\u043e\u0440\u0435\u043d\u0438\u044f\u00bb and \"set QUICK_LIMIT_SECONDS (lib/relay_ci.py) to 1500 when part A (real git) lands\"."
+      ],
+      "path": ".relay/queue/speed-up-the-quick-gate.json",
+      "rank": "low",
+      "reason": [
+        "Queue note on speed-up-the-quick-gate is the front's; not done in this branch."
+      ],
+      "severity": "LOW",
+      "since": "f04164d726fcabc91a7df8589134b974c3749b7b",
+      "source": "review-the-quick-gate-stops-itself-at-a-time-li.json",
+      "source_id": "F4",
+      "summary": "the switch to 25 min is not on the speed-up item yet: only a code comment says 1500 when the speed-up lands",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "14ee19a4a5dade3f9ce5a17fd32c840437f1473e.gate.log",
+  "head": "29ff473ab2f037abc3cdcd86c529f53f027f3f02",
+  "item": null,
+  "notes": [
+    "Files changed by the fix are the findings' files, their tests and relay_gate.py (earlier_stop, needed by F2) plus lib copies."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range f04164d7..HEAD (fix commit 14ee19a4 plus the gate log). Gate log head 14ee19a4, exit 0; HEAD adds only the log. Ran QuickGateLimit, ProbeBesideTheRun, Landing (all pass); precheck output green. Fail-without-fix on 33da2a93: land F2 test, F1 nothing-starts test, F3 test all fail."
+  ],
+  "type": "check"
+}

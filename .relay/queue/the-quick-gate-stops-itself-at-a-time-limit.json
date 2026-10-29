@@ -17,8 +17,8 @@
   ],
   "taken_at": "2026-10-29T06:43:20Z",
   "taken_by": "wt/the-quick-gate-stops-itself-at-a-time-li",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T08:50:22Z",
+  "test": "tests/test_ci_python.py::QuickGateLimit::test_t1_a_stop_ends_the_child_and_the_grandchild_and_names_the_step",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

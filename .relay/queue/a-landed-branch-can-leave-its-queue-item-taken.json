@@ -26,10 +26,18 @@
     "tests/test_land.py",
     "tests/test_queue.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T09:20:21Z",
+  "taken_by": "wt/a-landed-branch-can-leave-its-queue-item",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T09:33:48Z",
+      "fact": [
+        "29 Oct ~13:35 local, session restart: started on wt/a-landed-branch-can-leave-its-queue-item (worktree .worktrees/a-landed-branch-can-leave-its-queue-item); a worker was building it when the session restarted; next step: run the cycle unit of kind change from its brief again (it continues from what is committed)."
+      ]
+    }
+  ]
 }
