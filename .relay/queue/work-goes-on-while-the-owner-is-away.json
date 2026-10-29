@@ -38,6 +38,17 @@
         "a. Principles and reversible scope cuts: 4 of 4 that night would not have waited",
         "b. Principles only: a scope cut still waits for you; 3 of 4 would not have waited"
       ]
+    },
+    {
+      "asked_at": "2026-10-29T21:42:18Z",
+      "question": [
+        "**Who makes those decisions: the reviewer or the coordinating session**",
+        "The coordinating session commissioned the change and wants it merged; the reviewer is independent. If the reviewer decides, its review carries one line (\"Principle 1\") and nothing else changes. If the coordinating session decides, relay keeps a list of its decisions for you to read and reverse, which needs a second writer for the record of your word that the merge check reads."
+      ],
+      "options": [
+        "a. The reviewer: fewer parts (a role text, about 30 agent minutes), no self-approval; decisions are found inside each review",
+        "b. The coordinating session: one list per digest; about 60-90 agent minutes and a change to the merge check"
+      ]
     }
   ]
 }
