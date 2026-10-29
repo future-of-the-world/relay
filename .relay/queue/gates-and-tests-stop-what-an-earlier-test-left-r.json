@@ -1,0 +1,26 @@
+{
+  "kind": "feature",
+  "ip": 94,
+  "time": 90,
+  "found_at": "2026-10-29T02:20:12Z",
+  "found_in": "relay queue add",
+  "title": "Gates and tests stop what an earlier test left running",
+  "what": [
+    "Designed and critic-reviewed 29 Oct. E: the shared gate Fixture's cleanup reads the relay-gate.lock files under its fixture tree (the lock holds '<gate pid> <group>') and stops the process group a lock names whose gate pid is dead; about 0.01 s per gate; would have stopped 53 of the 59 leaks of 29 Oct. B: when a gate starts it stops processes running from relay's own test temp folders (prefixes relay-run-, relay-gate-, relay-home- under $TMPDIR, found with ps alone, about 0.05 s), skipping any gate whose worktree or home lies in a temp folder, and logs each stop with its command; the owner decides B's form (question noted on this item). A': each test's temp folder carries the test's name, so a leftover's path names its test. Dropped after review: a per-class check after each test class (7.3 s per gate, fails correct classes whose fixture is just ending); refusing to start or listing in relay doctor (blocks every lane); a machine-wide scan of open files (5.4-5.8 s per gate, measured)."
+  ],
+  "why": [
+    "Owner, 29 Oct, verbatim: \"Можешь остановить забытые процессы, как не допустить этого в будущем\". The class repeats: 26 Oct a fixture relay gate held a real gate slot for 3 h 42 min, fixed by matching the process name; 2 days later a fixture gate.sh with another name passed that check and 59 of them loaded the machine (load 44, CPU 93.5% system). 155 tests in 8 files use the shared gate Fixture; 9 places SIGKILL a relay process on purpose."
+  ],
+  "where": [
+    "tests/test_gate.py (shared gate Fixture cleanup)",
+    "lib/relay_gate.py:405 (relay-gate.lock)",
+    "tests/leaked_gates.py",
+    "bin/relay (relay gate start)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
