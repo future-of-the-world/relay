@@ -16,15 +16,15 @@
   ],
   "failing_kind": "claim",
   "pass_cases": [
-    "After the same squash-merge, no record on main names a commit main lacks (or the docs and setup state it and relay keeps the records out of the squashed tree)."
+    "After the same squash-merge, no record on main names a commit main lacks (or the docs and setup state the limit plainly; owner 30 Oct chose document only)."
   ],
   "where": [
     "lib/relay_marks.py",
     "plugins/core/hooks/guard-main.sh (.relay/checks writes)",
     "docs/setup.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T14:09:54Z",
+  "taken_by": "wt/squash-merge-projects-keep-check-records",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
@@ -47,6 +47,31 @@
       "edited": "where",
       "fact": [
         "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T15:18:31Z",
+      "question": [
+        "**Squash merges through a pull request: only document the limit, or move relay's check records out of the branch?**",
+        "relay stores each change's review and check as small files in the branch (.relay/checks). A project that merges through a web pull request with squash (arsenal on Forgejo) carries about 4 such files per change into master, naming commits master never holds, and the pull-request merge itself is not gated by relay. The built change states this limit in relay's setup docs; the item also asked that relay keep the records out."
+      ],
+      "options": [
+        "a. Document only: amend the item to 'docs and setup state the limit', fix the setup README wording, close (about 5 agent minutes)",
+        "b. Move check records out of the branch tree (git notes, a side ref or a per-machine store): a redesign of where checks live, 60+ agent minutes plus a design review"
+      ],
+      "answered_at": "2026-10-29T21:20:38Z",
+      "answer": [
+        "a a a a, закрыть"
+      ],
+      "reading": [
+        "Answer to question 2 of 4: a. Document only: the item pass case is amended to \"docs and setup state the limit\"; check records stay in the squashed tree."
+      ]
+    },
+    {
+      "at": "2026-10-29T21:20:54Z",
+      "edited": "pass_cases",
+      "fact": [
+        "Edited pass_cases: Owner, 30 Oct: \"a a a a, закрыть\" (answer a to the squash question: document only)."
       ]
     }
   ]

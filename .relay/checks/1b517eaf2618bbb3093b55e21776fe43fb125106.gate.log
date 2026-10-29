@@ -1,0 +1,16 @@
+head 1b517eaf2618bbb3093b55e21776fe43fb125106
+cmd bin/ci --quick
+wait 47.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (764s, log: .ci/steps/library-tests.log)
+    FAIL: test_each_command_smoke (test_cmd_smoke.Smoke.test_each_command_smoke)
+    AssertionError: 'relay changed [-C <repo>] [--own] <sha>' not found in 'relay changed: relay changed [-C <repo>] [--own] [--archive] <sha> [<until>]\n' : changed
+    FAILED (failures=1)
+ci: coverage 89.4% of lib, bin, plugins (13648 of 15269 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (140s)
+ci: RED
+exit 1

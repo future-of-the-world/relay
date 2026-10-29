@@ -484,7 +484,7 @@ def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_
     if state.free < 1:
         raise relay_queue.Refused(f"no free lane: {len(state.running)} of {state.setting} running")
     name = _short(slug)
-    branch, worktree = "wt/" + name, os.path.join(main, ".worktrees", name)
+    branch, worktree = "wt/" + name, os.path.join(relay_config.worktrees_folder(main), name)
     if os.path.exists(worktree) or _git(main, "show-ref", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0:
         raise relay_queue.Refused(f"{branch} or {worktree} exists already")
     rc, out = _git(main, "worktree", "add", "-q", "-b", branch, worktree, "refs/heads/" + default)

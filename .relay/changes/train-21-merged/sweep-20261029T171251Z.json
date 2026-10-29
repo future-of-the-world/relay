@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0031,
+   "id": "a503be97341e42573",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-27T18:04:16.380Z",
+   "stop": "2026-10-27T18:15:21.531Z"
+  },
+  {
+   "cost_usd": 0.2205,
+   "id": "a75b416e2324d4cd1",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 16,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-27T18:15:25.236Z",
+   "stop": "2026-10-27T18:26:10.679Z"
+  },
+  {
+   "cost_usd": 0.1742,
+   "id": "a80614f845f9508f5",
+   "model": "claude-sonnet-5-5",
+   "n": 2,
+   "requests": 16,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-27T18:26:14.160Z",
+   "stop": "2026-10-27T18:43:46.731Z"
+  },
+  {
+   "cost_usd": 0.1595,
+   "id": "a4daff67bfeaf384a",
+   "model": "claude-sonnet-5-5",
+   "n": 3,
+   "requests": 17,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-27T18:43:51.322Z",
+   "stop": "2026-10-27T18:54:14.130Z"
+  },
+  {
+   "cost_usd": 0.1593,
+   "id": "a3291a6297ac89fee",
+   "model": "claude-sonnet-5-5",
+   "n": 4,
+   "requests": 13,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-27T18:54:18.868Z",
+   "stop": "2026-10-27T19:03:45.506Z"
+  },
+  {
+   "cost_usd": 0.2103,
+   "id": "a7806cb931c23a714",
+   "model": "claude-sonnet-5-5",
+   "n": 5,
+   "requests": 21,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-27T19:03:48.969Z",
+   "stop": "2026-10-27T19:11:51.339Z"
+  },
+  {
+   "cost_usd": 0.0023,
+   "id": "aac3e8480d789c822",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-27T19:11:54.555Z",
+   "stop": "2026-10-27T19:12:30.001Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "train-21-merged"
+}

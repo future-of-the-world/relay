@@ -756,7 +756,7 @@ def _gate(wt, head, gate, since=None):
         if int(code[5:]) != 0:
             problems.append((shown, "the gate is red", ["The gate for %s ended with `%s`." % (logged[:12], code)]))
     try:
-        moved = relay_inert.changed(wt, logged, head) if _is_commit(wt, logged) else None
+        moved = relay_inert.changed(wt, logged, head, archive=True) if _is_commit(wt, logged) else None
     except ValueError:
         moved = None
     if moved is None:

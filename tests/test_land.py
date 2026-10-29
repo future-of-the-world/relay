@@ -21,6 +21,7 @@ from test_gate import RELAY, Fixture, git, read, write  # noqa: E402
 import relay_inert  # noqa: E402
 import relay_lanes  # noqa: E402
 import relay_land  # noqa: E402
+import relay_land_counters  # noqa: E402
 import relay_queue  # noqa: E402
 import test_inert  # noqa: E402
 import test_lanes_state as tls  # noqa: E402
@@ -446,7 +447,7 @@ class Counters(Land):
                      {"kind": "done", "ts": at(done), "branch": name, "pid": pid, "outcome": "landed"}]
         rows.sort(key=lambda r: r["ts"])
         self.put(rows)
-        lines = dict(l.split(": ", 1) for l in relay_land.stats(self.main, None, None))
+        lines = dict(l.split(": ", 1) for l in relay_land_counters.stats(self.main, None, None))
         # waits: a 91 s, b 181 s, c 271 s (z 0): three waited behind another, the longest 271 s = 4.5 min
         self.assertEqual(lines["landers that waited behind another"].split(";")[0], "3")
         self.assertEqual(lines["landers that waited behind another"], "3; longest wait minutes: 4.5")
@@ -456,7 +457,7 @@ class Counters(Land):
         # unreadable lines are counted, not guessed
         with open(relay_land.events_path(self.main), "a") as handle:
             handle.write("not json\n")
-        self.assertIn("unreadable event lines: 1", relay_land.stats(self.main, None, None))
+        self.assertIn("unreadable event lines: 1", relay_land_counters.stats(self.main, None, None))
 
     def test_stats_gate_measures(self):
         # one landing with 3 cycle gates and 1 take gate: all gates 4.0, take gates 1.0 on separate labelled lines
@@ -478,7 +479,7 @@ class Counters(Land):
         git(wt, "merge", "-q", "--no-edit", "master")
         gate_log(git(wt, "rev-parse", "HEAD"))                       # the gate of the take (a merge commit)
         git(self.main, "merge", "-q", "--ff-only", "wt/x")
-        lines = relay_land.stats(self.main, None, None)
+        lines = relay_land_counters.stats(self.main, None, None)
         self.assertEqual(lines[0], "code landings on the default branch: 1")
         self.assertEqual(lines[1], "all gate logs per code landing: 4.0 (4 gate logs)")
         self.assertEqual(lines[2], "take gates per code landing: 1.0 (1 take gates)")
@@ -565,13 +566,13 @@ class ReviewFixes(Land):
         self.assertEqual(relay_land.blocking(self.main, "wt/x"), ["lib/a.py"])
 
     def test_f3_three_overlapping_landers_one_moment(self):
-        z, a, b = relay_land.Lander("wt/z", 1, 0, 0, None, 100), relay_land.Lander("wt/a", 2, 10, 101, None, 200), relay_land.Lander("wt/b", 3, 20, 201, None, 300)
+        z, a, b = relay_land_counters.Lander("wt/z", 1, 0, 0, None, 100), relay_land_counters.Lander("wt/a", 2, 10, 101, None, 200), relay_land_counters.Lander("wt/b", 3, 20, 201, None, 300)
         # at a's lock (101 s) b asked at 20 s and is not locked: one moment; at b's lock nobody waits; at z's nobody had asked
-        self.assertEqual([(m[0], m[1]) for m in relay_land.moments([z, a, b])], [("wt/a", 1)])
+        self.assertEqual([(m[0], m[1]) for m in relay_land_counters.moments([z, a, b])], [("wt/a", 1)])
         # pass case 2: two landers only, a asked while z held the lock: a moment is the lock passing to z's waiter, z locked first
-        self.assertEqual(relay_land.moments([z, a]), [])
+        self.assertEqual(relay_land_counters.moments([z, a]), [])
         # pass case 4: asked in the same second another locked: not waiting behind it
-        self.assertEqual(relay_land.moments([relay_land.Lander("wt/z", 1, 0, 5, None, 50), relay_land.Lander("wt/a", 2, 5, 51, None, 60)]), [])
+        self.assertEqual(relay_land_counters.moments([relay_land_counters.Lander("wt/z", 1, 0, 5, None, 50), relay_land_counters.Lander("wt/a", 2, 5, 51, None, 60)]), [])
 
     def test_f4_landing_closes_the_feature_item_not_the_fix(self):
         self.start()
@@ -633,6 +634,37 @@ class ReviewFixes(Land):
         self.assertEqual(result.code, 0, result.lines)
         self.assertTrue(any("cleanup" in l for l in result.lines), result.lines)
         self.assertEqual([e.outcome for e in self.done()], ["landed"])
+
+    def test_hook_path_is_the_repository_s_for_every_lib_copy(self):
+        # the inert probe imported plugins/front/lib/relay_land.py; its HOOK must still be <root>/plugins/relay/hooks/merge.py
+        import importlib.util
+        for copy in ("lib", os.path.join("plugins", "front", "lib"), os.path.join("plugins", "relay", "lib")):
+            spec = importlib.util.spec_from_file_location("relay_land_copy_test", os.path.join(ROOT, copy, "relay_land.py"))
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module      # a dataclass looks its module up here
+            try:
+                spec.loader.exec_module(module)
+            finally:
+                del sys.modules[spec.name]
+            self.assertEqual(os.path.realpath(module.HOOK), os.path.realpath(HOOK), copy)
+
+    def test_hook_path_without_a_merge_hook_is_absolute_and_names_where_it_was_expected(self):
+        # a copy of relay_land.py in a root that has no plugins/relay/hooks/merge.py: never the bare name "merge.py" (cwd-relative)
+        import importlib.util
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "lib"))
+            copy = os.path.join(tmp, "lib", "relay_land.py")
+            with open(os.path.join(ROOT, "lib", "relay_land.py"), encoding="utf-8") as src, open(copy, "w", encoding="utf-8") as dst:
+                dst.write(src.read())
+            spec = importlib.util.spec_from_file_location("relay_land_nohook_test", copy)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module
+            try:
+                spec.loader.exec_module(module)
+            finally:
+                del sys.modules[spec.name]
+            self.assertEqual(module.HOOK, os.path.join(os.path.realpath(tmp), "plugins", "relay", "hooks", "merge.py"))
 
     def test_f6_cleanup_failure_is_named(self):
         self.start()

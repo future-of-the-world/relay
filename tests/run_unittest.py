@@ -9,7 +9,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.dirname(HERE))  # names like tests.test_rules need the repo root
 
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "lib"))
+
 import leaked_gates
+import relay_tokens
 import tmp_default
 
 def run(names: list) -> int:
@@ -40,17 +43,26 @@ def run(names: list) -> int:
         shutil.rmtree(run_dir, ignore_errors=True)
 
 
+def run_held(names: list) -> int:
+    """`run` in this one process, on a test token: the base its holder passed down, else one shared token taken here (waiting)."""
+    base = relay_tokens.acquire_run_base(dict(os.environ), lambda line: print("tests: " + line, flush=True))
+    try:
+        return run(names)
+    finally:
+        base.held.release()
+
+
 def main(argv: list) -> int:
     """Names given: run them in this process. None: every library test, on RELAY_TEST_JOBS processes split by class
-    (tests/parallel_unittest.py); one job is the single process below."""
+    (tests/parallel_unittest.py); one job is the single process below. Every process runs on a token of the machine's pool."""
     if argv:
-        return run(argv)
+        return run_held(argv)
     import parallel_unittest
     jobs, note = parallel_unittest.jobs_setting(dict(os.environ))
     if jobs == 1:
         if note:
             print(note)
-        return run([])
+        return run_held([])
     return parallel_unittest.run()
 
 

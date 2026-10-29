@@ -44,10 +44,11 @@
   relay doctor [<dir>]               check-up of the machine, the rules, the ledger, and a project
   relay flows                        the task flows available and what each needs
   relay rules                        the catalogue of rules with gists
-  relay changed [-C <repo>] [--own] <sha> [<until>]
+  relay changed [-C <repo>] [--own] [--archive] <sha> [<until>]
                                      the files changed since <sha> (to <until>, default HEAD) that are not on the
                                      inert list (handover, queue and check files): what a check of a fix looks at;
-                                     --own leaves out the files only the default branch changed
+                                     --own leaves out the files only the default branch changed;
+                                     --archive also leaves out what a commit that only archives an OpenSpec change touches
   relay gate [-C <worktree>] [--paid] [--again] [-- <args>]
                                      run the project's quick (free) gate on the committed task branch and commit its log;
                                      --paid runs the full gate, paid evals included (bin/ci prints the estimate and the
@@ -108,6 +109,7 @@ import relay_gate  # noqa: E402
 import relay_git  # noqa: E402
 import relay_inert  # noqa: E402
 import relay_land  # noqa: E402
+import relay_land_counters  # noqa: E402
 import relay_lanes  # noqa: E402
 import relay_ledger  # noqa: E402
 import relay_precheck  # noqa: E402
@@ -567,8 +569,8 @@ def cmd_rules(args):
 
 
 def cmd_changed(args):
-    usage = "relay changed [-C <repo>] [--own] <sha> [<until>]"
-    repo, own, rest = ".", False, []
+    usage = "relay changed [-C <repo>] [--own] [--archive] <sha> [<until>]"
+    repo, own, archive, rest = ".", False, False, []
     args = list(args)
     while args:
         arg = args.pop(0)
@@ -576,6 +578,8 @@ def cmd_changed(args):
             repo = args.pop(0)
         elif arg == "--own":
             own = True
+        elif arg == "--archive":
+            archive = True
         elif arg.startswith("-"):
             raise Usage(usage)
         else:
@@ -584,7 +588,7 @@ def cmd_changed(args):
         raise Usage(usage)
     repo, until = os.path.realpath(repo), rest[1] if len(rest) == 2 else "HEAD"
     held = relay_inert.absorbed(repo, until) if own else None        # the ready changes a train holds are not its own files
-    for path in relay_inert.changed(repo, rest[0], until, own=own, absorbed=held):
+    for path in relay_inert.changed(repo, rest[0], until, own=own, archive=archive, absorbed=held):
         print(path)
     return 0
 
@@ -655,13 +659,18 @@ def cmd_land(args):
                 del args[i:i + 2]
         if args:
             raise Usage(usage)
-        print("\n".join(relay_land.stats(repo, window.get("since"), window.get("until"))))
+        print("\n".join(relay_land_counters.stats(repo, window.get("since"), window.get("until"))))
         return 0
     if len(args) != 1 or args[0].startswith("-"):
         raise Usage(usage)
     result = relay_land.land(repo, args[0], lambda line: print("land: " + line, file=sys.stderr, flush=True))
     print("\n".join(result.lines))
     return result.code
+
+
+def cmd_metrics(args):
+    import relay_metrics
+    return relay_metrics.main(args, os.getcwd())
 
 
 def cmd_precheck(args):
@@ -1092,7 +1101,7 @@ def cmd_license(args):
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "land": cmd_land, "precheck": cmd_precheck, "queue": cmd_queue, "license": cmd_license,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "land": cmd_land, "metrics": cmd_metrics, "precheck": cmd_precheck, "queue": cmd_queue, "license": cmd_license,
 }
 
 

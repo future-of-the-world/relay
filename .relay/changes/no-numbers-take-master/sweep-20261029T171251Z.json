@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1407,
+   "id": "ab4bf498109578e0b",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T01:55:03.330Z",
+   "stop": "2026-10-28T02:03:04.665Z"
+  },
+  {
+   "cost_usd": 0.0024,
+   "id": "a3a99a35000920710",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T02:03:07.383Z",
+   "stop": "2026-10-28T02:03:18.478Z"
+  },
+  {
+   "cost_usd": 0.0893,
+   "id": "a996c569b92cf1f7e",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-28T02:03:21.225Z",
+   "stop": "2026-10-28T02:03:59.193Z"
+  },
+  {
+   "cost_usd": 0.1075,
+   "id": "ae4f72d83c32755bc",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T02:05:09.797Z",
+   "stop": "2026-10-28T02:17:38.522Z"
+  },
+  {
+   "cost_usd": 0.004,
+   "id": "a41550d6a04a671e7",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T02:17:41.055Z",
+   "stop": "2026-10-28T02:35:26.397Z"
+  },
+  {
+   "cost_usd": 0.1336,
+   "id": "a462a363865681b37",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-28T02:35:29.057Z",
+   "stop": "2026-10-28T02:40:46.402Z"
+  },
+  {
+   "cost_usd": 0.0023,
+   "id": "aae4c4706d836d8df",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-28T02:40:49.532Z",
+   "stop": "2026-10-28T02:41:25.682Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "no-numbers-take-master"
+}

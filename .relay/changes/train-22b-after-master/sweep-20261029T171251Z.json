@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0036,
+   "id": "a4cd1aa4460d55f7b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-27T21:52:42.249Z",
+   "stop": "2026-10-27T22:01:41.173Z"
+  },
+  {
+   "cost_usd": 0.1322,
+   "id": "ae464095ccb55211f",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-27T22:01:44.014Z",
+   "stop": "2026-10-27T22:06:51.478Z"
+  },
+  {
+   "cost_usd": 0.0022,
+   "id": "a80d7b5e9487c19e2",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-27T22:06:54.391Z",
+   "stop": "2026-10-27T22:07:38.002Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "train-22b-after-master"
+}

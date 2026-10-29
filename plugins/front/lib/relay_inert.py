@@ -17,6 +17,7 @@ INERT = (
     "docs/handover.md",
     ".relay/queue/**",
     ".relay/checks/**",
+    ".relay/changes/**",
 )
 
 

@@ -25,10 +25,10 @@
     "plugins/relay/README.md:3",
     "docs/design.md:127-129"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-29T14:09:31Z",
+  "taken_by": "wt/a-test-still-exempts-the-old-plugins-cor",
+  "closed_at": "2026-10-29T15:14:53Z",
+  "test": "tests/test_hook_kit_name.py::test_old_core_folder_is_not_exempt",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

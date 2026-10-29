@@ -1,0 +1,427 @@
+{
+  "branch": "wt/gate-jobs-and-slots-follow-the-machine-s",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED (reproduced). settings() bounds per-gate by max(2, 2 x jobs) where jobs = jobs_from(environ), the calling",
+        "process's RELAY_TEST_JOBS; read_setting also clamps the DEFAULT into that bound. The token kinds are index ranges",
+        "computed by each process from its own Settings, so two processes on one machine can disagree on R. The design's",
+        "bound \"a slot holder always finds r of them not held as base (R = r x slots)\" needs every process to compute the same",
+        "R. RELAY_TEST_JOBS=1 is a documented setting (\"1 is the single process of run_unittest\"; settings table \"1: the run",
+        "never asks for extras\"). The same split drift happens with a per-gate file above 2 x jobs for any process whose",
+        "RELAY_TEST_JOBS is lower than the gate's. Size: 15."
+      ],
+      "evidence": [
+        "python3 settings for jobs 1..4 at 2 slots, 12 cpus:",
+        "  jobs 1 per_gate 2 R 4 shared range [4, 5, 6, 7, 8, 9, 10, 11]",
+        "  jobs 4 per_gate 4 R 8 shared range [8, 9, 10, 11]",
+        "Reproduction on a scratch RELAY_HOME (gate-slots/count 2): 4 shared held, gate A holds 4, then",
+        "  acquire_run_base({'RELAY_HOME':h,'RELAY_TEST_JOBS':'1'}) ->  token file: ['token-4']",
+        "  gate B after 3 s: still waiting"
+      ],
+      "failing_case": [
+        "Pool of 12 (2 slots, per-gate default 4, so gate tokens 0..7, shared 8..11). All 4 shared tokens are held by lane runs,",
+        "gate A holds tokens 0..3. A lane starts `RELAY_TEST_JOBS=1 python3 tests/run_unittest.py tests.test_x` (or pytest with",
+        "that variable set). Its settings clamp per-gate to 2 x 1 = 2, so for it R = 4 and token-4 is \"shared\": it takes token-4",
+        "as its base at once instead of waiting. Gate B, holding the second slot, then waits for token-4 until that lane run ends",
+        "(a lane pytest session: up to ~1600 s), not \"at most one class\" as design rule 1 promises.",
+        "Now: lane gets token-4 with no wait; gate B still waiting after 3 s.",
+        "Should: the lane waits for a shared token (8..11); gate B gets 4..7 at once."
+      ],
+      "fix_hint": [
+        "Make the split a machine-wide fact: bound per-gate by a constant (2 .. 2 x DEFAULT_JOBS, i.e. 2..8), not by the",
+        "caller's RELAY_TEST_JOBS, and drop the jobs argument from settings() for the partition (RELAY_TEST_JOBS stays the",
+        "per-run worker ceiling only). Add the pass-case tests to tests/test_relay_tokens.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 138,
+      "pass_cases": [
+        "- settings(home, 2, jobs=1, cpus=12) and settings(home, 2, jobs=4, cpus=12) give the same gate_tokens (8) when no per-gate file exists.",
+        "- With shared 8..11 held and gate tokens 0..3 held, acquire_run_base({\"RELAY_HOME\": h, \"RELAY_TEST_JOBS\": \"1\"}) waits (writes a shared waiter file) and takes no token below 8.",
+        "- With that same state, take_base(h, s, GATE, 4) returns 4 tokens within 1 s.",
+        "- per-gate file \"99\" still comes back clamped to the upper bound with a note (today 8), the same value for every process.",
+        "- per-gate file \"1\" still comes back as 2 with a note."
+      ],
+      "path": "lib/relay_tokens.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_relay_tokens.py test_the_split_does_not_depend_on_the_callers_jobs and test_a_run_with_one_job_waits_for_a_shared_token_and_leaves_gate_tokens pass; both fail at the pre-fix commit (4 != 8; no waiter)."
+      ],
+      "severity": "MEDIUM",
+      "since": "08436eb5d017153555f3545c5368c93defdc6fa4",
+      "source": "review-gate-jobs-and-slots-follow-the-machine-s.json",
+      "source_id": "F1",
+      "summary": "the gate/shared split depends on each process's RELAY_TEST_JOBS: a run with RELAY_TEST_JOBS=1 takes gate tokens 4..7 as its base",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. The only tests of the waiter rule (test_waiter_check_blocks_extras_of_its_kind,",
+        "test_dead_waiter_file_is_ignored) write the waiter file by hand; nothing checks that take_base writes it or that a",
+        "waiter actually wins over an extra loop. The behaviour can break unnoticed. Size: 15."
+      ],
+      "evidence": [
+        "Copied lib/ and tests/test_relay_tokens.py to a scratch folder, replaced the marker line with `pass`:",
+        "  python3 -m unittest tests.test_relay_tokens -> Ran 17 tests in 0.348s / OK"
+      ],
+      "failing_case": [
+        "Remove `open(marker, \"a\").close()` from relay_tokens.take_base (a waiter no longer registers, so extras keep taking the",
+        "token it waits for: the F3 starvation of design revision 1). Run python3 -m unittest tests.test_relay_tokens.",
+        "Now: Ran 17 tests ... OK. Should: at least one test fails, as the design requires (\"With the waiter check disabled this",
+        "test must fail (checked by the build)\") and the brief's Done-when lists (\"a released token reaches a waiter first\")."
+      ],
+      "fix_hint": [
+        "Add the waiter-wins test (two threads or a subprocess on a temporary RELAY_HOME, 2 shared tokens) and an assertion",
+        "that the waiting file exists during the wait."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 113,
+      "pass_cases": [
+        "- Pool of 2 shared tokens (count/per-gate files on a temporary RELAY_HOME); run A holds one base and keeps taking the other as an extra for 20 classes of about 1 s (a loop of try_extra / release, or a real parallel_unittest run); run B then calls take_base(SHARED, 1): B gets a token within 2 s, not after A ends.",
+        "- The same test with the marker line removed fails (the build shows it once).",
+        "- While take_base waits, a file test-tokens/waiting/shared-<pid>-<n> exists, and it is gone after take_base returns or raises.",
+        "- test_hand_run_waits_for_a_shared_token_and_says_so keeps passing."
+      ],
+      "path": "tests/test_relay_tokens.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_relay_tokens.py test_a_released_token_reaches_a_base_waiter_not_an_extra_loop passes; with take_base's open(marker) replaced by pass it fails."
+      ],
+      "severity": "MEDIUM",
+      "since": "08436eb5d017153555f3545c5368c93defdc6fa4",
+      "source": "review-gate-jobs-and-slots-follow-the-machine-s.json",
+      "source_id": "F2",
+      "summary": "no test shows a released token reaches a base waiter: the token tests stay green with take_base's waiter registration removed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the only token tests are unit tests of lib/relay_tokens.py; git grep finds no test touching",
+        "relay_gate's token step, relay_precheck.take_test_token, probe_share or the conftest hook. The design lists these as",
+        "its \"never\" claims with tests (gate within its quick limit, precheck budget never counts the wait, child of a holder",
+        "never takes a base). The behaviour is right today (traced), but the claims the change exists to keep are unguarded.",
+        "Size: 30."
+      ],
+      "evidence": [
+        "git grep -ln \"relay_tokens|RELAY_TEST_TOKENS|probe_share|take_test_token|test-tokens\" -> tests/conftest.py,",
+        "tests/run_unittest.py, tests/parallel_unittest.py, tests/test_relay_tokens.py, tests/test_gate.py (only the lib copy",
+        "loop), tests/test_precheck.py (only the lib copy loop)."
+      ],
+      "failing_case": [
+        "(a) Delete the take_base call and the RELAY_TEST_TOKENS export in relay_gate.run: the gate's command then starts with no",
+        "tokens held and its test runners take shared tokens of their own. No test fails (no test in tests/test_gate.py mentions",
+        "tokens).",
+        "(b) Change relay_precheck.check_changed_tests back to env=None: on a pool with one shared token the precheck holds it and",
+        "its run_unittest child waits for a second one until the 600 s budget ends (\"FAIL changed tests took longer\"): the F1",
+        "nested deadlock of revision 1. No test fails (tests/test_precheck.py runs on a default pool with 4 shared tokens).",
+        "Should: each of (a) and (b) turns a test red, as the brief's Done-when requires (\"no deadlock with nested runs\",",
+        "\"gates take tokens before their 30-minute clock\")."
+      ],
+      "fix_hint": [
+        "Add the gate cases to tests/test_gate.py (a stub command, temporary RELAY_HOME with small settings files), the precheck",
+        "cases to tests/test_precheck.py (the existing TestChangedTests fixture with a 1-shared-token pool), and probe_share",
+        "asserts to tests/test_parallel_unittest.py."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 163,
+      "pass_cases": [
+        "- Gate on a temporary RELAY_HOME (gate-slots/count 1, per-gate 2, count 3) whose command prints $RELAY_TEST_TOKENS and lists which token files are locked: it prints \"2@<realpath of RELAY_HOME/test-tokens>\" and tokens 0 and 1 are held while it runs, free after.",
+        "- Same gate while another process holds token 0 for 2 s: the log's third line is `wait <n>` with n >= 1.5, and the command's own start time is after the token was freed (the wait is outside the command).",
+        "- Precheck on a temporary RELAY_HOME with count 3, per-gate 2, gate-slots/count 1 (one shared token) and one changed test module: `changed tests` ends ok with no waiting line.",
+        "- Precheck on that pool while another process holds the one shared token for 3 s: the waiting line is printed once and the changed tests still end ok within their budget.",
+        "- parallel_unittest.probe_share(4, True) == 2, probe_share(4, False) == 2, probe_share(3, True) == 1, probe_share(1, True) == 1."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate.py test_f3_* and tests/test_precheck.py two pool tests pass; with the gate token step disabled both gate tests fail/error, with the precheck's hold_value pass-down removed both precheck tests fail. tests/test_parallel_unittest.py ProbeShare passes (coverage only, no mutation run)."
+      ],
+      "severity": "MEDIUM",
+      "since": "08436eb5d017153555f3545c5368c93defdc6fa4",
+      "source": "review-gate-jobs-and-slots-follow-the-machine-s.json",
+      "source_id": "F3",
+      "summary": "the gate's token step and the precheck's passed-down token have no test: removing either leaves every test green",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading relay_gate.run: settings/take_base/env export run unconditionally before Popen for any command.",
+        "The module docstring was edited to say \"relay does not police its processes\", which is a different reading than the",
+        "brief's. Holding tokens for a foreign gate has a real side: a foreign gate does load the machine, and its held tokens",
+        "keep relay runs from borrowing them; if the owner prefers that, the brief's line changes instead of the code (then",
+        "this is a Question). Size: 15 (decide \"relay's own\" by the gated worktree sharing relay's repository, e.g. its",
+        "git common dir equals the one of relay_gate's own checkout, or the command being relay's bin/ci)."
+      ],
+      "evidence": [
+        "lib/relay_gate.py:406-411 run for every gate; the docstring at lib/relay_gate.py:13-16.",
+        "Brief: \"relay adds nothing for foreign gate commands (no exported variable)\"."
+      ],
+      "failing_case": [
+        "A project other than relay (its own bin/ci, no relay test runners) runs `relay gate`. Now: the gate takes 4 gate tokens",
+        "it never uses and exports RELAY_TEST_TOKENS=4@<pool> into that project's command environment.",
+        "Should (brief, reading the owner's 29 Oct message): \"a project's own bin/ci decides what it checks and how parallel it",
+        "runs; relay adds nothing for foreign gate commands (no exported variable)... the existing machine-wide gate slots keep",
+        "bounding every project's gates as today.\""
+      ],
+      "fix_hint": [
+        "Take the tokens and export the variable only when the gated worktree is relay's own repository; foreign gates keep",
+        "the slot only, as before."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 411,
+      "pass_cases": [
+        "- relay gate in a temporary repo that is not relay (stub command printing ${RELAY_TEST_TOKENS-unset}): prints \"unset\"; no token file under $RELAY_HOME/test-tokens is locked while it runs; it still takes a gate slot.",
+        "- relay gate in a relay worktree (its bin/ci): the command gets RELAY_TEST_TOKENS=<per-gate>@<pool> and holds the gate tokens, as now.",
+        "- The log's `wait` line for the foreign gate holds the slot wait only."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate.py test_f4_a_projects_own_gate_takes_its_slot_only passes; with the lib/relay_tokens.py marker condition forced true it fails."
+      ],
+      "severity": "MEDIUM",
+      "since": "08436eb5d017153555f3545c5368c93defdc6fa4",
+      "source": "review-gate-jobs-and-slots-follow-the-machine-s.json",
+      "source_id": "F4",
+      "summary": "every gate, a foreign project's bin/ci included, takes 4 gate tokens and gets RELAY_TEST_TOKENS, against the brief's 'no exported variable' for foreign gate commands",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by computing settings(): (cpus, slots) -> total: (4,1) -> 5, shared 1; (2,1) -> 5, shared 1; (8,1) -> 8,",
+        "shared 4; (12,2) -> 12, shared 4. The design's worked table covers this Mac only (\"not measured\" elsewhere). Within",
+        "the owner's pick (a: N 12 / r 4 here), so a design note, not a defect today. Design: per-gate default fixed at 4 vs",
+        "scaled to the machine. Size: 15."
+      ],
+      "evidence": [
+        "python3 settings('/nonexistent', s, 4, c): 12,3 -> total 13; 8,2 -> 9; 4,1 -> 5; 2,1 -> 5 (shared = total - 4 x slots)."
+      ],
+      "failing_case": [
+        "4-CPU Linux VM (the owner is moving development to Linux VMs): default_slots = 1, per-gate 4, R = 4, count default 4",
+        "brought up to R + 1 = 5 with no note. Shared tokens: 1. Six lanes each running pytest or the precheck run one at a time;",
+        "a lane pytest session holds its token for its whole length; the 4 gate tokens stay idle whenever no gate runs (only",
+        "parallel_unittest borrows extras; pytest and the precheck never do). On 2 CPUs the pool is 5 tokens, 2.5 x the CPUs."
+      ],
+      "fix_hint": [
+        "Record the small-machine outcome in the design and the queue item's facts; measure on the first Linux VM."
+      ],
+      "id": "F5",
+      "kind": "design",
+      "line": 138,
+      "owner": [
+        {
+          "date": "2026-10-29",
+          "words": [
+            "\u0414\u043e\u043b\u044f \u0443\u043c\u0435\u043d\u044f\u0448\u0430\u0435\u0442\u0441\u044f \u0441 \u043c\u0430\u0448\u0438\u043d\u043e\u0439 (a: the gates' share shrinks with the machine; agents keep at least 2 tokens)"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "- The design states the default outcome on a 4-CPU machine (shared tokens and lanes at once) next to the 12-CPU row.",
+        "- If the owner picks a per-gate default scaled to CPUs: settings(home, 1, cpus=4) gives a shared share of at least 2."
+      ],
+      "path": "lib/relay_tokens.py",
+      "rank": "low",
+      "reason": [
+        "LOW; the owner said not wrong (recorded in the review); nothing to fix."
+      ],
+      "severity": "LOW",
+      "since": "08436eb5d017153555f3545c5368c93defdc6fa4",
+      "source": "review-gate-jobs-and-slots-follow-the-machine-s.json",
+      "source_id": "F5",
+      "summary": "on a machine of 4 CPUs or fewer the default pool leaves one shared token: every lane's pytest and precheck run one at a time while 4 gate tokens sit idle",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading relay_tokens.acquire_run_base (prints st.notes) and parallel_unittest._run (prints st.notes again",
+        "from the same Settings). Size: 5."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "$RELAY_HOME/test-tokens/count holds \"1000\". python3 tests/run_unittest.py (jobs 4): \"NOTE test tokens: ... outside ...\"",
+        "appears on stderr from acquire_run_base and again on stdout from _run. Should: once."
+      ],
+      "fix_hint": [
+        "Drop the loop in _run."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 306,
+      "pass_cases": [
+        "- count \"1000\", a parallel run: the note appears exactly once in the combined output.",
+        "- No settings file: no NOTE line."
+      ],
+      "path": "tests/parallel_unittest.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_parallel_unittest.py test_a_settings_note_is_printed_once and test_no_settings_file_no_note pass; the first fails at the pre-fix commit (2 != 1)."
+      ],
+      "severity": "LOW",
+      "since": "08436eb5d017153555f3545c5368c93defdc6fa4",
+      "source": "review-gate-jobs-and-slots-follow-the-machine-s.json",
+      "source_id": "F6",
+      "summary": "settings notes are printed twice by a parallel run: once on stderr by acquire_run_base, once on stdout by _run",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the lazy import in settings_for_run. Fragile, not wrong today. Size: 15 (move slot_count and",
+        "default_slots to a small module both relay_gate and relay_tokens import, or read gate-slots/count in relay_tokens)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A branch with a syntax error in lib/relay_marks.py (imported by relay_gate). Before: python3 tests/run_unittest.py ran",
+        "the tests and reported the failing ones. Now: acquire_run_base -> settings_for_run -> import relay_gate raises before",
+        "any test runs, and the precheck and the gate show an import traceback instead of the failing tests. The test fixtures",
+        "had to copy the whole lib (tests/test_gate.py:385, tests/test_precheck.py:204) for the same reason."
+      ],
+      "fix_hint": [
+        "Read the slot count without importing relay_gate."
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 266,
+      "pass_cases": [
+        "- A syntax error in lib/relay_marks.py: the token code still reads the slot count and the tests run.",
+        "- gate-slots/count \"3\": settings_for_run gives slots 3, as now."
+      ],
+      "path": "lib/relay_tokens.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_relay_tokens.py test_the_slot_count_is_read_without_importing_relay_gate and test_a_bad_slot_count_gives_the_default pass; the first fails at the pre-fix commit (import of relay_gate halted)."
+      ],
+      "severity": "LOW",
+      "since": "08436eb5d017153555f3545c5368c93defdc6fa4",
+      "source": "review-gate-jobs-and-slots-follow-the-machine-s.json",
+      "source_id": "F7",
+      "summary": "every test run now imports relay_gate and its chain of lib modules just to read the slot count: a broken lib module stops every test from running",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_gate.py came in from master (merge 1e82fecce485) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "Merge-brought change from master; gate green on head 106904c6 (exit 0) after the merge, and the fix commit sits on top of it."
+      ],
+      "severity": "MEDIUM",
+      "since": "1e82fecce485262884fd27cf6f7fe2d1db2328b2",
+      "source": "merge",
+      "summary": "lib/relay_gate.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/parallel_unittest.py came in from master (merge 6c7c46cbd8cb) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/parallel_unittest.py",
+      "rank": "medium",
+      "reason": [
+        "Same: gate green on the head after the merge; test_parallel_unittest passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "6c7c46cbd8cbdfcc30db720809fdf7e1b40926f9",
+      "source": "merge",
+      "summary": "tests/parallel_unittest.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_gate.py came in from master (merge 1e82fecce485) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "medium",
+      "reason": [
+        "Same: gate green on the head; test_gate (36) passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "1e82fecce485262884fd27cf6f7fe2d1db2328b2",
+      "source": "merge",
+      "summary": "tests/test_gate.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_parallel_unittest.py came in from master (merge 6c7c46cbd8cb) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_parallel_unittest.py",
+      "rank": "medium",
+      "reason": [
+        "Same: gate green on the head; test_parallel_unittest (25) passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "6c7c46cbd8cbdfcc30db720809fdf7e1b40926f9",
+      "source": "merge",
+      "summary": "tests/test_parallel_unittest.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_precheck.py came in from master (merge 1e82fecce485) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_precheck.py",
+      "rank": "medium",
+      "reason": [
+        "Same: gate green on the head; test_precheck (34) passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "1e82fecce485262884fd27cf6f7fe2d1db2328b2",
+      "source": "merge",
+      "summary": "tests/test_precheck.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "106904c61c96e3c4030b5a076e1b8adfd40ed6be.gate.log",
+  "head": "50b4da624bbc87371ac28ff179bcd9f90b4a44de",
+  "item": null,
+  "notes": [
+    "The fixer report was only one line (fixtures copy lib/*.py). Not checked beyond that: ProbeShare test (probe_share unchanged, test is coverage only, passes at base by design)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 08436eb5..HEAD (fix commit 106904c6; HEAD 50b4da62 adds only the gate log). Gate log starts with head 106904c6, ends exit 0; relay changed lists no file after it. Check command (relay precheck, then bin/relay precheck in the worktree) green. Ran test_relay_tokens (22), test_parallel_unittest (25), test_gate (36), test_precheck (34): all OK. Each new test run in a scratch worktree at 1e82fecc (pre-fix) or with the fix piece mutated out; scratch worktrees removed."
+  ],
+  "type": "check"
+}

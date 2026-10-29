@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2004,
+   "id": "a4f012b575243bf53",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-29T06:44:05.045Z",
+   "stop": "2026-10-29T06:45:20.313Z"
+  },
+  {
+   "cost_usd": 0.0039,
+   "id": "a33087195632094d4",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T06:45:23.417Z",
+   "stop": "2026-10-29T06:54:36.886Z"
+  },
+  {
+   "cost_usd": 0.594,
+   "id": "aa9b872768c416e5a",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-29T06:54:40.370Z",
+   "stop": "2026-10-29T06:57:01.758Z"
+  },
+  {
+   "cost_usd": 0.1847,
+   "id": "a89c9c4e62b8b0552",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-29T06:57:05.175Z",
+   "stop": "2026-10-29T06:58:23.668Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "ad3232f85862d72b7",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T06:58:26.981Z",
+   "stop": "2026-10-29T07:03:48.475Z"
+  },
+  {
+   "cost_usd": 0.1105,
+   "id": "ab2cb6ab4ea24faad",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-29T07:03:52.111Z",
+   "stop": "2026-10-29T07:05:00.057Z"
+  },
+  {
+   "cost_usd": 0.0021,
+   "id": "a6e00d2cfe1ceb822",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "close queue item",
+   "start": "2026-10-29T07:05:03.960Z",
+   "stop": "2026-10-29T07:05:15.202Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "the-cycle-s-gate-step-still-ends-with-no-result",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "the-cycle-s-gate-step-still-ends-with-no-result"
+}

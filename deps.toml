@@ -84,6 +84,15 @@ uv_tool = "ruff==0.13.3"
 why = "the gate's lint step"
 
 [[dep]]
+name = "coverage"
+command = "coverage"
+min = "7.17.0"
+exact = true
+version_arg = "--version"
+uv_tool = "coverage==7.17.0"
+why = "the gate's code coverage line"
+
+[[dep]]
 name = "mypy"
 command = "mypy"
 min = "1.18.2"

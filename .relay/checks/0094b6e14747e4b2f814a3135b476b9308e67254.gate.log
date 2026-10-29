@@ -1,0 +1,20 @@
+head 0094b6e14747e4b2f814a3135b476b9308e67254
+cmd bin/ci --quick
+wait 448.1
+ci: types and lint ok (1s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (485s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_branch_without_test_changes_and_a_green_registry_is_clean (test_precheck.TestChangedTests.test_a_branch_without_test_changes_and_a_green_registry_is_clean)
+    AssertionError: Lists differ: ['FAIL changed tests (python3 tests/run_un[339 chars]ns'"] != []
+    'FAIL changed tests (python3 tests/run_unittest.py tests.test_rules_gate.RuleTestsComplete):'
+    - ['FAIL changed tests (python3 tests/run_unittest.py '
+    -  "    ModuleNotFoundError: No module named 'relay_tokens'"]
+    FAIL: test_a_changed_test_importing_a_module_the_gate_lacks_is_red (test_precheck.TestChangedTests.test_a_changed_test_importing_a_module_the_gate_lacks_is_red)
+    AssertionError: 'not_installed_anywhere_xyz' not found in 'FAIL changed tests (python3 tests/run_unittest.py tests.test_rules_gate.RuleTestsComplete):\n    Traceback (most recent call last):\n      File "/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-twp73m0o/precheck-test-9wuc69sk/tests/run_unittest.py", line 15, in <module>\n        import relay_tokens\n    ModuleNotFoundError: No module named \'relay_tokens\'\nFAIL changed tests (python3 tests/run_unittest.py tests.test_new):\n    Traceback (most recent call last):\n      File "/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-twp73m0o/precheck-test-9wuc69sk/tests/run_unittest.py", line 15, in <module>\n        import relay_tokens\n    ModuleNotFoundError: No module named \'relay_tokens\''
+    FAIL: test_a_changed_test_slower_than_the_other_steps_budget_is_green (test_precheck.TestChangedTests.test_a_changed_test_slower_than_the_other_steps_budget_is_green)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (59s)
+ci: RED
+exit 1

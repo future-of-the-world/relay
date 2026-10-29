@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0844,
+   "id": "ad15bd28e54137bb5",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-29T02:40:04.115Z",
+   "stop": "2026-10-29T02:46:49.218Z"
+  },
+  {
+   "cost_usd": 0.0056,
+   "id": "adb4a4837c0c5d37d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T02:46:58.059Z",
+   "stop": "2026-10-29T03:13:31.211Z"
+  },
+  {
+   "cost_usd": 0.1625,
+   "id": "a41acd97ed2d25506",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-29T03:13:34.346Z",
+   "stop": "2026-10-29T03:18:12.923Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "fix-test-scaffolding-n1"
+}

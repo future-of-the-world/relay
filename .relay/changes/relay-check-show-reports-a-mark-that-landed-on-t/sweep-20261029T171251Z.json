@@ -1,0 +1,111 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2186,
+   "id": "a00a6e204811dd185",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-28T09:18:45.288Z",
+   "stop": "2026-10-28T09:24:08.114Z"
+  },
+  {
+   "cost_usd": 0.0026,
+   "id": "aa57a3f37ad436461",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T09:24:11.500Z",
+   "stop": "2026-10-28T09:24:25.437Z"
+  },
+  {
+   "cost_usd": 0.1247,
+   "id": "a915bcbfab9a00a66",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-28T09:24:28.200Z",
+   "stop": "2026-10-28T09:47:34.220Z"
+  },
+  {
+   "cost_usd": 0.0038,
+   "id": "a0791f5ea3693e773",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T09:47:37.072Z",
+   "stop": "2026-10-28T10:02:45.646Z"
+  },
+  {
+   "cost_usd": 0.9506,
+   "id": "ad44913c1d62cbc11",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 22,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-28T10:02:49.892Z",
+   "stop": "2026-10-28T10:12:26.818Z"
+  },
+  {
+   "cost_usd": 0.2459,
+   "id": "a36a79e91729237d1",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T10:12:30.559Z",
+   "stop": "2026-10-28T10:25:43.435Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a2dd19e84a36a01e8",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T10:42:51.221Z",
+   "stop": "2026-10-28T10:43:05.397Z"
+  },
+  {
+   "cost_usd": 0.1013,
+   "id": "a41836b7e447868e7",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-28T10:43:08.862Z",
+   "stop": "2026-10-28T10:46:09.835Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a0ea56e5c7ad9ee92",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "close queue item",
+   "start": "2026-10-28T10:46:14.392Z",
+   "stop": "2026-10-28T10:46:33.655Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "relay-check-show-reports-a-mark-that-landed-on-t",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "relay-check-show-reports-a-mark-that-landed-on-t"
+}

@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.5799,
+   "id": "ab29e77bc1a5ff938",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 32,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-28T02:40:58.960Z",
+   "stop": "2026-10-28T02:52:02.999Z"
+  },
+  {
+   "cost_usd": 2.3236,
+   "id": "ad715cfcbe9a4cf55",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 35,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design review",
+   "start": "2026-10-28T02:52:05.815Z",
+   "stop": "2026-10-28T03:01:20.762Z"
+  },
+  {
+   "cost_usd": 3.3897,
+   "id": "a9c612ef619ec7b6a",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design revise",
+   "start": "2026-10-28T03:01:23.796Z",
+   "stop": "2026-10-28T03:11:38.814Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "cadence-release-2"
+}

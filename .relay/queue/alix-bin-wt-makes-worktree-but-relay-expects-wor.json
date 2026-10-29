@@ -22,10 +22,10 @@
     "plugins/relay/hooks/guard-main.sh relay's guard hooks (the worktree folder they expect)",
     "kit.toml [project] worktrees, ALIX's bin/wt (read only)"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-29T15:34:44Z",
+  "taken_by": "wt/alix-bin-wt-makes-worktree-but-relay-exp",
+  "closed_at": "2026-10-29T16:16:39Z",
+  "test": "tests/test_hook_guard_main.py::Guard::test_the_cd_guard_knows_a_worktree_of_any_folder",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
@@ -46,6 +46,12 @@
       "edited": "where",
       "fact": [
         "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    },
+    {
+      "at": "2026-10-29T15:35:12Z",
+      "fact": [
+        "Reproduced 29 Oct: /Users/amidman/alix/bin/wt line 5 creates .worktree/<name>; ALIX has no .claude/kit.toml. relay's guard finds the session's checkout through git (plugins/relay/hooks/guard_main.py:214-218), but its write check defaults the worktree folder to .worktrees (:202, :231) and exempts only that folder (:256-258), so writes in .worktree/x are refused (:290). Session-start detection is not affected."
       ]
     }
   ]

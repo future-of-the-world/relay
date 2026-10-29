@@ -1,0 +1,100 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.3291,
+   "id": "aaa054c503ccaaad4",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 19,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-27T22:49:17.929Z",
+   "stop": "2026-10-27T22:58:44.288Z"
+  },
+  {
+   "cost_usd": 0.0036,
+   "id": "a652685fe3bf74bd2",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-27T22:58:48.140Z",
+   "stop": "2026-10-27T23:12:13.711Z"
+  },
+  {
+   "cost_usd": 1.0041,
+   "id": "a2064f266b9ca515e",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 16,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-27T23:12:16.465Z",
+   "stop": "2026-10-27T23:16:37.015Z"
+  },
+  {
+   "cost_usd": 0.3226,
+   "id": "aeb6f37ecd40edde8",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-27T23:16:39.929Z",
+   "stop": "2026-10-27T23:25:32.523Z"
+  },
+  {
+   "cost_usd": 0.0036,
+   "id": "a207faba7895ec51c",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-27T23:25:35.214Z",
+   "stop": "2026-10-27T23:35:35.039Z"
+  },
+  {
+   "cost_usd": 0.1522,
+   "id": "a3a28effe02fc86e0",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-27T23:35:37.503Z",
+   "stop": "2026-10-27T23:39:35.966Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "aede02d1043dc163e",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "close queue item",
+   "start": "2026-10-27T23:39:38.942Z",
+   "stop": "2026-10-27T23:39:55.616Z"
+  },
+  {
+   "cost_usd": 0.0017,
+   "id": "a314371cb36c7953c",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-27T23:39:58.138Z",
+   "stop": "2026-10-27T23:40:29.039Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "evidence"
+}

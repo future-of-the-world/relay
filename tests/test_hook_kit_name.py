@@ -3,6 +3,7 @@ Claude Code puts a plugin's bin/ on the Bash tool's PATH AFTER the user's own en
 would silently take over every agent's `kit` call. This test fails when one exists, and says what to do."""
 import filecmp
 import os
+import tempfile
 import unittest
 
 from hook_helpers import ROOT, SoftCases
@@ -13,13 +14,22 @@ OURS = os.path.join(ROOT, "plugins", "relay", "bin", "kit")
 def is_ours(candidate: str) -> bool:
     """Is it a copy of this plugin's bin/kit (this checkout, another checkout or worktree of it, an install)?"""
     real = os.path.realpath(candidate)
-    # plugins/core/bin/kit is this plugin under its pre-rename folder name (a checkout from before the rename may still be on PATH)
-    if real.endswith(("/plugins/relay/bin/kit", "/plugins/core/bin/kit")):
+    if real.endswith("/plugins/relay/bin/kit"):
         return True
     return filecmp.cmp(candidate, OURS, shallow=False)
 
 
 class KitName(SoftCases):
+    def test_old_core_folder_is_not_exempt(self) -> None:
+        # a kit under the pre-rename folder plugins/core/bin differs in path and (here) in content, so it is another kit
+        with tempfile.TemporaryDirectory() as tmp:
+            old = os.path.join(tmp, "plugins", "core", "bin")
+            os.makedirs(old)
+            fake = os.path.join(old, "kit")
+            with open(fake, "w") as handle:
+                handle.write("#!/bin/sh\necho other\n")
+            self.assertFalse(is_ours(fake))
+
     def test_no_other_kit_on_path(self) -> None:
         for directory in os.environ.get("PATH", "").split(os.pathsep):
             candidate = os.path.join(directory, "kit")

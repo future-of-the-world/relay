@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1337,
+   "id": "ab379d4344818ab5c",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T15:24:14.428Z",
+   "stop": "2026-10-28T15:25:35.847Z"
+  },
+  {
+   "cost_usd": 0.006,
+   "id": "ad4f97f87d7fb680b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T15:25:40.970Z",
+   "stop": "2026-10-28T15:51:49.857Z"
+  },
+  {
+   "cost_usd": 0.099,
+   "id": "a560a10c23bc8e146",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-28T15:51:58.240Z",
+   "stop": "2026-10-28T15:56:36.849Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "stub-guard-layout"
+}
