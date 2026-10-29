@@ -13,7 +13,7 @@ import leaked_gates
 import tmp_default
 
 def run(names: list) -> int:
-    """Run the tests with TMPDIR in a folder of this run's own; a `relay gate` still living under it afterwards is a leak:
+    """Run the tests with TMPDIR in a folder of this run's own; any process (a `relay gate`, a script, a sleep) still living under it afterwards is a leak:
     it is stopped with its command, named, and the step fails."""
     run_dir = os.path.realpath(tempfile.mkdtemp(prefix="relay-run-"))
     saved = os.environ.get("TMPDIR")
@@ -24,9 +24,12 @@ def run(names: list) -> int:
         argv = ["unittest", *names] if names else ["unittest", "discover", "-s", HERE, "-p", "test_*.py"]
         program = unittest.main(module=None, argv=argv, exit=False)
         code = 0 if program.result.wasSuccessful() else 1
-        leaked = leaked_gates.stop(run_dir)
+        notes: list = []
+        leaked = leaked_gates.stop(run_dir, notes)
+        for note in notes:
+            print("NOTE leak scan: " + note)
         for pid, command in leaked:
-            print("FAIL leaked gate: pid %d was still running after the tests, in a temporary folder of the run (stopped): %s" % (pid, command))
+            print("FAIL leaked process: pid %d was still running after the tests, in a temporary folder of the run (stopped): %s" % (pid, command))
         return 1 if leaked else code
     finally:
         if saved is None:

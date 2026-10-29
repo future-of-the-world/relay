@@ -5,13 +5,14 @@ import os
 import signal
 import subprocess
 import time
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 STOP_GRACE = 10.0  # seconds a gate has to end its command after SIGTERM before it is killed
 
 
-def _cwds() -> Dict[int, str]:
-    """pid -> resolved working folder of every process we can read: /proc where it exists, else one `lsof` call for all."""
+def _cwds() -> Optional[Dict[int, str]]:
+    """pid -> resolved working folder of every process we can read: /proc where it exists, else one `lsof` call for all.
+    None when lsof could not run or timed out: "nobody is there" and "could not look" differ."""
     found: Dict[int, str] = {}
     if os.path.isdir("/proc/self"):
         for name in os.listdir("/proc"):
@@ -24,7 +25,7 @@ def _cwds() -> Dict[int, str]:
     try:
         out = subprocess.run(["lsof", "-a", "-d", "cwd", "-Fpn"], capture_output=True, text=True, timeout=60).stdout
     except (OSError, subprocess.SubprocessError):
-        return found
+        return None
     pid = 0
     for line in out.splitlines():
         if line.startswith("p") and line[1:].isdigit():
@@ -50,14 +51,22 @@ def _ancestors() -> Set[int]:
     return chain
 
 
-def find(folder: str) -> List[Tuple[int, str]]:
+CWD_SKIPPED = "the working-folder scan did not run (lsof failed or timed out): only processes naming the run folder in their command were looked for"
+
+
+def find(folder: str, notes: Optional[List[str]] = None) -> List[Tuple[int, str]]:
     """(pid, command) of every running process other than this one and its parents that runs from `folder`: its working
     folder is `folder` or lies under it, or its command line names a path under it (a gate, or any script or sleep the
-    test left behind)."""
+    test left behind). When the working-folder half could not run, CWD_SKIPPED is appended to `notes`."""
     root = os.path.realpath(folder)
     out = subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=30).stdout
     skip = _ancestors()
-    cwds = _cwds()
+    scanned = _cwds()
+    if scanned is None:
+        if notes is not None:
+            notes.append(CWD_SKIPPED)
+        scanned = {}
+    cwds = scanned
     found = []
     for line in out.splitlines():
         pid_text, _, command = line.strip().partition(" ")
@@ -69,10 +78,10 @@ def find(folder: str) -> List[Tuple[int, str]]:
     return found
 
 
-def stop(folder: str) -> List[Tuple[int, str]]:
-    """Stop the leaked gates under `folder`: SIGTERM (the gate ends its command's group and frees its slot), SIGKILL if
+def stop(folder: str, notes: Optional[List[str]] = None) -> List[Tuple[int, str]]:
+    """Stop the leaked processes (a gate, its command, a script or sleep) under `folder`: SIGTERM (the gate ends its command's group and frees its slot), SIGKILL if
     it is still there after STOP_GRACE. Returns the ones found."""
-    found = find(folder)
+    found = find(folder, notes)
     for pid, _ in found:
         try:
             os.kill(pid, signal.SIGTERM)
