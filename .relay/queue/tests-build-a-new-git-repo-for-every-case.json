@@ -16,7 +16,7 @@
   ],
   "failing_kind": "run",
   "pass_cases": [
-    "The same tests pass with the repository built once per class; their git starts and wall time are measured before and after."
+    "The same tests pass with a template repository built once per class and a private copy of it made for each test (a file copy, no git calls), so a test that writes never shares a repository with another; their git starts and wall time are measured before and after."
   ],
   "where": [
     "tests/test_guard_test_name.py",
@@ -34,6 +34,13 @@
       "at": "2026-10-29T11:23:16Z",
       "said": [
         "Тесты создают репозиторий один раз на группу тестов, а не на каждый тест - но это поможет только если команды читают, если они пишут то мы получим конфликты, разве нет ?"
+      ]
+    },
+    {
+      "at": "2026-10-29T11:23:17Z",
+      "edited": "pass_cases",
+      "fact": [
+        "Edited pass_cases: 29 Oct, owner: a shared repository only helps tests that read; tests that write would collide. Measured by the front the same day at load 30: building a 5-commit template takes 252 ms (18 git calls); a plain file copy of it 18 ms per test, an APFS clone (cp -c) 27 ms; a commit in a copy works and leaves the template untouched."
       ]
     }
   ]
