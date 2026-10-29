@@ -79,6 +79,16 @@
       "fact": [
         "29 Oct, design revision 6 of speed-up-the-quick-gate, measured: the container's input is one stripped commit (no parent, tree without docs/handover.md, .relay/queue, .relay/checks, fixed author, date and message), byte-identical for a change and for it plus inert commits (82fe5e66 both times), 0.37 s to make, 1.28 MB bundle over standard input; 6 tests read three pinned old commits that travel in the bundle by a list in the tree, 3 need a default branch and move to temporary repositories. Mount lists exact: 22 on Docker, 26 on podman; only lo up. podman machine 6 CPUs, 2 GiB: two gates at once took 419 and 423 s, peaks 668 and 652 MiB, no out-of-memory kill; slots follow the engine machine's CPUs."
       ]
+    },
+    {
+      "asked_at": "2026-10-29T07:48:47Z",
+      "question": [
+        "Остаётся ли короткий период, когда Mac и контейнер проверяют рядом, прежде чем решать начнёт контейнер? 27 Oct решено: 3 волны подряд совпадения с Mac. Теперь период ловит другое: тест, позеленевший на Linux потому, что его ослабили, и поломки только для Mac, пока вы на Mac. Цена: около 1.5 дня (10 волн за 5 дней), машина podman берёт 6 из 12 ядер, вероятно больше flaky на Mac (не замерено)."
+      ],
+      "options": [
+        "a. Три волны рядом, около 1.5 дня (рекомендация)",
+        "b. Без периода: контейнер решает с первого зелёного прогона"
+      ]
     }
   ]
 }
