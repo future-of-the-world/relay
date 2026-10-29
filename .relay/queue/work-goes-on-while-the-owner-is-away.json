@@ -27,6 +27,17 @@
       "said": [
         "Сейчас ты ждал моего ответа 3 часа, ведь я отошел поспать, все это время никакой полезной работы не было выполнено, как мы можем исправить ситуацию"
       ]
+    },
+    {
+      "asked_at": "2026-10-29T21:42:17Z",
+      "question": [
+        "**Which review questions are decided without you**",
+        "After a change is built an independent reviewer reads it; a choice it thinks is yours becomes a question and the change waits. On 29 Oct four waited through the night: three already followed from your principles, the fourth was a scope cut (document the squash limit now, file the redesign as an item). Over 5 days 2 of your answers went against the recommendation; under either option those would become fix items after the merge."
+      ],
+      "options": [
+        "a. Principles and reversible scope cuts: 4 of 4 that night would not have waited",
+        "b. Principles only: a scope cut still waits for you; 3 of 4 would not have waited"
+      ]
     }
   ]
 }
