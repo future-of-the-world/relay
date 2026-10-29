@@ -1,0 +1,160 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1511,
+   "id": "a2c0ba698e9de9ffd",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T17:19:31.746Z",
+   "stop": "2026-10-29T17:21:01.795Z"
+  },
+  {
+   "cost_usd": 0.0052,
+   "id": "af1c3a47b3e222982",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T17:21:04.558Z",
+   "stop": "2026-10-29T17:37:19.842Z"
+  },
+  {
+   "cost_usd": 0.1019,
+   "id": "af2204206fe6d5bef",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-29T17:37:23.797Z",
+   "stop": "2026-10-29T17:38:08.531Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "aeff1102e98e12131",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T17:38:11.231Z",
+   "stop": "2026-10-29T17:47:53.437Z"
+  },
+  {
+   "cost_usd": 0.7947,
+   "id": "a356da287c7c809c7",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T17:47:59.430Z",
+   "stop": "2026-10-29T17:50:43.866Z"
+  },
+  {
+   "cost_usd": 0.2826,
+   "id": "af9bcdf6e2aa12690",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 19,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T17:50:46.977Z",
+   "stop": "2026-10-29T17:53:45.171Z"
+  },
+  {
+   "cost_usd": 0.003,
+   "id": "a958a3baac031dda7",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T17:53:47.763Z",
+   "stop": "2026-10-29T18:01:50.229Z"
+  },
+  {
+   "cost_usd": 0.1444,
+   "id": "ad04a22a16b8b5696",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T18:01:52.885Z",
+   "stop": "2026-10-29T18:03:01.172Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "aee096c6e3aebe7da",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T18:03:03.837Z",
+   "stop": "2026-10-29T18:03:11.322Z"
+  },
+  {
+   "cost_usd": 0.0028,
+   "id": "aee096c6e3aebe7da",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T18:03:03.837Z",
+   "stop": "2026-10-29T18:03:13.566Z"
+  },
+  {
+   "cost_usd": 0.0019,
+   "id": "aeef37617e6661545",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-29T18:03:16.169Z",
+   "stop": "2026-10-29T18:03:26.414Z"
+  }
+ ],
+ "before": "ac3036ada2b7c7060d8a2c64e051352814cf1876",
+ "branch": "wt/the-checker-s-file-list-relay-changed-ow",
+ "head": "0b8f5424ad18bdc37baf70abda8f20b6cf24eb09",
+ "item": "the-checker-s-file-list-relay-changed-own-has-no",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T09:34:29+00:00",
+   "file": "bin/relay",
+   "holder": "gates-and-tests-stop-what-an-earlier-test-left-r",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-29T09:56:21+00:00",
+   "file": "bin/relay",
+   "holder": "wt/each-change-records-its-stage-times-cost",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-29T18:22:05+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-29T18:22:05+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-29T18:22:30+00:00",
+   "gate_seconds": 0.0,
+   "gates_run": 0,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "the-checker-s-file-list-relay-changed-own-has-no"
+}

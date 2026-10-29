@@ -27,8 +27,8 @@
   ],
   "taken_at": "2026-10-29T17:19:06Z",
   "taken_by": "wt/the-checker-s-file-list-relay-changed-ow",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T18:03:09Z",
+  "test": "tests/test_archive_inert.py::ChangedArchiveFlag::test_an_archive_only_commit_lists_nothing_with_the_flag",
   "dropped_at": null,
   "dropped_why": null
 }
