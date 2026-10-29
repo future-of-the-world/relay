@@ -1,7 +1,8 @@
 # A clean Linux image for relay's quick gate: the pinned python and the tools of deps.toml, no relay or Claude settings.
 # Build from the repository root, run the gate on a fresh clone (nothing of the host is mounted):
 #   podman build -f container/Containerfile -t relay-clean-gate .
-#   podman run --rm -v "$PWD:/src:ro" relay-clean-gate sh -c 'git clone -q /src /work/relay && cd /work/relay && git checkout -q <commit> && bin/ci --quick'
+#   git clone -q --no-hardlinks . /tmp/gate-src && git -C /tmp/gate-src checkout -q <commit>   # a worktree's .git file points outside the mount
+#   podman run --rm -v /tmp/gate-src:/src:ro relay-clean-gate sh -c 'git clone -q /src /work/relay && cd /work/relay && bin/ci --quick'
 # The python tag must equal the python3 pin in deps.toml (bin/ci refuses another python3).
 FROM docker.io/library/python:3.14.6-slim
 # git, bash, curl, unzip: what the installers need; procps: ps, which a slim image lacks (deps.toml lists it)
