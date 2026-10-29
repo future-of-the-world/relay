@@ -172,11 +172,17 @@ class Note(NamedTuple):
     answer: list = []            # the owner's whole reply, every explanation included
     reading: list = []           # the front's reading of the answer, always shown as the front's
     edited: str = ""             # a fact note written by `relay queue edit`: the field it edited (data, not prose); "" for the others
+    decided_by: str = ""         # a decision an agent took itself (one of DECIDERS); "" for a question the owner was asked
+    chosen: str = ""             # the letter the agent chose; set exactly when decided_by is
+    because: list = []           # the agent's reason; set exactly when decided_by is
+    answer_choice: str = ""      # the letter the owner's answer carries, "" when it carries none
 
 
+DECIDERS = ("front",)       # who may record a decision of their own; a reviewer's decisions live in the check record
 NOTE_ONE_OF = {"said", "fact", "question"}
 NOTE_KEYS = {"said": ("at", "said"), "fact": ("at", "fact", "edited"),
-             "question": ("asked_at", "number", "question", "options", "answered_at", "answer", "reading")}
+             "question": ("asked_at", "number", "question", "options", "decided_by", "chosen", "because", "answered_at", "answer",
+                          "answer_choice", "reading")}
 
 
 def note_dict(note: Note) -> dict:
@@ -191,8 +197,12 @@ def note_dict(note: Note) -> dict:
     if note.number:
         out["number"] = note.number         # only a question recorded with a number keeps it
     out.update(question=list(note.text), options=list(note.options))
+    if note.decided_by:
+        out.update(decided_by=note.decided_by, chosen=note.chosen, because=list(note.because))
     if note.answered_at:
         out.update(answered_at=note.answered_at, answer=list(note.answer))
+        if note.answer_choice:
+            out["answer_choice"] = note.answer_choice
         if note.reading:
             out["reading"] = list(note.reading)
     return out
@@ -247,10 +257,24 @@ def parse_note(raw: object) -> tuple:
             problems.append("answer is not a non-empty list of lines")
     if "reading" in raw and ("answer" not in raw or not _nonblank(reading)):
         problems.append("reading needs an answer and is a non-empty list of lines")
+    letters = [chr(97 + n) for n in range(len(options))] if isinstance(options, list) else []
+    deciding = [k for k in ("decided_by", "chosen", "because") if k in raw]
+    if deciding and len(deciding) != 3:
+        problems.append("decided_by, chosen and because go together; missing " + ", ".join(k for k in ("decided_by", "chosen", "because") if k not in raw))
+    elif deciding:
+        if raw["decided_by"] not in DECIDERS:
+            problems.append("decided_by is one of: " + ", ".join(DECIDERS))
+        if raw["chosen"] not in letters:
+            problems.append("chosen is not the letter of one of the options")
+        if not _nonblank(raw["because"]):
+            problems.append("because is not a non-empty list of lines")
+    if "answer_choice" in raw and ("answer" not in raw or raw["answer_choice"] not in letters):
+        problems.append("answer_choice needs an answer and is the letter of one of the options")
     if problems:
         return None, problems
     return Note("decision", raw["asked_at"], list(raw["question"]), number, list(options), answered,
-                list(answer or []), list(reading or [])), []
+                list(answer or []), list(reading or []), "", raw.get("decided_by", ""), raw.get("chosen", ""),
+                list(raw.get("because") or []), raw.get("answer_choice", "")), []
 
 
 def notes_problems(data: dict) -> list:
@@ -1674,6 +1698,21 @@ def refuse_session_paths(done: str, **fields: object) -> None:
 
 # ---------------------------------------------------------------- notes: the command, the search, the view
 
+def decision_errors(fields: dict) -> list:
+    """Why the decision keys of a question input (`chosen`, `decided_by`, `because`) are wrong, [] when they are right or absent. The one
+    rule of the `note` input and of `note`."""
+    keys = ("chosen", "decided_by", "because")
+    if not any(k in fields for k in keys):
+        return []
+    errors = [f"a decision you took needs `{k}` as well (chosen, decided_by and because go together)" for k in keys if k not in fields]
+    if "decided_by" in fields and fields["decided_by"] not in DECIDERS:
+        errors.append("decided_by is one of: " + ", ".join(DECIDERS) +
+                      ("; a reviewer's decisions live in the check record, not in the queue" if fields["decided_by"] == "reviewer" else ""))
+    if "chosen" in fields and not (isinstance(fields["chosen"], str) and len(fields["chosen"]) == 1 and fields["chosen"].isalpha()):
+        errors.append("`chosen` is the letter of one option, like \"a\"")
+    return errors
+
+
 def read_note_input(path: str) -> dict:
     """The values of a `relay queue note` TOML input: lines for the text keys, `to` and `at` as they are. Refused, with the
     next step, for an unknown key, no kind, two kinds, or a key that does not go with the kind."""
@@ -1681,7 +1720,7 @@ def read_note_input(path: str) -> dict:
         raw = relay_verdict.read_input(path, "noted")
     except relay_verdict.VerdictError as exc:
         raise Refused(str(exc))
-    allowed = ("said", "fact", "question", "options", "answer", "to", "reading", "at")
+    allowed = ("said", "fact", "question", "options", "answer", "to", "reading", "at", "chosen", "decided_by", "because")
     problems = relay_verdict.table_errors(raw, "in the input", allowed, ())
     if problems:
         raise Refused("nothing noted: " + "; ".join(problems))
@@ -1690,15 +1729,23 @@ def read_note_input(path: str) -> dict:
         raise Refused("nothing noted: the input has " + (f"both `{kinds[0]}` and `{kinds[1]}`" if kinds else "none of `said`, `fact`, `question`, `answer`") +
                       "; a note is one of said (the owner's words), fact (a measurement), question (with options) or answer")
     kind = kinds[0]
-    extra = {"question": ("options",), "answer": ("to", "reading")}
-    for key in ("options", "to", "reading"):
+    extra = {"question": ("options", "chosen", "decided_by", "because"), "answer": ("to", "reading", "chosen")}
+    for key in ("options", "to", "reading", "chosen", "decided_by", "because"):
         if key in raw and key not in extra.get(kind, ()):
             raise Refused(f"nothing noted: `{key}` does not go with `{kind}`" + ("; it belongs to a question" if key in extra["question"] else "; it belongs to an answer"))
     if kind == "question" and "options" not in raw:
         raise Refused("nothing noted: a question needs `options` (the lettered lines as you will show them)")
     out: dict = {"kind": kind}
     errors: list = []
-    for key in ("said", "fact", "question", "options", "answer", "reading"):
+    if kind == "question":
+        errors += decision_errors(raw)
+        out.update({k: raw[k] for k in ("chosen", "decided_by") if k in raw})
+    elif kind == "answer" and "chosen" in raw:
+        letters = [raw["chosen"]] if isinstance(raw["chosen"], str) else raw["chosen"]
+        if not (isinstance(letters, list) and letters and all(isinstance(x, str) and len(x) == 1 and x.isalpha() and x.islower() for x in letters)):
+            errors.append("`chosen` is a list of letters, one per question answered, like [\"a\"]")
+        out["chosen"] = letters
+    for key in ("said", "fact", "question", "options", "answer", "reading", "because"):
         if key in raw:
             out[key] = relay_verdict.as_lines(raw[key], key, "in the input", errors)
     if "to" in raw:
@@ -1732,7 +1779,15 @@ def question_block(note: Note) -> str:
     return "\n".join(list(note.text) + list(note.options))
 
 
-def _waiting(notes: list) -> list:
+def owner_waiting(notes: list) -> list:
+    """The questions the owner was asked and has not answered. A decision an agent took is not among them: nobody waits for the owner
+    on it. Used by the reminder hook and by `relay lanes` (the startable list and `lanes start`)."""
+    return [n for n in notes if n.kind == "decision" and n.answered_at is None and not n.decided_by]
+
+
+def answerable(notes: list) -> list:
+    """The questions an owner answer can still land on: unanswered, decided by an agent or not. Used by the answer path, so the owner
+    can reverse a decision."""
     return [n for n in notes if n.kind == "decision" and n.answered_at is None]
 
 
@@ -1740,7 +1795,9 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
     """Append a note to item `slug` (any state), or fill the waiting question(s) with the owner's answer. `fields` is `read_note_input`'s
     result. Never edits an earlier note. Returns the landing line, and for a question the block to paste into the reply."""
     kind = fields["kind"]
-    refuse_session_paths("noted", **{k: fields[k] for k in ("fact", "question", "options", "reading") if k in fields})
+    if kind == "question" and decision_errors(fields):
+        raise Refused("nothing noted: " + "; ".join(decision_errors(fields)))
+    refuse_session_paths("noted", **{k: fields[k] for k in ("fact", "question", "options", "reading", "because") if k in fields})
     stamp = now or utcnow()
 
     def planner(reader):
@@ -1759,19 +1816,29 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
         if kind in ("said", "fact"):
             new = Note(kind, when, list(fields[kind]))
         elif kind == "question":
-            if any(w.at == when for w in _waiting(notes)):
+            if any(w.at == when for w in answerable(notes)):
                 raise Refused(f"nothing noted: {slug} already has a question asked at {when} waiting for an answer, and an answer names its "
                               "question by that time; add `at` one second later")
-            new = Note("decision", when, list(fields["question"]), 0, list(fields["options"]))
+            if "decided_by" in fields:
+                asked = Note("decision", when, list(fields["question"]), 0, list(fields["options"]))
+                if fields["chosen"] not in [chr(97 + n) for n in range(len(asked.options))]:
+                    raise Refused(f"nothing noted: chosen '{fields['chosen']}' is not one of the options")
+                same = next((w for w in owner_waiting(notes) if question_title(w) == question_title(asked)), None)
+                if same:
+                    raise Refused(f"nothing noted: the owner was already asked '{question_title(same)}' (asked {same.at}) and has not answered; "
+                                  "an agent does not decide a question the owner was asked")
+                new = asked._replace(decided_by=fields["decided_by"], chosen=fields["chosen"], because=list(fields["because"]))
+            else:
+                new = Note("decision", when, list(fields["question"]), 0, list(fields["options"]))
         else:
-            waiting = _waiting(notes)
+            waiting = answerable(notes)
             targets = fields.get("to")
             if not waiting:
                 raise Refused(f"nothing noted: {slug} has no question waiting; record the question first, or keep these words as `said`")
-            named = " and ".join(f"'{question_title(w)}' (asked {w.at})" for w in waiting)
+            named = " and ".join(f"'{question_title(w)}' (" + ("decided " if w.decided_by else "asked ") + f"{w.at})" for w in waiting)
             if targets is None:
-                if len(waiting) > 1:
-                    raise Refused(f"nothing noted: {slug} waits on questions {named}; add `to = [\"<asked time>\"]` naming the one(s) this answers")
+                if len(waiting) > 1 or waiting[0].decided_by:
+                    raise Refused(f"nothing noted: {slug} " + ("can take this answer on" if any(w.decided_by for w in waiting) else "waits on questions") + f" {named}; add `to = [\"<asked time>\"]` naming the one(s) this answers")
                 targets = [waiting[0].at]
             for target in targets:
                 hit = next((w for w in waiting if w.at == target), None)
@@ -1779,7 +1846,17 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
                     raise Refused(f"nothing noted: no question asked at {target} is waiting on {slug}; waiting: {named}")
                 if when < hit.at:
                     raise Refused(f"nothing noted: `at` {when} is before the question '{question_title(hit)}' was asked ({hit.at})")
-            notes = [n._replace(answered_at=when, answer=list(fields["answer"]), reading=list(fields.get("reading") or []))
+            letters = fields.get("chosen")
+            if letters is not None:
+                if len(letters) != len(targets):
+                    raise Refused(f"nothing noted: `chosen` is one letter per question answered ({len(targets)}), in the order of `to`; got {len(letters)}")
+                for target, letter in zip(targets, letters):
+                    hit = next(w for w in waiting if w.at == target)
+                    if letter not in [chr(97 + n) for n in range(len(hit.options))]:
+                        raise Refused(f"nothing noted: chosen '{letter}' is not one of the options of '{question_title(hit)}'")
+            letter_of = dict(zip(targets, letters or []))
+            notes = [n._replace(answered_at=when, answer=list(fields["answer"]), reading=list(fields.get("reading") or []),
+                                answer_choice=letter_of.get(n.at, ""))
                      if n in waiting and n.at in targets else n for n in notes]
             return Plan(slug, {_path(slug): serialize(slug, changed(item, notes=notes))}, "answer to " + ", ".join(f"'{question_title(n)}'" for n in notes if n.kind == "decision" and n.at in targets), "noted")
         position = len([n for n in notes if n.at <= when])
@@ -1788,7 +1865,9 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
 
     plan, sha = _land(repo, planner, **engine)
     text = _result(plan, sha, _context(repo)[1])
-    if kind == "question":
+    if kind == "question" and "decided_by" in fields:
+        text += f"\nDecided by {fields['decided_by']} at {fields.get('at') or stamp}: {fields['chosen']}; the owner reverses it by an answer with `to = [\"{fields.get('at') or stamp}\"]`. Nothing to show the owner as a question."
+    elif kind == "question":
         text += f"\nAsked at {fields.get('at') or stamp}; an answer to it names that time in `to`.\nShow the owner exactly this:\n" + question_block(Note("decision", "", fields["question"], 0, fields["options"]))
     return text
 
@@ -2066,15 +2145,28 @@ def notes_text(item: dict, tz: Optional[dt.tzinfo] = None) -> list:
             else:
                 out += ["    " + x for x in n.text]
             continue
-        out.append(f"  {when} question '{question_title(n)}', asked {n.at}:")
+        if n.decided_by:
+            out.append(f"  {when} decided by the {n.decided_by} (an agent; owner can reverse) '{question_title(n)}', at {n.at}:")
+        else:
+            out.append(f"  {when} question '{question_title(n)}', asked {n.at}:")
         out += ["    " + x for x in n.text] + ["    - " + x for x in n.options]
+        if n.decided_by:
+            out += [f"    chosen: {n.chosen}", "    because: " + n.because[0]] + ["    " + x for x in n.because[1:]]
         if n.answered_at is None:
-            out.append("    not answered yet")
+            if not n.decided_by:
+                out.append("    not answered yet")
             continue
-        out.append(f"  {_local(n.answered_at, tz)} the owner answered '{question_title(n)}' asked {n.at} (whole reply):")
+        out.append(f"  {_local(n.answered_at, tz)} the owner answered '{question_title(n)}' " + ("decided" if n.decided_by else "asked") + f" {n.at} (whole reply):")
         out += _quoted(n.answer)
         if n.reading:
             out += ["    front's reading (owner can reverse): " + n.reading[0]] + ["    " + x for x in n.reading[1:]]
+        if n.answer_choice:
+            if n.decided_by and n.answer_choice == n.chosen:
+                out.append("    confirmed by the owner")
+            elif n.decided_by:
+                out.append(f"    owner chose {n.answer_choice}: overrules the {n.decided_by}'s {n.chosen}")
+            else:
+                out.append(f"    owner chose {n.answer_choice}")
     return ["Notes:"] + out if out else []
 
 
@@ -2098,7 +2190,7 @@ def waiting_lines(cwd: str, days: int, limit: int, now: Optional[str] = None) ->
             if blob is None:
                 continue
             item = parse(os.path.basename(path)[:-5], blob.decode("utf-8", "replace"))
-            for n in _waiting(notes_of(item)) if not item["problems"] else []:
+            for n in owner_waiting(notes_of(item)) if not item["problems"] else []:
                 age = current - dt.datetime.strptime(n.at, "%Y-%m-%dT%H:%M:%SZ")
                 if age <= dt.timedelta(days=days):
                     waiting.append((n.at, item["slug"], n, age))

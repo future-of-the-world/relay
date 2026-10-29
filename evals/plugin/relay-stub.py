@@ -56,16 +56,32 @@ def notes_text(item: dict) -> list[str]:
             out.append(f"  {local(n['at'])} " + ("the owner said:" if kind == "said" else "fact (front):"))
             out += quoted(n[kind]) if kind == "said" else ["    " + x for x in n[kind]]
             continue
-        out.append(f"  {local(n['asked_at'])} question '{question_title(n)}', asked {n['asked_at']}:")
+        decided = n.get("decided_by", "")
+        if decided:
+            out.append(f"  {local(n['asked_at'])} decided by the {decided} (an agent; owner can reverse) '{question_title(n)}', at {n['asked_at']}:")
+        else:
+            out.append(f"  {local(n['asked_at'])} question '{question_title(n)}', asked {n['asked_at']}:")
         out += ["    " + x for x in n["question"]] + ["    - " + x for x in n["options"]]
+        if decided:
+            because = n["because"]
+            out += [f"    chosen: {n['chosen']}", "    because: " + because[0]] + ["    " + x for x in because[1:]]
         if not n.get("answered_at"):
-            out.append("    not answered yet")
+            if not decided:
+                out.append("    not answered yet")
             continue
-        out.append(f"  {local(n['answered_at'])} the owner answered '{question_title(n)}' asked {n['asked_at']} (whole reply):")
+        out.append(f"  {local(n['answered_at'])} the owner answered '{question_title(n)}' " + ("decided" if decided else "asked") + f" {n['asked_at']} (whole reply):")
         out += quoted(n["answer"])
         reading = n.get("reading") or []
         if reading:
             out += ["    front's reading (owner can reverse): " + reading[0]] + ["    " + x for x in reading[1:]]
+        letter = n.get("answer_choice", "")
+        if letter:
+            if decided and letter == n["chosen"]:
+                out.append("    confirmed by the owner")
+            elif decided:
+                out.append(f"    owner chose {letter}: overrules the {decided}'s {n['chosen']}")
+            else:
+                out.append(f"    owner chose {letter}")
     return ["Notes:"] + out if out else []
 
 
