@@ -28,8 +28,10 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null,
+  "dropped_at": "2026-10-29T22:46:13Z",
+  "dropped_why": [
+    "Owner, 30 Oct: \"Хорошо сними пункт\" (answer a: the load is machine-wide, not the tests' folders; it ends with the move to Linux)."
+  ],
   "notes": [
     {
       "at": "2026-10-29T22:44:25Z",
