@@ -22,8 +22,8 @@
   "where": [
     "plugins/delegate/workflows/cycle.js (ask)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T23:01:35Z",
+  "taken_by": "wt/a-dead-workflow-agent-leaves-no-error-te",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
