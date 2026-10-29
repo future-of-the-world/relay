@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 30,
+  "found_at": "2026-10-29T02:20:29Z",
+  "found_in": "relay queue add",
+  "title": "Tests leave temp worktrees registered in the live repo",
+  "what": [
+    "Find the tests that add worktrees of the live repository under $TMPDIR (git worktree list in the main checkout shows tmp.*/wt and tmp*/wt entries) and make them use a copy of the repo, or remove their worktree in cleanup even when the test fails; prune the 11 registrations left today."
+  ],
+  "why": [
+    "29 Oct 06:12: 11 detached temp worktrees registered in the main checkout, 8 of them 3-5 days old. Each shows up in relay doctor and git worktree list, and a test that registers worktrees in the live repo breaks the rule that tests never touch live state. Found by the leaked-processes design review. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "29 Oct 06:12: `git -C ~/relay worktree list` lists 11 detached entries under the system temp folder ($TMPDIR)."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "After a full test run, git worktree list in the main checkout shows no entry under $TMPDIR."
+  ],
+  "where": [
+    "tests/ (tests that run git worktree add against the live repository)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
