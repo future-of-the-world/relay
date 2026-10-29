@@ -46,6 +46,13 @@
       "options": [
         "a. Drop the item: it ends with the move to Linux; nothing changes on the Mac",
         "b. Try moving every lane's worktree to a no-log disk on the Mac (about 60 agent minutes, changes where relay puts worktrees)"
+      ],
+      "answered_at": "2026-10-29T22:45:55Z",
+      "answer": [
+        "Хорошо сними пункт, когда ты отвечаешь на вопрос самостоятельно - делаешь ли ты пометку об этом в задаче, есть ли там пометка о том что выбор сделал именно ты ?"
+      ],
+      "reading": [
+        "a: drop the item; it ends with the move to Linux."
       ]
     }
   ]
