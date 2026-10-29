@@ -94,6 +94,14 @@ def load_bindings(root: str) -> dict[str, Any]:
     return read_toml(path)
 
 
+def worktrees_folder(main: str) -> str:
+    """The folder that holds the task worktrees: project.worktrees of kit.toml, default .worktrees.
+    A relative value is under main; an absolute value stays where it is."""
+    value = get(load_bindings(main), "project.worktrees")
+    folder = value.rstrip("/") if isinstance(value, str) else ""
+    return os.path.normpath(os.path.join(main, folder or ".worktrees"))
+
+
 def get(cfg: Any, dotted: str, default: Any = None) -> Any:
     value = cfg
     for part in dotted.split("."):
