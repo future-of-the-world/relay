@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 80,
+  "time": 30,
+  "found_at": "2026-10-29T15:40:03Z",
+  "found_in": "finding F8 of design-alix-bin-wt-review.json",
+  "title": "Relay's lane start hardcodes <main>/.worktrees/<name>, so…",
+  "what": [
+    "lib/relay_lanes.py:487: MEDIUM: F8 relay's lane start hardcodes <main>/.worktrees/<name>, so a lane in ALIX makes an unignored folder in its main checkout"
+  ],
+  "why": [
+    "29 Oct, design review of the ALIX worktree-folder fix: outside that change. A relay lane started in ALIX would create an unignored .worktrees/ folder in its main checkout instead of using bin/wt. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A lane started for ALIX: worktree = os.path.join(main, \".worktrees\", name). ALIX ignores only /.worktree/, so its main",
+    "checkout shows \"?? .worktrees/\", and bin/wt's deps link and alixbase config are skipped. Expected: the project's",
+    "folder (project.worktrees or derived) or its gate.wt."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. Project with project.worktrees = \".worktree\": lane worktree at <main>/.worktree/<name>.",
+    "2. relay itself (.worktrees): unchanged."
+  ],
+  "where": [
+    "lib/relay_lanes.py:487"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

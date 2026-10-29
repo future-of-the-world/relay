@@ -1,0 +1,183 @@
+{
+  "branch": "wt/relay-s-own-doctor-is-red-no-bin-check-n",
+  "findings": [
+    {
+      "details": [
+        "Found 26 Oct by the design of setup-turns-off-for-a-project-the-plugins-it-doe: relay's doctor shows FIX for \"gate.check exists\" and \"gate.wt exists\" (relay has no bin/check and no bin/wt; bin/ci does not follow the check-script contract). Seen the same day: a brief named bin/check and the worker found none. IP chosen by the front (agent-chosen).",
+        "Also: .claude/kit.toml relay's own bindings"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`relay doctor` in /Users/amidman/relay on 26 Oct lists FIX lines \"gate.check exists\" and \"gate.wt exists\"."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "relay doctor on relay lists no FIX for gate.check or gate.wt; the quiet check runs the named test files and exits non-zero on a failure."
+      ],
+      "path": "bin/check",
+      "rank": "high",
+      "reason": [
+        "tests/test_own_gate_scripts.py::test_scripts_exist_and_run passes; fails on base e390adb (no bin/check, bin/wt)."
+      ],
+      "severity": "HIGH",
+      "since": "e390adb3834448758f3bcf9ffd505d15117e140b",
+      "source": "queue",
+      "summary": "relay's own doctor is red: no bin/check, no bin/wt",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running a copy of bin/check in a throwaway repo (evidence). Lines 24-37: any first argument other",
+        "than --tests is taken as the task form, and TEST_FILES then comes from the environment (normally empty), so pytest",
+        "gets no file and collects everything. Relay has no openspec/ folder, so the task form can never name a real task;",
+        "the only form relay can serve is --tests, and the others must refuse. Reachable: kit_packet_rules.md tells a worker",
+        "to \"Loop on the quiet check (gate.check; when it takes a change and a task, run it for yours ...)\", and the queue",
+        "item's own Why records a brief that named bin/check; a worker that now finds bin/check and calls it bare or with a",
+        "slug and a task waits 5 minutes for a HUNG and spends a round. The time for the whole suite under one pytest",
+        "process is not measured (only the gate's parallel 607 s), so HUNG is PLAUSIBLE; the wrong form handling is CONFIRMED.",
+        "Size: 15 agent minutes (an argument check before KEY, two tests in tests/test_own_gate_scripts.py)."
+      ],
+      "evidence": [
+        "$ cd <tmp repo with bin/check, test_x.py, test_y.py>; bin/check; echo rc=$?",
+        "1 failed, 1 passed in 0.01s",
+        "FAILED at tests (round 1 of 3; log: .ci/check/task-tests.log)",
+        "rc bare=1",
+        "$ bin/check nochange 9.9",
+        "1 failed, 1 passed in 0.01s",
+        "FAILED at tests (round 1 of 3; log: .ci/check/task-9.9.log)",
+        "rc task=1",
+        "$ ls <worktree>/openspec -> No such file or directory",
+        ".relay/checks/87f2434c...gate.log: \"ci: library tests ok (607s)\""
+      ],
+      "failing_case": [
+        "In a repo holding relay's bin/check, test_x.py (passes) and test_y.py (fails):",
+        "  bin/check                -> runs both files, \"FAILED at tests (round 1 of 3; log: .ci/check/task-tests.log)\", exit 1",
+        "  bin/check nochange 9.9   -> runs both files, \"FAILED at tests (... task-9.9.log)\", exit 1",
+        "  bin/check --tests        -> pytest with no file: the whole suite",
+        "In relay itself each of these is `pytest -q -x` over all 154 test files in one process (the gate needs 607 s in",
+        "parallel), bounded by CHECK_TIMEOUT 300 s: a HUNG line after 5 minutes, counted as a failed round.",
+        "Should: exit 2 with a usage line and run nothing (README \"The check-script contract\", Behaviour 2: \"2 for a usage",
+        "error, an unknown change or task, or a task with no Check: command; nothing was run\")."
+      ],
+      "fix_hint": [
+        "Before KEY is set: if ARGS[:1] != [\"--tests\"] or not [a for a in ARGS[1:] if a != \"--failed\"]: print",
+        "\"usage: bin/check --tests <file>... [--failed] (relay has no OpenSpec tasks)\" to stderr and sys.exit(2).",
+        "Add the bare and no-file cases to tests/test_own_gate_scripts.py (exit 2, no .ci/check/*.log)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 24,
+      "pass_cases": [
+        "1. bin/check (no arguments) -> exit 2, a usage line naming `bin/check --tests <file>... [--failed]`, no .ci/check/*.log written, no pytest run.",
+        "2. bin/check --tests (no file) -> exit 2, usage line, nothing run.",
+        "3. bin/check some-change 1.1 (relay has no openspec/changes) -> exit 2, a line saying relay's check takes --tests <file>... (or \"no change 'some-change'\"), nothing run.",
+        "4. bin/check --tests test_x.py (passing) -> exit 0, \"passed (...)\" (today's behaviour, keep).",
+        "5. bin/check --tests test_y.py (failing) -> exit 1, \"FAILED at tests (round 1 of 3; ...)\" (today's behaviour, keep)."
+      ],
+      "path": "bin/check",
+      "rank": "medium",
+      "reason": [
+        "tests/test_own_gate_scripts.py:46 test_usage_errors_run_nothing passes, fails on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "25f40be0629a424ba9d457c9b7a969fcf70bac66",
+      "source": "review-relay-s-own-doctor-is-red-no-bin-check-n.json",
+      "source_id": "F1",
+      "summary": "bin/check with no arguments or with <change> <task> runs every test instead of exiting 2 (contract: usage error), so in relay it runs the whole suite and ends HUNG after 300 s",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Rule label: Python, \"Every new or changed function has types.\" (CLAUDE.local.md). The rule sets no severity; the",
+        "code is correct today, so LOW, cheap to fix in this change. The same untyped lines are in templates/bin-check,",
+        "which this change did not touch. CONFIRMED by reading. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "$ grep -n 'def ' bin/check",
+        "57:def bound(cmd: list, log_handle) -> int:",
+        "65:    def forward(signum, frame):  # bin/check itself stopped: take the step down with it"
+      ],
+      "failing_case": [
+        "bin/check:57 `def bound(cmd: list, log_handle) -> int:` and bin/check:65 `def forward(signum, frame):` have untyped",
+        "parameters and no return type; the project's rule says \"Every new or changed function has types\". bin/check is new",
+        "in this change."
+      ],
+      "fix_hint": [
+        "Add the annotations above; no behaviour change."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 57,
+      "pass_cases": [
+        "1. bound is declared with cmd: list[str] and log_handle: typing.BinaryIO (or IO[bytes]) and -> int.",
+        "2. forward is declared with signum: int, frame: types.FrameType | None and -> NoReturn (or None).",
+        "3. run_step's cmd is list[str]; tests/test_own_gate_scripts.py still passes (3 tests)."
+      ],
+      "path": "bin/check",
+      "rank": "low",
+      "reason": [
+        "annotations added in bin/check (bound, forward, run_step); types-lint precheck green."
+      ],
+      "severity": "LOW",
+      "since": "25f40be0629a424ba9d457c9b7a969fcf70bac66",
+      "source": "review-relay-s-own-doctor-is-red-no-bin-check-n.json",
+      "source_id": "F2",
+      "summary": "new functions in bin/check lack types (log_handle, forward's signum/frame and return), against the project's Python rule",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (not run: mypy is missing on this machine, doctor shows \"FIX mypy 1.18.2\", so bin/types-lint would fail",
+        "here today). Relay's gate runs bin/types-lint first (1 s). Adding it makes the quick check match the contract and",
+        "the gate's first step; the cost is that bin/check then needs mypy installed, which doctor already asks for. LOW:",
+        "the gate still catches the error, one round later. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        ".relay/checks/87f2434c...gate.log: \"ci: types and lint ok (1s)\" is the gate's first step.",
+        "bin/check:104 run_step(\"tests\", [\"pytest\", \"-q\", \"-x\", *TEST_FILES]) is the only step."
+      ],
+      "failing_case": [
+        "A fixer adds a function with an unused import (ruff F401) or a type error in a strict module, then runs",
+        "bin/check --tests tests/test_x.py -> \"passed\"; the gate's first step \"ci: types and lint\" then fails.",
+        "README contract: \"--tests <file>...: review-fix mode: the quick steps, then these test files\"."
+      ],
+      "fix_hint": [
+        "run_step(\"types and lint\", [os.path.join(ROOT, \"bin\", \"types-lint\")]) before the tests step (or record in the comment",
+        "that relay's check is tests only, by choice)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 104,
+      "pass_cases": [
+        "1. bin/check --tests <passing file> with an unused import added to lib/relay_x.py -> exit 1, \"FAILED at types and lint\".",
+        "2. bin/check --tests <passing file> on a clean tree -> exit 0, \"passed\".",
+        "3. bin/check --tests <failing file> on a clean tree -> exit 1, \"FAILED at tests\"."
+      ],
+      "path": "bin/check",
+      "rank": "low",
+      "reason": [
+        "tests/test_own_gate_scripts.py:54 and :59 pass; fail on base."
+      ],
+      "severity": "LOW",
+      "since": "25f40be0629a424ba9d457c9b7a969fcf70bac66",
+      "source": "review-relay-s-own-doctor-is-red-no-bin-check-n.json",
+      "source_id": "F3",
+      "summary": "--tests runs only the test files, not the quick steps (types and lint) the contract names, so a fixer's green check can still fail the gate's types-and-lint step",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "20d5e529efc133dbfecbbeb3435251e9863235e4.gate.log",
+  "head": "a0445762836e8d6caf78803e3b7ff74cfffb8ce6",
+  "item": "relay-s-own-doctor-is-red-no-bin-check-no-bin-wt",
+  "notes": [
+    "Tests run against base e390adb: all fail (bin/check absent), so fail-without-fix holds."
+  ],
+  "schema": 2,
+  "scope": [
+    "Ran tests/test_own_gate_scripts.py (6 pass); precheck both green; gate log head 20d5e52 exit 0, HEAD only adds gate commit. Files changed: bin/check, bin/wt, test file only."
+  ],
+  "type": "check"
+}
