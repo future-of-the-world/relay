@@ -65,6 +65,12 @@
       "fact": [
         "29 Oct, front, correction to the note of ~16:30: that prechecks take no gate slot and that each run sizes its workers for the whole machine is a front assumption, not measured; the build measures it first."
       ]
+    },
+    {
+      "at": "2026-10-29T11:36:01Z",
+      "fact": [
+        "29 Oct, design revision 2 (thinker, critic, revision) from 608 gate logs of 27-29 Oct: a second gate at once added only 5-20% more gates per hour; median library-test time of a gate running alone 404 s. Modelled under the afternoon load (2 gates plus 5 agents' test runs): a pool of 12 tokens with 4 kept per gate gives about 808 s per gate (a 5th agent's run waits); 12 with 2 per gate about 923 s (no agent waits); 8 with 2 per gate about 1616 s, at the 30-min limit. Critic: nested token takes deadlock unless a child runs on its parent's token (fixed in revision 2). Not measured: slowdown at 12 processes, how often 5+ agent runs coincide."
+      ]
     }
   ]
 }
