@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 70,
+  "time": 20,
+  "found_at": "2026-10-29T16:51:49Z",
+  "found_in": "finding F4 of review-relay-s-lane-start-hardcodes-main-worktr.json",
+  "title": "The guard joins an absolute project.worktrees onto the…",
+  "what": [
+    "plugins/relay/hooks/guard_main.py:231: LOW: F4 the guard joins an absolute project.worktrees onto the main checkout (main + \"/\" + \"/Users/x/wt\")"
+  ],
+  "why": [
+    "29 Oct, review of the lane-start worktree-folder fix, outside that change: an absolute project.worktrees setting is joined onto the main checkout by the guard. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "kit.toml worktrees = \"/Users/x/wt\": Guard.wtdir = \"/Users/x/wt\"; wtroot compares paths against \"<main>//Users/x/wt\", which never matches, and the advice prints \"git worktree add /Users/x/wt/<name>\" (right) while the extra-folder check is dead.",
+    "Expected: the extra folder is /Users/x/wt itself."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. worktrees = \"/abs/wts\": a write to /abs/wts/a/f.py is inside a task worktree (also true today through git's worktree list when a is registered).",
+    "2. worktrees = \".worktrees\": a write to <main>/.worktrees/a/f.py is inside a task worktree (unchanged)."
+  ],
+  "where": [
+    "plugins/relay/hooks/guard_main.py:231"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

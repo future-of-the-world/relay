@@ -1,0 +1,35 @@
+{
+  "kind": "fix",
+  "ip": 75,
+  "time": 30,
+  "found_at": "2026-10-29T16:51:49Z",
+  "found_in": "finding F3 of review-relay-s-lane-start-hardcodes-main-worktr.json",
+  "title": "Cost attribution finds a change only under .worktrees/…",
+  "what": [
+    "lib/relay_estimate.py:19: MEDIUM: F3 cost attribution finds a change only under .worktrees/, so lane agents in a .worktree project (ALIX) count for no change"
+  ],
+  "why": [
+    "29 Oct, review of the lane-start worktree-folder fix, outside that change: the worktree-folder rule lives in several copies; cost attribution misses ALIX's lanes. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "An agent of an ALIX lane works in /x/alix/.worktree/fx/lib, or its brief says \"Worktree: /x/alix/.worktree/fx (branch wt/fx)\".",
+    "Now: relay_estimate.worktree_of('/x/alix/.worktree/fx/lib') -> None; change_of('/x/alix', 'Worktree: /x/alix/.worktree/fx (branch wt/fx)') -> None; queue_ext/estimate.repo_top keeps the worktree as the repo.",
+    "Expected: \"fx\", as for '/x/relay/.worktrees/fx/lib' (-> \"fx\" today)."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. worktree_of('/x/alix/.worktree/fx/lib') with the project's folder \".worktree\" -> \"fx\".",
+    "2. change_of('/x/alix', 'Worktree: /x/alix/.worktree/fx (branch wt/fx)', root='/x/alix') with kit.toml \".worktree\" -> \"fx\".",
+    "3. worktree_of('/x/relay/.worktrees/fx/lib') -> \"fx\" (unchanged).",
+    "4. repo_top('/x/alix/.worktree/fx') -> '/x/alix'."
+  ],
+  "where": [
+    "lib/relay_estimate.py:19"
+  ],
+  "taken_at": "2026-10-29T16:52:00Z",
+  "taken_by": "wt/cost-attribution-finds-a-change-only-und",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
