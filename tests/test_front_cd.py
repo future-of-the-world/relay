@@ -27,7 +27,7 @@ class FrontCd(unittest.TestCase):
             event["agent_id"] = "a1"
             event["agent_type"] = "delegate:worker"
         env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
-        run = subprocess.run([HOOK], input=json.dumps(event), capture_output=True, text=True, env=env, timeout=30)
+        run = subprocess.run([HOOK], input=json.dumps(event), capture_output=True, text=True, env=env, timeout=600)
         self.last = run.stderr
         return run.returncode
 

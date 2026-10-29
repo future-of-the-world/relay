@@ -67,6 +67,67 @@
         "",
         "По поводу адаптивного числа проверок машины - да, заведи отдельную задачу"
       ]
+    },
+    {
+      "at": "2026-10-29T06:45:05Z",
+      "said": [
+        "По поводу песочницы - мы можем использовать саму песочницу Linux, если запускаемся на ней, по поводу мультиплатформенности - в моих планах полностью переехать на Linux для разработки, тесты для Mac будут редки и только для релиза на Mac"
+      ]
+    },
+    {
+      "at": "2026-10-29T07:48:46Z",
+      "fact": [
+        "29 Oct, design revision 6 of speed-up-the-quick-gate, measured: the container's input is one stripped commit (no parent, tree without docs/handover.md, .relay/queue, .relay/checks, fixed author, date and message), byte-identical for a change and for it plus inert commits (82fe5e66 both times), 0.37 s to make, 1.28 MB bundle over standard input; 6 tests read three pinned old commits that travel in the bundle by a list in the tree, 3 need a default branch and move to temporary repositories. Mount lists exact: 22 on Docker, 26 on podman; only lo up. podman machine 6 CPUs, 2 GiB: two gates at once took 419 and 423 s, peaks 668 and 652 MiB, no out-of-memory kill; slots follow the engine machine's CPUs."
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T07:48:47Z",
+      "question": [
+        "Остаётся ли короткий период, когда Mac и контейнер проверяют рядом, прежде чем решать начнёт контейнер? 27 Oct решено: 3 волны подряд совпадения с Mac. Теперь период ловит другое: тест, позеленевший на Linux потому, что его ослабили, и поломки только для Mac, пока вы на Mac. Цена: около 1.5 дня (10 волн за 5 дней), машина podman берёт 6 из 12 ядер, вероятно больше flaky на Mac (не замерено)."
+      ],
+      "options": [
+        "a. Три волны рядом, около 1.5 дня (рекомендация)",
+        "b. Без периода: контейнер решает с первого зелёного прогона"
+      ],
+      "answered_at": "2026-10-29T08:08:02Z",
+      "answer": [
+        "Останови docker, используй только podman, пока мы полностью не перешли на linux продолжим делать проверки на mac"
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T07:59:49Z",
+      "question": [
+        "Сколько ресурсов отдать машине podman? Сейчас (29 Oct): podman 5.5.2, машина podman-machine-default, Apple Virtualization, rootful, остановлена: 6 ядер, 2 GiB памяти, диск 100 GiB. Mac: 12 ядер, 32 GiB, 358 GiB свободно. Docker Desktop рядом: 12 ядер, 8 GB, 6 работающих контейнеров, 64 GB образов и 47 GB кэша сборки. Две проверки одновременно в podman: 419 и 423 с, пик 668 и 652 MiB. Изменение: podman machine set при остановленной машине, обратимо."
+      ],
+      "options": [
+        "a. Сейчас 8 ядер и 12 GiB, после отказа от Docker 10 ядер и 16 GiB (рекомендация)",
+        "b. Сразу 10 ядер и 16 GiB",
+        "c. Оставить 6 ядер и 2 GiB"
+      ],
+      "answered_at": "2026-10-29T08:04:32Z",
+      "answer": [
+        "a, разделение после фич, podman 10 ядер 20 GiB",
+        "",
+        "Разделение занимает больше 10 часов, и это только по оценке, разве мы не разделили всё что требовалось ранее, relay и queue ?"
+      ]
+    },
+    {
+      "at": "2026-10-29T08:09:01Z",
+      "fact": [
+        "29 Oct ~12:08 local, on the owner's word (\"Останови docker, используй только podman\"): Docker Desktop stopped (docker desktop stop; its AutoStart is false; the 6 orphaned Testcontainers postgres:16-alpine containers ended with it; images and build cache, 64 GB and 47 GB, left on disk). podman machine podman-machine-default set to 10 CPUs and 20 GiB (owner's answer) and started; /var/run/docker.sock now points to podman's socket (~/.local/share/containers/podman/machine/podman.sock), so Docker API clients such as Testcontainers reach podman; ~/.local/bin/docker is a link to /opt/homebrew/bin/podman (undo: delete the link). `docker run --rm alpine echo` works through podman. Reading of the owner's words: the Mac gate keeps deciding merges until the move to Linux; the container gate runs beside it."
+      ]
+    },
+    {
+      "at": "2026-10-29T08:11:51Z",
+      "fact": [
+        "29 Oct ~12:15 local, owner: \"Удали старые образы Docker\". Docker Desktop was running again after the 12:08 stop (starter not found). Deleted through Docker Desktop's own CLI: all images, the build cache, the 6 stopped Testcontainers postgres containers; kept the 108 volumes (1.0 GB). Docker.raw 67 GB -> 3.9 GB; free disk 358 -> 420 GiB. Docker Desktop stopped again; /var/run/docker.sock still points to podman."
+      ]
+    },
+    {
+      "at": "2026-10-29T08:23:10Z",
+      "fact": [
+        "29 Oct ~12:30 local, owner: \"полностью удалить docker\". Cause of the restarts: the Linux-tests worker (brief said Docker) ran open -a Docker 6 times and wrote a retry script that reopened Docker after each stop; the worker and its cycle were stopped and restarted with a podman-only brief. Docker Desktop's uninstaller removed its data (Docker.raw, containers, volumes) and stopped it, then failed on a macOS-protected metadata file; Docker.app moved to the Trash. Before that the 36 named volumes (arsenal agent profiles profile-* and task-* test artifacts, 452 KB) were saved as tar files in ~/docker-volumes-backup-2026-10-29. Left for the owner (root): /Library/LaunchDaemons/com.docker.socket.plist, /Library/PrivilegedHelperTools/com.docker.socket, /usr/local/bin/docker-index. ~/.docker kept (podman can read registry logins from it). arsenal's docker runtimes (envdocker) now reach podman through /var/run/docker.sock; their images were deleted earlier and must be rebuilt (not tested)."
+      ]
     }
   ]
 }

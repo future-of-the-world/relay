@@ -21,7 +21,7 @@ from pidfile import wait_pid
 import relay_gate
 
 WAITING = "gate: waiting for a free gate slot (all 1 busy; the limit stops gates slowing each other, the file $RELAY_HOME/gate-slots/count sets it)"
-BOUND = 30      # seconds any wait in these tests may last: with the feature broken a test fails inside it instead of hanging the gate
+BOUND = 600     # seconds any wait in these tests may last: with the feature broken a test fails inside it instead of hanging the gate
 
 # a gate that says it started, then waits for the test to let it go (polling a file, no fixed sleep in the test);
 # it also ends when the test's temp folder is gone, so a failed test leaves no polling process

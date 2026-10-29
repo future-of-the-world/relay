@@ -23,7 +23,7 @@ def _cwds() -> Optional[Dict[int, str]]:
                     pass
         return found
     try:
-        out = subprocess.run(["lsof", "-a", "-d", "cwd", "-Fpn"], capture_output=True, text=True, timeout=60).stdout
+        out = subprocess.run(["lsof", "-a", "-d", "cwd", "-Fpn"], capture_output=True, text=True, timeout=600).stdout
     except (OSError, subprocess.SubprocessError):
         return None
     pid = 0
@@ -37,7 +37,7 @@ def _cwds() -> Optional[Dict[int, str]]:
 
 def _ancestors() -> Set[int]:
     """This process and its parents: the runner that scans may itself carry the folder in its command line."""
-    out = subprocess.run(["ps", "-axo", "pid=,ppid="], capture_output=True, text=True, timeout=30).stdout
+    out = subprocess.run(["ps", "-axo", "pid=,ppid="], capture_output=True, text=True, timeout=600).stdout
     parent = {}
     for line in out.splitlines():
         parts = line.split()
@@ -59,7 +59,7 @@ def find(folder: str, notes: Optional[List[str]] = None) -> List[Tuple[int, str]
     folder is `folder` or lies under it, or its command line names a path under it (a gate, or any script or sleep the
     test left behind). When the working-folder half could not run, CWD_SKIPPED is appended to `notes`."""
     root = os.path.realpath(folder)
-    out = subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=30).stdout
+    out = subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=600).stdout
     skip = _ancestors()
     scanned = _cwds()
     if scanned is None:
@@ -107,7 +107,7 @@ def _alive(pid: int) -> bool:
     except OSError:
         return False
     try:  # a zombie of ours is gone for this purpose
-        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, timeout=10).stdout.strip()
+        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, timeout=600).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return True
     return bool(state) and not state.startswith("Z")

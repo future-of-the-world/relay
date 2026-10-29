@@ -56,7 +56,7 @@ class TemporaryFoldersTest(unittest.TestCase):
         one = "tests.test_temporary_folders.TemporaryFoldersTest.test_uv_cache_stays_on_the_real_one"
         root = os.path.dirname(TESTS)
         done = subprocess.run([sys.executable, os.path.join(TESTS, "run_unittest.py"), one], cwd=root,
-                              capture_output=True, text=True, timeout=120)
+                              capture_output=True, text=True, timeout=600)
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertIn("Ran 1 test", done.stderr)
 

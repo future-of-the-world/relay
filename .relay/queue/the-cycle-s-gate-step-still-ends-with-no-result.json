@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-29T06:43:18Z",
   "taken_by": "wt/the-cycle-s-gate-step-still-ends-with-no",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T07:05:10Z",
+  "test": "tests/test_cycle_workflow.py::Cycle::test_a_gate_agent_with_no_result_gets_one_recovery_gate_that_reads_the_head_log_first",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

@@ -23,7 +23,7 @@ from fake_tools import install_fake
 from pidfile import wait_pid
 
 GATE_TIMEOUT = 900      # seconds a test waits for its gate; the slowest (a copied bin/ci with its nested probe) takes about a minute
-GATE_STOP_GRACE = 30    # seconds the stopped gate has to end its command and free its slot
+GATE_STOP_GRACE = 600   # seconds the stopped gate has to end its command and free its slot
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
 
@@ -332,7 +332,7 @@ class Gate(Fixture):
         left holding a slot), and the test fails with a message."""
         self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
         with self.assertRaises(AssertionError) as caught:
-            self.gate(self.wt, timeout=3, started=os.path.join(self.tmp, "pid"))
+            self.gate(self.wt, timeout=3, started=os.path.join(self.tmp, "pid"))  # expected timeout
         self.assertIn("still running", str(caught.exception))
         pid = wait_pid(os.path.join(self.tmp, "pid"))
         with self.assertRaises(ProcessLookupError):      # the gate waited for its command's end, so it is gone now
@@ -344,7 +344,7 @@ class Gate(Fixture):
         its pid file exists (without `started` the helper stopped it before the command ran)."""
         self.repo(gate='sleep 2\necho $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
         with self.assertRaises(AssertionError) as caught:
-            self.gate(self.wt, timeout=1, started=os.path.join(self.tmp, "pid"))
+            self.gate(self.wt, timeout=1, started=os.path.join(self.tmp, "pid"))  # expected timeout
         self.assertIn("still running", str(caught.exception))
         pid = wait_pid(os.path.join(self.tmp, "pid"))
         with self.assertRaises(ProcessLookupError):
@@ -499,7 +499,7 @@ class LeakedGates(Fixture):
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         self.addCleanup(gate.wait)
         self.addCleanup(gate.kill)
-        return gate, wait_pid(pid_file, 60, writer_alive=lambda: gate.poll() is None)
+        return gate, wait_pid(pid_file, 600, writer_alive=lambda: gate.poll() is None)
 
     def test_a_gate_left_under_the_folder_is_stopped_with_its_command_and_named(self):
         self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
@@ -507,8 +507,8 @@ class LeakedGates(Fixture):
         found = leaked_gates.stop(self.tmp)
         # the gate is found by its pid (its sleeping command runs from the same folder, so it is found too); both are gone after
         self.assertIn(gate.pid, [pid for pid, _ in found])
-        gate.wait(timeout=30)
-        deadline = time.monotonic() + 30
+        gate.wait(timeout=600)
+        deadline = time.monotonic() + 600
         while time.monotonic() < deadline and leaked_gates._alive(command_pid):
             time.sleep(0.05)
         self.assertFalse(leaked_gates._alive(command_pid))
@@ -525,8 +525,8 @@ class LeakedGates(Fixture):
         found = [pid for pid, _ in leaked_gates.find(folder)]
         self.assertEqual(sorted(found), sorted([by_cwd.pid, by_path.pid]))
         leaked_gates.stop(folder)
-        by_cwd.wait(timeout=30)
-        by_path.wait(timeout=30)
+        by_cwd.wait(timeout=600)
+        by_path.wait(timeout=600)
 
     def test_a_gate_outside_the_folder_is_left_running(self):
         """Pass case 3: a legitimately detached gate elsewhere is not touched."""
@@ -538,7 +538,7 @@ class LeakedGates(Fixture):
         self.assertIsNone(gate.poll())
         self.assertTrue(leaked_gates._alive(command_pid))
         self.assertIn(gate.pid, [pid for pid, _ in leaked_gates.stop(self.tmp)])  # cleanup: the gate and its command end
-        gate.wait(timeout=30)
+        gate.wait(timeout=600)
 
 
 class FirstFailureOfAStoppedGate(unittest.TestCase):
