@@ -176,10 +176,10 @@ def front_days(main: str, rev: str, now: float) -> list[str]:
 
 def front_figures(days: list[str]) -> dict[str, dict[str, Any]]:
     """{day: front figure} for `days`, from the main sessions' transcripts with the one rule of `relay report` (relay_analyze); a day with
-    no front session is a stored zero, so it is not looked up again."""
+    no front session is a stored zero, so it is not looked up again. With no transcript folder at all nothing was measured: no figure."""
     import relay_analyze
     import relay_config
-    if not days:
+    if not days or not os.path.isdir(os.path.join(relay_config.claude_dir(), "projects")):
         return {}
     since = datetime.fromisoformat(days[0] + "T00:00:00+00:00")
     found = relay_analyze.front_cost_by_day(relay_analyze.collect(relay_config.claude_dir(), since=since))

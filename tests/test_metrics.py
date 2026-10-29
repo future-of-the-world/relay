@@ -197,6 +197,10 @@ class Records(Fixture):
             relay_metrics.record_landing(self.main, [], None, head, [], 0, print, now=1.8e9)
         self.assertEqual(git(self.main, "rev-parse", "master"), before)
 
+    def test_f8_no_transcript_folder_is_no_figure_not_a_zero(self):
+        with mock.patch("relay_config.claude_dir", return_value=os.path.join(self.tmp, "no-such-claude")):
+            self.assertEqual(relay_metrics.front_figures(["2026-10-28"]), {})
+
     def test_f8_front_days_are_the_complete_days_without_a_record(self):
         have = [{"front": {"day": "2026-10-28", "cost_usd": 1.0, "sessions": 1, "basis": "exact"}}]
         now = relay_metrics._epoch("2026-10-30T12:00:00Z")      # 30 Oct is not complete; 27 and 29 Oct have no record, 28 Oct has one
