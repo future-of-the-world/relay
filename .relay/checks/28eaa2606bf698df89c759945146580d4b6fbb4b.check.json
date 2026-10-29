@@ -1,0 +1,202 @@
+{
+  "branch": "wt/a-recheck-without-a-queue-item-forgets-t",
+  "findings": [
+    {
+      "details": [
+        "Live, 28 Oct: wt/rename (a feature with no fix item) took master; recheck rename-after-master returned open 1 and F1, F2, F4 NOT MET though fix-rename.md had fixed them and the check before the merge had them MET. It cost a second checker run (about 19 minutes) and a confirm-fix round. Principle 2: waste that repeats on every feature branch that takes the default branch."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Recheck unit {findings: <review>, no items} on a branch whose findings were fixed: the checker prompt says Fixes: none and the verdicts are NOT MET."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 232,
+      "pass_cases": [
+        "A recheck unit accepts `fixes` and passes it to the checker.",
+        "Without `fixes`, it passes the branch's newest check record so verdicts already MET are rechecked against their fixes.",
+        "A test of the cycle script shows the checker prompt names the fixes."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "high",
+      "reason": [
+        "tests/test_cycle_workflow.py test_recheck_without_fixes_names_the_scratch_check_records passes and fails at base bb9f1699."
+      ],
+      "severity": "HIGH",
+      "since": "bb9f1699c53aba0b00a70d1a0ef48505f5072173",
+      "source": "queue",
+      "summary": "A recheck without a queue item forgets the fixes made",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. recheckUnit (cycle.js:279) builds the fallback text from it.branch. refusal() (cycle.js:75-77) refuses",
+        "recheck when RELAY, so the text is only ever sent in project mode. show_check (bin/relay:801) with a branch name calls",
+        "relay_marks.show (lib/relay_marks.py:277), whose output is three lines: gate, mark open/queued, outside; per-finding",
+        "verdicts are only in the check JSON. relay_verdict.record_check writes the JSON at `report` and commits no mark; in",
+        "project mode the cycle's check reports are <S>/reports/check-<tag>.json (finish, cycle.js:209). The new test",
+        "test_recheck_without_fixes_names_the_branchs_newest_check_record asserts the prompt text only, so it passes although",
+        "the text leads nowhere. Pass-case 2 of the queue item (\"passes the branch's newest check record so verdicts already",
+        "MET are rechecked against their fixes\") is not met in substance.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "$ git init r; branch wt/x with one commit; relay check show wt/x -C r",
+        "gate: none yet",
+        "mark: no mark yet",
+        "outside: unknown (no mark yet)",
+        "exit 0",
+        "cycle.js:76  if (RELAY) return `refused: unit ${it.name}: in relay mode relay land takes the base and gates; ...`",
+        "cycle.js:209 `${S}/reports/check-${tag(it)}.json`   (where project-mode check records are written)",
+        "lib/relay_marks.py:278 \"\"\"The three lines of `relay check show`: gate, mark, outside items ...\"\"\""
+      ],
+      "failing_case": [
+        "Project without .relay/ (relay=false; recheck is refused in relay mode). Unit {kind: recheck, name: x-after-main,",
+        "findings: <S>/reports/review-x.json, branch: wt/x}, no fixes; the earlier check <S>/reports/check-x.json has F1, F2 MET.",
+        "Prompt now: \"Fixes: `the newest check record of wt/x (read with relay check show wt/x -C <wt>)`\". Running that command",
+        "in such a repo prints:",
+        "  gate: none yet",
+        "  mark: no mark yet",
+        "  outside: unknown (no mark yet)",
+        "No verdict and no fix report reach the checker, so F1, F2 come back NOT MET exactly as with Fixes: none (the item's",
+        "failing case). Even in a repo with marks, `relay check show <branch>` prints only \"mark <sha>: open N, queued M\", not",
+        "per-finding verdicts.",
+        "Should: the prompt names a source that holds the earlier verdicts and fix reports, e.g. the earlier check JSON",
+        "<S>/reports/check-x.json (readable with relay check show <file>)."
+      ],
+      "fix_hint": [
+        "Point the fallback at the scratch check records the script itself wrote: e.g. \"the newest check record of this",
+        "worktree among ${S}/reports/check-*.json (its `worktree` field is ${it.wt}); read it with relay check show <file>; carry",
+        "each MET verdict whose files did not change since its head\". Or take an optional `check` record path field. A test",
+        "asserting the prompt names ${S}/reports and `relay check show <file>`."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 279,
+      "pass_cases": [
+        "1. relay=false, recheck {findings: review.json, branch: wt/x}, no fixes, and <S>/reports/check-x.json exists: the",
+        "   check prompt names a path or command that prints the per-finding verdicts (a check record JSON), not",
+        "   `relay check show wt/x`.",
+        "2. relay=false, recheck {findings, fixes: \"fix-x.md\"}: prompt says Fixes: `fix-x.md` (works today, keep).",
+        "3. relay=true, any recheck unit: still refused with the \"relay land takes the base\" message (works today, keep).",
+        "4. A gate-fix round inside the recheck still appends its report: Fixes lists the given source and the gate fix report."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py:261 asserts no \"relay check show wt/x\" and the scratch records named; passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "4ea248bf40b2a1a23909e2c3acc06659550b34cb",
+      "source": "review-a-recheck-without-a-queue-item-forgets-t.json",
+      "source_id": "F1",
+      "summary": "the no-fixes fallback points the checker at `relay check show <branch>`, which prints three summary lines and no verdicts (and in project mode, the only mode recheck runs, 'mark: no mark yet')",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: `it.fixes || (it.branch ? ... : 'none')`; nothing derives the branch (git rev-parse",
+        "--abbrev-ref HEAD in it.wt) or the scratch record when branch is absent. In project mode the front has no reason to",
+        "pass branch (the skill lists it under relay mode), so the common call is the one that still fails. One fix with F1",
+        "(a fallback that does not depend on it.branch) closes both.",
+        "Size: 10 minutes (with F1)."
+      ],
+      "evidence": [
+        "cycle.js:17  (* relay mode only; item is one fix-item slug)   -- branch* on the recheck line",
+        "SKILL.md:126 Unit fields: `name`, `wt`, `check`, `branch` (relay mode), ...",
+        "tests/test_cycle_workflow.py:250 self.unit(kind=\"recheck\", findings=\"relay check findings -C t\", branch=None)"
+      ],
+      "failing_case": [
+        "relay=false, unit {kind: recheck, name: x, wt, check, findings: review.json} (no fixes, no branch; branch is",
+        "documented as relay-mode only in cycle.js:17 and SKILL.md:126, and the existing test at",
+        "tests/test_cycle_workflow.py:250 builds exactly this unit with branch=None).",
+        "Now: check prompt says \"Fixes: `none`.\" and the checker judges every fixed finding again with no fix named (the",
+        "queue item's failing case, unchanged).",
+        "Should: the prompt names the earlier check record / fix report source, never `none`, when such a record exists."
+      ],
+      "fix_hint": [
+        "Make the fallback independent of it.branch (see F1: name the scratch check records of it.wt); keep 'none' only when",
+        "the caller says there were no fixes."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 279,
+      "pass_cases": [
+        "1. relay=false, recheck {findings: review.json}, no fixes, no branch, <S>/reports/check-x.json exists: prompt does not",
+        "   contain \"Fixes: `none`\" and names the earlier check record source.",
+        "2. relay=false, recheck {findings, fixes: \"fix-x.md\"}, no branch: prompt says Fixes: `fix-x.md` (works today).",
+        "3. relay=false, recheck {findings}, no branch, no earlier check anywhere: the labels stay [\"gate 1: x\", \"check: x\"]",
+        "   (the test at tests/test_cycle_workflow.py:250 keeps passing)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "Same test with branch=None, and case 5 of test_f1_check_fixes_name_the_worker_report (fails at base)."
+      ],
+      "severity": "MEDIUM",
+      "since": "4ea248bf40b2a1a23909e2c3acc06659550b34cb",
+      "source": "review-a-recheck-without-a-queue-item-forgets-t.json",
+      "source_id": "F2",
+      "summary": "a recheck with findings and neither fixes nor branch (the documented project-mode shape) still sends Fixes: none",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The skill is the front's only instruction for composing cycle units; the change added an",
+        "accepted field without telling the caller. The cycle.js:16 comment marks `fixes*, branch*` with the relay-mode-only",
+        "star, while refusal() refuses recheck in relay mode, which is self-contradictory (and the same line's padding is",
+        "broken). Principle 10 (a fact the user must be told is a defect).",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "SKILL.md:126-128 Unit fields: `name`, `wt`, `check`, `branch` (relay mode), `item` (one fix-item slug); `fix` also",
+        "takes `fix`, `fixes`, `findings`; `recheck` takes `findings` or `items`; `built` takes `built`.",
+        "cycle.js:16 //   recheck  {name, wt, check, findings, fixes*, branch*}    ... (project mode only ...)",
+        "cycle.js:17 //   (* relay mode only; item is one fix-item slug)"
+      ],
+      "failing_case": [
+        "A front following SKILL.md after a project-mode branch with a fix round takes the default branch: it builds",
+        "{kind: recheck, findings: review.json} (the skill names no `fixes` for recheck, and `items` which refusal() does not",
+        "accept as a substitute for findings). The new `fixes` field is never passed; the checker gets Fixes: none (or F1's",
+        "dead pointer).",
+        "Should: SKILL.md says recheck takes `findings` and `fixes` (the fixer's report, when there was a fix round)."
+      ],
+      "fix_hint": [
+        "SKILL.md: \"`recheck` takes `findings` and, when the branch had a fix round, `fixes`\". cycle.js:16: drop the stars on",
+        "the recheck line."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 127,
+      "pass_cases": [
+        "1. SKILL.md's unit-fields line names `fixes` for recheck, with what it is (the fix report(s) already made on the branch).",
+        "2. SKILL.md no longer says recheck takes `items` (refusal() requires findings: cycle.js:77).",
+        "3. cycle.js:16 comment does not mark `fixes`/`branch` with `*` (relay mode only) on the recheck line, since recheck is",
+        "   project mode only."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "SKILL.md line 127 now names fixes for recheck."
+      ],
+      "severity": "MEDIUM",
+      "since": "4ea248bf40b2a1a23909e2c3acc06659550b34cb",
+      "source": "review-a-recheck-without-a-queue-item-forgets-t.json",
+      "source_id": "F3",
+      "summary": "the front's description of unit fields still says recheck takes `findings` or `items` and never mentions `fixes`, so the front keeps sending recheck units without the fix report",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "030e634af0f0fa08f2cc7c3da30ed4c9a37109fd.gate.log",
+  "head": "28eaa2606bf698df89c759945146580d4b6fbb4b",
+  "item": "a-recheck-without-a-queue-item-forgets-the-fixes",
+  "notes": [
+    "Precheck not rerun separately; gate green."
+  ],
+  "schema": 2,
+  "scope": [
+    "Changed files: SKILL.md, cycle.js, tests/test_cycle_workflow.py only. Gate log head 030e634 exit 0; later commit is the gate log only. Ran tests.test_cycle_workflow (39 OK); ran the two changed tests on bb9f1699c53a with the head test file: both fail. Caller read of recheckUnit/fixesText."
+  ],
+  "type": "check"
+}

@@ -70,7 +70,7 @@ LIB = os.path.join(HERE, "..", "lib")
 sys.path.insert(0, LIB)
 
 SEP = "\037"
-# Where a command can start, and the env assignments that may precede it (POSIX ERE, run by grep).
+# Where a command can start, and the env assignments that may precede it (POSIX ERE, matched by grep() below).
 START = r"(^|[;&|(])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*"
 TRACING = START + r"(set[[:space:]]+-[a-wyz]*x|set[[:space:]]+-o[[:space:]]+xtrace|(ba|z)?sh[[:space:]]+-[a-z]*x)"
 VERBOSE_CURL = r"curl[^;&|]*[[:space:]](-v|-[a-zA-Z]*v[a-zA-Z]*|--verbose|--trace[a-z-]*)([[:space:]]|$)"
@@ -83,10 +83,80 @@ def die(why: str) -> NoReturn:
     sys.exit(2)
 
 
+_CLASSES = {"space": r"\s", "alpha": "a-zA-Z", "digit": "0-9", "alnum": "a-zA-Z0-9", "upper": "A-Z", "lower": "a-z",
+            "blank": r" \t", "punct": r"!-/:-@\[-`{-~", "xdigit": "0-9A-Fa-f", "cntrl": r"\x00-\x1f\x7f",
+            "graph": r"!-~", "print": r" -~"}
+
+
+def _bracket(pattern: str, start: int) -> tuple[str, int]:
+    """The ERE bracket expression opening at pattern[start] == "[" as a Python one, and the index after it.
+    In ERE a backslash inside brackets is a plain character and [:name:] is a class."""
+    i = start + 1
+    out = "["
+    if pattern[i:i + 1] == "^":
+        out += "^"
+        i += 1
+    first = True
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "]" and not first:
+            return out + "]", i + 1
+        first = False
+        if ch == "[" and pattern[i + 1:i + 2] == ":":
+            end = pattern.find(":]", i + 2)
+            name = pattern[i + 2:end] if end > 0 else ""
+            if name not in _CLASSES:
+                die("a guard pattern uses an unknown character class [:%s:] (pattern %r)" % (name, pattern))
+            out += _CLASSES[name]
+            i = end + 2
+            continue
+        out += "\\" + ch if ch in "\\[]^" else ch
+        i += 1
+    die("a guard pattern has an unclosed [ (pattern %r)" % pattern)
+
+
+def _compile(pattern: str) -> "re.Pattern[str]":
+    """A POSIX ERE as a Python regex: bracket expressions and \\< \\> are translated once, here. A pattern that does not
+    compile stops the guard with the pattern named: a rule that never fires would silently allow."""
+    out = ""
+    i = 0
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "[":
+            piece, i = _bracket(pattern, i)
+            out += piece
+        elif ch == "\\" and i + 1 < len(pattern):
+            nxt = pattern[i + 1]
+            out += {"<": r"\b(?=\w)", ">": r"\b(?<=\w)"}.get(nxt, ch + nxt)
+            i += 2
+        else:
+            out += ch
+            i += 1
+    try:
+        return re.compile(out)
+    except re.error as err:
+        die("a guard pattern does not compile (%s): %r" % (err, pattern))
+
+
+_COMPILED: dict[str, "re.Pattern[str]"] = {}
+
+
 def grep(flags: str, pattern: str, text: str) -> tuple[bool, str]:
-    """`grep <flags> -- pattern` over text (POSIX ERE, the semantics the project's patterns were written for)."""
-    done = subprocess.run(["grep", flags, "--", pattern], input=text + "\n", capture_output=True, text=True, errors="replace")
-    return done.returncode == 0, done.stdout
+    """What `grep <flags> -- pattern` gave over text, matched in Python line by line (the patterns are POSIX ERE).
+    Flags: -Eq (any line matches), -Eo (the matching parts, one per line), -Ev (the lines that do not match).
+    A pattern that does not compile stops the guard (see _compile). Alternation is leftmost-first, as in Python."""
+    if pattern not in _COMPILED:
+        _COMPILED[pattern] = _compile(pattern)
+    regex = _COMPILED[pattern]
+    lines = text.split("\n")
+    if flags == "-Ev":
+        kept = [line for line in lines if not regex.search(line)]
+        return bool(kept), "".join(line + "\n" for line in kept)
+    found = [m for m in (regex.search(line) for line in lines) if m]
+    if flags == "-Eo":
+        parts = [m.group(0) for line in lines for m in regex.finditer(line) if m.group(0)]
+        return bool(found), "".join(part + "\n" for part in parts)
+    return bool(found), ""
 
 
 def resolve(path: str, base: str) -> str:

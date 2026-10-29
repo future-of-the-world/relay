@@ -1,0 +1,136 @@
+{
+  "branch": "wt/the-main-checkout-guard-starts-grep-for",
+  "findings": [
+    {
+      "details": [
+        "Measured 29 Oct by the gate-speed design: one test run starts 4,515 grep processes, from the guard hook matching each command against POSIX patterns with `grep -E` (guard_main.py:88). The hook runs on every Bash call of every session, so each command pays the process starts. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "29 Oct, master ee932b26: one library test run starts 4,515 grep processes, all from guard_main.py:88."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 88,
+      "pass_cases": [
+        "The guard starts no grep; its tests give the same verdicts."
+      ],
+      "path": "plugins/relay/hooks/guard_main.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_hook_guard_main.py::Guard::test_the_guard_starts_no_grep passes and fails on the base commit."
+      ],
+      "severity": "HIGH",
+      "since": "7c61d746abe4bab28be230f4939d7b05f78e3874",
+      "source": "queue",
+      "summary": "The main-checkout guard starts grep for every command",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running the new grep() beside /usr/bin/grep -E. The brief asked for \"the same verdicts\"; the shipped",
+        "patterns keep them, but the documented contract (README: guard patterns are ERE, grep -E) is the promise a project",
+        "writes against, and the change neither keeps it for these ERE forms nor updates the README. The failure is silent: a",
+        "pattern the translator mangles or Python cannot compile (_compile returns None, grep() then \"matches nothing\") turns a",
+        "safety rule off with no message, against the module header \"A broken guard never silently allows\". The None path",
+        "existed with grep too (exit 2 = no match), but the switch widens what lands there (ERE-valid forms like 'a**' fail to",
+        "compile in Python), and with one compile per pattern a refusal is now cheap.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "python3 -I cmp.py (scratchpad/cmp), new guard_main.grep vs subprocess grep -E:",
+        "('-Eq', '\\\\<npm[[:space:]]+install', 'npm install x') grep: (True, '') py: (False, '')",
+        "('-Eq', 'a[\\\\.]b', 'a\\\\b') grep: (True, '') py: (False, '')",
+        "('-Eq', '[[:graph:]]x', 'ax') grep: (True, '') py: (False, '')",
+        "guard_main.py:92: FutureWarning: Possible nested set at position 1",
+        "README.md:186-187: \"Patterns are regular expressions: Python `re` in `packet.*` and `spec_check.*`, ERE (`grep -E`) in `guard.*`.\""
+      ],
+      "failing_case": [
+        "A project's .claude/kit.toml, written to the README's contract (\"ERE (`grep -E`) in `guard.*`\", plugins/relay/README.md:187):",
+        "  [[guard.block]]",
+        "  pattern = '\\<npm[[:space:]]+install'",
+        "  reason = \"dependency change\"",
+        "Bash `npm install x` in the main checkout. Before this change: blocked (grep -E reads \\< as a word start).",
+        "Now: allowed, because Python reads \\< as a literal \"<\", so the rule never matches and nothing says so.",
+        "Same for pattern '[[:graph:]]x' (class not in the translation table: Python sees a nested set, prints a FutureWarning,",
+        "never matches \"ax\") and 'a[\\.]b' on \"a\\b\" (ERE: backslash is literal inside brackets).",
+        "Should: the verdict grep -E gave (blocked), or the guard refuses the pattern with a reason; never a silent no-op rule."
+      ],
+      "fix_hint": [
+        "Smallest: in _compile, translate \\< to \\b(?=\\w) and \\> to \\b(?<=\\w), add cntrl/graph/print to the class table, and",
+        "when a [:name:] is unknown or re.compile fails, die() with the pattern and the reason instead of returning None.",
+        "Then change README:187 to say guard.* patterns are Python re with POSIX [[:class:]] names accepted (and what \\< \\> mean).",
+        "Add one test per case above."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 86,
+      "pass_cases": [
+        "1. kit.toml rule pattern '\\<npm[[:space:]]+install', Bash `npm install x` in main -> exit 2 (blocked), or exit 2 naming the pattern the guard cannot read.",
+        "2. pattern '[[:graph:]]x' with command \"ax\" -> matches (or the guard refuses the pattern with a reason); no FutureWarning on stderr.",
+        "3. pattern '{start}bun[[:space:]]+add' (kartoteka profile), `ls && bun add x` in main -> exit 2, and no grep process started (test_the_guard_starts_no_grep).",
+        "4. All four profile tests (test_kartoteka, test_tauri, test_mix, test_bun_all) keep their verdicts.",
+        "5. Either README line 187 says what dialect guard.* patterns are now (Python re, with [[:class:]] accepted), or the matcher implements the ERE cases above."
+      ],
+      "path": "plugins/relay/hooks/guard_main.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_hook_guard_main.py ERE word-edge, class, backslash tests pass; the unreadable-pattern test also fails on base. The ERE tests pass on base too (real grep): they pin behaviour kept."
+      ],
+      "severity": "MEDIUM",
+      "since": "1fa737551a359b4f17c84cc53e582339196a00b3",
+      "source": "review-the-main-checkout-guard-starts-grep-for.json",
+      "source_id": "F1",
+      "summary": "guard patterns are documented as ERE (grep -E) but are now Python re: \\< \\>, [[:graph:]]/[[:print:]]/[[:cntrl:]] and backslash in brackets silently stop a project rule from firing",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED with the compare script. Only -Eo output feeds the unless check, so only rules with an unless are affected,",
+        "and only for patterns whose alternation order matters. Fragile rather than wrong today. Size: 5 agent minutes (a README",
+        "sentence) or more to emulate leftmost-longest."
+      ],
+      "evidence": [
+        "('-Eo', '(cargo|cargo[[:space:]]+fmt)', 'cargo fmt --check') grep: (True, 'cargo fmt\\n') py: (True, 'cargo\\n')"
+      ],
+      "failing_case": [
+        "Rule pattern '{start}(cargo|cargo[[:space:]]+fmt)', unless 'fmt', command `cargo fmt --check` in main.",
+        "grep -Eo gave the hit \"cargo fmt\" -> unless matches -> allowed. Python gives \"cargo\" -> unless does not match -> blocked.",
+        "No shipped profile has an alternation where a shorter branch is tried first and nothing after it forces the longer one,",
+        "so today's verdicts hold."
+      ],
+      "fix_hint": [
+        "Document it in the README sentence F1 changes (\"alternatives are tried left to right; put the longer one first\")."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 114,
+      "pass_cases": [
+        "1. The case above -> the same verdict grep -E gave (allowed), or README says alternation is leftmost-first (write the longer branch first).",
+        "2. tauri profile: `bun run tauri dev` in main -> allowed (unless tauri dev); `bun run tauri add x` -> blocked.",
+        "3. bun-all profile: `bun install --frozen-lockfile` -> allowed; `bun install` -> blocked."
+      ],
+      "path": "plugins/relay/hooks/guard_main.py",
+      "rank": "low",
+      "reason": [
+        "Documented in README and pinned by test_alternation_is_leftmost_first_as_the_readme_says (fails on base)."
+      ],
+      "severity": "LOW",
+      "since": "1fa737551a359b4f17c84cc53e582339196a00b3",
+      "source": "review-the-main-checkout-guard-starts-grep-for.json",
+      "source_id": "F2",
+      "summary": "-Eo now returns Python's leftmost-first match, not ERE's leftmost-longest, so an unless can judge a shorter hit than before",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "514c627a2b8250adfb27a1eb4098d016fb35105f.gate.log",
+  "head": "f83ab90dc5811bd2d38ce953f7d82cc9591df585",
+  "item": "the-main-checkout-guard-starts-grep-for-every-co",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range 7c61d746..HEAD; files: README, guard_main.py, tests/test_hook_guard_main.py only. Gate log head 514c627a, exit 0; only the gate-log commit follows. Ran tests/test_hook_guard_main.py (12 OK). On base 7c61d746 with head test file: 3 fail (no_grep, unreadable pattern, leftmost-first). relay precheck -C green."
+  ],
+  "type": "check"
+}

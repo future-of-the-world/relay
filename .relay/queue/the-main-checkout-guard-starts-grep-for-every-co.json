@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-29T09:36:00Z",
   "taken_by": "wt/the-main-checkout-guard-starts-grep-for",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T10:56:07Z",
+  "test": "tests/test_hook_guard_main.py::Guard::test_the_guard_starts_no_grep",
   "dropped_at": null,
   "dropped_why": null
 }
