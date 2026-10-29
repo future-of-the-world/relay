@@ -1,0 +1,21 @@
+head 291a4b3573d8ee8c8f00be7f0d54733c69aecbd1
+cmd bin/ci --quick
+wait 29.7
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (586s, log: .ci/steps/library-tests.log)
+    ERROR: test_full_gate_runs_hooks_live_once_and_the_inert_comparison_ignores_its_ok_lines (test_ci_hook_tests.HookTestsStep.test_full_gate_runs_hooks_live_once_and_the_inert_comparison_ignores_its_ok_lines)
+    FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-irkwp1xu/relay-home-test_full_gate_runs_hooks_live_once_and_-kul1ihil/tmpnfhph4l8/tree/.ci/steps/hook-tests.log'
+    ERROR: test_full_without_claude_fails_hooks_live (test_ci_hook_tests.HookTestsStep.test_full_without_claude_fails_hooks_live)
+    FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-irkwp1xu/relay-home-test_full_without_claude_fails_hooks_liv-l1118tf4/tmprqdg9w22/.ci/steps/hook-tests.log'
+    ERROR: test_missing_bun_fails_naming_the_tool (test_ci_hook_tests.HookTestsStep.test_missing_bun_fails_naming_the_tool)
+    FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-irkwp1xu/relay-home-test_missing_bun_fails_naming_the_tool-12spbk9p/tmpvli130c9/.ci/steps/hook-tests.log'
+    ERROR: test_quick_leaves_hooks_live_for_the_full_run_and_says_so (test_ci_hook_tests.HookTestsStep.test_quick_leaves_hooks_live_for_the_full_run_and_says_so)
+    FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-irkwp1xu/relay-home-test_quick_leaves_hooks_live_for_the_ful-mqwqr7md/tmp1bqjm7z9/.ci/steps/hook-tests.log'
+ci: coverage 89.6% of lib, bin, plugins (13730 of 15325 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (0s)
+ci: RED
+exit 1
