@@ -22,8 +22,8 @@
     "plugins/relay/hooks/guard-main.sh relay's guard hooks (the worktree folder they expect)",
     "kit.toml [project] worktrees, ALIX's bin/wt (read only)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T15:34:44Z",
+  "taken_by": "wt/alix-bin-wt-makes-worktree-but-relay-exp",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
