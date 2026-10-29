@@ -1688,3 +1688,33 @@ a-gate-test-is-stopped-by-an-unknown-sigterm (93), the-precheck-s-changed-tests-
 1. After the two landings: start a-gate-test-is-stopped-by-an-unknown-sigterm and a-landed-branch-can-leave-its-queue-item-taken (fix lanes); build the metrics feature on the owner's coverage answer; then the speed-up part (drop the second run, limit 1500 s).
 2. Paid run after this wave (relay land, hooks, cycle texts changed).
 3. Next handover worktree: handover-43.
+
+## Addendum 31 (29 Oct, ~14:20 local; session 6c217ef4, after the restart)
+
+### Session restart (owner: "Можешь ли ты не запускать новых workflow, я хочу перезапустить текущую сессию")
+- New session id 6c217ef4; scratchpad /private/tmp/claude-501/-Users-amidman-relay/6c217ef4-0969-4d5f-8509-e35de6dc28ef/scratchpad (briefs, reports, q2 copied from the old one). The two running cycles died with the old process and were restarted from the branches' state.
+
+### Landed since addendum 30
+- the precheck's changed-tests step has no fixed 230 s cap (gate 19.8 min under 6 lanes plus podman).
+- (earlier) quick gate stops itself at 30 min; addendum 30.
+
+### Owner decisions since addendum 30 (verbatim)
+- Coverage: "Хорошо, измеряем покрытие кода при каждой проверке" (metrics item, option a).
+- Docker fully removed: "Я полагаю что стоит полностью удалить docker для того чтобы это не могло повториться, можешь ли ты это устроить". Done (see addendum 30 facts on each-change-is-gated-in-a-fresh-container).
+- Asked "Когда машина podman запущена - она занимает место фактически ...": answered with a measurement (host holds 1.0 GiB of the 20 GiB, about one core busy, disk 23 GB of 100 GiB; guest memory is not returned until the machine stops).
+
+### In progress (6 lanes)
+- wt/the-quick-gate-is-red-in-a-clean-linux-c: built (podman image docker/clean-gate/Dockerfile), Mac gate green, in review; reviewer told to run the container itself.
+- wt/each-change-records-its-stage-times-cost: metrics, building from design revision 2 (reports/design-each-change-records-its-stage-times-cost.md), coverage on every gate.
+- wt/a-landed-branch-can-leave-its-queue-item: building (items left "taken" after landing: an-eval-scaffold-overwrote-the-live-relay-bin-re, queue-time-estimates-are-guesses-with-no-model-b, tests-with-a-fixed-time-limit-fail-on-a-loaded-m).
+- wt/the-main-checkout-guard-starts-grep-for: building.
+- wt/gates-and-tests-stop-what-an-earlier-tes: land refused because the take 6c7c46cb resolved lib/relay_gate.py, lib/relay_procs.py, tests/test_gate.py by hand; regate and recheck running, then land.
+- wt/a-recheck-without-a-queue-item-forgets-t: building.
+
+### Path to Linux (from design revision 6 and the queue)
+1. the-quick-gate-is-red-in-a-clean-linux-container (in review). 2. each-change-is-gated-in-a-fresh-container (3 h estimate; stripped commit input, image carries mypy and ruff). 3. speed-up-the-quick-gate (drop the second run, limit 1500 s in the same change). 4. install-and-setup-are-tested-in-a-clean-containe (86) and relay-as-a-portable-tool-project-data-out-of-rel (90) for relay VMs. The Mac gate decides merges until the owner moves to Linux; the container gate runs beside it.
+
+### Next steps
+1. Land each lane as it is ready; then start a-gate-test-is-stopped-by-an-unknown-sigterm (waits for tests/test_land.py).
+2. Paid run after this wave.
+3. Next handover worktree: handover-44.

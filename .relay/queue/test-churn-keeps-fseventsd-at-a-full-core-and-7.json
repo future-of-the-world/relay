@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 89,
+  "time": 60,
+  "found_at": "2026-10-29T10:35:16Z",
+  "found_in": "relay queue add",
+  "title": "Test churn keeps fseventsd at a full core and 7 GB",
+  "what": [
+    "Measure how much of the gate's system time comes from file events (one gate with TMPDIR on the main volume and one with TMPDIR on a separate APFS volume or RAM disk whose .fseventsd/no_log stops event logging), and if it pays, make relay gate and the tests put their temporary folders there by default, created by relay setup, with a fallback when it is missing."
+  ],
+  "why": [
+    "29 Oct ~15:40, front, top: with 6 lanes gating, fseventsd uses 105% CPU and 6.9 GB of memory, kernel_task 23%, XprotectService and syspolicyd 5-6% each; CPU 76% system, 23% user, load 36 on 12 cores, after the podman machine was cut to 8 GiB and swap fell from 6.4 to 1.6 GB. The tests create and delete thousands of temporary git repositories on the main volume, and macOS logs every file event and scans new files. The system time, not the tests, takes most of the CPU, so gates run several times slower than their own work."
+  ],
+  "failing_case": [
+    "top during 6 gating lanes shows fseventsd at about 100% CPU and CPU usage about 75% system."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "with the gate's temporary folders on the no-log volume, fseventsd stays under 10% CPU during a gate",
+    "the gate's wall time and system time are measured before and after and written in the report",
+    "a machine without the volume still gates, with one line naming relay setup"
+  ],
+  "where": [
+    "lib/relay_gate.py",
+    "tests/conftest.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
