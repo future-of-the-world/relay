@@ -1,0 +1,140 @@
+{
+  "branch": "wt/type-check-subfolders-and-cap-module-siz",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by running it. bin/relay and plugins/relay/hooks/merge.py got the marker after the shebang; kit_guard.py got it",
+        "before. Callers in the tree use python3 -I (guard-main.sh:214) or import it (merge.py:27), so the hook is not broken,",
+        "but the file's own usage line runs it directly and a shell then executes Python source as commands (it ran git).",
+        "Size: 5."
+      ],
+      "evidence": [
+        "$ git show master:plugins/relay/lib/kit_guard.py | head -1   -> #!/usr/bin/env python3",
+        "$ head -2 plugins/relay/lib/kit_guard.py  -> marker, then #!/usr/bin/env python3",
+        "$ printf 'ls' | ./plugins/relay/lib/kit_guard.py /tmp",
+        "fatal: cannot change to 'wt': No such file or directory",
+        "./plugins/relay/lib/kit_guard.py: command substitution: line 57: syntax error near unexpected token `;'",
+        "$ printf 'ls' | python3 -I plugins/relay/lib/kit_guard.py /tmp   -> C/private/tmpls"
+      ],
+      "failing_case": [
+        "printf 'ls' | ./plugins/relay/lib/kit_guard.py /tmp  (the usage its docstring gives; the file is mode 755)",
+        "now: line 1 is the marker, line 2 the shebang, so the kernel finds no \"#!\" and the shell runs the Python text:",
+        "\"fatal: cannot change to 'wt'\", \"command substitution: line 57: syntax error near unexpected token `;'\", exit 0.",
+        "should: \"C/private/tmpls\" as python3 -I prints, as on master."
+      ],
+      "fix_hint": [
+        "Swap lines 1 and 2 of plugins/relay/lib/kit_guard.py; optionally have problem()/a test require a shebang to stay on line 1."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. head -1 plugins/relay/lib/kit_guard.py is \"#!/usr/bin/env python3\"; the marker is on line 2.",
+        "2. printf 'ls' | ./plugins/relay/lib/kit_guard.py /tmp prints the same rows as python3 -I plugins/relay/lib/kit_guard.py /tmp.",
+        "3. test_module_sizes still green (marker within the first 5 lines), test_tree_passes passes.",
+        "4. A test: every tracked file whose first 5 lines hold the marker and that starts with or contains \"#!\" has the shebang on line 1 (bin/relay and merge.py already do)."
+      ],
+      "path": "plugins/relay/lib/kit_guard.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_module_sizes.py:test_a_shebang_stays_on_line_one fails at the base, passes now; kit_guard.py line 1 is the shebang, direct run output correct."
+      ],
+      "severity": "MEDIUM",
+      "since": "05c99242e92270beddbda395e15949ae33d5fdc1",
+      "source": "review-type-check-subfolders-and-cap-module-siz.json",
+      "source_id": "F1",
+      "summary": "the size marker went above the shebang, so the executable kit_guard.py run directly is executed by the shell",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a simulation (evidence). The test adds nothing test_tree_passes does not already check (an over-limit file",
+        "without a marker fails there; a FIRST_EXEMPT file is in scope via git ls-files), except the existence demand, which is",
+        "the part that breaks the design's promise. Size: 5."
+      ],
+      "evidence": [
+        "$ cd tests && python3 -c \"import unittest, test_module_sizes as t; t.FIRST_EXEMPT = t.FIRST_EXEMPT | {'lib/relay_bench_gone.py'}; ...\"",
+        "FileNotFoundError: [Errno 2] No such file or directory: '.../lib/relay_bench_gone.py'",
+        "FAILED (errors=1)"
+      ],
+      "failing_case": [
+        "A later split move turns lib/relay_bench.py into a package and deletes the file (the plan, 4.4: mixed commands",
+        "such as queue, bench, improve become packages). test_first_exempt_files_exist_and_carry_the_marker opens every",
+        "FIRST_EXEMPT path: FileNotFoundError, test errors. The move must then edit FIRST_EXEMPT or the test, against",
+        "\"written once and never edited after\" and \"split moves never edit the test file\" (plan 4.3).",
+        "Simulated: FIRST_EXEMPT | {\"lib/relay_bench_gone.py\"} -> FileNotFoundError, FAILED (errors=1).",
+        "should: a FIRST_EXEMPT path that no longer exists is a finished split and passes."
+      ],
+      "fix_hint": [
+        "Skip FIRST_EXEMPT paths that do not exist (or drop the test as redundant with test_tree_passes), and rename nothing."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 85,
+      "pass_cases": [
+        "1. FIRST_EXEMPT holding a path that does not exist: the size tests pass.",
+        "2. A FIRST_EXEMPT file over 600 lines with no marker: test_tree_passes fails with \"<path> has N lines, limit 600: ...\".",
+        "3. A FIRST_EXEMPT file at 595 lines with no marker (bin/relay after its split): green, no edit of the test.",
+        "4. Today's tree: all 12 tests green."
+      ],
+      "path": "tests/test_module_sizes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_module_sizes.py:96 test_a_missing_first_exempt_path_is_a_finished_split passes; encodes the missing-path case; the skip is at line 86."
+      ],
+      "severity": "MEDIUM",
+      "since": "05c99242e92270beddbda395e15949ae33d5fdc1",
+      "source": "review-type-check-subfolders-and-cap-module-siz.json",
+      "source_id": "F2",
+      "summary": "a split that deletes an exempt module (bench, queue becoming packages) errors the size test, forcing an edit of FIRST_EXEMPT",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: behaviour is right today (ruff check . with only .worktrees and .ci excluded), so LOW; the item",
+        "lists it as a pass case and nothing guards it. Size: 5."
+      ],
+      "evidence": [
+        "pyproject.toml: extend-exclude = [\".worktrees\", \".ci\"]; tests/test_types_step.py:42 plants lib/other.py only."
+      ],
+      "failing_case": [
+        "Add \"tests\" to [tool.ruff] extend-exclude in pyproject.toml: every test stays green, though the item's pass case",
+        "\"an unused import in a test file fails the lint step\" (and the plan's 4.3 ruff line) is then broken.",
+        "should: a test plants \"import os\" in tests/test_x.py of the temporary copy and sees FAIL ruff / F401."
+      ],
+      "fix_hint": [
+        "One test in tests/test_types_step.py planting tests/test_x.py with an unused import in the temporary copy."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 42,
+      "pass_cases": [
+        "1. Temporary copy with tests/test_x.py = \"import os\\n\": bin/types-lint exits non-zero, stdout has \"FAIL ruff\" and \"F401\".",
+        "2. Same copy with the test file clean: exit 0.",
+        "3. test_unused_import_fails (lib/other.py) still passes."
+      ],
+      "path": "tests/test_types_step.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_types_step.py:50 plants import os in tests/test_x.py, asserts non-zero, FAIL ruff, F401; passes."
+      ],
+      "severity": "LOW",
+      "since": "05c99242e92270beddbda395e15949ae33d5fdc1",
+      "source": "review-type-check-subfolders-and-cap-module-siz.json",
+      "source_id": "F3",
+      "summary": "the item's pass case 'an unused import in a test file fails the lint step' has no test; the planted import is in lib/",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "49e7b65c53bda5543f4d5761fc9fb337160c2d6a.gate.log",
+  "head": "2c63e2643ba56929b0238d8974dd6a7c00401b91",
+  "item": null,
+  "notes": [
+    "F2 test is in the same file as the fix (the skip), so a base run cannot fail it; it fails when the skip line is removed (FileNotFoundError, per the fixer, by reading it exercises the loop with a missing path). F3 test guards present behaviour; fails only with tests excluded from ruff."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 05c99242..HEAD: kit_guard.py, test_module_sizes.py, test_types_step.py only (relay changed --own). Gate log head 49e7b65c, exit 0; later commit is the gate log only. Ran pytest on both test files (20 passed); direct run of kit_guard.py prints C/private/tmpls. Base-run of new tests at 49e7b65c^: shebang test fails there. The precheck timeout reported by the fixer was not re-run (gate is green)."
+  ],
+  "type": "check"
+}

@@ -1,0 +1,20 @@
+head 0311f194c27f68591078c3c5e6616bb460f0ba9d
+cmd bin/ci --quick
+wait 1544.3
+ci: types and lint ok (3s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (3830s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_full_run_is_probed_with_its_hook_suites_in_full (test_gate.Inert.test_a_full_run_is_probed_with_its_hook_suites_in_full)
+    AssertionError: 'ci: inert ok' not found in 'head 1565b05748ed3e834b269dfa8bde62d7137740fc\ncmd bin/ci\nwait 0.0\nci: types and lint FAILED (0s, log: .ci/steps/types-and-lint.log)\nci: lib copies identical ok (0s)\nci: RED (a fast step failed: the slow steps were not started)\nexit 1\n'
+    FAIL: test_a_probe_that_is_killed_turns_inert_red_and_leaves_no_worktree (test_gate.Inert.test_a_probe_that_is_killed_turns_inert_red_and_leaves_no_worktree)
+        self.assertIn("ci: inert FAILED", log)
+    AssertionError: 'ci: inert FAILED' not found in 'head 69c6c7c062bf7d9595bb23b5a228c938a609d8c3\ncmd bin/ci --quick\nwait 0.0\nci: types and lint FAILED (0s, log: .ci/steps/types-and-lint.log)\nci: lib copies identical ok (0s)\nci: RED (a fast step failed: the slow steps were not started)\nexit 1\n'
+    FAIL: test_a_test_reading_an_inert_file_turns_inert_red (test_gate.Inert.test_a_test_reading_an_inert_file_turns_inert_red)
+        self.assertIn("ci: inert FAILED", log)
+    AssertionError: 'ci: inert FAILED' not found in 'head 5fe22336509398adb7a58634641f26ec34ee984e\ncmd bin/ci --quick\nwait 0.0\nci: types and lint FAILED (0s, log: .ci/steps/types-and-lint.log)\nci: lib copies identical ok (0s)\nci: RED (a fast step failed: the slow steps were not started)\nexit 1\n'
+ci: hook tests ok (308s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (0s)
+ci: RED
+exit 1

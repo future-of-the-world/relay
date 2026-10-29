@@ -1,3 +1,4 @@
+# size: over the 600-line limit until its split item lands
 """The work queue: items kept as `.relay/queue/<slug>.json` on the default branch (design: docs/plans/review-gate.md, section 10).
 
 An item is a JSON file, written only by this module (`serialize`) and read only by it (`parse`), so the format

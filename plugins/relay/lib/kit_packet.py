@@ -1,3 +1,4 @@
+# size: over the 600-line limit until its split item lands
 """Build a worker's brief for one task of an OpenSpec change, or check them all.
 
     kit packet <change> <task>      print the brief of task <task> (e.g. 4.3)

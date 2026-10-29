@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 40,
+  "found_at": "2026-10-29T04:45:11Z",
+  "found_in": "relay queue add",
+  "title": "The main-checkout guard starts grep for every command",
+  "what": [
+    "Match the command against its patterns in Python (re) instead of starting `grep -E` for each pattern, keeping the same verdicts (the guard's tests are the check); if POSIX classes need translating, translate them once at load."
+  ],
+  "why": [
+    "Measured 29 Oct by the gate-speed design: one test run starts 4,515 grep processes, from the guard hook matching each command against POSIX patterns with `grep -E` (guard_main.py:88). The hook runs on every Bash call of every session, so each command pays the process starts. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "29 Oct, master ee932b26: one library test run starts 4,515 grep processes, all from guard_main.py:88."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The guard starts no grep; its tests give the same verdicts."
+  ],
+  "where": [
+    "plugins/relay/hooks/guard_main.py:88"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

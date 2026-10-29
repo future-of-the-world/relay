@@ -1,0 +1,16 @@
+head 6a204966486a2665df50f659a072e99a77827992
+cmd bin/ci --quick
+wait 458.2
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (615s, log: .ci/steps/library-tests.log)
+    ERROR: test_main_checkout_is_exact_for_each_kind_of_checkout (test_setup.SetupInWorktree.test_main_checkout_is_exact_for_each_kind_of_checkout)
+        raise CalledProcessError(retcode, process.args,
+    subprocess.CalledProcessError: Command '['git', '-C', '/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-7_7u9qgg/relay-test-d6vm73s8/mainproj', '-c', 'protocol.file.allow=always', '-c', 'user.name=t', '-c', 'user.email=t@t', 'submodule', 'add', '-q', '/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-7_7u9qgg/relay-test-d6vm73s8/subsrc', 'mods/sub']' returned non-zero exit status 1.
+    FAILED (errors=1)
+ci: hook tests ok (192s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (5s)
+ci: RED
+exit 1

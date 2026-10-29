@@ -1,0 +1,167 @@
+{
+  "branch": "wt/a-land-test-leaks-gate-scripts-that-load",
+  "findings": [
+    {
+      "details": [
+        "29 Oct ~04:20: 59 leaked fixture gate scripts ran at once, starting 312 processes a second; CPU 93.5% system, 0.2% idle, load 44 on 12 cores. The quick gate's library tests took 2109 s and 3521 s against 241 s on 28 Oct, two timing tests went red from it, and the cycle's gate agents ended with no result. The test landed 28 Oct 14:42 (relay land), the first leak started 14:44, and each gate run adds about two more (its own test run plus the nested probe). IP chosen by the front (agent-chosen): it slows every gate of every lane.",
+        "Also: tests/leaked_gates.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Run tests/test_land.py::test_land_lock_frees_on_kill once: afterwards a /bin/sh $TMPDIR/relay-run-*/relay-gate-*/gate.sh process is still alive with parent 1, and the leak scan reports nothing."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 275,
+      "pass_cases": [
+        "After the test, no process runs from its temp folder.",
+        "A test that leaves a sleeping child in its temp folder fails the run's leak scan."
+      ],
+      "path": "tests/test_land.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_land.py:299 test_slow_gate_ends_when_its_folder_is_gone passes at head and errors (60 s timeout) with the folder guard removed; test_land.py:360 waits for gate.pid; gate.sh count unchanged by a full test_land run."
+      ],
+      "severity": "HIGH",
+      "since": "f34df65fdfb4565799f25c71f07e53f77ea95c20",
+      "source": "queue",
+      "summary": "A land test leaks gate scripts that load the machine",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: run_unittest.run's docstring (line 16-17) says \"a `relay gate` still living under it afterwards",
+        "is a leak\", parallel_unittest.py:10 says \"the leaked-gate scan\", leaked_gates.stop says \"Stop the leaked gates\". The",
+        "behaviour is right (any process fails the run); only the words lag. Principle 10 (a message must not mislead the",
+        "reader). Size: 5."
+      ],
+      "evidence": [
+        "sed -n 15,30p tests/run_unittest.py: print(\"FAIL leaked gate: pid %d was still running after the tests, ...\")",
+        "sed -n 292,294p tests/parallel_unittest.py: problems.append((\"leaked gate\", \"FAIL\", \"leaked gate: pid %d ...\"))"
+      ],
+      "failing_case": [
+        "A test leaves `sleep 600` running with its working folder in the run folder. run_unittest prints",
+        "\"FAIL leaked gate: pid 123 was still running ...: sleep 600\" (parallel_unittest.py:293 prints the same words).",
+        "It should name it as a leaked process, so the reader does not go looking for a gate."
+      ],
+      "fix_hint": [
+        "Say \"leaked process\" in both messages and update the three docstrings."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 29,
+      "pass_cases": [
+        "1. leaked `sleep 600` in the run folder -> the line says \"leaked process\" (or similar) and the run exits 1.",
+        "2. leaked `relay gate` in the run folder -> still reported and the run exits 1.",
+        "3. no leak -> no such line, exit code from the tests alone."
+      ],
+      "path": "tests/run_unittest.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_leak_scan_words.py:21 and :43 pass; the first fails on 508b5007 (no \"leaked process\" line)."
+      ],
+      "severity": "LOW",
+      "since": "508b5007d6b022004c2538fff4dbfbd8a4e0c9d9",
+      "source": "review-a-land-test-leaks-gate-scripts-that-load.json",
+      "source_id": "F1",
+      "summary": "a leaked sleep or script is still reported as 'leaked gate', and the runner docstrings still say only a relay gate is a leak",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the except branch returns the empty dict and find() cannot tell \"no process has a cwd there\"",
+        "from \"could not look\". Today lsof takes 0.56 s, and the incident's gate.sh carries its full path in the command line,",
+        "so the case is rare; fragile, not wrong today. Size: 10."
+      ],
+      "evidence": [
+        "time lsof -a -d cwd -Fpn | wc -l -> 1851 lines, 0.562 s total",
+        "tests/leaked_gates.py:25-28: except (OSError, subprocess.SubprocessError): return found"
+      ],
+      "failing_case": [
+        "macOS, lsof missing from PATH or slower than 60 s (the incident machine had load 44): _cwds() returns {} and find()",
+        "matches only by command line. A leaked `sleep 600` started with cwd in the run folder (no path in its command)",
+        "is not found and the run is green with no word. It should at least say the folder scan could not run."
+      ],
+      "fix_hint": [
+        "Return None (or raise) on failure and have find()/the runners print one line that the cwd scan did not run."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 26,
+      "pass_cases": [
+        "1. lsof raises OSError or times out -> the run prints a note that the working-folder scan was skipped (or fails).",
+        "2. lsof works -> a `sleep 600` with cwd in the run folder is found (test_any_child_left_in_the_folder_is_found_and_stopped).",
+        "3. /proc present -> lsof is not called."
+      ],
+      "path": "tests/leaked_gates.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_leak_scan_words.py:55 and :71 pass; both error on 508b5007 (no notes argument, no CWD_SKIPPED)."
+      ],
+      "severity": "LOW",
+      "since": "508b5007d6b022004c2538fff4dbfbd8a4e0c9d9",
+      "source": "review-a-land-test-leaks-gate-scripts-that-load.json",
+      "source_id": "F2",
+      "summary": "when lsof fails or times out the working-folder half of the scan is silently empty, so a leak known only by its folder passes",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (conftest has no session-finish hook; not reproduced). This change fixed the one known leaking test, so the",
+        "risk is the next such test. Outside: the change did not touch conftest.py. Size: 20."
+      ],
+      "evidence": [
+        "sed -n 1,40p tests/conftest.py: only the autouse environment fixture, no session-end scan.",
+        "diag-slow-gates.md section 3: \"10 directly under $TMPDIR/relay-gate-* (tests run straight with unittest by an agent)\"."
+      ],
+      "failing_case": [
+        "An agent runs `pytest tests/test_x.py` (or `python -m unittest`) and a test orphans a process in its temp folder:",
+        "nothing scans after the session, the process lives on. Diag report: 10 of the 53 incident leaks sat directly under",
+        "$TMPDIR/relay-gate-* from such direct runs. It should be reported at the end of the session as under run_unittest."
+      ],
+      "fix_hint": [
+        "A pytest_sessionfinish hook in conftest.py that calls leaked_gates.stop on the session's base temp folder."
+      ],
+      "id": "F3",
+      "kind": "outside",
+      "line": 1,
+      "owner": [
+        {
+          "date": "2026-10-29",
+          "queue": "gates-and-tests-stop-what-an-earlier-test-left-r",
+          "words": [
+            "Outside this change: tests run straight with pytest or unittest get no leak scan; the item gates-and-tests-stop-what-an-earlier-test-left-r covers stopping and catching leftovers in every run, so the finding goes there."
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. pytest session whose test leaves `sleep 600` in its tmp folder -> session ends red naming the pid, the process is stopped.",
+        "2. pytest session with no leak -> unchanged outcome.",
+        "3. run_unittest path -> unchanged (its own scan)."
+      ],
+      "path": "tests/conftest.py",
+      "rank": "low",
+      "reason": [
+        "Outside the change; the owner moved it to queue item gates-and-tests-stop-what-an-earlier-test-left-r."
+      ],
+      "severity": "LOW",
+      "since": "508b5007d6b022004c2538fff4dbfbd8a4e0c9d9",
+      "source": "review-a-land-test-leaks-gate-scripts-that-load.json",
+      "source_id": "F3",
+      "summary": "tests run straight with pytest or unittest get no leak scan at all, so a leak from an agent's direct run is never reported",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "5e6edf379c1706962f037370fa25a55a662252ea.gate.log",
+  "head": "9270051b9c148b54bc6feef439377889e8a02ecc",
+  "item": "a-land-test-leaks-gate-scripts-that-load-the-mac",
+  "notes": [
+    "F3 is outside and queued by the owner; no status needed. Fixes live in the test files themselves, so the without-fix runs revert the guard / env line in a copy."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log for 5e6edf37 starts with that head, ends exit 0; HEAD 9270051b adds only the gate-log commit (relay changed lists no file). pytest tests/test_land.py: 34 passed. run_unittest test_leak_scan_words test_gate.LeakedGates test_land.Lock: 11 OK. gate.sh process count was 10 before and 10 after the land run (no growth). Red-gate fixes read: fixgate-1 (wait_pid in test_land, no weakening), fixgate-2 (test_setup drops GIT_* env, new test; real fix, no limit raised), fixgate-3 (no change, load timeouts). Fail without fix: Q1 test with the loop guard removed times out at 60 s and errors; test_leak_scan_words fails 3 of 4 on 508b5007; the test_setup test fails with env=clean removed. test_gate.test_any_child_left... not re-run without fix (reviewer showed the old find returns only gates)."
+  ],
+  "type": "check"
+}
