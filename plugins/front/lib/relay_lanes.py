@@ -484,9 +484,7 @@ def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_
     if state.free < 1:
         raise relay_queue.Refused(f"no free lane: {len(state.running)} of {state.setting} running")
     name = _short(slug)
-    folder_name = relay_config.get(relay_config.load_bindings(main), "project.worktrees")
-    folder_name = folder_name.strip("/") if isinstance(folder_name, str) and folder_name.strip("/") else ".worktrees"   # the guard's rule: default .worktrees
-    branch, worktree = "wt/" + name, os.path.join(main, folder_name, name)
+    branch, worktree = "wt/" + name, os.path.join(relay_config.worktrees_folder(main), name)
     if os.path.exists(worktree) or _git(main, "show-ref", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0:
         raise relay_queue.Refused(f"{branch} or {worktree} exists already")
     rc, out = _git(main, "worktree", "add", "-q", "-b", branch, worktree, "refs/heads/" + default)
