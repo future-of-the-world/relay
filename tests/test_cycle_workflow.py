@@ -250,6 +250,23 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit(kind="recheck", findings="relay check findings -C t", branch=None)], relay=False))
         self.assertEqual(out["labels"], ["gate 1: x", "check: x"])
 
+    def test_recheck_checker_prompt_names_the_fixes(self):
+        """A recheck given `fixes` passes that report to the checker, not `Fixes: none` (the live 28 Oct case: fixed findings
+        came back NOT MET). Disabled change (recheckUnit passing 'none'): the prompt says Fixes: `none`."""
+        unit = self.unit(kind="recheck", findings="review.json", fixes="fix-x.md", branch=None)
+        out = self.run_cycle(self.args([unit], relay=False))
+        self.assertIn("Fixes: `fix-x.md`.", out["prompts"]["check: x"])
+        self.assertNotIn("Fixes: `none`", out["prompts"]["check: x"])
+
+    def test_recheck_without_fixes_names_the_branchs_newest_check_record(self):
+        """No `fixes`: the checker is pointed at the branch's newest check record (`relay check show <branch>`) so findings
+        already MET are carried, never `Fixes: none`. Disabled change: the prompt says Fixes: `none`."""
+        unit = self.unit(kind="recheck", findings="review.json", branch="wt/x")
+        out = self.run_cycle(self.args([unit], relay=False))
+        prompt = out["prompts"]["check: x"]
+        self.assertNotIn("Fixes: `none`", prompt)
+        self.assertIn("the newest check record of wt/x (read with relay check show wt/x -C %s)" % self.wt, prompt)
+
     def test_cycle_recheck_refused_in_relay_mode(self):
         """Design relay-land 4.5: relay land takes the base and gates, so a recheck is refused with the exact shape of the
         fix unit a take conflict becomes (kind fix, findings = the branch's last review JSON, no item). Disabled rule: the
