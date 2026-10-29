@@ -108,6 +108,12 @@
       "reading": [
         "Approach a (one machine-wide token pool, part kept for gates); sizes a (12 in all, 4 per gate) as defaults. Both must be configurable, and the pool must work for any project's gate through relay gate, not only relay's own tests."
       ]
+    },
+    {
+      "at": "2026-10-29T11:42:36Z",
+      "said": [
+        "Я веду к тому что у нас уже есть подход с bin/ci, и так далее, думаю это должно быть унифицированно в таком порядке, как проект который будет использовать текущий relay может настроить это у себя ? Возможно это и не требуется в дизайне, пользователь сам решит что ему необходимо проверять в bin/ci"
+      ]
     }
   ]
 }
