@@ -51,6 +51,57 @@
       "fact": [
         "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
       ]
+    },
+    {
+      "at": "2026-10-29T10:26:37Z",
+      "said": [
+        "Давай подумаем над следующим сценарием применения - использование и подключение relay в claude environments, я вполне могу создать свой кастомный environment и подключить туда relay, какие есть ограничения у такого подхода"
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T10:47:07Z",
+      "question": [
+        "**Подключать ли облачные сессии Claude к relay: сейчас, позже или после пробы**"
+      ],
+      "options": [
+        "a. Позже: сначала свои Linux VM, проба ставится в очередь",
+        "b. Проба сейчас на пустом тестовом репозитории, данные relay не выгружаются",
+        "c. Проба сейчас с замером проверки на 4 ядрах: выгружает текущие файлы relay (2.75 MB, очередь с твоими словами и handover)",
+        "d. Облачные lanes для workers сейчас"
+      ],
+      "answered_at": "2026-10-29T10:49:00Z",
+      "answer": [
+        "Хорошо, сначала освоим Linux VM, облачные оставим на потом или откажемся от них",
+        "Пока это нигде не хранится отложим вопрос касательно синхронизации, но сейчас я склоняюсь к репозиторию на github"
+      ],
+      "reading": [
+        "Cloud sessions: a (later, own Linux VMs first; maybe never), no probe item filed now. Branch sync: a (decide when a second machine exists), the owner leans to a private GitHub repo."
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T10:47:08Z",
+      "question": [
+        "**Где встречаются branch, когда relay работает больше чем на одной машине**"
+      ],
+      "options": [
+        "a. Нигде, пока нет второй машины; решить тогда",
+        "b. Bare-репозиторий на первой Linux VM",
+        "c. Приватный репозиторий на GitHub"
+      ],
+      "answered_at": "2026-10-29T10:49:00Z",
+      "answer": [
+        "Хорошо, сначала освоим Linux VM, облачные оставим на потом или откажемся от них",
+        "Пока это нигде не хранится отложим вопрос касательно синхронизации, но сейчас я склоняюсь к репозиторию на github"
+      ],
+      "reading": [
+        "Cloud sessions: a (later, own Linux VMs first; maybe never), no probe item filed now. Branch sync: a (decide when a second machine exists), the owner leans to a private GitHub repo."
+      ]
+    },
+    {
+      "at": "2026-10-29T10:47:13Z",
+      "fact": [
+        "29 Oct, design \"relay in Claude cloud environments\" revision 2 (thinker, critic, revision; measured at master 420a69a1). Documented: a cloud session is an Ubuntu 24.04 x86_64 VM, about 4 vCPU, 16 GB, 30 GB; no plugins installed (even repo-enabled), no user-level CLAUDE.md, settings, hooks or MCP; code goes home only through GitHub (push, teleport); the VM loses its files when reclaimed; Docker preinstalled, podman not documented. Measured: average gate wait for a slot 253 s, median 0 (66 of 113 gates did not wait); front sessions 7 transcripts, median 12.5 h; relay's head tree 2.75 MB compressed, full history 8.4 MiB; a gate alone on 4 vCPU scales to about 1,260 s, sharing the VM about 2,586 s against the 1,800 s limit. Eight points undocumented (setup-script-written settings loaded, podman installs, nested claude -p logged in, gate time, background job keeps the VM, push to own host, model of --cloud, which environment). Recommendation: later, own Linux VMs first."
+      ]
     }
   ]
 }

@@ -90,6 +90,12 @@ class Tidy(unittest.TestCase):
         commit_file(self.main, ".relay/queue/bar.json", item_text("bar", "done", "wt/gone3"), "queue done")
         os.makedirs(os.path.join(self.claude, "plugins", "cache", "relay"))
 
+    @staticmethod
+    def shown(path):
+        """The way tidy shows a path: `~` for the home folder (a test's home holds its temporary folders, so the claude folder is under it)."""
+        home = os.path.expanduser("~")
+        return "~" + path[len(home):] if path.startswith(home + os.sep) else path
+
     def test_t17_exactly_those_lines(self):
         # Hand-worked: m is merged with its own commit -> listed; u is not merged; f has no commit of its own; l is merged
         # and locked "session s9" -> its own line; g's upstream is gone ("[gone]" after prune) -> information; wt/queue-x is
@@ -101,7 +107,7 @@ class Tidy(unittest.TestCase):
             (True, "merged worktree still present: .worktrees/m (wt/m)"),
             (True, "merged worktree .worktrees/l (wt/l) is locked by session s9; remove it once that session is closed"),
             (False, "wt/g: its upstream is gone (probably merged on the server, a squash); not removed"),
-            (False, "unused plugin copy: %s/ (informational)" % os.path.join(self.claude, "plugins", "cache", "relay")),
+            (False, "unused plugin copy: %s/ (informational)" % self.shown(os.path.join(self.claude, "plugins", "cache", "relay"))),
             (True, "leftover queue branch: wt/queue-x"),
             (True, "queue item foo is taken by wt/gone2, which no longer exists"),
         ])

@@ -128,6 +128,12 @@
       "fact": [
         "29 Oct ~12:30 local, owner: \"полностью удалить docker\". Cause of the restarts: the Linux-tests worker (brief said Docker) ran open -a Docker 6 times and wrote a retry script that reopened Docker after each stop; the worker and its cycle were stopped and restarted with a podman-only brief. Docker Desktop's uninstaller removed its data (Docker.raw, containers, volumes) and stopped it, then failed on a macOS-protected metadata file; Docker.app moved to the Trash. Before that the 36 named volumes (arsenal agent profiles profile-* and task-* test artifacts, 452 KB) were saved as tar files in ~/docker-volumes-backup-2026-10-29. Left for the owner (root): /Library/LaunchDaemons/com.docker.socket.plist, /Library/PrivilegedHelperTools/com.docker.socket, /usr/local/bin/docker-index. ~/.docker kept (podman can read registry logins from it). arsenal's docker runtimes (envdocker) now reach podman through /var/run/docker.sock; their images were deleted earlier and must be rebuilt (not tested)."
       ]
+    },
+    {
+      "at": "2026-10-29T10:02:33Z",
+      "fact": [
+        "29 Oct ~14:10 local, podman machine running (10 CPUs, 20 GiB set): the host process com.apple.Virtualization.VirtualMachine holds 1.0 GiB of RAM and used 96.6% CPU (about one core) at that moment; inside, free -m shows 862 MB used, 3268 MB cache, 16209 MB free of 19946; the disk image is 23 GB on disk of 100 GiB apparent. Set CPUs and memory are limits, not reservations; memory the guest touches (its file cache included) is not given back to the Mac until the machine stops (by design of the virtualization, not measured here)."
+      ]
     }
   ]
 }

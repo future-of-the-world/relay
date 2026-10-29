@@ -1,0 +1,100 @@
+{
+  "branch": "wt/the-precheck-s-changed-tests-step-has-a",
+  "findings": [
+    {
+      "details": [
+        "29 Oct: relay precheck went red only on its 'changed tests took longer than 230 s' step at load 17-35 on 12 cores, twice in one day (wt/queue-time-estimates-are-guesses-with-no, wt/tests-with-a-fixed-time-limit-fail-on-a); the same 16 changed test files pass in 199 s at load 8 (364 passed). It is the fixed-wall-clock class of tests-with-a-fixed-time-limit-fail-on-a-loaded-m, in lib code outside that change's files. Each such red stops a worker's quiet loop and found nothing wrong.",
+        "Also: tests/test_hang_limits.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay precheck in a worktree whose 16 changed test files take 240 s at load 32 goes red on 'changed tests took longer than 230 s' though every test passed."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "changed tests that pass in 240 s at load 32 leave the precheck green",
+        "a changed test that hangs is still stopped and reported, within the hang bound",
+        "tests/test_hang_limits.py flags a fixed 230 s cap if it comes back"
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_hang_limits.py::HangLimits::test_precheck_changed_tests_step_is_a_hang_bound (line 60) passes at head, fails at 965c755; test_precheck.py hang case green."
+      ],
+      "severity": "HIGH",
+      "since": "965c755990ec8b15e3bed4b7fff7e8691f263f7b",
+      "source": "queue",
+      "summary": "The precheck's changed-tests step has a fixed 230 s cap",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "The 230 s cap was set \"under the 4-minute command limit\" (cae100fb's comment, removed here). The new 600 s hang bound is right",
+        "for the step, but the precheck as a whole can now block up to 3x60 + 60 + 600 s, and its only users run it as a foreground",
+        "Bash command: cycle.js:114 builds `relay precheck -C <wt> && (<check>)` for the worker, the fixers and the checker, and the",
+        "delegate SKILL.md:61 Check line says the same. No text says that this command may run longer than 4 minutes, so the limits",
+        "recipe (detached + bounded waits) is not applied up front. The brief's first pass case (\"240 s at load 32 leaves the",
+        "precheck green\") is met by the library but not where it is used: the Bash tool's 240 s cut-off hits first. The red-with-a-reason",
+        "of before becomes a cut-off with no reason plus a rerun: waste on every loaded run (principle 2: repeating waste is MEDIUM).",
+        "CONFIRMED by reading (cycle.js:114, relay_precheck.py:200, the limits rule); the cut-off itself is PLAUSIBLE (needs a loaded run).",
+        "cycle.js is also changed by the lane wt/the-quick-gate-stops-itself-at-a-time-li: a text-only edit near line 112-114 may conflict.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "git show cae100fb | grep 230 -> CHANGED_TESTS_TIMEOUT = 230 ... under the 4-minute command limit",
+        "lib/relay_precheck.py:25 CHANGED_TESTS_TIMEOUT = 600 ...; :200 budget = CHANGED_TESTS_TIMEOUT if name == \"changed tests\" else STEP_TIMEOUT",
+        "plugins/delegate/workflows/cycle.js:114 const quiet = (it) => RELAY ? `relay precheck -C ${it.wt} && (${it.check})` : it.check",
+        "plugins/delegate/skills/delegate/SKILL.md:61 Check: ... `relay precheck -C <worktree> && (<command>)`",
+        "queue item Why: 16 changed files 199 s at load 8, over 230 s at load 17-35; uptime during this review: load 19-25"
+      ],
+      "failing_case": [
+        "A worker at load 32 runs its quiet check `relay precheck -C <wt> && (pytest -q ...)` in the foreground, Bash timeout 240000 ms",
+        "(the limits rule). The 16 changed test files take 240 s, the other steps about 10 s. Now: the precheck would be green at",
+        "about 250 s, but the Bash tool cuts the call off at 240 s; the agent sees a timeout with no precheck line, then (per the limits",
+        "text) reruns it detached: one more 250 s run. Before this change the same run ended red at 230 s with a message. Should: the",
+        "agent gets the precheck's green verdict from one run."
+      ],
+      "fix_hint": [
+        "In cycle.js, wrap the relay-mode quiet check in a line that says it can take more than 4 minutes on a busy machine and must be",
+        "run detached with a log and waited on in calls under 4 minutes (the limits recipe); assert it in tests/test_cycle_workflow.py.",
+        "Alternatively name `relay precheck` among the long jobs in the limits text the agents carry."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 114,
+      "pass_cases": [
+        "1. The quiet-check text an agent gets in relay mode (cycle.js quiet() or the prompt around it) tells it to run the precheck",
+        "   detached with a log and wait in calls under 4 minutes (or the limits part names `relay precheck` as a long job); a",
+        "   tests/test_cycle_workflow.py case asserts that wording in the worker, fixer and checker prompts.",
+        "2. Changed tests that pass in 240 s leave `relay precheck` green (CHANGED_TESTS_TIMEOUT >= 600, unchanged).",
+        "3. A changed test that hangs is still stopped at CHANGED_TESTS_TIMEOUT and reported \"took longer than N s\" (test_precheck.py:271 stays green).",
+        "4. Project mode (no .relay/) keeps the unit's own check text unchanged (test_cycle_workflow.py:104/116 stay green)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py:107 test_every_quiet_check_says_to_run_detached passes; fails without quietNote."
+      ],
+      "severity": "MEDIUM",
+      "since": "55ffa231113fa25cca945c946aa863f2830441bd",
+      "source": "review-the-precheck-s-changed-tests-step-has-a.json",
+      "source_id": "F1",
+      "summary": "the precheck may now run past the 4-minute foreground command limit, but the quiet check every agent runs in the foreground does not say to run it detached: at load the Bash call is cut off with no verdict",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "ae41a3f45aca1639c2d6b18bdca2662a6e29db61.gate.log",
+  "head": "cb668cddbc709ef5cd47ea489fc0715d4d4665dc",
+  "item": "the-precheck-s-changed-tests-step-has-a-fixed-23",
+  "notes": [
+    "Base-commit runs: test_precheck_changed_tests_step_is_a_hang_bound fails at 965c755; test_every_quiet_check_says_to_run_detached fails at 281381fd and at 965c755."
+  ],
+  "schema": 2,
+  "scope": [
+    "965c755990ec..HEAD; own files: relay_precheck.py, cycle.js, three test files, all within findings. Ran precheck (green) and 76 tests. Gate log head ae41a3f4, exit 0; HEAD adds only the gate log."
+  ],
+  "type": "check"
+}

@@ -23,10 +23,10 @@
   "where": [
     "plugins/delegate/workflows/cycle.js:232-252"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-29T09:56:32Z",
+  "taken_by": "wt/a-recheck-without-a-queue-item-forgets-t",
+  "closed_at": "2026-10-29T10:46:42Z",
+  "test": "tests/test_cycle_workflow.py::Cycle::test_recheck_without_fixes_names_the_scratch_check_records",
   "dropped_at": null,
   "dropped_why": null
 }

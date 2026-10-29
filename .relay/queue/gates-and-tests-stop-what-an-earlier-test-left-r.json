@@ -19,8 +19,8 @@
   ],
   "taken_at": "2026-10-29T06:43:22Z",
   "taken_by": "wt/gates-and-tests-stop-what-an-earlier-tes",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T08:50:22Z",
+  "test": "tests/test_gate_sweep.py::FakeSweep::test_the_shape_of_the_22_a_parent_1_group_leader_in_a_deleted_folder_is_stopped_as_a_group",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
@@ -48,6 +48,18 @@
       "at": "2026-10-29T02:37:48Z",
       "fact": [
         "Front, 29 Oct, on the owner's 'полностью исключаем': the designed layers leave two gaps the build must close or name. (1) 3 of the 59 leftovers did not match the temp-folder prefixes: relay gate processes 16695 and 17012 started from a copy of relay in a session scratch folder, and 24089 from a worktree since removed; the exact signal for them is a relay-gate.lock whose gate pid is dead while the lock is still held (lib/relay_gate.py:405). (2) The sweep runs when a gate starts, so a leftover lives until the next gate; the end-of-run cleanup (E) and the end-of-run leak scan must fail the test run on any survivor so it never reaches master."
+      ]
+    },
+    {
+      "at": "2026-10-29T09:33:47Z",
+      "fact": [
+        "29 Oct ~13:35 local, session restart: branch wt/gates-and-tests-stop-what-an-earlier-tes is built, reviewed, checked open 0 and its item closed on it; its relay land stopped on a take conflict with master (lib/relay_gate.py, tests/leaked_gates.py, tests/test_gate.py, after the 30-minute quick-gate limit landed). A fixer was resolving it when the session restarted: next step is a cycle unit of kind fix (take master and resolve those files), then relay land."
+      ]
+    },
+    {
+      "at": "2026-10-29T10:41:42Z",
+      "fact": [
+        "29 Oct ~15:50, front: 22 test gate processes (fake gate.sh from tests' temp folders) were running with no parent for 4.3 to 5.6 hours, each with a child, about 0.8% CPU each; 19 had their temp folder deleted and were stopped by the front, 3 whose folder still exists were left. A fixer's precheck timed out at 600 s under that load. This is what this change's sweep at gate start is to stop."
       ]
     }
   ]

@@ -13,7 +13,7 @@ export const meta = {
 //   change   {name, wt, check, branch*, item*}                       build, gate, review, fix, gate, check, close, show
 //   built    {name, wt, check, built, branch*, item*}                the same without the build
 //   fix      {name, wt, check, fix, fixes, findings, branch*, item*} fix, gate, check, close, show
-//   recheck  {name, wt, check, findings}                              take the base, gate, check (project mode only: in relay mode `relay land` takes the base and gates)
+//   recheck  {name, wt, check, findings, fixes}                                          take the base, gate, check (project mode only: in relay mode `relay land` takes the base and gates)
 //   (* relay mode only; item is one fix-item slug)
 // Designs, in args.designs: {name, brief, out, review (false: an analysis, one thinker)}.
 // Optional args.settings: gate_turns 20-80 (40), gate_fixes 0-3 (1), gate_reruns 0-2 (1: how often a gate that stopped at its time limit is run again, with no fixer), retry_dead 0-2 (1), gate_args (a string, '--quick'; '' is the plain quick gate, '--paid' the full one with the paid evals).
@@ -112,6 +112,8 @@ const tag = (it) => ((it.kind || 'change') === 'change' || it.kind === 'built') 
 // The quiet check every agent of a unit loops on: in relay mode `relay precheck` (the gate's quick steps, changed tests and the rules registry test included) comes in
 // front of the unit's own check, so a brief or an item that names only a test line cannot leave it out.
 const quiet = (it) => RELAY ? `relay precheck -C ${it.wt} && (${it.check})` : it.check
+// The precheck's changed-tests step may take up to 10 minutes on a busy machine, past the 4-minute foreground command limit: say so up front.
+const quietNote = () => RELAY ? ' The precheck can take more than 4 minutes on a busy machine: run this check detached with a log (the limits recipe) and wait in calls under 4 minutes, never as one foreground call.' : ''
 
 // A recheck lands a branch on the newest base: the gate runner first takes the base with a merge commit (a no-op when the
 // branch already holds the base's head); a conflict stops the unit, the script never resolves one.
@@ -171,7 +173,7 @@ async function gated(it, st) {
     st.rounds += 1
     st.fn += 1
     const fx = `${S}/reports/fixgate-${tag(it)}-${st.fn}.md`
-    const f = await ask(`Fix the red gate. Worktree: ${it.wt}. Gate log: ${g.gate_log}. First failing line: ${g.first_fail}. Brief of the change: ${S}/briefs/${it.name}.md. Check: ${quiet(it)}. Never work around a relay guard or hook. Commit the fix. Report: ${fx}.`,
+    const f = await ask(`Fix the red gate. Worktree: ${it.wt}. Gate log: ${g.gate_log}. First failing line: ${g.first_fail}. Brief of the change: ${S}/briefs/${it.name}.md. Check: ${quiet(it)}.${quietNote()} Never work around a relay guard or hook. Commit the fix. Report: ${fx}.`,
       agentOpts('fixer', HANDBACK, 'Fix', `fix red gate ${st.fn}: ${it.name}`))
     if (f.dead || f.v.status !== 'DONE') return { stop: stop(it, 'fix red gate', f.dead || f.v.summary) }
     st.fixReports.push(fx)
@@ -203,7 +205,7 @@ async function finish(it, st, o) {
   const { findings, fixes, gateLog, review } = o
   const withItem = RELAY && !!it.item
   const c = await checkStage(it, `check: ${it.name}`,
-    `Check: \`${findings}\`. Fixes: \`${fixes}\`. Worktree: \`${it.wt}\`. Check command: \`${quiet(it)}\`. Gate: \`${gateLog}\`.`,
+    `Check: \`${findings}\`. Fixes: \`${fixes}\`. Worktree: \`${it.wt}\`. Check command: \`${quiet(it)}\`.${quietNote()} Gate: \`${gateLog}\`.`,
     `${S}/reports/check-${tag(it)}.json`, withItem)
   if (c.dead) return stop(it, 'check', c.dead, { review })
   const ck = c.v
@@ -231,7 +233,7 @@ async function changeUnit(it) {
   if (it.kind === 'built') {
     // the build was done by hand: nothing to run
   } else {
-    const b = await ask(`Implement the brief. Brief: \`${S}/briefs/${it.name}.md\`. Report: \`${S}/reports/${it.name}.md\`. Loop on this quiet check: \`${quiet(it)}\`.`,
+    const b = await ask(`Implement the brief. Brief: \`${S}/briefs/${it.name}.md\`. Report: \`${S}/reports/${it.name}.md\`. Loop on this quiet check: \`${quiet(it)}\`.${quietNote()}`,
       agentOpts('worker', HANDBACK, 'Build', `build: ${it.name}`))
     if (b.dead || b.v.status !== 'DONE') return stop(it, 'build', b.dead || b.v.summary)
   }
@@ -249,7 +251,7 @@ async function changeUnit(it) {
   let fixes = 'none'
   if (r.inside > 0) {
     fixes = `${S}/reports/fix-${it.name}.md`
-    const f = await ask(`Fix the findings inside the change, each with its failing case and pass cases (read with \`relay check show ${reviewJson}\`). Worktree: ${it.wt}. Check: ${quiet(it)}. New tests go in the change's own new test file (see the brief). For each new test show it fails without the fix. Findings outside the change: leave them, list them as Outside. Commit. Write your report (Fixed / Disputed / Gap / Outside per finding, with the test as file::function) to ${fixes}.`,
+    const f = await ask(`Fix the findings inside the change, each with its failing case and pass cases (read with \`relay check show ${reviewJson}\`). Worktree: ${it.wt}. Check: ${quiet(it)}.${quietNote()} New tests go in the change's own new test file (see the brief). For each new test show it fails without the fix. Findings outside the change: leave them, list them as Outside. Commit. Write your report (Fixed / Disputed / Gap / Outside per finding, with the test as file::function) to ${fixes}.`,
       agentOpts('fixer', HANDBACK, 'Fix', `fix: ${it.name}`))
     if (f.dead || f.v.status !== 'DONE') return stop(it, 'fix', f.dead || f.v.summary, { review: r })
     const r2 = await gateGroup(it, st)
@@ -261,7 +263,7 @@ async function changeUnit(it) {
 
 async function fixUnit(it) {
   const st = newState()
-  const f = await ask(`${it.fix} Check: ${quiet(it)}.`, agentOpts('fixer', HANDBACK, 'Fix', `fix: ${it.name}`))
+  const f = await ask(`${it.fix} Check: ${quiet(it)}.${quietNote()}`, agentOpts('fixer', HANDBACK, 'Fix', `fix: ${it.name}`))
   if (f.dead || f.v.status !== 'DONE') return stop(it, 'fix', f.dead || f.v.summary)
   const r = await gateGroup(it, st)
   if (r.stop) return r.stop
@@ -272,7 +274,10 @@ async function recheckUnit(it) {
   const st = newState()
   const r = await gateGroup(it, st)
   if (r.stop) return r.stop
-  return finish(it, st, { findings: it.findings, fixes: fixesText('none', st), gateLog: r.g.gate_log, review: undefined })
+  // The fixes already made: the given fix report, else the earlier check records this script wrote for this worktree, whose
+  // MET verdicts carry over. 'none' would make the checker judge every fixed finding again with no fix named.
+  const given = it.fixes || `the earlier check records ${S}/reports/check-*.json whose worktree is ${it.wt} (read each with relay check show <file>); carry each MET verdict whose files did not change since its head`
+  return finish(it, st, { findings: it.findings, fixes: fixesText(given, st), gateLog: r.g.gate_log, review: undefined })
 }
 
 async function unit(it) {

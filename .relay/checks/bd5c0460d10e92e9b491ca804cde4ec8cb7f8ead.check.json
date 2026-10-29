@@ -1,0 +1,230 @@
+{
+  "branch": "wt/the-quick-gate-is-red-in-a-clean-linux-c",
+  "findings": [
+    {
+      "details": [
+        "Found 27 Oct by the clean-environment design (owner: \"...\u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0442\u044c \u043a\u0430\u0436\u0434\u043e\u0435 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0435 \u0432 \u043d\u043e\u0432\u043e\u0439 docker \u043a\u043e\u043d\u0442\u0435\u0439\u043d\u0435\u0440\u0435... \u041f\u0440\u0438 \u044d\u0442\u043e\u043c \u043f\u043e\u043b\u0443\u0447\u0430\u0442\u044c \u0442\u043e\u0442 \u0436\u0435 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\"). Measured: two fresh clones of master b10d314 (same tree), `bin/ci --quick`, each with an empty $RELAY_HOME: this Mac green (1,027 tests OK, 935 s at load 27-36); a python:3.11-slim image with git, jq, uv, the deps.toml pins, bun and Claude Code (no relay or Claude settings) RED: 25 failures, 17 errors in library tests, hook tests failed (215 s). Causes found: `ps` is not installed in a slim image and deps.toml does not list it (18 errors: leaked-gate scan, inert probe, check migrate); tests/test_marks.py:245 compares a float sum exactly and passes only on python 3.12+ (`sum([0.1]*100)` is 10.0 on 3.14, 9.99999999999998 on 3.11) while deps.toml promises 3.11; this Mac runs python 3.14.6 and nothing pins one version. Not explained yet: paid-hold tests \"git log refs/heads/master failed: unable to open loose object\" (4), the guard case \"TMPDIR from the hook environment\" (macOS sets TMPDIR, Linux usually not), the packet tests' TypeScript declarations (\"no declaration emitted for module src/widget/gear.ts\"), test_parallel_unittest sub-runs exiting 1. The design decides inside the principles (owner can reverse): one exact python for host and image, 3.14.6, and bin/ci refuses another python3. IP chosen by the front (agent-chosen).",
+        "Also: tests/test_marks.py:245 exact float",
+        "Also: install.sh",
+        "Also: bin/ci and lib/relay_ci.py (python check)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`bin/ci --quick` on a fresh clone of b10d314 in python:3.11-slim plus the deps.toml tools: 25 failures, 17 errors in library tests, hook tests FAILED."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the same run in the image built from the change's Dockerfile: green",
+        "this Mac's quick gate: still green",
+        "bin/ci given a python3 of another version refuses with the version it wants"
+      ],
+      "path": "deps.toml",
+      "rank": "high",
+      "reason": [
+        "tests/test_clean_gate_fixes.py PacketTscRunner/PythonAdvice/InstallPythonSearch fail at 96ab43cb (5 failed), pass at head; gate green."
+      ],
+      "severity": "HIGH",
+      "since": "96ab43cb11f77f49c0b79cdedf14d1c8b58f2fc5",
+      "source": "queue",
+      "summary": "The quick gate is red in a clean Linux container",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running the tests in the change's own image. The other three unexplained groups (TMPDIR guard, paid-hold",
+        "loose objects, parallel_unittest) pass in the image; this one does not. The fix lies in kit_packet.declarations (run tsc",
+        "under bun when node is absent, or always: `bun <tsc>`), which the change must touch to keep its promise, hence inside.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "podman run --rm -v <clone>:/src:ro localhost/relay-clean-gate sh -c 'git clone -q /src /work/relay && cd /work/relay && pytest -q ...'",
+        "  FAILED tests/test_hook_packet.py::Packet::test_brief_for_one_task",
+        "  FAILED tests/test_hook_packet.py::Packet::test_check_reports",
+        "  FAILED tests/test_hook_packet.py::Packet::test_e2e_waiver_none_stub_and_line_ranges",
+        "  3 failed, 127 passed in 135.17s",
+        "podman run ... 'cd plugins/relay/tests/ts-deps && bun install --frozen-lockfile; head -1 node_modules/typescript/bin/tsc; node_modules/.bin/tsc --version; bun node_modules/.bin/tsc --version'",
+        "  #!/usr/bin/env node",
+        "  env: 'node': No such file or directory   rc=127",
+        "  Version 6.0.3",
+        "podman run --rm localhost/relay-clean-gate sh -c 'command -v node || echo NO-NODE'  ->  NO-NODE",
+        "Mac: command -v node -> /opt/homebrew/bin/node"
+      ],
+      "failing_case": [
+        "Image built from container/Containerfile (localhost/relay-clean-gate), clone of ae109bbf:",
+        "  pytest -q tests/test_hook_packet.py  ->  3 failed (test_brief_for_one_task, test_check_reports,",
+        "  test_e2e_waiver_none_stub_and_line_ranges): \"no declaration emitted for module src/widget/gear.ts\".",
+        "Cause: plugins/relay/tests/ts-deps/node_modules/.bin/tsc starts with \"#!/usr/bin/env node\"; the image has no node",
+        "(\"env: 'node': No such file or directory\", rc 127); kit_packet.declarations() runs tsc with stderr discarded and",
+        "check=False, so it silently emits nothing. The Mac passes only because /opt/homebrew/bin/node happens to exist,",
+        "which deps.toml does not list (the owner wants bun, no Node). This is the \"TypeScript declarations\" group the brief",
+        "said to find and fix; the change's promise \"the quick gate is green in a clean Linux container\" is not met.",
+        "Should: all of test_hook_packet passes in the image, with no node installed."
+      ],
+      "fix_hint": [
+        "In declarations(): when shutil.which(\"node\") is None and bun is on PATH, run [bun, tsc, ...] instead of [tsc, ...];",
+        "if neither, raise RefError naming bun. Then run the full quick gate in the image and record the result."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 300,
+      "pass_cases": [
+        "1. Clean image (no node, bun present), tests/test_hook_packet.py: 0 failed; task 1.2's packet holds the gear.ts declarations.",
+        "2. Same image: `bun node_modules/.bin/tsc --version` prints \"Version 6.0.3\" today; the packet's tsc call works the same way.",
+        "3. Mac with node on PATH: test_hook_packet still passes.",
+        "4. A project with no node_modules/.bin/tsc: still the RefError naming `bun install --frozen-lockfile` (test_module_ref_without_node_modules_and_uncovered_file).",
+        "5. A machine with neither node nor bun: a clear RefError naming what to install, not a silent \"no declaration emitted\"."
+      ],
+      "path": "plugins/relay/lib/kit_packet.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_clean_gate_fixes.py PacketTscRunner::test_no_node_runs_tsc_under_bun passes; fails without fix."
+      ],
+      "severity": "HIGH",
+      "since": "ae109bbf2f31cddadb3c22421134310584f717ae",
+      "source": "review-the-quick-gate-is-red-in-a-clean-linux-c.json",
+      "source_id": "F1",
+      "summary": "the quick gate is still red in the clean Linux image: tsc needs node, the image has only bun, so 3 packet tests fail",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: bin/ci line 5 `exec python3 .../lib/relay_ci.py`; relay_ci runs every step with \"python3\" from",
+        "PATH (lines 277, 306, 327, 371-377); install.sh:107 states uv's python install does not replace python3. Principle 10:",
+        "a refusal names the next step, and that step must work. The Mac case is near: Homebrew's python@3.14 tracks the latest",
+        "3.14.x, and deps.toml's brew route `python@3.14` cannot install 3.14.6 at all, so every lane's gate refuses at once",
+        "after an upgrade. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "bin/ci:5: exec python3 \"$(cd \"$(dirname \"$0\")/..\" && pwd -P)/lib/relay_ci.py\" \"$@\"",
+        "install.sh:107: say \"  via uv python install (python3.11 lands in ~/.local/bin; python3 itself is not replaced)\"",
+        "uv python list (Mac): cpython-3.14.6 /opt/homebrew/bin/python3 -> ../Cellar/python@3.14/3.14.6/bin/python3"
+      ],
+      "failing_case": [
+        "A Debian/Ubuntu host whose python3 is the apt one (3.13.5), or this Mac after Homebrew upgrades python@3.14 to 3.14.7.",
+        "bin/ci --quick -> \"ci: python3 is 3.13.5 but relay pins 3.14.6 (deps.toml): put python 3.14.6 first on PATH",
+        "(uv python install 3.14.6), then run bin/ci again\". The person runs `uv python install 3.14.6`: uv puts python3.14 in",
+        "~/.local/bin, not python3 (install.sh:107 says so itself: \"python3 itself is not replaced\"); bin/ci execs `python3`,",
+        "still 3.13.5, refused again. The doctor (dep_checks on the `python3` command) reports the same FIX.",
+        "Should: following the refusal's own words once makes bin/ci run."
+      ],
+      "fix_hint": [
+        "Name `uv python install --default 3.14.6` (it installs python3 into ~/.local/bin) in the refusal and in install.sh's",
+        "python messages, or let bin/ci pick `uv python find 3.14.6` when python3 is another version and put its folder first on",
+        "PATH for the steps. A test asserts the advice text."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 504,
+      "pass_cases": [
+        "1. python3 is 3.13.5, uv holds 3.14.6 (python3.14 in ~/.local/bin): bin/ci either runs the gate under 3.14.6 or the refusal names a step that makes `python3` 3.14.6 (e.g. `uv python install --default 3.14.6`).",
+        "2. python3 is 3.14.6: bin/ci runs as today (tests/test_ci_python.py PythonPin).",
+        "3. deps.toml without exact on python3: no refusal.",
+        "4. The refusal still names the found version and the pinned one."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_clean_gate_fixes.py PythonAdvice tests pass; fail without fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "ae109bbf2f31cddadb3c22421134310584f717ae",
+      "source": "review-the-quick-gate-is-red-in-a-clean-linux-c.json",
+      "source_id": "F2",
+      "summary": "the python refusal's next step (uv python install 3.14.6, ~/.local/bin first) does not change python3, so bin/ci keeps refusing",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading install.sh:107 and :122. Correct today because python3 is pinned exactly; fragile if the pin is",
+        "relaxed (owner can reverse it). Size: 5 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Dry run of install.sh with python3 3.9.6: prints \"via uv python install (python3.11 lands in ~/.local/bin; ...)\" while it",
+        "installs 3.14.6. And with a non-exact pin min = \"3.11\", find_python tries \"python3\" and \"python${pymin%.*}\" = \"python3\"",
+        "again, no longer python3.14/3.13/3.12, so a host with python3 3.9 and python3.13 is not found.",
+        "Should: the message names the pinned version; the non-pinned search still tries the versioned names."
+      ],
+      "fix_hint": [
+        "Use \"python${pymin%.*}\" wording from $pymin in the message; in find_python keep the versioned list when pyexact is not true."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 107,
+      "pass_cases": [
+        "1. pin 3.14.6 exact, python3 3.9.6: the uv line names python3.14 (or the pinned version), not 3.11.",
+        "2. pin 3.14.6 exact, python3.14 = 3.14.6: the doctor runs under python3.14 (test_doctor_runs_under_the_pinned_python_when_python3_is_another).",
+        "3. min 3.11 (not exact), python3 3.9.6, python3.13 3.13.0: find_python returns python3.13."
+      ],
+      "path": "install.sh",
+      "rank": "low",
+      "reason": [
+        "tests/test_clean_gate_fixes.py InstallPythonSearch tests pass; fail without fix."
+      ],
+      "severity": "LOW",
+      "since": "ae109bbf2f31cddadb3c22421134310584f717ae",
+      "source": "review-the-quick-gate-is-red-in-a-clean-linux-c.json",
+      "source_id": "F3",
+      "summary": "install.sh still says python3.11 lands in ~/.local/bin, and find_python without a pin now tries only python3",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_ci.py came in from master (merge 62bcbf83ffd0) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_ci.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_ci.py merge changes covered by the green gate on 5146cc28 and tests/test_ci_python.py passing."
+      ],
+      "severity": "MEDIUM",
+      "since": "62bcbf83ffd0d02ba2edd2a8a4698e2734325100",
+      "source": "merge",
+      "summary": "lib/relay_ci.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_gate.py came in from master (merge 62bcbf83ffd0) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate.py ran in the green gate on 5146cc28."
+      ],
+      "severity": "MEDIUM",
+      "since": "62bcbf83ffd0d02ba2edd2a8a4698e2734325100",
+      "source": "merge",
+      "summary": "tests/test_gate.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "5146cc286bbc6ecb4e164906dbf310a77228272d.gate.log",
+  "head": "bd5c0460d10e92e9b491ca804cde4ec8cb7f8ead",
+  "item": "the-quick-gate-is-red-in-a-clean-linux-container",
+  "notes": [
+    "Fixer note: install.sh uses plain uv python install; only advice text has --default. Not a problem here."
+  ],
+  "schema": 2,
+  "scope": [
+    "Checked ae109bbf..HEAD. Check command green (precheck green, 102 passed). Gate log is for 5146cc28, green exit 0; only the inert gate commit follows. New tests fail on the pre-fix commit (6 of 11 in the three test classes) and 5 fail at the Q1 base 96ab43cb."
+  ],
+  "type": "check"
+}
