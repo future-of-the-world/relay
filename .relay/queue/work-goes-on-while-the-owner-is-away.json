@@ -1,0 +1,32 @@
+{
+  "kind": "feature",
+  "ip": 90,
+  "time": 120,
+  "found_at": "2026-10-29T21:42:04Z",
+  "found_in": "relay queue add",
+  "title": "Work goes on while the owner is away",
+  "what": [
+    "A question a principle or recorded decision already answers no longer waits for the owner, and the coordinating session wakes itself when its last agent ends, so no lane stands idle while startable items exist."
+  ],
+  "why": [
+    "29-30 Oct night: master had no commit from 22:41 to 01:14 while four built changes waited on owner questions that all ended with the front's recommendation, and the front stopped with no agent running. Design (reviewed, revision 2) recommends, in order: the cycle fixes around a question (item the-cycle-stops-all-fixes-at-a-question-for-the), the lanes line shows the next startable items (item one-stuck-queue-pick-hides-every-other-startable), the reviewer decides what a principle already answers (role text plus an eval case first), and a self-wake of the coordinating session (a Stop-hook timer, max 55 minutes, ending early when lanes change). IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "roles/judge.md",
+    "plugins/front/hooks/lanes.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T21:42:04Z",
+      "said": [
+        "Сейчас ты ждал моего ответа 3 часа, ведь я отошел поспать, все это время никакой полезной работы не было выполнено, как мы можем исправить ситуацию"
+      ]
+    }
+  ]
+}
