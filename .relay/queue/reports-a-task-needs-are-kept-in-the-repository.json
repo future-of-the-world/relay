@@ -23,6 +23,12 @@
       "said": [
         "и после перезагрузки пропадёт - это очень печально, я не перезапускал свой ноутбук уже порядка недели, не хочу терять прогресс, вероятно надо быть готовым к первому такому случаю, я не хочу терять важные отчеты для выполнения задач, более того - я хочу хранить их в репозитории"
       ]
+    },
+    {
+      "at": "2026-10-29T23:33:42Z",
+      "fact": [
+        "30 Oct, front decision (owner can reverse; follows from the owner's words \"я хочу хранить их в репозитории\" and principle 2): build the reviewed design revision 2 (approach A2): agents write reports to an ignored folder .relay/work/<branch without wt/>/ in the main checkout (survives a restart); after a successful landing the reports go into .relay/reports/<key>/ in the same commit as the change records; everything except copies and logs (about +1.4 MiB a week, measured from last week's reports); a code review file is kept when one of its findings is in no check record (23 of 569 findings last week). A one-time copy of this session's reports was made to the relay backup folder on 30 Oct. Agent cost 2-2.5 h, a guess."
+      ]
     }
   ]
 }
