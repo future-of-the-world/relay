@@ -29,5 +29,31 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T20:35:51Z",
+      "fact": [
+        "29 Oct, gate of wt/refuse-folder-and-pattern-entries-in-whe at a91e4a4a: tests/test_rules_gate_isolation.py:22 test_rules_tests_command_passes_in_the_order_unittest_runs_them hit its own 200 s subprocess timeout while the gate's library tests took 2109 s in all; run alone it passes in 51 s (2 tests). Same day the precheck's changed-tests step hit its 230 s cap at load ~35 on 12 cores on wt/queue-time-estimates-are-guesses-with-no. Both red steps found nothing wrong in the change."
+      ]
+    },
+    {
+      "at": "2026-10-28T21:41:12Z",
+      "fact": [
+        "29 Oct ~01:00 UTC, relay land of wt/guard-main-refuses-a-script-that-only-na, gate of f2f761db: library tests took 3521 s (about 240 s on a quiet machine, measured the same day on wt/type-check-subfolders-and-cap-module-siz) and failed only on two timing tests: test_rules_gate_isolation test_rules_tests_command_passes_in_the_order_unittest_runs_them (200 s subprocess timeout) and test_numbers test_session_end_hook_is_fast_on_a_large_ledger (0.61 s against a 0.3 s limit). Load averages after it: 11.5 / 23.5 / 29.8 on 12 cores, with 5 lanes gating. Second red gate from timing in one night that found nothing wrong in the change."
+      ]
+    },
+    {
+      "at": "2026-10-29T00:28:22Z",
+      "fact": [
+        "29 Oct measured cause of tonight's timing failures (test_rules_gate_isolation 200 s cap, test_numbers SessionEnd 0.3 s cap, precheck changed-tests 230 s cap): 59 leaked fixture gate scripts from tests/test_land.py::test_land_lock_frees_on_kill, 312 new processes a second, CPU 93.5% system. The limits still fail on any loaded machine, so this item stands; the leak is its own item."
+      ]
+    },
+    {
+      "at": "2026-10-29T03:27:58Z",
+      "fact": [
+        "29 Oct ~08:00, gate of wt/refuse-folder-and-pattern-entries-in-whe at 35ecd293: tests/test_gate_stops.py:77 test_f2_an_interrupted_runner_leaves_no_gate_command failed in the inert step's nested run (829 s) with 'the gate command is still running after its runner was interrupted', while the same tests passed in the outer run (1108 s); the change touches no gate code. Its wait is the until() helper's fixed window, so it belongs to the same class: a fixed wall-clock wait that a loaded machine overruns."
+      ]
+    }
+  ]
 }

@@ -13,7 +13,7 @@
   ],
   "where": [
     "bin/relay (setup, sync, doctor)",
-    "plugins/core/hooks",
+    "plugins/relay/hooks/hooks.json",
     "lib/relay_gate.py",
     "deps.toml"
   ],
@@ -52,6 +52,13 @@
       "at": "2026-10-27T01:08:35Z",
       "fact": [
         "Decided in that design (the owner can reverse each): the front and the landing stay on the host; containers run build, gate, review, fix and check but never land, take the default branch or build a train; no `--bare`; the rule files and the run's settings are generated per run and never committed; one exact Python 3.14.6 for the gate on the host and in the image; no paid runs in a container (RELAY_PAID=off). Not verified: that the Workflow tool and the InstructionsLoaded hook work under `claude -p`; that a directory marketplace accepts a relative path in project settings."
+      ]
+    },
+    {
+      "at": "2026-10-29T02:37:32Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (plugins/core is now plugins/relay; hooks.json is the file that lists the hooks a change run loads)"
       ]
     }
   ]

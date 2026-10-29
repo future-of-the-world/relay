@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-28T17:38:30Z",
   "taken_by": "wt/read-only-guard-lets-a-critic-run-relay",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T19:51:50Z",
+  "test": "tests/test_read_only_guard.py::ReadOnlyHook::test_q1_every_queue_writing_word_of_bin_relay_is_on_the_guard_list",
   "dropped_at": null,
   "dropped_why": null
 }

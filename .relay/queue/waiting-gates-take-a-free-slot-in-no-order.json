@@ -1,0 +1,30 @@
+{
+  "kind": "fix",
+  "ip": 86,
+  "time": 30,
+  "found_at": "2026-10-29T00:27:48Z",
+  "found_in": "relay queue add",
+  "title": "Waiting gates take a free slot in no order",
+  "what": [
+    "Gates waiting for a gate slot take a freed slot in arrival order, so the gate that waited longest runs first."
+  ],
+  "why": [
+    "29 Oct: a gate waiting since 01:29 (pid 9401) was passed by one started at 01:41 (10491), which got a slot first; with 2 slots and up to 6 lanes a gate can wait for hours. Found by the slow-gates diagnosis. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "29 Oct 01:29 and 01:41: two gates waited on the same 2 slots and the later one ran first."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "Two gates waiting for one slot: the one that started waiting first gets it."
+  ],
+  "where": [
+    "bin/relay (gate slot wait)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
