@@ -33,6 +33,12 @@
         "a. Да, останавливать и записывать в log каждую остановку (рекомендация: совпадение по пути поймало 56 из 59, ни одного чужого процесса в тех папках, около 0.05 с на проверку)",
         "b. Нет: проверка отказывается стартовать и называет процессы, останавливает front или вы; все lanes ждут (ночью так простояли бы 1.5 часа)"
       ]
+    },
+    {
+      "at": "2026-10-29T02:33:30Z",
+      "fact": [
+        "29 Oct, after the owner asked why the test code does not clean up by itself, the front added a third option to the question above: c. build no gate-start sweep; the test fix and the shared Fixture cleanup (E) are enough, and a test written outside the Fixture is caught only by the end-of-run leak scan (6 of the 59 leaks of 29 Oct were outside what E stops)."
+      ]
     }
   ]
 }
