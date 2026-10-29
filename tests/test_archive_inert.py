@@ -120,3 +120,37 @@ class ArchiveAfterTheMark(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+RELAY = os.path.join(os.path.dirname(HERE), "bin", "relay")
+
+
+class ChangedArchiveFlag(ArchiveAfterTheMark):
+    """`relay changed --own --archive`: the checker's file list agrees with the merge guard on an archive commit."""
+
+    def changed(self, *flags):
+        reviewed = self.git("rev-parse", "HEAD~1")        # the commit the mark was made on
+        done = subprocess.run([RELAY, "changed", "--own", *flags, "-C", self.repo, reviewed], capture_output=True, text=True,
+                              env=ENV)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return sorted(done.stdout.split())
+
+    def test_an_archive_only_commit_lists_nothing_with_the_flag(self):
+        self.archive()
+        self.commit("Archive x")
+        self.assertEqual(self.changed("--archive"), [])
+
+    def test_a_readme_edit_in_the_archive_commit_is_the_only_path_listed(self):
+        self.archive()
+        self.write("README.md", "hi\n")
+        self.commit("Archive x and docs")
+        self.assertEqual(self.changed("--archive"), ["README.md"])
+
+    def test_without_the_flag_the_archive_paths_are_listed(self):
+        # unchanged behaviour: the 3 archive files, the main spec, and the 2 deleted change files (marks are inert)
+        self.archive()
+        self.commit("Archive x")
+        self.assertEqual(self.changed(), ["openspec/changes/archive/2026-x/proposal.md",
+                                          "openspec/changes/archive/2026-x/tasks.md", "openspec/changes/x/proposal.md",
+                                          "openspec/changes/x/tasks.md", "openspec/specs/word/spec.md"])
+
