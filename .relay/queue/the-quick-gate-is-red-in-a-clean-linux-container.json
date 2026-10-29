@@ -44,6 +44,12 @@
       "fact": [
         "Recovered 27 Oct: the probe image's Dockerfile (clean-environment design) is FROM python:3.11-slim; apt packages git, jq, curl, ca-certificates, unzip, bash; a user `dev`; uv 0.8.24 (its installer checked against a fixed sha256), then ruff 0.13.3, mypy 1.18.2 and pytest 8.4.2 installed with `uv tool`; the bun and claude installers; a git identity `probe`; working folder /work. The tools come from relay's deps.toml and no Claude or relay settings are present. A copy is in relay's backup folder (clean-env/img/Dockerfile)."
       ]
+    },
+    {
+      "at": "2026-10-29T07:48:45Z",
+      "fact": [
+        "29 Oct, measured at ee939d2d in a clean container without network: 59 tests red, identical as root and as the normal user dev; 10 red lines (tests/test_types_step.py and two in tests/test_gate.py) come from mypy and ruff being fetched from PyPI at run time (\"dns error\"), so the image must carry them; 3 reds of the earlier 52-red run now pass (test_brief_for_one_task, test_check_reports, test_e2e_waiver_none_stub_and_line_ranges)."
+      ]
     }
   ]
 }
