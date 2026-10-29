@@ -32,6 +32,14 @@
       "fact": [
         "30 Oct, front decision (owner can reverse; principle 1 cheap before expensive, principle 8 the owner reads): build the reviewed design (revision 2) in two steps: first only the record (question, options, \"decided by front\", chosen letter, reason; the owner's answer may carry a letter; \"waiting for the owner\" split into two rules; metrics do not count a reversal as owner waiting), about 65 agent minutes; the list of all decisions and the guard-hook check become separate queue items. Each wave digest gets one line per decision taken without the owner (about 7 a day). Reviewer decisions stay in check records in git (108 of 363 records have no queue item), reversible with relay check owner."
       ]
+    },
+    {
+      "at": "2026-10-29T23:07:42Z",
+      "said": [
+        "Что значит - решения рецензента живут в другом файле, give me the full picture",
+        "",
+        "Да, добавь оба пункта в задачу"
+      ]
     }
   ]
 }
