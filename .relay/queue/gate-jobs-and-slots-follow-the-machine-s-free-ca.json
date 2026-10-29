@@ -82,6 +82,13 @@
         "b. Каждый прогон запускает 2 процесса вместо 4",
         "c. Запускать процессы тестов только при низкой нагрузке машины",
         "d. Оставить как есть"
+      ],
+      "answered_at": "2026-10-29T11:38:29Z",
+      "answer": [
+        "a a, но это должно конфигурироваться, разве gate это не унифицированный способ который пропагандирует relay ?"
+      ],
+      "reading": [
+        "Approach a (one machine-wide token pool, part kept for gates); sizes a (12 in all, 4 per gate) as defaults. Both must be configurable, and the pool must work for any project's gate through relay gate, not only relay's own tests."
       ]
     },
     {
@@ -93,6 +100,13 @@
         "a. 12 всего, по 4 на проверку",
         "b. 12 всего, по 2 на проверку",
         "c. 8 всего, по 2 на проверку"
+      ],
+      "answered_at": "2026-10-29T11:38:29Z",
+      "answer": [
+        "a a, но это должно конфигурироваться, разве gate это не унифицированный способ который пропагандирует relay ?"
+      ],
+      "reading": [
+        "Approach a (one machine-wide token pool, part kept for gates); sizes a (12 in all, 4 per gate) as defaults. Both must be configurable, and the pool must work for any project's gate through relay gate, not only relay's own tests."
       ]
     }
   ]
