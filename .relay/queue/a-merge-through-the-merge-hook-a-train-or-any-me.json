@@ -26,8 +26,8 @@
   "where": [
     "plugins/relay/hooks/merge.py:226"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T12:36:34Z",
+  "taken_by": "wt/a-merge-through-the-merge-hook-a-train-o",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
