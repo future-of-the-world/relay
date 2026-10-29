@@ -53,6 +53,12 @@
       "reading": [
         "Shrink the podman machine to 8 GiB and 6 CPUs and restart it now."
       ]
+    },
+    {
+      "at": "2026-10-29T10:57:51Z",
+      "fact": [
+        "29 Oct afternoon, front: relay precheck's changed-tests step went red on its 600 s limit three times in 3 hours, on three branches (metrics, landed-branch item, gates-and-tests sweep), with no test failing; load 36-50 on 12 cores, CPU 38-24% user, 62-76% system, 0% idle. At ~16:30 the test processes were 7 in the metrics worktree, 7 in the landed-branch worktree, 1 landing train, 6 in temp test folders, while 2 gate slots were busy: prechecks take no gate slot, and every precheck and gate sizes its workers for the whole machine. Front decision (owner can reverse): this item takes the next free lane, ahead of the container gate, because the same failure repeated (principle 6) and every rerun is waste (principle 2)."
+      ]
     }
   ]
 }
