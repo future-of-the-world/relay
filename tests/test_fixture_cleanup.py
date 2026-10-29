@@ -3,22 +3,27 @@ Each case runs an inner Fixture test under a runner of its own and looks at its 
 import io
 import os
 import signal
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
+from typing import Callable
+from unittest import mock
 
 from test_gate import RELAY, Fixture, relay_procs, write
 from pidfile import wait_pid
 
 import leaked_gates
+import relay_gate
 
 BOUND = 30
 FOREVER = "echo $$ > .ci/pid\ntouch .ci/started\nwhile true; do sleep 0.05; done\n"      # no folder check: it never ends by itself
 CHECKED = 'echo $$ > .ci/pid\ntouch .ci/started\nwhile [ -d "%s" ]; do sleep 0.05; done\n'      # ends when the fixture's folder is gone
 
 
-def run_inner(body):
+def run_inner(body: Callable[[Fixture], None]) -> tuple[unittest.TestResult, Fixture]:
     """Run `body(self)` as a Fixture test under its own runner; returns (result, the inner test instance)."""
     class Inner(Fixture):
         def runTest(self):
@@ -29,9 +34,13 @@ def run_inner(body):
     return result, test
 
 
-def start_gate_then_kill_it(test, script):
-    """The gate runs `script`; once it runs, the gate (not its command) is SIGKILLed, so the command is left holding the lock."""
-    test.repo(gate=script)
+def start_gate_then_kill_it(test: Fixture, script: str, folder: str) -> None:
+    """The gate runs `script` (kept in `folder`, outside the fixture's folders); once it runs, the gate (not its command) is SIGKILLed, so
+    the command is left holding the lock. The script's path names no folder that the fixture's cleanup deletes, so no other lane's real
+    gate (which sweeps the real temporary folders) takes the command for a dead test's leftover while E waits for it."""
+    path = os.path.join(folder, "loop.sh")
+    write(path, "#!/bin/sh\n" + script, 0o700)
+    test.repo(gate="exec /bin/sh %s\n" % path)
     gate = subprocess.Popen([sys.executable, RELAY, "gate"], cwd=test.wt, env=test.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     deadline = time.monotonic() + BOUND
     while not os.path.exists(os.path.join(test.wt, ".ci", "started")):
@@ -45,9 +54,13 @@ def start_gate_then_kill_it(test, script):
 
 
 class Cleanup(unittest.TestCase):
+    def setUp(self) -> None:
+        self.folder = tempfile.mkdtemp(prefix="script-")      # lives until this test ends, longer than the inner fixture's folders
+        self.addCleanup(shutil.rmtree, self.folder, True)
+
     def test_a_command_that_outlives_its_folder_is_stopped_and_the_test_fails_naming_it(self):
         """A loop with no folder check, its gate killed: after rmtree it is still running. E stops it and the inner test fails with its pid."""
-        result, inner = run_inner(lambda t: start_gate_then_kill_it(t, FOREVER))
+        result, inner = run_inner(lambda t: start_gate_then_kill_it(t, FOREVER, self.folder))
         self.addCleanup(relay_procs.send, inner.pid, False, signal.SIGKILL)
         self.assertEqual(len(result.problems), 1, result.problems)
         message = result.problems[0][1]
@@ -58,10 +71,32 @@ class Cleanup(unittest.TestCase):
             time.sleep(0.02)
         self.assertFalse(relay_procs.is_alive(inner.pid))
 
+    def test_a_sweep_of_the_real_roots_during_E_s_wait_does_not_take_the_command(self):
+        """Another lane's gate sweeps the real temporary folders at the moment E waits for the lock: it finds nothing to stop (the
+        command's script is outside the deleted folders), so the inner test still fails naming the pid and this test passes."""
+        seen = []
+        original = Fixture.lock_freed      # E calls it right after the folder is removed
+
+        def sweeping(handle, grace):
+            seen.extend(relay_gate.sweep(relay_gate.temp_roots(), lambda: [p for p in relay_procs.read_procs() if p.pid == box["pid"]],
+                                         relay_procs.working_folders, [os.getpid()]))
+            return original(handle, grace)
+        box = {}
+
+        def body(t):
+            start_gate_then_kill_it(t, FOREVER, self.folder)
+            box["pid"] = t.pid
+        with mock.patch.object(Fixture, "lock_freed", staticmethod(sweeping)):
+            result, inner = run_inner(body)
+        self.addCleanup(relay_procs.send, inner.pid, False, signal.SIGKILL)
+        self.assertEqual(seen, [])
+        self.assertEqual(len(result.problems), 1, result.problems)
+        self.assertIn(str(inner.pid), result.problems[0][1])
+
     def test_a_loop_that_checks_its_folder_ends_by_itself_and_the_test_passes(self):
         """The correct shape (test_gate_slots' HOLD): the loop ends within the grace once the folder is removed; nothing is stopped, nothing fails."""
         def body(t):
-            start_gate_then_kill_it(t, CHECKED % t.tmp)
+            start_gate_then_kill_it(t, CHECKED % t.tmp, self.folder)
         result, inner = run_inner(body)
         self.addCleanup(relay_procs.send, inner.pid, False, signal.SIGKILL)
         self.assertTrue(result.wasSuccessful(), result.problems)

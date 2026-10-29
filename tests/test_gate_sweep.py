@@ -1,6 +1,8 @@
 """The gate's sweep of leftovers (B) and its reclaim of a killed gate's command (docs: queue item
 gates-and-tests-stop-what-an-earlier-test-left-r). Fakes feed `sweep` the process table; the real-process tests plant their
 orphans inside a folder of the test's own temporary folder and pass it as the sweep's root, so nothing outside the test is touched."""
+import contextlib
+import io
 import os
 import subprocess
 import sys
@@ -8,9 +10,10 @@ import tempfile
 import threading
 import time
 import unittest
+from typing import Callable
 from unittest import mock
 
-from test_gate import GIT_ENV, Fixture, read, write
+from test_gate import GIT_ENV, RELAY, Fixture, read, write
 from pidfile import wait_pid
 
 import relay_gate
@@ -20,7 +23,7 @@ from relay_procs import Proc
 BOUND = 30      # seconds any wait here may last
 
 
-def proc(pid, ppid, pgid, command, age=5.0):
+def proc(pid: int, ppid: int, pgid: int, command: str, age: float = 5.0) -> Proc:
     return Proc(pid, ppid, pgid, time.time() - age, command)
 
 
@@ -51,7 +54,7 @@ class FakeSweep(unittest.TestCase):
         self.assertEqual(self.targets, [(1469, True)])
         self.assertEqual(len(lines), 1)
         self.assertIn("1469", lines[0])
-        self.assertTrue(lines[0].startswith(relay_gate.STOPPED))
+        self.assertTrue(lines[0].startswith(relay_gate.LEFTOVER))
         self.assertIn("folder deleted", lines[0])
 
     def test_a_process_in_a_folder_that_is_not_relays_is_left(self):
@@ -153,6 +156,8 @@ class NeverInsideATest(unittest.TestCase):
         self.check("/work/tree", {"RELAY_HOME": "/home/u/.relay", "HOME": "/home/u"}, 1)
 
 
+REAL_TEMP_ROOTS = relay_gate.temp_roots      # the unpatched function: what every other lane's real gate sweeps
+
 ORPHAN = '#!/bin/sh\necho $$ > "%s"\nwhile true; do sleep 0.05; done\n'      # no folder check: it never ends by itself
 
 
@@ -164,12 +169,15 @@ class RealSweep(Fixture):
         self.roots = os.path.realpath(tempfile.mkdtemp(prefix="roots-"))
         self.repo(gate="exit 0\n")
         environ = {**GIT_ENV, "RELAY_HOME": os.path.join(self.tmp, "home")}
-        for patcher in (mock.patch.object(relay_gate, "temp_roots", return_value=[self.roots]), mock.patch.dict(os.environ, environ)):
+        # The planted orphans keep their folders and are found by age (ORPHAN_AGE patched in this process only): a folder deleted under
+        # the real temporary folder would make them targets of any other lane's real gate, which sweeps that folder too.
+        for patcher in (mock.patch.object(relay_gate, "temp_roots", return_value=[self.roots]), mock.patch.dict(os.environ, environ),
+                        mock.patch.object(relay_gate, "ORPHAN_AGE", -1.0)):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def orphan(self, parent):
-        """A parent-1 group leader `/bin/sh <parent>/relay-gate-N/gate.sh` that never ends; its folder is deleted. Returns its pid."""
+    def orphan(self, parent: str) -> int:
+        """A parent-1 group leader `/bin/sh <parent>/relay-gate-N/gate.sh` that never ends; its folder stays. Returns its pid."""
         folder = os.path.join(parent, "relay-run-X", "relay-gate-N")
         pidfile = os.path.join(self.tmp, "pid-%d" % len(os.listdir(self.tmp)))
         write(os.path.join(folder, "gate.sh"), ORPHAN % pidfile, 0o700)
@@ -178,12 +186,10 @@ class RealSweep(Fixture):
         pid = wait_pid(pidfile)
         self.addCleanup(relay_procs.send, pid, False, 9)
         self.wait_until(lambda: {p.pid: p for p in relay_procs.read_procs()}[pid].ppid == 1)
-        os.remove(os.path.join(folder, "gate.sh"))
-        os.rmdir(folder)
         return pid
 
     @staticmethod
-    def wait_until(condition):
+    def wait_until(condition: Callable[[], bool]) -> None:
         deadline = time.monotonic() + BOUND
         while not condition():
             if time.monotonic() > deadline:
@@ -202,9 +208,51 @@ class RealSweep(Fixture):
         self.assertTrue(lines[0].startswith("head "))
         self.assertTrue(lines[1].startswith("cmd "))
         self.assertTrue(lines[2].startswith("wait "))
-        self.assertTrue(lines[3].startswith("%s %d (/bin/sh " % (relay_gate.STOPPED, pid)), lines[3])
+        self.assertTrue(lines[3].startswith("%s %d (/bin/sh " % (relay_gate.LEFTOVER, pid)), lines[3])
         self.assertEqual(lines[-1], "exit 0")
         self.assertEqual(len(lines), 5)
+
+    def test_a_sweep_of_the_real_roots_leaves_the_planted_orphans_alone(self):
+        """Another lane's gate sweeps the real temporary folders: the planted orphans (folder present, young) are not its targets, so
+        the tests above cannot be broken by it. The sweep sees only our two processes (the rest of the machine is not touched)."""
+        pid = self.orphan(self.roots)
+        outside = self.orphan(os.path.join(self.tmp, "elsewhere"))
+        with mock.patch.object(relay_gate, "ORPHAN_AGE", 600.0):      # the value every other lane's gate runs with
+            lines = relay_gate.sweep(REAL_TEMP_ROOTS(), lambda: [p for p in relay_procs.read_procs() if p.pid in (pid, outside)],
+                                     relay_procs.working_folders, [os.getpid()])
+        self.assertEqual(lines, [])
+        self.assertTrue(relay_procs.is_alive(pid))
+        self.assertTrue(relay_procs.is_alive(outside))
+
+    def test_a_gate_that_swept_then_waited_and_was_reused_runs_nothing_but_prints_the_stop_line(self):
+        """B sweeps one leftover, waits for the worktree lock held by A, finds A's green log: exit 0, B's own log is A's (no stop line in
+        it, nothing new written), and the stop line went to stderr."""
+        started, release = os.path.join(self.tmp, "started"), os.path.join(self.tmp, "release")
+        write(self.script, '#!/bin/sh\ntouch "%s"\nwhile [ ! -f "%s" ] && [ -d "%s" ]; do sleep 0.05; done\nexit 0\n' % (started, release, self.tmp), 0o700)
+        os.makedirs(os.path.join(self.tmp, "home", "gate-slots"))
+        write(os.path.join(self.tmp, "home", "gate-slots", "count"), "2\n")      # B waits for the worktree lock, not for a slot
+        first = subprocess.Popen([sys.executable, RELAY, "gate"], cwd=self.wt, env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.addCleanup(first.stdout.close)
+        self.addCleanup(first.stderr.close)
+        self.addCleanup(first.wait)
+        self.addCleanup(first.kill)
+        self.addCleanup(write, release, "go\n")
+        self.wait_until(lambda: os.path.exists(started))
+        pid = self.orphan(self.roots)
+        err, box = io.StringIO(), []
+        with contextlib.redirect_stderr(err):
+            thread = threading.Thread(target=lambda: box.append(relay_gate.run(self.wt)), daemon=True)
+            thread.start()
+            self.wait_until(lambda: not relay_procs.is_alive(pid))      # B's sweep stopped it, B now waits for A's lock
+            write(release, "go\n")
+            thread.join(BOUND)
+        self.assertEqual(first.wait(timeout=BOUND), 0)
+        self.assertTrue(box, "the second gate did not end")
+        code, log, _ = box[0]
+        self.assertEqual(code, 0)
+        self.assertNotIn(relay_gate.STOPPED, read(log))      # the stop is not in A's log: B wrote none
+        self.assertEqual(len(read(log).splitlines()), 4)      # head, cmd, wait, exit: A's own
+        self.assertIn("%s %d (" % (relay_gate.LEFTOVER, pid), err.getvalue())
 
     def test_a_reused_gate_runs_nothing_and_sweeps_nothing(self):
         relay_gate.run(self.wt)
@@ -217,7 +265,7 @@ class RealSweep(Fixture):
 class Reclaim(Fixture):
     """step 5: a gate whose predecessor was killed while its command ran stops that command instead of waiting it out."""
 
-    def hold(self, text):
+    def hold(self, text: str) -> tuple[str, subprocess.Popen]:
         """A lock file holding `text`, locked by a process of its own in its own group; returns (path, holder Popen)."""
         path = os.path.join(self.tmp, "lockfile")
         write(path, text)
@@ -228,12 +276,12 @@ class Reclaim(Fixture):
         self.assertEqual(holder.stdout.readline().strip(), "locked")
         return path, holder
 
-    def dead_pid(self):
+    def dead_pid(self) -> int:
         done = subprocess.Popen([sys.executable, "-c", "pass"])
         done.wait()
         return done.pid
 
-    def take(self, path):
+    def take(self, path: str) -> tuple[threading.Thread, list, list, list]:
         lines, recorded, box = [], [], []
         thread = threading.Thread(target=lambda: box.append(relay_gate.take_worktree_lock(path, lines.append, recorded.append)), daemon=True)
         thread.start()
@@ -258,7 +306,7 @@ class Reclaim(Fixture):
         box[0].close()
         self.assertEqual(holder.wait(timeout=BOUND), -15)      # SIGTERM from the reclaim
         self.assertEqual(len(recorded), 1)
-        self.assertTrue(recorded[0].startswith("%s %d (" % (relay_gate.STOPPED, holder_pid)), recorded[0])
+        self.assertTrue(recorded[0].startswith("%s (group %d, " % (relay_gate.KILLED, holder_pid)), recorded[0])
         self.assertEqual([l for l in lines if "waiting" in l], [])
 
     def test_a_dead_gate_whose_group_does_not_hold_the_lock_leaves_the_waiter_waiting(self):
@@ -300,7 +348,7 @@ class Reclaim(Fixture):
         box[0].close()
 
 
-def holder_group_placeholder():
+def holder_group_placeholder() -> int:
     return 2 ** 22 - 1      # a group nobody has
 
 

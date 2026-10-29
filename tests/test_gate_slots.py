@@ -319,7 +319,26 @@ class Slots(Fixture):
         self.assertEqual(second.wait(timeout=BOUND), 0)
         head = git(self.wt, "rev-parse", "HEAD~1")
         lines = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")).splitlines()
-        self.assertTrue(lines[3].startswith("%s %d (" % (relay_gate.STOPPED, orphan)), lines[3])
+        self.assertTrue(lines[3].startswith("%s (group %d, " % (relay_gate.KILLED, orphan)), lines[3])
+
+    def test_t4_a_gate_already_waiting_reclaims_when_the_gate_it_waits_for_is_killed(self):
+        """T4 (the reason for the poll): B is already waiting (its waiting line is read) when A's relay process is SIGKILLed with its
+        command alive. B notices on a later round, stops A's command and runs: 2 runs, A's command gone, B's log line 4 is the stop line."""
+        self.set_slots("2")
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        orphan = wait_pid(os.path.join(self.wt, ".ci", "pid"))
+        second = self.start(self.wt)
+        self.assertIn("waiting for the gate already running", self.line(second))      # A is alive: B waits
+        first.kill()
+        first.wait(timeout=BOUND)
+        self.wait_until(lambda: self.runs() == 2)
+        self.wait_until(lambda: not relay_procs.is_alive(orphan))
+        write(self.release, "go\n")
+        self.assertEqual(second.wait(timeout=BOUND), 0)
+        head = git(self.wt, "rev-parse", "HEAD~1")
+        lines = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")).splitlines()
+        self.assertTrue(lines[3].startswith("%s (group %d, " % (relay_gate.KILLED, orphan)), lines[3])
 
     def test_f1_the_waiting_line_names_the_live_command_when_lsof_cannot_confirm_it(self):
         """F1: A's relay is SIGKILLed while its command runs and lsof cannot say who holds the lock (so nothing is reclaimed): the line a

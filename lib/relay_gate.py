@@ -22,7 +22,7 @@ import sys
 import tempfile
 import time
 import re
-from typing import Any, Callable, Mapping, Optional, Sequence
+from typing import IO, Any, Callable, Mapping, Optional, Sequence
 
 import relay_config
 import relay_git
@@ -38,7 +38,9 @@ CORES_PER_SLOT = 6      # default slots = cores // CORES_PER_SLOT, at least 1: 2
 SLOT_POLL = 0.2         # seconds between looks at the slots (and at the worktree lock) while all are busy
 ORPHAN_AGE = 600.0      # seconds: a parent-1 leftover running from a relay test folder that still exists is stopped after this age (the longest test limit is 200 s)
 TEMP_PREFIXES = ("relay-run-", "relay-gate-", "relay-home-")      # folder names relay's tests make under the temporary folder
-STOPPED = "gate: stopped a leftover test process"      # the start of every line the sweep and the reclaim add to the log
+STOPPED = "gate: stopped"      # the start of every line the sweep and the reclaim add to the log (finished_red skips them)
+LEFTOVER = STOPPED + " a leftover test process"      # the sweep's line: "<LEFTOVER> <pid> (<command>): <why>"
+KILLED = STOPPED + " the command of a gate that was killed"      # the reclaim's line: "<KILLED> (group <group>, <command>): <why>"
 
 
 class GateRefused(Exception):
@@ -199,12 +201,12 @@ def reclaim(path: str, text: str, record: Callable[[str], None]) -> bool:
     held = [pid for pid in holders if pid in members]
     if not held:
         return False
-    record("%s %d (%s): the gate that started it was killed and its result can never be committed" % (STOPPED, group, members[held[0]].command[:120]))
+    record("%s (group %d, %s): its gate process ended, so its result can never be committed" % (KILLED, group, members[held[0]].command[:120]))
     relay_procs.stop([(group, True)])
     return True
 
 
-def take_worktree_lock(path, notify=None, record=None):
+def take_worktree_lock(path: str, notify: Optional[Callable[[str], None]] = None, record: Optional[Callable[[str], None]] = None) -> IO[str]:
     """Lock the file `path` exclusively, waiting without a time limit; returns the open file, which holds the lock.
 
     The holder writes its pid into the file; `notify` is called once with the waiting line (naming that pid) when the lock is
@@ -214,7 +216,11 @@ def take_worktree_lock(path, notify=None, record=None):
     handle = open(path, "a+")
     told = False
     tried = set()
-    line = (lambda text: (notify(text) if notify is not None else None, record(text) if record is not None else None))
+    def line(text: str) -> None:
+        if notify is not None:
+            notify(text)
+        if record is not None:
+            record(text)
     try:
         while True:
             try:
@@ -279,7 +285,7 @@ def prefixed_folders(path: str, roots: Sequence[str]) -> list[str]:
 RELAY_COMMAND = re.compile(r"(^|[ /])relay( -\S+)* (gate|land)( |$)")
 
 
-def sweep(roots: Sequence[str], read_procs: Callable[[], list], read_cwds: Callable[[Sequence[int]], Optional[dict]],
+def sweep(roots: Sequence[str], read_procs: Callable[[], list[relay_procs.Proc]], read_cwds: Callable[[Sequence[int]], Optional[dict]],
           own: Sequence[int], _again: bool = True) -> list[str]:
     """Stop the leftovers of relay's own tests: processes whose parent is gone (parent 1) that run from a relay test folder under `roots`
     (their command names a path `<root>/../<prefix>..`, or they are a `relay gate`/`relay land` whose working folder lies in one) and
@@ -319,7 +325,7 @@ def sweep(roots: Sequence[str], read_procs: Callable[[], list], read_cwds: Calla
         targets.append((p.pid if not group else p.pgid, group))
         if not group:
             alone[p.pid] = p
-        lines.append("%s %d (%s): %s" % (STOPPED, p.pid, p.command[:120], why))
+        lines.append("%s %d (%s): %s" % (LEFTOVER, p.pid, p.command[:120], why))
     if targets:
         killed = relay_procs.stop(targets)
         # a pid stopped alone and then killed may have left its own command as a leader of a group in a deleted folder: look once more

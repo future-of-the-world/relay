@@ -1,4 +1,5 @@
 """A': every test's temporary folder carries the test's name, so a leftover's path names its test and the gate's sweep finds it."""
+import json
 import os
 import subprocess
 import sys
@@ -36,6 +37,15 @@ class Named(unittest.TestCase):
 
     def test_the_gate_runners_reach_it(self):
         self.run_probe([os.path.join(HERE, "run_unittest.py"), "test_tmp_folders_named.Named.test_this_tests_temporary_folder_names_this_test"])
+
+    def test_the_parallel_workers_reach_it(self):
+        """tests/parallel_unittest.py --worker: given the fact test's name on stdin, it runs it with the folders named: one test ran, no problem."""
+        name = "test_tmp_folders_named.Named.test_this_tests_temporary_folder_names_this_test"
+        done = subprocess.run([sys.executable, os.path.join(HERE, "parallel_unittest.py"), "--worker", HERE], cwd=ROOT, input=name + "\n",
+                              capture_output=True, text=True, timeout=120)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        reply = json.loads(done.stdout.splitlines()[0])      # one reply per class name, then the leak scan's line
+        self.assertEqual((reply["ran"], reply["problems"]), (1, []), done.stderr)
 
 
 if __name__ == "__main__":
