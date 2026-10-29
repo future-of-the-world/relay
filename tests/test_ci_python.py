@@ -18,6 +18,7 @@ from typing import Any, Callable, List, Optional
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 import relay_ci  # noqa: E402
+from pidfile import wait_pid  # noqa: E402
 
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t",
            "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
@@ -364,8 +365,7 @@ class QuickGateLimit(unittest.TestCase):
                       ".ci/steps/library-tests.log)", lines)
         self.assertIn("library tests STOPPED", results)
         self.assertEqual([ln for ln in lines if "FAILED" in ln], [])
-        with open(pid_file) as handle:
-            grandchild = int(handle.read())
+        grandchild = wait_pid(pid_file)
         wait_for(lambda: not alive(grandchild))
 
     def test_t2_a_normal_run_is_green_and_the_watchdog_has_ended(self) -> None:

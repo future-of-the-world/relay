@@ -43,9 +43,7 @@ StepFn = Callable[[TextIO], int]
 FINDING = re.compile(r"FAIL|Error|error|✗|^ERROR: ")   # "ERROR: <test id>" names a test that raised, not failed
 MAX_FINDINGS = 8            # lines of a failing step shown under its line (the full log is in .ci/ci.log)
 STOP_GRACE = 10.0           # seconds a stopped probe has to end after SIGTERM before it is killed
-# The quick gate stops itself after this many seconds of its own run (the clock starts in Ci.main, so the wait for a gate slot is
-# not counted). Owner, 29 Oct: "30 минут сейчас, 25 после ускорения": change it to 1500 when the speed-up (real git) lands.
-# Measured 29 Oct over 579 quick gate logs (sum of step times): 20 ran over 30 min, 7 of them normal runs, 13 hung runs.
+# Seconds of its own run (clock starts in Ci.main) after which the quick gate stops itself. Owner, 29 Oct: "30 минут сейчас, 25 после ускорения": 1500 when the speed-up lands. Measured 29 Oct over 579 logs: 20 ran over 30 min (7 normal, 13 hung).
 QUICK_LIMIT_SECONDS = 1800
 LIMIT_ENV = "RELAY_CI_QUICK_LIMIT"   # whole seconds, 1 or more; replaces QUICK_LIMIT_SECONDS (tests, or a person debugging)
 LIMIT_EXIT = 124            # the exit of a gate stopped at its time limit (GNU `timeout`'s code); relay_gate.LIMIT_EXIT is the same number
@@ -102,14 +100,8 @@ def quick_limit(env: dict[str, str]) -> int:
 
 def _live(pids: list[int]) -> list[int]:
     """Those of `pids` still running (a zombie, ended but not yet collected by its parent, is gone)."""
-    done = subprocess.run(["ps", "-A", "-o", "pid=,stat="], capture_output=True, text=True)
-    wanted = set(pids)
-    found: list[int] = []
-    for ln in done.stdout.splitlines():
-        parts = ln.split()
-        if len(parts) == 2 and parts[0].isdigit() and int(parts[0]) in wanted and not parts[1].startswith("Z"):
-            found.append(int(parts[0]))
-    return found
+    rows = [ln.split() for ln in subprocess.run(["ps", "-A", "-o", "pid=,stat="], capture_output=True, text=True).stdout.splitlines()]
+    return [int(p) for p, st in (r for r in rows if len(r) == 2 and r[0].isdigit()) if int(p) in set(pids) and not st.startswith("Z")]
 
 
 def _signal(pid: int, sig: int) -> None:
@@ -228,7 +220,6 @@ class Probe:
             self.tmpd = None
         if os.path.exists(self.record_path):
             os.remove(self.record_path)
-
 
 
 class _LimitStop(Exception):
@@ -492,15 +483,13 @@ class Ci:
 
     # ---- the whole gate -------------------------------------------------------------------------------------------
     def _stop_at_limit(self) -> None:
-        """The watchdog (a timer thread): note the step that is running, end every process below this one. The main thread's
-        blocked `subprocess.run` or probe wait then returns, and `step` raises _LimitStop."""
+        """The watchdog (a timer thread): note the running step, end every process below this one; `step` then raises _LimitStop."""
         self.stopped_step = self.running
         self.stopped = True
         me = os.getpid()
         stop_tree(_descendants(me), me)
 
     def main(self) -> int:
-        """Run the gate; a quick gate (not the inert probe's own run) stops itself at the limit: exit 124 with the step named."""
         try:
             limit = quick_limit(self.env)
         except ValueError as err:
@@ -524,8 +513,7 @@ class Ci:
         if not stopped:
             return code
         how = "%d-minute" % (limit // 60) if limit % 60 == 0 else "%d-second" % limit
-        self.say("gate: stopped at the %s limit, %s" % (how, "step %s was running" % self.stopped_step if self.stopped_step
-                                                       else "between two steps"))
+        self.say("gate: stopped at the %s limit, %s" % (how, f"step {self.stopped_step} was running" if self.stopped_step else "between two steps"))
         if self.status != 0:    # an earlier real failure wins: a rerun would meet it again, so the fixer gets it now
             self.say("ci: RED")
             return 1
