@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.3091,
+   "id": "aa312bd8e0f308ea5",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 38,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-28T01:53:24.113Z",
+   "stop": "2026-10-28T02:04:16.341Z"
+  },
+  {
+   "cost_usd": 1.5352,
+   "id": "a3e633ea95967a038",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 26,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design review",
+   "start": "2026-10-28T02:04:19.680Z",
+   "stop": "2026-10-28T02:11:23.273Z"
+  },
+  {
+   "cost_usd": 1.7113,
+   "id": "a11c7b4fa04aba433",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design revise",
+   "start": "2026-10-28T02:11:26.015Z",
+   "stop": "2026-10-28T02:17:45.584Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "damage"
+}

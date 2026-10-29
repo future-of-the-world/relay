@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.2858,
+   "id": "adb670afb8cc519ba",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 30,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-28T09:22:50.851Z",
+   "stop": "2026-10-28T09:33:12.901Z"
+  },
+  {
+   "cost_usd": 1.6467,
+   "id": "a53bb11637ed33866",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 25,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design review",
+   "start": "2026-10-28T09:33:17.593Z",
+   "stop": "2026-10-28T09:39:43.541Z"
+  },
+  {
+   "cost_usd": 1.7468,
+   "id": "a4db9b8eba9f1dd8e",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design revise",
+   "start": "2026-10-28T09:39:47.835Z",
+   "stop": "2026-10-28T09:45:59.193Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "design-hubs"
+}

@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0028,
+   "id": "af78b0f5891de57e6",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-27T22:09:22.495Z",
+   "stop": "2026-10-27T22:18:41.987Z"
+  },
+  {
+   "cost_usd": 0.1968,
+   "id": "aa03a17531354c064",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-27T22:18:45.683Z",
+   "stop": "2026-10-27T22:25:51.215Z"
+  },
+  {
+   "cost_usd": 0.0022,
+   "id": "aec7eb93df9e374d7",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-27T22:25:54.129Z",
+   "stop": "2026-10-27T22:26:10.682Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "gate-slots-after-train22"
+}

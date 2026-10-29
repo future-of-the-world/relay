@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.004,
+   "id": "ac434526d5a643085",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T00:13:15.111Z",
+   "stop": "2026-10-28T00:25:57.052Z"
+  },
+  {
+   "cost_usd": 0.1618,
+   "id": "a51eaa3bdef3b4ed2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-28T00:26:00.341Z",
+   "stop": "2026-10-28T00:28:01.356Z"
+  },
+  {
+   "cost_usd": 0.0022,
+   "id": "a0b81cc2b46aa688d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-28T00:28:04.213Z",
+   "stop": "2026-10-28T00:28:21.130Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "gate-stops-after-master"
+}

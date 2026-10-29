@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0058,
+   "id": "a813d7be479a07a0f",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T09:35:40.954Z",
+   "stop": "2026-10-29T09:58:54.779Z"
+  },
+  {
+   "cost_usd": 1.3089,
+   "id": "a243b09529e49b37f",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 30,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T09:58:57.377Z",
+   "stop": "2026-10-29T10:07:15.164Z"
+  },
+  {
+   "cost_usd": 0.3546,
+   "id": "aa3acdc40f2c90f0b",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 22,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T10:07:18.347Z",
+   "stop": "2026-10-29T10:25:59.326Z"
+  },
+  {
+   "cost_usd": 0.0045,
+   "id": "aeca41050ada94704",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T10:26:01.717Z",
+   "stop": "2026-10-29T10:37:56.547Z"
+  },
+  {
+   "cost_usd": 0.1082,
+   "id": "afdfe2d20cc5c1b0a",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T10:37:59.055Z",
+   "stop": "2026-10-29T10:40:04.850Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "accf6ecd8c650aac8",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T10:40:07.751Z",
+   "stop": "2026-10-29T10:40:18.772Z"
+  },
+  {
+   "cost_usd": 0.0028,
+   "id": "accf6ecd8c650aac8",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T10:40:07.751Z",
+   "stop": "2026-10-29T10:40:21.258Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "the-quick-gate-is-red-in-a-clean-linux-container",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "the-quick-gate-is-red-in-a-clean-linux-container"
+}

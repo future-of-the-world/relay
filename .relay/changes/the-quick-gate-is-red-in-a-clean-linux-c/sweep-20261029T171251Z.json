@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0019,
+   "id": "a4d3a037b732101ab",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-29T10:40:23.734Z",
+   "stop": "2026-10-29T10:40:37.501Z"
+  },
+  {
+   "cost_usd": 0.2591,
+   "id": "aab34da682dc917a6",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 23,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T11:17:44.897Z",
+   "stop": "2026-10-29T11:33:02.784Z"
+  },
+  {
+   "cost_usd": 0.0027,
+   "id": "a377e31dbce74569f",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T11:33:05.565Z",
+   "stop": "2026-10-29T11:33:17.695Z"
+  },
+  {
+   "cost_usd": 0.0736,
+   "id": "ad884a8441f060962",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-29T11:33:20.902Z",
+   "stop": "2026-10-29T11:33:38.754Z"
+  },
+  {
+   "cost_usd": 0.0034,
+   "id": "aca66c28cfd5554d1",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T11:33:42.774Z",
+   "stop": "2026-10-29T11:41:41.334Z"
+  },
+  {
+   "cost_usd": 0.209,
+   "id": "a8f52bd243cd7c972",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 19,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T11:41:45.295Z",
+   "stop": "2026-10-29T11:56:04.547Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a212c82ebfe17b476",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-29T11:56:07.370Z",
+   "stop": "2026-10-29T11:56:24.445Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "the-quick-gate-is-red-in-a-clean-linux-c"
+}

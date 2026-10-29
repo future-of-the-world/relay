@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.5135,
+   "id": "a2578bde5364f61a3",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 57,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T10:06:38.198Z",
+   "stop": "2026-10-28T10:50:19.774Z"
+  },
+  {
+   "cost_usd": 0.0055,
+   "id": "ac45893b29873486b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T10:50:24.172Z",
+   "stop": "2026-10-28T11:18:54.398Z"
+  },
+  {
+   "cost_usd": 0.1007,
+   "id": "acab37155e3d0e6dd",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-28T11:18:58.342Z",
+   "stop": "2026-10-28T11:19:51.331Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "hook-tests-cont"
+}

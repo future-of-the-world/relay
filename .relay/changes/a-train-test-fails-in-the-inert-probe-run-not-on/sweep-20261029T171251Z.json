@@ -1,0 +1,177 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2426,
+   "id": "a3cb964b2f0c7a08b",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-29T04:49:36.859Z",
+   "stop": "2026-10-29T04:51:51.693Z"
+  },
+  {
+   "cost_usd": 0.2347,
+   "id": "ad74bc31e481360d0",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-29T04:52:27.305Z",
+   "stop": "2026-10-29T05:00:15.167Z"
+  },
+  {
+   "cost_usd": 0.0038,
+   "id": "a5c5f906c1abcd509",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T05:00:17.864Z",
+   "stop": "2026-10-29T05:08:36.460Z"
+  },
+  {
+   "cost_usd": 0.1378,
+   "id": "a7c25c0fee87e82f2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-29T05:08:39.033Z",
+   "stop": "2026-10-29T05:11:02.558Z"
+  },
+  {
+   "cost_usd": 0.003,
+   "id": "a21837ed2e6698705",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T05:11:05.400Z",
+   "stop": "2026-10-29T05:11:17.183Z"
+  },
+  {
+   "cost_usd": 0.1176,
+   "id": "ab99082b25ef5dd60",
+   "model": "claude-sonnet-5-5",
+   "n": 2,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-29T05:11:20.195Z",
+   "stop": "2026-10-29T05:14:01.670Z"
+  },
+  {
+   "cost_usd": 0.0029,
+   "id": "a847924b54ab2ded4",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T05:14:04.107Z",
+   "stop": "2026-10-29T05:14:14.923Z"
+  },
+  {
+   "cost_usd": 0.0037,
+   "id": "a34d78b630323bfda",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T05:51:28.848Z",
+   "stop": "2026-10-29T05:51:43.600Z"
+  },
+  {
+   "cost_usd": 0.7175,
+   "id": "a77d05441771290ea",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 42,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-29T05:51:46.274Z",
+   "stop": "2026-10-29T06:14:40.804Z"
+  },
+  {
+   "cost_usd": 0.003,
+   "id": "aa755616cd5f92701",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T06:24:30.677Z",
+   "stop": "2026-10-29T06:24:42.336Z"
+  },
+  {
+   "cost_usd": 0.8532,
+   "id": "aae797d94272cb09d",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 20,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-29T06:24:45.316Z",
+   "stop": "2026-10-29T06:28:14.874Z"
+  },
+  {
+   "cost_usd": 0.2751,
+   "id": "a55afb913863d8756",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-29T06:29:04.897Z",
+   "stop": "2026-10-29T06:32:39.280Z"
+  },
+  {
+   "cost_usd": 0.0034,
+   "id": "a73b8dc62f2692f3a",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T06:32:44.539Z",
+   "stop": "2026-10-29T06:37:59.287Z"
+  },
+  {
+   "cost_usd": 0.1542,
+   "id": "a9a6d9d6723340039",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-29T06:38:02.274Z",
+   "stop": "2026-10-29T06:41:37.251Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a93e40a1910580929",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "close queue item",
+   "start": "2026-10-29T06:41:41.303Z",
+   "stop": "2026-10-29T06:41:50.014Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "a-train-test-fails-in-the-inert-probe-run-not-on",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "a-train-test-fails-in-the-inert-probe-run-not-on"
+}

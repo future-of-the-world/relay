@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0034,
+   "id": "ab827493894d72515",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T04:07:31.305Z",
+   "stop": "2026-10-28T04:16:50.520Z"
+  },
+  {
+   "cost_usd": 0.1362,
+   "id": "a281a823ec1beb01e",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-28T04:16:56.450Z",
+   "stop": "2026-10-28T04:19:02.197Z"
+  },
+  {
+   "cost_usd": 0.0023,
+   "id": "aa7073a597356d41f",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-28T04:19:05.242Z",
+   "stop": "2026-10-28T04:19:23.424Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "evidence-ff-master"
+}

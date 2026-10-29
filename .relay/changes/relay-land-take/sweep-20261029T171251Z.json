@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1392,
+   "id": "a34cc000604e159a8",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T16:18:57.302Z",
+   "stop": "2026-10-28T16:41:53.014Z"
+  },
+  {
+   "cost_usd": 0.0042,
+   "id": "a06a3ee6e95cfff2b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T16:41:57.498Z",
+   "stop": "2026-10-28T16:59:13.763Z"
+  },
+  {
+   "cost_usd": 0.1493,
+   "id": "a0633892fc3e61f6f",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-28T16:59:24.571Z",
+   "stop": "2026-10-28T17:02:54.931Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "relay-land-take"
+}

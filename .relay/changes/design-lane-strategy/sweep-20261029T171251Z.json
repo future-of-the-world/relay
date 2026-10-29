@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.1764,
+   "id": "aa681fc768cd36356",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 23,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-29T07:26:45.850Z",
+   "stop": "2026-10-29T07:37:47.967Z"
+  },
+  {
+   "cost_usd": 1.9038,
+   "id": "ac633c3b9eed9dce4",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 24,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design review",
+   "start": "2026-10-29T07:37:51.919Z",
+   "stop": "2026-10-29T07:47:24.534Z"
+  },
+  {
+   "cost_usd": 3.1252,
+   "id": "a51b95926161d8392",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 22,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design revise",
+   "start": "2026-10-29T07:47:28.798Z",
+   "stop": "2026-10-29T08:00:03.639Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "design-lane-strategy"
+}
