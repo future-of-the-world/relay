@@ -76,6 +76,27 @@ class Ledger(SoftCases):
         self.send({"hook_event_name": "Stop", "session_id": "s", "cwd": "/p", "transcript_path": self.t, "last_assistant_message": "hello"})
         self.has(r'"event": "stop".*"context": 50100')  # 100 input + 50000 cache read
 
+    def test_workflow_agent_without_a_start_hook_still_gets_a_start_event(self) -> None:
+        # Claude Code sent no SubagentStart for this workflow agent: only the stop arrives. The ledger must still hold
+        # one agent_start (stamped with the agent's first transcript line, 10:00:00Z) before the one agent_stop.
+        folder = os.path.join(self.home, "sub", "workflows", "wf_abc")
+        os.makedirs(folder)
+        transcript = os.path.join(folder, "agent-w1.jsonl")
+        self.write(transcript, json.dumps(TRANSCRIPT_LINE) + "\n")
+        stop = {"hook_event_name": "SubagentStop", "session_id": "s", "cwd": "/p", "agent_id": "w1", "agent_type": "delegate:runner",
+                "agent_transcript_path": transcript}
+        self.send(stop)
+        self.assertEqual(self.count(r'"event": "agent_start".*"agent_id": "w1"'), 1)
+        self.assertEqual(self.count(r'"event": "agent_stop".*"agent_id": "w1"'), 1)
+        self.has(r'"ts": "2026-10-19T10:00:00Z", "event": "agent_start"')
+
+    def test_a_recorded_start_is_not_doubled_by_the_stop(self) -> None:
+        # The start hook did fire: the stop must add no second start (the start is stamped now, the stop reads the same day file).
+        self.send({"hook_event_name": "SubagentStart", "session_id": "s", "cwd": "/p", "agent_id": "a1", "agent_type": "delegate:scout"})
+        self.send({"hook_event_name": "SubagentStop", "session_id": "s", "cwd": "/p", "agent_id": "a1", "agent_type": "delegate:scout",
+                   "transcript_path": self.t})
+        self.assertEqual(self.count(r'"event": "agent_start"'), 1)
+
     def test_tool_pre_with_subagent_and_escalated_flag(self) -> None:
         self.send({"hook_event_name": "PreToolUse", "session_id": "s", "cwd": "/p", "tool_name": "Agent", "tool_use_id": "t1",
                    "tool_input": {"subagent_type": "delegate:worker", "model": "sonnet"}})

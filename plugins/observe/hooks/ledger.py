@@ -101,6 +101,20 @@ def base(data, event):
     return out
 
 
+def has_start(agent_id: str, *stamps: str) -> bool:
+    """True when the ledger already holds an agent_start line for this agent in the day file(s) of the given timestamps."""
+    needle = json.dumps(agent_id)
+    for stamp in stamps:
+        try:
+            with open(relay_ledger.day_file(relay_ledger.parse_ts(stamp)), "r", encoding="utf-8", errors="replace") as handle:
+                for line in handle:
+                    if '"agent_start"' in line and needle in line:
+                        return True
+        except OSError:
+            continue
+    return False
+
+
 def log_prompts_enabled(cwd):
     try:
         import relay_toml
@@ -154,6 +168,15 @@ def main():
         if path:
             out.update(workflow_fields(path) or hand_fields(path))
             trace = relay_transcripts.read_trace(path, kind="agent")
+            # Claude Code sends no SubagentStart for many agents (workflow agents included): when none was
+            # recorded, write the start now, stamped with the agent's first transcript line.
+            aid = data.get("agent_id")
+            if aid and trace.started and not has_start(str(aid), trace.started, out["ts"]):
+                begun = base(data, "agent_start")
+                begun["ts"] = trace.started
+                begun["synthetic"] = True
+                begun.update(workflow_fields(path) or hand_fields(path))
+                relay_ledger.append(begun)
             out["requests"] = trace.total.requests
             out["context"] = trace.last_context
             out["model"] = trace.model
