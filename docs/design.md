@@ -124,9 +124,9 @@ reference and the reason, and syncs.
 | cap on parallel agents, brief for long prompts | delegate hook | note, not deny |
 | handover at 350k, agent wrap at 200k | front hook | note |
 | handover file after compaction | front hook | SessionStart context |
-| main checkout clean, no stash, no secrets printed | core guard | PreToolUse deny |
-| project additions reach shared roles | core hook | SubagentStart / Skill / prompt |
-| the stage skill for a flow command | core flow hook | UserPromptSubmit context |
+| main checkout clean, no stash, no secrets printed | relay guard | PreToolUse deny |
+| project additions reach shared roles | relay hook | SubagentStart / Skill / prompt |
+| the stage skill for a flow command | relay flow hook | UserPromptSubmit context |
 | the `tune` skill for a request about the setup | skill description | the model reads intent; measured by evals/plugin/tune-* |
 | one reply per request, plain words, choices | front skill + rules | text; measured as reply length |
 | tiers, brief files, two review passes | delegate skill + rules | text; measured in the ledger |
