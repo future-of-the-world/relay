@@ -1321,14 +1321,14 @@ def open_item_refusal(worktree: str, branch: str) -> str | None:
     """Why `relay land` refuses: the branch of `worktree` still holds a taken fix item, or its queue cannot be read; else None."""
     try:
         held = held_fix_items(worktree)
-        taken = {s for s, i in held.items() if i["state"] == "taken"}
+        open_slugs = {s for s, i in held.items() if i["state"] == "taken"}
         main, default = _context(worktree)       # a take on the default branch that the branch head has not merged yet is open too
         here = Reader(worktree, "HEAD").items()
         for slug, item in Reader(main, f"refs/heads/{default}").items().items():
             if (not item["problems"] and item["kind"] == "fix" and item["state"] == "taken" and item.get("taken_by") == branch
                     and here.get(slug, {}).get("state") != "done"):
-                taken.add(slug)
-        taken = sorted(taken)
+                open_slugs.add(slug)
+        taken = sorted(open_slugs)
     except Refused as exc:
         return f"land: cannot read the queue of {branch}: {exc}"
     if not taken:
