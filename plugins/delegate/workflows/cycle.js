@@ -131,10 +131,16 @@ function gatePrompt(it, n) {
 }
 
 // The step after a gate agent that ended with no result: the committed gate log of the head decides before anything runs.
-function recoveryPrompt(it, n) {
+function recoveryPrompt(it, n, prev) {
   const head = `$(git -C ${it.wt} rev-parse HEAD)`
+  const intro = 'An earlier gate agent for this worktree ended without a result, so the gate may have run. Do in this order. '
+  if (!RELAY) {
+    // Project mode: nothing below the agent reuses or locks, so the dead attempt's own log and pid file decide.
+    const old = `${S}/gate-${tag(it)}-${prev}.log`
+    return `${intro}1. Read ${old}.pid: if that pid is alive, the earlier gate still runs, so start none: wait on it, then report ${old}. 2. Else, if ${old} ends with a line \`exit <code>\` and its first line \`head <sha>\` names the worktree's HEAD (${head}), run no gate: report ok from that exit, the sha, ${old} and the first failing line. 3. Only otherwise run the gate once as follows. ${gatePrompt(it, n)}`
+  }
   const logs = `${it.wt}/.relay/checks/<head>*.gate.log`
-  const read = `An earlier gate agent for this worktree ended without a result, so the gate may have run. Do in this order. 1. Take the head (${head}) and look for its gate log ${logs}: if one exists, run no gate: report ok from the exit it records, its sha, that log's path and the first failing line. 2. Else, if a gate is already running on ${it.wt} (look at the processes with \`ps\` for a relay gate on that folder), do not start another: wait on its pid, then read its log as in 1. 3. Only when there is no log and no running gate, run the gate once as follows. `
+  const read = `${intro}1. Take the head (${head}) and look for its gate log ${logs}; a finished relay gate commits its log, so when HEAD's subject is "relay: gate of <sha>" the log is ${it.wt}/.relay/checks/<sha>*.gate.log. If one exists, run no gate: report ok from the exit it records, its sha, that log's path and the first failing line. 2. Else, if a gate is already running on ${it.wt} (look at the processes with \`ps\` for a relay gate on that folder), do not start another: wait on its pid, then read its log as in 1. 3. Only when there is no log and no running gate, run the gate once as follows. `
   return `${read}${gatePrompt(it, n)}`
 }
 
@@ -146,8 +152,9 @@ async function gated(it, st) {
     let r = await ask(gatePrompt(it, st.gn), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${it.name}`))
     if (r.dead && r.dead !== SKIPPED) {
       // The gate agent ended with no result: the gate may have run, so one recovery agent reads the head's gate log first.
+      const prev = st.gn
       st.gn += 1
-      r = await ask(recoveryPrompt(it, st.gn), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${it.name}`))
+      r = await ask(recoveryPrompt(it, st.gn, prev), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${it.name}`))
     }
     if (r.dead) return { stop: stop(it, 'gate', r.dead) }
     const g = r.v

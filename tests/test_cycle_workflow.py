@@ -180,6 +180,24 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit(branch=None)], relay=False), **{"gate 1: x": throw})
         self.assertIn("gate-x-2.log", out["prompts"]["gate 2: x"])                     # project mode: its own log, same recovery
 
+    def test_project_mode_recovery_reads_the_dead_attempts_log_and_pid_before_starting_a_gate(self):
+        """F1: gate 1 (log gate-x-1.log, pid gate-x-1.log.pid) died; the gate 2 prompt must name those two to wait on / read
+        before the instruction that starts the gate (which writes gate-x-2.log). Disabled fix: gate-x-1.log.pid is absent."""
+        throw = {"$throw": "subagent completed without calling StructuredOutput"}
+        out = self.run_cycle(self.args([self.unit(branch=None)], relay=False), **{"gate 1: x": throw})
+        prompt = out["prompts"]["gate 2: x"]
+        self.assertIn("gate-x-1.log.pid", prompt)
+        self.assertLess(prompt.index("gate-x-1.log.pid"), prompt.index("gate-x-2.log"))
+        self.assertTrue(out["result"]["changes"][0]["ready"])                          # pass case 2
+
+    def test_relay_recovery_finds_the_log_one_commit_back_after_a_committed_gate(self):
+        """F2: HEAD is the 'relay: gate of <sha>' commit, the log is named by <sha>; the prompt says so (before relay gate)."""
+        throw = {"$throw": "died"}
+        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw})
+        prompt = out["prompts"]["gate 2: x"]
+        self.assertIn("relay: gate of <sha>", prompt)
+        self.assertLess(prompt.index("relay: gate of <sha>"), prompt.index("relay gate -C"))
+
     def test_a_recovery_gate_is_one_only_per_gate_and_a_skip_is_not_recovered(self):
         throw = {"$throw": "died"}
         out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw, "gate 2: x": throw})
