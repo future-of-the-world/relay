@@ -200,6 +200,7 @@ class Guard:
         self.bind: dict[str, Any] = {}
         self.main = ""
         self.wtdir = ".worktrees"
+        self._listed: Optional[list[str]] = None
 
     # ---- the project's bindings ----------------------------------------------------------------------------------
     def setup(self) -> bool:
@@ -244,17 +245,41 @@ class Guard:
         branch = self.get("project", "default_branch") or ""
         wt = self.get("gate", "wt") or ""
         sys.stderr.write("guard-main: %s\n" % why)
+        own = os.path.join(self.main, "bin", "wt")
+        if not wt and os.path.isfile(own) and os.access(own, os.X_OK):
+            wt = "bin/wt"
         if wt:
-            sys.stderr.write("Work in a worktree instead: %s new <name> %s, then use %s/<name> (the project's Git and worktrees rule).\n"
-                             % (wt, branch or "<base>", self.wtdir))
+            sys.stderr.write("Work in a worktree instead: %s new <name> %s, then use the worktree it creates (the project's Git and worktrees rule).\n"
+                             % (wt, branch or "<base>"))
         else:
             sys.stderr.write("Work in a worktree instead: git worktree add %s/<name> -b <branch>, then use %s/<name> (the project's Git and worktrees rule).\n"
                              % (self.wtdir, self.wtdir))
         sys.exit(2)
 
-    def in_main(self, path: str) -> bool:
+    def listed_worktrees(self) -> list[str]:
+        """The live linked worktrees git has registered for this repository (not the main checkout, not prunable), read once."""
+        if self._listed is None:
+            try:
+                import relay_git
+                self._listed = [w["path"] for w in relay_git.worktrees(self.main)
+                                if w["path"] != self.main and not w["prunable"]]
+            except Exception:
+                self._listed = []       # git could not answer: nothing is exempt, the main checkout stays guarded
+        return self._listed
+
+    def wt_root(self, path: str) -> str:
+        """The root of the task worktree that holds path ("" when none): the project.worktrees folder (an extra) or a worktree git lists."""
         wt = self.main + "/" + self.wtdir
         if path == wt or path.startswith(wt + "/"):
+            return wt + "/" + path[len(wt) + 1:].split("/", 1)[0] if path != wt else wt
+        if path == self.main or path.startswith(self.main + "/"):
+            for root in self.listed_worktrees():
+                if path == root or path.startswith(root + "/"):
+                    return root
+        return ""
+
+    def in_main(self, path: str) -> bool:
+        if self.wt_root(path):
             return False
         if path == self.main or path.startswith(self.main + "/"):
             return True
@@ -353,10 +378,9 @@ class Guard:
         elif kind == "Y":
             self.queue_refuse(a)
         elif kind == "D":
-            prefix = self.main + "/" + self.wtdir + "/"
-            if a.startswith(prefix):
+            wtroot = self.wt_root(a)
+            if wtroot and wtroot != self.main + "/" + self.wtdir:
                 # a session already working inside that worktree moves nowhere by cd'ing within it
-                wtroot = prefix + a[len(prefix):].split("/", 1)[0]
                 if self.cwd == wtroot or self.cwd.startswith(wtroot + "/"):
                     return
                 if not agent:
