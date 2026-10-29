@@ -1,0 +1,15 @@
+head f71466a48890171969c839756800736f162989a0
+cmd bin/ci --quick
+wait 407.5
+ci: types and lint ok (1s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (839s, log: .ci/steps/library-tests.log)
+    FAIL: test_q1_every_relay_queue_word_is_classified (test_read_only_guard.ReadOnlyHook.test_q1_every_relay_queue_word_is_classified)
+    AssertionError: Items in the second set but not the first:
+    FAILED (failures=1)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (9s)
+ci: RED
+exit 1
