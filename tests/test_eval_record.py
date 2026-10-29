@@ -37,6 +37,16 @@ class FlagPatterns(unittest.TestCase):
         ("Bash", 'cat ".claude/kit/judge.md"', True),
         ("Bash", 'echo "x" ; cat .claude/kit/judge.md', True),
         ("Bash", "sed -n 1,20p ./.claude/kit/judge.md", True),
+        ("Bash", "cat .claude/kit/*", True),                               # review F1: ways round the reading verb
+        ("Bash", "grep -n qty .claude/kit/judge.md", True),
+        ("Bash", "git show master:.claude/kit/judge.md", True),
+        ("Bash", "git log -p master", True),
+        ("Bash", "find .claude -type f -exec cat {} +", True),
+        ("Bash", "python3 -c \"print(open('.claude/kit/judge.md').read())\"", True),
+        ("Bash", "grep -rn qty .", True),
+        ("Bash", "grep -rn amount .", True),
+        ("Bash", "grep -rn takeItem .", False),                            # review F2: a word the rule file does not hold
+        ("Bash", "git log -p master...wt/take", False),
         ("Bash", "ls -la", False),
         ("Bash", "git diff master...wt/paging -- src/shelf.ts", False),
         ("Bash", HEREDOC, False),
@@ -58,7 +68,12 @@ class FlagPatterns(unittest.TestCase):
         for case in ("code-reviewer-offbyone", "critic-role-rule"):
             for name, arg, want in self.CASES:
                 g = grader(os.path.join(PLUGIN, case, "graders", f"rule-file-read-by-{tool[name]}.md"))
-                self.assertEqual(g["tool"], name); self.assertEqual(g["min"], "0"); self.assertEqual(g["weight"], "0.001")
+                self.assertEqual(g["tool"], name); self.assertEqual(g["min"], "0")
+                if case == "critic-role-rule":
+                    # a read of the rule file fails the run: max 0, the default weight (a flag would let a run that read the file pass)
+                    self.assertEqual(g["max"], "0"); self.assertNotIn("weight", g)
+                else:
+                    self.assertNotIn("max", g); self.assertEqual(g["weight"], "0.001")
                 text = json.dumps({"command": arg} if name == "Bash" else arg, separators=(",", ":"))
                 with self.subTest(case=case, tool=name, arg=str(arg)[:50]):
                     self.assertEqual(self.js(g["input_match"], text), want)
@@ -66,7 +81,7 @@ class FlagPatterns(unittest.TestCase):
     def test_both_cases_carry_the_same_patterns(self):
         for t in ("read", "grep", "bash"):
             a, b = (grader(os.path.join(PLUGIN, c, "graders", f"rule-file-read-by-{t}.md")) for c in ("code-reviewer-offbyone", "critic-role-rule"))
-            self.assertEqual(a, b)
+            self.assertEqual(a["input_match"], b["input_match"])
 
 
 def fixture(votes_by_run, partial=None, flagged_runs=(), no_votes=False, evidence="intro\nF1 HIGH src/shelf.ts:27: slice end\nmore"):
@@ -195,6 +210,28 @@ class Record(unittest.TestCase):
     def test_a_rule_file_read_is_a_note_naming_the_run(self):
         _, out = self.run_step(fixture([[True] * 3] * 3, flagged_runs=(2,)))
         self.assertIn("a session in the run read the rule file in 1 of 3 runs (run 2, Bash), so those runs do not prove the hook delivered it", out)
+
+    def test_a_failed_rule_file_grader_fails_the_run_and_prints_no_flag_note(self):
+        # critic-role-rule: run 1 read the rule file, its grader failed (max 0); runs 2 and 3 did not. One failing run of three: the case passes by
+        # majority, but the failing run is a visible note, and the "do not prove the hook" note is not printed for a run that already failed.
+        data = fixture([[True] * 3] * 3)
+        bash = data["cases"][0]["arms"]["with"][0]["graders"][1]
+        bash["passed"] = False; bash["explanation"] = "Bash called 1x (expected 0..0)"
+        _, out = self.run_step(data)
+        self.assertIn("run 1 rule-file-read-by-bash: code grader failed", out)
+        self.assertNotIn("do not prove the hook delivered it", out)
+
+    def test_three_runs_reading_the_rule_file_make_the_case_not_a_pass(self):
+        # review F4: 3 of 3 runs read the file (max 0 failed in each): the case is red
+        data = fixture([[True] * 3] * 3)
+        for run in data["cases"][0]["arms"]["with"]:
+            run["graders"][1]["passed"] = False; run["graders"][1]["explanation"] = "Bash called 1x (expected 0..0)"
+        code, out = self.run_step(data)
+        self.assertEqual(code, 2)
+        self.assertIn("NOT A PASS", out.strip().split("\n")[-1])
+        # no read in any run: green, no note about the rule file
+        code, out = self.run_step(fixture([[True] * 3] * 3))
+        self.assertEqual(code, 0); self.assertNotIn("read the rule file", out)
 
     def batch_with_traces(self, passes):
         """A batch whose runs have scaffold folders <tmp>/e-x/out/trace.jsonl, as the tool leaves them under --keep-temp."""

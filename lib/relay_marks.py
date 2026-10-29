@@ -284,8 +284,24 @@ def show(repo, branch, sleep=time.sleep):
     if relay_git.git(repo, "rev-parse", "--verify", "-q", ref)[0] != 0:
         raise MarkError("no branch %s" % branch)
     gate = newest(repo, ref, gate_logs(repo, ref))
-    mark = newest(repo, ref, marks(repo, ref))
+    import relay_inert
+    try:
+        default = relay_inert._default_ref(repo)
+        ab = relay_inert.absorbed(repo, ref)
+    except ValueError as exc:
+        raise MarkError(str(exc))
     lines = ["gate %s: exit %d" % gate if gate else "gate: none yet"]
+    fork = relay_git.git(repo, "merge-base", default, ref)[1].strip()
+    if not relay_inert.changed(repo, fork, ref):    # the merge hook's step 3: nothing but inert files, no mark is asked for
+        return lines + ["mark: none needed, no code changed", "outside: none to count"]
+    if ab and not relay_inert.changed(repo, fork, ref, own=True, archive=True, absorbed=ab):
+        return lines + ["mark: none needed, the ready changes it holds are checked", "outside: none to count"]    # the merge hook skips the mark step
+    # the merge hook's own view (step_mark): only marks on the branch itself count, not ones that landed on the default branch,
+    # and not a rider's mark inside an absorbed branch; read just those commits' marks, not every stored one
+    candidates = relay_git.git(repo, "rev-list", "--topo-order", ref, "^" + default)[1].split()
+    stored = {c: m for c in candidates for m in [get(repo, ref, c)] if m is not None}
+    own = relay_inert.own_marks(repo, ref, default, ab, stored)
+    mark = (own[0], stored[own[0]]) if own else None
     if mark is None:
         return lines + ["mark: no mark yet", "outside: unknown (no mark yet)"]
     commit, data = mark
@@ -296,13 +312,19 @@ def show(repo, branch, sleep=time.sleep):
         lines.append("outside: %s" % ("check not stored" if record is None else "%d in the check" % relay_verdict.outside_of(record)))
     except MarkError as exc:
         lines.append("outside: unknown (%s)" % exc)
-    import relay_inert
     try:
-        later = relay_inert.changed(repo, commit, ref, own=True, archive=True, absorbed=relay_inert.absorbed(repo, ref))
+        later = relay_inert.own_since_mark(repo, commit, ref, ab)
     except ValueError as exc:
         lines.append("files changed after the mark: unknown (%s)" % exc)
         later = []
     if later:
         lines.append("%d non-inert file%s changed after the mark: %s; run relay gate, then delegate:checker" % (
             len(later), "" if len(later) == 1 else "s", ", ".join(later[:5]) + (" and %d more" % (len(later) - 5) if len(later) > 5 else "")))
+    if gate:    # the merge hook's step_gate: the gate must cover the code at the head
+        try:
+            ungated = relay_inert.changed(repo, gate[0], ref, archive=True)
+        except ValueError:
+            ungated = []
+        if ungated:
+            lines.append("code changed since the gate: %s; run relay gate" % (", ".join(ungated[:5]) + (" and %d more" % (len(ungated) - 5) if len(ungated) > 5 else "")))
     return lines

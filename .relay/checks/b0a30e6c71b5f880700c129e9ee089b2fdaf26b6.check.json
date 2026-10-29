@@ -1,0 +1,91 @@
+{
+  "branch": "wt/a-precheck-test-fails-when-the-machine-i",
+  "findings": [
+    {
+      "details": [
+        "28 Oct: tests/test_precheck.py::test_a_slow_changed_test_does_not_hide_the_registry_message (landed 28 Oct 10:06 in cae100fb) gives the registry-only test group a 3 s wall-clock budget. With several gates and agents running, that group timed out and turned the queue-time branch's gate red (the probe's library tests took 906 s). The test passed 3 of 3 runs alone at about 4 s each. Neither the test nor lib/relay_precheck.py was in that branch's diff.",
+        "Also: lib/relay_precheck.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Run tests/test_precheck.py while 2 gates and 4 agents run: test_a_slow_changed_test_does_not_hide_the_registry_message times out on the 3 s group budget."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 293,
+      "pass_cases": [
+        "20 clean runs of the test with `stress`-like CPU load (e.g. 6 busy python loops).",
+        "With the registry-first order removed, the test still fails (it guards the fix, not the clock)."
+      ],
+      "path": "tests/test_precheck.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_precheck.py::TestChangedTests fakes the slow run (no real 3-5 s sleeps); passes 32/32; passes with git delayed 3.5 s. Fails-without-fix only under load (old form), not on an idle machine."
+      ],
+      "severity": "HIGH",
+      "since": "05a242da7a75467935624043b7e384ac72a7e56e",
+      "source": "queue",
+      "summary": "A precheck test fails when the machine is busy",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by trace and by a run. The 3 s budget is no longer needed: the TimeoutExpired is raised by the fake, and the only use",
+        "of the value is the message text. Keeping _set(\"CHANGED_TESTS_TIMEOUT\", 3) leaves a real 3 s deadline on the step's own",
+        "subprocesses (three git calls before any group runs). At the load named in the queue item (python taking over a minute to start,",
+        "library tests 906-1291 s) a 3 s total for three git forks is reachable, and it is exactly the kind of wall-clock limit the item",
+        "asked to remove. Size: 5 minutes."
+      ],
+      "evidence": [
+        "lib/relay_precheck.py:38  _git(...) -> subprocess.run([... git ...], timeout=_left())",
+        "lib/relay_precheck.py:200 budget = CHANGED_TESTS_TIMEOUT if name == \"changed tests\" else STEP_TIMEOUT; _deadline = monotonic()+budget",
+        "python3 -I scratchpad/slowgit.py <worktree>   (git merge-base wrapped in \"sleep 3.5; git ...\", fake of the test unchanged)",
+        "  AssertionError: Lists differ: [] != [['tests.test_rules_gate.RuleTestsComplete[44 chars]ow']]",
+        "  Ran 1 test in 3.516s  FAILED (failures=1)"
+      ],
+      "failing_case": [
+        "test_a_slow_changed_test_does_not_hide_the_registry_message on a machine where git merge-base/diff/ls-files together take over",
+        "3 s (heavy load). run() sets _deadline = now + CHANGED_TESTS_TIMEOUT (3, set by the test); changed_test_modules calls _git with",
+        "timeout=_left(); the git call raises TimeoutExpired, run() prints \"FAIL changed tests took longer than 3 s\", no test group is run.",
+        "Now: AssertionError: Lists differ: [] != [[RULES_REGISTRY_TEST], [...]]. Should: pass regardless of machine speed (the brief:",
+        "\"never a real 3 s limit\")."
+      ],
+      "fix_hint": [
+        "Drop self._set(\"CHANGED_TESTS_TIMEOUT\", 3), raise subprocess.TimeoutExpired(cmd, relay_precheck.CHANGED_TESTS_TIMEOUT) in the",
+        "fake, and assert \"took longer than %d s\" % relay_precheck.CHANGED_TESTS_TIMEOUT (the default 230 s budget then bounds only git)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 313,
+      "pass_cases": [
+        "1. git merge-base delayed by 3.5 s (wrap subprocess.run for git cmds), run the test: passes (groups recorded, both messages shown).",
+        "2. Normal machine, run the test: passes, groups == [[RULES_REGISTRY_TEST], [\"tests.test_rules_gate\", \"tests.test_slow\"]].",
+        "3. lib/relay_precheck.py with the group loop reversed (groups[::-1]): the test fails.",
+        "4. The output still contains \"RuleTestsComplete\" and \"changed tests took longer than <CHANGED_TESTS_TIMEOUT> s\"."
+      ],
+      "path": "tests/test_precheck.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_precheck.py:313 area: CHANGED_TESTS_TIMEOUT no longer set to 3; ran with merge-base delayed 3.5 s, OK."
+      ],
+      "severity": "MEDIUM",
+      "since": "71ddef438ce0b3ff470a2da24ee5e134706941a3",
+      "source": "review-a-precheck-test-fails-when-the-machine-i.json",
+      "source_id": "F1",
+      "summary": "the registry-message test still sets a real 3 s changed-tests budget, which the real git calls of changed_test_modules spend; a slow git turns it red",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "ec8e5e27c7fd655a0a2e91132f35d5e6d2fbe638.gate.log",
+  "head": "b0a30e6c71b5f880700c129e9ee089b2fdaf26b6",
+  "item": "a-precheck-test-fails-when-the-machine-is-busy",
+  "notes": [
+    "Q1 is a test-only fix: the lib is unchanged, so the new tests also pass at the base commit on an idle machine; the old test fails only under delay/load (reviewer showed it with a 3.5 s git delay)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 71ddef43..HEAD; only tests/test_precheck.py changed. Check command green (relay precheck, 32 passed). Gate log ec8e5e27 exit 0; relay changed lists no file after it. Ran the F1 test with git merge-base delayed 3.5 s: passes."
+  ],
+  "type": "check"
+}

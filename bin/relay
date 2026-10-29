@@ -53,6 +53,10 @@
                                      day's spend first); -- <args> names the gate's own mode (the cycle passes --quick);
                                      --again runs it although the same code has a finished gate (a red one is otherwise reported, not run)
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
+  relay land <branch> [-C <repo>] | --stats [--since <date>] [--until <date>]
+                                     take the default branch into the branch, gate the result, fast-forward on green; one
+                                     landing at a time, no agent (0 landed, 1 red, 2 refused, 3 take conflict, 4 run again);
+                                     --stats prints the counters computed from its events and git
   relay precheck [-C <worktree>]     the gate's quick steps (types and lint, python 3.9 imports, lib copies on HEAD,
                                      changed tests and the rules registry test under python3), read-only; the quiet check a worker loops on starts with it; exits 1 when one is red
   relay check show [-C <repo>] [--brief] <branch>
@@ -101,6 +105,7 @@ import relay_config  # noqa: E402
 import relay_gate  # noqa: E402
 import relay_git  # noqa: E402
 import relay_inert  # noqa: E402
+import relay_land  # noqa: E402
 import relay_lanes  # noqa: E402
 import relay_ledger  # noqa: E402
 import relay_precheck  # noqa: E402
@@ -626,6 +631,37 @@ def cmd_gate(args):
     return code
 
 
+def cmd_land(args):
+    usage = "relay land <branch> [-C <repo>] | relay land --stats [--since <date>] [--until <date>] [-C <repo>]"
+    args = list(args)
+    repo = "."
+    if "-C" in args:
+        i = args.index("-C")
+        if i + 1 >= len(args):
+            raise Usage(usage)
+        repo = args[i + 1]
+        del args[i:i + 2]
+    if "--stats" in args:
+        args.remove("--stats")
+        window = {}
+        for flag in ("--since", "--until"):
+            if flag in args:
+                i = args.index(flag)
+                if i + 1 >= len(args):
+                    raise Usage(usage)
+                window[flag[2:]] = args[i + 1]
+                del args[i:i + 2]
+        if args:
+            raise Usage(usage)
+        print("\n".join(relay_land.stats(repo, window.get("since"), window.get("until"))))
+        return 0
+    if len(args) != 1 or args[0].startswith("-"):
+        raise Usage(usage)
+    result = relay_land.land(repo, args[0], lambda line: print("land: " + line, file=sys.stderr, flush=True))
+    print("\n".join(result.lines))
+    return result.code
+
+
 def cmd_precheck(args):
     usage = "relay precheck [-C <worktree>]"
     if args and not (len(args) == 2 and args[0] == "-C"):
@@ -1052,19 +1088,49 @@ def cmd_license(args):
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "precheck": cmd_precheck, "queue": cmd_queue, "license": cmd_license,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "land": cmd_land, "precheck": cmd_precheck, "queue": cmd_queue, "license": cmd_license,
 }
 
 
+def help_text(cmd: str) -> str:
+    """The usage lines of one command: its blocks of the module docstring (a line `  relay <cmd>` and its continuation lines)."""
+    if cmd == "queue":
+        return QUEUE_USAGE
+    out: list[str] = []
+    keep = False
+    for line in __doc__.strip().splitlines():
+        if line.startswith("  relay "):
+            keep = line.split()[1] == cmd
+        if keep:
+            out.append(line)
+    return "\n".join(out) if out else __doc__.strip()
+
+
+def wants_help(args: list[str]) -> bool:
+    """-h or --help anywhere before a bare `--` (what follows `--` belongs to another program)."""
+    for a in args:
+        if a == "--":
+            return False
+        if a in ("-h", "--help"):
+            return True
+    return False
+
+
 def main(argv):
-    if len(argv) < 2 or argv[1] in ("-h", "--help", "help"):
+    if len(argv) < 2:
         print(__doc__.strip())
         return 2
+    if argv[1] in ("-h", "--help", "help"):
+        print(__doc__.strip())
+        return 0
     cmd, args = argv[1], list(argv[2:])
     if cmd not in COMMANDS:
         print(f"relay: unknown command '{cmd}'\n", file=sys.stderr)
         print(__doc__.strip(), file=sys.stderr)
         return 2
+    if wants_help(args):
+        print(help_text(cmd))
+        return 0
     try:
         return COMMANDS[cmd](args) or 0
     except Usage as exc:

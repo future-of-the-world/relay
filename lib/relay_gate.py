@@ -237,10 +237,11 @@ def first_failure(output):
 def reusable(worktree, head, command):
     """The path of a green gate log for the same command on a commit at or before `head` with only inert changes since, else None.
 
-    Walks back from `head` and stops at the first commit after which a non-inert file changed. A log counts only when its
+    Walks back from `head` along the branch's own line (first parents: a take of the default branch has the branch first, so
+    master's newer commits are not walked) and stops at the first commit after which a non-inert file changed. A log counts only when its
     first line is `head <that commit>`, its `cmd` line is the command about to run and its last line is `exit 0`."""
     wanted = "cmd %s" % " ".join(shlex.quote(c) for c in command)
-    rc, listing = relay_git.git(worktree, "rev-list", head)
+    rc, listing = relay_git.git(worktree, "rev-list", "--first-parent", head)
     if rc != 0:
         return None
     for commit in listing.split():

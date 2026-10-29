@@ -22,9 +22,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 import relay_config  # noqa: E402
+import relay_land  # noqa: E402
 import relay_lanes  # noqa: E402
 
-LANDING = re.compile(r"\bgit\b[^\n;&|]*\bmerge(?=\s)[^\n;&|]*\bwt/")
+LANDING = re.compile(r"\bgit\b[^\n;&|]*\bmerge(?=\s)[^\n;&|]*\bwt/|\brelay\s+land\s")
 
 
 def context(event: str, text: str) -> None:
@@ -41,7 +42,12 @@ def main() -> None:
     quiet = relay_lanes.setting(cfg, "lane_quiet_hours")
     cap = relay_lanes.setting(cfg, "lanes_line_items")
     if event == "UserPromptSubmit":
-        shown = relay_lanes.line(relay_lanes.lanes_state(root, quiet), cap)
+        state = relay_lanes.lanes_state(root, quiet)
+        try:
+            relay_land.note_held(root, state.waits)      # the start counter: the first time an item is held at start, once
+        except Exception:
+            pass                                         # a counter must never hide the lanes line
+        shown = relay_lanes.line(state, cap)
         if shown:
             context(event, shown)
     elif event == "PostToolUse":

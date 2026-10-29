@@ -18,9 +18,26 @@
     "After the move, the gate runs the same cases (same count) from Python; no .sh file under plugins/ holds more than a few lines of wrapper; the gate passes on macOS with no GNU tools on PATH."
   ],
   "where": [
-    "plugins/core/tests/*.test.sh",
-    "plugins/core/hooks/*.sh",
-    "evals/plugin/*.sh",
+    "plugins/relay/tests/check-contract.test.sh",
+    "plugins/relay/tests/check-mark.test.sh",
+    "plugins/relay/tests/flow-stage.test.sh",
+    "plugins/relay/tests/guard-diff.test.sh",
+    "plugins/relay/tests/guard-main.test.sh",
+    "plugins/relay/tests/hooks-live.test.sh",
+    "plugins/relay/tests/inject-addition.test.sh",
+    "plugins/relay/tests/kit-name.test.sh",
+    "plugins/relay/tests/kit.test.sh",
+    "plugins/relay/tests/merge.test.sh",
+    "plugins/relay/tests/packet-stacks.test.sh",
+    "plugins/relay/tests/packet.test.sh",
+    "plugins/relay/tests/shim.test.sh",
+    "plugins/relay/tests/spec-check.test.sh",
+    "plugins/relay/hooks/guard-main.sh",
+    "plugins/relay/hooks/inject-addition.sh",
+    "plugins/relay/hooks/merge.sh",
+    "evals/plugin/graders.test.sh",
+    "evals/plugin/setup-fixture.sh",
+    "evals/plugin/setup-relay-stub.sh",
     "bin/ci",
     "templates/bin-check"
   ],
@@ -29,5 +46,39 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-28T16:19:46Z",
+      "question": [
+        "**Переводить ли на Python проверку, которую relay кладёт в каждый новый проект?**",
+        "",
+        "Когда `relay setup` подключает проект, он кладёт в него файл `bin/check` из шаблона `templates/bin-check`: быструю проверку, на которой агенты гоняют свою работу. Шаблон написан на bash, в нём 78 строк логики: ограничение времени запуска и хэш файлов. С 24 Oct у него есть запасной путь через perl на случай, если в PATH нет python3: на Mac не было команд `timeout` и `md5sum`. Задача «тесты hook и обёртки на bash» требует перевести этот шаблон на Python. Fixer этого не сделал и оставил решение вам: perl-путь пропадёт, и в проекте понадобится python3.",
+        "",
+        "Факты на 28 Oct: в projects.toml подключён только сам relay, а он этим шаблоном не пользуется, то есть шаблоном сейчас не пользуется ни один проект. Скрипт установки relay и так ставит python3 3.11+, так что на машине с relay python3 есть.",
+        "",
+        "| | Что в проекте | python3 в проекте | Работа |",
+        "|---|---|---|---|",
+        "| a | `bin/check` на Python | нужен, ставится вместе с relay | переписать 78 строк, perl-тест убрать |",
+        "| b | `bin/check` остаётся на bash | не нужен | ничего; задача сужается до hook самого relay |",
+        "| c | `bin/check` в одну строку, вызывает `relay` | нужен relay | новая подкоманда relay; сначала проработка |"
+      ],
+      "options": [
+        "a. Переписать шаблон на Python (рекомендую: правило «bash уходит», сейчас шаблоном не пользуется ни один проект, а python3 ставится вместе с relay)",
+        "b. Оставить шаблон на bash, сузить задачу",
+        "c. Логика переезжает в relay, в проекте одна строка (сначала на проработку)"
+      ],
+      "answered_at": "2026-10-29T02:01:27Z",
+      "answer": [
+        "По остальным двум вопросам последуй своей рекомендации, это касается времени задач и перевод на python проверок"
+      ]
+    },
+    {
+      "at": "2026-10-28T17:48:20Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    }
+  ]
 }

@@ -20,7 +20,7 @@
     "The three docs name the relay plugin, not core."
   ],
   "where": [
-    "tests/",
+    "tests/test_front_cd.py",
     "docs/flows.md:46",
     "plugins/relay/README.md:3",
     "docs/design.md:127-129"
@@ -30,5 +30,14 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T17:46:08Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    }
+  ]
 }

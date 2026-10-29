@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 75,
+  "time": 30,
+  "found_at": "2026-10-28T11:30:43Z",
+  "found_in": "relay queue add",
+  "title": "queue add --from queues a finding a check marked MET",
+  "what": [
+    "`relay queue add --from <report.json> F<n>` refuses a finding that a later check record of the same branch marks MET, naming the check and its commit."
+  ],
+  "why": [
+    "28 Oct: base-restores-only-four-keys-bench-s-relay-claud was built for nothing (4 agents, 7 min, a lane): master had fixed it on 25 Oct in 58d5d5f9, and the item exists only because `relay queue add --from <report> F<n>` queued a finding that a check had marked MET two minutes earlier (found by the review of that empty branch)."
+  ],
+  "failing_case": [
+    "A review report with F1 and a check record marking F1 MET: `relay queue add --from review.json F1` queues it."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same refuses and names the check.",
+    "A finding marked NOT MET or not checked is still queued."
+  ],
+  "where": [
+    "lib/relay_queue.py (add_from)",
+    "tests/test_queue.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

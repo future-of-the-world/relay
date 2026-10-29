@@ -43,6 +43,10 @@ CASES: Dict[str, Callable[[], str]] = {
     "it-terms-es": lambda: language("Spanish"),
     "design-track": front_rules,
     "explain-existing": front_rules,
+    "keep-owner-words": front_rules,
+    "keep-owner-words-en": front_rules,
+    "no-note-off-topic": front_rules,
+    "recall-decision": front_rules,
 }
 
 

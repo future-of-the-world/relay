@@ -1561,3 +1561,55 @@ closed 0, 5, 32, 24, 18, 24, 10; dropped 0, 5, 4, 1, 9, 2, 1; open at day end 27
 (24-28 Oct). Open items' estimates sum 6000 min (median 40), but estimates are guesses (fix item
 queue-time-estimates-are-guesses-with-no-model-b). Owner decision 28 Oct: `relay land` without trains (the item was
 edited; owner can reverse); train-23 is the last hand-built train.
+
+## Addendum 26 (28 Oct, ~11:00 UTC)
+
+Landed since addendum 25: train-23 (timeout recipe, setup dirty, python green, doctor exit), bench-tools (graders see tool
+calls), train-24 (precheck tests, gate rerun, recheck takes master), picks (start filter compares picks and taken items;
+`relay queue start --despite-wait`), riders (train riders are one lane), critic-role-rule eval, relay check show marks.
+Dropped: a-spec-fix-is-marked-met-by-reading (15 paid runs, the checker runs code with or without the rule; $6.05).
+Paid run on cc2ba5f0 RED ($19.80): recall-decision 0 of 3. relay sync waits. Fix in wt/paid-run-red-recall-decision-fails-0-of:
+stop_nudge = 0 in the eval fixture (owner chose a; graders cannot read the whole turn, claude plugin eval picks last_message);
+still 3 of 6 for a second cause (the session says no record mentions metrics); cause-first fix running (fix-recall4).
+Owner decisions 28 Oct (recorded in items): relay land without trains, data first with two counters, compare 7 days after
+its first landing; each relay subcommand in its own module across relay (IP 96, after relay land), where entries that are
+only a folder refused, module limit 600 lines; a wait from the start filter is binding (front decision).
+Running lanes: relay-land build (plan: scratchpad reports/design-relay-land.md rev 2), hook-tests (6 of 14 suites ported,
+continuing), queue-time estimates (fix round: tie agents to changes by workflow items), --help guard (started with
+--despite-wait: `relay install --help` rewrites global files), recall fix, base-restores-only-four-keys.
+Queued this segment: one-change-on-bin-relay-holds (88), inert-probe-leaves-worktrees (80), guard-main-refuses-a-read (70),
+a-scenario-file-cannot-use-tool-called (86; the fix is commit 5377e9f5 on the kept branch wt/spec-met), a-fix-that-adds-a-new-module
+-cannot-be-closed (87). Leftover branches (guard refuses branch -D): train-19/20/22, queue-edit, relay-plugins, plans-save, spec-met.
+Next: land the recall fix, then a full paid run on master; on green, relay sync. Next handover worktree: handover-39.
+
+## Addendum 27 (28 Oct, ~11:40 UTC; session 3207dc59 at ~350k tokens)
+
+State: recall fix (wt/paid-run-red-recall-decision-fails-0-of) has check open 0 and its item closed on the branch; causes
+found: (1) the fixture's metrics item never contained the word "metric" (fixed in the fixture), (2) the earlier proof runs
+omitted bin/ci's `--allow-tools Bash Agent Write` (not a repo defect); 6 of 6 with the right command ($1.43). It took master
+(relay_marks only, no overlap) and its gate is running (log: scratchpad gate-recall.log). base-restores-only-four-keys closed
+as fixed-by 58d5d5f9 (queued by mistake: queue-add-from-queues-a-finding-a-check-marked-m, IP 75).
+Running lanes: relay-land build, hook-tests (continue), queue-time fix round, --help guard, four-eval-cases.
+Exact next step: when the recall gate is green, take master (inert), ff-land; then the full paid run on master in a
+detached worktree in the background: `EVALS_JOBS=3 RELAY_GATE=HEAD <wt>/bin/ci > <scratchpad>/paid-<sha>.log 2>&1`; on
+green run `relay sync`; on red, one fix item at the top. Then fill lanes with `relay queue start` (top items wait on
+bin/relay until queue-time lands). Next handover worktree: handover-40.
+Owner's latest words (28 Oct): "a" (compare relay land after 7 days), "a a" (refuse folder-only where entries; module limit
+600), "Минус не относится к функционалу, лишь к планированию задачи, я согласен, каждая подкоманда может и должна жить в
+своем модуле, этот подход должен быть распространен на весь relay". No owner question is open.
+
+## Addendum 28 (28 Oct, ~18:30 UTC; session 3207dc59)
+
+**Landed since 27:** recall-decision fix (6 of 6), --help guard, four eval cases built by system_rules, train-25 (tool_called grader loader; day's cap takes max(per-case, largest batch)), **relay land** (first landing ~17:30 UTC; compare its counters with the old way on **4 Nov**, owner's pick), the precheck flaky-test fix (first landing through `relay land`, gate 17.4 min). Paid run on 824af153 green ($17.49), `relay sync` done. Dropped: one-change-on-bin-relay-holds (replaced by the split).
+
+**Incident:** 11:49 UTC an eval scaffold overwrote the live ~/relay/bin/relay with evals/plugin/relay-stub.py (tests/test_eval_system_rules.py ran scaffolds with the real HOME). guard-main refused the front's restore; the owner ran `git -C ~/relay restore bin/relay`. Cause fixed in the four-eval-cases change; the stub guard item (IP 98) is in its last check.
+
+**Owner decisions (verbatim):** publishing relay: "A" then "Только локальные файлы, публикацию сделаем потом" (no remote, no push; memory relay-not-published). On the stub guard: "То есть только путь ~/relay, почему нельзя изменить на "можно редактировать только", путь папки с кодом может меняться" — built: the guard allows exactly HOME under TMPDIR or dirname(TMPDIR)/home.
+
+**Open question to the owner** (asked 16:19:46Z, recorded on hook-tests-and-wrappers-are-bash-not-portable-py): port templates/bin-check to Python? a (recommended) / b keep bash / c one-line call into relay. That lane holds until answered; its other open finding (743 bash cases vs 155 Python) goes to the same fix.
+
+**Module split:** plan revision 4 (17 moves, ~900 agent min, critic-reviewed, nothing open for the owner) in the session scratchpad reports/design-each-relay-subcommand-lives-in-its-own-m.md. Moves 1, 2, 3 and fix F are queue items at IP 96; moves 4-10 get queued when move 3 lands; move 11 = lib-modules-are-committed-in-three-copies. Running: move 1 and F. Leftover empty branch wt/each-relay-subcommand-lives-in-its-own-m (guard-main refused `branch -d`).
+
+**Flaky-under-load:** second case today (tests/test_rules_gate_isolation.py 200 s timeout at load 27 on 12 cores) → item tests-with-a-fixed-time-limit-fail-on-a-loaded-m, IP 97; it waits for bin/ci (hook-tests lane).
+
+**Next:** land guard-main, queue-time, stub guard, F and move 1 via `relay land` (background, log in scratchpad); start moves 2 and 3; paid run after the wave (relay land and move 1 touch paid paths), then `relay sync`.

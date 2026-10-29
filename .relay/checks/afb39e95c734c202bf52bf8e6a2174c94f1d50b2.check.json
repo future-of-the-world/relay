@@ -1,0 +1,239 @@
+{
+  "branch": "wt/paid-run-red-recall-decision-fails-0-of",
+  "findings": [
+    {
+      "details": [
+        "28 Oct 07:10 UTC paid run on master cc2ba5f0 ($19.80, 31 cases) is RED: recall-decision passed 0 of 3 (below its last 5 records); code graders answers-as-recorded and questions-as-recorded failed in all 3 runs, meaning grader reading-marked failed (votes FAIL PASS FAIL, FAIL FAIL FAIL). The judged replies talk about lanes instead of the recorded decisions: '\u041e\u0431\u0435 \u043f\u043e\u043b\u043e\u0441\u044b \u043e\u0441\u0442\u0430\u044e\u0442\u0441\u044f \u0441\u0432\u043e\u0431\u043e\u0434\u043d\u044b\u043c\u0438: \u0432\u044b \u0442\u043e\u043b\u044c\u043a\u043e \u0441\u043f\u0440\u043e\u0441\u0438\u043b\u0438, \u0447\u0442\u043e \u0440\u0435\u0448\u0435\u043d\u043e, \u0438 \u043d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u043f\u0440\u043e\u0441\u0438\u043b\u0438 \u0441\u0442\u0440\u043e\u0438\u0442\u044c.' The lanes line and Stop refusal (autostart, de283320) and no-numbers (questions carry no number) landed in this wave; one of them, or the case's graders, no longer fits. Also in this run: keep-owner-words-en 2 of 3 (1 timed out at 600 s). Record ~/.relay/evals/relay/2026-10-28T07-10-29Z-master.json; traces ~/.relay/eval-traces/relay/2026-10-28T07-10-29Z-master/recall-decision-with-run{1,2,3}/trace.jsonl.",
+        "Also: plugins/front/hooks/lanes.py",
+        "Also: plugins/front/skills/front/SKILL.md"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "bin/ci on master cc2ba5f0: recall-decision 0 of 3, ci RED."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "recall-decision alone passes 3 of 3 on the fixed tree.",
+        "The lanes line still appears and the Stop refusal still fires when a lane is free and an item can start (tests/test_lanes_state.py)."
+      ],
+      "path": "evals/plugin/recall-decision/",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_cases.py:26 asserts the fixture sets stop_nudge = 0; passes at head, fails at base ebeab4b4. Config-level only; no paid run."
+      ],
+      "severity": "HIGH",
+      "since": "ebeab4b4eff239e2e724e9b0b9cc846be2fc9288",
+      "source": "queue",
+      "summary": "Paid run red: recall-decision fails 0 of 3 after autostart",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the traces and the cost records. The text now tells the session \"This reply is what the owner reads last: repeat the answer you already gave in full\". That is true only for a headless reader; in the terminal the owner sees reply 1, the \"Stop hook error\" line and reply 2, so the change trades the grader's view for a doubled screen for the person. Principle 2 (waste that repeats on every run or every change is MEDIUM): it repeats on every refused turn, once per lane state per session, and the front's answers are often the long ones (tables, questions with options). It also touches the owner-facing medium (product-work rule: the owner checks a person-facing change before merge).",
+        "Design: the autostart decision (de283320) made the Stop refusal force a second reply; any fix inside that design either repeats the answer (this change) or leaves a last reply that does not stand alone (master). Options: (a) the lanes line on UserPromptSubmit asks the front to end its reply with the one lanes sentence, and the Stop hook refuses only when that reply did not start the item (a hold costs no second reply); (b) keep the refusal as on master and set stop_nudge = 0 in eval fixtures whose case is not about lanes (the eval stops proving the headless view); (c) keep this change (doubled answer, +23% per refused turn). Owner's choice.",
+        "Size: 30 for (a) with tests, 10 for (b)."
+      ],
+      "evidence": [
+        "trace run1..3 (07:10 master): assistant texts [1539, 179], [1537, 201], [1560, 196] chars; the last is the result.",
+        "~/.relay/evals/relay: recall-decision cost per run 0.107 0.107 0.107 / 0.111 0.11 0.111 / 0.112 0.113 0.111 / 0.116 0.113 0.119",
+        "scratchpad/logs/rd.json, rd2.json (fixed tree): 0.143 0.139 0.136 / 0.139 0.133 0.14",
+        "rd.json run 2 evidence: the final reply holds the whole answer and ends \"**\u041f\u043e\u0447\u0435\u043c\u0443 \u043b\u0438\u043d\u0438\u0438 \u043e\u0441\u0442\u0430\u044e\u0442\u0441\u044f \u0441\u0432\u043e\u0431\u043e\u0434\u043d\u044b\u043c\u0438:** \u0432\u044b \u0441\u043f\u0440\u043e\u0441\u0438\u043b\u0438 \u0442\u043e\u043b\u044c\u043a\u043e, \u0447\u0442\u043e \u0440\u0435\u0448\u0435\u043d\u043e, \u0430 \u043d\u0435 \u043f\u0440\u043e\u0441\u0438\u043b\u0438 \u0441\u0442\u0440\u043e\u0438\u0442\u044c...\""
+      ],
+      "failing_case": [
+        "Owner asks the front \"\u0427\u0442\u043e \u043c\u044b \u0440\u0435\u0448\u0438\u043b\u0438 \u043f\u0440\u043e \u043c\u0435\u0442\u0440\u0438\u043a\u0438?\" while a lane is free and an item can start. Now: reply 1 is the full answer (~1550 chars), the Stop hook refuses, reply 2 repeats the full answer and adds the lanes sentence. In an interactive Claude Code session both replies are on screen, so the owner reads the same answer twice (~3100 chars, two screens). Measured cost of the case per run: $0.107-0.119 in the 4 records before the fix, $0.133-0.143 in the 6 fixed runs (+$0.025, about 23%, output tokens being the dearest at 100 reads each). It should produce: one copy of the answer in front of the owner, and the lanes sentence, and a final reply a headless reader (the eval harness, a phone notification) can stand on."
+      ],
+      "fix_hint": [
+        "Ask the owner. Smallest change that removes the duplicate: (a) move the request for the one sentence into the lanes line the front sees on UserPromptSubmit (\"end this reply with ...\") so the first reply carries it, and keep the Stop refusal only for a turn whose reply neither started the item nor ran `relay queue start`."
+      ],
+      "id": "F1",
+      "kind": "design",
+      "line": 317,
+      "pass_cases": [
+        "1. Interactive turn with a free lane and a startable item: the answer appears once on the owner's screen, plus one sentence on the lanes.",
+        "2. The same turn read headless (claude -p result, the eval harness): the final text holds the decisions as recorded (recall-decision answers-as-recorded and questions-as-recorded pass 3 of 3).",
+        "3. A turn with no free lane or no startable item: one reply, no refusal (unchanged).",
+        "4. stop_nudge = 0: no refusal, only the lanes line (unchanged)."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py:309-311: refusal asks one short sentence, no repeat; eval fixture has the nudge off (option b), so no doubled answer."
+      ],
+      "severity": "MEDIUM",
+      "since": "95985bb2175e3e6c512b222b52a1cd34906af3ac",
+      "source": "review-paid-run-red-recall-decision-fails-0-of.json",
+      "source_id": "F1",
+      "summary": "the Stop refusal now makes the front write its whole answer twice: the owner reads it twice in a live session and every refused turn pays the answer's output again",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (the judge's reasons are not stored; a paid run is needed to show it). The one new element in the judged reply is the appended lanes paragraph the refusal asks for, e.g. \"\u0432\u044b \u0441\u043f\u0440\u043e\u0441\u0438\u043b\u0438 \u0442\u043e\u043b\u044c\u043a\u043e, \u0447\u0442\u043e \u0440\u0435\u0448\u0435\u043d\u043e, \u0430 \u043d\u0435 \u043f\u0440\u043e\u0441\u0438\u043b\u0438 \u0441\u0442\u0440\u043e\u0438\u0442\u044c. \u041e\u0431\u0430 \u043f\u0443\u043d\u043a\u0442\u0430 \u0436\u0434\u0443\u0442 \u0432\u0430\u0448\u0435\u0433\u043e \u0441\u043b\u043e\u0432\u0430\" or \"\u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0442\u044c \u0438\u0445 \u0441\u0442\u043e\u0438\u0442 \u043f\u043e \u0432\u0430\u0448\u0435\u043c\u0443 \u0441\u043b\u043e\u0432\u0443. \u0414\u043b\u044f \u044d\u0442\u043e\u0433\u043e \u043d\u0443\u0436\u0435\u043d \u0441\u0432\u0435\u0436\u0438\u0439 \u0441\u0435\u0430\u043d\u0441\": the front's reading of what the owner wants, stated as fact, which is exactly what reading-marked fails (\"presents its own reading as something the owner said\"). The pass case of the item (\"3 of 3 in one paid run\") was met by run B, but run A shows it is not steady; the quality-gate rule treats a flaky case as a bug.",
+        "Size: 15 plus two single-case paid runs (about $0.85)."
+      ],
+      "evidence": [
+        "python over ~/.relay/evals/relay/*.json: reading-marked votes 27 Oct 11:37 [T,T,T]x3; 27 Oct 14:53 [T,T,T]x3; 28 Oct 02:07 [T,T,T]x3; 28 Oct 07:10 [F,T,F] [T,T,T] [F,F,F]",
+        "scratchpad/logs/rd.json: [T,T,T] [T,T,T] [F,T,F] (run 3 failed); rd2.json: [F,T,T] [T,T,F] [T,T,T]"
+      ],
+      "failing_case": [
+        "Single-case paid run of recall-decision on 36535175: run A 2 of 3 (run 3 reading-marked votes FAIL PASS FAIL), run B 3 of 3 but with votes FAIL PASS PASS and PASS PASS FAIL. Before the lanes wave (records 27 Oct 11:37, 27 Oct 14:53, 28 Oct 02:07) reading-marked voted PASS in 27 of 27 votes. At about 1 failing run in 6, a 3-run case passes 3 of 3 only about 58% of the time, so the next paid run can be red again on this case. It should pass 3 of 3 with the judge as steady as before the wave."
+      ],
+      "fix_hint": [
+        "Let the refusal ask for a sentence of fact, not of the owner's intent: e.g. \"say in one sentence why the lane stays free, from the queue's facts (the item's stage, what waits on whom), without guessing what the owner wants\". Then two single-case runs. If F1 is answered with (a) or (b), this case changes with it."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 317,
+      "pass_cases": [
+        "1. recall-decision alone, two consecutive single-case paid runs on the fixed tree: 6 of 6 runs pass, reading-marked fails at most 1 of 18 votes.",
+        "2. answers-as-recorded and questions-as-recorded pass in every run (they did in all 6 fixed runs).",
+        "3. tests/test_lanes_state.py Stop tests still pass: the refusal fires once per state and per session."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "Pass case 1 requires two paid single-case runs 6 of 6; none is recorded. The appended-paragraph cause is removed in the eval by stop_nudge = 0, but this is unproven by a run."
+      ],
+      "severity": "MEDIUM",
+      "since": "95985bb2175e3e6c512b222b52a1cd34906af3ac",
+      "source": "review-paid-run-red-recall-decision-fails-0-of.json",
+      "source_id": "F2",
+      "summary": "recall-decision is still flaky after the fix: reading-marked judges fail 4 of 18 votes and 1 of 6 runs, against 0 of 27 votes before the wave",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The hook text reaches the session at the moment, so the behaviour follows the hook; the skill is the description a newcomer reads (principle 10). The item named SKILL.md in its Where. Size: 5."
+      ],
+      "evidence": [
+        "grep -n -i \"lane\\|stop\" plugins/front/skills/front/SKILL.md -> 196-198 \"The Stop hook refuses the end of a turn once per lane state while a lane is free and an item can start; start it or say in one sentence why the lane stays free.\""
+      ],
+      "failing_case": [
+        "A fresh front reads SKILL.md lines 196-198: \"The Stop hook refuses the end of a turn once per lane state ...; start it or say in one sentence why the lane stays free.\" The hook now asks for the whole earlier answer again plus that sentence. The skill and the hook disagree on what the second reply is; it should say the same as the hook (whatever F1 decides)."
+      ],
+      "fix_hint": [
+        "One sentence in the Lanes section, written after F1 is decided."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 196,
+      "pass_cases": [
+        "1. SKILL.md Lanes section states what the second reply after a Stop refusal must hold, in the same words as stop_refusal's text.",
+        "2. The lines on lanes_line_items, stop_nudge and lane_quiet_hours stay as they are."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "low",
+      "reason": [
+        "plugins/front/skills/front/SKILL.md:196-201 now says the same as the hook: one short sentence of facts, do not repeat the earlier answer."
+      ],
+      "severity": "LOW",
+      "since": "95985bb2175e3e6c512b222b52a1cd34906af3ac",
+      "source": "review-paid-run-red-recall-decision-fails-0-of.json",
+      "source_id": "F3",
+      "summary": "the front skill still describes the Stop refusal as 'start it or say in one sentence why', not the repeat-the-answer contract the hook now asks",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_lanes.py came in from master (merge 222e822924ec) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "Merge 222e8229 is covered by the green gate on that head and the 61 tests above."
+      ],
+      "severity": "MEDIUM",
+      "since": "222e822924ecc6a55c6ba1dbd77d0faaba163fd6",
+      "source": "merge",
+      "summary": "lib/relay_lanes.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/front/lib/relay_lanes.py came in from master (merge 222e822924ec) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/front/lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "Identical copy of lib/relay_lanes.py; covered by the green gate on 222e8229."
+      ],
+      "severity": "MEDIUM",
+      "since": "222e822924ecc6a55c6ba1dbd77d0faaba163fd6",
+      "source": "merge",
+      "summary": "plugins/front/lib/relay_lanes.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/front/skills/front/SKILL.md came in from master (merge 222e822924ec) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "SKILL.md after the merge reads consistently with the hook text; gate green on 222e8229."
+      ],
+      "severity": "MEDIUM",
+      "since": "222e822924ecc6a55c6ba1dbd77d0faaba163fd6",
+      "source": "merge",
+      "summary": "plugins/front/skills/front/SKILL.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_lanes_state.py came in from master (merge 222e822924ec) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_lanes_state.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py passes after the merge (ran it, OK)."
+      ],
+      "severity": "MEDIUM",
+      "since": "222e822924ecc6a55c6ba1dbd77d0faaba163fd6",
+      "source": "merge",
+      "summary": "tests/test_lanes_state.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "222e822924ecc6a55c6ba1dbd77d0faaba163fd6.gate.log",
+  "head": "afb39e95c734c202bf52bf8e6a2174c94f1d50b2",
+  "item": "paid-run-red-recall-decision-fails-0-of-3-after",
+  "notes": [
+    "Q1 test at base ebeab4b4 errors/fails (fixture lacks [front]). Paid-run behaviour (3 of 3, reading-marked steady) is not proven by any stored run."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head 222e8229 ends exit 0; HEAD afb39e95 only adds that log. Ran tests.test_eval_cases and tests.test_lanes_state (61 ok). Final fix: Stop refusal text asks one short sentence of facts (e5878536), eval fixture kit.toml stop_nudge = 0 (a2fe00f9). No paid run result was supplied."
+  ],
+  "type": "check"
+}

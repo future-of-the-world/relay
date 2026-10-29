@@ -1,0 +1,20 @@
+head 89385231bb50bb96dbcba1791836ce89a49bb24e
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (1s)
+ci: lib copies identical ok (0s)
+ci: library tests ok (622s)
+ci: hook tests FAILED (820s, log: .ci/steps/hook-tests.log)
+    ok   no file: dump is an error too
+    ok   no file: packet is an error too
+    ok   no file: spec-check is an error too
+    ok   path, nothing for this version: an error, not the newest
+    ok   path, that error exits 1
+    FAIL  T15h behind master by 1 commit: refused
+    FAIL  T15k combined file: refused, changed bin/x
+    FAIL plugins/relay/tests/merge.test.sh
+ci: eval grader tests ok (2s)
+ci: plugin validate ok (5s)
+ci: inert ok (13s)
+ci: RED
+exit 1

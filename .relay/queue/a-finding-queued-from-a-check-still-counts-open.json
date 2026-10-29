@@ -1,0 +1,42 @@
+{
+  "kind": "fix",
+  "ip": 89,
+  "time": 45,
+  "found_at": "2026-10-28T18:23:53Z",
+  "found_in": "relay queue add",
+  "title": "A finding queued from a check still counts open",
+  "what": [
+    "Moving a finding to a queue item marks it once, where every later check of that branch sees it: `relay queue add --from` given a check record writes the owner entry onto the review finding the check judged (the check names its review), or the check counts a finding queued when a queue item records it as its source. `relay check owner` accepts a check record the same way, or its refusal names the review to use."
+  ],
+  "why": [
+    "28 Oct, stub-guard change: the front queued finding F2 with `relay queue add --from <check record> F2`. The owner entry went into that check record only, so the next two checks, which judge from the review, still counted F2 open (`open 1, queued 0`). The front spent two extra fix-and-check cycles, about 1.5 h of wall time and 6 agents, before finding `relay check owner <review.json> F2` with `queue = slug`, which refuses a check record (\"type must be review\")."
+  ],
+  "failing_case": [
+    "Queue F2 of a check record with `relay queue add --from <check.json> F2`; run the next check of the branch against the review: F2 counts open."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "After `relay queue add --from <check.json> F2`, the next check's mark shows queued 1, open 0.",
+    "`relay check owner <check.json> F2 --input` either works or names the review file in its refusal."
+  ],
+  "where": [
+    "lib/relay_queue.py",
+    "lib/relay_verdict.py:296-306",
+    "bin/relay (the `check owner` handler)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-28T18:24:16Z",
+      "edited": "where",
+      "fact": [
+        "Edited where: lib/relay_check.py does not exist; `relay check owner` is handled in bin/relay (grep, 28 Oct)."
+      ]
+    }
+  ]
+}

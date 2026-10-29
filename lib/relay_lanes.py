@@ -4,7 +4,8 @@ Everything is derived from git and the queue each time; no lane record is stored
 built in its own worktree on a `wt/*` branch. It runs from the take of its queue item to its landing (the branch has own
 commits and its tip is on the default branch, or its ref is gone and the default branch's history holds its merge).
 A worktree on a `wt/*` branch that no item names counts as a lane while it changed within `front.lane_quiet_hours`.
-`wt/train-*` branches are never lanes. Free lanes = the project's setting ("Changes built at once: N." in its generated
+A `wt/train-*` branch is no lane of its own, except that an open one (changed within the same hours) holding running riders is
+their one lane; a rider merged into no open train is its own lane. Free lanes = the project's setting ("Changes built at once: N." in its generated
 instruction file, 1-8, default 4) minus the running ones.
 
 The pick: queue order (fixes first, then ip), skipping an item with an unanswered owner question, and skipping an item whose
@@ -40,6 +41,7 @@ SHA_COMMITS = 40           # newest commits of a landed branch looked at for the
 class Lane(NamedTuple):
     branch: str
     slug: Optional[str]        # the queue item that took it; None for a worktree no item names
+    riders: tuple = ()         # for an open train: the running branches merged into it (their files still count)
 
 
 class Pick(NamedTuple):
@@ -224,6 +226,43 @@ def _waiting_question(item: dict) -> bool:
     return bool(relay_queue._waiting(relay_queue.notes_of(item)))
 
 
+def _one_lane_per_train(main: str, running: list[Lane], trees: dict[str, str], when: float, quiet_hours: int) -> list[Lane]:
+    """A running branch with own commits whose tip is inside an open `wt/*` branch (a train rider) is not a lane of its own:
+    the branch it was merged into is the lane, with the riders listed so their files still count. A holder counts as open while it
+    changed within `quiet_hours` (a red, abandoned train does not); of several open holders the most recently active one is taken.
+    One `for-each-ref --contains` per rider candidate."""
+    kept: list[Lane] = []
+    riders: dict[str, list[str]] = {}
+    for lane in running:
+        into: Optional[str] = None
+        if relay_git.has_own_commits(main, lane.branch):
+            held = _git(main, "for-each-ref", "--contains", "refs/heads/" + lane.branch, "--format=%(refname:short)", "refs/heads/wt/")[1].split()
+            best = 0.0
+            for b in held:
+                if b == lane.branch or _is_ancestor(main, "refs/heads/" + b, "refs/heads/" + lane.branch):
+                    continue                                   # itself, or a branch at the same tip: not a train
+                seen = _activity(main, b, trees.get(b))
+                if when - seen <= quiet_hours * 3600 and seen > best:
+                    into, best = b, seen
+        if into is None:
+            kept.append(lane)
+        else:
+            riders.setdefault(into, []).append(lane.branch)
+    have = {lane.branch for lane in kept}
+    for train in sorted(riders):
+        if train not in have:
+            kept.append(Lane(train, None, tuple(riders[train])))
+    return kept
+
+
+def _lane_files(main: str, default: str, lane: Lane, trees: dict[str, str]) -> list[str]:
+    """Files a lane has changed: its own, and for a train those of its riders (their worktrees may hold uncommitted edits)."""
+    names: set[str] = set()
+    for branch in (lane.branch,) + tuple(lane.riders):
+        names.update(touched(main, default, branch, trees.get(branch)))
+    return sorted(names)
+
+
 def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], now: Optional[float] = None, limit: Optional[int] = None) -> State:
     """The lanes of the project that `repo` belongs to. `now` is epoch seconds (a value the tests pass); `limit` is the lanes setting
     (read from the instruction file when None). Raises relay_queue.Refused outside a project with a queue."""
@@ -261,6 +300,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
             running.append(Lane(branch, None))
         else:
             quiet.append(f"{branch} (quiet)")
+    running = _one_lane_per_train(main, running, trees, when, quiet_hours)
     free = max(0, capacity - len(running))
     picks: list[Pick] = []
     waits: list[Wait] = []
@@ -269,7 +309,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
         if item["state"] == "taken" and any(lane.branch == item.get("taken_by") for lane in running):
             chosen.append((item["slug"], _paths(item.get("where") or [])))
     if free:
-        changed = {lane.branch: touched(main, default, lane.branch, trees.get(lane.branch)) for lane in running}
+        changed = {lane.branch: _lane_files(main, default, lane, trees) for lane in running}
         for item in relay_queue.ordered(open_items):
             if item["state"] != "open" or _waiting_question(item):
                 continue
@@ -353,7 +393,7 @@ def stop_refusal(state: State, stamp: str, nudge: int, session: str) -> Optional
         json.dump({"state": key, "count": seen + 1}, handle)
     shown = line(state) or ""
     return (f"{shown}. Free lanes and items that can start: start them with `relay queue start <slug> --scratch <folder>`, "
-            "or say in one sentence why the lane stays free.")
+            "or say in one short sentence why the lane stays free: facts only (what is free, what waits), never a reading of what the owner wants or said.")
 
 
 # ---------------------------------------------------------------- relay queue start
@@ -409,7 +449,7 @@ def state_touched(state: State, worktree: str) -> list[tuple[Lane, list[str]]]:
     main = relay_git.main_checkout(worktree) or worktree
     default = relay_git.default_branch(main) or "master"
     trees = {t["branch"]: t["path"] for t in relay_git.worktrees(main) if t["branch"]}
-    return [(lane, touched(main, default, lane.branch, trees.get(lane.branch))) for lane in state.running]
+    return [(lane, _lane_files(main, default, lane, trees)) for lane in state.running]
 
 
 def design_brief(item: dict, worktree: str, scratch: str, name: str) -> str:
