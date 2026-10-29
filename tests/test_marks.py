@@ -242,7 +242,8 @@ class Marks(unittest.TestCase):
         self.assertEqual(lines[1], "mark: no mark yet")
         # 10 s bound at 0.2 s a poll = 50 polls, no more
         self.assertEqual(len(polls), 50)
-        self.assertEqual(sum(polls), relay_marks.CHECK_SHOW_WAIT_S)
+        # 50 additions of 0.2 are 10 only up to float rounding: python 3.11 gives 9.99999999999998, 3.14 gives 10.0
+        self.assertAlmostEqual(sum(polls), relay_marks.CHECK_SHOW_WAIT_S, places=9)
 
     def test_an_unknown_branch_is_an_error_not_an_empty_answer(self):
         with self.assertRaises(relay_marks.MarkError):

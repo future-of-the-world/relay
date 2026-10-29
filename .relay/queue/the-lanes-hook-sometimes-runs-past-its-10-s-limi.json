@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 45,
+  "found_at": "2026-10-29T11:21:08Z",
+  "found_in": "relay queue add",
+  "title": "The lanes hook sometimes runs past its 10 s limit",
+  "what": [
+    "Find what the lanes hook waits on in a slow run (time each git and file step, log runs over 2 s with the step), bound the hook's own work well under the limit (each git call with a timeout; on overrun print one short line that the lanes are not known this time, never block), and keep the 10 s limit in hooks.json."
+  ],
+  "why": [
+    "29 Oct, twice in the owner's session (about 14:45 and 15:20 local) Claude Code showed the owner 'UserPromptSubmit hook [python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lanes.py] timed out after 10s — output discarded. Raise the hook's \"timeout\" to allow more time.' The owner asked twice what it means. Measured right after, at load 48 on 12 cores: 0.7-0.9 s per run (3 runs), so the slow runs are rare and the cause is not known (a git lock held by a landing or a gate commit, swap while the podman machine held 20 GB, or a slow git call). A hook that runs at every owner message must never block it, and a warning that names an internal file tells the owner nothing (principle 10)."
+  ],
+  "failing_case": [
+    "On a loaded machine, during a landing or a gate commit, the UserPromptSubmit lanes hook takes over 10 s and Claude Code shows the owner the timeout warning."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "a lanes hook run whose git call blocks (a test holding the index lock or a fake slow git) returns within 5 s with one line that the lanes are unknown",
+    "a normal run prints the same lanes line as today",
+    "a run over 2 s leaves a log line naming the slow step"
+  ],
+  "where": [
+    "plugins/front/hooks/lanes.py",
+    "plugins/front/hooks/hooks.json",
+    "tests/test_lanes.py"
+  ],
+  "taken_at": "2026-10-29T11:56:54Z",
+  "taken_by": "wt/the-lanes-hook-sometimes-runs-past-its-1",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

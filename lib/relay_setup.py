@@ -1006,6 +1006,7 @@ def migrate(root, apply=False, **kw):
 DEPS_FILE = os.path.join(ROOT, "deps.toml")
 DEP_STRINGS = ("name", "command", "min", "version_arg", "brew", "apt", "uv_tool", "uv_python", "darwin_run", "installer_url",
                "installer_sha256", "official_url", "official_shell", "manual", "why")
+DEP_FLAGS = ("exact", "presence")   # booleans; presence = true: the tool prints no version, it is enough that `command version_arg` runs
 DEP_ROUTES = ("brew", "apt", "uv_tool", "uv_python", "darwin_run", "installer_url", "official_url", "manual")   # at least one way to install it
 RELEASE_KEY = re.compile(r"release_(url|sha256)_(darwin|linux)_(arm64|x86_64|aarch64)")
 
@@ -1027,18 +1028,20 @@ def load_deps(path=None):
     for n, dep in enumerate(entries, 1):
         label = f"deps.toml entry {n} ({dep.get('name', '?')})"
         for key in dep:
-            if key not in DEP_STRINGS and key != "exact" and not RELEASE_KEY.fullmatch(key):
+            if key not in DEP_STRINGS and key not in DEP_FLAGS and not RELEASE_KEY.fullmatch(key):
                 raise ValueError(f"{label}: unknown field '{key}'")
         for key in ("name", "command", "version_arg"):
             if not isinstance(dep.get(key), str) or not dep[key]:
                 raise ValueError(f"{label}: '{key}' must be a non-empty string")
         for key in dep:
-            if key != "exact" and not isinstance(dep[key], str):
+            if key not in DEP_FLAGS and not isinstance(dep[key], str):
                 raise ValueError(f"{label}: '{key}' must be a string")
         if "min" in dep and not re.fullmatch(r"\d+(\.\d+)*", dep["min"]):
             raise ValueError(f"{label}: 'min' must be dotted numbers")
         if "exact" in dep and (dep["exact"] is not True or "min" not in dep):
             raise ValueError(f"{label}: 'exact' is true and needs 'min'")
+        if "presence" in dep and (dep["presence"] is not True or "min" in dep):
+            raise ValueError(f"{label}: 'presence' is true and cannot go with 'min'")
         if ("installer_url" in dep) != ("installer_sha256" in dep):
             raise ValueError(f"{label}: 'installer_url' and 'installer_sha256' go together")
         for key in dep:
@@ -1057,6 +1060,17 @@ def load_deps(path=None):
 
 def version_tuple(text):
     return tuple(int(x) for x in text.split("."))
+
+
+def dep_runs(dep) -> bool:
+    """A presence entry: the program is on PATH and `command version_arg` exits 0 (ps prints no version on macOS)."""
+    exe = shutil.which(dep["command"])
+    if exe is None:
+        return False
+    try:
+        return subprocess.run([exe, dep["version_arg"]], capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
 
 
 def dep_version(dep):
@@ -1078,7 +1092,7 @@ def install_hint(dep, system=None, machine=None):
     if "uv_tool" in dep:
         return "uv tool install " + dep["uv_tool"]
     if "uv_python" in dep:
-        return "uv python install " + dep["uv_python"]
+        return "uv python install --default " + dep["uv_python"]
     if "darwin_run" in dep and system == "darwin":
         return dep["darwin_run"]
     key = platform_key(system, machine)
@@ -1110,9 +1124,11 @@ def dep_checks(deps=None):
             name = f"{dep['name']} on PATH"
         else:
             name = f"{dep['name']} {dep['min']}" + (" (pinned)" if exact else "+")
-        found = dep_version(dep)
+        found = None if dep.get("presence") else dep_version(dep)
         if shutil.which(dep["command"]) is None:
             good, why = False, "not found"
+        elif dep.get("presence"):
+            good, why = dep_runs(dep), "found but not working"
         elif found is None:   # on PATH but it prints no version: a stub (macOS git without the developer tools) or broken
             good, why = False, "version not readable" if "min" in dep else "found but not working (prints no version)"
         elif "min" not in dep:

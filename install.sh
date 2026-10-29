@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs what relay needs, from deps.toml (the list `relay doctor` checks against): python3 3.11+, git, jq, uv,
+# Installs what relay needs, from deps.toml (the list `relay doctor` checks against): python3 (the one pinned version), git, jq, uv,
 # the pinned gate tools (ruff, mypy, pytest), claude, and bun for the gate's hook tests.
 # Official installers come first; Homebrew and apt-get are only the fallback. Plain POSIX sh: it runs before python exists.
 #   sh install.sh [--dry-run]
@@ -37,12 +37,12 @@ run() {   # run a command, or only print it under --dry-run
   "$@"
 }
 
-# one "name|command|min|exact|version_arg|brew|apt|uv_tool|uv_python|darwin_run|installer_url|installer_sha256|release_url|release_sha256|official_url|official_shell|manual"
+# one "name|command|min|exact|version_arg|brew|apt|uv_tool|uv_python|darwin_run|installer_url|installer_sha256|release_url|release_sha256|official_url|official_shell|manual|presence"
 # line per entry; release_* is the one for this machine's os and architecture
 entries() {
   awk -v plat="$plat" '
-    function flush() { if (name != "") print name "|" command "|" min "|" exact "|" varg "|" brew "|" apt "|" uvt "|" uvp "|" drun "|" url "|" sha "|" rurl "|" rsha "|" ourl "|" oshell "|" manual }
-    /^\[\[dep\]\]/ { flush(); name=command=min=exact=varg=brew=apt=uvt=uvp=drun=url=sha=rurl=rsha=ourl=oshell=manual=""; name="?"; next }
+    function flush() { if (name != "") print name "|" command "|" min "|" exact "|" varg "|" brew "|" apt "|" uvt "|" uvp "|" drun "|" url "|" sha "|" rurl "|" rsha "|" ourl "|" oshell "|" manual "|" presence }
+    /^\[\[dep\]\]/ { flush(); name=command=min=exact=varg=brew=apt=uvt=uvp=drun=url=sha=rurl=rsha=ourl=oshell=manual=presence=""; name="?"; next }
     /^[a-z_0-9]+ *=/ {
       key=$1; sub(/^[a-z_0-9]+ *= */, ""); val=$0; gsub(/^"|"$/, "", val)
       if (key=="name") name=val; else if (key=="command") command=val; else if (key=="min") min=val
@@ -50,7 +50,7 @@ entries() {
       else if (key=="apt") apt=val; else if (key=="uv_tool") uvt=val; else if (key=="uv_python") uvp=val
       else if (key=="darwin_run") drun=val; else if (key=="installer_url") url=val
       else if (key=="installer_sha256") sha=val; else if (key=="manual") manual=val
-      else if (key=="official_url") ourl=val; else if (key=="official_shell") oshell=val
+      else if (key=="presence") presence=val; else if (key=="official_url") ourl=val; else if (key=="official_shell") oshell=val
       else if (key=="release_url_" plat) rurl=val; else if (key=="release_sha256_" plat) rsha=val
     }
     END { flush() }
@@ -104,7 +104,7 @@ install_one() {
     say "  needs uv first; it was not installed"; return 1
   fi
   if [ -n "$uvp" ]; then
-    say "  via uv python install (python3.11 lands in ~/.local/bin; python3 itself is not replaced)"
+    say "  via uv python install (python3.$pyminor lands in ~/.local/bin; python3 itself is not replaced)"
     if command -v uv >/dev/null 2>&1 || [ "$dry" = 1 ]; then run uv python install "$uvp"; return $?; fi
     say "  needs uv first; it was not installed"; return 1
   fi
@@ -149,16 +149,21 @@ install_one() {
   return 2
 }
 
+py_ok() {   # py_ok FOUND: the pinned python3 version exactly when deps.toml pins it, else FOUND >= the minimum
+  if [ "$pyexact" = true ]; then [ "$1" = "$pymin" ]; else at_least "$1" "$pymin"; fi
+}
+
 find_python() {   # the first python that is 3.11+ (python3, then versioned names, then the one uv holds); prints its path
-  for c in python3 python3.14 python3.13 python3.12 python3.11; do
+  if [ "$pyexact" = true ]; then cands="python3 python3.$pyminor"; else cands="python3 python3.14 python3.13 python3.12 python3.11"; fi
+  for c in $cands; do
     v="$(version_of "$c" --version)"
-    if [ -n "$v" ] && at_least "$v" "$pymin"; then command -v "$c"; return 0; fi
+    if [ -n "$v" ] && py_ok "$v"; then command -v "$c"; return 0; fi
   done
   if command -v uv >/dev/null 2>&1; then
     c="$(uv python find "$pymin" 2>/dev/null)"
     if [ -n "$c" ] && [ -x "$c" ]; then
       v="$(version_of "$c" --version)"
-      if [ -n "$v" ] && at_least "$v" "$pymin"; then echo "$c"; return 0; fi
+      if [ -n "$v" ] && py_ok "$v"; then echo "$c"; return 0; fi
     fi
   fi
   return 1
@@ -168,14 +173,18 @@ say "relay installer ($os), reading $deps"
 say "ok = already there, install = missing or too old, installed = done now"
 [ "$dry" = 1 ] && say "dry run: nothing will be changed"
 # local bin of uv and its tools, so the checks below see what was just installed
-PATH="$HOME/.local/bin:$PATH"; export PATH
+PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"; export PATH   # bun's own installer puts it in ~/.bun/bin
 
 pymin="$(entries | awk -F'|' '$1=="python3" { print $3 }')"; pymin="${pymin:-3.11}"
+pyminor="${pymin#*.}"; pyminor="${pyminor%%.*}"
+pyexact="$(entries | awk -F'|' '$1=="python3" { print $4 }')"
 
-entries | while IFS='|' read -r name cmd min exact varg brew apt uvt uvp drun url sha rurl rsha ourl oshell man; do
-  found="$(version_of "$cmd" "$varg")"
+entries | while IFS='|' read -r name cmd min exact varg brew apt uvt uvp drun url sha rurl rsha ourl oshell man presence; do
+  if [ "$presence" = true ]; then found=""; else found="$(version_of "$cmd" "$varg")"; fi
   state=""
   if ! command -v "$cmd" >/dev/null 2>&1; then state="missing"
+  elif [ "$presence" = true ]; then
+    "$cmd" "$varg" >/dev/null 2>&1 || state="found but not working"
   elif [ -z "$found" ]; then
     if [ -n "$min" ]; then state="version not readable"; else state="found but not working (prints no version)"; fi
   elif [ -n "$min" ]; then
@@ -202,16 +211,16 @@ if [ "$dry" = 1 ]; then
   if [ -n "$py" ]; then
     say "dry run done: would then run $py $relay_dir/bin/relay doctor"
   else
-    say "dry run done: python3 is ${pyfound:-missing}; after the python step the doctor would run under the python3.11 that uv installs in $HOME/.local/bin"
+    say "dry run done: python3 is ${pyfound:-missing}; after the python step the doctor would run under the python $pymin that uv installs in $HOME/.local/bin"
   fi
   exit 0
 fi
 if [ -z "$py" ]; then
-  say "python3 is still ${pyfound:-missing}; relay needs $pymin+: run  uv python install $pymin  and put $HOME/.local/bin first on PATH (or install a newer python3), then run install.sh again"
+  say "python3 is still ${pyfound:-missing}; relay needs python $pymin${pyexact:+ (exactly)}: run  uv python install --default $pymin  and put $HOME/.local/bin first on PATH, then run install.sh again"
   exit 1
 fi
 if [ "$(command -v python3)" != "$py" ]; then
-  say "python3 on PATH is ${pyfound:-missing}; the doctor runs under $py. To make python3 itself $pymin+, put its folder first on PATH"
+  say "python3 on PATH is ${pyfound:-missing}; the doctor runs under $py. To make python3 itself $pymin, put its folder first on PATH"
 fi
 say "checking the result with relay doctor"
 exec "$py" "$relay_dir/bin/relay" doctor

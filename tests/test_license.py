@@ -393,7 +393,8 @@ class GateRunsLicenseCheck(Fixture):
     def test_f3_without_license_table_the_log_has_no_license_line(self):
         self.lic_repo(license_files=False, table=False)
         self.assertEqual(self.gate(self.wt).returncode, 0)
-        self.assertNotIn("license", self.log().lower())
+        # the cmd line holds the temporary folder, whose name carries the test's own name (it says "license")
+        self.assertNotIn("license", "\n".join(l for l in self.log().splitlines() if not l.startswith("cmd ")).lower())
 
 
 if __name__ == "__main__":

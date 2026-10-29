@@ -1,0 +1,15 @@
+head 0860a126675198527279db61c87b89df4fa7d7f7
+cmd bin/ci --quick
+wait 526.3
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (718s, log: .ci/steps/library-tests.log)
+    FAIL: test_tree_passes (test_module_sizes.ModuleSizes.test_tree_passes)
+    AssertionError: Lists differ: ['lib/relay_land.py has 609 lines, limit 6[63 chars]ct)'] != []
+    FAILED (failures=1)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (47s)
+ci: RED
+exit 1

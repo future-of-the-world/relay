@@ -65,6 +65,66 @@
       "fact": [
         "29 Oct, front, correction to the note of ~16:30: that prechecks take no gate slot and that each run sizes its workers for the whole machine is a front assumption, not measured; the build measures it first."
       ]
+    },
+    {
+      "at": "2026-10-29T11:36:01Z",
+      "fact": [
+        "29 Oct, design revision 2 (thinker, critic, revision) from 608 gate logs of 27-29 Oct: a second gate at once added only 5-20% more gates per hour; median library-test time of a gate running alone 404 s. Modelled under the afternoon load (2 gates plus 5 agents' test runs): a pool of 12 tokens with 4 kept per gate gives about 808 s per gate (a 5th agent's run waits); 12 with 2 per gate about 923 s (no agent waits); 8 with 2 per gate about 1616 s, at the 30-min limit. Critic: nested token takes deadlock unless a child runs on its parent's token (fixed in revision 2). Not measured: slowdown at 12 processes, how often 5+ agent runs coincide."
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T11:36:02Z",
+      "question": [
+        "**Как relay ограничивает число тестов, идущих одновременно на машине**"
+      ],
+      "options": [
+        "a. Один общий пул разрешений на все прогоны тестов, часть закреплена за полными проверками",
+        "b. Каждый прогон запускает 2 процесса вместо 4",
+        "c. Запускать процессы тестов только при низкой нагрузке машины",
+        "d. Оставить как есть"
+      ],
+      "answered_at": "2026-10-29T11:38:29Z",
+      "answer": [
+        "a a, но это должно конфигурироваться, разве gate это не унифицированный способ который пропагандирует relay ?"
+      ],
+      "reading": [
+        "Approach a (one machine-wide token pool, part kept for gates); sizes a (12 in all, 4 per gate) as defaults. Both must be configurable, and the pool must work for any project's gate through relay gate, not only relay's own tests."
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T11:36:07Z",
+      "question": [
+        "**Сколько процессов тестов всего и сколько закрепить за полными проверками**"
+      ],
+      "options": [
+        "a. 12 всего, по 4 на проверку",
+        "b. 12 всего, по 2 на проверку",
+        "c. 8 всего, по 2 на проверку"
+      ],
+      "answered_at": "2026-10-29T11:38:29Z",
+      "answer": [
+        "a a, но это должно конфигурироваться, разве gate это не унифицированный способ который пропагандирует relay ?"
+      ],
+      "reading": [
+        "Approach a (one machine-wide token pool, part kept for gates); sizes a (12 in all, 4 per gate) as defaults. Both must be configurable, and the pool must work for any project's gate through relay gate, not only relay's own tests."
+      ]
+    },
+    {
+      "at": "2026-10-29T11:42:36Z",
+      "said": [
+        "Я веду к тому что у нас уже есть подход с bin/ci, и так далее, думаю это должно быть унифицированно в таком порядке, как проект который будет использовать текущий relay может настроить это у себя ? Возможно это и не требуется в дизайне, пользователь сам решит что ему необходимо проверять в bin/ci"
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T12:36:06Z",
+      "question": [
+        "**Сколько разрешений оставлять полным проверкам на маленькой машине**",
+        "Review пула (F5): на машине с 4 ядрами и меньше пул по умолчанию держит 4 разрешения за полными проверками и оставляет одно на все тесты агентов; они идут по одному, пока разрешения проверок простаивают. Будущие Linux VM могут быть такими."
+      ],
+      "options": [
+        "a. Доля проверок уменьшается с машиной: агентам всегда остаётся не меньше 2 разрешений",
+        "b. Оставить 4 на проверку; на маленькой машине менять файл настройки вручную"
+      ]
     }
   ]
 }

@@ -12,13 +12,15 @@ import shutil
 import tempfile
 from typing import Optional
 
+import tmp_default
+
 _cache: Optional[str] = None
 
 
 def _cache_dir() -> str:
     global _cache
     if _cache is None:
-        _cache = tempfile.mkdtemp(prefix="relay-fake-tools-")
+        _cache = tempfile.mkdtemp(prefix="relay-fake-tools-", dir=tmp_default.run_temp())
         atexit.register(shutil.rmtree, _cache, True)
     return _cache
 

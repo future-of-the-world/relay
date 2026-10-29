@@ -227,6 +227,9 @@ class TestRun(Folder):
     def committed_repo(self):
         self.seed()
         self.git("init", "-q")
+        # the code under test commits without an identity of its own: a clean machine has none, so the repository carries one
+        self.git("config", "user.name", "t")
+        self.git("config", "user.email", "t@t")
         self.git("add", "-A")
         self.git("commit", "-q", "--no-verify", "-m", "seed")
 

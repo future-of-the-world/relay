@@ -1,0 +1,18 @@
+head cb5ec02cdf41a90cd1683338a9eda6519e8c8c40
+cmd bin/ci --quick
+wait 309.7
+gate: stopped a leftover test process 6598 (/bin/sh /private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-0524vb23/relay-gate-hak7d85u/gate.sh): parent gone, folder deleted
+gate: stopped a leftover test process 6758 (/bin/sh /private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-nkdp66dg/relay-gate-fw1s6zn3/gate.sh): parent gone, folder deleted
+gate: stopped a leftover test process 36472 (/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Py): parent gone, older than 10 min
+gate: stopped a leftover test process 36962 (/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Py): parent gone, older than 10 min
+gate: stopped a leftover test process 40871 (/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Py): parent gone, older than 10 min
+gate: stopped a leftover test process 59315 (/bin/sh /private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-o0euv7gp/relay-gate-5phmsl6b/gate.sh): parent gone, folder deleted
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests ok (582s)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (35s)
+ci: green (QUICK MODE: paid steps skipped, not a release gate)
+exit 0
