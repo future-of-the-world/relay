@@ -80,6 +80,12 @@
         "b. Bare-репозиторий на первой Linux VM",
         "c. Приватный репозиторий на GitHub"
       ]
+    },
+    {
+      "at": "2026-10-29T10:47:13Z",
+      "fact": [
+        "29 Oct, design \"relay in Claude cloud environments\" revision 2 (thinker, critic, revision; measured at master 420a69a1). Documented: a cloud session is an Ubuntu 24.04 x86_64 VM, about 4 vCPU, 16 GB, 30 GB; no plugins installed (even repo-enabled), no user-level CLAUDE.md, settings, hooks or MCP; code goes home only through GitHub (push, teleport); the VM loses its files when reclaimed; Docker preinstalled, podman not documented. Measured: average gate wait for a slot 253 s, median 0 (66 of 113 gates did not wait); front sessions 7 transcripts, median 12.5 h; relay's head tree 2.75 MB compressed, full history 8.4 MiB; a gate alone on 4 vCPU scales to about 1,260 s, sharing the VM about 2,586 s against the 1,800 s limit. Eight points undocumented (setup-script-written settings loaded, podman installs, nested claude -p logged in, gate time, background job keeps the VM, push to own host, model of --cloud, which environment). Recommendation: later, own Linux VMs first."
+      ]
     }
   ]
 }
