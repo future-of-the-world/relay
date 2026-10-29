@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 
-from hook_helpers import ROOT, run_hook
+from hook_helpers import ROOT, SoftCases, run_hook
 
 HOOK = os.path.join(ROOT, "plugins", "front", "hooks", "handover.py")
 STUB = os.path.join(ROOT, "evals", "plugin", "relay-stub.py")
@@ -15,7 +15,7 @@ def git(repo: str, *args: str) -> None:
     subprocess.run(["git", "-C", repo, "-c", "user.email=t@t", "-c", "user.name=t", *args], check=True, capture_output=True)
 
 
-class BinRelayHook(unittest.TestCase):
+class BinRelayHook(SoftCases):
     def setUp(self) -> None:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
