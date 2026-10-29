@@ -28,8 +28,8 @@
   ],
   "taken_at": "2026-10-29T12:36:34Z",
   "taken_by": "wt/a-merge-through-the-merge-hook-a-train-o",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T13:34:32Z",
+  "test": "tests/test_merge_train.py::ATrainLeavesNoTakenFixItem::test_a_train_holding_a_rider_with_its_fix_item_taken_and_open_is_refused",
   "dropped_at": null,
   "dropped_why": null
 }
