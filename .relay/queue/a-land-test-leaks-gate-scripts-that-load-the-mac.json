@@ -1,0 +1,44 @@
+{
+  "kind": "fix",
+  "ip": 99,
+  "time": 40,
+  "found_at": "2026-10-29T00:27:30Z",
+  "found_in": "relay queue add",
+  "title": "A land test leaks gate scripts that load the machine",
+  "what": [
+    "1. test_land_lock_frees_on_kill kills `relay land` with SIGKILL on purpose, which orphans its fixture gate.sh; that script loops `sleep 0.05` until a `go` file appears, never checks that its temp folder still exists, and the test's cleanup deletes the folder first, so the loop runs for ever. Make the loop end when its folder is gone, and make the test wait for the script to end (or kill its process group) before cleanup. 2. tests/leaked_gates.py looks only for processes named `relay gate`, so it missed all of these: count as a leak any process whose working folder or command path is inside the test run's temp folder, and fail the run on one."
+  ],
+  "why": [
+    "29 Oct ~04:20: 59 leaked fixture gate scripts ran at once, starting 312 processes a second; CPU 93.5% system, 0.2% idle, load 44 on 12 cores. The quick gate's library tests took 2109 s and 3521 s against 241 s on 28 Oct, two timing tests went red from it, and the cycle's gate agents ended with no result. The test landed 28 Oct 14:42 (relay land), the first leak started 14:44, and each gate run adds about two more (its own test run plus the nested probe). IP chosen by the front (agent-chosen): it slows every gate of every lane."
+  ],
+  "failing_case": [
+    "Run tests/test_land.py::test_land_lock_frees_on_kill once: afterwards a /bin/sh $TMPDIR/relay-run-*/relay-gate-*/gate.sh process is still alive with parent 1, and the leak scan reports nothing."
+  ],
+  "failing_kind": "test",
+  "pass_cases": [
+    "After the test, no process runs from its temp folder.",
+    "A test that leaves a sleeping child in its temp folder fails the run's leak scan."
+  ],
+  "where": [
+    "tests/test_land.py:275-332",
+    "tests/leaked_gates.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-29T00:29:01Z",
+      "question": [
+        "Остановить ли забытые тестовые процессы, которые грузят машину? 29 Oct ~04:20: 59 пробных скриптов проверки от теста tests/test_land.py::test_land_lock_frees_on_kill крутятся бесконечно, 312 новых процессов в секунду, процессор занят на 93.5%; проверки идут 1-3 часа вместо 4 минут. Защита Claude Code (auto mode) не дала front остановить их без вашего слова. Плюс 7 брошенных проверок (gate), которые заменены более новыми."
+      ],
+      "options": [
+        "a. Разрешить: front останавливает только процессы из временных папок тестов (совпадение по пути) и 7 заменённых проверок, живые проверки 10491, 77910, 36412, 97164 не трогает (рекомендация: измерено, что нагрузку даёт именно это)",
+        "b. Не трогать до исправления теста: проверки остаются по 1-3 часа, каждая новая проверка добавляет ещё около двух таких процессов"
+      ]
+    }
+  ]
+}
