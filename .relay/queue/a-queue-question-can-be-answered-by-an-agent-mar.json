@@ -6,7 +6,7 @@
   "found_in": "relay queue add",
   "title": "A queue question can be answered by an agent, marked so",
   "what": [
-    "A decision an agent makes is recorded with the same question, options and answer notes the owner's questions use, plus a mark of who answered (the owner, or which agent), so one can later find who took each decision and the owner can reverse it."
+    "A decision an agent makes is recorded with the same question, options and answer notes the owner's questions use, plus a mark of who answered (the owner, or which agent, with the deciding session's id so one can tell which session it was), so one can later find who took each decision and the owner can reverse it."
   ],
   "why": [
     "30 Oct: front decisions are written as fact notes (\"fact (front)\", text \"front decision (owner can reverse)\"); the queue has no decision record, some decisions lived only in session briefs, and nothing lists who decided what. The owner chose that review questions a principle answers are decided by the reviewer (work-goes-on-while-the-owner-is-away). IP chosen by the front (agent-chosen)."
@@ -39,6 +39,13 @@
         "Что значит - решения рецензента живут в другом файле, give me the full picture",
         "",
         "Да, добавь оба пункта в задачу"
+      ]
+    },
+    {
+      "at": "2026-10-29T23:07:42Z",
+      "edited": "what",
+      "fact": [
+        "Edited what: Owner, 30 Oct: \"Да, добавь оба пункта в задачу\" (the session id now; one place for all decisions goes to the list item)."
       ]
     }
   ]
