@@ -155,13 +155,35 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": {"$seq": [throw, GREEN["stage:gate"]]}})
         self.assertEqual(out["labels"].count("gate 1: x"), 2)
         self.assertTrue(out["result"]["changes"][0]["ready"])
-        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw})
+        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw, "gate 2: x": throw})
         self.assertEqual(out["labels"].count("gate 1: x"), 2)
         change = out["result"]["changes"][0]
-        self.assertEqual(change["stopped_at"], "gate")
+        self.assertEqual(change["stopped_at"], "gate")                                 # the recovery gate died too: stop
         self.assertIn("StructuredOutput", change["detail"])
         out = self.run_cycle(self.args([self.unit()], settings={"retry_dead": 0}), **{"gate 1: x": throw})
         self.assertEqual(out["labels"].count("gate 1: x"), 1)
+
+    def test_a_gate_agent_with_no_result_gets_one_recovery_gate_that_reads_the_head_log_first(self):
+        """Failing case 29 Oct (wf_21bb938f-13f): both attempts of gate 1 died with no result and the cycle stopped at 'gate'.
+        By the design: the unit goes on with one more gate agent (label gate 2), whose prompt says to read the head's gate log
+        under .relay/checks/ first, to wait on a gate already running, and to run the gate only when neither exists.
+        Disabled rule (stop on r.dead): labels end at gate 1 and the unit is not ready."""
+        throw = {"$throw": "subagent completed without calling StructuredOutput"}
+        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw})
+        self.assertEqual(out["labels"][:4], ["build: x", "gate 1: x", "gate 1: x", "gate 2: x"])
+        self.assertTrue(out["result"]["changes"][0]["ready"])
+        prompt = out["prompts"]["gate 2: x"]
+        self.assertIn("%s/.relay/checks/<head>" % self.wt, prompt)
+        self.assertIn(".gate.log", prompt)
+        self.assertIn("already running", prompt)
+        self.assertLess(prompt.index(".gate.log"), prompt.index("relay gate -C"))     # read the log before any gate is started
+        out = self.run_cycle(self.args([self.unit(branch=None)], relay=False), **{"gate 1: x": throw})
+        self.assertIn("gate-x-2.log", out["prompts"]["gate 2: x"])                     # project mode: its own log, same recovery
+
+    def test_a_recovery_gate_is_one_only_per_gate_and_a_skip_is_not_recovered(self):
+        throw = {"$throw": "died"}
+        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw, "gate 2: x": throw})
+        self.assertEqual(out["labels"].count("gate 3: x"), 0)                          # one recovery, then stop
 
     def test_a_skipped_agent_stops_the_unit_at_once(self):
         out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": None})

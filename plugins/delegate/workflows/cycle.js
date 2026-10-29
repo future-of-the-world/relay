@@ -83,13 +83,15 @@ function refusal() {
   return ''
 }
 
+const SKIPPED = 'agent skipped'
+
 // One agent call, retried under the same label when it throws; a null (the user skipped it) is not retried.
 async function ask(prompt, opts) {
   let last = 'agent died'
   for (let t = 0; t <= CFG.retry_dead; t++) {
     try {
       const v = await agent(prompt, opts)
-      if (v === null) return { dead: 'agent skipped' }
+      if (v === null) return { dead: SKIPPED }
       return { v }
     } catch (e) {
       last = String(e && e.message ? e.message : e)
@@ -128,12 +130,25 @@ function gatePrompt(it, n) {
   return `${it.kind === 'recheck' ? takePrompt(it) : ''}Run the project's gate in ${it.wt} detached with the limits recipe, writing the log in the form: \`{ echo "head $(git -C ${it.wt} rev-parse HEAD)"; ${A.gate}; echo "exit $?"; } > ${log} 2>&1\` (run it with ${it.wt} as the current folder) and write its pid to ${log}.pid first. If ${log}.pid already exists and that pid is alive, a gate of an earlier attempt is still running: do not start another, wait on that pid and report its log. ${wait} Report ok (the exit code was 0), the head sha, the log path ${log}, and the first failing line if any.`
 }
 
+// The step after a gate agent that ended with no result: the committed gate log of the head decides before anything runs.
+function recoveryPrompt(it, n) {
+  const head = `$(git -C ${it.wt} rev-parse HEAD)`
+  const logs = `${it.wt}/.relay/checks/<head>*.gate.log`
+  const read = `An earlier gate agent for this worktree ended without a result, so the gate may have run. Do in this order. 1. Take the head (${head}) and look for its gate log ${logs}: if one exists, run no gate: report ok from the exit it records, its sha, that log's path and the first failing line. 2. Else, if a gate is already running on ${it.wt} (look at the processes with \`ps\` for a relay gate on that folder), do not start another: wait on its pid, then read its log as in 1. 3. Only when there is no log and no running gate, run the gate once as follows. `
+  return `${read}${gatePrompt(it, n)}`
+}
+
 // A gate with up to gate_fixes rounds of "fix red gate, gate again". Counters run through the whole unit, so the
 // labels are gate 1, fix red gate 1, gate 2, ..., and a later group goes on from the numbers before it.
 async function gated(it, st) {
   while (true) {
     st.gn += 1
-    const r = await ask(gatePrompt(it, st.gn), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${it.name}`))
+    let r = await ask(gatePrompt(it, st.gn), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${it.name}`))
+    if (r.dead && r.dead !== SKIPPED) {
+      // The gate agent ended with no result: the gate may have run, so one recovery agent reads the head's gate log first.
+      st.gn += 1
+      r = await ask(recoveryPrompt(it, st.gn), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${it.name}`))
+    }
     if (r.dead) return { stop: stop(it, 'gate', r.dead) }
     const g = r.v
     if (g.ok) return { g }
