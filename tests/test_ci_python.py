@@ -486,6 +486,40 @@ class ProbeBesideTheRun(unittest.TestCase):
         log = os.path.join(self.root, ".ci", "steps", "inert-nested.log")
         return relay_ci.Probe(self.root, self.head, True, self.env, log, nested=("sh", "-c", script))
 
+    def test_a_probe_whose_lane_worktree_was_removed_is_removed_by_the_next_gate_of_any_worktree(self) -> None:
+        # live case 29 Oct: a lane worktree removed (or killed) while its probe existed; the probe stays registered in the main
+        # repository because the record sat in the lane's own .ci. Two lanes: lane_a dies with its probe, lane_b runs a gate.
+        lanes = []
+        for name in ("lane_a", "lane_b"):
+            path = os.path.join(self.root, ".worktrees", name)
+            subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", path, self.head], check=True, env=self.env)
+            lanes.append(path)
+        log = os.path.join(lanes[0], ".ci", "steps", "inert-nested.log")
+        probe = relay_ci.Probe(lanes[0], self.head, True, self.env, log, nested=("true",))
+        probe.start()
+        probe.wait()
+        # 1 main + 2 lanes + 1 probe; the gate of lane_a is gone without stop() (killed) and so is its worktree
+        self.assertEqual(len(self.worktrees()), 4)
+        subprocess.run(["git", "-C", self.root, "worktree", "remove", "--force", lanes[0]], check=True, env=self.env)
+        self.assertEqual(len(self.worktrees()), 3)   # the probe is still registered: the leak
+        relay_ci.remove_leftover_probe(lanes[1])
+        self.assertEqual(len(self.worktrees()), 2)   # main + lane_b
+        assert probe.tmpd is not None
+        self.assertFalse(os.path.exists(probe.tmpd))
+
+    def test_a_probe_of_a_live_lane_is_not_touched_by_the_gate_of_another_lane(self) -> None:
+        lanes = []
+        for name in ("lane_a", "lane_b"):
+            path = os.path.join(self.root, ".worktrees", name)
+            subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", path, self.head], check=True, env=self.env)
+            lanes.append(path)
+        probe = relay_ci.Probe(lanes[0], self.head, True, self.env, os.path.join(lanes[0], ".ci", "n.log"), nested=("true",))
+        probe.start()
+        probe.wait()
+        self.addCleanup(probe.stop)
+        relay_ci.remove_leftover_probe(lanes[1])
+        self.assertEqual(len(self.worktrees()), 4)   # main + 2 lanes + the live probe
+
     def test_the_probe_run_is_marked_so_its_test_runner_only_reads_the_class_times(self) -> None:
         # the nested run gets RELAY_INERT_PROBE=1 (the outer run's environment does not have it)
         mark = os.path.join(self.root, "mark.txt")
