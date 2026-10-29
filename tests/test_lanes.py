@@ -1,9 +1,11 @@
 """Lanes: the number of changes built at once is a setting (projects.toml `lanes`, 1-8, default 4) that the generated
 file states; `bin/paid-cost paths` prints the paths the paid run checks; the front and rule texts carry the lane rules."""
+import json
 import os
 import subprocess
 import sys
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -112,6 +114,72 @@ class Wave(unittest.TestCase):
         self.assertNotIn("would change what the run is judging", text)
         self.assertNotIn("after the next wave", text)
         self.assertNotIn("after the last merge of a wave of 3-4", text)
+
+
+sys.path.insert(0, HERE)
+import test_lanes_state as tls  # noqa: E402
+
+HOOK = os.path.join(ROOT, "plugins", "front", "hooks", "lanes.py")
+
+
+class LanesHookBounds(tls.LaneBase):
+    """The UserPromptSubmit lanes hook never blocks the owner: a slow git gives one "not known" line; slow steps are logged."""
+
+    def run_hook(self, home: str, budget: str = "", path: str = "") -> "subprocess.CompletedProcess[str]":
+        env = dict(os.environ, RELAY_HOME=home, PYTHONPATH="")
+        if budget:
+            env["RELAY_LANES_HOOK_BUDGET_S"] = budget
+        if path:
+            env["PATH"] = path + os.pathsep + env["PATH"]
+        data = {"hook_event_name": "UserPromptSubmit", "cwd": self.main, "session_id": "s"}
+        # the timeout is only a safety net so a regression fails instead of hanging the suite
+        return subprocess.run([sys.executable, HOOK], input=json.dumps(data), capture_output=True, text=True, env=env, timeout=60)
+
+    def slow_git(self) -> str:
+        """A folder with a `git` that never answers (exec, so the killed process is the sleeper itself)."""
+        folder = os.path.join(self.tmp, "fakebin")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "git"), "w") as handle:
+            handle.write("#!/bin/sh\nexec sleep 60\n")
+        os.chmod(os.path.join(folder, "git"), 0o755)
+        return folder
+
+    def test_blocked_git_gives_one_unknown_line(self) -> None:
+        self.seed({tls.Q + "a.json": tls.item("a")})
+        out = self.run_hook(os.path.join(self.tmp, "h"), budget="1", path=self.slow_git())
+        self.assertEqual((out.returncode, out.stderr), (0, ""))
+        text = json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"]
+        self.assertEqual(text, "Lanes: not known this time (the repository answered too slowly).")
+
+    def test_normal_run_prints_the_lanes_line(self) -> None:
+        self.seed({tls.Q + "a.json": tls.item("a")})
+        out = self.run_hook(os.path.join(self.tmp, "h"))
+        self.assertEqual((out.returncode, out.stderr), (0, ""))
+        self.assertIn("start: a (fix, ip 90)", json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"])
+
+    def test_overrun_is_logged_with_its_step(self) -> None:
+        self.seed({})
+        home = os.path.join(self.tmp, "h")
+        self.run_hook(home, budget="1", path=self.slow_git())
+        log = open(os.path.join(home, "state", "lanes-slow.log"), encoding="utf-8").read()
+        # the first step to hang is the first git call, which the hook names
+        self.assertIn("overrun in", log)
+
+    def test_step_over_two_seconds_is_logged_and_a_fast_one_is_not(self) -> None:
+        import importlib
+        sys.path.insert(0, os.path.dirname(HOOK))
+        try:
+            hook = importlib.import_module("lanes")
+        finally:
+            sys.path.pop(0)
+        home = os.path.join(self.tmp, "h")
+        ticks = iter([0.0, 2.5, 10.0, 10.5])      # step "slow" takes 2.5 s (logged), step "fast" takes 0.5 s (not)
+        with mock.patch.dict(os.environ, {"RELAY_HOME": home}), mock.patch.object(hook, "CLOCK", lambda: next(ticks)):
+            hook.timed("slow", lambda: None)
+            hook.timed("fast", lambda: None)
+        lines = open(os.path.join(home, "state", "lanes-slow.log"), encoding="utf-8").read().splitlines()
+        self.assertEqual(len(lines), 1)
+        self.assertTrue(lines[0].endswith("lanes hook: slow took 2.5 s"), lines[0])
 
 
 if __name__ == "__main__":
