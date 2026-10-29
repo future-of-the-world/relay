@@ -1,0 +1,106 @@
+{
+  "branch": "wt/refuse-folder-and-pattern-entries-in-whe",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by a scan of the branch's queue files. The brief: \"rewrites the 24 open items that hold such entries ... commit with the",
+        "change\"; the item's what and Done list it. Without it the start filter still holds the 13 items held by folders, which is the stated",
+        "why of the move, and every later where edit of those items is now refused (see F2). The count is 26 now (items added since the plan).",
+        "Size: 30 minutes (26 edits, each choosing the files)."
+      ],
+      "evidence": [
+        "git log --oneline master..HEAD -- .relay/queue   -> (nothing)",
+        "python3 scan over .relay/queue/*.json (open, path endswith / or isdir or *?[) -> 26",
+        "('a-gate-log-keeps-failure-lines-of-any-length.json', ['.relay/checks/*.gate.log'])",
+        "('each-relay-subcommand-lives-in-its-own-module.json', ['lib/ (new per-command modules)', 'plugins/front/lib/ (copies via bin/sync-lib-copies)', 'tests/'])",
+        "('one-digest-per-wave-instead-of-status-messages.json', ['docs'])"
+      ],
+      "failing_case": [
+        "At HEAD 1ac071a1, the open items under .relay/queue/ of the branch: 26 hold a `where` entry that is a folder or a pattern",
+        "(e.g. each-relay-subcommand-lives-in-its-own-module: \"lib/ (new per-command modules)\", \"plugins/front/lib/ ...\", \"tests/\";",
+        "a-gate-log-keeps-failure-lines-of-any-length: \".relay/checks/*.gate.log\"; one-digest-per-wave-instead-of-status-messages: \"docs\").",
+        "No commit of the branch touches .relay/queue. The item's Done says \"the 24 items are rewritten\" and asks to record which items the",
+        "start filter holds before and after; neither was done. Expected: 0 open items with such an entry, each fixed by one",
+        "`relay queue edit` with because \"folder entry named as a file\", and the before/after held count recorded."
+      ],
+      "fix_hint": [
+        "From this worktree's bin/relay, one `relay queue edit <slug> where '<all folder lines>' '<files>' --because \"folder entry named as a file\"`",
+        "per item (old may span several lines, so one call fixes all entries of an item), then commit; record the start filter's held items before and after."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 1,
+      "pass_cases": [
+        "1. Every open item: no where entry whose path ends in \"/\", names an existing directory, or holds * ? [ -> 0 such items (the scan below prints 0).",
+        "2. a-gate-log-keeps-failure-lines-of-any-length: the pattern \".relay/checks/*.gate.log\" becomes the files it names (or the file the fix will change), not a glob.",
+        "3. Each rewritten item carries one fact note \"Edited where: folder entry named as a file\" (one relay queue edit per item).",
+        "4. Items with only file entries (e.g. refuse-folder-and-pattern-entries-in-where itself) are unchanged.",
+        "5. The start filter's held count before and after is recorded in the item or the hand-back (13 of 29 held by folders before)."
+      ],
+      "path": ".relay/queue/each-relay-subcommand-lives-in-its-own-module.json",
+      "rank": "high",
+      "reason": [
+        "where_folders over head's open items: 0 flagged."
+      ],
+      "severity": "HIGH",
+      "since": "1ac071a10c5b44305bc3986a3263e86be88900ca",
+      "source": "review-refuse-folder-and-pattern-entries-in-whe.json",
+      "source_id": "F1",
+      "summary": "the stored items with folder and pattern entries were not rewritten: 26 open items still hold them",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch test subclassing WhereFiles: the refusal above is printed. edit() runs where_folders(after, repo) over the whole",
+        "new list, including entries carried over from `before`. Principle 10 (a refusal names the next step): here the next step it names was",
+        "already taken. Size: 15 minutes."
+      ],
+      "evidence": [
+        "scratchpad/probe/probe_where.py test_fix_one_of_two ->",
+        "REFUSED: nothing edited: where element 2 `docs/` is a folder: name the file you will change (a new file is fine, e.g. lib/relay_cmd/digest.py)"
+      ],
+      "failing_case": [
+        "Item with where [\"lib/ (modules)\", \"docs/ (notes)\"]. `relay queue edit <slug> where \"lib/ (modules)\" \"lib/relay_cmd/digest.py\" --because ...`",
+        "-> Refused \"nothing edited: where element 2 `docs/` is a folder: name the file you will change\". The person did name a file; the",
+        "refusal points at an entry they did not touch and does not say that every folder entry must be fixed in the same edit. On the 26",
+        "stored items (F1), 4 have two or more folder entries, and any where edit of them (adding a file, fixing one entry) is refused.",
+        "Expected: either the edit is accepted (only entries new in `after` are judged), or the refusal says to replace all folder entries in one edit."
+      ],
+      "fix_hint": [
+        "In edit, judge only the entries of `after` not in `before`: where_folders([x for x in after if x not in before], ...) with the element",
+        "numbers taken from `after`; or keep the whole-list check and add to the text \"(already stored: replace every folder entry in one edit; old may span lines)\". Add the case to tests/test_queue_where.py."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1916,
+      "pass_cases": [
+        "1. where [\"lib/ (modules)\", \"docs/ (notes)\"], edit \"lib/ (modules)\" -> \"lib/relay_cmd/digest.py\": accepted with where [\"lib/relay_cmd/digest.py\", \"docs/ (notes)\"], or refused with a text that names element 2 as already stored and says to replace it in the same edit.",
+        "2. where [\"lib/relay_other.py\"], edit to \"lib/\": refused \"nothing edited: where element 1 `lib/` is a folder\" (today's test_edit_gives_the_same_verdicts).",
+        "3. where [\"lib/relay_other.py\"], edit to \"lib/relay_cmd/digest.py\": accepted.",
+        "4. where [\"lib/ (a)\", \"docs/ (b)\"], one edit whose old covers both lines, new two files: accepted."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue_where.py WhereFiles::test_edit_judges_only_the_entries_it_brings (unchanged from last check)."
+      ],
+      "severity": "MEDIUM",
+      "since": "1ac071a10c5b44305bc3986a3263e86be88900ca",
+      "source": "review-refuse-folder-and-pattern-entries-in-whe.json",
+      "source_id": "F2",
+      "summary": "edit of one where entry is refused for another, untouched folder entry of the same item",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "8eea60a77bf190f56e99d75bb95d9b740c4a0f74.gate.log",
+  "head": "4197828084642e0b07c479647326ded9ab62d4c7",
+  "item": null,
+  "notes": [
+    "q1_test: tests/test_queue_where.py::WhereFiles::test_edit_judges_only_the_entries_it_brings (fails at 1ac071a1, passes at head, shown in the last check)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate head 8eea60a7 green exit 0; relay changed lists nothing after it. Scanned open queue items with the branch's where_folders on the head tree: 0 flagged. Ran tests/test_queue_where.py. The queue-file edits came from master merges."
+  ],
+  "type": "check"
+}
