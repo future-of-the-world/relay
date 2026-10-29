@@ -24,8 +24,8 @@
     "plugins/delegate/workflows/cycle.js",
     "tests/test_cycle_workflow.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T21:41:46Z",
+  "taken_by": "wt/the-cycle-stops-all-fixes-at-a-question",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
