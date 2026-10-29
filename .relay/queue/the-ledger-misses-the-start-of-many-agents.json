@@ -23,8 +23,8 @@
   "where": [
     "the ledger hooks under plugins/ (agent start)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T23:25:33Z",
+  "taken_by": "wt/the-ledger-misses-the-start-of-many-agen",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
