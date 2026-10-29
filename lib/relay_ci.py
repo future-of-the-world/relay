@@ -39,6 +39,10 @@ import time
 import traceback
 from typing import Any, Callable, NoReturn, TextIO
 
+from relay_ci_probe import remove_leftover_probe, write_shared_record, drop_shared_record
+from relay_ci_lines import _read_lines, _read_lines_keep, outcome  # noqa: F401  (outcome is called by other programs through relay_ci)
+from relay_ci_python import python_problem  # noqa: F401  (re-exported: tests call relay_ci.python_problem)
+
 StepFn = Callable[[TextIO], int]
 
 FINDING = re.compile(r"FAIL|Error|error|✗|^ERROR: ")   # "ERROR: <test id>" names a test that raised, not failed
@@ -51,24 +55,6 @@ LIMIT_EXIT = 124            # the exit of a gate stopped at its time limit (GNU 
 PROBE_LINE = "inert probe line"
 HOOK_TOOLS = (("git", "install git"), ("jq", "brew install jq"), ("python3", "install python3"),
               ("bun", "curl -fsSL https://bun.sh/install | bash (the packet and check-contract tests run on it)"))
-
-
-def outcome(directory: str) -> list[str]:
-    """What a run did, as lines that must not change when an inert file does: each step's result, the library test count
-    ("Ran N tests"); hooks-live's lines are not in it: only a full run runs it, with a live model."""
-    lines: list[str] = []
-    lines += _read_lines(os.path.join(directory, ".ci", "results.txt"))
-    lines += [re.sub(r" in [0-9.]+s", "", ln, count=1)
-              for ln in _read_lines(os.path.join(directory, ".ci", "steps", "library-tests.log")) if ln.startswith("Ran ")]
-    return lines
-
-
-def _read_lines(path: str) -> list[str]:
-    try:
-        with open(path, encoding="utf-8", errors="replace") as handle:
-            return handle.read().splitlines()
-    except FileNotFoundError:
-        return []
 
 
 def _descendants(pid: int) -> list[int]:
@@ -120,26 +106,6 @@ def stop_tree(pids: list[int], root: int) -> None:
         _signal(pid, signal.SIGKILL)
 
 
-def remove_leftover_probe(root: str) -> None:
-    """Remove the probe worktree of an earlier run of THIS worktree that was killed before it could clean up (the path is
-    recorded in <root>/.ci/inert-probe by Probe.start; another worktree has its own record, so a live probe is never touched)."""
-    record = os.path.join(root, ".ci", "inert-probe")
-    lines = _read_lines(record)
-    if not lines:
-        if os.path.exists(record):
-            os.remove(record)
-        return
-    tmpd = lines[0].strip()
-    if tmpd and os.path.isdir(tmpd):
-        work = os.path.join(tmpd, "wt")
-        subprocess.run(["git", "worktree", "remove", "--force", work], cwd=root, capture_output=True)
-        subprocess.run(["git", "worktree", "prune"], cwd=root, capture_output=True)
-        shutil.rmtree(tmpd, ignore_errors=True)
-    else:
-        subprocess.run(["git", "worktree", "prune"], cwd=root, capture_output=True)
-    os.remove(record)
-
-
 class Probe:
     """The inert probe: a temporary worktree of the gated commit with every inert file changed, and a quick run of the gate
     in it, started now and finished by `finish`. `stop` ends it (and removes the worktree) on any way out."""
@@ -165,6 +131,7 @@ class Probe:
         os.makedirs(os.path.dirname(self.record_path), exist_ok=True)
         with open(self.record_path, "w", encoding="utf-8") as handle:
             handle.write(self.tmpd + "\n")
+        write_shared_record(self.root, self.tmpd)
         self.work = os.path.join(self.tmpd, "wt")
         if self._git("worktree", "add", "-q", "--detach", self.work, self.head).returncode != 0:
             self.error = "FAIL inert: cannot make a worktree at %s" % self.head
@@ -214,6 +181,7 @@ class Probe:
             self._git("worktree", "remove", "--force", self.work)
             self._git("worktree", "prune")
             shutil.rmtree(self.tmpd, ignore_errors=True)
+            drop_shared_record(self.root, self.tmpd)
             self.tmpd = None
         if os.path.exists(self.record_path):
             os.remove(self.record_path)
@@ -572,11 +540,6 @@ class Ci:
         return self.status
 
 
-def _read_lines_keep(path: str) -> list[str]:
-    with open(path, encoding="utf-8", errors="replace") as handle:
-        return handle.readlines()
-
-
 def _raise_exit(signum: int, _frame: object) -> None:
     raise SystemExit(128 + signum)
 
@@ -590,6 +553,10 @@ def main(argv: list[str], root: str | None = None) -> int:
         else:
             print("usage: bin/ci [--quick]", file=sys.stderr)
             return 2
+    problem = python_problem(root)
+    if problem:
+        print(problem, file=sys.stderr)
+        return 1
     # a stopped gate leaves through an exception, so the probe is stopped and its worktree removed
     for sig in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, _raise_exit)

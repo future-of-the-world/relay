@@ -30,6 +30,7 @@ def steps_run(changed: dict[str, str], dirty: dict[str, str] | None = None) -> l
     try:
         os.makedirs(os.path.join(tmp, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(tmp, "bin", "ci"))
+        shutil.copy(os.path.join(ROOT, "deps.toml"), os.path.join(tmp, "deps.toml"))   # bin/ci reads the python pin
         # the fast "types and lint" step runs first and ends a red gate: a passing stub lets the tree reach the library tests
         with open(os.path.join(tmp, "bin", "types-lint"), "w") as f:
             f.write("#!/bin/sh\nexit 0\n")

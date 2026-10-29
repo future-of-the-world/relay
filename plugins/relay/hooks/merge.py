@@ -223,6 +223,15 @@ def step_hand_files(main, default, ref):
             raise Refused("queue item %s added by hand; use relay queue add (it lands on the default branch, not on a task branch)" % os.path.basename(path)[:-5])
 
 
+def leaving(main, default, ref):
+    """The task branches (`wt/*`, not `wt/queue-*`) whose tip is inside `ref` and not yet on the default branch: the ones this merge
+    makes leave, absorbed by the mark step or not."""
+    rc, out = relay_git.git(main, "for-each-ref", "--format=%(refname:short)", "refs/heads/wt/")
+    return [b for b in (out.splitlines() if rc == 0 else []) if not b.startswith("wt/queue-")
+            and relay_git.git(main, "merge-base", "--is-ancestor", "refs/heads/" + b, ref)[0] == 0
+            and relay_git.git(main, "merge-base", "--is-ancestor", "refs/heads/" + b, "refs/heads/" + default)[0] != 0]
+
+
 def step_queue(main, default, branch, ab=None):
     """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
     `relay queue migrate`); every queue file at the branch tip, whether the range touched it or not (one that came in by taking the
@@ -245,7 +254,8 @@ def step_queue(main, default, branch, ab=None):
     rows = [(os.path.basename(p)[:-5], blob(main, ref, p) or "") for p in paths]
     base = None
     changed = set(changed_files.split("\0"))      # an item the range did not touch is the same blob at the base: not closed by the branch
-    for path, meta in zip(paths, record_rules(main, ref, rows)):
+    metas = record_rules(main, ref, rows)         # one pass over the records, read by both loops
+    for path, meta in zip(paths, metas):
         slug = os.path.basename(path)[:-5]
         if meta["problems"]:
             raise Refused("queue item %s is malformed (%s); fix it before the merge" % (slug, "; ".join(meta["problems"])))
@@ -262,6 +272,13 @@ def step_queue(main, default, branch, ab=None):
         if reason:
             raise Refused("queue item %s is closed without a test or a check: %s" % (slug, reason))
     step_hand_files(main, default, ref)
+    held = {branch, *leaving(main, default, ref)}  # the branch and every task branch inside it: none may leave its fix item taken
+    for path, meta in zip(paths, metas):
+        if meta["kind"] == "fix" and meta["state"] == "taken" and meta.get("taken_by") in held:
+            slug = os.path.basename(path)[:-5]
+            where = next((w["path"] for w in relay_git.worktrees(main) if w["branch"] == meta["taken_by"]), "<its worktree>")
+            raise Refused("queue item %s is taken by %s and still open: close it first, relay queue done %s -C %s --test <file>::<name>"
+                          % (slug, meta["taken_by"], slug, where))
 
 
 def _dropped_after(main, default, commit, ref, ab):

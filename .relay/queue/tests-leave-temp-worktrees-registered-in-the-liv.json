@@ -21,10 +21,10 @@
   "where": [
     "tests/test_ci_python.py (tests that run git worktree add against the live repository)"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-29T12:13:39Z",
+  "taken_by": "wt/tests-leave-temp-worktrees-registered-in",
+  "closed_at": "2026-10-29T13:57:14Z",
+  "test": "tests/test_ci_python.py::ProbeBesideTheRun::test_a_probe_whose_lane_worktree_was_removed_is_removed_by_the_next_gate_of_any_worktree",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
@@ -33,6 +33,12 @@
       "edited": "where",
       "fact": [
         "Edited where: folder entry named as a file (the test file with a worktree add is a first place to look; the item finds the rest)"
+      ]
+    },
+    {
+      "at": "2026-10-29T12:19:51Z",
+      "fact": [
+        "29 Oct, the first worker on this item ran test_ci_python, test_ci_hook_tests and test_gate against a snapshot of the main checkout's git worktree list: none added an entry; the entries that appeared came from other lanes' real gates. Its reading (not proven): a gate's inert-probe worktree stays registered when the gate is killed or its lane worktree is removed first, because remove_leftover_probe only cleans a probe recorded in that same worktree."
       ]
     }
   ]

@@ -451,9 +451,9 @@ class Sweep(Base):
 def queue_item(state: str = "taken", test: str = "") -> dict:
     """A queue item as lib/relay_queue.py writes it, with dated events (a fix item named x). taken: taken_at and taken_by; done: also
     closed_at and the test; dropped: dropped_at and why, never taken."""
-    ev = dict(taken_at="2026-10-22T10:00:00Z", taken_by="wt/t", closed_at=None, test=None, dropped_at=None, dropped_why=None)
+    ev = dict(taken_at="2026-10-22T10:00:00Z", taken_by="wt/other", closed_at=None, test=None, dropped_at=None, dropped_why=None)   # not the branch under test: a taken item of it is refused
     if state == "done":
-        ev.update(closed_at="2026-10-22T12:00:00Z", test=test)
+        ev.update(taken_by="wt/t", closed_at="2026-10-22T12:00:00Z", test=test)
     if state == "dropped":
         ev = dict(taken_at=None, taken_by=None, closed_at=None, test=None, dropped_at="2026-10-22T12:00:00Z", dropped_why=["not wanted"])
     item = dict(kind="fix", ip=5, time=10, found_at="2026-10-22T08:00:00Z", found_in="fixture", title="Item x loses a row", what=["x loses a row"],

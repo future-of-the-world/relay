@@ -61,7 +61,8 @@ class TrainCase(unittest.TestCase):
         self.git(self.main, "init", "-q", "-b", "master")
         self.write(self.main, {".gitignore": ".worktrees/\n", ".relay/README.md": "x\n", "lib/shared.py": SHARED, "lib/f.py": SHARED,
                                "tests/test_relay.py": TEST_SRC,
-                               ".relay/queue/x.json": qjson("x"), ".relay/queue/y.json": qjson("y", by="wt/b")})
+                               ".relay/queue/x.json": qjson("x", by="wt/other-x"),    # taken by a branch no test holds
+                               ".relay/queue/y.json": qjson("y", by="wt/other-y")})
         self.git(self.main, "add", "-A")
         self.git(self.main, "commit", "-q", "-m", "init")
         self.hook = load("merge_hook_under_test", os.path.join("plugins", "relay", "hooks", "merge.py"))
@@ -866,5 +867,70 @@ class IncomingRecordRules(TrainCase):
         self.assertIn("kind is not fix or feature", reason)
 
 
-if __name__ == "__main__":
-    unittest.main()
+class ATrainLeavesNoTakenFixItem(TrainCase):
+    """Queue item `a-merge-through-the-merge-hook-a-train-or-any-me`: a rider's fix item taken by it and never closed stays taken
+    by a branch that is deleted after the merge; the merge hook refuses it, naming the done command."""
+
+    def test_a_train_holding_a_rider_with_its_fix_item_taken_and_open_is_refused(self):
+        self.write(self.main, {".relay/queue/x.json": qjson("x", by="wt/a")})     # x is taken by wt/a on master; a never closes it
+        self.git(self.main, "commit", "-q", "-am", "take x")
+        a = self.tree("a")
+        self.ready(a, {"lib/a.py": "a1\n"})
+        train = self.train("a")
+        self.gate(train)
+        reason = self.verdict("wt/train-1")
+        self.assertIn("queue item x is taken by wt/a and still open", reason)
+        self.assertIn("relay queue done x -C ", reason)
+
+    def test_a_train_whose_riders_closed_their_items_lands(self):
+        a, b = self.tree("a"), self.tree("b")
+        for wt, slug, by in ((a, "x", "wt/a"), (b, "y", "wt/b")):
+            self.git(wt, "rm", "-q", ".relay/queue/%s.json" % slug)
+            self.ready(wt, {".relay/queue/%s.json" % slug: qjson(slug, "done", by, "tests/test_relay.py::test_%s_stays_fixed" % slug),
+                            "lib/%s.py" % slug: "fixed\n"}, item=slug)
+        train = self.train("a", "b")
+        self.gate(train)
+        self.assertIsNone(self.verdict("wt/train-1"))
+
+    def test_a_branch_with_no_item_lands(self):
+        c = self.tree("c")                               # x is taken by wt/other-x, not by this branch
+        self.ready(c, {"lib/c.py": "c1\n"})
+        self.assertIsNone(self.verdict("wt/c"))
+
+    def test_a_train_holding_a_rider_that_is_not_absorbed_is_refused(self):
+        # wt/a's own check is open 1, so absorbed() leaves it out; the train is checked as a whole and still makes wt/a leave.
+        self.write(self.main, {".relay/queue/x.json": qjson("x", by="wt/a")})
+        self.git(self.main, "commit", "-q", "-am", "take x")
+        a = self.tree("a")
+        self.ready(a, {"lib/a.py": "a1\n"}, open_=1)
+        train = self.train("a")
+        self.ready(train, {"lib/t.py": "t1\n"})
+        reason = self.verdict("wt/train-1")
+        self.assertIn("queue item x is taken by wt/a", reason)
+        self.assertIn("relay queue done x -C ", reason)
+
+    def test_a_train_at_the_tip_of_its_rider_is_refused(self):
+        self.write(self.main, {".relay/queue/x.json": qjson("x", by="wt/a")})
+        self.git(self.main, "commit", "-q", "-am", "take x")
+        a = self.tree("a")
+        self.ready(a, {"lib/a.py": "a1\n"})
+        self.git(self.main, "branch", "wt/train-1", "wt/a")
+        reason = self.verdict("wt/train-1")
+        self.assertIn("queue item x is taken by wt/a", reason)
+
+    def test_a_branch_holding_its_own_taken_open_item_is_refused(self):
+        self.write(self.main, {".relay/queue/x.json": qjson("x", by="wt/t")})
+        self.git(self.main, "commit", "-q", "-am", "take x")
+        t = self.tree("t")
+        self.ready(t, {"lib/t.py": "t1\n"})
+        reason = self.verdict("wt/t")
+        self.assertIn("queue item x is taken by wt/t", reason)
+
+    def test_a_stale_branch_already_on_master_is_not_a_rider(self):
+        self.git(self.main, "branch", "wt/old")          # at master's tip: inside master, so not leaving with this merge
+        self.write(self.main, {".relay/queue/x.json": qjson("x", by="wt/old")})
+        self.git(self.main, "commit", "-q", "-am", "take x")
+        self.git(self.main, "branch", "-f", "wt/old", "master")
+        c = self.tree("c")
+        self.ready(c, {"lib/c.py": "c1\n"})
+        self.assertIsNone(self.verdict("wt/c"))

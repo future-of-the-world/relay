@@ -277,6 +277,7 @@ def land(repo: str, branch: str, notify: Callable[[str], None]) -> Result:
     stats = Event("done", now(), branch=branch, pid=os.getpid())
     try:
         tree = _preflight(main, default, branch)
+        if (refusal := relay_queue.open_item_refusal(tree, branch)): return Result(REFUSED, [refusal])
         record(main, Event("asked", now(), branch=branch, pid=os.getpid()))
         handle = lock(main, branch, notify)
     except Stop as stop:
