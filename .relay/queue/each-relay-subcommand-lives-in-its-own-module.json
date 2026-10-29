@@ -146,6 +146,16 @@
       "fact": [
         "29 Oct: moves 4-10 of the build plan are queued: move 4 dispatcher-moves-to-relay-cli-land-to-its-module (1h); move 5 the-read-only-guard-reads-command-modules (45m); move 6 setup-migrate-install-doctor-sync-get-modules (50m); move 7 relay-queue-becomes-a-package-with-its-handler (40m); move 8 each-relay-queue-action-in-its-own-module (1h); move 9 changed-gate-precheck-and-check-get-modules (55m); move 10 last-commands-leave-bin-relay-the-tables-go (1h). Move 11 is the existing item lib-modules-are-committed-in-three-copies. Remaining after move 11 per the plan: moves 12-14 (split lib/relay_queue.py into six modules, three moves of about 60m, after moves 8 and 11) and moves 15-17 (split lib/relay_setup.py into modules, three moves of about 50m, after move 6, side by side with 12-14); this item closes when move 17 lands. Not queued yet: the split items for the six other over-limit files and lib/relay_land.py, planned for when move 2 lands."
       ]
+    },
+    {
+      "asked_at": "2026-10-29T08:00:53Z",
+      "question": [
+        "Разделение команд relay по модулям: сейчас или после фич для проектов? 9 задач, около 740 минут, IP 96. Владелец 28 Oct: «мы должны минимизировать количество подобных файлов которые необходимо редактировать каждое изменение, это тормозит разработку». Замер: конфликты при merge 3.8%, до 2.3 часа задач в неделю; bin/relay меняли 2 из 18 branch; сколько задач ждало из-за общего файла, не записывается."
+      ],
+      "options": [
+        "a. После фич для проектов, пересмотреть через ~неделю, когда метрики запишут ожидания (рекомендация)",
+        "b. Сейчас, как стоит в очереди"
+      ]
     }
   ]
 }
