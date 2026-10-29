@@ -33,8 +33,8 @@
   ],
   "taken_at": "2026-10-28T18:27:58Z",
   "taken_by": "wt/test-scaffolding-for-per-command-modules",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T03:19:00Z",
+  "test": "tests/test_cmd_files.py::CommandList::test_queue_floor_is_todays_fifteen_words",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
