@@ -237,6 +237,35 @@ class Landing(Land):
                       run.stdout + run.stderr)
         self.assertEqual(self.done()[0].outcome, "handed_back")
 
+    STOP_GATE = 'echo "gate: stopped at the 30-minute limit, step library tests was running"\nexit 124\n'
+
+    def test_f2_a_second_stop_on_the_same_code_is_red_not_handed_back(self):
+        self.start(gate=self.STOP_GATE)
+        before = self.master()
+        first = self.land()
+        self.assertEqual(first.returncode, 4, first.stdout + first.stderr)
+        second = self.land()
+        # worked out: the first stop is a hand-back (a stop may be load); the same code stopped again is a hang: red, exit 1
+        self.assertEqual(second.returncode, 1, second.stdout + second.stderr)
+        self.assertIn("step library tests was running) twice on the same code", second.stdout + second.stderr)
+        self.assertEqual(self.master(), before)
+
+    def test_f2_a_stop_then_a_green_gate_lands(self):
+        gate = 'if [ -e "%(tmp)s/stopped-once" ]; then exit 0; fi\ntouch "%(tmp)s/stopped-once"\n' + self.STOP_GATE
+        self.start(gate=gate)
+        self.assertEqual(self.land().returncode, 4)
+        run = self.land()
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+
+    def test_f2_a_stop_on_new_code_is_a_first_stop(self):
+        self.start(gate=self.STOP_GATE)
+        self.assertEqual(self.land().returncode, 4)
+        write(os.path.join(self.wt, "lib", "new.py"), "x\n")
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "new code")
+        self.mark(self.wt)
+        self.assertEqual(self.land().returncode, 4)
+
 
 class Dirty(Land):
     def test_land_dirty_overlap_at_start(self):

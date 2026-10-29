@@ -261,13 +261,15 @@ def reusable(worktree, head, command):
     return None
 
 
-def finished_red(worktree: str, head: str, command: Sequence[str]) -> Optional[tuple[int, str, list[str]]]:
+def finished_red(worktree: str, head: str, command: Sequence[str], stopped: bool = False) -> Optional[tuple[int, str, list[str]]]:
     """(exit code, log path, failing lines) of a finished red gate log for the same command on a commit at or before
     `head`, when only relay's own record commits (files under .relay/checks/) lie between, else None.
 
     This is stricter than `reusable`: a red result must not stand for code that changed, so any file outside the
     checks folder (inert or not) ends the walk. A log counts only when its first line is `head <that commit>`, its
-    `cmd` line is the command about to run and its last line is `exit <n>` with n not 0."""
+    `cmd` line is the command about to run and its last line is `exit <n>` with n not 0.
+    `stopped=True` asks the other way round: the log of an EARLIER commit (not `head` itself) that ends `exit 124`, the gate
+    stopped at its time limit on this same code."""
     wanted = "cmd %s" % " ".join(shlex.quote(c) for c in command)
     rc, listing = relay_git.git(worktree, "rev-list", head)
     if rc != 0:
@@ -277,6 +279,8 @@ def finished_red(worktree: str, head: str, command: Sequence[str]) -> Optional[t
         if rc != 0 or any(not name.startswith(relay_marks.FOLDER + "/") for name in names.splitlines()):
             return None
         log = os.path.join(worktree, relay_marks.FOLDER, "%s.gate.log" % commit)
+        if stopped and commit == head:
+            continue
         try:
             with open(log, encoding="utf-8", errors="replace") as handle:
                 text = handle.read()
@@ -286,9 +290,17 @@ def finished_red(worktree: str, head: str, command: Sequence[str]) -> Optional[t
         if len(lines) < 3 or lines[0] != "head %s" % commit or lines[1] != wanted:
             continue
         last = lines[-1].split()
-        if len(last) == 2 and last[0] == "exit" and last[1].isdigit() and 0 < int(last[1]) < 127 and int(last[1]) != LIMIT_EXIT:      # 127 (could not start), >= 128 (killed) and 124 (stopped at the time limit) came from outside the commit: not reused, the next gate runs
+        if len(last) == 2 and last[0] == "exit" and last[1].isdigit() and (int(last[1]) == LIMIT_EXIT if stopped else 0 < int(last[1]) < 127 and int(last[1]) != LIMIT_EXIT):      # 127 (could not start), >= 128 (killed) and 124 (stopped at the time limit) came from outside the commit: not reused, the next gate runs
             return int(last[1]), log, first_failure("\n".join(lines[3:-1]))
     return None
+
+
+def earlier_stop(worktree: str, head: str, quick: bool) -> Optional[list[str]]:
+    """The failing lines of an earlier gate log for the same command and the same code that was stopped at the time limit
+    (a second stop on the same code is a hang, not load), else None."""
+    chosen = (quick_binding(worktree) if quick else None) or binding(worktree)
+    found = finished_red(worktree, head, shlex.split(chosen), stopped=True)
+    return found[2] if found else None
 
 
 def reused_red(red: tuple[int, str, list[str]]) -> tuple[int, str, list[str]]:

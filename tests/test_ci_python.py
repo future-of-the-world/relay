@@ -404,6 +404,26 @@ class QuickGateLimit(unittest.TestCase):
         self.assertIn("hook tests STOPPED", results)
         self.assertEqual(lines[-1], "ci: RED")
 
+    def test_f1_a_step_that_starts_programs_in_a_loop_ends_at_the_stop(self) -> None:
+        # limit 2 s; the step runs three 600 s programs in a row (plugin validate's loop): after the kill the later ones are not started
+        ci = self.ci("2")
+        started = time.monotonic()
+
+        def loop(log: Any) -> int:
+            return max(self.sleeper(ci)(log) for _ in range(3))
+        ci.validate_all = loop    # type: ignore[method-assign]
+        code, lines, results = self.run_main(ci)
+        self.assertEqual(code, 124)
+        self.assertLess(time.monotonic() - started, 15)    # a bound, not a window: 3 x 600 s without the fix
+        self.assertIn("gate: stopped at the 2-second limit, step plugin validate was running", lines)
+        self.assertIn("plugin validate STOPPED", results)
+
+    def test_f1_nothing_starts_after_the_stop(self) -> None:
+        ci = self.ci("5")
+        ci.stopped = True
+        got = ci.run(["definitely-not-run"], None, capture=True)
+        self.assertEqual(got.returncode, 124)
+
     def test_t7_a_bad_limit_setting_refuses_to_run(self) -> None:
         for bad in ("0", "abc", "-5", "1.5", ""):
             ci = self.ci(bad)
@@ -501,6 +521,36 @@ class ProbeBesideTheRun(unittest.TestCase):
         self.assertIsNotNone(ci.probe.proc.poll())
         self.assertEqual(len(self.worktrees()), 1)
         self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "inert-probe")))
+
+    def test_f3_the_probe_cleanup_starts_after_the_watchdog_has_finished_its_kills(self) -> None:
+        # the watchdog's kills are replaced by 0.5 s of work (the probe's own stop_tree calls are not); the step returns at once,
+        # so without the fix Probe.stop (git worktree remove) starts while the watchdog may still kill every descendant
+        env = {"PATH": os.environ["PATH"], "RELAY_GATE": self.head, "RELAY_CI_QUICK_LIMIT": "1"}
+        ci = relay_ci.Ci(self.root, True, env=env)
+        ci.nested = ("sh", "-c", "sleep 600 & wait")
+        for name in ("types_lint", "lib_copies", "hook_tests", "grader_tests", "validate_all"):
+            setattr(ci, name, lambda log: 0)
+        order: list[str] = []
+        entered = threading.Event()
+        ci.lib_tests = lambda log: (entered.wait(30), 0)[1]    # type: ignore[method-assign]
+        real_stop_tree, real_probe_stop = relay_ci.stop_tree, relay_ci.Probe.stop
+
+        def slow_stop(pids: Any, root: Any) -> None:
+            if not isinstance(threading.current_thread(), threading.Timer):
+                return real_stop_tree(pids, root)
+            entered.set()
+            time.sleep(0.5)
+            order.append("kills end")
+
+        def probe_stop(probe: Any) -> None:
+            order.append("cleanup")
+            real_probe_stop(probe)
+        relay_ci.stop_tree, relay_ci.Probe.stop = slow_stop, probe_stop    # type: ignore[assignment,method-assign]
+        self.addCleanup(lambda: (setattr(relay_ci, "stop_tree", real_stop_tree), setattr(relay_ci.Probe, "stop", real_probe_stop)))
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(ci.main(), 124)
+        self.assertEqual(order, ["kills end", "cleanup"])
+        self.assertEqual(len(self.worktrees()), 1)
 
     def test_a_probe_that_dies_makes_inert_failed(self) -> None:
         # case 2: the nested run is killed (signal 9) -> exit code -9 -> the step is FAILED, never ok

@@ -23,6 +23,7 @@ for it and fails when a step's result or the test count differs, which proves no
 """
 from __future__ import annotations
 
+import contextlib
 import difflib
 import filecmp
 import glob
@@ -36,7 +37,7 @@ import tempfile
 import threading
 import time
 import traceback
-from typing import Any, Callable, TextIO
+from typing import Any, Callable, NoReturn, TextIO
 
 StepFn = Callable[[TextIO], int]
 
@@ -89,9 +90,7 @@ def _descendants(pid: int) -> list[int]:
 
 def quick_limit(env: dict[str, str]) -> int:
     """The quick gate's time limit in seconds; ValueError (with the message to print) when the setting is not a whole number >= 1."""
-    text = env.get(LIMIT_ENV)
-    if text is None:
-        return QUICK_LIMIT_SECONDS
+    text = env.get(LIMIT_ENV, str(QUICK_LIMIT_SECONDS))
     if re.fullmatch(r"[0-9]+", text) and int(text) >= 1:
         return int(text)
     raise ValueError("bin/ci: %s must be a whole number of seconds, 1 or more (default %d), not %r"
@@ -105,10 +104,8 @@ def _live(pids: list[int]) -> list[int]:
 
 
 def _signal(pid: int, sig: int) -> None:
-    try:
+    with contextlib.suppress(ProcessLookupError):   # already gone
         os.kill(pid, sig)
-    except ProcessLookupError:
-        pass  # already gone
 
 
 def stop_tree(pids: list[int], root: int) -> None:
@@ -222,8 +219,7 @@ class Probe:
             os.remove(self.record_path)
 
 
-class _LimitStop(Exception):
-    """The gate was stopped at its time limit; raised in the main thread once the step that was running has returned."""
+class _LimitStop(Exception): """The gate was stopped at its time limit; raised in the main thread once the step that was running has returned."""
 
 
 class Ci:
@@ -238,6 +234,7 @@ class Ci:
         self.running = ""            # the step being run now (read by the watchdog thread)
         self.stopped = False         # the watchdog has fired
         self.stopped_step = ""       # the step that was running when it fired ("" between steps)
+        self.kills_done = threading.Event()   # the watchdog has finished its kills: nothing is cleaned up before this
         self.nested: tuple[str, ...] = ("bash", "bin/ci", "--quick")   # what the probe runs in its worktree (tests replace it)
 
     # ---- plumbing -------------------------------------------------------------------------------------------------
@@ -262,6 +259,9 @@ class Ci:
         status 127 with the reason in the log, never a pass."""
         if log is not None:
             log.flush()
+        if self.stopped:    # after the watchdog's kill nothing new starts (a step that runs programs in a loop ends at once)
+            log and log.write("stopped at the time limit: %s not started\n" % argv[0])
+            return subprocess.CompletedProcess(argv, LIMIT_EXIT, "" if capture else None)
         # close_fds=False: a lock fd that relay gate passes to bin/ci stays open in every child until the last one ends
         kwargs: dict[str, Any] = {"cwd": cwd or self.root, "env": env or self.env, "close_fds": False}
         if capture:
@@ -278,8 +278,7 @@ class Ci:
     def step(self, name: str, fn: StepFn, show_all: bool = False) -> None:
         """One step: its output to .ci/steps/<name>.log, appended to .ci/ci.log; its result to .ci/results.txt; one line out."""
         log_path = ".ci/steps/%s.log" % name.replace(" ", "-")
-        if self.stopped:
-            raise _LimitStop()
+        if self.stopped: self._leave()
         self.running = name
         start = time.monotonic()
         with open(self.path(log_path), "w", encoding="utf-8") as log:
@@ -297,8 +296,7 @@ class Ci:
         stopped = self.stopped and name == self.stopped_step    # killed by the watchdog: not a failure of the step
         with open(self.path(".ci", "results.txt"), "a", encoding="utf-8") as results:
             results.write("%s %s\n" % (name, "STOPPED" if stopped else "ok" if rc == 0 else "FAILED"))
-        if stopped:
-            raise _LimitStop()
+        if stopped: self._leave()
         if rc == 0:
             self.say("ci: %s ok (%ds)" % (name, seconds))
             return
@@ -308,6 +306,10 @@ class Ci:
         for ln in shown:
             self.say("    " + ln)
         self.status = 1
+
+    def _leave(self) -> NoReturn:
+        self.kills_done.wait()    # the probe's cleanup starts only after the watchdog's kills, never killed under it
+        raise _LimitStop()
 
     # ---- steps ----------------------------------------------------------------------------------------------------
     def lib_tests(self, log: TextIO) -> int:
@@ -486,8 +488,10 @@ class Ci:
         """The watchdog (a timer thread): note the running step, end every process below this one; `step` then raises _LimitStop."""
         self.stopped_step = self.running
         self.stopped = True
-        me = os.getpid()
-        stop_tree(_descendants(me), me)
+        try:
+            stop_tree(_descendants(os.getpid()), os.getpid())
+        finally:
+            self.kills_done.set()
 
     def main(self) -> int:
         try:
@@ -508,8 +512,7 @@ class Ci:
         finally:
             if timer is not None:
                 timer.cancel()
-                if timer.is_alive():
-                    timer.join()    # a watchdog in the middle of its kills ends first
+                timer.join()    # a watchdog in the middle of its kills ends first (at once when it never fired)
         if not stopped:
             return code
         how = "%d-minute" % (limit // 60) if limit % 60 == 0 else "%d-second" % limit
