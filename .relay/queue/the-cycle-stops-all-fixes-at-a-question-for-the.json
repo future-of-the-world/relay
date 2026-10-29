@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-29T21:41:46Z",
   "taken_by": "wt/the-cycle-stops-all-fixes-at-a-question",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T22:27:06Z",
+  "test": "tests/test_cycle_workflow.py::test_a_question_does_not_hold_the_other_findings",
   "dropped_at": null,
   "dropped_why": null
 }
