@@ -13,6 +13,8 @@ import signal
 import subprocess
 import sys
 import time
+import types
+from typing import IO, NoReturn
 
 ARGS = sys.argv[1:]
 ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
@@ -20,6 +22,10 @@ os.chdir(ROOT)
 TIMEOUT_TEXT = os.environ.get("CHECK_TIMEOUT", "300")
 TIMEOUT_S = float(TIMEOUT_TEXT) or None  # 0 = no bound
 MINUTES = float(os.environ.get("CHECK_WORKER_MINUTES", "40"))
+if ARGS[:1] != ["--tests"] or not [a for a in ARGS[1:] if a != "--failed"]:
+    # relay has no OpenSpec tasks: the only form it serves is --tests (contract: 2 = usage error, nothing was run).
+    print("usage: bin/check --tests <file>... [--failed] (relay has no OpenSpec tasks)", file=sys.stderr)
+    sys.exit(2)
 os.makedirs(".ci/check", exist_ok=True)
 KEY = "task-" + (ARGS[1] if len(ARGS) > 1 else "tests")
 if ARGS[:1] == ["--tests"]:
@@ -54,7 +60,7 @@ def stop_group(proc: "subprocess.Popen[bytes]") -> None:
         proc.wait()
 
 
-def bound(cmd: list, log_handle) -> int:
+def bound(cmd: list[str], log_handle: IO[bytes]) -> int:
     """Run cmd in its own process group with output to the log; 124 when the bound passed (the step is killed)."""
     try:
         proc = subprocess.Popen(cmd, stdout=log_handle, stderr=subprocess.STDOUT, start_new_session=True)
@@ -62,7 +68,7 @@ def bound(cmd: list, log_handle) -> int:
         log_handle.write(f"{cmd[0]}: {err.strerror}\n".encode())
         return 127
 
-    def forward(signum, frame):  # bin/check itself stopped: take the step down with it
+    def forward(signum: int, frame: types.FrameType | None) -> NoReturn:  # bin/check itself stopped: take the step down with it
         stop_group(proc)
         sys.exit(128 + signum)
 
@@ -76,7 +82,7 @@ def bound(cmd: list, log_handle) -> int:
     return 128 - rc if rc < 0 else rc
 
 
-def run_step(name: str, cmd: list) -> None:
+def run_step(name: str, cmd: list[str]) -> None:
     with open(LOG, "wb") as log_handle:
         rc = bound(cmd, log_handle)
     if rc == 0:
@@ -100,7 +106,10 @@ def run_step(name: str, cmd: list) -> None:
     sys.exit(1)
 
 
-# relay: the named test files, quietly (pytest is on the PATH; relay's own tests need nothing else).
+# relay: the quick steps (types and lint, as the gate's first step), then the named test files, quietly.
+TYPES_LINT = os.path.join(ROOT, "bin", "types-lint")
+if os.path.exists(TYPES_LINT):
+    run_step("types and lint", [TYPES_LINT])
 run_step("tests", ["pytest", "-q", "-x", *TEST_FILES])
 try:
     os.remove(FAILS)
