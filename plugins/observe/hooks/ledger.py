@@ -8,7 +8,8 @@ project's kit.toml, which stores the first 200 characters of each prompt).
 
 Fails open: any error prints nothing and exits 0. It must never slow a session:
 the only files it reads besides stdin are the tail of a transcript on Stop and
-SubagentStop (the context size) and, for an agent that a workflow script started,
+SubagentStop (the context size), on SubagentStop of an agent without a recorded start the
+ledger day file(s) of its start and stop (one scan each, to see whether a start is there) and, for an agent that a workflow script started,
 the first 4 KB of the agent's .meta.json beside its transcript (run, stage label,
 phase: names only, and the label only when it fits the stage grammar below).
 """
@@ -104,9 +105,10 @@ def base(data, event):
 def has_start(agent_id: str, *stamps: str) -> bool:
     """True when the ledger already holds an agent_start line for this agent in the day file(s) of the given timestamps."""
     needle = json.dumps(agent_id)
-    for stamp in stamps:
+    files = sorted({relay_ledger.day_file(relay_ledger.parse_ts(stamp)) for stamp in stamps})  # each day file once
+    for day_path in files:
         try:
-            with open(relay_ledger.day_file(relay_ledger.parse_ts(stamp)), "r", encoding="utf-8", errors="replace") as handle:
+            with open(day_path, "r", encoding="utf-8", errors="replace") as handle:
                 for line in handle:
                     if '"agent_start"' in line and needle in line:
                         return True
@@ -168,7 +170,7 @@ def main():
         if path:
             out.update(workflow_fields(path) or hand_fields(path))
             trace = relay_transcripts.read_trace(path, kind="agent")
-            # Claude Code sends no SubagentStart for many agents (workflow agents included): when none was
+            # Claude Code sends no SubagentStart for workflow agents (and a few others): when none was
             # recorded, write the start now, stamped with the agent's first transcript line.
             aid = data.get("agent_id")
             if aid and trace.started and not has_start(str(aid), trace.started, out["ts"]):
@@ -182,6 +184,11 @@ def main():
             out["model"] = trace.model
             out["cost_est"] = round(trace.total.cost, 4)
             handback = trace.handback_chars
+        elif not data.get("agent_type"):
+            # No transcript and no type: not an agent anyone started but one of Claude Code's own side calls during a tool call
+            # (measured 27-29 Oct: 222 of 222 stops without a start were this). Recorded apart so it neither counts as an
+            # agent nor needs a start.
+            out["event"] = "side_call"
         # What the caller receives: the SubagentHandback message when the agent used it (its
         # last_assistant_message is then the text before the hand-back, never delivered), else the
         # final text. None, not 0, when neither can be seen.
