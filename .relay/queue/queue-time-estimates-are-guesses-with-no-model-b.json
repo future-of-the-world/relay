@@ -15,7 +15,7 @@
     "24 Oct sample of 12 changes: all-agents minutes / estimate median 1.2, range 0.8-3.9; build minutes / estimate about 0.2; the estimate does not order the changes by real cost (est 20 -> 50 agent min, est 60 -> 48)."
   ],
   "pass_cases": [
-    "On the 24 Oct sample, the new estimate (fixed cycle + build part + paid run) is within a factor of 1.5 of the measured agent minutes for at least 9 of 12 changes; `relay queue` shows actual beside estimate for closed items; the actuals are computed from transcripts, not stored by hand."
+    "`relay queue` shows the measured actual beside the estimate for closed items, computed from the transcripts (workflow agents included) when read, never stored by hand; the estimate is one number, the measured median of recent changes; the view shows how many estimates fall within 1.5x of the actual, with no target to reach."
   ],
   "where": [
     "lib/relay_queue.py (add, the table)",
@@ -47,6 +47,13 @@
       "answered_at": "2026-10-29T02:01:27Z",
       "answer": [
         "По остальным двум вопросам последуй своей рекомендации, это касается времени задач и перевод на python проверок"
+      ]
+    },
+    {
+      "at": "2026-10-29T02:01:38Z",
+      "edited": "pass_cases",
+      "fact": [
+        "Edited pass_cases: Owner, 29 Oct, chose option a of the estimate question (accept the measurement now, drop the 75% target): measured 52 of 110 within 1.5x for a single number, cost spread 3-323 agent minutes driven by fix rounds unknown before the work."
       ]
     }
   ]
