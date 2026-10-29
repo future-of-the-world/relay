@@ -16,8 +16,8 @@
     "lib/relay_ci.py",
     "lib/relay_precheck.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T11:18:14Z",
+  "taken_by": "wt/gate-jobs-and-slots-follow-the-machine-s",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
