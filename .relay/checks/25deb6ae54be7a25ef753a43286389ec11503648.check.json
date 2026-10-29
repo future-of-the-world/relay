@@ -1,0 +1,85 @@
+{
+  "branch": "wt/a-test-still-exempts-the-old-plugins-cor",
+  "findings": [
+    {
+      "details": [
+        "Finding F3 (Gap, LOW) of the rename's review, accepted by the front as a follow-up because it can only be removed after the merge; the check of 28 Oct listed the leftover texts.",
+        "Also: docs/flows.md:46",
+        "Also: plugins/relay/README.md:3",
+        "Also: docs/design.md:127-129"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "grep for plugins/core/bin/kit in tests/ finds the exemption after relay setup --global has moved the PATH."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "No test names plugins/core/bin/kit; the kit-name test passes with the live PATH at plugins/relay/bin.",
+        "The three docs name the relay plugin, not core."
+      ],
+      "path": "tests/test_front_cd.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_hook_kit_name.py:23 passes, and fails when the old plugins/core/bin/kit exemption is restored in is_ours (seen). No test names the old path as exempt."
+      ],
+      "severity": "HIGH",
+      "since": "7d40e54d9a54ac1f002b2cd7240753a17205280c",
+      "source": "queue",
+      "summary": "A test still exempts the old plugins/core/bin/kit name",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The item's pass case says \"The three docs name the relay plugin, not core\"; the review of the rename listed README:3 only, and the fixer fixed only that line, so the same file still calls the plugin Core in two places a reader of the plugin's README meets first (\"What relay holds\" section and \"Project additions are injected\" section). Wording only: no behaviour depends on it, hence LOW.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "$ git grep -n -i core -- plugins/relay/README.md",
+        "plugins/relay/README.md:1:# relay (the plugin; named core before 28 Oct)",
+        "plugins/relay/README.md:46:Core is for every project: the `kit` helper, the main-checkout guard and the addition",
+        "plugins/relay/README.md:66:A project keeps its rules for a shared role in `.claude/kit/<role>.md`. Core's"
+      ],
+      "failing_case": [
+        "git grep -n -i core -- plugins/relay/README.md",
+        "now: line 1 (history, fine), line 46 \"Core is for every project: the kit helper, the main-checkout guard ...\", line 66 \"Core's hooks/inject-addition.sh hands that file ...\"",
+        "should: only the history line 1 names core; 46 and 66 say relay (the plugin's name since 28 Oct)."
+      ],
+      "fix_hint": [
+        "Line 46: \"Relay is for every project: ...\"; line 66: \"relay's `hooks/inject-addition.sh` ...\"."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 46,
+      "pass_cases": [
+        "1. git grep -n -i '\\bcore\\b' -- plugins/relay/README.md prints only line 1 (\"named core before 28 Oct\").",
+        "2. README line 3 keeps listing the served plugins as `relay`, `openspec`, `product`, `delegate`, `issues`, `front`.",
+        "3. docs/flows.md:46 and docs/design.md:127-129 keep \"relay plugin\" / \"relay guard\", \"relay hook\", \"relay flow hook\"."
+      ],
+      "path": "plugins/relay/README.md",
+      "rank": "low",
+      "reason": [
+        "git grep -n -i '\\bcore\\b' plugins/relay/README.md prints only line 1; docs untouched otherwise."
+      ],
+      "severity": "LOW",
+      "since": "381824981931b0e845fae56822de51c43869b0bf",
+      "source": "review-a-test-still-exempts-the-old-plugins-cor.json",
+      "source_id": "F1",
+      "summary": "plugins/relay/README.md still names the plugin Core at lines 46 and 66 after line 3 was fixed",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "a1bb741ef46d9d4459e74748d1adb7f4b1daec4f.gate.log",
+  "head": "25deb6ae54be7a25ef753a43286389ec11503648",
+  "item": "a-test-still-exempts-the-old-plugins-core-bin-ki",
+  "notes": [
+    "README lines 46 and 66 now say relay; git grep -i core prints only line 1."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 7d40e54d..HEAD. Ran unittest test_hook_kit_name (2 OK), precheck green, pytest test_front_cd 7 passed. Gate log head a1bb741e exit 0; relay changed after it lists no file. Fail-without-fix: test file with the old is_ours exemption restored fails 1 of 2 (test_old_core_folder_is_not_exempt). Copying the new file onto the base commit alone passes, because the helper lives in the test file itself."
+  ],
+  "type": "check"
+}
