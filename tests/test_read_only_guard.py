@@ -61,14 +61,10 @@ class ReadOnlyHook(unittest.TestCase):
         self.assertLessEqual(relay_commands.FLOOR, commands)
         self.assertEqual(commands - set(guard.WRITERS) - guard.READS, set())
 
-    # `relay queue start` is not classified yet; item read-only-guard-lets-a-critic-run-relay-queue-st adds it. Equality below
-    # turns red when that lands, asking for this set to be emptied and removed.
-    KNOWN_UNCLASSIFIED_QUEUE_WORDS = {"start"}
-
     def test_q1_every_relay_queue_word_is_classified(self) -> None:
         guard = load_guard()
         missing = relay_commands.queue_words() - guard.WRITERS["queue"] - guard.READ_WORDS["queue"]
-        self.assertEqual(missing, self.KNOWN_UNCLASSIFIED_QUEUE_WORDS)
+        self.assertEqual(missing, set())
 
     def test_q1_every_queue_writing_word_of_bin_relay_is_on_the_guard_list(self) -> None:
         """Failing case: `start` (makes a worktree, takes an item) is in bin/relay QUEUE_WRITES but was not on the guard's
