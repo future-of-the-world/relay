@@ -113,7 +113,8 @@ def _link_problem(worktree: str, rel: str, mode: str, sha: str, files: set[str])
         return None
     if in_lib and rel.count("/") == 3:
         return "FAIL %s is a copy of %s: replace it with a link, ln -sf ../../../%s %s" % (rel, source, source, rel)
-    return "FAIL %s is a stray file under plugins/*/lib: git rm it (a merge leaves <name>~HEAD files)" % rel
+    return ("FAIL %s is a stray file under plugins/*/lib: git rm it if a merge left it (<name>~HEAD); "
+            "a new plugin-only file is named kit_* or added to the allow-list in relay_precheck._link_problem" % rel)
 
 
 def check_lib_links(worktree: str) -> list[str]:

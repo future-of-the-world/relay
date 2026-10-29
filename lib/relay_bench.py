@@ -461,17 +461,37 @@ def plugin_for_run(profile, folder, out_dir):
     return dest
 
 
+def _committed_blobs(source: str) -> set[str]:
+    """Every blob hash lib/<name> ever had in git (empty when the file is not in a repository)."""
+    done = subprocess.run(["git", "-C", os.path.dirname(source), "log", "--format=", "--raw", "--no-abbrev", "--", os.path.basename(source)],
+                          capture_output=True, text=True, check=False)
+    blobs: set[str] = set()
+    for line in done.stdout.splitlines() if done.returncode == 0 else []:
+        head = line.split("\t")[0].split()
+        if len(head) >= 4:
+            blobs.update(head[2:4])
+    return blobs
+
+
+def _is_stale_copy(candidate_file: str, source: str) -> bool:
+    """True when the candidate file is an older committed version of the source: the candidate was made before lib/ moved on."""
+    done = subprocess.run(["git", "hash-object", candidate_file], capture_output=True, text=True, check=False)
+    return done.returncode == 0 and done.stdout.strip() in _committed_blobs(source)
+
+
 def lib_adoption_conflicts(candidate: str, plugin: str) -> list[str]:
-    """Shared modules a candidate plugin changed. plugins/<p>/lib/<name> is a link to the one source in lib/; a candidate holds
-    real copies. A candidate file that differs from the link's target would be lost on adoption, so it is named instead."""
+    """Shared modules a candidate plugin edited. plugins/<p>/lib/<name> is a link to the one source in lib/; a candidate holds
+    real copies. A candidate file that differs from the link's target and is not an older committed version of it (a candidate
+    made before lib/ moved on is stale, not edited: the link keeps the current code) would be lost on adoption, so it is named."""
     out: list[str] = []
     src = os.path.join(candidate, "lib")
     for name in sorted(os.listdir(src)) if os.path.isdir(src) else []:
         dest = os.path.join(plugin, "lib", name)
         if os.path.islink(dest) and os.path.isfile(os.path.join(src, name)) and not (
-                os.path.isfile(dest) and open(dest, "rb").read() == open(os.path.join(src, name), "rb").read()):
-            out.append("the candidate changed lib/%s (plugins/%s/lib/%s links to it): port that edit to lib/ in a change of its own, "
-                       "then adopt again" % (name, os.path.basename(plugin), name))
+                os.path.isfile(dest) and open(dest, "rb").read() == open(os.path.join(src, name), "rb").read()
+        ) and not _is_stale_copy(os.path.join(src, name), os.path.realpath(dest)):
+            out.append("the candidate's lib/%s differs from lib/%s (plugins/%s/lib/%s links to it) and is not an older version of it: "
+                       "port that edit to lib/ in a change of its own, then adopt again" % (name, name, os.path.basename(plugin), name))
     return out
 
 
