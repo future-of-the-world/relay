@@ -1,0 +1,54 @@
+{
+  "kind": "feature",
+  "ip": 94,
+  "time": 90,
+  "found_at": "2026-10-29T02:20:12Z",
+  "found_in": "relay queue add",
+  "title": "Gates and tests stop what an earlier test left running",
+  "what": [
+    "Designed and critic-reviewed 29 Oct. E: the shared gate Fixture's cleanup reads the relay-gate.lock files under its fixture tree (the lock holds '<gate pid> <group>') and stops the process group a lock names whose gate pid is dead; about 0.01 s per gate; would have stopped 53 of the 59 leaks of 29 Oct. B: when a gate starts it stops processes running from relay's own test temp folders (prefixes relay-run-, relay-gate-, relay-home- under $TMPDIR, found with ps alone, about 0.05 s), skipping any gate whose worktree or home lies in a temp folder, and logs each stop with its command; the owner decides B's form (question noted on this item). A': each test's temp folder carries the test's name, so a leftover's path names its test. Dropped after review: a per-class check after each test class (7.3 s per gate, fails correct classes whose fixture is just ending); refusing to start or listing in relay doctor (blocks every lane); a machine-wide scan of open files (5.4-5.8 s per gate, measured)."
+  ],
+  "why": [
+    "Owner, 29 Oct, verbatim: \"Можешь остановить забытые процессы, как не допустить этого в будущем\". The class repeats: 26 Oct a fixture relay gate held a real gate slot for 3 h 42 min, fixed by matching the process name; 2 days later a fixture gate.sh with another name passed that check and 59 of them loaded the machine (load 44, CPU 93.5% system). 155 tests in 8 files use the shared gate Fixture; 9 places SIGKILL a relay process on purpose."
+  ],
+  "where": [
+    "tests/test_gate.py (shared gate Fixture cleanup)",
+    "lib/relay_gate.py:405 (relay-gate.lock)",
+    "tests/leaked_gates.py",
+    "bin/relay (relay gate start)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-29T02:20:31Z",
+      "question": [
+        "Должен ли relay сам останавливать забытые тестовые процессы, когда запускается проверка перед merge? Проект после review: тест-исправление плюс уборка в конце каждого тестового прогона по файлу блокировки (поймала бы 53 из 59 ночных); остальные ловит уборка при старте проверки: процессы, которые работают из временных папок тестов relay (relay-run-, relay-gate-, relay-home-). 29 Oct 06:12 из таких папок работали только 2 забытых скрипта, ничего чужого."
+      ],
+      "options": [
+        "a. Да, останавливать и записывать в log каждую остановку (рекомендация: совпадение по пути поймало 56 из 59, ни одного чужого процесса в тех папках, около 0.05 с на проверку)",
+        "b. Нет: проверка отказывается стартовать и называет процессы, останавливает front или вы; все lanes ждут (ночью так простояли бы 1.5 часа)"
+      ],
+      "answered_at": "2026-10-29T02:37:30Z",
+      "answer": [
+        "A, полностью исключаем возможность stale процессов"
+      ]
+    },
+    {
+      "at": "2026-10-29T02:33:30Z",
+      "fact": [
+        "29 Oct, after the owner asked why the test code does not clean up by itself, the front added a third option to the question above: c. build no gate-start sweep; the test fix and the shared Fixture cleanup (E) are enough, and a test written outside the Fixture is caught only by the end-of-run leak scan (6 of the 59 leaks of 29 Oct were outside what E stops)."
+      ]
+    },
+    {
+      "at": "2026-10-29T02:37:48Z",
+      "fact": [
+        "Front, 29 Oct, on the owner's 'полностью исключаем': the designed layers leave two gaps the build must close or name. (1) 3 of the 59 leftovers did not match the temp-folder prefixes: relay gate processes 16695 and 17012 started from a copy of relay in a session scratch folder, and 24089 from a worktree since removed; the exact signal for them is a relay-gate.lock whose gate pid is dead while the lock is still held (lib/relay_gate.py:405). (2) The sweep runs when a gate starts, so a leftover lives until the next gate; the end-of-run cleanup (E) and the end-of-run leak scan must fail the test run on any survivor so it never reaches master."
+      ]
+    }
+  ]
+}
