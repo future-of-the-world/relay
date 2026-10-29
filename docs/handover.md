@@ -1656,3 +1656,35 @@ the-cycle-s-gate-step-still-ends-with-no-result (92), a-land-test-leaks... (99, 
 3. When design revision 3 arrives: bring the owner the guarantee answer for the in-run inert check.
 4. Paid run after this wave: relay land, hook port and rules texts touch paid paths.
 5. Next handover worktree: handover-42.
+
+## Addendum 30 (29 Oct, ~12:50 local; session 3207dc59)
+
+### Landed since addendum 29
+- land-test leak fix (gate 4.9 min); move 1 "refuse folder and pattern entries in where" (gate 6.0 min); queue time estimates from measured history (owner a; paid run one line per wave, "A"); "git could not answer" instead of "not on a branch" (killed by signal and exit 128 too); fixed-time-limit tests raised to 600 s polled bounds; the cycle's gate step reads the head log before one recovery gate.
+- Landing now: the quick gate stops itself at 30 min (QUICK_LIMIT_SECONDS 1800, lib/relay_ci.py); gates and tests stop what an earlier test left running (sweep at gate start, owner "A, полностью исключаем возможность stale процессов").
+
+### Owner decisions this segment (verbatim)
+- Fence replaces the second test run: "Хороша, давай применим этот подход ..."; Linux in the comparison: "Если на Linux есть схожая система ..."; container: "Думаю запуск тестов в podman на линукс перспективнее, будущем я планирую иметь много виртуальных машин relay и все они будут на Linux ..."; "в моих планах полностью переехать на Linux для разработки, тесты для Mac будут редки и только для релиза на Mac".
+- Mac gate until the container decides: "Хорошо, убираем второй прогон" (option a: drop the second run now, limit 25 min; set QUICK_LIMIT_SECONDS to 1500 in the change that removes it, noted on speed-up-the-quick-gate).
+- Side-by-side: "Останови docker, используй только podman, пока мы полностью не перешли на linux продолжим делать проверки на mac" (read: the Mac gate decides merges until the move; the container gate runs beside it).
+- Lanes: "a" = 3 lanes for relay's development (product features, the container gate kept on top by the owner's pick) and 3 for fixes, after a 2-day batch (correctness items, first gate speed-up, the metrics feature). Module split after the product features (its items set to IP 79; the fix lib-modules-are-committed-in-three-copies restored to 87). Adaptive gate jobs/slots: own item gate-jobs-and-slots-follow-the-machine-s-free-ca.
+- podman: 10 CPUs, 20 GiB (set). Docker: stopped, then fully removed on the owner's word ("полностью удалить docker"): the uninstaller wiped its data, Docker.app is in the Trash, three root files were removed via a macOS password dialog; named volumes saved in ~/docker-volumes-backup-2026-10-29 (36 tar files, 452 KB); /var/run/docker.sock and ~/.local/bin/docker point to podman; ~/.docker kept. arsenal's docker runtimes now reach podman; their images are gone and must be rebuilt (untested).
+- Lesson: a brief that named Docker made the Linux-tests worker run `open -a Docker` six times and write a retry script that reopened it after every stop. Briefs now say podman only.
+
+### Front decisions (owner can reverse)
+- No Linux kernel fence in the first container step; design revision 6 gives the container one stripped commit (no history, no service files), byte-identical with or without inert commits, so git trace and the seeds go.
+- A lane stays held while it waits on a gate or the owner.
+- Review F4 of the git-message change: no retry on a transient git failure; the cause is chased by a-gate-test-is-stopped-by-an-unknown-sigterm.
+
+### Queue added this segment
+a-gate-test-is-stopped-by-an-unknown-sigterm (93), the-precheck-s-changed-tests-step-has-a-fixed-23 (91), gate-jobs-and-slots-follow-the-machine-s-free-ca (85), a-landed-branch-can-leave-its-queue-item-taken (92: queue-time-estimates-are-guesses-with-no-model-b stays "taken" by a landed branch). Raised to 95: the-quick-gate-is-red-in-a-clean-linux-container, each-change-is-gated-in-a-fresh-container.
+
+### In progress
+- wt/the-quick-gate-is-red-in-a-clean-linux-c (59 Linux reds; mypy/ruff must be in the image) and wt/the-precheck-s-changed-tests-step-has-a: cycle resumed after the Docker stop.
+- Metrics (each-change-records-its-stage-times-cost-and-cov): design revision 2 done; waits for the owner's answer on where coverage is measured (a, every gate, recommended).
+- Designs ready to build: speed-up-the-quick-gate revision 6 (scratchpad reports/design-gate-speed.md); lane strategy revision 2.
+
+### Next steps
+1. After the two landings: start a-gate-test-is-stopped-by-an-unknown-sigterm and a-landed-branch-can-leave-its-queue-item-taken (fix lanes); build the metrics feature on the owner's coverage answer; then the speed-up part (drop the second run, limit 1500 s).
+2. Paid run after this wave (relay land, hooks, cycle texts changed).
+3. Next handover worktree: handover-43.
