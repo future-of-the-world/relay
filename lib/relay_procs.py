@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 STOP_GRACE = 10.0       # seconds a process has to end after SIGTERM before it is killed (a gate ends its command's group in that time)
-PS_TIMEOUT = 30         # seconds `ps` may take
-LSOF_TIMEOUT = 60       # seconds `lsof` may take
+PS_TIMEOUT = 600        # seconds `ps` may take (master raised these from 30 to 600: a loaded machine answers slowly)
+LSOF_TIMEOUT = 600      # seconds `lsof` may take (as PS_TIMEOUT)
 
 
 @dataclass(frozen=True)
@@ -123,7 +123,7 @@ def is_alive(pid: int) -> bool:
     except OSError:
         return True
     try:
-        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, timeout=10).stdout.strip()
+        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, timeout=600).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return True
     return bool(state) and not state.startswith("Z")

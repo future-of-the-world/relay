@@ -1,0 +1,35 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 45,
+  "found_at": "2026-10-29T06:44:18Z",
+  "found_in": "relay queue add",
+  "title": "A landed branch can leave its queue item taken",
+  "what": [
+    "relay land refuses a branch whose taken queue item is still open on it, naming the relay queue done command to run; and a way to close or release an item whose taking branch is gone (landed or deleted), from the main checkout, with the test it was closed by."
+  ],
+  "why": [
+    "29 Oct: relay land landed wt/queue-time-estimates-are-guesses-with-no (check open 0) although its item queue-time-estimates-are-guesses-with-no-model-b was never closed with relay queue done (the cycle stopped at the check, the front recorded owner words and a checker re-check, then landed). After the landing the branch and worktree are gone, the queue still lists the item 'taken by wt/queue-time-estimates-are-guesses-with-no', and `relay queue done` refuses: 'done runs in the worktree of the task branch that took the item'. The same listing shows an-eval-scaffold-overwrote-the-live-relay-bin-re taken by wt/an-eval-scaffold-overwrote-the-live-rela, a branch that no longer exists."
+  ],
+  "failing_case": [
+    "land a branch with check open 0 whose item is not closed: it lands, and afterwards relay queue done <slug> refuses everywhere, so the item stays 'taken' by a branch that no longer exists."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "relay land of a branch whose taken item is open refuses with exit 2 and names `relay queue done <slug> -C <worktree> --test ...`",
+    "an item taken by a branch that no longer exists can be closed (with --test) or released from the main checkout",
+    "a branch with no item, or whose item is closed on it, lands as today"
+  ],
+  "where": [
+    "lib/relay_land.py",
+    "lib/relay_queue.py",
+    "tests/test_land.py",
+    "tests/test_queue.py"
+  ],
+  "taken_at": "2026-10-29T09:20:21Z",
+  "taken_by": "wt/a-landed-branch-can-leave-its-queue-item",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

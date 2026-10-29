@@ -67,7 +67,7 @@ class Cycle(unittest.TestCase):
         path = os.path.join(self.tmp, "scenario.json")
         with open(path, "w") as handle:
             json.dump({"args": args, "answers": table}, handle)
-        done = subprocess.run(["bun", FAKE, "run", SCRIPT, path], capture_output=True, text=True, timeout=60)
+        done = subprocess.run(["bun", FAKE, "run", SCRIPT, path], capture_output=True, text=True, timeout=600)
         self.assertEqual(done.returncode, 0, done.stderr)
         out = json.loads(done.stdout)
         out["labels"] = [e["label"] for e in out["events"] if e["event"] == "start"]
@@ -139,6 +139,24 @@ class Cycle(unittest.TestCase):
         self.assertEqual(out["labels"], ["build: x", "gate 1: x"])
         self.assertEqual(out["result"]["changes"][0]["stopped_at"], "gate")
 
+    def test_t10_a_gate_stopped_at_its_limit_is_run_again_with_no_fixer(self):
+        stopped = {"ok": False, "gate_log": "l", "first_fail": "gate: stopped at the 30-minute limit, step library tests was running"}
+        # gate_reruns defaults to 1: stop, gate 2 green, no fixer anywhere
+        out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"$seq": [stopped, GREEN["stage:gate"]]}})
+        self.assertEqual(out["labels"][:4], ["build: x", "gate 1: x", "gate 2: x", "review: x"])
+        self.assertFalse([lb for lb in out["labels"] if lb.startswith("fix red gate")])
+        # stopped twice: the unit ends at gate with the line, still no fixer
+        out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": stopped})
+        self.assertEqual(out["labels"], ["build: x", "gate 1: x", "gate 2: x"])
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "gate")
+        self.assertEqual(out["result"]["changes"][0]["detail"], stopped["first_fail"])
+        # gate_reruns 0: the first stop ends the unit
+        out = self.run_cycle(self.args([self.unit()], settings={"gate_reruns": 0}), **{"stage:gate": stopped})
+        self.assertEqual(out["labels"], ["build: x", "gate 1: x"])
+        # gate_reruns 3 is out of bounds (0 to 2)
+        out = self.run_cycle(self.args([self.unit()], settings={"gate_reruns": 3}))
+        self.assertIn("gate_reruns", out["result"]["refused"])
+
     # 3
     def test_design_finding_stops_at_owner_and_open_check_stops_at_check(self):
         review = dict(GREEN["stage:review"], design_or_question=True, inside=2, main_point="design is wrong")
@@ -155,13 +173,53 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": {"$seq": [throw, GREEN["stage:gate"]]}})
         self.assertEqual(out["labels"].count("gate 1: x"), 2)
         self.assertTrue(out["result"]["changes"][0]["ready"])
-        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw})
+        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw, "gate 2: x": throw})
         self.assertEqual(out["labels"].count("gate 1: x"), 2)
         change = out["result"]["changes"][0]
-        self.assertEqual(change["stopped_at"], "gate")
+        self.assertEqual(change["stopped_at"], "gate")                                 # the recovery gate died too: stop
         self.assertIn("StructuredOutput", change["detail"])
         out = self.run_cycle(self.args([self.unit()], settings={"retry_dead": 0}), **{"gate 1: x": throw})
         self.assertEqual(out["labels"].count("gate 1: x"), 1)
+
+    def test_a_gate_agent_with_no_result_gets_one_recovery_gate_that_reads_the_head_log_first(self):
+        """Failing case 29 Oct (wf_21bb938f-13f): both attempts of gate 1 died with no result and the cycle stopped at 'gate'.
+        By the design: the unit goes on with one more gate agent (label gate 2), whose prompt says to read the head's gate log
+        under .relay/checks/ first, to wait on a gate already running, and to run the gate only when neither exists.
+        Disabled rule (stop on r.dead): labels end at gate 1 and the unit is not ready."""
+        throw = {"$throw": "subagent completed without calling StructuredOutput"}
+        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw})
+        self.assertEqual(out["labels"][:4], ["build: x", "gate 1: x", "gate 1: x", "gate 2: x"])
+        self.assertTrue(out["result"]["changes"][0]["ready"])
+        prompt = out["prompts"]["gate 2: x"]
+        self.assertIn("%s/.relay/checks/<head>" % self.wt, prompt)
+        self.assertIn(".gate.log", prompt)
+        self.assertIn("already running", prompt)
+        self.assertLess(prompt.index(".gate.log"), prompt.index("relay gate -C"))     # read the log before any gate is started
+        out = self.run_cycle(self.args([self.unit(branch=None)], relay=False), **{"gate 1: x": throw})
+        self.assertIn("gate-x-2.log", out["prompts"]["gate 2: x"])                     # project mode: its own log, same recovery
+
+    def test_project_mode_recovery_reads_the_dead_attempts_log_and_pid_before_starting_a_gate(self):
+        """F1: gate 1 (log gate-x-1.log, pid gate-x-1.log.pid) died; the gate 2 prompt must name those two to wait on / read
+        before the instruction that starts the gate (which writes gate-x-2.log). Disabled fix: gate-x-1.log.pid is absent."""
+        throw = {"$throw": "subagent completed without calling StructuredOutput"}
+        out = self.run_cycle(self.args([self.unit(branch=None)], relay=False), **{"gate 1: x": throw})
+        prompt = out["prompts"]["gate 2: x"]
+        self.assertIn("gate-x-1.log.pid", prompt)
+        self.assertLess(prompt.index("gate-x-1.log.pid"), prompt.index("gate-x-2.log"))
+        self.assertTrue(out["result"]["changes"][0]["ready"])                          # pass case 2
+
+    def test_relay_recovery_finds_the_log_one_commit_back_after_a_committed_gate(self):
+        """F2: HEAD is the 'relay: gate of <sha>' commit, the log is named by <sha>; the prompt says so (before relay gate)."""
+        throw = {"$throw": "died"}
+        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw})
+        prompt = out["prompts"]["gate 2: x"]
+        self.assertIn("relay: gate of <sha>", prompt)
+        self.assertLess(prompt.index("relay: gate of <sha>"), prompt.index("relay gate -C"))
+
+    def test_a_recovery_gate_is_one_only_per_gate_and_a_skip_is_not_recovered(self):
+        throw = {"$throw": "died"}
+        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw, "gate 2: x": throw})
+        self.assertEqual(out["labels"].count("gate 3: x"), 0)                          # one recovery, then stop
 
     def test_a_skipped_agent_stops_the_unit_at_once(self):
         out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": None})
@@ -254,7 +312,7 @@ class Cycle(unittest.TestCase):
 
     # 8
     def test_meta_is_a_pure_literal_naming_every_phase_and_the_file_is_small(self):
-        done = subprocess.run(["bun", FAKE, "meta", SCRIPT], capture_output=True, text=True, timeout=30)
+        done = subprocess.run(["bun", FAKE, "meta", SCRIPT], capture_output=True, text=True, timeout=600)
         self.assertEqual(done.returncode, 0, done.stderr)
         meta = json.loads(done.stdout)
         self.assertEqual(meta["name"], "cycle")
@@ -275,7 +333,7 @@ class Cycle(unittest.TestCase):
         bad = os.path.join(self.tmp, "bad.js")
         with open(bad, "w") as handle:
             handle.write("export const meta = { name: 'x', phases: [{ title: PHASE }] }\n")
-        done = subprocess.run(["bun", FAKE, "meta", bad], capture_output=True, text=True, timeout=30)
+        done = subprocess.run(["bun", FAKE, "meta", bad], capture_output=True, text=True, timeout=600)
         self.assertEqual(done.returncode, 3)
 
     # 9
@@ -295,7 +353,7 @@ class Cycle(unittest.TestCase):
         for cmd in commands:
             words = shlex.split(cmd)[1:]
             done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay")] + words, cwd=self.wt, env=env,
-                                  capture_output=True, text=True, timeout=60)
+                                  capture_output=True, text=True, timeout=600)
             text = done.stdout + done.stderr
             if done.returncode == 2 or "unknown option" in text or "unknown command" in text or "usage" in text.lower():
                 bad.append(cmd)

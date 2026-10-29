@@ -22,6 +22,10 @@ Turn limit: you have 12 turns. Wait on a long job in one call per wait (the loop
 turns remain and it still runs, reply `RUNNING` with the log path instead of waiting on.
 <!-- relay:end run -->
 
+When the job is a gate (`relay gate`, or the project's gate): the committed log `.relay/checks/<sha>.gate.log` for the head is the
+answer, not your memory of the run. If the prompt asks for a structured result, always end with it, even when the gate is still
+running (report ok=false and first_fail "still running, pid <pid>, log <path>"); ending without it loses the whole gate.
+
 <!-- relay:part limits -->
 ## Limits
 - No command blocks longer than 4 minutes; no Bash `timeout` above 240000 ms.

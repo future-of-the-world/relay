@@ -24,8 +24,8 @@
     "lib/relay_precheck.py",
     "tests/test_hang_limits.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T07:22:11Z",
+  "taken_by": "wt/the-precheck-s-changed-tests-step-has-a",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

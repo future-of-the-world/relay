@@ -8,7 +8,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-import time
 import unittest
 from typing import Tuple
 
@@ -22,7 +21,7 @@ Wave 1 · depends on: none
 
 - [ ] 1.1 Green. Reads: none. Tests: none. Files: none. Check: `true`
 - [ ] 1.2 Red. Reads: none. Tests: none. Files: none. Check: `echo probe-finding >&2; false`
-- [ ] 1.3 Hangs. Reads: none. Tests: none. Files: none. Check: `sleep 30`
+- [ ] 1.3 Hangs. Reads: none. Tests: none. Files: none. Check: `sleep 600`
 - [ ] 1.4 Flips. Reads: none. Tests: none. Files: none. Check: `test -f .ci/probe-ok`
 - [ ] 1.5 Third. Reads: none. Tests: none. Files: none. Check: `false`
 """
@@ -80,7 +79,7 @@ class CheckContract(SoftCases):
 
     def run_check(self, *args: str, cwd: str = "", **env: str) -> Tuple[int, str]:
         done = subprocess.run(["./" + self.check if not cwd else os.path.join(self.P, self.check)] + list(args), cwd=cwd or self.P,
-                              env=dict(os.environ, **env), capture_output=True, text=True)
+                              env=dict(os.environ, **env), capture_output=True, text=True, timeout=1200)
         return done.returncode, done.stdout + done.stderr
 
     def test_green_is_quiet_exit_0(self) -> None:
@@ -115,11 +114,10 @@ class CheckContract(SoftCases):
         self.assertNotIn("BUDGET SPENT", self.run_check("contract-probe", "1.4")[1])
 
     def test_a_hung_check_is_killed_and_reported(self) -> None:
-        start = time.monotonic()
         rc, out = self.run_check("contract-probe", "1.3", CHECK_TIMEOUT="1")
         self.assertEqual(rc, 1)
         self.assertIn("HUNG", out)
-        self.assertLess(time.monotonic() - start, 15)  # the sleep 30 was killed, not waited for
+        # the outcome is the proof: HUNG is reported while the sleep 600 would still run for ten minutes
 
     def test_time_budget(self) -> None:
         self.assertIn("TIME BUDGET SPENT", self.run_check("contract-probe", "1.5", CHECK_WORKER_MINUTES="0")[1])

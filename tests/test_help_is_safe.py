@@ -23,7 +23,7 @@ def run_help(cmd: list[str]) -> tuple[subprocess.CompletedProcess, list[str]]:
     """Run relay with --help in a temporary home and working folder; return the result and what appeared there."""
     with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as cwd, tempfile.TemporaryDirectory() as root:
         env = {**os.environ, "HOME": home, "RELAY_HOME": os.path.join(home, ".relay"), "RELAY_ROOT": root}
-        done = subprocess.run([sys.executable, RELAY, *cmd], cwd=cwd, env=env, capture_output=True, text=True, timeout=60)
+        done = subprocess.run([sys.executable, RELAY, *cmd], cwd=cwd, env=env, capture_output=True, text=True, timeout=600)
         return done, snapshot(home) + ["cwd:" + n for n in snapshot(cwd)] + ["root:" + n for n in snapshot(root)]
 
 

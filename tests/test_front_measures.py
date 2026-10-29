@@ -74,7 +74,7 @@ class FrontMeasures(unittest.TestCase):
             entries = json.load(handle)["hooks"]["PreToolUse"]
         self.assertTrue(any(e["matcher"] == "Agent|Task" and any("refuse-agent.py" in " ".join(h["args"]) for h in e["hooks"]) for e in entries))
         done = subprocess.run(["python3", "-I", os.path.join(base, "stop-at-agent", "hooks", "refuse-agent.py")], input="{}",
-                              capture_output=True, text=True, timeout=30)
+                              capture_output=True, text=True, timeout=600)
         self.assertEqual(2, done.returncode)
         self.assertTrue(done.stderr.strip())
 

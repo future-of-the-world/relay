@@ -1,0 +1,135 @@
+{
+  "branch": "wt/the-cycle-s-gate-step-still-ends-with-no",
+  "findings": [
+    {
+      "details": [
+        "Same failure as the item a-gate-waited-on-by-a-runner-dies-at-its-turn-li, closed 25 Oct, now back: 29 Oct the gate step of wt/type-check-subfolders-and-cap-module-siz (head 0311f194) ended with 'subagent completed without calling StructuredOutput (after in-conversation nudge)', left no gate log, and no gate process was running; the front had to restart the change by hand. Machine load was about 35 on 12 cores with 6 lanes. Repeats under parallel load (MEDIUM by the waste principle). IP chosen by the front (agent-chosen).",
+        "Also: plugins/delegate/agents/runner.md"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "29 Oct, cycle run wf_21bb938f-13f: the gate step for head 0311f194 returned no result and no .relay/checks/0311f194*.gate.log exists; the cycle stopped at 'gate'."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A gate agent that ends without a result while the head's gate log exists: the step reports that log's exit.",
+        "With no gate log for the head, the step runs the gate once more instead of stopping."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "high",
+      "reason": [
+        "tests/test_cycle_workflow.py:166 test_a_gate_agent_with_no_result_gets_one_recovery_gate... passes and fails at 3f3c51a5 (no gate 2 label, unit stops at gate)."
+      ],
+      "severity": "HIGH",
+      "since": "3f3c51a548f09f91b6b67568f6898cb3e5f10884",
+      "source": "queue",
+      "summary": "The cycle's gate step still ends with no result",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: gated() increments st.gn before recoveryPrompt(it, st.gn), and gatePrompt(it, n) derives both the log",
+        "and the pid file from n, so the pid-file guard that protects ask's same-label retry is lost across the recovery. The",
+        "recovery's own steps 1-2 only describe relay artifacts (.relay/checks, \"a relay gate\"). In relay mode relay gate's reuse and",
+        "worktree lock cover it; in project mode nothing does. The new test even asserts the recovery uses gate-x-2.log",
+        "(tests/test_cycle_workflow.py:181), which encodes the gap. Size: 15."
+      ],
+      "evidence": [
+        "cycle.js:129 `If ${log}.pid already exists and that pid is alive, a gate of an earlier attempt is still running`, with",
+        "log = `${S}/gate-${tag(it)}-${n}.log` (cycle.js:116); cycle.js:149-150 `st.gn += 1; r = await ask(recoveryPrompt(it, st.gn), ...)`;",
+        "cycle.js:137 step 2 \"look at the processes with `ps` for a relay gate on that folder\".",
+        "lib/relay_gate.py run(): reusable()/finished_red() and take_worktree_lock() exist only behind `relay gate`.",
+        "python3 -m unittest tests.test_cycle_workflow -> Ran 33 tests OK (no test covers the dead attempt's pid in project mode)."
+      ],
+      "failing_case": [
+        "relay=false, gate \"make test\", unit x. gate 1 agent starts `{ echo head ..; make test; echo \"exit $?\"; } > S/gate-x-1.log`",
+        "with pid in S/gate-x-1.log.pid, then ends with no StructuredOutput (twice: ask's retry uses the same n and so sees the pid).",
+        "Recovery `gate 2: x` prompt: step 1 looks for <wt>/.relay/checks/<head>*.gate.log (does not exist in project mode), step 2",
+        "looks in ps for \"a relay gate\" (the running process is make test), step 3 checks S/gate-x-2.log.pid (does not exist).",
+        "Now: a second `make test` starts on the same worktree while the first still runs (or, when gate-x-1.log already ends with",
+        "`exit 0`, the whole gate runs again). Should: wait on the pid in gate-x-1.log.pid, or report gate-x-1.log's exit when it",
+        "is finished and its head line is the worktree's HEAD.",
+        "This is the 29 Oct note's case (four gate processes on one worktree) in the mode where nothing below the agent prevents it."
+      ],
+      "fix_hint": [
+        "Pass the dead attempt's number to the recovery: recoveryPrompt(it, n, prev) names `${S}/gate-${tag(it)}-${prev}.log` and its",
+        ".pid: if that pid is alive, wait on it and report that log; if the log ends with `exit <n>` and its head line is HEAD, report",
+        "it; only then run the gate. (Or keep the log number of the dead attempt for the recovery and change only the label.)"
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 134,
+      "pass_cases": [
+        "1. relay=false, gate 1 throws twice: the `gate 2: x` prompt names S/gate-x-1.log and S/gate-x-1.log.pid (the dead attempt's)",
+        "   as the place to read and the pid to wait on, before any instruction to start the gate.",
+        "2. relay=false, gate 1 throws twice, gate 2 answers GREEN: the unit is ready (as test at tests/test_cycle_workflow.py:174 now).",
+        "3. relay=true, gate 1 throws twice: the gate 2 prompt still reads the gate log before `relay gate -C` (current assertion holds).",
+        "4. gate 1 answers None (skipped): one gate 1 label, no gate 2, stopped_at gate (unchanged)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py:183 asserts gate-x-1.log.pid precedes gate-x-2.log and the unit is ready; fails at 6da2b219. Pass cases 2-4 by lines 166, 206."
+      ],
+      "severity": "MEDIUM",
+      "since": "6da2b219eb82f9457144c0e8dd141b139273a53f",
+      "source": "review-the-cycle-s-gate-step-still-ends-with-no.json",
+      "source_id": "F1",
+      "summary": "project mode: the recovery gate cannot see the dead attempt's gate (its log and pid file are named gate-<x>-1, the recovery looks at gate-<x>-2 and at relay-only places), so it starts a second gate beside a running one or reruns a finished one",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_gate.py:430-433 (log named by the gated head, then commit_file moves HEAD) and this branch's own",
+        "history (6da2b219 \"relay: gate of 2eb30373\"). Correct today through reusable(); fragile and misleading. Size: 5."
+      ],
+      "evidence": [
+        "git show --stat HEAD -> \"relay: gate of 2eb303736ce6...\" adding .relay/checks/2eb303736ce6...gate.log",
+        "cycle.js:135-136 head = `$(git -C ${it.wt} rev-parse HEAD)`, logs = `${it.wt}/.relay/checks/<head>*.gate.log`"
+      ],
+      "failing_case": [
+        "This branch: gate of 2eb30373 finished and committed .relay/checks/2eb30373...gate.log as commit 6da2b219, so HEAD = 6da2b219.",
+        "A recovery agent following step 1 looks for .relay/checks/6da2b219*.gate.log: none. It goes on to step 3 and runs relay gate,",
+        "which reuses the green log (runs nothing). Outcome correct today, but the prompt's main instruction (read the head's log,",
+        "run no gate) never applies to a finished relay gate, and a gate with a license line or `--again` would rerun."
+      ],
+      "fix_hint": [
+        "In relay mode say: the log is .relay/checks/<sha>.gate.log where <sha> is HEAD, or the sha named by HEAD's subject",
+        "\"relay: gate of <sha>\"; or drop step 1 there and say relay gate reports an existing log of the same code without running."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 136,
+      "pass_cases": [
+        "1. relay=true: the recovery prompt says the head's log may sit one commit back, when HEAD's subject is \"relay: gate of <sha>\"",
+        "   (read .relay/checks/<sha>.gate.log), or says that relay gate itself reports an existing log of the same code.",
+        "2. relay=true, gate 1 throws twice, gate 2 GREEN: unit ready (unchanged)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "low",
+      "reason": [
+        "tests/test_cycle_workflow.py:193 asserts \"relay: gate of <sha>\" before \"relay gate -C\"; fails at 6da2b219."
+      ],
+      "severity": "LOW",
+      "since": "6da2b219eb82f9457144c0e8dd141b139273a53f",
+      "source": "review-the-cycle-s-gate-step-still-ends-with-no.json",
+      "source_id": "F2",
+      "summary": "relay mode: step 1 looks for .relay/checks/<HEAD>*.gate.log, but a finished relay gate commits its log, so HEAD is the 'relay: gate of X' commit and the log is X's; step 1 never matches and only relay gate's reuse saves the result",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "369a2912d05cdb18aa27abefed7a4b150795dc9b.gate.log",
+  "head": "e5e1bb7af330710c68dc51d580e5115019d3effb",
+  "item": "the-cycle-s-gate-step-still-ends-with-no-result",
+  "notes": [
+    "recoveryPrompt is called only from gated(); the extra arg is passed there. Relay-mode prompt keeps log read before relay gate."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head 369a2912 exit 0; HEAD e5e1bb7a only adds the gate log. Own changed files: runner.md, cycle.js, tests/test_cycle_workflow.py (all in scope). Ran tests.test_cycle_workflow: 35 OK. Ran the new tests at the pre-fix commits in throwaway worktrees: at 6da2b219 the F1 and F2 tests fail; at 3f3c51a5 (Q1 since) the F1, F2 tests error and the recovery test fails. Read the cycle.js diff."
+  ],
+  "type": "check"
+}

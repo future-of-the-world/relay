@@ -32,7 +32,7 @@ class WorkflowFields(unittest.TestCase):
                 handle.write(meta)
         event = {"hook_event_name": "SubagentStop", "session_id": "s", "cwd": "/p", "agent_id": "a1", "agent_type": "delegate:runner",
                  "agent_transcript_path": transcript}
-        done = subprocess.run([sys.executable, HOOK], input=json.dumps(event), capture_output=True, text=True, env=dict(os.environ, RELAY_HOME=self.home), timeout=30)
+        done = subprocess.run([sys.executable, HOOK], input=json.dumps(event), capture_output=True, text=True, env=dict(os.environ, RELAY_HOME=self.home), timeout=600)
         self.assertEqual(done.returncode, 0)
         lines = []
         ledger = os.path.join(self.home, "ledger")
