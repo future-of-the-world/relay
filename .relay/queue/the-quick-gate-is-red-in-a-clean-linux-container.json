@@ -50,6 +50,12 @@
       "fact": [
         "29 Oct, measured at ee939d2d in a clean container without network: 59 tests red, identical as root and as the normal user dev; 10 red lines (tests/test_types_step.py and two in tests/test_gate.py) come from mypy and ruff being fetched from PyPI at run time (\"dns error\"), so the image must carry them; 3 reds of the earlier 52-red run now pass (test_brief_for_one_task, test_check_reports, test_e2e_waiver_none_stub_and_line_ranges)."
       ]
+    },
+    {
+      "at": "2026-10-29T09:33:49Z",
+      "fact": [
+        "29 Oct ~13:35 local, session restart: wt/the-quick-gate-is-red-in-a-clean-linux-c was being rebuilt by a worker under a podman-only brief (Docker is removed; never start it); next step: run its cycle unit of kind change again. The precheck-cap branch wt/the-precheck-s-changed-tests-step-has-a ran in the same cycle."
+      ]
     }
   ]
 }

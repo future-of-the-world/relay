@@ -13,6 +13,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 HANG = 600   # seconds: ten times the slowest quiet-machine wait in these files
 
+sys.path.insert(0, os.path.join(HERE, "..", "lib"))
+import relay_precheck  # noqa: E402
 import test_ci_python  # noqa: E402
 import test_gate  # noqa: E402
 import test_gate_slots  # noqa: E402
@@ -49,7 +51,22 @@ def short_waits(text: str) -> list[int]:
     return found
 
 
+def precheck_caps(text: str) -> list[int]:
+    """Every literal `CHANGED_TESTS_TIMEOUT = N` under HANG in the precheck's source."""
+    return [int(n) for n in re.findall(r"^CHANGED_TESTS_TIMEOUT = (\d+)", text, re.M) if int(n) < HANG]
+
+
 class HangLimits(unittest.TestCase):
+    def test_precheck_changed_tests_step_is_a_hang_bound(self) -> None:
+        # 29 Oct: 16 changed test files took 199 s at load 8 and went past 230 s at load 17-35 with every test passing
+        self.assertGreaterEqual(relay_precheck.CHANGED_TESTS_TIMEOUT, HANG)
+        with open(os.path.join(HERE, "..", "lib", "relay_precheck.py")) as f:
+            self.assertEqual(precheck_caps(f.read()), [])
+
+    def test_the_guard_flags_a_fixed_230_s_precheck_cap(self) -> None:
+        self.assertEqual(precheck_caps("CHANGED_TESTS_TIMEOUT = 230   # budget"), [230])
+        self.assertEqual(precheck_caps("CHANGED_TESTS_TIMEOUT = 600"), [])
+
     def test_waits_are_hang_bounds_not_quiet_machine_clocks(self) -> None:
         limits = {
             "test_gate_slots.BOUND": test_gate_slots.BOUND,

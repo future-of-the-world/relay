@@ -153,6 +153,12 @@
       "answer": [
         "Хорошо, убираем второй прогон"
       ]
+    },
+    {
+      "at": "2026-10-29T08:50:22Z",
+      "fact": [
+        "Follow-up of the-quick-gate-stops-itself-at-a-time-limit (review F4): the quick gate limit is QUICK_LIMIT_SECONDS in lib/relay_ci.py, 1800 (30 min) now. Owner: «30 минут сейчас, 25 после ускорения», and on 29 Oct answered a («Хорошо, убираем второй прогон») to the option «Убрать второй прогон сейчас, лимит 25 минут». So the change that removes the second test run sets QUICK_LIMIT_SECONDS to 1500 in the same change, with its test."
+      ]
     }
   ]
 }

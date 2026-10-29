@@ -104,6 +104,18 @@ class Cycle(unittest.TestCase):
         self.assertNotIn("precheck", out["prompts"]["check: x"])
         self.assertIn("pytest -q", out["prompts"]["check: x"])
 
+    def test_every_quiet_check_says_to_run_detached(self):
+        """The precheck may run past the 4-minute foreground limit: worker, fixers and checker are told to run it detached.
+        Project mode (no precheck) gets no such note. Disabled note (quietNote() returning ''): the phrase is missing."""
+        note = "run this check detached with a log"
+        out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}, "stage:review": INSIDE})
+        for label in ("build: x", "fix red gate 1: x", "fix: x", "check: x"):
+            self.assertIn(note, out["prompts"][label], label)
+        unit = self.unit(kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="i")
+        self.assertIn(note, self.run_cycle(self.args([unit]))["prompts"]["fix: x"])
+        out = self.run_cycle(self.args([self.unit(branch=None)], relay=False))
+        self.assertNotIn(note, out["prompts"]["check: x"])
+
     def test_a_fix_unit_fixer_gets_the_quiet_check_and_a_compound_check_is_grouped(self):
         """F1: the fix text alone left the precheck out of a fix-kind unit. F7: `a; b` must sit in a group so a red precheck's
         exit code is the command's. Project mode: no precheck, the front's fix text stays."""
@@ -138,6 +150,24 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"ok": False, "gate_log": "l", "first_fail": "still running, pid 5, log l"}})
         self.assertEqual(out["labels"], ["build: x", "gate 1: x"])
         self.assertEqual(out["result"]["changes"][0]["stopped_at"], "gate")
+
+    def test_t10_a_gate_stopped_at_its_limit_is_run_again_with_no_fixer(self):
+        stopped = {"ok": False, "gate_log": "l", "first_fail": "gate: stopped at the 30-minute limit, step library tests was running"}
+        # gate_reruns defaults to 1: stop, gate 2 green, no fixer anywhere
+        out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"$seq": [stopped, GREEN["stage:gate"]]}})
+        self.assertEqual(out["labels"][:4], ["build: x", "gate 1: x", "gate 2: x", "review: x"])
+        self.assertFalse([lb for lb in out["labels"] if lb.startswith("fix red gate")])
+        # stopped twice: the unit ends at gate with the line, still no fixer
+        out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": stopped})
+        self.assertEqual(out["labels"], ["build: x", "gate 1: x", "gate 2: x"])
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "gate")
+        self.assertEqual(out["result"]["changes"][0]["detail"], stopped["first_fail"])
+        # gate_reruns 0: the first stop ends the unit
+        out = self.run_cycle(self.args([self.unit()], settings={"gate_reruns": 0}), **{"stage:gate": stopped})
+        self.assertEqual(out["labels"], ["build: x", "gate 1: x"])
+        # gate_reruns 3 is out of bounds (0 to 2)
+        out = self.run_cycle(self.args([self.unit()], settings={"gate_reruns": 3}))
+        self.assertIn("gate_reruns", out["result"]["refused"])
 
     # 3
     def test_design_finding_stops_at_owner_and_open_check_stops_at_check(self):

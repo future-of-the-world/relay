@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 84,
+  "time": 30,
+  "found_at": "2026-10-29T10:21:19Z",
+  "found_in": "relay queue add",
+  "title": "A landed worktree that git calls a submodule stays",
+  "what": [
+    "Find what makes git see a submodule in that worktree (a gitlink in the index, a leftover test repository, an ignored nested .git deeper than 4 levels), remove the leftover safely, and make relay land and the session-start cleanup name the cause and the next step instead of repeating the same line; a test that a worktree holding a nested repository from a test is either cleaned or reported once with what to do."
+  ],
+  "why": [
+    "29 Oct: since the land-test leak fix landed (wt/a-land-test-leaks-gate-scripts-that-load, merged), every relay land and every session start prints 'could not remove .worktrees/a-land-test-leaks-gate-scripts-that-load: working trees containing submodules cannot be moved or removed' and keeps the worktree and branch. `git submodule status` there prints nothing; no nested .git was found within 4 levels besides the worktree's own. Every landing repeats the line (principle 2: waste on every run), and relay doctor does not say what to do (principle 10)."
+  ],
+  "failing_case": [
+    "relay land of any branch prints 'kept .worktrees/a-land-test-leaks-gate-scripts-that-load: git refused to remove it' and the session start prints 'could not remove ... working trees containing submodules cannot be moved or removed', every time, with no next step."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "the leftover worktree and its merged branch are gone after one relay land or relay doctor run",
+    "a merged worktree that git refuses to remove is reported once with its cause and the command that clears it",
+    "a merged worktree without nested repositories is removed as today"
+  ],
+  "where": [
+    "lib/relay_land.py",
+    "plugins/relay/hooks/session_start.py",
+    "tests/test_land.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

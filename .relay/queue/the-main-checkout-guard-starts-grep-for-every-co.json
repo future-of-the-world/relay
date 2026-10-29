@@ -21,8 +21,8 @@
   "where": [
     "plugins/relay/hooks/guard_main.py:88"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T09:36:00Z",
+  "taken_by": "wt/the-main-checkout-guard-starts-grep-for",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
