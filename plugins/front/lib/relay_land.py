@@ -309,6 +309,15 @@ def _preflight(main: str, default: str, branch: str) -> str:
     if rc != 0 or status:
         shown = ", ".join(l[3:] for l in status.splitlines()[:5])
         raise Stop(REFUSED, [f"land: the worktree of {branch} has uncommitted changes ({shown}): commit them or remove them, then relay land {branch} again"])
+    import relay_queue
+    try:
+        open_items = [s for s, i in relay_queue.held_fix_items(tree["path"]).items() if i["state"] == "taken"]
+    except relay_queue.Refused as exc:
+        raise Stop(REFUSED, [f"land: cannot read the queue of {branch}: {exc}"])
+    if open_items:
+        slug = sorted(open_items)[0]
+        raise Stop(REFUSED, [f"land: {branch} still holds the open fix item '{slug}': close it first, "
+                             f"relay queue done {slug} -C {tree['path']} --test <file>::<name>; then relay land {branch} again"])
     if relay_git.current_branch(main) != default:
         raise Stop(REFUSED, [f"land: the main checkout is not on {default}: switch it back, then relay land {branch} again"])
     files = blocking(main, branch)

@@ -1519,12 +1519,36 @@ def check_refusal(repo, ref, slug):
     return f"after the check of {commit[:12]}, {', '.join(own[:3])} changed, which is not inert: check the fix again"
 
 
+def _close_orphan(repo: str, slug: str, test: str, **engine) -> str:
+    """`done` from the main checkout: closes an item taken by a branch that is merged or gone (its own worktree is not there to run
+    `done`), keeping its take. The test must be defined on the default branch. A live branch's item is closed by that branch."""
+    main, default = _context(repo)
+
+    def planner(reader: "Reader") -> Plan:
+        item = _item_at(reader, slug)
+        if item["state"] != "taken":
+            raise Refused("done runs in the worktree of the task branch that took the item; "
+                          f"from the main checkout it closes only an item taken by a branch that is gone ('{slug}' is {item['state']})")
+        if _branch_live(repo, item["taken_by"]):
+            raise Refused(f"queue item '{slug}' is taken by {item['taken_by']}, which is not merged: "
+                          f"run relay queue done {slug} -C <its worktree> --test {test}")
+        reason = test_refusal(main, "refs/heads/" + default, test)
+        if reason:
+            raise Refused(reason.replace("in the last commit of the branch", f"on {default}"))
+        text = serialize(slug, changed(item, closed_at=utcnow(), test=test.strip()))
+        return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "closed")
+
+    return _run(repo, planner, **engine)
+
+
 def done(worktree, slug, test):
     """Close a taken item on the task branch: needs `close_refusal` to say it may be closed (the named test at HEAD and, for a
     fix, the branch's check with Q1 MET)."""
     branch = relay_git.current_branch(worktree)
     main, default = _context(worktree)
-    if branch is None or branch == default:
+    if branch == default:
+        return _close_orphan(worktree, slug, test)
+    if branch is None:
         raise Refused("done runs in the worktree of the task branch that took the item")
     path, _, name = test.partition("::")
     if not path or not name:
