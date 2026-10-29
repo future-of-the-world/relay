@@ -30,8 +30,8 @@
   ],
   "taken_at": "2026-10-28T20:01:18Z",
   "taken_by": "wt/type-check-subfolders-and-cap-module-siz",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T05:16:30Z",
+  "test": "tests/test_module_sizes.py::ModuleSizes::test_a_long_file_without_a_marker_fails",
   "dropped_at": null,
   "dropped_why": null
 }
