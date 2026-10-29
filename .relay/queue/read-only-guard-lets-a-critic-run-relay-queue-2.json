@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 0,
+  "time": 15,
+  "found_at": "2026-10-29T04:33:16Z",
+  "found_in": "relay queue add",
+  "title": "Read-only guard lets a critic run relay queue start",
+  "what": [
+    "plugins/delegate/hooks/read-only-guard.py line 27 lists the writing queue words add, take, release, done, drop, land, ip, migrate, note, edit. bin/relay:876 QUEUE_WRITES also has `start` (it makes a worktree and takes the item, bin/relay:844). relay_writes returns None for a word not in the set, so a delegate:critic running `relay queue start x --scratch y` is allowed. Add `start` to the set. The completeness test (tests/test_read_only_guard.py:55-65) reads queue words from the usage line `relay queue [a|b|...]`, which does not list start, so nothing caught it: make it read the words from QUEUE_WRITES too (load bin/relay as a module and take QUEUE_WRITES), so a writing word missing from the guard fails. This file is on a paid path (plugins/*/hooks/**)."
+  ],
+  "why": [
+    "Fix F of the split of relay into one module per subcommand, decided by the owner on 28 Oct: \"каждая подкоманда может и должна жить в своем модуле, этот подход должен быть распространен на весь relay\". Checking the plan found a live defect that must land before move 5 (the guard reading modules): the guard's list of writing queue words has no `start`, which makes a worktree and takes an item."
+  ],
+  "failing_case": [
+    "A delegate:critic running `relay queue start x --scratch y` is allowed by the guard today (read from read-only-guard.py:27 and bin/relay:876 on 28 Oct)."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "a critic is refused `relay queue start x --scratch y`",
+    "a critic is still allowed `relay queue show x` and `relay queue count`",
+    "the completeness test fails when a word in QUEUE_WRITES is absent from the guard's writing set"
+  ],
+  "where": [
+    "plugins/delegate/hooks/read-only-guard.py:27",
+    "tests/test_read_only_guard.py:55-65"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
