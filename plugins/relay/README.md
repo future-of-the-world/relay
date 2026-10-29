@@ -185,7 +185,7 @@ keeps the main checkout clean and secrets out of the output. Tests:
 shared files call `kit get <key>` without a default). A key with a default
 works when absent. A section marked "if X" is required only when X applies.
 Patterns are regular expressions: Python `re` in `packet.*` and `spec_check.*`,
-ERE (`grep -E`) in `guard.*`. In `packet.*` a pattern is searched anywhere in the
+ERE-style in `guard.*`, matched by Python `re` (POSIX `[[:class:]]` names and `\<` `\>` word edges are accepted; inside `[...]` a backslash is a plain character; alternatives are tried left to right, so put the longer one first; a pattern that does not compile blocks every Bash command with a message naming it). In `packet.*` a pattern is searched anywhere in the
 path (write `^` to anchor it); `files` and `files_exclude` work the same way.
 
 | Key | Required or default | Meaning | Example |
