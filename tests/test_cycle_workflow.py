@@ -252,19 +252,34 @@ class Cycle(unittest.TestCase):
         # attempt number 1, started after the dead attempt and before the retry (labels order: gate, note, gate).
         throw = {"$throw": "subagent completed without calling StructuredOutput"}
         out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": {"$seq": [throw, GREEN["stage:gate"]]}})
-        self.assertEqual(out["labels"][1:4], ["gate 1: x", "other: dead-gate-1-x-1", "gate 1: x"])
-        note = out["prompts"]["other: dead-gate-1-x-1"]
+        self.assertEqual(out["labels"][1:4], ["gate 1: x", "other: x", "gate 1: x"])   # F1: the note joins the dead agent's unit
+        note = out["prompts"]["other: x"]
         self.assertIn(os.path.join(self.scratch, "reports", "dead-gate-1-x-1.txt"), note)
         self.assertIn("subagent completed without calling StructuredOutput", note)
         self.assertIn("gate 1: x", note)
+        self.assertIn("append", note)                                                 # F2: a second run never replaces an earlier note
         self.assertIn("date", note)                                                   # the time comes from the runner's clock
         self.assertTrue(out["result"]["changes"][0]["ready"])
         # two throws of the same agent: two notes, numbered 1 and 2
         out = self.run_cycle(self.args([self.unit()], settings={"retry_dead": 2}), **{"gate 1: x": {"$seq": [throw, throw, GREEN["stage:gate"]]}})
-        self.assertEqual([l for l in out["labels"] if l.startswith("other:")], ["other: dead-gate-1-x-1", "other: dead-gate-1-x-2"])
+        self.assertEqual([l for l in out["labels"] if l.startswith("other:")], ["other: x", "other: x"])
+        self.assertIn("dead-gate-1-x-2.txt", out["prompts"]["other: x"])
         # no throw, no note
         out = self.run_cycle(self.args([self.unit()]))
         self.assertEqual([l for l in out["labels"] if l.startswith("other:")], [])
+
+    def test_a_note_agent_that_dies_too_never_stops_the_unit(self):
+        # F3: the note's own death is swallowed; the stop detail is the dead agent's error, not the note's.
+        throw = {"$throw": "subagent completed without calling StructuredOutput"}
+        note_throw = {"$throw": "note agent died"}
+        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": {"$seq": [throw, GREEN["stage:gate"]]}, "other: x": note_throw})
+        self.assertEqual(out["labels"][1:4], ["gate 1: x", "other: x", "gate 1: x"])
+        self.assertTrue(out["result"]["changes"][0]["ready"])
+        out = self.run_cycle(self.args([self.unit()]), **{"gate 1: x": throw, "gate 2: x": throw, "other: x": note_throw})
+        change = out["result"]["changes"][0]
+        self.assertEqual(change["stopped_at"], "gate")
+        self.assertIn("StructuredOutput", change["detail"])
+        self.assertNotIn("note agent died", change["detail"])
 
     def test_a_gate_agent_with_no_result_gets_one_recovery_gate_that_reads_the_head_log_first(self):
         """Failing case 29 Oct (wf_21bb938f-13f): both attempts of gate 1 died with no result and the cycle stopped at 'gate'.
