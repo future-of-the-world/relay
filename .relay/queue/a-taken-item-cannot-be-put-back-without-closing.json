@@ -6,7 +6,7 @@
   "found_in": "relay queue add",
   "title": "relay queue --help does not list release",
   "what": [
-    "relay queue release <slug> returns a taken item to the open queue with a dated event and a reason, when its branch has no commit of its own beyond the default branch (or with the branch removed); the lane frees at once."
+    "relay queue --help lists every queue subcommand bin/relay accepts (release was missing), and a test compares the help text with the accepted subcommands so a new one cannot be left out."
   ],
   "why": [
     "30 Oct: the fseventsd item's build found nothing to change and stopped BLOCKED; the item stays taken by its empty branch and holds one of 6 lanes until the owner answers a question, because relay queue has take, done and drop but no way to return a taken item to the queue. IP chosen by the front (agent-chosen)."
@@ -35,6 +35,13 @@
       "edited": "title",
       "fact": [
         "Edited title: 30 Oct: relay queue release exists (bin/relay:1024, lib/relay_queue.py:1265) and works; the real defect is that relay queue --help does not list it, so the front concluded it was missing."
+      ]
+    },
+    {
+      "at": "2026-10-29T22:46:15Z",
+      "edited": "what",
+      "fact": [
+        "Edited what: 30 Oct: relay queue release exists (bin/relay:1024, lib/relay_queue.py:1265) and works; the real defect is that relay queue --help does not list it, so the front concluded it was missing."
       ]
     }
   ]
