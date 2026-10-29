@@ -28,8 +28,8 @@
   ],
   "taken_at": "2026-10-28T17:41:11Z",
   "taken_by": "wt/refuse-folder-and-pattern-entries-in-whe",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T03:59:32Z",
+  "test": "tests/test_queue_where.py::WhereFiles::test_edit_judges_only_the_entries_it_brings",
   "dropped_at": null,
   "dropped_why": null
 }
