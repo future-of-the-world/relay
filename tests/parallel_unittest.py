@@ -16,6 +16,10 @@ file, then a rename). With no file, classes go out by test count, the biggest fi
 machine can be slower than later ones; its log says so.
 
 RELAY_TEST_JOBS: the number of workers, default 4, from 1 to the core count; 1 is the single process of run_unittest.
+
+Tokens (lib/relay_tokens.py): a worker runs only while it holds a token of the machine-wide pool. The first workers (the run's
+base) run on the base its holder passed down in RELAY_TEST_TOKENS (a gate's share, halved between the outer run and the inert
+probe), or on one shared token this run took itself; the rest are extras, each taken for one class and given back after it.
 """
 import json
 import os
@@ -28,10 +32,12 @@ import tempfile
 import threading
 import time
 import unittest
-from typing import Any, Dict, List, Optional, TextIO, Tuple
+from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+sys.path.insert(0, os.path.join(ROOT, "lib"))
+import relay_tokens
 DEFAULT_JOBS = 4
 
 
@@ -179,11 +185,16 @@ def worker_main(tests_dir: str) -> int:
 # ---- the controller -------------------------------------------------------------------------------------------------
 class Pool:
     def __init__(self, jobs: int, classes: List[str], log_dir: Optional[str], tests_dir: str,
-                 env: Optional[Dict[str, str]] = None) -> None:
+                 env: Optional[Dict[str, str]] = None, base: Optional[int] = None,
+                 extras: Optional[Callable[[], Optional[relay_tokens.Held]]] = None, retry: float = 1.0) -> None:
+        """`base` workers run freely (their tokens are held above); the other `jobs - base` run a class only while `extras()`
+        hands them a token, which goes back after the class. With no `extras`, only the base workers start."""
         self.todo: "queue.Queue[str]" = queue.Queue()
         for name in classes:
             self.todo.put(name)
         self.jobs, self.log_dir, self.tests_dir, self.env = jobs, log_dir, tests_dir, env
+        self.base = jobs if base is None else min(base, jobs)
+        self.extras, self.retry = extras, retry
         self.lock = threading.Lock()
         self.replies: List[Dict[str, Any]] = []
         self.deaths: List[str] = []
@@ -191,35 +202,51 @@ class Pool:
         self.notes: List[str] = []
 
     def _loop(self, index: int) -> None:
+        extra = index >= self.base
         log: TextIO
         if self.log_dir:
             log = open(os.path.join(self.log_dir, "library-tests.w%d.log" % (index + 1)), "w", encoding="utf-8")
         else:
             log = open(os.devnull, "w")
-        proc = subprocess.Popen([sys.executable, "-W", "ignore::ResourceWarning", os.path.abspath(__file__), "--worker", self.tests_dir],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True, cwd=ROOT, env=self.env,
-                                close_fds=False)    # keeps a gate's lock fd, as every child of the gate does
-        assert proc.stdin is not None and proc.stdout is not None
-        current = ""
+        proc: Optional["subprocess.Popen[str]"] = None
         try:
             while True:
+                token: Optional[relay_tokens.Held] = None
+                if extra:
+                    if self.todo.empty():
+                        break
+                    token = self.extras() if self.extras is not None else None
+                    if token is None:
+                        time.sleep(self.retry)      # no token free: this worker idles (no process, no CPU) and looks again
+                        continue
                 try:
-                    current = self.todo.get_nowait()
-                except queue.Empty:
-                    break
-                try:
-                    proc.stdin.write(current + "\n")
-                    proc.stdin.flush()
-                    line = proc.stdout.readline()
-                except (BrokenPipeError, OSError):
-                    line = ""
-                if not line:
+                    try:
+                        current = self.todo.get_nowait()
+                    except queue.Empty:
+                        break
+                    if proc is None:
+                        proc = subprocess.Popen([sys.executable, "-W", "ignore::ResourceWarning", os.path.abspath(__file__), "--worker", self.tests_dir],
+                                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True, cwd=ROOT, env=self.env,
+                                                close_fds=False)    # keeps a gate's lock fd, as every child of the gate does
+                    assert proc.stdin is not None and proc.stdout is not None
+                    try:
+                        proc.stdin.write(current + "\n")
+                        proc.stdin.flush()
+                        line = proc.stdout.readline()
+                    except (BrokenPipeError, OSError):
+                        line = ""
+                    if not line:
+                        with self.lock:
+                            self.deaths.append("worker %d died while running %s" % (index + 1, current))
+                        return
                     with self.lock:
-                        self.deaths.append("worker %d died while running %s" % (index + 1, current))
-                    return
-                with self.lock:
-                    self.replies.append(json.loads(line))
-                current = ""
+                        self.replies.append(json.loads(line))
+                finally:
+                    if token is not None:
+                        token.release()
+            if proc is None:
+                return
+            assert proc.stdin is not None and proc.stdout is not None
             try:
                 proc.stdin.close()
                 line = proc.stdout.readline()
@@ -234,15 +261,18 @@ class Pool:
                 self.leaks += [(int(p), str(c)) for p, c in reply.get("leaked", [])]
                 self.notes += [str(n) for n in reply.get("notes", []) if str(n) not in self.notes]
         finally:
-            try:
-                proc.stdout.close()
-                proc.wait(timeout=600)
-            except (subprocess.TimeoutExpired, OSError):
-                proc.kill()
+            if proc is not None:
+                try:
+                    assert proc.stdout is not None
+                    proc.stdout.close()
+                    proc.wait(timeout=600)
+                except (subprocess.TimeoutExpired, OSError):
+                    proc.kill()
             log.close()
 
     def run(self) -> None:
-        threads = [threading.Thread(target=self._loop, args=(i,)) for i in range(self.jobs)]
+        count = self.jobs if self.extras is not None else self.base
+        threads = [threading.Thread(target=self._loop, args=(i,)) for i in range(count)]
         for t in threads:
             t.start()
         for t in threads:
@@ -255,8 +285,25 @@ def run(root: str = ROOT, env: Optional[Dict[str, str]] = None, tests_dir: str =
     if jobs == 0:
         print(note)
         return 1
+    base = relay_tokens.acquire_run_base(env, lambda line: print("tests: " + line, flush=True))
+    try:
+        return _run(root, env, tests_dir, jobs, note, base)
+    finally:
+        base.held.release()
+
+
+def probe_share(given: int, probe: bool) -> int:
+    """The workers of one of the gate's two test runs out of the gate's `given` base: the inert probe gets half, the outer run the rest."""
+    return max(1, given // 2 if probe else given - given // 2)
+
+
+def _run(root: str, env: Dict[str, str], tests_dir: str, jobs: int, note: str, run_base: relay_tokens.RunBase) -> int:
     if note:
         print(note)
+    base = min(jobs, probe_share(run_base.workers, env.get("RELAY_INERT_PROBE") == "1") if run_base.passed else run_base.workers)
+    st = run_base.settings
+    for text in st.notes:
+        print("NOTE test tokens: " + text)
     start = time.monotonic()
     sys.path.insert(0, tests_dir)
     sys.path.insert(0, root)
@@ -272,10 +319,12 @@ def run(root: str = ROOT, env: Optional[Dict[str, str]] = None, tests_dir: str =
             counts[unit] = counts.get(unit, 0) + 1
     path = times_path(root, env)
     times, why = load_times(path)
-    print("test jobs: %d; class times from $RELAY_HOME/test-times (searched %s)%s" %
-          (jobs, path, "" if not why else ": " + why + "; classes go out by test count, the biggest first"))
+    print("test jobs: %d (%d on the base tokens, the rest on free tokens of the pool); class times from $RELAY_HOME/test-times (searched %s)%s" %
+          (jobs, base, path, "" if not why else ": " + why + "; classes go out by test count, the biggest first"))
     steps = os.path.join(root, ".ci", "steps")
-    pool = Pool(jobs, order_classes(counts, times), steps if os.path.isdir(steps) else None, tests_dir, env)
+    prefer = relay_tokens.GATE if run_base.passed else relay_tokens.SHARED
+    pool = Pool(jobs, order_classes(counts, times), steps if os.path.isdir(steps) else None, tests_dir, env, base,
+                lambda: relay_tokens.try_extra(run_base.home, st, prefer), st.retry)
     pool.run()
 
     ran = sum(r["ran"] for r in pool.replies)

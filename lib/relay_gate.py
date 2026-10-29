@@ -8,7 +8,12 @@ is committed alone, with the same commit path as check marks (`relay_marks.commi
 A gate that has to run first takes the worktree's own lock (`<git dir>/relay-gate.lock`, waiting without a time limit; the
 lock file is passed to the gate command, so the lock lasts until the command's last process ends, even when `relay gate`
 is killed). After the command it checks that the tested tree is still the gated commit. Then it takes one of a few slots shared by the whole machine (OS file locks under `$RELAY_HOME/gate-slots/`,
-so a killed gate frees its slot by itself). The log's third line, `wait <seconds>`, is the time spent waiting for a slot.
+so a killed gate frees its slot by itself). The log's third line, `wait <seconds>`, is the time spent waiting for a slot and for the gate's test tokens.
+
+Test tokens (lib/relay_tokens.py): after its slot, the gate takes its share of the machine-wide pool of test tokens
+(`$RELAY_HOME/test-tokens/`, 4 by default, the file `per-gate` sets it) before its command starts, so the wait is outside the
+command's own time limit. The command gets `RELAY_TEST_TOKENS` (what relay's own test runners read, none else); what a project's
+own bin/ci checks and how parallel it runs stays the project's choice, and relay does not police its processes.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ import relay_git
 import relay_inert
 import relay_license
 import relay_marks
+import relay_tokens
 import relay_toml
 
 DEFAULT_CI = "bin/ci"
@@ -380,6 +386,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
         lock = take_worktree_lock(lock_path, notify)
         try:
             slot, waited = take_slot(slot_count(home), os.path.join(home, "gate-slots"), notify)
+            tokens = relay_tokens.Held()      # the gate's test tokens; freed with the slot, whatever ends the gate
             try:
                 # the waits can be long: the code may have moved, or the same code may have gone green meanwhile
                 now = check_ready(worktree)
@@ -396,6 +403,12 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                     return reused_red(red)
                 if now != head:
                     raise GateRefused("%s moved to another commit while the gate waited: run it again" % worktree)
+                st = relay_tokens.settings(home, slot_count(home), relay_tokens.jobs_from(env))
+                for text in st.notes:
+                    notify("gate: test tokens: " + text)
+                tokens, token_wait = relay_tokens.take_base(home, st, relay_tokens.GATE, st.per_gate, lambda line: notify("gate: " + line))
+                waited += token_wait
+                env[relay_tokens.ENV_HOLD] = relay_tokens.hold_value(st.per_gate, home)
                 proc = None
                 try:
                     with open(out_path, "wb") as sink:
@@ -432,6 +445,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                 if why is not None:
                     raise GateRefused("the worktree changed while the gate ran (%s): commit, then run it again" % why)
             finally:
+                tokens.release()
                 slot.close()
             # the lock stays until the log is committed: a second gate of this worktree then finds the log
             with open(out_path, encoding="utf-8", errors="replace") as handle:
