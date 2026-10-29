@@ -27,8 +27,8 @@
   ],
   "taken_at": "2026-10-29T11:56:54Z",
   "taken_by": "wt/the-lanes-hook-sometimes-runs-past-its-1",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T13:57:33Z",
+  "test": "tests/test_lanes.py::LanesHookBounds::test_blocked_git_gives_one_unknown_line",
   "dropped_at": null,
   "dropped_why": null
 }
