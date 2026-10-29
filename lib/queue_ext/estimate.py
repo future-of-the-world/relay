@@ -7,9 +7,10 @@ import relay_estimate
 
 
 def repo_top(folder: str) -> str:
-    """The repo folder: a `.worktrees/<name>` working folder stands for the repo above it, whose project folders hold the change's agents."""
-    if os.path.basename(os.path.dirname(folder)) == ".worktrees":
-        return os.path.dirname(os.path.dirname(folder))
+    """The repo folder: a `.worktrees/<name>` (or the project's own worktrees folder) working folder stands for the repo above it, whose project folders hold the change's agents."""
+    repo = os.path.dirname(os.path.dirname(folder))
+    if os.path.basename(os.path.dirname(folder)) in {".worktrees", relay_estimate.worktree_folder(repo)}:
+        return repo
     return folder
 
 

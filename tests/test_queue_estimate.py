@@ -30,6 +30,19 @@ class Measure(unittest.TestCase):
         self.assertEqual(est.worktree_of("/r/.worktrees/foo-bar/lib"), "foo-bar")
         self.assertIsNone(est.worktree_of("/r/lib"))
 
+    def test_worktree_in_the_projects_own_folder(self):
+        # ALIX keeps its lanes under `.worktree/`; the same name is found there, and `.worktrees/` still works
+        self.assertEqual(est.worktree_of("/x/alix/.worktree/fx/lib", ".worktree"), "fx")
+        self.assertEqual(est.worktree_of("/x/relay/.worktrees/fx/lib"), "fx")
+
+    def test_change_of_brief_line_in_the_projects_folder(self):
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, ".claude"))
+            with open(os.path.join(root, ".claude", "kit.toml"), "w") as handle:
+                handle.write('[project]\nworktrees = ".worktree"\n')
+            line = f"Worktree: {root}/.worktree/fx (branch wt/fx)"
+            self.assertEqual(est.change_of(root, line, root=root), "fx")
+
     def test_agent_minutes_sum_and_build_part(self):
         # change "c1": worker 10 min + checker 5 min = 15 agent min, 10 build; an agent outside any worktree is not counted
         rows = [A("c1", "delegate:worker", 600), A("c1", "delegate:checker", 300), A("c2", "ng-worker", 120)]
@@ -257,3 +270,12 @@ class ViewRoot(unittest.TestCase):
         import estimate as view
         self.assertEqual(view.repo_top("/r/.worktrees/c1"), "/r")
         self.assertEqual(view.repo_top("/r"), "/r")
+
+    def test_repo_top_of_a_project_with_its_own_worktrees_folder(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib", "queue_ext"))
+        import estimate as view
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, ".claude"))
+            with open(os.path.join(root, ".claude", "kit.toml"), "w") as handle:
+                handle.write('[project]\nworktrees = ".worktree"\n')
+            self.assertEqual(view.repo_top(os.path.join(root, ".worktree", "fx")), root)

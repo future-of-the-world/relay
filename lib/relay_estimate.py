@@ -14,10 +14,10 @@ import statistics
 import datetime as dt
 from dataclasses import dataclass, field
 
+import relay_config
 import relay_transcripts
 
-WORKTREE = re.compile(r"\.worktrees/([A-Za-z0-9._-]+)")
-WORKTREE_PATH = re.compile(r"(/[^\s\"'`]*?)/\.worktrees/([A-Za-z0-9._-]+)")
+DEFAULT_FOLDER = ".worktrees"
 WORKTREE_LINE = re.compile(r"Worktree:\s*(\S+)")
 BUILD_SUFFIX = "worker"       # `delegate:worker`, `ng-worker`, `worker`: the agents that build
 
@@ -38,9 +38,27 @@ class Measured:
     agents: int
 
 
-def worktree_of(cwd: str) -> str | None:
-    """The worktree folder name inside a working directory (`/x/.worktrees/foo/lib` -> `foo`); None outside any worktree."""
-    found = WORKTREE.search(cwd or "")
+def worktree_folder(root: str | None) -> str:
+    """The worktrees folder name of the project at `root`: kit.toml `project.worktrees`, else `.worktrees` (also when the file is unreadable)."""
+    if root is None:
+        return DEFAULT_FOLDER
+    try:
+        project = relay_config.load_bindings(root).get("project")
+    except (OSError, ValueError):
+        return DEFAULT_FOLDER
+    folder = project.get("worktrees") if isinstance(project, dict) else None
+    return folder.strip("/") if isinstance(folder, str) and folder.strip("/") else DEFAULT_FOLDER
+
+
+def _folders(folder: str | None) -> str:
+    """A regex alternation of the default folder and the project's own."""
+    return "|".join(re.escape(f) for f in dict.fromkeys([DEFAULT_FOLDER, folder or DEFAULT_FOLDER]))
+
+
+def worktree_of(cwd: str, folder: str | None = None) -> str | None:
+    """The worktree folder name inside a working directory (`/x/.worktrees/foo/lib` -> `foo`); None outside any worktree.
+    `folder` is the project's own worktrees folder (e.g. `.worktree`), also known besides `.worktrees`."""
+    found = re.search(rf"(?:{_folders(folder)})/([A-Za-z0-9._-]+)", cwd or "")
     return found.group(1) if found else None
 
 
@@ -75,7 +93,8 @@ def _under(root: str | None, base: str) -> bool:
 
 
 def _worktree_in(text: str, root: str | None) -> str | None:
-    for found in WORKTREE_PATH.finditer(text or ""):
+    pattern = re.compile(rf"(/[^\s\"'`]*?)/(?:{_folders(worktree_folder(root))})/([A-Za-z0-9._-]+)")
+    for found in pattern.finditer(text or ""):
         if _under(root, found.group(1)):
             return found.group(2)
     return None
@@ -89,7 +108,7 @@ def change_of(cwd: str, prompt: str, root: str | None = None, brief_first: bool 
     belong to the change their brief names)."""
     if brief_first and (name := _worktree_in(prompt, root)):
         return name
-    if root is None and (name := worktree_of(cwd)):
+    if root is None and (name := worktree_of(cwd)):  # no project known: only the default folder
         return name
     if (name := _worktree_in(cwd, root)):
         return name
