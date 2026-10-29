@@ -1718,3 +1718,67 @@ a-gate-test-is-stopped-by-an-unknown-sigterm (93), the-precheck-s-changed-tests-
 1. Land each lane as it is ready; then start a-gate-test-is-stopped-by-an-unknown-sigterm (waits for tests/test_land.py).
 2. Paid run after this wave.
 3. Next handover worktree: handover-44.
+
+## Addendum 32 (29 Oct, ~19:00 local; session 6c217ef4)
+
+### Landed since addendum 31
+- Linux clean-container gate (tsc runs under bun when node is missing; relay_ci split for the 600-line limit).
+- Gates and tests stop what an earlier test left running (sweep at gate start: parent gone AND relay test folder deleted or older than 10 min; SIGTERM then SIGKILL).
+- A recheck without a queue item keeps the fixes; the main-checkout guard matches in Python (no grep per command).
+- relay land refuses a branch whose taken fix item is open; the merge hook refuses a train or merge that would leave one (items left taken by landed branches can no longer happen).
+- The gate's probe worktree is cleaned when its lane is removed (by the next gate of any worktree).
+- The lanes hook bounds itself (4 s; one "lanes unknown" line; landing writes run past the deadline); relay_land finds its merge hook from the repository root in every lib copy.
+- Machine-wide test-token pool: 12 tokens, 4 per gate by default, the gates' share shrinks on small machines so agents keep at least 2; settings files $RELAY_HOME/test-tokens/count and per-gate; foreign projects' gates take only their slot (their bin/ci decides).
+
+### Owner decisions this segment (verbatim)
+- podman memory: "a" (8 GiB, 6 CPUs; done). Measured before: 32 GB Mac, 152 MB free, swap 6.4 GB, CPU 74% system; podman held 20 GB idle. After: 8.2 GB free, swap 1.6 GB.
+- Cloud environments: "Хорошо, сначала освоим Linux VM, облачные оставим на потом или откажемся от них / Пока это нигде не хранится отложим вопрос касательно синхронизации, но сейчас я склоняюсь к репозиторию на github"; later clarified git hosting means web sites, a remote over ssh to own machine is fine.
+- Test pool: "a a, но это должно конфигурироваться ..."; then "... пользователь сам решит что ему необходимо проверять в bin/ci" (no exported variable for foreign gates); small machines: "Доля уменяшается с машиной".
+- Metrics front cost: "почему мы не можем посчитать стоимость основной сессии ..." (build it with relay report's rule; done, F8).
+- Front model: Sonnet medium benched, failed delegation 4 of 4 → "если не получится то останемся на opus"; effort low/medium benched, noise only → "Оставляем high".
+- Manifesto (after release): no external CI/CD, no git web hosting (ssh remote fine), no IDE, no docs beyond --help/error hints/short README; skills and rules are code for the LLM; the queue holds the "why" and should replace the handover later. Kept in memory owner-manifesto-ai-development.
+- Tests: one template repository per class, each test gets its own copy (owner: shared repos conflict when tests write); item tests-build-a-new-git-repo-for-every-case edited.
+
+### Front decisions (owner can reverse)
+- The test-pool item took a lane ahead of the container gate (precheck red three times on its 600 s limit at load 36-50).
+- New queue items: a-landed-worktree-that-git-calls-a-submodule-sta (84), test-churn-keeps-fseventsd-at-a-full-core-and-7 (89), the lanes-hook item (landed), packet-tests-compile-with-native-typescript-7 (70, TS 7.0.2 is a Go binary), a-merge-through-the-merge-hook (landed).
+- 19 leaked test gate processes stopped by hand (parent gone, folder deleted).
+
+### In progress
+- Metrics (wt/each-change-records-its-stage-times-cost): 12 of 13 findings met; F9 coverage-cost measurement running by a runner (report scratchpad reports/coverage-cost.md); then checker, land.
+- Claim items started with a reproduce-first step: a-rebase-that-changes-nothing-voids-the-review, a-test-still-exempts-the-old-plugins-core-bin-ki, squash-merge-projects-keep-check-records-of-lost, relay-doctor-does-not-name-a-main-checkout-whose; plus relay-s-own-doctor-is-red-no-bin-check-no-bin-wt.
+- Paid run on master e390adb3 in worktree .worktrees/paid-e390adb3, log scratchpad reports/paid-e390adb3.log (37 commits due). On green: `relay sync`; on red: one fix item at the top.
+
+### Next steps
+1. Land ready lanes; bring NOT REPRODUCED claim items to the owner in one message.
+2. After the paid run: relay sync, remove the paid worktree.
+3. Linux path: each-change-is-gated-in-a-fresh-container (95), then speed-up-the-quick-gate (drop second run, 1500 s), a-gate-test-is-stopped-by-an-unknown-sigterm (93).
+4. Next handover worktree: handover-45.
+
+## Addendum 33 (29 Oct, ~17:40 local; session 6c217ef4)
+
+### Landed since addendum 32
+- Metrics: each change records its stage times, cost and coverage (coverage on every gate; three measured pairs: 368/941 s, 811/825 s, 632/631 s; two of three show 0-2%, the first is taken as load noise; facts on the item).
+- The old core-folder exemption in the kit-name test is gone; relay's own bin/check and bin/wt exist (relay doctor green on relay).
+- relay's guard knows a task worktree by git's worktree list (main checkout and prunable entries excluded; project.worktrees is an extra folder, not a replacement; the cd guard too; advice names the project's own worktree tool): ALIX's .worktree/ works.
+- Lane start puts the worktree in the project's worktree folder (kit.toml project.worktrees).
+- Paid run on master e390adb3 green ($18.70); relay sync done. Note: design-track case passed 2 of 3 runs, below its usual rate (watch).
+
+### Waiting for the owner (asked, recorded on the items)
+- a-rebase-that-changes-nothing-voids-the-review: rebase over a file master also changed; recommended a (check again, like a merge).
+- squash-merge-projects-keep-check-records-of-lost: recommended a (document only).
+- relay-doctor-does-not-name-a-main-checkout-whose: recommended a (check at session start too).
+Each branch waits for its answer; then a fix unit with the review's other findings, check, land.
+
+### Front decisions (owner can reverse)
+- Coverage stays on every gate (measured cost within noise on the gate's own path).
+- New fix items: relay-queue-done-rejects-real-tests-in-two-commo (85), relay-setup-writes-worktrees-worktrees-and-ignor (80), relay-s-lane-start (landed), cost-attribution-finds-a-change-only-under-workt (75, in progress), the-guard-joins-an-absolute-project-worktrees-on (70).
+- queue-time-estimates-are-guesses-with-no-model-b stays taken: its test file is new, so `relay queue done --fixed-by` cannot close it (the 85 item fixes that).
+
+### In progress
+- a-gate-test-is-stopped-by-an-unknown-sigterm (93), the-checker-s-file-list-relay-changed-own-has-no (90, reproduce first), cost-attribution fix of F1.
+
+### Next steps
+1. Owner answers → fix units for the three waiting branches.
+2. Linux path: each-change-is-gated-in-a-fresh-container (95), speed-up-the-quick-gate.
+3. Next handover worktree: handover-46.

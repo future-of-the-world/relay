@@ -407,6 +407,32 @@ class Start(LaneBase):
         self.assertEqual(design["cycle_args"]["designs"][0]["out"], os.path.join(scratch, "reports", "design-ft.md"))
         self.assertIn("Title of ft", open(design["brief"]).read())
 
+    def test_start_uses_the_projects_worktrees_folder_from_kit_toml(self):
+        # kit.toml says project.worktrees = ".worktree" (ALIX): the worktree is <main>/.worktree/fx, not <main>/.worktrees/fx
+        self.seed({Q + "fx.json": item("fx"), ".claude/kit.toml": '[project]\nworktrees = ".worktree"\n'})
+        out = json.loads(rl.start(self.main, "fx", os.path.join(self.tmp, "scratch")))
+        wt = os.path.join(self.main, ".worktree", "fx")
+        self.assertEqual(out["worktree"], wt)
+        self.assertTrue(os.path.isdir(wt))
+        self.assertFalse(os.path.exists(os.path.join(self.main, ".worktrees")))
+
+    def test_start_worktrees_folder_forms(self):
+        # absolute stays absolute (F1); trailing slash and ../ forms (F2 pass cases 2-5)
+        outside = os.path.join(self.tmp, "abs-wts")
+        for n, (value, expect) in enumerate([
+            (outside, os.path.join(outside, "fx")),
+            (".worktree/", os.path.join(self.main, ".worktree", "fx")),
+            ("", os.path.join(self.main, ".worktrees", "fx")),
+            ("../wts-rel", os.path.normpath(os.path.join(self.main, "..", "wts-rel", "fx"))),
+        ]):
+            with self.subTest(value=value):
+                self.seed({Q + "fx.json": item("fx"), ".claude/kit.toml": f'[project]\nworktrees = "{value}"\n'})
+                out = json.loads(rl.start(self.main, "fx", os.path.join(self.tmp, f"scratch{n}")))
+                self.assertEqual(out["worktree"], expect)
+                self.assertFalse(os.path.exists(os.path.join(self.main, outside.lstrip("/"))))
+                git(self.main, "worktree", "remove", "--force", expect)
+                git(self.main, "branch", "-D", "wt/fx")
+
     def test_start_refused_without_a_free_lane_or_an_open_item_and_leaves_nothing(self):
         self.seed({Q + "a.json": item("a"), Q + "b.json": item("b", where=("lib/b.py",)), Q + "t.json": item("t", **taken("wt/t"))})
         self.worktree("t")

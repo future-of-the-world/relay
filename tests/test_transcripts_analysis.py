@@ -70,6 +70,45 @@ class Analysis(Base):
                 handle.write(json.dumps(line) + "\n")
         return base
 
+    def write_days_session(self, name: str, scripted: bool = False) -> dt.datetime:
+        """A main session with 3 identical requests: two on 18 Oct (23:58, 23:59 UTC) and one on 19 Oct (00:01 UTC)."""
+        folder = os.path.join(self.claude, "projects", "p")
+        os.makedirs(folder, exist_ok=True)
+        stamps = ["2026-10-18T23:58:00Z", "2026-10-18T23:59:00Z", "2026-10-19T00:01:00Z"]
+        lines = [fixtures.user(stamps[0], "ask")] + [fixtures.assistant(t, "claude-opus-5", 1000, 0, 10, f"{name}{i}") for i, t in enumerate(stamps)]
+        with open(os.path.join(folder, f"{name}.jsonl"), "w") as handle:
+            for line in lines:
+                line["sessionId"] = name
+                if scripted:
+                    line["entrypoint"] = "sdk-cli"
+                handle.write(json.dumps(line) + "\n")
+        return dt.datetime(2026, 10, 18, 12, 0, tzinfo=dt.timezone.utc)
+
+    def test_f8_the_front_cost_per_day_follows_the_reports_rule(self):
+        import relay_analyze
+        import relay_prices
+        base = self.write_days_session("front")
+        self.write_days_session("headless", scripted=True)      # a program-started session is no front: report leaves it out of the share
+        data = relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=3))
+        # every request is input 50 + cache read 1000 + output 10 on one model: one request costs c by the price table;
+        # 18 Oct has 2 requests, 19 Oct has 1 (a session that crosses midnight is split by the request's UTC day)
+        c = relay_prices.cost("claude-opus-5", {"input_tokens": 50, "output_tokens": 10, "cache_read_input_tokens": 1000,
+                                                "cache_creation_input_tokens": 0, "web_search_requests": 0})
+        days = relay_analyze.front_cost_by_day(data)
+        self.assertEqual(sorted(days), ["2026-10-18", "2026-10-19"])
+        self.assertAlmostEqual(days["2026-10-18"]["cost_usd"], 2 * c)
+        self.assertAlmostEqual(days["2026-10-19"]["cost_usd"], c)
+        # one rule: the days add up to the report's front cost (3 requests, not the scripted session's 3 more)
+        self.assertAlmostEqual(sum(d["cost_usd"] for d in days.values()), relay_analyze.totals(data)["front_cost"])
+        # no Claude Code total for the session: the figure is an estimate; with a total written after the last activity it is exact
+        self.assertEqual({d["basis"] for d in days.values()}, {"estimate"})
+        data["exact"] = {"front": {"claude-opus-5": {"input_tokens": 150, "output_tokens": 30, "cache_read_input_tokens": 3000, "cost_usd": 3 * c}}}
+        data["exact_at"] = {"front": dt.datetime(2026, 10, 25, tzinfo=dt.timezone.utc)}
+        self.assertEqual({d["basis"] for d in relay_analyze.front_cost_by_day(data).values()}, {"exact"})
+        # a total written before the session's last request does not cover it: estimate again
+        data["exact_at"] = {"front": dt.datetime(2026, 10, 19, 0, 0, tzinfo=dt.timezone.utc)}
+        self.assertEqual({d["basis"] for d in relay_analyze.front_cost_by_day(data).values()}, {"estimate"})
+
     def collect_all(self, base):
         import relay_analyze
         return relay_analyze.collect(self.claude, base - dt.timedelta(days=1), base + dt.timedelta(days=1))

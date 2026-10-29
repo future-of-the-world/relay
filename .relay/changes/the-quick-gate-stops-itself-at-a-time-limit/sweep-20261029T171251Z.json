@@ -1,0 +1,111 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.2139,
+   "id": "a954db977c07706a9",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-29T06:44:05.049Z",
+   "stop": "2026-10-29T06:49:39.064Z"
+  },
+  {
+   "cost_usd": 0.9629,
+   "id": "af3aa4669b6847c28",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 24,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-29T07:06:06.056Z",
+   "stop": "2026-10-29T07:34:21.923Z"
+  },
+  {
+   "cost_usd": 0.0039,
+   "id": "a1e618f1f09ead11e",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T07:34:25.993Z",
+   "stop": "2026-10-29T07:49:07.022Z"
+  },
+  {
+   "cost_usd": 0.2463,
+   "id": "ac915733e5af22dea",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-29T07:49:10.574Z",
+   "stop": "2026-10-29T08:00:54.428Z"
+  },
+  {
+   "cost_usd": 0.003,
+   "id": "adf246d5649807564",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 4,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T08:00:58.607Z",
+   "stop": "2026-10-29T08:08:02.519Z"
+  },
+  {
+   "cost_usd": 1.6627,
+   "id": "a261f27e96f062dcd",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 31,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-29T08:08:07.049Z",
+   "stop": "2026-10-29T08:18:02.414Z"
+  },
+  {
+   "cost_usd": 0.7294,
+   "id": "a2493c2c4e1fc9e74",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 39,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-29T08:18:06.869Z",
+   "stop": "2026-10-29T08:36:13.806Z"
+  },
+  {
+   "cost_usd": 0.0036,
+   "id": "a4e355edec64f40a4",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 4,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T08:36:18.386Z",
+   "stop": "2026-10-29T08:43:22.744Z"
+  },
+  {
+   "cost_usd": 0.1615,
+   "id": "a6f714190240c7126",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-29T08:43:27.396Z",
+   "stop": "2026-10-29T08:49:26.200Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "the-quick-gate-stops-itself-at-a-time-limit",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "the-quick-gate-stops-itself-at-a-time-limit"
+}

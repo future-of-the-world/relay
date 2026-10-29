@@ -1,6 +1,6 @@
 # relay (the plugin; named core before 28 Oct)
 
-Part of the relay repository (`~/relay`), unchanged from the principles library except for the flow stage hook (`hooks/flow-stage.py`, see `docs/flows.md`) and the addition injection, which serves the agents and skills of `core`, `openspec`, `product`, `delegate`, `issues` and `front` (`.claude/kit/<name>.md`) and, at an agent's start, the project's rules for its role (`.claude/kit/<role>.md`, role one of lookup, run, build, fix, think, judge; the agent's own file wins where they differ). The text below is the original reference.
+Part of the relay repository (`~/relay`), unchanged from the principles library except for the flow stage hook (`hooks/flow-stage.py`, see `docs/flows.md`) and the addition injection, which serves the agents and skills of `relay`, `openspec`, `product`, `delegate`, `issues` and `front` (`.claude/kit/<name>.md`) and, at an agent's start, the project's rules for its role (`.claude/kit/<role>.md`, role one of lookup, run, build, fix, think, judge; the agent's own file wins where they differ). The text below is the original reference.
 
 
 **How shared agents and skills run the plugin's scripts (tested 2026-10-19,
@@ -43,7 +43,7 @@ registry's location, for tests.)
 
 ## What relay holds, and what it does not
 
-Core is for every project: the `kit` helper, the main-checkout guard and the addition
+Relay is for every project: the `kit` helper, the main-checkout guard and the addition
 injection. It ships no agents. The generic `worker` and `reviewer` (for projects
 that do not enable the `openspec` plugin; they take a brief file and reply in a few lines,
 and know nothing of OpenSpec) are personal agents: one source in the library's
@@ -63,7 +63,7 @@ project's `Bash(kit:*)` permission and the migration script.
 
 ## Project additions are injected
 
-A project keeps its rules for a shared role in `.claude/kit/<role>.md`. Core's
+A project keeps its rules for a shared role in `.claude/kit/<role>.md`. Relay's
 `hooks/inject-addition.sh` hands that file to the agent or session itself, so
 no agent has to obey a "read your addition" line:
 
@@ -148,7 +148,7 @@ The stop words are exactly `BUDGET SPENT`, `HUNG`, `TIME BUDGET SPENT`.
 keeps the main checkout clean and secrets out of the output. Tests:
 `tests/test_hook_guard_main.py` (at the repository root).
 
-- **Writes by file tools** inside the main checkout, outside the worktrees folder.
+- **Writes by file tools** inside the main checkout, outside every worktree git lists for this repository (a path inside such a worktree is a task worktree); `project.worktrees` adds one more folder.
 - **Writes through the shell** in the main checkout: a redirect or heredoc, `tee`,
   `sed -i`, `perl -i`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `ln`, `install`,
   `truncate`, `find -delete`, `xargs rm`, `rsync`, `patch`, `tar -x`, `unzip`,
@@ -192,7 +192,7 @@ path (write `^` to anchor it); `files` and `files_exclude` work the same way.
 |---|---|---|---|
 | `project.name` | informational | project name | `"kartoteka"` |
 | `project.default_branch` | required | branch worktrees start from and merge into | `"master"` |
-| `project.worktrees` | required (guard: `.worktrees`) | folder of the project's worktrees | `".worktrees"` |
+| `project.worktrees` | optional (guard: an extra folder; git's own worktree list already counts) | folder of the project's worktrees | `".worktrees"` |
 | `project.stack_skills` | required (may be `[]`) | skills a worker or fixer loads | `["ts-dev"]` |
 | `gate.wt` | required | worktree tool: `new <name> <base>`, `rm <name>`, `ls` | `"bin/wt"` |
 | `gate.check` | required | the quiet loop; follows "The check-script contract" below (three forms, exit codes, round budget, `HUNG`, time budget) | `"bin/check"` |

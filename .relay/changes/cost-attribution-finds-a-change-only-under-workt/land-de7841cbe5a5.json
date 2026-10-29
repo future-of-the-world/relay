@@ -1,0 +1,181 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1947,
+   "id": "a62a1cf9de54bf743",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T16:52:10.113Z",
+   "stop": "2026-10-29T16:53:28.606Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "a1bc8792c6256ec58",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T16:53:32.127Z",
+   "stop": "2026-10-29T17:06:37.109Z"
+  },
+  {
+   "cost_usd": 0.8357,
+   "id": "a7662f8b24129cc45",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T17:06:41.764Z",
+   "stop": "2026-10-29T17:09:59.598Z"
+  },
+  {
+   "cost_usd": 0.1698,
+   "id": "aaa7ed5692b240159",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T17:10:02.792Z",
+   "stop": "2026-10-29T17:11:07.514Z"
+  },
+  {
+   "cost_usd": 0.003,
+   "id": "ad6640a9688e4ebb9",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T17:11:10.352Z",
+   "stop": "2026-10-29T17:17:46.060Z"
+  },
+  {
+   "cost_usd": 0.1023,
+   "id": "a7e4af5a5485ae015",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T17:17:50.576Z",
+   "stop": "2026-10-29T17:18:40.239Z"
+  },
+  {
+   "cost_usd": 0.1099,
+   "id": "ad69d4f47c9a1e420",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T17:19:27.998Z",
+   "stop": "2026-10-29T17:20:19.919Z"
+  },
+  {
+   "cost_usd": 0.006,
+   "id": "ab3025159e533303a",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T17:20:22.469Z",
+   "stop": "2026-10-29T17:32:45.364Z"
+  },
+  {
+   "cost_usd": 0.2047,
+   "id": "a9f1f19c1566e6b91",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T17:32:49.358Z",
+   "stop": "2026-10-29T17:34:45.455Z"
+  },
+  {
+   "cost_usd": 0.2146,
+   "id": "a67a1d77a2e075a5e",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T18:22:18.153Z",
+   "stop": "2026-10-29T18:23:36.016Z"
+  },
+  {
+   "cost_usd": 0.004,
+   "id": "af6411274f313c879",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T18:23:38.665Z",
+   "stop": "2026-10-29T18:31:57.263Z"
+  },
+  {
+   "cost_usd": 0.1539,
+   "id": "a2b1debc733369d01",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T18:31:59.776Z",
+   "stop": "2026-10-29T18:32:57.718Z"
+  },
+  {
+   "cost_usd": 0.0027,
+   "id": "a8bc891836571060e",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T18:33:05.144Z",
+   "stop": "2026-10-29T18:33:15.533Z"
+  },
+  {
+   "cost_usd": 0.0019,
+   "id": "a77c9a5bc365277ef",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-29T18:33:18.344Z",
+   "stop": "2026-10-29T18:33:29.644Z"
+  }
+ ],
+ "before": "0664aa01f675f189b40afc6e480811c00d8cc51c",
+ "branch": "wt/cost-attribution-finds-a-change-only-und",
+ "head": "de7841cbe5a563888aeef0d918ebd4a055035696",
+ "item": "cost-attribution-finds-a-change-only-under-workt",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T18:33:40+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-29T18:33:40+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-29T18:41:30+00:00",
+   "gate_seconds": 449.18960024998523,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "cost-attribution-finds-a-change-only-under-workt"
+}

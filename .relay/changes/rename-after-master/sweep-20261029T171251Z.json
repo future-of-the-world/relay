@@ -1,0 +1,34 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0032,
+   "id": "a1257a81c5a408ce7",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T01:18:20.387Z",
+   "stop": "2026-10-28T01:27:18.345Z"
+  },
+  {
+   "cost_usd": 0.1402,
+   "id": "a9e74b25a747e438d",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-28T01:27:20.966Z",
+   "stop": "2026-10-28T01:36:54.932Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "rename-after-master"
+}

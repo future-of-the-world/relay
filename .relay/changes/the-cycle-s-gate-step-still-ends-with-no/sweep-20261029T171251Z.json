@@ -1,0 +1,34 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0015,
+   "id": "af604a7d6d2849e06",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-29T07:05:21.204Z",
+   "stop": "2026-10-29T07:05:33.093Z"
+  },
+  {
+   "cost_usd": 0.0022,
+   "id": "af604a7d6d2849e06",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-29T07:05:21.204Z",
+   "stop": "2026-10-29T07:05:36.084Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "the-cycle-s-gate-step-still-ends-with-no"
+}

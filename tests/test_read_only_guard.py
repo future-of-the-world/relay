@@ -54,6 +54,15 @@ class ReadOnlyHook(unittest.TestCase):
             self.assertEqual(hook("delegate:critic", command), "allow", command)
         self.assertEqual(hook("delegate:critic", "relay setup /x", tool="Read"), "allow")
 
+    def test_f2_metrics_backfill_and_sweep_write_and_are_refused_while_reads_pass(self) -> None:
+        """`relay metrics backfill` and `relay metrics sweep` land commits on the default branch: a critic is refused. `relay metrics` and
+        `relay metrics <unit>` only read; `relay land wt/x` stays refused."""
+        for command in ("relay metrics backfill", "relay metrics sweep", "cd w && python3 bin/relay metrics backfill item-a"):
+            self.assertEqual(hook("delegate:critic", command), "deny", command)
+        for command in ("relay metrics", "relay metrics item-a"):
+            self.assertEqual(hook("delegate:critic", command), "allow", command)
+        self.assertEqual(hook("delegate:critic", "relay land wt/x"), "deny")
+
     def test_q1_every_relay_subcommand_is_classified_as_read_or_write(self) -> None:
         """A subcommand bin/relay gains must be put on the guard's list (WRITERS) or its READS: none is left unclassified."""
         guard = load_guard()

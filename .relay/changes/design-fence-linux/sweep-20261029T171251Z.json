@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.8816,
+   "id": "a6be420303e11b818",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 42,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-29T05:39:34.040Z",
+   "stop": "2026-10-29T06:03:36.098Z"
+  },
+  {
+   "cost_usd": 1.6891,
+   "id": "a7f81273ebe3c9af6",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design review",
+   "start": "2026-10-29T06:03:39.822Z",
+   "stop": "2026-10-29T06:10:49.628Z"
+  },
+  {
+   "cost_usd": 3.2278,
+   "id": "a7d274d4e22d6f953",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 25,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design revise",
+   "start": "2026-10-29T06:10:52.583Z",
+   "stop": "2026-10-29T06:33:17.090Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "design-fence-linux"
+}

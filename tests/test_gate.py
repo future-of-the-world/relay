@@ -509,6 +509,9 @@ class Inert(Fixture):
         os.makedirs(os.path.join(main, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(main, "bin", "ci"))
         shutil.copy(os.path.join(ROOT, "deps.toml"), os.path.join(main, "deps.toml"))   # bin/ci reads the python pin
+        # the fixture tests the probe, not coverage: under coverage the test process's parent is `uv`, so the signal case below would kill uv
+        # and not the gate program
+        write(os.path.join(main, ".claude", "kit.toml"), '[metrics]\ncoverage = "off"\n')
         os.makedirs(os.path.join(main, "lib"))
         for module in ("relay_ci.py", "relay_ci_lines.py", "relay_ci_python.py", "relay_ci_probe.py"):   # the wrapper runs relay_ci, which imports the others
             shutil.copy(os.path.join(ROOT, "lib", module), os.path.join(main, "lib", module))

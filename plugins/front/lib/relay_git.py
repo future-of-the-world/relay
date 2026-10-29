@@ -23,6 +23,7 @@ class Worktree(TypedDict):
     path: str              # real path
     branch: str | None     # short name, None when detached
     locked: str | None     # the reason ("" if none given); None when not locked
+    prunable: bool         # git lists it but its folder is gone (git worktree prune would drop it)
 
 
 class GitError(Exception):
@@ -132,11 +133,13 @@ def worktrees(repo: str) -> list[Worktree]:
             continue
         key, _, value = line.partition(" ")
         if key == "worktree":
-            cur = {"path": os.path.realpath(value), "branch": None, "locked": None}
+            cur = {"path": os.path.realpath(value), "branch": None, "locked": None, "prunable": False}
         elif cur is not None and key == "branch":
             cur["branch"] = value[len("refs/heads/"):] if value.startswith("refs/heads/") else value
         elif cur is not None and key == "locked":
             cur["locked"] = value
+        elif cur is not None and key == "prunable":
+            cur["prunable"] = True
     return result
 
 

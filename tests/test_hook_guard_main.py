@@ -222,7 +222,8 @@ MIX = [
     ('allow', 'curl -v public endpoint', 'Bash', '@W@', 'command', 'curl -v https://api-demo.bybit.com/v5/market/time'),
     ('allow', 'curl -s with key header', 'Bash', '@W@', 'command', 'curl -s -H "X-BAPI-API-KEY: $ALIX_EXCHANGE_KEY" https://api-demo.bybit.com/v5/account'),
     ('allow', 'the other worktrees dir is main', 'Bash', '@M@', 'command', 'cd .worktrees/any-change && git status'),
-    ('block', 'edit in the unlisted .worktrees dir', 'Edit', '@M@', 'file_path', '@M@/.worktrees/any-change/x.ex'),
+    ('allow', 'edit in a registered worktree of the other dir', 'Edit', '@M@', 'file_path', '@M@/.worktrees/any-change/x.ex'),
+    ('block', 'edit in the other dir, not a worktree', 'Edit', '@M@', 'file_path', '@M@/.worktrees/nothing/x.ex'),
 ]
 
 BUN_ALL = [
@@ -238,6 +239,13 @@ BUN_ALL = [
 
 NONE = [
     ('allow', 'stack commands are no rule', 'Bash', '@M@', 'command', 'bun add zod'),
+    # no kit.toml: the git-registered worktree .worktree/any-change (ALIX's bin/wt folder) is a task worktree whatever its folder
+    ('allow', 'edit in a worktree of an unlisted folder', 'Edit', '@M@', 'file_path', '@M@/.worktree/any-change/x.ex'),
+    ('allow', 'git -C into that worktree', 'Bash', '@M@', 'command', 'git -C @M@/.worktree/any-change commit --allow-empty -m x'),
+    ('block', 'main file is still main (the main entry is not exempt)', 'Edit', '@M@', 'file_path', '@M@/README.md'),
+    ('block', 'a file named like the worktree', 'Edit', '@M@', 'file_path', '@M@/.worktree/any-change.txt'),
+    ('block', 'through the deps symlink into main', 'Edit', '@M@', 'file_path', '@M@/.worktree/any-change/deps/jason/x.ex'),
+    ('block', 'commit in main', 'Bash', '@M@', 'command', 'git commit --allow-empty -m x'),
 ]
 
 BROKEN = [
@@ -348,6 +356,63 @@ class Guard(SoftCases):
         done = subprocess.run([HOOK], input=json.dumps(event), capture_output=True, text=True, env=env)
         self.assertEqual(done.returncode, 2, done.stderr)  # the project rule still fires: bun add in main
         self.assertFalse(os.path.exists(log), open(log).read() if os.path.exists(log) else '')
+
+    def run_hook(self, m: str, event: dict, project: str = "") -> "subprocess.CompletedProcess[str]":
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
+        return subprocess.run([HOOK], input=json.dumps(event), capture_output=True, text=True, env=env)
+
+    def test_a_removed_but_registered_worktree_is_not_a_task_worktree(self) -> None:
+        # F2: git still lists a worktree whose folder was deleted (prunable); a write there lands in the main checkout.
+        m = self.mkrepo("prunable")
+        git(m, "worktree", "add", "-q", ".worktree/gone", "-b", "wt/gone")
+        shutil.rmtree(os.path.join(m, ".worktree", "gone"))
+        event = {"tool_name": "Write", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": m + "/.worktree/gone/x.ex"}}
+        self.assertEqual(self.run_hook(m, event).returncode, 2)
+        live = dict(event, tool_input={"file_path": m + "/.worktree/any-change/x.ex"})
+        self.assertEqual(self.run_hook(m, live).returncode, 0)
+
+    def test_a_locked_removed_worktree_is_not_a_task_worktree(self) -> None:
+        # F1: git never marks a locked entry prunable, so a deleted locked worktree must be dropped by its missing folder.
+        m = self.mkrepo("lockedgone")
+        git(m, "worktree", "add", "-q", ".worktree/b", "-b", "wt/b")
+        git(m, "worktree", "lock", ".worktree/b")
+        git(m, "worktree", "add", "-q", ".worktree/c", "-b", "wt/c")
+        git(m, "worktree", "lock", ".worktree/c")
+        shutil.rmtree(os.path.join(m, ".worktree", "b"))
+        gone = {"tool_name": "Write", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": m + "/.worktree/b/x.ex"}}
+        self.assertEqual(self.run_hook(m, gone).returncode, 2)
+        live = dict(gone, tool_input={"file_path": m + "/.worktree/c/x.ex"})
+        self.assertEqual(self.run_hook(m, live).returncode, 0)
+
+    def test_the_cd_guard_knows_a_worktree_of_any_folder(self) -> None:
+        # F4: the main session's cd into a registered worktree is refused whatever the folder is called.
+        m = self.mkrepo("cdguard")
+        event = {"tool_name": "Bash", "cwd": m, "tool_input": {"command": "cd %s/.worktree/any-change && ls" % m}}
+        done = self.run_hook(m, event)
+        self.assertEqual(done.returncode, 2)
+        self.assertIn("cd into a worktree", done.stderr)
+
+    def test_kit_folder_is_an_extra_not_a_replacement(self) -> None:
+        # F6: kit.toml worktrees = ".worktrees" (as relay setup writes) must not hide the .worktree/ worktree.
+        m = self.mkrepo("union")
+        os.makedirs(os.path.join(m, ".claude"))
+        with open(os.path.join(m, ".claude", "kit.toml"), "w") as handle:
+            handle.write('[project]\nworktrees = ".worktrees"\n')
+        event = {"tool_name": "Edit", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": m + "/.worktree/any-change/x.ex"}}
+        self.assertEqual(self.run_hook(m, event).returncode, 0)
+
+    def test_the_advice_names_the_projects_own_worktree_tool(self) -> None:
+        # F5: a project with bin/wt is told to use it, not `git worktree add .worktrees/<name>`.
+        m = self.mkrepo("advice")
+        os.makedirs(os.path.join(m, "bin"))
+        with open(os.path.join(m, "bin", "wt"), "w") as handle:
+            handle.write("#!/bin/sh\n")
+        os.chmod(os.path.join(m, "bin", "wt"), 0o755)
+        event = {"tool_name": "Edit", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": m + "/README.md"}}
+        done = self.run_hook(m, event)
+        self.assertEqual(done.returncode, 2)
+        self.assertIn("bin/wt new", done.stderr)
+        self.assertNotIn("git worktree add", done.stderr)
 
     def hook_with_rule(self, name: str, pattern: str, command: str, unless: str = "") -> "subprocess.CompletedProcess[str]":
         """Bash `command` in a main checkout whose kit.toml has one [[guard.block]] rule (TOML literal strings)."""

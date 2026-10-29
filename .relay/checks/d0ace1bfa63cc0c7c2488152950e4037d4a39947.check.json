@@ -1,0 +1,126 @@
+{
+  "branch": "wt/alix-bin-wt-makes-worktree-but-relay-exp",
+  "findings": [
+    {
+      "details": [
+        "26 Oct, found by the portable-tool design (scratchpad reports/design-portable.md): ALIX's bin/wt creates .worktree/ (singular) while the guard hook expects .worktrees. Not yet reproduced. IP chosen by the front (agent-chosen).",
+        "Also: kit.toml [project] worktrees, ALIX's bin/wt (read only)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A temporary project whose bin/wt makes .worktree/<task>: relay's guard treats a session in .worktree/x as the main checkout (or refuses its work)."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same session is treated as a task worktree; a project using .worktrees is unchanged."
+      ],
+      "path": "plugins/relay/hooks/guard-main.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_hook_guard_main.py::test_the_cd_guard_knows_a_worktree_of_any_folder (and test_kit_folder_is_an_extra_not_a_replacement) pass at head and fail at 2b1f1da8."
+      ],
+      "severity": "HIGH",
+      "since": "2b1f1da8b227c7ba5b11413935fe5fd596e39980",
+      "source": "queue",
+      "summary": "ALIX bin/wt makes .worktree/ but relay expects .worktrees",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe. git marks an entry prunable only when it is not locked, so the filter `not w[\"prunable\"]` misses a",
+        "locked entry whose folder is gone. relay itself locks worktrees (merge.py:92) when a merged branch's worktree holds the",
+        "running session, so locked entries are ordinary; a folder removed by hand afterwards reproduces the F2 failure of the",
+        "design review, which the brief made a case of this change. Size: 5."
+      ],
+      "evidence": [
+        "git -C probe/m worktree list --porcelain | grep -E \"^(worktree|locked|prunable)\"",
+        "  worktree .../probe/m/.worktree/b",
+        "  locked",
+        "python3 -I probe.py <branch hook> probe/m",
+        "  write into locked+missing .worktree/b rc 0"
+      ],
+      "failing_case": [
+        "Repo m, no kit.toml (ALIX shape). git worktree add .worktree/b -b wt/b; git worktree lock .worktree/b (relay's merge hook",
+        "does this: merge.py:92 \"locked until this session ends\"); rm -rf .worktree/b. git worktree list --porcelain prints the",
+        "entry with \"locked\" and no \"prunable\" line. Write {file_path: m/.worktree/b/x.ex} from an agent: exit 0 now, the file is",
+        "created in the main checkout's folder on no branch. Expected: exit 2, \"writes to the main checkout\", as for the",
+        "unlocked prunable case the change already refuses."
+      ],
+      "fix_hint": [
+        "In listed_worktrees also drop entries whose folder is not a directory: `... and not w[\"prunable\"] and os.path.isdir(w[\"path\"])`",
+        "(one stat per entry, no git call). Add the locked-and-deleted row to test_a_removed_but_registered_worktree_is_not_a_task_worktree."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 265,
+      "pass_cases": [
+        "1. Locked worktree .worktree/b, folder deleted: Write m/.worktree/b/x.ex -> exit 2.",
+        "2. Unlocked registered .worktree/gone, folder deleted (prunable): Write m/.worktree/gone/x.ex -> exit 2 (as today).",
+        "3. Locked live worktree .worktree/c (folder present): Write m/.worktree/c/x.ex -> exit 0.",
+        "4. Live .worktree/any-change: Write m/.worktree/any-change/x.ex -> exit 0."
+      ],
+      "path": "plugins/relay/hooks/guard_main.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_hook_guard_main.py:374 passes, encodes locked deleted worktree refused and live locked allowed; fails at 1ff7198d."
+      ],
+      "severity": "MEDIUM",
+      "since": "b746e27f47f13557b1a0743acce0c5d68c6dab9e",
+      "source": "review-alix-bin-wt-makes-worktree-but-relay-exp.json",
+      "source_id": "F1",
+      "summary": "a locked worktree whose folder was deleted is not marked prunable by git, so it stays exempt and a write there lands in the main checkout",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Correct today, misleading to the agent user (principle 10). Size: 5."
+      ],
+      "evidence": [
+        "git grep -n \"worktrees folder\" plugins/relay/README.md plugins/relay/hooks/guard_main.py"
+      ],
+      "failing_case": [
+        "plugins/relay/README.md:151 \"Writes by file tools inside the main checkout, outside the worktrees folder\", :195",
+        "\"project.worktrees | required (guard: .worktrees)\", and the module docstring guard_main.py:8 \"outside its worktrees folder",
+        "(project.worktrees, default .worktrees)\" and :38 describe the old rule. An agent reading them for ALIX concludes",
+        ".worktree/<name> is refused and works around it. Expected: the text says a path inside any live worktree git lists for",
+        "the repository (not the main checkout) is a task worktree, and project.worktrees adds one folder."
+      ],
+      "fix_hint": [
+        "Rewrite the three lines; no code change."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 151,
+      "pass_cases": [
+        "1. README line on file writes names \"a worktree git lists for this repository\" and project.worktrees as an extra folder.",
+        "2. guard_main.py docstring line 8 says the same.",
+        "3. README key table row for project.worktrees no longer says the guard needs it."
+      ],
+      "path": "plugins/relay/README.md",
+      "rank": "low",
+      "reason": [
+        "plugins/relay/README.md:151 now names git's worktree list."
+      ],
+      "severity": "LOW",
+      "since": "b746e27f47f13557b1a0743acce0c5d68c6dab9e",
+      "source": "review-alix-bin-wt-makes-worktree-but-relay-exp.json",
+      "source_id": "F2",
+      "summary": "the guard's docs still say file writes are allowed only in the worktrees folder (project.worktrees, default .worktrees)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0c397122319ce32e596c3815a45820999809dc62.gate.log",
+  "head": "d0ace1bfa63cc0c7c2488152950e4037d4a39947",
+  "item": "alix-bin-wt-makes-worktree-but-relay-expects-wor",
+  "notes": [
+    "Files changed are the guard, its tests, README, golden, relay_git copies: in scope."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 2b1f1da8..HEAD. Gate log head 0c397122 green (exit 0); only the inert gate log came after. precheck green, test_hook_kit* 11 passed, tests/test_hook_guard_main.py 17 passed. Ran the test file at the pre-fix commits: at 2b1f1da8 7 tests fail; at 1ff7198d the locked-removed test fails."
+  ],
+  "type": "check"
+}

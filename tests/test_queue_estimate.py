@@ -1,6 +1,7 @@
 """Queue time estimates: a change's real minutes come from agent transcripts, the estimate from the median of measured changes."""
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -29,6 +30,37 @@ class Measure(unittest.TestCase):
     def test_worktree_name_from_cwd(self):
         self.assertEqual(est.worktree_of("/r/.worktrees/foo-bar/lib"), "foo-bar")
         self.assertIsNone(est.worktree_of("/r/lib"))
+
+    def test_worktree_folder_is_a_whole_path_part(self):
+        # `my.worktrees` is not the `.worktrees` folder; a real one is still found
+        self.assertIsNone(est.worktree_of("/x/relay/lib/my.worktrees/fx"))
+        self.assertEqual(est.worktree_of("/x/relay/.worktrees/fx/lib"), "fx")
+
+    def test_cwd_in_the_projects_own_folder_with_root(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.write_kit(root)
+            self.assertEqual(est.change_of(f"{root}/.worktree/fx/lib", "", root=root), "fx")
+
+    def test_agent_rows_with_cwd_in_the_projects_own_folder(self):
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as projects:
+            self.write_kit(root)
+            proj = re.sub(r"[^A-Za-z0-9]", "-", os.path.realpath(root))
+            write_agent(projects, "s1", "a1", f"{root}/.worktree/fx", "delegate:worker", "2026-10-01T10:00:00Z", "2026-10-01T10:07:00Z", proj=proj)
+            # 10:00 to 10:07 is 7 minutes, one row for change fx
+            self.assertEqual(est.agent_rows(projects, root), [A("fx", "delegate:worker", 420.0)])
+
+    def write_kit(self, root):
+        os.makedirs(os.path.join(root, ".claude"))
+        with open(os.path.join(root, ".claude", "kit.toml"), "w") as handle:
+            handle.write('[project]\nworktrees = ".worktree"\n')
+
+    def test_change_of_brief_line_in_the_projects_folder(self):
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, ".claude"))
+            with open(os.path.join(root, ".claude", "kit.toml"), "w") as handle:
+                handle.write('[project]\nworktrees = ".worktree"\n')
+            line = f"Worktree: {root}/.worktree/fx (branch wt/fx)"
+            self.assertEqual(est.change_of(root, line, root=root), "fx")
 
     def test_agent_minutes_sum_and_build_part(self):
         # change "c1": worker 10 min + checker 5 min = 15 agent min, 10 build; an agent outside any worktree is not counted
@@ -251,9 +283,49 @@ class Workflow(unittest.TestCase):
         self.assertEqual(sorted(r.change for r in rows), ["new", "old"])
 
 
+class OwnFolderForms(unittest.TestCase):
+    """F1: a worktrees folder written as `../x`, absolute, or nested keeps its full path."""
+
+    def kit(self, root, value):
+        os.makedirs(os.path.join(root, ".claude"))
+        with open(os.path.join(root, ".claude", "kit.toml"), "w") as handle:
+            handle.write(f'[project]\nworktrees = "{value}"\n')
+
+    def test_sibling_folder_brief_line(self):
+        with tempfile.TemporaryDirectory() as top:
+            root = os.path.join(top, "repo")
+            self.kit(root, "../out-wt")
+            self.assertEqual(est.change_of(root, f"Worktree: {top}/out-wt/fx (branch wt/fx)", root=root), "fx")
+
+    def test_absolute_folder_brief_line(self):
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as wt:
+            self.kit(root, wt)
+            self.assertEqual(est.change_of(root, f"Worktree: {wt}/fx", root=root), "fx")
+
+    def test_nested_folder_repo_top(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib", "queue_ext"))
+        import estimate as view
+        with tempfile.TemporaryDirectory() as root:
+            self.kit(root, "build/wt")
+            self.assertEqual(view.repo_top(os.path.join(root, "build", "wt", "fx")), root)
+
+    def test_default_folder_unchanged(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(est.change_of(root, f"Worktree: {root}/.worktrees/fx", root=root), "fx")
+
+
 class ViewRoot(unittest.TestCase):
     def test_root_inside_worktree_is_the_repo(self):
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib", "queue_ext"))
         import estimate as view
         self.assertEqual(view.repo_top("/r/.worktrees/c1"), "/r")
         self.assertEqual(view.repo_top("/r"), "/r")
+
+    def test_repo_top_of_a_project_with_its_own_worktrees_folder(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib", "queue_ext"))
+        import estimate as view
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, ".claude"))
+            with open(os.path.join(root, ".claude", "kit.toml"), "w") as handle:
+                handle.write('[project]\nworktrees = ".worktree"\n')
+            self.assertEqual(view.repo_top(os.path.join(root, ".worktree", "fx")), root)

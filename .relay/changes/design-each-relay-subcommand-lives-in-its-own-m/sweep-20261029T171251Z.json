@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.6114,
+   "id": "ac207a44a2ae16bde",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 29,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-28T17:05:03.592Z",
+   "stop": "2026-10-28T17:17:03.775Z"
+  },
+  {
+   "cost_usd": 2.0747,
+   "id": "a73ffe9c205ba9e02",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 27,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design review",
+   "start": "2026-10-28T17:17:07.783Z",
+   "stop": "2026-10-28T17:25:37.796Z"
+  },
+  {
+   "cost_usd": 2.683,
+   "id": "a962cd83be166d377",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design revise",
+   "start": "2026-10-28T17:25:41.935Z",
+   "stop": "2026-10-28T17:34:44.924Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "design-each-relay-subcommand-lives-in-its-own-m"
+}

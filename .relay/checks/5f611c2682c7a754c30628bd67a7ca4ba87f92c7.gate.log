@@ -1,0 +1,18 @@
+head 5f611c2682c7a754c30628bd67a7ca4ba87f92c7
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (719s, log: .ci/steps/library-tests.log)
+    FAIL: test_q1_every_relay_subcommand_is_classified_as_read_or_write (test_read_only_guard.ReadOnlyHook.test_q1_every_relay_subcommand_is_classified_as_read_or_write)
+    AssertionError: Items in the first set but not the second:
+    FAIL: test_tree_passes (test_module_sizes.ModuleSizes.test_tree_passes)
+    AssertionError: Lists differ: ['lib/relay_ci.py has 611 lines, limit 600[61 chars]ct)'] != []
+    FAILED (failures=2)
+ci: coverage 89.3% of lib, bin, plugins (12908 of 14454 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (16s)
+ci: RED
+exit 1

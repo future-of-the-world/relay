@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0971,
+   "id": "ad7967ff6e1babb8a",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-29T04:01:44.557Z",
+   "stop": "2026-10-29T04:06:53.775Z"
+  },
+  {
+   "cost_usd": 0.0047,
+   "id": "a3c082a4e06b15e35",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T04:06:56.393Z",
+   "stop": "2026-10-29T04:25:26.914Z"
+  },
+  {
+   "cost_usd": 0.1623,
+   "id": "a4b2b100b358db5c9",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-29T04:25:29.802Z",
+   "stop": "2026-10-29T04:29:16.393Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "fix-test-scaffolding-take"
+}

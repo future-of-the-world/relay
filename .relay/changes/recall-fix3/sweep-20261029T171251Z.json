@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2577,
+   "id": "a29c260da21338ea2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 20,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T10:44:51.127Z",
+   "stop": "2026-10-28T10:50:53.943Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a2071ea3ce09acb18",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T10:50:58.049Z",
+   "stop": "2026-10-28T10:51:12.747Z"
+  },
+  {
+   "cost_usd": 0.1885,
+   "id": "a7ecb4ccdc890c403",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-28T10:51:16.593Z",
+   "stop": "2026-10-28T10:56:38.553Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "recall-fix3"
+}

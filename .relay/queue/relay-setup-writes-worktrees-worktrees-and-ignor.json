@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 80,
+  "time": 30,
+  "found_at": "2026-10-29T15:40:02Z",
+  "found_in": "finding F7 of design-alix-bin-wt-review.json",
+  "title": "Relay setup writes worktrees = \".worktrees\" and ignores…",
+  "what": [
+    "lib/relay_setup.py:195: MEDIUM: F7 relay setup writes worktrees = \".worktrees\" and ignores .worktrees/ whatever the project's bin/wt makes"
+  ],
+  "why": [
+    "29 Oct, design review of the ALIX worktree-folder fix: outside that change. ALIX's bin/wt makes .worktree/; relay setup would write and ignore the wrong folder there. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "relay setup on ALIX (bin/wt makes .worktree/<name>): kit.toml gets worktrees = \".worktrees\" and .gitignore gets",
+    ".worktrees/, while gate.wt = \"bin/wt\" keeps making .worktree/. Every reader of project.worktrees (openspec skills,",
+    "the guard advice) then points at a folder the project never uses. Expected: worktrees = \".worktree\"."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. Project whose bin/wt or registered worktrees use .worktree/: setup writes worktrees = \".worktree\".",
+    "2. Project with no bin/wt and no worktrees: setup writes \".worktrees\" as today."
+  ],
+  "where": [
+    "lib/relay_setup.py:195"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

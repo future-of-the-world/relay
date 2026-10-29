@@ -1,0 +1,111 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1733,
+   "id": "a4adc58cb938971f8",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-28T08:00:04.190Z",
+   "stop": "2026-10-28T08:02:52.124Z"
+  },
+  {
+   "cost_usd": 0.005,
+   "id": "a35d2eab4f3bdb44e",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T08:02:55.388Z",
+   "stop": "2026-10-28T08:26:17.031Z"
+  },
+  {
+   "cost_usd": 0.9036,
+   "id": "aae492db6704a60a8",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 16,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-28T08:26:20.458Z",
+   "stop": "2026-10-28T08:31:03.955Z"
+  },
+  {
+   "cost_usd": 0.2595,
+   "id": "a9a8d684dfe0cc0eb",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T08:31:07.695Z",
+   "stop": "2026-10-28T08:37:29.900Z"
+  },
+  {
+   "cost_usd": 0.0042,
+   "id": "a3b597e238c55a30e",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T08:37:32.958Z",
+   "stop": "2026-10-28T08:53:03.963Z"
+  },
+  {
+   "cost_usd": 0.1401,
+   "id": "ad2e7b18cf21adf83",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-28T08:53:06.730Z",
+   "stop": "2026-10-28T08:56:38.268Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "ab24534b11b5f8f9c",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "close queue item",
+   "start": "2026-10-28T08:56:41.395Z",
+   "stop": "2026-10-28T08:56:53.649Z"
+  },
+  {
+   "cost_usd": 0.0027,
+   "id": "ab24534b11b5f8f9c",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "close queue item",
+   "start": "2026-10-28T08:56:41.395Z",
+   "stop": "2026-10-28T08:56:56.953Z"
+  },
+  {
+   "cost_usd": 0.0019,
+   "id": "a035704f7e9d4975b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-28T08:57:01.963Z",
+   "stop": "2026-10-28T08:57:22.034Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "riders-of-a-built-train-each-count-as-a"
+}

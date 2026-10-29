@@ -40,10 +40,14 @@ def classify(agent_type):
 # Owner decision 24 Oct / 28 Oct: the front keeps Opus; numbers only, no flag and no target. Overspending is relative: the
 # figure to watch is the main sessions' share of the cost and their requests per owner turn, expected to fall over time.
 
-def _front_mains(data: dict[str, Any]) -> list[Any]:
-    """Main sessions the owner talked to: a program-started (headless, eval, bench) session is no front, and its
+def _front_sessions(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Sessions the owner talked to: a program-started (headless, eval, bench) session is no front, and its
     turns are zeroed, so its requests must not count against the owner's turns."""
-    return [s["main"] for s in data["sessions"] if not s["main"].scripted]
+    return [s for s in data["sessions"] if not s["main"].scripted]
+
+
+def _front_mains(data: dict[str, Any]) -> list[Any]:
+    return [s["main"] for s in _front_sessions(data)]
 
 
 def _ts(value):
@@ -326,6 +330,22 @@ def _sum_agg(aggs):
     return out
 
 
+def front_cost_by_day(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """The front's (main sessions') cost per UTC day, by the rule `report` uses for "Main sessions' share of cost": the transcript cost of
+    the interactive sessions' main threads (`front_cost` in totals). basis is "exact" when every session of the day has Claude Code's own
+    total written after its last activity (session_figures), else "estimate", as `report` labels a session."""
+    days: dict[str, dict[str, Any]] = {}
+    for session in _front_sessions(data):
+        label = session_figures(session, data.get("exact") or {}, data.get("exact_at"))["label"]
+        for day, cost in session["main"].cost_by_day.items():
+            row = days.setdefault(day, {"cost_usd": 0.0, "sessions": 0, "basis": "exact"})
+            row["cost_usd"] += cost
+            row["sessions"] += 1
+            if label != "exact":
+                row["basis"] = "estimate"
+    return days
+
+
 def totals(data: dict[str, Any]) -> dict[str, Any]:
     mains = [s["main"] for s in data["sessions"]]
     agents = [a for s in data["sessions"] for a in s["agents"]]
@@ -363,7 +383,7 @@ def totals(data: dict[str, Any]) -> dict[str, Any]:
         "front_requests": sum(m.total.requests for m in _front_mains(data)),
         "front_tool_calls": sum(sum(m.tools.values()) for m in _front_mains(data)),
         # interactive sessions only (a scripted run is no front): main cost and main + agents cost, transcript estimates
-        "front_cost": sum(s["main"].total.cost for s in data["sessions"] if not s["main"].scripted),
+        "front_cost": sum(s["main"].total.cost for s in _front_sessions(data)),
         "interactive_cost": sum(s["main"].total.cost + sum(a.total.cost for a in s["agents"])
                                 for s in data["sessions"] if not s["main"].scripted),
         "scripted_sessions": sum(1 for m in mains if m.scripted),

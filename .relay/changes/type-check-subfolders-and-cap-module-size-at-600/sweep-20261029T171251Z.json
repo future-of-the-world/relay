@@ -1,0 +1,100 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2597,
+   "id": "afa3eaf60e1352e14",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-28T20:02:20.498Z",
+   "stop": "2026-10-28T20:06:42.964Z"
+  },
+  {
+   "cost_usd": 0.0029,
+   "id": "a851465e6cee46604",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T22:13:52.211Z",
+   "stop": "2026-10-28T22:14:24.857Z"
+  },
+  {
+   "cost_usd": 0.2345,
+   "id": "aded38ec31f8ad6c0",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 19,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-28T22:14:28.558Z",
+   "stop": "2026-10-28T22:45:49.776Z"
+  },
+  {
+   "cost_usd": 0.0039,
+   "id": "a2afa3b5bbfb59178",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T04:31:44.864Z",
+   "stop": "2026-10-29T04:43:29.343Z"
+  },
+  {
+   "cost_usd": 0.7892,
+   "id": "aabb7beae5b14a492",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-29T04:43:32.369Z",
+   "stop": "2026-10-29T04:46:53.907Z"
+  },
+  {
+   "cost_usd": 0.1817,
+   "id": "ab8a8cc3562c6dc56",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-29T04:46:57.015Z",
+   "stop": "2026-10-29T04:54:52.494Z"
+  },
+  {
+   "cost_usd": 0.0047,
+   "id": "abff8739707c34f97",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T04:54:55.074Z",
+   "stop": "2026-10-29T05:15:05.611Z"
+  },
+  {
+   "cost_usd": 0.1291,
+   "id": "aa8abead3c2f5a022",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-29T05:15:08.010Z",
+   "stop": "2026-10-29T05:16:09.467Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "type-check-subfolders-and-cap-module-size-at-600",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "type-check-subfolders-and-cap-module-size-at-600"
+}
