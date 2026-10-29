@@ -1439,20 +1439,13 @@ class TestCloseOrphanFromMain(Base):
         self.write_commit(self.main, {".relay/queue/job.json": with_fields(fix_item("Job"), **taken_fields(by)),
                                       "tests/test_job.py": "def test_job():\n    pass\n"}, "seed")
 
-    def test_o1_an_item_of_a_gone_branch_is_closed_from_main_with_its_test(self):
-        self.seed("wt/gone")
-        with mock.patch.object(rq, "utcnow", return_value="2026-10-29T08:00:00Z"):
-            msg = rq.done(self.main, "job", "tests/test_job.py::test_job")
-        closed = self.item("job")
-        self.assertEqual((closed["state"], closed["test"], closed["taken_by"], closed["closed_at"], closed["problems"]),
-                         ("done", "tests/test_job.py::test_job", "wt/gone", "2026-10-29T08:00:00Z", []))
-        self.assertIn("job", msg)
-
-    def test_o2_the_test_must_exist_on_master(self):
+    def test_o1_done_from_main_is_refused_and_names_the_ways_with_proof(self):
+        # no proof that the test fixed anything: refused, the item stays taken, the message names --fixed-by and release
         self.seed("wt/gone")
         with self.assertRaises(rq.Refused) as ctx:
-            rq.done(self.main, "job", "tests/test_job.py::test_nope")
-        self.assertIn("test_nope", str(ctx.exception))
+            rq.done(self.main, "job", "tests/test_job.py::test_job")
+        self.assertIn("--fixed-by <commit> --test", str(ctx.exception))
+        self.assertIn("relay queue release job", str(ctx.exception))
         self.assertEqual(self.item("job")["state"], "taken")
 
     def test_o3_an_item_of_a_live_branch_is_not_closed_from_main(self):

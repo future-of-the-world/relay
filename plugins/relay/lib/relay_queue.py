@@ -1320,7 +1320,15 @@ def held_fix_items(worktree: str, riders: bool = False) -> dict:
 def open_item_refusal(worktree: str, branch: str) -> str | None:
     """Why `relay land` refuses: the branch of `worktree` still holds a taken fix item, or its queue cannot be read; else None."""
     try:
-        taken = sorted(s for s, i in held_fix_items(worktree).items() if i["state"] == "taken")
+        held = held_fix_items(worktree)
+        taken = {s for s, i in held.items() if i["state"] == "taken"}
+        main, default = _context(worktree)       # a take on the default branch that the branch head has not merged yet is open too
+        here = Reader(worktree, "HEAD").items()
+        for slug, item in Reader(main, f"refs/heads/{default}").items().items():
+            if (not item["problems"] and item["kind"] == "fix" and item["state"] == "taken" and item.get("taken_by") == branch
+                    and here.get(slug, {}).get("state") != "done"):
+                taken.add(slug)
+        taken = sorted(taken)
     except Refused as exc:
         return f"land: cannot read the queue of {branch}: {exc}"
     if not taken:
@@ -1531,35 +1539,19 @@ def check_refusal(repo, ref, slug):
     return f"after the check of {commit[:12]}, {', '.join(own[:3])} changed, which is not inert: check the fix again"
 
 
-def _close_orphan(repo: str, slug: str, test: str, **engine) -> str:
-    """`done` from the main checkout: closes an item taken by a branch that is merged or gone (its own worktree is not there to run
-    `done`), keeping its take. The test must be defined on the default branch. A live branch's item is closed by that branch."""
-    main, default = _context(repo)
-
-    def planner(reader: "Reader") -> Plan:
-        item = _item_at(reader, slug)
-        if item["state"] != "taken":
-            raise Refused("done runs in the worktree of the task branch that took the item; "
-                          f"from the main checkout it closes only an item taken by a branch that is gone ('{slug}' is {item['state']})")
-        if _branch_live(repo, item["taken_by"]):
-            raise Refused(f"queue item '{slug}' is taken by {item['taken_by']}, which is not merged: "
-                          f"run relay queue done {slug} -C <its worktree> --test {test}")
-        reason = test_refusal(main, "refs/heads/" + default, test)
-        if reason:
-            raise Refused(reason.replace("in the last commit of the branch", f"on {default}"))
-        text = serialize(slug, changed(item, closed_at=utcnow(), test=test.strip()))
-        return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "closed")
-
-    return _run(repo, planner, **engine)
-
-
 def done(worktree, slug, test):
     """Close a taken item on the task branch: needs `close_refusal` to say it may be closed (the named test at HEAD and, for a
     fix, the branch's check with Q1 MET)."""
     branch = relay_git.current_branch(worktree)
     main, default = _context(worktree)
     if branch == default:
-        return _close_orphan(worktree, slug, test)
+        held = Reader(worktree, "HEAD").items().get(slug)
+        if held and held["state"] == "taken" and _branch_live(worktree, held["taken_by"]):
+            raise Refused(f"queue item '{slug}' is taken by {held['taken_by']}, which is not merged: "
+                          f"run relay queue done {slug} -C <its worktree> --test {test}")
+        raise Refused(f"done runs in the worktree of the task branch that took the item; from the main checkout a fix taken by a branch "
+                      f"that is merged or gone closes with relay queue done {slug} --fixed-by <commit> --test <file>.py::<Class>::<name>; "
+                      f"one that was never fixed is released with relay queue release {slug}")
     if branch is None:
         raise Refused("done runs in the worktree of the task branch that took the item")
     path, _, name = test.partition("::")

@@ -576,13 +576,11 @@ class ReviewFixes(Land):
     def test_f4_landing_closes_the_feature_item_not_the_fix(self):
         self.start()
         self.master_commit(".relay/queue/feat.json", tls.item("feat", "feature", **tls.taken("wt/x")))
-        self.master_commit(".relay/queue/fx.json", tls.item("fx", "fix", **tls.taken("wt/x")))
         run = self.land()
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         queue = {i["slug"]: i for i in tls.rq.read_queue(self.main, closed=True)}
         self.assertEqual(queue["feat"]["state"], "done")
         self.assertEqual(queue["feat"]["evidence"], git(self.main, "log", "-n1", "--no-merges", "--format=%H", "--", "lib/a.py"))
-        self.assertEqual(queue["fx"]["state"], "taken")
         self.assertIn("feat", run.stdout)
 
     def test_f4_refused_landing_closes_nothing(self):
