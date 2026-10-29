@@ -682,7 +682,7 @@ class FirstFailureOfAStoppedGate(unittest.TestCase):
 
     def test_t9_the_stopped_line_is_the_first_failing_line(self):
         import relay_gate
-        out = "ci: types and lint ok (3s)\nci: lib copies identical ok (0s)\n%s\nci: RED (stopped at the time limit)" % self.STOPPED
+        out = "ci: types and lint ok (3s)\nci: plugin lib links ok (0s)\n%s\nci: RED (stopped at the time limit)" % self.STOPPED
         self.assertEqual(relay_gate.first_failure(out), [self.STOPPED])
 
     def test_t9_a_step_that_failed_before_the_stop_comes_first(self):

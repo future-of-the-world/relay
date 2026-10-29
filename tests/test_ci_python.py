@@ -110,6 +110,7 @@ class PaidPart(unittest.TestCase):
     def ci(self, runner: Recorder, quick: bool = False, **env: str) -> relay_ci.Ci:
         base = {"PATH": stubs(os.path.join(self.root, "stub"), ["git", "jq", "python3", "bun", "claude"])}
         ci = relay_ci.Ci(self.root, quick, env={**base, **env}, runner=runner)
+        ci.lib_links = lambda log: 0   # type: ignore[method-assign]  # the root here is no git repository: the step reads HEAD
         ci.prepare()
         return ci
 
@@ -230,7 +231,7 @@ class PaidPart(unittest.TestCase):
         ci = self.ci(Recorder(self.paid_answers()), quick=True)
         order: List[str] = []
         for attr, name in (("lib_tests", "library tests"), ("types_lint", "types and lint"), ("hook_tests", "hook tests"),
-                           ("lib_copies", "lib copies identical"), ("grader_tests", "eval grader tests"),
+                           ("lib_links", "plugin lib links"), ("grader_tests", "eval grader tests"),
                            ("validate_all", "plugin validate")):
             def fn(log: Any, name: str = name) -> int:
                 order.append(name)
@@ -241,11 +242,11 @@ class PaidPart(unittest.TestCase):
             code = ci.main()
         return order, out.getvalue(), code
 
-    def test_a_stale_lib_copy_is_reported_before_the_library_tests_start(self) -> None:
+    def test_a_lib_copy_is_reported_before_the_library_tests_start(self) -> None:
         # design A.3: the seconds-long steps run first; a red one ends the gate before the 4-10 minute steps
-        order, out, code = self.fast_first("lib copies identical")
-        self.assertEqual(order, ["types and lint", "lib copies identical"])   # library tests never started
-        self.assertIn("lib copies identical FAILED", out)
+        order, out, code = self.fast_first("plugin lib links")
+        self.assertEqual(order, ["types and lint", "plugin lib links"])   # library tests never started
+        self.assertIn("plugin lib links FAILED", out)
         self.assertEqual(code, 1)
         self.assertIn("ci: RED", out)
 
@@ -259,7 +260,7 @@ class PaidPart(unittest.TestCase):
 
     def test_a_green_tree_runs_every_step_with_the_fast_ones_first(self) -> None:
         order, out, code = self.fast_first("")
-        self.assertEqual(order, ["types and lint", "lib copies identical", "library tests", "hook tests",
+        self.assertEqual(order, ["types and lint", "plugin lib links", "library tests", "hook tests",
                                  "eval grader tests", "plugin validate"])
         self.assertEqual(code, 0)
 
@@ -366,7 +367,7 @@ class QuickGateLimit(unittest.TestCase):
 
     def ci(self, limit: str, quick: bool = True, **env: str) -> relay_ci.Ci:
         ci = relay_ci.Ci(self.root, quick, env={"PATH": os.environ["PATH"], "RELAY_CI_QUICK_LIMIT": limit, **env})
-        for name in ("types_lint", "lib_copies", "lib_tests", "hook_tests", "grader_tests", "validate_all"):
+        for name in ("types_lint", "lib_links", "lib_tests", "hook_tests", "grader_tests", "validate_all"):
             setattr(ci, name, lambda log: 0)
         return ci
 
@@ -599,7 +600,7 @@ class ProbeBesideTheRun(unittest.TestCase):
                 open(flag, "w").close()   # lets a nested run end, so a failing test never hangs
         ci.lib_tests = library_tests   # type: ignore[assignment,method-assign]
         ci.types_lint = lambda log: 0   # type: ignore[assignment,method-assign]  # the fast steps run before library tests
-        ci.lib_copies = lambda log: 0   # type: ignore[assignment,method-assign]
+        ci.lib_links = lambda log: 0   # type: ignore[assignment,method-assign]
         with redirect_stdout(io.StringIO()), self.assertRaises(KeyboardInterrupt):
             ci.main()
         self.assertEqual(started, [True])
@@ -611,7 +612,7 @@ class ProbeBesideTheRun(unittest.TestCase):
         env = {"PATH": os.environ["PATH"], "RELAY_GATE": self.head, "RELAY_CI_QUICK_LIMIT": "2"}
         ci = relay_ci.Ci(self.root, True, env=env)
         ci.nested = ("sh", "-c", "sleep 600 & wait")
-        for name in ("types_lint", "lib_copies", "hook_tests", "grader_tests", "validate_all"):
+        for name in ("types_lint", "lib_links", "hook_tests", "grader_tests", "validate_all"):
             setattr(ci, name, lambda log: 0)
         ci.lib_tests = lambda log: ci.run([sys.executable, "-c", "import time; time.sleep(600)"], log).returncode   # type: ignore[method-assign]
         with redirect_stdout(io.StringIO()):
@@ -628,7 +629,7 @@ class ProbeBesideTheRun(unittest.TestCase):
         env = {"PATH": os.environ["PATH"], "RELAY_GATE": self.head, "RELAY_CI_QUICK_LIMIT": "1"}
         ci = relay_ci.Ci(self.root, True, env=env)
         ci.nested = ("sh", "-c", "sleep 600 & wait")
-        for name in ("types_lint", "lib_copies", "hook_tests", "grader_tests", "validate_all"):
+        for name in ("types_lint", "lib_links", "hook_tests", "grader_tests", "validate_all"):
             setattr(ci, name, lambda log: 0)
         order: list[str] = []
         entered = threading.Event()

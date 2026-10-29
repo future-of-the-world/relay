@@ -442,7 +442,9 @@ def plugin_for_run(profile, folder, out_dir):
         return folder
     dest = os.path.join(out_dir, f"plugin-{profile['profile']['name']}-{os.path.basename(folder)}")
     shutil.rmtree(dest, ignore_errors=True)
-    shutil.copytree(folder, dest, symlinks=True)
+    # symlinks=False: the plugin's lib/ files are relative links into the repo's lib/; copied alone into a scratch folder a link
+    # would point nowhere, so the copy holds the content
+    shutil.copytree(folder, dest, symlinks=False)
     models, efforts = profile.get("models", {}), profile.get("effort", {})
     for file in sorted(os.listdir(os.path.join(dest, "agents"))):
         if not file.endswith(".md"):
@@ -457,6 +459,33 @@ def plugin_for_run(profile, folder, out_dir):
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(text)
     return dest
+
+
+def lib_adoption_conflicts(candidate: str, plugin: str) -> list[str]:
+    """Shared modules a candidate plugin changed. plugins/<p>/lib/<name> is a link to the one source in lib/; a candidate holds
+    real copies. A candidate file that differs from the link's target would be lost on adoption, so it is named instead."""
+    out: list[str] = []
+    src = os.path.join(candidate, "lib")
+    for name in sorted(os.listdir(src)) if os.path.isdir(src) else []:
+        dest = os.path.join(plugin, "lib", name)
+        if os.path.islink(dest) and os.path.isfile(os.path.join(src, name)) and not (
+                os.path.isfile(dest) and open(dest, "rb").read() == open(os.path.join(src, name), "rb").read()):
+            out.append("the candidate changed lib/%s (plugins/%s/lib/%s links to it): port that edit to lib/ in a change of its own, "
+                       "then adopt again" % (name, os.path.basename(plugin), name))
+    return out
+
+
+def adopt_lib(src: str, dest: str) -> None:
+    """Copy a candidate's lib/ onto a plugin's lib/ file by file. A destination that is a link is left alone (callers refuse a
+    candidate that differs first, with lib_adoption_conflicts): copying onto it would write through to the file in lib/."""
+    os.makedirs(dest, exist_ok=True)
+    for name in sorted(os.listdir(src)):
+        if os.path.islink(os.path.join(dest, name)):
+            continue
+        if os.path.isdir(os.path.join(src, name)):
+            shutil.copytree(os.path.join(src, name), os.path.join(dest, name), dirs_exist_ok=True)
+        else:
+            shutil.copy2(os.path.join(src, name), os.path.join(dest, name))
 
 
 def claude_command(profile, scenario, prompt, agents_json_path, rules_path, out_dir=None):
