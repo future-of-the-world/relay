@@ -1,0 +1,126 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1726,
+   "id": "adbf22a407e17db72",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T14:10:05.603Z",
+   "stop": "2026-10-29T14:12:35.379Z"
+  },
+  {
+   "cost_usd": 0.0062,
+   "id": "ac1ba150496d5eb2b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T14:25:33.274Z",
+   "stop": "2026-10-29T14:59:24.876Z"
+  },
+  {
+   "cost_usd": 0.0038,
+   "id": "a890ac24e2e9ae78f",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T15:00:00.312Z",
+   "stop": "2026-10-29T15:14:50.205Z"
+  },
+  {
+   "cost_usd": 0.9965,
+   "id": "a6650ac3cd8796344",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T15:14:53.888Z",
+   "stop": "2026-10-29T15:18:11.494Z"
+  },
+  {
+   "cost_usd": 0.1687,
+   "id": "acf6f8a8ee8077c16",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T21:21:28.663Z",
+   "stop": "2026-10-29T21:24:15.955Z"
+  },
+  {
+   "cost_usd": 0.0043,
+   "id": "abfa63ffed8294668",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T21:24:18.144Z",
+   "stop": "2026-10-29T21:37:07.837Z"
+  },
+  {
+   "cost_usd": 0.1335,
+   "id": "ae9e8adf1e4713c5c",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T21:37:13.400Z",
+   "stop": "2026-10-29T21:38:56.367Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a22bd6a632648954f",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T21:38:58.702Z",
+   "stop": "2026-10-29T21:39:08.135Z"
+  },
+  {
+   "cost_usd": 0.0019,
+   "id": "ad6267a3ef632942d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-29T21:39:10.650Z",
+   "stop": "2026-10-29T21:39:22.446Z"
+  }
+ ],
+ "before": "2791b61a03459b7f3fee24f46963307dfcb4212d",
+ "branch": "wt/squash-merge-projects-keep-check-records",
+ "head": "b676d689b29f816686ae952712af02cdeab94279",
+ "item": "squash-merge-projects-keep-check-records-of-lost",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T22:53:23+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-29T22:53:23+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-29T23:02:35+00:00",
+   "gate_seconds": 514.920146916993,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "squash-merge-projects-keep-check-records-of-lost"
+}
