@@ -1,0 +1,232 @@
+{
+  "branch": "wt/a-landed-branch-can-leave-its-queue-item",
+  "findings": [
+    {
+      "details": [
+        "29 Oct: relay land landed wt/queue-time-estimates-are-guesses-with-no (check open 0) although its item queue-time-estimates-are-guesses-with-no-model-b was never closed with relay queue done (the cycle stopped at the check, the front recorded owner words and a checker re-check, then landed). After the landing the branch and worktree are gone, the queue still lists the item 'taken by wt/queue-time-estimates-are-guesses-with-no', and `relay queue done` refuses: 'done runs in the worktree of the task branch that took the item'. The same listing shows an-eval-scaffold-overwrote-the-live-relay-bin-re taken by wt/an-eval-scaffold-overwrote-the-live-rela, a branch that no longer exists.",
+        "Also: lib/relay_queue.py",
+        "Also: tests/test_land.py",
+        "Also: tests/test_queue.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "land a branch with check open 0 whose item is not closed: it lands, and afterwards relay queue done <slug> refuses everywhere, so the item stays 'taken' by a branch that no longer exists."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "relay land of a branch whose taken item is open refuses with exit 2 and names `relay queue done <slug> -C <worktree> --test ...`",
+        "an item taken by a branch that no longer exists can be closed (with --test) or released from the main checkout",
+        "a branch with no item, or whose item is closed on it, lands as today"
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_land.py:222 test_land_refuses_a_branch_whose_taken_fix_item_is_still_open passes at head, fails at 9102cb0e."
+      ],
+      "severity": "HIGH",
+      "since": "9102cb0e947e5a8cb12103e175dc27c480b75bce",
+      "source": "queue",
+      "summary": "A landed branch can leave its queue item taken",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. `_close_orphan` (relay_queue.py:1534-1554) refuses only when the item is not taken or its branch is live,",
+        "then `test_refusal(main, master, test)`, which checks only that a test of that name is defined in the file on master. It never",
+        "runs the test and never reads a check. The project rule (rules/queue.md:21) is that a fix closes with its test and the branch's",
+        "check (`relay queue done` on the branch, `close_refusal`), or with `--fixed-by`, where \"relay runs the test at the commit's",
+        "parent and at the commit: it must fail, then pass\". The merge hook's step_queue enforces the first for merges; queue commits",
+        "land straight on master through `_run`, so nothing guards this path. `close_fixed_by` (relay_queue.py:1193) already closes a",
+        "fix \"taken by a branch that is merged or gone ... keeping its take\" from the main checkout, with that proof. So the new path",
+        "is a weaker copy of an existing one, and it opens a way to mark any orphaned fix as done (an abandoned branch included; the",
+        "docstring itself says \"merged or gone\"). The incident's real defect was that the from-main refusal \"done runs in the worktree",
+        "of the task branch that took the item\" did not name `--fixed-by` or `release` (principle 10: a refusal names the next step).",
+        "Size: 15 agent minutes (replace `_close_orphan` with a refusal naming both commands, rewrite test_o1/o2 to that, keep o3/o4)."
+      ],
+      "evidence": [
+        "sed -n 1534,1554p lib/relay_queue.py: planner checks state == taken, not _branch_live, test_refusal(main, refs/heads/master, test); then closes.",
+        "sed -n 1193,1199p lib/relay_queue.py: close_fixed_by \"An item taken by a branch that is merged or gone is closed here, keeping its take\"",
+        "git log -S\"An item taken by a branch that is merged or gone\" -- lib/relay_queue.py: f34a48d1 2026-10-25 queue: close a fix that another change already fixed (--fixed-by)",
+        "rules/queue.md:21: \"`relay queue done` to close a fix with its test and the branch's check ... `relay queue done <fix> --fixed-by <commit> --test ...` ... (relay runs the test at the commit's parent and at the commit: it must fail, then pass)\""
+      ],
+      "failing_case": [
+        "Queue item `job` (fix) taken by wt/gone; wt/gone was deleted without being merged (abandoned, nothing fixed). From the main",
+        "checkout: `relay queue done job --test tests/test_queue.py::<any existing test>`.",
+        "Now: the item is closed as done (state done, test = that name), committed to master; nothing ran, no check was read.",
+        "Should: refuse, naming the ways that carry proof: `relay queue done job --fixed-by <commit> --test <file>.py::<Class>::<name>`",
+        "(test fails at the commit's parent and passes at the commit) for a fix that landed, or `relay queue release job` for one that did not."
+      ],
+      "fix_hint": [
+        "In `done`, when the branch is the default branch, raise Refused: \"from the main checkout a fix taken by a branch that is",
+        "merged or gone closes with relay queue done <slug> --fixed-by <commit> --test <file>.py::<Class>::<name>; one that was never",
+        "fixed is released with relay queue release <slug>\" (keep the live-branch refusal of test_o3). Drop `_close_orphan`."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1534,
+      "pass_cases": [
+        "1. Fix item taken by wt/gone (no such branch), main checkout, `done(main, \"job\", \"tests/test_job.py::test_job\")` with no",
+        "   proof that the test fixed anything: Refused; the message names `--fixed-by <commit> --test` and `relay queue release job`;",
+        "   the item stays taken.",
+        "2. Same item, `close_fixed_by(main, \"job\", <commit>, \"tests/test_job.py::test_job\")` where the test fails at the commit's",
+        "   parent and passes at the commit: state done, taken_by wt/gone kept, fixed_by = that sha (works today, test_queue_close).",
+        "3. Same item, `release(main, \"job\")`: state open (works today, test_o4).",
+        "4. Item taken by a live unmerged branch wt/live, done from main: Refused naming wt/live (as test_o3 today).",
+        "5. If instead the fix keeps a from-main `done`: it closes only when the landed tip of wt/gone (found on master) carries a",
+        "   check of the item with Q1 MET (`close_refusal(main, <tip>, slug, test)` is None); an abandoned branch with no such check is refused."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue.py:1442 test_o1 passes; fails at 652ce7c0; o3 and o4 pass. _close_orphan dropped."
+      ],
+      "severity": "HIGH",
+      "since": "652ce7c061873189c4a43e72d6cb2167a4be07fe",
+      "source": "review-a-landed-branch-can-leave-its-queue-item.json",
+      "source_id": "F1",
+      "summary": "done from the main checkout closes a fix item with no proof: no check with Q1 MET, no test run, only a test name that exists on master",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: `open_item_refusal(tree, branch)` reads `held_fix_items(worktree)`, which reads the queue at the worktree's HEAD.",
+        "It runs in land() before `_locked` takes master into the branch. A take on master that the branch has not merged (relay queue",
+        "take merges at once, but its merge can fail and be aborted, and test_f4 builds exactly this state) is invisible, the landing",
+        "goes through, and the fix stays taken by a deleted branch. test_f4 now asserts that outcome as correct.",
+        "Size: 15 agent minutes (read the items taken by the branch from the default branch too, e.g. items on master with",
+        "taken_by == branch that are not closed at the branch head; change test_f4's fix half to expect the refusal, or move it to a",
+        "fix item closed on the branch)."
+      ],
+      "evidence": [
+        "pytest -q tests/test_land.py -k test_f4_landing_closes_the_feature_item_not_the_fix -> 1 passed",
+        "tests/test_land.py:579-585: master_commit fx taken by wt/x; land returncode 0; assertEqual(queue[\"fx\"][\"state\"], \"taken\")",
+        "lib/relay_land.py:279-280: tree = _preflight(...); open_item_refusal(tree, branch) before lock and before take() in _locked"
+      ],
+      "failing_case": [
+        "Existing test tests/test_land.py:576 test_f4_landing_closes_the_feature_item_not_the_fix: master gets fx.json (fix, taken by",
+        "wt/x) after wt/x forked; `relay land wt/x`.",
+        "Now: exit 0, master advances, and the test asserts queue[\"fx\"][\"state\"] == \"taken\" after the landing: the very outcome the",
+        "item reports (a fix left taken by a branch that is gone). The refusal ran on wt/x's HEAD before `take` merged master in.",
+        "Should: exit 2 naming `relay queue done fx -C <worktree> --test ...`, master unchanged."
+      ],
+      "fix_hint": [
+        "In open_item_refusal, also list the fix items that the default branch shows taken by `branch` and that are not closed at the",
+        "branch head (Reader(main, refs/heads/<default>)), or call it again after `take` inside _locked. Update test_f4 accordingly."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 280,
+      "pass_cases": [
+        "1. test_f4 set-up (fx taken by wt/x committed on master only, not in wt/x's head): relay land wt/x exits 2, output holds",
+        "   \"relay queue done fx -C <wt> --test\", master unchanged, no gate run.",
+        "2. The feature half of test_f4 (feat taken by wt/x, no fix item): land exits 0 and feat is done with evidence (as today).",
+        "3. Item taken by wt/x inside the branch head (test_land_refuses_a_branch_whose_taken_fix_item_is_still_open): exit 2 (as today).",
+        "4. Branch with no item: exit 0 (test_land_of_a_branch_with_no_item_is_not_refused_for_one)."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_open_item_landing.py:14 passes; fails at 652ce7c0."
+      ],
+      "severity": "MEDIUM",
+      "since": "652ce7c061873189c4a43e72d6cb2167a4be07fe",
+      "source": "review-a-landed-branch-can-leave-its-queue-item.json",
+      "source_id": "F2",
+      "summary": "land checks for an open item at the branch head before the take of master, so an item whose take is on master but not yet in the branch lands and stays taken",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the new land tests cover an open item and a branch with no item; held_fix_items returns closed-on-branch",
+        "items too, and only the `i[\"state\"] == \"taken\"` filter keeps them from refusing. Nothing asserts it. The brief's pass case 3",
+        "names this case, and Q1's check needs a test for each pass case. Note the merge hook refuses a closed fix without a check of",
+        "Q1 MET, so the test needs a check recorded for the item, or it should assert that the refusal is not the open-item one.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "grep -n \"closed_at\" tests/test_land.py -> no hit in the new tests; diff adds only test_land_refuses_... and test_land_of_a_branch_with_no_item_..."
+      ],
+      "failing_case": [
+        "Disable the state filter in open_item_refusal (refuse whenever held_fix_items is non-empty, closed items included): every",
+        "test in the brief's check still passes, while a branch that closed its fix with relay queue done would be refused for ever.",
+        "Should: a test fails."
+      ],
+      "fix_hint": [
+        "Add test_land_of_a_branch_whose_item_is_closed_on_it_is_not_refused_for_it next to the two new tests."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 240,
+      "pass_cases": [
+        "1. Branch wt/x whose head holds job.json taken by wt/x and closed (closed_at, test set) on the branch, not on master, with a",
+        "   check mark: relay land wt/x exits 0 and master holds job as done.",
+        "2. Same branch with job still taken (not closed): exit 2 (the existing new test)."
+      ],
+      "path": "tests/test_land.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_open_item_landing.py:26 passes; asserts a closed-on-branch item is not refused as open."
+      ],
+      "severity": "MEDIUM",
+      "since": "652ce7c061873189c4a43e72d6cb2167a4be07fe",
+      "source": "review-a-landed-branch-can-leave-its-queue-item.json",
+      "source_id": "F3",
+      "summary": "no test for the brief's pass case 'a branch whose item is closed on it lands as today'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (read, not reproduced): step_queue (merge.py:226) skips every item whose state is not done; nothing in the hook looks",
+        "for taken items. The change guards only relay land. relay_lanes still knows wt/train-* branches, and the handover records that",
+        "relay land does not carry trains, so trains land through the hook path. Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "plugins/relay/hooks/merge.py:250: `if meta[\"kind\"] != \"fix\" or meta[\"state\"] != \"done\" or path not in changed: continue`",
+        "docs/handover.md:1562 \"Owner decision 28 Oct: `relay land` without trains\""
+      ],
+      "failing_case": [
+        "Train wt/train-9 merges rider wt/a, whose fix item `a-item` is taken by wt/a and was never closed with relay queue done; the",
+        "front merges the train into master (relay land has no trains, owner 28 Oct). step_queue judges only items the range closes",
+        "(state done), so the merge passes and a-item stays taken by wt/a, which is then deleted.",
+        "Should: the merge is refused naming relay queue done a-item -C <wt/a worktree> --test ..."
+      ],
+      "fix_hint": [
+        "In step_queue, refuse a fix item taken by the branch or by an absorbed rider (ab) that is not closed at the tip; reuse",
+        "open_item_refusal's wording."
+      ],
+      "id": "F4",
+      "kind": "outside",
+      "line": 226,
+      "pass_cases": [
+        "1. Train holding a rider with its fix item taken and open: the merge hook refuses, naming the item and the done command.",
+        "2. Train whose riders closed their items with a check of Q1 MET: merges as today.",
+        "3. Branch with no item: merges as today."
+      ],
+      "path": "plugins/relay/hooks/merge.py",
+      "rank": "medium",
+      "reason": [
+        "Merge hook step_queue does not refuse taken open fix items on trains; the fixer lists it as Outside, to be a fix item. Agree."
+      ],
+      "severity": "MEDIUM",
+      "since": "652ce7c061873189c4a43e72d6cb2167a4be07fe",
+      "source": "review-a-landed-branch-can-leave-its-queue-item.json",
+      "source_id": "F4",
+      "summary": "a merge through the merge hook (a train, or any merge not made by relay land) still lands a branch whose fix item is taken and open",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "4c1d15be7e58742333e1cc6601876746680a276b.gate.log",
+  "head": "b3d8e1015f6762672dc2cdd0e41d01419aa3cc86",
+  "item": "a-landed-branch-can-leave-its-queue-item-taken",
+  "notes": [
+    "Changed files are only the findings' files, tests and plugin copies (identical, precheck confirms). test_f3 uses assertNotIn on the open-item message, a weak but valid encoding."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fix range 652ce7c0..HEAD (d554a454, 4c1d15be). Gate log 4c1d15be quick, exit 0; only the gate-log commit follows. Both precheck commands green. Ran tests/test_open_item_landing, TestCloseOrphanFromMain, test_land.Landing (20 ok). Base-run in throwaway worktrees: at 652ce7c0 test_o1 and test_f2 fail; test_f3 passes (it guards the state filter, not a regression of the fix). At 9102cb0e the Q1 test test_land_refuses_a_branch_whose_taken_fix_item_is_still_open fails."
+  ],
+  "type": "check"
+}
