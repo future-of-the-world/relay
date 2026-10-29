@@ -1,0 +1,25 @@
+{
+  "kind": "feature",
+  "ip": 85,
+  "time": 60,
+  "found_at": "2026-10-29T06:34:22Z",
+  "found_in": "relay queue add",
+  "title": "Gate jobs and slots follow the machine's free capacity",
+  "what": [
+    "Design when taken: whether the gate's slot count, its test job count or the precheck's jobs should follow free capacity (load, free cores), with at least two approaches plus do nothing, measured on live gates; related: waiting-gates-take-a-free-slot-in-no-order."
+  ],
+  "why": [
+    "29 Oct 09:55 measured: 12 cores; load 8.6 rose to 32.7 in four minutes while one precheck and one pytest run ran beside 5 other lanes' gates and 8 test worker processes. Driver: gate slots x RELAY_TEST_JOBS x lanes' own precheck runs add up with no look at free capacity. The item tests-with-a-fixed-time-limit-fail-on-a-loaded-m asked whether jobs or slots should depend on free capacity; its fix raised every fixed wait to a 600 s hang bound and left this decision open."
+  ],
+  "where": [
+    "lib/relay_gate.py",
+    "lib/relay_ci.py",
+    "lib/relay_precheck.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
