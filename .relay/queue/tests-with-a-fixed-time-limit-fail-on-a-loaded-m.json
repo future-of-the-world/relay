@@ -66,6 +66,22 @@
       "fact": [
         "29 Oct 09:55, measured on wt/tests-with-a-fixed-time-limit-fail-on-a: 12 cores; load average 8.6 at 09:44 rose to 32.7 at 09:48 while one precheck (changed tests, parallel jobs) and a pytest run of 5 gate test files ran beside other lanes' gates (ps showed 5 relay gate processes of other lanes and 8 test worker processes). The precheck changed-tests step then hit its 230 s cap, the same class. The 16 changed test files alone pass in 199 s at load 8. Driver: gate slots x RELAY_TEST_JOBS x lanes' own precheck runs add up with no look at free capacity. Not decided: whether jobs or slots should follow free capacity (needs the owner's number). Every remaining fixed 20-120 s test wait is raised to the 600 s hang bound in this change."
       ]
+    },
+    {
+      "asked_at": "2026-10-29T06:34:44Z",
+      "question": [
+        "Вынести решение «проверки подстраиваются под свободную мощность машины» в отдельную задачу и влить исправление лимитов сейчас? Исправление подняло все жёсткие ожидания тестов (20-120 с) до 600 с и убрало два теста на время; задача ещё спрашивала, должны ли число одновременных проверок и потоков тестов зависеть от нагрузки. Замер 29 Oct 09:55: нагрузка 8.6 выросла до 32.7 за 4 минуты при 5 чужих проверках. Новая задача: gate-jobs-and-slots-follow-the-machine-s-free-ca."
+      ],
+      "options": [
+        "a. Вынести в отдельную задачу и влить сейчас (рекомендация)",
+        "b. Решить в этом же изменении до merge"
+      ],
+      "answered_at": "2026-10-29T06:41:20Z",
+      "answer": [
+        "Думаю запуск тестов в podman на линукс перспективнее, будущем я планирую иметь много виртуальных машин relay и все они будут на Linux, исправить 52 теста не так сложно, полагаю",
+        "",
+        "По поводу адаптивного числа проверок машины - да, заведи отдельную задачу"
+      ]
     }
   ]
 }
