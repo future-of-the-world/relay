@@ -43,11 +43,11 @@ def worktree_folder(root: str | None) -> str:
     if root is None:
         return DEFAULT_FOLDER
     try:
-        project = relay_config.load_bindings(root).get("project")
+        folder = relay_config.worktrees_folder(root)
     except (OSError, ValueError):
         return DEFAULT_FOLDER
-    folder = project.get("worktrees") if isinstance(project, dict) else None
-    return folder.strip("/") if isinstance(folder, str) and folder.strip("/") else DEFAULT_FOLDER
+    rel = os.path.relpath(folder, root)
+    return os.path.basename(folder) if rel.startswith("..") else rel
 
 
 def _folders(folder: str | None) -> str:
