@@ -41,7 +41,7 @@ one whole-change review, no agent that only waits.
 | `max_parallel` agents already running | a note |
 
 Settings per project in `.claude/kit.toml [delegate]`; per shell with
-`RELAY_DELEGATE_<KEY>`. Tests: `plugins/delegate/tests/route-guard.test.sh`.
+`RELAY_DELEGATE_<KEY>`. Tests: `tests/test_hook_route_guard.py`.
 
 ## Escalation
 

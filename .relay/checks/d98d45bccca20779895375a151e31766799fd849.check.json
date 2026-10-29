@@ -1,0 +1,230 @@
+{
+  "branch": "wt/hook-tests-and-wrappers-are-bash-not-por",
+  "findings": [
+    {
+      "details": [
+        "Owner, verbatim: \"\u0437\u0430\u0432\u0435\u0434\u0438 \u043f\u0443\u043d\u043a\u0442 \u043f\u0440\u043e \u043f\u0435\u0440\u0435\u043d\u043e\u0441 bash \u0432 python\". Bash behaves differently on macOS (bash 3.2, BSD tools): on 24 Oct the project template's check failed on a Mac because it called `timeout` and `md5sum`, which macOS lacks. Two languages also mean two ways to test and two sets of traps.",
+        "Also: plugins/core/hooks/*.sh",
+        "Also: evals/plugin/*.sh",
+        "Also: bin/ci",
+        "Also: templates/bin-check"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "24 Oct: templates/bin-check called `timeout`/`md5sum` (GNU-only), so the first check of a new project on a Mac failed; relay has 3,438 lines of bash, 2,564 of them hook test suites."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After the move, the gate runs the same cases (same count) from Python; no .sh file under plugins/ holds more than a few lines of wrapper; the gate passes on macOS with no GNU tools on PATH."
+      ],
+      "path": "plugins/core/tests/*.test.sh",
+      "rank": "high",
+      "reason": [
+        "The item also asks that templates/bin-check keep only what a shell must do; it is unchanged (hash8/bound fallbacks in bash). Failing-case test without the fix not shown for that part."
+      ],
+      "severity": "HIGH",
+      "since": "f9f9a64770d34c0db4211dd480960735abb18b01",
+      "source": "queue",
+      "summary": "Hook tests and wrappers are bash, not portable Python",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading and line counts. The queue item's What has three parts: the hook test suites, the hook wrappers",
+        "(\"keep at most a few lines of exec python3\"), and bin/ci plus templates/bin-check. The branch did the first (and",
+        "graders.test.sh); the commits stop at \"hook_tests step no longer globs *.test.sh\". The builder's own report says",
+        "\"BUDGET SPENT (partial)\". This is a promise of the item left undone, so HIGH. The owner may instead move the wrapper and",
+        "bin-check part to a new queue item (a scope cut only the owner can make); without that word it is open.",
+        "Size: 90 (guard-main.sh is the bulk; its tests already exist in Python and make the port checkable)."
+      ],
+      "evidence": [
+        "grep -vc '^\\s*#\\|^\\s*$' plugins/relay/hooks/guard-main.sh -> 148",
+        "grep -vc ... plugins/relay/hooks/inject-addition.sh -> 55",
+        "grep -vc ... templates/bin-check -> 78",
+        "git log --oneline master..HEAD: 19 \"Port <suite> hook tests\" commits, one graders port, no hook or bin-check commit.",
+        "Builder report: \"BUDGET SPENT (partial): ported 6 of 14 suites ...; remaining: ... hook wrappers, bin-check.\""
+      ],
+      "failing_case": [
+        "After the change: plugins/relay/hooks/guard-main.sh has 148 code lines of bash (jq parsing, anchor and main-checkout",
+        "resolution, bindings read, the rules), plugins/relay/hooks/inject-addition.sh 55, templates/bin-check 78 (hash8 and",
+        "bound() fallbacks for md5sum/timeout). The item's pass case \"no .sh file under plugins/ holds more than a few lines of",
+        "wrapper\" fails for both hooks, and \"bin/ci and templates/bin-check keep only what a shell must do\" fails for bin-check.",
+        "Only the test suites (and graders.test.sh) moved."
+      ],
+      "fix_hint": [
+        "Port guard-main.sh to plugins/relay/hooks/guard_main.py (it already shells out to kit/lib Python) and inject-addition.sh",
+        "likewise, leaving `exec python3 \"$(dirname \"$0\")/<name>.py\"`; move bin-check's bound/hash8 into a Python helper. Or, with",
+        "the owner's word, file that part as its own queue item and close this one on the tests alone."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 57,
+      "pass_cases": [
+        "1. Every plugins/*/hooks/*.sh holds at most a few lines (e.g. <= 5 code lines) that exec python3 on a .py beside it;",
+        "   guard-main.sh and inject-addition.sh included.",
+        "2. tests/test_hook_guard_main.py, test_hook_guard_diff.py, test_hook_check_mark.py (G cases) and",
+        "   test_hook_inject_addition.py pass unchanged against the Python hooks (same verdicts, same golden output).",
+        "3. templates/bin-check keeps no hash or timeout logic in bash (the bound/hash8 work is Python); the check-contract suite",
+        "   still passes against the eval fixture.",
+        "4. With a PATH that holds no GNU coreutils (no timeout, no md5sum), the guard and bin-check still work."
+      ],
+      "path": "plugins/relay/hooks/guard-main.sh",
+      "rank": "high",
+      "reason": [
+        "Hooks guard-main.sh and inject-addition.sh are now 1-2 line wrappers (tests/test_hook_soft_cases.py Wrappers, suites pass). bin-check (pass cases 3) is not ported: the fixer's Gap, owner decides (a scope cut to a new queue item, or port)."
+      ],
+      "severity": "HIGH",
+      "since": "873a653bf8ca6f3c42270370ff1c5c3fc790a8da",
+      "source": "review-hook-tests-and-wrappers-are-bash-not-por.json",
+      "source_id": "F1",
+      "summary": "the hook wrappers and templates/bin-check are still logic-bearing bash; the item's What and its pass case are not met",
+      "verdict": "GAP"
+    },
+    {
+      "details": [
+        "CONFIRMED by counting (old: ran each master suite and counted ^ok lines; new: grep -c 'def test_'). Every case I",
+        "name-checked is still asserted, so nothing is lost in coverage; what is lost is per-case reporting and the count the",
+        "item names as its pass case. guard-main and guard-diff already collect all failures before asserting; ledger,",
+        "check-mark, inject-addition, kit, packet, packet-stacks, spec-check and merge stop at the first failed assert.",
+        "Size: 45 (wrap each old case in self.subTest(<old name>) in the merged methods)."
+      ],
+      "evidence": [
+        "master suites, RELAY_QUICK=1: ok counts 12,8,25,31,80,3,0,204,54,1,38,99,52,97,10,29 (sum 743)",
+        "ports: budget 6, check_contract 8, check_mark 22, flow_stage 3, guard_diff 1, guard_main 6, inject_addition 10,",
+        "kit_name 1, kit 9, ledger 11, merge 44, packet_stacks 4, packet 8, route_guard 12, shim 7, spec_check 3 (sum 155)",
+        "tests/test_hook_inject_addition.py:118-122 loops over prompts with plain assertIn/assertEqual."
+      ],
+      "failing_case": [
+        "The quick gate on master counted 743 passing hook cases (route-guard 12, ledger 25, check-mark 80, guard-main 204,",
+        "inject-addition 54, merge 99, packet 97, ...). The ports hold 155 test methods (ledger 11, check-mark 22, inject-addition 10,",
+        "packet 8, spec-check 3, guard-main 6). Several old cases now sit in one method with plain asserts, e.g.",
+        "tests/test_hook_inject_addition.py test_prompt loops over \"/openspec:plan\", \"  /openspec:plan x\", then the negative",
+        "prompts: if \"  /openspec:plan x\" (leading spaces) breaks, the method stops there and the eight negative prompt cases",
+        "are not run or reported; the gate shows 1 failure where bash showed each failing case by name. The item asked \"Keep the",
+        "test cases and their names\" and \"the gate runs the same cases (same count)\"."
+      ],
+      "fix_hint": [
+        "In each merged method, run each old case under `with self.subTest(\"<old case name>\"):` so a failure names it and the rest",
+        "still run; the per-case names then appear in a failing run as they did in bash."
+      ],
+      "id": "F2",
+      "kind": "feature",
+      "line": 1,
+      "pass_cases": [
+        "1. Break one case inside a multi-case method (e.g. make inject-addition ignore leading spaces): the run reports that case",
+        "   by its old name AND still runs and reports the later cases of the same method.",
+        "2. The number of cases the gate reports for the hook suites equals the old 743 (subtests or one method per case),",
+        "   or the report states the mapping old-name -> test id for every case.",
+        "3. All suites still pass on the unchanged hooks.",
+        "4. guard-main keeps reporting every wrong verdict at once (it already collects `bad`), as today."
+      ],
+      "path": "tests/test_hook_check_mark.py",
+      "rank": "medium",
+      "reason": [
+        "SoftCases (tests/test_hook_soft_cases.py:34) makes later asserts run and lists every failed assert, so pass case 1 holds by line and source text, not by old case name. Pass case 2 (743 cases or an old-name to test-id mapping) is not met, as the fixer says."
+      ],
+      "severity": "MEDIUM",
+      "since": "873a653bf8ca6f3c42270370ff1c5c3fc790a8da",
+      "source": "review-hook-tests-and-wrappers-are-bash-not-por.json",
+      "source_id": "F2",
+      "summary": "743 named cases became 155 test methods: one failing case hides the rest of its method, and the item's 'same count' is not met",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_ci.py hook_tests (no glob) and outcome(). Correct today (Ran N does not change with",
+        "RELAY_QUICK because guard_main defines the same methods), so LOW: a regression guard that guards nothing.",
+        "Size: 15."
+      ],
+      "evidence": [
+        "lib/relay_ci.py:299-317 hook_tests runs only tests/hooks_live.py",
+        "tests/test_gate.py:470 write(... \"plugins\", \"x\", \"tests\", \"a.test.sh\" ...)"
+      ],
+      "failing_case": [
+        "test_a_full_run_is_probed_with_its_hook_suites_in_full plants plugins/x/tests/a.test.sh that prints one or two ok lines",
+        "depending on RELAY_QUICK. hook_tests now runs only tests/hooks_live.py, so the file is never run and outcome()'s",
+        "\"hook cases ok\" is 0 in both runs. Delete the `not env.get(\"RELAY_INERT_FULL_HOOKS\")` condition in Ci.lib_tests",
+        "(lib/relay_ci.py:283): the test still passes. outcome() (lib/relay_ci.py:58-63) still counts hook-tests.log ok lines,",
+        "which no step writes outside hooks_live (skipped), so that line is always \"hook cases ok: 0\"."
+      ],
+      "fix_hint": [
+        "Rewrite the planted suite as tests/test_x.py with a RELAY_QUICK-dependent method, and drop the hook-case count from outcome()."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 464,
+      "pass_cases": [
+        "1. A planted tests/test_x.py whose number of tests depends on RELAY_QUICK (e.g. a method defined only when it is not \"1\"):",
+        "   a full outer gate ends with \"ci: inert ok\"; with the RELAY_INERT_FULL_HOOKS condition removed from lib_tests it ends",
+        "   \"ci: inert FAILED\".",
+        "2. outcome() no longer reports a hook-case count that no step can produce (or counts something a step still writes).",
+        "3. test_ci_hook_tests keeps passing."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate.py:464 now plants tests/test_y.py with a RELAY_QUICK-dependent method; passed in the green gate; outcome() no longer has \"hook cases ok\" (grep empty). Not run with the condition removed (minutes)."
+      ],
+      "severity": "LOW",
+      "since": "873a653bf8ca6f3c42270370ff1c5c3fc790a8da",
+      "source": "review-hook-tests-and-wrappers-are-bash-not-por.json",
+      "source_id": "F3",
+      "summary": "the inert hook-case test now passes with the behaviour disabled: no step runs plugins/x/tests/a.test.sh any more",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by git grep. Text only, LOW. Size: 10."
+      ],
+      "evidence": [
+        "git grep -n '\\.test\\.sh' -- ':!.relay' ':!docs/handover.md' ':!openspec/changes/archive'",
+        "docs/delegation.md:44, docs/variants/scripts.md:32,47,65,66,120, tests/test_spec_flaw.py:26"
+      ],
+      "failing_case": [
+        "plugins/relay/README.md:60,100,106,149 say `tests/test_hook_kit_name.py`, `tests/test_hook_shim.py`,",
+        "`tests/test_hook_check_contract.py`, `tests/test_hook_guard_main.py` in the plugin's own README, where `tests/` is",
+        "plugins/relay/tests/; the files are in the repository's tests/. A reader who runs",
+        "`KIT_CONTRACT_PROJECT=<project> python3 plugins/relay/tests/test_hook_check_contract.py` gets \"No such file\".",
+        "docs/delegation.md:44 still names plugins/delegate/tests/route-guard.test.sh; docs/variants/scripts.md:32,47,65,120",
+        "name packet-stacks.test.sh, spec-check.test.sh, guard-main.test.sh; tests/test_spec_flaw.py:26 names graders.test.sh."
+      ],
+      "fix_hint": [
+        "Write the README paths as repository-root paths (../../tests/... or \"tests/ at the repository root\") and update the three docs lines."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 106,
+      "pass_cases": [
+        "1. plugins/relay/README.md names the contract test by a path that exists from the repository root, with the command to",
+        "   run it against a project (KIT_CONTRACT_PROJECT=<checkout> python3 <path>).",
+        "2. git grep '\\.test\\.sh' outside .relay/, docs/handover.md, docs/plans and archived changes returns nothing that names a",
+        "   deleted file as current."
+      ],
+      "path": "plugins/relay/README.md",
+      "rank": "low",
+      "reason": [
+        "tests/test_hook_soft_cases.py Docs (lines 60-80) pass: README names existing paths with the KIT_CONTRACT_PROJECT command; no deleted .test.sh named in the three docs."
+      ],
+      "severity": "LOW",
+      "since": "873a653bf8ca6f3c42270370ff1c5c3fc790a8da",
+      "source": "review-hook-tests-and-wrappers-are-bash-not-por.json",
+      "source_id": "F4",
+      "summary": "plugin README and docs name test paths that no longer exist (tests/test_hook_*.py read as plugins/relay/tests/; .test.sh in docs)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "1997fdf0f7013dfd5236fc46f692a5702a66ab0b.gate.log",
+  "head": "d98d45bccca20779895375a151e31766799fd849",
+  "item": "hook-tests-and-wrappers-are-bash-not-portable-py",
+  "notes": [
+    "Wrapper line counts now: guard-main.sh 2, inject-addition.sh 1, merge.sh 8 (code lines). templates/bin-check (91 lines) is untouched: the fixer lists it as a Gap for the owner."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 873a653..HEAD (d98d45b). Gate log head 1997fdf is green (exit 0), HEAD adds only the log. Ran tests/test_hook_soft_cases.py (7 passed). Without the fix (at 873a653 plus the new test file) it fails at import (no SoftCases). Did not run relay precheck (fixer reports it red on the 230 s limit)."
+  ],
+  "type": "check"
+}

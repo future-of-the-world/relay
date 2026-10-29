@@ -1,8 +1,8 @@
-"""hooks-live.test.sh keeps each session's stream-json output when a case fails. Free: a fake `claude` answers."""
-import os, subprocess, tempfile, unittest
+"""tests/hooks_live.py keeps each session's stream-json output when a case fails. Free: a fake `claude` answers."""
+import os, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPT = os.path.join(ROOT, "plugins", "relay", "tests", "hooks-live.test.sh")
+SCRIPT = os.path.join(ROOT, "tests", "hooks_live.py")
 
 # The fake emits a hook event that holds every codeword (as the real hooks do), then a result line.
 # `broken` makes the agent session answer NONE; the other sessions answer correctly.
@@ -30,7 +30,7 @@ def run_script(broken: bool, crash: bool = False, arglog: str = "") -> tuple[sub
         tmpdir = os.path.join(d, "tmp"); os.makedirs(tmpdir)
         env = dict(os.environ, PATH=bindir + os.pathsep + os.environ["PATH"], TMPDIR=tmpdir, BROKEN="1" if broken else "0", CRASH="1" if crash else "0", ARGLOG=arglog)
         env.pop("HOOKS_LIVE", None)
-        r = subprocess.run(["bash", SCRIPT], capture_output=True, text=True, env=env, timeout=60)
+        r = subprocess.run([sys.executable, SCRIPT], capture_output=True, text=True, env=env, timeout=60)
         kept = sorted(os.listdir(tmpdir))
         kept_files: list[str] = []
         for name in kept:

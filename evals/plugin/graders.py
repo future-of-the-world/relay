@@ -1,23 +1,23 @@
-#!/usr/bin/env bash
-# Proof that the eval graders can tell a good reply from a bad one. The evals
-# cannot run on every machine (and cost money), so each regex grader is checked
-# here against recorded replies, with bun's RegExp (the grader's own dialect):
-#
-#   evals/<case>/recorded/good/*.txt           replies that must pass EVERY regex grader of the case
-#   evals/<case>/recorded/bad/<grader>__*.txt  replies that must FAIL the grader named before `__`
-#                                              (a grader of type llm is not run here: its bad replies must be
-#                                              listed in an evals/judge-measure/*/items.txt, where the real judge
-#                                              measures them; a bad reply in no items.txt fails)
-#
-# Every regex grader needs at least one bad reply, so a grader changed (or
-# written) without proof that it fails a deliberately wrong answer is refused.
-# (Rule of review 2, M5: a grader may change only together with such proof.)
-#   evals/plugin/graders.test.sh
-set -uo pipefail
-cd "$(dirname "$0")" || exit 1
-command -v bun >/dev/null 2>&1 || { echo "graders.test: bun is not installed (curl -fsSL https://bun.sh/install | bash)" >&2; exit 1; }
-exec python3 -I - <<'PY'
-import glob, json, os, re, subprocess, sys
+"""Proof that the eval graders can tell a good reply from a bad one. The evals
+cannot run on every machine (and cost money), so each regex grader is checked
+here against recorded replies, with bun's RegExp (the grader's own dialect):
+
+  evals/<case>/recorded/good/*.txt           replies that must pass EVERY regex grader of the case
+  evals/<case>/recorded/bad/<grader>__*.txt  replies that must FAIL the grader named before `__`
+                                             (a grader of type llm is not run here: its bad replies must be
+                                             listed in an evals/judge-measure/*/items.txt, where the real judge
+                                             measures them; a bad reply in no items.txt fails)
+
+Every regex grader needs at least one bad reply, so a grader changed (or
+written) without proof that it fails a deliberately wrong answer is refused.
+(Rule of review 2, M5: a grader may change only together with such proof.)
+  python3 -I evals/plugin/graders.py
+"""
+import glob, json, os, re, shutil, subprocess, sys
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+if shutil.which("bun") is None:
+    sys.exit("graders.test: bun is not installed (curl -fsSL https://bun.sh/install | bash)")
 
 def grader(path):
     text = open(path, encoding="utf-8").read().split("\n")
@@ -79,4 +79,3 @@ ok("judge-measure: make.py --check") if mk.returncode == 0 else bad("judge-measu
 
 print("graders.test: all passed" if not fails else f"graders.test: {fails} failed")
 sys.exit(1 if fails else 0)
-PY
