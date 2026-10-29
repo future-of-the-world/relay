@@ -283,6 +283,37 @@ class Workflow(unittest.TestCase):
         self.assertEqual(sorted(r.change for r in rows), ["new", "old"])
 
 
+class OwnFolderForms(unittest.TestCase):
+    """F1: a worktrees folder written as `../x`, absolute, or nested keeps its full path."""
+
+    def kit(self, root, value):
+        os.makedirs(os.path.join(root, ".claude"))
+        with open(os.path.join(root, ".claude", "kit.toml"), "w") as handle:
+            handle.write(f'[project]\nworktrees = "{value}"\n')
+
+    def test_sibling_folder_brief_line(self):
+        with tempfile.TemporaryDirectory() as top:
+            root = os.path.join(top, "repo")
+            self.kit(root, "../out-wt")
+            self.assertEqual(est.change_of(root, f"Worktree: {top}/out-wt/fx (branch wt/fx)", root=root), "fx")
+
+    def test_absolute_folder_brief_line(self):
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as wt:
+            self.kit(root, wt)
+            self.assertEqual(est.change_of(root, f"Worktree: {wt}/fx", root=root), "fx")
+
+    def test_nested_folder_repo_top(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib", "queue_ext"))
+        import estimate as view
+        with tempfile.TemporaryDirectory() as root:
+            self.kit(root, "build/wt")
+            self.assertEqual(view.repo_top(os.path.join(root, "build", "wt", "fx")), root)
+
+    def test_default_folder_unchanged(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(est.change_of(root, f"Worktree: {root}/.worktrees/fx", root=root), "fx")
+
+
 class ViewRoot(unittest.TestCase):
     def test_root_inside_worktree_is_the_repo(self):
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib", "queue_ext"))

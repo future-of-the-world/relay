@@ -39,20 +39,24 @@ class Measured:
 
 
 def worktree_folder(root: str | None) -> str:
-    """The worktrees folder name of the project at `root`: kit.toml `project.worktrees`, else `.worktrees` (also when the file is unreadable)."""
+    """The worktrees folder of the project at `root` as a full path: kit.toml `project.worktrees` (relative to `root`, or absolute),
+    else `<root>/.worktrees` (also when the file is unreadable). Without `root`, the bare default name."""
     if root is None:
         return DEFAULT_FOLDER
     try:
-        folder = relay_config.worktrees_folder(root)
+        return relay_config.worktrees_folder(root)
     except (OSError, ValueError):
-        return DEFAULT_FOLDER
-    rel = os.path.relpath(folder, root)
-    return os.path.basename(folder) if rel.startswith("..") else rel
+        return os.path.join(root, DEFAULT_FOLDER)
 
 
-def _folders(folder: str | None) -> str:
-    """A regex alternation of the default folder and the project's own."""
-    return "|".join(re.escape(f) for f in dict.fromkeys([DEFAULT_FOLDER, folder or DEFAULT_FOLDER]))
+def _own_folders(root: str | None) -> list[str]:
+    """The project's own worktrees folder as full paths (as written and with links resolved), unless it is the default one."""
+    if root is None:
+        return []
+    folder = worktree_folder(root)
+    if os.path.basename(folder) == DEFAULT_FOLDER and os.path.dirname(folder) in {root, os.path.realpath(root)}:
+        return []
+    return list(dict.fromkeys([folder, os.path.realpath(folder)]))
 
 
 def worktree_of(cwd: str) -> str | None:
@@ -93,10 +97,13 @@ def _under(root: str | None, base: str) -> bool:
 
 
 def _worktree_in(text: str, root: str | None) -> str | None:
-    pattern = re.compile(rf"(/[^\s\"'`]*?)/(?:{_folders(worktree_folder(root))})/([A-Za-z0-9._-]+)")
-    for found in pattern.finditer(text or ""):
-        if _under(root, found.group(1)):
-            return found.group(2)
+    pattern = re.compile(rf"(/[^\s\"'`]*?)/{re.escape(DEFAULT_FOLDER)}/([A-Za-z0-9._-]+)")
+    own = [re.compile(rf"(?<![^\s\"'`(]){re.escape(f)}/([A-Za-z0-9._-]+)") for f in _own_folders(root)]
+    hits = [(f.start(), f.group(2), f.group(1)) for f in pattern.finditer(text or "")]
+    hits += [(f.start(), f.group(1), None) for rx in own for f in rx.finditer(text or "")]
+    for _, name, base in sorted(hits, key=lambda h: h[0]):
+        if base is None or _under(root, base):
+            return name
     return None
 
 
