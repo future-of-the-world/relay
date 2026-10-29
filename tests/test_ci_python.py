@@ -2,6 +2,8 @@
 runs beside the outer steps. Free; no model call. Programs are replaced by a recording runner or by stubs in a temporary
 PATH; every tree is a temporary folder."""
 import contextlib
+import fcntl
+import signal
 import io
 import json
 import os
@@ -569,19 +571,48 @@ class ProbeBesideTheRun(unittest.TestCase):
             self.assertEqual(handle.read(), "1")
         probe.stop()
 
-    def test_the_probe_runs_in_a_session_of_its_own_and_its_stop_leaves_the_outer_run_alone(self) -> None:
-        # a SIGTERM to the outer bin/ci group must not reach the probe (own session: its pgid is its own pid, not ours),
-        # and the probe's stop (a group kill) must not reach us
+    def test_a_group_kill_of_the_run_ends_the_probe_and_frees_the_lock(self) -> None:
+        # relay gate stops a gate with killpg(SIGKILL) on bin/ci's group: the probe must be in that group, or it outlives the gate,
+        # keeps the worktree lock fd and the next gate waits on it. The "bin/ci" here leads its own session as relay_gate.run's
+        # command does, holds a flocked fd (the lock), and starts a probe whose nested command sleeps.
+        lock_path = os.path.join(self.root, "lock")
+        outer = (
+            "import fcntl, os, sys, time\n"
+            "sys.path.insert(0, %r)\n"
+            "import relay_ci\n"
+            "fd = os.open(%r, os.O_CREAT | os.O_RDWR)\n"
+            "fcntl.flock(fd, fcntl.LOCK_EX)\n"
+            "p = relay_ci.Probe(%r, %r, True, dict(os.environ), %r, nested=('sh', '-c', 'sleep 600 & wait'))\n"
+            "p.start()\n"
+            "print(p.proc.pid, flush=True)\n"
+            "time.sleep(600)\n"
+        ) % (os.path.dirname(relay_ci.__file__), lock_path, self.root, self.head, os.path.join(self.root, ".ci", "o.log"))
+        proc = subprocess.Popen([sys.executable, "-c", outer], stdout=subprocess.PIPE, text=True, env=self.env,
+                                start_new_session=True, pass_fds=())
+        self.addCleanup(lambda: proc.poll() is None and proc.kill())
+        assert proc.stdout is not None
+        probe_pid = int(proc.stdout.readline())
+        children = wait_for(lambda: relay_ci._descendants(probe_pid))
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+        # every process of the probe is gone, and the lock can be taken
+        wait_for(lambda: not alive(probe_pid) and not any(alive(c) for c in children))
+        fd = os.open(lock_path, os.O_RDWR)
+        self.addCleanup(os.close, fd)
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_the_probe_stop_leaves_a_process_of_the_outer_group_alone(self) -> None:
+        # the stop works by pids, not by a group signal: a sibling in our own process group survives it
+        sibling = subprocess.Popen(["sleep", "60"])
+        self.addCleanup(sibling.kill)
         probe = self.probe("sleep 600 & wait")
         probe.start()
         assert probe.proc is not None
-        pid = probe.proc.pid
-        self.assertEqual(os.getpgid(pid), pid)
-        self.assertNotEqual(os.getpgid(pid), os.getpgrp())
-        self.assertEqual(os.getsid(pid), pid)
+        self.assertEqual(os.getpgid(probe.proc.pid), os.getpgrp())
+        wait_for(lambda: relay_ci._descendants(probe.proc.pid))   # the nested sleep exists, so the stop's snapshot sees it
         probe.stop()
-        self.assertEqual(os.getpgrp(), os.getpgrp())   # we are still here
         self.assertIsNotNone(probe.proc.poll())
+        self.assertIsNone(sibling.poll())
 
     def test_stop_ends_the_probe_and_everything_below_it_and_removes_the_worktree(self) -> None:
         # case 3: the outer run leaves early; the nested run's own child (sleep) must not outlive it, and no worktree stays

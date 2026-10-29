@@ -158,10 +158,10 @@ class Probe:
         env["RELAY_INERT_FULL_HOOKS"] = "" if self.quick else "1"
         os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
         self._log = open(self.log_path, "wb")
-        # a session of its own (29 Oct: the probe shared bin/ci's process group, so a signal to that group could reach the probe's tests,
-        # and the probe's stop could reach the outer run); the outer run stops it by `stop`, which ends its group
+        # same process group as bin/ci on purpose: relay gate SIGKILLs that group when it stops the gate, which must end the probe too
+        # (a probe in a session of its own outlived it, kept the worktree lock and had no time limit)
         self.proc = subprocess.Popen(list(self.nested), cwd=self.work, env=env, stdin=subprocess.DEVNULL,
-                                     stdout=self._log, stderr=subprocess.STDOUT, close_fds=False, start_new_session=True)   # keeps an inherited lock fd
+                                     stdout=self._log, stderr=subprocess.STDOUT, close_fds=False)   # keeps an inherited lock fd
 
     def wait(self) -> int | None:
         """The nested run's exit code once it ends (negative: stopped by a signal); None when it never started."""
@@ -175,8 +175,6 @@ class Probe:
         if proc is not None and proc.poll() is None:
             stop_tree([proc.pid] + _descendants(proc.pid), proc.pid)
             proc.wait()
-            with contextlib.suppress(OSError):   # whatever is left in the probe's own group (it leads it: pgid == pid)
-                os.killpg(proc.pid, signal.SIGKILL)
         if self._log is not None:
             self._log.close()
             self._log = None
