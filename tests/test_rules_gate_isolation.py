@@ -19,7 +19,7 @@ class RulesGateIsolation(unittest.TestCase):
         self.assertTrue(names)
         names = [n for n in names if n != "tests.test_rules_gate_isolation"]
         env = {k: v for k, v in os.environ.items() if k not in ("RELAY_ROOT", "RELAY_HOME", "RELAY_PROJECTS", "CLAUDE_CONFIG_DIR")}
-        run = subprocess.run([sys.executable, "-m", "unittest", *names], capture_output=True, text=True, cwd=ROOT, env=env)  # no wall-clock cap: under a loaded gate this takes minutes; bin/ci bounds the whole step
+        run = subprocess.run([sys.executable, "-m", "unittest", *names], capture_output=True, text=True, cwd=ROOT, env=env, timeout=1200)  # the run alone takes about 51 s; this bound only trips on a real hang (bin/ci has no step timeout)
         self.assertEqual(run.returncode, 0, run.stderr[-1500:])
 
     def test_base_restores_any_variable_a_test_sets(self) -> None:
