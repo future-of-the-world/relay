@@ -371,6 +371,19 @@ class Guard(SoftCases):
         live = dict(event, tool_input={"file_path": m + "/.worktree/any-change/x.ex"})
         self.assertEqual(self.run_hook(m, live).returncode, 0)
 
+    def test_a_locked_removed_worktree_is_not_a_task_worktree(self) -> None:
+        # F1: git never marks a locked entry prunable, so a deleted locked worktree must be dropped by its missing folder.
+        m = self.mkrepo("lockedgone")
+        git(m, "worktree", "add", "-q", ".worktree/b", "-b", "wt/b")
+        git(m, "worktree", "lock", ".worktree/b")
+        git(m, "worktree", "add", "-q", ".worktree/c", "-b", "wt/c")
+        git(m, "worktree", "lock", ".worktree/c")
+        shutil.rmtree(os.path.join(m, ".worktree", "b"))
+        gone = {"tool_name": "Write", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": m + "/.worktree/b/x.ex"}}
+        self.assertEqual(self.run_hook(m, gone).returncode, 2)
+        live = dict(gone, tool_input={"file_path": m + "/.worktree/c/x.ex"})
+        self.assertEqual(self.run_hook(m, live).returncode, 0)
+
     def test_the_cd_guard_knows_a_worktree_of_any_folder(self) -> None:
         # F4: the main session's cd into a registered worktree is refused whatever the folder is called.
         m = self.mkrepo("cdguard")

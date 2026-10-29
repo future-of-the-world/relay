@@ -5,7 +5,7 @@ PreToolUse hook: keep the main checkout clean.
 
 Blocks, with exit 2 so the reason goes back to the agent:
 - Edit/Write/MultiEdit/NotebookEdit on a path inside the main checkout but
-  outside its worktrees folder (project.worktrees, default .worktrees);
+  outside every worktree git lists for this repository (project.worktrees adds one more folder);
 - Bash that, in the main checkout, runs a mutating git command (commit,
   reset, branch -f, update-ref, ...; except `git merge --ff-only wt/<name>`,
   the user-requested merge, and `git merge --ff-only origin/<default>` in a
@@ -257,12 +257,12 @@ class Guard:
         sys.exit(2)
 
     def listed_worktrees(self) -> list[str]:
-        """The live linked worktrees git has registered for this repository (not the main checkout, not prunable), read once."""
+        """The live linked worktrees git has registered for this repository (not the main checkout, not prunable, folder present: git does not mark a locked entry prunable), read once."""
         if self._listed is None:
             try:
                 import relay_git
                 self._listed = [w["path"] for w in relay_git.worktrees(self.main)
-                                if w["path"] != self.main and not w["prunable"]]
+                                if w["path"] != self.main and not w["prunable"] and os.path.isdir(w["path"])]
             except Exception:
                 self._listed = []       # git could not answer: nothing is exempt, the main checkout stays guarded
         return self._listed
