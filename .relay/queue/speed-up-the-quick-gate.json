@@ -55,6 +55,12 @@
       "said": [
         "Как ты собираешься следить за тем какой тест читает служебные файлы, отсутствие лишней проверки допустимо лишь с должными гарантиями надежности"
       ]
+    },
+    {
+      "at": "2026-10-29T04:34:47Z",
+      "fact": [
+        "29 Oct 08:33, done by the front on the owner's word: ~/.local/bin/git is a two-line script `exec /Applications/Xcode.app/Contents/Developer/usr/bin/git \"$@\"` (git 2.50.1, Apple Git-155); ~/.local/bin comes before /usr/bin on PATH in this shell and in an interactive zsh. A plain symlink was tried first and dropped: git then looked for its helpers and its system config next to the link (exec path /Users/amidman/.local/libexec/git-core, which does not exist). Measured under load 22, 50 calls each: /usr/bin/git 25.8 ms per call, the script 14.5 ms, the symlink 7.7 ms. git init (14 hook templates) and git submodule (a git-core script) work through the script. Undo: delete ~/.local/bin/git."
+      ]
     }
   ]
 }
