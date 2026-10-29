@@ -322,6 +322,12 @@
       "said": [
         "Давай сделаем анализ в долгосрок, насколько приоритетней будет сделать оптимизации нацеленные на ускорение разработки сейчас и приступить к развитию самого relay (например метрик), чем делать их попеременно (например 3 lane на фичи и 3 lane на фиксы)"
       ]
+    },
+    {
+      "at": "2026-10-29T08:00:51Z",
+      "fact": [
+        "29 Oct, lane strategy design revision 2 (after review), measured: held lanes averaged 1.3-1.7 on 26-27 Oct, 3.6 on 28 Oct, 5.7 on 29 Oct (6 or more at 72% of 5-minute points); landings 1.21 an hour on 28 Oct, 0.59 on 29 Oct; by Little's law lead time 3.0 h -> 9.7 h; agents run in 46% of held lane time. On 28 Oct a gate ran 19 of 24 h, 6.9 gates per busy hour, 4.5 gates per landing: a ceiling of about 30 landings a day (29 landed). New fixes about one per landing (130 found, 130 landed, 24-28 Oct). Module split: merge conflicts 3.8% of merges, at most 2.3 lane-hours a week; 2 of 18 branches changed bin/relay. Docker on this Mac: the 6 running containers are postgres:16-alpine started by Testcontainers for Go (v0.44.0) from a project outside relay's projects; relay itself calls no Docker."
+      ]
     }
   ]
 }
