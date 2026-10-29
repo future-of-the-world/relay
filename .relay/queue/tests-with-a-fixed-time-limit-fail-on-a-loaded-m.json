@@ -48,6 +48,12 @@
       "fact": [
         "29 Oct measured cause of tonight's timing failures (test_rules_gate_isolation 200 s cap, test_numbers SessionEnd 0.3 s cap, precheck changed-tests 230 s cap): 59 leaked fixture gate scripts from tests/test_land.py::test_land_lock_frees_on_kill, 312 new processes a second, CPU 93.5% system. The limits still fail on any loaded machine, so this item stands; the leak is its own item."
       ]
+    },
+    {
+      "at": "2026-10-29T03:27:58Z",
+      "fact": [
+        "29 Oct ~08:00, gate of wt/refuse-folder-and-pattern-entries-in-whe at 35ecd293: tests/test_gate_stops.py:77 test_f2_an_interrupted_runner_leaves_no_gate_command failed in the inert step's nested run (829 s) with 'the gate command is still running after its runner was interrupted', while the same tests passed in the outer run (1108 s); the change touches no gate code. Its wait is the until() helper's fixed window, so it belongs to the same class: a fixed wall-clock wait that a loaded machine overruns."
+      ]
     }
   ]
 }
