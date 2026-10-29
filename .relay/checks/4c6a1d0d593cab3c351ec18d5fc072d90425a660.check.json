@@ -1,0 +1,180 @@
+{
+  "branch": "wt/a-dead-workflow-agent-leaves-no-error-te",
+  "findings": [
+    {
+      "details": [
+        "Principle 6: evidence first, then one fix for the runner deaths."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "An agent that throws once and succeeds on retry leaves no trace of the error."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "Each thrown attempt writes its message, label and time to $S/reports/dead-<label>-<n>.txt before the retry.",
+        "An agent that does not throw leaves no file."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "high",
+      "reason": [
+        "tests/test_cycle_workflow.py test_each_thrown_attempt_leaves_a_dead_note_before_the_retry_and_a_clean_run_leaves_none passes; fails at base 2791b61a."
+      ],
+      "severity": "HIGH",
+      "since": "2791b61a03459b7f3fee24f46963307dfcb4212d",
+      "source": "queue",
+      "summary": "A dead workflow agent leaves no error text",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading and by a probe. lib/relay_labels.py: a label is `<stage>[ n]: <unit>`; route-guard.py says the label",
+        "exists \"so its time and cost join the change's record\" and reserves `other: <name>` for \"work with no change\". This note is",
+        "work of a change. relay_metrics.py:203 groups unmatched agents as \"other:\"+unit, and :221-224 writes each such group to",
+        ".relay/changes/<name>/sweep-<stamp>.json. cycle.js:121 says the unit of a label is the full queue item id \"so the metrics then",
+        "match it exactly\"; the new label breaks that. The same choice also truncates (slice(0,70)) long labels so attempts 1 and 2 of a",
+        "long item get one identical label: for item relay-doctor-does-not-name-a-main-checkout-whose and \"fix red gate 1\" both become",
+        "\"other: dead-fix-red-gate-1-relay-doctor-does-not-name-a-main-checkout-\". Using the dead agent's own unit removes both.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "python3 -I -c '... relay_labels.label_of(lab); relay_metrics.match_unit({... unit: dead-gate-1-a-dead-workflow-agent-leaves-no-error-text-1 ...})'",
+        "  other: dead-gate-1-a-dead-workflow-agent-leaves-no-error-text-1",
+        "  None",
+        "  (unit a-dead-workflow-agent-leaves-no-error-text -> a-dead-workflow-agent-leaves-no-error-text)",
+        "truncation probe: both n=1 and n=2 print \"other: dead-fix-red-gate-1-relay-doctor-does-not-name-a-main-checkout-\"",
+        "git ls-files .relay/changes | grep -c sweep -> 177 (sweeps do store unmatched units as folders)"
+      ],
+      "failing_case": [
+        "Unit with item a-dead-workflow-agent-leaves-no-error-text; \"gate 1: a-dead-workflow-agent-leaves-no-error-text\" throws once.",
+        "The note agent is labelled \"other: dead-gate-1-a-dead-workflow-agent-leaves-no-error-text-1\". The ledger keeps unit",
+        "\"dead-gate-1-a-dead-workflow-agent-leaves-no-error-text-1\"; relay_metrics.match_unit returns None for it (no exact slug,",
+        "40-char prefix differs), so the sweep writes .relay/changes/dead-gate-1-a-dead-workflow-agent-leaves-no-error-text-1/sweep-<stamp>.json:",
+        "one new committed folder per dead attempt (21 deaths over 24-28 Oct would have made 21), and the note's time and cost are not",
+        "in the change's record. Expected: the note agent's unit is the dead agent's unit, so it joins the change's record."
+      ],
+      "fix_hint": [
+        "In deadNote take the unit from the dead agent's label (the part after the first \": \") and label the note",
+        "`other: ${unit}`; keep the file name dead-<slug of the full label>-<n>.txt. Drop the slice. Update the test to assert the",
+        "note label and the file path separately."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 112,
+      "pass_cases": [
+        "1. Unit item \"the-item\", \"gate 1: the-item\" throws once then is green: the note agent's label is \"other: the-item\" (or another",
+        "   label whose unit part is exactly \"the-item\"); the result is ready; the note prompt still names",
+        "   <scratch>/reports/dead-gate-1-the-item-1.txt, the error text and the label \"gate 1: the-item\".",
+        "2. relay_metrics.match_unit on that note agent (unit \"the-item\", stage \"other\") returns \"the-item\".",
+        "3. Every label the cycle starts still matches the ledger's grammar (tests/test_cycle_workflow.py:422).",
+        "4. No throw: no note agent starts (labels unchanged from today)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py:255 asserts label \"other: x\" (unit of the dead agent)."
+      ],
+      "severity": "MEDIUM",
+      "since": "a3e8bbae96ac887a070b46a7c2f5339aa954de02",
+      "source": "review-a-dead-workflow-agent-leaves-no-error-te.json",
+      "source_id": "F1",
+      "summary": "the note runner's label names a unit of its own (dead-gate-1-<item>-1), so its cost misses the change and the sweep stores a new .relay/changes folder per death",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Labels repeat across runs of one unit: changeUnit and fixUnit both start \"gate 1: <lab(it)>\" (newState",
+        "resets gn), both use \"fix: <lab(it)>\" and \"check: <lab(it)>\". The file name is built from the label only, and the prompt says",
+        "\"Write the file\", which replaces it. cycle.js:123 records the rule this breaks: \"File names carry the kind for a fix or",
+        "recheck run, so it never overwrites what the change run wrote\" (tag()). The notes exist to measure deaths across many runs",
+        "(21 of 1,296 over five days), so a lost note is lost data. Size: 10 minutes."
+      ],
+      "evidence": [
+        "cycle.js:109 const file = `${S}/reports/dead-${slug}-${n}.txt` (label only, no kind, no time)",
+        "cycle.js:111 prompt \"Write the file ${file} ...\"",
+        "cycle.js:288-290 fixUnit -> newState() -> gated -> label `gate 1: ${lab(it)}`",
+        "cycle.js:123 comment on tag(): \"so it never overwrites what the change run wrote\""
+      ],
+      "failing_case": [
+        "In one session (one scratch folder): a change run of item the-item has \"gate 1: the-item\" die once -> note",
+        "<scratch>/reports/dead-gate-1-the-item-1.txt written. A later kind=fix run of the same item (fixUnit, fresh counters) has",
+        "\"gate 1: the-item\" die once -> the runner is told to \"Write the file\" with the same path, replacing the first note.",
+        "Expected: both deaths are on disk (the first note kept)."
+      ],
+      "fix_hint": [
+        "Tell the runner to append the three lines (create the file if missing), so the brief's file name stays and a second run adds",
+        "a record instead of replacing one; or put tag(it) in the name by passing it from the callers. Add a test asserting the prompt",
+        "says append / does not say overwrite."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 109,
+      "pass_cases": [
+        "1. Two runs in one scratch, each with \"gate 1: the-item\" throwing once: the note prompt of the second run tells the runner",
+        "   to keep what the file already holds (append, or pick the next free name), so two records exist after both runs.",
+        "2. One throw in one run: one note with label, time, error (today's brief pass case) still holds.",
+        "3. No throw: no note agent."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py:260 asserts the prompt says append; note-prompt text keeps earlier content."
+      ],
+      "severity": "MEDIUM",
+      "since": "a3e8bbae96ac887a070b46a7c2f5339aa954de02",
+      "source": "review-a-dead-workflow-agent-leaves-no-error-te.json",
+      "source_id": "F2",
+      "summary": "a later cycle run on the same unit in the same scratch overwrites the earlier dead note, losing the evidence the change exists to keep",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the harness (plugins/delegate/tests/fake-workflow.js answers by label, $throw supported) and the test,",
+        "which never makes a note agent throw. The catch is the only thing that keeps a note failure from crashing the unit; it is the",
+        "case most likely in practice (a death from an outage tends to kill the next agent too). Size: 5 minutes."
+      ],
+      "evidence": [
+        "grep of tests/test_cycle_workflow.py: no answer keyed \"other: dead-...\" ; only \"stage:other\": DONE in GREEN"
+      ],
+      "failing_case": [
+        "Answers: \"gate 1: x\" -> [$throw, green], \"other: dead-gate-1-x-1\" -> $throw. With the catch in deadNote the unit goes on",
+        "(gate 1 retried, ready). Delete the try/catch: the throw escapes ask(), the unit ends \"crash\", and no test fails today."
+      ],
+      "fix_hint": [
+        "Add the two cases above to the new test (key the note's answer by its label)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 250,
+      "pass_cases": [
+        "1. gate 1 throws once, the note agent throws: labels go gate 1, note, gate 1; the change is ready.",
+        "2. gate 1 throws every attempt and every note throws: the stop detail is gate 1's error text, not the note's.",
+        "3. gate 1 throws once, the note succeeds: unchanged from today's test."
+      ],
+      "path": "tests/test_cycle_workflow.py",
+      "rank": "low",
+      "reason": [
+        "test_a_note_agent_that_dies_too_never_stops_the_unit passes; fails at base."
+      ],
+      "severity": "LOW",
+      "since": "a3e8bbae96ac887a070b46a7c2f5339aa954de02",
+      "source": "review-a-dead-workflow-agent-leaves-no-error-te.json",
+      "source_id": "F3",
+      "summary": "no test covers a note agent that itself dies; removing the try/catch in deadNote passes every test",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "031dd4df8a6946353d89bd0a930156e4ffac122f.gate.log",
+  "head": "4c6a1d0d593cab3c351ec18d5fc072d90425a660",
+  "item": "a-dead-workflow-agent-leaves-no-error-text",
+  "notes": [
+    "Minor: unit slice assumes label has \": \"; labels in cycle always do."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 2791b61a..HEAD; files cycle.js and test_cycle_workflow.py only. Gate log for 031dd4df exit 0; later commit only the gate log. pytest tests/test_cycle_workflow.py 47 passed. At 2791b61a with head tests, both dead-note tests fail."
+  ],
+  "type": "check"
+}
