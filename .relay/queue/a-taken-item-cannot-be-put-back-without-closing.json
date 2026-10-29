@@ -4,7 +4,7 @@
   "time": 30,
   "found_at": "2026-10-29T22:45:23Z",
   "found_in": "relay queue add",
-  "title": "A taken item cannot be put back without closing it",
+  "title": "relay queue --help does not list release",
   "what": [
     "relay queue release <slug> returns a taken item to the open queue with a dated event and a reason, when its branch has no commit of its own beyond the default branch (or with the branch removed); the lane frees at once."
   ],
@@ -28,5 +28,14 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T22:46:13Z",
+      "edited": "title",
+      "fact": [
+        "Edited title: 30 Oct: relay queue release exists (bin/relay:1024, lib/relay_queue.py:1265) and works; the real defect is that relay queue --help does not list it, so the front concluded it was missing."
+      ]
+    }
+  ]
 }
