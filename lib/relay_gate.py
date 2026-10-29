@@ -426,13 +426,8 @@ def reused_red(red: tuple[int, str, list[str]]) -> tuple[int, str, list[str]]:
 
 
 def signal_line(number: int) -> str:
-    """The gate log's line for a gate command that ended by a signal. The sender is not known: the signal went to the command,
-    not to the gate, and neither macOS nor Linux tells a parent who killed its child (only the receiver can read si_pid)."""
-    try:
-        name = signal.Signals(number).name
-    except ValueError:
-        name = "signal %d" % number
-    return "gate command ended by %s (sender unknown: the stop went to the command, not to the gate)" % name
+    """The gate log's line for a command ended by a signal; the sender is unknown (only the receiver can read si_pid)."""
+    return "gate command ended by %s (sender unknown: the stop went to the command, not to the gate)" % {int(s): s.name for s in signal.Signals}.get(number, "signal %d" % number)
 
 
 def hold_stops() -> tuple[list[int], Callable[[], None]]:
@@ -541,8 +536,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                     tokens, token_wait = relay_tokens.take_base(home, st, relay_tokens.GATE, st.per_gate, lambda line: notify("gate: " + line))
                     waited += token_wait
                     env[relay_tokens.ENV_HOLD] = relay_tokens.hold_value(st.per_gate, home)
-                proc = None
-                stopped_by = ""
+                proc, stopped_by = None, ""
                 try:
                     with open(out_path, "wb") as sink:
                         # the lock file goes to the command: the OS keeps the lock until its last process ends, even if this process is killed
@@ -563,8 +557,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                         lock.flush()
                         returncode = proc.wait()
                     code = returncode if returncode >= 0 else 128 - returncode
-                    if returncode < 0:
-                        stopped_by = signal_line(-returncode)
+                    stopped_by = signal_line(-returncode) if returncode < 0 else ""
                 except OSError as exc:
                     with open(out_path, "w") as text_sink:
                         text_sink.write("gate command could not start: %s\n" % exc)
