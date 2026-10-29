@@ -13,7 +13,7 @@ export const meta = {
 //   change   {name, wt, check, branch*, item*}                       build, gate, review, fix, gate, check, close, show
 //   built    {name, wt, check, built, branch*, item*}                the same without the build
 //   fix      {name, wt, check, fix, fixes, findings, branch*, item*} fix, gate, check, close, show
-//   recheck  {name, wt, check, findings, fixes*, branch*}                           take the base, gate, check (project mode only: in relay mode `relay land` takes the base and gates)
+//   recheck  {name, wt, check, findings, fixes}                                          take the base, gate, check (project mode only: in relay mode `relay land` takes the base and gates)
 //   (* relay mode only; item is one fix-item slug)
 // Designs, in args.designs: {name, brief, out, review (false: an analysis, one thinker)}.
 // Optional args.settings: gate_turns 20-80 (40), gate_fixes 0-3 (1), gate_reruns 0-2 (1: how often a gate that stopped at its time limit is run again, with no fixer), retry_dead 0-2 (1), gate_args (a string, '--quick'; '' is the plain quick gate, '--paid' the full one with the paid evals).
@@ -274,9 +274,9 @@ async function recheckUnit(it) {
   const st = newState()
   const r = await gateGroup(it, st)
   if (r.stop) return r.stop
-  // The fixes already made on the branch: the given fix report, else the branch's newest check record, whose MET verdicts
-  // carry over. 'none' would make the checker judge every fixed finding again with no fix named.
-  const given = it.fixes || (it.branch ? `the newest check record of ${it.branch} (read with relay check show ${it.branch} -C ${it.wt})` : 'none')
+  // The fixes already made: the given fix report, else the earlier check records this script wrote for this worktree, whose
+  // MET verdicts carry over. 'none' would make the checker judge every fixed finding again with no fix named.
+  const given = it.fixes || `the earlier check records ${S}/reports/check-*.json whose worktree is ${it.wt} (read each with relay check show <file>); carry each MET verdict whose files did not change since its head`
   return finish(it, st, { findings: it.findings, fixes: fixesText(given, st), gateLog: r.g.gate_log, review: undefined })
 }
 
