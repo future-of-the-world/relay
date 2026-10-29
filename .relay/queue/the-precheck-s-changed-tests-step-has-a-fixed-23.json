@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 30,
+  "found_at": "2026-10-29T06:34:21Z",
+  "found_in": "relay queue add",
+  "title": "The precheck's changed-tests step has a fixed 230 s cap",
+  "what": [
+    "Replace the precheck changed-tests step's fixed 230 s cap with a hang bound that a loaded machine passes (the 600 s polled bound the gate tests use) or a budget derived from the work; extend tests/test_hang_limits.py to cover it."
+  ],
+  "why": [
+    "29 Oct: relay precheck went red only on its 'changed tests took longer than 230 s' step at load 17-35 on 12 cores, twice in one day (wt/queue-time-estimates-are-guesses-with-no, wt/tests-with-a-fixed-time-limit-fail-on-a); the same 16 changed test files pass in 199 s at load 8 (364 passed). It is the fixed-wall-clock class of tests-with-a-fixed-time-limit-fail-on-a-loaded-m, in lib code outside that change's files. Each such red stops a worker's quiet loop and found nothing wrong."
+  ],
+  "failing_case": [
+    "relay precheck in a worktree whose 16 changed test files take 240 s at load 32 goes red on 'changed tests took longer than 230 s' though every test passed."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "changed tests that pass in 240 s at load 32 leave the precheck green",
+    "a changed test that hangs is still stopped and reported, within the hang bound",
+    "tests/test_hang_limits.py flags a fixed 230 s cap if it comes back"
+  ],
+  "where": [
+    "lib/relay_precheck.py",
+    "tests/test_hang_limits.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
