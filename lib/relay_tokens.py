@@ -15,7 +15,7 @@ A run's BASE tokens are held for the whole run; its EXTRA tokens are held for on
 
 Settings (files in the pool folder; a value outside its bounds is brought into them with a note):
   count     tokens in all; default the usable CPUs; bounds R+1 .. 4 x CPUs
-  per-gate  tokens a gate holds; default 4; bounds 2 .. 2 x DEFAULT_JOBS (the same on the whole machine: every process must
+  per-gate  tokens a gate holds; default 4, less on a small machine (slots x share + 2 <= CPUs, share at least 2); bounds 2 .. 2 x DEFAULT_JOBS (the same on the whole machine: every process must
             compute the same gate/shared split, so no caller's RELAY_TEST_JOBS enters it)
   retry     seconds an idle extra waits before it looks again; default 1; bounds 0.2 .. 10
 """
@@ -37,6 +37,7 @@ GATE = "gate"
 SHARED = "shared"
 DEFAULT_PER_GATE = 4
 MIN_PER_GATE = 2
+MIN_SHARED = 2          # the default per-gate share leaves at least this many shared tokens (agents' test runs): 2 per gate on 4 CPUs
 CORES_PER_SLOT = 6      # default slots = cores // CORES_PER_SLOT, at least 1: 2 on 12 cores (measured 27 Oct: 2 gates at once 698 s each, 3 at once 1058 s each, alone 420 s)
 DEFAULT_JOBS = 4         # the per-run worker ceiling when RELAY_TEST_JOBS is not set (tests/parallel_unittest.py DEFAULT_JOBS)
 DEFAULT_RETRY = 1.0
@@ -137,7 +138,9 @@ def read_setting(path: str, default: float, low: float, high: float, whole: bool
 def settings(home: str, slots: int, cpus: Optional[int] = None) -> Settings:
     folder = pool_dir(home)
     cpus = cpus or usable_cpus()
-    per_gate, note1 = read_setting(os.path.join(folder, "per-gate"), DEFAULT_PER_GATE, MIN_PER_GATE, 2 * DEFAULT_JOBS)
+    # the default share shrinks with the machine so that the gates leave at least MIN_SHARED tokens to everything else
+    default_gate = min(DEFAULT_PER_GATE, max(MIN_PER_GATE, (cpus - MIN_SHARED) // max(1, slots)))
+    per_gate, note1 = read_setting(os.path.join(folder, "per-gate"), default_gate, MIN_PER_GATE, 2 * DEFAULT_JOBS)
     gate_tokens = int(per_gate) * slots
     total, note2 = read_setting(os.path.join(folder, "count"), cpus, gate_tokens + 1, max(CPU_FACTOR * cpus, gate_tokens + 1))
     retry, note3 = read_setting(os.path.join(folder, "retry"), DEFAULT_RETRY, RETRY_LOW, RETRY_HIGH, whole=False)

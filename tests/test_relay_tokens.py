@@ -35,6 +35,16 @@ class SettingsTest(Base):
         s = st(self.home)
         self.assertEqual((s.total, s.per_gate, s.gate_tokens, s.notes), (12, 4, 8, ()))
 
+    def test_the_default_share_shrinks_with_the_machine(self):
+        # F5: agents' test runs keep at least 2 shared tokens. 4 cpus, 1 slot: share (4-2)//1 = 2, gate 2, shared 4-2 = 2
+        # (without the fix: share 4, count raised to R+1 = 5, shared 1). 6 cpus, 2 slots: share (6-2)//2 = 2, gate 4, shared 2.
+        # 6 cpus, 1 slot: (6-2)//1 = 4 stays the default 4, shared 2.
+        for cpus, slots, per_gate in ((4, 1, 2), (6, 2, 2), (6, 1, 4)):
+            s = st(self.home, slots, cpus)
+            self.assertEqual((s.per_gate, s.total - s.gate_tokens), (per_gate, 2), (cpus, slots))
+        self.write("per-gate", "3")        # the settings file still wins, inside its bounds
+        self.assertEqual(st(self.home, 1, 4).per_gate, 3)
+
     def test_files_set_the_sizes(self):
         self.write("count", "20\n")
         self.write("per-gate", "3\n")
