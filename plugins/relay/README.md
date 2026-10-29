@@ -43,7 +43,7 @@ registry's location, for tests.)
 
 ## What relay holds, and what it does not
 
-Core is for every project: the `kit` helper, the main-checkout guard and the addition
+Relay is for every project: the `kit` helper, the main-checkout guard and the addition
 injection. It ships no agents. The generic `worker` and `reviewer` (for projects
 that do not enable the `openspec` plugin; they take a brief file and reply in a few lines,
 and know nothing of OpenSpec) are personal agents: one source in the library's
@@ -63,7 +63,7 @@ project's `Bash(kit:*)` permission and the migration script.
 
 ## Project additions are injected
 
-A project keeps its rules for a shared role in `.claude/kit/<role>.md`. Core's
+A project keeps its rules for a shared role in `.claude/kit/<role>.md`. Relay's
 `hooks/inject-addition.sh` hands that file to the agent or session itself, so
 no agent has to obey a "read your addition" line:
 
