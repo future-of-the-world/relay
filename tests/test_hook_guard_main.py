@@ -330,6 +330,70 @@ class Guard(SoftCases):
     def test_no_kit_toml_only_the_generic_rules(self) -> None:
         self.run_profile("none")
 
+    def test_the_guard_starts_no_grep(self) -> None:
+        # A grep earlier on PATH than the real one logs every start. Judging a command against the tracing, curl and
+        # project patterns (kartoteka has [[guard.block]] rules) must start none: the patterns are matched in Python.
+        m = self.mkrepo("nogrep")
+        os.makedirs(os.path.join(m, ".claude"))
+        shutil.copy(PROFILE_SETUP["kartoteka"][0], os.path.join(m, ".claude", "kit.toml"))
+        fake = os.path.join(self.tmp, "fakebin")
+        log = os.path.join(self.tmp, "grep.log")
+        os.makedirs(fake, exist_ok=True)
+        with open(os.path.join(fake, "grep"), "w") as handle:
+            handle.write('#!/bin/sh\necho "started $PPID $*" >> "%s"\nexit 1\n' % log)
+        os.chmod(os.path.join(fake, "grep"), 0o755)
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
+        env["PATH"] = fake + os.pathsep + env["PATH"]
+        event = {"tool_name": "Bash", "cwd": m, "agent_id": "a1", "tool_input": {"command": "ls && bun add x"}}
+        done = subprocess.run([HOOK], input=json.dumps(event), capture_output=True, text=True, env=env)
+        self.assertEqual(done.returncode, 2, done.stderr)  # the project rule still fires: bun add in main
+        self.assertFalse(os.path.exists(log), open(log).read() if os.path.exists(log) else '')
+
+    def hook_with_rule(self, name: str, pattern: str, command: str, unless: str = "") -> "subprocess.CompletedProcess[str]":
+        """Bash `command` in a main checkout whose kit.toml has one [[guard.block]] rule (TOML literal strings)."""
+        m = self.mkrepo(name)
+        os.makedirs(os.path.join(m, ".claude"))
+        with open(os.path.join(m, ".claude", "kit.toml"), "w") as handle:
+            handle.write("[[guard.block]]\npattern = '%s'\nreason = \"rule fired\"\n" % pattern)
+            if unless:
+                handle.write("unless = '%s'\n" % unless)
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
+        event = {"tool_name": "Bash", "cwd": m, "agent_id": "a1", "tool_input": {"command": command}}
+        return subprocess.run([HOOK, ], input=json.dumps(event), capture_output=True, text=True, env=env)
+
+    def test_ere_word_edge_in_a_project_rule_fires(self) -> None:
+        # grep -E reads \< as a word start; so `npm install x` matches and the rule blocks (not a silent no-op).
+        done = self.hook_with_rule("wordedge", r"\<npm[[:space:]]+install", "npm install x")
+        self.assertEqual(done.returncode, 2, done.stderr)
+        self.assertIn("rule fired", done.stderr)
+
+    def test_ere_class_graph_in_a_project_rule_fires(self) -> None:
+        # [[:graph:]] matches "a", so "ax" matches; Python must not warn about a nested set.
+        done = self.hook_with_rule("graphclass", "[[:graph:]]x", "ax")
+        self.assertEqual(done.returncode, 2, done.stderr)
+        self.assertIn("rule fired", done.stderr)
+        self.assertNotIn("FutureWarning", done.stderr)
+
+    def test_ere_backslash_in_brackets_is_literal(self) -> None:
+        # In ERE [\.] is a backslash or a dot: it matches the backslash in "a\b".
+        done = self.hook_with_rule("bsbracket", r"a[\.]b", "echo a\\b")
+        self.assertEqual(done.returncode, 2, done.stderr)
+        self.assertIn("rule fired", done.stderr)
+
+    def test_a_pattern_the_guard_cannot_read_blocks_naming_it(self) -> None:
+        for name, pattern in (("badclass", "[[:nosuch:]]x"), ("badre", "a(b")):
+            done = self.hook_with_rule(name, pattern, "ls")
+            self.assertEqual(done.returncode, 2, done.stderr)
+            self.assertIn(pattern, done.stderr)
+
+    def test_alternation_is_leftmost_first_as_the_readme_says(self) -> None:
+        # Python takes "cargo" (first branch), so unless 'fmt' does not match it and the rule blocks; the longer branch
+        # written first gives "cargo fmt", which unless lets through.
+        short = self.hook_with_rule("altshort", "{start}(cargo|cargo[[:space:]]+fmt)", "cargo fmt --check", "fmt")
+        self.assertEqual(short.returncode, 2, short.stderr)
+        longer = self.hook_with_rule("altlong", "{start}(cargo[[:space:]]+fmt|cargo)", "cargo fmt --check", "fmt")
+        self.assertEqual(longer.returncode, 0, longer.stderr)
+
     def test_an_unreadable_kit_toml_never_silently_drops_the_rules(self) -> None:
         m = self.mkrepo("broken")
         os.makedirs(os.path.join(m, ".claude"))

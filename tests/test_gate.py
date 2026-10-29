@@ -3,8 +3,12 @@
 Every repository is built in a temp directory; the gate commands are fixtures, never the real bin/ci of this repo
 except as the file the A11 fixture copies.
 """
+import fcntl
+import glob
 import os
+import re
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -19,10 +23,12 @@ sys.path.insert(0, os.path.join(ROOT, "lib"))
 sys.path.insert(0, HERE)
 
 import leaked_gates
+import relay_procs
 from fake_tools import install_fake
 from pidfile import wait_pid
 
 GATE_TIMEOUT = 900      # seconds a test waits for its gate; the slowest (a copied bin/ci with its nested probe) takes about a minute
+LEAK_GRACE = 5.0        # seconds a correct gate command (a loop that checks its folder) gets to end after the fixture's folder is removed
 GATE_STOP_GRACE = 600   # seconds the stopped gate has to end its command and free its slot
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
@@ -54,9 +60,67 @@ def write(path, text, mode=None):
 class Fixture(unittest.TestCase):
     def setUp(self):
         self.tmp = os.path.realpath(tempfile.mkdtemp(prefix="relay-gate-"))
-        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.addCleanup(self.remove_tree)
         self.env = {**os.environ, **GIT_ENV, "RELAY_ROOT": ROOT, "RELAY_HOME": os.path.join(self.tmp, "home")}      # slots in the temp dir, never the live ~/.relay
         self.env.pop("RELAY_GATE", None)
+
+    def remove_tree(self):
+        """E: remove the fixture's folder, then make sure no gate process it started outlives it. The worktree locks
+        (`relay-gate.lock` in the git folders, text `<gate pid> <command group>`) name them: a process that kept the lock file is
+        still a holder. A loop that checks its folder ends by itself within LEAK_GRACE; any holder left after that is stopped and the
+        test fails, naming it. (A process that closed the lock file is not seen here: the end-of-run scan under bin/ci finds it.)"""
+        locks = []
+        for path in glob.glob(os.path.join(self.tmp, "main", ".git", "relay-gate.lock")) + glob.glob(os.path.join(self.tmp, "main", ".git", "worktrees", "*", "relay-gate.lock")):
+            try:
+                handle = open(path)
+            except OSError:
+                continue
+            text = handle.read()
+            numbers = [int(word) for word in re.findall(r"\d+", text)]
+            locks.append((path, handle, numbers))
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        left = []
+        try:
+            for path, handle, numbers in locks:
+                if not self.lock_freed(handle, LEAK_GRACE):
+                    left += self.stop_holders(path, handle, numbers)
+        finally:
+            for _, handle, _ in locks:
+                handle.close()
+        if left:
+            raise AssertionError("the test left gate processes running after its folder was removed (stopped): " + ", ".join("%d %s" % item for item in left))
+
+    @staticmethod
+    def lock_freed(handle, grace):
+        """Whether no process holds the lock file `handle` is open on, within `grace` seconds."""
+        deadline = time.monotonic() + grace
+        while True:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                if time.monotonic() >= deadline:
+                    return False
+                time.sleep(0.05)
+                continue
+            fcntl.flock(handle, fcntl.LOCK_UN)
+            return True
+
+    def stop_holders(self, path, handle, numbers):
+        """The lock at `path` is still held: stop the gate (SIGTERM) and the members of its command group (SIGKILL) that have this lock
+        file open; returns [(pid, command)] of what was stopped."""
+        procs = relay_procs.read_procs()
+        candidates = {p.pid: p for p in procs if (numbers and p.pid == numbers[0]) or (len(numbers) > 1 and p.pgid == numbers[1])}
+        names = relay_procs.open_names(list(candidates)) or {}
+        mine = {pid: p for pid, p in candidates.items() if any(os.path.basename(name) == "relay-gate.lock" and (name == path or name.startswith(path)) for name in names.get(pid, []))}
+        if numbers and numbers[0] in mine:
+            relay_procs.send(numbers[0], False, signal.SIGTERM)
+        for pid in mine:
+            if pid != (numbers[0] if numbers else 0):
+                relay_procs.send(pid, False, signal.SIGKILL)
+        self.lock_freed(handle, relay_procs.STOP_GRACE)
+        if not mine:      # still held and nobody identified: say so rather than pass
+            return [(numbers[0] if numbers else 0, "holder of %s not identified" % path)]
+        return [(pid, p.command) for pid, p in sorted(mine.items())]
 
     def repo(self, relay=True, gate=None, ignore=".ci/\n.worktrees/\n"):
         """main checkout on master with a worktree .worktrees/x on wt/x holding one commit; gate = the gate script's text"""
@@ -384,7 +448,7 @@ class Inert(Fixture):
         # the copied gate's library tests run through the unittest runner that gives every test its temporary folders
         for name in ("run_unittest.py", "parallel_unittest.py", "tmp_default.py", "leaked_gates.py"):
             shutil.copy(os.path.join(ROOT, "tests", name), os.path.join(main, "tests", name))
-        for name in ("relay_config.py", "relay_toml.py"):      # parallel_unittest finds $RELAY_HOME through relay_config
+        for name in ("relay_config.py", "relay_toml.py", "relay_procs.py"):      # parallel_unittest finds $RELAY_HOME through relay_config; leaked_gates reads processes through relay_procs
             shutil.copy(os.path.join(ROOT, "lib", name), os.path.join(main, "lib", name))
         # the "types and lint" step of the copied gate: its script, its config and one python file to check
         for name in ("types-lint", "types_lint.py"):      # the wrapper runs bin/types_lint.py

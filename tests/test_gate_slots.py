@@ -19,6 +19,7 @@ from test_gate import RELAY, Fixture, git, read, write
 from pidfile import wait_pid
 
 import relay_gate
+import relay_procs
 
 WAITING = "gate: waiting for a free gate slot (all 1 busy; the limit stops gates slowing each other, the file $RELAY_HOME/gate-slots/count sets it)"
 BOUND = 600     # seconds any wait in these tests may last: with the feature broken a test fails inside it instead of hanging the gate
@@ -302,38 +303,66 @@ class Slots(Fixture):
             return False
         return gone
 
-    def test_t3_a_killed_gate_leaves_the_worktree_locked_until_its_command_ends(self):
-        """T3: SIGKILL of A's relay process while its command runs. B in the same worktree prints the waiting line and does
-        not start its command (1 run) until A's orphan ends; then it runs (2 runs)."""
+    def test_t3_a_killed_gate_whose_command_still_runs_is_reclaimed_by_the_next_gate(self):
+        """T3 (step 5): SIGKILL of A's relay process while its command runs. B in the same worktree does not wait the orphan out: it
+        stops A's command (its pid is read from .ci/pid before B starts), then runs its own (2 runs), and its log holds the stop line."""
         self.set_slots("2")
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        orphan = wait_pid(os.path.join(self.wt, ".ci", "pid"))
         first.kill()
         first.wait(timeout=BOUND)
         second = self.start(self.wt)
-        self.assertRegex(self.line(second), r"^gate: waiting for the gate already running in this worktree")
-        self.assertEqual(self.runs(), 1)
-        write(self.release, "go\n")        # A's orphaned command ends; the OS frees the lock
+        self.wait_until(lambda: self.runs() == 2)      # B's command runs: A's lock was taken over
+        self.wait_until(lambda: not relay_procs.is_alive(orphan))
+        write(self.release, "go\n")
         self.assertEqual(second.wait(timeout=BOUND), 0)
-        self.assertEqual(self.runs(), 2)
+        head = git(self.wt, "rev-parse", "HEAD~1")
+        lines = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")).splitlines()
+        self.assertTrue(lines[3].startswith("%s (group %d, " % (relay_gate.KILLED, orphan)), lines[3])
 
-    def test_f1_waiting_line_after_sigkill_names_a_live_process(self):
-        """F1: A's relay is SIGKILLed while its command runs; the line B prints names the command's group, which is alive
-        (so a person can kill it), not the dead relay pid. A's relay pid is first.pid, the command's group is read from .ci/pid
-        ($$ of the gate command, its own session leader)."""
+    def test_t4_a_gate_already_waiting_reclaims_when_the_gate_it_waits_for_is_killed(self):
+        """T4 (the reason for the poll): B is already waiting (its waiting line is read) when A's relay process is SIGKILLed with its
+        command alive. B notices on a later round, stops A's command and runs: 2 runs, A's command gone, B's log line 4 is the stop line."""
+        self.set_slots("2")
+        first = self.start(self.wt)
+        self.wait_for(os.path.join(self.wt, ".ci", "started"))
+        orphan = wait_pid(os.path.join(self.wt, ".ci", "pid"))
+        second = self.start(self.wt)
+        self.assertIn("waiting for the gate already running", self.line(second))      # A is alive: B waits
+        first.kill()
+        first.wait(timeout=BOUND)
+        self.wait_until(lambda: self.runs() == 2)
+        self.wait_until(lambda: not relay_procs.is_alive(orphan))
+        write(self.release, "go\n")
+        self.assertEqual(second.wait(timeout=BOUND), 0)
+        head = git(self.wt, "rev-parse", "HEAD~1")
+        lines = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")).splitlines()
+        self.assertTrue(lines[3].startswith("%s (group %d, " % (relay_gate.KILLED, orphan)), lines[3])
+
+    def test_f1_the_waiting_line_names_the_live_command_when_lsof_cannot_confirm_it(self):
+        """F1: A's relay is SIGKILLed while its command runs and lsof cannot say who holds the lock (so nothing is reclaimed): the line a
+        waiter prints names the command's group, which is alive (a person can kill it), not the dead relay pid."""
         self.set_slots("2")
         first = self.start(self.wt)
         self.wait_for(os.path.join(self.wt, ".ci", "started"))
         command_pid = wait_pid(os.path.join(self.wt, ".ci", "pid"))
         first.kill()
         first.wait(timeout=BOUND)
-        second = self.start(self.wt)
-        match = re.match(r"^gate: waiting for the gate already running in this worktree \(pid (\d+)", self.line(second))
+        rc, lock = relay_gate.relay_git.git(self.wt, "rev-parse", "--path-format=absolute", "--git-path", "relay-gate.lock")
+        lines, box = [], []
+        with mock.patch.object(relay_gate.relay_procs, "holders_of", return_value=None):
+            waiter = threading.Thread(target=lambda: box.append(relay_gate.take_worktree_lock(lock, lines.append)), daemon=True)
+            waiter.start()
+            self.wait_until(lambda: lines)
+        match = re.match(r"^gate: waiting for the gate already running in this worktree \(pid (\d+)", lines[0])
         self.assertIsNotNone(match)
-        named = int(match.group(1))
-        self.assertNotEqual(named, first.pid)
-        self.assertEqual(named, command_pid)
-        os.kill(named, 0)      # alive while B waits
+        self.assertEqual(int(match.group(1)), command_pid)
+        os.kill(command_pid, 0)      # alive while the waiter waits
+        write(self.release, "go\n")      # the command ends; the waiter takes the lock
+        waiter.join(BOUND)
+        self.assertTrue(box)
+        box[0].close()
 
     def test_f2_a_stray_holder_outside_the_group_is_named_as_such(self):
         """F2: the lock file names a dead relay and a dead group, yet the lock is held (a detached daemon): the line says a

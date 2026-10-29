@@ -124,8 +124,8 @@ takes the default branch and gates; a take conflict comes back as a `fix` unit o
 the shape `relay land` prints (findings = the branch's last review JSON, no item). The script runs one
 checker per change, as step 7 says.
 Unit fields: `name`, `wt`, `check`, `branch` (relay mode), `item` (one fix-item
-slug); `fix` also takes `fix`, `fixes`, `findings`; `recheck` takes `findings` or
-`items`; `built` takes `built`. It does not land a change: the merge is the
+slug); `fix` also takes `fix`, `fixes`, `findings`; `recheck` takes `findings` and, when the
+branch had a fix round, `fixes` (the fix report); `built` takes `built`. It does not land a change: the merge is the
 front's.
 
 1. **Design review before a risky build.** A `delegate:critic` reviews the
