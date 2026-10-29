@@ -61,6 +61,12 @@
       "fact": [
         "29 Oct 08:33, done by the front on the owner's word: ~/.local/bin/git is a two-line script `exec /Applications/Xcode.app/Contents/Developer/usr/bin/git \"$@\"` (git 2.50.1, Apple Git-155); ~/.local/bin comes before /usr/bin on PATH in this shell and in an interactive zsh. A plain symlink was tried first and dropped: git then looked for its helpers and its system config next to the link (exec path /Users/amidman/.local/libexec/git-core, which does not exist). Measured under load 22, 50 calls each: /usr/bin/git 25.8 ms per call, the script 14.5 ms, the symlink 7.7 ms. git init (14 hook templates) and git submodule (a git-core script) work through the script. Undo: delete ~/.local/bin/git."
       ]
+    },
+    {
+      "at": "2026-10-29T04:40:24Z",
+      "fact": [
+        "29 Oct 08:38, owner asked for the plain link (\"на 60000 команд 7 мс это почти 7 минут теста\"); done by the front, no shell file edited: ~/.local/bin/git -> /Applications/Xcode.app/Contents/Developer/usr/bin/git, plus ~/.local/libexec/git-core -> .../usr/libexec/git-core and ~/.local/share/git-core -> .../usr/share/git-core, because git finds its helpers and its built-in config (init.defaultbranch=main, credential.helper=osxkeychain) next to the path it was started by. Verified: exec path ~/.local/libexec/git-core, both config values come from ~/.local/share/git-core/gitconfig, git init gives refs/heads/main and 14 hook templates, submodule/worktree/log work; this session, plain bash, interactive zsh and a clean login bash all find ~/.local/bin/git first. Measured at load 15-19, 100 calls each: /usr/bin/git 20.9 ms, the link 6.6 ms (the two-line script before it: 14.5 ms at load 22). Undo: delete the three links."
+      ]
     }
   ]
 }
