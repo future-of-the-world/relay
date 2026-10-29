@@ -1,0 +1,100 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.3111,
+   "id": "aa56e925d89ffcae5",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 20,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T12:36:40.901Z",
+   "stop": "2026-10-29T12:47:06.248Z"
+  },
+  {
+   "cost_usd": 0.3258,
+   "id": "aa56e925d89ffcae5",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 21,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T12:36:40.901Z",
+   "stop": "2026-10-29T12:47:10.341Z"
+  },
+  {
+   "cost_usd": 0.0034,
+   "id": "a54c55a8c9994e4f0",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T12:47:13.053Z",
+   "stop": "2026-10-29T12:57:53.156Z"
+  },
+  {
+   "cost_usd": 0.9062,
+   "id": "a982021cd1fa994ec",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T12:57:55.778Z",
+   "stop": "2026-10-29T13:04:10.190Z"
+  },
+  {
+   "cost_usd": 0.2042,
+   "id": "af06f4495800785f4",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T13:04:13.281Z",
+   "stop": "2026-10-29T13:14:49.138Z"
+  },
+  {
+   "cost_usd": 0.0034,
+   "id": "a87a4ca9a77f4d33d",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T13:14:51.703Z",
+   "stop": "2026-10-29T13:26:33.370Z"
+  },
+  {
+   "cost_usd": 0.1324,
+   "id": "a21dd6e288e9b6ee5",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T13:26:36.630Z",
+   "stop": "2026-10-29T13:34:23.717Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "aa7d74739a19188da",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T13:34:26.619Z",
+   "stop": "2026-10-29T13:34:37.418Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "a-merge-through-the-merge-hook-a-train-or-any-me",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "a-merge-through-the-merge-hook-a-train-or-any-me"
+}

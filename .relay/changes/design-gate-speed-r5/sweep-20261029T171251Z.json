@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 3.0121,
+   "id": "a80141d8ca4b9c86b",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 28,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-29T06:45:30.590Z",
+   "stop": "2026-10-29T06:58:24.410Z"
+  },
+  {
+   "cost_usd": 3.5244,
+   "id": "a31a97211f6db5998",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 47,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design review",
+   "start": "2026-10-29T06:58:28.315Z",
+   "stop": "2026-10-29T07:24:39.708Z"
+  },
+  {
+   "cost_usd": 3.6627,
+   "id": "a7e38244e38410055",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 35,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design revise",
+   "start": "2026-10-29T07:24:43.686Z",
+   "stop": "2026-10-29T07:48:04.327Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "design-gate-speed-r5"
+}

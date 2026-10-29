@@ -21,7 +21,7 @@ SMOKE = {
     "doctor": (["doctor"], False, 1, "stderr", "relay doctor: "),
     "flows": (["flows"], False, 1, "stderr", "relay flows: [Errno 2]"),
     "rules": (["rules"], False, 1, "stderr", "relay rules: [Errno 2]"),
-    "changed": (["changed"], False, 2, "stderr", "relay changed [-C <repo>] [--own] <sha>"),
+    "changed": (["changed"], False, 2, "stderr", "relay changed [-C <repo>] [--own] [--archive] <sha> [<until>]"),
     "gate": (["gate"], True, 1, "stderr", "the default branch has no .relay/ folder"),
     "land": (["land"], False, 2, "stderr", "relay land <branch>"),
     "precheck": (["precheck"], False, 1, "stdout", "skip types and lint"),

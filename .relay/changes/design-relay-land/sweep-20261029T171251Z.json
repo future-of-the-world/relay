@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.4701,
+   "id": "a85193c38696589a5",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 21,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-28T08:39:49.506Z",
+   "stop": "2026-10-28T08:48:45.769Z"
+  },
+  {
+   "cost_usd": 2.0573,
+   "id": "aaa18444452df007f",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 29,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design review",
+   "start": "2026-10-28T08:48:56.862Z",
+   "stop": "2026-10-28T08:57:08.658Z"
+  },
+  {
+   "cost_usd": 2.8212,
+   "id": "a36626aea4a3f451a",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design revise",
+   "start": "2026-10-28T08:57:14.609Z",
+   "stop": "2026-10-28T09:04:14.169Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "design-relay-land"
+}

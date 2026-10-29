@@ -27,14 +27,22 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null,
+  "dropped_at": "2026-10-29T21:20:39Z",
+  "dropped_why": [
+    "Owner, 30 Oct: \"a a a a, закрыть\" (close as already fixed: relay queue start refuses an item whose files an open branch changes, and the lanes hook lists such items as waits)."
+  ],
   "notes": [
     {
       "at": "2026-10-28T17:47:58Z",
       "edited": "where",
       "fact": [
         "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    },
+    {
+      "at": "2026-10-29T18:22:55Z",
+      "fact": [
+        "29 Oct, not reproduced (front): the failing case no longer fails. `relay queue start` refuses an item whose `where` files an open branch already changes (\"start it after that change lands, or start it anyway with --despite-wait\", lib/relay_lanes.py:482-483), and the lanes hook lists such items as \"waits: <slug> (<file>, <branch>)\" each turn; live today: a-project-added-by-setup-cannot-be-removed-again waits for lib/relay_setup.py (wt/relay-doctor-does-not-name-a-main-checko). Held for the owner: close as already fixed."
       ]
     }
   ]

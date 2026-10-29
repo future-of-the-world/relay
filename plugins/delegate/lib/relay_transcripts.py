@@ -123,6 +123,7 @@ class Trace:
     ended: str = ""
     total: Agg = field(default_factory=Agg)
     by_model: dict = field(default_factory=dict)      # model -> Agg
+    cost_by_day: dict = field(default_factory=dict)   # session only: UTC day "YYYY-MM-DD" -> transcript cost of the requests made that day
     tools: dict = field(default_factory=dict)         # tool name -> count
     agents_started: dict = field(default_factory=dict)  # subagent_type -> count (Agent tool calls)
     user_turns: int = 0
@@ -311,8 +312,10 @@ def _absorb(trace, entry, seen_requests):
         trace._pending[request_id] = {"model": model, "usage": usage, "chars": _visible_chars(content),
                                       "out": int(usage.get("output_tokens") or 0), "when": ts}
     else:
+        before = trace.total.cost
         trace.total.add(model, usage, when=ts)
         trace.by_model.setdefault(model, Agg()).add(model, usage, when=ts)
+        trace.cost_by_day[ts[:10]] = trace.cost_by_day.get(ts[:10], 0.0) + trace.total.cost - before
     context = sum(int(usage.get(k) or 0) for k in USAGE_KEYS[:3])
     trace.last_context = context
     trace.max_context = max(trace.max_context, context)

@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1612,
+   "id": "a9cfd22b550072a53",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-27T21:53:33.583Z",
+   "stop": "2026-10-27T22:00:12.928Z"
+  },
+  {
+   "cost_usd": 0.0032,
+   "id": "aca96dab4abf3ae52",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-27T22:00:15.825Z",
+   "stop": "2026-10-27T22:08:18.715Z"
+  },
+  {
+   "cost_usd": 0.7259,
+   "id": "a160cc41f32fc80ec",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 21,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-27T22:08:22.498Z",
+   "stop": "2026-10-27T22:11:20.830Z"
+  },
+  {
+   "cost_usd": 0.1339,
+   "id": "afbbd123616945d84",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-27T22:11:23.482Z",
+   "stop": "2026-10-27T22:16:44.759Z"
+  },
+  {
+   "cost_usd": 0.0028,
+   "id": "a0bd96fdfead6dd23",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 4,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-27T22:16:47.984Z",
+   "stop": "2026-10-27T22:24:24.186Z"
+  },
+  {
+   "cost_usd": 0.0922,
+   "id": "a92afbe96422152d0",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-27T22:24:26.822Z",
+   "stop": "2026-10-27T22:28:44.749Z"
+  },
+  {
+   "cost_usd": 0.0018,
+   "id": "aa49ec6249ae8acb5",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-27T22:28:47.772Z",
+   "stop": "2026-10-27T22:29:03.859Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "conflict-rule"
+}

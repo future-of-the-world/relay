@@ -1,0 +1,111 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.7583,
+   "id": "adc9d1f5631d898dd",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 27,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-29T06:44:08.639Z",
+   "stop": "2026-10-29T06:51:35.171Z"
+  },
+  {
+   "cost_usd": 1.8705,
+   "id": "af52e09f6919c41a8",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 22,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design review",
+   "start": "2026-10-29T06:51:38.098Z",
+   "stop": "2026-10-29T06:59:52.504Z"
+  },
+  {
+   "cost_usd": 1.2988,
+   "id": "abbb79facc17a9a1e",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design revise",
+   "start": "2026-10-29T06:59:55.770Z",
+   "stop": "2026-10-29T07:04:35.892Z"
+  },
+  {
+   "cost_usd": 1.9068,
+   "id": "a0893143bd9ea6435",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 53,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-29T07:06:08.861Z",
+   "stop": "2026-10-29T07:54:50.093Z"
+  },
+  {
+   "cost_usd": 0.0036,
+   "id": "a97d15e927161e031",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T07:54:54.787Z",
+   "stop": "2026-10-29T08:01:17.225Z"
+  },
+  {
+   "cost_usd": 1.8698,
+   "id": "a9189d5538349154d",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 24,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-29T08:01:21.544Z",
+   "stop": "2026-10-29T08:09:15.201Z"
+  },
+  {
+   "cost_usd": 0.6556,
+   "id": "af55330e107fb5406",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 27,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-29T08:09:19.113Z",
+   "stop": "2026-10-29T08:19:06.173Z"
+  },
+  {
+   "cost_usd": 0.0034,
+   "id": "a23fd639bca1ccf57",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 4,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T08:19:11.627Z",
+   "stop": "2026-10-29T08:26:49.093Z"
+  },
+  {
+   "cost_usd": 0.188,
+   "id": "ae8ac29af6707c3bc",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-29T08:26:53.976Z",
+   "stop": "2026-10-29T08:31:42.007Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "gates-and-tests-stop-what-an-earlier-test-left-r",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "gates-and-tests-stop-what-an-earlier-test-left-r"
+}

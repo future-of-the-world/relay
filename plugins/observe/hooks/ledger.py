@@ -24,13 +24,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # works from the installed plugin cache without the repository.
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 
+import relay_labels  # noqa: E402
 import relay_ledger  # noqa: E402
 import relay_transcripts  # noqa: E402
 
 
-# The label a workflow script gives an agent: a stage word, an optional number, a unit name (cycle.js). An agent
-# started by hand has a free-text description, which the ledger must not store, so only this form is kept.
-STAGE_LABEL = re.compile(r"^(build|gate|fix red gate|review|fix|check|check item|close queue item|check show|design|design review|design revise)( \d+)?: [a-z0-9][a-z0-9-]{0,63}$")
+# The label an agent is started with (relay_labels): an agent started by hand has a free-text description, which the ledger must not
+# store, so only the label form is kept, and never the free words after " - ".
+STAGE_LABEL = relay_labels.STAGE_LABEL
 PHASE_NAME = re.compile(r"^[A-Za-z][A-Za-z ]{0,29}$")
 META_HEAD_BYTES = 4096
 
@@ -60,13 +61,25 @@ def workflow_fields(transcript: str) -> dict:
             head = handle.read(META_HEAD_BYTES)
     except OSError:
         return out
-    label = meta_string(head, "description")
-    if STAGE_LABEL.match(label):
+    label = relay_labels.label_of(meta_string(head, "description"))
+    if label:
         out["label"] = label
         phase = meta_string(head, "workflowPhase")
         if PHASE_NAME.match(phase):
             out["phase"] = phase
     return out
+
+
+def hand_fields(transcript: str) -> dict:
+    """label of an agent started by hand (not by a workflow script), from its .meta.json; {} when it has none or none can be read."""
+    meta = transcript[:-len(".jsonl")] + ".meta.json" if transcript.endswith(".jsonl") else ""
+    try:
+        with open(meta, "r", encoding="utf-8", errors="replace") as handle:
+            head = handle.read(META_HEAD_BYTES)
+    except OSError:
+        return {}
+    label = relay_labels.label_of(meta_string(head, "description"))
+    return {"label": label} if label else {}
 
 
 def now():
@@ -139,7 +152,7 @@ def main():
             candidate = os.path.join(session[:-len(".jsonl")], "subagents", f"agent-{aid}.jsonl") if session.endswith(".jsonl") and aid else ""
             path = candidate if os.path.isfile(candidate) else None
         if path:
-            out.update(workflow_fields(path))
+            out.update(workflow_fields(path) or hand_fields(path))
             trace = relay_transcripts.read_trace(path, kind="agent")
             out["requests"] = trace.total.requests
             out["context"] = trace.last_context

@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0037,
+   "id": "a130a73d4411b7993",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-27T22:29:33.931Z",
+   "stop": "2026-10-27T22:38:14.115Z"
+  },
+  {
+   "cost_usd": 0.1187,
+   "id": "a699013eca71a75fe",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-27T22:38:16.868Z",
+   "stop": "2026-10-27T22:42:47.088Z"
+  },
+  {
+   "cost_usd": 0.0022,
+   "id": "a36dec267e2c2d869",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-27T22:42:50.012Z",
+   "stop": "2026-10-27T22:43:08.090Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "conflict-rule-after-master"
+}

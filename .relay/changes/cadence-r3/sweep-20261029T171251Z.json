@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.713,
+   "id": "a0e123ad9bb3af96c",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 19,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design",
+   "start": "2026-10-28T03:20:32.200Z",
+   "stop": "2026-10-28T03:35:16.655Z"
+  },
+  {
+   "cost_usd": 1.8146,
+   "id": "a0952cddbfd68bf05",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 23,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design review",
+   "start": "2026-10-28T03:35:19.611Z",
+   "stop": "2026-10-28T03:42:11.509Z"
+  },
+  {
+   "cost_usd": 3.8274,
+   "id": "a91dea5d22dfea0fd",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 22,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "design revise",
+   "start": "2026-10-28T03:42:14.221Z",
+   "stop": "2026-10-28T03:56:45.850Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "cadence-r3"
+}

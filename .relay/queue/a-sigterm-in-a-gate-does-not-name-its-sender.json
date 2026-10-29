@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 92,
+  "time": 45,
+  "found_at": "2026-10-29T21:20:26Z",
+  "found_in": "relay queue add",
+  "title": "A SIGTERM in a gate does not name its sender",
+  "what": [
+    "Every place relay itself sends SIGTERM or SIGKILL (hang bounds, the leftover sweep, test-token waits, gate stops) writes one line naming itself, the target process id and the reason to the gate log or a shared log the gate log points to, so the next \"stopped by SIGTERM\" line names its sender or proves it came from outside relay."
+  ],
+  "why": [
+    "Owner, 30 Oct, answered \"a\" to: land the gate-lock fix and record the sender next time. The 29 Oct SIGTERM (exit 143) of tests/test_gate.py::test_f11_a_project_that_does_not_ignore_ci_can_run_the_gate_twice and tests/test_land.py::test_land_inert_take_reuses_gate in a quick gate was never traced; the gate log now records the signal but says \"sender unknown\" (lib/relay_gate.py:428, review F2 of a-gate-test-is-stopped-by-an-unknown-sigterm)."
+  ],
+  "failing_case": [
+    "Quick gate on 29 Oct: two tests red with 143 != 0 while each passes alone; the log does not say who sent the SIGTERM."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A test that stops a gate through each of relay's own senders finds that sender named in the log",
+    "A SIGTERM sent from outside relay is logged as not sent by relay"
+  ],
+  "where": [
+    "lib/relay_gate.py",
+    "lib/relay_ci.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

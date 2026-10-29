@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1769,
+   "id": "a8b4740e795ca561c",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-27T15:49:22.396Z",
+   "stop": "2026-10-27T15:55:40.843Z"
+  },
+  {
+   "cost_usd": 0.0028,
+   "id": "a809b1546e4cf7ee2",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-27T15:55:45.429Z",
+   "stop": "2026-10-27T16:03:52.589Z"
+  },
+  {
+   "cost_usd": 0.1417,
+   "id": "a8cb22b586f52e1da",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-27T16:04:01.223Z",
+   "stop": "2026-10-27T16:10:37.916Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "gate-slots-fix"
+}

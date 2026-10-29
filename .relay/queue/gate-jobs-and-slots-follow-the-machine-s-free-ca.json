@@ -18,8 +18,8 @@
   ],
   "taken_at": "2026-10-29T11:18:14Z",
   "taken_by": "wt/gate-jobs-and-slots-follow-the-machine-s",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T14:16:08Z",
+  "test": "tests/test_relay_tokens.py::NestedTest::test_a_passed_base_is_not_taken_twice",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

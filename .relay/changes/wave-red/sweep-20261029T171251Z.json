@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.0541,
+   "id": "a3615a770948c8519",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 63,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-27T09:27:28.317Z",
+   "stop": "2026-10-27T10:05:29.768Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "wave-red"
+}

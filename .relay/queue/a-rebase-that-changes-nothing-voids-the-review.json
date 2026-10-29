@@ -40,6 +40,24 @@
       "fact": [
         "Read 25 Oct (arsenal pilot design, risk 4): relay's records are voided by a rebase (read: lib/relay_verdict.py lines 643-644 and plugins/core/hooks/check-mark.py line 205). Mid-October arsenal merged 4 pull requests in 3 days (13-15 Oct), so a window of about 2 hours has roughly a 10% chance of another merge forcing a rebase (an estimate); the cost then is a rebase, a gate, a new Opus review and a new check, about +25 agent minutes. The design filed it as R5: a rebase whose patch is unchanged (`git range-diff` shows no change) should keep its records."
       ]
+    },
+    {
+      "asked_at": "2026-10-29T15:15:27Z",
+      "question": [
+        "**Rebase over a file the branch also changed: keep the review or check again?**",
+        "After a rebase whose patch did not change, relay keeps the review and check (only a new gate). The review found a gap: if master changed the same file further away (line 28 while the branch changed line 3), git still calls the patch unchanged, so the combined file merges with no checker reading it. The same change taken by a merge commit gets a new check today."
+      ],
+      "options": [
+        "a. Check again when master touched one of the branch's own files (same as the merge rule; about 15 agent minutes to build)",
+        "b. Keep the item as written: an unchanged patch keeps the records even then (5 minutes)"
+      ],
+      "answered_at": "2026-10-29T21:20:37Z",
+      "answer": [
+        "a a a a, закрыть"
+      ],
+      "reading": [
+        "Answer to question 1 of 4 shown together on 30 Oct: a. A rebase keeps the review and check only when the default branch changed none of the branch own files between the old and new merge-base; otherwise a new check, as after a merge."
+      ]
     }
   ]
 }

@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2216,
+   "id": "a42e121a5e9de5ddf",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T14:48:34.053Z",
+   "stop": "2026-10-29T14:55:30.983Z"
+  },
+  {
+   "cost_usd": 0.003,
+   "id": "a67c72e45e6e411b2",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T15:14:43.955Z",
+   "stop": "2026-10-29T15:15:00.571Z"
+  },
+  {
+   "cost_usd": 1.0355,
+   "id": "a3f21898c8127fabd",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 27,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T15:15:03.992Z",
+   "stop": "2026-10-29T15:20:46.356Z"
+  },
+  {
+   "cost_usd": 0.1635,
+   "id": "a689cd5d7e66cfdea",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T15:20:50.323Z",
+   "stop": "2026-10-29T15:23:49.467Z"
+  },
+  {
+   "cost_usd": 0.0039,
+   "id": "a3d69cf6d8e93d9ce",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T15:23:54.133Z",
+   "stop": "2026-10-29T15:36:38.037Z"
+  },
+  {
+   "cost_usd": 0.1132,
+   "id": "a77cac606b46ea040",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T15:36:41.044Z",
+   "stop": "2026-10-29T15:38:02.517Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a57bf33e29d5aa7a7",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T15:38:05.622Z",
+   "stop": "2026-10-29T15:38:16.189Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "relay-s-own-doctor-is-red-no-bin-check-no-bin-wt",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "relay-s-own-doctor-is-red-no-bin-check-no-bin-wt"
+}

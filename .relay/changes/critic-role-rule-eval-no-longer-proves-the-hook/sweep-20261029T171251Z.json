@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.3445,
+   "id": "ae2b2e227dda2f3af",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 24,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-28T08:39:49.508Z",
+   "stop": "2026-10-28T08:58:32.282Z"
+  },
+  {
+   "cost_usd": 0.0044,
+   "id": "aa9f52361f35c712f",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T08:58:35.519Z",
+   "stop": "2026-10-28T09:14:26.575Z"
+  },
+  {
+   "cost_usd": 0.9303,
+   "id": "a21bbe3e2f1337678",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-28T09:14:33.323Z",
+   "stop": "2026-10-28T09:18:39.974Z"
+  },
+  {
+   "cost_usd": 0.2325,
+   "id": "af57d77bff2d6875a",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T09:18:43.209Z",
+   "stop": "2026-10-28T09:31:28.071Z"
+  },
+  {
+   "cost_usd": 0.0039,
+   "id": "a1488a7f91771c611",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T09:31:31.304Z",
+   "stop": "2026-10-28T09:45:55.949Z"
+  },
+  {
+   "cost_usd": 0.1123,
+   "id": "a8d7f9e205ed21beb",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-28T09:45:59.070Z",
+   "stop": "2026-10-28T09:47:11.687Z"
+  },
+  {
+   "cost_usd": 0.0024,
+   "id": "a52d92d6c1a5f7e81",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "close queue item",
+   "start": "2026-10-28T09:47:15.082Z",
+   "stop": "2026-10-28T09:47:31.708Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "critic-role-rule-eval-no-longer-proves-the-hook",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "critic-role-rule-eval-no-longer-proves-the-hook"
+}

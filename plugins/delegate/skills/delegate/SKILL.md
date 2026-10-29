@@ -78,6 +78,14 @@ to one agent with one brief (fewer, longer agents are cheaper than many short
 ones: every fresh agent re-pays its first read). A scout question needs no
 brief: ask it in the prompt, several questions at once.
 
+**Label of an agent started by hand.** Where the project has `.relay/`, the
+description of every hand-started agent begins with `<stage>[ n]: <item id>`
+(`build`, `gate 2`, `review`, ...; `land: <item id>` for a landing runner,
+`other: <name>` for work that belongs to no change), and free words may follow
+after ` - `. Example: `other: docker-deps - read the lockfile`. The label puts
+the agent's time and cost into the change's record; the route guard refuses a
+description without one.
+
 ## Lanes
 
 Up to "Changes built at once: N" changes (front skill, "Lanes") are built side

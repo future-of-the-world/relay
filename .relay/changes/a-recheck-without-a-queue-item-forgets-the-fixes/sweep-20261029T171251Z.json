@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1708,
+   "id": "ad665d763f1d64543",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T09:56:49.069Z",
+   "stop": "2026-10-29T09:59:09.492Z"
+  },
+  {
+   "cost_usd": 0.0056,
+   "id": "afbcf15836ee2382a",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T09:59:12.028Z",
+   "stop": "2026-10-29T10:25:34.527Z"
+  },
+  {
+   "cost_usd": 0.7936,
+   "id": "a7b99f984fd5e3449",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 20,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T10:25:37.559Z",
+   "stop": "2026-10-29T10:28:00.342Z"
+  },
+  {
+   "cost_usd": 0.1728,
+   "id": "ac40c01591163fb98",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T10:28:02.749Z",
+   "stop": "2026-10-29T10:29:46.780Z"
+  },
+  {
+   "cost_usd": 0.0038,
+   "id": "aacfd161df8b9e5a3",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T10:29:49.027Z",
+   "stop": "2026-10-29T10:44:42.098Z"
+  },
+  {
+   "cost_usd": 0.092,
+   "id": "ad66d121e7f1db770",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T10:44:44.891Z",
+   "stop": "2026-10-29T10:45:52.676Z"
+  },
+  {
+   "cost_usd": 0.0026,
+   "id": "afba97bb73380a58c",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T10:45:55.710Z",
+   "stop": "2026-10-29T10:46:02.464Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "a-recheck-without-a-queue-item-forgets-the-fixes",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "a-recheck-without-a-queue-item-forgets-the-fixes"
+}

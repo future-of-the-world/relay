@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1543,
+   "id": "af8dbdbe2f7b991eb",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T17:22:30.526Z",
+   "stop": "2026-10-28T17:23:47.065Z"
+  },
+  {
+   "cost_usd": 0.0047,
+   "id": "a1dad19b2cd9c93a1",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T17:23:51.063Z",
+   "stop": "2026-10-28T17:39:44.699Z"
+  },
+  {
+   "cost_usd": 0.1547,
+   "id": "af0063a5fafe89bb4",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-28T17:39:48.290Z",
+   "stop": "2026-10-28T17:41:54.962Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "stub-guard-exact"
+}

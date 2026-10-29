@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.248,
+   "id": "a54dd7ac467a8a773",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-29T02:36:21.705Z",
+   "stop": "2026-10-29T02:47:56.732Z"
+  },
+  {
+   "cost_usd": 0.0056,
+   "id": "ac905945b3e68f937",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-29T02:47:59.387Z",
+   "stop": "2026-10-29T03:14:37.174Z"
+  },
+  {
+   "cost_usd": 0.1369,
+   "id": "ab20735ba6794769c",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-29T03:14:39.783Z",
+   "stop": "2026-10-29T03:27:27.939Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "fix-refuse-folder-2"
+}

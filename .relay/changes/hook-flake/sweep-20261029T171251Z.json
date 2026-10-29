@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1746,
+   "id": "a0b722ff28ea39767",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-27T18:52:56.193Z",
+   "stop": "2026-10-27T18:54:54.132Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "hook-flake"
+}

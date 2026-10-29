@@ -1,9 +1,12 @@
 """Lanes: the number of changes built at once is a setting (projects.toml `lanes`, 1-8, default 4) that the generated
 file states; `bin/paid-cost paths` prints the paths the paid run checks; the front and rule texts carry the lane rules."""
+import json
 import os
 import subprocess
 import sys
+import time
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -112,6 +115,151 @@ class Wave(unittest.TestCase):
         self.assertNotIn("would change what the run is judging", text)
         self.assertNotIn("after the next wave", text)
         self.assertNotIn("after the last merge of a wave of 3-4", text)
+
+
+sys.path.insert(0, HERE)
+import test_lanes_state as tls  # noqa: E402
+
+HOOK = os.path.join(ROOT, "plugins", "front", "hooks", "lanes.py")
+
+
+class LanesHookBounds(tls.LaneBase):
+    """The UserPromptSubmit lanes hook never blocks the owner: a slow git gives one "not known" line; slow steps are logged."""
+
+    def run_hook(self, home: str, budget: str = "", path: str = "") -> "subprocess.CompletedProcess[str]":
+        env = dict(os.environ, RELAY_HOME=home, PYTHONPATH="")
+        if budget:
+            env["RELAY_LANES_HOOK_BUDGET_S"] = budget
+        if path:
+            env["PATH"] = path + os.pathsep + env["PATH"]
+        data = {"hook_event_name": "UserPromptSubmit", "cwd": self.main, "session_id": "s"}
+        # the timeout is only a safety net so a regression fails instead of hanging the suite
+        return subprocess.run([sys.executable, HOOK], input=json.dumps(data), capture_output=True, text=True, env=env, timeout=60)
+
+    def slow_git(self) -> str:
+        """A folder with a `git` that never answers (exec, so the killed process is the sleeper itself)."""
+        folder = os.path.join(self.tmp, "fakebin")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "git"), "w") as handle:
+            handle.write("#!/bin/sh\nexec sleep 60\n")
+        os.chmod(os.path.join(folder, "git"), 0o755)
+        return folder
+
+    def test_blocked_git_gives_one_unknown_line(self) -> None:
+        # the default budget (4 s) is what keeps the hook under the 10 s limit: without the deadline, main_checkout (5 s) and
+        # project_root (5 s) alone run past 5 s, so the elapsed bound fails when the deadline is gone
+        self.seed({tls.Q + "a.json": tls.item("a")})
+        began = time.monotonic()
+        out = self.run_hook(os.path.join(self.tmp, "h"), path=self.slow_git())
+        self.assertLess(time.monotonic() - began, 5.0)
+        self.assertEqual((out.returncode, out.stderr), (0, ""))
+        text = json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"]
+        self.assertEqual(text, "Lanes: not known this time (the repository answered too slowly).")
+
+    def hook_module(self):
+        import importlib
+        sys.path.insert(0, os.path.dirname(HOOK))
+        try:
+            return importlib.import_module("lanes")
+        finally:
+            sys.path.pop(0)
+
+    def git_sleeping_on(self, word: str, seconds: int) -> str:
+        """A folder with a `git` that sleeps `seconds` when an argument is `word`, else is the real git."""
+        import shutil
+        folder = os.path.join(self.tmp, "fakebin2")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "git"), "w") as handle:
+            handle.write('#!/bin/sh\nfor a in "$@"; do [ "$a" = "%s" ] && sleep %d; done\nexec %s "$@"\n' % (word, seconds, shutil.which("git")))
+        os.chmod(os.path.join(folder, "git"), 0o755)
+        # the first run of a new script can stall for seconds on a busy machine (scan before exec): pay that here, not inside the hook's budget
+        subprocess.run([os.path.join(folder, "git"), "--version"], capture_output=True, check=True)
+        return folder
+
+    def test_overrun_names_the_step_in_progress_not_a_git_call_that_returned(self) -> None:
+        # git hangs only on cat-file, which the queue read runs outside the bounded git: show-ref etc. returned long before
+        self.seed({tls.Q + "a.json": tls.item("a")})
+        home = os.path.join(self.tmp, "h")
+        self.run_hook(home, budget="3", path=self.git_sleeping_on("cat-file", 30))
+        log = open(os.path.join(home, "state", "lanes-slow.log"), encoding="utf-8").read().splitlines()
+        self.assertRegex(log[-1], r"overrun in (lanes|config) took 3\.0 s", log)
+
+    def test_overrun_names_the_first_git_call_when_git_never_answers(self) -> None:
+        self.seed({})
+        home = os.path.join(self.tmp, "h")
+        self.run_hook(home, budget="1", path=self.slow_git())
+        log = open(os.path.join(home, "state", "lanes-slow.log"), encoding="utf-8").read().splitlines()
+        self.assertRegex(log[-1], r"overrun in (git |config)")
+
+    def test_nothing_is_printed_with_the_deadline_armed(self) -> None:
+        hook = self.hook_module()
+        events: "list[str]" = []
+        with mock.patch.object(hook, "bound_git", lambda: None), mock.patch.object(hook, "arm", lambda s: events.append("arm")), \
+                mock.patch.object(hook, "disarm", lambda: events.append("disarm")), \
+                mock.patch.object(hook, "work", lambda *a: ("the line", None)), \
+                mock.patch.object(hook, "context", lambda e, t: events.append("print " + t)), \
+                mock.patch("sys.stdin", __import__("io").StringIO(json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": self.main}))):
+            hook.main()
+        self.assertEqual(events, ["arm", "disarm", "print the line"])
+
+    def landing(self, home: str, path: str, budget: str) -> "subprocess.CompletedProcess[str]":
+        env = dict(os.environ, RELAY_HOME=home, PYTHONPATH="", RELAY_LANES_HOOK_BUDGET_S=budget)
+        env["PATH"] = path + os.pathsep + env["PATH"]
+        data = {"hook_event_name": "PostToolUse", "tool_name": "Bash", "cwd": self.main,
+                "tool_input": {"command": "git -C /x merge --ff-only wt/feat"}}
+        return subprocess.run([sys.executable, HOOK], input=json.dumps(data), capture_output=True, text=True, env=env, timeout=60)
+
+    def test_a_landing_close_finishes_its_writes_past_the_deadline(self) -> None:
+        # the queue landing's `git merge --ff-only` takes 10 s, the deadline is 8 s (room for the read under load): the write must still finish whole
+        self.seed({tls.Q + "feat.json": tls.item("feat", "feature", **tls.taken("wt/feat"))})
+        self.branch_with_commit("feat", {"lib/feat.py": "x\n"})
+        tls.git(self.main, "merge", "-q", "--ff-only", "wt/feat")
+        home = os.path.join(self.tmp, "h")
+        out = self.landing(home, self.git_sleeping_on("merge", 10), "8")
+        slow = os.path.join(home, "state", "lanes-slow.log")
+        self.assertIn("closed feat", json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"], open(slow).read() if os.path.exists(slow) else "")
+        self.assertEqual(self.item("feat")["state"], "done")
+        self.assertEqual(tls.git(self.main, "branch", "--list", "wt/queue-*"), "")
+        self.assertFalse(os.path.exists(os.path.join(self.main, ".git", "index.lock")))
+
+    def test_a_landing_with_blocked_git_writes_nothing_and_says_unknown(self) -> None:
+        self.seed({tls.Q + "feat.json": tls.item("feat", "feature", **tls.taken("wt/feat"))})
+        self.branch_with_commit("feat", {"lib/feat.py": "x\n"})
+        tls.git(self.main, "merge", "-q", "--ff-only", "wt/feat")
+        before = tls.git(self.main, "rev-parse", "HEAD")
+        out = self.landing(os.path.join(self.tmp, "h"), self.slow_git(), "1")
+        self.assertEqual(json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"], "Lanes: not known this time (the repository answered too slowly).")
+        self.assertEqual(tls.git(self.main, "rev-parse", "HEAD"), before)
+
+    def test_normal_run_prints_the_lanes_line(self) -> None:
+        self.seed({tls.Q + "a.json": tls.item("a")})
+        out = self.run_hook(os.path.join(self.tmp, "h"))
+        self.assertEqual((out.returncode, out.stderr), (0, ""))
+        self.assertIn("start: a (fix, ip 90)", json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"])
+
+    def test_overrun_is_logged_with_its_step(self) -> None:
+        self.seed({})
+        home = os.path.join(self.tmp, "h")
+        self.run_hook(home, budget="1", path=self.slow_git())
+        log = open(os.path.join(home, "state", "lanes-slow.log"), encoding="utf-8").read()
+        # the first step to hang is the first git call, which the hook names
+        self.assertIn("overrun in", log)
+
+    def test_step_over_two_seconds_is_logged_and_a_fast_one_is_not(self) -> None:
+        import importlib
+        sys.path.insert(0, os.path.dirname(HOOK))
+        try:
+            hook = importlib.import_module("lanes")
+        finally:
+            sys.path.pop(0)
+        home = os.path.join(self.tmp, "h")
+        ticks = iter([0.0, 2.5, 10.0, 10.5])      # step "slow" takes 2.5 s (logged), step "fast" takes 0.5 s (not)
+        with mock.patch.dict(os.environ, {"RELAY_HOME": home}), mock.patch.object(hook, "CLOCK", lambda: next(ticks)):
+            hook.timed("slow", lambda: None)
+            hook.timed("fast", lambda: None)
+        lines = open(os.path.join(home, "state", "lanes-slow.log"), encoding="utf-8").read().splitlines()
+        self.assertEqual(len(lines), 1)
+        self.assertTrue(lines[0].endswith("lanes hook: slow took 2.5 s"), lines[0])
 
 
 if __name__ == "__main__":

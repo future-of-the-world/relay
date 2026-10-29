@@ -130,7 +130,7 @@
 {"cwd":"@M@","cmd":"cat > docs/handover.md <<'EOF'\nnew text; more\nEOF","was":"block"}
 {"cwd":"@M@","cmd":"cat README.md | head -2","was":"allow"}
 {"cwd":"@M@","cmd":"cd .worktree/$NAME && git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"cd .worktree/any-change && mix ci","was":"allow"}
+{"cwd":"@M@","cmd":"cd .worktree/any-change && mix ci","was":"block"}
 {"cwd":"@M@","cmd":"cd .worktree/any-change`echo /../..` && git commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"cd .worktrees/any-change && bin/ci","was":"block"}
 {"cwd":"@M@","cmd":"cd .worktrees/any-change && git status","was":"block"}
@@ -228,7 +228,7 @@
 {"cwd":"@M@","cmd":"sh -c 'cd . && git reset --hard HEAD~1'","was":"block"}
 {"cwd":"@M@","cmd":"T=any-change && cd .worktree/${T} && git commit -m x","was":"block"}
 {"cwd":"@M@","cmd":"T=any-change && cd .worktrees/${T} && git commit -m x","was":"block"}
-{"cwd":"@M@","cmd":"T=any-change; git -C .worktree/$T commit -m x","was":"block"}
+{"cwd":"@M@","cmd":"T=any-change; git -C .worktree/$T commit -m x","was":"allow"}
 {"cwd":"@M@","cmd":"T=any-change; git -C .worktrees/$T commit -m x","was":"allow"}
 {"cwd":"@M@","cmd":"tar -tf x.tar","was":"allow"}
 {"cwd":"@M@","cmd":"tar -xf x.tar -C @W@","was":"allow"}

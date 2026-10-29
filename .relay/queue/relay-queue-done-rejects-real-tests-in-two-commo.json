@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 85,
+  "time": 30,
+  "found_at": "2026-10-29T15:29:34Z",
+  "found_in": "relay queue add",
+  "title": "relay queue done rejects real tests in two common shapes",
+  "what": [
+    "relay queue done accepts the test name in every shape the cycle and pytest print (file::Class.name, file::Class::name, file::name) in both the -C and --fixed-by forms, and --fixed-by counts a test file absent at the parent as failing there (the fix added the case)."
+  ],
+  "why": [
+    "29 Oct: closing landed items took the front 6 extra commands and a runner ran out of turns. Two shapes fail: (1) the cycle passes --test file::Class.name to the -C form, which only accepts file::name (refused \"does not hold a test named KitName.test_old_core_folder_is_not_exempt\", accepted as file::test_old_core_folder_is_not_exempt); (2) --fixed-by refuses a fix whose test file the fix itself added (\"cannot tell whether ... fails at bdd0f4c2e518 ... it did not run to a pass or a fail\"), so queue-time-estimates-are-guesses-with-no-model-b stays taken after its branch landed."
+  ],
+  "failing_case": [
+    "From /Users/amidman/relay on 29 Oct: `bin/relay queue done a-test-still-exempts-the-old-plugins-core-bin-ki -C <wt> --test tests/test_hook_kit_name.py::KitName.test_old_core_folder_is_not_exempt` refused; `bin/relay queue done queue-time-estimates-are-guesses-with-no-model-b --fixed-by 4a3b4013 --test tests/test_queue_estimate.py::Estimate::test_median_fixed_plus_median_build` refused (file added by 4a3b4013)."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The -C form closes with file::Class.name and file::Class::name as with file::name",
+    "--fixed-by closes when the test file does not exist at the commit's parent and the test passes at the commit",
+    "--fixed-by still refuses a test that passes at the parent"
+  ],
+  "where": [
+    "lib/relay_queue.py",
+    "plugins/delegate/workflows/cycle.js"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

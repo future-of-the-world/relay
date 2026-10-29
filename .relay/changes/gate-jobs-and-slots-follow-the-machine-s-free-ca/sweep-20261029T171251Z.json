@@ -1,0 +1,166 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.3364,
+   "id": "ade414602cecf257e",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 20,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design",
+   "start": "2026-10-29T11:18:56.252Z",
+   "stop": "2026-10-29T11:24:31.826Z"
+  },
+  {
+   "cost_usd": 1.2118,
+   "id": "afb1f7902e8b778c6",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design review",
+   "start": "2026-10-29T11:24:36.570Z",
+   "stop": "2026-10-29T11:28:45.957Z"
+  },
+  {
+   "cost_usd": 2.0185,
+   "id": "ac2f830d02169dd60",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design revise",
+   "start": "2026-10-29T11:28:49.005Z",
+   "stop": "2026-10-29T11:35:35.368Z"
+  },
+  {
+   "cost_usd": 0.3366,
+   "id": "acb6cc0e6441e408f",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T11:42:49.003Z",
+   "stop": "2026-10-29T11:45:20.141Z"
+  },
+  {
+   "cost_usd": 0.0054,
+   "id": "ad4cf5a53856e132e",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T11:45:22.595Z",
+   "stop": "2026-10-29T12:02:37.067Z"
+  },
+  {
+   "cost_usd": 0.2359,
+   "id": "a7adcc7d246f60453",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-29T12:02:40.310Z",
+   "stop": "2026-10-29T12:14:29.920Z"
+  },
+  {
+   "cost_usd": 0.004,
+   "id": "a5a7d9555ac11fa1a",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T12:14:32.805Z",
+   "stop": "2026-10-29T12:26:56.362Z"
+  },
+  {
+   "cost_usd": 2.0037,
+   "id": "acfac415de3706b7c",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 29,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T12:26:58.769Z",
+   "stop": "2026-10-29T12:35:09.850Z"
+  },
+  {
+   "cost_usd": 0.9067,
+   "id": "ad5a303ebe123fd64",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 49,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T12:36:06.336Z",
+   "stop": "2026-10-29T13:04:01.179Z"
+  },
+  {
+   "cost_usd": 0.0043,
+   "id": "a3663015c085713f7",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T13:04:04.185Z",
+   "stop": "2026-10-29T13:19:31.188Z"
+  },
+  {
+   "cost_usd": 0.3133,
+   "id": "aba7008cc196d957d",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 23,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T13:19:33.880Z",
+   "stop": "2026-10-29T13:44:39.569Z"
+  },
+  {
+   "cost_usd": 0.1881,
+   "id": "af0b3df354e459a28",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T13:45:05.465Z",
+   "stop": "2026-10-29T13:52:27.366Z"
+  },
+  {
+   "cost_usd": 0.0034,
+   "id": "ab8a2050a187ff930",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T13:52:30.825Z",
+   "stop": "2026-10-29T14:01:49.994Z"
+  },
+  {
+   "cost_usd": 0.3429,
+   "id": "a04d78f1b638530b2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 22,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T14:01:55.754Z",
+   "stop": "2026-10-29T14:15:31.169Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "gate-jobs-and-slots-follow-the-machine-s-free-ca",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "gate-jobs-and-slots-follow-the-machine-s-free-ca"
+}

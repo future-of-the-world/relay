@@ -26,8 +26,9 @@
   ],
   "taken_at": "2026-10-28T12:44:05Z",
   "taken_by": "wt/an-eval-scaffold-overwrote-the-live-rela",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T15:28:32Z",
+  "test": "tests/test_eval_cases.py::StubSetupRefusals::test_a_real_home_with_tmpdir_inside_it_is_refused_and_nothing_is_written",
+  "fixed_by": "b36d3998c9e2bb854d24cdc1402335ce7a596753",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

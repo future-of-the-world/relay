@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0048,
+   "id": "a5197dc3329bf79e5",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T08:58:11.141Z",
+   "stop": "2026-10-28T09:14:03.516Z"
+  },
+  {
+   "cost_usd": 0.1523,
+   "id": "a223ebae1bc9be3ab",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-28T09:14:07.614Z",
+   "stop": "2026-10-28T09:17:08.312Z"
+  },
+  {
+   "cost_usd": 0.0024,
+   "id": "a37f47e00551132b3",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-28T09:17:11.706Z",
+   "stop": "2026-10-28T09:17:34.861Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "riders-recheck"
+}

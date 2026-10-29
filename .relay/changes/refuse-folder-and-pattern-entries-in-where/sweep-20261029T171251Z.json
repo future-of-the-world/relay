@@ -1,0 +1,100 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.5837,
+   "id": "ab3af013e573b0115",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 35,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-28T17:41:52.953Z",
+   "stop": "2026-10-28T18:11:34.053Z"
+  },
+  {
+   "cost_usd": 0.0036,
+   "id": "af978db3aae6e7505",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T18:11:39.250Z",
+   "stop": "2026-10-28T18:18:40.748Z"
+  },
+  {
+   "cost_usd": 0.0853,
+   "id": "a6dd26b2ffae26d30",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-28T18:18:49.094Z",
+   "stop": "2026-10-28T18:31:03.835Z"
+  },
+  {
+   "cost_usd": 0.006,
+   "id": "ae54ba85e6bd381ea",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 10,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T19:13:01.331Z",
+   "stop": "2026-10-28T19:38:59.901Z"
+  },
+  {
+   "cost_usd": 0.5153,
+   "id": "a4ec2aba6dd2b4db6",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-28T19:39:07.579Z",
+   "stop": "2026-10-28T19:41:23.785Z"
+  },
+  {
+   "cost_usd": 0.3401,
+   "id": "a3e1de8c9ce005bf4",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 20,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T19:41:27.708Z",
+   "stop": "2026-10-28T19:50:15.797Z"
+  },
+  {
+   "cost_usd": 0.0029,
+   "id": "a76ea85ad9cc79d98",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T20:32:32.512Z",
+   "stop": "2026-10-28T20:33:05.095Z"
+  },
+  {
+   "cost_usd": 0.0885,
+   "id": "a6f3cf3ad4b9df8f7",
+   "model": "claude-sonnet-5-5",
+   "n": 2,
+   "requests": 3,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix red gate",
+   "start": "2026-10-28T20:33:08.218Z",
+   "stop": "2026-10-28T20:34:20.945Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "refuse-folder-and-pattern-entries-in-where",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "refuse-folder-and-pattern-entries-in-where"
+}

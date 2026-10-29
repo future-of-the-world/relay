@@ -1,0 +1,100 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1655,
+   "id": "a564c806d74337536",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-28T12:46:48.727Z",
+   "stop": "2026-10-28T12:48:22.395Z"
+  },
+  {
+   "cost_usd": 0.0067,
+   "id": "a6e7e4423ef709b83",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T12:48:26.457Z",
+   "stop": "2026-10-28T13:24:30.952Z"
+  },
+  {
+   "cost_usd": 1.2141,
+   "id": "a9d158cff70466ab1",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 32,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "review",
+   "start": "2026-10-28T13:24:55.711Z",
+   "stop": "2026-10-28T13:33:56.965Z"
+  },
+  {
+   "cost_usd": 0.1794,
+   "id": "a66c80345f1e078e2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-28T13:34:04.874Z",
+   "stop": "2026-10-28T13:36:07.616Z"
+  },
+  {
+   "cost_usd": 0.0056,
+   "id": "a5a542c45deb520ce",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 10,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T13:36:12.981Z",
+   "stop": "2026-10-28T14:08:08.754Z"
+  },
+  {
+   "cost_usd": 0.1113,
+   "id": "a1f87dd0ea94d35d2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-28T14:08:21.602Z",
+   "stop": "2026-10-28T14:10:46.411Z"
+  },
+  {
+   "cost_usd": 0.0046,
+   "id": "acfc7df13368ab74f",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T14:54:42.578Z",
+   "stop": "2026-10-28T15:10:45.009Z"
+  },
+  {
+   "cost_usd": 0.178,
+   "id": "a1dcdfaa3c0fd89db",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-28T15:10:48.705Z",
+   "stop": "2026-10-28T15:13:10.346Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "an-eval-scaffold-overwrote-the-live-relay-bin-re",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "an-eval-scaffold-overwrote-the-live-relay-bin-re"
+}
