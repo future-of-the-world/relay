@@ -92,6 +92,12 @@
       "said": [
         "Если на Linux есть схожая система то я бы предпочел включить её в сравнение, это будет полезно"
       ]
+    },
+    {
+      "at": "2026-10-29T06:34:42Z",
+      "fact": [
+        "29 Oct, Linux fence comparison measured in Docker's Linux machine on this Mac: Landlock (Linux kernel file fence, list-only ruleset) refuses file content to Python, cat, bun and git; ruleset build 14 ms; whole quick gate 111.5 and 109.9 s under it against 109.4 s plain (same failures, within noise); but it leaks names (ls of .relay/queue lists 268 names) and existence (os.path.exists True), so seeds 02-04 cannot pass on Linux. bubblewrap is refused under Docker's default filter. A container is not a fence by itself: in a masked container git show HEAD:docs/handover.md returned all 175,055 bytes. podman's shared folder: one git status 0.83-2.29 s against 0.02-0.03 s native (Docker's about 0.08-0.11 s). relay on Linux today: 1,788 tests, 30 failures and 22 errors in a clean container. Linux decided inside the principles (owner can reverse): no Linux fence in this change; a gate without the fence says 'not proved here' and keeps counting across relay's own records of that gate only; 76 of 112 code landings since 21 Oct had another inert change after their deciding gate."
+      ]
     }
   ]
 }
