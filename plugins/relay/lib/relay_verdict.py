@@ -1,3 +1,4 @@
+# size: over the 600-line limit until its split item lands
 """Review and check data as JSON, the only stored form of a report (docs/plans/review-gate.md sections 3, 4.1, 6).
 
 A review (critic or any judge) records `<report>.json`; a checker records the same for its check. Nothing readable is

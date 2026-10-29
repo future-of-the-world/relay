@@ -1,0 +1,15 @@
+head 84f2e338f0e59a1875ad5403e3d7fcd3dfd1bb22
+cmd bin/ci --quick
+wait 59.9
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (795s, log: .ci/steps/library-tests.log)
+    FAIL: test_no_test_parses_a_file_it_read_itself_with_int (test_pidfile.OnlyThroughTheHelper.test_no_test_parses_a_file_it_read_itself_with_int)
+    AssertionError: Lists differ: ['test_land.py:359'] != []
+    FAILED (failures=1)
+ci: hook tests ok (281s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (3s)
+ci: RED
+exit 1

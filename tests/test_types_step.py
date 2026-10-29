@@ -47,6 +47,15 @@ class TypesStep(unittest.TestCase):
         self.assertIn("F401", r.stdout)
         self.assertNotIn("FAIL mypy", r.stdout)
 
+    def test_unused_import_in_a_test_file_fails(self):
+        os.makedirs(os.path.join(self.tmp, "tests"))
+        with open(os.path.join(self.tmp, "tests", "test_x.py"), "w") as f:
+            f.write("import os\n")
+        r = run(self.tmp)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("FAIL ruff", r.stdout)
+        self.assertIn("F401", r.stdout)
+
     def _plant_in_hook(self, hook):
         # mypy names a hook by its path from the root (plugins.front.hooks.handover): the override must match that
         shutil.copytree(os.path.join(ROOT, "lib"), os.path.join(self.tmp, "lib"), dirs_exist_ok=True)

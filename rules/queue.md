@@ -44,14 +44,24 @@ earlier notes or `test` differ from the default branch's by hand, naming `relay 
 stay free. Every reshaping of items (a new key, a renamed one, a new shape) ships as a migrate module `lib/relay_*migrate*.py`
 (run by `relay queue migrate`) in the same change; a branch that changes one is the only one the hook lets rewrite items in bulk.
 
+An item's `time` is an estimate made from measurement, not by eye. `relay queue estimate` measures every closed change from the
+agent transcripts (agent minutes: the summed durations of the agents that ran in its worktree; build minutes: its workers; wall
+minutes: taken to closed), prints each closed item's estimate beside those, and prints the estimate for a new item: the median fixed cycle
+of past changes (gates, review, checks, queue close) plus the median build part. A paid run checks a wave of changes, not one, so it is
+not added to an item's estimate: the view prints the wave's paid-run minutes and cost on a line of its own, and the front tells the owner
+that line apart from the item's time. The view also prints how many closed items had agents in the transcripts (an agent is tied to a
+change by its working folder, else by the worktree its brief names). Nothing measured is stored in an item; it is computed when read.
+Use the estimate for `--time`.
+
 An out-of-scope question from the owner is answered in two lines and becomes a
 `feature` item, built later in a fresh session. When a new request arrives while
 `fix` items wait, name them (how many, the top one, its time, written 30m or 1h 30m) and let the owner
 decide what goes first.
 
 An item's `where` is a list of places, one string each: the place as its first word (`path`, `path:N` or `path:N-M`), then an
-optional note for people after a space, for example `["lib/relay_setup.py:325-333 merge_settings", "docs/"]`. The check refuses a
-string and an element whose first word has another shape. When the item is taken, its Q1 gets the first place (line N of N-M);
+optional note for people after a space, for example `["lib/relay_setup.py:325-333 merge_settings", "docs/handover.md"]`. The check refuses a
+string and an element whose first word has another shape; `add` and `edit` also refuse a folder, a directory name without a slash and a
+pattern: name the file, a new one is fine. When the item is taken, its Q1 gets the first place (line N of N-M);
 the other places go into Q1's details.
 
 An item's `title` is one plain sentence saying what is wrong or wanted, under 60

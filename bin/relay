@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# size: over the 600-line limit until its split item lands
 """relay: the owner's one command for the system of work.
 
   relay status                       what is running now, context sizes, running agents
@@ -955,8 +956,10 @@ def cmd_queue(args):
                 extra.append(rest[i])
                 i += 1
         try:
-            # `json` is the one view that lists the closed and dropped items too, with all their dates
-            return relay_queue.run_extension(name, relay_queue.read_queue(os.path.realpath(folder), closed=(name == "json")), extra)
+            # `json` lists the closed and dropped items too, with all their dates; `estimate` the closed ones, to set their actual time beside the estimate
+            if name == "estimate":
+                extra = ["--root", os.path.realpath(folder)] + extra     # the view counts only this repo's worktrees
+            return relay_queue.run_extension(name, relay_queue.read_queue(os.path.realpath(folder), closed=(name in ("json", "estimate"))), extra)
         except relay_queue.Refused as e:
             raise Usage(str(e))
     repo = lambda o: os.path.realpath(o.get("-C", "."))

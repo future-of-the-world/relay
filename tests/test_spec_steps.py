@@ -559,7 +559,7 @@ class RouteGuard(Scratch):
 
     def test_F1_core_hook_tests_leave_the_lib_queue_in_place(self):
         """Importing test_mark_attach (what collection does) must not make relay_queue come from plugins/relay/lib,
-        where queue_ext is missing and extensions() is empty; lib/relay_queue lists json and table."""
+        where queue_ext is missing and extensions() is empty; lib/relay_queue lists estimate, json and table."""
         out = self.probe(
             "import sys, os\nroot = sys.argv[1]\nsys.path[:0] = [os.path.join(root, 'tests'), os.path.join(root, 'lib')]\n"
             "import test_mark_attach, test_check_record\n"
@@ -567,7 +567,7 @@ class RouteGuard(Scratch):
             "import relay_queue\n"
             "print(os.path.relpath(relay_queue.__file__, root), relay_queue.extensions(), "
             "[p for p in sys.path if p.endswith(os.path.join('plugins', 'relay', 'lib'))])")
-        self.assertEqual(out, "lib/relay_queue.py ['json', 'table'] []")
+        self.assertEqual(out, "lib/relay_queue.py ['estimate', 'json', 'table'] []")
 
     def transcript(self, *entries):
         path = os.path.join(self.tmp, "t-%d.jsonl" % len(os.listdir(self.tmp)))

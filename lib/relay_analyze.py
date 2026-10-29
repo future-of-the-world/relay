@@ -1,3 +1,4 @@
+# size: over the 600-line limit until its split item lands
 """From transcripts and the ledger to a report: where the money went, and what to change.
 
 `collect(claude_dir, since, until)` reads every session touched in the period

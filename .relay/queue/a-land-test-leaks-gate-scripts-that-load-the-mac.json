@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-29T02:10:03Z",
   "taken_by": "wt/a-land-test-leaks-gate-scripts-that-load",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T05:32:50Z",
+  "test": "tests/test_land.py::Lock::test_slow_gate_ends_when_its_folder_is_gone",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

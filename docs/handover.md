@@ -1613,3 +1613,46 @@ Owner's latest words (28 Oct): "a" (compare relay land after 7 days), "a a" (ref
 **Flaky-under-load:** second case today (tests/test_rules_gate_isolation.py 200 s timeout at load 27 on 12 cores) → item tests-with-a-fixed-time-limit-fail-on-a-loaded-m, IP 97; it waits for bin/ci (hook-tests lane).
 
 **Next:** land guard-main, queue-time, stub guard, F and move 1 via `relay land` (background, log in scratchpad); start moves 2 and 3; paid run after the wave (relay land and move 1 touch paid paths), then `relay sync`.
+
+## Addendum 29 (29 Oct, ~09:40 local; session 3207dc59)
+
+### Landed since addendum 28
+- read-only guard refuses a critic `relay queue start` (fix F) — 23:51
+- guard-main allows a script that only prints the folder name — 06:3x
+- hook tests and wrappers ported from bash to Python, templates/bin-check in Python (owner: "последуй своей рекомендации" = option a) — gate 37 min
+- move 3 test scaffolding (tests/relay_commands.py, cmd_harness.py, test_cmd_files.py, test_cmd_smoke.py; test_numbers SessionEnd counts reads; test_rules_gate_isolation bound 1200 s)
+- move 2 type check of lib subfolders + 600-line module cap (tests/test_module_sizes.py) — gate 11.9 min
+- landing now: the land-test leak fix (a-land-test-leaks-gate-scripts-that-load-the-mac)
+
+### The night of 28-29 Oct: what went wrong (for the record)
+- tests/test_land.py::test_land_lock_frees_on_kill (landed 28 Oct 14:42) leaked an endless fixture gate.sh per run; by 04:20 59 of them, 312 processes/s, load 44, quick gates 1-3 h, timing tests red, cycle gate agents ended with no result. The front misread the first reds as flaky and reran gates for ~4 h before measuring (owner told; self-critique recorded).
+- The owner allowed stopping leftover processes ("Можешь остановить забытые процессы, как не допустить этого в будущем"). Rule learned: stop only processes whose parent is gone (ppid 1) AND whose temp folder is deleted; matching by path alone killed two live test gates (exit 143) at 09:01.
+- "4 minutes" for a gate was wrong: median quick gate is 14.4 min over 510 logs (correction recorded on the leak item).
+
+### Owner decisions this segment (verbatim where given)
+- Estimates: option a, drop the 75% target ("По остальным двум вопросам последуй своей рекомендации ..."); paid run shown per wave, not per item: "A".
+- bin-check to Python: option a (same message).
+- Gate-start sweep of leftover test processes: "A, полностью исключаем возможность stale процессов" (front noted two gaps to close in the build: lock held with dead gate pid; end-of-run scan fails the run).
+- Real git: "Хорошо, положи ссылку на гит, но скажи что именно и куда ты собираешься положить", then "Как вызывать git через простую ссылку ... можешь ли ты сделать это сам". Done: ~/.local/bin/git -> /Applications/Xcode.app/Contents/Developer/usr/bin/git, ~/.local/libexec/git-core -> .../usr/libexec/git-core, ~/.local/share/git-core -> .../usr/share/git-core (git finds helpers and its built-in config, init.defaultbranch=main and osxkeychain, next to its start path). 6.6 ms per call against 20.9 via /usr/bin/git. Undo: delete the three links. No shell file edited.
+- Quick gate limit: "30 минут сейчас, 25 после ускорения".
+- In-run inert check (replacing the second test run): NOT decided. Owner: "Как ты собираешься следить за тем какой тест читает служебные файлы, отсутствие лишней проверки допустимо лишь с должными гарантиями надежности". Design revision 3 with guarantees is running (workflow wmg4tvdhj; output scratchpad reports/design-gate-speed.md).
+
+### Front decisions (owner can reverse)
+- A failed or timed-out git call must surface as "git could not answer", never as a detached HEAD (item a-train-test-fails-in-the-inert-probe-run-not-on; its branch is built, gate red only from the front's kill).
+- No new lanes until the leak fix and the fixed-time-limit fix land; machine load from 6 lanes plus leaks made every gate a coin toss.
+
+### Queue added this segment
+the-cycle-s-gate-step-still-ends-with-no-result (92), a-land-test-leaks... (99, landing), waiting-gates-take-a-free-slot-in-no-order (86), gates-and-tests-stop-what-an-earlier-test-left-r (94, owner a), tests-leave-temp-worktrees-registered-in-the-liv (90), the-quick-gate-stops-itself-at-a-time-limit (95, owner: 30 now, 25 later), speed-up-the-quick-gate (95), relay-check-starts-238-git-processes-per-run (88), tests-build-a-new-git-repo-for-every-case (88), the-main-checkout-guard-starts-grep-for-every-co (88), a-train-test-fails-in-the-inert-probe-run-not-on (98), split moves 4-10 (96): dispatcher-moves-to-relay-cli-land-to-its-module, the-read-only-guard-reads-command-modules, setup-migrate-install-doctor-sync-get-modules, relay-queue-becomes-a-package-with-its-handler, each-relay-queue-action-in-its-own-module, changed-gate-precheck-and-check-get-modules, last-commands-leave-bin-relay-the-tables-go.
+
+### In progress (branches)
+- wt/refuse-folder-and-pattern-entries-in-whe (move 1): open 0, item closed on the branch; three landings red only from timing tests; land again after the time-limit fix.
+- wt/tests-with-a-fixed-time-limit-fail-on-a (top fix, ip 97): building (workflow wcb24j9r8).
+- wt/a-train-test-fails-in-the-inert-probe-ru: built, regate with `relay gate --again`, then review/check.
+- wt/queue-time-estimates-are-guesses-with-no: owner answered both questions; pass case edited; needs take of master, gate, checker re-record (F3 now owner-answered a), then land.
+
+### Next steps
+1. After the leak fix lands: land move 1; regate the git-message branch and the estimate branch; when the fixed-time-limit fix lands, run the rest.
+2. Start, in order: gates-and-tests-stop-what-an-earlier-test-left-r, the-quick-gate-stops-itself-at-a-time-limit (30 min), the cycle gate-step item, then split moves 4-10.
+3. When design revision 3 arrives: bring the owner the guarantee answer for the in-run inert check.
+4. Paid run after this wave: relay land, hook port and rules texts touch paid paths.
+5. Next handover worktree: handover-42.

@@ -1,0 +1,35 @@
+{
+  "kind": "fix",
+  "ip": 93,
+  "time": 60,
+  "found_at": "2026-10-29T06:24:21Z",
+  "found_in": "relay queue add",
+  "title": "A gate test is stopped by an unknown SIGTERM",
+  "what": [
+    "Record, on any test's gate command that ends by a signal, the signal and (where the platform gives it) the sender pid and its command, in the gate log; start the inert probe in its own session and stop it by its group; then find the sender of the 29 Oct kill or show that group signalling caused it."
+  ],
+  "why": [
+    "On 29 Oct a quick gate of the git-could-not-answer branch (head 7aa0030d) went red on two tests with 143 != 0: a fixture gate script (echo ok; exit 0) was killed by SIGTERM from outside its own tree. Both tests pass alone, a rerun of the gate on 45188584 was green, and a fixer that logged every os.kill/os.killpg in a probe run saw no stray signal. Nothing in the gate records who sent a stop signal, so such a red cannot be explained after the fact and turns into a rerun (principle 6). A scout refuted the leak-scan overlap theory: run folders never nest (tests/run_unittest.py:18, tests/parallel_unittest.py:151, lib/relay_ci.py:124). Real shared state it found: the inert probe is not a session leader (lib/relay_ci.py:157), so it shares the outer bin/ci process group."
+  ],
+  "failing_case": [
+    "tests/test_gate.py::test_f11_a_project_that_does_not_ignore_ci_can_run_the_gate_twice and tests/test_land.py::test_land_inert_take_reuses_gate red with 143 != 0 in a quick gate while each passes alone; the gate log does not say who sent the SIGTERM."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "a test gate command killed by SIGTERM from another process leaves a line in the gate log naming the signal and, on macOS and Linux, the sender pid or 'sender unknown'",
+    "the inert probe runs in its own session: a SIGTERM to the outer bin/ci group does not reach the probe's tests, and the probe's stop does not reach the outer run"
+  ],
+  "where": [
+    "lib/relay_ci.py",
+    "lib/relay_gate.py",
+    "tests/leaked_gates.py",
+    "tests/test_gate.py",
+    "tests/test_land.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
