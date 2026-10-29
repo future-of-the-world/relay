@@ -1,0 +1,20 @@
+head 2aa6839a00297fdacacca6cc9a93707a712a46f8
+cmd bin/ci --quick
+wait 240.5
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (543s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_full_run_is_probed_with_its_hook_suites_in_full (test_gate.Inert.test_a_full_run_is_probed_with_its_hook_suites_in_full)
+    AssertionError: 'ci: inert ok' not found in 'head 0e8fbafee1f247b3e2b04372d96e832ca2413841\ncmd bin/ci\nwait 0.0\nTraceback (most recent call last):\n  File "/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-l10xjrxl/relay-home-test_a_full_run_is_probed_with_its_hook_-e_dwn9aq/relay-gate-344dbfes/main/.worktrees/x/lib/relay_ci.py", line 42, in <module>\n    from relay_ci_probe import remove_leftover_probe, write_shared_record, drop_shared_record\nModuleNotFoundError: No module named \'relay_ci_probe\'\nexit 1\n'
+    FAIL: test_a_probe_that_is_killed_turns_inert_red_and_leaves_no_worktree (test_gate.Inert.test_a_probe_that_is_killed_turns_inert_red_and_leaves_no_worktree)
+        self.assertIn("ci: inert FAILED", log)
+    AssertionError: 'ci: inert FAILED' not found in 'head 336370a387521b408f3408631ce141e6cc5d33d0\ncmd bin/ci --quick\nwait 0.0\nTraceback (most recent call last):\n  File "/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-l10xjrxl/relay-home-test_a_probe_that_is_killed_turns_inert_-bs_fskfq/relay-gate-8959dcbn/main/.worktrees/x/lib/relay_ci.py", line 42, in <module>\n    from relay_ci_probe import remove_leftover_probe, write_shared_record, drop_shared_record\nModuleNotFoundError: No module named \'relay_ci_probe\'\nexit 1\n'
+    FAIL: test_a_test_reading_an_inert_file_turns_inert_red (test_gate.Inert.test_a_test_reading_an_inert_file_turns_inert_red)
+        self.assertIn("ci: inert FAILED", log)
+    AssertionError: 'ci: inert FAILED' not found in 'head ca62f9f80251fb4393426c191060852002aedcbe\ncmd bin/ci --quick\nwait 0.0\nTraceback (most recent call last):\n  File "/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-l10xjrxl/relay-home-test_a_test_reading_an_inert_file_turns_-ru4827fc/relay-gate-f8yck8r5/main/.worktrees/x/lib/relay_ci.py", line 42, in <module>\n    from relay_ci_probe import remove_leftover_probe, write_shared_record, drop_shared_record\nModuleNotFoundError: No module named \'relay_ci_probe\'\nexit 1\n'
+ci: hook tests ok (0s)
+ci: eval grader tests ok (3s)
+ci: plugin validate ok (4s)
+ci: inert ok (16s)
+ci: RED
+exit 1
