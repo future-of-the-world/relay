@@ -1317,6 +1317,18 @@ def held_fix_items(worktree: str, riders: bool = False) -> dict:
     return held
 
 
+def open_item_refusal(worktree: str, branch: str) -> str | None:
+    """Why `relay land` refuses: the branch of `worktree` still holds a taken fix item, or its queue cannot be read; else None."""
+    try:
+        taken = sorted(s for s, i in held_fix_items(worktree).items() if i["state"] == "taken")
+    except Refused as exc:
+        return f"land: cannot read the queue of {branch}: {exc}"
+    if not taken:
+        return None
+    return (f"land: {branch} still holds the open fix item '{taken[0]}': close it first, "
+            f"relay queue done {taken[0]} -C {worktree} --test <file>::<name>; then relay land {branch} again")
+
+
 def _unvouched_rider_item(worktree: str, slug: str) -> bool:
     """True when a rider-closed item still needs a check on this branch: judged the way the merge hook does (`step_queue`), at the
     innermost absorbed branch whose range closes it (`closing_tip`), else at this branch. An item vouched for at its rider needs none."""

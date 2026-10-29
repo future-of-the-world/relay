@@ -277,6 +277,7 @@ def land(repo: str, branch: str, notify: Callable[[str], None]) -> Result:
     stats = Event("done", now(), branch=branch, pid=os.getpid())
     try:
         tree = _preflight(main, default, branch)
+        if (refusal := relay_queue.open_item_refusal(tree, branch)): return Result(REFUSED, [refusal])
         record(main, Event("asked", now(), branch=branch, pid=os.getpid()))
         handle = lock(main, branch, notify)
     except Stop as stop:
@@ -307,17 +308,7 @@ def _preflight(main: str, default: str, branch: str) -> str:
         raise Stop(REFUSED, [f"land: {branch} has no worktree: make one (git worktree add) so the take of {default} has a place to run"])
     rc, status = relay_git.git(tree["path"], "status", "--porcelain", "--untracked-files=normal")
     if rc != 0 or status:
-        shown = ", ".join(l[3:] for l in status.splitlines()[:5])
-        raise Stop(REFUSED, [f"land: the worktree of {branch} has uncommitted changes ({shown}): commit them or remove them, then relay land {branch} again"])
-    import relay_queue
-    try:
-        open_items = [s for s, i in relay_queue.held_fix_items(tree["path"]).items() if i["state"] == "taken"]
-    except relay_queue.Refused as exc:
-        raise Stop(REFUSED, [f"land: cannot read the queue of {branch}: {exc}"])
-    if open_items:
-        slug = sorted(open_items)[0]
-        raise Stop(REFUSED, [f"land: {branch} still holds the open fix item '{slug}': close it first, "
-                             f"relay queue done {slug} -C {tree['path']} --test <file>::<name>; then relay land {branch} again"])
+        raise Stop(REFUSED, [f"land: the worktree of {branch} has uncommitted changes ({', '.join(l[3:] for l in status.splitlines()[:5])}): commit them or remove them, then relay land {branch} again"])
     if relay_git.current_branch(main) != default:
         raise Stop(REFUSED, [f"land: the main checkout is not on {default}: switch it back, then relay land {branch} again"])
     files = blocking(main, branch)
