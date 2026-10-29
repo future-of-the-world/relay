@@ -382,7 +382,7 @@ class Inert(Fixture):
         # the copied gate's library tests run through the unittest runner that gives every test its temporary folders
         for name in ("run_unittest.py", "parallel_unittest.py", "tmp_default.py", "leaked_gates.py"):
             shutil.copy(os.path.join(ROOT, "tests", name), os.path.join(main, "tests", name))
-        for name in ("relay_config.py", "relay_toml.py"):      # parallel_unittest finds $RELAY_HOME through relay_config
+        for name in ("relay_config.py", "relay_toml.py", "relay_coverage.py"):      # parallel_unittest finds $RELAY_HOME through relay_config
             shutil.copy(os.path.join(ROOT, "lib", name), os.path.join(main, "lib", name))
         # the "types and lint" step of the copied gate: its script, its config and one python file to check
         for name in ("types-lint", "types_lint.py"):      # the wrapper runs bin/types_lint.py

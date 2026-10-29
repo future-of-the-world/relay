@@ -291,6 +291,9 @@ class Coverage(unittest.TestCase):
         # data files sit under the ignored .ci/coverage/ (absolute), children included
         self.assertIn(f'data_file = "{root}/.ci/coverage/data"', rc_text)
         self.assertIn("coverage==7.17.0", calls[0])
+        # `-W` is a python option: after `coverage run` coverage.py refuses it ("no such option: -W", seen on the first real gate run)
+        self.assertLess(calls[0].index("-W"), calls[0].index("-m"))
+        self.assertNotIn("-W", calls[0][calls[0].index("-m"):])
 
     def test_the_tests_own_exit_code_passes_through(self):
         self.assertEqual(self.run_tests(1)[0][0], 1)

@@ -58,8 +58,8 @@ def run_tests(root: str, env: dict[str, str], run: Callable[..., "object"], log:
     rc_file = os.path.join(folder, "rc.toml")
     with open(rc_file, "w", encoding="utf-8") as handle:
         handle.write(config(root, folder))
-    base = ["uv", "run", "--no-project", "--python", sys.executable, "--with", spec, "python", "-m", "coverage"]
-    tests = run([*base, "run", "--rcfile", rc_file, "-W", "ignore::ResourceWarning", "tests/run_unittest.py"], log, env=env).returncode   # type: ignore[attr-defined]
+    base = ["uv", "run", "--no-project", "--python", sys.executable, "--with", spec, "python", "-W", "ignore::ResourceWarning", "-m", "coverage"]
+    tests = run([*base, "run", "--rcfile", rc_file, "tests/run_unittest.py"], log, env=env).returncode   # type: ignore[attr-defined]
     out = os.path.join(folder, "total.json")
     for sub in (["combine", "--rcfile", rc_file, "--quiet"], ["json", "--rcfile", rc_file, "-o", out, "--quiet"]):
         if run([*base, *sub], log, env=env).returncode != 0:    # type: ignore[attr-defined]
