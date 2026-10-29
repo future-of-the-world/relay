@@ -68,7 +68,8 @@ Two folders with similar names, different jobs:
   and `checks/` (per task branch: the gate log, the review, the check and the check mark a hook writes
   when the checker finishes). A merge into the default branch is refused until the branch's last commit
   has its gate, review and check; the pipeline is in `docs/plans/review-gate.md`.
-  Limit: this holds for merges made by `relay land`, which never squashes. A project that merges pull
+  Limit: this holds for merges relay makes or sees (`relay land`, and an agent's
+  `git merge --ff-only wt/<name>`, which the merge hook gates), which never squash. A project that merges pull
   requests with squash on its server is not gated by relay's ready state, and the squashed commit carries
   the branch's `checks/` files, which name commits of the deleted branch that the default branch never
   holds. Relay does not keep them out of the squash: the hard rules refuse an agent's write to `checks/`

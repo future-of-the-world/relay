@@ -17,9 +17,27 @@ class Setup(Base):
         # A project that squash-merges pull requests on its server gets the check records in the squashed tree, naming
         # commits of the deleted branch; relay land never squashes. The doc must say both, plainly.
         text = open(os.path.join(ROOT, "docs", "setup.md"), encoding="utf-8").read()
-        self.assertIn("squash", text)
-        self.assertIn("not gated", text)
-        self.assertIn("name commits", text)
+        # Assert inside the Limit paragraph only, so the words elsewhere in the file cannot satisfy it.
+        self.assertIn("Limit:", text)
+        limit = text[text.index("Limit:"):].split("\n- ", 1)[0]
+        self.assertIn("squash on its server is not gated", " ".join(limit.split()))
+        self.assertIn("name commits", " ".join(limit.split()))
+        self.assertIn("git merge --ff-only wt/<name>", limit)
+
+    def test_relay_folder_readme_states_squash_limit(self):
+        import relay_setup
+        proj = os.path.join(self.tmp, "fresh")
+        os.makedirs(proj)
+        path, created = relay_setup.relay_folder(proj)
+        self.assertTrue(created)
+        text = " ".join(open(path, encoding="utf-8").read().split())
+        self.assertIn("squash-merged on the server is not gated", text)
+        self.assertIn("name commits of the deleted branch", text)
+        # An existing README is left as it is.
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("mine\n")
+        self.assertEqual(relay_setup.relay_folder(proj), (path, False))
+        self.assertEqual(open(path, encoding="utf-8").read(), "mine\n")
 
     def test_setup_then_doctor(self):
         import relay_setup
