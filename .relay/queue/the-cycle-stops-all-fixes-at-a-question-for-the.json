@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 95,
+  "time": 30,
+  "found_at": "2026-10-29T21:41:32Z",
+  "found_in": "relay queue add",
+  "title": "The cycle stops all fixes at a question for the owner",
+  "what": [
+    "When a review holds a question or Design finding and other inside findings, the cycle fixes every other finding (the fixer prompt names which), gates and checks, and stops at \"owner\" with only the question open; after the answer, one fix round for that finding if it needs code, a gate and a check of that finding."
+  ],
+  "why": [
+    "30 Oct, design review of \"no idle while the owner is away\": plugins/delegate/workflows/cycle.js:252 stops a unit at \"owner\" as soon as its review has one question or Design finding, before any fixing, though the delegate skill says only that finding waits. On 29 Oct this held 1 HIGH, 2 MEDIUM and 7 LOW findings on 3 branches from about 19:30 to 01:26 while the owner slept. Owner, 30 Oct ~01:20: \"Сейчас ты ждал моего ответа 3 часа, ведь я отошел поспать, все это время никакой полезной работы не было выполнено, как мы можем исправить ситуацию\". IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "A review with F1 HIGH inside and F2 question: the unit stops at \"owner\" with F1 unfixed (cycle.js:252)."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same review: the fixer prompt names F1 and not F2, the gate runs, the unit stops at owner with only F2 open",
+    "A review with only a question: the unit stops at owner as today",
+    "After the answer, a fix unit for F2 alone, then gate and check"
+  ],
+  "where": [
+    "plugins/delegate/workflows/cycle.js",
+    "tests/test_cycle_workflow.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
