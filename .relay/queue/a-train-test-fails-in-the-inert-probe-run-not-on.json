@@ -16,7 +16,7 @@
   ],
   "failing_kind": "run",
   "pass_cases": [
-    "The test passes when run from a detached worktree and from a branch."
+    "A git call that times out, is killed by a signal or fails fatally is reported as 'git could not answer: <command>, <reason>', never as 'the worktree is not on a branch'; a real detached HEAD still reads as not on a branch."
   ],
   "where": [
     "tests/test_merge_train.py (ATrainChecksItsRidersClosedItems.test_the_checker_on_the_train_can_name_the_item_it_checks)",
@@ -33,6 +33,13 @@
       "at": "2026-10-29T04:52:19Z",
       "fact": [
         "29 Oct, front's decision (owner can reverse): the worker could not reproduce the failure from a detached worktree (the test makes its own repo and its train worktree is always on a branch) and found the likely cause: lib/relay_git.py git() returns (127, '') when a call times out (20 s) or cannot start, current_branch then returns None exactly as for a detached HEAD, and relay_verdict reports 'not on a branch'. Fix the message, not the limit: a git call that failed or timed out must surface as 'git could not answer: <command>, <reason>' and never be read as a detached HEAD or an empty answer; a test shows a timed-out git is reported as such. No new time limit is invented."
+      ]
+    },
+    {
+      "at": "2026-10-29T06:28:50Z",
+      "edited": "pass_cases",
+      "fact": [
+        "Edited pass_cases: Front decision, owner can reverse (principle 6, cause not symptom): the probe will not tolerate a transient git failure by retrying; the cause of the 29 Oct stray kill is chased by a-gate-test-is-stopped-by-an-unknown-sigterm, the measured shared state (the probe shares the outer run's process group). Review F4, option a."
       ]
     }
   ]
