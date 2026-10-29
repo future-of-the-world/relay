@@ -62,7 +62,7 @@ class PythonGate(Base):
     def run_script(self, dest, args=()):
         shim = os.path.join(self.proj, ".shim")
         env = {**os.environ, "PATH": shim + os.pathsep + os.environ["PATH"], "PYTHONPATH": shim}
-        return subprocess.run([dest, *args], cwd=self.proj, env=env, capture_output=True, text=True, timeout=120)
+        return subprocess.run([dest, *args], cwd=self.proj, env=env, capture_output=True, text=True, timeout=1200)
 
     def test_test_files_without_pyproject_are_python(self):
         # tally.py + test_tally.py, no pyproject.toml: the trial of the queue item

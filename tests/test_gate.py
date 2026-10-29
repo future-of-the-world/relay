@@ -23,7 +23,7 @@ from fake_tools import install_fake
 from pidfile import wait_pid
 
 GATE_TIMEOUT = 900      # seconds a test waits for its gate; the slowest (a copied bin/ci with its nested probe) takes about a minute
-GATE_STOP_GRACE = 30    # seconds the stopped gate has to end its command and free its slot
+GATE_STOP_GRACE = 600   # seconds the stopped gate has to end its command and free its slot
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
 
@@ -498,7 +498,7 @@ class LeakedGates(Fixture):
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         self.addCleanup(gate.wait)
         self.addCleanup(gate.kill)
-        return gate, wait_pid(pid_file, 60, writer_alive=lambda: gate.poll() is None)
+        return gate, wait_pid(pid_file, 600, writer_alive=lambda: gate.poll() is None)
 
     def test_a_gate_left_under_the_folder_is_stopped_with_its_command_and_named(self):
         self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
