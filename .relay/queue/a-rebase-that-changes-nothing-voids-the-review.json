@@ -50,6 +50,13 @@
       "options": [
         "a. Check again when master touched one of the branch's own files (same as the merge rule; about 15 agent minutes to build)",
         "b. Keep the item as written: an unchanged patch keeps the records even then (5 minutes)"
+      ],
+      "answered_at": "2026-10-29T21:20:37Z",
+      "answer": [
+        "a a a a, закрыть"
+      ],
+      "reading": [
+        "Answer to question 1 of 4 shown together on 30 Oct: a. A rebase keeps the review and check only when the default branch changed none of the branch own files between the old and new merge-base; otherwise a new check, as after a merge."
       ]
     }
   ]
