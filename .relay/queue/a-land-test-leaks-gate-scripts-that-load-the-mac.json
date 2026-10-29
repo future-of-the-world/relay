@@ -23,8 +23,8 @@
     "tests/test_land.py:275-332",
     "tests/leaked_gates.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T02:10:03Z",
+  "taken_by": "wt/a-land-test-leaks-gate-scripts-that-load",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
