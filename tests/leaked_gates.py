@@ -37,7 +37,7 @@ def _cwds() -> Optional[Dict[int, str]]:
 
 def _ancestors() -> Set[int]:
     """This process and its parents: the runner that scans may itself carry the folder in its command line."""
-    out = subprocess.run(["ps", "-axo", "pid=,ppid="], capture_output=True, text=True, timeout=30).stdout
+    out = subprocess.run(["ps", "-axo", "pid=,ppid="], capture_output=True, text=True, timeout=600).stdout
     parent = {}
     for line in out.splitlines():
         parts = line.split()

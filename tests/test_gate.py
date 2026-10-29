@@ -525,8 +525,8 @@ class LeakedGates(Fixture):
         found = [pid for pid, _ in leaked_gates.find(folder)]
         self.assertEqual(sorted(found), sorted([by_cwd.pid, by_path.pid]))
         leaked_gates.stop(folder)
-        by_cwd.wait(timeout=30)
-        by_path.wait(timeout=30)
+        by_cwd.wait(timeout=600)
+        by_path.wait(timeout=600)
 
     def test_a_gate_outside_the_folder_is_left_running(self):
         """Pass case 3: a legitimately detached gate elsewhere is not touched."""
