@@ -612,6 +612,19 @@ class ReviewFixes(Land):
         self.assertTrue(any("cleanup" in l for l in result.lines), result.lines)
         self.assertEqual([e.outcome for e in self.done()], ["landed"])
 
+    def test_hook_path_is_the_repository_s_for_every_lib_copy(self):
+        # the inert probe imported plugins/front/lib/relay_land.py; its HOOK must still be <root>/plugins/relay/hooks/merge.py
+        import importlib.util
+        for copy in ("lib", os.path.join("plugins", "front", "lib"), os.path.join("plugins", "relay", "lib")):
+            spec = importlib.util.spec_from_file_location("relay_land_copy_test", os.path.join(ROOT, copy, "relay_land.py"))
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module      # a dataclass looks its module up here
+            try:
+                spec.loader.exec_module(module)
+            finally:
+                del sys.modules[spec.name]
+            self.assertEqual(os.path.realpath(module.HOOK), os.path.realpath(HOOK), copy)
+
     def test_f6_cleanup_failure_is_named(self):
         self.start()
         result = self.run_in_process(lambda cmd: subprocess.CompletedProcess(cmd, 3, "", "boom\n"))

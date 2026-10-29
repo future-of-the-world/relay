@@ -29,7 +29,20 @@ FF_LOCK_WAIT_S = 1.0          # seconds between two fast-forwards refused by an 
 JUDGE_TIMEOUT_S = 300         # one judge reads git only; far above its seconds, finite so a stuck git cannot hold the lock forever
 LANDED, RED, CONFLICT, REFUSED, HANDED_BACK, DIRTY = "landed", "red", "conflict", "refused", "handed_back", "dirty"
 EXIT = {LANDED: 0, RED: 1, REFUSED: 2, DIRTY: 2, CONFLICT: 3, HANDED_BACK: 4}
-HOOK = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "plugins", "relay", "hooks", "merge.py")
+
+
+def _hook_path() -> str:
+    """The merge hook of the repository this file sits in. The copies under plugins/<name>/lib have no plugins/relay
+    beside them, so the walk goes up to the first folder that has plugins/relay/hooks/merge.py (the repository root)."""
+    folder = os.path.dirname(os.path.realpath(__file__))
+    while True:
+        folder = os.path.dirname(folder)
+        hook = os.path.join(folder, "plugins", "relay", "hooks", "merge.py")
+        if os.path.exists(hook) or folder == os.path.dirname(folder):
+            return hook
+
+
+HOOK = _hook_path()
 
 
 def setting(cfg: Any, key: str) -> int:
