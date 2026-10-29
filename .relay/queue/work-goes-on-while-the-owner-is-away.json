@@ -49,6 +49,12 @@
         "a. The reviewer: fewer parts (a role text, about 30 agent minutes), no self-approval; decisions are found inside each review",
         "b. The coordinating session: one list per digest; about 60-90 agent minutes and a change to the merge check"
       ]
+    },
+    {
+      "at": "2026-10-29T21:42:19Z",
+      "fact": [
+        "30 Oct, front decisions (owner can reverse): (1) waiting changes keep their lanes for now; measure a week after the cycle fix lands (design recount: 0-1 lanes would have been freed that night, not 5); (2) the self-wake timer is at most 55 minutes (8 wakes per idle 7-hour night; above 60 minutes each wake re-writes the 1-hour cache); (3) default-on-timeout is not built. Cost per wake not measured."
+      ]
     }
   ]
 }
