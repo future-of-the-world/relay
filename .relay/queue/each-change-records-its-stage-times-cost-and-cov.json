@@ -18,8 +18,8 @@
     "the gate's library-tests step (coverage.py)",
     "deps.toml, install.sh (pinned gate tools)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T08:05:00Z",
+  "taken_by": "wt/each-change-records-its-stage-times-cost",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
