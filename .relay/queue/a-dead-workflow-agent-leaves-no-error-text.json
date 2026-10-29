@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-29T23:01:35Z",
   "taken_by": "wt/a-dead-workflow-agent-leaves-no-error-te",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T23:41:20Z",
+  "test": "tests/test_cycle_workflow.py::test_each_thrown_attempt_leaves_a_dead_note_before_the_retry_and_a_clean_run_leaves_none",
   "dropped_at": null,
   "dropped_why": null
 }
