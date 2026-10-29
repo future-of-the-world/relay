@@ -12,12 +12,14 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from contextlib import redirect_stdout
 from typing import Any, Callable, List, Optional
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 import relay_ci  # noqa: E402
+import relay_ci_probe  # noqa: E402
 from pidfile import wait_pid  # noqa: E402
 
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t",
@@ -506,6 +508,43 @@ class ProbeBesideTheRun(unittest.TestCase):
         self.assertEqual(len(self.worktrees()), 2)   # main + lane_b
         assert probe.tmpd is not None
         self.assertFalse(os.path.exists(probe.tmpd))
+
+    def test_two_gates_that_read_one_dead_owner_record_at_once_both_return(self) -> None:
+        # a probe worktree whose shared record names an owner folder that does not exist; two gates start together and both
+        # read the record before either removes it: the probe is removed once and neither raises
+        tmpd = tempfile.mkdtemp(dir=self.root)
+        subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", os.path.join(tmpd, "wt"), self.head],
+                       check=True, env=self.env)
+        folder = relay_ci_probe.shared_dir(self.root)
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, os.path.basename(tmpd)), "w") as handle:
+            handle.write(os.path.join(self.root, "missing-lane") + "\n" + tmpd + "\n")
+        barrier = threading.Barrier(2)
+        real = relay_ci_probe._read_lines
+
+        def reading(path: str) -> List[str]:
+            lines = real(path)
+            if os.path.dirname(path) == folder:
+                barrier.wait(timeout=10)   # both threads hold the record's lines before either goes on
+            return lines
+
+        errors: List[BaseException] = []
+
+        def gate() -> None:
+            try:
+                relay_ci_probe.remove_leftover_probe(self.root)
+            except BaseException as err:  # noqa: BLE001 - the test reports whatever escaped
+                errors.append(err)
+
+        with mock.patch.object(relay_ci_probe, "_read_lines", reading):
+            threads = [threading.Thread(target=gate) for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        self.assertEqual(errors, [])
+        self.assertEqual(len(self.worktrees()), 1)   # main only
+        self.assertEqual(os.listdir(folder), [])
 
     def test_a_probe_of_a_live_lane_is_not_touched_by_the_gate_of_another_lane(self) -> None:
         lanes = []

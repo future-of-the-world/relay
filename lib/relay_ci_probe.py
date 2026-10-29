@@ -58,5 +58,8 @@ def remove_leftover_probe(root: str) -> None:
     for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
         owner = _read_lines(os.path.join(folder, name))
         if len(owner) == 2 and not os.path.isdir(owner[0]):
+            try:
+                os.remove(os.path.join(folder, name))   # claim the record: only the gate that removed it cleans the probe
+            except FileNotFoundError:
+                continue   # another gate claimed it between our listing and now
             _remove_probe(root, owner[1])
-            os.remove(os.path.join(folder, name))
