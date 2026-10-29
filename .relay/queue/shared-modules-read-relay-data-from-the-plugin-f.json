@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 70,
+  "time": 30,
+  "found_at": "2026-10-29T21:47:52Z",
+  "found_in": "relay queue add",
+  "title": "shared modules read relay data from the plugin folder",
+  "what": [
+    "Three reads that go wrong when a shared module is loaded through a plugin: active_profile() (lib/relay_config.py:128-130) reads <plugin>/profiles/active.toml, projects_file() (lib/relay_config.py:23) reads <plugin>/projects.toml, and relay_queue.EXT_DIR (<module folder>/queue_ext) finds no queue views. Each should read from relay's real folder (or $RELAY_HOME), also for a plugin from the install cache."
+  ],
+  "why": [
+    "A shared module works out relay's folder (ROOT) from where its file sits (lib/relay_config.py:19). Loaded through a plugin (plugins/<p>/lib/ links, or the install cache), ROOT is the plugin folder, not the repo. It bit once: queue item running-test-spec-steps-before-test-license-make (27 Oct), a FileNotFoundError on plugins/delegate/data/licenses; tests/relay_testbase.py load_hook contains it. Found by the design of lib-modules-are-committed-in-three-copies (30 Oct); no hook calls these reads today. Decided there (front, owner can reverse): not fixed in that change; solve with the portable-install work ($RELAY_HOME), which decides where relay's folder is for an installed copy."
+  ],
+  "failing_case": [
+    "Load plugins/delegate/lib/relay_config.py by its plugin path: relay_config.ROOT is plugins/delegate, so active_profile() looks for plugins/delegate/profiles/active.toml and projects_file() for plugins/delegate/projects.toml; relay_queue loaded through a plugin has no queue views (EXT_DIR points at plugins/<p>/lib/queue_ext)."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "Loaded through any plugin path, active_profile(), projects_file() and the queue views read the same files as when loaded from lib/."
+  ],
+  "where": [
+    "lib/relay_config.py:19-23",
+    "lib/relay_config.py:128-130",
+    "lib/relay_queue.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

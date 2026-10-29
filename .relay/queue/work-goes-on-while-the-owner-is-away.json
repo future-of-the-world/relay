@@ -1,0 +1,74 @@
+{
+  "kind": "feature",
+  "ip": 90,
+  "time": 120,
+  "found_at": "2026-10-29T21:42:04Z",
+  "found_in": "relay queue add",
+  "title": "Work goes on while the owner is away",
+  "what": [
+    "A question a principle or recorded decision already answers no longer waits for the owner, and the coordinating session wakes itself when its last agent ends, so no lane stands idle while startable items exist."
+  ],
+  "why": [
+    "29-30 Oct night: master had no commit from 22:41 to 01:14 while four built changes waited on owner questions that all ended with the front's recommendation, and the front stopped with no agent running. Design (reviewed, revision 2) recommends, in order: the cycle fixes around a question (item the-cycle-stops-all-fixes-at-a-question-for-the), the lanes line shows the next startable items (item one-stuck-queue-pick-hides-every-other-startable), the reviewer decides what a principle already answers (role text plus an eval case first), and a self-wake of the coordinating session (a Stop-hook timer, max 55 minutes, ending early when lanes change). IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "roles/judge.md",
+    "plugins/front/hooks/lanes.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T21:42:04Z",
+      "said": [
+        "Сейчас ты ждал моего ответа 3 часа, ведь я отошел поспать, все это время никакой полезной работы не было выполнено, как мы можем исправить ситуацию"
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T21:42:17Z",
+      "question": [
+        "**Which review questions are decided without you**",
+        "After a change is built an independent reviewer reads it; a choice it thinks is yours becomes a question and the change waits. On 29 Oct four waited through the night: three already followed from your principles, the fourth was a scope cut (document the squash limit now, file the redesign as an item). Over 5 days 2 of your answers went against the recommendation; under either option those would become fix items after the merge."
+      ],
+      "options": [
+        "a. Principles and reversible scope cuts: 4 of 4 that night would not have waited",
+        "b. Principles only: a scope cut still waits for you; 3 of 4 would not have waited"
+      ],
+      "answered_at": "2026-10-29T21:45:17Z",
+      "answer": [
+        "a a"
+      ],
+      "reading": [
+        "First a: a review question that a principle or recorded decision answers, or a reversible scope cut whose rest is filed as a queue item, is decided without the owner. Second a: the reviewer decides it and writes the principle in its review; the coordinating session does not self-approve. Build: role text in roles/judge.md plus an eval case first that shows a reviewer decides such a question instead of asking."
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T21:42:18Z",
+      "question": [
+        "**Who makes those decisions: the reviewer or the coordinating session**",
+        "The coordinating session commissioned the change and wants it merged; the reviewer is independent. If the reviewer decides, its review carries one line (\"Principle 1\") and nothing else changes. If the coordinating session decides, relay keeps a list of its decisions for you to read and reverse, which needs a second writer for the record of your word that the merge check reads."
+      ],
+      "options": [
+        "a. The reviewer: fewer parts (a role text, about 30 agent minutes), no self-approval; decisions are found inside each review",
+        "b. The coordinating session: one list per digest; about 60-90 agent minutes and a change to the merge check"
+      ],
+      "answered_at": "2026-10-29T21:45:17Z",
+      "answer": [
+        "a a"
+      ],
+      "reading": [
+        "First a: a review question that a principle or recorded decision answers, or a reversible scope cut whose rest is filed as a queue item, is decided without the owner. Second a: the reviewer decides it and writes the principle in its review; the coordinating session does not self-approve. Build: role text in roles/judge.md plus an eval case first that shows a reviewer decides such a question instead of asking."
+      ]
+    },
+    {
+      "at": "2026-10-29T21:42:19Z",
+      "fact": [
+        "30 Oct, front decisions (owner can reverse): (1) waiting changes keep their lanes for now; measure a week after the cycle fix lands (design recount: 0-1 lanes would have been freed that night, not 5); (2) the self-wake timer is at most 55 minutes (8 wakes per idle 7-hour night; above 60 minutes each wake re-writes the 1-hour cache); (3) default-on-timeout is not built. Cost per wake not measured."
+      ]
+    }
+  ]
+}

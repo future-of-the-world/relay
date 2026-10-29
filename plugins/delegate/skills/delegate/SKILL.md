@@ -220,7 +220,10 @@ front's.
    the default branch changed, and files git combined by itself, need no new check.
 9. **To the owner.** What is NOT MET, new, Disputed, Gap or Outside comes as a
    list of questions, each with its bold title, and a recommendation. Another fix runs on the owner's word
-   and is checked the same way (a fix, a gate, a check). Every change that
+   and is checked the same way (a fix, a gate, a check). After the owner answers a question the cycle left open, run a
+   `kind = "fix"` unit: `findings` is the review JSON, `fixes` the earlier fix report and the new one, `fix` the owner's
+   answer as the task; when the answer needs no code, the fixer commits nothing and says so, and the gate and the check
+   still run and close the queue item. Every change that
    will be merged gets step 4 and a verdict. When the change is ready (the front
    skill's "A change ready to merge": `open 0`, the gate green on the head, the
    default branch taken) the front merges the change and reports it in one line, or shows the person's
