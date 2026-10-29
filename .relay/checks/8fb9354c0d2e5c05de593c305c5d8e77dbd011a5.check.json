@@ -1,0 +1,228 @@
+{
+  "branch": "wt/the-checker-s-file-list-relay-changed-ow",
+  "findings": [
+    {
+      "details": [
+        "Found outside the archive-inert change (24 Oct, wave 1): a re-check after an archive commit counts the archive as open, so the checker and the merge guard disagree on what an archive changes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Mark on C, then any archive commit that the merge refuses (for example with a docs edit, F1) or any re-check for another",
+        "reason: the checker runs `relay changed --own -C <wt> <reviewed>` and gets every openspec/specs and",
+        "openspec/changes/archive path; with `Fixes: none` that is open +1 \"changed since the review\", so the new mark has open 1",
+        "and the merge stays refused. Should be: the checker and the merge guard agree on what an archive changes."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 468,
+      "pass_cases": [
+        "1. `relay changed --own --archive -C <wt> <C>` after an archive-only commit prints nothing.",
+        "2. Same with a README.md edit in the commit prints README.md only.",
+        "3. `relay changed --own -C <wt> <C>` without the flag is unchanged."
+      ],
+      "path": "bin/relay",
+      "rank": "high",
+      "reason": [
+        "tests/test_archive_inert.py:138 passes; fails at base 963ba0e0."
+      ],
+      "severity": "HIGH",
+      "since": "963ba0e09e06b14880e001b16907f23bd650305b",
+      "source": "queue",
+      "summary": "The checker's file list (`relay changed --own`) has no\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading and by the change's own test. The queue item's failing case is \"the checker runs `relay",
+        "changed --own -C <wt> <reviewed>` and gets every openspec/specs and openspec/changes/archive path ... Should be: the",
+        "checker and the merge guard agree\". The change adds a flag but no caller passes it: git grep for \"changed --own\"",
+        "finds roles/judge.md:103, plugins/delegate/agents/checker.md:119, critic.md:109,",
+        "plugins/openspec/agents/spec-conformance.md:112, spec-reviewer.md:114, all without --archive. The builder's own",
+        "report says \"Checker texts still call without the flag (not updated)\". Closing the item now (relay queue done)",
+        "would drop the record of a defect that still reproduces: a promise of the change broken, hence HIGH.",
+        "Size: 15 (judge.md two lines, test_roles assertion, relay sync of the agent copies); 10 with the --own alternative."
+      ],
+      "evidence": [
+        "$ git grep -n \"changed --own\" -- '*.md' ':!docs/plans' ':!docs/handover.md'",
+        "plugins/delegate/agents/checker.md:119:   files with `relay changed --own -C <path> <since>`: it prints the changed",
+        "plugins/delegate/agents/critic.md:109:   files with `relay changed --own -C <path> <since>`: it prints the changed",
+        "plugins/openspec/agents/spec-conformance.md:112: ...",
+        "plugins/openspec/agents/spec-reviewer.md:114: ...",
+        "roles/judge.md:103:   files with `relay changed --own -C <path> <since>`: it prints the changed",
+        "tests/test_roles.py:285: self.assertIn(\"List the files with `relay changed --own -C <path> <since>`\", judge)",
+        "Builder report: \"Checker texts still call without the flag (not updated).\""
+      ],
+      "failing_case": [
+        "Branch with a mark on C; then an archive-only commit (openspec/changes/x moved to openspec/changes/archive/2026-x,",
+        "openspec/specs/word/spec.md written). The checker follows roles/judge.md check step 1 (and the generated",
+        "plugins/delegate/agents/checker.md:119 that carries it) and runs `relay changed --own -C <wt> C`.",
+        "Now: it prints the 5 archive paths (as tests/test_archive_inert.py:149 itself asserts for the no-flag call); with",
+        "`Fixes: none` that is a new problem \"changed since the review\", open 1, merge refused, while the merge guard",
+        "(merge.py:298/312, archive=True) treats the same commit as inert.",
+        "Should: the checker's file list for that span is empty, so the check records open 0, as the merge guard sees it."
+      ],
+      "fix_hint": [
+        "Either (a) add --archive to roles/judge.md step 1 and to step 2's `relay changed -C <path> <sha>`, update",
+        "tests/test_roles.py:285, run relay sync so the agent copies follow (a checked path: rides the next wave's paid run);",
+        "or (b) in bin/relay cmd_changed, make --own imply archive=True (the merge guard never uses own without archive)",
+        "and keep --archive for the no-own gate comparison; then judge step 1 needs no edit, pass case 3 of the item changes."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 103,
+      "pass_cases": [
+        "1. Artifact: roles/judge.md check step 1 names the archive-filtered list, e.g. \"List the files with `relay changed --own --archive -C <path> <since>`\" (or the --own call, if --own is made to imply the filter), and the generated checker.md / critic.md / spec-conformance.md / spec-reviewer.md carry the same line after relay sync.",
+        "2. Artifact: check step 2's gate rule (\"`relay changed -C <path> <sha>` lists no file\") uses the same archive filter as the merge guard's step_gate (merge.py:354, archive=True).",
+        "3. The command the checker text names, run after an archive-only commit on top of mark C, prints nothing.",
+        "4. The same command with a README.md edit in the archive commit prints README.md only.",
+        "5. tests/test_roles.py A15 (line 285) asserts the updated step-1 line, so a later edit that drops the filter fails."
+      ],
+      "path": "roles/judge.md",
+      "rank": "high",
+      "reason": [
+        "roles/judge.md:103,123 carry --archive; tests/test_roles.py test_judge_base_part2 fails before fix, passes."
+      ],
+      "severity": "HIGH",
+      "since": "976daccb2ffc28452cf9666322debd9d15bc52b1",
+      "source": "review-the-checker-s-file-list-relay-changed-ow.json",
+      "source_id": "F1",
+      "summary": "the checker still runs `relay changed --own` without --archive, so the item's failing case is unchanged: an archive commit after the mark is still counted open +1",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: lib/relay_verdict.py:751 `moved = relay_inert.changed(wt, logged, head)`; merge.py:354 and",
+        "relay_marks.py:325 use archive=True for the same question. This is the second place where the checker and the merge",
+        "guard disagree on what an archive changes, the disagreement the queue item names in its Why. The Gate: none path",
+        "(line 717) already drops openspec/ paths, so only the gate-log path is affected. Inside because the item's promise",
+        "(\"the checker and the merge guard agree on what an archive changes\") cannot hold while the check record adds this N.",
+        "Size: 15 (one argument plus a test in tests/test_verdict*.py on a scratch repo)."
+      ],
+      "evidence": [
+        "lib/relay_verdict.py:751:        moved = relay_inert.changed(wt, logged, head) if _is_commit(wt, logged) else None",
+        "plugins/relay/hooks/merge.py:354:        since = relay_inert.changed(main, commit, ref, archive=True)",
+        "lib/relay_marks.py:325:            ungated = relay_inert.changed(repo, gate[0], ref, archive=True)"
+      ],
+      "failing_case": [
+        "Gate log G green on commit C; then an archive-only commit A on top. The checker records the check with",
+        "`gate = \"<G>.gate.log\"`. _gate runs relay_inert.changed(wt, G, head) with no archive filter, gets the openspec",
+        "archive/spec paths, and adds N \"the gate log is for other code than head\" -> open 1, merge refused.",
+        "The merge guard's step_gate (plugins/relay/hooks/merge.py:354) calls changed(main, commit, ref, archive=True)",
+        "and accepts G for head A. Should: the record agrees with the guard, no N problem for an archive-only span."
+      ],
+      "fix_hint": [
+        "Pass archive=True at lib/relay_verdict.py:751 (and the plugins/relay copy of relay_verdict.py if it is a copy)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 751,
+      "pass_cases": [
+        "1. Gate G green on C, archive-only commit after it, check recorded with that gate: no N problem, open 0 (given the findings are MET).",
+        "2. Gate G green on C, archive commit plus a lib/x.py edit after it: N \"the gate log is for other code than head\" naming lib/x.py.",
+        "3. Gate G green on C, a commit editing openspec/specs/word/spec.md with no archive move: N problem as today.",
+        "4. Gate G on head itself: no N problem (unchanged)."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_archive_inert.py:171,177 (GateLogAfterArchive) fail before fix, pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "976daccb2ffc28452cf9666322debd9d15bc52b1",
+      "source": "review-the-checker-s-file-list-relay-changed-ow.json",
+      "source_id": "F2",
+      "summary": "`relay check record check` compares the gate log to head without the archive filter, so a gate run before an archive commit becomes an open N finding the merge guard would not raise",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (collect-only, durations). The subclass is there for the fixture helpers (git, write, commit, archive).",
+        "Project principle 2: waste that repeats on every run is MEDIUM and fixed before the merge.",
+        "Size: 5 (move the helpers to a mixin or setUp base without test_ methods, or define the new class on a base)."
+      ],
+      "evidence": [
+        "$ pytest -q --collect-only tests/test_archive_inert.py | grep -c ChangedArchiveFlag",
+        "9",
+        "tests/test_archive_inert.py::ChangedArchiveFlag::test_a_failing_git_is_an_error_not_an_allowed_merge",
+        "tests/test_archive_inert.py::ChangedArchiveFlag::test_an_archive_only_commit_after_the_mark_is_allowed",
+        "... (6 inherited)",
+        "$ pytest -q --durations=0 tests/test_archive_inert.py -> 15 passed in 10.42s"
+      ],
+      "failing_case": [
+        "pytest --collect-only tests/test_archive_inert.py lists 15 tests: 6 ArchiveAfterTheMark tests, then the same 6",
+        "again under ChangedArchiveFlag plus its 3 own. --durations shows the inherited copies take about 4.0 s",
+        "(0.85+0.78+0.73+0.70+0.65+0.30) on every gate run. Should: 9 tests, each scenario once."
+      ],
+      "fix_hint": [
+        "Split the fixture (setUp, git, write, commit, archive) into a base class with no test_ methods; both classes",
+        "inherit it."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 128,
+      "pass_cases": [
+        "1. pytest --collect-only tests/test_archive_inert.py lists 9 tests: 6 ArchiveAfterTheMark, 3 for --archive.",
+        "2. The 3 --archive tests still pass and still fail on master (exit 2 for the unknown flag).",
+        "3. The 6 merge-hook tests still pass."
+      ],
+      "path": "tests/test_archive_inert.py",
+      "rank": "medium",
+      "reason": [
+        "ArchiveBase mixin at tests/test_archive_inert.py:20; merge-hook tests only in ArchiveAfterTheMark."
+      ],
+      "severity": "MEDIUM",
+      "since": "976daccb2ffc28452cf9666322debd9d15bc52b1",
+      "source": "review-the-checker-s-file-list-relay-changed-ow.json",
+      "source_id": "F3",
+      "summary": "ChangedArchiveFlag subclasses ArchiveAfterTheMark, so the 6 merge-hook tests run twice on every gate (about 4 s each run); Principle 2 (Waste)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (ran it). The gate uses pytest, so today nothing is lost there; fragile for a direct run. Size: 5."
+      ],
+      "evidence": [
+        "$ python3 tests/test_archive_inert.py",
+        "Ran 6 tests in 2.553s",
+        "OK"
+      ],
+      "failing_case": [
+        "python3 tests/test_archive_inert.py -> \"Ran 6 tests ... OK\": unittest.main() runs before ChangedArchiveFlag is",
+        "defined, so the 3 --archive tests never run that way. Should: 9 tests run."
+      ],
+      "fix_hint": [
+        "Move the `if __name__ == \"__main__\"` block to the end of the file (RELAY can sit with the other constants)."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 121,
+      "pass_cases": [
+        "1. python3 tests/test_archive_inert.py runs the --archive tests too.",
+        "2. pytest -q tests/test_archive_inert.py still collects them."
+      ],
+      "path": "tests/test_archive_inert.py",
+      "rank": "low",
+      "reason": [
+        "main block moved to end; file runs 13 tests."
+      ],
+      "severity": "LOW",
+      "since": "976daccb2ffc28452cf9666322debd9d15bc52b1",
+      "source": "review-the-checker-s-file-list-relay-changed-ow.json",
+      "source_id": "F4",
+      "summary": "the new class is defined after `if __name__ == \"__main__\": unittest.main()`, so running the file directly skips its tests",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "abb5caab71824ab2beaad238b291b02e64153503.gate.log",
+  "head": "8fb9354c0d2e5c05de593c305c5d8e77dbd011a5",
+  "item": "the-checker-s-file-list-relay-changed-own-has-no",
+  "notes": [
+    "Q1 test fails at 963ba0e0 (usage error, 2 != 0)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 976daccb..HEAD; fix files only (verdict, judge.md and agent copies, two test files). Ran precheck (green) + test_relay_tokens (23 passed), test_archive_inert and test_roles (28 passed). At b2cb623e with new tests copied in: 4 failed (F1 two roles tests, F2 two GateLogAfterArchive tests). Gate abb5caab exit 0, head matches (later commit is gate log only)."
+  ],
+  "type": "check"
+}

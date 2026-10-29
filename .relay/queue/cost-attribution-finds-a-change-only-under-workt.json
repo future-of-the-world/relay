@@ -28,8 +28,8 @@
   ],
   "taken_at": "2026-10-29T16:52:00Z",
   "taken_by": "wt/cost-attribution-finds-a-change-only-und",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T18:33:11Z",
+  "test": "tests/test_queue_estimate.py::Measure::test_agent_rows_with_cwd_in_the_projects_own_folder",
   "dropped_at": null,
   "dropped_why": null
 }

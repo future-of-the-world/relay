@@ -16,7 +16,7 @@
   ],
   "failing_kind": "claim",
   "pass_cases": [
-    "After the same squash-merge, no record on main names a commit main lacks (or the docs and setup state it and relay keeps the records out of the squashed tree)."
+    "After the same squash-merge, no record on main names a commit main lacks (or the docs and setup state the limit plainly; owner 30 Oct chose document only)."
   ],
   "where": [
     "lib/relay_marks.py",
@@ -58,6 +58,20 @@
       "options": [
         "a. Document only: amend the item to 'docs and setup state the limit', fix the setup README wording, close (about 5 agent minutes)",
         "b. Move check records out of the branch tree (git notes, a side ref or a per-machine store): a redesign of where checks live, 60+ agent minutes plus a design review"
+      ],
+      "answered_at": "2026-10-29T21:20:38Z",
+      "answer": [
+        "a a a a, закрыть"
+      ],
+      "reading": [
+        "Answer to question 2 of 4: a. Document only: the item pass case is amended to \"docs and setup state the limit\"; check records stay in the squashed tree."
+      ]
+    },
+    {
+      "at": "2026-10-29T21:20:54Z",
+      "edited": "pass_cases",
+      "fact": [
+        "Edited pass_cases: Owner, 30 Oct: \"a a a a, закрыть\" (answer a to the squash question: document only)."
       ]
     }
   ]
