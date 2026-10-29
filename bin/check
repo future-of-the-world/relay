@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+# bin/check: the quiet check a worker loops on. The contract (plugins/relay/README.md):
+#   check <change> <task>            the quick steps, then the task's Check: command (OpenSpec flows)
+#   check <change> <task> --failed   failed test files first, then the whole check
+#   check --tests <file>... [--failed]
+# Quiet: "passed" on green; the first findings and FAILED at <step> (round N of 3; log: <path>) on red.
+# Exit 0 green, 1 failed (a hang and a spent budget are failures). Stop words:
+# BUDGET SPENT, HUNG, TIME BUDGET SPENT. State under .ci/check/.
+# Standard library only: no GNU tools (timeout, md5sum), so it runs the same on macOS and Linux.
+import hashlib
+import os
+import signal
+import subprocess
+import sys
+import time
+
+ARGS = sys.argv[1:]
+ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
+os.chdir(ROOT)
+TIMEOUT_TEXT = os.environ.get("CHECK_TIMEOUT", "300")
+TIMEOUT_S = float(TIMEOUT_TEXT) or None  # 0 = no bound
+MINUTES = float(os.environ.get("CHECK_WORKER_MINUTES", "40"))
+os.makedirs(".ci/check", exist_ok=True)
+KEY = "task-" + (ARGS[1] if len(ARGS) > 1 else "tests")
+if ARGS[:1] == ["--tests"]:
+    KEY = "tests-" + hashlib.md5(" ".join(ARGS).encode()).hexdigest()[:8]
+LOG, FAILS, STARTED = (f".ci/check/{KEY}.{ext}" for ext in ("log", "fails", "started"))
+if not os.path.exists(STARTED):
+    with open(STARTED, "w") as handle:
+        handle.write(str(int(time.time())) + "\n")
+with open(STARTED) as handle:
+    ELAPSED = (int(time.time()) - int(handle.read().strip())) // 60
+# The files the steps run: --tests names them (minus --failed); otherwise a TEST_FILES from the environment stays.
+if ARGS[:1] == ["--tests"]:
+    TEST_FILES = [a for a in ARGS[1:] if a != "--failed"]
+else:
+    TEST_FILES = os.environ.get("TEST_FILES", "").split()
+HUNG_RC = 124
+
+
+def stop_group(proc: "subprocess.Popen[bytes]") -> None:
+    """Take the step and its children down: TERM, then KILL after 5 seconds."""
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.wait()
+
+
+def bound(cmd: list, log_handle) -> int:
+    """Run cmd in its own process group with output to the log; 124 when the bound passed (the step is killed)."""
+    try:
+        proc = subprocess.Popen(cmd, stdout=log_handle, stderr=subprocess.STDOUT, start_new_session=True)
+    except OSError as err:
+        log_handle.write(f"{cmd[0]}: {err.strerror}\n".encode())
+        return 127
+
+    def forward(signum, frame):  # bin/check itself stopped: take the step down with it
+        stop_group(proc)
+        sys.exit(128 + signum)
+
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(sig, forward)
+    try:
+        rc = proc.wait(timeout=TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        stop_group(proc)
+        return HUNG_RC
+    return 128 - rc if rc < 0 else rc
+
+
+def run_step(name: str, cmd: list) -> None:
+    with open(LOG, "wb") as log_handle:
+        rc = bound(cmd, log_handle)
+    if rc == 0:
+        return
+    if rc == HUNG_RC:
+        print(f"HUNG: {name} exceeded {TIMEOUT_TEXT}s")
+    try:
+        with open(FAILS) as handle:
+            n = int(handle.read().strip()) + 1
+    except (OSError, ValueError):
+        n = 1
+    with open(FAILS, "w") as handle:
+        handle.write(f"{n}\n")
+    with open(LOG, errors="replace") as handle:
+        print("".join(handle.readlines()[:30]), end="")
+    print(f"FAILED at {name} (round {n} of 3; log: {LOG})")
+    if n >= 3:
+        print("BUDGET SPENT: stop fixing and report")
+    if ELAPSED >= MINUTES:
+        print("TIME BUDGET SPENT")
+    sys.exit(1)
+
+
+# relay: the named test files, quietly (pytest is on the PATH; relay's own tests need nothing else).
+run_step("tests", ["pytest", "-q", "-x", *TEST_FILES])
+try:
+    os.remove(FAILS)
+except FileNotFoundError:
+    pass
+print(f"passed ({ELAPSED} min since the first check of this task)")
+if ELAPSED >= MINUTES:
+    print("TIME BUDGET SPENT")
+sys.exit(0)
