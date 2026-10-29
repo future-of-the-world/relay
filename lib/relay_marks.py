@@ -186,7 +186,7 @@ def get(repo, ref, commit):
     return mark if _valid(mark, commit) else None
 
 
-def marks(repo, ref):
+def marks(repo: str, ref: str) -> list[tuple[str, dict]]:
     """[(commit, mark)] for every well-formed mark at `ref`, sorted by commit."""
     found = []
     for name in _names(repo, ref):
@@ -197,7 +197,7 @@ def marks(repo, ref):
     return found + rebased(repo, ref, {c for c, _ in found})
 
 
-def rebased(repo, ref, have):
+def rebased(repo: str, ref: str, have: set[str]) -> list[tuple[str, dict]]:
     """[(twin, mark)] for each mark the branch at `ref` holds of a commit a rebase replaced with one of the same patch
     (`relay_inert.twin`): the check and the review still count, only a new gate is needed. A mark whose commit is in the
     history, is on the default branch already, or has no twin is left out, and so is a twin that has a mark of its own."""
@@ -297,7 +297,7 @@ def wait_for_lock(worktree, limit=None, sleep=time.sleep):
     return not os.path.exists(path)
 
 
-def show(repo, branch, sleep=time.sleep):
+def show(repo: str, branch: str, sleep=time.sleep) -> list[str]:
     """The three lines of `relay check show`: gate, mark, outside items, read at `branch`'s head (after waiting for a
     mark commit in flight in the branch's worktree)."""
     tree = next((w for w in relay_git.worktrees(repo) if w["branch"] == branch), None)

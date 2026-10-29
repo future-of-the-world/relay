@@ -139,13 +139,13 @@ def _covered(repo, paths, until, default, absorbed):
 
 
 def _patch_id(repo: str, base: str, commit: str) -> str | None:
-    """The stable patch id of the change from `base` to `commit`, leaving out the check files (`.relay/checks`); None when the
+    """The patch id (whitespace kept: re-indenting is a change) of the change from `base` to `commit`, leaving out the check files (`.relay/checks`); None when the
     change is empty or git cannot tell. The id is the same for a change a rebase moved onto a new base."""
-    diff = subprocess.run(["git", "-C", repo, "diff", "--no-renames", "--binary", base, commit, "--", ".", ":(exclude).relay/checks"],
+    diff = subprocess.run(["git", "-C", repo, "diff", "--no-renames", "--no-ext-diff", "--no-textconv", "--no-color", "--binary", base, commit, "--", ".", ":(exclude).relay/checks"],
                           capture_output=True)
     if diff.returncode != 0 or not diff.stdout:
         return None
-    done = subprocess.run(["git", "-C", repo, "patch-id", "--stable"], input=diff.stdout, capture_output=True)
+    done = subprocess.run(["git", "-C", repo, "patch-id", "--verbatim"], input=diff.stdout, capture_output=True)
     fields = done.stdout.split()
     return fields[0].decode() if done.returncode == 0 and fields else None
 
@@ -167,7 +167,8 @@ def twin(repo: str, old: str, ref: str) -> str | None:
     for commit in _git(repo, "rev-list", "--topo-order", ref, "^" + default).split():
         rc, fork = relay_git.git(repo, "merge-base", commit, default)
         if rc == 0 and _patch_id(repo, fork, commit) == wanted:
-            return commit
+            # the default branch changed a file the branch also changed: the combined file was never checked (as by a merge)
+            return None if changed(repo, old, commit, own=True) else commit
     return None
 
 

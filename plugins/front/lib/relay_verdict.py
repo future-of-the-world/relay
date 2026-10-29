@@ -628,7 +628,7 @@ def _stated(finding, source, since, **more):
     return out
 
 
-def _review_findings(wt, head, paths):
+def _review_findings(wt: str, head: str, paths: list[str]) -> list[dict]:
     """The findings of the review JSON files at `paths`, numbered F1, F2, ... across the files in the order given; each keeps
     its file name (`source`), its own id (`source_id`), the sha it was stated against (`since`) and the owner's words on it."""
     out, number = [], 0
