@@ -635,6 +635,37 @@ class ReviewFixes(Land):
         self.assertTrue(any("cleanup" in l for l in result.lines), result.lines)
         self.assertEqual([e.outcome for e in self.done()], ["landed"])
 
+    def test_hook_path_is_the_repository_s_for_every_lib_copy(self):
+        # the inert probe imported plugins/front/lib/relay_land.py; its HOOK must still be <root>/plugins/relay/hooks/merge.py
+        import importlib.util
+        for copy in ("lib", os.path.join("plugins", "front", "lib"), os.path.join("plugins", "relay", "lib")):
+            spec = importlib.util.spec_from_file_location("relay_land_copy_test", os.path.join(ROOT, copy, "relay_land.py"))
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module      # a dataclass looks its module up here
+            try:
+                spec.loader.exec_module(module)
+            finally:
+                del sys.modules[spec.name]
+            self.assertEqual(os.path.realpath(module.HOOK), os.path.realpath(HOOK), copy)
+
+    def test_hook_path_without_a_merge_hook_is_absolute_and_names_where_it_was_expected(self):
+        # a copy of relay_land.py in a root that has no plugins/relay/hooks/merge.py: never the bare name "merge.py" (cwd-relative)
+        import importlib.util
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "lib"))
+            copy = os.path.join(tmp, "lib", "relay_land.py")
+            with open(os.path.join(ROOT, "lib", "relay_land.py"), encoding="utf-8") as src, open(copy, "w", encoding="utf-8") as dst:
+                dst.write(src.read())
+            spec = importlib.util.spec_from_file_location("relay_land_nohook_test", copy)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module
+            try:
+                spec.loader.exec_module(module)
+            finally:
+                del sys.modules[spec.name]
+            self.assertEqual(module.HOOK, os.path.join(os.path.realpath(tmp), "plugins", "relay", "hooks", "merge.py"))
+
     def test_f6_cleanup_failure_is_named(self):
         self.start()
         result = self.run_in_process(lambda cmd: subprocess.CompletedProcess(cmd, 3, "", "boom\n"))

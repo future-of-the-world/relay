@@ -39,6 +39,7 @@ import time
 import traceback
 from typing import Any, Callable, NoReturn, TextIO
 
+from relay_ci_probe import remove_leftover_probe, write_shared_record, drop_shared_record
 from relay_ci_lines import _read_lines, _read_lines_keep, outcome  # noqa: F401  (outcome is called by other programs through relay_ci)
 from relay_ci_python import python_problem  # noqa: F401  (re-exported: tests call relay_ci.python_problem)
 
@@ -105,26 +106,6 @@ def stop_tree(pids: list[int], root: int) -> None:
         _signal(pid, signal.SIGKILL)
 
 
-def remove_leftover_probe(root: str) -> None:
-    """Remove the probe worktree of an earlier run of THIS worktree that was killed before it could clean up (the path is
-    recorded in <root>/.ci/inert-probe by Probe.start; another worktree has its own record, so a live probe is never touched)."""
-    record = os.path.join(root, ".ci", "inert-probe")
-    lines = _read_lines(record)
-    if not lines:
-        if os.path.exists(record):
-            os.remove(record)
-        return
-    tmpd = lines[0].strip()
-    if tmpd and os.path.isdir(tmpd):
-        work = os.path.join(tmpd, "wt")
-        subprocess.run(["git", "worktree", "remove", "--force", work], cwd=root, capture_output=True)
-        subprocess.run(["git", "worktree", "prune"], cwd=root, capture_output=True)
-        shutil.rmtree(tmpd, ignore_errors=True)
-    else:
-        subprocess.run(["git", "worktree", "prune"], cwd=root, capture_output=True)
-    os.remove(record)
-
-
 class Probe:
     """The inert probe: a temporary worktree of the gated commit with every inert file changed, and a quick run of the gate
     in it, started now and finished by `finish`. `stop` ends it (and removes the worktree) on any way out."""
@@ -150,6 +131,7 @@ class Probe:
         os.makedirs(os.path.dirname(self.record_path), exist_ok=True)
         with open(self.record_path, "w", encoding="utf-8") as handle:
             handle.write(self.tmpd + "\n")
+        write_shared_record(self.root, self.tmpd)
         self.work = os.path.join(self.tmpd, "wt")
         if self._git("worktree", "add", "-q", "--detach", self.work, self.head).returncode != 0:
             self.error = "FAIL inert: cannot make a worktree at %s" % self.head
@@ -199,6 +181,7 @@ class Probe:
             self._git("worktree", "remove", "--force", self.work)
             self._git("worktree", "prune")
             shutil.rmtree(self.tmpd, ignore_errors=True)
+            drop_shared_record(self.root, self.tmpd)
             self.tmpd = None
         if os.path.exists(self.record_path):
             os.remove(self.record_path)

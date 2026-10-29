@@ -26,10 +26,23 @@
   "where": [
     "lib/relay_setup.py:1137"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T14:48:15Z",
+  "taken_by": "wt/relay-doctor-does-not-name-a-main-checko",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-29T15:38:55Z",
+      "question": [
+        "**Where relay notices that its own program file was overwritten**",
+        "On 28 Oct an eval stub overwrote relay's main program file in the main checkout; every relay command broke silently. That cause is fixed (landed). This item adds a warning: `relay doctor` names the file as differing from git. The review showed the warning can never print in that very case: `relay doctor` is that same file, so the stub runs instead of the check."
+      ],
+      "options": [
+        "a. Check at session start too: the front plugin's session-start hook compares the file with git and says so in its first line; the doctor line stays for small edits (about 30 agent minutes)",
+        "b. Keep only the doctor line: it catches small edits, not a wholesale overwrite (about 5 minutes)"
+      ]
+    }
+  ]
 }

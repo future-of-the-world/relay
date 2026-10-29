@@ -26,8 +26,9 @@
   ],
   "taken_at": "2026-10-29T04:01:58Z",
   "taken_by": "wt/tests-with-a-fixed-time-limit-fail-on-a",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T15:29:10Z",
+  "test": "tests/test_hang_limits.py::HangLimits::test_precheck_changed_tests_step_is_a_hang_bound",
+  "fixed_by": "281381fd88a2bf1db8b8dc7bb86731ff4ed07393",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

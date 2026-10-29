@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from typing import Dict, Tuple
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -85,6 +85,25 @@ class Runs(Tree):
             self.assertEqual(len(ran), 1, out)
             results.append(re.sub(r" in [0-9.]+s", "", ran[0]))
         self.assertEqual(results, ["Ran 9 tests", "Ran 9 tests"])
+
+    def test_a_settings_note_is_printed_once(self) -> None:
+        # count 1000 is outside the pool's bounds: one note for it, on one stream (stderr, from acquire_run_base), not again on stdout
+        self.add("test_a", "Small", methods(1))
+        os.makedirs(os.path.join(self.home, "test-tokens"))
+        with open(os.path.join(self.home, "test-tokens", "count"), "w") as handle:
+            handle.write("1000")
+        err = io.StringIO()
+        with redirect_stderr(err):
+            code, out = self.go("1")
+        self.assertEqual(code, 0, out)
+        self.assertEqual((out + err.getvalue()).count("NOTE test tokens:"), 1, out + err.getvalue())
+
+    def test_no_settings_file_no_note(self) -> None:
+        self.add("test_a", "Small", methods(1))
+        err = io.StringIO()
+        with redirect_stderr(err):
+            code, out = self.go("1")
+        self.assertNotIn("NOTE test tokens", out + err.getvalue())
 
     def test_a_failing_test_in_any_class_fails_the_run_and_is_named(self) -> None:
         # case 7: a deliberately failing test in one class; the others pass; the failing one is named, the count still adds up
@@ -269,6 +288,15 @@ class Times(Tree):
             subprocess.run(["git", "-C", main, *argv], check=True, env=env)
         self.assertEqual(parallel_unittest.repo_name(os.path.join(main, ".worktrees", "w")), "mainrepo")
         self.assertEqual(parallel_unittest.repo_name(main), "mainrepo")
+
+
+class ProbeShare(unittest.TestCase):
+    def test_the_gates_base_is_split_between_the_probe_and_the_outer_run(self) -> None:
+        # F3: given 4: probe 4 // 2 = 2, outer 4 - 2 = 2; given 3: probe 1, outer 2; one token: both get the 1 they cannot go below
+        self.assertEqual([parallel_unittest.probe_share(4, True), parallel_unittest.probe_share(4, False)], [2, 2])
+        self.assertEqual(parallel_unittest.probe_share(3, True), 1)
+        self.assertEqual(parallel_unittest.probe_share(3, False), 2)
+        self.assertEqual(parallel_unittest.probe_share(1, True), 1)
 
 
 class Jobs(unittest.TestCase):

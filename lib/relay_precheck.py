@@ -19,10 +19,14 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import relay_tokens
+
 PLUGINS = ("observe", "delegate", "front", "relay", "openspec")
 OLD_PYTHON = "/usr/bin/python3"
 STEP_TIMEOUT = 60       # seconds one step may take in all (about 10 s for the whole precheck when healthy); a timeout is a RED line
 CHANGED_TESTS_TIMEOUT = 600   # a hang bound, not a clock: 16 changed files took 199 s at load 8 and over 230 s at load 17-35; only a hung test reaches 600 s
+_test_env: dict[str, str] = {}   # the environment of the changed tests: the token this precheck holds, passed down; run() sets it
 _deadline = 0.0         # time.monotonic() by which the running step must end; run() sets it per step
 TAIL = 20               # lines of a failing step's output shown
 
@@ -171,7 +175,7 @@ def check_changed_tests(worktree: str) -> list[str]:
         limit = float(STEP_TIMEOUT) if group == [RULES_REGISTRY_TEST] else _left()
         try:
             done = subprocess.run(["python3", "-W", "ignore::ResourceWarning", runner, *group], cwd=worktree, capture_output=True,
-                                  text=True, timeout=limit)
+                                  text=True, timeout=limit, env=_test_env or None)
         except subprocess.TimeoutExpired:
             if group == [RULES_REGISTRY_TEST]:
                 failed.append("FAIL rules registry test took longer than %d s" % STEP_TIMEOUT)   # the allowance it was given
@@ -187,6 +191,15 @@ STEPS = (("types and lint", check_types), ("python 3.9", check_python39), ("lib 
          ("changed tests", check_changed_tests))
 
 
+def take_test_token(lines: list[str]) -> relay_tokens.Held:
+    """Wait for the precheck's one test token (printing the waiting line once) and fill `_test_env` for its test runs."""
+    base = relay_tokens.acquire_run_base(os.environ, lambda line: print("precheck: " + line, file=sys.stderr, flush=True))
+    _test_env.clear()
+    _test_env.update(os.environ)
+    _test_env[relay_tokens.ENV_HOLD] = relay_tokens.hold_value(1 if not base.passed else base.workers, base.home)
+    return base.held
+
+
 def run(worktree: str) -> tuple[int, list[str]]:
     """Every step, in order (a red one does not hide the next); the output lines and 0 when all are clean."""
     global _deadline
@@ -196,8 +209,13 @@ def run(worktree: str) -> tuple[int, list[str]]:
         worktree = os.path.realpath(top.stdout.strip())   # from a subfolder, the repository's root is what is checked
     lines: list[str] = []
     code = 0
+    held = relay_tokens.Held()
     for name, step in STEPS:
         budget = CHANGED_TESTS_TIMEOUT if name == "changed tests" else STEP_TIMEOUT
+        if name == "changed tests":
+            # one test token for the changed tests, taken BEFORE their budget starts (a wait never counts against it) and passed
+            # down, so the test runs below take no base of their own; with a holder above (a gate), nothing is taken here
+            held = take_test_token(lines)
         _deadline = time.monotonic() + budget
         try:
             found = step(worktree)
@@ -205,6 +223,8 @@ def run(worktree: str) -> tuple[int, list[str]]:
             found = ["FAIL %s took longer than %d s" % (name, budget)]
         finally:
             _deadline = 0.0
+            held.release()
+            _test_env.clear()
         if not found:
             lines.append("ok   " + name)
         elif all(ln.startswith("skipped") for ln in found):

@@ -183,6 +183,73 @@ class Fixture(unittest.TestCase):
 
 
 class Gate(Fixture):
+    TOKEN_SCRIPT = (
+        'echo "tokens=${RELAY_TEST_TOKENS-unset}"\n'
+        'echo "start $(date +%s)"\n'
+        "python3 - <<'PY'\n"
+        "import fcntl, os\n"
+        "for i in range(3):\n"
+        "    handle = open(os.path.join(os.environ['RELAY_HOME'], 'test-tokens', 'token-%d' % i), 'a')\n"
+        "    try:\n"
+        "        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
+        "        print('token', i, 'free')\n"
+        "    except OSError:\n"
+        "        print('token', i, 'held')\n"
+        "PY\n")
+
+    def pool(self, relay):
+        """A pool of its own: 1 gate slot, 2 tokens per gate, 3 in all (gate tokens 0 and 1, shared 2). `relay`: the gated worktree
+        has relay's test runners (lib/relay_tokens.py); a project's own gate has none."""
+        for rel, text in (("gate-slots/count", "1"), ("test-tokens/per-gate", "2"), ("test-tokens/count", "3")):
+            write(os.path.join(self.tmp, "home", rel), text)
+        self.env.pop("RELAY_TEST_TOKENS", None)      # the pytest session that runs this test may hold a base and export it
+        self.repo(gate=self.TOKEN_SCRIPT)
+        if relay:
+            write(os.path.join(self.wt, "lib", "relay_tokens.py"), "# the marker of relay's own test runners\n")
+            git(self.wt, "add", "-A")
+            git(self.wt, "commit", "-q", "-m", "tokens")
+        return git(self.wt, "rev-parse", "HEAD")
+
+    def test_f3_a_relay_gate_holds_its_tokens_and_passes_the_variable(self):
+        head = self.pool(relay=True)
+        run = self.gate(self.wt)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        log = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))
+        # per-gate 2 tokens, passed down as 2@<the pool's real path>; tokens 0 and 1 are held while the command runs, 2 is not
+        self.assertIn("tokens=2@%s" % os.path.join(self.tmp, "home", "test-tokens"), log)
+        self.assertEqual([l for l in log.splitlines() if l.startswith("token ")], ["token 0 held", "token 1 held", "token 2 free"])
+
+    def test_f3_the_wait_for_tokens_is_outside_the_command(self):
+        head = self.pool(relay=True)
+        folder = os.path.join(self.tmp, "home", "test-tokens")
+        os.makedirs(folder, exist_ok=True)
+        busy = open(os.path.join(folder, "token-0"), "a")
+        fcntl.flock(busy, fcntl.LOCK_EX)      # a gate token is busy, so the gate waits for it
+        proc = subprocess.Popen([sys.executable, RELAY, "gate"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=self.wt, env=self.env)
+        try:
+            waiting = os.path.join(folder, "waiting")
+            deadline = time.monotonic() + GATE_TIMEOUT
+            while time.monotonic() < deadline and not (os.path.isdir(waiting) and os.listdir(waiting)):
+                time.sleep(0.05)
+            self.assertTrue(os.listdir(waiting))      # waiting for the token ...
+            self.assertFalse(os.path.exists(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))      # ... and the command has not started
+        finally:
+            busy.close()
+            _, err = proc.communicate(timeout=GATE_TIMEOUT)
+        self.assertEqual(proc.returncode, 0, err)
+        lines = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")).splitlines()
+        self.assertTrue(lines[2].startswith("wait ") and float(lines[2].split()[1]) > 0, lines[:3])      # the wait is in the log's wait line
+
+    def test_f4_a_projects_own_gate_takes_its_slot_only(self):
+        head = self.pool(relay=False)
+        run = self.gate(self.wt)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        log = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))
+        self.assertIn("tokens=unset", log)      # no variable
+        self.assertEqual([l for l in log.splitlines() if l.startswith("token ")], ["token 0 free", "token 1 free", "token 2 free"])
+        self.assertTrue(os.listdir(os.path.join(self.tmp, "home", "gate-slots")))      # it still took a gate slot
+        self.assertEqual(log.splitlines()[2].split()[0], "wait")
+
     def test_r1_refuses_without_relay_folder(self):
         """R1: the default branch has no .relay/: refused, the message names relay setup, no log, no commit."""
         self.repo(relay=False, gate="exit 0\n")
@@ -446,12 +513,12 @@ class Inert(Fixture):
         # and not the gate program
         write(os.path.join(main, ".claude", "kit.toml"), '[metrics]\ncoverage = "off"\n')
         os.makedirs(os.path.join(main, "lib"))
-        for module in ("relay_ci.py", "relay_ci_lines.py", "relay_ci_python.py"):   # the wrapper runs relay_ci, which imports the other two
+        for module in ("relay_ci.py", "relay_ci_lines.py", "relay_ci_python.py", "relay_ci_probe.py"):   # the wrapper runs relay_ci, which imports the others
             shutil.copy(os.path.join(ROOT, "lib", module), os.path.join(main, "lib", module))
         # the copied gate's library tests run through the unittest runner that gives every test its temporary folders
         for name in ("run_unittest.py", "parallel_unittest.py", "tmp_default.py", "leaked_gates.py"):
             shutil.copy(os.path.join(ROOT, "tests", name), os.path.join(main, "tests", name))
-        for name in ("relay_config.py", "relay_toml.py", "relay_coverage.py", "relay_procs.py"):      # parallel_unittest finds $RELAY_HOME through relay_config; leaked_gates reads processes through relay_procs
+        for name in sorted(n for n in os.listdir(os.path.join(ROOT, "lib")) if n.endswith(".py")):   # run_unittest imports relay_tokens, which imports relay_gate and a chain of lib modules: the whole lib
             shutil.copy(os.path.join(ROOT, "lib", name), os.path.join(main, "lib", name))
         # the "types and lint" step of the copied gate: its script, its config and one python file to check
         for name in ("types-lint", "types_lint.py"):      # the wrapper runs bin/types_lint.py
