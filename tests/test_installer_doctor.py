@@ -26,7 +26,7 @@ ENV_KEYS = ("PATH", "HOME", "CLAUDE_CONFIG_DIR", "RELAY_HOME")
 # what every tool of deps.toml prints for --version when it is at the right version
 GOOD = {"python3": "Python 3.12.1", "git": "git version 2.44.0", "jq": "jq-1.7.1", "uv": "uv 0.8.24 (abc 2025-10-07)",
         "ruff": "ruff 0.13.3", "mypy": "mypy 1.18.2 (compiled: yes)", "pytest": "pytest 8.4.2", "claude": "2.1.0 (Claude Code)",
-        "bun": "1.2.0"}
+        "bun": "1.2.0", "coverage": "Coverage.py, version 7.17.0 with C extension"}
 
 
 class Fakes(unittest.TestCase):
@@ -64,14 +64,14 @@ class DepsFile(unittest.TestCase):
     def test_list_parses_and_every_entry_has_its_fields(self):
         deps = relay_setup.load_deps()
         names = [d["name"] for d in deps]
-        # the brief's list: python3, git, jq, claude, uv, the gate tools ruff, mypy, pytest, and bun (bin/ci hook tests); no node
+        # the brief's list: python3, git, jq, claude, uv, the gate tools ruff, mypy, pytest, coverage, and bun (bin/ci hook tests); no node
         self.assertEqual(sorted(names), sorted(GOOD))
         for dep in deps:
             self.assertTrue(dep["command"] and dep["version_arg"], dep["name"])
             self.assertTrue(any(r in dep for r in relay_setup.DEP_ROUTES), dep["name"])
         by = {d["name"]: d for d in deps}
         self.assertEqual(by["python3"]["min"], "3.11")
-        for tool in ("ruff", "mypy", "pytest"):   # a gate tool is pinned: an exact version, installed through uv
+        for tool in ("ruff", "mypy", "pytest", "coverage"):   # a gate tool is pinned: an exact version, installed through uv
             self.assertTrue(by[tool]["exact"] and by[tool]["uv_tool"].endswith("==" + by[tool]["min"]), tool)
         self.assertEqual(len(by["uv"]["installer_sha256"]), 64)   # the pinned installer carries its checksum
 

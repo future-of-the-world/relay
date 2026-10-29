@@ -765,7 +765,8 @@ OWN_CODE = "lib/relay_queue.py"
 def _default_rejects(main: str, head: str, default: str, plan: Plan) -> list[str]:
     """What the default branch's own code (its lib/ at `head`) finds wrong with the records `plan` writes; [] when it accepts them or
     the branch has no such code (a project that only uses relay). Raises Refused when that code cannot be run."""
-    records = {os.path.basename(p)[:-5]: t for p, t in plan.writes.items() if t is not None and p.endswith(".json")}
+    records = {os.path.basename(p)[:-5]: t for p, t in plan.writes.items()
+               if t is not None and p.endswith(".json") and os.path.dirname(p) == QDIR}   # only queue records go to the queue parser
     if not records or cat_batch(main, [f"{head}:{OWN_CODE}"]) == [None]:
         return []
     rc, tar, err = _git(main, "archive", "--format=tar", head, "lib", timeout=60)
@@ -844,6 +845,25 @@ def _land(repo, planner, tries=None, sleep=time.sleep, after_plan=None, takeover
     if held:
         raise Refused(last)
     raise Refused(f"not landed after {tries} tries: {last}; kept on {branch}; relay queue land {plan.slug} tries again")
+
+
+class NothingToWrite(Refused):
+    """The planner of `land_files` had no file to write at the head it looked at."""
+
+
+def land_files(repo, slug, writes_at, label):
+    """Land the files `writes_at(head)` returns (a path to its text) on the default branch with the queue's own committer, which
+    re-plans at the new head on every try and touches no checkout. The branch is `wt/queue-<slug>`. Returns the commit sha, or
+    None when there is nothing to write. Raises Refused when it could not land."""
+    def planner(reader):
+        writes = writes_at(reader.rev)
+        if not writes:
+            raise NothingToWrite("nothing to write")
+        return Plan(slug, writes, label, "recorded")
+    try:
+        return _land(repo, planner)[1]
+    except NothingToWrite:
+        return None
 
 
 def _result(plan, default_sha, default):
