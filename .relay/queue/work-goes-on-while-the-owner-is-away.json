@@ -37,6 +37,13 @@
       "options": [
         "a. Principles and reversible scope cuts: 4 of 4 that night would not have waited",
         "b. Principles only: a scope cut still waits for you; 3 of 4 would not have waited"
+      ],
+      "answered_at": "2026-10-29T21:45:17Z",
+      "answer": [
+        "a a"
+      ],
+      "reading": [
+        "First a: a review question that a principle or recorded decision answers, or a reversible scope cut whose rest is filed as a queue item, is decided without the owner. Second a: the reviewer decides it and writes the principle in its review; the coordinating session does not self-approve. Build: role text in roles/judge.md plus an eval case first that shows a reviewer decides such a question instead of asking."
       ]
     },
     {
@@ -48,6 +55,13 @@
       "options": [
         "a. The reviewer: fewer parts (a role text, about 30 agent minutes), no self-approval; decisions are found inside each review",
         "b. The coordinating session: one list per digest; about 60-90 agent minutes and a change to the merge check"
+      ],
+      "answered_at": "2026-10-29T21:45:17Z",
+      "answer": [
+        "a a"
+      ],
+      "reading": [
+        "First a: a review question that a principle or recorded decision answers, or a reversible scope cut whose rest is filed as a queue item, is decided without the owner. Second a: the reviewer decides it and writes the principle in its review; the coordinating session does not self-approve. Build: role text in roles/judge.md plus an eval case first that shows a reviewer decides such a question instead of asking."
       ]
     },
     {
