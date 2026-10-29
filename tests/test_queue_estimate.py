@@ -1,6 +1,7 @@
 """Queue time estimates: a change's real minutes come from agent transcripts, the estimate from the median of measured changes."""
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -30,10 +31,28 @@ class Measure(unittest.TestCase):
         self.assertEqual(est.worktree_of("/r/.worktrees/foo-bar/lib"), "foo-bar")
         self.assertIsNone(est.worktree_of("/r/lib"))
 
-    def test_worktree_in_the_projects_own_folder(self):
-        # ALIX keeps its lanes under `.worktree/`; the same name is found there, and `.worktrees/` still works
-        self.assertEqual(est.worktree_of("/x/alix/.worktree/fx/lib", ".worktree"), "fx")
+    def test_worktree_folder_is_a_whole_path_part(self):
+        # `my.worktrees` is not the `.worktrees` folder; a real one is still found
+        self.assertIsNone(est.worktree_of("/x/relay/lib/my.worktrees/fx"))
         self.assertEqual(est.worktree_of("/x/relay/.worktrees/fx/lib"), "fx")
+
+    def test_cwd_in_the_projects_own_folder_with_root(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.write_kit(root)
+            self.assertEqual(est.change_of(f"{root}/.worktree/fx/lib", "", root=root), "fx")
+
+    def test_agent_rows_with_cwd_in_the_projects_own_folder(self):
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as projects:
+            self.write_kit(root)
+            proj = re.sub(r"[^A-Za-z0-9]", "-", os.path.realpath(root))
+            write_agent(projects, "s1", "a1", f"{root}/.worktree/fx", "delegate:worker", "2026-10-01T10:00:00Z", "2026-10-01T10:07:00Z", proj=proj)
+            # 10:00 to 10:07 is 7 minutes, one row for change fx
+            self.assertEqual(est.agent_rows(projects, root), [A("fx", "delegate:worker", 420.0)])
+
+    def write_kit(self, root):
+        os.makedirs(os.path.join(root, ".claude"))
+        with open(os.path.join(root, ".claude", "kit.toml"), "w") as handle:
+            handle.write('[project]\nworktrees = ".worktree"\n')
 
     def test_change_of_brief_line_in_the_projects_folder(self):
         with tempfile.TemporaryDirectory() as root:

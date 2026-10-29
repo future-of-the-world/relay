@@ -55,10 +55,10 @@ def _folders(folder: str | None) -> str:
     return "|".join(re.escape(f) for f in dict.fromkeys([DEFAULT_FOLDER, folder or DEFAULT_FOLDER]))
 
 
-def worktree_of(cwd: str, folder: str | None = None) -> str | None:
+def worktree_of(cwd: str) -> str | None:
     """The worktree folder name inside a working directory (`/x/.worktrees/foo/lib` -> `foo`); None outside any worktree.
-    `folder` is the project's own worktrees folder (e.g. `.worktree`), also known besides `.worktrees`."""
-    found = re.search(rf"(?:{_folders(folder)})/([A-Za-z0-9._-]+)", cwd or "")
+    The folder must be a whole path part: `/x/my.worktrees/foo` is not one."""
+    found = re.search(rf"(?:^|/){re.escape(DEFAULT_FOLDER)}/([A-Za-z0-9._-]+)", cwd or "")
     return found.group(1) if found else None
 
 
