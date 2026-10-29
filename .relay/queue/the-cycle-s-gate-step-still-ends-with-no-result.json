@@ -35,6 +35,12 @@
       "fact": [
         "29 Oct, third case in one night: cycle run wf_4392f3f2-9ff, change wt/test-scaffolding-for-per-command-modules, the gate step after the gate fixer's commit 83641ac3 ended with 'subagent completed without calling StructuredOutput (after in-conversation nudge)' and left no gate log for 83641ac3; the front ran the gate by hand. The two earlier gates of the same run did leave logs."
       ]
+    },
+    {
+      "at": "2026-10-29T00:28:06Z",
+      "fact": [
+        "29 Oct slow-gates diagnosis: the step's planned 'run the gate once more' must first wait for a gate already running on that worktree; retries without that left four relay gate processes on wt/type-check-subfolders-and-cap-module-siz at once (started 00:49, 01:32, 01:5x, 03:28). Cause of the slow gates that made these agents end with no result: the leaked fixture gate scripts of item a-land-test-leaks-gate-scripts-that-load-the-mac."
+      ]
     }
   ]
 }
