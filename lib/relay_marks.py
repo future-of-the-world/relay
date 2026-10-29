@@ -148,8 +148,7 @@ def drop(worktree, commit, sleep=time.sleep):
 
 
 def _show(repo, ref, name):
-    rc, out = relay_git.git(repo, "show", "%s:%s/%s" % (ref, FOLDER, name), raw=True)
-    return out if rc == 0 else None
+    return relay_git.stored_text(repo, "%s:%s/%s" % (ref, FOLDER, name))
 
 
 def _names(repo, ref):

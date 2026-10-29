@@ -609,11 +609,11 @@ def _ok(wt, *args):
 
 
 def _is_commit(wt, sha):
-    return is_sha(sha) and _ok(wt, "cat-file", "-e", sha + "^{commit}")
+    return is_sha(sha) and relay_git.resolve_commit(wt, sha) is not None
 
 
 def _is_ancestor(wt, older, newer):
-    return _ok(wt, "merge-base", "--is-ancestor", older, newer)
+    return relay_git.is_ancestor(wt, older, newer)
 
 
 def _newer(wt, a, b):
@@ -680,13 +680,12 @@ def _merge_findings(wt: str, head: str, anchors: list[Optional[str]]) -> list[di
     rc, out = relay_git.git(wt, "rev-list", "--merges", "--reverse", "%s..%s" % (anchor, head))
     newest = {}
     for merge in (out.splitlines() if rc == 0 else []):
-        rc, second = relay_git.git(wt, "rev-parse", "--verify", "-q", merge + "^2")
-        if rc != 0:
+        second = relay_git.resolve_commit(wt, merge + "^2")
+        if second is None:
             continue
         if not _is_ancestor(wt, second, base) and second not in ab.values():
             continue                                                  # not a merge of the default branch or of an absorbed branch
-        rc, names = relay_git.git(wt, "diff", "--name-only", "--no-renames", "-z", merge + "^1", merge)
-        for name in names.split("\0") if rc == 0 else []:
+        for name in relay_git.changed_paths(wt, merge + "^1", merge) or []:
             if name in own:
                 newest[name] = merge
         for name in relay_inert.dropped(wt, merge, own):                  # a hand-resolved merge that threw the other side's change away
