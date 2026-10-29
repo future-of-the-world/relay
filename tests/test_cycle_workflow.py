@@ -171,13 +171,26 @@ class Cycle(unittest.TestCase):
 
     # 3
     def test_design_finding_stops_at_owner_and_open_check_stops_at_check(self):
-        review = dict(GREEN["stage:review"], design_or_question=True, inside=2, main_point="design is wrong")
+        review = dict(GREEN["stage:review"], design_or_question=True, inside=1, other_inside=0, main_point="design is wrong")
         out = self.run_cycle(self.args([self.unit()]), **{"stage:review": review})
         self.assertEqual(out["result"]["changes"][0]["stopped_at"], "owner")
         self.assertFalse([l for l in out["labels"] if l.startswith("fix")])
         out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], open=1)})
         self.assertEqual(out["result"]["changes"][0]["stopped_at"], "check")
         self.assertNotIn("close queue item: x", out["labels"])
+
+    def test_a_question_does_not_hold_the_other_findings(self):
+        """30 Oct failing case: F1 HIGH inside + F2 question. Hand count: other_inside is 1 (F1), so the fixer runs, its prompt
+        says the question/Design finding is left alone, then gate 2, then the check, then the unit stops at owner with the
+        item not closed. Disabled fix (stop before fixing): labels end at review, no fix or gate 2."""
+        review = dict(GREEN["stage:review"], design_or_question=True, inside=2, other_inside=1, main_point="F2 asks the owner")
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:review": review, "stage:check": dict(GREEN["stage:check"], open=1)})
+        self.assertEqual(out["labels"], ["build: i", "gate 1: i", "review: i", "fix: i", "gate 2: i", "check: i"])
+        change = out["result"]["changes"][0]
+        self.assertEqual(change["stopped_at"], "owner")
+        self.assertEqual(change["open"], 1)
+        self.assertIn("waits for the owner", out["prompts"]["fix: i"])
+        self.assertNotIn("close queue item: i", out["labels"])
 
     # 4
     def test_a_dead_agent_is_retried_once_under_the_same_label(self):
