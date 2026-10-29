@@ -1,0 +1,236 @@
+{
+  "branch": "wt/gates-and-tests-stop-what-an-earlier-tes",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by tracing: every real gate on the machine sweeps temp_roots() (tempfile dir, getconf DARWIN_USER_TEMP_DIR, /tmp),",
+        "and a test's planted orphan sits under those roots with a TEMP_PREFIXES folder deleted, parent 1, pgid == pid: exactly B's",
+        "target. The plan accepted this race (review F8) for a real leaking test, where the leftover is still stopped; for the tests",
+        "that prove E and B it turns into a red gate in an unrelated lane. Quality-gate rule: a flaky test is a bug. Odds, from the",
+        "plan's own average (one real gate start per 7 min, 6 lanes): about 5 s / 420 s = 1.2% per run for the E test, plus about 1-3 s",
+        "windows for the two RealSweep tests; not measured.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "lib/relay_gate.py:454-461 sweep_leftovers: skip only when the sweeping gate's own worktree/home is under temp; otherwise",
+        "sweep(temp_roots(), ...).",
+        "lib/relay_gate.py:309-318: candidate when folders on the command path are gone -> \"parent gone, folder deleted\".",
+        "tests/test_fixture_cleanup.py:16 FOREVER; :48-60 asserts len(result.problems) == 1.",
+        "tests/test_gate.py:79-84 E: rmtree, then lock_freed(handle, LEAK_GRACE=5.0).",
+        "tests/test_gate_sweep.py:171-185 orphan(): folder under self.roots or self.tmp/elsewhere (both under the real temp root,",
+        "inside relay-home-<test>/relay-gate-..), gate.sh removed and relay-gate-N rmdir'ed, parent 1."
+      ],
+      "failing_case": [
+        "Lane X runs bin/ci with this branch. test_a_command_that_outlives_its_folder_is_stopped_and_the_test_fails_naming_it: the",
+        "inner Fixture's gate is SIGKILLed, its command `/bin/sh /var/folders/../T/relay-run-A/relay-home-.../relay-home-runTest-../relay-gate-yy/gate.sh`",
+        "(FOREVER loop) is parent 1, leads its own group, and E removes relay-gate-yy, then waits LEAK_GRACE (5 s).",
+        "Lane Y's real `relay gate` starts in those 5 s: sweep_leftovers (real temp_roots, not a test home) sees parent 1 + prefixed",
+        "folder deleted, killpg's it. E then finds the lock free, the inner test passes, and the outer",
+        "assertEqual(len(result.problems), 1) fails. Same for RealSweep (tests/test_gate_sweep.py:171 orphan()):",
+        "test_run_stops_... asserts the `outside` orphan alive after run() and the stop line in its own log; test_a_reused_gate_...",
+        "asserts the orphan alive: any other lane's gate start between orphan() and the assert stops them. Expected: these tests",
+        "pass whatever another lane's gate does."
+      ],
+      "fix_hint": [
+        "Keep the planted orphans out of B's reach from other gates: RealSweep keeps the orphan's folder present and patches",
+        "relay_gate.ORPHAN_AGE to 0 (or plants under a folder with no TEMP_PREFIXES name and patches TEMP_PREFIXES for its run());",
+        "the E test puts the FOREVER script in a folder outside the fixture's relay-gate-* tree with no prefixed folder of its own",
+        "deleted (e.g. a mkdtemp(prefix=\"script-\") sibling under the test's relay-home folder, which lives until the test ends), so",
+        "rmtree of self.tmp does not make it a sweep target while E still sees it hold the lock."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 48,
+      "pass_cases": [
+        "1. The E test, with a real-roots sweep (relay_gate.sweep(temp_roots(), ...) or sweep_leftovers from a non-temp home) run",
+        "   while E waits in LEAK_GRACE: the inner test still fails naming the pid, the outer test passes.",
+        "2. RealSweep test_run_stops_...: a real-roots sweep run between orphan() and run() leaves both planted scripts alive; run()",
+        "   then stops the one under its patched roots and logs it at lines[3]; the outside one stays alive.",
+        "3. test_a_reused_gate_...: a real-roots sweep between orphan() and the assert leaves the orphan alive.",
+        "4. FakeSweep cases (1)-(8) and test_a_loop_that_checks_its_folder_... keep passing unchanged."
+      ],
+      "path": "tests/test_fixture_cleanup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_fixture_cleanup.py real-roots sweep test and tests/test_gate_sweep.py RealSweep orphans-left-alone test pass; orphans kept out of B's reach."
+      ],
+      "severity": "MEDIUM",
+      "since": "6f1b4c983c1893984459820d961972caced202f6",
+      "source": "review-gates-and-tests-stop-what-an-earlier-tes.json",
+      "source_id": "F1",
+      "summary": "the E test and the RealSweep tests plant a parent-1 orphan in a deleted relay folder under the real temp folder, so another lane's real gate starting in that window stops it and the tests go red (flaky)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the plan (step 5 tests, first bullet) lists \"G1 runs, G2 waits, then G1 is SIGKILLed with its command",
+        "alive: G2 stops the command within about SLOT_POLL + 0.19 s + STOP_GRACE\", added for design-review F5 (MEDIUM): \"a gate already",
+        "waiting is not helped\". The code handles it (the loop re-reads the text and checks alive() each round), but nothing tests it;",
+        "the brief asks for the plan's tests. A test that passes with the behaviour disabled.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "tests/test_gate_slots.py:306-323 T3: first.kill(); first.wait(); then second = self.start(...).",
+        "tests/test_gate_sweep.py:242-262, 264-284, 286-300: lock text holds dead_pid() (or a live pid that never dies) before take().",
+        "lib/relay_gate.py:220-235: the loop re-reads text and calls reclaim per round."
+      ],
+      "failing_case": [
+        "Mutation: in take_worktree_lock, attempt reclaim only on the first loop round (or re-read the lock text only once before",
+        "the loop). G1 runs, G2 starts and prints the waiting line, then G1's relay process is SIGKILLed with its command alive.",
+        "With the mutation G2 waits the orphan out (up to hours), yet every test passes: T3 (test_gate_slots.py) kills G1 before G2",
+        "starts, and every Reclaim test writes an already-dead gate pid before take(). Expected: a test that goes red on this mutation."
+      ],
+      "fix_hint": [
+        "Add the case to tests/test_gate_slots.py next to T3: start A, wait for started, start B, read B's waiting line, then",
+        "first.kill(); assert B's command runs (runs() == 2), A's orphan is gone and B's log line 3 holds the stop line."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 217,
+      "pass_cases": [
+        "1. G1 runs (HOLD), G2 starts and its waiting line is read, then G1 is SIGKILLed: G2 stops G1's command within about",
+        "   SLOT_POLL + lsof + STOP_GRACE, its log line 4 starts with STOPPED and the orphan's pid/group, G2 exits 0, 2 runs.",
+        "2. Same with G1 alive throughout: G2 prints the waiting line once and records nothing (test_a_live_gate_... keeps passing).",
+        "3. T3 (gate pid already dead at G2's first try): still reclaimed, as today."
+      ],
+      "path": "tests/test_gate_sweep.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_slots.py test_t4 passes; fails when reclaim is limited to the first round."
+      ],
+      "severity": "MEDIUM",
+      "since": "6f1b4c983c1893984459820d961972caced202f6",
+      "source": "review-gates-and-tests-stop-what-an-earlier-tes.json",
+      "source_id": "F2",
+      "summary": "no test covers a waiter that is already waiting when the gate it waits for is killed (the plan's first step-5 test, the reason for the poll): reclaiming only on the first try passes every test",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: reclaim reuses STOPPED, defined for the sweep. Principle 10: a message must be clear without internals;",
+        "the owner reads the log to see what a gate stopped. finished_red filters on STOPPED, so a new wording must keep a shared prefix.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "lib/relay_gate.py:41 STOPPED = \"gate: stopped a leftover test process\"; :202 record(\"%s %d (%s): the gate that started it was killed ...\")",
+        "lib/relay_gate.py:423 finished_red filters lines starting with STOPPED."
+      ],
+      "failing_case": [
+        "A real lane gate G1 (bin/ci) is SIGKILLed; G2 reclaims. G2's log reads",
+        "\"gate: stopped a leftover test process 4321 (/bin/sh bin/ci): the gate that started it was killed ...\" although 4321 is the",
+        "lane's own gate command, not a test's. Expected: wording that names it as the killed gate's command."
+      ],
+      "fix_hint": [
+        "STOPPED = \"gate: stopped\" as the shared prefix; the sweep writes \"... a leftover test process ...\", the reclaim \"... the command",
+        "of a killed gate ...\"."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 202,
+      "pass_cases": [
+        "1. Reclaim of a killed gate's command: the line names \"the command of a gate that was killed\" (or similar) and its group.",
+        "2. The sweep's line for a test leftover keeps \"stopped a leftover test process <pid> (<cmd>): <why>\".",
+        "3. finished_red still skips both kinds of line (one shared prefix such as \"gate: stopped \")."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "lib/relay_gate.py:41-43 shared STOPPED prefix, LEFTOVER and KILLED; finished_red still filters on STOPPED (line 429); asserted in t4 and sweep tests."
+      ],
+      "severity": "LOW",
+      "since": "6f1b4c983c1893984459820d961972caced202f6",
+      "source": "review-gates-and-tests-stop-what-an-earlier-tes.json",
+      "source_id": "F3",
+      "summary": "the reclaim's log line calls a real gate's command 'a leftover test process'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Project rule, Python section of CLAUDE.local.md: \"Every new or changed function has types.\" The rule",
+        "sets no severity; correct today, so LOW. Size: 10 minutes."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- lib/relay_gate.py: \"-def take_worktree_lock(path, notify=None):\" \"+def take_worktree_lock(path, notify=None, record=None):\""
+      ],
+      "failing_case": [
+        "lib/relay_gate.py:207 `def take_worktree_lock(path, notify=None, record=None):` (changed: new parameter, new loop) has no",
+        "annotations; likewise new helpers tests/test_gate.py remove_tree/lock_freed/stop_holders, tests/test_fixture_cleanup.py",
+        "run_inner/start_gate_then_kill_it, tests/test_gate_sweep.py proc/orphan/wait_until/hold/dead_pid/take/holder_group_placeholder.",
+        "Expected: typed signatures."
+      ],
+      "fix_hint": [
+        "Add annotations to take_worktree_lock and the new helpers; tighten `Callable[[], list]` to list[Proc]."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 207,
+      "pass_cases": [
+        "1. take_worktree_lock(path: str, notify: Optional[Callable[[str], None]] = None, record: Optional[Callable[[str], None]] = None) -> IO[str].",
+        "2. sweep's read_procs typed Callable[[], list[relay_procs.Proc]].",
+        "3. bin/types-lint stays green."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "take_worktree_lock and read_procs typed, bin/types-lint clean; test_gate.py helpers still untyped (LOW remainder)."
+      ],
+      "severity": "LOW",
+      "since": "6f1b4c983c1893984459820d961972caced202f6",
+      "source": "review-gates-and-tests-stop-what-an-earlier-tes.json",
+      "source_id": "F4",
+      "summary": "Python rule (every new or changed function has types): take_worktree_lock was changed and stays untyped, and the new test helpers carry no types",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the plan's test list against the new tests. Behaviour looks right by reading; the tests are the missing part.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "lib/relay_gate.py:461-462 print(line, file=sys.stderr) - no test reads it.",
+        "tests/test_tmp_folders_named.py:36-41 probes: \"-m unittest\" and run_unittest.py only."
+      ],
+      "failing_case": [
+        "Plan, \"B, the log\": \"a gate that sweeps and is then reused writes no log and printed the line\". Built",
+        "test_a_reused_gate_runs_nothing_and_sweeps_nothing covers the early reuse (no sweep), not a gate that swept, waited for the",
+        "worktree lock and was then reused; nothing asserts the stderr print of sweep_leftovers (NeverInsideATest mocks sweep to []).",
+        "Plan, \"A' everywhere\": also \"under parallel_unittest.py\"; test_tmp_folders_named.py runs run_unittest.py and -m unittest only.",
+        "Removing the print loop in sweep_leftovers passes every test."
+      ],
+      "fix_hint": [
+        "Add the two tests to tests/test_gate_sweep.py and tests/test_tmp_folders_named.py."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 209,
+      "pass_cases": [
+        "1. A gate that sweeps one leftover (patched roots), then waits for the worktree lock and finds a green log: exit 0, no new log,",
+        "   stderr holds the stop line.",
+        "2. parallel_unittest.py running test_tmp_folders_named.Named.test_this_tests_temporary_folder_names_this_test exits 0.",
+        "3. The existing RealSweep log test keeps lines[3] as the stop line."
+      ],
+      "path": "tests/test_gate_sweep.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_sweep.py reused-after-sweep stderr test (fails with print removed) and tests/test_tmp_folders_named.py parallel-worker test pass."
+      ],
+      "severity": "LOW",
+      "since": "6f1b4c983c1893984459820d961972caced202f6",
+      "source": "review-gates-and-tests-stop-what-an-earlier-tes.json",
+      "source_id": "F5",
+      "summary": "two tests the plan lists are not built: the stop line printed to stderr by a gate that sweeps and is then reused after the lock wait, and A' under parallel_unittest.py",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "568039174d283a8236614de1b38dea555df5efe2.gate.log",
+  "head": "3f366793223cd9e511bccdf19607c98c725e290f",
+  "item": null,
+  "notes": [
+    "Outside (fixer): test_precheck leaves a sleep 30 on a step timeout; lies in lib/relay_precheck.py or that test; I agree it is not this change. Not done by the fixer: types on test_gate.py helpers (LOW, not in the pass cases)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 6f1b4c98..HEAD (fix 56803917). Files changed: lib/relay_gate.py and four test files, all named by the findings. Gate log: head 56803917, exit 0, HEAD only adds the log. Ran test_fixture_cleanup, test_gate_sweep, test_tmp_folders_named (32 ok), t4 (ok), bin/types-lint (clean). Mutations on a head copy: reclaim only on first round fails t4; stderr print removed fails the F5 sweep test. At the pre-fix commit t4 and the F5 sweep test fail (missing KILLED/LEFTOVER); the F1 tests and the parallel-worker test pass there, as they guard test design (no production behaviour changed for them). The check command (precheck) was not rerun: the fixer reports it red on an unrelated leaked sleep 30 in test_precheck that also reproduces on master."
+  ],
+  "type": "check"
+}
