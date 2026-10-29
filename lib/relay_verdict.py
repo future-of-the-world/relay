@@ -32,6 +32,7 @@ RECORD FINDING: a FINDING plus {"source": "queue"|<review file name>|"merge"|"ch
 import json
 import os
 import re
+from typing import Optional
 
 import relay_git
 
@@ -652,7 +653,7 @@ def _review_findings(wt, head, paths):
     return out
 
 
-def _merge_findings(wt, head, anchors):
+def _merge_findings(wt: str, head: str, anchors: list[Optional[str]]) -> list[dict]:
     """One M finding for each file the branch changed (`relay_inert.changed(..., own=True)`) that a merge of the default
     branch (or of a branch it absorbs: a train's merge of a ready change) changed after the anchor, the newest of `anchors` (the branch's last mark and its newest review); with none, the
     point the branch left the default branch. Its `since` is the newest such merge."""
@@ -831,12 +832,12 @@ def build_findings(wt, head, review_paths, item=None):
     return branch, item, found
 
 
-def finding_list(wt, review_paths, item=None):
+def finding_list(wt: str, review_paths: list[str], item: Optional[str] = None) -> list[str]:
     with relay_git.reading():
         return _finding_list(wt, review_paths, item)
 
 
-def _finding_list(wt, review_paths, item=None):
+def _finding_list(wt: str, review_paths: list[str], item: Optional[str] = None) -> list[str]:
     """The lines `relay check findings` prints: each finding the check must give a verdict for, with its id."""
     rc, head = relay_git.git(wt, "rev-parse", "HEAD")
     if rc != 0:
@@ -848,12 +849,12 @@ def _finding_list(wt, review_paths, item=None):
     return out
 
 
-def record_check(input_path):
+def record_check(input_path: str) -> str:
     with relay_git.reading():      # one run reads, moves no ref: each distinct git question is asked once
         return _record_check(input_path)
 
 
-def _record_check(input_path):
+def _record_check(input_path: str) -> str:
     """Record the check from the TOML input file at `input_path`: build the record in its one order (the queue item as Q1, the
     reviews' findings, the merge findings, one verdict for each, the checker's own new problems and the gate result) and write
     it at `report`. Refused, nothing written, when a verdict is missing or is for an id that is not a finding. Returns the path."""
@@ -893,7 +894,7 @@ def _record_check(input_path):
     for path in review_paths:
         newest_review = _newer(wt, newest_review, load_review(open(os.path.abspath(path), encoding="utf-8").read(), path)["reviewed"])
     name, gate_problems = _gate(wt, head, raw["gate"], newest_review)
-    problems = [_n_finding(n, *p, head) for n, p in enumerate(gate_problems, len(new) + 1)]
+    problems = [_n_finding(n, p[0], p[1], p[2], head) for n, p in enumerate(gate_problems, len(new) + 1)]
     news = []
     for n, f in enumerate(new, 1):
         news.append(_stated(dict(f, id="N%d" % n), "check", head))

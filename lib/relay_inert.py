@@ -50,7 +50,7 @@ def matches(path):
     return any(rx.match(path) for rx in _COMPILED)
 
 
-def _git(repo, *args):
+def _git(repo: str, *args: str) -> str:
     try:
         code, out, err = relay_git.capture(repo, *args, timeout=None)
     except relay_git.GitError as exc:

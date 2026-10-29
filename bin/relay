@@ -807,7 +807,7 @@ def cmd_check(args):
     return 0
 
 
-def show_check(repo, target, brief):
+def show_check(repo: str, target: str, brief: bool) -> str:
     """The text of `relay check show`: a recorded JSON file or a stored sha rendered as a readable report, else the branch's three lines."""
     if os.path.isfile(target):
         with open(target, encoding="utf-8") as handle:
