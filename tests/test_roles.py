@@ -274,7 +274,7 @@ class Roles(Base):
         # review F8: the owner's move is data (an owner entry with `queue`), not a `Owner: <id> moved to queue item` prompt line
         self.assertIn("a finding the owner moved to a queue item is data: an `owner` entry with `queue`", flat)
         self.assertNotIn("Owner: <id> moved to queue item", flat)
-        self.assertIn("relay changed -C <path> <sha>` lists no file", flat)
+        self.assertIn("relay changed --archive -C <path> <sha>` lists no file", flat)
         checker = open(os.path.join(ROOT, "plugins", "delegate", "agents", "checker.md")).read()
         self.assertIn("where the project has check marks", " ".join(checker.split()))
 
