@@ -330,6 +330,25 @@ class Guard(SoftCases):
     def test_no_kit_toml_only_the_generic_rules(self) -> None:
         self.run_profile("none")
 
+    def test_the_guard_starts_no_grep(self) -> None:
+        # A grep earlier on PATH than the real one logs every start. Judging a command against the tracing, curl and
+        # project patterns (kartoteka has [[guard.block]] rules) must start none: the patterns are matched in Python.
+        m = self.mkrepo("nogrep")
+        os.makedirs(os.path.join(m, ".claude"))
+        shutil.copy(PROFILE_SETUP["kartoteka"][0], os.path.join(m, ".claude", "kit.toml"))
+        fake = os.path.join(self.tmp, "fakebin")
+        log = os.path.join(self.tmp, "grep.log")
+        os.makedirs(fake, exist_ok=True)
+        with open(os.path.join(fake, "grep"), "w") as handle:
+            handle.write('#!/bin/sh\necho "started $PPID $*" >> "%s"\nexit 1\n' % log)
+        os.chmod(os.path.join(fake, "grep"), 0o755)
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
+        env["PATH"] = fake + os.pathsep + env["PATH"]
+        event = {"tool_name": "Bash", "cwd": m, "agent_id": "a1", "tool_input": {"command": "ls && bun add x"}}
+        done = subprocess.run([HOOK], input=json.dumps(event), capture_output=True, text=True, env=env)
+        self.assertEqual(done.returncode, 2, done.stderr)  # the project rule still fires: bun add in main
+        self.assertFalse(os.path.exists(log), open(log).read() if os.path.exists(log) else '')
+
     def test_an_unreadable_kit_toml_never_silently_drops_the_rules(self) -> None:
         m = self.mkrepo("broken")
         os.makedirs(os.path.join(m, ".claude"))

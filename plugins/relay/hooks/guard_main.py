@@ -70,7 +70,7 @@ LIB = os.path.join(HERE, "..", "lib")
 sys.path.insert(0, LIB)
 
 SEP = "\037"
-# Where a command can start, and the env assignments that may precede it (POSIX ERE, run by grep).
+# Where a command can start, and the env assignments that may precede it (POSIX ERE, matched by grep() below).
 START = r"(^|[;&|(])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*"
 TRACING = START + r"(set[[:space:]]+-[a-wyz]*x|set[[:space:]]+-o[[:space:]]+xtrace|(ba|z)?sh[[:space:]]+-[a-z]*x)"
 VERBOSE_CURL = r"curl[^;&|]*[[:space:]](-v|-[a-zA-Z]*v[a-zA-Z]*|--verbose|--trace[a-z-]*)([[:space:]]|$)"
@@ -83,10 +83,38 @@ def die(why: str) -> NoReturn:
     sys.exit(2)
 
 
+def _compile(pattern: str) -> Optional["re.Pattern[str]"]:
+    """A POSIX ERE as a Python regex: bracket classes like [:space:] become their escapes once, here. None when it does not compile."""
+    classes = {"space": r"\s", "alpha": "a-zA-Z", "digit": "0-9", "alnum": "a-zA-Z0-9", "upper": "A-Z", "lower": "a-z",
+               "blank": r" \t", "punct": r"!-/:-@\[-`{-~", "xdigit": "0-9A-Fa-f"}
+    translated = re.sub(r"\[:([a-z]+):\]", lambda m: classes.get(m.group(1), m.group(0)), pattern)
+    try:
+        return re.compile(translated)
+    except re.error:
+        return None
+
+
+_COMPILED: dict[str, Optional["re.Pattern[str]"]] = {}
+
+
 def grep(flags: str, pattern: str, text: str) -> tuple[bool, str]:
-    """`grep <flags> -- pattern` over text (POSIX ERE, the semantics the project's patterns were written for)."""
-    done = subprocess.run(["grep", flags, "--", pattern], input=text + "\n", capture_output=True, text=True, errors="replace")
-    return done.returncode == 0, done.stdout
+    """What `grep <flags> -- pattern` gave over text, matched in Python line by line (the patterns are POSIX ERE).
+    Flags: -Eq (any line matches), -Eo (the matching parts, one per line), -Ev (the lines that do not match).
+    A pattern that does not compile matches nothing, as with grep's error."""
+    if pattern not in _COMPILED:
+        _COMPILED[pattern] = _compile(pattern)
+    regex = _COMPILED[pattern]
+    if regex is None:
+        return False, ""
+    lines = text.split("\n")
+    if flags == "-Ev":
+        kept = [line for line in lines if not regex.search(line)]
+        return bool(kept), "".join(line + "\n" for line in kept)
+    found = [m for m in (regex.search(line) for line in lines) if m]
+    if flags == "-Eo":
+        parts = [m.group(0) for line in lines for m in regex.finditer(line) if m.group(0)]
+        return bool(found), "".join(part + "\n" for part in parts)
+    return bool(found), ""
 
 
 def resolve(path: str, base: str) -> str:
