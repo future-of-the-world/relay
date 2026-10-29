@@ -24,8 +24,8 @@
   "where": [
     "lib/relay_lanes.py:487"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T16:17:28Z",
+  "taken_by": "wt/relay-s-lane-start-hardcodes-main-worktr",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
