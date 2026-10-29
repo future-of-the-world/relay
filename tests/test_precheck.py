@@ -281,7 +281,7 @@ class TestChangedTests(Base):
         self.write("tests/test_slow.py", self.SLEEPER % 3)
         self.commit()
         self._set("STEP_TIMEOUT", 1)
-        # the step keeps its own default budget (230 s): a 60 s one went red when the gate ran at load 50 and python took over a minute to start
+        # the step keeps its own default budget (600 s): a 60 s one went red when the gate ran at load 50 and python took over a minute to start
         self.assertGreater(relay_precheck.CHANGED_TESTS_TIMEOUT, relay_precheck.STEP_TIMEOUT)
         real = subprocess.run
 
@@ -298,7 +298,8 @@ class TestChangedTests(Base):
 
     def test_the_other_steps_keep_their_own_budget(self) -> None:
         # F1 pass 5: a slow bin/types-lint is still red at STEP_TIMEOUT
-        self.write("bin/types-lint", "sleep 30\n")
+        self.write("bin/types-lint", "exec sleep 30\n")   # exec: the timeout kills sleep itself, not a bash that leaves it running
+
         self.commit()
         self._set("STEP_TIMEOUT", 1)
         code, lines = relay_precheck.run(self.repo)
@@ -332,7 +333,7 @@ class TestChangedTests(Base):
         self.assertIn("took longer than %d s" % relay_precheck.CHANGED_TESTS_TIMEOUT, text)
 
     def test_a_registry_test_cut_off_names_itself_and_its_own_allowance(self) -> None:
-        # F1: STEP_TIMEOUT 1 s, the registry stand-in sleeps 3 s, the changed-tests budget stays 230 s: the line names the registry test and 1 s
+        # F1: STEP_TIMEOUT 1 s, the registry stand-in sleeps 3 s, the changed-tests budget stays 600 s: the line names the registry test and 1 s
         self.write("tests/test_rules_gate.py", "import time, unittest\nclass RuleTestsComplete(unittest.TestCase):\n    def test_x(self):\n"
                    "        time.sleep(3)\n")
         self.commit()

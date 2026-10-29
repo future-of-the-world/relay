@@ -22,7 +22,7 @@ import time
 PLUGINS = ("observe", "delegate", "front", "relay", "openspec")
 OLD_PYTHON = "/usr/bin/python3"
 STEP_TIMEOUT = 60       # seconds one step may take in all (about 10 s for the whole precheck when healthy); a timeout is a RED line
-CHANGED_TESTS_TIMEOUT = 230   # the changed-tests step's own budget: whole test files run (test_gate.py alone takes 110 s), under the 4-minute command limit
+CHANGED_TESTS_TIMEOUT = 600   # a hang bound, not a clock: 16 changed files took 199 s at load 8 and over 230 s at load 17-35; only a hung test reaches 600 s
 _deadline = 0.0         # time.monotonic() by which the running step must end; run() sets it per step
 TAIL = 20               # lines of a failing step's output shown
 
