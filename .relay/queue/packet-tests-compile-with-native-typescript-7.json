@@ -1,0 +1,30 @@
+{
+  "kind": "feature",
+  "ip": 70,
+  "time": 45,
+  "found_at": "2026-10-29T10:49:45Z",
+  "found_in": "relay queue add",
+  "title": "Packet tests compile with native TypeScript 7",
+  "what": [
+    "Pin typescript 7 in the test deps, and make kit_packet run the platform's native compiler binary directly (found the way getExePath.js finds it), with no JavaScript runtime; keep one clear refusal when the binary for this platform is missing. Check the tsc flags relay passes (-p, --noEmit false, --declaration) against 7.0's removed options, and measure the packet tests' time before and after."
+  ],
+  "why": [
+    "29 Oct, npm registry: typescript 7.0.2 is the latest stable (published 8 Jul 2026); the compiler is a native Go binary shipped per platform (@typescript/typescript-darwin-arm64 7.0.2, 27.5 MB unpacked; linux-x64 and linux-arm too), and the package's bin/tsc is only a 2-line JavaScript launcher (#!/usr/bin/env node, import ../lib/tsc.js, getExePath.js) that finds and starts that binary. relay pins typescript 6.0.3 (plugins/relay/tests/ts-deps/package.json), a JavaScript compiler, so the packet tests need node or bun to run it (the Linux-container fix runs `bun tsc` when node is missing). IP 70 chosen by the front."
+  ],
+  "pass_cases": [
+    "the packet tests pass on the Mac and in the clean Linux container with neither node nor bun on PATH for the compile step",
+    "a platform with no native compiler package gets one line naming what to install",
+    "the packet tests' time before and after is written in the report"
+  ],
+  "where": [
+    "plugins/relay/lib/kit_packet.py",
+    "plugins/relay/tests/ts-deps/package.json",
+    "plugins/relay/tests/ts-deps/bun.lock"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
