@@ -43,6 +43,12 @@
       "answer": [
         "Можешь остановить забытые процессы, как не допустить этого в будущем"
       ]
+    },
+    {
+      "at": "2026-10-29T02:04:57Z",
+      "fact": [
+        "29 Oct 06:05: `git worktree list` in the main checkout shows 10 detached worktrees under $TMPDIR (tmp.*/wt and tmp*/wt) left by tests, besides the leaked gate scripts: tests that make worktrees of the live repository leave them registered when they die. Belongs to the same class the leaked-processes design covers."
+      ]
     }
   ]
 }
