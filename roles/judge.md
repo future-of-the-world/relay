@@ -100,7 +100,7 @@ for `relay check findings` and `item = "<slug>"` in the input name the item this
 check is of (it gives `Q1`). One check per such item, recorded one after the
 other, each on the head the last one left; with one such item no name is needed.
 1. A finding is judged over `<since>..HEAD`, its own `since`. List the
-   files with `relay changed --own -C <path> <since>`: it prints the changed
+   files with `relay changed --own --archive -C <path> <since>`: it prints the changed
    files that are not on the project's inert list (state files such as the
    handover) and that the branch itself changed, not files that arrived when it
    took the default branch. Steps 2-5 use only that list. With `Fixes: none`, a
@@ -120,7 +120,7 @@ other, each on the head the last one left; with one such item no name is needed.
    `.relay/checks/<G>.gate.log` in the worktree):
    the log the prompt names as `Gate:` starts with `head <full sha>` and
    ends with `exit 0`, and that sha is the code you check: it is HEAD, or
-   `relay changed -C <path> <sha>` lists no file (only inert files came
+   `relay changed --archive -C <path> <sha>` lists no file (only inert files came
    after it). For a gate that ran as a remote pipeline the prompt names its
    result instead, `Gate: pipeline #<n> on <full sha> passed`, and the same
    sha rule holds. `Gate: none (artifacts only)` means the flow has no gate
