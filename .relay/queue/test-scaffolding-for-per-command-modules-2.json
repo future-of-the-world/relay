@@ -1,0 +1,40 @@
+{
+  "kind": "feature",
+  "ip": 0,
+  "time": 45,
+  "found_at": "2026-10-29T04:33:21Z",
+  "found_in": "relay queue add",
+  "title": "Test scaffolding for per-command modules",
+  "what": [
+    "Today lib/relay_cmd/ does not exist, so the walk below is empty and both tests must see exactly what they see now.",
+    "- tests/relay_commands.py (new), one helper for both tests: `names()` = the walk of lib/relay_cmd (files and packages, names [a-z][a-z0-9_]*) joined with bin/relay's COMMANDS while it exists (read by loading bin/relay as a module and taking getattr(module, \"COMMANDS\", {}), not by searching its text); `queue_words()` = the action modules under lib/relay_cmd/queue/ joined with QUEUE_WRITES and the queue usage words, wherever they are defined.",
+    "- tests/test_help_is_safe.py: `command_names()` uses the helper; the `>= 20` floor becomes a superset of today's 21 names written literally: status, report, calibrate, improve, bench, candidate, profile, sync, setup, install, migrate, doctor, flows, rules, changed, gate, land, precheck, check, queue, license (a command that drops out of both the walk and the table fails; adding a command needs no edit; an exact count is NOT used); `wants_help` is asserted on whichever module defines it (bin/relay now, lib/relay_cli.py after move 4).",
+    "- tests/test_read_only_guard.py lines 55-65: the completeness test uses the same helper, so moving queue's usage later does not crash it (today it parses bin/relay text: COMMANDS = { ... and the queue usage line).",
+    "- tests/cmd_harness.py (new): runs bin/relay in a temporary repository with HOME, RELAY_HOME and RELAY_ROOT in temporary folders (as test_help_is_safe.py does) and returns exit code, stdout and the files written.",
+    "- tests/test_cmd_files.py (new): for each module the walk finds, tests/test_cmd_<name>.py exists, or tests/test_cmd_<cmd>_<action>.py for a package action; it fails naming the missing file. A fake lib/relay_cmd/hello.py in a temporary tree with no test file fails it.",
+    "Convention for later moves (write it in the harness docstring): each command's own test file holds two cases: `relay <cmd> --help` prints the usage lines it printed before the move (a literal), and one smoke case with harmless arguments asserting exit code and one output line (for a command that cannot run in a temp tree, its usage refusal, e.g. `relay land` with no branch gives exit 2 and its usage line). This catches an off-by-one in how the dispatcher passes args to run.",
+    "Done: full gate green; the helper, the floor, the harness and the walk test each have a test.",
+    "Traps for every move: keep imports lint-clean (ruff F); tests that import from the repo root must still run under the short gate; done items name their `test` ids, which are found by name, so do not rename tests; RULE_TESTS names in lib/relay_textonly.py must stay valid; tests never touch the live .relay/queue (use a temporary folder); a move that takes a function another lane changed ports that lane's hunk by hand; the size marker leaves a file in the move that brings it under 600 lines."
+  ],
+  "why": [
+    "Move 3 of the split of relay into one module per subcommand. The owner decided it on 28 Oct: \"каждая подкоманда может и должна жить в своем модуле, этот подход должен быть распространен на весь relay\". Moves 4-10 move commands out of bin/relay; without this move the help test and the guard completeness test would silently stop seeing moved commands, and a moved command would not be proven to run."
+  ],
+  "pass_cases": [
+    "adding a command module needs no edit to the help test",
+    "a command module with no tests/test_cmd_<name>.py fails test_cmd_files",
+    "a command that drops out of both the walk and the table fails the help test"
+  ],
+  "where": [
+    "tests/test_help_is_safe.py",
+    "tests/test_read_only_guard.py:55-65",
+    "tests/relay_commands.py new",
+    "tests/cmd_harness.py new",
+    "tests/test_cmd_files.py new"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
