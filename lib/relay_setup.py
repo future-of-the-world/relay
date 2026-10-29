@@ -29,10 +29,10 @@ STACKS = [
 # What a template's step lines become: the stack's real step where relay knows one, else a step that fails until filled in.
 NOT_CONFIGURED = "NOT CONFIGURED: this gate step is still a template placeholder; replace it with the real commands of the project"
 STACK_STEPS = {
-    "python": ('run_step tests python3 -m pytest -q -x ${TEST_FILES:-}', 'step "tests" python3 -m pytest -q'),
+    "python": ('run_step("tests", ["python3", "-m", "pytest", "-q", "-x", *TEST_FILES])', 'step "tests" python3 -m pytest -q'),
 }
 PLACEHOLDER_STEPS = (
-    f"run_step placeholder bash -c 'echo \"{NOT_CONFIGURED}\"; exit 1'",
+    f'run_step("placeholder", [sys.executable, "-c", {"print(" + repr(NOT_CONFIGURED) + "); raise SystemExit(1)"!r}])',
     f"step \"placeholder\" bash -c 'echo \"{NOT_CONFIGURED}\"; exit 1'",
 )
 OLD_ROLES = ("worker", "fixer", "author", "reviewer", "spec-reviewer", "spec-conformance", "code-reviewer")

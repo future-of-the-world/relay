@@ -606,7 +606,7 @@ class Gate(Base):
         self.git(self.M, "add", "-A")
         self.git(self.M, "commit", "-q", "-m", "queue y")
         self.pre(MERGE)
-        self.assertRefused("wt/t is behind master by 1 commit; take master first: git -C .worktrees/t merge --no-edit master")
+        self.assertRefused("wt/t is behind master by 1 commit; run relay land wt/t: it takes master, gates the result and lands it (one landing at a time)")
         self.git(self.W, "merge", "-q", "--no-edit", "master")
         self.pre(MERGE)
         self.assertAllowed()
@@ -647,7 +647,8 @@ class Gate(Base):
         self.git(self.M, "commit", "-q", "-am", "x end")
         self.git(self.W, "merge", "-q", "--no-edit", "master")
         self.pre(MERGE)
-        self.assertRefused("changed bin/x")
+        # a clean take git did by itself needs no new check (relay land design 4.2), only a new gate: the stale gate refuses, naming bin/x
+        self.assertRefused("code changed since: bin/x")
         S = self.S
         write(os.path.join(S, "review.toml"), 'report = "%s/f.json"\nreviewed = "%s"\nbase = "master"\n[[finding]]\nid = "F1"\npath = "bin/x"\nline = 1\n'
               'severity = "MEDIUM"\nkind = "inside"\nsummary = "combined with master\'s change by the merge"\n'
