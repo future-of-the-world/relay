@@ -1,0 +1,31 @@
+{
+  "kind": "feature",
+  "ip": 88,
+  "time": 60,
+  "found_at": "2026-10-29T22:48:20Z",
+  "found_in": "relay queue add",
+  "title": "A queue question can be answered by an agent, marked so",
+  "what": [
+    "A decision an agent makes is recorded with the same question, options and answer notes the owner's questions use, plus a mark of who answered (the owner, or which agent), so one can later find who took each decision and the owner can reverse it."
+  ],
+  "why": [
+    "30 Oct: front decisions are written as fact notes (\"fact (front)\", text \"front decision (owner can reverse)\"); the queue has no decision record, some decisions lived only in session briefs, and nothing lists who decided what. The owner chose that review questions a principle answers are decided by the reviewer (work-goes-on-while-the-owner-is-away). IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "lib/relay_queue.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T22:48:20Z",
+      "said": [
+        "Да, отправь тип записи «решение» на проектирование, изначально я подразумевал ту же самую структуру с вопросом, вариантами ответа и выбором + поле для пометки (ответил AI), это звучит просто как доработка текущего функционала, чтобы после можно было вернуться и установить - кто принял то или иное решение"
+      ]
+    }
+  ]
+}
