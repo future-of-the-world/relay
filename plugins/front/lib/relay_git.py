@@ -97,6 +97,10 @@ def current_branch(directory: str, strict: bool = False) -> str | None:
     """The branch checked out in `directory`, None when detached or not a repository.
     With `strict`, GitError when git itself could not answer (timeout), instead of None."""
     rc, out = (git_strict if strict else git)(directory, "symbolic-ref", "--short", "-q", "HEAD")
+    if strict and rc not in (0, 1):      # `symbolic-ref -q` exits 1 and only 1 for a detached HEAD; a signal (rc < 0) or a fatal 128 is no answer
+        command = "git -C %s symbolic-ref --short -q HEAD" % directory
+        why = "killed by signal %d" % -rc if rc < 0 else "exit %d" % rc
+        raise GitError("git could not answer: %s, %s" % (command, why))
     return out if rc == 0 and out else None
 
 

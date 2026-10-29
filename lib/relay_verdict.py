@@ -795,7 +795,10 @@ def build_findings(wt, head, review_paths, item=None):
     found += reviews
     if not review_paths:             # no review: every own file must be one a merge of a ready change or of the default branch brought
         default = relay_git.default_branch(wt)
-        rc, fork = relay_git.git(wt, "merge-base", "refs/heads/%s" % (default or ""), head)
+        try:
+            rc, fork = relay_git.git_strict(wt, "merge-base", "refs/heads/%s" % (default or ""), head)
+        except relay_git.GitError as exc:
+            raise VerdictError("nothing recorded: %s" % exc)
         if rc != 0:
             raise VerdictError("nothing recorded: no common commit of %s and %s" % (default, head))
         try:
@@ -808,7 +811,10 @@ def build_findings(wt, head, review_paths, item=None):
             raise VerdictError("nothing recorded: `review` must be a list of at least one review JSON path: %s changed on this branch "
                                "outside a merge of a ready change, and a merge check covers only files a merge combined" % ", ".join(loose[:3]))
     default = relay_git.default_branch(wt)
-    rc, out = relay_git.git(wt, "rev-list", head, "^refs/heads/%s" % default) if default else (1, "")
+    try:
+        rc, out = relay_git.git_strict(wt, "rev-list", head, "^refs/heads/%s" % default) if default else (1, "")
+    except relay_git.GitError as exc:
+        raise VerdictError("nothing recorded: %s" % exc)
     own = set(out.splitlines()) if rc == 0 else set()
     for tip in ab.values():                      # the marks of branches inside this one are theirs, not this branch's own
         inside = relay_git.git(wt, "rev-list", tip)[1].split()
