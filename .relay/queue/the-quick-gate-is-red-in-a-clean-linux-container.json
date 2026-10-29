@@ -26,8 +26,8 @@
     "install.sh",
     "bin/ci and lib/relay_ci.py (python check)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T07:22:21Z",
+  "taken_by": "wt/the-quick-gate-is-red-in-a-clean-linux-c",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
