@@ -1,0 +1,21 @@
+head 04ba52651ef05381579a96b9197257223ae4cf8f
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (821s, log: .ci/steps/library-tests.log)
+    FAIL: test_session_end_hook_is_fast_on_a_large_ledger (test_numbers.Numbers.test_session_end_hook_is_fast_on_a_large_ledger)
+    AssertionError: 0.4746889160014689 not less than 0.3 : SessionEnd hook took 0.47 s on a 700,000-line ledger
+    FAILED (failures=1)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (2s)
+ci: plugin validate ok (6s)
+ci: inert FAILED (5s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed (the probe's output is in .ci/steps/inert-nested.log):
+        --- outer run
+        +++ probe run
+        @@ -3 +3 @@
+        -library tests FAILED
+        +library tests ok
+ci: RED
+exit 1
