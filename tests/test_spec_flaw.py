@@ -23,7 +23,7 @@ def grader(path):
 
 
 def matches(meta, reply):
-    # node's RegExp is the grader's own dialect (same as evals/plugin/graders.test.sh)
+    # node's RegExp is the grader's own dialect (same as evals/plugin/graders.py)
     js = ("const [p,f,t]=JSON.parse(require('fs').readFileSync(0,'utf8'));"
           "process.stdout.write(String(new RegExp(p,f).test(t)))")
     out = subprocess.run(["node", "-e", js], input=json.dumps([meta["pattern"], meta.get("flags", ""), reply]),

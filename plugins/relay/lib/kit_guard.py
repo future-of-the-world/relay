@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# size: over the 600-line limit until its split item lands
 """Splits a Bash command into its simple commands for hooks/guard-main.sh.
 
     kit_guard.py <cwd> [target-flag ...]      the command on stdin

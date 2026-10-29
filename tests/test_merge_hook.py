@@ -134,7 +134,7 @@ class GuardMainSync(unittest.TestCase):
         self.assertEqual(self.verdict("git merge --ff-only wt/x 2>&1 | tail -3"), 0)
 
     def test_f5_header_names_the_sync_exception(self):
-        with open(self.GUARD) as handle:
+        with open(self.GUARD.replace("guard-main.sh", "guard_main.py")) as handle:   # the header lives in the Python hook
             header = handle.read()[:1500]
         self.assertIn("--ff-only origin/<default>", header)
 

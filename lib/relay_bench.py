@@ -1,3 +1,4 @@
+# size: over the 600-line limit until its split item lands
 """relay bench: the same work under two setups, side by side.
 
 A *profile* (profiles/<name>.toml) is a setup: the front's model and effort,

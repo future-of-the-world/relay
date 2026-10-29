@@ -4,7 +4,6 @@ import json
 import os
 import shutil
 import sys
-import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # unittest from the repo root has only the root on sys.path
@@ -216,8 +215,9 @@ class Numbers(Base):
         finally:
             relay_ledger.read = real
 
-    def test_session_end_hook_is_fast_on_a_large_ledger(self):
-        """SessionEnd has a 1 s timeout; the ledger grows without limit. 300,000 old lines must cost nothing."""
+    def test_session_end_hook_never_reads_the_ledger(self):
+        """SessionEnd has a 1 s timeout; the ledger grows without limit. Time is no assertion (it flakes under load):
+        the cost does not grow with the ledger when the hook never calls relay_ledger.read, so the test counts the calls."""
         import subprocess
         self._claude_json("s-end")
         ledger = os.path.join(self.home, "ledger")
@@ -226,22 +226,32 @@ class Numbers(Base):
                            "tool": "Bash", "tool_use_id": "x" * 40}) + "\n"
         for day in range(1, 31):
             with open(os.path.join(ledger, "2026-06-%02d.jsonl" % day), "w") as handle:
-                handle.write(line * 10000)
-        # the days the old code did read (today and the 3 before), 100,000 lines each, and an index
+                handle.write(line * 100)
+        # the days the old code did read (today and the 3 before), and an index
         recent = line.replace("2026-06-01", "2026-10-21")
         for back in range(4):
             day = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=back)).strftime("%Y-%m-%d")
             with open(os.path.join(ledger, day + ".jsonl"), "a") as handle:
-                handle.write(recent * 100000)
+                handle.write(recent * 1000)
         with open(os.path.join(ledger, "usage-index.json"), "w") as handle:
             json.dump({"sessions": {}, "restarted": []}, handle)
+        marker = os.path.join(self.home, "read-called")
         env = dict(os.environ, RELAY_CLAUDE_JSON=os.path.join(self.claude, ".claude.json"))
         hook = os.path.join(ROOT, "plugins", "observe", "hooks", "ledger.py")
+        # the same hook, with relay_ledger.read replaced by a function that leaves a marker file
+        runner = (
+            "import runpy, sys\n"
+            "hook = sys.argv[1]; marker = sys.argv[2]\n"
+            "ns = runpy.run_path(hook, run_name='hook_under_test')\n"
+            "import relay_ledger\n"
+            "def marked(*a, **k):\n"
+            "    open(marker, 'w').close()\n"
+            "    return []\n"
+            "relay_ledger.read = marked\n"
+            "ns['main']()\n")
         payload = json.dumps({"hook_event_name": "SessionEnd", "session_id": "s-end", "cwd": "/Users/me/x", "reason": "other"})
-        started = time.monotonic()
-        subprocess.run([sys.executable, hook], input=payload.encode(), env=env, check=True)
-        took = time.monotonic() - started
-        self.assertLess(took, 0.3, "SessionEnd hook took %.2f s on a 700,000-line ledger" % took)
+        subprocess.run([sys.executable, "-c", runner, hook, marker], input=payload.encode(), env=env, check=True)
+        self.assertFalse(os.path.exists(marker), "SessionEnd hook read the ledger: its cost grows with the ledger")
         text = "".join(open(os.path.join(ledger, f)).read() for f in os.listdir(ledger) if not f.startswith("2026-06") and f.endswith(".jsonl"))
         self.assertIn('"event": "session_end"', text)
         self.assertIn('"event": "session_usage"', text)

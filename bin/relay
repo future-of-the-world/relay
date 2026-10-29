@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# size: over the 600-line limit until its split item lands
 """relay: the owner's one command for the system of work.
 
   relay status                       what is running now, context sizes, running agents

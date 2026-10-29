@@ -1,0 +1,52 @@
+{
+  "kind": "feature",
+  "ip": 96,
+  "time": 60,
+  "found_at": "2026-10-29T04:33:14Z",
+  "found_in": "relay queue add",
+  "title": "Each relay queue action in its own module",
+  "what": [
+    "Split the handler of lib/relay_cmd/queue/__init__.py into one module per action: the 15 words count, show, history, check, migrate, land, ip, take, release, done, drop, add, note, edit, start (tests/relay_commands.py QUEUE_FLOOR lists them), plus the view fallback (`relay queue <view>` / `--view <view>`, the table default) which stays as `fallback(args)` in __init__.py. Each action module has `USAGE` (its lines of the queue usage, first line `relay queue <word> ...`), `WRITES` (True for add, land, ip, release, drop, take, start, done, note, edit, migrate as in QUEUE_WRITES today; False for count, show, history, check) and `run(args)`; the package's `run` dispatches by word through the same `find` rule as the top level, and `relay queue` bare keeps its current output and exit code.",
+    "- `relay_cli.find` replaces the discovery code in lib/queue_ext (its own module-finding for views); the views in lib/queue_ext/ keep working and `relay queue <view>` still lists and runs them.",
+    "- Guard: from move 5 an action module answers before the guard's table, so each `WRITES` must equal today's table verdict (the agreement test of move 5 enforces it, in the move that writes it). Do not edit the guard.",
+    "- Tests: tests/test_cmd_queue_<action>.py per action (move 3 as built: tests/test_cmd_files.py requires one file per action module, naming it when missing; and the package's own tests/test_cmd_queue.py from move 7 stays). Each holds the help literal and one smoke case; most actions need a temporary git repository (run_relay(git=True)) and a fixture item written through `relay queue add` into the temp repo, never the live .relay/queue.",
+    "Done: full gate green; every queue word behaves as before; no action is left in __init__.py except the dispatch and the view fallback.",
+    "",
+    "Module interface (every moved command): `USAGE: str` whose first line is `relay <cmd> ...`; `WRITES: bool`; optional `READ_FLAGS` (sync's `--dry`); `def run(args: list[str]) -> int`. Names match [a-z][a-z0-9_]*, a typed `-` maps to `_`. A package's `__init__.py` has the header `USAGE`, `WRITES` for its bare use, and an optional `fallback(args)`; mixed commands (queue, check, improve, bench, license) become packages with one module per action.",
+    "",
+    "Test convention (tests/cmd_harness.py docstring, move 3): each command's own test file tests/test_cmd_<cmd>.py (tests/test_cmd_<cmd>_<action>.py for an action of a package) holds two cases: (1) `relay <cmd> --help` prints the usage lines it printed before the move, copied as a literal; (2) one smoke case with harmless arguments asserting the exit code and one output line, run through `run_relay` from tests/cmd_harness.py (it returns code, stdout, stderr and the files written, in temporary HOME, RELAY_HOME, RELAY_ROOT and cwd). For a command that cannot run in a temporary tree, the case is its usage refusal. tests/test_cmd_files.py fails, naming the file, for any module under lib/relay_cmd/ without its test file. tests/test_cmd_smoke.py already holds one table SMOKE with a case per command (all 21); keep the moved command's case there working, and note that under the empty RELAY_ROOT calibrate, install, flows, rules and doctor fail on a missing file before they read their arguments, so for those the command's own file must replace the case with one whose outcome depends on an argument. This catches an off-by-one in how the dispatcher hands args to run() (with or without the command name), which the help tests (they stop before run) and ruff do not see.",
+    "",
+    "Replacing queue items' `where`: the open items that name lib/relay_cmd/queue/__init__.py or the shared handler get the action file instead. Record how many items the start filter holds before and after.",
+    "",
+    "Traps for this move: keep imports lint-clean (ruff F; a dropped import of a helper is ruff F821); tests that import from the repo root must still run under the short gate; done items name their `test` ids, which are found by name, so do not rename tests; RULE_TESTS names in lib/relay_textonly.py must stay valid; tests never touch the live .relay/queue (use a temporary folder); a move that takes a function another running lane changed ports that lane's hunk by hand (start rule below); the size marker leaves a file in the move that brings it under 600 lines."
+  ],
+  "why": [
+    "Move 8 of the split of relay into one module per subcommand. The owner decided it on 28 Oct: \"каждая подкоманда может и должна жить в своем модуле, этот подход должен быть распространен на весь relay\". Waits for move 7 (queue as a package). Two open items (ip 85 each) name their action module instead of bin/relay or the shared handler."
+  ],
+  "where": [
+    "lib/relay_cmd/queue/__init__.py",
+    "lib/relay_cmd/queue/count.py new",
+    "lib/relay_cmd/queue/show.py new",
+    "lib/relay_cmd/queue/history.py new",
+    "lib/relay_cmd/queue/check.py new",
+    "lib/relay_cmd/queue/migrate.py new",
+    "lib/relay_cmd/queue/land.py new",
+    "lib/relay_cmd/queue/ip.py new",
+    "lib/relay_cmd/queue/take.py new",
+    "lib/relay_cmd/queue/release.py new",
+    "lib/relay_cmd/queue/done.py new",
+    "lib/relay_cmd/queue/drop.py new",
+    "lib/relay_cmd/queue/add.py new",
+    "lib/relay_cmd/queue/note.py new",
+    "lib/relay_cmd/queue/edit.py new",
+    "lib/relay_cmd/queue/start.py new",
+    "lib/queue_ext",
+    "tests/test_cmd_queue_count.py new"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

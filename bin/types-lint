@@ -1,17 +1,4 @@
 #!/usr/bin/env bash
-# The "types and lint" step of bin/ci: mypy over the python code and ruff's pyflakes rules (F), both pinned and run
-# through uv, configured in pyproject.toml of the directory (default: the repository root). A missing uv, or no
-# network for the first download, fails with one line; the step never skips silently.
+# The "types and lint" step of bin/ci; the work is in bin/types_lint.py (bash is on its way out).
 #   bin/types-lint [dir]
-set -uo pipefail
-MYPY=1.18.2 RUFF=0.13.3
-dir="$(cd "${1:-$(dirname "$0")/..}" && pwd -P)"; cd "$dir" || exit 1
-uv="$(command -v uv || true)"; [ -n "$uv" ] || uv="$HOME/.local/bin/uv"
-[ -x "$uv" ] || { echo "FAIL types and lint needs uv on PATH: install uv (https://docs.astral.sh/uv/)"; exit 1; }
-rc=0
-# bin/relay has no .py suffix; plugin lib copies are identical to lib/, so only lib/ is checked; kit_* are the plugin-only modules
-files=(); for f in lib/*.py bin/relay plugins/*/hooks/*.py plugins/*/lib/kit_*.py; do [ -e "$f" ] && files+=("$f"); done
-out="$("$uv" tool run "mypy==$MYPY" "${files[@]}" 2>&1)" || { echo "FAIL mypy $MYPY:"; echo "$out" | tail -40; rc=1; }
-out="$("$uv" tool run "ruff@$RUFF" check . 2>&1)" || { echo "FAIL ruff $RUFF (pyflakes rules):"; echo "$out" | tail -40; rc=1; }
-[ "$rc" = 0 ] && echo "types and lint: mypy $MYPY and ruff $RUFF clean"
-exit $rc
+exec python3 "$(dirname "$0")/types_lint.py" "$@"

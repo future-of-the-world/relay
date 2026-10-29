@@ -43,8 +43,8 @@
   ],
   "taken_at": "2026-10-28T08:38:59Z",
   "taken_by": "wt/hook-tests-and-wrappers-are-bash-not-por",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T02:59:04Z",
+  "test": "tests/test_bin_check_portable.py::BinCheckPortable::test_timeout_zero_means_no_bound",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
