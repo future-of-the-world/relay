@@ -5,7 +5,7 @@ The log `.relay/checks/<G>.gate.log` starts with `head <G>` (the commit the gate
 `wait <seconds>` (the wait for a slot), the gate's output, and ends with `exit <n>`. The merge hook trusts it because this code, not a model, wrote it. The log
 is committed alone, with the same commit path as check marks (`relay_marks.commit_file`).
 
-A gate that has to run first takes the worktree's own lock (`<git dir>/relay-gate.lock`, waiting without a time limit; the
+A gate that has to run first takes the worktree's own lock (`<git dir>/relay-gate.lock`, waiting without a time limit, unless the gate that holds it was killed: then its command is stopped, see `reclaim`; the
 lock file is passed to the gate command, so the lock lasts until the command's last process ends, even when `relay gate`
 is killed). After the command it checks that the tested tree is still the gated commit. Then it takes one of a few slots shared by the whole machine (OS file locks under `$RELAY_HOME/gate-slots/`,
 so a killed gate frees its slot by itself). The log's third line, `wait <seconds>`, is the time spent waiting for a slot.
@@ -19,7 +19,9 @@ import shlex
 import signal
 import subprocess
 import sys
+import tempfile
 import time
+import re
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 import relay_config
@@ -27,12 +29,16 @@ import relay_git
 import relay_inert
 import relay_license
 import relay_marks
+import relay_procs
 import relay_toml
 
 DEFAULT_CI = "bin/ci"
 FAILED_LINES = 8        # lines of the first failing step shown on the third output line
 CORES_PER_SLOT = 6      # default slots = cores // CORES_PER_SLOT, at least 1: 2 on 12 cores (measured 27 Oct: 2 gates at once 698 s each, 3 at once 1058 s each, alone 420 s)
-SLOT_POLL = 0.2         # seconds between looks at the slots while all are busy
+SLOT_POLL = 0.2         # seconds between looks at the slots (and at the worktree lock) while all are busy
+ORPHAN_AGE = 600.0      # seconds: a parent-1 leftover running from a relay test folder that still exists is stopped after this age (the longest test limit is 200 s)
+TEMP_PREFIXES = ("relay-run-", "relay-gate-", "relay-home-")      # folder names relay's tests make under the temporary folder
+STOPPED = "gate: stopped a leftover test process"      # the start of every line the sweep and the reclaim add to the log
 
 
 class GateRefused(Exception):
@@ -175,20 +181,58 @@ def holder_words(text, path):
     return "pid %d has ended; a process outside the gate's process group still holds %s" % (numbers[0], path)
 
 
-def take_worktree_lock(path, notify=None):
+def reclaim(path: str, text: str, record: Callable[[str], None]) -> bool:
+    """The lock file `path` is held and its text (`<gate pid> <command group>`) names a gate process that has ended: the gate command's
+    processes that kept the file are then the only holders, their result can never be committed, and they run outside the slot limit.
+    Stop that group (confirmed with one `lsof -t`: some holder is a member of the group), say so through `record`; True when stopped."""
+    numbers = [int(word) for word in text.split() if word.isdigit()]
+    if len(numbers) < 2 or numbers[0] <= 0 or numbers[1] <= 1 or alive(numbers[0]) or numbers[1] == os.getpgrp():
+        return False
+    group = numbers[1]
+    holders = relay_procs.holders_of(path)
+    if not holders:
+        return False
+    try:
+        members = {p.pid: p for p in relay_procs.read_procs() if p.pgid == group}
+    except (OSError, subprocess.SubprocessError):
+        return False
+    held = [pid for pid in holders if pid in members]
+    if not held:
+        return False
+    record("%s %d (%s): the gate that started it was killed and its result can never be committed" % (STOPPED, group, members[held[0]].command[:120]))
+    relay_procs.stop([(group, True)])
+    return True
+
+
+def take_worktree_lock(path, notify=None, record=None):
     """Lock the file `path` exclusively, waiting without a time limit; returns the open file, which holds the lock.
 
     The holder writes its pid into the file; `notify` is called once with the waiting line (naming that pid) when the lock is
-    held by another process. The lock lasts as long as any process keeps the file open (closing it, or the process dying, frees it)."""
+    held by another process. The lock lasts as long as any process keeps the file open (closing it, or the process dying, frees it).
+    The wait polls every SLOT_POLL and reads the holder's line each round: when the holder's gate process has ended and its command
+    still holds the file, `reclaim` stops that command (once per dead gate pid) and the lock is taken; `record` gets that line."""
     handle = open(path, "a+")
+    told = False
+    tried = set()
+    line = (lambda text: (notify(text) if notify is not None else None, record(text) if record is not None else None))
     try:
-        try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            if notify is not None:
-                handle.seek(0)
-                notify("gate: waiting for the gate already running in this worktree (%s)" % holder_words(handle.read(), path))
-            fcntl.flock(handle, fcntl.LOCK_EX)
+        while True:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                pass
+            handle.seek(0)
+            text = handle.read()
+            words = [int(word) for word in text.split() if word.isdigit()]
+            if words and words[0] not in tried and not alive(words[0]):
+                tried.add(words[0])      # one lsof per dead gate pid
+                if reclaim(path, text, line):
+                    continue
+            if not told and notify is not None:
+                notify("gate: waiting for the gate already running in this worktree (%s)" % holder_words(text, path))
+            told = True
+            time.sleep(SLOT_POLL)
         handle.seek(0)
         handle.truncate()
         handle.write("%d\n" % os.getpid())
@@ -197,6 +241,98 @@ def take_worktree_lock(path, notify=None):
         handle.close()
         raise
     return handle
+
+
+def temp_roots() -> list[str]:
+    """The folders a test's temporary files live under, each in its given and its resolved form (`/var/folders/..` and `/private/var/folders/..`
+    on macOS: `$TMPDIR` holds the first, `ps` shows the second): the process's temporary folder, the user's temporary folder, /tmp."""
+    found = [tempfile.gettempdir(), "/tmp"]
+    try:
+        done = subprocess.run(["getconf", "DARWIN_USER_TEMP_DIR"], capture_output=True, text=True, timeout=10)
+        if done.returncode == 0 and done.stdout.strip():
+            found.append(done.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        pass
+    roots: list[str] = []
+    for folder in found:
+        for form in (folder, os.path.realpath(folder)):
+            form = form.rstrip("/")
+            if form and form not in roots:
+                roots.append(form)
+    return roots
+
+
+def under(path: str, roots: Sequence[str]) -> bool:
+    real = os.path.realpath(path)
+    return any(real == root or real.startswith(root + os.sep) for root in roots)
+
+
+def prefixed_folders(path: str, roots: Sequence[str]) -> list[str]:
+    """The folders on `path` (under one of `roots`) whose name starts with a TEMP_PREFIXES entry, outermost first; [] when `path` is outside the roots."""
+    for root in roots:
+        if path.startswith(root + "/"):
+            parts = path[len(root) + 1:].split("/")
+            return [root + "/" + "/".join(parts[:i + 1]) for i, part in enumerate(parts) if part.startswith(TEMP_PREFIXES)]
+    return []
+
+
+RELAY_COMMAND = re.compile(r"(^|[ /])relay( -\S+)* (gate|land)( |$)")
+
+
+def sweep(roots: Sequence[str], read_procs: Callable[[], list], read_cwds: Callable[[Sequence[int]], Optional[dict]],
+          own: Sequence[int], _again: bool = True) -> list[str]:
+    """Stop the leftovers of relay's own tests: processes whose parent is gone (parent 1) that run from a relay test folder under `roots`
+    (their command names a path `<root>/../<prefix>..`, or they are a `relay gate`/`relay land` whose working folder lies in one) and
+    whose test is over: a prefixed folder on that path no longer exists, or the process is older than ORPHAN_AGE. Nothing else is touched.
+
+    A leftover that leads its own process group (pgid == pid) is stopped with that group, unless the group is the sweeping gate's own or
+    an ancestor's; any other is stopped alone (a fixture `relay gate` shares the runner's group, which may hold a real gate's command).
+    Returns one line per stop. `own` is the sweeping gate's pid; its ancestors are added here."""
+    try:
+        procs = read_procs()
+    except (OSError, subprocess.SubprocessError):
+        return []
+    mine = set()
+    for pid in own:
+        mine |= relay_procs.ancestors(procs, pid)
+    my_groups = {p.pgid for p in procs if p.pid in mine}
+    first = [p for p in procs if p.ppid == 1 and p.pid not in mine]
+    named = {p.pid: _command_folders(p.command, roots) for p in first}
+    asked = [p.pid for p in first if not named[p.pid] and RELAY_COMMAND.search(p.command)]
+    cwds = (read_cwds(asked) or {}) if asked else {}
+    now = time.time()
+    lines: list[str] = []
+    targets: list[tuple[int, bool]] = []
+    alone: dict[int, relay_procs.Proc] = {}
+    for p in first:
+        folders = named[p.pid] or (prefixed_folders(cwds[p.pid], roots) if p.pid in cwds else [])
+        if not folders:
+            continue
+        gone = [f for f in folders if not os.path.exists(f)]
+        if gone:
+            why = "parent gone, folder deleted"
+        elif now - p.started > ORPHAN_AGE:
+            why = "parent gone, older than %d min" % (ORPHAN_AGE // 60)
+        else:
+            continue
+        group = p.pgid == p.pid and p.pgid not in my_groups
+        targets.append((p.pid if not group else p.pgid, group))
+        if not group:
+            alone[p.pid] = p
+        lines.append("%s %d (%s): %s" % (STOPPED, p.pid, p.command[:120], why))
+    if targets:
+        killed = relay_procs.stop(targets)
+        # a pid stopped alone and then killed may have left its own command as a leader of a group in a deleted folder: look once more
+        if _again and any(not group and pid in alone for pid, group in killed):
+            lines += sweep(roots, read_procs, read_cwds, own, _again=False)
+    return lines
+
+
+def _command_folders(command: str, roots: Sequence[str]) -> list[str]:
+    found: list[str] = []
+    for token in command.split():
+        found += prefixed_folders(token, roots)
+    return found
 
 
 def tree_moved(worktree, head):
@@ -284,7 +420,7 @@ def finished_red(worktree: str, head: str, command: Sequence[str]) -> Optional[t
             continue
         last = lines[-1].split()
         if len(last) == 2 and last[0] == "exit" and last[1].isdigit() and 0 < int(last[1]) < 127:      # 127 (could not start) and >= 128 (killed) came from outside the commit: not reused
-            return int(last[1]), log, first_failure("\n".join(lines[3:-1]))
+            return int(last[1]), log, first_failure("\n".join(l for l in lines[3:-1] if not l.startswith(STOPPED)))
     return None
 
 
@@ -315,6 +451,18 @@ def hold_stops() -> tuple[list[int], Callable[[], None]]:
     return held, release
 
 
+def sweep_leftovers(worktree: str, env: Mapping[str, str]) -> list[str]:
+    """B: at the start of a real gate, stop the leftovers of relay's tests (see `sweep`), printing each stop on stderr; returns the lines.
+    A gate whose worktree or home lies in a temporary folder is itself a test's: it sweeps nothing, so no test stops another test's processes."""
+    roots = temp_roots()
+    if under(worktree, roots) or under(env.get("RELAY_HOME") or relay_config.home_dir(), roots):
+        return []
+    lines = sweep(roots, relay_procs.read_procs, relay_procs.working_folders, [os.getpid()])
+    for line in lines:
+        print(line, file=sys.stderr, flush=True)
+    return lines
+
+
 def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, str]] = None,
         quick: bool = False, again: bool = False) -> tuple[int, str, list[str]]:
     """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red).
@@ -336,6 +484,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
     red = finished_red(worktree, head, command) if reuse else None
     if red is not None:      # the same code already has a finished red gate (only record commits since): report it, run nothing
         return reused_red(red)
+    swept = sweep_leftovers(worktree, os.environ if environ is None else environ)
     # the output goes under the worktree's git dir, never into the tree: a project that does not ignore .ci/ would see
     # an untracked file and the next gate (and the merge cleanup) would refuse
     rc, git_path = relay_git.git(worktree, "rev-parse", "--path-format=absolute", "--git-path", "relay-gate.out")
@@ -362,7 +511,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
     notify = lambda line: print(line, file=sys.stderr, flush=True)
     try:
         # one gate at a time per worktree, taken before the slot so a gate waiting for its worktree holds no slot
-        lock = take_worktree_lock(lock_path, notify)
+        lock = take_worktree_lock(lock_path, notify, swept.append)
         try:
             slot, waited = take_slot(slot_count(home), os.path.join(home, "gate-slots"), notify)
             try:
@@ -424,7 +573,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
             if license_lines:
                 output += ("" if output.endswith("\n") or not output else "\n") + "license check FAILED\n" + "".join("  %s\n" % line for line in license_lines)
                 code = code or 1
-            text = "head %s\ncmd %s\nwait %.1f\n%s%sexit %d\n" % (head, " ".join(shlex.quote(c) for c in command), waited, output, "" if output.endswith("\n") or not output else "\n", code)
+            text = "head %s\ncmd %s\nwait %.1f\n%s%s%sexit %d\n" % (head, " ".join(shlex.quote(c) for c in command), waited, "".join(l + "\n" for l in swept), output, "" if output.endswith("\n") or not output else "\n", code)
             log = os.path.join(worktree, relay_marks.FOLDER, "%s.gate.log" % head)
             os.makedirs(os.path.dirname(log), exist_ok=True)
             with open(log, "w", encoding="utf-8") as handle:
