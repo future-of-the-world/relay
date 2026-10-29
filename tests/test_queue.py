@@ -1431,3 +1431,34 @@ class WhereList(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+
+class TestCloseOrphanFromMain(Base):
+    """An item taken by a branch that no longer exists is closed (with its test) or released from the main checkout."""
+
+    def seed(self, by):
+        self.write_commit(self.main, {".relay/queue/job.json": with_fields(fix_item("Job"), **taken_fields(by)),
+                                      "tests/test_job.py": "def test_job():\n    pass\n"}, "seed")
+
+    def test_o1_done_from_main_is_refused_and_names_the_ways_with_proof(self):
+        # no proof that the test fixed anything: refused, the item stays taken, the message names --fixed-by and release
+        self.seed("wt/gone")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.done(self.main, "job", "tests/test_job.py::test_job")
+        self.assertIn("--fixed-by <commit> --test", str(ctx.exception))
+        self.assertIn("relay queue release job", str(ctx.exception))
+        self.assertEqual(self.item("job")["state"], "taken")
+
+    def test_o3_an_item_of_a_live_branch_is_not_closed_from_main(self):
+        self.seed("wt/live")
+        git(self.main, "checkout", "-q", "-b", "wt/live")
+        git(self.main, "commit", "-q", "--allow-empty", "-m", "work")
+        git(self.main, "checkout", "-q", "master")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.done(self.main, "job", "tests/test_job.py::test_job")
+        self.assertIn("wt/live", str(ctx.exception))
+        self.assertEqual(self.item("job")["state"], "taken")
+
+    def test_o4_a_released_item_of_a_gone_branch_is_open_again(self):
+        self.seed("wt/gone")
+        rq.release(self.main, "job", **QUIET)
+        self.assertEqual(self.item("job")["state"], "open")
