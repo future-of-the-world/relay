@@ -525,7 +525,7 @@ class ProbeBesideTheRun(unittest.TestCase):
         def reading(path: str) -> List[str]:
             lines = real(path)
             if os.path.dirname(path) == folder:
-                barrier.wait(timeout=10)   # both threads hold the record's lines before either goes on
+                barrier.wait(timeout=WAIT)   # both threads hold the record's lines before either goes on
             return lines
 
         errors: List[BaseException] = []
