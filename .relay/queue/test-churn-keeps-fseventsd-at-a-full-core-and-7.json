@@ -36,6 +36,17 @@
       "fact": [
         "30 Oct, measured by the build (load 17-25): tests/test_gate.py (36 tests) on the main volume 105.4 s wall, fseventsd 128-140% CPU and 5.8-7.0 GB; the same on a 2 GB APFS RAM disk with .fseventsd/no_log holding the tests' temporary folders 105.6 s, fseventsd 116-162% CPU and 6.7-7.1 GB. fseventsd was at about 130% before the run started: the load is machine-wide (other gate lanes, podman, git worktrees), not the tests' temporary folders. Nothing was changed."
       ]
+    },
+    {
+      "asked_at": "2026-10-29T22:44:26Z",
+      "question": [
+        "**macOS file-watch service at a full core: drop the item or move every worktree to a no-log disk?**",
+        "macOS's file-change service (fseventsd) uses 1.3-1.6 cores and about 7 GB. The build measured that moving the tests' temporary folders to a RAM disk with change logging off changes nothing: the load comes from the whole machine (six lanes of worktrees, podman, git), not from the tests. The only untried step is putting every lane's worktree on such a disk. You are moving development to Linux VMs, where this service does not exist."
+      ],
+      "options": [
+        "a. Drop the item: it ends with the move to Linux; nothing changes on the Mac",
+        "b. Try moving every lane's worktree to a no-log disk on the Mac (about 60 agent minutes, changes where relay puts worktrees)"
+      ]
     }
   ]
 }
