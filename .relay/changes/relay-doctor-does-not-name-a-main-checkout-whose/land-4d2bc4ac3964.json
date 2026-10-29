@@ -1,0 +1,159 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2439,
+   "id": "a50a7a2f79398048e",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T14:48:29.053Z",
+   "stop": "2026-10-29T14:54:07.781Z"
+  },
+  {
+   "cost_usd": 0.0066,
+   "id": "a652d222b81d9243a",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T14:54:14.459Z",
+   "stop": "2026-10-29T15:28:15.130Z"
+  },
+  {
+   "cost_usd": 0.8994,
+   "id": "a7cad7aaa9935dd14",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 19,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T15:28:17.953Z",
+   "stop": "2026-10-29T15:31:29.245Z"
+  },
+  {
+   "cost_usd": 0.4083,
+   "id": "ab44cb7954b9bfc22",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 21,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T21:21:28.666Z",
+   "stop": "2026-10-29T21:27:31.364Z"
+  },
+  {
+   "cost_usd": 0.0062,
+   "id": "ae1e8b879746f1eba",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T22:04:50.414Z",
+   "stop": "2026-10-29T22:13:01.234Z"
+  },
+  {
+   "cost_usd": 0.1045,
+   "id": "a80eab6ea4b0a6994",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-29T22:13:03.542Z",
+   "stop": "2026-10-29T22:14:40.114Z"
+  },
+  {
+   "cost_usd": 0.0032,
+   "id": "a31d75137fea526db",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T22:31:32.396Z",
+   "stop": "2026-10-29T22:36:32.890Z"
+  },
+  {
+   "cost_usd": 0.1711,
+   "id": "a7a9cf13cfde62714",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T22:36:35.853Z",
+   "stop": "2026-10-29T22:38:29.199Z"
+  },
+  {
+   "cost_usd": 0.0021,
+   "id": "a59f5d5c221698685",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T22:38:31.656Z",
+   "stop": "2026-10-29T22:38:42.611Z"
+  },
+  {
+   "cost_usd": 0.0029,
+   "id": "a59f5d5c221698685",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T22:38:31.656Z",
+   "stop": "2026-10-29T22:38:45.004Z"
+  },
+  {
+   "cost_usd": 0.0015,
+   "id": "ab6ee75806a845c16",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-29T22:38:47.275Z",
+   "stop": "2026-10-29T22:38:59.986Z"
+  },
+  {
+   "cost_usd": 0.0021,
+   "id": "ab6ee75806a845c16",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-29T22:38:47.275Z",
+   "stop": "2026-10-29T22:39:02.979Z"
+  }
+ ],
+ "before": "76e4c4da479ae607fa1e27e8f83a673fd6ea6bc4",
+ "branch": "wt/relay-doctor-does-not-name-a-main-checko",
+ "head": "4d2bc4ac3964e4a7d5ea1a81ac3bb708c22850a2",
+ "item": "relay-doctor-does-not-name-a-main-checkout-whose",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T23:02:36+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-29T23:02:36+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-29T23:12:34+00:00",
+   "gate_seconds": 549.4834287499543,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "relay-doctor-does-not-name-a-main-checkout-whose"
+}

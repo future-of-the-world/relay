@@ -1,0 +1,23 @@
+{
+  "kind": "feature",
+  "ip": 70,
+  "time": 15,
+  "found_at": "2026-10-29T23:06:44Z",
+  "found_in": "relay queue add",
+  "title": "guard hook: an agent never records the owner's answer",
+  "what": [
+    "In plugins/delegate/hooks/read-only-guard.py, on PreToolUse Bash with agent_id present: a relay queue note call is allowed only when it is the only command of the call and its --input file already exists and holds no answer key; else deny, naming the next step. Design: Part 4 of the agent-answered-decisions design (queue item a-queue-question-can-be-answered-by-an-agent-mar)."
+  ],
+  "why": [
+    "relay queue note cannot tell who calls it; today only a few read-only agent types are refused, so a worker could write an owner answer."
+  ],
+  "where": [
+    "plugins/delegate/hooks/read-only-guard.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

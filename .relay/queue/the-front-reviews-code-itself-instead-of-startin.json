@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 87,
+  "time": 45,
+  "found_at": "2026-10-29T23:25:27Z",
+  "found_in": "relay queue add",
+  "title": "The front reviews code itself instead of starting a critic",
+  "what": [
+    "Asked for a review, the front starts a critic every time (the delegate skill's rule), and the bench scenario review-offbyone shows it in at least 9 of 10 runs."
+  ],
+  "why": [
+    "30 Oct, bench review-offbyone (reports ~/.relay/bench/2026-10-29T23-05-04Z and 2026-10-29T23-11-39Z, 6 runs per profile): the Opus front started no critic in 5 of 12 runs (4 of 6 with the active profile, 1 of 6 with the Fable-judge profile) and reviewed the code itself; the grader delegated-to-a-critic failed. This also spoils any comparison of judge models: only 2 of 6 active runs reached an Opus critic. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "relay bench active --scenario review-offbyone --runs 4 (30 Oct): delegated-to-a-critic failed in runs 0 and 1 of the active profile."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "10 runs of review-offbyone with the active profile: delegated-to-a-critic passes in at least 9"
+  ],
+  "where": [
+    "plugins/front/skills/front/SKILL.md",
+    "plugins/delegate/skills/delegate/SKILL.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

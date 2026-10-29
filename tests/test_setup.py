@@ -13,6 +13,32 @@ from relay_testbase import Base, ROOT  # noqa: E402
 
 
 class Setup(Base):
+    def test_setup_doc_states_squash_merge_limit(self):
+        # A project that squash-merges pull requests on its server gets the check records in the squashed tree, naming
+        # commits of the deleted branch; relay land never squashes. The doc must say both, plainly.
+        text = open(os.path.join(ROOT, "docs", "setup.md"), encoding="utf-8").read()
+        # Assert inside the Limit paragraph only, so the words elsewhere in the file cannot satisfy it.
+        self.assertIn("Limit:", text)
+        limit = text[text.index("Limit:"):].split("\n- ", 1)[0]
+        self.assertIn("squash on its server is not gated", " ".join(limit.split()))
+        self.assertIn("name commits", " ".join(limit.split()))
+        self.assertIn("git merge --ff-only wt/<name>", limit)
+
+    def test_relay_folder_readme_states_squash_limit(self):
+        import relay_setup
+        proj = os.path.join(self.tmp, "fresh")
+        os.makedirs(proj)
+        path, created = relay_setup.relay_folder(proj)
+        self.assertTrue(created)
+        text = " ".join(open(path, encoding="utf-8").read().split())
+        self.assertIn("squash-merged on the server is not gated", text)
+        self.assertIn("name commits of the deleted branch", text)
+        # An existing README is left as it is.
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("mine\n")
+        self.assertEqual(relay_setup.relay_folder(proj), (path, False))
+        self.assertEqual(open(path, encoding="utf-8").read(), "mine\n")
+
     def test_setup_then_doctor(self):
         import relay_setup
         proj = os.path.join(self.tmp, "proj")
@@ -46,6 +72,94 @@ class Setup(Base):
         self.assertEqual(project[0][0], "project has .claude/kit.toml")
         self.assertNotIn("relay marketplace in ~/.claude/settings.json", [n for n, _, _ in project])
         self.assertEqual(relay_setup.doctor_parts(None, profile={})[1], [])
+
+    def _relay_repo(self, name="relayrepo"):
+        """A temporary git repo standing in for the relay checkout, with bin/relay committed."""
+        repo = os.path.join(self.tmp, name)
+        os.makedirs(os.path.join(repo, "bin"))
+        subprocess.run(["git", "init", "-q", repo], check=True)
+        with open(os.path.join(repo, "bin", "relay"), "w") as handle:
+            handle.write("real relay\n")
+        git = ["git", "-C", repo, "-c", "user.email=t@t", "-c", "user.name=t"]
+        subprocess.run([*git, "add", "bin/relay"], check=True)
+        subprocess.run([*git, "commit", "-q", "-m", "init"], check=True)
+        return repo
+
+    def _bin_relay_entries(self, repo, root=None):
+        """The doctor's bin/relay entries when relay runs from `repo`; `root` is the project given to doctor. The rest of the check-up
+        needs a whole relay, so only the bin/relay check is pointed at `repo`, and only when doctor hands it relay's own ROOT."""
+        import relay_setup
+        real = relay_setup.bin_relay_problem
+        asked = []
+
+        def point_at_repo(folder):
+            asked.append(folder)
+            return real(repo)
+        with mock.patch.object(relay_setup, "bin_relay_problem", point_at_repo):
+            machine, _ = relay_setup.doctor_parts(root, profile={})
+        self.assertEqual(asked, [relay_setup.ROOT])   # relay's own checkout, never the project given to doctor
+        return [(n, good, d) for n, good, d in machine if "bin/relay" in n]
+
+    def test_doctor_names_a_main_checkout_whose_bin_relay_differs_from_head(self):
+        repo = self._relay_repo()
+        with open(os.path.join(repo, "bin", "relay"), "w") as handle:
+            handle.write("stub\n")   # the 28 Oct incident: another file's bytes in bin/relay
+        entries = self._bin_relay_entries(repo)
+        self.assertEqual(len(entries), 1)
+        name, good, detail = entries[0]
+        self.assertFalse(good)
+        self.assertIn("differs from HEAD", detail)
+        self.assertIn("git -C " + os.path.realpath(repo) + " restore --source=HEAD --staged --worktree bin/relay", detail)
+
+    def test_doctor_passes_bin_relay_equal_to_head(self):
+        entries = self._bin_relay_entries(self._relay_repo())
+        self.assertEqual([good for _, good, _ in entries], [True])
+
+    def test_doctor_checks_the_main_checkout_not_the_task_worktree(self):
+        repo = self._relay_repo()
+        wt = os.path.join(self.tmp, "wt")
+        subprocess.run(["git", "-C", repo, "worktree", "add", "-q", "-b", "task", wt], check=True)
+        with open(os.path.join(wt, "bin", "relay"), "w") as handle:
+            handle.write("a branch editing bin/relay\n")   # legitimate work in the worktree
+        self.assertEqual([good for _, good, _ in self._bin_relay_entries(wt)], [True])
+        with open(os.path.join(repo, "bin", "relay"), "w") as handle:
+            handle.write("stub\n")
+        self.assertEqual([good for _, good, _ in self._bin_relay_entries(wt)], [False])
+
+    def test_doctor_checks_relays_checkout_not_the_project_given_to_it(self):
+        # F4 pass case 2: ROOT clean, the project given to doctor is another repo with its own changed bin/relay
+        other = self._relay_repo("other")
+        with open(os.path.join(other, "bin", "relay"), "w") as handle:
+            handle.write("changed\n")
+        self.assertEqual([good for _, good, _ in self._bin_relay_entries(self._relay_repo(), other)], [True])
+
+    def test_doctor_bin_relay_check_leaves_the_index_alone_and_takes_no_lock(self):
+        # F2: stale stat info makes `git status` rewrite .git/index; a held index.lock must not change the answer
+        import relay_setup
+        repo = self._relay_repo()
+        os.utime(os.path.join(repo, "bin", "relay"), (1, 1))
+        index = os.path.join(repo, ".git", "index")
+        os.utime(index, (5, 5))
+        self.assertIsNone(relay_setup.bin_relay_problem(repo))
+        self.assertEqual(os.stat(index).st_mtime, 5)
+        open(index + ".lock", "w").close()
+        self.assertIsNone(relay_setup.bin_relay_problem(repo))
+        with open(os.path.join(repo, "bin", "relay"), "w") as handle:
+            handle.write("stub\n")
+        self.assertIn("differs from HEAD", relay_setup.bin_relay_problem(repo))
+        self.assertTrue(os.path.exists(index + ".lock"))   # nobody removed or took it
+
+    def test_doctor_restore_command_brings_back_a_staged_stub(self):
+        # F3: `git restore bin/relay` alone leaves a staged stub; the printed command must restore index and file
+        import relay_setup
+        repo = self._relay_repo()
+        with open(os.path.join(repo, "bin", "relay"), "w") as handle:
+            handle.write("stub\n")
+        subprocess.run(["git", "-C", repo, "add", "bin/relay"], check=True)
+        cmd = relay_setup.bin_relay_problem(repo).split("terminal outside the session: ", 1)[1].split()
+        subprocess.run(cmd, check=True)
+        self.assertIsNone(relay_setup.bin_relay_problem(repo))
+        self.assertEqual(open(os.path.join(repo, "bin", "relay")).read(), "real relay\n")
 
     def _doctor_project(self, installed=True, leftovers=(), fresh_rules=True):
         """A set-up temp project whose plugins are (by default) installed for it; the user's settings stay empty, so the machine part has FIXes."""

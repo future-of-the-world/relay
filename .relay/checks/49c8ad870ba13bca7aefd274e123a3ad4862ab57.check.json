@@ -1,0 +1,261 @@
+{
+  "branch": "wt/relay-doctor-does-not-name-a-main-checko",
+  "findings": [
+    {
+      "details": [
+        "28 Oct: the main checkout's bin/relay was overwritten by an eval stub and nothing told the front; every relay command broke silently until the front noticed. The stub-guard change kept to the eval scripts, so relay doctor still does not name a main checkout whose bin/relay differs from HEAD."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Main checkout ~/relay with bin/relay replaced by evals/plugin/relay-stub.py (the 28 Oct incident): `relay doctor` prints no line",
+        "about it (the change touches no doctor code). Should: a failing doctor line naming bin/relay in the main checkout as differing",
+        "from HEAD, with the next step (how to restore it, given guard-main refuses `git restore` there)."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1137,
+      "pass_cases": [
+        "1. A temporary git repo as the relay checkout, bin/relay committed, then overwritten with other bytes: doctor_parts() returns a",
+        "   failing entry that names bin/relay and says it differs from HEAD.",
+        "2. Same repo with bin/relay equal to HEAD: no failing entry for bin/relay.",
+        "3. Doctor run from a task worktree whose bin/relay differs (a branch editing bin/relay): not flagged; only the main checkout is."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_hook_bin_relay.py::BinRelayHook::test_stub_bytes_in_bin_relay_are_named_in_the_first_line_with_the_restore_step passes and fails on base aabe5ebb."
+      ],
+      "severity": "HIGH",
+      "since": "aabe5ebb9f72ba1dd8e70b908e71b53ae29c382c",
+      "source": "queue",
+      "summary": "Relay doctor does not name a main checkout whose\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. The check lives inside the program it checks: bin/relay imports lib/relay_setup and calls doctor_parts. When",
+        "bin/relay is replaced wholesale (the item's own case), the replacement runs instead and the check is unreachable. Ran the",
+        "stub with `doctor`: usage on stderr, rc=2. The new tests pass because they call doctor_parts() in-process with \"stub\\n\"",
+        "written to a temp repo; they never go through bin/relay, so they cannot see this.",
+        "Design: the item promises the naming in `relay doctor`, which is bin/relay itself; to meet the stub case the check must run",
+        "from something that does not depend on bin/relay being intact: the front launcher plugins/front/bin/relay before its exec",
+        "(but ~/.local/bin/relay points straight at bin/relay and bypasses it), a SessionStart hook of the front plugin that runs",
+        "the same git check and says it, or both. Owner picks where the check lives; the doctor line stays useful for partial edits.",
+        "Size: 30."
+      ],
+      "evidence": [
+        "$ which relay; ls -l $(which relay)",
+        "/Users/amidman/.local/bin/relay -> /Users/amidman/relay/bin/relay",
+        "$ plugins/front/bin/relay: root = $RELAY_ROOT, else extraKnownMarketplaces.relay.source.path, else ~/relay; exec \"$root/bin/relay\" \"$@\"",
+        "$ python3 -I evals/plugin/relay-stub.py doctor",
+        "relay queue show <slug or words>",
+        "relay queue note <slug> --input <file.toml>",
+        "rc=2"
+      ],
+      "failing_case": [
+        "Main checkout ~/relay with bin/relay overwritten by evals/plugin/relay-stub.py (the 28 Oct incident, the item's failing case).",
+        "`relay` on PATH is ~/.local/bin/relay -> /Users/amidman/relay/bin/relay, and the session launcher plugins/front/bin/relay",
+        "execs \"$root/bin/relay\" with root = the marketplace path = the main checkout. So `relay doctor` executes the stub, which",
+        "prints \"relay queue show <slug or words> / relay queue note <slug> --input <file.toml>\" and exits 2. doctor_parts never",
+        "runs; no line names bin/relay. Should: a line naming bin/relay in the main checkout as differing from HEAD, with the",
+        "restore step. The new check only fires when bin/relay is altered but still runs doctor (a stray edit), or when doctor is",
+        "run through some other copy of bin/relay."
+      ],
+      "fix_hint": [
+        "Keep bin_relay_problem() and call the same git check from a front SessionStart hook (Python, standard library) that prints",
+        "the FIX line and the restore step when the main checkout's bin/relay differs from HEAD; add a test that runs the hook against",
+        "a temp checkout whose bin/relay holds the stub bytes."
+      ],
+      "id": "F1",
+      "kind": "design",
+      "line": 1204,
+      "owner": [
+        {
+          "date": "2026-10-30",
+          "words": [
+            "a a a a, \u0437\u0430\u043a\u0440\u044b\u0442\u044c"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. Temp HOME, temp relay main checkout with bin/relay committed, then bin/relay overwritten with the bytes of",
+        "   evals/plugin/relay-stub.py; invoke relay the way a session does (the launcher / PATH entry): the output names bin/relay",
+        "   in that checkout as differing from HEAD and gives the restore command.",
+        "2. Same checkout with bin/relay equal to HEAD: no such line, `relay doctor` behaves as today.",
+        "3. A task worktree whose branch edits bin/relay, main checkout clean: nothing is flagged.",
+        "4. bin/relay with a small stray edit that still runs: `relay doctor` shows the FIX line (what the change does today)."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_hook_bin_relay.py:46 hook names stub without running bin/relay; fails at base."
+      ],
+      "severity": "HIGH",
+      "since": "64c4421051f8e1a4c4455b9ab21dffa221d7bbcc",
+      "source": "review-relay-doctor-does-not-name-a-main-checko.json",
+      "source_id": "F1",
+      "summary": "in the queue item's own failing case (bin/relay replaced by the eval stub) `relay doctor` runs the stub, so the new doctor line can never print",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED for the write: in a scratch repo, `touch bin/relay; git status --porcelain -- bin/relay` moved .git/index mtime",
+        "(1793287779 -> 1793287781); with `git --no-optional-locks status` it did not. A commit with index.lock present fails rc 128.",
+        "PLAUSIBLE for the collision itself (a timing window, needs a test with a held lock). Before this change doctor ran only",
+        "rev-parse in the main checkout (no lock). The gate runs these tests in every lane (6 lanes), so the live main checkout's",
+        "index is written from tests many times a day; this repeats on every run, so it is MEDIUM by principle 2 too.",
+        "Size: 10."
+      ],
+      "evidence": [
+        "$ touch bin/relay; stat -f %m .git/index; git status --porcelain -- bin/relay; stat -f %m .git/index",
+        "1793287779 / 1793287781",
+        "$ touch bin/relay; git --no-optional-locks status --porcelain -- bin/relay; stat -f %m .git/index",
+        "1793287781 (unchanged)",
+        "$ touch .git/index.lock; git commit --allow-empty -m x",
+        "fatal: Unable to create '.../.git/index.lock': File exists.  rc=128"
+      ],
+      "failing_case": [
+        "The main checkout's index has stale stat info (right after a merge or checkout touched files). A gate in a task worktree runs",
+        "the ~25 test call sites of doctor()/doctor_parts() (ROOT = the worktree, so main = /Users/amidman/relay), or anyone runs",
+        "`relay doctor`; each runs `git -C /Users/amidman/relay status --porcelain -- bin/relay`, which takes .git/index.lock and",
+        "writes the index. A front `git merge`/`git commit` in the main checkout at that moment fails with \"Unable to create",
+        "'.../.git/index.lock': File exists\". Should: the check reads only and never locks or writes the main checkout's index."
+      ],
+      "fix_hint": [
+        "Run `git --no-optional-locks status --porcelain -- bin/relay` (or set GIT_OPTIONAL_LOCKS=0 for that call), and add pass case 1",
+        "as a test."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1154,
+      "pass_cases": [
+        "1. Temp repo, bin/relay committed, `touch bin/relay` (stale stat), record .git/index mtime; call bin_relay_problem(repo):",
+        "   index mtime unchanged and no index.lock created at any point.",
+        "2. Same repo with .git/index.lock present (another git process): bin_relay_problem still returns None for an unchanged",
+        "   bin/relay and the problem text for a changed one.",
+        "3. bin/relay overwritten with other bytes: still reported as differing from HEAD (today's test keeps passing)."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_hook_bin_relay.py:83 and test_setup index/lock test; fail at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "64c4421051f8e1a4c4455b9ab21dffa221d7bbcc",
+      "source": "review-relay-doctor-does-not-name-a-main-checko.json",
+      "source_id": "F2",
+      "summary": "`git status` on the live main checkout takes index.lock and rewrites the index on every doctor call, so a concurrent git command there fails",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED in a scratch repo: staged stub, `git restore bin/relay` -> file still \"stub\", status \"M  bin/relay\";",
+        "`git restore --source=HEAD --staged --worktree bin/relay` -> file back to HEAD, status empty. Reach is low (the incident",
+        "overwrote the file without staging it), hence LOW. Size: 5."
+      ],
+      "evidence": [
+        "$ echo stub > bin/relay; git add bin/relay; git restore bin/relay; cat bin/relay; git status --porcelain -- bin/relay",
+        "stub",
+        "M  bin/relay",
+        "$ git restore --source=HEAD --staged --worktree bin/relay; cat bin/relay  ->  a (HEAD's bytes), status empty"
+      ],
+      "failing_case": [
+        "Main checkout with the stub staged (`git add bin/relay`, status \"M  bin/relay\"). Doctor says: restore it with",
+        "`git -C <main> restore bin/relay`. That restores the worktree from the index, which holds the stub: bin/relay is still the",
+        "stub and doctor still reports it. Should: a command that brings bin/relay back to HEAD in index and worktree."
+      ],
+      "fix_hint": [
+        "Print `git -C {main} restore --source=HEAD --staged --worktree bin/relay`."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1157,
+      "pass_cases": [
+        "1. Staged stub: following the printed command makes `git status --porcelain -- bin/relay` empty and bin/relay equal to HEAD.",
+        "2. Unstaged stub (today's case): the printed command still restores it.",
+        "3. bin/relay deleted from the worktree: the printed command brings it back."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_hook_bin_relay.py:57 runs the printed restore command on a staged stub and status is clean."
+      ],
+      "severity": "LOW",
+      "since": "64c4421051f8e1a4c4455b9ab21dffa221d7bbcc",
+      "source": "review-relay-doctor-does-not-name-a-main-checko.json",
+      "source_id": "F3",
+      "summary": "the restore advice `git restore bin/relay` leaves a staged stub in place, so the FIX line stays after the user follows it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading tests/test_setup.py:63-68: the patch target ignores its parameter. The wiring is correct today",
+        "(doctor_parts passes ROOT), so this is fragility, LOW. Size: 5."
+      ],
+      "evidence": [
+        "tests/test_setup.py:66: with mock.patch.object(relay_setup, \"bin_relay_problem\", lambda root: real(repo)):"
+      ],
+      "failing_case": [
+        "Change the call in doctor_parts to `bin_relay_problem(root or ROOT)` (checks the project given to `relay doctor <dir>`",
+        "instead of relay's checkout): all three new tests still pass, because `lambda root: real(repo)` discards what doctor_parts",
+        "passes. Should: a test that fails when doctor_parts checks anything but relay's own checkout."
+      ],
+      "fix_hint": [
+        "Patch relay_setup.ROOT (mock.patch.object(relay_setup, \"ROOT\", repo)) instead of the function."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 66,
+      "pass_cases": [
+        "1. relay_setup.ROOT patched to a temp relay checkout with bin/relay changed, doctor_parts(None) -> one failing bin/relay entry.",
+        "2. Same, doctor_parts(<an unrelated project dir with its own changed bin/relay>) with ROOT clean -> the bin/relay entry is ok.",
+        "3. ROOT patched to a linked worktree of a clean checkout whose own bin/relay differs -> ok (today's test 3)."
+      ],
+      "path": "tests/test_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup.py spy asserts the argument is relay_setup.ROOT; test passes."
+      ],
+      "severity": "LOW",
+      "since": "64c4421051f8e1a4c4455b9ab21dffa221d7bbcc",
+      "source": "review-relay-doctor-does-not-name-a-main-checko.json",
+      "source_id": "F4",
+      "summary": "the tests replace bin_relay_problem with a lambda that ignores its argument, so doctor_parts passing the wrong folder (the project root) still passes",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_setup.py came in from master (merge 0002d5d15e86) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_setup.py after the merge is covered by the green gate on cf6df416 and precheck/test_setup run now."
+      ],
+      "severity": "MEDIUM",
+      "since": "0002d5d15e868caaeee097a402d86e2bfc54f2b8",
+      "source": "merge",
+      "summary": "lib/relay_setup.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "cf6df416137e5901b5d806179abf5247b0b12479.gate.log",
+  "head": "49c8ad870ba13bca7aefd274e123a3ad4862ab57",
+  "item": "relay-doctor-does-not-name-a-main-checkout-whose",
+  "notes": [
+    "Fix uses rev-parse + hash-object, no git status; no caller broken."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head cf6df416 exit 0; HEAD 49c8ad87 only adds the gate log (no file listed by relay changed). Ran precheck (green) and pytest test_setup + test_hook_bin_relay (78 passed). Ran the new tests against base aabe5ebb: test_hook_bin_relay 5 failed, test_setup 3 bin_relay tests failed. Read the fix diff: bin_relay_problem and handover.py bin_relay_line."
+  ],
+  "type": "check"
+}

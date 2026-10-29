@@ -1,0 +1,32 @@
+{
+  "kind": "feature",
+  "ip": 80,
+  "time": 90,
+  "found_at": "2026-10-29T23:07:51Z",
+  "found_in": "relay queue add",
+  "title": "All decisions, by owner and agents, readable in one place",
+  "what": [
+    "Every decision, by the owner, the front or a reviewer, is a structured record in git with the same fields (question, options, chosen, decided_by, session, because, and the owner's answer_choice when the owner answered), and one relay command lists them all with filters (by item, by who decided, overruled or not), so a script that only parses JSON can tell who took each decision."
+  ],
+  "why": [
+    "30 Oct: decisions live in three places with three shapes: queue item notes (in git: owner questions and answers, front decisions), review JSON files with the owner's words from relay check owner (in the session's temporary folder, gone after a restart), and check records (in git) where a finding's verdict reason says in prose who decided (\"Owner said document only\") and `source` names the review file that is gone; 108 of 363 check records have no queue item. The owner chose that the reviewer decides review questions a principle answers. IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "lib/relay_queue.py",
+    "lib/relay_verdict.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T23:07:51Z",
+      "said": [
+        "Да, добавь оба пункта в задачу"
+      ]
+    }
+  ]
+}
