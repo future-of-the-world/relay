@@ -36,9 +36,10 @@ const GATE = { type: 'object', properties: {
   required: ['ok', 'gate_log'] }
 const REVIEW = { type: 'object', properties: {
   inside: { type: 'integer' }, high: { type: 'integer' }, medium: { type: 'integer' }, low: { type: 'integer' },
+  other_inside: { type: 'integer', description: 'inside findings other than the question or Design findings that wait for the owner' },
   outside: { type: 'integer' }, design_or_question: { type: 'boolean' }, remaining: { type: 'boolean' },
   main_point: { type: 'string', description: 'the most important finding in one plain sentence' } },
-  required: ['inside', 'outside', 'design_or_question', 'remaining', 'main_point'] }
+  required: ['inside', 'outside', 'design_or_question', 'other_inside', 'remaining', 'main_point'] }
 const CHECK = { type: 'object', properties: {
   open: { type: 'integer' }, met: { type: 'integer' }, not_met: { type: 'integer' },
   q1_test: { type: 'string', description: 'when the unit names a queue item: the test that proves Q1, as <test file>::<test name>; else empty' },
@@ -249,18 +250,31 @@ async function changeUnit(it) {
     agentOpts('critic', REVIEW, 'Review', `review: ${lab(it)}`))
   if (rv.dead) return stop(it, 'review', rv.dead)
   const r = rv.v
-  if (r.remaining || r.design_or_question) return stop(it, 'owner', r.main_point, { review: r })
+  if (r.remaining) return stop(it, 'owner', r.main_point, { review: r })
+  // A question or Design finding waits for the owner; every other inside finding is fixed first, gated and checked.
+  const waits = r.design_or_question
+  const toFix = waits ? (Number.isInteger(r.other_inside) ? r.other_inside : r.inside) : r.inside
+  if (waits && toFix <= 0) return stop(it, 'owner', r.main_point, { review: r })
   let fixes = 'none'
-  if (r.inside > 0) {
+  if (toFix > 0) {
     fixes = `${S}/reports/fix-${it.name}.md`
-    const f = await ask(`Fix the findings inside the change, each with its failing case and pass cases (read with \`relay check show ${reviewJson}\`). Worktree: ${it.wt}. Check: ${quiet(it)}.${quietNote()} New tests go in the change's own new test file (see the brief). For each new test show it fails without the fix. Findings outside the change: leave them, list them as Outside. Commit. Write your report (Fixed / Disputed / Gap / Outside per finding, with the test as file::function) to ${fixes}.`,
+    const wait = waits ? ' Every finding of kind question or Design (relay check show prints the kind) waits for the owner: do not fix it, leave it open.' : ''
+    const f = await ask(`Fix the findings inside the change, each with its failing case and pass cases (read with \`relay check show ${reviewJson}\`).${wait} Worktree: ${it.wt}. Check: ${quiet(it)}.${quietNote()} New tests go in the change's own new test file (see the brief). For each new test show it fails without the fix. Findings outside the change: leave them, list them as Outside. Commit. Write your report (Fixed / Disputed / Gap / Outside per finding, with the test as file::function) to ${fixes}.`,
       agentOpts('fixer', HANDBACK, 'Fix', `fix: ${lab(it)}`))
     if (f.dead || f.v.status !== 'DONE') return stop(it, 'fix', f.dead || f.v.summary, { review: r })
     const r2 = await gateGroup(it, st)
     if (r2.stop) return Object.assign(r2.stop, { review: r })
     gateLog = r2.g.gate_log
   }
-  return finish(it, st, { findings: reviewJson, fixes: fixesText([it.kind === 'built' ? 'none' : `${S}/reports/${it.name}.md`, fixes], st), gateLog, review: r })
+  const given = fixesText([it.kind === 'built' ? 'none' : `${S}/reports/${it.name}.md`, fixes], st)
+  if (waits) {
+    const c = await checkStage(it, `check: ${lab(it)}`,
+      `Check: \`${reviewJson}\`. Fixes: \`${given}\`. Worktree: \`${it.wt}\`. Check command: \`${quiet(it)}\`.${quietNote()} Gate: \`${gateLog}\`. Every question or Design finding waits for the owner.`,
+      `${S}/reports/check-${tag(it)}.json`, false)
+    if (c.dead) return stop(it, 'check', c.dead, { review: r })
+    return stop(it, 'owner', r.main_point, { review: r, open: c.v.open, check: c.v.summary, fail_without_fix: c.v.fail_without_fix, gateLog })
+  }
+  return finish(it, st, { findings: reviewJson, fixes: given, gateLog, review: r })
 }
 
 async function fixUnit(it) {

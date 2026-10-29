@@ -1,0 +1,249 @@
+{
+  "branch": "wt/squash-merge-projects-keep-check-records",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, the arsenal pilot design, scratchpad reports/design-arsenal.md (copy in ~/.relay/backup/scratch-3207dc59), risk 5: about 4 files under .relay/checks per change reach arsenal's master through the squash, naming shas of a branch Forgejo deletes at merge; an agent cannot drop them (guard-main refuses writes to .relay/checks once .relay/ is on the default branch). IP chosen by the front (agent-chosen).",
+        "Also: plugins/core/hooks/guard-main.sh (.relay/checks writes)",
+        "Also: docs/setup.md"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A temporary repo with .relay/ on main: a branch gets a check record, is squash-merged into main as one new commit, branch deleted; main now holds .relay/checks files naming commits main does not contain."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After the same squash-merge, no record on main names a commit main lacks (or the docs and setup state the limit plainly; owner 30 Oct chose document only)."
+      ],
+      "path": "lib/relay_marks.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_setup.py test_setup_doc_states_squash_merge_limit passes; fails on the base without the fix (AssertionError at line 25)."
+      ],
+      "severity": "HIGH",
+      "since": "cd807cd5b0c96c01bfef29d735dd9996ff4821d7",
+      "source": "queue",
+      "summary": "Squash-merge projects keep check records of lost commits",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the item, the diff and the fixer report. The item promises two things: records do not land naming missing commits,",
+        "and the PR merge is gated \"or the docs say plainly it is not\". The second has a documented alternative and is met by docs/setup.md:71-73.",
+        "The first has no documentation-only alternative in the pass case (\"docs and setup state it and relay keeps the records out\"). Meeting it",
+        "needs a decision on where check records live for squash projects (tree files under .relay/checks vs a git notes ref / a side ref / a",
+        "per-machine store, or a guard exception letting an agent git-rm a branch's records before its PR), which changes the design of",
+        "docs/plans/review-gate.md section 4.1 (relay_marks: \"the only code that reads or writes .relay/checks on a task branch\").",
+        "Owner context in the brief (29 Oct): relay never squashes and squash projects are outside relay land; that leans toward answer (a) of the",
+        "owner question, but it is the owner's to give.",
+        "Design: whether a squash-merge project keeps relay's check records as tree files on its default branch (documented limit) or relay moves",
+        "them out of the squashed tree.",
+        "Size: 5 for (a) (amend the item's pass case); 60+ for (b)."
+      ],
+      "evidence": [
+        "relay queue show squash-merge-projects-keep-check-records-of-lost -> Pass cases: \"After the same squash-merge, no record on main names a",
+        "commit main lacks (or the docs and setup state it and relay keeps the records out of the squashed tree).\"",
+        "fixer report: \"Documented the limit in docs/setup.md ... Not decided: keeping records out of the squash (needs owner).\"",
+        "git diff --stat master...HEAD -> docs/setup.md +5, tests/test_setup.py +8, gate log; no code change."
+      ],
+      "failing_case": [
+        "Queue item pass case: \"After the same squash-merge, no record on main names a commit main lacks (or the docs and setup state it AND",
+        "relay keeps the records out of the squashed tree)\". On the head: a temp repo with .relay/ on main, branch wt/x with a check record",
+        ".relay/checks/<sha-of-wt/x-head>.json, squash-merged into main, wt/x deleted -> main holds that file and `git cat-file -e <sha>` fails",
+        "on main. Neither branch of the pass case holds: the record is on main, and relay does nothing to keep it out (the change only documents it).",
+        "The fixer's own report says so (\"Not decided: keeping records out of the squash (needs owner)\"), yet the branch is reported DONE and the",
+        "cycle would close the item with `relay queue done`, so the open half disappears from the queue."
+      ],
+      "fix_hint": [
+        "Ask the owner: (a) accept the documented limit and amend the item's pass case, or (b) a design item for keeping records out of a",
+        "squashed tree. Do not close the item with the current pass case."
+      ],
+      "id": "F1",
+      "kind": "design",
+      "line": 71,
+      "owner": [
+        {
+          "date": "2026-10-30",
+          "words": [
+            "a a a a, \u0437\u0430\u043a\u0440\u044b\u0442\u044c"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. Owner answers \"document only\" -> the queue item's pass case is amended (relay queue edit) to \"docs and setup state the limit\", the",
+        "   docs/setup.md lines 71-75 stay, and the item closes; this is an owner entry on F1.",
+        "2. Owner answers \"keep records out\" -> after a squash-merge of a branch with a check record in a temp repo, main has no file under",
+        "   .relay/checks naming a commit main does not contain (git cat-file -e fails for none).",
+        "3. Either way, on a fast-forward merge (relay land, merge --ff-only wt/<name>) the records of the merged head stay readable on main",
+        "   (relay_marks reads <head>.json at the default branch) and the merge gate still refuses a head with no gate/review/check."
+      ],
+      "path": "docs/setup.md",
+      "rank": "medium",
+      "reason": [
+        "Owner said document only; docs/setup.md:71-75 states the limit."
+      ],
+      "severity": "MEDIUM",
+      "since": "0ceadae23631208613ef46543334272dae63d6bd",
+      "source": "review-squash-merge-projects-keep-check-records.json",
+      "source_id": "F1",
+      "summary": "the item's pass case is not met: records still land on main naming commits it lacks, and relay does not keep them out of the squash",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_setup.py:744-769 and the diff (relay_setup.py untouched). The item's pass case names \"the docs and setup\";",
+        "the change updated only docs/setup.md, which lives in relay, not in the project. Note: relay_folder writes only when the README is absent,",
+        "so arsenal's existing README will not change by itself; acceptable here (the README text is the fix), but worth saying to the owner.",
+        "Size: 10."
+      ],
+      "evidence": [
+        "sed -n 744,760p lib/relay_setup.py -> RELAY_README \"... A merge into the default branch is refused until the branch's last commit has",
+        "its gate, its review and its check.\" (no squash line)",
+        "git grep -n RELAY_README -- tests -> tests/test_queue.py:513 assertEqual(relay_setup.RELAY_README, committed_text(ROOT, \".relay/README.md\"))"
+      ],
+      "failing_case": [
+        "Setting a new project up (or the --relay-folder form) writes .relay/README.md from RELAY_README, which says",
+        "\"A merge into the default branch is refused until the branch's last commit has its gate, its review and its check.\" with no word that a",
+        "pull request squash-merged on the server is not gated and carries the checks/ files. An agent or person in arsenal reads that README,",
+        "not relay's docs/setup.md. The pass case says \"the docs and setup state it\"; setup states nothing new.",
+        "Should: the README text names the limit in one or two lines (merges made through relay only; a server-side squash is not gated and keeps",
+        "the checks/ files, naming commits of the deleted branch)."
+      ],
+      "fix_hint": [
+        "Add to RELAY_README under checks/: \"Only merges made through relay (relay land, the merge hook) are refused; a pull request",
+        "squash-merged on the server is not gated, and its checks/ files then name commits of the deleted branch.\" Copy the same text into",
+        "relay's own .relay/README.md; add the test of pass case 1."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 752,
+      "pass_cases": [
+        "1. relay_setup.relay_folder(<tmp>) on a fresh folder -> .relay/README.md contains the squash limit (a test asserts it reads the",
+        "   words \"squash\" and \"not gated\", like tests/test_setup.py:16-22).",
+        "2. relay's own .relay/README.md equals relay_setup.RELAY_README (tests/test_queue.py:513 keeps passing: update both together).",
+        "3. relay_folder on a folder that already has .relay/README.md -> the file is left unchanged (created = False), as today."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup.py test_relay_folder_readme_states_squash_limit passes, fails at base; README equals RELAY_README (test_queue passes)."
+      ],
+      "severity": "MEDIUM",
+      "since": "0ceadae23631208613ef46543334272dae63d6bd",
+      "source": "review-squash-merge-projects-keep-check-records.json",
+      "source_id": "F2",
+      "summary": "the .relay/README.md setup writes into a project still says every merge is refused; the squash limit is only in relay's own docs",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading merge.py's docstring. Narrower than the truth rather than wrong in the case that matters (squash), so LOW.",
+        "Size: 5."
+      ],
+      "evidence": [
+        "plugins/relay/hooks/merge.py:5-7 \"PreToolUse = the merge gate (section 7: refuses the merge, exit 2, one line), PostToolUse = the",
+        "cleanup after `git merge --ff-only wt/<name>`.\""
+      ],
+      "failing_case": [
+        "docs/setup.md:71 \"Limit: this holds for merges made by `relay land`, which never squashes.\" A reader concludes that an agent's",
+        "`git merge --ff-only wt/x` in a Claude Code session is not gated; it is (plugins/relay/hooks/merge.py, PreToolUse, \"the merge gate",
+        "(section 7: refuses the merge)\"). What is not gated is a merge made outside relay's hooks: a server-side pull-request merge, or a",
+        "person's own git in a terminal."
+      ],
+      "fix_hint": [
+        "\"Limit: this holds for merges relay makes or sees (relay land and an agent's `git merge --ff-only wt/<name>`), which never squash.\""
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 71,
+      "pass_cases": [
+        "1. The limit sentence names both gated paths: relay land and an agent's `git merge --ff-only wt/<name>` (the merge hook).",
+        "2. It still says a server-side squash merge is not gated and carries the checks/ files naming commits of the deleted branch.",
+        "3. tests/test_setup.py test_setup_doc_states_squash_merge_limit keeps passing."
+      ],
+      "path": "docs/setup.md",
+      "rank": "low",
+      "reason": [
+        "docs/setup.md:71 names the merge hook and git merge --ff-only wt/<name>; asserted in the doc test."
+      ],
+      "severity": "LOW",
+      "since": "0ceadae23631208613ef46543334272dae63d6bd",
+      "source": "review-squash-merge-projects-keep-check-records.json",
+      "source_id": "F3",
+      "summary": "the limit says the gate holds only for merges made by `relay land`; the merge hook also gates an agent's `git merge --ff-only wt/<name>`",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the test: three independent assertIn over the whole file. Correct today (the words appear only in the new",
+        "paragraph; master has none), fragile later. Size: 5."
+      ],
+      "evidence": [
+        "tests/test_setup.py:16-22 text = open(docs/setup.md).read(); assertIn(\"squash\"); assertIn(\"not gated\"); assertIn(\"name commits\")",
+        "git show master:docs/setup.md | grep -i \"squash|not gated|name commits\" -> nothing"
+      ],
+      "failing_case": [
+        "Delete docs/setup.md lines 71-75 and add elsewhere \"squash\", \"not gated\" and \"name commits\" in unrelated sentences (e.g. a future",
+        "section on another tool) -> test_setup_doc_states_squash_merge_limit still passes though the limit is gone."
+      ],
+      "fix_hint": [
+        "Assert one phrase from the paragraph, e.g. \"squash on its server is not gated\", or locate the \"Limit:\" line and assert within it."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 16,
+      "pass_cases": [
+        "1. With lines 71-75 as on the head -> the test passes.",
+        "2. With the limit paragraph removed -> the test fails.",
+        "3. A word \"squash\" elsewhere in the file alone does not make the test pass."
+      ],
+      "path": "tests/test_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup.py:20-25 asserts inside the Limit paragraph only."
+      ],
+      "severity": "LOW",
+      "since": "0ceadae23631208613ef46543334272dae63d6bd",
+      "source": "review-squash-merge-projects-keep-check-records.json",
+      "source_id": "F4",
+      "summary": "the doc test passes on any three words anywhere in setup.md, not on the limit paragraph",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_setup.py came in from master (merge b14d4f6d467b) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_setup.py change is the README text; setup tests pass and gate is green on the head."
+      ],
+      "severity": "MEDIUM",
+      "since": "b14d4f6d467bafb7647dcde23df86dfff836693f",
+      "source": "merge",
+      "summary": "lib/relay_setup.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "58f91cd14eab5fdea868e39c4e73e262a442cf04.gate.log",
+  "head": "82e9131c0be43fbfed5660578cf59533299f784f",
+  "item": "squash-merge-projects-keep-check-records-of-lost",
+  "notes": [
+    "Fixer report file was named fixes-...md and holds one line. F1 was settled by the owner (not wrong, document only)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 33ecdb60..HEAD (fix 58f91cd1 plus gate log). Files: README, docs/setup.md, lib/relay_setup.py, tests/test_setup.py, all named by findings. Ran pytest on tests/test_setup.py and test_queue.py (69 passed, includes README==RELAY_README test). Gate green on 58f91cd1, only the gate log came after. Both new/changed tests fail on 33ecdb60 with the test file copied in."
+  ],
+  "type": "check"
+}

@@ -1782,3 +1782,35 @@ Each branch waits for its answer; then a fix unit with the review's other findin
 1. Owner answers → fix units for the three waiting branches.
 2. Linux path: each-change-is-gated-in-a-fresh-container (95), speed-up-the-quick-gate.
 3. Next handover worktree: handover-46.
+
+## Addendum 34 (30 Oct, ~03:00 local; session 6c217ef4)
+
+### Landed since addendum 33
+- Metrics (stage times, cost, coverage on every gate); lane start uses the project's worktree folder; ALIX .worktree/ recognised by the guard; cost attribution finds ALIX lanes through relay_config.worktrees_folder.
+- The checker ignores archive-only commits; the SIGTERM change (probe in bin/ci's group, gate log names the signal; sender hunt is item a-sigterm-in-a-gate-does-not-name-its-sender, ip 92).
+- Rebase keeps records only when master changed none of the branch's own files (owner "a"); squash limit documented, in setup's README too (owner "a"); session-start hook names an overwritten bin/relay (owner "a").
+- The cycle no longer stops all fixes at a question for the owner: it fixes the rest, gates, checks, and waits only on the question.
+- lib modules exist once: plugins/*/lib are symlinks to lib/ (34 files); bin/sync-lib-copies gone (landing at the time of writing: confirm in git log).
+
+### Owner decisions (verbatim)
+- 29-30 Oct night: "a a a a, закрыть" (rebase a, squash a, doctor a, SIGTERM a; two-branches item closed as already fixed).
+- "Сейчас ты ждал моего ответа 3 часа, ведь я отошел поспать, все это время никакой полезной работы не было выполнено, как мы можем исправить ситуацию" → design; then "a a": review questions a principle answers, and reversible scope cuts, are decided without the owner, by the reviewer, who writes the principle in its review.
+- "Хорошо сними пункт" (fseventsd item dropped: load is machine-wide, ends with the Linux move).
+- Decision record: "изначально я подразумевал ту же самую структуру с вопросом, вариантами ответа и выбором + поле для пометки (ответил AI) ..."; then "Да, добавь оба пункта в задачу" (session id in the record; all decisions in one place → item all-decisions-by-owner-and-agents-readable-in-on).
+- Reports: "... я не хочу терять важные отчеты для выполнения задач, более того - я хочу хранить их в репозитории" → design done; item reports-a-task-needs-are-kept-in-the-repository (ip 93).
+- "Можем ли мы использовать Fable для рецензента ?" → benched.
+
+### Front decisions (owner can reverse; recorded on the items)
+- Build one-copy lib now with symlinks; self-wake timer max 55 min; waiting changes keep lanes for a week of measuring; no default-on-timeout.
+- Decision record: build the record first (~65 min); list and guard-hook later; a digest line per agent decision.
+- Reports in repo: approach A2 (.relay/work/<branch>/ ignored, committed to .relay/reports/<key>/ after landing; all but copies and logs, ~1.4 MiB/week).
+- Fable reviewer: not switched. Bench (12 runs): Fable critic found the bug 5/5, Opus critic 1/2; but the front started no critic in 5 of 12 runs → fix item the-front-reviews-code-itself-instead-of-startin (87) first, then a wider review bench.
+- A one-time backup of this session's scratchpad: ~/.relay/backup/scratch-6c217ef4-20261030 (15 MB).
+
+### In progress
+- a-queue-question-can-be-answered-by-an-agent-mar (decision record build), a-dead-workflow-agent-leaves-no-error-text, relay-check-starts-238-git-processes-per-run (fix round 2: batch reads), the-ledger-misses-the-start-of-many-agents, landings of doctor and one-copy lib.
+- Leftover worktrees: wt/train-20 and wt/train-22 lose nothing if removed (auto-mode refused `git worktree remove --force`; ask the owner); wt/train-19 holds 3 old check records only; wt/plans-save holds 4 unbuilt designs (checks-artifacts, cycle-scripts, dev-metrics, test-speed): keep.
+
+### Next steps
+1. Next free lanes: reports-a-task-needs-are-kept-in-the-repository (93, design in scratchpad reports/design-reports-in-repo.md, backup copy in ~/.relay/backup), one-stuck-queue-pick-hides-every-other-startable (94), work-goes-on-while-the-owner-is-away (reviewer decides + self-wake), the-front-reviews-code-itself-instead-of-startin (87).
+2. Next handover worktree: handover-47.

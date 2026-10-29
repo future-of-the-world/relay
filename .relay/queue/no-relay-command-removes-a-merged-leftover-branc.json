@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 60,
+  "time": 30,
+  "found_at": "2026-10-29T22:28:33Z",
+  "found_in": "relay queue add",
+  "title": "No relay command removes a merged leftover branch",
+  "what": [
+    "One relay command (or relay doctor's suggested step) removes a task worktree and its branch when the worktree is clean and the branch has no commit outside the default branch, and refuses otherwise naming what it holds; the guard's refusal of `git branch -d` names that command."
+  ],
+  "why": [
+    "30 Oct: wt/queue-edit and wt/relay-plugins were clean and fully in master, but `git branch -d` from the main checkout is refused by guard-main and relay has no command that removes a leftover branch, so the branches stay; the worktrees were removed with `git worktree remove`. relay doctor lists leftovers but names no removal step. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "30 Oct, /Users/amidman/relay: `git branch -d wt/queue-edit` refused by guard-main; `bin/relay help` lists no removal command."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A clean branch fully in master is removed with its worktree by the command",
+    "A branch with a commit outside master is refused, the refusal names the commits",
+    "The guard's refusal of git branch -d names the command"
+  ],
+  "where": [
+    "plugins/relay/hooks/guard_main.py",
+    "bin/relay"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

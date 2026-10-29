@@ -1,0 +1,200 @@
+{
+  "branch": "wt/the-cycle-stops-all-fixes-at-a-question",
+  "findings": [
+    {
+      "details": [
+        "30 Oct, design review of \"no idle while the owner is away\": plugins/delegate/workflows/cycle.js:252 stops a unit at \"owner\" as soon as its review has one question or Design finding, before any fixing, though the delegate skill says only that finding waits. On 29 Oct this held 1 HIGH, 2 MEDIUM and 7 LOW findings on 3 branches from about 19:30 to 01:26 while the owner slept. Owner, 30 Oct ~01:20: \"\u0421\u0435\u0439\u0447\u0430\u0441 \u0442\u044b \u0436\u0434\u0430\u043b \u043c\u043e\u0435\u0433\u043e \u043e\u0442\u0432\u0435\u0442\u0430 3 \u0447\u0430\u0441\u0430, \u0432\u0435\u0434\u044c \u044f \u043e\u0442\u043e\u0448\u0435\u043b \u043f\u043e\u0441\u043f\u0430\u0442\u044c, \u0432\u0441\u0435 \u044d\u0442\u043e \u0432\u0440\u0435\u043c\u044f \u043d\u0438\u043a\u0430\u043a\u043e\u0439 \u043f\u043e\u043b\u0435\u0437\u043d\u043e\u0439 \u0440\u0430\u0431\u043e\u0442\u044b \u043d\u0435 \u0431\u044b\u043b\u043e \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u043e, \u043a\u0430\u043a \u043c\u044b \u043c\u043e\u0436\u0435\u043c \u0438\u0441\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u0441\u0438\u0442\u0443\u0430\u0446\u0438\u044e\". IP chosen by the front (agent-chosen).",
+        "Also: tests/test_cycle_workflow.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A review with F1 HIGH inside and F2 question: the unit stops at \"owner\" with F1 unfixed (cycle.js:252)."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same review: the fixer prompt names F1 and not F2, the gate runs, the unit stops at owner with only F2 open",
+        "A review with only a question: the unit stops at owner as today",
+        "After the answer, a fix unit for F2 alone, then gate and check"
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "high",
+      "reason": [
+        "tests/test_cycle_workflow.py::test_a_question_does_not_hold_the_other_findings passes at head, fails at 541e5bb2."
+      ],
+      "severity": "HIGH",
+      "since": "541e5bb220338cb9d909baa55ffd960fb6279ccc",
+      "source": "queue",
+      "summary": "The cycle stops all fixes at a question for the owner",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a probe through the fake runtime. `r.other_inside || 0` turns a missing field into \"nothing to fix\", a",
+        "default that looks like data. The field is optional and the critic's structured output need not fill it (this very",
+        "review's output schema, from master's cycle.js, has no such field); a judge whose StructuredOutput schema came from an",
+        "older session copy (the skill notes `delegate:cycle` stays as the session first saw it) would never send it.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "probe test_omitted: OMITTED ['build: i', 'gate 1: i', 'review: i'] owner",
+        "cycle.js:42 required: ['inside', 'outside', 'design_or_question', 'remaining', 'main_point']"
+      ],
+      "failing_case": [
+        "Review answer {inside: 3, design_or_question: true, remaining: false, main_point: \"q\"} with no other_inside key",
+        "(the field is not in REVIEW.required, cycle.js:42). Now: labels build, gate 1, review; stopped_at \"owner\"; no fixer.",
+        "Should be: the fixer runs on the other inside findings, gate 2, check, then stop at owner."
+      ],
+      "fix_hint": [
+        "Add other_inside to REVIEW.required, and when it is still absent fall back to r.inside (the fixer prompt already says to",
+        "leave the waiting finding alone, so a run with nothing else to fix costs one fixer and one gate, not a lost night)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 256,
+      "pass_cases": [
+        "1. {inside: 3, design_or_question: true} with other_inside missing: labels include \"fix: i\", \"gate 2: i\", \"check: i\"; stopped_at owner.",
+        "2. {inside: 1, design_or_question: true, other_inside: 0}: labels end at \"review: i\", stopped_at owner, no fix (test 3 today).",
+        "3. {inside: 2, design_or_question: true, other_inside: 1}: fix, gate 2, check, stopped_at owner (the new test).",
+        "4. {inside: 1, design_or_question: false}: fix, gate 2, check, close, show as today."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py test_f1_a_review_without_other_inside_still_fixes_before_the_owner passes; fails at 85561d44."
+      ],
+      "severity": "MEDIUM",
+      "since": "85561d4475ddc14b9e8aea56bf20a0388befd2bd",
+      "source": "review-the-cycle-stops-all-fixes-at-a-question.json",
+      "source_id": "F1",
+      "summary": "a review that sets design_or_question but leaves out the optional other_inside falls back to 0 and stops at owner with every finding unfixed, the very bug this change fixes",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The brief's What: \"the fixer prompt names which\"; pass case 1: \"the fixer prompt names F1 and not",
+        "F2\". The REVIEW schema carries no ids, so the prompt cannot name F2 today; the new test asserts only the phrase",
+        "\"waits for the owner\". A fixer that fixes a question finding answers the owner's question for the owner.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "cycle.js:261 const wait = waits ? ' One finding is a question or Design finding that waits for the owner: do not fix it, leave it open.' : ''",
+        "tests/test_cycle_workflow.py:192 self.assertIn(\"waits for the owner\", out[\"prompts\"][\"fix: i\"])"
+      ],
+      "failing_case": [
+        "Review with F1 HIGH inside, F2 question and F3 Design finding. Fixer prompt now: \"One finding is a question or Design",
+        "finding that waits for the owner: do not fix it, leave it open.\" It names no id and no kind, and says one where there",
+        "are two; the fixer may settle F3 or F2 itself. Should be: the prompt names the waiting findings (F2, F3) or the rule",
+        "that picks them (every finding of kind question or design), so the fixer fixes F1 only."
+      ],
+      "fix_hint": [
+        "Either add `waiting: string` (ids, e.g. \"F2, F3\") to REVIEW and put it in the prompt, or say \"leave open every finding of",
+        "kind question or design (relay check show prints the kind): they wait for the owner\". Assert the text in the test."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 261,
+      "pass_cases": [
+        "1. Review F1 inside + F2 question: the \"fix: i\" prompt names F2 (or \"kind question or design\") as left open, and the",
+        "   test asserts that text, not only \"waits for the owner\".",
+        "2. Review F1 inside + F2 question + F3 design: the prompt covers both F2 and F3 (no singular \"One finding\").",
+        "3. Review with no question: the fix prompt carries no waiting sentence (as today)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py test_f2_the_fix_prompt_names_the_rule_for_every_waiting_finding passes; fails at 85561d44."
+      ],
+      "severity": "MEDIUM",
+      "since": "85561d4475ddc14b9e8aea56bf20a0388befd2bd",
+      "source": "review-the-cycle-stops-all-fixes-at-a-question.json",
+      "source_id": "F2",
+      "summary": "the fixer prompt does not name which finding waits (the brief promises it does) and says 'One finding' even when a review holds two questions",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: no test or text covers the item's third pass case. The generic fix unit exists and works, so this",
+        "is guidance, not broken code. Size: 15 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Owner answers F2 \"keep it as it is\" (no code). The waits path ran its check with no queue close (cycle.js:273,",
+        "withItem false). In relay mode kind recheck is refused and kind fix needs a fix prompt; the skill gives no shape for",
+        "\"check F2 and close the item\". Should be: the skill (or the unit list at cycle.js:13-16) names the unit to run after the",
+        "answer: kind fix with findings = the review JSON and fixes = the first fix report plus the new one, and what to run when",
+        "no code is needed."
+      ],
+      "fix_hint": [
+        "One paragraph in SKILL.md step 9 and one test of the fix unit with fixes naming two reports."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 222,
+      "pass_cases": [
+        "1. The skill's step 9 names the after-answer unit: kind fix, findings = review JSON, fixes = the earlier fix report and the new one.",
+        "2. It says what runs when the answer needs no code (owner entry, then a check that closes the item).",
+        "3. A test runs a fix unit after a waits stop and sees fix, gate, check, close queue item."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "low",
+      "reason": [
+        "SKILL.md step 9 now names the kind=fix unit after the owner answers; test_f3 passes (guidance test, passes at base too)."
+      ],
+      "severity": "LOW",
+      "since": "85561d4475ddc14b9e8aea56bf20a0388befd2bd",
+      "source": "review-the-cycle-stops-all-fixes-at-a-question.json",
+      "source_id": "F3",
+      "summary": "nothing says what the front runs after the owner answers (pass case 3), and an answer that needs no code has no unit that checks and closes the queue item",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe. Both a NOT MET and a question go to the owner (skill step 9), so the routing is right; only the",
+        "hand-back hides the failed fix behind the question's main point. The checker is also told to \"report it as open\",",
+        "while the record derives open itself (a LOW question has no open count), so the reported open can differ from the record.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "probe test_notmet: {'stopped_at': 'owner', 'detail': 'q', ..., 'open': 2, 'check': 'F1 NOT MET'}"
+      ],
+      "failing_case": [
+        "Waits path, check answers {open: 2, summary: \"F1 NOT MET\"}. Result now: stopped_at \"owner\", detail \"q\" (the question),",
+        "check \"F1 NOT MET\", no fail_without_fix, no gateLog. Should be: the detail or stop names the failed fix too, and the",
+        "result carries fail_without_fix like finish() does."
+      ],
+      "fix_hint": [
+        "Pass fail_without_fix and gateLog into the stop, and drop \"report it as open\" from the check prompt (the record derives it)."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 275,
+      "pass_cases": [
+        "1. Waits path, check open 2 with F1 NOT MET: the result's detail or check field shows F1 NOT MET and fail_without_fix is present.",
+        "2. Waits path, check met everything but the question: stopped_at owner, detail = the question (as now)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "low",
+      "reason": [
+        "tests/test_cycle_workflow.py test_f4_a_not_met_fix_on_the_waits_path_is_not_hidden passes; fails at 85561d44."
+      ],
+      "severity": "LOW",
+      "since": "85561d4475ddc14b9e8aea56bf20a0388befd2bd",
+      "source": "review-the-cycle-stops-all-fixes-at-a-question.json",
+      "source_id": "F4",
+      "summary": "on the waits path a check that finds a fix NOT MET still stops at owner with the question as its detail, and the result drops fail_without_fix and the gate log",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "9103674f3fb85699fd6fe012396804dbc32d7adf.gate.log",
+  "head": "cbaec7b7742d37ca723605964b8a54ed239a0747",
+  "item": "the-cycle-stops-all-fixes-at-a-question-for-the",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range 85561d44..HEAD; files: SKILL.md, cycle.js, test_cycle_workflow.py only. Gate 9103674f exit 0, later commit adds only the gate log. pytest tests/test_cycle_workflow.py: 45 passed. Base checks at 541e5bb2 and 85561d44 with head test file."
+  ],
+  "type": "check"
+}

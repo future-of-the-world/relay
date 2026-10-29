@@ -1,0 +1,36 @@
+{
+ "agents": [],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "test-churn-keeps-fseventsd-at-a-full-core-and-7",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T11:22:52+00:00",
+   "file": "lib/relay_gate.py",
+   "holder": "wt/gates-and-tests-stop-what-an-earlier-tes",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-29T11:42:09+00:00",
+   "file": "lib/relay_gate.py",
+   "holder": "wt/gate-jobs-and-slots-follow-the-machine-s",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-29T14:47:33+00:00",
+   "file": "lib/relay_gate.py",
+   "holder": "each-change-records-its-stage-times-cost-and-cov",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-29T18:33:33+00:00",
+   "file": "lib/relay_gate.py",
+   "holder": "wt/a-gate-test-is-stopped-by-an-unknown-sig",
+   "kind": "held"
+  }
+ ],
+ "schema": 1,
+ "unit": "test-churn-keeps-fseventsd-at-a-full-core-and-7"
+}

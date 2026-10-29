@@ -155,6 +155,40 @@ def _covered(repo, paths, until, default, absorbed):
     return covered
 
 
+def _patch_id(repo: str, base: str, commit: str) -> str | None:
+    """The patch id (whitespace kept: re-indenting is a change) of the change from `base` to `commit`, leaving out the check files (`.relay/checks`); None when the
+    change is empty or git cannot tell. The id is the same for a change a rebase moved onto a new base."""
+    diff = subprocess.run(["git", "-C", repo, "diff", "--no-renames", "--no-ext-diff", "--no-textconv", "--no-color", "--binary", base, commit, "--", ".", ":(exclude).relay/checks"],
+                          capture_output=True)
+    if diff.returncode != 0 or not diff.stdout:
+        return None
+    done = subprocess.run(["git", "-C", repo, "patch-id", "--verbatim"], input=diff.stdout, capture_output=True)
+    fields = done.stdout.split()
+    return fields[0].decode() if done.returncode == 0 and fields else None
+
+
+def twin(repo: str, old: str, ref: str) -> str | None:
+    """The commit of the branch at `ref` that a rebase made of `old` (a commit no longer in `ref`'s history): the newest commit
+    of the branch whose change from its merge-base with the default branch has the same patch id as `old`'s (the check files
+    left out). None when `old` is not a commit here, is already in the history (then it is itself the answer, `old`), or no
+    commit of the branch has that patch: a rebase that changed the patch has no twin."""
+    if relay_git.git(repo, "cat-file", "-e", old + "^{commit}")[0] != 0:
+        return None
+    if _is_ancestor(repo, old, ref):
+        return old
+    default = _default_ref(repo)
+    rc, base = relay_git.git(repo, "merge-base", old, default)
+    wanted = _patch_id(repo, base, old) if rc == 0 else None
+    if wanted is None:
+        return None
+    for commit in _git(repo, "rev-list", "--topo-order", ref, "^" + default).split():
+        rc, fork = relay_git.git(repo, "merge-base", commit, default)
+        if rc == 0 and _patch_id(repo, fork, commit) == wanted:
+            # the default branch changed a file the branch also changed: the combined file was never checked (as by a merge)
+            return None if changed(repo, old, commit, own=True) else commit
+    return None
+
+
 def own_marks(repo, tip, default, inner, stored):
     """The commits of the branch at `tip` that carry a mark in `stored`, newest first (topological), left out those inside a
     branch of `inner` ({branch: tip}): a rider's check judged its own side only, so it never vouches for the combined tree."""

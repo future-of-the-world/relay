@@ -185,7 +185,7 @@ def get(repo, ref, commit):
     return mark if _valid(mark, commit) else None
 
 
-def marks(repo, ref):
+def marks(repo: str, ref: str) -> list[tuple[str, dict]]:
     """[(commit, mark)] for every well-formed mark at `ref`, sorted by commit."""
     found = []
     for name in _names(repo, ref):
@@ -193,6 +193,29 @@ def marks(repo, ref):
             mark = get(repo, ref, name[:-5])
             if mark is not None:
                 found.append((name[:-5], mark))
+    return found + rebased(repo, ref, {c for c, _ in found})
+
+
+def rebased(repo: str, ref: str, have: set[str]) -> list[tuple[str, dict]]:
+    """[(twin, mark)] for each mark the branch at `ref` holds of a commit a rebase replaced with one of the same patch
+    (`relay_inert.twin`): the check and the review still count, only a new gate is needed. A mark whose commit is in the
+    history, is on the default branch already, or has no twin is left out, and so is a twin that has a mark of its own."""
+    import relay_inert
+    name = relay_git.default_branch(repo)
+    if name is None:
+        return []
+    merged = set(_names(repo, "refs/heads/" + name))
+    found = []
+    for commit in sorted(have):
+        if "%s.json" % commit in merged:
+            continue
+        try:
+            moved = relay_inert.twin(repo, commit, ref)
+        except ValueError:
+            continue
+        mark = get(repo, ref, commit)
+        if moved is not None and moved != commit and moved not in have and mark is not None:
+            found.append((moved, mark))
     return found
 
 
@@ -273,7 +296,7 @@ def wait_for_lock(worktree, limit=None, sleep=time.sleep):
     return not os.path.exists(path)
 
 
-def show(repo, branch, sleep=time.sleep):
+def show(repo: str, branch: str, sleep=time.sleep) -> list[str]:
     """The three lines of `relay check show`: gate, mark, outside items, read at `branch`'s head (after waiting for a
     mark commit in flight in the branch's worktree)."""
     tree = next((w for w in relay_git.worktrees(repo) if w["branch"] == branch), None)
@@ -299,6 +322,9 @@ def show(repo, branch, sleep=time.sleep):
     # and not a rider's mark inside an absorbed branch; read just those commits' marks, not every stored one
     candidates = relay_git.git(repo, "rev-list", "--topo-order", ref, "^" + default)[1].split()
     stored = {c: m for c in candidates for m in [get(repo, ref, c)] if m is not None}
+    named = {n[:-5] for n in _names(repo, ref) if n.endswith(".json") and is_sha(n[:-5])}    # names only: no mark of another branch is read
+    for moved, kept in rebased(repo, ref, named - set(candidates)):    # a rebase that left the patch alone
+        stored.setdefault(moved, kept)
     own = relay_inert.own_marks(repo, ref, default, ab, stored)
     mark = (own[0], stored[own[0]]) if own else None
     if mark is None:

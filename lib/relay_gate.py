@@ -425,6 +425,11 @@ def reused_red(red: tuple[int, str, list[str]]) -> tuple[int, str, list[str]]:
     return red
 
 
+def signal_line(number: int) -> str:
+    """The gate log's line for a command ended by a signal; the sender is unknown (only the receiver can read si_pid)."""
+    return "gate command ended by %s (sender unknown: the stop went to the command, not to the gate)" % {int(s): s.name for s in signal.Signals}.get(number, "signal %d" % number)
+
+
 def hold_stops() -> tuple[list[int], Callable[[], None]]:
     """Hold SIGINT, SIGTERM and SIGHUP: arrivals are appended to the returned list instead of acting. The function returned
     puts the earlier handlers back. Not the main thread: nothing is held (the caller owns its signals)."""
@@ -531,7 +536,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                     tokens, token_wait = relay_tokens.take_base(home, st, relay_tokens.GATE, st.per_gate, lambda line: notify("gate: " + line))
                     waited += token_wait
                     env[relay_tokens.ENV_HOLD] = relay_tokens.hold_value(st.per_gate, home)
-                proc = None
+                proc, stopped_by = None, ""
                 try:
                     with open(out_path, "wb") as sink:
                         # the lock file goes to the command: the OS keeps the lock until its last process ends, even if this process is killed
@@ -552,6 +557,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                         lock.flush()
                         returncode = proc.wait()
                     code = returncode if returncode >= 0 else 128 - returncode
+                    stopped_by = signal_line(-returncode) if returncode < 0 else ""
                 except OSError as exc:
                     with open(out_path, "w") as text_sink:
                         text_sink.write("gate command could not start: %s\n" % exc)
@@ -572,6 +578,8 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
             # the lock stays until the log is committed: a second gate of this worktree then finds the log
             with open(out_path, encoding="utf-8", errors="replace") as handle:
                 output = handle.read()
+            if stopped_by:
+                output += ("" if output.endswith("\n") or not output else "\n") + stopped_by + "\n"
             if license_lines:
                 output += ("" if output.endswith("\n") or not output else "\n") + "license check FAILED\n" + "".join("  %s\n" % line for line in license_lines)
                 code = code or 1

@@ -1,0 +1,15 @@
+head c9a909df39fd61823669c49fdbcc12d8f465dc65
+cmd bin/ci --quick
+wait 279.8
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (628s, log: .ci/steps/library-tests.log)
+    FAIL: test_show_reads_only_the_marks_of_the_branchs_own_commits_and_computes_absorbed_once (test_merge_train.RefusalsNameTheSteps.test_show_reads_only_the_marks_of_the_branchs_own_commits_and_computes_absorbed_once)
+    AssertionError: {'90cdc0b37567ee10d5eaa5e29f6c3a6108d5c19a', '32fa37648139ad4fcafa863b665f695b0834d40f', 'c59d0ac0d90310cba09939fc4d357a2115f179fc', '8b28fbe98876461c0db38a93ee72c7df57f275f6', '570dc121c643a81223af74ce3bddcfcf9fffa933', '511d4d0350ab37de323e9e13b92cde9ccec3d017'} not less than or equal to {'90cdc0b37567ee10d5eaa5e29f6c3a6108d5c19a', '8b28fbe98876461c0db38a93ee72c7df57f275f6', 'c59d0ac0d90310cba09939fc4d357a2115f179fc'}
+    FAILED (failures=1)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (0s)
+ci: RED
+exit 1
