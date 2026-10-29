@@ -8,10 +8,14 @@ removed by the hook. `relay check record check` itself makes no mark. Real throw
 import datetime as dt
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
+import relay_git
 import test_merge_train as tmt
 
 ROOT = tmt.ROOT
@@ -22,7 +26,7 @@ START_EPOCH = dt.datetime.fromisoformat(START.replace("Z", "+00:00")).timestamp(
 
 
 class CheckerStop(tmt.TrainCase):
-    def relay_record(self, train, gate, name="in.toml"):
+    def relay_record(self, train, gate, name="in.toml", env=None):
         head = self.git(train, "rev-parse", "HEAD")
         report = os.path.join(self.tmp, "rec-" + name + ".json")
         toml = os.path.join(self.tmp, name)
@@ -30,7 +34,7 @@ class CheckerStop(tmt.TrainCase):
             handle.write("report = '%s'\nhead = '%s'\nworktree = '%s'\ngate = '%s'\nreview = []\n[[status]]\nid = 'M1'\nverdict = 'MET'\n"
                          "reason = ['lib/shared.py:1']\n" % (report, head, train, gate))
         done = subprocess.run([sys.executable, RELAY, "check", "record", "check", "--input", toml], capture_output=True, text=True,
-                              env={**os.environ, "RELAY_ROOT": ROOT}, cwd=train)
+                              env={**os.environ, "RELAY_ROOT": ROOT, **(env or {})}, cwd=train)
         return head, report, done
 
     def transcript(self, train, label, printed=()):
@@ -163,6 +167,78 @@ class CheckerStop(tmt.TrainCase):
         stored = self.git(train, "show", "HEAD:.relay/checks/%s.check.json" % head)
         self.assertIn("lib/shared.py:1", stored)
         self.assertNotIn("lib/shared.py:2", stored)
+
+
+    def git_spy(self):
+        """A `git` on PATH that appends `<folder>|<arguments>` to a log for each process started; (env, log path)."""
+        folder = os.path.join(self.tmp, "spy")
+        os.makedirs(folder)
+        log = os.path.join(folder, "calls.log")
+        script = os.path.join(folder, "git")
+        with open(script, "w") as handle:
+            handle.write('#!/bin/sh\necho "$PWD|$*" >> "%s"\nexec "%s" "$@"\n' % (log, shutil.which("git")))
+        os.chmod(script, 0o755)
+        return {"PATH": folder + os.pathsep + os.environ["PATH"]}, log
+
+    def test_one_check_record_asks_git_each_question_once_and_in_few_processes(self):
+        # Measured 29 Oct (master ee932b26): one `relay check record check` on a train of two ready changes started 239 git
+        # processes, 18 of them `diff --name-only` and 16 `rev-parse --git-common-dir`, most the same question again.
+        # Now: no question (folder + arguments) is asked twice, and the run stays far under the old count. The ceiling 120 is
+        # between the 81 measured after the fix and the 239 before; the fixture's three merges make it not a per-record bound.
+        train, gate = self.train_ready()
+        env, log = self.git_spy()
+        head, report, done = self.relay_record(train, gate, env=env)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        with open(log) as handle:
+            calls = handle.read().splitlines()
+        again = sorted({c for c in calls if calls.count(c) > 1})
+        # lib/relay_queue.py reads the queue with its own git calls (not part of this item): its repeats are left out
+        queue = ("cat-file --batch", "ls-tree --name-only HEAD .relay/queue/", "rev-parse --verify HEAD")
+        self.assertEqual([a for a in (c.split("|", 1)[1].split(" ", 2)[2] for c in again) if not a.startswith(queue)], [])
+        self.assertLess(len(calls), 120)
+
+
+class GitAnswersKept(unittest.TestCase):
+    """lib/relay_git.py: what cannot change is asked once; what can change only inside `reading()`."""
+
+    def setUp(self):
+        self.repo = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.repo, True)
+        for args in (["init", "-q"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "one"]):
+            subprocess.run(["git", "-C", self.repo, *args], check=True, capture_output=True)
+        self.sha = subprocess.run(["git", "-C", self.repo, "rev-parse", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
+        self.started = []
+        real = subprocess.run
+        def counting(command, *a, **k):
+            self.started.append(command)
+            return real(command, *a, **k)
+        patch = mock.patch.object(relay_git.subprocess, "run", counting)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_a_question_about_a_full_sha_is_asked_once(self):
+        # A commit never changes: its parent listing asked twice starts one process.
+        first = relay_git.git(self.repo, "rev-list", "--count", self.sha)
+        second = relay_git.git(self.repo, "rev-list", "--count", self.sha)
+        self.assertEqual((first, second, len(self.started)), ((0, "1"), (0, "1"), 1))
+
+    def test_a_question_about_a_branch_is_asked_again_outside_reading_and_once_inside(self):
+        # A branch can move: outside `reading()` two asks start two processes (2); inside, two asks start one (1), and the
+        # window ends with the block, so the next ask starts one more (1 + 2 + 1 = 4 in all).
+        relay_git.git(self.repo, "rev-parse", "HEAD")
+        relay_git.git(self.repo, "rev-parse", "HEAD")
+        with relay_git.reading():
+            relay_git.git(self.repo, "rev-parse", "HEAD")
+            relay_git.git(self.repo, "rev-parse", "HEAD")
+        relay_git.git(self.repo, "rev-parse", "HEAD")
+        self.assertEqual(len(self.started), 2 + 1 + 1)
+
+    def test_a_missing_object_is_not_remembered(self):
+        # An object not there yet may be made later: a failed answer about a sha is not kept.
+        absent = "0" * 40
+        self.assertNotEqual(relay_git.git(self.repo, "cat-file", "-e", absent + "^{commit}")[0], 0)
+        self.assertNotEqual(relay_git.git(self.repo, "cat-file", "-e", absent + "^{commit}")[0], 0)
+        self.assertEqual(len(self.started), 2)
 
 
 if __name__ == "__main__":

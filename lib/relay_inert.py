@@ -9,7 +9,6 @@ With `own=True` it leaves out the files that only the default branch changed (de
 from __future__ import annotations
 
 import re
-import subprocess
 
 import relay_git
 
@@ -52,10 +51,13 @@ def matches(path):
 
 
 def _git(repo, *args):
-    run = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
-    if run.returncode != 0:
-        raise ValueError(f"git {' '.join(args)} failed in {repo}: {run.stderr.strip()}")
-    return run.stdout
+    try:
+        code, out, err = relay_git.capture(repo, *args, timeout=None)
+    except relay_git.GitError as exc:
+        raise ValueError(str(exc))
+    if code != 0:
+        raise ValueError(f"git {' '.join(args)} failed in {repo}: {err.strip()}")
+    return out
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")

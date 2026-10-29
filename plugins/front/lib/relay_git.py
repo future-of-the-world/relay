@@ -10,9 +10,11 @@ be read); `master` if it is a local branch; `main` likewise; else None. None mea
 
 from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
 
+import contextlib
 import os
+import re
 import subprocess
-from typing import TypedDict
+from typing import Iterator, TypedDict
 
 import relay_toml
 
@@ -30,16 +32,74 @@ class GitError(Exception):
     """git could not answer (it did not run or timed out): "git could not answer: <command>, <reason>"."""
 
 
-def _run(repo: str, args: tuple[str, ...], timeout: float | None, raw: bool) -> tuple[int, str]:
-    command = ["git", "-C", repo, *args]
-    timeout = TIMEOUT if timeout is None else timeout      # read at call time, so a test can lower the module's limit
+# Reads that cannot change are asked of git once per process: a command whose every revision is a full commit sha
+# (the object never changes) and which only reads. Anything else is asked each time, except inside `reading()`.
+_PURE_COMMANDS = ("rev-parse", "merge-base", "rev-list", "diff", "show", "ls-tree", "cat-file")
+_PURE_REV = re.compile(r"\^?[0-9a-f]{40}(\^[12]|\^\{commit\})*(\.\.[0-9a-f]{40})?(:.*)?\Z")
+_PURE_LIMIT = 4000      # entries kept; a long process drops the oldest first, a short one never reaches it
+_Key = tuple[str, tuple[str, ...]]
+_pure: dict[_Key, tuple[int, str, str]] = {}
+_window: dict[_Key, tuple[int, str, str]] | None = None      # the answers of the open `reading()`, else None
+
+
+def _is_pure(args: tuple[str, ...]) -> bool:
+    if not args or args[0] not in _PURE_COMMANDS:
+        return False
+    revs = 0
+    for arg in args[1:]:
+        if arg == "--":
+            break
+        if arg.startswith("-"):
+            continue
+        if not _PURE_REV.match(arg):
+            return False
+        revs += 1
+    return revs > 0
+
+
+@contextlib.contextmanager
+def reading() -> Iterator[None]:
+    """Inside, git is asked each distinct question once (refs, branches and the default branch included): for a read-only
+    run (a check record, `relay check show`) that moves no ref. Not for code that commits and then reads again."""
+    global _window
+    outer = _window
+    if outer is None:
+        _window = {}
     try:
-        done = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+        yield
+    finally:
+        if outer is None:
+            _window = None
+
+
+def capture(repo: str, *args: str, timeout: float | None = None) -> tuple[int, str, str]:
+    """(exit code, raw stdout, raw stderr) of `git -C repo args`; GitError when git cannot run or times out.
+    Answers that cannot change (see above), and any answer inside `reading()`, are kept."""
+    key = (os.path.realpath(repo), args)
+    pure = _is_pure(args)
+    kept = _pure if pure else _window
+    if kept is not None and key in kept:
+        return kept[key]
+    command = ["git", "-C", repo, *args]
+    limit = TIMEOUT if timeout is None else timeout      # read at call time, so a test can lower the module's limit
+    try:
+        done = subprocess.run(command, capture_output=True, text=True, timeout=limit)
     except subprocess.TimeoutExpired:
-        raise GitError("git could not answer: %s, no answer within %s s" % (" ".join(command), timeout))
+        raise GitError("git could not answer: %s, no answer within %s s" % (" ".join(command), limit))
     except (OSError, subprocess.SubprocessError) as exc:
         raise GitError("git could not answer: %s, %s" % (" ".join(command), exc))
-    return done.returncode, done.stdout if raw else done.stdout.strip()
+    answer = (done.returncode, done.stdout, done.stderr)
+    final = done.returncode == 0 or (done.returncode == 1 and args[:2] == ("merge-base", "--is-ancestor"))      # "not an ancestor" is an answer
+    if pure and final and len(_pure) >= _PURE_LIMIT:
+        del _pure[next(iter(_pure))]
+    if kept is not None and (final or not pure):      # a missing object may be made later: only its presence is kept
+        kept[key] = answer
+    return answer
+
+
+def _run(repo: str, args: tuple[str, ...], timeout: float | None, raw: bool) -> tuple[int, str]:
+    code, out, _ = capture(repo, *args, timeout=timeout)
+    return code, out if raw else out.strip()
 
 
 def git(repo: str, *args: str, timeout: float | None = None, raw: bool = False) -> tuple[int, str]:
@@ -56,12 +116,19 @@ def git_strict(repo: str, *args: str, timeout: float | None = None, raw: bool = 
     return _run(repo, args, timeout, raw)
 
 
+_mains: dict[str, str] = {}
+
+
 def main_checkout(repo: str) -> str | None:
     """The folder holding the repository's `.git` (parent of the git common dir), real path; None outside a repository."""
+    key = os.path.realpath(repo)
+    if key in _mains:
+        return _mains[key]
     rc, out = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
     if rc != 0 or not out:
         return None
-    return os.path.realpath(os.path.join(out, ".."))
+    _mains[key] = os.path.realpath(os.path.join(out, ".."))      # where a folder's repository is never changes; "none" is not kept
+    return _mains[key]
 
 
 def _binding(main: str) -> str | None:

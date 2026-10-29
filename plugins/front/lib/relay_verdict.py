@@ -679,9 +679,9 @@ def _merge_findings(wt, head, anchors):
     rc, out = relay_git.git(wt, "rev-list", "--merges", "--reverse", "%s..%s" % (anchor, head))
     newest = {}
     for merge in (out.splitlines() if rc == 0 else []):
-        if not _ok(wt, "rev-parse", "--verify", "-q", merge + "^2"):
+        rc, second = relay_git.git(wt, "rev-parse", "--verify", "-q", merge + "^2")
+        if rc != 0:
             continue
-        second = relay_git.git(wt, "rev-parse", merge + "^2")[1]
         if not _is_ancestor(wt, second, base) and second not in ab.values():
             continue                                                  # not a merge of the default branch or of an absorbed branch
         rc, names = relay_git.git(wt, "diff", "--name-only", "--no-renames", "-z", merge + "^1", merge)
@@ -832,6 +832,11 @@ def build_findings(wt, head, review_paths, item=None):
 
 
 def finding_list(wt, review_paths, item=None):
+    with relay_git.reading():
+        return _finding_list(wt, review_paths, item)
+
+
+def _finding_list(wt, review_paths, item=None):
     """The lines `relay check findings` prints: each finding the check must give a verdict for, with its id."""
     rc, head = relay_git.git(wt, "rev-parse", "HEAD")
     if rc != 0:
@@ -844,6 +849,11 @@ def finding_list(wt, review_paths, item=None):
 
 
 def record_check(input_path):
+    with relay_git.reading():      # one run reads, moves no ref: each distinct git question is asked once
+        return _record_check(input_path)
+
+
+def _record_check(input_path):
     """Record the check from the TOML input file at `input_path`: build the record in its one order (the queue item as Q1, the
     reviews' findings, the merge findings, one verdict for each, the checker's own new problems and the gate result) and write
     it at `report`. Refused, nothing written, when a verdict is missing or is for an id that is not a finding. Returns the path."""

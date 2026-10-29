@@ -815,7 +815,8 @@ def show_check(repo, target, brief):
     if relay_git.git(repo, "rev-parse", "--verify", "-q", "refs/heads/" + target)[0] != 0 and re.fullmatch(r"[0-9a-f]{4,40}", target):
         texts = relay_marks.stored_texts(repo, target)
         return "\n".join(relay_verdict.render_any(t, brief, target, "the stored report of %s" % target) for t in texts)
-    return "\n".join(relay_marks.show(repo, target)) + "\n"
+    with relay_git.reading():
+        return "\n".join(relay_marks.show(repo, target)) + "\n"
 
 
 QUEUE_USAGE = """relay queue                              the ordered list: ip, kind, time, what, name
