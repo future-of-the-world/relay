@@ -122,6 +122,12 @@
       "fact": [
         "29 Oct ~12:15 local, owner: \"Удали старые образы Docker\". Docker Desktop was running again after the 12:08 stop (starter not found). Deleted through Docker Desktop's own CLI: all images, the build cache, the 6 stopped Testcontainers postgres containers; kept the 108 volumes (1.0 GB). Docker.raw 67 GB -> 3.9 GB; free disk 358 -> 420 GiB. Docker Desktop stopped again; /var/run/docker.sock still points to podman."
       ]
+    },
+    {
+      "at": "2026-10-29T08:23:10Z",
+      "fact": [
+        "29 Oct ~12:30 local, owner: \"полностью удалить docker\". Cause of the restarts: the Linux-tests worker (brief said Docker) ran open -a Docker 6 times and wrote a retry script that reopened Docker after each stop; the worker and its cycle were stopped and restarted with a podman-only brief. Docker Desktop's uninstaller removed its data (Docker.raw, containers, volumes) and stopped it, then failed on a macOS-protected metadata file; Docker.app moved to the Trash. Before that the 36 named volumes (arsenal agent profiles profile-* and task-* test artifacts, 452 KB) were saved as tar files in ~/docker-volumes-backup-2026-10-29. Left for the owner (root): /Library/LaunchDaemons/com.docker.socket.plist, /Library/PrivilegedHelperTools/com.docker.socket, /usr/local/bin/docker-index. ~/.docker kept (podman can read registry logins from it). arsenal's docker runtimes (envdocker) now reach podman through /var/run/docker.sock; their images were deleted earlier and must be rebuilt (not tested)."
+      ]
     }
   ]
 }
