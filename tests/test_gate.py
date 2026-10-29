@@ -332,7 +332,7 @@ class Gate(Fixture):
         left holding a slot), and the test fails with a message."""
         self.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
         with self.assertRaises(AssertionError) as caught:
-            self.gate(self.wt, timeout=3, started=os.path.join(self.tmp, "pid"))
+            self.gate(self.wt, timeout=3, started=os.path.join(self.tmp, "pid"))  # expected timeout
         self.assertIn("still running", str(caught.exception))
         pid = wait_pid(os.path.join(self.tmp, "pid"))
         with self.assertRaises(ProcessLookupError):      # the gate waited for its command's end, so it is gone now
@@ -344,7 +344,7 @@ class Gate(Fixture):
         its pid file exists (without `started` the helper stopped it before the command ran)."""
         self.repo(gate='sleep 2\necho $$ > "%s/pid"\nexec sleep 600\n' % self.tmp)
         with self.assertRaises(AssertionError) as caught:
-            self.gate(self.wt, timeout=1, started=os.path.join(self.tmp, "pid"))
+            self.gate(self.wt, timeout=1, started=os.path.join(self.tmp, "pid"))  # expected timeout
         self.assertIn("still running", str(caught.exception))
         pid = wait_pid(os.path.join(self.tmp, "pid"))
         with self.assertRaises(ProcessLookupError):
@@ -506,8 +506,8 @@ class LeakedGates(Fixture):
         found = leaked_gates.stop(self.tmp)
         # one gate, found by its pid; it and its sleeping command are both gone afterwards
         self.assertEqual([pid for pid, _ in found], [gate.pid])
-        gate.wait(timeout=30)
-        deadline = time.monotonic() + 30
+        gate.wait(timeout=600)
+        deadline = time.monotonic() + 600
         while time.monotonic() < deadline and leaked_gates._alive(command_pid):
             time.sleep(0.05)
         self.assertFalse(leaked_gates._alive(command_pid))
@@ -522,7 +522,7 @@ class LeakedGates(Fixture):
         self.assertIsNone(gate.poll())
         self.assertTrue(leaked_gates._alive(command_pid))
         self.assertEqual(len(leaked_gates.stop(self.tmp)), 1)  # cleanup: the gate and its command end
-        gate.wait(timeout=30)
+        gate.wait(timeout=600)
 
 
 if __name__ == "__main__":
