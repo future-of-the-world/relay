@@ -32,6 +32,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-29T04:34:36Z",
+  "dropped_why": [
+    "Duplicate queued by mistake on 29 Oct: a worker ran relay queue add over old input files of moves 1-3 and fix F; the original item exists and is landed or in progress."
+  ]
 }
