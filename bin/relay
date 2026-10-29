@@ -54,6 +54,7 @@
                                      day's spend first); -- <args> names the gate's own mode (the cycle passes --quick);
                                      --again runs it although the same code has a finished gate (a red one is otherwise reported, not run)
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
+                                     (a quick gate stopped at its time limit exits 124: run it again)
   relay land <branch> [-C <repo>] | --stats [--since <date>] [--until <date>]
                                      take the default branch into the branch, gate the result, fast-forward on green; one
                                      landing at a time, no agent (0 landed, 1 red, 2 refused, 3 take conflict, 4 run again);
