@@ -1,0 +1,24 @@
+{
+ "agents": [],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "two-branches-start-on-the-same-file-unnoticed",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T09:34:29+00:00",
+   "file": "bin/relay",
+   "holder": "gates-and-tests-stop-what-an-earlier-test-left-r",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-29T11:22:52+00:00",
+   "file": "bin/relay",
+   "holder": "wt/each-change-records-its-stage-times-cost",
+   "kind": "held"
+  }
+ ],
+ "schema": 1,
+ "unit": "two-branches-start-on-the-same-file-unnoticed"
+}

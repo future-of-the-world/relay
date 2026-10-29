@@ -628,7 +628,7 @@ def _stated(finding, source, since, **more):
     return out
 
 
-def _review_findings(wt, head, paths):
+def _review_findings(wt: str, head: str, paths: list[str]) -> list[dict]:
     """The findings of the review JSON files at `paths`, numbered F1, F2, ... across the files in the order given; each keeps
     its file name (`source`), its own id (`source_id`), the sha it was stated against (`since`) and the owner's words on it."""
     out, number = [], 0
@@ -642,6 +642,14 @@ def _review_findings(wt, head, paths):
         since = review["reviewed"]
         if not _is_commit(wt, since):
             raise VerdictError("nothing recorded: the review data %s is of %s, which is not a commit of this worktree" % (path, since))
+        if not _is_ancestor(wt, since, head):
+            import relay_inert
+            try:
+                moved = relay_inert.twin(wt, since, head)         # a rebase that left the patch alone: the review is of the new commit
+            except ValueError:
+                moved = None
+            if moved is not None:
+                since = moved
         if not _is_ancestor(wt, since, head):
             raise VerdictError("nothing recorded: the review data %s is of %s, which is not in the history of head %s" % (path, since, head))
         for finding in review["findings"]:

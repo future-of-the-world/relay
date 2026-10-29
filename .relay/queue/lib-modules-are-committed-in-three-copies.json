@@ -29,5 +29,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T21:31:08Z",
+      "fact": [
+        "30 Oct, front decision (owner can reverse; principle 9, follows from principles 2 and 7): build the reviewed design reports/design-lib-one-copy.md now with relative symlinks for the 34 copied files under plugins/*/lib (31 .py, 3 prices.toml); estimated 55 agent minutes plus 35-40 to resolve the two open branches that touch copies, against about 30 agent minutes a day of fix-up commits if it waited (design estimates, not measured). Relay's folder as seen by shared code stays as today; its three wrong reads are a separate fix item. Windows out of scope."
+      ]
+    }
+  ]
 }
