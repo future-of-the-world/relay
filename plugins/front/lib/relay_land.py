@@ -307,7 +307,7 @@ def _change_records(repo: str, main: str, result: Result, stats: Event) -> list[
     try:
         import relay_metrics
         lines: list[str] = []
-        relay_metrics.record_landing(repo, result.units, stats.before, stats.sha or "", read_events(main)[0], stats.pid, lines.append)
+        relay_metrics.record_landing(repo, result.units, stats.before, stats.sha or "", read_events(main)[0], stats.pid, lines.append, landed=stats.branch)
         return lines
     except Exception as exc:        # the landing already happened (the rule _close_features follows)
         return [f"land: landed, but the change record was not written: {exc}; next: relay metrics backfill {' '.join(names)}".rstrip()]
@@ -423,7 +423,7 @@ def _close_features(main: str) -> list[str]:
 def _landed(main: str, default: str, branch: str, stats: Event, started: float) -> Result:
     stats.sha = _sha(main, "refs/heads/" + default)
     lines: list[str] = []
-    units = _units(main, stats.before)
+    units = _units(main, stats.before, stats.sha, branch)
     try:
         done = subprocess.run([sys.executable, "-I", HOOK, "landed", main, branch], capture_output=True, text=True, timeout=JUDGE_TIMEOUT_S)
         lines = done.stdout.splitlines()
@@ -437,11 +437,11 @@ def _landed(main: str, default: str, branch: str, stats: Event, started: float) 
     return Result(LANDED, [f"landed {branch} on {default} at {stats.sha[:12]} ({how})", *lines, *closed], units)
 
 
-def _units(main: str, before: Optional[str]) -> list[tuple[str, str]]:
+def _units(main: str, before: Optional[str], head: Optional[str] = None, branch: Optional[str] = None) -> list[tuple[str, str]]:
     """The queue items this landing brought in, asked before the cleanup removes their branches (none for a rider with no item)."""
     try:
         import relay_metrics
-        return relay_metrics.landed_units(main, before)
+        return relay_metrics.landed_units(main, before, head, branch)
     except Exception:            # the record is optional: a queue problem is reported by _close_features
         return []
 
