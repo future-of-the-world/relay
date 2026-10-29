@@ -30,6 +30,8 @@ import relay_marks
 import relay_toml
 
 DEFAULT_CI = "bin/ci"
+LIMIT_EXIT = 124        # bin/ci's exit when the quick gate stopped at its time limit (lib/relay_ci.py LIMIT_EXIT): not a test failure
+STOPPED_LINE = "gate: stopped at the "   # the line bin/ci prints for it
 FAILED_LINES = 8        # lines of the first failing step shown on the third output line
 CORES_PER_SLOT = 6      # default slots = cores // CORES_PER_SLOT, at least 1: 2 on 12 cores (measured 27 Oct: 2 gates at once 698 s each, 3 at once 1058 s each, alone 420 s)
 SLOT_POLL = 0.2         # seconds between looks at the slots while all are busy
@@ -221,10 +223,11 @@ def tree_moved(worktree, head):
 
 
 def first_failure(output):
-    """The first failing step's lines (the step line and its indented findings), else the last five lines."""
+    """The first failing step's lines (the step line and its indented findings), else the last five lines. The line of a gate
+    stopped at its time limit counts as a failing line in its place in the output, so a step that FAILED before the stop comes first."""
     lines = output.splitlines()
     for i, line in enumerate(lines):
-        if "FAILED" in line:
+        if "FAILED" in line or line.startswith(STOPPED_LINE):
             block = [line]
             for more in lines[i + 1:i + FAILED_LINES]:
                 if not more.startswith((" ", "\t")):
@@ -283,7 +286,7 @@ def finished_red(worktree: str, head: str, command: Sequence[str]) -> Optional[t
         if len(lines) < 3 or lines[0] != "head %s" % commit or lines[1] != wanted:
             continue
         last = lines[-1].split()
-        if len(last) == 2 and last[0] == "exit" and last[1].isdigit() and 0 < int(last[1]) < 127:      # 127 (could not start) and >= 128 (killed) came from outside the commit: not reused
+        if len(last) == 2 and last[0] == "exit" and last[1].isdigit() and 0 < int(last[1]) < 127 and int(last[1]) != LIMIT_EXIT:      # 127 (could not start), >= 128 (killed) and 124 (stopped at the time limit) came from outside the commit: not reused, the next gate runs
             return int(last[1]), log, first_failure("\n".join(lines[3:-1]))
     return None
 

@@ -16,14 +16,14 @@ export const meta = {
 //   recheck  {name, wt, check, findings}                              take the base, gate, check (project mode only: in relay mode `relay land` takes the base and gates)
 //   (* relay mode only; item is one fix-item slug)
 // Designs, in args.designs: {name, brief, out, review (false: an analysis, one thinker)}.
-// Optional args.settings: gate_turns 20-80 (40), gate_fixes 0-3 (1), retry_dead 0-2 (1), gate_args (a string, '--quick'; '' is the plain quick gate, '--paid' the full one with the paid evals).
+// Optional args.settings: gate_turns 20-80 (40), gate_fixes 0-3 (1), gate_reruns 0-2 (1: how often a gate that stopped at its time limit is run again, with no fixer), retry_dead 0-2 (1), gate_args (a string, '--quick'; '' is the plain quick gate, '--paid' the full one with the paid evals).
 // Every label is `<stage word>[ N]: <unit name>`; a stop names the stage word it stopped at (or `owner`).
 
 const A = args || {}
 const S = A.scratch
 const RELAY = A.relay === true
-const DEFAULTS = { gate_turns: 40, gate_fixes: 1, retry_dead: 1, gate_args: '--quick' }
-const BOUNDS = { gate_turns: [20, 80], gate_fixes: [0, 3], retry_dead: [0, 2] }
+const DEFAULTS = { gate_turns: 40, gate_fixes: 1, gate_reruns: 1, retry_dead: 1, gate_args: '--quick' }
+const BOUNDS = { gate_turns: [20, 80], gate_fixes: [0, 3], gate_reruns: [0, 2], retry_dead: [0, 2] }
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
 const KINDS = ['change', 'built', 'fix', 'recheck']
 const CFG = Object.assign({}, DEFAULTS, A.settings || {})
@@ -123,7 +123,7 @@ function gatePrompt(it, n) {
   if (RELAY) {
     const ga = CFG.gate_args.trim()
     const cmd = ga === '--paid' ? `relay gate -C ${it.wt} --paid` : ga ? `relay gate -C ${it.wt} -- ${ga}` : `relay gate -C ${it.wt}`
-    return `${it.kind === 'recheck' ? takePrompt(it) : ''}Run \`${cmd}\` detached with the limits recipe, log in ${log}. ${wait} Report ok, the gate sha, the gate log path it prints (under the worktree's .relay/checks/), and the first failing line if any.`
+    return `${it.kind === 'recheck' ? takePrompt(it) : ''}Run \`${cmd}\` detached with the limits recipe, log in ${log}. ${wait} Report ok, the gate sha, the gate log path it prints (under the worktree's .relay/checks/), and the first failing line if any, copied verbatim.`
   }
   return `${it.kind === 'recheck' ? takePrompt(it) : ''}Run the project's gate in ${it.wt} detached with the limits recipe, writing the log in the form: \`{ echo "head $(git -C ${it.wt} rev-parse HEAD)"; ${A.gate}; echo "exit $?"; } > ${log} 2>&1\` (run it with ${it.wt} as the current folder) and write its pid to ${log}.pid first. If ${log}.pid already exists and that pid is alive, a gate of an earlier attempt is still running: do not start another, wait on that pid and report its log. ${wait} Report ok (the exit code was 0), the head sha, the log path ${log}, and the first failing line if any.`
 }
@@ -138,6 +138,13 @@ async function gated(it, st) {
     const g = r.v
     if (g.ok) return { g }
     if (/^(still running|take conflict)/i.test(g.first_fail || '')) return { stop: stop(it, 'gate', g.first_fail) }
+    // a gate stopped at its time limit (relay gate prints "gate: stopped at the N-minute limit, step <name> was running") is not a
+    // failing test: no fixer, the gate runs again; when the reruns are used up the unit stops with that line
+    if (/^gate: stopped at/i.test(g.first_fail || '')) {
+      if (st.reruns >= CFG.gate_reruns) return { stop: stop(it, 'gate', g.first_fail) }
+      st.reruns += 1
+      continue
+    }
     if (st.rounds >= CFG.gate_fixes) return { stop: stop(it, 'gate', g.first_fail || 'gate red') }
     st.rounds += 1
     st.fn += 1
@@ -149,11 +156,12 @@ async function gated(it, st) {
   }
 }
 
-function newState() { return { gn: 0, fn: 0, rounds: 0, fixReports: [] } }
+function newState() { return { gn: 0, fn: 0, rounds: 0, reruns: 0, fixReports: [] } }
 
 // A new group (after the review fix) starts with a fresh allowance of gate_fixes rounds.
 async function gateGroup(it, st) {
   st.rounds = 0
+  st.reruns = 0
   return gated(it, st)
 }
 

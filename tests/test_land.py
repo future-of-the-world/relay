@@ -227,6 +227,17 @@ class Landing(Land):
         self.assertEqual(self.done()[0].outcome, "red")
 
 
+    def test_t11_a_gate_stopped_at_its_limit_is_handed_back_not_red(self):
+        self.start(gate='echo "gate: stopped at the 30-minute limit, step library tests was running"\nexit 124\n')
+        before = self.master()
+        run = self.land()
+        self.assertEqual(run.returncode, 4, run.stdout + run.stderr)
+        self.assertEqual(self.master(), before)
+        self.assertIn("land: the gate of wt/x stopped at the 30-minute limit (step library tests was running): relay land wt/x again",
+                      run.stdout + run.stderr)
+        self.assertEqual(self.done()[0].outcome, "handed_back")
+
+
 class Dirty(Land):
     def test_land_dirty_overlap_at_start(self):
         self.start()

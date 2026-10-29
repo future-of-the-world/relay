@@ -13,6 +13,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -343,6 +344,11 @@ def _locked(main: str, default: str, branch: str, tree: str, stats: Event, tries
         if ran:
             stats.gates_run += 1
             stats.gate_seconds += time.monotonic() - started
+        if code == relay_gate.LIMIT_EXIT:     # stopped at the time limit: not a red gate, so no fixer and no fall back to one change at a time
+            stopped = re.search(r"stopped at the (\S+ limit)(?:, step (.+) was running)?", " ".join(red))
+            how = f"stopped at the {stopped.group(1)}" if stopped else "stopped at its time limit"
+            step = f" (step {stopped.group(2)} was running)" if stopped and stopped.group(2) else ""
+            raise Stop(HANDED_BACK, [f"land: the gate of {branch} {how}{step}: relay land {branch} again"], code_moves=code_moves, inert_moves=inert_moves)
         if code != 0:
             raise Stop(RED, [f"land: the gate of {branch} is red (exit {code}); log {log}", *red[:5]], code_moves=code_moves, inert_moves=inert_moves)
         landed = False

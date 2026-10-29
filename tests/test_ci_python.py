@@ -1,6 +1,7 @@
 """lib/relay_ci.py (what bin/ci runs): the paid part, the record step, the rules gate's test names, and the inert probe that
 runs beside the outer steps. Free; no model call. Programs are replaced by a recording runner or by stubs in a temporary
 PATH; every tree is a temporary folder."""
+import contextlib
 import io
 import json
 import os
@@ -8,6 +9,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from contextlib import redirect_stdout
@@ -323,6 +325,97 @@ class PaidPart(unittest.TestCase):
         self.assertEqual(rec.calls[-1], ["python3", "bin/relay", "sync", "--dry"])
 
 
+class QuickGateLimit(unittest.TestCase):
+    """The quick gate stops itself at its time limit (RELAY_CI_QUICK_LIMIT seconds, from the start of Ci.main): exit 124 and a
+    named step, the whole process tree ended. Steps are replaced by stubs; the long ones are real child processes."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = os.path.realpath(self.tmp.name)
+
+    def ci(self, limit: str, quick: bool = True, **env: str) -> relay_ci.Ci:
+        ci = relay_ci.Ci(self.root, quick, env={"PATH": os.environ["PATH"], "RELAY_CI_QUICK_LIMIT": limit, **env})
+        for name in ("types_lint", "lib_copies", "lib_tests", "hook_tests", "grader_tests", "validate_all"):
+            setattr(ci, name, lambda log: 0)
+        return ci
+
+    def sleeper(self, ci: relay_ci.Ci, seconds: str = "600") -> Callable[[Any], int]:
+        return lambda log: ci.run([sys.executable, "-c", "import time; time.sleep(%s)" % seconds], log).returncode
+
+    def run_main(self, ci: relay_ci.Ci) -> tuple:
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = ci.main()
+        with open(os.path.join(self.root, ".ci", "results.txt")) as handle:
+            results = handle.read().splitlines()
+        return code, out.getvalue().splitlines(), results
+
+    def test_t1_a_stop_ends_the_child_and_the_grandchild_and_names_the_step(self) -> None:
+        # limit 2 s; the step is a shell with a background sleep (a grandchild of the gate) and a foreground sleep
+        pid_file = os.path.join(self.root, "grandchild.pid")
+        ci = self.ci("2")
+        ci.lib_tests = lambda log: ci.run(["sh", "-c", "sleep 600 & echo $! > '%s'; sleep 600" % pid_file], log).returncode   # type: ignore[method-assign]
+        code, lines, results = self.run_main(ci)
+        self.assertEqual(code, 124)
+        # worked out from the design: the 2 s limit is not a whole number of minutes, so "the 2-second limit"
+        self.assertIn("gate: stopped at the 2-second limit, step library tests was running", lines)
+        self.assertIn("ci: RED (stopped at the time limit, not a test failure: run the gate again; the step's log is "
+                      ".ci/steps/library-tests.log)", lines)
+        self.assertIn("library tests STOPPED", results)
+        self.assertEqual([ln for ln in lines if "FAILED" in ln], [])
+        with open(pid_file) as handle:
+            grandchild = int(handle.read())
+        wait_for(lambda: not alive(grandchild))
+
+    def test_t2_a_normal_run_is_green_and_the_watchdog_has_ended(self) -> None:
+        code, lines, results = self.run_main(self.ci("3"))
+        self.assertEqual(code, 0)
+        self.assertEqual(lines[-1], "ci: green (QUICK MODE: paid steps skipped, not a release gate)")
+        self.assertNotIn("library tests STOPPED", results)
+        self.assertEqual([t for t in threading.enumerate() if isinstance(t, threading.Timer) and t.is_alive()], [])
+
+    def test_t3_the_full_gate_has_no_limit(self) -> None:
+        ci = self.ci("1", quick=False)    # the step runs 2 s, past the 1 s limit; no claude on PATH ends the full gate red by its own rule
+        ci.lib_tests = self.sleeper(ci, "2")    # type: ignore[method-assign]
+        code, lines, results = self.run_main(ci)
+        self.assertNotEqual(code, 124)
+        self.assertEqual([ln for ln in lines if ln.startswith("gate: stopped")], [])
+        self.assertIn("library tests ok", results)
+
+    def test_t4_the_inert_probe_run_has_no_limit_of_its_own(self) -> None:
+        ci = self.ci("1", RELAY_INERT_PROBE="1")
+        ci.lib_tests = self.sleeper(ci, "2")    # type: ignore[method-assign]
+        code, lines, results = self.run_main(ci)
+        self.assertEqual(code, 0)
+        self.assertIn("library tests ok", results)
+
+    def test_t5_a_real_failure_before_the_stop_wins(self) -> None:
+        # library tests FAILED at once; hook tests then run past the 2 s limit: exit 1 (not 124), FAILED line first, stopped line after
+        ci = self.ci("2")
+        ci.lib_tests = lambda log: 1    # type: ignore[method-assign]
+        ci.hook_tests = self.sleeper(ci)    # type: ignore[method-assign]
+        code, lines, results = self.run_main(ci)
+        self.assertEqual(code, 1)
+        failed = next(i for i, ln in enumerate(lines) if "FAILED" in ln)
+        stopped = lines.index("gate: stopped at the 2-second limit, step hook tests was running")
+        self.assertIn("library tests FAILED", lines[failed])
+        self.assertLess(failed, stopped)
+        self.assertIn("hook tests STOPPED", results)
+        self.assertEqual(lines[-1], "ci: RED")
+
+    def test_t7_a_bad_limit_setting_refuses_to_run(self) -> None:
+        for bad in ("0", "abc", "-5", "1.5", ""):
+            ci = self.ci(bad)
+            err = io.StringIO()
+            with redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                code = ci.main()
+            self.assertEqual(code, 2, bad)
+            self.assertEqual(err.getvalue().strip(), "bin/ci: RELAY_CI_QUICK_LIMIT must be a whole number of seconds, 1 or more "
+                                                     "(default 1800), not %r" % bad)
+        self.assertEqual(relay_ci.quick_limit({}), 1800)    # the owner's 30 minutes (29 Oct)
+
+
 class ProbeBesideTheRun(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
@@ -393,6 +486,21 @@ class ProbeBesideTheRun(unittest.TestCase):
         assert ci.probe is not None and ci.probe.proc is not None
         self.assertIsNotNone(ci.probe.proc.poll())
         self.assertEqual(len(self.worktrees()), 1)
+
+    def test_t6_a_stop_at_the_limit_removes_the_probe_and_its_record(self) -> None:
+        env = {"PATH": os.environ["PATH"], "RELAY_GATE": self.head, "RELAY_CI_QUICK_LIMIT": "2"}
+        ci = relay_ci.Ci(self.root, True, env=env)
+        ci.nested = ("sh", "-c", "sleep 600 & wait")
+        for name in ("types_lint", "lib_copies", "hook_tests", "grader_tests", "validate_all"):
+            setattr(ci, name, lambda log: 0)
+        ci.lib_tests = lambda log: ci.run([sys.executable, "-c", "import time; time.sleep(600)"], log).returncode   # type: ignore[method-assign]
+        with redirect_stdout(io.StringIO()):
+            code = ci.main()
+        self.assertEqual(code, 124)
+        assert ci.probe is not None and ci.probe.proc is not None
+        self.assertIsNotNone(ci.probe.proc.poll())
+        self.assertEqual(len(self.worktrees()), 1)
+        self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "inert-probe")))
 
     def test_a_probe_that_dies_makes_inert_failed(self) -> None:
         # case 2: the nested run is killed (signal 9) -> exit code -9 -> the step is FAILED, never ok
