@@ -1,0 +1,16 @@
+head 3b46f267f8ce61a09e0f3f64385063f67d96a9dd
+cmd bin/ci --quick
+wait 2.1
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (375s, log: .ci/steps/library-tests.log)
+    FAIL: test_every_golden_command_gets_its_recorded_verdict (test_hook_guard_diff.GuardDiff.test_every_golden_command_gets_its_recorded_verdict)
+        raise AssertionError(text) from error
+    AssertionError: 1 failed asserts:
+    FAILED (failures=1)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (14s)
+ci: RED
+exit 1
