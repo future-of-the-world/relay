@@ -27,8 +27,10 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null,
+  "dropped_at": "2026-10-29T21:20:39Z",
+  "dropped_why": [
+    "Owner, 30 Oct: \"a a a a, закрыть\" (close as already fixed: relay queue start refuses an item whose files an open branch changes, and the lanes hook lists such items as waits)."
+  ],
   "notes": [
     {
       "at": "2026-10-28T17:47:58Z",
