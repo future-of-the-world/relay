@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-29T14:09:28Z",
   "taken_by": "wt/a-rebase-that-changes-nothing-voids-the",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T22:39:21Z",
+  "test": "tests/test_verdict.py::test_a_review_of_a_commit_a_clean_rebase_replaced_still_counts",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

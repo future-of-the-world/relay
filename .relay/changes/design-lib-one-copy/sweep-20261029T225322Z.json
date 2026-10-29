@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.4711,
+   "id": "a2e2a37d01afc1cbc",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 23,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design",
+   "start": "2026-10-29T21:14:59.750Z",
+   "stop": "2026-10-29T21:20:47.105Z"
+  },
+  {
+   "cost_usd": 1.4015,
+   "id": "ab460989cfef3ce2d",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 21,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design review",
+   "start": "2026-10-29T21:20:50.485Z",
+   "stop": "2026-10-29T21:28:15.353Z"
+  },
+  {
+   "cost_usd": 1.0502,
+   "id": "a18d27fb4719dfe36",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design revise",
+   "start": "2026-10-29T21:28:18.265Z",
+   "stop": "2026-10-29T21:30:50.100Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "design-lib-one-copy"
+}

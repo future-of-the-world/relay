@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 94,
+  "time": 45,
+  "found_at": "2026-10-29T21:41:33Z",
+  "found_in": "relay queue add",
+  "title": "One stuck queue pick hides every other startable item",
+  "what": [
+    "The lanes line also names the next few startable items after its picks (\"next: ...\"), a setting lanes_line_items (default 3, bound 0 to 10; 0 is today's line); an item with a \"not reproduced\" fact note is skipped as a pick."
+  ],
+  "why": [
+    "30 Oct, design \"no idle while the owner is away\": on 29 Oct night the lanes line named only two-branches-start-on-the-same-file-unnoticed, which the front had found not reproducible, while 19 fixes could start; the front read it as \"nothing to take\" and a lane stood idle from about 22:22. IP chosen by the front (agent-chosen)."
+  ],
+  "failing_case": [
+    "Queue with item X (a \"not reproduced\" fact note) first and Y second, one free lane: the lanes line names only X."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "The same queue: the line names Y",
+    "lanes_line_items = 0 gives today's line",
+    "A value out of bounds is noted and the default used"
+  ],
+  "where": [
+    "plugins/front/hooks/lanes.py",
+    "lib/relay_lanes.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
