@@ -1151,10 +1151,13 @@ def bin_relay_problem(root: str) -> str | None:
     holds, None when it is, or when the folder is no git checkout. The fix is the next step, since guard-main refuses a restore
     from a session."""
     main = os.path.realpath(main_checkout(root) or root)
-    state = _git_out(main, "status", "--porcelain", "--", "bin/relay")
-    if not state:
+    # Read-only: rev-parse and hash-object never take index.lock or rewrite the index, which `git status` does on stale stat info
+    # (it would fail a concurrent git command in the live main checkout). A missing file makes hash-object fail: also a difference.
+    head = _git_out(main, "rev-parse", "HEAD:bin/relay")
+    if head is None or _git_out(main, "hash-object", "--", "bin/relay") == head:
         return None
-    return f"bin/relay in {main} differs from HEAD (an eval stub or a stray edit) -> restore it in a terminal outside the session: git -C {main} restore bin/relay"
+    return (f"bin/relay in {main} differs from HEAD (an eval stub or a stray edit) -> restore it in a terminal outside the session: "
+            f"git -C {main} restore --source=HEAD --staged --worktree bin/relay")
 
 
 def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[str, bool, str]]:
