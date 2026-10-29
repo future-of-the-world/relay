@@ -200,6 +200,9 @@ class TestChangedTests(Base):
         os.makedirs(os.path.join(self.repo, "tests"), exist_ok=True)
         for name in ("run_unittest.py", "leaked_gates.py", "tmp_default.py"):
             shutil.copy(os.path.join(ROOT, "tests", name), os.path.join(self.repo, "tests", name))
+        os.makedirs(os.path.join(self.repo, "lib"), exist_ok=True)
+        for name in sorted(n for n in os.listdir(os.path.join(ROOT, "lib")) if n.endswith(".py")):   # run_unittest imports relay_tokens -> relay_gate -> a chain of lib modules: the whole lib
+            shutil.copy(os.path.join(ROOT, "lib", name), os.path.join(self.repo, "lib", name))
         self.write("tests/__init__.py", "")
         # a stand-in for the registry test: red while rules/unlisted exists, as RuleTestsComplete is red for an unlisted reader
         self.write("tests/test_rules_gate.py", "import os, unittest\nROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\n"
