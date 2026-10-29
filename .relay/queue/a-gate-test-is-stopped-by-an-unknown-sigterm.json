@@ -28,8 +28,8 @@
   ],
   "taken_at": "2026-10-29T17:19:04Z",
   "taken_by": "wt/a-gate-test-is-stopped-by-an-unknown-sig",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T21:22:54Z",
+  "test": "tests/test_gate_stops.py::test_a_gate_command_ended_by_a_signal_leaves_a_line_in_the_gate_log",
   "dropped_at": null,
   "dropped_why": null
 }
