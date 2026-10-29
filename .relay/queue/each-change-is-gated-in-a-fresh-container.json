@@ -53,6 +53,12 @@
       "fact": [
         "Decided in that design (the owner can reverse each): the front and the landing stay on the host; containers run build, gate, review, fix and check but never land, take the default branch or build a train; no `--bare`; the rule files and the run's settings are generated per run and never committed; one exact Python 3.14.6 for the gate on the host and in the image; no paid runs in a container (RELAY_PAID=off). Not verified: that the Workflow tool and the InstructionsLoaded hook work under `claude -p`; that a directory marketplace accepts a relative path in project settings."
       ]
+    },
+    {
+      "at": "2026-10-29T06:34:42Z",
+      "fact": [
+        "29 Oct, measured while designing the Linux fence: the quick gate in a Linux container (repository cloned inside, not mounted) took 1.1 to 2.5 min over 6 runs (all red: 30 failures, 22 errors of 1,788 tests), against 4.4 and 11.8 min for the Mac quick gate without the second run (1 run each, different loads). Container start 0.21-0.29 s plus clone 2.3-2.4 s. Through podman's shared folder git is 30-90 times slower than native, so the repository must be cloned in; with it cloned, podman and Docker ran the tests in about the same time."
+      ]
     }
   ]
 }
