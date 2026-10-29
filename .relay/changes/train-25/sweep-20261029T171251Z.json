@@ -1,0 +1,56 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0048,
+   "id": "ac0bd8fcbf8009cb6",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-28T14:54:42.561Z",
+   "stop": "2026-10-28T15:15:30.292Z"
+  },
+  {
+   "cost_usd": 0.1181,
+   "id": "aecd22d64b9b7743a",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-28T15:15:37.015Z",
+   "stop": "2026-10-28T15:18:34.917Z"
+  },
+  {
+   "cost_usd": 0.1086,
+   "id": "ab2be52c7390f405b",
+   "model": "claude-sonnet-5-5",
+   "n": 2,
+   "requests": 7,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check item",
+   "start": "2026-10-28T15:18:42.310Z",
+   "stop": "2026-10-28T15:21:20.524Z"
+  },
+  {
+   "cost_usd": 0.0024,
+   "id": "afa587977e0c99e35",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-28T15:21:25.359Z",
+   "stop": "2026-10-28T15:21:54.070Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "train-25"
+}

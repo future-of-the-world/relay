@@ -1,0 +1,613 @@
+{
+  "branch": "wt/each-change-records-its-stage-times-cost",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by running _land_rows with three train events: rider rows [] and train-branch rows 3. The units come from",
+        "landed_open (rider branches), while land() records its events under the branch it was called with (the train). 6 of 47 code",
+        "landings since 27 Oct were trains (design table 0), so this loses the gate time of every train rider, permanently: the record",
+        "path exists afterwards and plan() skips an existing path. Test gap: every record_landing test passes events = [].",
+        "Size: 15 min."
+      ],
+      "evidence": [
+        "python3 -c \"...m._land_rows(ev,'item-a','wt/a',77)...\" with Event('asked'|'locked'|'done', branch='wt/train-25', pid=77)",
+        "rider wt/a rows: []",
+        "plain branch rows: 3",
+        "tests/test_metrics.py:140,150,182,204: record_landing(..., [], 0, ...) (no events in any test)"
+      ],
+      "failing_case": [
+        "relay land wt/train-25 lands riders item-a (wt/a) and item-b (wt/b). Events asked/locked/done carry branch \"wt/train-25\".",
+        "record_landing gets units [(\"item-a\",\"wt/a\"),(\"item-b\",\"wt/b\")] and calls _land_rows(events, \"item-a\", \"wt/a\", pid):",
+        "it returns [] (reproduced). Both rider records are written with land = [] (no gates_run, no gate_seconds, no asked/locked),",
+        "and unit_lines prints no idle line for them, since it needs a record with land rows. The path land-<head>.json then exists,",
+        "so a later backfill never fills it. Should: each rider's record holds the landing's asked, locked and done rows, shared",
+        "(design 3.2 \"Each rider's record holds ... the landing's events and range, shared\"; 3.9 F1 test)."
+      ],
+      "fix_hint": [
+        "Pass the landed branch (the argument of land(), stats.branch) to record_landing and filter asked/locked/done by it and the",
+        "pid, not by each unit's branch; keep held rows by slug. Add a test with train events and two riders."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 210,
+      "pass_cases": [
+        "1. Train wt/train-25 with riders wt/a (item-a), wt/b (item-b), events asked/locked/done on wt/train-25 pid 77: records of item-a",
+        "   and item-b each have land kinds [asked, locked, done], done with gates_run 1 and gate_seconds 358.8.",
+        "2. Plain landing wt/x (item-x), events on wt/x: item-x record has the three rows (works today, must keep working).",
+        "3. A held event for slug item-a (holder item-c): only item-a's record gets the held row.",
+        "4. Events of another landing (other pid or branch) never appear in either rider's record."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "high",
+      "reason": [
+        "test_f1_train_riders_each_hold_the_landings_events tests/test_metrics.py passes at head and fails at 3c3337a7"
+      ],
+      "severity": "HIGH",
+      "since": "1ba613312aec21dc5d2274a11027e1fb5e8ea47d",
+      "source": "review-each-change-records-its-stage-times-cost.json",
+      "source_id": "F1",
+      "summary": "a train rider's record gets no landing events: _land_rows filters events by the rider's branch, but relay land records them under wt/train-<n>",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: the hook run on the four commands denies only `relay land wt/x`. READS means every use of the subcommand reads;",
+        "WRITERS maps a subcommand to its writing words. The commit d8a305ae added metrics to READS to make the \"every subcommand is",
+        "classified\" test pass. Size: 5 min."
+      ],
+      "evidence": [
+        "echo '{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"relay metrics backfill\"},\"agent_type\":\"delegate:critic\"}' | python3 plugins/delegate/hooks/read-only-guard.py",
+        "(no output: allowed)",
+        "same with \"relay land wt/x\": {\"hookSpecificOutput\": {... \"permissionDecision\": \"deny\" ..."
+      ],
+      "failing_case": [
+        "A critic (agent_type delegate:critic) runs `relay metrics backfill`. Hook input {hook_event_name: PreToolUse, tool_name: Bash,",
+        "command: \"relay metrics backfill\"}: the guard prints nothing (allowed), and the command writes change-record commits onto",
+        "master through relay_queue._land. Should: deny, as for `relay land wt/x` (which is denied today)."
+      ],
+      "fix_hint": [
+        "WRITERS[\"metrics\"] = {\"sweep\", \"backfill\"}, out of READS; a test in tests/test_read_only_guard.py for both words and for the",
+        "plain read."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 32,
+      "pass_cases": [
+        "1. critic runs `relay metrics backfill`: denied with the read-only reason.",
+        "2. critic runs `relay metrics sweep`: denied.",
+        "3. critic runs `relay metrics` and `relay metrics item-a`: allowed (they only read).",
+        "4. critic runs `relay land wt/x`: still denied."
+      ],
+      "path": "plugins/delegate/hooks/read-only-guard.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_read_only_guard.py test_f2_... passes at head and fails at 3c3337a7"
+      ],
+      "severity": "MEDIUM",
+      "since": "1ba613312aec21dc5d2274a11027e1fb5e8ea47d",
+      "source": "review-each-change-records-its-stage-times-cost.json",
+      "source_id": "F2",
+      "summary": "`metrics` is listed as a read, yet `relay metrics backfill` and `relay metrics sweep` land commits on the default branch; a critic, checker or scout is let through",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: _land (relay_queue.py:833-845) keeps the branch on the last try unless takeover, and its message names",
+        "`relay queue land <slug>`; relay_queue.land (1575-1590) refuses a branch whose diff is not exactly the one item path. land_files",
+        "passes no option to change that. Design revision 2 decided the opposite. Size: 15 min."
+      ],
+      "evidence": [
+        "lib/relay_queue.py:845 raise Refused(f\"not landed after {tries} tries: {last}; kept on {branch}; relay queue land {plan.slug} tries again\")",
+        "lib/relay_queue.py:1588 if paths != [_path(slug)]: raise Refused(f\"{branch} changes more than the item '{slug}'; delete it (relay doctor)\")"
+      ],
+      "failing_case": [
+        "record_landing's land_files fails all tries (main checkout busy: ff-only refused each time). _land raises \"not landed after N",
+        "tries: ...; kept on wt/queue-metrics-<head12>; relay queue land metrics-<head12> tries again\", and land() appends \"next: relay",
+        "metrics backfill <units>\". Running `relay queue land metrics-<head12>` refuses (\"changes more than the item\"; the path is not a",
+        "queue item). Running `relay metrics backfill` builds the same slug metrics-<head12>, update-ref against ZERO fails on every try",
+        "(\"wt/queue-metrics-... exists\"), and it refuses. Should: the branch is deleted on the last failed try and the one line names",
+        "only `relay metrics backfill` (design 3.2, \"On the last failed try the branch is deleted, not kept\")."
+      ],
+      "fix_hint": [
+        "In land_files, catch the last-try Refused, delete refs/heads/wt/queue-<slug> and re-raise with a message without the queue",
+        "retry (or give _land a keep=False option)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 846,
+      "pass_cases": [
+        "1. land_files whose fast-forward fails on every try: Refused; no ref refs/heads/wt/queue-metrics-* remains; the message names",
+        "   no `relay queue land`.",
+        "2. Then relay metrics backfill (or land_files again for the same head) lands the record.",
+        "3. A queue command (relay queue add/note) whose last try fails still keeps wt/queue-<slug> and names `relay queue land` (today's behaviour).",
+        "4. land_files that lands on the first try: one commit, no branch left (today)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_metrics.py test_f3_... passes at head and fails at 3c3337a7"
+      ],
+      "severity": "MEDIUM",
+      "since": "1ba613312aec21dc5d2274a11027e1fb5e8ea47d",
+      "source": "review-each-change-records-its-stage-times-cost.json",
+      "source_id": "F3",
+      "summary": "a records landing that fails its last try keeps wt/queue-metrics-<head> and names `relay queue land`, which refuses it; the kept branch then blocks the backfill it recommends",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep: the only \"label\" in the delegate skill is the `Report:` label of a hand-back. Design 4 expected about 60",
+        "refusals a day at first; each costs a front request at its full context. Principle 10 (a fact the user must be told by an error",
+        "is a defect) and principle 2 (waste repeating every session, MEDIUM). Skill text goes into the next paid run. Size: 10 min."
+      ],
+      "evidence": [
+        "grep -n -i label plugins/delegate/skills/delegate/SKILL.md -> 201: the hook reads the `Report:` label ..."
+      ],
+      "failing_case": [
+        "A fresh front session follows the delegate skill and starts a runner with description \"take master into the branch\". The route",
+        "guard (label_guard deny, .relay/ present) denies it; the front re-reads its ~170k context and retries with `land: <item>`. The",
+        "next fresh session does the same. grep -i label over plugins/*/skills finds no line naming `<stage>[ n]: <unit>` for agents",
+        "started by hand. Should: the delegate skill states the label form, the stage words `land` and `other`, and an example, so the",
+        "first start is labelled."
+      ],
+      "fix_hint": [
+        "One short paragraph in the delegate skill's \"starting an agent\" part: the description starts with `<stage>[ n]: <item id>`",
+        "(stages from relay_labels), `land: <item>` for landing runners, `other: <name>` for work with no change, free words after ` - `."
+      ],
+      "id": "F4",
+      "kind": "feature",
+      "line": 1,
+      "pass_cases": [
+        "1. plugins/delegate/skills/delegate/SKILL.md has a line naming the label form `<stage>[ n]: <unit>`, the stage words land and",
+        "   other, and an example such as `other: docker-deps - free words`.",
+        "2. The example in that line matches relay_labels.STAGE_LABEL (a test may read it).",
+        "3. The route guard's denial text still names the form (unchanged)."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_metrics.py test_f4_... passes at head and fails at 3c3337a7"
+      ],
+      "severity": "MEDIUM",
+      "since": "1ba613312aec21dc5d2274a11027e1fb5e8ea47d",
+      "source": "review-each-change-records-its-stage-times-cost.json",
+      "source_id": "F4",
+      "summary": "the label guard denies unlabelled hand agents, but no skill text tells the front the label form, so each fresh front session learns it from a refusal",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by tracing: relay_queue.done with --test writes closed_at on the branch (relay_queue.py ~1565-1571: \"the merge of",
+        "{branch} lands it\"); close_landed's docstring says \"a fix is left to the cycle's --test close\"; lanes_state builds landed_open",
+        "only from items whose state is \"taken\" (relay_lanes.py:273, 281). _units is called after the fast-forward (stats.sha set), so it",
+        "reads the head where F is already done. Measured on the live queue: 52 fix and 16 feature items closed since 27 Oct; every fix",
+        "item of a cycle closes this way. No test runs the real landed_units path: every record_landing test passes units by hand.",
+        "Size: 30 min."
+      ],
+      "evidence": [
+        "lib/relay_lanes.py:281 if item[\"state\"] != \"taken\" or not item.get(\"taken_by\"): continue",
+        "lib/relay_lanes.py:353 close_landed: \"a fix is left to the cycle's --test close\"",
+        "python3 (read_queue closed=True, done since 2026-10-27): Counter({('fix',): 52, ('feature',): 16})"
+      ],
+      "failing_case": [
+        "Cycle of fix item F on wt/f: the close stage runs `relay queue done F -C <wt> --test ...`, which commits F as done on wt/f",
+        "(\"closed F on wt/f; the merge of wt/f lands it\"). The landing of wt/f fast-forwards master; _landed then calls _units ->",
+        "landed_units -> lanes_state(main).landed_open, which reads master's queue at the new head and keeps only items with state",
+        "\"taken\" (relay_lanes.py:281). F is \"done\" there, so units = [] and no `.relay/changes/F/land-<head>.json` is written: the",
+        "landing's range (before, head) and its asked/locked/done rows (gates_run, gate_seconds) are lost; only the sweep later stores",
+        "F's agents in a `sweep-` record with before/head null. Should: F gets its land-<head> record with the range and the events."
+      ],
+      "fix_hint": [
+        "Find the units from the items taken at `before` (read the queue at stats.before) whose taken_by branch is among the branches",
+        "the fast-forward brought in (the landed branch and, for a train, the riders from its merge subjects), whatever their state at",
+        "the new head. A test that lands a branch whose item is done on the branch, through land() itself."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 205,
+      "pass_cases": [
+        "1. Fix item F, done on wt/f before landing; the landing of wt/f: .relay/changes/F/land-<head12>.json exists with before = the",
+        "   old master, head = the new master, land rows asked/locked/done, and F's labelled agents.",
+        "2. Feature item X still taken at landing (closed afterwards by close_landed): X gets its land record (works today, keep).",
+        "3. Train of rider wt/f (fix F, done on its branch) and wt/x (feature X, taken): both get land records; the train none.",
+        "4. An item that landed in an earlier fast-forward and is still open is not a unit of this landing (today's rule)."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_metrics.py test_f5_... passes at head and fails at 3c3337a7"
+      ],
+      "severity": "HIGH",
+      "since": "1ba613312aec21dc5d2274a11027e1fb5e8ea47d",
+      "source": "review-each-change-records-its-stage-times-cost.json",
+      "source_id": "F5",
+      "summary": "a fix item closed on its branch (the cycle's `relay queue done --test`) is not a landing unit: landed_units keeps only items still `taken` at the new head, so 52 of 68 items closed since 27 Oct would get no landing record",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading cycle.js (labels `gate ${n}: ${it.name}` etc.) and by this cycle's own labels; the worker's report says",
+        "\"the front passes the full item id\", which this run shows it does not. Design 3.3 named cycle.js. Size: 15 min."
+      ],
+      "evidence": [
+        "plugins/delegate/workflows/cycle.js:154,177,207,217,237,247,255 labels use it.name",
+        "this review's label: review: each-change-records-its-stage-times-cost"
+      ],
+      "failing_case": [
+        "This very change: item id each-change-records-its-stage-times-cost-and-cov, but every agent of its cycle is labelled",
+        "`build|gate n|review: each-change-records-its-stage-times-cost` (cycle.js uses it.name). For refuse-folder-and-pattern-entries-in-where",
+        "and ...-where-2, an agent started while both are taken matches neither and is dropped with a note. Should: labels of a unit",
+        "that names a queue item carry the full item id, so match_unit matches exactly."
+      ],
+      "fix_hint": [
+        "In cycle.js, a label unit `it.item || it.name` (item ids fit the 64-char grammar), or a front-skill line naming the item id as",
+        "the unit's name."
+      ],
+      "id": "F6",
+      "kind": "feature",
+      "line": 154,
+      "pass_cases": [
+        "1. A cycle unit {name: \"each-change-records-its-stage-times-cost\", item: \"each-change-records-its-stage-times-cost-and-cov\"}:",
+        "   its agents' labels end with the full item id (or the front skill passes the item id as name).",
+        "2. A unit with no item keeps `<stage>: <name>` (today).",
+        "3. match_unit on a full-id label returns the item even when another item shares its first 40 chars and both are taken."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py test_f6_... passes at head and fails at 3c3337a7"
+      ],
+      "severity": "MEDIUM",
+      "since": "1ba613312aec21dc5d2274a11027e1fb5e8ea47d",
+      "source": "review-each-change-records-its-stage-times-cost.json",
+      "source_id": "F6",
+      "summary": "new labels still carry the cycle's 40-char unit name, not the full item id (design 3.3), so the 4 item pairs sharing 40 chars keep depending on window matching",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: plan() passes events only into the landing units' records; the sweep calls _record(kind, name, item, agents)",
+        "with land = []. 0 held events exist so far (design table 1), so the loss starts with the first hold of a later-dropped item.",
+        "Size: 20 min."
+      ],
+      "evidence": [
+        "lib/relay_metrics.py:177-186 sweep record: dump(_record(kind, name, item, agents)) (no land rows)"
+      ],
+      "failing_case": [
+        "A landing records held(slug=S, file=lib/x.py, holder=T); S is then dropped. No landing ever has S as a unit, and plan()'s",
+        "sweep builds records with land = [] (only _record of agents). S's held row never reaches the repository. Should: the sweep",
+        "stores S's held rows under S (design 3.1 F10 and 3.9: \"S dropped: the sweep stores it under S\")."
+      ],
+      "fix_hint": [
+        "In plan(), after the units, add held rows for dropped items whose slug has no stored held row at rev, as a sweep record under",
+        "the slug."
+      ],
+      "id": "F7",
+      "kind": "feature",
+      "line": 170,
+      "pass_cases": [
+        "1. held event for S, S dropped, a later landing of another item: .relay/changes/S/sweep-*.json holds the held row (file, holder).",
+        "2. held event for S, S lands: S's land record holds it, the holder's none (today, via _land_rows by slug).",
+        "3. The same held row is stored once even when two landings sweep after the drop."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_metrics.py test_f7_... passes at head and fails at 3c3337a7"
+      ],
+      "severity": "MEDIUM",
+      "since": "1ba613312aec21dc5d2274a11027e1fb5e8ea47d",
+      "source": "review-each-change-records-its-stage-times-cost.json",
+      "source_id": "F7",
+      "summary": "held rows of a dropped item are never stored: the sweep writes agents only, so the hold events (kept only in .git) are lost for items that never land",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (not measured here whether session_usage includes subagents). Design: how the front's own cost is computed from the",
+        "ledger or the transcripts. Size: 30 min after the decision."
+      ],
+      "evidence": [
+        "worker report, \"Not decided\": the front's cost per day",
+        "lib/relay_metrics.py: \"front\" appears only in KINDS and KEYS"
+      ],
+      "failing_case": [
+        "After any landing, no `kind = \"front\"` record exists; `relay metrics` shows no front cost. Design 3.5 decided \"the sweep stores",
+        "one front record per day (session id, day, cost)\". The worker reports the ledger's session_usage is a cumulative session total",
+        "that may include its agents, and agent cost_est is an estimate, so main-only cost needs a rule the design does not give."
+      ],
+      "fix_hint": [
+        "Decide the rule in the design (a thinker measures one day both ways), then build the front record in the sweep."
+      ],
+      "id": "F8",
+      "kind": "design",
+      "line": 1,
+      "owner": [
+        {
+          "date": "2026-10-29",
+          "words": [
+            "\u043f\u043e\u0447\u0435\u043c\u0443 \u043c\u044b \u043d\u0435 \u043c\u043e\u0436\u0435\u043c \u043f\u043e\u0441\u0447\u0438\u0442\u0430\u0442\u044c \u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c \u043e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 \u0441\u0435\u0441\u0441\u0438\u0438, \u0435\u0441\u043b\u0438 \u044f \u0441\u0435\u0439\u0447\u0430\u0441 \u0442\u0435\u0431\u044f \u0441\u043f\u0440\u043e\u0448\u0443 \u043e\u0431 \u044d\u0442\u043e\u043c \u0442\u044b \u0441\u043c\u043e\u0436\u0435\u0448\u044c \u0435\u0451 \u043f\u043e\u0441\u0447\u0438\u0442\u0430\u0442\u044c, \u0442\u0430\u043a \u0432 \u0447\u0435\u043c \u043f\u0440\u043e\u0431\u043b\u0435\u043c\u0430 ? (front's reading: build it in this change with the rule relay report already uses for main sessions vs agents)"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. The design names the rule for the front's own cost (for example transcript parsing as relay_analyze does, or session_usage",
+        "   minus the session's agent_stop costs), with a worked value for one day of the live ledger.",
+        "2. A front record for day D holds session, day, cost_usd and is written once per (session, day)."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "medium",
+      "reason": [
+        "front cost per day not built; no change in the fix commit"
+      ],
+      "severity": "MEDIUM",
+      "since": "1ba613312aec21dc5d2274a11027e1fb5e8ea47d",
+      "source": "review-each-change-records-its-stage-times-cost.json",
+      "source_id": "F8",
+      "summary": "the front's cost per day (design 3.5, the answer to design-review F13) is not built; the worker found no exact rule to separate the front's spend from its agents'",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that the measurement is missing (report: \"NOT a valid cost\"); the 636 vs ~400 s comparison is across commits and",
+        "loads, so it only shows the question is open, not the answer. Design 3.6 said \"the build measures it ... and writes the result",
+        "into the queue item\". Size: 30 min of machine time (two gates), 5 of agent work."
+      ],
+      "evidence": [
+        ".relay/checks/d8a305ae....gate.log: ci: library tests ok (636s); ci: coverage 89.3% ...",
+        "master .relay/checks newest gate logs: library tests 368s (failed), 400s, 418s, 358s, 694s, 440s, 604s, 1779s",
+        "uptime: load averages 26.72 27.51 25.01"
+      ],
+      "failing_case": [
+        "Brief: \"Record the measured cost of coverage on the whole quick gate (with and without, same commit) in your report.\" The report",
+        "gives one gate with coverage (837 s, 3 tests red) and no same-commit pair. The branch's green gate d8a305ae: library tests 636 s;",
+        "master's 4 newest gate logs: 368, 400, 418, 358 s (older ones 440-1779 s under load). The owner chose \"every gate\" on a +4%",
+        "measured on one module; a +50% would change that trade. Should: one same-commit pair (or 2-3 pairs) of quick gates, with the",
+        "load average at each, in the report and the queue item as a dated fact."
+      ],
+      "fix_hint": [
+        "Run `bin/ci --quick` twice on the branch head back to back, once with [metrics] coverage = \"off\" in .claude/kit.toml (not",
+        "committed), and record both."
+      ],
+      "id": "F9",
+      "kind": "feature",
+      "line": 1,
+      "pass_cases": [
+        "1. The report holds library-test seconds for a quick gate with coverage and without, on the same commit, with the load average.",
+        "2. The queue item each-change-records-its-stage-times-cost-and-cov has the measured percent as a dated note."
+      ],
+      "path": "lib/relay_coverage.py",
+      "rank": "medium",
+      "reason": [
+        "coverage cost measurement not made; no change in the fix commit"
+      ],
+      "severity": "MEDIUM",
+      "since": "1ba613312aec21dc5d2274a11027e1fb5e8ea47d",
+      "source": "review-each-change-records-its-stage-times-cost.json",
+      "source_id": "F9",
+      "summary": "the brief's coverage cost measurement (whole quick gate, with and without, same commit) was not made; the one green gate with coverage took 636 s of library tests against 358-418 s on master's newest gates",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading; not timed. Correct today, slow later. Size: 10 min."
+      ],
+      "evidence": [
+        "lib/relay_metrics.py:124-133 for path in ...: relay_git.git(main, \"show\", f\"{rev}:{path}\")"
+      ],
+      "failing_case": [
+        "After the first sweep (153 labelled units in today's ledger) master holds about 150 record files; each landing runs plan() with",
+        "stored(): about 150 git subprocesses per try, about 1000 after a few months. Should: one batched read (relay_queue.cat_batch",
+        "already exists)."
+      ],
+      "fix_hint": [
+        "Use relay_queue.cat_batch(main, [f\"{rev}:{p}\" for p in paths])."
+      ],
+      "id": "F10",
+      "kind": "inside",
+      "line": 124,
+      "pass_cases": [
+        "1. plan() at a head with N records reads them with a constant number of git processes.",
+        "2. A record that does not parse is still skipped."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_metrics.py test_f10_... passes at head and fails at 3c3337a7"
+      ],
+      "severity": "LOW",
+      "since": "1ba613312aec21dc5d2274a11027e1fb5e8ea47d",
+      "source": "review-each-change-records-its-stage-times-cost.json",
+      "source_id": "F10",
+      "summary": "stored() runs one `git show` per record file on every try of every landing; the cost grows with every record ever written",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_land.py came in from master (merge 6c7c46cbd8cb) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "medium",
+      "reason": [
+        "gate green and precheck green on the merged head; fix tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "6c7c46cbd8cbdfcc30db720809fdf7e1b40926f9",
+      "source": "merge",
+      "summary": "lib/relay_land.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/skills/delegate/SKILL.md came in from master (merge 3c3337a7a47f) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "gate green and precheck green on the merged head; fix tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "3c3337a7a47fbbbb355b9179e43070918bcdbcda",
+      "source": "merge",
+      "summary": "plugins/delegate/skills/delegate/SKILL.md was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/workflows/cycle.js came in from master (merge 3c3337a7a47f) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "gate green and precheck green on the merged head; fix tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "3c3337a7a47fbbbb355b9179e43070918bcdbcda",
+      "source": "merge",
+      "summary": "plugins/delegate/workflows/cycle.js was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/front/lib/relay_land.py came in from master (merge 6c7c46cbd8cb) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/front/lib/relay_land.py",
+      "rank": "medium",
+      "reason": [
+        "gate green and precheck green on the merged head; fix tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "6c7c46cbd8cbdfcc30db720809fdf7e1b40926f9",
+      "source": "merge",
+      "summary": "plugins/front/lib/relay_land.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "plugins/relay/lib/relay_land.py came in from master (merge 6c7c46cbd8cb) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M5",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/relay/lib/relay_land.py",
+      "rank": "medium",
+      "reason": [
+        "gate green and precheck green on the merged head; fix tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "6c7c46cbd8cbdfcc30db720809fdf7e1b40926f9",
+      "source": "merge",
+      "summary": "plugins/relay/lib/relay_land.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_cycle_workflow.py came in from master (merge 3c3337a7a47f) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M6",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_cycle_workflow.py",
+      "rank": "medium",
+      "reason": [
+        "gate green and precheck green on the merged head; fix tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "3c3337a7a47fbbbb355b9179e43070918bcdbcda",
+      "source": "merge",
+      "summary": "tests/test_cycle_workflow.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_gate.py came in from master (merge 3c3337a7a47f) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M7",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "medium",
+      "reason": [
+        "gate green and precheck green on the merged head; fix tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "3c3337a7a47fbbbb355b9179e43070918bcdbcda",
+      "source": "merge",
+      "summary": "tests/test_gate.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_read_only_guard.py came in from master (merge 6c7c46cbd8cb) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M8",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_read_only_guard.py",
+      "rank": "medium",
+      "reason": [
+        "gate green and precheck green on the merged head; fix tests pass"
+      ],
+      "severity": "MEDIUM",
+      "since": "6c7c46cbd8cbdfcc30db720809fdf7e1b40926f9",
+      "source": "merge",
+      "summary": "tests/test_read_only_guard.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "53bcb5a9816786f19039ae59938a918e7b3dfdcb.gate.log",
+  "head": "abfab0287698bf01905136c1fd45e9196f52708b",
+  "item": null,
+  "notes": [
+    "F8 and F9 were not touched by the fix commit and no Disputed/Gap line exists."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 3c3337a7..HEAD. Ran test_metrics, test_read_only_guard, test_cycle_workflow (72 OK). Copied them to a worktree at 3c3337a7: 10 of the new tests fail there. Gate green on 53bcb5a9 (only inert gate-log commit after). relay precheck green. No fixer report file existed; the commit message claims F1-F7 and F10."
+  ],
+  "type": "check"
+}

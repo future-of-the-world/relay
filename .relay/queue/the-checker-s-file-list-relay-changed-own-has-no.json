@@ -25,8 +25,8 @@
   "where": [
     "bin/relay:468"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T17:19:06Z",
+  "taken_by": "wt/the-checker-s-file-list-relay-changed-ow",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

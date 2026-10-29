@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.7916,
+   "id": "a67e848d96437e253",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 37,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "fix",
+   "start": "2026-10-27T10:39:52.427Z",
+   "stop": "2026-10-27T10:56:05.854Z"
+  },
+  {
+   "cost_usd": 0.0032,
+   "id": "aa2ec76fb69f5ad3b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "gate",
+   "start": "2026-10-27T10:56:08.852Z",
+   "stop": "2026-10-27T11:03:43.195Z"
+  },
+  {
+   "cost_usd": 0.1742,
+   "id": "a410609d77e7598c5",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check",
+   "start": "2026-10-27T11:03:47.714Z",
+   "stop": "2026-10-27T11:07:13.057Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "wave-red-fix"
+}

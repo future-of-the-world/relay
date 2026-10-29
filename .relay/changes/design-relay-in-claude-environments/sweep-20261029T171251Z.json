@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.8922,
+   "id": "a8adb6434a72b1684",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 35,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design",
+   "start": "2026-10-29T10:28:42.235Z",
+   "stop": "2026-10-29T10:36:11.275Z"
+  },
+  {
+   "cost_usd": 1.3916,
+   "id": "aa874d1e2cd3c36ca",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design review",
+   "start": "2026-10-29T10:36:14.401Z",
+   "stop": "2026-10-29T10:41:24.853Z"
+  },
+  {
+   "cost_usd": 1.8844,
+   "id": "a26d2a99909b3fe02",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design revise",
+   "start": "2026-10-29T10:41:27.264Z",
+   "stop": "2026-10-29T10:46:05.523Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "design-relay-in-claude-environments"
+}

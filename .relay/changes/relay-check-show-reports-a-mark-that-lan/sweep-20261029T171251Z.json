@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0019,
+   "id": "a0c85769bc04ba66e",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "check show",
+   "start": "2026-10-28T10:46:36.931Z",
+   "stop": "2026-10-28T10:47:15.651Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "relay-check-show-reports-a-mark-that-lan"
+}

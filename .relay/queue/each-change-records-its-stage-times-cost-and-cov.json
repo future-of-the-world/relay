@@ -20,8 +20,9 @@
   ],
   "taken_at": "2026-10-29T08:05:00Z",
   "taken_by": "wt/each-change-records-its-stage-times-cost",
-  "closed_at": null,
+  "closed_at": "2026-10-29T17:02:09Z",
   "test": null,
+  "evidence": "e98695866471e54d6434edd446e586add4219142",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

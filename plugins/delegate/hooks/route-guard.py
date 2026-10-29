@@ -31,6 +31,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
+import relay_labels  # noqa: E402
 import relay_toml  # noqa: E402
 
 TYPED = {
@@ -41,11 +42,12 @@ TYPED = {
     "think": "delegate:thinker (design, plan, trade-offs; writes one file)",
     "judge": "delegate:critic (adversarial review; writes findings)",
 }
+TYPED_ROLES = ("scout", "runner", "worker", "fixer", "thinker", "critic")   # the relay agents; others are not labelled work
 SMALL_TIERS = ("scout", "runner", "worker", "fixer")
 
 
 def settings(cwd):
-    out = {"typed_only": True, "fork_limit": 100_000, "build_tier_opus": "escalate", "max_parallel": 4, "require_skill": "deny"}
+    out = {"typed_only": True, "fork_limit": 100_000, "build_tier_opus": "escalate", "max_parallel": 4, "require_skill": "deny", "label_guard": "deny"}
     try:
         root = cwd or os.getcwd()
         path = os.path.join(root, ".claude", "kit.toml")
@@ -53,10 +55,10 @@ def settings(cwd):
             out.update(relay_toml.load(handle).get("delegate", {}))
     except Exception:
         pass
-    for key in ("typed_only", "fork_limit", "build_tier_opus", "max_parallel", "require_skill"):
+    for key in ("typed_only", "fork_limit", "build_tier_opus", "max_parallel", "require_skill", "label_guard"):
         env = os.environ.get("RELAY_DELEGATE_" + key.upper())
         if env is not None:
-            out[key] = env if key in ("build_tier_opus", "require_skill") else (env.lower() == "true" if key == "typed_only" else int(env))
+            out[key] = env if key in ("build_tier_opus", "require_skill", "label_guard") else (env.lower() == "true" if key == "typed_only" else int(env))
     return out
 
 
@@ -131,6 +133,22 @@ def note(text):
     return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": text}}
 
 
+LABEL_DENIAL = ("Routing: a relay agent started by hand needs a label at the start of its description, `<stage>[ n]: <change>`, so its time "
+                "and cost join the change's record. Stages: " + ", ".join(relay_labels.STAGES) + ". Example: `build: refuse-folder-entries - "
+                "short words for the person may follow after ' - '`. Work with no change: `other: <name>`.")
+
+
+def metrics_on(root):
+    """Where the label is demanded: a project with .relay/ whose kit.toml does not set [metrics] enabled = false."""
+    if not os.path.isdir(os.path.join(root, ".relay")):
+        return False
+    try:
+        with open(os.path.join(root, ".claude", "kit.toml"), "rb") as handle:
+            return relay_toml.load(handle).get("metrics", {}).get("enabled", True) is not False
+    except Exception:
+        return True
+
+
 def decide(data):
     if data.get("tool_name") not in ("Agent", "Task"):
         return None
@@ -157,7 +175,13 @@ def decide(data):
             return deny(f"Routing: {sub} runs on the profile's model for its tier; Opus is for thinker and critic. "
                         "To escalate (a Sonnet agent failed the same task, or the project names the case), add a line "
                         "`Escalated: <reason>` to the prompt and keep the same brief.")
+    guard = str(cfg["label_guard"])
     notes = []
+    if guard in ("deny", "note") and role in TYPED_ROLES and not relay_labels.label_of(ti.get("description") or "") \
+            and metrics_on(data.get("cwd") or os.getcwd()):
+        if guard == "deny":
+            return deny(LABEL_DENIAL)
+        notes.append("Routing note: " + LABEL_DENIAL[len("Routing: "):])
     mode = str(cfg["require_skill"])
     if mode not in ("deny", "note", "off"):
         mode = "deny"   # an unknown value takes the default

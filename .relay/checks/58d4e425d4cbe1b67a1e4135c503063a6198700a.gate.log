@@ -1,0 +1,8 @@
+head 58d4e425d4cbe1b67a1e4135c503063a6198700a
+cmd bin/ci --quick
+wait 18.4
+ci: types and lint ok (1s)
+ci: lib copies identical FAILED (0s, log: .ci/steps/lib-copies-identical.log)
+    FAIL plugins/front/lib/relay_lanes.py differs from lib/ (run bin/sync-lib-copies)
+ci: RED (a fast step failed: the slow steps were not started)
+exit 1

@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1404,
+   "id": "ad4561e121b448515",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "3207dc59-2cc6-4cd6-9463-5c3c3c8bd504",
+   "stage": "build",
+   "start": "2026-10-28T04:20:23.647Z",
+   "stop": "2026-10-28T04:21:14.243Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "flow-orders"
+}

@@ -107,6 +107,8 @@ function stop(it, at, detail, extra) {
 const agentOpts = (type, schema, phase, label) => ({ agentType: `delegate:${type}`, schema, phase, label })
 
 // File names carry the kind for a fix or recheck run, so it never overwrites what the change run wrote.
+// The unit a label names: the full queue item id when the unit has one (the metrics then match it exactly), else its name.
+const lab = (it) => it.item || it.name
 const tag = (it) => ((it.kind || 'change') === 'change' || it.kind === 'built') ? it.name : `${it.kind}-${it.name}`
 
 // The quiet check every agent of a unit loops on: in relay mode `relay precheck` (the gate's quick steps, changed tests and the rules registry test included) comes in
@@ -151,12 +153,12 @@ function recoveryPrompt(it, n, prev) {
 async function gated(it, st) {
   while (true) {
     st.gn += 1
-    let r = await ask(gatePrompt(it, st.gn), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${it.name}`))
+    let r = await ask(gatePrompt(it, st.gn), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${lab(it)}`))
     if (r.dead && r.dead !== SKIPPED) {
       // The gate agent ended with no result: the gate may have run, so one recovery agent reads the head's gate log first.
       const prev = st.gn
       st.gn += 1
-      r = await ask(recoveryPrompt(it, st.gn, prev), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${it.name}`))
+      r = await ask(recoveryPrompt(it, st.gn, prev), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${lab(it)}`))
     }
     if (r.dead) return { stop: stop(it, 'gate', r.dead) }
     const g = r.v
@@ -174,7 +176,7 @@ async function gated(it, st) {
     st.fn += 1
     const fx = `${S}/reports/fixgate-${tag(it)}-${st.fn}.md`
     const f = await ask(`Fix the red gate. Worktree: ${it.wt}. Gate log: ${g.gate_log}. First failing line: ${g.first_fail}. Brief of the change: ${S}/briefs/${it.name}.md. Check: ${quiet(it)}.${quietNote()} Never work around a relay guard or hook. Commit the fix. Report: ${fx}.`,
-      agentOpts('fixer', HANDBACK, 'Fix', `fix red gate ${st.fn}: ${it.name}`))
+      agentOpts('fixer', HANDBACK, 'Fix', `fix red gate ${st.fn}: ${lab(it)}`))
     if (f.dead || f.v.status !== 'DONE') return { stop: stop(it, 'fix red gate', f.dead || f.v.summary) }
     st.fixReports.push(fx)
   }
@@ -204,7 +206,7 @@ async function checkStage(it, label, prompt, report, withItem) {
 async function finish(it, st, o) {
   const { findings, fixes, gateLog, review } = o
   const withItem = RELAY && !!it.item
-  const c = await checkStage(it, `check: ${it.name}`,
+  const c = await checkStage(it, `check: ${lab(it)}`,
     `Check: \`${findings}\`. Fixes: \`${fixes}\`. Worktree: \`${it.wt}\`. Check command: \`${quiet(it)}\`.${quietNote()} Gate: \`${gateLog}\`.`,
     `${S}/reports/check-${tag(it)}.json`, withItem)
   if (c.dead) return stop(it, 'check', c.dead, { review })
@@ -214,7 +216,7 @@ async function finish(it, st, o) {
   if (withItem) {
     if (!ck.q1_test) return stop(it, 'check', 'the check closed with no test for the queue item (q1_test is empty)', { review })
     const d = await ask(`Run exactly: \`relay queue done ${it.item} -C ${it.wt} --test ${ck.q1_test}\`. Report DONE with the output line, or BLOCKED with the refusal text.`,
-      agentOpts('runner', HANDBACK, 'Check', `close queue item: ${it.name}`))
+      agentOpts('runner', HANDBACK, 'Check', `close queue item: ${lab(it)}`))
     if (d.dead || d.v.status !== 'DONE') return stop(it, 'close queue item', d.dead || d.v.summary, { review, queue: { slug: it.item, test: ck.q1_test } })
     queue = { slug: it.item, test: ck.q1_test, fail_without_fix: ck.fail_without_fix, closed: `${d.v.status}: ${d.v.summary}` }
   }
@@ -224,7 +226,7 @@ async function finish(it, st, o) {
 async function showStage(it, result) {
   if (!RELAY) return Object.assign({ name: it.name }, result)
   const s = await ask(`Run \`relay check show ${it.branch} -C ${it.wt}\` (if -C is refused, run it with the worktree as the current folder). Report DONE and the line with the open count, or BLOCKED and the error.`,
-    agentOpts('runner', HANDBACK, 'Check', `check show: ${it.name}`))
+    agentOpts('runner', HANDBACK, 'Check', `check show: ${lab(it)}`))
   return Object.assign({ name: it.name }, result, { show: s.dead ? s.dead : s.v.summary })
 }
 
@@ -234,7 +236,7 @@ async function changeUnit(it) {
     // the build was done by hand: nothing to run
   } else {
     const b = await ask(`Implement the brief. Brief: \`${S}/briefs/${it.name}.md\`. Report: \`${S}/reports/${it.name}.md\`. Loop on this quiet check: \`${quiet(it)}\`.${quietNote()}`,
-      agentOpts('worker', HANDBACK, 'Build', `build: ${it.name}`))
+      agentOpts('worker', HANDBACK, 'Build', `build: ${lab(it)}`))
     if (b.dead || b.v.status !== 'DONE') return stop(it, 'build', b.dead || b.v.summary)
   }
   let r1 = await gateGroup(it, st)
@@ -244,7 +246,7 @@ async function changeUnit(it) {
   const reviewJson = `${S}/reports/review-${it.name}.json`
   const handover = RELAY ? ' docs/handover.md and .relay/queue/ commits are the front\'s record, not part of the change.' : ''
   const rv = await ask(`Review the change. Range: \`${A.base}...HEAD\` in \`${it.wt}\`. Report: \`${reviewJson}\`. Contract: the brief ${S}/briefs/${it.name}.md.${handover}`,
-    agentOpts('critic', REVIEW, 'Review', `review: ${it.name}`))
+    agentOpts('critic', REVIEW, 'Review', `review: ${lab(it)}`))
   if (rv.dead) return stop(it, 'review', rv.dead)
   const r = rv.v
   if (r.remaining || r.design_or_question) return stop(it, 'owner', r.main_point, { review: r })
@@ -252,7 +254,7 @@ async function changeUnit(it) {
   if (r.inside > 0) {
     fixes = `${S}/reports/fix-${it.name}.md`
     const f = await ask(`Fix the findings inside the change, each with its failing case and pass cases (read with \`relay check show ${reviewJson}\`). Worktree: ${it.wt}. Check: ${quiet(it)}.${quietNote()} New tests go in the change's own new test file (see the brief). For each new test show it fails without the fix. Findings outside the change: leave them, list them as Outside. Commit. Write your report (Fixed / Disputed / Gap / Outside per finding, with the test as file::function) to ${fixes}.`,
-      agentOpts('fixer', HANDBACK, 'Fix', `fix: ${it.name}`))
+      agentOpts('fixer', HANDBACK, 'Fix', `fix: ${lab(it)}`))
     if (f.dead || f.v.status !== 'DONE') return stop(it, 'fix', f.dead || f.v.summary, { review: r })
     const r2 = await gateGroup(it, st)
     if (r2.stop) return Object.assign(r2.stop, { review: r })
@@ -263,7 +265,7 @@ async function changeUnit(it) {
 
 async function fixUnit(it) {
   const st = newState()
-  const f = await ask(`${it.fix} Check: ${quiet(it)}.${quietNote()}`, agentOpts('fixer', HANDBACK, 'Fix', `fix: ${it.name}`))
+  const f = await ask(`${it.fix} Check: ${quiet(it)}.${quietNote()}`, agentOpts('fixer', HANDBACK, 'Fix', `fix: ${lab(it)}`))
   if (f.dead || f.v.status !== 'DONE') return stop(it, 'fix', f.dead || f.v.summary)
   const r = await gateGroup(it, st)
   if (r.stop) return r.stop

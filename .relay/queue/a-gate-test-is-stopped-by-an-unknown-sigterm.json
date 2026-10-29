@@ -26,8 +26,8 @@
     "tests/test_gate.py",
     "tests/test_land.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-29T17:19:04Z",
+  "taken_by": "wt/a-gate-test-is-stopped-by-an-unknown-sig",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

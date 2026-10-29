@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1267,
+   "id": "af796e84e91023064",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T14:09:48.055Z",
+   "stop": "2026-10-29T14:10:52.835Z"
+  },
+  {
+   "cost_usd": 0.0039,
+   "id": "aac1449452b53c5ba",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T14:10:55.441Z",
+   "stop": "2026-10-29T14:21:15.885Z"
+  },
+  {
+   "cost_usd": 0.425,
+   "id": "ae65ae94952ff4f17",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T14:21:19.112Z",
+   "stop": "2026-10-29T14:22:31.893Z"
+  },
+  {
+   "cost_usd": 0.0945,
+   "id": "a6445951909f00438",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T14:22:35.718Z",
+   "stop": "2026-10-29T14:23:10.578Z"
+  },
+  {
+   "cost_usd": 0.0042,
+   "id": "ad42a501676bd20c6",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T14:23:16.863Z",
+   "stop": "2026-10-29T14:39:31.927Z"
+  },
+  {
+   "cost_usd": 0.1028,
+   "id": "aaa9142f40186dde6",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T14:39:54.855Z",
+   "stop": "2026-10-29T14:42:40.609Z"
+  },
+  {
+   "cost_usd": 0.0026,
+   "id": "a479fe2ef21ccf32d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T14:42:45.540Z",
+   "stop": "2026-10-29T14:42:54.052Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "a-test-still-exempts-the-old-plugins-core-bin-ki",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "a-test-still-exempts-the-old-plugins-core-bin-ki"
+}

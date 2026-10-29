@@ -1,0 +1,166 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.3062,
+   "id": "a8842f27e88d7d762",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 20,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T12:13:44.978Z",
+   "stop": "2026-10-29T12:19:16.863Z"
+  },
+  {
+   "cost_usd": 0.2,
+   "id": "a3de7de375f664ddc",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T12:19:57.612Z",
+   "stop": "2026-10-29T12:22:25.005Z"
+  },
+  {
+   "cost_usd": 0.0041,
+   "id": "a06f93a695a8c1b73",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T12:22:28.392Z",
+   "stop": "2026-10-29T12:36:11.679Z"
+  },
+  {
+   "cost_usd": 0.1269,
+   "id": "a8a88a7caafdd53c7",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-29T12:36:16.010Z",
+   "stop": "2026-10-29T12:41:33.186Z"
+  },
+  {
+   "cost_usd": 0.0031,
+   "id": "a88303c5d5815df3b",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T12:41:36.084Z",
+   "stop": "2026-10-29T12:49:54.189Z"
+  },
+  {
+   "cost_usd": 0.1186,
+   "id": "a9bb68d3449aa83df",
+   "model": "claude-sonnet-5-5",
+   "n": 2,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-29T12:49:57.093Z",
+   "stop": "2026-10-29T12:55:51.587Z"
+  },
+  {
+   "cost_usd": 0.0043,
+   "id": "a51a44cc4b12af2c4",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T12:55:54.261Z",
+   "stop": "2026-10-29T13:13:01.536Z"
+  },
+  {
+   "cost_usd": 0.7756,
+   "id": "acd1ce9680be90f7b",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T13:13:04.740Z",
+   "stop": "2026-10-29T13:16:16.551Z"
+  },
+  {
+   "cost_usd": 0.1809,
+   "id": "a32bf883f19abafe4",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T13:16:19.672Z",
+   "stop": "2026-10-29T13:20:33.121Z"
+  },
+  {
+   "cost_usd": 0.0034,
+   "id": "abbdcc0adc9b20804",
+   "model": "claude-haiku-5-5",
+   "n": 4,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T13:20:36.606Z",
+   "stop": "2026-10-29T13:32:21.976Z"
+  },
+  {
+   "cost_usd": 0.1025,
+   "id": "a5e6b13a77e3606f1",
+   "model": "claude-sonnet-5-5",
+   "n": 3,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-29T13:32:27.374Z",
+   "stop": "2026-10-29T13:33:26.019Z"
+  },
+  {
+   "cost_usd": 0.0026,
+   "id": "a9be66a8e33457ced",
+   "model": "claude-haiku-5-5",
+   "n": 5,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T13:52:22.751Z",
+   "stop": "2026-10-29T13:52:33.670Z"
+  },
+  {
+   "cost_usd": 0.1183,
+   "id": "a557df5f04839b87e",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T13:52:37.215Z",
+   "stop": "2026-10-29T13:57:03.604Z"
+  },
+  {
+   "cost_usd": 0.0027,
+   "id": "a301d553c4ff162ba",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T13:57:06.409Z",
+   "stop": "2026-10-29T13:57:18.003Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "tests-leave-temp-worktrees-registered-in-the-liv",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "tests-leave-temp-worktrees-registered-in-the-liv"
+}

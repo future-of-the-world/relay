@@ -1,0 +1,200 @@
+{
+  "branch": "wt/relay-s-lane-start-hardcodes-main-worktr",
+  "findings": [
+    {
+      "details": [
+        "29 Oct, design review of the ALIX worktree-folder fix: outside that change. A relay lane started in ALIX would create an unignored .worktrees/ folder in its main checkout instead of using bin/wt. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A lane started for ALIX: worktree = os.path.join(main, \".worktrees\", name). ALIX ignores only /.worktree/, so its main",
+        "checkout shows \"?? .worktrees/\", and bin/wt's deps link and alixbase config are skipped. Expected: the project's",
+        "folder (project.worktrees or derived) or its gate.wt."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 487,
+      "pass_cases": [
+        "1. Project with project.worktrees = \".worktree\": lane worktree at <main>/.worktree/<name>.",
+        "2. relay itself (.worktrees): unchanged."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py:410 passes on head and fails at 0db6deeb."
+      ],
+      "severity": "HIGH",
+      "since": "0db6deeb6af8713fab2ed39ab40039c3d7300361",
+      "source": "queue",
+      "summary": "Relay's lane start hardcodes <main>/.worktrees/<name>, so\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading and a one-line Python check: os.path.join('/repo', '/srv/wts'.strip('/'), 'fx') -> /repo/srv/wts/fx. The guard's rule strips only a trailing slash; the change's comment calls its line \"the guard's rule\" but strip(\"/\") also strips the leading one. relay_setup.gitignore_lines treats os.path.isabs(folder) as \"outside the project\" and adds no ignore line, so the folder made inside main is unignored.",
+        "Reachable: a person can set an absolute folder; setup's tests (test_setup.py, \"/Users/x/wt\") treat it as supported.",
+        "Size: 10 minutes (with F2's shared helper, 20)."
+      ],
+      "evidence": [
+        "python3 -c \"import os;print(os.path.join('/repo','/srv/wts'.strip('/'),'fx'))\" -> /repo/srv/wts/fx",
+        "lib/relay_setup.py:638-641: folder ... strip(\"/\") only for the emptiness test; isabs(folder) -> no ignore line",
+        "tests/test_setup.py:215: for n, outside in enumerate((\"/Users/x/wt\", \"../wt\")):"
+      ],
+      "failing_case": [
+        "kit.toml [project] worktrees = \"/Users/x/wt\" (a folder outside the project, which relay_setup.gitignore_lines supports and tests/test_setup.py tests).",
+        "relay queue start fx: \"/Users/x/wt\".strip(\"/\") = \"Users/x/wt\", os.path.join(main, \"Users/x/wt\", \"fx\") = <main>/Users/x/wt/fx.",
+        "Now: the worktree is made inside the main checkout, in a folder no .gitignore line covers (setup adds none for an outside folder), so the main checkout shows \"?? Users/\" - the same defect this change fixes for ALIX.",
+        "Expected: /Users/x/wt/fx."
+      ],
+      "fix_hint": [
+        "Strip only trailing slashes (rstrip(\"/\")), keep the default for an empty value, and join: os.path.join(main, folder, name) already keeps an absolute folder absolute. Best done in the one shared helper of F2."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 488,
+      "pass_cases": [
+        "1. kit.toml worktrees = \"/abs/wts\" (abs = a temp folder outside main): start(\"fx\") -> worktree == \"/abs/wts/fx\", and <main>/abs does not exist.",
+        "2. kit.toml worktrees = \".worktree\": worktree == <main>/.worktree/fx (the new test, unchanged).",
+        "3. kit.toml worktrees = \".worktree/\" (trailing slash): worktree == <main>/.worktree/fx.",
+        "4. no kit.toml, or no project.worktrees key: worktree == <main>/.worktrees/fx.",
+        "5. kit.toml worktrees = \"../wts\": worktree == normpath(<main>/../wts/fx), outside main."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py:419 covers absolute, trailing slash, empty, ../; fails at 589298bd."
+      ],
+      "severity": "MEDIUM",
+      "since": "589298bd15cfa96fa77ec260a9f22ff883a00e28",
+      "source": "review-relay-s-lane-start-hardcodes-main-worktr.json",
+      "source_id": "F1",
+      "summary": "an absolute project.worktrees (\"/Users/x/wt\") loses its leading slash, so the lane worktree lands inside the main checkout",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The brief's front decision (owner can reverse): \"reuse the guard's reader, do not write a second one\". Project Python rule (CLAUDE.local.md, Python): \"A record that several programs read ... has one typed record and one parser, shared by all of them.\" The guard imports lib modules (relay_git, on master), so a lib helper is reachable from it; moving relay_setup and the guard onto it can be one step or a follow-up item, but lane start should not add a third copy. F1 is a live example of the drift.",
+        "Rule: Python, one parser shared.",
+        "Size: 20 minutes for the helper plus lanes; +15 to move setup and the guard onto it."
+      ],
+      "evidence": [
+        "git grep -n 'project.worktrees\\|\"worktrees\"' -- lib plugins/relay/hooks: guard_main.py:230-234, relay_setup.py:637-638, relay_lanes.py:487-488",
+        "brief: \"reuse the guard's reader, do not write a second one\""
+      ],
+      "failing_case": [
+        "git grep for the worktrees-folder default finds three rules for one kit.toml key:",
+        "plugins/relay/hooks/guard_main.py:231 (keeps a leading slash, strips one trailing slash, \"\" when the value is \"/\"),",
+        "lib/relay_setup.py:638 (keeps the value as written, isabs -> outside),",
+        "lib/relay_lanes.py:488 (new: strips all leading and trailing slashes).",
+        "For worktrees = \"/Users/x/wt\" the three give: guard <main>//Users/x/wt, setup \"outside the project\", lanes <main>/Users/x/wt.",
+        "Expected: one helper (e.g. relay_config.worktrees_folder(main) -> absolute folder) that lane start uses, so the lane, the gitignore line and the guard agree."
+      ],
+      "fix_hint": [
+        "Add relay_config.worktrees_folder(main: str) -> str (reads load_bindings, rstrip(\"/\"), default \".worktrees\", returns os.path.join(main, value)); call it in relay_lanes.start. Optionally switch relay_setup.gitignore_lines and Guard.setup to it."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 487,
+      "pass_cases": [
+        "1. relay_lanes.start computes its folder by calling one shared function (no inline isinstance/strip rule left in relay_lanes.py); git grep '\"\\.worktrees\"' in lib/relay_lanes.py finds nothing.",
+        "2. That function: no kit.toml -> <main>/.worktrees; \".worktree\" -> <main>/.worktree; \".worktree/\" -> <main>/.worktree; \"/abs/wts\" -> /abs/wts; \"\" or a non-string -> <main>/.worktrees.",
+        "3. The new test test_start_uses_the_projects_worktrees_folder_from_kit_toml keeps passing."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_config.py:97 worktrees_folder used by relay_lanes.py:487; no inline rule left; test at :410 passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "589298bd15cfa96fa77ec260a9f22ff883a00e28",
+      "source": "review-relay-s-lane-start-hardcodes-main-worktr.json",
+      "source_id": "F2",
+      "summary": "a third copy of the project.worktrees rule, against the brief's \"reuse the guard's reader\" and the one-parser rule; the copies already disagree",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running the functions. Outside the change (relay_estimate.py, queue_ext/estimate.py untouched), but this change makes it reachable for relay's own lanes: before it, an ALIX lane still sat in .worktrees/ and was counted. The regexes WORKTREE and WORKTREE_PATH and repo_top hardcode \".worktrees\". A queue item, not a fix here.",
+        "Size: 30 minutes."
+      ],
+      "evidence": [
+        "python3 -I -c \"... e.worktree_of('/x/alix/.worktree/fx/lib'), e.worktree_of('/x/relay/.worktrees/fx/lib')\" -> None fx",
+        "e.change_of('/x/alix', 'Worktree: /x/alix/.worktree/fx (branch wt/fx)') -> None"
+      ],
+      "failing_case": [
+        "An agent of an ALIX lane works in /x/alix/.worktree/fx/lib, or its brief says \"Worktree: /x/alix/.worktree/fx (branch wt/fx)\".",
+        "Now: relay_estimate.worktree_of('/x/alix/.worktree/fx/lib') -> None; change_of('/x/alix', 'Worktree: /x/alix/.worktree/fx (branch wt/fx)') -> None; queue_ext/estimate.repo_top keeps the worktree as the repo.",
+        "Expected: \"fx\", as for '/x/relay/.worktrees/fx/lib' (-> \"fx\" today)."
+      ],
+      "fix_hint": [
+        "Take the project's worktrees folder (F2's helper) where the root is known, or match git's worktree list; keep \".worktrees\" as the fallback when no root is given."
+      ],
+      "id": "F3",
+      "kind": "outside",
+      "line": 19,
+      "pass_cases": [
+        "1. worktree_of('/x/alix/.worktree/fx/lib') with the project's folder \".worktree\" -> \"fx\".",
+        "2. change_of('/x/alix', 'Worktree: /x/alix/.worktree/fx (branch wt/fx)', root='/x/alix') with kit.toml \".worktree\" -> \"fx\".",
+        "3. worktree_of('/x/relay/.worktrees/fx/lib') -> \"fx\" (unchanged).",
+        "4. repo_top('/x/alix/.worktree/fx') -> '/x/alix'."
+      ],
+      "path": "lib/relay_estimate.py",
+      "rank": "medium",
+      "reason": [
+        "Outside the change, owner queue item; fixer agrees."
+      ],
+      "severity": "MEDIUM",
+      "since": "589298bd15cfa96fa77ec260a9f22ff883a00e28",
+      "source": "review-relay-s-lane-start-hardcodes-main-worktr.json",
+      "source_id": "F3",
+      "summary": "cost attribution finds a change only under .worktrees/, so lane agents in a .worktree project (ALIX) count for no change",
+      "verdict": "OUTSIDE"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading master's guard_main.py:231-234 and 271-272. LOW: since the ALIX fix the guard also accepts every worktree git lists, so registered worktrees in an absolute folder still pass; only the extra-folder path is dead. Fixed for free if the guard moves onto F2's helper.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "git grep -n wtdir master -- plugins/relay/hooks/guard_main.py: 232 self.wtdir = wt ..., 272 wt = self.main + \"/\" + self.wtdir"
+      ],
+      "failing_case": [
+        "kit.toml worktrees = \"/Users/x/wt\": Guard.wtdir = \"/Users/x/wt\"; wtroot compares paths against \"<main>//Users/x/wt\", which never matches, and the advice prints \"git worktree add /Users/x/wt/<name>\" (right) while the extra-folder check is dead.",
+        "Expected: the extra folder is /Users/x/wt itself."
+      ],
+      "fix_hint": [
+        "Use the shared helper from F2 (absolute stays absolute)."
+      ],
+      "id": "F4",
+      "kind": "outside",
+      "line": 231,
+      "pass_cases": [
+        "1. worktrees = \"/abs/wts\": a write to /abs/wts/a/f.py is inside a task worktree (also true today through git's worktree list when a is registered).",
+        "2. worktrees = \".worktrees\": a write to <main>/.worktrees/a/f.py is inside a task worktree (unchanged)."
+      ],
+      "path": "plugins/relay/hooks/guard_main.py",
+      "rank": "low",
+      "reason": [
+        "Outside the change (guard), LOW."
+      ],
+      "severity": "LOW",
+      "since": "589298bd15cfa96fa77ec260a9f22ff883a00e28",
+      "source": "review-relay-s-lane-start-hardcodes-main-worktr.json",
+      "source_id": "F4",
+      "summary": "the guard joins an absolute project.worktrees onto the main checkout (main + \"/\" + \"/Users/x/wt\")",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "5d2a693228ce86718b006d363354c944729f1b37.gate.log",
+  "head": "916bfcc275f1351e9aabcbe5d19c6da77540f311",
+  "item": "relay-s-lane-start-hardcodes-main-worktrees-name",
+  "notes": [
+    "Tests fail at their pre-fix base (Q1 test at 0db6deeb, forms test at 589298bd)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 589298bd..HEAD. Gate 5d2a6932 exit 0, only the gate-log commit follows. Precheck green, 69 lane tests passed. Files changed: relay_config, relay_lanes, synced lib copies, the test file; all in scope. Callers of worktrees_folder: only lanes.start."
+  ],
+  "type": "check"
+}
