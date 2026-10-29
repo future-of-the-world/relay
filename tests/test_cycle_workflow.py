@@ -79,12 +79,12 @@ class Cycle(unittest.TestCase):
         """Stages of a change with an item, by the design: build, gate, review, ONE check, close, check show. Disabled
         rule (the old split): a second 'check queue item' agent would put a second checker in the list."""
         out = self.run_cycle(self.args([self.unit(item="the-item")]))
-        self.assertEqual(out["labels"], ["build: x", "gate 1: x", "review: x", "check: x", "close queue item: x", "check show: x"])
+        self.assertEqual(out["labels"], ["build: the-item", "gate 1: the-item", "review: the-item", "check: the-item", "close queue item: the-item", "check show: the-item"])
         types = [e["agentType"] for e in out["events"] if e["event"] == "start"]
         self.assertEqual(types.count("delegate:checker"), 1)
         self.assertTrue(out["result"]["changes"][0]["ready"])
-        self.assertIn("relay queue done the-item -C", out["prompts"]["close queue item: x"])
-        self.assertIn("--test tests/a.py::A::b", out["prompts"]["close queue item: x"])
+        self.assertIn("relay queue done the-item -C", out["prompts"]["close queue item: the-item"])
+        self.assertIn("--test tests/a.py::A::b", out["prompts"]["close queue item: the-item"])
 
     def test_no_item_no_close_and_project_mode_has_no_queue_or_show(self):
         """Without an item: no close stage. Project mode (relay false): neither close nor check show."""
@@ -111,7 +111,7 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}, "stage:review": INSIDE})
         for label in ("build: x", "fix red gate 1: x", "fix: x", "check: x"):
             self.assertIn(note, out["prompts"][label], label)
-        unit = self.unit(kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="i")
+        unit = self.unit(kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="x")
         self.assertIn(note, self.run_cycle(self.args([unit]))["prompts"]["fix: x"])
         out = self.run_cycle(self.args([self.unit(branch=None)], relay=False))
         self.assertNotIn(note, out["prompts"]["check: x"])
@@ -119,7 +119,7 @@ class Cycle(unittest.TestCase):
     def test_a_fix_unit_fixer_gets_the_quiet_check_and_a_compound_check_is_grouped(self):
         """F1: the fix text alone left the precheck out of a fix-kind unit. F7: `a; b` must sit in a group so a red precheck's
         exit code is the command's. Project mode: no precheck, the front's fix text stays."""
-        unit = self.unit(kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="i", check="pytest a; pytest b")
+        unit = self.unit(kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="x", check="pytest a; pytest b")
         out = self.run_cycle(self.args([unit]))
         want = "relay precheck -C %s && (pytest a; pytest b)" % self.wt
         self.assertIn(want, out["prompts"]["fix: x"])
@@ -240,7 +240,7 @@ class Cycle(unittest.TestCase):
 
     # 5
     def test_fix_and_recheck_kinds(self):
-        fix = self.unit(kind="fix", fix="Fix it.", fixes="fix.md", findings="review.json", item="i")
+        fix = self.unit(kind="fix", fix="Fix it.", fixes="fix.md", findings="review.json", item="x")
         out = self.run_cycle(self.args([fix]))
         self.assertEqual(out["labels"], ["fix: x", "gate 1: x", "check: x", "close queue item: x", "check show: x"])
         self.assertTrue(out["prompts"]["fix: x"].startswith("Fix it."))  # then the quiet check (F1)
@@ -289,6 +289,15 @@ class Cycle(unittest.TestCase):
         for label, prompt in out["prompts"].items():
             self.assertNotIn("relay land", prompt, label)
 
+    def test_f6_labels_of_a_unit_with_an_item_carry_the_full_item_id_and_one_without_keeps_its_name(self):
+        """Unit named x for item `x-and-a-very-long-queue-item-id`: every label ends with the item id (so the metrics match it exactly);
+        a unit with no item keeps `<stage>: x`."""
+        item = "x-and-a-very-long-queue-item-id"
+        out = self.run_cycle(self.args([self.unit(item=item)]))
+        self.assertEqual(out["labels"], [f"{s}: {item}" for s in ("build", "gate 1", "review", "check", "close queue item", "check show")])
+        out = self.run_cycle(self.args([self.unit()]))
+        self.assertEqual(out["labels"], ["build: x", "gate 1: x", "review: x", "check: x", "check show: x"])
+
     def test_recheck_gate_takes_the_base_first_and_a_conflict_stops_without_a_fix_round(self):
         """The queue item's pass cases: a recheck gate prompt starts with a merge of the base (relay and project mode); other
         kinds do not; a reported take conflict stops at gate with no fixer. Disabled rule (no takePrompt): no merge text."""
@@ -297,7 +306,7 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([unit], relay=False))
         self.assertTrue(out["prompts"]["gate 1: x"].startswith("First take the base"))
         self.assertIn(merge, out["prompts"]["gate 1: x"])
-        out = self.run_cycle(self.args([self.unit(item="i")]))
+        out = self.run_cycle(self.args([self.unit(item="x")]))
         self.assertNotIn("merge --no-edit", out["prompts"]["gate 1: x"])
         conflict = {"ok": False, "gate_log": "", "first_fail": "take conflict: a.py"}
         out = self.run_cycle(self.args([self.unit(kind="recheck", findings="f", branch=None)], relay=False), **{"stage:gate": conflict})
@@ -489,9 +498,9 @@ class Cycle(unittest.TestCase):
 
     def test_f1_check_fixes_name_the_worker_report(self):
         w = os.path.join(self.scratch, "reports", "x.md")
-        out = self.run_cycle(self.args([self.unit(item="the-item")]))
+        out = self.run_cycle(self.args([self.unit(item="x")]))
         self.assertEqual(self.fixes_of(out), w)                                        # case 1
-        out = self.run_cycle(self.args([self.unit(item="the-item")]), **{"stage:review": INSIDE})
+        out = self.run_cycle(self.args([self.unit(item="x")]), **{"stage:review": INSIDE})
         self.assertEqual(self.fixes_of(out), f"{w} and {self.scratch}/reports/fix-x.md")   # case 2
         out = self.run_cycle(self.args([self.unit()]), **{"stage:gate": {"$seq": [RED, GREEN["stage:gate"]]}})
         self.assertEqual(self.fixes_of(out), f"{w} and {self.scratch}/reports/fixgate-x-1.md")   # case 3
