@@ -1,0 +1,11 @@
+head f373418b64f3d2be74c00a96a1ca61ae51344b51
+cmd bin/ci --quick
+wait 137.1
+ci: types and lint ok (0s)
+ci: lib copies identical FAILED (0s, log: .ci/steps/lib-copies-identical.log)
+    FAIL plugins/front/lib/relay_land.py differs from lib/ (run bin/sync-lib-copies)
+    FAIL plugins/front/lib/relay_queue.py differs from lib/ (run bin/sync-lib-copies)
+    FAIL plugins/relay/lib/relay_land.py differs from lib/ (run bin/sync-lib-copies)
+    FAIL plugins/relay/lib/relay_queue.py differs from lib/ (run bin/sync-lib-copies)
+ci: RED (a fast step failed: the slow steps were not started)
+exit 1

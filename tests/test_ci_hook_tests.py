@@ -11,9 +11,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def copy_gate(tree):
     """bin/ci is a wrapper of lib/relay_ci.py: both go into the temporary tree."""
-    for rel in (("bin", "ci"), ("lib", "relay_ci.py")):
+    for rel in (("bin", "ci"), ("lib", "relay_ci.py"), ("lib", "relay_ci_lines.py"), ("lib", "relay_ci_python.py")):
         os.makedirs(os.path.join(tree, rel[0]), exist_ok=True)
         shutil.copy(os.path.join(ROOT, *rel), os.path.join(tree, *rel))
+    shutil.copy(os.path.join(ROOT, "deps.toml"), os.path.join(tree, "deps.toml"))   # bin/ci reads the python pin from it
     # the fast "types and lint" step runs first and ends a red gate: a stub that passes keeps these trees reaching the step under test
     stub = os.path.join(tree, "bin", "types-lint")
     with open(stub, "w") as handle:

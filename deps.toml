@@ -3,6 +3,7 @@
 #   name       what the tool is called in messages
 #   command    the program looked for on PATH
 #   min        the version needed at least (dotted numbers); with exact = true it is the one pinned version
+#   presence   true for a tool that prints no version (ps): it counts when `command version_arg` runs and exits 0
 #   exact      true for a pinned gate tool: any other version is a FIX
 #   version_arg  the argument that makes the program print its version
 #   brew / apt   package names for Homebrew (macOS) and apt-get (Linux)
@@ -17,6 +18,7 @@
 #   installer_url, official_url, apt (Linux), brew (macOS), manual.
 #   manual     what to do by hand when relay installs nothing for it
 #   why        what needs it, shown in the FIX line
+# python3 is pinned to one exact version for the host and the container (bin/ci refuses another python3).
 # The pins of ruff and mypy live here; bin/types-lint and pyproject.toml should read them from this file.
 
 [[dep]]
@@ -31,10 +33,11 @@ why = "runs the gate tools"
 [[dep]]
 name = "python3"
 command = "python3"
-min = "3.11"
+min = "3.14.6"
+exact = true
 version_arg = "--version"
-uv_python = "3.11"
-brew = "python@3.11"
+uv_python = "3.14.6"
+brew = "python@3.14"
 apt = "python3"
 why = "relay itself"
 
@@ -46,6 +49,14 @@ darwin_run = "xcode-select --install"
 brew = "git"
 apt = "git"
 why = "worktrees, merges, the gate"
+
+[[dep]]
+name = "ps"
+command = "ps"
+version_arg = "-p1"
+presence = true
+apt = "procps"
+why = "the gate's leaked-gate scan, inert probe and check migration list processes (a slim Linux image lacks it)"
 
 [[dep]]
 name = "jq"

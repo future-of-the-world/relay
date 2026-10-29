@@ -39,6 +39,9 @@ import time
 import traceback
 from typing import Any, Callable, NoReturn, TextIO
 
+from relay_ci_lines import _read_lines, _read_lines_keep, outcome  # noqa: F401  (outcome is called by other programs through relay_ci)
+from relay_ci_python import python_problem  # noqa: F401  (re-exported: tests call relay_ci.python_problem)
+
 StepFn = Callable[[TextIO], int]
 
 FINDING = re.compile(r"FAIL|Error|error|✗|^ERROR: ")   # "ERROR: <test id>" names a test that raised, not failed
@@ -51,24 +54,6 @@ LIMIT_EXIT = 124            # the exit of a gate stopped at its time limit (GNU 
 PROBE_LINE = "inert probe line"
 HOOK_TOOLS = (("git", "install git"), ("jq", "brew install jq"), ("python3", "install python3"),
               ("bun", "curl -fsSL https://bun.sh/install | bash (the packet and check-contract tests run on it)"))
-
-
-def outcome(directory: str) -> list[str]:
-    """What a run did, as lines that must not change when an inert file does: each step's result, the library test count
-    ("Ran N tests"); hooks-live's lines are not in it: only a full run runs it, with a live model."""
-    lines: list[str] = []
-    lines += _read_lines(os.path.join(directory, ".ci", "results.txt"))
-    lines += [re.sub(r" in [0-9.]+s", "", ln, count=1)
-              for ln in _read_lines(os.path.join(directory, ".ci", "steps", "library-tests.log")) if ln.startswith("Ran ")]
-    return lines
-
-
-def _read_lines(path: str) -> list[str]:
-    try:
-        with open(path, encoding="utf-8", errors="replace") as handle:
-            return handle.read().splitlines()
-    except FileNotFoundError:
-        return []
 
 
 def _descendants(pid: int) -> list[int]:
@@ -572,11 +557,6 @@ class Ci:
         return self.status
 
 
-def _read_lines_keep(path: str) -> list[str]:
-    with open(path, encoding="utf-8", errors="replace") as handle:
-        return handle.readlines()
-
-
 def _raise_exit(signum: int, _frame: object) -> None:
     raise SystemExit(128 + signum)
 
@@ -590,6 +570,10 @@ def main(argv: list[str], root: str | None = None) -> int:
         else:
             print("usage: bin/ci [--quick]", file=sys.stderr)
             return 2
+    problem = python_problem(root)
+    if problem:
+        print(problem, file=sys.stderr)
+        return 1
     # a stopped gate leaves through an exception, so the probe is stopped and its worktree removed
     for sig in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, _raise_exit)

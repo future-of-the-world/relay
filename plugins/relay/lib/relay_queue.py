@@ -1340,6 +1340,26 @@ def held_fix_items(worktree: str, riders: bool = False) -> dict:
     return held
 
 
+def open_item_refusal(worktree: str, branch: str) -> str | None:
+    """Why `relay land` refuses: the branch of `worktree` still holds a taken fix item, or its queue cannot be read; else None."""
+    try:
+        held = held_fix_items(worktree)
+        open_slugs = {s for s, i in held.items() if i["state"] == "taken"}
+        main, default = _context(worktree)       # a take on the default branch that the branch head has not merged yet is open too
+        here = Reader(worktree, "HEAD").items()
+        for slug, item in Reader(main, f"refs/heads/{default}").items().items():
+            if (not item["problems"] and item["kind"] == "fix" and item["state"] == "taken" and item.get("taken_by") == branch
+                    and here.get(slug, {}).get("state") != "done"):
+                open_slugs.add(slug)
+        taken = sorted(open_slugs)
+    except Refused as exc:
+        return f"land: cannot read the queue of {branch}: {exc}"
+    if not taken:
+        return None
+    return (f"land: {branch} still holds the open fix item '{taken[0]}': close it first, "
+            f"relay queue done {taken[0]} -C {worktree} --test <file>::<name>; then relay land {branch} again")
+
+
 def _unvouched_rider_item(worktree: str, slug: str) -> bool:
     """True when a rider-closed item still needs a check on this branch: judged the way the merge hook does (`step_queue`), at the
     innermost absorbed branch whose range closes it (`closing_tip`), else at this branch. An item vouched for at its rider needs none."""
@@ -1547,7 +1567,15 @@ def done(worktree, slug, test):
     fix, the branch's check with Q1 MET)."""
     branch = relay_git.current_branch(worktree)
     main, default = _context(worktree)
-    if branch is None or branch == default:
+    if branch == default:
+        held = Reader(worktree, "HEAD").items().get(slug)
+        if held and held["state"] == "taken" and _branch_live(worktree, held["taken_by"]):
+            raise Refused(f"queue item '{slug}' is taken by {held['taken_by']}, which is not merged: "
+                          f"run relay queue done {slug} -C <its worktree> --test {test}")
+        raise Refused(f"done runs in the worktree of the task branch that took the item; from the main checkout a fix taken by a branch "
+                      f"that is merged or gone closes with relay queue done {slug} --fixed-by <commit> --test <file>.py::<Class>::<name>; "
+                      f"one that was never fixed is released with relay queue release {slug}")
+    if branch is None:
         raise Refused("done runs in the worktree of the task branch that took the item")
     path, _, name = test.partition("::")
     if not path or not name:
