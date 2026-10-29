@@ -104,7 +104,7 @@ install_one() {
     say "  needs uv first; it was not installed"; return 1
   fi
   if [ -n "$uvp" ]; then
-    say "  via uv python install (python3.11 lands in ~/.local/bin; python3 itself is not replaced)"
+    say "  via uv python install (python3.$pyminor lands in ~/.local/bin; python3 itself is not replaced)"
     if command -v uv >/dev/null 2>&1 || [ "$dry" = 1 ]; then run uv python install "$uvp"; return $?; fi
     say "  needs uv first; it was not installed"; return 1
   fi
@@ -154,7 +154,8 @@ py_ok() {   # py_ok FOUND: the pinned python3 version exactly when deps.toml pin
 }
 
 find_python() {   # the first python that is 3.11+ (python3, then versioned names, then the one uv holds); prints its path
-  for c in python3 "python${pymin%.*}"; do
+  if [ "$pyexact" = true ]; then cands="python3 python3.$pyminor"; else cands="python3 python3.14 python3.13 python3.12 python3.11"; fi
+  for c in $cands; do
     v="$(version_of "$c" --version)"
     if [ -n "$v" ] && py_ok "$v"; then command -v "$c"; return 0; fi
   done
@@ -175,6 +176,7 @@ say "ok = already there, install = missing or too old, installed = done now"
 PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"; export PATH   # bun's own installer puts it in ~/.bun/bin
 
 pymin="$(entries | awk -F'|' '$1=="python3" { print $3 }')"; pymin="${pymin:-3.11}"
+pyminor="${pymin#*.}"; pyminor="${pyminor%%.*}"
 pyexact="$(entries | awk -F'|' '$1=="python3" { print $4 }')"
 
 entries | while IFS='|' read -r name cmd min exact varg brew apt uvt uvp drun url sha rurl rsha ourl oshell man presence; do
@@ -214,7 +216,7 @@ if [ "$dry" = 1 ]; then
   exit 0
 fi
 if [ -z "$py" ]; then
-  say "python3 is still ${pyfound:-missing}; relay needs python $pymin${pyexact:+ (exactly)}: run  uv python install $pymin  and put $HOME/.local/bin first on PATH, then run install.sh again"
+  say "python3 is still ${pyfound:-missing}; relay needs python $pymin${pyexact:+ (exactly)}: run  uv python install --default $pymin  and put $HOME/.local/bin first on PATH, then run install.sh again"
   exit 1
 fi
 if [ "$(command -v python3)" != "$py" ]; then

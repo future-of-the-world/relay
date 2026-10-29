@@ -314,7 +314,7 @@ class Routes(InstallScript):
         hint = relay_setup.install_hint
         self.assertIn(self.JQ_MAC, hint(by["jq"], "darwin", "arm64"))
         self.assertEqual(hint(by["git"], "darwin", "arm64"), "xcode-select --install")
-        self.assertEqual(hint(by["python3"], "darwin", "arm64"), "uv python install 3.14.6")
+        self.assertEqual(hint(by["python3"], "darwin", "arm64"), "uv python install --default 3.14.6")
         self.assertEqual(hint(by["claude"], "darwin", "arm64"), "curl -fsSL https://claude.ai/install.sh | bash")
         self.assertNotIn("node", by)
         self.assertEqual(hint(by["git"], "linux", "x86_64"), "sudo apt-get install -y git")

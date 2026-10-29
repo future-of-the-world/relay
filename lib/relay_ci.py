@@ -501,7 +501,7 @@ def python_problem(root: str, running: tuple[int, int, int] | None = None) -> st
     have = running or (sys.version_info[0], sys.version_info[1], sys.version_info[2])
     if ".".join(map(str, have)) == want:
         return None
-    return ("ci: python3 is %s but relay pins %s (deps.toml): put python %s first on PATH (uv python install %s), then run bin/ci again"
+    return ("ci: python3 is %s but relay pins %s (deps.toml): make python3 %s (uv python install --default %s, with ~/.local/bin first on PATH), then run bin/ci again"
             % (".".join(map(str, have)), want, want, want))
 
 

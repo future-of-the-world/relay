@@ -295,10 +295,17 @@ def declarations(root):
     if not os.path.exists(tsc):
         hint = CFG.get("install_hint", "install the project's dependencies")
         raise RefError(f"module refs need node_modules/.bin/tsc: {hint}")
+    # tsc's first line is `#!/usr/bin/env node`: with no node on the machine, bun runs the script.
+    runner: list[str] = []
+    if shutil.which("node") is None:
+        bun = shutil.which("bun")
+        if bun is None:
+            raise RefError("module refs run the TypeScript compiler, which needs node or bun on PATH: install bun (https://bun.sh)")
+        runner = [bun]
     out = tempfile.mkdtemp(prefix="packet-dts-")
     atexit.register(shutil.rmtree, out, ignore_errors=True)
     subprocess.run(
-        [tsc, "-p", os.path.join(root, "tsconfig.json"), "--noEmit", "false", "--declaration",
+        [*runner, tsc, "-p", os.path.join(root, "tsconfig.json"), "--noEmit", "false", "--declaration",
          "--emitDeclarationOnly", "--rootDir", root, "--outDir", out],
         cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
     )

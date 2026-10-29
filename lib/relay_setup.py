@@ -1092,7 +1092,7 @@ def install_hint(dep, system=None, machine=None):
     if "uv_tool" in dep:
         return "uv tool install " + dep["uv_tool"]
     if "uv_python" in dep:
-        return "uv python install " + dep["uv_python"]
+        return "uv python install --default " + dep["uv_python"]
     if "darwin_run" in dep and system == "darwin":
         return dep["darwin_run"]
     key = platform_key(system, machine)
