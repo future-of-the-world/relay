@@ -1,0 +1,16 @@
+head 4bbc6b43aa462a852a8fbfc395418d0640410f86
+cmd bin/ci --quick
+wait 6382.5
+ci: types and lint ok (1s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (5467s, log: .ci/steps/library-tests.log)
+    ERROR: test_rules_tests_command_passes_in_the_order_unittest_runs_them (test_rules_gate_isolation.RulesGateIsolation.test_rules_tests_command_passes_in_the_order_unittest_runs_them)
+    FAIL: test_session_end_hook_is_fast_on_a_large_ledger (test_numbers.Numbers.test_session_end_hook_is_fast_on_a_large_ledger)
+    AssertionError: 0.8519706249935552 not less than 0.3 : SessionEnd hook took 0.85 s on a 700,000-line ledger
+    FAILED (failures=1, errors=1)
+ci: hook tests ok (1415s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (1s)
+ci: RED
+exit 1

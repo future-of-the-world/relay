@@ -1,0 +1,43 @@
+{
+  "kind": "feature",
+  "ip": 95,
+  "time": 45,
+  "found_at": "2026-10-29T02:08:22Z",
+  "found_in": "relay queue add",
+  "title": "The quick gate stops itself at a time limit",
+  "what": [
+    "The quick gate (`relay gate -- --quick`, bin/ci --quick) stops itself when its run time passes a limit, counted from the start of its own run, not from the wait for a gate slot; it kills its whole process tree, writes 'gate: stopped at the N-minute limit, step <name> was running' as the first failing line and exits red with a distinct status, so the cycle's gate fixer does not treat it as a failing test. The paid full gate is not limited (one run measured at 122 min). The limit is a setting with a default, value set by the owner's answer to the question noted on this item."
+  ],
+  "why": [
+    "Tonight leaked test processes made quick gates run 1-3 hours; a limit turns such a run into a fast, named red instead of hours of waiting. Measured 29 Oct over 510 recorded quick gate logs (sum of step times; bin/ci runs its steps one after another): median 14.4 min, over 25 min 67 (13%), over 30 min 9 (1.8%), over 35 min 4 (0.8%). Longest steps: library tests median 461 s, p95 774 s; inert (reruns the library tests nested) median 284 s, p95 802 s; hook tests median 149 s."
+  ],
+  "where": [
+    "bin/ci",
+    "bin/relay (relay gate)"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T02:08:22Z",
+      "said": [
+        "Давай добавим тайм-аут на gate, не дольше 25 минут, даже при нагрузке этого ограничения должно хватать"
+      ]
+    },
+    {
+      "asked_at": "2026-10-29T02:08:32Z",
+      "question": [
+        "Какой предел времени поставить на быструю проверку перед merge? Замер 29 Oct по 510 записанным быстрым проверкам: медиана 14.4 мин; дольше 25 мин шли 67 (13%), дольше 30 мин 9 (1.8%), дольше 35 мин 4 (0.8%). Каждая остановленная проверка прогоняется заново (ещё около 15 мин)."
+      ],
+      "options": [
+        "a. 30 минут (рекомендация: останавливает 1.8% нормальных проверок против 13% при 25, а зависшие ночные по 1-3 часа ловит так же)",
+        "b. 25 минут, как вы сказали: каждая восьмая нормальная проверка будет остановлена и прогнана заново",
+        "c. 25 минут после ускорения проверки: сначала убрать повторный прогон библиотечных тестов внутри шага inert (медиана 284 с), потом ставить 25"
+      ]
+    }
+  ]
+}

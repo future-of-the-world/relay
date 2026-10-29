@@ -23,8 +23,8 @@
   ],
   "taken_at": "2026-10-28T15:23:48Z",
   "taken_by": "wt/guard-main-refuses-a-script-that-only-na",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-28T18:45:44Z",
+  "test": "tests/test_guard_checks_inline.py::test_script_that_prints_the_folder_name_is_allowed",
   "dropped_at": null,
   "dropped_why": null
 }
