@@ -29,5 +29,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-29T16:17:26Z",
+      "fact": [
+        "Reproduced 29 Oct by reading master: lib/relay_lanes.py:487 builds the lane's worktree as os.path.join(main, \".worktrees\", name) whatever the project's own worktree folder or tool (ALIX's bin/wt makes .worktree/)."
+      ]
+    }
+  ]
 }
