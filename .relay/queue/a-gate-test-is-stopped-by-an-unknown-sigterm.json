@@ -42,6 +42,13 @@
       "options": [
         "a. Land now; a new queue item records the sender next time (which of relay's own time limits fired, with its process id) so the next occurrence names it",
         "b. Hold this change until the sender is found (no fixed time: it needs the failure to happen again under watch)"
+      ],
+      "answered_at": "2026-10-29T21:20:38Z",
+      "answer": [
+        "a a a a, закрыть"
+      ],
+      "reading": [
+        "Answer to question 4 of 4: a. Land the gate-lock fix and the signal line; finding the sender moves to queue item a-sigterm-in-a-gate-does-not-name-its-sender."
       ]
     }
   ]
