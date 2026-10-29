@@ -1754,3 +1754,31 @@ a-gate-test-is-stopped-by-an-unknown-sigterm (93), the-precheck-s-changed-tests-
 2. After the paid run: relay sync, remove the paid worktree.
 3. Linux path: each-change-is-gated-in-a-fresh-container (95), then speed-up-the-quick-gate (drop second run, 1500 s), a-gate-test-is-stopped-by-an-unknown-sigterm (93).
 4. Next handover worktree: handover-45.
+
+## Addendum 33 (29 Oct, ~17:40 local; session 6c217ef4)
+
+### Landed since addendum 32
+- Metrics: each change records its stage times, cost and coverage (coverage on every gate; three measured pairs: 368/941 s, 811/825 s, 632/631 s; two of three show 0-2%, the first is taken as load noise; facts on the item).
+- The old core-folder exemption in the kit-name test is gone; relay's own bin/check and bin/wt exist (relay doctor green on relay).
+- relay's guard knows a task worktree by git's worktree list (main checkout and prunable entries excluded; project.worktrees is an extra folder, not a replacement; the cd guard too; advice names the project's own worktree tool): ALIX's .worktree/ works.
+- Lane start puts the worktree in the project's worktree folder (kit.toml project.worktrees).
+- Paid run on master e390adb3 green ($18.70); relay sync done. Note: design-track case passed 2 of 3 runs, below its usual rate (watch).
+
+### Waiting for the owner (asked, recorded on the items)
+- a-rebase-that-changes-nothing-voids-the-review: rebase over a file master also changed; recommended a (check again, like a merge).
+- squash-merge-projects-keep-check-records-of-lost: recommended a (document only).
+- relay-doctor-does-not-name-a-main-checkout-whose: recommended a (check at session start too).
+Each branch waits for its answer; then a fix unit with the review's other findings, check, land.
+
+### Front decisions (owner can reverse)
+- Coverage stays on every gate (measured cost within noise on the gate's own path).
+- New fix items: relay-queue-done-rejects-real-tests-in-two-commo (85), relay-setup-writes-worktrees-worktrees-and-ignor (80), relay-s-lane-start (landed), cost-attribution-finds-a-change-only-under-workt (75, in progress), the-guard-joins-an-absolute-project-worktrees-on (70).
+- queue-time-estimates-are-guesses-with-no-model-b stays taken: its test file is new, so `relay queue done --fixed-by` cannot close it (the 85 item fixes that).
+
+### In progress
+- a-gate-test-is-stopped-by-an-unknown-sigterm (93), the-checker-s-file-list-relay-changed-own-has-no (90, reproduce first), cost-attribution fix of F1.
+
+### Next steps
+1. Owner answers → fix units for the three waiting branches.
+2. Linux path: each-change-is-gated-in-a-fresh-container (95), speed-up-the-quick-gate.
+3. Next handover worktree: handover-46.
