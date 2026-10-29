@@ -19,7 +19,6 @@ import shlex
 import signal
 import subprocess
 import sys
-import tempfile
 import time
 import re
 from typing import IO, Any, Callable, Mapping, Optional, Sequence
@@ -30,6 +29,7 @@ import relay_inert
 import relay_license
 import relay_marks
 import relay_procs
+from relay_temp import prefixed_folders, temp_roots, under
 import relay_toml
 
 DEFAULT_CI = "bin/ci"
@@ -39,7 +39,6 @@ FAILED_LINES = 8        # lines of the first failing step shown on the third out
 CORES_PER_SLOT = 6      # default slots = cores // CORES_PER_SLOT, at least 1: 2 on 12 cores (measured 27 Oct: 2 gates at once 698 s each, 3 at once 1058 s each, alone 420 s)
 SLOT_POLL = 0.2         # seconds between looks at the slots (and at the worktree lock) while all are busy
 ORPHAN_AGE = 600.0      # seconds: a parent-1 leftover running from a relay test folder that still exists is stopped after this age (the longest test limit is 200 s)
-TEMP_PREFIXES = ("relay-run-", "relay-gate-", "relay-home-")      # folder names relay's tests make under the temporary folder
 STOPPED = "gate: stopped"      # the start of every line the sweep and the reclaim add to the log (finished_red skips them)
 LEFTOVER = STOPPED + " a leftover test process"      # the sweep's line: "<LEFTOVER> <pid> (<command>): <why>"
 KILLED = STOPPED + " the command of a gate that was killed"      # the reclaim's line: "<KILLED> (group <group>, <command>): <why>"
@@ -249,39 +248,6 @@ def take_worktree_lock(path: str, notify: Optional[Callable[[str], None]] = None
         handle.close()
         raise
     return handle
-
-
-def temp_roots() -> list[str]:
-    """The folders a test's temporary files live under, each in its given and its resolved form (`/var/folders/..` and `/private/var/folders/..`
-    on macOS: `$TMPDIR` holds the first, `ps` shows the second): the process's temporary folder, the user's temporary folder, /tmp."""
-    found = [tempfile.gettempdir(), "/tmp"]
-    try:
-        done = subprocess.run(["getconf", "DARWIN_USER_TEMP_DIR"], capture_output=True, text=True, timeout=10)
-        if done.returncode == 0 and done.stdout.strip():
-            found.append(done.stdout.strip())
-    except (OSError, subprocess.SubprocessError):
-        pass
-    roots: list[str] = []
-    for folder in found:
-        for form in (folder, os.path.realpath(folder)):
-            form = form.rstrip("/")
-            if form and form not in roots:
-                roots.append(form)
-    return roots
-
-
-def under(path: str, roots: Sequence[str]) -> bool:
-    real = os.path.realpath(path)
-    return any(real == root or real.startswith(root + os.sep) for root in roots)
-
-
-def prefixed_folders(path: str, roots: Sequence[str]) -> list[str]:
-    """The folders on `path` (under one of `roots`) whose name starts with a TEMP_PREFIXES entry, outermost first; [] when `path` is outside the roots."""
-    for root in roots:
-        if path.startswith(root + "/"):
-            parts = path[len(root) + 1:].split("/")
-            return [root + "/" + "/".join(parts[:i + 1]) for i, part in enumerate(parts) if part.startswith(TEMP_PREFIXES)]
-    return []
 
 
 RELAY_COMMAND = re.compile(r"(^|[ /])relay( -\S+)* (gate|land)( |$)")
