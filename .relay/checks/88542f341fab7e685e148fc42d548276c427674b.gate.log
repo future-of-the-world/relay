@@ -1,0 +1,15 @@
+head 88542f341fab7e685e148fc42d548276c427674b
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (636s, log: .ci/steps/library-tests.log)
+    FAIL: test_template_gate_and_orphan_waits_are_hang_bounds (test_hang_limits.HangLimits.test_template_gate_and_orphan_waits_are_hang_bounds)
+    AssertionError: Lists differ: [10] != []
+    FAILED (failures=1)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (32s)
+ci: RED
+exit 1
