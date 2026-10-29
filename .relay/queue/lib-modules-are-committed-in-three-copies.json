@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-29T21:14:42Z",
   "taken_by": "wt/lib-modules-are-committed-in-three-copie",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T23:00:54Z",
+  "test": "tests/test_lib_links_adopt.py::TestBenchCopy::test_the_plugin_copy_for_a_run_holds_real_files_not_dangling_links",
   "dropped_at": null,
   "dropped_why": null
 }
