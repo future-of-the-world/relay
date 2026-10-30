@@ -1,0 +1,140 @@
+{
+  "branch": "wt/the-ledger-misses-the-start-of-many-agen",
+  "findings": [
+    {
+      "details": [
+        "Measured 27 Oct by the speed design: relay's agent cost log (the ledger) holds 161 agent stops for that day but only 87 agent_start events, so 76 agents have no start; idle time and per-stage wall time cannot be computed from it (the design had to read the workflow transcripts instead)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "For 27 Oct, count agent_stop vs agent_start lines in the ledger: 161 vs 87."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "Every agent the ledger records as stopped has a start event, workflow agents included.",
+        "A test feeds a workflow agent's hook input and finds both events.",
+        "The test fails with the start recording disabled."
+      ],
+      "path": "the",
+      "rank": "high",
+      "reason": [
+        "tests/test_hook_ledger.py::test_workflow_agent_without_a_start_hook_still_gets_a_start_event passes and fails at b951507d08d1."
+      ],
+      "severity": "HIGH",
+      "since": "b951507d08d16a7ae2d820905f864d66b97ec95b",
+      "source": "queue",
+      "summary": "The ledger misses the start of many agents",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a count over the live ledger (read-only). The unmatched stops have exactly the keys",
+        "ts, event, session_id, cwd, agent_id, agent_type=\"\", effort, reply_chars (about 35 chars) and no requests: the hook found no",
+        "transcript. Each id occurs once; none has any start; they fall between a tool_pre Bash and its tool_post in the same session",
+        "(e.g. 2026-10-29T00:14:31 tool_pre Bash, 00:14:35.943 agent_stop \"\", 00:14:42 tool_post Bash), so they are Claude Code's own",
+        "side calls during a tool call (PLAUSIBLE: the auto-mode permission classifier), not agents anyone started. The change's",
+        "comment (\"Claude Code sends no SubagentStart for many agents (workflow agents included)\") misreads the cause: real agents",
+        "without a start are 1-2 a day. The brief's pass case \"Every agent the ledger records as stopped has a start event\" is",
+        "therefore not met, and the speed design's idle/wall-time numbers still see some 220 phantom stops a day.",
+        "Size: 20 minutes."
+      ],
+      "evidence": [
+        "python3 count over ~/.relay/ledger/2026-10-2{7,8,9}.jsonl, stops whose agent_id has no agent_start, keyed by (has run, agent_type, has requests):",
+        "  2026-10-27 starts 350 stops 566 missing 218: (False, '', False) 217; (False, 'delegate:runner', True) 1",
+        "  2026-10-28 starts 535 stops 956 missing 440: (False, '', False) 438; (True, 'delegate:runner', True) 2",
+        "  2026-10-29 starts 520 stops 740 missing 222: (False, '', False) 222",
+        "  keys of all 222: ('agent_id','agent_type','cwd','effort','event','reply_chars','session_id','ts'); empty-type stops with a start: 0",
+        "find ~/.claude/projects -name '*a780b64f2dad9b91b*' -> nothing"
+      ],
+      "failing_case": [
+        "Hook input, with no SubagentStart before it (the shape of 222 of 222 unmatched stops on 29 Oct):",
+        "  {\"hook_event_name\": \"SubagentStop\", \"session_id\": \"s\", \"cwd\": \"/p\", \"agent_id\": \"a780b64f2dad9b91b\", \"agent_type\": \"\",",
+        "   \"transcript_path\": \"<session>.jsonl\", \"last_assistant_message\": \"<35 chars>\"}",
+        "and no <session>/subagents/agent-a780b64f2dad9b91b.jsonl anywhere (none exists in ~/.claude/projects).",
+        "Now: the ledger holds one agent_stop for a780b64f2dad9b91b and no agent_start (path is None, so the new code never runs).",
+        "Item's failing case after the change, replayed on live data: 29 Oct 740 stops vs 520 starts, 222 stops unmatched, all of this",
+        "shape; 28 Oct 440 unmatched, 438 of this shape, 2 workflow runners (the only ones the change fixes); 27 Oct 218, 217 of this shape.",
+        "Should: no agent_stop is left without an agent_start in the same session (pass case 1 of the item)."
+      ],
+      "fix_hint": [
+        "In the SubagentStop branch, when no agent transcript is found and agent_type is empty, record the line as a separate event",
+        "(e.g. \"side_call\", keeping reply_chars) instead of agent_stop, so it neither counts as an agent nor needs a start; keep the",
+        "synthetic start for real agents. Add the test of pass case 1 and 4, and correct the code comment's stated cause."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 174,
+      "pass_cases": [
+        "1. The input above (empty agent_type, no transcript found, no prior SubagentStart) -> the ledger holds no agent_stop for",
+        "   a780b64f2dad9b91b without an agent_start for it (either it is recorded under another event name, e.g. \"side_call\",",
+        "   or a start is written with it); a test asserts the count of unmatched agent_stop lines is 0.",
+        "2. Workflow agent: SubagentStop with agent_transcript_path .../workflows/wf_abc/agent-w1.jsonl (first line 2026-10-19T10:00:00Z),",
+        "   no start -> exactly one agent_start for w1 with ts 2026-10-19T10:00:00Z and one agent_stop (the existing new test).",
+        "3. SubagentStart a1 (delegate:scout) then SubagentStop a1 with transcript -> exactly one agent_start, one agent_stop with requests 1.",
+        "4. A stop with a non-empty agent_type (delegate:runner) and no transcript found -> still recorded as agent_stop with reply_chars",
+        "   (whatever the fix does to side calls must not hide real agents)."
+      ],
+      "path": "plugins/observe/hooks/ledger.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_hook_ledger.py::test_stop_without_type_or_transcript_is_a_side_call_not_an_agent_stop passes; fails at 92e4fa6c^."
+      ],
+      "severity": "HIGH",
+      "since": "cca48147c71bbef684ea5562d5442a7d8a1e9b68",
+      "source": "review-the-ledger-misses-the-start-of-many-agen.json",
+      "source_id": "F1",
+      "summary": "the stops that lack a start are almost all transcript-less side calls with an empty agent_type; the fix needs a transcript, so the item's count barely moves (29 Oct: 0 of 222 fixed)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Cost is small (two full scans of the 4.8 MB 29 Oct file: 12 ms), so correctness is fine today; the",
+        "docstring is the stated contract of \"must never slow a session\" and is now wrong. Size: 5 minutes."
+      ],
+      "evidence": [
+        "timing: two full scans of ~/.relay/ledger/2026-10-29.jsonl -> 12 ms"
+      ],
+      "failing_case": [
+        "A workflow agent stop on the same day as its start, no SubagentStart: has_start(aid, started, ts) opens and scans the same",
+        "4.8 MB day file twice; the docstring (lines 9-13) says the only files read besides stdin are a transcript tail and 4 KB of",
+        ".meta.json. Should: the docstring names the day-file scan, and one day is scanned once."
+      ],
+      "fix_hint": [
+        "Dedupe the day files in has_start (a set of day_file paths) and add one line to the docstring."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 9,
+      "pass_cases": [
+        "1. Docstring of ledger.py lists the day-file scan on SubagentStop among the files read.",
+        "2. has_start(\"w1\", \"2026-10-19T10:00:00Z\", \"2026-10-19T11:00:00Z\") opens the 2026-10-19 file once.",
+        "3. has_start over a start day and a different stop day still finds a start written in either day file."
+      ],
+      "path": "plugins/observe/hooks/ledger.py",
+      "rank": "low",
+      "reason": [
+        "test_has_start_scans_each_day_file_once_and_finds_either_day passes, fails without the fix; docstring updated."
+      ],
+      "severity": "LOW",
+      "since": "cca48147c71bbef684ea5562d5442a7d8a1e9b68",
+      "source": "review-the-ledger-misses-the-start-of-many-agen.json",
+      "source_id": "F2",
+      "summary": "the module docstring still promises the hook reads only a transcript tail and 4 KB of meta; it now scans whole day files, twice when both stamps fall on one day",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "92e4fa6c8ffe7e5339544121dba2c1643d5d9cf4.gate.log",
+  "head": "b670530663939f29486f9de6b4030a06743d533e",
+  "item": "the-ledger-misses-the-start-of-many-agents",
+  "notes": [
+    "agent_stop readers (relay_metrics, relay_ledger) no longer see side calls: intended per fixer."
+  ],
+  "schema": 2,
+  "scope": [
+    "Changed files: ledger.py and test_hook_ledger.py only. Ran both ledger test files (21 passed). Gate log is for 92e4fa6c, quick mode, exit 0; only the gate-log commit follows. Ran the new tests at 92e4fa6c^ and at Q1 since b951507d08d1: they fail there. I did not run the precheck itself."
+  ],
+  "type": "check"
+}

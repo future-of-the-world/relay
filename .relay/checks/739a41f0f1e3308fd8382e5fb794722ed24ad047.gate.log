@@ -1,0 +1,17 @@
+head 739a41f0f1e3308fd8382e5fb794722ed24ad047
+cmd bin/ci --quick
+wait 202.4
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (979s, log: .ci/steps/library-tests.log)
+    ERROR: test_a_failing_git_is_an_error_not_an_allowed_merge (test_archive_inert.ArchiveAfterTheMark.test_a_failing_git_is_an_error_not_an_allowed_merge)
+      File "/Users/amidman/relay/.worktrees/relay-check-starts-238-git-processes-per/tests/test_archive_inert.py", line 117, in test_a_failing_git_is_an_error_not_an_allowed_merge
+    AttributeError: module 'relay_inert' has no attribute 'subprocess'
+    FAILED (errors=1)
+ci: coverage 89.6% of lib, bin, plugins (13760 of 15350 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (8s)
+ci: plugin validate ok (6s)
+ci: inert ok (0s)
+ci: RED
+exit 1

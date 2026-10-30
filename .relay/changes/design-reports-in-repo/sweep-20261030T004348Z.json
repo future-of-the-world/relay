@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.3286,
+   "id": "ae4a21dacae52368e",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 44,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design",
+   "start": "2026-10-29T23:11:29.359Z",
+   "stop": "2026-10-29T23:20:21.168Z"
+  },
+  {
+   "cost_usd": 1.9815,
+   "id": "a271fc1186a1da05e",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 37,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design review",
+   "start": "2026-10-29T23:20:25.604Z",
+   "stop": "2026-10-29T23:27:37.737Z"
+  },
+  {
+   "cost_usd": 1.8371,
+   "id": "a47fbd19b5130424c",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 19,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design revise",
+   "start": "2026-10-29T23:27:40.030Z",
+   "stop": "2026-10-29T23:33:26.551Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "design-reports-in-repo"
+}

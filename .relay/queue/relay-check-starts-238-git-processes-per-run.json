@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-29T21:23:40Z",
   "taken_by": "wt/relay-check-starts-238-git-processes-per",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-29T23:37:02Z",
+  "test": "tests/test_check_mark_hook.py::CheckerStop::test_f1_the_number_of_git_processes_of_a_record_does_not_grow_with_merges_commits_or_marks",
   "dropped_at": null,
   "dropped_why": null
 }
