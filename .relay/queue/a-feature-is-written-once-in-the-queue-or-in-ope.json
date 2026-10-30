@@ -51,6 +51,13 @@
         "a. drop both: the OpenSpec plugin, the [specs] slot and the empty [flow] slot; the queue item with its plan beside it is the only spec (recommended: 0 projects use OpenSpec, 52 files mention it, 16 maintenance commits in 7 days)",
         "b. drop OpenSpec and [specs] only; keep the [flow] slot for a later source of work such as an issue tracker",
         "c. keep both as today (off by default)"
+      ],
+      "answered_at": "2026-10-30T08:46:43Z",
+      "answer": [
+        "a"
+      ],
+      "reading": [
+        "a: drop the OpenSpec plugin, the [specs] slot and the empty [flow] slot; the queue item with its plan beside it is the only spec. Queued as remove-openspec-and-the-empty-flow-slot; the 3 OpenSpec items are dropped."
       ]
     }
   ]
