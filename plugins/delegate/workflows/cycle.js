@@ -26,6 +26,8 @@ const DEFAULTS = { gate_turns: 40, gate_fixes: 1, gate_reruns: 1, retry_dead: 1,
 const BOUNDS = { gate_turns: [20, 80], gate_fixes: [0, 3], gate_reruns: [0, 2], retry_dead: [0, 2] }
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
 const TOP_KEYS = ['base', 'relay', 'scratch', 'gate', 'items', 'designs', 'settings']
+const UNIT_KEYS = ['name', 'kind', 'wt', 'check', 'branch', 'item', 'built', 'fix', 'fixes', 'findings']
+const DESIGN_KEYS = ['name', 'brief', 'out', 'review']
 const KINDS = ['change', 'built', 'fix', 'recheck']
 const CFG = Object.assign({}, DEFAULTS, A.settings || {})
 
@@ -55,8 +57,11 @@ const NOFIX = `\nFor every new or changed test you rely on, prove it fails witho
 function refusal() {
   for (const k of Object.keys(A)) {
     if (TOP_KEYS.includes(k)) continue
-    if (k in DEFAULTS) return `refused: ${k} goes under settings, not at the top level of args`
+    if (Object.hasOwn(DEFAULTS, k)) return `refused: ${k} goes under settings, not at the top level of args`
     return `refused: unknown arg ${k} (known: ${TOP_KEYS.join(', ')})`
+  }
+  for (const k of Object.keys(A.settings || {})) {
+    if (!Object.hasOwn(DEFAULTS, k)) return `refused: unknown setting ${k} (known: ${Object.keys(DEFAULTS).join(', ')})`
   }
   if (typeof A.base !== 'string' || !A.base.trim()) return 'refused: missing arg base (the default branch of the project)'
   if (typeof A.relay !== 'boolean') return 'refused: missing arg relay (true where the project has .relay/, else false)'
@@ -72,6 +77,7 @@ function refusal() {
   for (const it of items) {
     const who = `unit ${it && it.name}`
     if (!it || !SLUG.test(it.name || '')) return `refused: ${who} needs a name of lower-case letters, digits and dashes`
+    for (const f of Object.keys(it)) if (!UNIT_KEYS.includes(f)) return `refused: ${who} has an unknown field ${f} (known: ${UNIT_KEYS.join(', ')})`
     const kind = it.kind || 'change'
     if (!KINDS.includes(kind)) return `refused: ${who} has an unknown kind ${kind}`
     for (const f of ['wt', 'check']) if (typeof it[f] !== 'string' || !it[f]) return `refused: ${who} needs ${f}`
@@ -88,6 +94,7 @@ function refusal() {
   }
   for (const d of designs) {
     if (!d || !SLUG.test(d.name || '') || !d.brief || !d.out) return `refused: a design needs a name, a brief and an out`
+    for (const f of Object.keys(d)) if (!DESIGN_KEYS.includes(f)) return `refused: design ${d.name} has an unknown field ${f} (known: ${DESIGN_KEYS.join(', ')})`
   }
   return ''
 }

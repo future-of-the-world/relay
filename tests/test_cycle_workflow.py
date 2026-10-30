@@ -198,6 +198,23 @@ class Cycle(unittest.TestCase):
         self.assertNotIn("\n", out["result"]["refused"])
 
     # 3
+    def test_unknown_setting_and_unit_field_are_refused_before_any_agent(self):
+        """A misspelt setting (gate_fix) and a misspelt unit field (itme) are refused naming the key; no agent starts.
+        Pass cases: gate_fixes 2 and a unit with item run; gate_reruns 3 is still the bounds refusal.
+        Disabled check: the run goes on and the labels list is not empty."""
+        out = self.run_cycle(self.args([self.unit()], settings={"gate_fix": 2}))
+        self.assertEqual(out["labels"], [])
+        self.assertIn("gate_fix", out["result"]["refused"])
+        self.assertIn("gate_fixes", out["result"]["refused"])  # the known settings are listed
+        out = self.run_cycle(self.args([self.unit(itme="some-slug")]))
+        self.assertEqual(out["labels"], [])
+        self.assertIn("unit x has an unknown field itme", out["result"]["refused"])
+        out = self.run_cycle(self.args([self.unit(item="some-slug")], settings={"gate_fixes": 2}))
+        self.assertNotIn("refused", out["result"] or {})
+        self.assertNotEqual(out["labels"], [])
+        out = self.run_cycle(self.args([self.unit()], settings={"gate_reruns": 3}))
+        self.assertIn("setting gate_reruns must be a whole number from 0 to 2", out["result"]["refused"])
+
     def test_design_finding_stops_at_owner_and_open_check_stops_at_check(self):
         review = dict(GREEN["stage:review"], design_or_question=True, inside=1, other_inside=0, main_point="design is wrong")
         out = self.run_cycle(self.args([self.unit()]), **{"stage:review": review})
