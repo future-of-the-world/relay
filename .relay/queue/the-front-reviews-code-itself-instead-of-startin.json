@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-30T00:21:40Z",
   "taken_by": "wt/the-front-reviews-code-itself-instead-of",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T02:38:45Z",
+  "test": "tests/test_review_goes_to_critic.py::test_rule_sends_a_review_request_to_a_critic",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
