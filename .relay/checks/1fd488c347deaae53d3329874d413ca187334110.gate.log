@@ -1,0 +1,18 @@
+head 1fd488c347deaae53d3329874d413ca187334110
+cmd bin/ci --quick
+wait 761.2
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (620s, log: .ci/steps/library-tests.log)
+    FAIL: test_t17_an_old_issues_flow_in_kit_toml_is_kept_and_setup_does_not_crash (test_setup_off.KitToml.test_t17_an_old_issues_flow_in_kit_toml_is_kept_and_setup_does_not_crash)
+    AssertionError: '[flow]\nkind = "issues"\n\n[rules]\nload = []\nread = []\n' != '[flow]\nkind = "issues"\n'
+    FAIL: test_t1_relay_tree_gets_false_lines_and_no_templates (test_setup_off.Writes.test_t1_relay_tree_gets_false_lines_and_no_templates)
+    AssertionError: '[delegate]\nmax_parallel = 6\n\n[rules]\nload = []\nread = []\n' != '[delegate]\nmax_parallel = 6\n'
+    FAILED (failures=2)
+ci: coverage 90.0% of lib, bin, plugins (14854 of 16504 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (68s)
+ci: RED
+exit 1
