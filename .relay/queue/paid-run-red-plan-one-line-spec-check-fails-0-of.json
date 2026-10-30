@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 97,
+  "time": 45,
+  "found_at": "2026-10-30T12:47:25Z",
+  "found_in": "relay queue add",
+  "title": "Paid run red: plan-one-line spec-check fails 0 of 3",
+  "what": [
+    "bin/ci on master 9aa7248a ended \"ci: RED\": eval case plan-one-line failed its code grader spec-check in all 3 runs (\"pass rate fell to 0 of 3 runs, below its rate in the last 5 records\"); critic-role-rule fell to 2 of 3 (still a pass). Find what changed since the last green record (candidates: plans now kept as .relay/queue/<slug>.plan.md since reports-a-task-needs-are-kept-in-the-repository landed; the queued removal of OpenSpec and the spec slot), and fix the skill text or the grader, whichever is wrong."
+  ],
+  "why": [
+    "The paid run on master 9aa7248a (30 Oct) is red, so relay sync cannot apply the waiting profile and agent-text changes; plan-one-line passed in its last 5 records."
+  ],
+  "failing_case": [
+    "The paid run log of 30 Oct (master 9aa7248a, started about 11:01Z): \"FAIL plan-one-line run 1|2|3 spec-check: code grader failed\"; traces in $RELAY_HOME/eval-traces/relay/2026-10-30T11-01-24Z-master/plan-one-line-with-run1..3/trace.jsonl; \"ci: eval record: NOT A PASS: ... 3 code grader(s) failed ... in plan-one-line\"."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "plan-one-line passes its majority (2 of 3) in a paid run on the fixed head",
+    "the cause is named in the report with the trace line that shows it"
+  ],
+  "where": [
+    "evals/plugin/plan-one-line/case.yaml",
+    "evals/plugin/graders.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
