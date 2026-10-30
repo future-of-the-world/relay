@@ -22,8 +22,8 @@
     "lib/relay_setup.py (the CLAUDE.md skeleton, CLAUDE.local.md registration)",
     "templates/CLAUDE.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T08:05:01Z",
+  "taken_by": "wt/setup-silently-turns-off-a-project-s-age",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
@@ -34,6 +34,34 @@
       "edited": "where",
       "fact": [
         "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
+      ]
+    },
+    {
+      "at": "2026-10-30T08:07:48Z",
+      "said": [
+        "Что касаемо использования сторонних проектов (в том числе миграция AGENTS.md) давай пока не будем их делать, составь список и предоставь его мне, после подтверждения мы понизим их приоритет до -1"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T08:07:48Z",
+      "question": [
+        "Which queue items about using relay on other projects get ip -1 for now (the build of setup-silently-turns-off-a-project-s-agents-md was stopped on the owner's word, 30 Oct)?"
+      ],
+      "options": [
+        "a. the 8 clear ones: setup-silently-turns-off-a-project-s-agents-md, a-project-added-by-setup-cannot-be-removed-again, setup-enables-project-plugins-that-doctor-says-a, relay-setup-writes-worktrees-worktrees-and-ignor, the-guard-joins-an-absolute-project-worktrees-on, setup-in-a-shared-repo-keeps-relay-out-of-the-te, setup-docs-and-todo-list-name-steps-not-needed, relay-doctor-checks-the-project-of-the-current-f; plus principles-become-a-relay-rule-other-projects-ca (already 0) (recommended)",
+        "b. a plus the 3 OpenSpec items (openspec-stages-by-meaning, openspec-tools-live-in-the-core-plugin, a-feature-is-written-once-in-the-queue-or-in-ope)",
+        "c. b plus a-wrong-value-in-project-settings-passes-unnotic and relay-as-a-portable-tool-project-data-out-of-rel"
+      ],
+      "answered_at": "2026-10-30T08:13:42Z",
+      "answer": [
+        "Ладно, я поторопился, мы можем продолжить, меня насторожила задача про AGENTS.md, ввиду непонимания зачем я подумал остановить тебя преждевременно, это значащие исправления которые должны быть исправлены, и которые в частности могут улучшить опыт самого relay, можно продолжить",
+        "",
+        "Это пока планы на будущее но я планирую опробовать систему на Zerocracy, для этого будет необходима интеграция через relay toolkit (есть задача в низу очереди), возможно relay сможет функционировать самостоятельно, не становясь частью конкретного проекта вообще, до тех пор придерживаемся прежней стратегии",
+        "",
+        "Полагаю что для текущих задач будет не лишним проверить подключение relay к самому relay, очищенному от relay"
+      ],
+      "reading": [
+        "none: no item is lowered; the setup and project items are significant fixes that also improve relay's own use; the AGENTS.md build resumes. Strategy unchanged until the Zerocracy trial."
       ]
     }
   ]

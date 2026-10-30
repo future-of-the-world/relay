@@ -21,7 +21,7 @@ def _stage_label():
 
 
 LABEL = _stage_label()   # one grammar: the ledger's
-STOPS = {"build", "gate", "fix red gate", "review", "fix", "check", "check item", "close queue item", "check show", "owner", "crash"}
+STOPS = {"build", "gate", "fix red gate", "review", "fix", "check", "check item", "close queue item", "check show", "land", "paid", "owner", "crash"}
 
 DONE = {"status": "DONE", "summary": "ok"}
 GREEN = {
@@ -29,7 +29,8 @@ GREEN = {
     "stage:other": DONE, "stage:design": DONE, "stage:design review": DONE, "stage:design revise": DONE,
     "stage:gate": {"ok": True, "gate_log": "gate.log"},
     "stage:review": {"inside": 0, "outside": 0, "design_or_question": False, "remaining": False, "main_point": "none"},
-    "stage:check": {"open": 0, "fail_without_fix": "yes", "summary": "open 0", "q1_test": "tests/a.py::A::b"},
+    "stage:check": {"open": 0, "fail_without_fix": "yes", "summary": "open 0", "q1_test": "tests/a.py::A::b", "person_facing": False},
+    "stage:land": {"code": 0, "lines": "landed wt/x on master at abc123 (gate 9.0 min)"},
     "stage:check item": {"open": 0, "fail_without_fix": "yes", "summary": "open 0"},
 }
 RED = {"ok": False, "gate_log": "gate.log", "first_fail": "boom"}
@@ -58,8 +59,15 @@ class Cycle(unittest.TestCase):
         a = {"base": "master", "relay": relay, "scratch": self.scratch, "items": items}
         if not relay:
             a["gate"] = "make test"
+        a["settings"] = {"land": False}      # the older tests pin the stages before the land stage; the land tests use largs
+        a["settings"].update(kw.pop("settings", {}))
         a.update(kw)
         return a
+
+    def largs(self, items, relay=True, **kw):
+        """args with the land stage on (its default in relay mode)"""
+        kw["settings"] = dict(kw.get("settings", {}), land=kw.get("settings", {}).get("land", True))
+        return self.args(items, relay, **kw)
 
     def run_cycle(self, args, **answers):
         table = dict(GREEN)
@@ -414,10 +422,10 @@ class Cycle(unittest.TestCase):
         self.assertNotIn("\n", refused)
 
     def test_cycle_never_prompts_land(self):
-        """Only the front starts `relay land`: no prompt any kind of unit sends an agent names it."""
+        """With land off (`land: false`), only the front starts `relay land`: no prompt any kind of unit sends an agent names it."""
         units = [self.unit(item="i"), self.unit(name="b", kind="built", built="by hand"),
                  self.unit(name="f", kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="j")]
-        out = self.run_cycle(self.args(units, designs=[{"name": "d", "brief": "b.md", "out": "d.md"}]), **{"stage:review": INSIDE})
+        out = self.run_cycle(self.args(units, designs=[{"name": "d", "brief": "b.md", "out": "d.md"}], settings={"land": False}), **{"stage:review": INSIDE})
         self.assertGreater(len(out["prompts"]), 10)
         for label, prompt in out["prompts"].items():
             self.assertNotIn("relay land", prompt, label)
@@ -453,10 +461,54 @@ class Cycle(unittest.TestCase):
         self.assertNotIn("\n", out["result"]["refused"])
 
     # 6
-    def test_empty_q1_test_stops_at_check_and_a_refused_close_stops_at_close(self):
+    def _empty(self, kind):
+        return {"stage:check": dict(GREEN["stage:check"], q1_test="", item_kind=kind)}
+
+    def test_feature_item_with_empty_q1_test_is_picked_by_the_closer(self):
+        """Feature item, change unit: the close runner is told to pick one added test and the item closes."""
+        out = self.run_cycle(self.args([self.unit(item="i")]), **self._empty("feature"))
+        self.assertTrue(out["result"]["changes"][0]["ready"])
+        prompt = out["prompts"]["close queue item: i"]
+        self.assertIn("diff --name-only --diff-filter=AM master...HEAD", prompt)
+        self.assertNotIn("--test ,", prompt)
+
+    def test_fix_item_built_as_a_change_unit_with_empty_q1_test_stops_at_check(self):
+        """F1: the queue item's kind decides, not the unit's. A fix item in a change unit stops, no close runner."""
+        out = self.run_cycle(self.args([self.unit(item="i")]), **self._empty("fix"))
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "check")
+        self.assertNotIn("close queue item: i", out["labels"])
+
+    def test_unknown_item_kind_with_empty_q1_test_stops_at_check(self):
         out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], q1_test="")})
         self.assertEqual(out["result"]["changes"][0]["stopped_at"], "check")
-        self.assertNotIn("close queue item: x", out["labels"])
+
+    def test_feature_item_in_a_fix_unit_with_empty_q1_test_is_picked(self):
+        """F2: a feature item finished through a fix unit closes with a picked test."""
+        out = self.run_cycle(self.args([self.unit(kind="fix", fix="f", fixes="f.md", findings="r.json", item="i")]), **self._empty("feature"))
+        self.assertTrue(out["result"]["changes"][0]["ready"])
+        self.assertIn("diff --name-only", out["prompts"]["close queue item: i"])
+
+    def test_fix_item_in_a_fix_unit_with_empty_q1_test_stops_at_check(self):
+        out = self.run_cycle(self.args([self.unit(kind="fix", fix="f", fixes="f.md", findings="r.json", item="i")]), **self._empty("fix"))
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "check")
+
+    def test_named_q1_test_closes_with_exactly_that_test(self):
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], item_kind="fix")})
+        self.assertIn("--test tests/a.py::A::b", out["prompts"]["close queue item: i"])
+
+    def test_pick_prompt_accepts_eval_cases(self):
+        """F3: the filter keeps files under evals/ too."""
+        out = self.run_cycle(self.args([self.unit(item="i")]), **self._empty("feature"))
+        self.assertIn("evals/", out["prompts"]["close queue item: i"])
+
+    def test_feature_that_adds_no_test_stops_with_a_line_naming_the_missing_test(self):
+        none = {"status": "BLOCKED", "summary": "no test for the queue item: the change adds no test"}
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], q1_test="", item_kind="feature"), "stage:close queue item": none})
+        change = out["result"]["changes"][0]
+        self.assertEqual(change["stopped_at"], "close queue item")
+        self.assertIn("no test for the queue item", change["detail"])
+
+    def test_refused_close_stops_at_close(self):
         blocked = {"status": "BLOCKED", "summary": "relay queue: test form wrong"}
         out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], q1_test="bad"), "stage:close queue item": blocked})
         change = out["result"]["changes"][0]
@@ -662,6 +714,180 @@ class Cycle(unittest.TestCase):
         self.assertIn("fixgate-x-1.md", names(change))                                 # change names as today
         self.assertIn("gate-x-1.log", names(change))
         self.assertIn("fixgate-fix-x-1.md", names(fix))
+
+    # ---- the land stage (design: the change-cycle script lands a ready change itself, 5.1) ----
+    def landed(self, code, line=""):
+        return {"code": code, "lines": line}
+
+    def test_land_exit_0_is_landed_and_ends_the_unit(self):
+        """Exit 0: the unit ends with the first line of the output as `landed`, after check show. Disabled stage: no land label."""
+        out = self.run_cycle(self.largs([self.unit(item="the-item")]))
+        self.assertEqual(out["labels"][-2:], ["check show: the-item", "land 1: the-item"])
+        c = out["result"]["changes"][0]
+        self.assertTrue(c["ready"])
+        self.assertEqual(c["landed"], "landed wt/x on master at abc123 (gate 9.0 min)")
+        self.assertIn("relay land wt/x -C %s" % self.wt, out["prompts"]["land 1: the-item"])
+
+    def test_land_exit_3_runs_one_fixer_one_gate_one_check_no_second_close_then_lands_again(self):
+        """Exit 3 (take conflict), land_fixes 1: fixer, one gate group, one check with the unit's review JSON and no
+        close-queue-item, then a second land. Hand-counted labels: the gate numbers go on (gate 2), the check is check 2."""
+        land = {"$seq": [self.landed(3, "land: taking master into wt/x conflicts in a.py"), self.landed(0, "landed wt/x")]}
+        out = self.run_cycle(self.largs([self.unit(item="i")]), **{"stage:land": land})
+        self.assertEqual(out["labels"][6:], ["land 1: i", "fix 1: i", "gate 2: i", "check 2: i", "land 2: i"])
+        self.assertEqual(out["labels"].count("close queue item: i"), 1)
+        self.assertIn("reports/review-x.json", out["prompts"]["check 2: i"])
+        self.assertIn("fixland-x-1.md", out["prompts"]["check 2: i"])
+        self.assertIn("conflicts in a.py", out["prompts"]["fix 1: i"])
+        self.assertEqual(out["result"]["changes"][0]["landed"], "landed wt/x")
+
+    def test_land_exit_1_red_gate_goes_to_a_red_gate_fixer(self):
+        land = {"$seq": [self.landed(1, "land: the gate of wt/x is red (exit 1); log /l.log"), self.landed(0, "landed wt/x")]}
+        out = self.run_cycle(self.largs([self.unit()]), **{"stage:land": land})
+        self.assertEqual(out["labels"][4:], ["check show: x", "land 1: x", "fix red gate 1: x", "gate 2: x", "check 2: x", "land 2: x"])
+
+    def test_land_check_of_a_fix_unit_uses_the_units_findings(self):
+        unit = self.unit(kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="j")
+        land = {"$seq": [self.landed(3, "conflict"), self.landed(0, "landed")]}
+        out = self.run_cycle(self.largs([unit]), **{"stage:land": land})
+        self.assertIn("`r.json`", out["prompts"]["check 2: j"])
+        self.assertEqual(out["labels"].count("close queue item: j"), 1)
+
+    def test_land_two_conflicts_with_one_fix_round_stop_at_land(self):
+        out = self.run_cycle(self.largs([self.unit()]), **{"stage:land": self.landed(3, "conflict in a.py")})
+        self.assertEqual(out["labels"][5:], ["land 1: x", "fix 1: x", "gate 2: x", "check 2: x", "land 2: x"])
+        c = out["result"]["changes"][0]
+        self.assertEqual((c["stopped_at"], c["detail"]), ("land", "conflict in a.py"))
+        out = self.run_cycle(self.largs([self.unit()], settings={"land_fixes": 0}), **{"stage:land": self.landed(3, "c")})
+        self.assertEqual(out["labels"][5:], ["land 1: x"])
+
+    def test_land_blocked_fixer_stops_at_land_with_no_second_land(self):
+        out = self.run_cycle(self.largs([self.unit()]), **{"stage:land": self.landed(3, "c"), "stage:fix": {"status": "BLOCKED", "summary": "cannot resolve a.py"}})
+        self.assertEqual(out["labels"][5:], ["land 1: x", "fix 1: x"])
+        c = out["result"]["changes"][0]
+        self.assertEqual((c["stopped_at"], c["detail"]), ("land", "cannot resolve a.py"))
+
+    def test_land_exit_5_stops_at_owner_exit_6_at_paid_exit_2_at_land_with_no_fixer(self):
+        """Exit 5 is the owner's (hold or question), exit 6 waits for the paid run (never an owner question), exit 2 is refused."""
+        for code, at in ((5, "owner"), (6, "paid"), (2, "land")):
+            out = self.run_cycle(self.largs([self.unit()]), **{"stage:land": self.landed(code, "line %d" % code)})
+            c = out["result"]["changes"][0]
+            self.assertEqual((c["stopped_at"], c["detail"], c["ready"]), (at, "line %d" % code, False), code)
+            self.assertEqual(out["labels"][5:], ["land 1: x"], code)
+
+    def test_land_exit_4_lands_again_up_to_land_reruns(self):
+        land = {"$seq": [self.landed(4, "moved"), self.landed(0, "landed wt/x")]}
+        out = self.run_cycle(self.largs([self.unit()]), **{"stage:land": land})
+        self.assertEqual(out["labels"][5:], ["land 1: x", "land 2: x"])
+        out = self.run_cycle(self.largs([self.unit()], settings={"land_reruns": 0}), **{"stage:land": self.landed(4, "moved")})
+        self.assertEqual(out["labels"][5:], ["land 1: x"])
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "land")
+
+    def test_person_facing_check_starts_no_land_runner_for_every_kind(self):
+        """A checker that says person_facing stops the unit at owner, checked and closed, for change, built and fix units."""
+        yes = dict(GREEN["stage:check"], person_facing=True)
+        units = [self.unit(item="i"), self.unit(name="b", kind="built", built="by hand"),
+                 self.unit(name="f", kind="fix", fix="Fix it.", fixes="f.md", findings="r.json", item="j")]
+        out = self.run_cycle(self.largs(units), **{"stage:check": yes})
+        self.assertFalse([lb for lb in out["labels"] if lb.startswith("land")])
+        for c in out["result"]["changes"]:
+            self.assertEqual(c["stopped_at"], "owner")
+            self.assertTrue(c["checked"])
+            self.assertIn("person-facing", c["detail"])
+        self.assertIn("close queue item: i", out["labels"])
+
+    def test_person_facing_question_is_the_owners_definition(self):
+        """The CHECK schema carries person_facing (required) with the owner's definition: screens and reply rules, one true
+        and one false example; agent instructions are not person-facing."""
+        text = open(SCRIPT).read()
+        self.assertIn("person_facing: { type: 'boolean', description: PERSON_FACING }", text)
+        self.assertIn("'fail_without_fix', 'person_facing', 'summary'", text)
+        for words in ("merge question screen", "digest", "reply rules", "Example that is true", "Example that is false", "fixer\\'s or a worker\\'s instructions"):
+            self.assertIn(words, text)
+
+    def test_f4_the_delegate_skill_says_the_cycle_lands_in_relay_mode(self):
+        text = open(os.path.join(ROOT, "plugins", "delegate", "skills", "delegate", "SKILL.md")).read()
+        self.assertNotIn("It does not land a change", text)
+        for words in ("lands a ready unit itself", "`land: false`", "`land_fixes`", "`land_reruns`", "every kind also takes `land`"):
+            self.assertIn(words, text)
+        self.assertNotIn("The front's `relay land` takes it", text)
+
+    def test_f3_the_person_facing_eval_cases_carry_the_definition_the_checker_gets(self):
+        """The paid cases (evals/plugin/person-facing-*) ask the model the field with the script's own description: a drift
+        between the two would test a text the checker never sees."""
+        text = open(SCRIPT).read()
+        definition = re.search(r"const PERSON_FACING = '(.*)'\n", text).group(1).replace("\\'", "'")
+        for name in ("person-facing-true", "person-facing-false-ru", "person-facing-false-reply-word"):
+            prompt = open(os.path.join(ROOT, "evals", "plugin", name, "prompt.md"), encoding="utf-8").read()
+            self.assertIn(definition, prompt, name)
+
+    def test_f6_person_facing_also_covers_what_the_people_of_a_product_project_see(self):
+        self.assertIn("whose product has screens or texts for people", open(SCRIPT).read())
+
+    def test_a_land_fixer_whose_recheck_is_person_facing_stops_before_the_second_land(self):
+        yes = dict(GREEN["stage:check"], person_facing=True)
+        out = self.run_cycle(self.largs([self.unit()]), **{"stage:land": self.landed(3, "c"), "stage:check": {"$seq": [GREEN["stage:check"], yes]}})
+        self.assertEqual(out["labels"][5:], ["land 1: x", "fix 1: x", "gate 2: x", "check 2: x"])
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "owner")
+
+    def test_land_false_on_the_run_or_on_one_unit_starts_no_land_runner(self):
+        out = self.run_cycle(self.largs([self.unit()], settings={"land": False}))
+        self.assertFalse([lb for lb in out["labels"] if lb.startswith("land")])
+        self.assertTrue(out["result"]["changes"][0]["ready"])
+        out = self.run_cycle(self.largs([self.unit(), self.unit(name="y", wt=self.wt, branch="wt/y", land=False)]))
+        self.assertEqual([lb for lb in out["labels"] if lb.startswith("land")], ["land 1: x"])
+        out = self.run_cycle(self.largs([self.unit(land=True)], settings={"land": False}))
+        self.assertEqual([lb for lb in out["labels"] if lb.startswith("land")], ["land 1: x"])
+
+    def test_a_unit_land_that_is_not_a_boolean_is_refused_naming_the_field(self):
+        out = self.run_cycle(self.largs([self.unit(land="no")]))
+        self.assertEqual(out["labels"], [])
+        self.assertIn("land", out["result"]["refused"])
+        self.assertIn("true or false", out["result"]["refused"])
+        out = self.run_cycle(self.largs([self.unit()], settings={"land": "no"}))
+        self.assertIn("land", out["result"]["refused"])
+        for bad in ({"land_fixes": 3}, {"land_reruns": 4}):
+            self.assertIn(next(iter(bad)), self.run_cycle(self.largs([self.unit()], settings=bad))["result"]["refused"])
+
+    def test_project_mode_starts_no_land_runner(self):
+        out = self.run_cycle(self.largs([self.unit(branch=None)], relay=False))
+        self.assertFalse([lb for lb in out["labels"] if lb.startswith("land")])
+        self.assertTrue(out["result"]["changes"][0]["ready"])
+
+    def test_f1_the_land_command_writes_its_own_exit_code_and_the_prompts_read_it_from_the_last_log_line(self):
+        """A detached process's exit status cannot be read by a later shell: the command is wrapped so its log ends with
+        `relay land exit <n>`; both the land runner and the recovery runner (step 1 and step 4) read that line."""
+        wrapper = "sh -c 'relay land wt/x -C %s; echo \"relay land exit $?\"'" % self.wt
+        out = self.run_cycle(self.largs([self.unit()]))
+        self.assertIn(wrapper, out["prompts"]["land 1: x"])
+        self.assertIn("relay land exit <n>", out["prompts"]["land 1: x"])
+        land = {"land 1: x": {"$throw": "died"}, "land 2: x": self.landed(0, "landed wt/x")}
+        out = self.run_cycle(self.largs([self.unit()], settings={"retry_dead": 0}), **land)
+        p = out["prompts"]["land 2: x"]
+        self.assertIn("relay land exit <n>", p.split("2. Read the start time")[0])         # step 1 reads the line
+        self.assertIn(wrapper, p.split("4. Otherwise run")[1])                              # step 4 starts the wrapped command
+
+    def test_f1_exit_0_reports_the_line_that_starts_landed_even_when_more_lines_come_first_or_after(self):
+        lines = "cleanup: removed wt/x\nlanded wt/x on master at abc123 (gate 9.0 min)\nclosed: i"
+        out = self.run_cycle(self.largs([self.unit(item="the-item")]), **{"stage:land": self.landed(0, lines)})
+        self.assertEqual(out["result"]["changes"][0]["landed"], "landed wt/x on master at abc123 (gate 9.0 min)")
+        out = self.run_cycle(self.largs([self.unit(item="the-item")]), **{"stage:land": self.landed(0, "something else only")})
+        self.assertEqual(out["result"]["changes"][0]["landed"], "something else only")
+
+    def test_dead_land_runner_gets_one_recovery_runner_with_four_steps_in_order(self):
+        """A runner that dies is followed by one recovery runner (land 2) whose prompt lists the four steps in this order; its
+        answer decides the unit. Relay land is started by it at most once (step 4 only)."""
+        land = {"land 1: x": {"$throw": "died"}, "land 2: x": self.landed(0, "landed wt/x")}
+        out = self.run_cycle(self.largs([self.unit()], settings={"retry_dead": 0}), **land)
+        # the dead runner leaves its note (other: x), then the one recovery runner
+        self.assertEqual(out["labels"][5:], ["land 1: x", "other: x", "land 2: x"])
+        p = out["prompts"]["land 2: x"]
+        at = [p.index(m) for m in ("1. A live", "2. Read the start time", "3. If the branch", "4. Otherwise run")]
+        self.assertEqual(at, sorted(at))
+        self.assertIn("Never start a second relay land", p)
+        self.assertEqual(out["result"]["changes"][0]["landed"], "landed wt/x")
+        land = {"land 1: x": {"$throw": "died"}, "land 2: x": {"$throw": "died again"}}
+        out = self.run_cycle(self.largs([self.unit()], settings={"retry_dead": 0}), **land)
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "land")
 
 
 if __name__ == "__main__":

@@ -133,8 +133,11 @@ the shape `relay land` prints (findings = the branch's last review JSON, no item
 checker per change, as step 7 says.
 Unit fields: `name`, `wt`, `check`, `branch` (relay mode), `item` (one fix-item
 slug); `fix` also takes `fix`, `fixes`, `findings`; `recheck` takes `findings` and, when the
-branch had a fix round, `fixes` (the fix report); `built` takes `built`. It does not land a change: the merge is the
-front's.
+branch had a fix round, `fixes` (the fix report); `built` takes `built`; every kind also takes `land`. In relay mode the cycle
+lands a ready unit itself, through `relay land`, as its last stage (the run
+settings `land`, `land_fixes`, `land_reruns` and a unit's own `land` are in the
+script's header); `land: false`, on the run or on one unit, keeps it at ready
+for the front to land.
 
 1. **Design review before a risky build.** A `delegate:critic` reviews the
    design or plan before a worker starts, when a trigger holds or the owner
@@ -210,7 +213,7 @@ front's.
    Then run `relay check show <branch>` (a runner; it waits while the hook is
    committing) before the front commits the handover, so the branch carries
    the state it was merged in and the commit does not meet the hook's lock.
-8. **Take the default branch.** The front's `relay land` takes it (a merge
+8. **Take the default branch.** `relay land` takes it (the cycle's land stage runs it; the front runs it for a unit stopped at land or kept at ready by `land: false`) (a merge
    commit, never `git rebase`: a rebase gives every commit a new sha, and the mark
    names the old one), runs `relay gate` on the result and fast-forwards on
    green; no agent re-checks a clean take. A conflict comes back as a fix unit of

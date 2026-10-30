@@ -1,0 +1,33 @@
+{
+  "kind": "feature",
+  "ip": 88,
+  "time": 120,
+  "found_at": "2026-10-30T08:46:44Z",
+  "found_in": "relay queue add",
+  "title": "Remove OpenSpec and the spec and flow slots",
+  "what": [
+    "plugins/openspec goes; kit.toml loses [flow] and [specs] (setup stops writing them, a migration removes them from existing projects with one line); the stage hook, relay flows, the openspec rule, kit packet if only OpenSpec uses it, docs/flows.md, doctor checks, setup flags (--specs) and their tests go; nothing else in the cycle changes. The plugin stays recoverable from git history."
+  ],
+  "why": [
+    "Owner, 30 Oct, answered \"a\" to: drop the OpenSpec plugin, the [specs] slot and the empty [flow] slot; the queue item with its plan beside it is the only spec. Measured 30 Oct: 0 registered projects use OpenSpec (projects.toml holds only relay, no [specs] method); plugins/openspec is 14 files with 16 commits in 7 days; 52 files in lib, bin, plugins/relay|delegate|front, rules and tests mention openspec; the [flow] work slot ships no flow (kind \"none\" everywhere). IP chosen by the front (agent-chosen)."
+  ],
+  "where": [
+    "plugins/openspec/flow.json",
+    "lib/relay_setup.py",
+    "docs/flows.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T08:46:44Z",
+      "said": [
+        "Что это означает ? Что такое flow, какие есть виды ? Что такое specs, какие есть виды, я подумываю о том что мой принцип zerodocs противоречит sdd, думаю от этого следует отказаться"
+      ]
+    }
+  ]
+}

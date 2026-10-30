@@ -2,8 +2,10 @@
 import json
 import os
 import shutil
+import subprocess
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # unittest from the repo root has only the root on sys.path
 from relay_testbase import Base, ROOT  # noqa: E402
@@ -206,6 +208,114 @@ class Bench(Base):
         self.assertTrue(out[0]["passed"])
         out = rb.grade(scen, self.tmp, "python3 scratch.py", "claude", "haiku", session_id="s5", config_dir=cfg)
         self.assertFalse(out[0]["passed"])
+
+
+class GradersFindTaskBranch(Base):
+    """A worker builds on its own task branch and leaves the merge to the owner (relay's rules), so a grader that reads
+    files looks at the workspace first and then at the task branches (bench 2026-10-30, judge-fable add-function)."""
+
+    def workspace(self, scenario: str) -> str:
+        ws = os.path.join(self.tmp, "ws")
+        shutil.copytree(os.path.join(ROOT, "evals", "plugin", "fixture"), ws)
+        subprocess.run(["bash", os.path.join(ROOT, "evals", "scenarios", scenario, "scaffold.sh")], cwd=ws, check=True,
+                       capture_output=True)
+        return ws
+
+    def on_branch(self, ws: str, files: dict[str, str]) -> None:
+        """Commit `files` on wt/remove-item, a worktree beside the workspace, and leave the workspace untouched."""
+        wt = os.path.join(self.tmp, "remove-item")
+        subprocess.run(["git", "-C", ws, "worktree", "add", "-q", "-b", "wt/remove-item", wt], check=True)
+        for name, text in files.items():
+            os.makedirs(os.path.dirname(os.path.join(wt, name)), exist_ok=True)
+            with open(os.path.join(wt, name), "w") as handle:
+                handle.write(text)
+        os.chmod(os.path.join(wt, "bin", "count"), 0o755) if "bin/count" in files else None
+        subprocess.run(["git", "-C", wt, "add", "-A"], check=True)
+        subprocess.run(["git", "-C", wt, "-c", "user.name=f", "-c", "user.email=f@x", "commit", "-qm", "work"], check=True)
+
+    def grades(self, scenario: str, ws: str, names: tuple[str, ...] = ("function-exists", "test-written", "script-runs")) -> dict[str, bool]:
+        import relay_bench as rb
+        scen = rb.load_scenario(scenario)
+        scen["graders"] = [g for g in scen["graders"] if g["type"] == "command" and g["name"] in names]
+        return {r["name"]: r["passed"] for r in rb.grade(scen, ws, "", "claude", "haiku")}
+
+    def test_add_function_found_only_on_a_task_branch(self):
+        ws = self.workspace("add-function")
+        self.on_branch(ws, {"src/shelf.ts": "export function removeItem() {}\n", "src/shelf.test.ts": "test('removeItem', () => {})\n"})
+        self.assertEqual(self.grades("add-function", ws), {"function-exists": True, "test-written": True})
+
+    def test_add_function_absent_everywhere_fails(self):
+        ws = self.workspace("add-function")
+        self.on_branch(ws, {"README.txt": "nothing\n"})
+        self.assertEqual(self.grades("add-function", ws), {"function-exists": False, "test-written": False})
+
+    def test_small_script_found_only_on_a_task_branch(self):
+        ws = self.workspace("small-script")
+        self.on_branch(ws, {"bin/count": "#!/usr/bin/env bash\ngrep -c 'test(' \"$1\"\n"})
+        self.assertEqual(self.grades("small-script", ws), {"script-runs": True})
+
+    def test_small_script_absent_everywhere_fails(self):
+        ws = self.workspace("small-script")
+        self.on_branch(ws, {"README.txt": "nothing\n"})
+        self.assertEqual(self.grades("small-script", ws), {"script-runs": False})
+
+    PASSING = "import {test} from 'bun:test';\ntest('removeItem', () => {});\n"
+    FAILING = "import {test, expect} from 'bun:test';\ntest('removeItem', () => { expect(1).toBe(2); });\n"
+
+    def shelf(self, ws: str) -> str:
+        with open(os.path.join(ws, "src", "shelf.ts")) as handle:
+            return handle.read() + "export function removeItem() {}\n"   # the fixture's code stays, so its tests still pass
+
+    def mktemp_in(self, folder: str):
+        """macOS mktemp -d ignores TMPDIR, so a `mktemp` shim first on PATH makes the folders in `folder`."""
+        shim = os.path.join(self.tmp, "shim")
+        os.makedirs(shim, exist_ok=True)
+        with open(os.path.join(shim, "mktemp"), "w") as handle:
+            handle.write(f'#!/bin/bash\n/usr/bin/mktemp -d "{folder}/tmp.XXXXXX"\n')
+        os.chmod(os.path.join(shim, "mktemp"), 0o755)
+        return mock.patch.dict(os.environ, {"PATH": shim + os.pathsep + os.environ["PATH"]})
+
+    def run_tests_pass(self, ws: str) -> bool:
+        return self.grades("add-function", ws, ("tests-pass",))["tests-pass"]
+
+    def test_tests_pass_fails_on_a_failing_task_branch(self):
+        ws = self.workspace("add-function")
+        self.on_branch(ws, {"src/shelf.ts": self.shelf(ws), "src/removed.test.ts": self.FAILING})
+        self.assertFalse(self.run_tests_pass(ws))   # the branch's own test fails (1 fail); the main tree's 4 tests would pass
+
+    def test_tests_pass_passes_on_a_passing_task_branch(self):
+        ws = self.workspace("add-function")
+        self.on_branch(ws, {"src/shelf.ts": self.shelf(ws), "src/removed.test.ts": self.PASSING})
+        self.assertTrue(self.run_tests_pass(ws))
+
+    def test_tests_pass_runs_in_the_main_tree_when_it_has_the_change(self):
+        ws = self.workspace("add-function")
+        with open(os.path.join(ws, "src", "shelf.ts"), "a") as handle:
+            handle.write("export function removeItem() {}\n")
+        with open(os.path.join(ws, "src", "removed.test.ts"), "w") as handle:
+            handle.write(self.FAILING)   # a failing test in the main tree fails the grader
+        self.assertFalse(self.run_tests_pass(ws))
+
+    def test_tests_pass_on_the_fixture_alone(self):
+        self.assertTrue(self.run_tests_pass(self.workspace("add-function")))   # the fixture's own tests pass
+
+    def test_small_script_leaves_no_temp_folder(self):
+        ws = self.workspace("small-script")
+        self.on_branch(ws, {"bin/count": "#!/usr/bin/env bash\ngrep -c 'test(' \"$1\"\n"})
+        tmpdir = os.path.join(self.tmp, "tmpdir")
+        os.mkdir(tmpdir)
+        with self.mktemp_in(tmpdir):
+            self.assertEqual(self.grades("small-script", ws), {"script-runs": True})
+        self.assertEqual(os.listdir(tmpdir), [])   # one mktemp -d per branch tried, each removed
+
+    def test_small_script_leaves_no_temp_folder_when_absent(self):
+        ws = self.workspace("small-script")
+        self.on_branch(ws, {"README.txt": "nothing\n"})
+        tmpdir = os.path.join(self.tmp, "tmpdir")
+        os.mkdir(tmpdir)
+        with self.mktemp_in(tmpdir):
+            self.assertEqual(self.grades("small-script", ws), {"script-runs": False})
+        self.assertEqual(os.listdir(tmpdir), [])
 
 
 class ModulesPutBack(unittest.TestCase):

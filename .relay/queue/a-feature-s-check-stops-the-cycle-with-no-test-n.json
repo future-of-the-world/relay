@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 86,
+  "time": 30,
+  "found_at": "2026-10-30T07:37:07Z",
+  "found_in": "relay queue add",
+  "title": "A feature's check stops the cycle with no test named",
+  "what": [
+    "For a feature item the checker names one test from the change's new or changed tests as the item's test (q1_test), or the cycle picks one when the check is open 0 and the change adds tests; the cycle closes the item itself and stops only when the change adds no test at all."
+  ],
+  "why": [
+    "Found by the front 30 Oct, twice in one hour: the cycle runs for the-change-cycle-script-lands-a-ready-change-its and one-digest-per-wave-instead-of-status-messages both ended 'stopped_at: check, the check closed with no test for the queue item (q1_test is empty)' although each check had open 0, a green gate and a new test file (tests/test_land_waits.py, tests/test_digest.py). The front closed each item by hand with `relay queue done --test`, one extra round per feature."
+  ],
+  "failing_case": [
+    "A cycle run of a feature change whose check is open 0, gate green, and which adds tests/test_x.py ends with stopped_at check and q1_test empty."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A feature change with open 0 and an added test closes its item in the cycle",
+    "A change that adds no test still stops with a line naming the missing test",
+    "A fix item's q1_test behaviour is unchanged"
+  ],
+  "where": [
+    "plugins/delegate/workflows/cycle.js",
+    "plugins/delegate/agents/checker.md"
+  ],
+  "taken_at": "2026-10-30T08:07:56Z",
+  "taken_by": "wt/a-feature-s-check-stops-the-cycle-with-n",
+  "closed_at": "2026-10-30T08:45:48Z",
+  "test": "tests/test_cycle_workflow.py::test_feature_item_with_empty_q1_test_is_picked_by_the_closer",
+  "dropped_at": null,
+  "dropped_why": null
+}
