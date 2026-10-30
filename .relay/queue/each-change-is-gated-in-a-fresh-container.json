@@ -166,6 +166,12 @@
         "a. The laptop: the Mac keeps its cores; the owner installs podman and sshd, accepts relay's key once and keeps it on power; when it is off, the comparison is skipped.",
         "b. This Mac's podman: no setup; up to ~27 min more gate time per change while comparisons overlap (a guess from 27 Oct scaling)."
       ]
+    },
+    {
+      "at": "2026-10-30T01:26:07Z",
+      "said": [
+        "Хорошо, позже я займусь этим, спасибо за анализ, пока он не готов, можем ли мы начать утилизировать ai.amidman.com, это vps и процессор будет медленнее, однако я думаю что основные ограничения именно системные и связаны именно с запуском большого количества процессов, сделай замер"
+      ]
     }
   ]
 }
