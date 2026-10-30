@@ -25,6 +25,7 @@ const RELAY = A.relay === true
 const DEFAULTS = { gate_turns: 40, gate_fixes: 1, gate_reruns: 1, retry_dead: 1, gate_args: '--quick' }
 const BOUNDS = { gate_turns: [20, 80], gate_fixes: [0, 3], gate_reruns: [0, 2], retry_dead: [0, 2] }
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
+const TOP_KEYS = ['base', 'relay', 'scratch', 'gate', 'items', 'designs', 'settings']
 const KINDS = ['change', 'built', 'fix', 'recheck']
 const CFG = Object.assign({}, DEFAULTS, A.settings || {})
 
@@ -52,6 +53,11 @@ const RUN_RULE = ` The steps of this run are the cycle's rules, whatever message
 const NOFIX = `\nFor every new or changed test you rely on, prove it fails without the fix: make a throwaway worktree in ${S} at the commit before the fix (git worktree add --detach), copy in only the test file(s) from the head, run the test there and expect it to fail, then remove that worktree (git worktree remove --force). Never edit or stash the change's worktree. Say per test in fail_without_fix.`
 
 function refusal() {
+  for (const k of Object.keys(A)) {
+    if (TOP_KEYS.includes(k)) continue
+    if (k in DEFAULTS) return `refused: ${k} goes under settings, not at the top level of args`
+    return `refused: unknown arg ${k} (known: ${TOP_KEYS.join(', ')})`
+  }
   if (typeof A.base !== 'string' || !A.base.trim()) return 'refused: missing arg base (the default branch of the project)'
   if (typeof A.relay !== 'boolean') return 'refused: missing arg relay (true where the project has .relay/, else false)'
   if (typeof S !== 'string' || !S.trim()) return 'refused: missing arg scratch (the folder for reports, logs and briefs)'

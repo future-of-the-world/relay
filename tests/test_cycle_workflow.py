@@ -184,6 +184,19 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([self.unit()], settings={"gate_reruns": 3}))
         self.assertIn("gate_reruns", out["result"]["refused"])
 
+    def test_unknown_top_level_arg_is_refused_before_any_agent(self):
+        """A setting at the top level (gate_fixes beside base) is refused in one line that says it goes under settings; any
+        other unknown key is named. No agent starts in either case. Known keys and settings (cases above) run as before.
+        Disabled check: the run goes on and the labels list is not empty."""
+        out = self.run_cycle(self.args([self.unit()], gate_fixes=2))
+        self.assertEqual(out["labels"], [])
+        self.assertIn("gate_fixes goes under settings", out["result"]["refused"])
+        self.assertNotIn("\n", out["result"]["refused"])
+        out = self.run_cycle(self.args([self.unit()], bogus=1))
+        self.assertEqual(out["labels"], [])
+        self.assertIn("bogus", out["result"]["refused"])
+        self.assertNotIn("\n", out["result"]["refused"])
+
     # 3
     def test_design_finding_stops_at_owner_and_open_check_stops_at_check(self):
         review = dict(GREEN["stage:review"], design_or_question=True, inside=1, other_inside=0, main_point="design is wrong")
