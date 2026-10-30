@@ -29,5 +29,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T21:00:03Z",
+      "fact": [
+        "Code read 30 Oct 2026 on master confirms the claim: lib/relay_setup.py:196 writes worktrees = \".worktrees\" as a fixed template string and :198 gate.wt = \"bin/wt\"; gitignore_lines (:661-671) adds .worktrees/; nothing in lib/ reads the project's bin/wt or an existing .worktree folder. ALIX's bin/wt (/Users/amidman/alix/bin/wt:2-30) makes $root/.worktree/$name. ALIX has no .claude/kit.toml today, so no live project carries the wrong value yet."
+      ]
+    }
+  ]
 }
