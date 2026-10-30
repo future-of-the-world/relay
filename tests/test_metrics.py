@@ -23,6 +23,7 @@ import relay_config  # noqa: E402
 import relay_coverage  # noqa: E402
 import relay_queue  # noqa: E402
 import relay_labels  # noqa: E402
+import relay_ledger  # noqa: E402  # imported here, before any test patches relay_config.ledger_dir: it binds that name at import
 import relay_land  # noqa: E402
 import relay_metrics  # noqa: E402
 
@@ -150,6 +151,14 @@ class Records(Fixture):
         front = mock.patch.object(relay_metrics, "front_days", return_value=[])
         self.front_days = front.start()
         self.addCleanup(front.stop)
+
+    def test_a_patched_ledger_dir_never_stays_bound_inside_relay_ledger(self):
+        # relay_ledger does `from relay_config import ledger_dir`; imported while the patch is on, it would keep the mock
+        # for the whole process. It is imported at the top of this file, so it holds the real function: it follows
+        # RELAY_HOME (<home>/ledger), not this test's folder.
+        with mock.patch.dict(os.environ, {"RELAY_HOME": os.path.join(self.tmp, "home")}):
+            self.assertEqual(relay_ledger.ledger_dir(), os.path.join(self.tmp, "home", "ledger"))
+            self.assertNotEqual(relay_ledger.ledger_dir(), self.ledger)
 
     def files(self):
         out = git(self.main, "ls-tree", "-r", "--name-only", "master", "--", ".relay/changes")
