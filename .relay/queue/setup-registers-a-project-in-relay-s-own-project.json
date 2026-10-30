@@ -29,5 +29,18 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-30T11:20:19Z",
+      "question": [
+        "Where do relay's settings live once the project registry leaves relay's repository (review F3)? Today projects.toml in relay's git holds the owner's settings (paid cap $200/day, native language Russian, the global rules file and skip list) and each project's settings (relay: lanes 6, rules loaded: principles, python)."
+      ],
+      "options": [
+        "a. split by owner: the owner's settings and the list of projects on this machine in ~/.relay; a project's own settings (lanes, rules it loads) in that project's own .relay/ folder in its git; relay's repository ships only defaults",
+        "b. everything in ~/.relay (what the fix built): one file; nothing travels with a project's repository, so on a new machine the owner sets lanes, cap and language again",
+        "c. keep projects.toml in relay's repository: relay setup on any new project changes relay's own repository (the defect the clean-relay trial found)"
+      ]
+    }
+  ]
 }
