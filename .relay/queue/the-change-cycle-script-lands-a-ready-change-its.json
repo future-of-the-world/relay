@@ -70,6 +70,12 @@
       "fact": [
         "Edited where: folder entry named as a file (found 28 Oct, refuse-folder-and-pattern-entries-in-where)"
       ]
+    },
+    {
+      "at": "2026-10-30T05:43:30Z",
+      "fact": [
+        "Front decision (owner can reverse; principles 7 and 1), 30 Oct, from the reviewed design rev 2 (9 of 10 findings held and fixed): no train in this change (measured: 0 trains in 54 landings; about 140 agent minutes instead of 230); paid-run awareness is built now, from dated events (run started, eval record, settings installed by relay sync), exit 6 = waits for the paid run, never an owner question (measured: 20 of 55 landed changes touch paid-run paths, 2 of 7 paid runs since 27 Oct were not green; without it 36% of landings stay with the front). Hold = `relay land --hold <branch>` event; unanswered questions via owner_waiting; exit 5 for both; the person-facing flag is asked of the final checker for every change kind."
+      ]
     }
   ]
 }
