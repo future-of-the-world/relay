@@ -43,6 +43,12 @@
       "fact": [
         "30 Oct: the same leak turned the landing gate of wt/the-front-reviews-code-itself-instead-of red (test_hook_ledger test_has_start_scans_each_day_file_once_and_finds_either_day failed, inert went red), on a branch that does not touch the ledger. Second red gate from this cause in one day."
       ]
+    },
+    {
+      "at": "2026-10-30T04:40:23Z",
+      "fact": [
+        "Paid run on master f05643e2 (30 Oct, 18 commits due): all 31 plugin evals passed ($18.15; it-terms-ru run 3 on a split vote), but the run is red only from library tests: test_hook_ledger test_has_start_scans_each_day_file_once_and_finds_either_day (this leak; master f05643e2 predates the shield). Fifth red from this cause on 30 Oct. Front decision (owner can reverse; principle 2): no rerun now; the next paid run goes after this fix lands, and relay sync (which adopts the Fable critic) waits for it."
+      ]
     }
   ]
 }
