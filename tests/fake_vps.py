@@ -61,7 +61,7 @@ if a[:2] == ["image", "exists"]:
     sys.exit(0 if os.path.exists(st + "/images/" + a[2]) else 1)
 if a[0] == "build":
     tag = a[a.index("-t") + 1]
-    open(vps + "/build.pid", "w").write(str(os.getpid()))      # the test waits on this and then checks that the build is gone
+    open(vps + "/build.pid", "w").write(str(os.getpid()) + "\n")      # the test waits on this and then checks that the build is gone
     if mode.get("build_hang"):
         time.sleep(600)
     time.sleep(mode.get("build_sleep", 0))

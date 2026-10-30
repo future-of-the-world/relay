@@ -10,6 +10,7 @@ import unittest
 from unittest import mock
 
 from test_gate import ROOT, RELAY, git, read, write
+from pidfile import wait_pid
 from vps_base import HOST, VpsBase, wait_until
 
 import relay_gate_ssh
@@ -265,8 +266,7 @@ class ProgramRuns(VpsBase):
         self.vps.mode({"build_hang": True})
         proc, tmp = self.start()
         pid_file = os.path.join(self.vps.root, "build.pid")
-        self.assertTrue(wait_until(lambda: os.path.exists(pid_file) and read(pid_file).strip().isdigit()))
-        pid = int(read(pid_file))
+        pid = wait_pid(pid_file, writer_alive=lambda: proc.poll() is None)
         proc.stdin.close()
         self.assertEqual(proc.wait(timeout=120), 98)
 
