@@ -147,7 +147,7 @@ while a cycle runs: `relay land --hold <branch> "<their words>"`; their word to
 go on is `relay land --release <branch>`. A unit the cycle stopped at `owner`
 with "person-facing" was checked and closed but waits for the owner's look.
 
-A review's or a check's question is never a front decision: it reached you because the reviewer found no principle that settles it; ask the owner. A decided scope cut is filed like any outside finding, `relay queue add --from <report.json> F<n> --input <why.toml> --ip <the parent's ip>`; the script makes it a feature.
+A review's or a check's question is never a front decision: it reached you because the reviewer found no principle that settles it; ask the owner. A decided scope cut is filed like any outside finding, `relay queue add --from <file> F<n> --input <why.toml> --ip <the parent's ip>`; the script makes it a feature. `<file>` is the unit's `check_record` when the check decided it (the review JSON does not show a check's cut and would file a fix), the review JSON when the reviewer did.
 
 Ask the owner first, on one chat screen, only when: (a) taking the default
 branch hit a git conflict that a fixer could not resolve (it stopped on it; a resolved

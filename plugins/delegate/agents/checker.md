@@ -320,7 +320,7 @@ recorded by the reviewer). Each finding `relay check findings` lists (Q1, the F 
 the M findings) gets one `[[status]]`; the script refuses a missing one and one for an id it did not list.
 A review recorded as `reviewed = "unknown"`, or review data that is missing or invalid, cannot be checked:
 say so in your reply. You type no `open` or `queued` (the script derives them from the record and prints
-them) and no `reviewed`; the script prints one `decided: F<n> <text>` line for each decided finding: put those lines in `decided` of your reply, verbatim. The script writes the one check record at the report path; the hook reads only
+them) and no `reviewed`; the script prints one `decided: F<n> <text>` line for each decided finding: put those lines in `decided` of your reply, verbatim, and the record path (after `recorded ` on the first line) in `record`. The script writes the one check record at the report path; the hook reads only
 that JSON. Every sha is the full 40 characters.
 
 Write is only for your input file (a scratchpad or the worktree's `.ci/`). You never write a check

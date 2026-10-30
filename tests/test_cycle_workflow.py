@@ -844,6 +844,9 @@ class Cycle(unittest.TestCase):
         line = "decided: F2 principle 1, scope cut: name the sender (owner can reverse)"
         out = self.run_cycle(self.args([self.unit(item="the-item")]), **{"stage:check": dict(GREEN["stage:check"], decided=line)})
         self.assertEqual(out["result"]["changes"][0]["decided"], line)
+        # F2: the check record path rides with the decided lines, so the front files the rest from the record, not the review JSON
+        withrec = self.run_cycle(self.args([self.unit(item="the-item")]), **{"stage:check": dict(GREEN["stage:check"], decided=line, record="/r/check.json")})
+        self.assertEqual(withrec["result"]["changes"][0]["check_record"], "/r/check.json")
         plain = self.run_cycle(self.args([self.unit(item="the-item")]))
         self.assertNotIn("decided", plain["result"]["changes"][0])
 

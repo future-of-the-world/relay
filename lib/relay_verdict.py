@@ -293,6 +293,8 @@ def record_errors(data, stored=False):
         if finding.get("verdict") == "OUTSIDE" and finding.get("decided") and (finding.get("rank") == "high" or finding.get("kind") in NO_DECIDED_KINDS):
             errors.append("%s: decided is refused on %s: only a reversible scope cut of a medium or low finding that is not a question or design finding may be decided without the owner" % (
                 where, "rank high" if finding.get("rank") == "high" else "kind " + finding["kind"]))
+        if finding.get("verdict") == "OUTSIDE" and finding.get("decided") and finding.get("source") == "merge":
+            errors.append("%s: decided is refused on a merge finding: it is a re-check of a file the merge changed, not part of the item" % where)
         if "owner" in finding:
             errors += _owner_entry_errors(finding["owner"], where)
     return errors
@@ -932,8 +934,13 @@ def _record_check(input_path: str) -> str:
     findings = []
     for f in found + news + problems:
         status = said.get(f["id"], {})
-        extra = {"decided": status["decided"]} if "decided" in status else {}
-        findings.append(dict(f, verdict=status.get("verdict", "NOT MET"), reason=status.get("reason", []), **extra))
+        verdict = status.get("verdict", "NOT MET")
+        base = dict(f)
+        if "decided" in status:
+            base["decided"] = status["decided"]
+        elif verdict == "OUTSIDE":
+            base.pop("decided", None)       # the reviewer's decided is not the checker's scope cut: an OUTSIDE without its own decided stays open
+        findings.append(dict(base, verdict=verdict, reason=status.get("reason", [])))
     data = {"schema": RECORD_SCHEMA, "type": CHECK_TYPE, "head": head, "branch": branch, "item": item, "gate": name,
             "worktree": wt, "scope": prose["scope"], "notes": prose["notes"], "findings": findings}
     errors += record_errors(data)

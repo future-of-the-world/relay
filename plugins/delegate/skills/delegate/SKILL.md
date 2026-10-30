@@ -244,6 +244,7 @@ Where findings go:
 |---|---|
 | HIGH or MEDIUM inside the change | fixed in this change |
 | LOW inside the change | fixed with its group when cheap, else listed in the report and dropped |
+| a decided scope cut (`decided` names "scope cut:"; the unit's `check_record` for a checker's, the review JSON for a reviewer's) | a feature item: `relay queue add --from <file> F<n> --input <file.toml> --ip <the parent item's ip>` |
 | wrong outside the change | a fix item: `relay queue add --from <report.json> F<n> --input <file.toml>` (the TOML holds `why` and `time`) |
 | marked `Design:` (the design itself is wrong) | stop building on that part; it stays open and goes to the owner; it counts as open until the owner's answer is kept with `relay check owner <review.json> F<n>` and the checker runs again |
 | a feature (a judge's suggestion, an out-of-scope question) | listed for the owner; it counts as open until the owner's answer is kept with `relay check owner <review.json> F<n>` (`queue = "<slug>"` after `relay queue add --input` moves it to the queue), then the checker runs again |

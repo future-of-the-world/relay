@@ -49,6 +49,12 @@ class Schema(unittest.TestCase):
         errors = rv.record_errors(self.check(decided="  "))
         self.assertTrue(any("decided must be a one-line text" in e for e in errors), errors)
 
+    def test_f3_a_merge_finding_cannot_be_decided_as_a_scope_cut(self):
+        errors = rv.record_errors(self.check(decided=CUT, source="merge"))
+        self.assertTrue(any("decided is refused on a merge finding" in e for e in errors), errors)
+        self.assertEqual(rv.record_errors(self.check(verdict="MET", source="merge")), [])        # MET without decided: recorded
+        self.assertEqual(rv.record_errors(self.check(decided=CUT, source="a.json")), [])         # a review finding: kept
+
     def test_decided_lines_print_one_line_for_each_decided_finding(self):
         data = self.check(decided=CUT)
         data["findings"].append(tv.record_finding("F2", verdict="NOT MET"))
@@ -115,6 +121,27 @@ class Record(tcr.Flow):
         out, report = self.run_record([("Q1", "MET", None), ("F1", "OUTSIDE", None)], [review])
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("(open 1, queued 0)", out.stdout)
+
+    def test_f1_a_review_time_decided_is_not_the_checkers_scope_cut(self):
+        # the reviewer's decided (a principle's answer) rides on the review finding; the checker's plain OUTSIDE must stay open
+        review = self.setup_review(decided="principle 3: derived, not stored (owner can reverse)")
+        out, report = self.run_record([("Q1", "MET", None), ("F1", "OUTSIDE", None)], [review])
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("(open 1, queued 0)", out.stdout)
+        self.assertNotIn("decided:", out.stdout)
+
+    def test_f1_a_review_time_decided_on_a_high_finding_does_not_block_a_plain_outside(self):
+        review = self.setup_review(severity="HIGH", rank="high", decided="principle 1: check again (owner can reverse)")
+        out, _ = self.run_record([("Q1", "MET", None), ("F1", "OUTSIDE", None)], [review])
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("(open 1, queued 0)", out.stdout)
+
+    def test_f1_a_review_time_decided_still_prints_when_the_finding_is_met(self):
+        review = self.setup_review(decided="principle 3: derived, not stored (owner can reverse)")
+        out, _ = self.run_record([("Q1", "MET", None), ("F1", "MET", None)], [review])
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("(open 0, queued 0)", out.stdout)
+        self.assertIn("decided: F1 principle 3: derived, not stored (owner can reverse)", out.stdout.splitlines())
 
     def test_a_high_finding_cannot_be_decided(self):
         review = self.setup_review(severity="HIGH", rank="high")
