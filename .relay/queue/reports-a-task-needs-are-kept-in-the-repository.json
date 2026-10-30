@@ -44,6 +44,15 @@
       "options": [
         "a. plans and their reviews only, next to the queue item (recommended: no code reads change reports after landing; check records already hold 546 of 569 review findings)",
         "b. also briefs, build and fix reports (about +0.4 MiB a week, about 60 agent minutes more to build; a guess)"
+      ],
+      "answered_at": "2026-10-30T05:43:14Z",
+      "answer": [
+        "Зачем нам хранить рецензию на план ? Строго говоря ценность плана эфемерна, необходима лишь пока задача не выполнена, однако оставим для историчности, ведь ей необходимо быть в гит репозитории, как мы будем хранить эту рецензию, что если рецензий будет несколько",
+        "",
+        "handover пока не трогаем, оставляем как есть"
+      ],
+      "reading": [
+        "a for the plan: the plan is kept in git for history although its value ends when the task is done; briefs and build/fix reports are not asked for. The plan review is questioned: why keep it, how it is stored, what if there are several; asked again as a new question."
       ]
     }
   ]
