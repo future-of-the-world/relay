@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-30T23:13:31Z",
   "taken_by": "wt/task-queue-add-from-queues-a-finding-a-check-marked-m",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T23:52:22Z",
+  "test": "tests/test_queue.py::test_add_from_refuses_a_finding_a_later_check_marked_met_and_names_the_check",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
