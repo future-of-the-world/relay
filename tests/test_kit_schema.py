@@ -21,6 +21,8 @@ class KitSchema(unittest.TestCase):
         kit = relay_kit.parse("[observe]\nenabled = true\n")
         self.assertEqual(len(kit.problems), 1)
         self.assertIn("[observe] enabled", kit.problems[0].line())
+        self.assertIn("has no effect", kit.problems[0].line())
+        self.assertIn("remove the line", kit.problems[0].line())
 
     def test_unknown_section_is_reported(self) -> None:
         kit = relay_kit.parse('[delegat]\ntyped_only = false\n')
@@ -95,14 +97,81 @@ class KitSchema(unittest.TestCase):
             text = relay_setup.bindings_text({"name": "p", "default_branch": "main", "ui": ui, "stack": "go"}, "none")
             self.assertEqual([p.line() for p in relay_kit.parse(text).problems], [], ui)
 
-    def test_gate_refuses_a_branch_with_a_settings_problem(self) -> None:
-        import relay_gate
+    def test_ask_reminder_keys_are_known_and_bounded(self) -> None:
+        # documented in ask_waiting.py: days 1..30, lines 1..20, clamped
+        self.assertEqual(relay_kit.parse("[front]\nask_reminder_days = 10\nask_reminder_lines = 3\n").problems, ())
+        self.assertEqual(len(relay_kit.parse('[front]\nask_reminder_days = "x"\n').problems), 1)
+        kit = relay_kit.parse("[front]\nask_reminder_days = 99\n")
+        self.assertEqual(kit.get("front", "ask_reminder_days"), 30)
+
+    def test_wave_min_above_six_is_a_problem(self) -> None:
+        # relay_rules.wave_min_of refuses above 6
+        kit = relay_kit.parse("[rules]\nwave_min = 9\n")
+        self.assertEqual(len(kit.problems), 1)
+        self.assertIn("[rules] wave_min", kit.problems[0].where)
+        self.assertEqual(relay_kit.parse("[rules]\nwave_min = 6\n").problems, ())
+
+    def test_feature_lanes_out_of_bounds_uses_zero(self) -> None:
+        # relay_lane_features: out of bounds means 0, never clamped
+        kit = relay_kit.parse("[front]\nfeature_lanes = 12\n")
+        self.assertTrue(kit.problems[0].line().endswith("used 0"), kit.problems[0].line())
+        self.assertEqual(relay_kit.parse("[front]\nfeature_lanes = 3\n").problems, ())
+
+    def test_schema_matches_the_readers_own_tables(self) -> None:
+        import relay_land
+        import relay_lanes
+        import relay_metrics
+        import relay_rules
+        hooks = os.path.join(ROOT, "plugins", "front", "hooks")
+        sys.path.insert(0, hooks)
+        try:
+            import ask_waiting
+        finally:
+            sys.path.remove(hooks)
+        tables = {"land": relay_land.SETTINGS, "front": dict(relay_lanes.SETTINGS), "metrics": relay_metrics.SETTINGS}
+        tables["front"]["ask_reminder_days"] = ask_waiting.DAYS
+        tables["front"]["ask_reminder_lines"] = ask_waiting.LINES
+        for section, table in tables.items():
+            for key, (default, low, high) in table.items():
+                spec = relay_kit.SCHEMA[section][key]
+                self.assertEqual((spec.default, spec.bounds), (default, (low, high)), f"{section}.{key}")
+        self.assertEqual(relay_kit.SCHEMA["rules"]["lanes"].bounds, (1, relay_rules.LANES_MAX))
+        self.assertEqual(relay_kit.SCHEMA["rules"]["wave_min"].bounds, (1, relay_rules.WAVE_MIN_MAX))
+
+    def test_metrics_problem_reaches_the_route_guard_settings(self) -> None:
         with tempfile.TemporaryDirectory() as root:
             os.makedirs(os.path.join(root, ".claude"))
             with open(os.path.join(root, ".claude", "kit.toml"), "w") as handle:
+                handle.write('[metrics]\nenabled = "false"\n')
+            _, problems = relay_kit.delegate_settings(root, {})
+            self.assertTrue(any("[metrics] enabled" in p.line() for p in problems))
+
+    def test_gate_refuses_a_branch_with_a_settings_problem(self) -> None:
+        import subprocess
+        import relay_gate
+        with tempfile.TemporaryDirectory() as base:
+            root = os.path.join(base, "main")
+            os.makedirs(os.path.join(root, ".relay"))
+
+            def git(*args: str) -> None:
+                subprocess.run(["git", "-C", root, *args], check=True, capture_output=True)
+            git("init", "-q", "-b", "main")
+            git("config", "user.email", "t@t")
+            git("config", "user.name", "t")
+            with open(os.path.join(root, ".relay", "keep"), "w") as handle:
+                handle.write("x")
+            git("add", "-A")
+            git("commit", "-q", "-m", "x")
+            work = os.path.join(base, "task")
+            git("worktree", "add", "-q", "-b", "task", work)
+            os.makedirs(os.path.join(work, ".claude"))
+            with open(os.path.join(work, ".claude", "kit.toml"), "w") as handle:
                 handle.write('[delegate]\nbuild_tier_opus = "denny"\n')
+            subprocess.run(["git", "-C", work, "add", "-A"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", work, "commit", "-q", "-m", "y"], check=True, capture_output=True)
+            # through run(), so removing its call to refuse_bad_settings turns this red
             with self.assertRaises(relay_gate.GateRefused) as ctx:
-                relay_gate.refuse_bad_settings(root)
+                relay_gate.run(work)
             self.assertIn("build_tier_opus", str(ctx.exception))
 
     def test_doctor_reports_problems_and_bad_env_in_settings(self) -> None:

@@ -51,7 +51,7 @@ SCHEMA: Schema = {
                 "stack_skills": Field("strlist", [])},
     "gate": {k: Field("str", "") for k in ("wt", "check", "ci", "ci_quick", "ci_log", "final")},
     "coordination": {"mode": Field("str", "leadless")},
-    "rules": {"lanes": Field("int", 4, bounds=(1, 8)), "wave_min": Field("int", 3, bounds=(1, 1000)),
+    "rules": {"lanes": Field("int", 4, bounds=(1, 8)), "wave_min": Field("int", 3, bounds=(1, 6)),
               "load": Field("strlist", []), "read": Field("strlist", [])},
     "specs": {"method": Field("str", "none")},
     "flow": {"kind": Field("str", "none"), "plugin": Field("str", "")},
@@ -66,7 +66,9 @@ SCHEMA: Schema = {
     "observe": {"log_prompts": Field("bool", False)},
     "metrics": {"enabled": Field("bool", True), "coverage": Field("str", "every"),
                 "sweep_quiet_min": Field("int", 60, bounds=(10, 1440), outside="clamp")},
-    "front": {"feature_lanes": Field("int", 0, bounds=(0, 8), outside="clamp"),
+    "front": {"feature_lanes": Field("int", 0, bounds=(0, 8)),   # out of bounds: 0, as relay_lane_features does
+              "ask_reminder_days": Field("int", 7, bounds=(1, 30), outside="clamp"),
+              "ask_reminder_lines": Field("int", 5, bounds=(1, 20), outside="clamp"),
               "lanes_line_items": Field("int", 3, bounds=(0, 10)),
               "stop_nudge": Field("int", 1, bounds=(0, 2), outside="clamp"),
               "lane_quiet_hours": Field("int", 3, bounds=(1, 24), outside="clamp")},
@@ -74,6 +76,8 @@ SCHEMA: Schema = {
              "land_inert_tries": Field("int", 10, bounds=(3, 50), outside="clamp"),
              "land_ff_lock_tries": Field("int", 3, bounds=(1, 10), outside="clamp")},
 }
+# Keys an older kit.toml template wrote that no code reads: (section, key) -> what to say
+RETIRED = {("observe", "enabled"): "has no effect (no code reads it); remove the line"}
 OPEN_SECTIONS = ("product", "packet", "spec_check", "guard", "license")   # relay does not list their keys here
 KNOWN_SECTIONS = tuple(SCHEMA) + OPEN_SECTIONS
 
@@ -155,6 +159,9 @@ def parse(text: str, path: str = KIT_PATH) -> Kit:
             continue
         for key, value in body.items():
             where = f"{name} [{section}] {key}"
+            if (section, key) in RETIRED:
+                problems.append(Problem(where, "", RETIRED[(section, key)], ""))
+                continue
             if key not in keys:
                 problems.append(Problem(where, "", "is not a key relay knows", ""))
                 continue
@@ -217,7 +224,7 @@ def delegate_settings(root: str, environ: Optional[dict[str, str]] = None) -> tu
     the file's syntax error first."""
     kit = load(root)
     out = dict(kit.values["delegate"])
-    problems = kit.problems_of("delegate")
+    problems = kit.problems_of("delegate", "metrics")
     for key, spec in SCHEMA["delegate"].items():
         name = "RELAY_DELEGATE_" + key.upper()
         if name in (environ if environ is not None else os.environ):
