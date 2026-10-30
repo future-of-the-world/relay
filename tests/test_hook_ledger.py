@@ -110,6 +110,11 @@ class Ledger(SoftCases):
         os.environ["RELAY_HOME"] = self.home
         self.addCleanup(lambda: os.environ.pop("RELAY_HOME") if old is None else os.environ.__setitem__("RELAY_HOME", old))
         spec.loader.exec_module(mod)
+        # relay_ledger is cached per process and binds ledger_dir at its first import: a test that imported it under a patched
+        # relay_config.ledger_dir (test_metrics) left it pointing elsewhere. Point it at this test's home, as the hook run sees it.
+        real_dir = mod.relay_ledger.ledger_dir
+        mod.relay_ledger.ledger_dir = lambda: os.path.join(self.home, "ledger")
+        self.addCleanup(setattr, mod.relay_ledger, "ledger_dir", real_dir)
         opened = []
         real = open
         mod.open = lambda p, *a, **k: (opened.append(p), real(p, *a, **k))[1]
