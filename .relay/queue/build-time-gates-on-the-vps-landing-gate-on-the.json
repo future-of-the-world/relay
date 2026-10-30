@@ -34,6 +34,12 @@
       "said": [
         "пока он не готов, можем ли мы начать утилизировать ai.amidman.com, это vps и процессор будет медленнее, однако я думаю что основные ограничения именно системные и связаны именно с запуском большого количества процессов, сделай замер"
       ]
+    },
+    {
+      "at": "2026-10-30T02:19:21Z",
+      "fact": [
+        "Design vps-build-gates rev 2 (30 Oct; reviewed: 1 HIGH, 7 MEDIUM, 2 LOW, all fixed in the revision). Build about 4 h 50 min of agent time in 5 changes. Key points: each build-time gate runs relay's tests in a fresh rootless podman container on the VPS with no network and no host folder mounted, at most 2 at once, cpu_shares 256 below the server's services (caddy, forgejo, woodpecker with an ALIX agent, mailserver, a site: together ~0.9 GB RAM, under 1.2% CPU when read); the image is built only from the default branch's recipe (about 4-5 builds a week, the only step with network); a remote log never decides a merge (the merge hook reads only the Mac log); after each landing one VPS gate runs on the new default branch head, and a red one becomes one fix item at the top of the queue, while other lanes gate on the Mac. Front decisions (owner can reverse): images only from the default branch's recipe; lanes gate on the Mac while the default branch is red on Linux."
+      ]
     }
   ]
 }
