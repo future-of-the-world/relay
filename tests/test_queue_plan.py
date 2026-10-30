@@ -198,6 +198,54 @@ class Guarded(PlanBase):
         self.assertNotIn("Y", kinds("cat .relay/queue/zz.plan.md"))
 
 
+    def test_write_tool_refuses_a_file_in_a_subfolder_of_the_queue_folder(self):
+        # F1: master refused done/x.json (any depth); every file of .relay/queue/ is refused, a subfolder's included
+        w = self.worktree("sub")
+        for name, word in (("done/x.json", "relay queue"), ("sub/x.plan.md", "relay queue plan"), ("zz.json", "relay queue")):
+            rc, err = self.hook({"tool_name": "Write", "cwd": w, "agent_id": "a1", "tool_input": {"file_path": os.path.join(w, QUEUE + name)}})
+            self.assertEqual(rc, 2, name)
+            self.assertIn(word, err, name)
+
+    def test_shell_rule_covers_a_subfolder_of_the_queue_folder(self):
+        self.assertIn("Y", [row[0] for row in kit_guard.analyze("echo x > .relay/queue/done/x.json", self.tmp, [])])
+
+
+class Wiring(PlanBase):
+    """The command line and the lane start, end to end on the temp repository (F3)."""
+    def relay(self, *args):
+        done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), *args, "-C", self.main], capture_output=True, text=True)
+        return done.returncode, done.stdout, done.stderr
+
+    def test_queue_plan_and_show_through_the_command(self):
+        # no plan yet: show has no Plan line; the plan command without --input exits 2
+        rc, out, _ = self.relay("queue", "show", "zz")
+        self.assertEqual(rc, 0)
+        self.assertNotIn("Plan:", out)
+        rc, out, err = self.relay("queue", "plan", "zz")
+        self.assertEqual(rc, 2)
+        self.assertIn("--input", out + err)
+        rc, out, err = self.relay("queue", "plan", "zz", "--input", self.src)
+        self.assertEqual(rc, 0, err)
+        self.assertTrue(out.splitlines()[-1].startswith("plan zz: landed on master at "), out)
+        rc, out, _ = self.relay("queue", "show", "zz")
+        self.assertTrue(out.splitlines()[-1].startswith("Plan: " + os.path.join(os.path.realpath(self.main), QUEUE + "zz.plan.md") + " ("), out)
+
+    def test_start_hands_the_plan_to_a_design_and_a_build(self):
+        self.write_commit(self.main, {QUEUE + "fx.json": tq.fix_item("Fx")}, "item fx")
+        self.keep()
+        self.keep("zz")
+        scratch = os.path.join(self.tmp, "scratch")
+        plan = os.path.join(os.path.realpath(self.main), QUEUE + "zz.plan.md")
+        design = json.loads(relay_lanes.start(self.main, "zz", scratch))
+        self.assertEqual(design["cycle_args"]["designs"][0]["item"], "zz")      # without it the cycle keeps no plan
+        text = open(design["brief"]).read()
+        self.assertIn("Earlier plan: " + plan, text)
+        self.assertIn("relay queue plan zz --input " + os.path.join(scratch, "reports", "design-zz.md"), text)
+        self.write_commit(self.main, {QUEUE + "fx.plan.md": "plan\n"}, "plan fx")   # a plan for the fix, written as the writer would
+        build = json.loads(relay_lanes.start(self.main, "fx", scratch))
+        self.assertIn("Plan: " + os.path.join(os.path.realpath(self.main), QUEUE + "fx.plan.md"), open(build["brief"]).read())
+
+
 class MergeHook(PlanBase):
     def setUp(self):
         super().setUp()

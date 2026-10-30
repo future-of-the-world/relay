@@ -711,7 +711,7 @@ def read_queue(repo, closed=False):
     return [i for i in reader.items().values() if closed or i.get("state") in (None, "open", "taken")]
 
 
-def check_files(root):
+def check_files(root: str) -> list[tuple[str, list[str]]]:
     """(path, reasons) for each item file under `root`/.relay/queue that is not well formed, sorted by path; a file left in the
     gone done/ folder is reported too. Reads the checkout's files, so a branch is checked before its merge. Raises Refused when
     there is no queue folder."""

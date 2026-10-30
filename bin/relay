@@ -945,7 +945,7 @@ def _queue_options(args, spec):
 QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "start", "done", "note", "edit", "plan")
 
 
-def cmd_queue(args):
+def cmd_queue(args: list) -> int:
     sub = args[0] if args and not args[0].startswith("-") else ""
     rest = args[1:] if sub else args
     if sub in ("-h", "--help") or (args and args[0] in ("-h", "--help")):
@@ -1070,8 +1070,8 @@ def cmd_queue(args):
         return 0
     spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--input": str}, 1),
             "take": ({}, 1), "note": ({"--input": str}, 1), "edit": ({"--input": str}, 1), "plan": ({"--input": str}, 1), "done": ({"--test": str, "--evidence": str, "--fixed-by": str}, 1)}
-    extra, count = spec[sub]
-    o, p = _queue_options(rest, dict(common, **extra))
+    spec_extra, count = spec[sub]
+    o, p = _queue_options(rest, dict(common, **spec_extra))
     if len(p) != count:
         raise Usage(QUEUE_USAGE)
     if sub == "land":

@@ -311,7 +311,7 @@ class Guard:
         target = resolve(file, self.cwd)
         if target.endswith("/.relay/checks") or "/.relay/checks/" in target:
             self.checks_refuse(existing_dir(target))
-        if re.fullmatch(r".*/\.relay/queue/[^/]+", target, re.DOTALL):
+        if re.fullmatch(r".*/\.relay/queue/.+", target, re.DOTALL):
             self.queue_refuse(existing_dir(target))
         if self.in_main(target):
             self.block("%s on %s writes to the main checkout." % (self.tool, target))

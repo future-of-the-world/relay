@@ -20,6 +20,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from typing import Optional
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
@@ -206,7 +207,7 @@ def step_hand_edits(main, default, ref, changed_files):
             raise Refused(hand % "test")
 
 
-def step_plan_files(main, default, ref):
+def step_plan_files(main: str, default: str, ref: str) -> None:
     """A task's plan (`.relay/queue/<slug>.plan.md`) is written only by `relay queue plan`, on the default branch: a branch whose own
     range (default...branch) adds, changes or deletes one is refused. A plan that came in by taking the default branch is not in that range."""
     names = relay_git.git(main, "diff", "--name-only", "--no-renames", "-z", "refs/heads/%s...%s" % (default, ref), "--", QUEUE_DIR)[1]
@@ -240,7 +241,7 @@ def leaving(main, default, ref):
             and relay_git.git(main, "merge-base", "--is-ancestor", "refs/heads/" + b, "refs/heads/" + default)[0] != 0]
 
 
-def step_queue(main, default, branch, ab=None):
+def step_queue(main: str, default: str, branch: str, ab: Optional[dict] = None) -> None:
     """7.1 step 2 (m-1): every queue item file the range adds or changes is well formed (an old-shape one is refused naming
     `relay queue migrate`); every queue file at the branch tip, whether the range touched it or not (one that came in by taking the
     default branch included), is well formed too; a file in the gone done/ folder is refused; every `fix` item the branch closes
