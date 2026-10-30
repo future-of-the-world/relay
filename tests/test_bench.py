@@ -2,6 +2,7 @@
 import json
 import os
 import shutil
+import subprocess
 import sys
 import unittest
 
@@ -206,6 +207,56 @@ class Bench(Base):
         self.assertTrue(out[0]["passed"])
         out = rb.grade(scen, self.tmp, "python3 scratch.py", "claude", "haiku", session_id="s5", config_dir=cfg)
         self.assertFalse(out[0]["passed"])
+
+
+class GradersFindTaskBranch(Base):
+    """A worker builds on its own task branch and leaves the merge to the owner (relay's rules), so a grader that reads
+    files looks at the workspace first and then at the task branches (bench 2026-10-30, judge-fable add-function)."""
+
+    def workspace(self, scenario: str) -> str:
+        ws = os.path.join(self.tmp, "ws")
+        shutil.copytree(os.path.join(ROOT, "evals", "plugin", "fixture"), ws)
+        subprocess.run(["bash", os.path.join(ROOT, "evals", "scenarios", scenario, "scaffold.sh")], cwd=ws, check=True,
+                       capture_output=True)
+        return ws
+
+    def on_branch(self, ws: str, files: dict[str, str]) -> None:
+        """Commit `files` on wt/remove-item, a worktree beside the workspace, and leave the workspace untouched."""
+        wt = os.path.join(self.tmp, "remove-item")
+        subprocess.run(["git", "-C", ws, "worktree", "add", "-q", "-b", "wt/remove-item", wt], check=True)
+        for name, text in files.items():
+            os.makedirs(os.path.dirname(os.path.join(wt, name)), exist_ok=True)
+            with open(os.path.join(wt, name), "w") as handle:
+                handle.write(text)
+        os.chmod(os.path.join(wt, "bin", "count"), 0o755) if "bin/count" in files else None
+        subprocess.run(["git", "-C", wt, "add", "-A"], check=True)
+        subprocess.run(["git", "-C", wt, "-c", "user.name=f", "-c", "user.email=f@x", "commit", "-qm", "work"], check=True)
+
+    def grades(self, scenario: str, ws: str) -> dict[str, bool]:
+        import relay_bench as rb
+        scen = rb.load_scenario(scenario)
+        scen["graders"] = [g for g in scen["graders"] if g["type"] == "command" and g["name"] != "tests-pass"]
+        return {r["name"]: r["passed"] for r in rb.grade(scen, ws, "", "claude", "haiku")}
+
+    def test_add_function_found_only_on_a_task_branch(self):
+        ws = self.workspace("add-function")
+        self.on_branch(ws, {"src/shelf.ts": "export function removeItem() {}\n", "src/shelf.test.ts": "test('removeItem', () => {})\n"})
+        self.assertEqual(self.grades("add-function", ws), {"function-exists": True, "test-written": True})
+
+    def test_add_function_absent_everywhere_fails(self):
+        ws = self.workspace("add-function")
+        self.on_branch(ws, {"README.txt": "nothing\n"})
+        self.assertEqual(self.grades("add-function", ws), {"function-exists": False, "test-written": False})
+
+    def test_small_script_found_only_on_a_task_branch(self):
+        ws = self.workspace("small-script")
+        self.on_branch(ws, {"bin/count": "#!/usr/bin/env bash\ngrep -c 'test(' \"$1\"\n"})
+        self.assertEqual(self.grades("small-script", ws), {"script-runs": True})
+
+    def test_small_script_absent_everywhere_fails(self):
+        ws = self.workspace("small-script")
+        self.on_branch(ws, {"README.txt": "nothing\n"})
+        self.assertEqual(self.grades("small-script", ws), {"script-runs": False})
 
 
 class ModulesPutBack(unittest.TestCase):

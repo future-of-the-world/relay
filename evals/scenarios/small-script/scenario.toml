@@ -14,7 +14,8 @@ runs = 1
 [[graders]]
 name = "script-runs"
 type = "command"
-command = "test -x bin/count && bin/count src/shelf.test.ts | grep -Eq '^[0-9]+$'"
+# A task branch is read too: the worker leaves the merge to the owner.
+command = "t() { test -x \"$1/bin/count\" && \"$1/bin/count\" src/shelf.test.ts | grep -Eq '^[0-9]+$'; }; t . && exit 0; for b in $(git for-each-ref --sort=-committerdate --format='%(refname:short)' 'refs/heads/wt/*'); do d=$(mktemp -d); git archive \"$b\" bin/count 2>/dev/null | tar -x -C \"$d\" 2>/dev/null && t \"$d\" && exit 0; done; exit 1"
 
 [[graders]]
 name = "delegated-to-a-worker"

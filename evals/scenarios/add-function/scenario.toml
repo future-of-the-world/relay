@@ -16,15 +16,16 @@ name = "tests-pass"
 type = "command"
 command = "bun test 2>&1 | tail -3 && bun test >/dev/null 2>&1"
 
+# The worker builds on a task branch and leaves the merge to the owner, so a file grader also reads the task branches.
 [[graders]]
 name = "function-exists"
 type = "command"
-command = "grep -q 'export function removeItem' src/shelf.ts"
+command = '''grep -q 'export function removeItem' src/shelf.ts || for b in $(git for-each-ref --sort=-committerdate --format='%(refname:short)' 'refs/heads/wt/*'); do git show "$b:src/shelf.ts" 2>/dev/null | grep -q 'export function removeItem' && exit 0; done; exit 1'''
 
 [[graders]]
 name = "test-written"
 type = "command"
-command = "grep -q 'removeItem' src/shelf.test.ts"
+command = '''grep -q 'removeItem' src/shelf.test.ts || for b in $(git for-each-ref --sort=-committerdate --format='%(refname:short)' 'refs/heads/wt/*'); do git show "$b:src/shelf.test.ts" 2>/dev/null | grep -q 'removeItem' && exit 0; done; exit 1'''
 
 [[graders]]
 name = "delegated-to-a-worker"
