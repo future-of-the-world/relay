@@ -1,0 +1,100 @@
+{
+  "branch": "wt/the-bin-wt-template-that-relay-setup-writes-into",
+  "findings": [
+    {
+      "details": [
+        "The bin/wt template that relay setup copies into every new project still makes wt/queue-<x> branches for a queue- name; relay's own bin/wt was fixed on 30 Oct, so every project set up from now on keeps the bug."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A project set up by relay (bin/wt written from templates/bin-wt). The front, told by guard_main to use bin/wt new <name>, runs",
+        "bin/wt new queue-docs main there: it makes .worktrees/queue-docs on wt/queue-docs, which relay doctor lists as a leftover queue",
+        "branch and tidy and the merge hook skip as a landing branch. Expected: refused as in relay's own bin/wt."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 10,
+      "pass_cases": [
+        "1. templates/bin-wt rendered (branch=main), run in a temp repo: new queue-docs main -> exit non-zero, stderr names \"queue-\",",
+        "   no .worktrees/queue-docs, no wt/* branch.",
+        "2. Same rendered template: new docs main -> .worktrees/docs on wt/docs, exit 0, prints the path.",
+        "3. relay's own bin/wt keeps both behaviours of tests/test_bin_wt.py."
+      ],
+      "path": "templates/bin-wt",
+      "rank": "high",
+      "reason": [
+        "Branch has no change; test tests/test_bin_wt.py:27 passes at Q1's since (fix already on master in c77fba2a), so the fail-without-fix condition cannot hold here. It does fail at c77fba2a^."
+      ],
+      "severity": "HIGH",
+      "since": "10965b21ba104643b50789442e2842ca2b5182e9",
+      "source": "queue",
+      "summary": "The bin/wt template that relay setup writes into every\u2026",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_queue.py:1051-1067 (find_finding reads only the given JSON's findings list) and 1171-1183 (add_from",
+        "copies the finding into `add` with no look at any check of that review). The review JSON carries no verdict; the check record that",
+        "carries it (a separate file in the scratchpad and .relay/checks) is never consulted. The front skill (plugins/delegate/skills/delegate/SKILL.md:247)",
+        "tells the front to queue every outside finding with add --from, and the cycle checks fixers against outside findings too, so a fixer",
+        "that fixes an outside finding in the same change (as here) always leaves a stale item behind. Principle 2 (Waste): built into the setup,",
+        "repeats each time a fixer fixes an outside finding -> MEDIUM, fixed before the merge of the change that fixes it (outside this change).",
+        "Cost here: one queue item, one lane, one worker, one review (Opus) over an empty range. Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "git -C <wt> log --oneline master..HEAD -> (empty); git rev-parse HEAD master -> both 10965b21",
+        "git log --format='%h %ad %s' -- .relay/queue/the-bin-wt-template-that-relay-setup-writes-into.json -> 730919b9 2026-10-31 03:07:34 +0400 queue: ...",
+        "relay check show check-bin-wt-new-queue-x-still-makes-wt-queue-x-which.json -> \"templates/bin-wt:10: LOW: F1 ... Source: review-...json F1 ... Verdict: MET tests/test_bin_wt.py:45\"",
+        "relay queue show the-bin-wt-... -> \"found 2026-10-30T23:07:34Z in finding F1 of review-bin-wt-new-queue-x-still-makes-wt-queue-x-which.json\"",
+        "git show --stat c77fba2a -> templates/bin-wt | 3 +++, tests/test_bin_wt.py | 23 ++++; merge-base --is-ancestor c77fba2a master -> on-master",
+        "python3 -m unittest tests.test_bin_wt -> Ran 4 tests OK"
+      ],
+      "failing_case": [
+        "Live, 31 Oct: review-bin-wt-new-queue-x-still-makes-wt-queue-x-which.json F1 (kind outside, templates/bin-wt:10). The fixer fixed it in",
+        "the same branch (c77fba2a); check-bin-wt-new-queue-x-still-makes-wt-queue-x-which.json records F1 \"Verdict: MET tests/test_bin_wt.py:45\".",
+        "One minute later `relay queue add --from review-...json F1` queued it as the-bin-wt-template-that-relay-setup-writes-into: accepted, no",
+        "warning. A lane was built, a worker ran, and this review ran over an empty range. Expected: refused (or warned) with a line naming the",
+        "check record that gives F1 MET and the commit that fixed it."
+      ],
+      "fix_hint": [
+        "In add_from, when the report is a review, look for a check record whose findings carry `Source: <this review> F<n>` (the check JSON",
+        "already stores the source) in .relay/checks and beside the report; when one gives that finding MET, refuse with",
+        "\"F<n> is MET in <check file> (fixed in <branch>); nothing to queue\". Alternatively the front skill's line 247 says to queue outside",
+        "findings from the check record (which has verdicts), not from the review, and add_from refuses a MET finding of a check record."
+      ],
+      "id": "F1",
+      "kind": "outside",
+      "line": 1171,
+      "pass_cases": [
+        "1. A review JSON with F1 outside, and a check record of the same review (its F1 sourced from that review) with F1 MET:",
+        "   relay queue add --from <review.json> F1 --input why.toml -> refused, the message names the check file and \"MET\", no queue file written.",
+        "2. Same review, check record gives F1 NOT MET (or no check record exists): add --from queues the item as today.",
+        "3. add --from <check.json> N1 (a check's own new finding) queues as today.",
+        "4. A review JSON with F2 outside that the check marks MET while F1 is NOT MET: add --from F1 queues, add --from F2 is refused."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "Outside finding in lib/relay_queue.py add_from; becomes its own fix item, not part of this branch."
+      ],
+      "severity": "MEDIUM",
+      "since": "10965b21ba104643b50789442e2842ca2b5182e9",
+      "source": "review-the-bin-wt-template-that-relay-setup-writes-into.json",
+      "source_id": "F1",
+      "summary": "relay queue add --from <review> F<n> queues a finding that the branch's check already marked MET, so a fixed finding becomes a new lane (principle 2, waste)",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "c77fba2a2b3ed118eecc47b780911c94ee2237cd.gate.log",
+  "head": "10965b21ba104643b50789442e2842ca2b5182e9",
+  "item": "the-bin-wt-template-that-relay-setup-writes-into",
+  "notes": [
+    "Item was already fixed on master by c77fba2a before it was queued. This branch adds nothing, so Q1 cannot show fail-before-fix at its own since. Close via relay queue release then relay queue done --fixed-by c77fba2a --test tests/test_bin_wt.py::TemplateBinWtNew::test_queue_prefix_refused, as the review says."
+  ],
+  "schema": 2,
+  "scope": [
+    "Branch has no own commit (HEAD == master). Gate log is for c77fba2a, no file changed since. Ran tests.test_bin_wt: 4 OK. Ran head test file at c77fba2a^: 1 failure (test_queue_prefix_refused), so the fix commit c77fba2a is what makes it pass."
+  ],
+  "type": "check"
+}
