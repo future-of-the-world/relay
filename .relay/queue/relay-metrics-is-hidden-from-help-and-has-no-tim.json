@@ -1,0 +1,41 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 40,
+  "found_at": "2026-10-30T00:23:59Z",
+  "found_in": "relay queue add",
+  "title": "relay metrics is hidden from help and has no time window",
+  "what": [
+    "Add `relay metrics` (summary, `<unit>`, `sweep`, `backfill`) to `relay help`; add a time window (`--since 6h|1d|<date>`, `--until`) and a bucket option (`--by hour|day|week`, default week) to the summary, so stage medians, gate time and cost per unit can be compared across buckets."
+  ],
+  "why": [
+    "The owner asked for stage and gate times over the last hours and expected the new metrics command to answer; the front did not find it, because `relay help` does not list it, and the command only groups by ISO week, so \"the last few hours\" cannot be asked."
+  ],
+  "failing_case": [
+    "30 Oct 2026: `bin/relay help | grep -i metrics` prints nothing; `bin/relay metrics` prints only \"2026-W44:\" with one block for the whole week; no option narrows it to hours."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "`relay help` lists every relay metrics form with one line each.",
+    "`relay metrics --since 12h --by hour` prints one block per hour with per-stage median and total, gate time, cost per unit; an empty hour prints a line saying so.",
+    "An unknown option is refused with the usage line, not a traceback."
+  ],
+  "where": [
+    "lib/relay_metrics.py:459-470 main",
+    "bin/relay help text"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T00:23:59Z",
+      "said": [
+        "Я полагал что ты воспользуешься встроенным механизмом metrics, он должен отвечать на эти вопросы, он был введен совсем недавно и мне было интересно как он работает"
+      ]
+    }
+  ]
+}
