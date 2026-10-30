@@ -27,8 +27,8 @@
   ],
   "taken_at": "2026-10-30T16:32:40Z",
   "taken_by": "wt/pytest-on-a-machine-without-relay-still",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T17:29:05Z",
+  "test": "tests/test_pytest_pool_home.py::PytestPoolHome::test_empty_home_stays_empty",
   "dropped_at": null,
   "dropped_why": null
 }
