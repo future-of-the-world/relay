@@ -1,0 +1,190 @@
+{
+  "branch": "wt/work-goes-on-while-the-owner-is-away",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED, reproduced. _record_check builds each record finding as dict(f, verdict=..., reason=..., **extra): f is the review",
+        "finding with every field, `decided` included; extra only adds the checker's decided when its status has one. is_decided_cut",
+        "(and so open_of, outside_of) and the record_errors guard read finding[\"decided\"] without knowing whose it is, so the",
+        "reviewer's principle answer is taken for the checker's scope cut. The design's test \"An OUTSIDE without decided stays open\"",
+        "was written only for a review finding with no decided. This reopens the bypass the design review's F1 HIGH closed: a MEDIUM",
+        "inside finding leaves the change without a fix and without the owner. Size: 20 minutes."
+      ],
+      "evidence": [
+        "scratchpad/probe/test_probe_decided.py (subclass of tests/test_decided.Record):",
+        "MEDIUM-REVIEW-DECIDED rc 0 recorded .../rec1.json (open 0, queued 0)",
+        "decided: F1 principle 3: derived, not stored (owner can reverse)",
+        "HIGH-REVIEW-DECIDED rc 1  relay check: nothing recorded: findings[1]: decided is refused on rank high: only a reversible scope cut ...",
+        "lib/relay_verdict.py:935-936 extra = {\"decided\": status[\"decided\"]} if \"decided\" in status else {}; findings.append(dict(f, ...))"
+      ],
+      "failing_case": [
+        "Review F1: MEDIUM, kind inside, decided = \"principle 3: derived, not stored (owner can reverse)\" (the judge text tells the critic",
+        "to give `decided` to a principle-answered finding, with the fix the principle picks). The fixer answers \"Outside: F1\"; the",
+        "checker records [[status]] id = \"F1\", verdict = \"OUTSIDE\", no decided (step 6: goes to the owner).",
+        "Now: relay check record check prints \"(open 0, queued 0)\" and \"decided: F1 principle 3: ...\": the cycle lands the change with an",
+        "unfixed MEDIUM inside defect and no owner word. Should be: open 1 (an OUTSIDE without the checker's decided stays open).",
+        "Same cause, HIGH case: review F1 HIGH with a review-time decided, checker verdict OUTSIDE with no decided: refused with",
+        "\"decided is refused on rank high\", a decided the checker never typed, and the checker cannot record OUTSIDE at all."
+      ],
+      "fix_hint": [
+        "Keep the checker's decision apart from the reviewer's: e.g. store the status's decided under its own record key (or drop the",
+        "review's `decided` from a record finding whose status is OUTSIDE without one, keeping it elsewhere for the decided: line), and",
+        "let is_decided_cut and the guard read only the checker's. Add pass cases 1 and 2 to tests/test_decided.py."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 309,
+      "pass_cases": [
+        "1. Review F1 MEDIUM inside with review decided \"principle 3: ...\", check status F1 OUTSIDE without decided: recorded, open 1.",
+        "2. Review F1 HIGH inside with review decided \"principle 1: ...\", check status F1 OUTSIDE without decided: recorded (not refused), open 1.",
+        "3. Review F1 MEDIUM inside without decided, check status F1 OUTSIDE with decided \"principle 1, scope cut: name the sender\": open 0, outside 1, line \"decided: F1 principle 1, scope cut: ...\" (today's test, kept).",
+        "4. Review F1 MEDIUM inside with review decided, check status F1 MET: open 0 and its decided: line still printed (today's behaviour kept).",
+        "5. Check status F1 OUTSIDE with decided on a HIGH finding: refused naming rank high (kept)."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_decided.py test_f1_* pass, fail at base."
+      ],
+      "severity": "HIGH",
+      "since": "e272f1fb88a4331ea84680798f394b22a0e87643",
+      "source": "review-work-goes-on-while-the-owner-is-away.json",
+      "source_id": "F1",
+      "summary": "a review-time `decided` rides into the check record, so a checker's plain OUTSIDE on an inside MEDIUM finding counts as a decided cut and is not open",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE in the front's behaviour, CONFIRMED in code: scope_cut_rest returns None for a kind-inside finding with no verdict",
+        "(the review JSON's view of a check-stage cut), so add_from takes the fix path. cycle.js finish() puts check: ck.summary and",
+        "review in the result but not the check record path; the CHECK schema has no outside count, so nothing else tells the front a",
+        "cut exists. The delegate SKILL filing table (line 247) was not updated: outside findings are \"a fix item\" with no --ip, so a",
+        "review-time cut filed by it lands at no ip. Brief: \"the rest of a scope cut is filed as a feature at the parent item's ip\".",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "lib/relay_queue.py:1177 scope_cut_rest: kind outside or verdict OUTSIDE required",
+        "plugins/delegate/workflows/cycle.js:277 showStage(... check: ck.summary, review, ... decided) - no record path",
+        "plugins/delegate/skills/delegate/SKILL.md:247 \"wrong outside the change | a fix item: relay queue add --from <report.json> F<n> --input <file.toml>\""
+      ],
+      "failing_case": [
+        "The checker gives F2 (MEDIUM inside in the review) OUTSIDE with decided \"principle 1, scope cut: name the sender\". The cycle's",
+        "result carries only \"decided: F2 principle 1, scope cut: name the sender\" (no record path). The front follows SKILL.md:150,",
+        "\"relay queue add --from <report.json> F2 ... --ip <parent's ip>\", with the report it knows, the review JSON (the same",
+        "placeholder in plugins/delegate/skills/delegate/SKILL.md:247 means the review). There F2 is kind inside with no decided, so",
+        "add_from files a fix item \"\u2026\" that ranks above every feature: the design review's F4 outcome.",
+        "Should be: a feature item \"Name the sender\" at the parent's ip, marked agent-chosen."
+      ],
+      "fix_hint": [
+        "Have relay check record check print the record path with the decided lines (or the cycle add the check record path to the",
+        "result), say \"the check record\" in SKILL.md:150, and add the decided scope cut row (with --ip) to the delegate SKILL table."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 150,
+      "pass_cases": [
+        "1. A cycle unit whose check decided F2 as a scope cut: its result names the check record path (or each decided: line carries it), and the front text tells the front to pass that path to relay queue add --from.",
+        "2. relay queue add --from <check record> F2 --ip 70: a feature \"Name the sender\", ip 70, why has \"agent-chosen\" (today's add_from, kept).",
+        "3. A review-time scope cut (review finding kind outside with decided \"principle 9, scope cut: X\"): filed from the review JSON as a feature, with --ip named in the delegate SKILL filing table.",
+        "4. An outside finding without decided: still filed as a fix (kept)."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py test_decided_lines_of_the_check_reach_the_landed_units_result passes, errors at base; front SKILL.md:150 names check_record."
+      ],
+      "severity": "MEDIUM",
+      "since": "e272f1fb88a4331ea84680798f394b22a0e87643",
+      "source": "review-work-goes-on-while-the-owner-is-away.json",
+      "source_id": "F2",
+      "summary": "the rest of a check-stage scope cut has no reliable path to the queue: the front is not told the check record, and the review JSON it has files the rest as a fix",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: the text bounds decided to a scope cut of the item, but the code guard (the design's fact-to-code bound) checks",
+        "only rank and kind; M findings are MEDIUM kind inside with source \"merge\" (relay_verdict.py:727). The owner rule \"a resolved",
+        "conflict still needs a green gate and a new check of the resolved files\" is then guarded only by text. Size: 5 minutes."
+      ],
+      "evidence": [
+        "lib/relay_verdict.py:727 M finding: severity MEDIUM, rank medium, kind inside, source merge",
+        "lib/relay_verdict.py:293 guard: rank high or kind question/design only"
+      ],
+      "failing_case": [
+        "Check record with M1 (MEDIUM, kind inside, source merge: \"lib/x.py was changed by a merge of master after it was last",
+        "checked\"). Checker status M1 OUTSIDE with decided \"principle 1, scope cut: re-check lib/x.py\". Now: recorded, open 0, the",
+        "resolved file lands unchecked. Should be: refused, an M finding is a re-check obligation, not part of the item."
+      ],
+      "fix_hint": [
+        "Add source == \"merge\" (and Q) to the refused set in record_errors, with a test."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 293,
+      "pass_cases": [
+        "1. Status M1 OUTSIDE with decided: refused naming the merge finding.",
+        "2. Status F1 (review, MEDIUM inside) OUTSIDE with decided scope cut: recorded, open 0 (kept).",
+        "3. Status M1 MET: recorded (kept)."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_decided.py test_f3_a_merge_finding_cannot_be_decided_as_a_scope_cut passes, fails at base."
+      ],
+      "severity": "LOW",
+      "since": "e272f1fb88a4331ea84680798f394b22a0e87643",
+      "source": "review-work-goes-on-while-the-owner-is-away.json",
+      "source_id": "F3",
+      "summary": "the code guard lets a checker decide an M finding (a file a merge of the default branch changed) as a scope cut",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE, not run (paid). The fixture gives the critic a project rule named R1 and principle 9; the natural decided names R1.",
+        "The design wrote this regex, but the brief's F3 fix was exactly a grader failing a text-legal form. Size: 5 minutes."
+      ],
+      "evidence": [
+        "evals/plugin/critic-decides-principle/prompt.md: Project rules: \"R1: after a branch takes the base, ...\"",
+        "roles/judge.md: decided = \"principle <n>: <why> (owner can reverse)\" (or the decision's place and date)"
+      ],
+      "failing_case": [
+        "The critic follows the judge text \"(or the decision's place and date)\" and writes decided = \"R1: check again after taking the",
+        "base (owner can reverse)\". Now: decided-names-the-principle fails (regex wants decided = \"principle...), a paid run goes red",
+        "on correct behaviour. Same in critic-decides-scope-cut-ru when the critic writes \"\u043f\u0440\u0438\u043d\u0446\u0438\u043f 5, scope cut: ...\"."
+      ],
+      "fix_hint": [
+        "Widen the pattern to decided\\s*=\\s*['\"\\\\]+(?:principle|R1|\u043f\u0440\u0438\u043d\u0446\u0438\u043f), or name the rule \"principle 1\" in the fixture prompt."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 4,
+      "pass_cases": [
+        "1. decided = \"principle 1: check again\" passes.",
+        "2. decided = \"R1: check again\" passes.",
+        "3. A Write with no decided field fails (min 1 kept)."
+      ],
+      "path": "evals/plugin/critic-decides-principle/graders/decided-names-the-principle.md",
+      "rank": "low",
+      "reason": [
+        "Grader input_match now accepts principle|R1|\u043f\u0440\u0438\u043d\u0446\u0438\u043f (read, both graders changed); paid eval, no unit test."
+      ],
+      "severity": "LOW",
+      "since": "e272f1fb88a4331ea84680798f394b22a0e87643",
+      "source": "review-work-goes-on-while-the-owner-is-away.json",
+      "source_id": "F4",
+      "summary": "the grader passes only a decided that starts with the word principle, but the fixture's rule is R1 and the text allows the decision's own name",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "8413e8cda0552946351d3903011ff53ee5fbcbb9.gate.log",
+  "head": "57c6e24c68e0f2789eec007809b4fbbdc06a48e1",
+  "item": null,
+  "notes": [
+    "Files changed are all those the findings name plus tests and eval graders. Callers of check_record checked (front SKILL, delegate SKILL, cycle.js)."
+  ],
+  "schema": 2,
+  "scope": [
+    "e272f1fb88a4..HEAD. Gate log head 8413e8cd, exit 0; only the gate-log commit came after. tests.test_decided and tests.test_cycle_workflow pass (102 OK); at e272f1fb88a4 with head tests: 3 FAIL + 1 ERROR (the F1, F3, F2 tests). relay precheck green."
+  ],
+  "type": "check"
+}
