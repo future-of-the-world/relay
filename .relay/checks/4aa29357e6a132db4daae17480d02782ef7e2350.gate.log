@@ -1,0 +1,18 @@
+head 4aa29357e6a132db4daae17480d02782ef7e2350
+cmd bin/ci --quick
+wait 546.2
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (824s, log: .ci/steps/library-tests.log)
+    FAIL: test_no_test_parses_a_file_it_read_itself_with_int (test_pidfile.OnlyThroughTheHelper.test_no_test_parses_a_file_it_read_itself_with_int)
+    AssertionError: Lists differ: ['fake_vps.py:94'] != []
+    FAIL: test_q1_every_relay_subcommand_is_classified_as_read_or_write (test_read_only_guard.ReadOnlyHook.test_q1_every_relay_subcommand_is_classified_as_read_or_write)
+    AssertionError: Items in the first set but not the second:
+    FAILED (failures=2)
+ci: coverage 88.9% of lib, bin, plugins (15511 of 17450 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (118s)
+ci: RED
+exit 1
