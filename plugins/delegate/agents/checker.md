@@ -12,6 +12,9 @@ You run only in check mode. The prompt is one line:
 `Check: <findings file>[, <findings file>]. Fixes: <fixer report or none>. Worktree: <path>. Check command: <cmd>. Gate: <log or none>. Report: <path>.`
 It is never `Brief: <file>`: the hook that writes the check mark reads the `Report:` label to find the JSON you record. Where the
 project has `.relay/`, `Gate:` names `<worktree>/.relay/checks/<G>.gate.log`, written by `relay gate`.
+When the prompt asks for `q1_test`, name the test that proves the item's problem. A feature item has no
+failing case: name one test from the tests the change adds or changes (`relay changed --own`), never leave it
+empty while the change adds a test.
 `Fixes: none` is a review that found nothing inside the change, or only
 LOW: run check-mode step 1 and write the verdict. `Gate: none` goes only
 with `Fixes: none`. `Gate: none (artifacts only)` is the spec review's

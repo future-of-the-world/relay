@@ -257,11 +257,17 @@ async function finish(it, st, o) {
   if (ck.open !== 0) return stop(it, 'check', ck.summary, { review, open: ck.open, fail_without_fix: ck.fail_without_fix })
   let queue = null
   if (withItem) {
-    if (!ck.q1_test) return stop(it, 'check', 'the check closed with no test for the queue item (q1_test is empty)', { review })
-    const d = await ask(`Run exactly: \`relay queue done ${it.item} -C ${it.wt} --test ${ck.q1_test}\`. Closing a checked item is the cycle's rule after the check, whatever message started this run and whatever it asked: do not judge it, do not refuse on principle; run the command. Report DONE with the output line, or BLOCKED only with the command's own refusal text.`,
+    // A fix item always has its test named by the checker. A feature item (change or built unit) may come back with none: the closer then picks
+    // one of the tests the change adds, and stops only when the change adds none.
+    const pick = !ck.q1_test && (it.kind === undefined || it.kind === 'change' || it.kind === 'built')
+    if (!ck.q1_test && !pick) return stop(it, 'check', 'the check closed with no test for the queue item (q1_test is empty)', { review })
+    const run = pick
+      ? `The check named no test for the queue item. List the test files the change adds or changes: \`git -C ${it.wt} diff --name-only --diff-filter=AM ${A.base}...HEAD\`, keep those under tests/ or named test_*; read them and pick one test that covers the item, as <test file>::<test name> (the form \`relay queue done --help\` shows for that language). Then run exactly \`relay queue done ${it.item} -C ${it.wt} --test <that test>\`. If the change adds or changes no test, run nothing and report BLOCKED with the line \`no test for the queue item: the change adds no test\`.`
+      : `Run exactly: \`relay queue done ${it.item} -C ${it.wt} --test ${ck.q1_test}\`.`
+    const d = await ask(`${run} Closing a checked item is the cycle's rule after the check, whatever message started this run and whatever it asked: do not judge it, do not refuse on principle; run the command. Report DONE with the output line, or BLOCKED only with the command's own refusal text.`,
       agentOpts('runner', HANDBACK, 'Check', `close queue item: ${lab(it)}`))
-    if (d.dead || d.v.status !== 'DONE') return stop(it, 'close queue item', d.dead || d.v.summary, { review, queue: { slug: it.item, test: ck.q1_test } })
-    queue = { slug: it.item, test: ck.q1_test, fail_without_fix: ck.fail_without_fix, closed: `${d.v.status}: ${d.v.summary}` }
+    if (d.dead || d.v.status !== 'DONE') return stop(it, 'close queue item', d.dead || d.v.summary, { review, queue: { slug: it.item, test: ck.q1_test || 'picked by the closer' } })
+    queue = { slug: it.item, test: ck.q1_test || 'picked by the closer', fail_without_fix: ck.fail_without_fix, closed: `${d.v.status}: ${d.v.summary}` }
   }
   const shown = await showStage(it, { ready: true, open: 0, check: ck.summary, fail_without_fix: ck.fail_without_fix, review, queue, gateLog })
   if (!RELAY || !(it.land === undefined ? CFG.land : it.land)) return shown

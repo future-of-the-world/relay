@@ -461,10 +461,27 @@ class Cycle(unittest.TestCase):
         self.assertNotIn("\n", out["result"]["refused"])
 
     # 6
-    def test_empty_q1_test_stops_at_check_and_a_refused_close_stops_at_close(self):
-        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], q1_test="")})
+    def test_empty_q1_test_is_picked_by_the_closer_for_a_feature_and_stops_for_a_fix(self):
+        """Feature (change unit), open 0, empty q1_test: the close runner is told to pick one added test and the item
+        closes (ready, no stop). Fix unit: unchanged, stops at check, no close runner."""
+        empty = {"stage:check": dict(GREEN["stage:check"], q1_test="")}
+        out = self.run_cycle(self.args([self.unit(item="i")]), **empty)
+        self.assertTrue(out["result"]["changes"][0]["ready"])
+        prompt = out["prompts"]["close queue item: i"]
+        self.assertIn("diff --name-only --diff-filter=AM master...HEAD", prompt)
+        self.assertNotIn("--test ,", prompt)
+        out = self.run_cycle(self.args([self.unit(kind="fix", fix="f", fixes="f.md", findings="r.json", item="i")]), **empty)
         self.assertEqual(out["result"]["changes"][0]["stopped_at"], "check")
-        self.assertNotIn("close queue item: x", out["labels"])
+        self.assertNotIn("close queue item: i", out["labels"])
+
+    def test_feature_that_adds_no_test_stops_with_a_line_naming_the_missing_test(self):
+        none = {"status": "BLOCKED", "summary": "no test for the queue item: the change adds no test"}
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], q1_test=""), "stage:close queue item": none})
+        change = out["result"]["changes"][0]
+        self.assertEqual(change["stopped_at"], "close queue item")
+        self.assertIn("no test for the queue item", change["detail"])
+
+    def test_refused_close_stops_at_close(self):
         blocked = {"status": "BLOCKED", "summary": "relay queue: test form wrong"}
         out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], q1_test="bad"), "stage:close queue item": blocked})
         change = out["result"]["changes"][0]
