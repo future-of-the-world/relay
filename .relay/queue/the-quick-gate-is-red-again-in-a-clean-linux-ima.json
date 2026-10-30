@@ -28,8 +28,8 @@
   ],
   "taken_at": "2026-10-30T01:26:46Z",
   "taken_by": "wt/the-quick-gate-is-red-again-in-a-clean-l",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T05:37:31Z",
+  "test": "tests/test_quick_gate_image.py::PaidRunBuildsTheCleanImageGate::test_the_step_runs_the_recipe_in_order_with_podman_only",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
