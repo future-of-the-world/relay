@@ -14,7 +14,7 @@
 [effort]   the same keys                        # low | medium | high | xhigh | max
 [rules]    load = [...]                         # rules loaded in full
 [plugins]  enabled = [...]                      # plugin dirs passed with --plugin-dir
-[delegate] typed_only, fork_limit, max_parallel, build_tier_opus
+[delegate] typed_only, fork_limit, max_parallel, build_tier_opus (profile data; the kit.toml names are typed_agents_only, no_session_copy_above_tokens, max_agents_per_change, opus_for_builders)
 [env]      extra environment for the run
 ```
 

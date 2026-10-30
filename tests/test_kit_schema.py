@@ -25,25 +25,25 @@ class KitSchema(unittest.TestCase):
         self.assertIn("remove the line", kit.problems[0].line())
 
     def test_unknown_section_is_reported(self) -> None:
-        kit = relay_kit.parse('[delegat]\ntyped_only = false\n')
+        kit = relay_kit.parse('[delegat]\ntyped_agents_only = false\n')
         self.assertEqual([p.where for p in kit.problems], [".claude/kit.toml [delegat]"])
 
     def test_wrong_type_names_key_and_uses_the_strict_default(self) -> None:
-        kit = relay_kit.parse('[delegate]\ntyped_only = "false"\nbuild_tier_opus = "denny"\n')
-        self.assertIs(kit.get("delegate", "typed_only"), True)   # a text "false" could be a typo of either word: the strict default
-        self.assertEqual(kit.get("delegate", "build_tier_opus"), "escalate")
-        self.assertEqual(sorted(p.where.split()[-1] for p in kit.problems), ["build_tier_opus", "typed_only"])
+        kit = relay_kit.parse('[delegate]\ntyped_agents_only = "false"\nopus_for_builders = "denny"\n')
+        self.assertIs(kit.get("delegate", "typed_agents_only"), True)   # a text "false" could be a typo of either word: the strict default
+        self.assertEqual(kit.get("delegate", "opus_for_builders"), "after_a_failure")
+        self.assertEqual(sorted(p.where.split()[-1] for p in kit.problems), ["opus_for_builders", "typed_agents_only"])
 
     def test_syntax_error_is_broken_and_defaults_apply(self) -> None:
-        kit = relay_kit.parse('[delegate\nbuild_tier_opus = "deny"\n')
+        kit = relay_kit.parse('[delegate\nopus_for_builders = "never"\n')
         self.assertIsNotNone(kit.broken)
         self.assertIn(".claude/kit.toml", kit.broken.line())
-        self.assertEqual(kit.get("delegate", "build_tier_opus"), "escalate")
+        self.assertEqual(kit.get("delegate", "opus_for_builders"), "after_a_failure")
 
     def test_section_that_is_not_a_table_raises_nothing(self) -> None:
-        for text in ('delegate = "x"\n', '[[delegate]]\ntyped_only = false\n'):
+        for text in ('delegate = "x"\n', '[[delegate]]\ntyped_agents_only = false\n'):
             kit = relay_kit.parse(text)
-            self.assertIs(kit.get("delegate", "typed_only"), True, text)
+            self.assertIs(kit.get("delegate", "typed_agents_only"), True, text)
             self.assertEqual(len(kit.problems), 1, text)
             self.assertIn("[delegate]", kit.problems[0].where)
 
@@ -74,11 +74,11 @@ class KitSchema(unittest.TestCase):
             self.assertEqual([p.line() for p in relay_kit.parse(handle.read()).problems], [])
 
     def test_env_booleans_accept_only_true_or_false(self) -> None:
-        spec = relay_kit.SCHEMA["delegate"]["typed_only"]
-        self.assertEqual(relay_kit.env_value("RELAY_DELEGATE_TYPED_ONLY", spec, {"RELAY_DELEGATE_TYPED_ONLY": "FALSE"}), (False, None))
-        value, problem = relay_kit.env_value("RELAY_DELEGATE_TYPED_ONLY", spec, {"RELAY_DELEGATE_TYPED_ONLY": "1"})
+        spec = relay_kit.SCHEMA["delegate"]["typed_agents_only"]
+        self.assertEqual(relay_kit.env_value("RELAY_DELEGATE_TYPED_AGENTS_ONLY", spec, {"RELAY_DELEGATE_TYPED_AGENTS_ONLY": "FALSE"}), (False, None))
+        value, problem = relay_kit.env_value("RELAY_DELEGATE_TYPED_AGENTS_ONLY", spec, {"RELAY_DELEGATE_TYPED_AGENTS_ONLY": "1"})
         self.assertIs(value, True)   # "1" is not a word the guard knows: strict default, and a problem naming the variable
-        self.assertIn("RELAY_DELEGATE_TYPED_ONLY", problem.line())
+        self.assertIn("RELAY_DELEGATE_TYPED_AGENTS_ONLY", problem.line())
 
     def test_ctx_env_must_be_a_whole_number_of_at_least_1000(self) -> None:
         self.assertEqual(relay_kit.ctx_value("RELAY_CTX_STEP", {"RELAY_CTX_STEP": "5000"}), (5000, None))
@@ -171,13 +171,13 @@ class KitSchema(unittest.TestCase):
             git("worktree", "add", "-q", "-b", "task", work)
             os.makedirs(os.path.join(work, ".claude"))
             with open(os.path.join(work, ".claude", "kit.toml"), "w") as handle:
-                handle.write('[delegate]\nbuild_tier_opus = "denny"\n')
+                handle.write('[delegate]\nopus_for_builders = "denny"\n')
             subprocess.run(["git", "-C", work, "add", "-A"], check=True, capture_output=True)
             subprocess.run(["git", "-C", work, "commit", "-q", "-m", "y"], check=True, capture_output=True)
             # through run(), so removing its call to refuse_bad_settings turns this red
             with self.assertRaises(relay_gate.GateRefused) as ctx:
                 relay_gate.run(work)
-            self.assertIn("build_tier_opus", str(ctx.exception))
+            self.assertIn("opus_for_builders", str(ctx.exception))
 
     def test_doctor_reports_problems_and_bad_env_in_settings(self) -> None:
         import relay_setup
@@ -199,6 +199,26 @@ class KitSchema(unittest.TestCase):
             red = [name for name, good, _ in project if not good]
             self.assertIn(".claude/kit.toml [observe] enabld", red)
             self.assertIn("env RELAY_CTX_STEP", red)
+
+    def test_an_old_delegate_name_is_refused_naming_the_new_one(self) -> None:
+        # Each old key of the four renamed ones is a problem whose line says what it is now.
+        text = '[delegate]\ntyped_only = true\nfork_limit = 100000\nmax_parallel = 4\nbuild_tier_opus = "escalate"\n'
+        lines = sorted(p.line() for p in relay_kit.parse(text).problems)
+        for old, new in (("typed_only", "typed_agents_only"), ("fork_limit", "no_session_copy_above_tokens"),
+                         ("max_parallel", "max_agents_per_change"), ("build_tier_opus", "opus_for_builders")):
+            self.assertTrue(any(f"[delegate] {old}" in line and f"now {new}" in line for line in lines), (old, lines))
+
+    def test_old_env_name_is_refused_naming_the_new_one(self) -> None:
+        found = relay_kit.env_problems({"RELAY_DELEGATE_TYPED_ONLY": "true"})
+        self.assertIn("RELAY_DELEGATE_TYPED_AGENTS_ONLY", found[0].line())
+
+    def test_rename_rewrites_names_and_the_opus_values_and_keeps_comments(self) -> None:
+        # escalate -> after_a_failure, allow -> always, deny -> never; a trailing comment survives.
+        text = '[delegate]\ntyped_only = false   # mine\nmax_parallel = 6\nbuild_tier_opus = "allow"   # x\n\n[rules]\nlanes = 6\n'
+        new, did = relay_kit.rename_old_delegate_keys(text)
+        self.assertEqual(new, '[delegate]\ntyped_agents_only = false   # mine\nmax_agents_per_change = 6\nopus_for_builders = "always"   # x\n\n[rules]\nlanes = 6\n')
+        self.assertEqual(len(did), 3)
+        self.assertEqual(relay_kit.parse(new).problems, ())
 
 
 if __name__ == "__main__":

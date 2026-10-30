@@ -13,6 +13,7 @@ Standard library only; the hooks may run under Python 3.9.
 from __future__ import annotations
 
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -33,7 +34,7 @@ class Field:
 
 @dataclass(frozen=True)
 class Problem:
-    where: str      # ".claude/kit.toml [delegate] build_tier_opus" or "env RELAY_DELEGATE_TYPED_ONLY"
+    where: str      # ".claude/kit.toml [delegate] opus_for_builders" or "env RELAY_DELEGATE_TYPED_AGENTS_ONLY"
     value: str      # repr of the wrong value ("" when the problem is the key or file itself)
     wrong: str      # what is wrong
     used: str       # what was used instead ("" when nothing was)
@@ -56,10 +57,10 @@ SCHEMA: Schema = {
     "specs": {"method": Field("str", "none", choices=("none", "openspec"))},   # the spec method plugins: plugins/*/flow.json with "slot": "specs"
     "flow": {"kind": Field("str", "none"), "plugin": Field("str", "")},
     "delegate": {
-        "typed_only": Field("bool", True),
-        "fork_limit": Field("int", 100_000, bounds=(100_000, 10**9), outside="default"),
-        "max_parallel": Field("int", 4, bounds=(1, 1000)),
-        "build_tier_opus": Field("str", "escalate", choices=("escalate", "allow", "deny")),
+        "typed_agents_only": Field("bool", True),
+        "no_session_copy_above_tokens": Field("int", 100_000, bounds=(100_000, 10**9), outside="default"),
+        "max_agents_per_change": Field("int", 4, bounds=(1, 1000)),
+        "opus_for_builders": Field("str", "after_a_failure", choices=("after_a_failure", "always", "never")),
         "require_skill": Field("str", "deny", choices=("deny", "note", "off")),
         "label_guard": Field("str", "deny", choices=("deny", "note", "off")),
     },
@@ -78,6 +79,13 @@ SCHEMA: Schema = {
 }
 # Keys an older kit.toml template wrote that no code reads: (section, key) -> what to say
 RETIRED = {("observe", "enabled"): "has no effect (no code reads it); remove the line"}
+# [delegate] keys renamed on 31 Oct (they named the code, not what they do): (section, old key) -> new key.
+# `relay setup` renames them in a kit.toml; until then the old name is a problem that names the new one.
+RENAMED = {("delegate", "typed_only"): "typed_agents_only",
+           ("delegate", "fork_limit"): "no_session_copy_above_tokens",
+           ("delegate", "max_parallel"): "max_agents_per_change",
+           ("delegate", "build_tier_opus"): "opus_for_builders"}
+OLD_OPUS_VALUES = {"escalate": "after_a_failure", "allow": "always", "deny": "never"}   # old build_tier_opus -> opus_for_builders
 OPEN_SECTIONS = ("product", "packet", "spec_check", "guard", "license")   # relay does not list their keys here
 KNOWN_SECTIONS = tuple(SCHEMA) + OPEN_SECTIONS
 
@@ -161,6 +169,10 @@ def parse(text: str, path: str = KIT_PATH) -> Kit:
             where = f"{name} [{section}] {key}"
             if (section, key) in RETIRED:
                 problems.append(Problem(where, "", RETIRED[(section, key)], ""))
+                continue
+            if (section, key) in RENAMED:
+                new = RENAMED[(section, key)]
+                problems.append(Problem(where, "", f"is an old name; it is now {new} (`relay setup` renames it)", ""))
                 continue
             if key not in keys:
                 problems.append(Problem(where, "", "is not a key relay knows", ""))
@@ -251,6 +263,8 @@ def env_problems(environ: dict[str, str]) -> list[Problem]:
             out.append(env_value(name, SCHEMA["delegate"][key], environ)[1])
         elif name in CTX_DEFAULTS:
             out.append(ctx_value(name, environ)[1])
+        elif key is not None and ("delegate", key) in RENAMED:
+            out.append(Problem(f"env {name}", "", f"is an old name; it is now RELAY_DELEGATE_{RENAMED[('delegate', key)].upper()}", ""))
         else:
             out.append(Problem(f"env {name}", "", "is not a setting relay knows", ""))
     return [p for p in out if p]
@@ -278,3 +292,26 @@ def warn(kit: Kit, *sections: str) -> None:
         if line not in _said:
             _said.add(line)
             print(line, file=sys.stderr)
+
+
+def rename_old_delegate_keys(text: str) -> tuple[str, list[str]]:
+    """`text` of a kit.toml with the old [delegate] key names (RENAMED) and the old opus_for_builders values replaced; the lines it did."""
+    out: list[str] = []
+    did: list[str] = []
+    section = None
+    for line in text.split("\n"):
+        head = re.match(r"\s*\[([^\]]+)\]", line)
+        if head:
+            section = head.group(1).strip()
+        elif section == "delegate":
+            m = re.match(r"(\s*)([A-Za-z_]+)(\s*=\s*)(.*)$", line)
+            if m and ("delegate", m.group(2)) in RENAMED:
+                old, new, value = m.group(2), RENAMED[("delegate", m.group(2))], m.group(4)
+                if old == "build_tier_opus":
+                    v = re.match(r'"([^"]*)"(.*)$', value)
+                    if v and v.group(1) in OLD_OPUS_VALUES:
+                        value = f'"{OLD_OPUS_VALUES[v.group(1)]}"{v.group(2)}'
+                line = f"{m.group(1)}{new}{m.group(3)}{value}"
+                did.append(f"[delegate] {old} -> {new}")
+        out.append(line)
+    return "\n".join(out), did

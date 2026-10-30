@@ -56,10 +56,10 @@ class RouteGuard(SoftCases):
         event = {"tool_name": "Bash", "cwd": ".", "tool_input": {"command": "ls"}}
         self.assertEqual(run_hook(GUARD, json.dumps(event), {"RELAY_HOME": self.home}, cwd=self.cwd), "")
 
-    def test_typed_only_false_allows_general_purpose(self) -> None:
+    def test_typed_agents_only_false_allows_general_purpose(self) -> None:
         os.makedirs(os.path.join(self.cwd, ".claude"))
         with open(os.path.join(self.cwd, ".claude", "kit.toml"), "w") as handle:
-            handle.write("[delegate]\ntyped_only = false\n")
+            handle.write("[delegate]\ntyped_agents_only = false\n")
         self.assertEqual(self.agent("general-purpose"), "")
 
     def test_fork_over_limit_denied(self) -> None:
@@ -74,37 +74,37 @@ class RouteGuard(SoftCases):
         with open(os.path.join(self.cwd, ".claude", "kit.toml"), "w") as handle:
             handle.write(text)
 
-    def test_misspelt_build_tier_opus_still_denies_and_names_the_key(self) -> None:
-        self.kit('[delegate]\nbuild_tier_opus = "denny"\n')
+    def test_misspelt_opus_for_builders_still_denies_and_names_the_key(self) -> None:
+        self.kit('[delegate]\nopus_for_builders = "denny"\n')
         out = self.agent("delegate:worker", "x", "opus")
         self.assertIn('"deny"', out)
-        self.assertIn("[delegate] build_tier_opus", out)
+        self.assertIn("[delegate] opus_for_builders", out)
 
-    def test_build_tier_opus_deny_and_default(self) -> None:
-        self.kit('[delegate]\nbuild_tier_opus = "deny"\n')
+    def test_opus_for_builders_deny_and_default(self) -> None:
+        self.kit('[delegate]\nopus_for_builders = "never"\n')
         self.assertIn('"deny"', self.agent("delegate:worker", "x\nEscalated: sonnet failed", "opus"))
         self.kit("")
         self.assertIn('"deny"', self.agent("delegate:worker", "x", "opus"))
         self.assertEqual(self.agent("delegate:worker", "x\nEscalated: sonnet failed", "opus"), "")
 
     def test_syntax_error_is_named(self) -> None:
-        self.kit('[delegate\nbuild_tier_opus = "allow"\n')
+        self.kit('[delegate\nopus_for_builders = "always"\n')
         out = self.agent("delegate:worker", "x", "opus")
         self.assertIn('"deny"', out)   # the defaults apply, not the unreadable "allow"
         self.assertIn(".claude/kit.toml", out)
         self.assertIn("cannot be read", out)
 
-    def test_typed_only_text_is_reported_and_strict(self) -> None:
-        self.kit('[delegate]\ntyped_only = "false"\n')
+    def test_typed_agents_only_text_is_reported_and_strict(self) -> None:
+        self.kit('[delegate]\ntyped_agents_only = "false"\n')
         out = self.agent("general-purpose")
         self.assertIn('"deny"', out)
-        self.assertIn("[delegate] typed_only", out)
+        self.assertIn("[delegate] typed_agents_only", out)
 
-    def test_env_typed_only_one_is_not_a_switch(self) -> None:
+    def test_env_typed_agents_only_one_is_not_a_switch(self) -> None:
         event = {"tool_name": "Agent", "cwd": ".", "tool_input": {"subagent_type": "general-purpose", "prompt": "x"}}
-        out = run_hook(GUARD, json.dumps(event), {"RELAY_HOME": self.home, "RELAY_DELEGATE_TYPED_ONLY": "1"}, cwd=self.cwd)
+        out = run_hook(GUARD, json.dumps(event), {"RELAY_HOME": self.home, "RELAY_DELEGATE_TYPED_AGENTS_ONLY": "1"}, cwd=self.cwd)
         self.assertIn('"deny"', out)
-        self.assertIn("RELAY_DELEGATE_TYPED_ONLY", out)
+        self.assertIn("RELAY_DELEGATE_TYPED_AGENTS_ONLY", out)
 
     def test_delegate_that_is_not_a_table_is_strict_and_named(self) -> None:
         self.kit('delegate = "x"\n')

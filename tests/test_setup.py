@@ -24,10 +24,35 @@ class Setup(Base):
         d = relay_setup.detect(proj)
         return relay_setup.bindings_text(d, "none")
 
+    def test_setup_writes_the_new_delegate_names_each_with_a_comment(self):
+        import relay_kit
+        text = self._wt_project(None)
+        lines = text.split("\n")
+        start = lines.index("[delegate]")
+        keys = [ln for ln in lines[start + 1:lines.index("[observe]")] if ln]
+        self.assertEqual([ln.split(" =")[0] for ln in keys],
+                         ["typed_agents_only", "no_session_copy_above_tokens", "max_agents_per_change", "opus_for_builders"])
+        for ln in keys:
+            self.assertIn("   # ", ln)
+        self.assertEqual(relay_kit.parse(text).problems, ())
+
+    def test_setup_migrates_an_old_kit_toml_with_one_line_per_key(self):
+        import relay_setup
+        proj = os.path.join(self.tmp, "oldkit")
+        os.makedirs(os.path.join(proj, ".claude"))
+        path = os.path.join(proj, ".claude", "kit.toml")
+        with open(path, "w") as handle:
+            handle.write('[delegate]\nmax_parallel = 6\nbuild_tier_opus = "deny"\n')
+        done = relay_setup.rename_delegate_keys(proj)
+        self.assertEqual(done, ["[delegate] max_parallel -> max_agents_per_change", "[delegate] build_tier_opus -> opus_for_builders"])
+        self.assertEqual(open(path).read(), '[delegate]\nmax_agents_per_change = 6\nopus_for_builders = "never"\n')
+        self.assertEqual(relay_setup.rename_delegate_keys(proj), [])
+
+
     def test_setup_uses_the_folder_bin_wt_makes(self):
         # ALIX: bin/wt makes .worktree/<name>; kit.toml must say so, not the default.
         text = self._wt_project('#!/bin/sh\ngit worktree add ".worktree/$1" -b "wt/$1"\n')
-        self.assertIn('worktrees = ".worktree"\n', text)
+        self.assertIn('worktrees = ".worktree"', text)
 
     def _gitignore_after(self, wt_script, pre_ignore=""):
         import relay_setup
@@ -75,7 +100,7 @@ class Setup(Base):
 
     def test_setup_default_worktrees_folder_without_bin_wt(self):
         text = self._wt_project(None)
-        self.assertIn('worktrees = ".worktrees"\n', text)
+        self.assertIn('worktrees = ".worktrees"', text)
 
     def test_setup_doc_states_squash_merge_limit(self):
         # A project that squash-merges pull requests on its server gets the check records in the squashed tree, naming

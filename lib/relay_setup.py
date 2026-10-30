@@ -212,18 +212,40 @@ def bindings_text(d, flow, specs="none"):
         f"# {name}: bindings for the relay plugins (written by `relay setup`, {dt.date.today()}).",
         "# Every key is documented in plugins/relay/README.md (gate, packet, guard)",
         "# and docs/flows.md ([flow]); [delegate] and [observe] in docs/delegation.md.", "",
-        "[project]", f'name = "{name}"', f'default_branch = "{d["default_branch"]}"', f'worktrees = "{d.get("worktrees", ".worktrees")}"',
-        f"stack_skills = {skills}", "",
-        "[gate]", 'wt = "bin/wt"', 'check = "bin/check"', 'ci = "bin/ci"', 'ci_log = ".ci/ci.log"', 'final = "local"', "",
-        "[flow]", f'kind = "{flow}"', "",
+        "[project]", f'name = "{name}"   # what this project is called', f'default_branch = "{d["default_branch"]}"   # the branch finished work is merged into',
+        f'worktrees = "{d.get("worktrees", ".worktrees")}"   # the folder where each task gets its own copy of the project',
+        f"stack_skills = {skills}   # skills for your stack that agents load before they build", "",
+        "[gate]", 'wt = "bin/wt"   # the command that makes a task folder', 'check = "bin/check"   # the quick check an agent repeats while it builds',
+        'ci = "bin/ci"   # the full check a change must pass before it is merged', 'ci_log = ".ci/ci.log"   # where the full check writes its output',
+        'final = "local"   # where the last check runs before a merge', "",
+        "[flow]", f'kind = "{flow}"   # which work flow the project follows ("none" is relay\'s own)', "",
         "[specs]", f'method = "{specs}"   # "none", or a spec method plugin such as "openspec" (docs/flows.md)', "",
-        "[delegate]", "typed_only = true", "fork_limit = 100000", "max_parallel = 4", 'build_tier_opus = "escalate"', "",
-        "[observe]", "log_prompts = false", "",
+        "[delegate]",
+        "typed_agents_only = true   # true: the main session may start only relay's named agents, never a general-purpose one",
+        "no_session_copy_above_tokens = 100000   # a copy of the whole conversation is refused once the conversation is longer than this many tokens",
+        "max_agents_per_change = 4   # how many agents may run at once before relay warns you",
+        'opus_for_builders = "after_a_failure"   # use the big model for building: "after_a_failure" (only when a smaller agent failed the same task), "always" or "never"', "",
+        "[observe]", "log_prompts = false   # true: keep the text of every prompt in the usage log", "",
     ]
     if d["ui"]:
-        lines += ["[product]", 'medium = "the app on a phone and on a computer"', f'run_skill = "{name}-run"', ""]
-    lines += ["[coordination]", 'mode = "leadless"', ""]
+        lines += ["[product]", 'medium = "the app on a phone and on a computer"   # where a person uses the product',
+                  f'run_skill = "{name}-run"   # the skill that starts the product so a change can be seen working', ""]
+    lines += ["[coordination]", 'mode = "leadless"   # how several agents share the work: leadless means no agent leads the others', ""]
     return "\n".join(lines)
+
+
+def rename_delegate_keys(root):
+    """Rename the old [delegate] keys of kit.toml (relay_kit.RENAMED) to their new names; the lines it did, [] when none."""
+    path = bindings_path(root)
+    if not os.path.isfile(path):
+        return []
+    text = open(path, encoding="utf-8").read()
+    new, did = relay_kit.rename_old_delegate_keys(text)
+    if did:
+        backup(path)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(new)
+    return did
 
 
 def set_specs(root, method):
@@ -925,6 +947,8 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
     done, todo = [], []
     if d["has_bindings"]:
         for line in migrate_kit_toml(root, names["kit_flow"]):
+            done.append(f"kit.toml: {line}")
+        for line in rename_delegate_keys(root):
             done.append(f"kit.toml: {line}")
         d = detect(root)
     retired = retired_keys(d["settings"].get("enabledPlugins", {}) if isinstance(d["settings"].get("enabledPlugins"), dict) else {})

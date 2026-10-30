@@ -4,15 +4,15 @@
 Keeps small work on small models and the main session thin, by the rules in
 the project's .claude/kit.toml [delegate] section (defaults in brackets):
 
-- typed_only [true]: a `general-purpose` agent is denied when the delegate
+- typed_agents_only [true]: a `general-purpose` agent is denied when the delegate
   plugin's typed agents cover the job; the reason names them.
-- fork_limit [100000]: a `fork` is denied once the session's context is above
+- no_session_copy_above_tokens [100000]: a `fork` is denied once the session's context is above
   this many tokens (a fork inherits all of it).
-- build_tier_opus ["escalate"]: a build- or look-tier agent (worker, fixer,
+- opus_for_builders ["after_a_failure"]: a build- or look-tier agent (worker, fixer,
   scout, runner) started with `model: opus` is denied unless the prompt carries
   a line `Escalated: <reason>` (a Sonnet agent failed the same task, or the
-  project names the case). "allow" lets it through; "deny" refuses always.
-- max_parallel [4]: when this many agents are already running in the session
+  project names the case). "always" lets it through; "never" refuses always.
+- max_agents_per_change [4]: when this many agents are already running in the session
   (today's ledger), a note is added rather than a refusal.
 - require_skill ["deny"]: an Agent call from the main session before the delegate
   skill was loaded is refused once ("load the delegate skill first"); the session's
@@ -164,17 +164,17 @@ def decide(data):
 
     if sub == "fork":
         tokens = context_tokens(data.get("transcript_path") or "")
-        if tokens > int(cfg["fork_limit"]):
+        if tokens > int(cfg["no_session_copy_above_tokens"]):
             return deny(f"Routing: this session holds about {tokens // 1000}k tokens and a fork inherits all of it "
-                        f"(limit {int(cfg['fork_limit']) // 1000}k). Write what the agent needs into a brief file and start a "
+                        f"(limit {int(cfg['no_session_copy_above_tokens']) // 1000}k). Write what the agent needs into a brief file and start a "
                         "typed agent with `Brief: <path>`: " + "; ".join(TYPED.values()))
-    if sub == "general-purpose" and cfg["typed_only"]:
+    if sub == "general-purpose" and cfg["typed_agents_only"]:
         return deny("Routing: no general-purpose agents (every tool loaded, 30-35k tokens re-read on each request). "
                     "Use the typed agent for the job: " + "; ".join(TYPED.values())
-                    + ". For a job none of them fits, set [delegate].typed_only = false in .claude/kit.toml.")
+                    + ". For a job none of them fits, set [delegate].typed_agents_only = false in .claude/kit.toml.")
     if "opus" in model and role in SMALL_TIERS:
-        policy = cfg["build_tier_opus"]
-        if policy == "deny" or (policy == "escalate" and not is_escalated(prompt)):
+        policy = cfg["opus_for_builders"]
+        if policy == "never" or (policy == "after_a_failure" and not is_escalated(prompt)):
             return deny(f"Routing: {sub} runs on the profile's model for its tier; Opus is for thinker and critic. "
                         "To escalate (a Sonnet agent failed the same task, or the project names the case), add a line "
                         "`Escalated: <reason>` to the prompt and keep the same brief.")
@@ -196,8 +196,8 @@ def decide(data):
         notes.append(f"Routing note: this prompt is {len(prompt)} characters and names no `Brief:` file. The agent re-reads "
                      "its prompt on every request; put the material in a brief file in the scratchpad and pass its path.")
     running = running_now(data.get("session_id"))
-    if running >= int(cfg["max_parallel"]):
-        notes.append(f"Routing note: {running} agents are already running in this session (cap {cfg['max_parallel']}). "
+    if running >= int(cfg["max_agents_per_change"]):
+        notes.append(f"Routing note: {running} agents are already running in this session (cap {cfg['max_agents_per_change']}). "
                      "Agents started together each pay a first read; let one finish or merge the jobs into one brief.")
     if extra:
         notes.append(extra.strip())

@@ -499,7 +499,7 @@ def findings(data: dict[str, Any]) -> list[dict[str, Any]]:
             "id": "F1", "title": "Build agents ran on Opus",
             "evidence": f"{len(opus_build)} agents ({', '.join(sorted({a.agent_type for a in opus_build}))}), {_money(cost)}",
             "saving_usd": cost - as_sonnet,
-            "lever": "profile: [models].build = \"sonnet\"; delegate hook build_tier_opus = \"escalate\"",
+            "lever": "profile: [models].build = \"sonnet\"; delegate hook opus_for_builders = \"after_a_failure\"",
         })
 
     # F2: general-purpose agents (every tool loaded: 30-35k first read vs 10-17k)
@@ -511,7 +511,7 @@ def findings(data: dict[str, Any]) -> list[dict[str, Any]]:
             "id": "F2", "title": "general-purpose agents (carry every tool, re-read on every request)",
             "evidence": f"{len(gp)} agents, {sum(a.total.requests for a in gp)} requests, {_money(sum(a.total.cost for a in gp))}",
             "saving_usd": saving,
-            "lever": "delegate hook typed_only = true; give the role to delegate:scout/worker/runner",
+            "lever": "delegate hook typed_agents_only = true; give the role to delegate:scout/worker/runner",
         })
 
     # F3: forks from big sessions
@@ -520,7 +520,7 @@ def findings(data: dict[str, Any]) -> list[dict[str, Any]]:
         out.append({
             "id": "F3", "title": "Forks (a fork inherits the whole conversation)",
             "evidence": f"{forks} forks started", "saving_usd": 0.0,
-            "lever": "delegate hook fork_limit (default 100k): write a brief file and start a typed agent",
+            "lever": "delegate hook no_session_copy_above_tokens (default 100k): write a brief file and start a typed agent",
         })
 
     # F4: sessions over the context line
