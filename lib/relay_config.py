@@ -11,16 +11,31 @@
 from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
 
 import os
+import shutil
 import subprocess
+import sys
 from typing import Any
 
 import relay_toml
 
 ROOT = os.environ.get("RELAY_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+LEGACY_PROJECTS = os.path.join(ROOT, "projects.toml")   # where the registry used to be: a tracked file of relay
+
 
 def projects_file() -> str:
-    return os.environ.get("RELAY_PROJECTS") or os.path.join(ROOT, "projects.toml")
+    """The project registry: RELAY_PROJECTS, else <RELAY_HOME>/projects.toml (per machine, never a tracked file of
+    relay). A registry left in relay's checkout is moved there once, with one line on stderr."""
+    explicit = os.environ.get("RELAY_PROJECTS")
+    if explicit:
+        return explicit
+    target = os.path.join(home_dir(), "projects.toml")
+    old = LEGACY_PROJECTS
+    if not os.path.isfile(target) and os.path.isfile(old):
+        os.makedirs(home_dir(), exist_ok=True)
+        shutil.move(old, target)
+        print(f"relay: moved the project registry {old} to {target} (it now lives under RELAY_HOME)", file=sys.stderr)
+    return target
 
 
 def home_dir() -> str:

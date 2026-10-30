@@ -761,6 +761,7 @@ def register_project(name, root, specs="none", ui=False):
         load.append("product-work")
     block = (f'\n[{name}]\nfile = "{os.path.join(root, "CLAUDE.local.md")}"\ntitle = "Rules this project loads"\n'
              f'load = {json.dumps(load)}\nread = []\n')
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)   # <RELAY_HOME> may not exist yet
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(block)
     return True

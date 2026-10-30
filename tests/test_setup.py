@@ -1048,5 +1048,58 @@ class TestInstallRegistersNoProject(Base):
         self.assertFalse([line for line in done if "imported" in line.lower()])
 
 
+class RegistryLocation(Base):
+    """With RELAY_PROJECTS unset the registry is <RELAY_HOME>/projects.toml, never a tracked file in relay's checkout."""
+
+    def _fake_root(self):
+        # Only LEGACY_PROJECTS (where the old registry sat) points at the fake checkout; the rest of relay stays real.
+        root = os.path.join(self.tmp, "relay-checkout")
+        os.makedirs(root)
+        import relay_config
+        patcher = mock.patch.object(relay_config, "LEGACY_PROJECTS", os.path.join(root, "projects.toml"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return root
+
+    def _repo(self):
+        proj = os.path.join(self.tmp, "newproj")
+        os.makedirs(proj)
+        subprocess.run(["git", "init", "-q", proj], check=True)
+        open(os.path.join(proj, "go.mod"), "w").write("module x\n")
+        return proj
+
+    def test_setup_without_relay_projects_writes_only_under_relay_home(self):
+        root = self._fake_root()
+        os.environ.pop("RELAY_PROJECTS")
+        import relay_setup
+        relay_setup.setup(self._repo())
+        # The new entry is in the home registry; the checkout holds no projects.toml at all.
+        registry = os.path.join(self.home, "projects.toml")
+        self.assertIn("[newproj]", open(registry, encoding="utf-8").read())
+        self.assertEqual(os.listdir(root), [])
+
+    def test_old_registry_in_the_checkout_is_moved_once_with_a_line(self):
+        root = self._fake_root()
+        os.environ.pop("RELAY_PROJECTS")
+        old = os.path.join(root, "projects.toml")
+        with open(old, "w") as handle:
+            handle.write('[global]\ntitle = "kept"\n')
+        import io
+        from contextlib import redirect_stderr
+        import relay_config
+        err = io.StringIO()
+        with redirect_stderr(err):
+            first = relay_config.projects_file()
+            second = relay_config.projects_file()
+        self.assertEqual(first, os.path.join(self.home, "projects.toml"))
+        self.assertEqual(second, first)
+        self.assertFalse(os.path.exists(old))
+        self.assertIn('title = "kept"', open(first, encoding="utf-8").read())
+        # One line, once: the second call finds nothing to move.
+        lines = err.getvalue().strip().splitlines()
+        self.assertEqual(len(lines), 1)
+        self.assertIn("moved the project registry", lines[0])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
