@@ -55,6 +55,9 @@ def patch_signal_log(case, path):
     return path
 
 
+NO_LOGGED_SENDER = "no relay sender that logs its signals sent it"
+
+
 class RunnerStopped(unittest.TestCase):
     def test_a_gate_command_ended_by_a_signal_leaves_a_line_in_the_gate_log(self):
         """Live case 29 Oct: a fixture gate script was killed by SIGTERM and the log only said 143. The script stops itself with
@@ -71,7 +74,8 @@ class RunnerStopped(unittest.TestCase):
         code, log, _ = relay_gate.run(f.wt, environ=f.env)
         self.assertEqual(code, 143)      # 128 + 15
         text = test_gate.read(log)
-        self.assertIn("gate command ended by SIGTERM, not sent by relay", text)      # a signal from outside relay
+        self.assertIn("gate command ended by SIGTERM, no relay sender that logs its signals sent it", text)      # F4: the claim is only what the log can show
+        self.assertNotIn("not sent by relay", text)
         self.assertNotIn("sent by relay:", text)
 
     def test_a_stop_relay_sends_to_the_command_is_named_in_the_gate_log(self):
@@ -327,14 +331,14 @@ class SenderReasons(unittest.TestCase):
         """F7 pass 1: a log that exists but cannot be read (a directory here) says so; a missing log and a log with no line say 'not sent by relay'."""
         import relay_gate
         path = self.log()
-        self.assertIn("not sent by relay", relay_gate.signal_line(15, 4242, 0))      # pass 3 (nothing was ever sent: no file yet)
+        self.assertIn(NO_LOGGED_SENDER, relay_gate.signal_line(15, 4242, 0))      # pass 3 (nothing was ever sent: no file yet)
         os.mkdir(path)
         text = relay_gate.signal_line(15, 4242, 0)
         self.assertIn("could not be read", text)
         self.assertNotIn("not sent by relay", text)
         os.rmdir(path)
         open(path, "w").write("t=1.000 relay pid 1 sent SIGTERM to pid 7: other\n")
-        self.assertIn("not sent by relay", relay_gate.signal_line(15, 4242, 0))
+        self.assertIn(NO_LOGGED_SENDER, relay_gate.signal_line(15, 4242, 0))
 
 
 if __name__ == "__main__":
