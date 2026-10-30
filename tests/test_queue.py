@@ -239,6 +239,39 @@ class TestOrderAndParse(Base):
             rq.add_from(self.main, report, "F9", why="w", minutes=5, **QUIET)
         self.assertIn("no finding F9", str(ctx.exception))
 
+    def met_check(self, report_name, verdicts):
+        """Commit on a new branch wt/m a check record whose F-findings come from review `report_name` with these verdicts ({id: verdict});
+        returns (the review's path, the commit the check is of). The review was made at the branch's start, so it is an ancestor of the check."""
+        wm = self.worktree("m")
+        start = git(wm, "rev-parse", "HEAD")
+        self.write_commit(wm, {"lib/work.py": "x = 1\n"}, "work")
+        head = git(wm, "rev-parse", "HEAD")
+        finding = {"path": "lib/work.py", "line": 1, "severity": "LOW", "rank": "low", "kind": "inside", "summary": "x is wrong", "failing_case": ["call x"]}
+        reviewed = [dict(finding, id=i) for i in verdicts]
+        report = self.review_data(name=report_name[:-5], findings=reviewed, reviewed=start)
+        findings = [dict(f, source=report_name, source_id=f["id"], since=head, verdict=verdicts[f["id"]], reason=["lib/work.py:1"]) for f in reviewed]
+        record = {"schema": 2, "type": "check", "head": head, "branch": "wt/m", "item": None, "gate": None, "scope": [], "notes": [], "findings": findings}
+        mark = {"schema": 2, "commit": head, "verdict": {"open": 0, "queued": 0}, "check": head + ".check.json", "gate": None, "time": "t"}
+        relay_marks.put(wm, head, mark, {head + ".check.json": json.dumps(record) + "\n"})
+        return report, head
+
+    def test_add_from_refuses_a_finding_a_later_check_marked_met_and_names_the_check(self):
+        # F1 is MET in the check of wt/m: queueing it would build a fix for something already fixed (28 Oct: 4 agents, 7 min for nothing)
+        report, head = self.met_check("review-m.json", {"F1": "MET", "F2": "NOT MET"})
+        before = git(self.main, "rev-parse", "master")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.add_from(self.main, report, "F1", why="w", minutes=5, **QUIET)
+        self.assertIn(head, str(ctx.exception))
+        self.assertIn("MET", str(ctx.exception))
+        self.assertEqual(git(self.main, "rev-parse", "master"), before)       # nothing was queued
+
+    def test_add_from_still_queues_a_finding_the_check_marked_not_met_or_never_checked(self):
+        report, _ = self.met_check("review-m.json", {"F1": "MET", "F2": "NOT MET"})
+        self.assertIn("queued", rq.add_from(self.main, report, "F2", why="w", minutes=5, **QUIET))     # NOT MET: still queued
+        other = self.review_data(name="review-lonely", findings=[{"id": "F1", "path": "lib/q.py", "line": 4, "severity": "LOW", "rank": "low",
+                                                                  "kind": "outside", "summary": "never checked", "failing_case": ["call c()"]}])
+        self.assertIn("queued", rq.add_from(self.main, other, "F1", why="w", minutes=5, **QUIET))      # no check names this review
+
     def test_f4_add_from_copies_the_findings_pass_cases_and_q1_carries_them(self):
         both = {"id": "F1", "path": "lib/q.py", "line": 4, "severity": "LOW", "rank": "low", "kind": "outside", "summary": "the thing breaks",
                 "failing_case": ["call c()"], "pass_cases": ["call c(), get d", "call e(), get f"]}
