@@ -156,6 +156,16 @@
         "a. The laptop: the Mac keeps its cores; the owner installs podman and sshd, accepts relay's key once and keeps it on power; when it is off, the comparison is skipped.",
         "b. This Mac's podman: no setup; up to ~27 min more gate time per change while comparisons overlap (a guess from 27 Oct scaling)."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T01:07:29Z",
+      "question": [
+        "Where does the Linux comparison run (a Linux gate beside every Mac gate, only to compare) go: the owner's Linux laptop over ssh or this Mac's podman?"
+      ],
+      "options": [
+        "a. The laptop: the Mac keeps its cores; the owner installs podman and sshd, accepts relay's key once and keeps it on power; when it is off, the comparison is skipped.",
+        "b. This Mac's podman: no setup; up to ~27 min more gate time per change while comparisons overlap (a guess from 27 Oct scaling)."
+      ]
     }
   ]
 }
