@@ -1,0 +1,248 @@
+{
+  "branch": "wt/the-lane-pick-ignores-the-owner-s-3-and",
+  "findings": [
+    {
+      "details": [
+        "Owner, 29 Oct: \"a\" = 3 lanes for relay's development (product features, the container gate kept on top) and 3 for fixes (handover addendum of 29 Oct). The decision lives only in the handover; the lane pick (lib/relay_lanes.py) orders fixes first and offers no feature while a fix can start, so on 30 Oct the front filled 6 of 6 lanes with fixes and asked the owner a question the decision already answered.",
+        "Also: plugins/front/hooks/lanes.py",
+        "Also: lib/relay_config.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "30 Oct 2026: with 6 lanes all on fixes and feature build-time-gates-on-the-vps-landing-gate-on-the (ip 90) startable, the hook's pick named only fixes; the owner had to recall the decision."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "With the setting at 3 and 3 fix lanes running, a free lane is offered to the top feature, not a fix.",
+        "With the setting at 0, the pick is as today.",
+        "The lanes line shows both counts."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py::FeatureSplit::test_free_lane_goes_to_the_top_feature_not_a_fix passes at head and fails at 964f3d57."
+      ],
+      "severity": "HIGH",
+      "since": "964f3d5704816f9502daa5d1c71a23ea6f995b56",
+      "source": "queue",
+      "summary": "The lane pick ignores the owner's 3 and 3 lane split",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: _one_lane_per_train (lib/relay_lanes.py:295) builds the train lane with slug None and the rider branches in",
+        "`riders`; the count at 349 is `lane.slug and kinds.get(lane.slug) == \"feature\"`, so riders are never looked at. The rider's item is",
+        "still taken (it is not landed), so it is a feature that runs; the brief's rule is \"while fewer than that many feature lanes run\".",
+        "The kinds map is keyed by slug, but a lane is a branch: the right key is taken_by -> kinds of the items that branch took.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "grep -n 'Lane(train' lib/relay_lanes.py -> 295: kept.append(Lane(train, None, tuple(riders[train])))",
+        "grep -n 'feature_running = sum' lib/relay_lanes.py -> 349: ... if lane.slug and kinds.get(lane.slug) == \"feature\"",
+        "lanes_state 331-333: a branch that took two items is one lane, Lane(branch, item[\"slug\"]) of the first item only"
+      ],
+      "failing_case": [
+        "Lanes 6, feature_lanes 3. Running: wt/f1, wt/f2 (features) and wt/f3 (feature) whose branch has been merged into the open train",
+        "wt/train-x; plus 2 fix lanes. _one_lane_per_train replaces wt/f3 with Lane(\"wt/train-x\", None, (\"wt/f3\",)); line 349 counts only",
+        "lane.slug, so feature_running = 2. Now: with 1 free lane and a fix (ip 99) and a feature (ip 80) startable, the pick is the feature",
+        "and the line says \"(3 of 3 fix lanes, 2 of 3 feature lanes)\". Should be: feature_running = 3, the free lane goes to the fix, the",
+        "line says \"(2 of 3 fix lanes, 3 of 3 feature lanes)\".",
+        "The same miscount happens for a branch that took a fix first and a feature second (Lane keeps the first item's slug only)."
+      ],
+      "fix_hint": [
+        "Build branch -> set of kinds from open_items with state taken (taken_by), and count a lane as a feature lane when any of",
+        "(lane.branch,) + lane.riders took a feature. Add a test with a train rider (the file already has train helpers)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 349,
+      "pass_cases": [
+        "1. The case above: State.feature_running == 3 and picks == [the fix].",
+        "2. Three feature lanes on their own branches, no train, split 3: feature_running == 3, a free lane goes to the top fix (as today's test_running_feature_counts_against_the_quota for split 1).",
+        "3. A train whose riders are all fixes: feature_running == 0; split 3 with a startable feature: the feature is picked first.",
+        "4. A worktree with no item (Lane slug None, no riders): not counted as a feature lane."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py FeatureSplit::test_feature_riding_a_train_counts_as_a_running_feature and test_train_of_fixes_is_not_a_feature_lane pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "79f7e955c8da10dad6b30dd73ce4756b73a2496a",
+      "source": "review-the-lane-pick-ignores-the-owner-s-3-and.json",
+      "source_id": "F1",
+      "summary": "a feature that rides a merge train (or shares a branch with a fix) is not counted as a running feature, so the pick offers one feature lane too many and the line misreports the split",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: git grep feature_lanes finds only .claude/kit.toml and lib/relay_lanes.py. An earlier check of this same",
+        "paragraph (.relay/checks/04446318... and 50d5632d..., pass case 3) required every [front] setting to be named where kit.toml settings",
+        "are documented, so the project treats this as part of a settings change. Principle 10 (works for a newcomer): the agent user learns",
+        "relay from its own texts. A skill text edit falls under the batched paid run, which costs nothing extra per change.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "git grep -n 'stop_nudge\\|feature_lanes' -- ':!.relay' ':!tests' ':!lib/relay_lanes.py'",
+        "  .claude/kit.toml:8:feature_lanes = 3 ...",
+        "  plugins/front/skills/front/SKILL.md:198:`lanes_line_items` (default 3, 0-10, ...), `stop_nudge`",
+        "SKILL.md:186-188: \"The hooks print the pick as one line ...: the top of the queue order, skipping ...\""
+      ],
+      "failing_case": [
+        "A fresh front session on relay (kit.toml feature_lanes = 3) sees \"Lanes: 3 of 6 running (3 of 3 fix lanes, 0 of 3 feature lanes);",
+        "design: ft1 (feature, ip 90), start: fa (fix, ip 99)\". Its skill (SKILL.md:186-188) says the pick is \"the top of the queue order\" and",
+        "rules/queue.md says every fix before every feature; nothing it reads names feature_lanes. Now: it has no text saying why a feature",
+        "outranks a fix, nor how to change the split (the owner's question \"how do I make it 4 and 2\" cannot be answered from relay's texts).",
+        "Should be: the skill's [front] settings list names feature_lanes (default 0, 0..lanes, the lanes kept for features) and the pick",
+        "paragraph says features take the kept lanes first."
+      ],
+      "fix_hint": [
+        "Add feature_lanes to the SKILL.md [front] settings sentence and one clause to the pick paragraph."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 197,
+      "pass_cases": [
+        "1. SKILL.md's \"Settings under [front]\" sentence names `feature_lanes` with default 0, bound 0..lanes and what it does (artifact line).",
+        "2. SKILL.md's pick paragraph says that, while fewer feature lanes run than feature_lanes, the free lane goes to the top startable feature first (artifact line).",
+        "3. The three existing settings lines stay as they are."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "plugins/front/skills/front/SKILL.md:187 and :198 now describe feature_lanes and the split."
+      ],
+      "severity": "MEDIUM",
+      "since": "79f7e955c8da10dad6b30dd73ce4756b73a2496a",
+      "source": "review-the-lane-pick-ignores-the-owner-s-3-and.json",
+      "source_id": "F2",
+      "summary": "the front skill still says the pick is the top of the queue order and lists three [front] settings; feature_lanes and the split in the line are not documented where the front reads them",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the six FeatureSplit tests: five pass features= explicitly; test_setting_is_read_from_kit_toml_and_clamped",
+        "checks feature_lanes_setting alone and one lanes_state call whose expected 0 equals the default. Correct today, unguarded.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "pytest -q -x tests/test_lanes_state.py -k FeatureSplit -> 6 passed",
+        "tests/test_lanes_state.py:753: self.assertEqual(rl.lanes_state(self.main, now=NOW, limit=6).feature_split, 0)"
+      ],
+      "failing_case": [
+        "Replace `feature_lanes_setting(main, capacity) if features is None else ...` at lib/relay_lanes.py:347 with `0 if features is None",
+        "else ...`: every FeatureSplit test still passes (they pass features= directly; the one kit.toml-driven lanes_state call uses \"x\",",
+        "whose expected value is 0 either way). The hook calls lanes_state(root, quiet) without features, so the owner's setting would be",
+        "dead and no test would say so. Should: a test fails."
+      ],
+      "fix_hint": [
+        "Change the last assertion to seed feature_lanes = 3 and assert feature_split == 3 (and a feature-first pick)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 745,
+      "pass_cases": [
+        "1. kit.toml \"[front]\\nfeature_lanes = 3\\n\", 3 fixes running, limit 6, fa (fix ip 99) and ft1 (feature ip 90) startable, lanes_state(main, now=NOW, limit=6) without features: picks start with ft1 and feature_split == 3.",
+        "2. No kit.toml: feature_split == 0 and picks as today."
+      ],
+      "path": "tests/test_lanes_state.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_lanes_state.py test_split_is_read_from_kit_toml_by_lanes_state and test_no_kit_toml_means_no_split pass."
+      ],
+      "severity": "LOW",
+      "since": "79f7e955c8da10dad6b30dd73ce4756b73a2496a",
+      "source": "review-the-lane-pick-ignores-the-owner-s-3-and.json",
+      "source_id": "F3",
+      "summary": "no test drives lanes_state from kit.toml with a non-zero split, so the path the hook uses passes with the read disabled",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading feature_lanes_setting (110-119) against setting_note (107). The brief gave \"bound 0..lanes\" without saying how",
+        "out-of-bounds is handled; the file's convention for its other settings is \"the default, and the line says so\". Clamping to the lanes",
+        "turns a \"3 and 3\" into \"all features first\" when the lanes drop, which is the opposite of the owner's split. Principle 10.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "lib/relay_lanes.py:119: return max(0, min(capacity, value))",
+        "lib/relay_lanes.py:107: return f\"{key} {value} is out of bounds {low}-{high}: {default} is used\""
+      ],
+      "failing_case": [
+        "kit.toml feature_lanes = 3 and the project's lanes lowered to 2 (projects.toml): the value is clamped to 2, every lane is kept for",
+        "features and the line says \"(... of 0 fix lanes, ... of 2 feature lanes)\" with no note that 3 was out of bounds. feature_lanes = \"3\"",
+        "(a string) silently gives 0, no split. Should: like setting_note for lanes_line_items, the line names the value that was not used."
+      ],
+      "fix_hint": [
+        "Return the note beside the value (as setting_note does) and pass it to line(); or use the default 0 when out of bounds, with the note."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 119,
+      "pass_cases": [
+        "1. feature_lanes = 3, lanes 2: the line ends with a note that feature_lanes 3 is out of bounds 0-2 (whichever value the fix uses is stated).",
+        "2. feature_lanes = \"x\": the line notes it is not a whole number and 0 is used.",
+        "3. feature_lanes = 3, lanes 6: no note."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "low",
+      "reason": [
+        "lib/relay_lane_features.py:23-26 returns 0 with a note; test_out_of_bounds_is_said_in_the_line passes."
+      ],
+      "severity": "LOW",
+      "since": "79f7e955c8da10dad6b30dd73ce4756b73a2496a",
+      "source": "review-the-lane-pick-ignores-the-owner-s-3-and.json",
+      "source_id": "F4",
+      "summary": "an out-of-bounds or malformed feature_lanes is clamped or zeroed silently, unlike lanes_line_items which says so in the line",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: fix count = len(running) - feature_running. Misleading text only; the pick is unaffected. Size: 10 minutes."
+      ],
+      "evidence": [
+        "lib/relay_lanes.py:416: f\" ({len(state.running) - state.feature_running} of {state.setting - state.feature_split} fix lanes, \""
+      ],
+      "failing_case": [
+        "Lanes 6, split 3: 3 fix lanes and one design worktree with no queue item (counted as a lane while active). The line says",
+        "\"(4 of 3 fix lanes, 0 of 3 feature lanes)\". Should: the no-item lane is not called a fix lane (e.g. \"3 of 3 fix lanes, 0 of 3",
+        "feature lanes, 1 without an item\")."
+      ],
+      "fix_hint": [
+        "Count fix lanes as lanes whose items are fixes; say the rest apart or leave them out of both counts."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 416,
+      "pass_cases": [
+        "1. The case above: the fix count is 3 and the no-item lane is named apart.",
+        "2. Only fix lanes running: the line is as test_line_shows_both_counts expects."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "low",
+      "reason": [
+        "test_a_lane_with_no_item_is_named_apart_from_the_fix_lanes passes."
+      ],
+      "severity": "LOW",
+      "since": "79f7e955c8da10dad6b30dd73ce4756b73a2496a",
+      "source": "review-the-lane-pick-ignores-the-owner-s-3-and.json",
+      "source_id": "F5",
+      "summary": "the line counts every non-feature lane, a no-item worktree included, as a fix lane",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b3279aea803b90ed667609228e049c333b8582cd.gate.log",
+  "head": "69eeab418a6cb54009874c84645c9ad042c4f076",
+  "item": "the-lane-pick-ignores-the-owner-s-3-and-3-lane-s",
+  "notes": [
+    "Fail-without-fix was shown against the pre-feature base (the whole feature absent), not against the commit just before each F fix."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head b3279aea, exit 0; relay changed lists no file after it (only the gate-log commit). Ran tests/test_lanes.py and tests/test_lanes_state.py: 90 passed in state file. Ran head's test_lanes_state.py on a throwaway worktree at 964f3d57 (pre-feature): 13 FeatureSplit tests failed. Changed files are the feature code, SKILL.md, kit.toml and tests only."
+  ],
+  "type": "check"
+}
