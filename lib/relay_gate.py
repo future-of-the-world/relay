@@ -360,13 +360,10 @@ def reused_red(red: tuple[int, str, list[str]]) -> tuple[int, str, list[str]]:
 
 
 def signal_line(number: int, command_pid: int = 0, since: float = 0.0) -> str:
-    """The gate log's line for a command ended by a signal: the signal log's record of the stop when relay sent it (a stop sent to the
-    command's pid or group, from `since` on), else a line saying relay did not (a signal from outside relay, or the command's own)."""
+    """The gate log's line for a command ended by a signal: relay's record of the stop (to its pid or group, from `since`), else "not sent by relay"."""
     name = {int(s): s.name for s in signal.Signals}.get(number, "signal %d" % number)
     record = relay_procs.sent_by_relay(command_pid, since) if command_pid else None
-    if record:
-        return "gate command ended by %s, sent by relay: %s" % (name, record)
-    return "gate command ended by %s, not sent by relay (no record of it in %s)" % (name, relay_procs.signal_log())
+    return "gate command ended by %s, sent by relay: %s" % (name, record) if record else "gate command ended by %s, not sent by relay (no record of it in %s)" % (name, relay_procs.signal_log())
 
 
 def hold_stops() -> tuple[list[int], Callable[[], None]]:
