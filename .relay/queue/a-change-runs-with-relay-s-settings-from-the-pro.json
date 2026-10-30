@@ -17,8 +17,8 @@
     "lib/relay_gate.py",
     "deps.toml"
   ],
-  "taken_at": "2026-10-30T09:38:11Z",
-  "taken_by": "wt/a-change-runs-with-relay-s-settings-from",
+  "taken_at": null,
+  "taken_by": null,
   "closed_at": null,
   "test": null,
   "dropped_at": null,
