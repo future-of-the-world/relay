@@ -391,6 +391,24 @@ def names_moved_hook(command, moved):
     return first in moved
 
 
+def settings_additions(before: dict, after: dict) -> list[str]:
+    """Done lines naming each permission and each plugin switch merge_settings added to .claude/settings.json, and the
+    machine-path marketplace entry it dropped."""
+    def allowed(data: dict) -> list[str]:
+        perms = data.get("permissions")
+        allow = perms.get("allow") if isinstance(perms, dict) else None
+        return [r for r in allow if isinstance(r, str)] if isinstance(allow, list) else []
+    def plugins(data: dict) -> dict:
+        enabled = data.get("enabledPlugins")
+        return enabled if isinstance(enabled, dict) else {}
+    lines = [f".claude/settings.json: added permission {rule}" for rule in allowed(after) if rule not in allowed(before)]
+    lines += [f".claude/settings.json: added {key} = {str(value).lower()}" for key, value in plugins(after).items()
+              if key not in plugins(before) and value is False]
+    gone = [k for k in ("amidman", "principles") if k in (before.get("extraKnownMarketplaces") or {}) and k not in (after.get("extraKnownMarketplaces") or {})]
+    lines += [f".claude/settings.json: removed the {k} marketplace path (it is this machine's; `relay setup --global` keeps it in ~/.claude/settings.json)" for k in gone]
+    return lines
+
+
 def merge_settings(root, plugins, remove=(), moved_hooks=(), off=()):
     """Write the project's enabledPlugins. Relay's plugins: old names move to the new key, the always-on and `plugins` are true,
     `remove` (spec methods not chosen) is false, a key already there is kept, the rest are false. Keys of retired relay plugins are dropped.
@@ -421,9 +439,16 @@ def merge_settings(root, plugins, remove=(), moved_hooks=(), off=()):
             enabled[key] = False
     for key in off:
         enabled[key] = False
-    markets = data.setdefault("extraKnownMarketplaces", {})
-    markets[mname] = {"source": {"source": "directory", "path": marketplace_root()}}
-    markets.pop("principles", None)
+    # The marketplace path is this machine's: it lives in ~/.claude/settings.json (relay setup --global), never in this committed file.
+    markets = data.get("extraKnownMarketplaces")
+    if isinstance(markets, dict):
+        entry = markets.get(mname)
+        source = entry.get("source") if isinstance(entry, dict) else None
+        if isinstance(source, dict) and source.get("source") == "directory":
+            markets.pop(mname)   # an earlier setup wrote relay's absolute path here
+        markets.pop("principles", None)
+        if not markets:
+            data.pop("extraKnownMarketplaces")
     perms = data.setdefault("permissions", {})
     allow = perms.setdefault("allow", [])
     for rule in ("Bash(kit:*)", "Bash(bin/kit:*)", "Bash(relay:*)"):
@@ -905,8 +930,11 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
         done.append(f"spec steps are ON for this project because it has an openspec/ folder; turn them off with `relay setup {root} --specs none`")
     plugins = relay_plugins_for(specs)
     turned_off = [plugin_key(m) for m in methods if m != specs]
+    settings_before = read_json(os.path.join(root, ".claude", "settings.json"))
     changed, removed = merge_settings(root, plugins, remove=turned_off, moved_hooks=moved_hooks, off=off)
+    settings_after = read_json(os.path.join(root, ".claude", "settings.json"))
     done.append(f".claude/settings.json: plugins {', '.join(plugin_key(p) for p in plugins)} enabled" + (f"; off: {', '.join(off)}" if off else "") + (" (unchanged)" if not changed else ""))
+    done.extend(settings_additions(settings_before, settings_after))
     for r in removed:
         done.append(f"  removed a hook the plugins now provide: {r}")
     for key in retired:
