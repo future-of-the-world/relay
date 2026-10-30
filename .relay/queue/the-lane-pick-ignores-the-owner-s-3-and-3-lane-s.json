@@ -1,0 +1,42 @@
+{
+  "kind": "fix",
+  "ip": 93,
+  "time": 45,
+  "found_at": "2026-10-30T04:58:32Z",
+  "found_in": "relay queue add",
+  "title": "The lane pick ignores the owner's 3 and 3 lane split",
+  "what": [
+    "The split is a project setting (projects.toml or kit.toml: lanes for features, default 0, bound 0..lanes; relay 3), read by the lane pick: while fewer than that many feature lanes run, the next free lane goes to the top startable feature; the lanes line names the split (\"3 of 3 fix lanes, 2 of 3 feature lanes\")."
+  ],
+  "why": [
+    "Owner, 29 Oct: \"a\" = 3 lanes for relay's development (product features, the container gate kept on top) and 3 for fixes (handover addendum of 29 Oct). The decision lives only in the handover; the lane pick (lib/relay_lanes.py) orders fixes first and offers no feature while a fix can start, so on 30 Oct the front filled 6 of 6 lanes with fixes and asked the owner a question the decision already answered."
+  ],
+  "failing_case": [
+    "30 Oct 2026: with 6 lanes all on fixes and feature build-time-gates-on-the-vps-landing-gate-on-the (ip 90) startable, the hook's pick named only fixes; the owner had to recall the decision."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "With the setting at 3 and 3 fix lanes running, a free lane is offered to the top feature, not a fix.",
+    "With the setting at 0, the pick is as today.",
+    "The lanes line shows both counts."
+  ],
+  "where": [
+    "lib/relay_lanes.py",
+    "plugins/front/hooks/lanes.py",
+    "lib/relay_config.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T04:58:32Z",
+      "said": [
+        "a, разве мы не приняли решение 3 на 3 ?"
+      ]
+    }
+  ]
+}

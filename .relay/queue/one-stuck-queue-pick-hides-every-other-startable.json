@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-30T03:10:15Z",
   "taken_by": "wt/one-stuck-queue-pick-hides-every-other-s",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T04:43:21Z",
+  "test": "tests/test_lanes_state.py::Lanes::test_not_reproduced_item_is_not_a_pick_and_the_next_items_are_named",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

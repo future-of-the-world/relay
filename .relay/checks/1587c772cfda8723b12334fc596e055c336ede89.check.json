@@ -1,0 +1,120 @@
+{
+  "branch": "wt/a-test-leaves-relay-ledger-bound-to-a-pa",
+  "findings": [
+    {
+      "details": [
+        "An order-dependent red gate (30 Oct, branch of first-relay-setup-on-a-new-machine-fails): a test patch of relay_config.ledger_dir stays bound inside relay_ledger for the rest of the process; the branch shielded one victim test, the cause stays. A flaky test is a bug (quality-gate rule)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Gate of 47efc720 (this branch): library tests FAILED in",
+        "test_hook_ledger.Ledger.test_has_start_scans_each_day_file_once_and_finds_either_day, and inert went red because the",
+        "probe run passed it: an order-dependent failure. relay_ledger does `from relay_config import claude_json, ledger_dir`",
+        "(lib/relay_ledger.py:24), so if relay_ledger is first imported while a test has relay_config.ledger_dir patched",
+        "(tests/test_metrics.py:138 is the only such patch), the module keeps that mock for the rest of the process. cfbde7a6",
+        "patches mod.relay_ledger.ledger_dir in the one failing test; any other test reading relay_ledger after it (for example",
+        "tests/test_transcripts_analysis.py:221 rl.ledger_dir()) still sees the stale folder.",
+        "Expected: no test leaves relay_ledger bound to another test's folder; the order of tests does not change a result."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 138,
+      "pass_cases": [
+        "1. Run test_metrics then test_hook_ledger in one process (parallel_unittest with one worker, or unittest with both",
+        "   modules): test_has_start... passes without the victim-side patch.",
+        "2. Same with test_metrics then test_transcripts_analysis: rl.ledger_dir() is under that test's RELAY_HOME.",
+        "3. relay_ledger.ledger_dir() in a fresh process still follows RELAY_HOME (the hook writes to $RELAY_HOME/ledger)."
+      ],
+      "path": "tests/test_metrics.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_metrics.py::Records::test_a_fresh_import_of_relay_ledger_inside_a_records_test_binds_the_real_ledger_dir fails with the old patch, passes now."
+      ],
+      "severity": "HIGH",
+      "since": "cd279b90ef8e773bf2185dfd914d621cb5ca0207",
+      "source": "queue",
+      "summary": "A test leaves relay_ledger bound to a patched ledger_dir\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction (mechanism) with a one-line dropper test from the scratchpad; with the real dropper tests I",
+        "tried as the first test (test_roles, test_rules, test_spec_steps, test_numbers_hermetic, test_bench) each re-imported a",
+        "real relay_ledger before Records ran, so a red order from today's suite alone is PLAUSIBLE, not shown. Six test files",
+        "delete relay_* from sys.modules and the parallel runner splits by class, so which one runs right before a Records test",
+        "in a process is not fixed.",
+        "The change fixes the order of first import, not the cause (principle 6): relay_ledger binds ledger_dir by name, and",
+        "Records patches the attribute of relay_config while code under it may import relay_ledger fresh. The import at the top",
+        "of test_metrics only guards the first import of the process; any later re-import under the patch brings the leak back.",
+        "The new test reads the name `relay_ledger` in test_metrics' globals, a module object that a drop leaves behind, so it",
+        "cannot see a stale module in sys.modules: it passes with the leak present (order B below). Without the fix it fails",
+        "only by NameError, not by the mechanism.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "scratchpad/repro/order.py runs the named tests in one process, then prints sys.modules[\"relay_ledger\"].ledger_dir.",
+        "$ python3 order.py <wt> dropper_sim test_metrics.Records.test_f8_...",
+        "  sys.modules relay_ledger.ledger_dir is MagicMock .../relay-gate-_bted7us/ledger",
+        "  test_metrics.relay_ledger is sys.modules one: False",
+        "victim_nopatch.py = tests/test_hook_ledger.py with the mock.patch.object(mod.relay_ledger, \"ledger_dir\") lines removed.",
+        "A: test_f8 then victim (no drop)                 -> OK",
+        "B: dropper_sim, test_f8, new test, victim        -> FAIL: test_has_start_scans_each_day_file_once_and_finds_either_day; FAILED (failures=1) (the new test passed)",
+        "C: dropper_sim, victim (control)                 -> OK",
+        "lib/relay_metrics.py:181  import relay_analyze  (lib/relay_analyze.py:16 import relay_ledger)",
+        "lib/relay_ledger.py:24    from relay_config import claude_json, ledger_dir"
+      ],
+      "failing_case": [
+        "One process, in this order: a test that deletes relay_* from sys.modules without putting them back (as",
+        "test_numbers_hermetic setUp, test_rules, test_roles, test_spec_steps:535 do), then",
+        "test_metrics.Records.test_f8_front_days_without_a_record_get_one_with_the_reports_figure, then",
+        "test_metrics.Records.test_a_patched_ledger_dir_never_stays_bound_inside_relay_ledger, then",
+        "test_hook_ledger.Ledger.test_has_start_scans_each_day_file_once_and_finds_either_day without its victim-side patch.",
+        "Now: f8 runs relay_metrics.front_figures, whose `import relay_analyze` re-imports relay_ledger while relay_config.ledger_dir",
+        "is patched; sys.modules[\"relay_ledger\"].ledger_dir stays a MagicMock returning f8's temp ledger folder; the new test",
+        "passes (it checks the old module object test_metrics holds by name); the victim FAILS.",
+        "Should: the victim passes in every order, and a regression test fails whenever sys.modules[\"relay_ledger\"] is left bound",
+        "to a mock."
+      ],
+      "fix_hint": [
+        "Remove the patch: in Records.setUp set RELAY_HOME (mock.patch.dict(os.environ, ...)) to a temp home and write the",
+        "fixture rows under <home>/ledger, so relay_config.ledger_dir() is the real function and nothing can bind a mock.",
+        "Or make lib/relay_ledger.py call relay_config.ledger_dir() through the module (import relay_config) instead of",
+        "binding the name. Then make the regression test check sys.modules[\"relay_ledger\"] after a drop and a Records-style",
+        "re-import, not the module-level name."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 146,
+      "pass_cases": [
+        "1. drop relay_* from sys.modules; run Records.test_f8...; then sys.modules[\"relay_ledger\"].ledger_dir() under",
+        "   RELAY_HOME=<tmp>/home returns <tmp>/home/ledger (today: f8's temp ledger folder).",
+        "2. same order, then test_hook_ledger test_has_start_scans_each_day_file_once_and_finds_either_day with the victim-side",
+        "   patch removed: passes.",
+        "3. test_metrics then test_hook_ledger (no drop), victim-side patch removed: passes (passes today).",
+        "4. Records tests still read the fixture's ledger rows: test_two_riders_get_two_records_and_each_agent_once passes.",
+        "5. relay_ledger.ledger_dir() in a fresh process follows RELAY_HOME."
+      ],
+      "path": "tests/test_metrics.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_metrics.py:142-164: setUp uses RELAY_HOME, so nothing binds a mock; the test pops sys.modules, re-imports, and checks sys.modules and ledger_dir() == self.ledger. Passes, and fails under the old patch. Pass cases 4 and 2/3 pass in the check run."
+      ],
+      "severity": "MEDIUM",
+      "since": "f5398cfdec0a52b3a1cb61615f7d409215d64805",
+      "source": "review-a-test-leaves-relay-ledger-bound-to-a-pa.json",
+      "source_id": "F1",
+      "summary": "the leak returns when any earlier test drops relay_* from sys.modules, and the new test still passes then",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "2b8bf3db25c376f5d1beb3ffcdc98e77adf9ddc4.gate.log",
+  "head": "1587c772cfda8723b12334fc596e055c336ede89",
+  "item": "a-test-leaves-relay-ledger-bound-to-a-patched-le",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range f5398cfd..HEAD; only tests/test_metrics.py changed. Precheck green, 80 passed. Gate log head 2b8bf3db exit 0; HEAD adds only the gate log. New test run against the old patch-based setUp at 315109d1 fails (AssertionError: ledger_dir is a MagicMock)."
+  ],
+  "type": "check"
+}

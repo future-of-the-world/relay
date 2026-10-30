@@ -1,0 +1,171 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.3911,
+   "id": "a7d34dc165ed0dea1",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 16,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T03:10:26.110Z",
+   "stop": "2026-10-30T03:16:36.600Z"
+  },
+  {
+   "cost_usd": 0.0041,
+   "id": "a464508bdafbf3714",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T03:16:38.827Z",
+   "stop": "2026-10-30T03:32:23.519Z"
+  },
+  {
+   "cost_usd": 1.0027,
+   "id": "a465c056699c81cea",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 19,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T03:32:28.853Z",
+   "stop": "2026-10-30T03:37:21.487Z"
+  },
+  {
+   "cost_usd": 0.2208,
+   "id": "a700d761452b30e71",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T03:37:23.911Z",
+   "stop": "2026-10-30T03:42:33.884Z"
+  },
+  {
+   "cost_usd": 0.0027,
+   "id": "ab41f7940970806a3",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-30T03:55:25.594Z",
+   "stop": "2026-10-30T03:55:31.997Z"
+  },
+  {
+   "cost_usd": 0.0029,
+   "id": "a27d18d260c73e37f",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T03:55:34.066Z",
+   "stop": "2026-10-30T03:58:06.937Z"
+  },
+  {
+   "cost_usd": 0.129,
+   "id": "a2a9394d1be3e12bb",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T03:58:09.645Z",
+   "stop": "2026-10-30T03:58:40.079Z"
+  },
+  {
+   "cost_usd": 0.4984,
+   "id": "ac7d7fd2707acb393",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 26,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T03:59:46.352Z",
+   "stop": "2026-10-30T04:13:36.276Z"
+  },
+  {
+   "cost_usd": 0.0053,
+   "id": "af2912f78a2782d94",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T04:13:42.700Z",
+   "stop": "2026-10-30T04:37:37.054Z"
+  },
+  {
+   "cost_usd": 0.2351,
+   "id": "a4f67e625262ad835",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T04:37:39.461Z",
+   "stop": "2026-10-30T04:43:09.881Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a269d7c48b4ea4d88",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T04:43:12.554Z",
+   "stop": "2026-10-30T04:43:24.674Z"
+  },
+  {
+   "cost_usd": 0.0019,
+   "id": "ab641034148b58387",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T04:43:26.947Z",
+   "stop": "2026-10-30T04:43:35.828Z"
+  }
+ ],
+ "before": "da6805efd0e42727d7314ef198417911dcdb55c6",
+ "branch": "wt/one-stuck-queue-pick-hides-every-other-s",
+ "head": "00d3fe9e6fc0e4815761d548044026f480491d8b",
+ "item": "one-stuck-queue-pick-hides-every-other-startable",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T22:39:06+00:00",
+   "file": "lib/relay_lanes.py",
+   "holder": "wt/lib-modules-are-committed-in-three-copie",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-29T23:24:54+00:00",
+   "file": "lib/relay_lanes.py",
+   "holder": "wt/a-queue-question-can-be-answered-by-an-a",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T04:43:49+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T05:00:38+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T05:21:29+00:00",
+   "gate_seconds": 1086.4346142919967,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "one-stuck-queue-pick-hides-every-other-startable"
+}

@@ -1,0 +1,266 @@
+{
+  "branch": "wt/one-stuck-queue-pick-hides-every-other-s",
+  "findings": [
+    {
+      "details": [
+        "30 Oct, design \"no idle while the owner is away\": on 29 Oct night the lanes line named only two-branches-start-on-the-same-file-unnoticed, which the front had found not reproducible, while 19 fixes could start; the front read it as \"nothing to take\" and a lane stood idle from about 22:22. IP chosen by the front (agent-chosen).",
+        "Also: lib/relay_lanes.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Queue with item X (a \"not reproduced\" fact note) first and Y second, one free lane: the lanes line names only X."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same queue: the line names Y",
+        "lanes_line_items = 0 gives today's line",
+        "A value out of bounds is noted and the default used"
+      ],
+      "path": "plugins/front/hooks/lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py::Lanes::test_not_reproduced_item_is_not_a_pick_and_the_next_items_are_named (line ~311) passes at head; at 6fee9a2f it fails (AttributeError, no upcoming/skip)."
+      ],
+      "severity": "HIGH",
+      "since": "6fee9a2f59696ef5106728639b5b251beb45c63c",
+      "source": "queue",
+      "summary": "One stuck queue pick hides every other startable item",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe: relay_queue.parse of an item with the two notes above, _not_reproduced -> True.",
+        "_not_reproduced is any() over all fact notes, so the oldest negative note wins over every later positive one; the",
+        "only way back is hand-editing the note. The live queue holds one such pair (alix-bin-wt-makes-worktree-but-relay-expects-wor:",
+        "HIT on \"the item itself says it was not reproduced\", then \"reproduced 29 Oct\"); had it been open, it would be hidden.",
+        "A quoted review line is caught too: a fact \"Review F2: PLAUSIBLE (traced, not reproduced); a test is needed.\" skips the",
+        "item (probe -> True), and relay's reviews write \"PLAUSIBLE (... not reproduced ...)\" often (19 times in 18 review files under .relay/checks on master).",
+        "Size: 15 minutes (newest fact note mentioning reproduction decides; anchor the phrase at the note's start)."
+      ],
+      "evidence": [
+        "python3 -I probe with relay_queue.parse + relay_lanes._not_reproduced:",
+        "  later reproduced -> [] True",
+        "  quoted reviewer -> [] True",
+        "scan of .relay/queue/*.json fact notes with \"reproduc\":",
+        "  HIT  closed alix-bin-wt-makes-worktree-but-relay-expects-wor | ... The item itself says it was not reproduced.",
+        "  MISS closed alix-bin-wt-makes-worktree-but-relay-expects-wor | reproduced 29 oct: /users/amidman/alix/bin/wt line 5 ..."
+      ],
+      "failing_case": [
+        "Item X (fix, ip 99), notes in date order: fact \"29 Oct, not reproduced (front): no longer fails.\", then fact",
+        "\"Reproduced 29 Oct: bin/wt line 5 creates .worktree/.\" (this exact pair is live history: the ALIX bin/wt item got a",
+        "\"was not reproduced\" note, then \"reproduced 29 Oct\", then was built). One free lane, Y (ip 90) also open.",
+        "Now: _not_reproduced(X) is True, X is never a pick, never in \"next\", never in \"waits\": it vanishes from the lanes line",
+        "and the Stop nudge, and nothing tells the front why. Should: the newest reproduction fact decides; X is the pick."
+      ],
+      "fix_hint": [
+        "Take the newest fact note that mentions reproduction and skip only when it is a negative one; better, match only a",
+        "note that starts with the fixed marker the front writes (\"<date>, not reproduced\"), so quoted review text does not count.",
+        "Add the \"later reproduced\" case to tests/test_lanes_state.py next to stuck_queue."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 244,
+      "pass_cases": [
+        "1. X with \"not reproduced\" then a later \"Reproduced 29 Oct\" fact, Y open, one free lane: picks == [\"x\"], next names y.",
+        "2. X with only \"29 Oct, not reproduced (front)\" fact, Y open, one free lane: picks == [\"y\"] (today's test stays green).",
+        "3. X with a \"Reproduced 29 Oct\" fact only: X is the pick.",
+        "4. lanes_line_items = 0 with case 2: \"Lanes: 0 of 1 running; start: y (fix, ip 90)\"."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py:324 test_f1_the_newest_reproduction_fact_decides covers all four pass cases; fails at 80e76a44."
+      ],
+      "severity": "MEDIUM",
+      "since": "80e76a44b0f16a6a9ae9ee7721f534b008b32995",
+      "source": "review-one-stuck-queue-pick-hides-every-other-s.json",
+      "source_id": "F1",
+      "summary": "an item once noted 'not reproduced' stays out of the picks for good, even after a later note says it was reproduced, and the line never says it is skipped",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe: _not_reproduced on parsed items -> \"did not reproduce\" False, \"could not reproduce\" False.",
+        "Live: of the 4 negative reproduction notes in the queue, 2 say \"not reproduced\" and 2 say \"did not / could not reproduce\";",
+        "the phrase catches half. Principle 5 (\"a regex or word list trying to catch intent\": facts go to code or a fixed list) and",
+        "principle 4 / the structured-data rule (a script reading a state out of prose) fire. The item's own What chose \"a 'not",
+        "reproduced' fact note\", a front-made, agent-chosen design, so changing it to a structured marker is a design decision.",
+        "Design: how \"not reproduced\" is stored: a phrase inside a free-text fact note (today) versus a dated structured event",
+        "written by one command (for example a note kind or a field `not_reproduced_at`, cleared by a later reproduced event).",
+        "Size: 30 minutes for a marker in relay_queue plus the lanes check and tests."
+      ],
+      "evidence": [
+        "probe: did not reproduce -> [] False ; could not reproduce -> [] False",
+        "scan: MISS closed live-hook-test-sometimes-misses-the-worker-addit | 27 oct, hook-flake lane: did not reproduce. ...",
+        "      MISS closed a-train-test-fails-in-the-inert-probe-run-not-on | ... the worker could not reproduce the failure ..."
+      ],
+      "failing_case": [
+        "Item X first in order with the fact note \"27 Oct, hook-flake lane: did not reproduce. 8 of 8 passed.\" (live wording,",
+        "live-hook-test-sometimes-misses-the-worker-addit) or \"the worker could not reproduce the failure\" (live wording,",
+        "a-train-test-fails-in-the-inert-probe-run-not-on), or a Russian note \"\u043d\u0435 \u0432\u043e\u0441\u043f\u0440\u043e\u0438\u0437\u0432\u043e\u0434\u0438\u0442\u0441\u044f\". One free lane, Y second.",
+        "Now: X is the pick and the line names only X: the 29 Oct failing case again. Should: Y is the pick."
+      ],
+      "fix_hint": [
+        "Inside the design (cheap): a fixed marker the front writes at the start of the fact (\"not reproduced\"), stated in the",
+        "front skill, and only that counts. Outside it: a dated structured event in the queue item, written by one relay queue",
+        "command, read by _not_reproduced."
+      ],
+      "id": "F2",
+      "kind": "design",
+      "line": 39,
+      "pass_cases": [
+        "1. X marked not reproduced through the command/field the fix introduces (whatever its wording), Y open, one free lane: picks == [\"y\"].",
+        "2. X with a prose fact \"did not reproduce\" and no marker: the outcome the decision names (either skipped, or a pick), stated in a test.",
+        "3. X with no marker: X is the pick.",
+        "4. The marker is written by one command (e.g. relay queue note ... ) and shown by relay queue show."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "Marker is the field reproduced on a fact note: tests/test_lanes_state.py:336 (prose wordings stay picks), :341 (writer validates, keeps, shows it). Fails at 80e76a44."
+      ],
+      "severity": "MEDIUM",
+      "since": "80e76a44b0f16a6a9ae9ee7721f534b008b32995",
+      "source": "review-one-stuck-queue-pick-hides-every-other-s.json",
+      "source_id": "F2",
+      "summary": "the skip rests on one English phrase in prose (principle 5): 'did not reproduce' and 'could not reproduce', both live wordings, are not caught",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: git grep lanes_line_items finds the only prose description outside the code at SKILL.md:192, not",
+        "touched by the change; lib/relay_lanes.py:15 was updated. Principle 10 (the agent's texts are its interface; a fact it must",
+        "be told is a defect) also covers F2's marker: nothing tells the front which wording makes the skip happen.",
+        "The skill is on the paid-run paths; it rides the next wave run, no run of its own. Size: 5 minutes."
+      ],
+      "evidence": [
+        "git grep -n lanes_line_items -- ':!.relay' ':!tests'",
+        "  plugins/front/skills/front/SKILL.md:192:`lanes_line_items` (default 3, 1-8, items named in the line), `stop_nudge`"
+      ],
+      "failing_case": [
+        "Owner asks the front how to drop the \"next: ...\" names from the lanes line. The front reads its skill: bound 1-8,",
+        "\"items named in the line\", so it says 0 is not allowed and that 1 shortens the picks. Now: setting 1 still names every",
+        "pick and one next item; 0 (the answer) is never offered. Should: the skill says default 3, 0-10, startable items named",
+        "after the picks (\"next:\"), 0 names none, an out-of-bounds value is noted in the line and the default used."
+      ],
+      "fix_hint": [
+        "Rewrite the setting's clause in SKILL.md:192 and add one sentence on the \"not reproduced\" fact note skipping a pick."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 192,
+      "pass_cases": [
+        "1. plugins/front/skills/front/SKILL.md names lanes_line_items with default 3, bound 0-10, and \"next:\" (artifact line).",
+        "2. The same paragraph still names stop_nudge (default 1, 0-2) and lane_quiet_hours (default 3, 1-24) unchanged.",
+        "3. The skill says an item with a \"not reproduced\" note is not named as a pick (so the front knows how to write one)."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "plugins/front/skills/front/SKILL.md:192 now says default 3, 0-10, \"next:\", and the reproduced note; stop_nudge and lane_quiet_hours unchanged. Read."
+      ],
+      "severity": "MEDIUM",
+      "since": "80e76a44b0f16a6a9ae9ee7721f534b008b32995",
+      "source": "review-one-stuck-queue-pick-hides-every-other-s.json",
+      "source_id": "F3",
+      "summary": "the front skill still documents lanes_line_items as 'default 3, 1-8, items named in the line'; it is now 0-10 and counts only the 'next:' names",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe. Today only the hook calls setting_note, and only for lanes_line_items, so the stop_nudge case is",
+        "reachable only by a later caller (exported in __all__). Size: 5 minutes."
+      ],
+      "evidence": [
+        "'5' 3 lanes_line_items 5 is out of bounds 0-10: 3 is used",
+        "3.0 3 lanes_line_items 3.0 is out of bounds 0-10: 3 is used",
+        "2 stop_nudge 5 is out of bounds 0-2: 1 is used"
+      ],
+      "failing_case": [
+        "[front] lanes_line_items = \"5\" -> line ends \"lanes_line_items 5 is out of bounds 0-10: 3 is used\" (5 is inside 0-10;",
+        "the problem is that it is a string). setting_note(cfg, \"stop_nudge\") with stop_nudge = 5 -> \"1 is used\" while",
+        "setting() returns 2. Should: \"is not a whole number\" for a non-int, and the note only for the key whose rule it states."
+      ],
+      "fix_hint": [
+        "Two messages (not a whole number / out of bounds); make setting_note mirror setting() (or take only lanes_line_items)."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 93,
+      "pass_cases": [
+        "1. lanes_line_items = \"5\": the note names \"not a whole number\" and 3 is used.",
+        "2. lanes_line_items = 11: \"lanes_line_items 11 is out of bounds 0-10: 3 is used\" (today's test).",
+        "3. lanes_line_items = 0 or unset: no note."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_lanes_state.py:349 test_f4_setting_note_names_the_cause_and_only_the_key_whose_rule_it_states; fails at 80e76a44."
+      ],
+      "severity": "LOW",
+      "since": "80e76a44b0f16a6a9ae9ee7721f534b008b32995",
+      "source": "review-one-stuck-queue-pick-hides-every-other-s.json",
+      "source_id": "F4",
+      "summary": "setting_note says 'out of bounds' for a value that is not a whole number, and for a clamped key it names the default instead of the value used",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "bin/relay came in from master (merge a5c9c4dd11c6) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "bin/relay: the merge brought an unrelated setup sync change; the branch's own change is only the usage text for reproduced. Read the diff; gate green on head."
+      ],
+      "severity": "MEDIUM",
+      "since": "a5c9c4dd11c6b5180ce9b308f3f38acd46de1d19",
+      "source": "merge",
+      "summary": "bin/relay was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_lanes.py came in from master (merge 3a3243e7dc53) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_lanes.py changes since the last check are this fix itself (read); gate and tests green on the head."
+      ],
+      "severity": "MEDIUM",
+      "since": "3a3243e7dc53aaf5bda063d30dd0b2ff323fc251",
+      "source": "merge",
+      "summary": "lib/relay_lanes.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b7bc90e040115da34afcf77aab9483b96f498830.gate.log",
+  "head": "990469142ac0819265e88e2eff9ae0e8d4cceb20",
+  "item": "one-stuck-queue-pick-hides-every-other-startable",
+  "notes": [
+    "The fixer's report calls F2 open for the owner, but the code stores the result as data (fact note field reproduced = yes/no, validated in relay_queue, shown by notes_text, skipped items named in the line); this meets F2's pass cases, so I count it MET. Owner may still want to confirm that design choice."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 80e76a44..HEAD (fix b7bc90e0, then a master merge). Gate log head b7bc90e0 exit 0; HEAD only adds that log. Check command: precheck green, pytest test_lanes + test_lanes_state 77 passed. New tests run against 80e76a44 with the head test file: 7 failed, 50 passed. The named fix report file (fix-...-2.md) does not exist; I read fix-...-s.md instead."
+  ],
+  "type": "check"
+}
