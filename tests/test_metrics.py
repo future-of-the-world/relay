@@ -454,12 +454,24 @@ class Reader(unittest.TestCase):
 
     def test_main_refuses_an_unknown_option_with_the_usage_line(self):
         err = io.StringIO()
-        # main() imports relay_queue at call time; a test that dropped relay_* from sys.modules leaves the module-level copy stale
-        import relay_queue as queue_now
-        with mock.patch.object(queue_now, "_context", return_value=("/x", "main")), contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+        # patched by name: main() imports relay_queue itself, and after a test that dropped relay_* from sys.modules that is another
+        # module object than the one this file holds (the unpatched one then runs git on "/x" and raises Refused)
+        with mock.patch("relay_queue._context", return_value=("/x", "main")), contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             rc = relay_metrics.main(["--sinse", "6h"], "/x")
             bad_by = relay_metrics.main(["--by", "year"], "/x")
         self.assertEqual((rc, bad_by), (2, 2))
+        self.assertIn("usage: relay metrics", err.getvalue())
+
+    def test_main_refuses_an_unknown_option_after_relay_modules_were_dropped(self):
+        # failing case: relay_queue re-imported fresh (as test_bench does) while this file holds the old module; the refusal must not depend on it
+        import relay_queue as current  # noqa: F401  (an earlier test may have dropped it from sys.modules; this puts it back so the pop below finds it)
+        saved = sys.modules.pop("relay_queue")
+        self.addCleanup(sys.modules.__setitem__, "relay_queue", saved)
+        import relay_queue as fresh  # noqa: F401
+        err = io.StringIO()
+        with mock.patch("relay_queue._context", return_value=("/x", "main")), contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            rc = relay_metrics.main(["--sinse", "6h"], "/x")
+        self.assertEqual(rc, 2)
         self.assertIn("usage: relay metrics", err.getvalue())
 
     def test_owner_wait_is_asked_to_answered(self):

@@ -132,7 +132,9 @@ for it. You land only a unit stopped at `land`, a unit with `land: false`, and a
 change the owner released. Land it: start `relay land <branch>` with Bash
 `run_in_background` (no `&`, no polling); when told it exited, read its last 3
 lines. It takes the default branch, gates the result and fast-forwards on green,
-one landing at a time, no agent. Exit 0 landed: the `merged:` line. Exit 1 red
+one landing at a time, no agent. For an intermediate change of a feature built in
+several changes, land with `--keep-open` (unit field `keep_open: true` in the
+cycle): the feature item is released and stays open for its next change. Exit 0 landed: the `merged:` line. Exit 1 red
 gate: a fix unit. Exit 3 take conflict: the fix unit the output prints (kind
 fix, findings = the branch's last review JSON, no item), then `relay land`
 again. Exit 2 refused or dirty main checkout: do what the line says. Exit 4

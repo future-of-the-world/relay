@@ -1,0 +1,218 @@
+{
+  "branch": "wt/tests-build-a-new-git-repo-for-every-cas",
+  "findings": [
+    {
+      "details": [
+        "Measured 29 Oct by the gate-speed design: one run of the 1753 library tests starts 61,379 git processes, about 35 per test; inside these tests one git call costs 60-67 ms of wall at load 20. Owner, 29 Oct, verbatim: \"\u0410 \u043f\u043e\u0447\u0435\u043c\u0443 \u0432\u043e\u043e\u0431\u0449\u0435 \u0442\u0430\u043a \u043c\u043d\u043e\u0433\u043e \u0432\u044b\u0437\u043e\u0432\u043e\u0432 git ?\". IP chosen by the front (agent-chosen).",
+        "Also: tests/test_queue.py",
+        "Also: tests/test_gate.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "29 Oct, master ee932b26: tests/test_guard_test_name.py, one test starts 1524 git processes and takes 91 s."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same tests pass with a template repository built once per class and a private copy of it made for each test (a file copy, no git calls), so a test that writes never shares a repository with another; their git starts and wall time are measured before and after."
+      ],
+      "path": "tests/test_guard_test_name.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_repo_templates.py::TestTemplateCopy::test_a_second_repo_with_the_same_key_starts_no_git_and_is_independent passes at head and fails at Q1 since 4064e5ce (TypeError, no template API)."
+      ],
+      "severity": "HIGH",
+      "since": "4064e5ce861ad63e7a1e25e3adfd8e8fe4469e14",
+      "source": "queue",
+      "summary": "Tests build a new git repo for every case",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by measurement. Where the guard file's git starts go: TestMergeJudges.merge_accepts runs, for each of the 10",
+        "CASES, a full flow (item commit on main, a new worktree, rq.take, a test commit, a review, a check record with a gate log",
+        "and a mark, a close commit, the merge hook), and TestDoneJudges runs rq.done 10 times. None of that is built from a",
+        "template, so building `main` by copy changes about 1% of the file's git starts. The brief named this file first and its",
+        "failing case is this file; the pass case asked for the starts and wall time measured before and after. The fix item",
+        "would be closed with its failing case still failing.",
+        "Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "shim: printf '#!/bin/sh\\necho x >> \"$GITCOUNT_FILE\"\\nexec <real git> \"$@\"\\n'; PATH=<shim>:$PATH",
+        "base worktree: git worktree add --detach <scratch>/base $(git merge-base master HEAD)",
+        "  base: 3 passed in 30.07s; real 37.23; git=1191",
+        "  HEAD: 3 passed in 30.53s; real 36.65; git=1178",
+        "git diff --stat master...HEAD: tests/test_guard_test_name.py is not in the change.",
+        "builder report: \"guard test file 91s -> 11s\""
+      ],
+      "failing_case": [
+        "Merge base vs HEAD 6cb1fbd3, run side by side under the same load with a git-counting shim on PATH:",
+        "  pytest -q tests/test_guard_test_name.py",
+        "  base: 1191 git starts, 3 passed in 30.07 s",
+        "  HEAD: 1178 git starts, 3 passed in 30.53 s",
+        "The queue item's failing case (one test starts 1524 git in 91 s) is the file the change was taken to fix; it is untouched",
+        "by the change, and the template saves only the 3-4 git calls of building `main` per Flow case. The builder's report says",
+        "\"guard test file 91s -> 11s\": with both trees under the same load the time is equal, so that figure compared runs at",
+        "different machine loads. Expected: the guard file's git starts fall by a large share (the brief's measure), and the before",
+        "and after numbers are recorded."
+      ],
+      "fix_hint": [
+        "In TestMergeJudges build the checked branch once (one item, one take, the test commit, one check record) and for each",
+        "name only reset the worktree to that checked state and write the close commit, as TestDoneJudges already does with",
+        "`git reset --hard HEAD~1`; or seed the 10 items in one template seed. Then measure the three named files before and after."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 55,
+      "pass_cases": [
+        "1. pytest tests/test_guard_test_name.py with a git-counting shim: HEAD starts at most half the git processes of the merge",
+        "   base (1191 measured there), all 3 tests pass.",
+        "2. TestMergeJudges still asserts, for each of the 10 CASES, that the merge hook's step_queue accepts exactly the names",
+        "   holds_test accepts (refusal text \"closed without a test\" for the rest).",
+        "3. TestDoneJudges still asserts rq.done accepts and refuses the same CASES.",
+        "4. The before/after git starts and wall time of the three files the brief names (guard, queue, gate) are written in the",
+        "   fixer's report, measured side by side at the same load."
+      ],
+      "path": "tests/test_guard_test_name.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_guard_test_name.py TestMergeJudges: 3 passed, git starts 484 vs 1191 at base (under half)."
+      ],
+      "severity": "HIGH",
+      "since": "6cb1fbd3d36372dbd283f90528bcac334c09e264",
+      "source": "review-tests-build-a-new-git-repo-for-every-cas.json",
+      "source_id": "F1",
+      "summary": "the brief's failing case is not fixed: test_guard_test_name.py still starts about 1180 git processes (1191 before, 1178 after) and takes the same time; the reported 91 s -> 11 s does not reproduce",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by measurement and reading test_gate.py:144-170. The kit.toml path is per case, so it forces a commit per case.",
+        "Keeping the script at a fixed relative path (for example kit.toml naming a path the template already holds, with the case",
+        "writing the script's text into that place, or ci given relative to the checkout) lets the template hold the whole first",
+        "commit; the wt/x worktree is path-bound and may stay. Severity MEDIUM: the change's own promise for a named file is not",
+        "kept, no behaviour breaks.",
+        "Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "test_gate base git=1610 36 passed in 110.02s; HEAD git=1593 36 passed in 114.99s",
+        "tests/test_gate.py:164-165: git(main, \"add\", \"-A\"); git(main, \"commit\", \"-q\", \"--amend\", \"-m\", \"init\")"
+      ],
+      "failing_case": [
+        "pytest -q tests/test_gate.py with the git-counting shim: merge base 1610 git starts, HEAD 1593 (17 fewer over 36 tests),",
+        "110 s vs 115 s. Fixture.repo saves init+add+commit (3) but a case with gate= runs add + commit --amend (2) to put the",
+        "case's own script path into kit.toml, then `worktree add`, `add -A` and `commit` for wt/x as before. Expected: the brief",
+        "named test_gate (1937 starts measured) as one of the three files to cut; a copy-per-case design should bring the",
+        "per-case setup to a copy plus at most the worktree."
+      ],
+      "fix_hint": [
+        "Make kit.toml's ci point at a path inside the template (or relative), written once into the template, so a case writes",
+        "only the script's text and commits nothing on master; keep the worktree add."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 164,
+      "pass_cases": [
+        "1. pytest tests/test_gate.py with the shim: HEAD starts clearly fewer git processes than the merge base's 1610 (the",
+        "   per-case setup no longer runs add/commit for the gate script), 36 passed.",
+        "2. A case with gate=\"exit 0\" still finds .claude/kit.toml committed on master with ci = its own gate.sh path, and the",
+        "   gate runs that script.",
+        "3. A case with relay=False still has no .relay/ folder; a case with a custom ignore still has that .gitignore."
+      ],
+      "path": "tests/test_gate.py",
+      "rank": "medium",
+      "reason": [
+        "Pass case 1 asks for clearly fewer git starts: test_gate.py now 1541 vs 1610 at base (4%), 36 passed. The add/amend is gone but each case still adds a worktree and commits in it. The relative script path cases pass (tests/test_gate.py:309)."
+      ],
+      "severity": "MEDIUM",
+      "since": "6cb1fbd3d36372dbd283f90528bcac334c09e264",
+      "source": "review-tests-build-a-new-git-repo-for-every-cas.json",
+      "source_id": "F2",
+      "summary": "test_gate's template saves almost nothing: 1610 -> 1593 git starts, because a case with a gate script adds and amends again and every case still adds a worktree and commits in it",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading; the failure is PLAUSIBLE only (needs a late import). Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "tests/fake_tools.py:23: tempfile.mkdtemp(prefix=\"relay-fake-tools-\", dir=tmp_default.run_temp())",
+        "tests/test_queue.py:69 and tests/test_gate.py:64: _RUN_TEMP = tempfile.gettempdir()"
+      ],
+      "failing_case": [
+        "tests/tmp_default.py already defines the run's shared folder (RUN_TEMP, run_temp(), used by fake_tools' cache). The change",
+        "adds `_RUN_TEMP = tempfile.gettempdir()` at import in test_queue.py:69 and test_gate.py:64. Should a module be first",
+        "imported inside a running test (its TMPDIR is that test's folder, removed after it), the templates would live in a",
+        "folder that vanishes and later cases would fail in copytree with FileNotFoundError. Today every runner imports at",
+        "collection, so it works. Expected: one helper, built on tmp_default.run_temp()."
+      ],
+      "fix_hint": [
+        "Move _template_root into one helper that uses tmp_default.run_temp() and call it from both files."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 69,
+      "pass_cases": [
+        "1. Both files take their template root from tmp_default.run_temp() (or one shared helper); the queue and gate tests pass.",
+        "2. Under tests/run_unittest.py with RELAY_TEST_JOBS > 1, each process still builds its own templates and removes them at exit."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/repo_templates.py template_root on run_temp(); tests/test_repo_templates.py::TestTemplateRoot passes."
+      ],
+      "severity": "LOW",
+      "since": "6cb1fbd3d36372dbd283f90528bcac334c09e264",
+      "source": "review-tests-build-a-new-git-repo-for-every-cas.json",
+      "source_id": "F3",
+      "summary": "the run-wide template folder re-implements tmp_default.run_temp() twice (test_queue, test_gate) with its own import-time read of the temp dir",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the brief's rule asks for a test per scenario; the change adds none. LOW: speed, not behaviour.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "git diff --stat master...HEAD: no new test function."
+      ],
+      "failing_case": [
+        "Replace the copy in Base.repo by building the repository each time (the old code): every test still passes; nothing",
+        "measures that a second Base.repo with the same key starts no git process. Expected: one test fails then."
+      ],
+      "fix_hint": [
+        "Add one test in test_queue.py that counts git starts on the second Base.repo call and checks the copy is independent."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 94,
+      "pass_cases": [
+        "1. Two calls of Base.repo with the same (relay, items, seed) in one process: the second starts 0 git processes",
+        "   (subprocess.run patched or a counting shim) and returns a different folder whose `git rev-parse HEAD` equals the first's.",
+        "2. A write in the copy (a new commit) leaves the template's HEAD unchanged."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_repo_templates.py TestTemplateCopy test passes; fails on the old per-case build."
+      ],
+      "severity": "LOW",
+      "since": "6cb1fbd3d36372dbd283f90528bcac334c09e264",
+      "source": "review-tests-build-a-new-git-repo-for-every-cas.json",
+      "source_id": "F4",
+      "summary": "no test pins the promise that a case's repository is a copy made with no git call, so a return to building per case passes unnoticed",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "fed356b392d7928c303a238766db36c467413804.gate.log",
+  "head": "486029e3efcb1841d294d1af2d488d85f6fdf462",
+  "item": "tests-build-a-new-git-repo-for-every-case",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range 6cb1fbd3..HEAD; only test files changed. Gate log head fed356b3, exit 0; relay changed lists nothing after it. relay precheck green. Ran test_guard_test_name (3 passed), test_repo_templates (2 passed), test_gate/_quick/_slots (68 passed) with a git-counting shim."
+  ],
+  "type": "check"
+}

@@ -7,7 +7,7 @@ failing step's first findings; the full log in .ci/ci.log. Exit 0 only when gree
 Steps: library tests (python), types and lint (mypy + ruff pyflakes rules through uv; needs uv and, the first time, the
 network), hook tests (the live session test; bun/jq must be on PATH or the step
 FAILS naming the tool; only hooks-live, which makes a paid claude call, is left for the full run), plugin lib links,
-plugin evals' grader tests, `claude plugin validate` (skipped loudly without claude), the inert step, plugin evals (full
+plugin evals' grader tests, `claude plugin validate` (skipped loudly without claude), the inert step, clean image quick gate (full mode only: container/Containerfile through podman, about 20 min, red when the quick gate is red there), plugin evals (full
 mode only; compared with evals/plugin/baseline), then the record step (bin/eval-record: files .ci/evals.json under
 $RELAY_HOME/evals, prints failed meaning graders, split votes and rule-file reads; it fails the gate when the copy fails,
 when a case failed its majority of runs (2 of 3 pass), or when a run was not judged).
@@ -41,6 +41,7 @@ from typing import Any, Callable, NoReturn, TextIO
 from relay_ci_probe import remove_leftover_probe, write_shared_record, drop_shared_record
 from relay_ci_lines import _read_lines, _read_lines_keep, outcome  # noqa: F401  (outcome is called by other programs through relay_ci)
 import relay_precheck
+from relay_ci_image import clean_image
 from relay_ci_python import python_problem  # noqa: F401  (re-exported: tests call relay_ci.python_problem)
 
 StepFn = Callable[[TextIO], int]
@@ -387,6 +388,10 @@ class Ci:
         return done.returncode == 0
 
     # ---- the paid part --------------------------------------------------------------------------------------------
+    def clean_image(self, log: TextIO) -> int:
+        """The clean-image quick gate (podman only; the recipe is in relay_ci_image). Red when the image's gate is."""
+        return clean_image(self, log)
+
     def plugin_evals(self) -> int | None:
         """The paid eval step. Returns the exit code when the gate must end here (the cap, no ceiling), else None."""
         # a leftover file from an earlier run must never be filed or printed as this batch
@@ -536,6 +541,12 @@ class Ci:
             if self.probe is not None:
                 self.probe.stop()
         if not self.quick:
+            # the paid run (once per wave) is where the clean-image gate runs: a container gate takes about 20 minutes on this Mac
+            before = self.status
+            self.step("clean image quick gate (podman, about 20 min)", self.clean_image)
+            if self.status != before:
+                self.say("ci: RED (the clean-image quick gate failed: the paid evals were not started)")
+                return self.status
             if self.which("claude") is not None:
                 stop = self.plugin_evals()
                 if stop is not None:

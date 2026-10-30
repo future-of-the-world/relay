@@ -677,6 +677,29 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.args([], designs=[dict(d, review=False)]))
         self.assertEqual(out["labels"], ["design: d"])
 
+    def test_design_track_checks_that_the_thinker_kept_the_plan(self):
+        """A design unit with `item`: the revising thinker is told to run `relay queue plan <item> --input <out>` as its last step
+        and no runner is started; the result says `kept` when its hand-back carries the command's last line (landed or unchanged),
+        else names the command to run. A unit with no item says it is not kept. Disabled (planKept returning 'kept'): the missing-line cases fail."""
+        out_path = os.path.join(self.tmp, "d.md")
+        d = {"name": "d", "brief": "b.md", "out": out_path, "item": "zz"}
+        said = {"status": "DONE", "summary": "plan zz: landed on master at abc123"}
+        out = self.run_cycle(self.args([], designs=[d]), **{"stage:design revise": said})
+        self.assertEqual(out["result"]["designs"][0]["plan"], "kept")
+        self.assertEqual(out["labels"], ["design: d", "design review: d", "design revise: d"])   # no runner for the keeping
+        self.assertIn("relay queue plan zz --input %s" % out_path, out["prompts"]["design revise: d"])
+        out = self.run_cycle(self.args([], designs=[d]), **{"stage:design revise": {"status": "DONE", "summary": "plan zz: unchanged"}})
+        self.assertEqual(out["result"]["designs"][0]["plan"], "kept")
+        out = self.run_cycle(self.args([], designs=[d]))      # the hand-back "ok" has no such line
+        self.assertEqual(out["result"]["designs"][0]["plan"], "plan not kept: run relay queue plan zz --input %s" % out_path)
+        out = self.run_cycle(self.args([], designs=[{k: v for k, v in d.items() if k != "item"}]), **{"stage:design revise": said})
+        self.assertIn("not kept", out["result"]["designs"][0]["plan"])
+        self.assertNotIn("relay queue plan", out["prompts"]["design revise: d"])
+        out = self.run_cycle(self.args([], designs=[dict(d, review=False)]), **{"stage:design": said})
+        self.assertEqual(out["result"]["designs"][0]["plan"], "kept")
+        out = self.run_cycle(self.args([], designs=[dict(d, item="a b; rm")]))      # a prompt is built from it: only a slug passes
+        self.assertIn("not a queue slug", out["result"]["refused"])
+
     # review-fix round: F1 fixes line of the check, F2 project gate retry, F3 report names of a fix run
     def fixes_of(self, out, label="check: x"):
         return re.search(r"Fixes: `([^`]*)`", out["prompts"][label]).group(1)
@@ -727,6 +750,17 @@ class Cycle(unittest.TestCase):
         self.assertTrue(c["ready"])
         self.assertEqual(c["landed"], "landed wt/x on master at abc123 (gate 9.0 min)")
         self.assertIn("relay land wt/x -C %s" % self.wt, out["prompts"]["land 1: the-item"])
+
+    def test_land_keep_open_unit_lands_with_the_flag_and_others_do_not(self):
+        """F2 cases 1, 2: a unit with keep_open: true starts `relay land wt/x --keep-open -C <wt>`; a unit without it, the same command as before."""
+        out = self.run_cycle(self.largs([self.unit(item="the-item", keep_open=True)]))
+        self.assertIn("relay land wt/x --keep-open -C %s" % self.wt, out["prompts"]["land 1: the-item"])
+        out = self.run_cycle(self.largs([self.unit(item="the-item")]))
+        self.assertNotIn("--keep-open", out["prompts"]["land 1: the-item"])
+
+    def test_keep_open_must_be_a_boolean(self):
+        out = self.run_cycle(self.largs([self.unit(item="the-item", keep_open="yes")]))
+        self.assertIn("keep_open", out["result"]["refused"])
 
     def test_land_exit_3_runs_one_fixer_one_gate_one_check_no_second_close_then_lands_again(self):
         """Exit 3 (take conflict), land_fixes 1: fixer, one gate group, one check with the unit's review JSON and no

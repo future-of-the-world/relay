@@ -23,10 +23,10 @@
     "tests/test_queue.py",
     "tests/test_gate.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-30T10:26:42Z",
+  "taken_by": "wt/tests-build-a-new-git-repo-for-every-cas",
+  "closed_at": "2026-10-30T13:04:09Z",
+  "test": "tests/test_repo_templates.py::TestTemplateCopy::test_a_second_repo_with_the_same_key_starts_no_git_and_is_independent",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

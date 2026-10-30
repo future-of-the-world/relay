@@ -151,7 +151,9 @@ class LanesHookBounds(tls.LaneBase):
         self.seed({tls.Q + "a.json": tls.item("a")})
         began = time.monotonic()
         out = self.run_hook(os.path.join(self.tmp, "h"), path=self.slow_git())
-        self.assertLess(time.monotonic() - began, 5.0)
+        # by hand: with the deadline the hook ends near its 4 s budget; without it the two 5 s sleeps give at least 10 s. 9 s
+        # separates the two with room for a loaded machine (the clean image measured 5.04 s against the old 5.0)
+        self.assertLess(time.monotonic() - began, 9.0)
         self.assertEqual((out.returncode, out.stderr), (0, ""))
         text = json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"]
         self.assertEqual(text, "Lanes: not known this time (the repository answered too slowly).")

@@ -41,7 +41,7 @@ STOPPED_LINE = "gate: stopped at the "   # the line bin/ci prints for it
 FAILED_LINES = 8        # lines of the first failing step shown on the third output line
 STOPPED = "gate: stopped"      # the start of every line the sweep and the reclaim add to the log (finished_red skips them)
 MAC_SUFFIX = ".gate.log"
-REMOTE_SUFFIX = ".remote.gate.log"      # a gate that ran on the VPS (docs/plans/vps-build-gates.md 5.1): no merge-path reader opens this name
+REMOTE_SUFFIX = ".remote.gate.log"      # a gate that ran on the VPS (.relay/queue/gates-on-the-vps-hosts-transport-watch-bring-up.plan.md 5.1): no merge-path reader opens this name
 TOOLCHAIN = ("container/Containerfile", "deps.toml", "install.sh")      # a branch that changes one gates on this Mac (design 5.4)
 
 def log_sha_host(log: str) -> tuple[str, Optional[str]]:

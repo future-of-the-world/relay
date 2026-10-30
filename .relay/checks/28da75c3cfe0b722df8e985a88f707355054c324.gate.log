@@ -1,0 +1,23 @@
+head 28da75c3cfe0b722df8e985a88f707355054c324
+cmd bin/ci --quick
+wait 682.3
+ci: types and lint ok (0s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (811s, log: .ci/steps/library-tests.log)
+    FAIL: test_has_start_scans_each_day_file_once_and_finds_either_day (test_hook_ledger.Ledger.test_has_start_scans_each_day_file_once_and_finds_either_day)
+        raise AssertionError(text) from error
+    AssertionError: 1 failed asserts:
+    FAILED (failures=1)
+ci: coverage 89.7% of lib, bin, plugins (14241 of 15879 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (2s)
+ci: plugin validate ok (4s)
+ci: inert FAILED (56s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed (the probe's output is in .ci/steps/inert-nested.log):
+        --- outer run
+        +++ probe run
+        @@ -3 +3 @@
+        -library tests FAILED
+        +library tests ok
+ci: RED
+exit 1

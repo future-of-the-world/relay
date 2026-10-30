@@ -1,0 +1,18 @@
+head 794bc8fe3d05014ce4450e0994a852cac97be259
+cmd bin/ci --quick
+wait 49.1
+ci: types and lint ok (1s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (834s, log: .ci/steps/library-tests.log)
+    ERROR: test_t2_done_and_the_guard_judge_a_test_name_by_the_same_function (test_check_record.TestOneFunction.test_t2_done_and_the_guard_judge_a_test_name_by_the_same_function)
+    BlockingIOError: [Errno 35] Resource temporarily unavailable
+        raise GitError("git could not answer: %s, %s" % (" ".join(command), exc))
+    relay_git.GitError: git could not answer: git -C /private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-cbt3vvth/relay-home-test_t2_done_and_the_guard_judge_a_test_-sk9dxctp/relay-queue-test-c5g_4j4l/a rev-list --topo-order --parents --all HEAD, [Errno 35] Resource temporarily unavailable
+    FAILED (errors=1)
+ci: coverage 89.8% of lib, bin, plugins (14366 of 15996 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (0s)
+ci: RED
+exit 1

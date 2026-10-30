@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0077,
+   "id": "a7606e02666a5bd78",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T08:59:22.406Z",
+   "stop": "2026-10-30T09:37:44.579Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "setup-silently-turns-off-a-project-s-agents-md",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "setup-silently-turns-off-a-project-s-agents-md"
+}

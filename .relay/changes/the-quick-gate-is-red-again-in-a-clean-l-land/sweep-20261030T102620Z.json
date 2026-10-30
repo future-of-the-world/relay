@@ -1,0 +1,67 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2383,
+   "id": "a64cca0abf9b230d5",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 20,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T07:19:27.577Z",
+   "stop": "2026-10-30T07:27:33.601Z"
+  },
+  {
+   "cost_usd": 0.0026,
+   "id": "a479098f4bddd7c15",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-30T07:45:08.807Z",
+   "stop": "2026-10-30T07:45:16.340Z"
+  },
+  {
+   "cost_usd": 0.004,
+   "id": "a37226b77370f551d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T07:45:20.187Z",
+   "stop": "2026-10-30T07:55:24.968Z"
+  },
+  {
+   "cost_usd": 0.2229,
+   "id": "a54a9b698ac774fc2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T07:55:28.600Z",
+   "stop": "2026-10-30T08:03:58.069Z"
+  },
+  {
+   "cost_usd": 0.0024,
+   "id": "a54dfc7c008f02e21",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T08:04:01.853Z",
+   "stop": "2026-10-30T08:04:12.702Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "the-quick-gate-is-red-again-in-a-clean-l-land"
+}

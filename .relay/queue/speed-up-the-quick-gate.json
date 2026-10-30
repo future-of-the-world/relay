@@ -18,8 +18,8 @@
     "tests/parallel_unittest.py:35-44 jobs",
     "docs/macos.md:30 git launcher"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T11:14:10Z",
+  "taken_by": "wt/speed-up-the-quick-gate",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
@@ -158,6 +158,23 @@
       "at": "2026-10-29T08:50:22Z",
       "fact": [
         "Follow-up of the-quick-gate-stops-itself-at-a-time-limit (review F4): the quick gate limit is QUICK_LIMIT_SECONDS in lib/relay_ci.py, 1800 (30 min) now. Owner: «30 минут сейчас, 25 после ускорения», and on 29 Oct answered a («Хорошо, убираем второй прогон») to the option «Убрать второй прогон сейчас, лимит 25 минут». So the change that removes the second test run sets QUICK_LIMIT_SECONDS to 1500 in the same change, with its test."
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T11:59:49Z",
+      "question": [
+        "(Quick-gate design rev 4) How does the single test run stay independent of the queue and handover files? The 29 Oct pick described \"only the exact tree\", priced then at ~12 extra gates a day; measured now: master moved by queue or handover commits during 37 of 48 landing gates (77%), so the exact tree needs ~4.3 gates per merge against 0.73 today (~165 extra gates a day, ~65 min wait per merge). A copy of the tree without queue, handover and check records ran all 2,308 library tests: 0 red, 0 skipped."
+      ],
+      "options": [
+        "a. tests run on a copy of the tree without the queue, handover and check files; a green gate stays valid after commits that touch only those files, now proven rather than by convention (recommended: 0 extra gates, no test to fix)",
+        "b. only the exact tree lands: any commit after the gate, even a queue note, means a new gate (~165 extra gates a day)"
+      ],
+      "answered_at": "2026-10-30T12:02:42Z",
+      "answer": [
+        "- a. Копия без служебных файлов (рекомендую. Стоит ноль лишних прогонов, а гарантия та же по сути: в master не попадёт непроверенный код)"
+      ],
+      "reading": [
+        "a: the single test run happens on a copy of the gated tree without the queue, handover and check records; a green gate stays valid after commits that touch only those files. Replaces the 29 Oct pick (exact tree), which rested on a wrong price."
       ]
     }
   ]

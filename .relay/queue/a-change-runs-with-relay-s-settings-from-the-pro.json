@@ -17,8 +17,8 @@
     "lib/relay_gate.py",
     "deps.toml"
   ],
-  "taken_at": "2026-10-30T09:38:11Z",
-  "taken_by": "wt/a-change-runs-with-relay-s-settings-from",
+  "taken_at": null,
+  "taken_by": null,
   "closed_at": null,
   "test": null,
   "dropped_at": null,
@@ -59,6 +59,129 @@
       "edited": "where",
       "fact": [
         "Edited where: folder entry named as a file (plugins/core is now plugins/relay; hooks.json is the file that lists the hooks a change run loads)"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T09:58:55Z",
+      "question": [
+        "How does a Claude Code session in a relay project become project-only (plugins, rules, agents and memory from the project, not from ~/.claude)?"
+      ],
+      "options": [
+        "a. a shell function: `claude` in a relay project goes through relay's launcher; IDE and desktop-app sessions stay as today and are told so (recommended; about 245 agent minutes)",
+        "b. a separate command the owner types, `relay session`; plain `claude` stays global",
+        "c. project files only, no launcher; user rules, memory, agents and skills still load (about 45 agent minutes)"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T09:59:02Z",
+      "question": [
+        "Where does a project's Claude Code memory (37 notes for relay today, kept under the user folder, keyed to this Mac's path) live?"
+      ],
+      "options": [
+        "a. stays where Claude Code keeps it, recorded by hash in every run (recommended by the design: the gate never reads memory)",
+        "b. saved into the project's git by one relay command, copied in at session start (about 60 agent minutes; travels to other machines and containers)"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T09:59:03Z",
+      "question": [
+        "Where does the owner's grilling skill (today in ~/.claude/skills, not loaded by a project-only session) live?"
+      ],
+      "options": [
+        "a. moves into relay's front plugin, versioned with relay (recommended by the design); gone outside relay unless copied back",
+        "b. stays personal; the launcher passes the user skills folder through",
+        "c. dropped"
+      ],
+      "answered_at": "2026-10-30T10:59:56Z",
+      "answer": [
+        "1. Да, это небольшой trade-off, впоследствии мы переедем полностью",
+        "2. Как это будет работать, это первый шаг к тому чтобы мы использовали только relay для relay ?",
+        "3. Кажется что 2 пункт это отключает, наблюдается конфликт",
+        "4. Если мы применим 2 пункт, смогу ли я загружать его по просьбе, или сможем ли мы включить его в конкретный проект, думаю эту часть как и openspec лучше отделить от relay, он здесь не привносит ничего нового, использовать это можно и без него"
+      ],
+      "reading": [
+        "Point 4: not a. Grilling stays outside relay, like OpenSpec: relay ships nothing for it (relay's code never names it; only this item and the handover do). How a project-only session reaches it (a project that wants it keeps its own copy, or the launcher passes the owner's personal skills through) is a follow-up question. Points 2 and 3 are questions about the session and memory questions, not answers; point 1 confirms the Linux comparison trade-off."
+      ]
+    },
+    {
+      "at": "2026-10-30T10:53:18Z",
+      "said": [
+        "2. Пункт про запуск сессии мне не понятен, давай разберем отдельно",
+        "3. Что ты имеешь ввиду, можешь показать пример",
+        "4. Можем ли мы использовать это просто как skill, кажется что это внешнее, мы можем использовать это как и любой другой skill"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T11:00:07Z",
+      "question": [
+        "Grilling stays outside relay (owner, 30 Oct). How does a project-only session reach it?"
+      ],
+      "options": [
+        "a. a project that wants it keeps its own copy in the project's skills folder, in that project's git; it travels with the project (recommended)",
+        "b. the launcher passes the owner's personal skills folder through: grilling, synced and tauri load in every relay session, on this Mac only",
+        "c. not in relay sessions at all; grilling is used in plain claude sessions outside relay projects"
+      ],
+      "answered_at": "2026-10-30T11:12:08Z",
+      "answer": [
+        "2. Что будет входить в эти 245 минут, в описании тут видно только shell обертка, как я могу кастомизировать правила для конкретного проекта, допустим хочу включить правило - node под запретом, только relay, не общее правило, а именно для relay, или указать рекомендации по работе именно с конкретными проектом, допустим skill для использования linter",
+        "3. Что будет в этой memory, как это сочетается с тем что изменения могут идти с нескольких машин, как это сочетается с 2 пунктом",
+        "4. a, думаю что не стоит игнорировать .claude/skills/*, в случае если эти принципы противоречат друг другу оставлять это на волю пользователя, до тех пор пока не будет исправлено отказываться работать"
+      ],
+      "reading": [
+        "Point 4: a. A project that wants grilling keeps its own copy in its .claude/skills. The launcher must not ignore a project's .claude/skills/*. When a project skill contradicts relay's principles, the user decides; until it is fixed, relay refuses to work. Points 2 and 3 are questions (what the 245 minutes hold, per-project rules and skills, memory across machines), sent to design revision 3 with this message verbatim."
+      ]
+    },
+    {
+      "at": "2026-10-30T11:00:08Z",
+      "fact": [
+        "Memory option b needs no copying: probe p7 of the design (30 Oct) showed --settings {\"autoMemoryDirectory\": <folder>} makes Claude Code read and write memory in the given folder. The launcher can point it at a folder inside the project (for example .relay/memory/), kept in git. Front recommendation moved from a to b on the owner's planned full move to Linux (the notes are keyed to the Mac path /Users/amidman/relay and would not be found under /home/...). Cost of b not re-measured."
+      ]
+    },
+    {
+      "at": "2026-10-30T11:18:42Z",
+      "said": [
+        "2. Да, relay не отказывается от настроек которые пользователь уже имеет в репозитории, он должен их уважать, при этом добавляя свои правила и принципы, которые являются общими для relay, часть философии разработки relay",
+        "3. Значит ли это что вопрос исчерпан, до пересмотра",
+        "4. Думаю что можно просто добавить строчку - если нашел противоречие между правилами relay и правилами проекта - спроси пользователя, рекомендуй использовать настройки проекта, ты в гостях, уважай место где ты находишься, мягкий способ разрешать конфликты, без строгих проверок"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T11:53:05Z",
+      "question": [
+        "(Design rev 4, shown on the scenarios page 30 Oct) Confirm: `claude` in a relay project (a folder whose repository has .claude/kit.toml) goes through relay's launcher, which keeps everything the project has and adds relay's rules and settings; anywhere else the real claude runs unchanged (tested in zsh and bash)."
+      ],
+      "options": [
+        "a. shell block in ~/.zshrc and ~/.bashrc (recommended; the owner's round-4 \"2. Да\" read as a)",
+        "b. a separate `relay session` command",
+        "c. project files only, no launcher (user rules, memory, agents and skills still load)"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T11:53:06Z",
+      "question": [
+        "(Design rev 4) Where does a project's memory live? Same clean-up first in every option (14 notes deleted as duplicates of relay rules, 20 moved into rules or the queue); the options differ in where new notes go."
+      ],
+      "options": [
+        "a. notes in the project's git, each landed at once through a staging folder outside every checkout (the owner's 24 Oct pick; recommended; ~100 agent minutes)",
+        "b. clean-up only; new notes stay on the machine (~30)",
+        "c. a personal notes repository with a sync command (~75)",
+        "d. do nothing"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T11:53:11Z",
+      "question": [
+        "(Design rev 4) Does relay stay in the owner's user folder (~/.claude/CLAUDE.md rules and 4 user-wide plugins) for folders outside relay projects and for sessions from an IDE or the desktop app?"
+      ],
+      "options": [
+        "a. keep it, as today, keeping the person's own lines (recommended: the guard stays on for any relay session; the owner's working rules follow them)",
+        "b. shell block only: folders outside relay are exactly as before relay; an IDE session in a relay project has no guard and no relay rules"
+      ]
+    },
+    {
+      "at": "2026-10-30T12:50:00Z",
+      "fact": [
+        "30 Oct ~12:55Z: the front released this item's lane (no commits on its branch) so the top fixes (red paid run, ip 97; Python aborts, ip 96) could start while the owner's three design questions wait (principle 1: fix before features). Design revision 4 is kept as this item's plan; the scenarios page is https://claude.ai/artifact/QpgowYU9Y54yo54u3Saeq3. The build restarts with relay queue start after the owner answers."
       ]
     }
   ]

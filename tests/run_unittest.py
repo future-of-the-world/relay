@@ -52,7 +52,34 @@ def run_held(names: list) -> int:
         base.held.release()
 
 
+def own_pool_home(environ: dict) -> str:
+    """The RELAY_HOME whose test-token pool this run uses: the environment's own when a holder (a gate) passed its pool down
+    or the pool already exists (a relay machine: the run stays counted by it), else a new temporary folder (the caller removes it),
+    so a run on a bare machine creates nothing under ~/.relay."""
+    home = relay_tokens.run_home(environ)
+    if relay_tokens.passed_down(environ, home) or os.path.isdir(relay_tokens.pool_dir(home)):
+        return home
+    return os.path.realpath(tempfile.mkdtemp(prefix="relay-pool-"))
+
+
 def main(argv: list) -> int:
+    """`run_all` with the pool chosen by `own_pool_home`; a temporary pool is removed afterwards."""
+    home = own_pool_home(dict(os.environ))
+    own = home != relay_tokens.run_home(dict(os.environ))
+    saved = os.environ.get("RELAY_HOME")
+    os.environ["RELAY_HOME"] = home
+    try:
+        return run_all(argv)
+    finally:
+        if saved is None:
+            os.environ.pop("RELAY_HOME", None)
+        else:
+            os.environ["RELAY_HOME"] = saved
+        if own:
+            shutil.rmtree(home, ignore_errors=True)
+
+
+def run_all(argv: list) -> int:
     """Names given: run them in this process. None: every library test, on RELAY_TEST_JOBS processes split by class
     (tests/parallel_unittest.py); one job is the single process below. Every process runs on a token of the machine's pool."""
     if argv:

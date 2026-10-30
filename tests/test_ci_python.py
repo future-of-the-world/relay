@@ -110,7 +110,7 @@ class PaidPart(unittest.TestCase):
         self.root = os.path.realpath(self.tmp.name)
 
     def ci(self, runner: Recorder, quick: bool = False, **env: str) -> relay_ci.Ci:
-        base = {"PATH": stubs(os.path.join(self.root, "stub"), ["git", "jq", "python3", "bun", "claude"])}
+        base = {"PATH": stubs(os.path.join(self.root, "stub"), ["git", "jq", "python3", "bun", "claude", "podman"])}   # podman: the full gate's clean-image step
         ci = relay_ci.Ci(self.root, quick, env={**base, **env}, runner=runner)
         ci.lib_links = lambda log: 0   # type: ignore[method-assign]  # the root here is no git repository: the step reads HEAD
         ci.prepare()

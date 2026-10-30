@@ -1,0 +1,209 @@
+{
+  "branch": "wt/the-test-runner-leaves-test-tokens-outsi",
+  "findings": [
+    {
+      "details": [
+        "Found 30 Oct while measuring tests on the VPS ai.amidman.com: run on a machine without relay, tests/run_unittest.py created $RELAY_HOME/test-tokens (default ~/.relay, there /root/.relay) and left it behind. Project rule: tests use a temporary folder and never touch live state.",
+        "Also: lib/relay_tokens.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "30 Oct on the VPS: after `python3 tests/run_unittest.py <files>` from a temp copy of lib/, tests/, bin/, `/root/.relay/test-tokens` existed (removed by hand)."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A test runs the runner with HOME and RELAY_HOME unset or pointing at an empty temp dir and finds no new folder outside its temp dir afterwards.",
+        "Under relay gate, the runner still shares the gate's token pool."
+      ],
+      "path": "tests/run_unittest.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_relay_tokens.py::RunnerPoolTest::test_no_pool_left_in_home passes at head and fails at base ff2039ed."
+      ],
+      "severity": "HIGH",
+      "since": "ff2039ed47eccf6b146744029e3a934cc681e60f",
+      "source": "queue",
+      "summary": "The test runner leaves test tokens outside its temp folder",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by trace. lib/relay_tokens.py is \"the machine-wide pool of test tokens: every test process on one machine runs only while",
+        "it holds a token\"; its module doc names \"a hand-started test run\" among the SHARED-token users, and tests/conftest.py",
+        "pytest_sessionstart still says a pytest session \"takes one shared token of the machine's pool\". After this change",
+        "own_pool_home (tests/run_unittest.py:55-61) returns a fresh mkdtemp folder whenever passed_down() is 0, which is exactly the",
+        "hand-started case on a relay machine, so that run is no longer counted by the pool (the throttle was sized from measured gate",
+        "times: 420 s alone vs 698 s with two at once, lib/relay_tokens.py CORES_PER_SLOT). The queue item's What reads \"from a temp folder",
+        "(or the gate's pool when a gate passes one)\", but its Why is only that a bare machine got a new folder; both pass cases of the item",
+        "also hold with \"the existing pool when there is one, else a temp one\", so the fix stays inside the item. The module doc of",
+        "relay_tokens was not updated either way, so after the change the doc and the runner disagree.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "tests/run_unittest.py:55-61: if relay_tokens.passed_down(environ, home): return home / return os.path.realpath(tempfile.mkdtemp(prefix=\"relay-pool-\"))",
+        "lib/relay_tokens.py:6-9: \"SHARED tokens R .. N-1 for everything else (a lane's relay precheck, a pytest session, a hand-started test run)\" ... \"A run with no holder above it takes one SHARED token as base\"",
+        "tests/conftest.py:41-46: pytest session takes a shared token of the machine's pool (unchanged)."
+      ],
+      "failing_case": [
+        "On a machine with relay (~/.relay/test-tokens exists, gates and pytest sessions hold tokens), an agent runs",
+        "`python3 tests/run_unittest.py` (no RELAY_TEST_TOKENS in its environment). Now: own_pool_home sees no passed-down base, makes",
+        "/tmp/relay-pool-XXXX, and the run (parallel_unittest, up to 4 workers) starts at once on that empty private pool, holding no token",
+        "of the machine's pool. Before (and as lib/relay_tokens.py:6-9 still promises: \"SHARED tokens ... for a hand-started test run\"),",
+        "it took one SHARED token of ~/.relay/test-tokens and waited when none was free. Expected: on a machine whose pool already exists,",
+        "the runner keeps using it; only where no pool exists (the bare VPS) does it use a temporary one."
+      ],
+      "fix_hint": [
+        "In own_pool_home: return run_home(environ) when passed_down(...) or os.path.isdir(relay_tokens.pool_dir(home)); otherwise the temp",
+        "folder. Better as one helper in lib/relay_tokens.py (the item's Where names it) that conftest can share, and add pass case 4/5 tests."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 55,
+      "pass_cases": [
+        "1. HOME = empty temp folder, RELAY_HOME and RELAY_TEST_TOKENS unset: `python3 tests/run_unittest.py tests.test_relay_tokens.SettingsTest.test_defaults` exits 0 and HOME stays empty (test_no_pool_left_in_home keeps passing).",
+        "2. RELAY_HOME = empty temp folder: it stays empty after the run (test_no_pool_left_in_relay_home keeps passing).",
+        "3. RELAY_HOME=X with X/test-tokens existing and RELAY_TEST_TOKENS=hold_value(1, X): the runner uses X's pool and takes no token (test_a_gates_pool_is_shared).",
+        "4. RELAY_HOME=X with X/test-tokens existing, no RELAY_TEST_TOKENS, every SHARED token of X held by the test (count file set small): the runner prints \"tests: ... waiting\" and does not finish until a token is released; with one SHARED token free it runs, and while it runs that token-<i> is locked.",
+        "5. own_pool_home({\"RELAY_HOME\": X}) returns X when X/test-tokens exists, and a new folder under the temp dir when X has no test-tokens."
+      ],
+      "path": "tests/run_unittest.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_relay_tokens.py:382 test_existing_pool_is_used_without_a_holder and :394 test_own_pool_environ_existing_pool pass; both fail at base."
+      ],
+      "severity": "HIGH",
+      "since": "94cb5b04fc4f5d3821024d8d859aa71d56633654",
+      "source": "review-the-test-runner-leaves-test-tokens-outsi.json",
+      "source_id": "F1",
+      "summary": "a hand-started run_unittest.py on a relay machine now runs on a private pool and bypasses the machine-wide test-token throttle",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the assertion is os.listdir(pool_dir(rh)) == []; a private pool lives elsewhere and is removed, so the",
+        "listing is empty in both cases. Size: 15 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Change own_pool_home to always return a new temp folder: test_a_gates_pool_is_shared still passes (the gate's pool folder stays",
+        "empty either way). Only the in-process test_own_pool_environ catches it; nothing checks main() end to end under a passed-down pool."
+      ],
+      "fix_hint": [
+        "Run a tiny test name through the runner that writes os.environ[\"RELAY_HOME\"] to a file the parent reads, and assert it equals rh."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 337,
+      "pass_cases": [
+        "1. With own_pool_home always returning a temp folder, the end-to-end gate-pool test fails (for example the child test sees os.environ[\"RELAY_HOME\"] == rh, or a token file of rh's pool locked by the holder is the one counted).",
+        "2. With the code as it is, the same test passes."
+      ],
+      "path": "tests/test_relay_tokens.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_relay_tokens.py:377 test_runner_keeps_the_gates_pool passes (probe counts temp pools). It passes at base only because the module lacks the function, not as a mutation check; accepted for LOW."
+      ],
+      "severity": "LOW",
+      "since": "94cb5b04fc4f5d3821024d8d859aa71d56633654",
+      "source": "review-the-test-runner-leaves-test-tokens-outsi.json",
+      "source_id": "F2",
+      "summary": "test_a_gates_pool_is_shared passes with the behaviour disabled: a runner that always swapped in a temp pool also leaves the pool folder empty",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced). pytest_sessionstart calls acquire_run_base on the real environment before the per-test RELAY_HOME switch,",
+        "which makes the pool folder under ~/.relay. The project rule \"tests never touch live state\" and the item's Why apply to it the",
+        "same way; the change only fixed tests/run_unittest.py. Size: 15 minutes (with the helper of F1)."
+      ],
+      "evidence": [
+        "env -u RELAY_HOME -u RELAY_TEST_TOKENS HOME=$S pytest -q -p no:cacheprovider tests/test_relay_tokens.py -k 'test_defaults or RunnerPool'",
+        "5 passed, 22 deselected in 1.03s",
+        "find $S: .../h1/.relay/test-tokens/waiting, .../h1/.relay/test-tokens/token-8"
+      ],
+      "failing_case": [
+        "HOME=<empty scratch folder>, RELAY_HOME and RELAY_TEST_TOKENS unset:",
+        "`pytest -q tests/test_relay_tokens.py -k 'test_defaults or RunnerPool'` -> 5 passed, and afterwards",
+        "<HOME>/.relay/test-tokens/token-8 and <HOME>/.relay/test-tokens/waiting exist. Expected: HOME left empty."
+      ],
+      "fix_hint": [
+        "Use the same \"existing pool, else temporary\" helper as F1 in pytest_sessionstart and remove the temp pool in pytest_sessionfinish."
+      ],
+      "id": "F3",
+      "kind": "outside",
+      "line": 40,
+      "pass_cases": [
+        "1. Empty HOME, RELAY_HOME unset: after a pytest run HOME is empty.",
+        "2. Under relay gate (RELAY_TEST_TOKENS passed), the pytest session still uses the gate's pool and takes no token.",
+        "3. On a machine whose pool exists, a pytest session still takes one SHARED token of it."
+      ],
+      "path": "tests/conftest.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer says tests/conftest.py is outside this change. Not fixed here; MEDIUM, should be a queue fix item."
+      ],
+      "severity": "MEDIUM",
+      "since": "94cb5b04fc4f5d3821024d8d859aa71d56633654",
+      "source": "review-the-test-runner-leaves-test-tokens-outsi.json",
+      "source_id": "F3",
+      "summary": "pytest on a machine without relay still creates and leaves $HOME/.relay/test-tokens (the same VPS failure, other runner)",
+      "verdict": "OUTSIDE"
+    },
+    {
+      "details": [
+        "CONFIRMED for the binding (lib/relay_ledger.py:24 `from relay_config import claude_json, ledger_dir`; tests/test_metrics.py:145",
+        "patches relay_config.ledger_dir) and for the red gate; PLAUSIBLE for other victims (tests/test_numbers*.py and",
+        "tests/test_transcripts_analysis.py import relay_ledger). Principle 6 (cause, not symptom) fires: the same failure was patched",
+        "twice, in two lanes, at the same lines, and the two patches will conflict when the second lands. Size: 15 minutes."
+      ],
+      "evidence": [
+        ".relay/checks/28da75c3...gate.log: FAIL test_hook_ledger.Ledger.test_has_start_scans_each_day_file_once_and_finds_either_day; inert: outer \"library tests FAILED\" vs probe \"ok\"",
+        "git diff master...wt/first-relay-setup-on-a-new-machine-fails -- tests/test_hook_ledger.py: same patch at lines 110-117"
+      ],
+      "failing_case": [
+        "In one unittest process (a parallel worker's class split), tests.test_metrics runs first: its setUp patches relay_config.ledger_dir",
+        "and relay_ledger is first imported under that patch (`from relay_config import ledger_dir`), so relay_ledger.ledger_dir stays the",
+        "mock returning test_metrics' removed temp folder. Gate 28da75c3: test_hook_ledger.Ledger.test_has_start_scans_each_day_file_once_and_finds_either_day",
+        "failed in the outer run and passed in the inert probe. This change and wt/first-relay-setup-on-a-new-machine-fails each patched the",
+        "one victim in tests/test_hook_ledger.py; any other test calling relay_ledger after test_metrics in the same process can still read",
+        "or write the wrong folder. Expected: relay_ledger reads the ledger folder at call time, whatever was imported first."
+      ],
+      "fix_hint": [
+        "In lib/relay_ledger.py `import relay_config` and call relay_config.ledger_dir() at use, then drop both per-test patches."
+      ],
+      "id": "F4",
+      "kind": "outside",
+      "line": 24,
+      "pass_cases": [
+        "1. In one process: import relay_ledger inside mock.patch(\"relay_config.ledger_dir\", return_value=A), leave the patch, set RELAY_HOME=B: relay_ledger's day file path is under B/ledger.",
+        "2. tests.test_metrics then tests.test_hook_ledger in one process (python3 tests/run_unittest.py tests.test_metrics tests.test_hook_ledger) passes without the per-test patch in test_hook_ledger.",
+        "3. tests/test_metrics.py's own patch of relay_config.ledger_dir still redirects relay_ledger during its tests."
+      ],
+      "path": "lib/relay_ledger.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer says lib/relay_ledger.py is outside this change. Not fixed here; MEDIUM, should be a queue fix item."
+      ],
+      "severity": "MEDIUM",
+      "since": "94cb5b04fc4f5d3821024d8d859aa71d56633654",
+      "source": "review-the-test-runner-leaves-test-tokens-outsi.json",
+      "source_id": "F4",
+      "summary": "relay_ledger binds ledger_dir at import, so a test that first imports it under test_metrics' patch leaves it pointing at a dead folder for the rest of the process",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "e91cd5dfdc73ff942878508e0d9c49911d048887.gate.log",
+  "head": "0eb6343d993b641cc9c81f37083ccfabc7f51213",
+  "item": "the-test-runner-leaves-test-tokens-outside-its-t",
+  "notes": [
+    "Precheck not rerun; fixer reports only lib-copy FAILs from not having taken master."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate green (exit 0) on e91cd5df; relay changed lists no file after it. Ran pytest tests/test_relay_tokens.py: 31 passed. Base worktree at ff2039ed with the head test file: 5 RunnerPoolTest tests fail (own_pool_home missing), 3 pass."
+  ],
+  "type": "check"
+}
