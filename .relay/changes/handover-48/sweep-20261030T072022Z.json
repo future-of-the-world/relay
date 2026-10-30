@@ -1,0 +1,34 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1697,
+   "id": "ae357823cb3351db8",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-30T05:37:05.825Z",
+   "stop": "2026-10-30T05:36:34.464Z"
+  },
+  {
+   "cost_usd": 0.186,
+   "id": "ae357823cb3351db8",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-30T05:37:05.825Z",
+   "stop": "2026-10-30T05:37:12.365Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "other",
+ "land": [],
+ "schema": 1,
+ "unit": "handover-48"
+}
