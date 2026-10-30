@@ -48,10 +48,12 @@ def met(*ids):
 class Flow(tq.Base):
     """A main repository with the fix item `job`, a worktree wt/a that took it, and helpers for the steps after."""
 
+    def make_main(self):
+        return self.repo("main", seed={".relay/queue/job.json": tq.fix_item("Job", ip=60, failing="line 1\nline 2"),
+                                       "lib/y.py": SPREAD, "lib/z.py": SPREAD, "lib/w.py": SPREAD})
+
     def setUp(self):
         super().setUp()
-        self.write_commit(self.main, {".relay/queue/job.json": tq.fix_item("Job", ip=60, failing="line 1\nline 2"),
-                                      "lib/y.py": SPREAD, "lib/z.py": SPREAD, "lib/w.py": SPREAD}, "seed")
         self.wa = self.worktree("a")
         rq.take(self.wa, "job", **QUIET)
         self.took = git(self.wa, "rev-parse", "HEAD")

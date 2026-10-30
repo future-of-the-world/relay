@@ -3,6 +3,7 @@
 Every repository is built in a temp directory; the gate commands are fixtures, never the real bin/ci of this repo
 except as the file the A11 fixture copies.
 """
+import atexit
 import fcntl
 import glob
 import os
@@ -56,6 +57,18 @@ def write(path, text, mode=None):
         handle.write(text)
     if mode:
         os.chmod(path, mode)
+
+
+_TEMPLATES: dict = {}
+_TEMPLATE_DIR: list = []
+_RUN_TEMP = tempfile.gettempdir()      # read at import, before any test sets its own TMPDIR: the templates outlive the cases
+
+
+def _template_root() -> str:
+    if not _TEMPLATE_DIR:
+        _TEMPLATE_DIR.append(os.path.realpath(tempfile.mkdtemp(prefix="relay-gate-template-", dir=_RUN_TEMP)))
+        atexit.register(shutil.rmtree, _TEMPLATE_DIR[0], ignore_errors=True)
+    return _TEMPLATE_DIR[0]
 
 
 class Fixture(unittest.TestCase):
@@ -131,18 +144,25 @@ class Fixture(unittest.TestCase):
     def repo(self, relay=True, gate=None, ignore=".ci/\n.worktrees/\n"):
         """main checkout on master with a worktree .worktrees/x on wt/x holding one commit; gate = the gate script's text"""
         main = os.path.join(self.tmp, "main")
-        os.makedirs(main)
-        git(main, "init", "-q", "-b", "master")
-        write(os.path.join(main, ".gitignore"), ignore)
-        if relay:
-            write(os.path.join(main, ".relay", "README.md"), "x\n")
+        key = (relay, ignore)
+        if key not in _TEMPLATES:      # git builds this repository once per run; each case gets a copy of the folder
+            template = os.path.join(_template_root(), "t%d" % len(_TEMPLATES))
+            os.makedirs(template)
+            git(template, "init", "-q", "-b", "master")
+            write(os.path.join(template, ".gitignore"), ignore)
+            if relay:
+                write(os.path.join(template, ".relay", "README.md"), "x\n")
+            git(template, "add", "-A")
+            git(template, "commit", "-q", "-m", "init")
+            _TEMPLATES[key] = template
+        shutil.copytree(_TEMPLATES[key], main, symlinks=True)
         if gate is not None:
             script = os.path.join(self.tmp, "gate.sh")
             write(script, "#!/bin/sh\n" + gate, stat.S_IRWXU)
             write(os.path.join(main, ".claude", "kit.toml"), '[gate]\nci = "%s"\n' % script)
             self.script = script
-        git(main, "add", "-A")
-        git(main, "commit", "-q", "-m", "init")
+            git(main, "add", "-A")
+            git(main, "commit", "-q", "--amend", "-m", "init")      # the script's path is the case's own, so it joins the one commit
         self.main = main
         self.wt = os.path.join(main, ".worktrees", "x")
         git(main, "worktree", "add", "-q", self.wt, "-b", "wt/x")
