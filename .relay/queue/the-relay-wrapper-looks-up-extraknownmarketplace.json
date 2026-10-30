@@ -27,8 +27,8 @@
   ],
   "taken_at": "2026-10-30T21:10:42Z",
   "taken_by": "wt/the-relay-wrapper-looks-up-extraknownmarketplace",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T21:44:13Z",
+  "test": "tests/test_hook_bin_relay.py::WrapperLookup::test_settings_marketplace_path",
   "dropped_at": null,
   "dropped_why": null
 }
