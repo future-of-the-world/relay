@@ -1,0 +1,192 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.3412,
+   "id": "ad7f0976d53c52045",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 54,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T08:49:55.957Z",
+   "stop": "2026-10-30T09:07:20.954Z"
+  },
+  {
+   "cost_usd": 0.0044,
+   "id": "a87573348ecaad19b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T09:07:24.516Z",
+   "stop": "2026-10-30T09:26:12.088Z"
+  },
+  {
+   "cost_usd": 0.1246,
+   "id": "ad06326148309aefb",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T09:26:15.631Z",
+   "stop": "2026-10-30T09:28:19.802Z"
+  },
+  {
+   "cost_usd": 0.0038,
+   "id": "a309df213c5c9f92a",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T09:28:22.611Z",
+   "stop": "2026-10-30T09:43:04.273Z"
+  },
+  {
+   "cost_usd": 1.6133,
+   "id": "ad4fab583066db1a1",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 32,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T09:43:07.742Z",
+   "stop": "2026-10-30T09:48:34.950Z"
+  },
+  {
+   "cost_usd": 0.3821,
+   "id": "adef861c477899888",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 27,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T09:48:38.906Z",
+   "stop": "2026-10-30T09:58:10.574Z"
+  },
+  {
+   "cost_usd": 0.0047,
+   "id": "af5f02e065c343534",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T09:58:14.317Z",
+   "stop": "2026-10-30T10:14:31.546Z"
+  },
+  {
+   "cost_usd": 0.1092,
+   "id": "a34c44533950b19a6",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T10:14:35.510Z",
+   "stop": "2026-10-30T10:17:39.510Z"
+  },
+  {
+   "cost_usd": 0.0043,
+   "id": "acc4c5aa2fa4b0024",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T10:17:43.421Z",
+   "stop": "2026-10-30T10:17:58.489Z"
+  },
+  {
+   "cost_usd": 0.0015,
+   "id": "ad52382ace243c3f4",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T10:18:01.596Z",
+   "stop": "2026-10-30T10:18:09.187Z"
+  },
+  {
+   "cost_usd": 0.0022,
+   "id": "ad52382ace243c3f4",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T10:18:01.596Z",
+   "stop": "2026-10-30T10:18:11.661Z"
+  },
+  {
+   "cost_usd": 0.0052,
+   "id": "ade01c6cf9fd2b48c",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T10:18:14.536Z",
+   "stop": "2026-10-30T10:41:52.849Z"
+  },
+  {
+   "cost_usd": 0.1213,
+   "id": "a6ac5954a75e2887d",
+   "model": "claude-sonnet-5-5",
+   "n": 2,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T10:41:56.342Z",
+   "stop": "2026-10-30T10:44:12.015Z"
+  },
+  {
+   "cost_usd": 0.0055,
+   "id": "a8a51b3e6c4ea9c83",
+   "model": "claude-haiku-5-5",
+   "n": 4,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T10:44:14.996Z",
+   "stop": "2026-10-30T11:12:12.787Z"
+  },
+  {
+   "cost_usd": 0.1062,
+   "id": "a73f1846acd6952f5",
+   "model": "claude-sonnet-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T11:12:15.611Z",
+   "stop": "2026-10-30T11:13:14.549Z"
+  }
+ ],
+ "before": "2f9d6d457ef1e064dea1ec6acb36e38400f256f6",
+ "branch": "wt/reports-a-task-needs-are-kept-in-the-rep",
+ "head": "ab6861cee7d1e074112f8a0e142a196a63bc9d6c",
+ "item": "reports-a-task-needs-are-kept-in-the-repository",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T11:13:22+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T11:13:22+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T11:13:53+00:00",
+   "gate_seconds": 0.0,
+   "gates_run": 0,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "reports-a-task-needs-are-kept-in-the-repository"
+}
