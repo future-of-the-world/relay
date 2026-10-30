@@ -1,0 +1,93 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.6922,
+   "id": "af0c6ad10fbe03b26",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 28,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T23:03:14.507Z",
+   "stop": "2026-10-29T23:08:46.219Z"
+  },
+  {
+   "cost_usd": 0.0043,
+   "id": "af81800cc45ef5af6",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T23:08:48.641Z",
+   "stop": "2026-10-29T23:27:31.545Z"
+  },
+  {
+   "cost_usd": 1.0802,
+   "id": "a457bcc4524233be5",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T23:27:33.655Z",
+   "stop": "2026-10-29T23:31:16.118Z"
+  },
+  {
+   "cost_usd": 0.1664,
+   "id": "a8a5e2075330c148e",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T23:31:18.594Z",
+   "stop": "2026-10-29T23:33:28.753Z"
+  },
+  {
+   "cost_usd": 0.0043,
+   "id": "a3fdbe3fe84dd2b45",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T23:33:30.989Z",
+   "stop": "2026-10-29T23:52:14.036Z"
+  },
+  {
+   "cost_usd": 0.0999,
+   "id": "ae5285fab75f6739d",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T23:52:16.271Z",
+   "stop": "2026-10-29T23:53:49.299Z"
+  }
+ ],
+ "before": "a1a588a2726f7836c7c84887d79495eb617ec513",
+ "branch": "wt/a-queue-question-can-be-answered-by-an-a",
+ "head": "88b08a910547a81a4653b23480a8a7bf64ea23af",
+ "item": "a-queue-question-can-be-answered-by-an-agent-mar",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T23:54:21+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T00:00:42+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T00:20:13+00:00",
+   "gate_seconds": 1125.633763083024,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "a-queue-question-can-be-answered-by-an-agent-mar"
+}

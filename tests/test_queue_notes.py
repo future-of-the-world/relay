@@ -500,3 +500,168 @@ class AskHook(tq.Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+import relay_lanes  # noqa: E402
+import relay_metrics  # noqa: E402
+
+DECIDED = dict(question=["**Timer length**", "Intro."], options=["a. 55 minutes.", "b. 30 minutes."], chosen="a", decided_by="front",
+               because=["Principle 2: cache"])
+
+
+class AgentDecisions(tq.Base):
+    """A question the front decided itself (design agent-answered-decisions, Part 1): the record, the two waiting rules, the owner's
+    reversal, the lettered answer, the callers of the old single rule, metrics and `show`."""
+
+    def setUp(self):
+        super().setUp()
+        self.write_commit(self.main, {QUEUE + "job.json": tq.feature_item("Job")}, "seed")
+
+    def note(self, now=NOW, **fields):
+        fields.setdefault("kind", next(k for k in ("question", "answer") if k in fields))
+        return rq.note(self.main, "job", fields, now=now, **tq.QUIET)
+
+    def notes(self):
+        return rq.notes_of(self.item("job"))
+
+    def refused(self, **fields):
+        with self.assertRaises(rq.Refused) as ctx:
+            self.note(**fields)
+        return str(ctx.exception)
+
+    def test_a_decided_question_keeps_its_choice_and_reason_and_is_no_owner_wait(self):
+        self.note(at=T1, **DECIDED)
+        n = self.notes()[0]
+        self.assertEqual((n.decided_by, n.chosen, n.because, n.answered_at), ("front", "a", ["Principle 2: cache"], None))
+        item = self.item("job")
+        # the front decided it: nobody waits for the owner (reminder hook, lanes)
+        self.assertEqual(rq.waiting_lines(self.main, 7, 5, now=NOW), [])
+        self.assertFalse(relay_lanes._waiting_question(item))
+        self.assertEqual(rq.parse("job", rq.serialize("job", item))["notes"], item["notes"])          # round trip
+
+    def test_an_owner_question_still_waits_in_hook_and_lanes(self):
+        self.note(question=["**Q?**"], options=OPTIONS, at=T1)
+        self.assertTrue(relay_lanes._waiting_question(self.item("job")))
+        self.assertEqual(len(rq.waiting_lines(self.main, 7, 5, now=NOW)), 1)
+
+    def test_decided_by_outside_the_list_is_refused_naming_the_list(self):
+        for who in ("worker", "reviewer"):
+            msg = self.refused(at=T1, **{**DECIDED, "decided_by": who})
+            self.assertIn("decided_by is one of: front", msg)
+        self.assertIn("check record", self.refused(at=T1, **{**DECIDED, "decided_by": "reviewer"}))
+
+    def test_each_of_chosen_decided_by_because_needs_the_other_two(self):
+        for key in ("chosen", "decided_by", "because"):
+            fields = {k: v for k, v in DECIDED.items() if k != key}
+            self.assertIn(f"`{key}`", self.refused(at=T1, **fields))
+
+    def test_chosen_is_a_letter_of_the_options(self):
+        self.assertIn("not one of the options", self.refused(at=T1, **{**DECIDED, "chosen": "c"}))
+        self.assertEqual(self.notes(), [])
+
+    def test_a_decision_with_the_title_of_a_waiting_owner_question_is_refused(self):
+        self.note(question=["**Timer length**", "other words"], options=OPTIONS, at=T1)
+        self.assertIn("Timer length", self.refused(at=T2, **DECIDED))
+        self.note(at=T2, **{**DECIDED, "question": ["**A new title**"]})                 # another title lands
+        self.assertEqual(len(self.notes()), 2)
+
+    def test_because_naming_a_session_file_is_refused(self):
+        self.assertIn("names a session file", self.refused(at=T1, **{**DECIDED, "because": ["see /private/tmp/x/reports/d.md"]}))
+
+    def test_the_owner_reverses_with_to_and_the_decision_stays_byte_equal(self):
+        self.note(at=T1, **DECIDED)
+        before = rq.note_dict(self.notes()[0])
+        self.note(answer=["давай 30"], reading=["b"], chosen=["b"], to=[T1], at=T2)
+        after = rq.note_dict(self.notes()[0])
+        for key in ("question", "options", "decided_by", "chosen", "because", "asked_at"):
+            self.assertEqual(after[key], before[key], key)
+        self.assertEqual((after["answer"], after["answer_choice"]), (["давай 30"], "b"))
+
+    def test_an_answer_without_to_names_every_answerable_question_when_a_decision_is_among_them(self):
+        self.note(question=["**Q?**"], options=OPTIONS, at=T1)
+        self.note(at=T2, **DECIDED)
+        msg = self.refused(answer=["a"], at=T3)
+        self.assertTrue(T1 in msg and T2 in msg, msg)
+        self.assertEqual(self.refused(answer=["a"], at=T3, chosen=["a"]).count(T2), msg.count(T2))
+
+    def test_an_answer_without_to_goes_to_the_only_waiting_owner_question_as_before(self):
+        self.note(question=["**Q?**"], options=OPTIONS, at=T1)
+        self.note(answer=["a"], at=T2)
+        self.assertEqual(self.notes()[0].answer, ["a"])
+        self.assertEqual(self.notes()[0].answer_choice, "")
+
+    def test_an_answer_without_to_on_a_lone_decision_is_refused(self):
+        self.note(at=T1, **DECIDED)
+        self.assertIn(T1, self.refused(answer=["b"], at=T2))
+
+    def test_the_letter_of_an_answer(self):
+        self.note(question=["**Q?**"], options=OPTIONS, at=T1)
+        self.note(question=["**R?**"], options=OPTIONS, at=T2)
+        self.assertIn("one letter per question", self.refused(answer=["a"], to=[T1, T2], chosen=["a"], at=T3))
+        self.assertIn("not one of the options", self.refused(answer=["a"], to=[T1], chosen=["c"], at=T3))
+        self.note(answer=["a b"], to=[T1, T2], chosen=["a", "b"], at=T3)
+        self.assertEqual([n.answer_choice for n in self.notes()], ["a", "b"])
+
+    @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
+    def test_the_input_takes_the_new_keys_only_with_their_kind(self):
+        path = os.path.join(self.tmp, "in.toml")
+
+        def read(text):
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(text)
+            return rq.read_note_input(path)
+        got = read("question = 'Q'\noptions = ['a. x', 'b. y']\nchosen = 'a'\ndecided_by = 'front'\nbecause = 'why'\n")
+        self.assertEqual((got["chosen"], got["decided_by"], got["because"]), ("a", "front", ["why"]))
+        self.assertEqual(read("answer = 'a'\nchosen = ['a']\n")["chosen"], ["a"])
+        for text in ("said = 'a'\nchosen = 'a'\n", "answer = 'a'\ndecided_by = 'front'\n", "answer = 'a'\nbecause = 'x'\n"):
+            with self.assertRaises(rq.Refused):
+                read(text)
+
+    def test_schema_refuses_a_half_decision_and_a_letter_without_an_answer(self):
+        half = decision(chosen="a")
+        stray = decision(answer_choice="a")
+        self.assertTrue(any("decided_by" in p for p in problems(notes=[half])), problems(notes=[half]))
+        self.assertTrue(any("answer_choice" in p for p in problems(notes=[stray])), problems(notes=[stray]))
+        bad = decision(decided_by="front", chosen="c", because=["x"])
+        self.assertTrue(any("chosen" in p for p in problems(notes=[bad])))
+
+    def test_show_names_who_decided_and_the_owner_reversal(self):
+        self.note(at=T1, **DECIDED)
+        self.note(question=["**Second**"], options=OPTIONS, at=T2)
+        self.note(at=T3, **{**DECIDED, "question": ["**Third**"]})
+        self.note(answer=["30"], to=[T1], chosen=["b"], at="2026-10-07T09:00:00Z")
+        self.note(answer=["ok"], to=[T3], chosen=["a"], at="2026-10-07T10:00:00Z")
+        text = rq.show_text(self.item("job"), tz=dt.timezone.utc)
+        self.assertIn(f"decided by the front (an agent; owner can reverse) 'Timer length', at {T1}:", text)
+        self.assertIn("    chosen: a", text)
+        self.assertIn("    because: Principle 2: cache", text)
+        self.assertIn(f"the owner answered 'Timer length' decided {T1} (whole reply):", text)
+        self.assertIn("    owner chose b: overrules the front's a", text)
+        self.assertIn("    confirmed by the owner", text)
+        self.assertIn(f"question 'Second', asked {T2}:", text)
+
+    def test_metrics_leave_decisions_out_of_the_owner_wait(self):
+        def note(**changes):
+            return rq.parse_note(decision(**changes))[0]
+        d = note(asked_at="2026-10-30T01:42:00Z", decided_by="front", chosen="a", because=["x"], answered_at="2026-10-30T09:10:00Z",
+                 answer=["30"], answer_choice="b")
+        # 01:42 to 09:10 is 448 minutes that are not owner waiting: the reversal adds no wait; one decided, one overruled
+        self.assertEqual(relay_metrics.owner_lines([d]), ["agents decided: 1, owner overruled: 1"])
+        q = note(asked_at="2026-10-30T01:42:00Z", answered_at="2026-10-30T01:45:00Z", answer=["a"])
+        self.assertEqual(relay_metrics.owner_lines([q]), ["owner: 1 answers, 3.0 min waited"])
+        confirmed = note(asked_at="2026-10-30T02:00:00Z", decided_by="front", chosen="a", because=["x"])
+        self.assertEqual(relay_metrics.owner_lines([q, d, confirmed]),
+                         ["owner: 1 answers, 3.0 min waited", "agents decided: 2, owner overruled: 1"])
+        self.assertEqual(relay_metrics.owner_lines([]), [])
+
+    def test_search_finds_a_decision_by_a_word_of_its_reason(self):
+        # F1: the reason is the part most likely to hold the search word; the other words still find the item as before
+        item = self.item("job")
+        item["notes"] = [rq.parse_note(dict(decision(question=["**Timer length**"]), decided_by="front", chosen="a",
+                                            because=["Principle 2: cache rewrite"]))[0]]
+        self.assertEqual(rq.search_items([item], "rewrite"), [item])
+        self.assertEqual(rq.search_items([item], "timer"), [item])
+        self.assertEqual(rq.search_items([item], "zebra"), [])
+        owner = self.item("job")
+        owner["notes"] = [rq.parse_note(decision(asked_at=T1, answered_at=T2, answer=["давай 30"]))[0]]
+        self.assertEqual(rq.search_items([owner], "давай"), [owner])

@@ -1,0 +1,40 @@
+{
+  "kind": "fix",
+  "ip": 89,
+  "time": 30,
+  "found_at": "2026-10-30T00:34:38Z",
+  "found_in": "relay queue add",
+  "title": "A dropped item's empty worktree still holds a lane",
+  "what": [
+    "Either `relay queue drop` of a taken item removes its worktree when it is clean and its branch has no commit beyond the default branch, or the lane count does not count a no-item worktree whose branch has no own commit and no modified file. Pick the one with fewer parts."
+  ],
+  "why": [
+    "Owner asked, 30 Oct, how lanes are counted. Checking it, the front found 1 of the 6 counted lanes was the worktree of an item the owner had dropped: no item, no commit beyond master, no change in its files, yet counted as running for up to lane_quiet_hours (3 h) after its last commit. That lane blocked a start while 6 of 6 showed busy."
+  ],
+  "failing_case": [
+    "30 Oct 2026: lanes_state counted wt/test-churn-keeps-fseventsd-at-a-full-cor as running (Lane with slug None); its item was dropped, `git status --porcelain` was empty and `git log master..branch` empty; after `git worktree remove` the count fell from 6 to 5 and a pick appeared."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A test: an item taken, then dropped, with a clean worktree and no own commit: lanes_state does not count it, or the worktree is gone after the drop.",
+    "A no-item worktree with an own commit or a modified file still counts while changed within lane_quiet_hours."
+  ],
+  "where": [
+    "lib/relay_lanes.py:293-301",
+    "lib/relay_queue.py drop"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T00:34:38Z",
+      "said": [
+        "Как мы вообще можем сказать сколько lane занято, как мы оперируем этими данными, где это хранится, разумно было бы смотреть на занятую очередь задач, вероятно мы так и делаем"
+      ]
+    }
+  ]
+}

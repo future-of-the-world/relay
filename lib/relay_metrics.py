@@ -387,6 +387,18 @@ def summary(main: str, rev: str) -> list[str]:
     return lines
 
 
+def owner_lines(notes: list) -> list[str]:
+    """The owner's answers and the waiting they cost, and the decisions agents took. A decision an agent took is no owner waiting, answered
+    or not: the owner's reversal of it adds no wait. `overruled` counts the decisions the owner answered with another letter."""
+    waits = [_epoch(n.answered_at) - _epoch(n.at) for n in notes if n.kind == "decision" and n.answered_at and not n.decided_by]
+    decided = [n for n in notes if n.kind == "decision" and n.decided_by]
+    lines = [f"owner: {len(waits)} answers, {_fmt(sum(waits) / 60)} min waited"] if waits else []
+    if decided:
+        overruled = sum(1 for n in decided if n.answer_choice and n.answer_choice != n.chosen)
+        lines.append(f"agents decided: {len(decided)}, owner overruled: {overruled}")
+    return lines
+
+
 def unit_lines(main: str, rev: str, unit: str) -> list[str]:
     """One unit: minutes and cost per stage, and idle time (taken to landing with no agent of the unit running)."""
     import relay_queue
@@ -399,9 +411,7 @@ def unit_lines(main: str, rev: str, unit: str) -> list[str]:
         mine = [a for a in agents if a["stage"] == name]
         lines.append(f"{name}: {len(mine)} agents, {_fmt(sum(_minutes(a) for a in mine))} min, ${sum(a['cost_usd'] for a in mine):.2f}")
     item = next((i for i in relay_queue.read_queue(main, closed=True) if i["slug"] == unit), None)
-    waits = [_epoch(n.answered_at) - _epoch(n.at) for n in (item.get("notes") or [] if item else []) if n.kind == "decision" and n.answered_at]
-    if waits:
-        lines.append(f"owner: {len(waits)} answers, {_fmt(sum(waits) / 60)} min waited")
+    lines += owner_lines(item.get("notes") or [] if item else [])
     done = [r for r in records if r.get("head") and r["land"]]
     if item and item.get("taken_at") and done and agents:
         end = max(_epoch(x["at"]) for r in done for x in r["land"])

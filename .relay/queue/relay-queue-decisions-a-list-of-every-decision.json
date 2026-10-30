@@ -18,6 +18,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-29T23:54:20Z",
+  "dropped_why": [
+    "Duplicate of all-decisions-by-owner-and-agents-readable-in-on (ip 80), filed a minute later for the same owner request: \"Да, добавь оба пункта в задачу\" (30 Oct). The review of the decision record (F3) found both open; one item is kept."
+  ]
 }

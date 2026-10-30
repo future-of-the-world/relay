@@ -1,0 +1,121 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2248,
+   "id": "ad985f5033a9daaf1",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T23:01:41.883Z",
+   "stop": "2026-10-29T23:03:16.804Z"
+  },
+  {
+   "cost_usd": 0.0047,
+   "id": "ac2210390545aa4eb",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T23:03:18.969Z",
+   "stop": "2026-10-29T23:22:02.613Z"
+  },
+  {
+   "cost_usd": 0.8235,
+   "id": "a3b95683f1fc0d669",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 16,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-29T23:22:04.798Z",
+   "stop": "2026-10-29T23:24:51.605Z"
+  },
+  {
+   "cost_usd": 0.1783,
+   "id": "aa511f5a6ce71406d",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T23:24:53.956Z",
+   "stop": "2026-10-29T23:26:34.391Z"
+  },
+  {
+   "cost_usd": 0.0039,
+   "id": "a7ef512623b59a199",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T23:26:36.675Z",
+   "stop": "2026-10-29T23:39:56.893Z"
+  },
+  {
+   "cost_usd": 0.0934,
+   "id": "ae192308905e68770",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-29T23:39:59.413Z",
+   "stop": "2026-10-29T23:41:09.113Z"
+  },
+  {
+   "cost_usd": 0.0022,
+   "id": "a3356064ef0fc569e",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-29T23:41:11.452Z",
+   "stop": "2026-10-29T23:41:23.149Z"
+  },
+  {
+   "cost_usd": 0.0019,
+   "id": "aca2fc4145aaebe39",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-29T23:41:25.187Z",
+   "stop": "2026-10-29T23:41:39.800Z"
+  }
+ ],
+ "before": "faf829c0f367af684b7032de64b8adf35f8f3a19",
+ "branch": "wt/a-dead-workflow-agent-leaves-no-error-te",
+ "head": "85064be16fbfba7e9d17890898138f4f695e2850",
+ "item": "a-dead-workflow-agent-leaves-no-error-text",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T14:39:55+00:00",
+   "file": "plugins/delegate/workflows/cycle.js",
+   "holder": "wt/each-change-records-its-stage-times-cost",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-29T23:41:50+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-29T23:41:50+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T00:00:42+00:00",
+   "gate_seconds": 1061.1223634160124,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "a-dead-workflow-agent-leaves-no-error-text"
+}
