@@ -584,6 +584,15 @@ class ReviewFixes(Land):
         self.assertEqual(queue["feat"]["evidence"], git(self.main, "log", "-n1", "--no-merges", "--format=%H", "--", "lib/a.py"))
         self.assertIn("feat", run.stdout)
 
+    def test_keep_open_landing_leaves_the_feature_taken(self):
+        # an intermediate change of a feature: --keep-open lands it and the feature item stays taken; the fix item is unaffected by the flag
+        self.start()
+        self.master_commit(".relay/queue/feat.json", tls.item("feat", "feature", **tls.taken("wt/x")))
+        run = self.land("wt/x", "--keep-open")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        queue = {i["slug"]: i for i in tls.rq.read_queue(self.main, closed=True)}
+        self.assertEqual(queue["feat"]["state"], "taken")
+
     def test_f4_refused_landing_closes_nothing(self):
         self.start(gate="exit 1\n")
         self.master_commit(".relay/queue/feat.json", tls.item("feat", "feature", **tls.taken("wt/x")))
