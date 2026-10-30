@@ -711,6 +711,26 @@ class PluginInstall(Base):
             self.assertTrue([t for t in todo if f"claude plugin install {key} --scope project" in t], key)
         self.assertEqual(calls, [])
 
+    def test_setup_no_install_todo_for_always_on_plugins_installed_at_user_scope(self):
+        import relay_setup
+        keys = ["relay@amidman", "observe@amidman", "delegate@amidman", "front@amidman"]
+        self._registry({k: [{"scope": "user"}] for k in keys})
+        proj = self._proj()
+        _, _, _, todo = relay_setup.setup(proj, install_runner=lambda r, k: (True, ""))
+        # all four are installed at user scope (a set-up machine): nothing to install, no to-do
+        self.assertEqual([t for t in todo if "claude plugin install" in t or "enabled but not installed" in t], [])
+
+    def test_setup_todo_names_only_the_always_on_plugins_not_installed(self):
+        import relay_setup
+        proj = self._proj()
+        self._registry({"front@amidman": [{"scope": "project", "projectPath": os.path.realpath(proj)}]})
+        _, _, _, todo = relay_setup.setup(proj, install_runner=lambda r, k: (True, ""))
+        named = lambda k: [t for t in todo if f"claude plugin install {k} --scope project" in t]
+        # front is installed for this project; the other three are installed nowhere
+        for k in ("relay@amidman", "observe@amidman", "delegate@amidman"):
+            self.assertTrue(named(k), k)
+        self.assertEqual(named("front@amidman"), [])
+
     def test_setup_install_failure_todo_names_the_command(self):
         import relay_setup
         self._registry({})
