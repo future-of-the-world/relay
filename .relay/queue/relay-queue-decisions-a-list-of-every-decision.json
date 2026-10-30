@@ -1,0 +1,25 @@
+{
+  "kind": "feature",
+  "ip": 70,
+  "time": 30,
+  "found_at": "2026-10-29T23:06:55Z",
+  "found_in": "relay queue add",
+  "title": "relay queue decisions: a list of every decision",
+  "what": [
+    "A view in lib/queue_ext/ listing question notes with decided_by or an owner answer, newest first: date, who decided, the choice, standing/overruled/confirmed from answer_choice, item, title; --by and --days filters (default 14, bound 1-90). Design: Part 2 of the agent-answered-decisions design (queue item a-queue-question-can-be-answered-by-an-agent-mar)."
+  ],
+  "why": [
+    "Step 1 of the agent-answered decisions records them per item; finding them across items still means asking the front."
+  ],
+  "where": [
+    "lib/queue_ext/decisions.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-29T23:54:20Z",
+  "dropped_why": [
+    "Duplicate of all-decisions-by-owner-and-agents-readable-in-on (ip 80), filed a minute later for the same owner request: \"Да, добавь оба пункта в задачу\" (30 Oct). The review of the decision record (F3) found both open; one item is kept."
+  ]
+}

@@ -87,6 +87,7 @@ function refusal() {
 const SKIPPED = 'agent skipped'
 
 // One agent call, retried under the same label when it throws; a null (the user skipped it) is not retried.
+// Each thrown attempt is written down before the retry (the journal keeps only "failed"): the script has no file access, so a runner does it.
 async function ask(prompt, opts) {
   let last = 'agent died'
   for (let t = 0; t <= CFG.retry_dead; t++) {
@@ -96,9 +97,24 @@ async function ask(prompt, opts) {
       return { v }
     } catch (e) {
       last = String(e && e.message ? e.message : e)
+      await deadNote(opts, t + 1, last)
     }
   }
   return { dead: last }
+}
+
+// Best effort: a note that cannot be written never hides the dead agent's own error, which ask() still returns.
+async function deadNote(opts, n, message) {
+  const slug = String(opts.label).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  // The note is work of the dead agent's change: its label carries that agent's unit (the part after the first ": "), so the metrics match it.
+  const unit = String(opts.label).slice(String(opts.label).indexOf(': ') + 2)
+  const file = `${S}/reports/dead-${slug}-${n}.txt`
+  try {
+    await agent(`Write the file ${file} (create the folder first) with three lines (if the file already exists, keep what it holds and append the three lines: an earlier run's note is never replaced): "label: ${opts.label}", "time: " followed by the output of \`date -u +%Y-%m-%dT%H:%M:%SZ\`, and "error: " followed by this text exactly: ${JSON.stringify(message)}. Report DONE.`,
+      agentOpts('runner', HANDBACK, opts.phase, `other: ${unit}`))
+  } catch (e) {
+    // nothing more to do: the error text is still in the returned detail
+  }
 }
 
 function stop(it, at, detail, extra) {
