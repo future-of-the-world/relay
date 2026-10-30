@@ -34,6 +34,12 @@
       "fact": [
         "Front decision (owner can reverse; measure before recommending): the change's one open finding (Gap: the rate at which the front starts a critic is not measured) is settled by a 10-run bench of scenario review-offbyone on the branch's rules, about $3-8, before any landing. Baseline on master rules: no critic in 5 of 12 runs (29-30 Oct)."
       ]
+    },
+    {
+      "at": "2026-10-30T02:32:54Z",
+      "fact": [
+        "Bench 2026-10-30T02-11-19Z (scenario review-offbyone, 5 runs on the branch's rules, $0.71 a run): the front started a critic in 5 of 5 runs (grader delegated-to-a-critic passed every run), against 7 of 12 on master rules (29-30 Oct). The off-by-one bug was found in 1 of 5 runs with the Opus critic; earlier benches: Opus critic 1 of 2, Fable critic 5 of 5."
+      ]
     }
   ]
 }
