@@ -29,8 +29,8 @@
   "where": [
     "bin/check:50"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T22:35:16Z",
+  "taken_by": "wt/several-of-relay-s-own-senders-still-signal-with",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
