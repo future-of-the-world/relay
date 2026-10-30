@@ -13,6 +13,70 @@ from relay_testbase import Base, ROOT  # noqa: E402
 
 
 class Setup(Base):
+    def _wt_project(self, wt_script):
+        import relay_setup
+        proj = os.path.join(self.tmp, "wtproj")
+        os.makedirs(os.path.join(proj, "bin"))
+        subprocess.run(["git", "init", "-q", proj], check=True, capture_output=True)
+        if wt_script is not None:
+            with open(os.path.join(proj, "bin", "wt"), "w") as handle:
+                handle.write(wt_script)
+        d = relay_setup.detect(proj)
+        return relay_setup.bindings_text(d, "none")
+
+    def test_setup_uses_the_folder_bin_wt_makes(self):
+        # ALIX: bin/wt makes .worktree/<name>; kit.toml must say so, not the default.
+        text = self._wt_project('#!/bin/sh\ngit worktree add ".worktree/$1" -b "wt/$1"\n')
+        self.assertIn('worktrees = ".worktree"\n', text)
+
+    def _gitignore_after(self, wt_script, pre_ignore=""):
+        import relay_setup
+        proj = os.path.join(self.tmp, "giproj")
+        os.makedirs(os.path.join(proj, "bin"))
+        subprocess.run(["git", "init", "-q", proj], check=True, capture_output=True)
+        if wt_script is not None:
+            with open(os.path.join(proj, "bin", "wt"), "w") as handle:
+                handle.write(wt_script)
+        with open(os.path.join(proj, ".gitignore"), "w") as handle:
+            handle.write(pre_ignore)
+        relay_setup.ensure_gitignore(proj, relay_setup.detect(proj))   # first setup: no kit.toml, d["bindings"] is empty
+        return open(os.path.join(proj, ".gitignore")).read().splitlines()
+
+    def test_first_setup_ignores_the_folder_bin_wt_makes(self):
+        lines = self._gitignore_after('#!/bin/sh\ngit worktree add ".worktree/$1"\n')
+        self.assertIn(".worktree/", lines)
+        self.assertNotIn(".worktrees/", lines)
+
+    def test_first_setup_adds_no_worktrees_line_when_already_ignored(self):
+        lines = self._gitignore_after('#!/bin/sh\ngit worktree add ".worktree/$1"\n', "/.worktree/\n")
+        self.assertEqual([x for x in lines if "worktree" in x], ["/.worktree/"])
+
+    def test_first_setup_ignores_default_folder_without_bin_wt(self):
+        self.assertIn(".worktrees/", self._gitignore_after(None))
+
+    def _registered(self, name, folder):
+        main = os.path.join(self.tmp, name)
+        os.makedirs(main)
+        g = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run(g + ["init", "-q", main], check=True, capture_output=True)
+        subprocess.run(g + ["-C", main, "commit", "-q", "--allow-empty", "-m", "i"], check=True, capture_output=True)
+        subprocess.run(g + ["-C", main, "worktree", "add", "-q", folder + "/x", "-b", "wt/x"], check=True, capture_output=True)
+        return main
+
+    def test_worktrees_folder_sees_registered_worktree_without_bin_wt(self):
+        import relay_setup
+        main = self._registered("regproj", ".worktree")
+        self.assertEqual(relay_setup.worktrees_folder(main), ".worktree")
+        self.assertEqual(relay_setup.worktrees_folder(os.path.join(main, ".worktree", "x")), ".worktree")
+
+    def test_worktrees_folder_registered_in_dot_worktrees(self):
+        import relay_setup
+        self.assertEqual(relay_setup.worktrees_folder(self._registered("regproj2", ".worktrees")), ".worktrees")
+
+    def test_setup_default_worktrees_folder_without_bin_wt(self):
+        text = self._wt_project(None)
+        self.assertIn('worktrees = ".worktrees"\n', text)
+
     def test_setup_doc_states_squash_merge_limit(self):
         # A project that squash-merges pull requests on its server gets the check records in the squashed tree, naming
         # commits of the deleted branch; relay land never squashes. The doc must say both, plainly.
@@ -695,6 +759,41 @@ class PluginInstall(Base):
         self.assertEqual(calls, [(os.path.realpath(proj), "openspec@amidman")])
         self.assertIn("installed openspec@amidman at project scope", done)
         self.assertFalse([t for t in todo if "openspec@amidman" in t])
+
+    def test_setup_todo_names_install_for_always_on_plugins_doctor_flags(self):
+        import relay_setup
+        self._registry({})
+        proj = self._proj()
+        calls = []
+        _, _, _, todo = relay_setup.setup(proj, install_runner=lambda r, k: (calls.append(k) or True, ""))
+        # always-on plugins are not installed by setup (user scope owns them), but doctor flags each
+        # one that is installed nowhere, so the to-do must carry the exact command for each
+        flagged = [n for n, ok, _ in relay_setup.doctor(proj, profile={}) if n.endswith(" installed") and not ok]
+        self.assertTrue(flagged)
+        for name in flagged:
+            key = name[: -len(" installed")]
+            self.assertTrue([t for t in todo if f"claude plugin install {key} --scope project" in t], key)
+        self.assertEqual(calls, [])
+
+    def test_setup_no_install_todo_for_always_on_plugins_installed_at_user_scope(self):
+        import relay_setup
+        keys = ["relay@amidman", "observe@amidman", "delegate@amidman", "front@amidman"]
+        self._registry({k: [{"scope": "user"}] for k in keys})
+        proj = self._proj()
+        _, _, _, todo = relay_setup.setup(proj, install_runner=lambda r, k: (True, ""))
+        # all four are installed at user scope (a set-up machine): nothing to install, no to-do
+        self.assertEqual([t for t in todo if "claude plugin install" in t or "enabled but not installed" in t], [])
+
+    def test_setup_todo_names_only_the_always_on_plugins_not_installed(self):
+        import relay_setup
+        proj = self._proj()
+        self._registry({"front@amidman": [{"scope": "project", "projectPath": os.path.realpath(proj)}]})
+        _, _, _, todo = relay_setup.setup(proj, install_runner=lambda r, k: (True, ""))
+        named = lambda k: [t for t in todo if f"claude plugin install {k} --scope project" in t]
+        # front is installed for this project; the other three are installed nowhere
+        for k in ("relay@amidman", "observe@amidman", "delegate@amidman"):
+            self.assertTrue(named(k), k)
+        self.assertEqual(named("front@amidman"), [])
 
     def test_setup_install_failure_todo_names_the_command(self):
         import relay_setup

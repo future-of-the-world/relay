@@ -32,6 +32,7 @@ import relay_config
 import relay_git
 import relay_inert
 import relay_kit
+from relay_gate_kit import settings_problems
 import relay_license
 import relay_marks
 import relay_tokens
@@ -73,9 +74,12 @@ def quick_binding(worktree):
 def refuse_bad_settings(worktree: str) -> None:
     """A branch whose .claude/kit.toml holds a mistake (an unknown key, a wrong type, a value outside the allowed ones) does not pass:
     the typo would land. The refusal names each line."""
-    problems = relay_kit.load(worktree).problems
+    try:
+        problems = settings_problems(worktree, relay_kit)
+    except RuntimeError as exc:
+        raise GateRefused(str(exc))
     if problems:
-        raise GateRefused("settings problem in the branch's .claude/kit.toml: " + "; ".join(p.line() for p in problems))
+        raise GateRefused("settings problem in the branch's .claude/kit.toml: " + "; ".join(problems))
 
 
 def binding(worktree):

@@ -1,0 +1,17 @@
+head 79d42d5ce5824e7b8ed360ff4f0abcaf0ee0af2b
+cmd bin/ci --quick
+wait 0.4
+ci: types and lint ok (1s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (512s, log: .ci/steps/library-tests.log)
+    FAIL: test_T20_failing_removal_is_named_once_next_time (test_hook_merge.Sweep.test_T20_failing_removal_is_named_once_next_time)
+        raise AssertionError(text) from error
+    AssertionError: 1 failed asserts:
+    FAILED (failures=1)
+ci: coverage 89.0% of lib, bin, plugins (15952 of 17929 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (2s)
+ci: plugin validate ok (3s)
+ran on a copy without queue, handover and check records; covers every commit with the same code
+ci: RED
+exit 1

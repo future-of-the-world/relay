@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0042,
+   "id": "ae23a0a4d74dcbb62",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T21:27:47.700Z",
+   "stop": "2026-10-30T21:35:36.528Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "relay-setup-writes-worktrees-worktrees-and-ignor",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "relay-setup-writes-worktrees-worktrees-and-ignor"
+}

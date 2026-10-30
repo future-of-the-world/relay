@@ -1997,3 +1997,38 @@ Each branch waits for its answer; then a fix unit with the review's other findin
 1. On each cycle completion fill the free lane in ip order (fixes first).
 2. After the ssh-keygen fix lands start a paid run.
 3. On the owner's return send the one message.
+
+## Addendum 41 (30-31 Oct, night; session 6c217ef4)
+
+Owner still resting since ~13:05Z 30 Oct. On return: ONE message, what landed and what waits; every question with its full intro.
+
+### Landed since addendum 40
+- Red paid run fixed (fake ssh-keygen in host tests). Paid run on 14c7f5af GREEN ($17.56), but relay sync waits: checked paths changed after it (the submodule fix).
+- New project's gate names a missing test tool; relay setup writes no absolute relay path and lists additions; setup to-do names install for always-on plugins; setup detects the worktree folder bin/wt uses (.worktree on ALIX).
+- Leftover submodule worktree cleared (duplicate item dropped); relay wrapper reads marketplace amidman; relay status 10-minute idle limit; route guard idle limit; critic-rule eval deny in disallowed_tools; guard absolute worktrees; task branches of queue- slugs; bin/wt queue- prefix.
+- The gate checks a branch's kit.toml with the branch's own relay_kit (it blocked the rename). The bin/wt template item closed as already fixed (c77fba2a).
+
+### Front decisions tonight (owner can reverse, each recorded on its item)
+- Route guard idle limit 10 minutes.
+- Signal log once per gate run in a temporary folder (sigterm item).
+- Sigterm F4 fixed by narrowing the log wording; other senders are item several-of-relay-s-own-senders-still-signal-with (start only after the sigterm change lands).
+
+### In progress
+- Sigterm change (fix of F4 running); settings rename (gate/review running as a built unit).
+
+### Ready and held for the owner (unchanged)
+- Linux vs Mac comparison (question: does the VPS take over merges); part A of work-goes-on-while-away (question: does it land); the digest.
+- Still waiting: session design rev 4 three questions (https://claude.ai/artifact/QpgowYU9Y54yo54u3Saeq3); VPS root ssh.
+
+### Paid run
+- Due again after 3 checked-path changes; then relay sync.
+
+### Known tool gaps seen tonight
+- The cycle closer passes Class.test (closed by hand with file::test).
+- relay check owner records only owner words, so a fixer's Outside on an inside finding cannot be queued without the owner (handled by fixing inside).
+- Add --from queued an already-MET finding (fact added to queue-add-from-queues-a-finding-a-check-marked-m, ip 75).
+
+### Next steps
+1. Fill free lanes in ip order (fixes first, skip the senders item until sigterm lands).
+2. Start a paid run when 3 checked-path changes are due.
+3. On the owner's return send the one message.

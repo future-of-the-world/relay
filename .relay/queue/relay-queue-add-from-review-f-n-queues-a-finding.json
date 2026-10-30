@@ -1,0 +1,40 @@
+{
+  "kind": "fix",
+  "ip": 70,
+  "time": 30,
+  "found_at": "2026-10-30T23:12:20Z",
+  "found_in": "finding F1 of review-the-bin-wt-template-that-relay-setup-writes-into.json",
+  "title": "Relay queue add --from <review> F<n> queues a finding…",
+  "what": [
+    "lib/relay_queue.py:1171: MEDIUM: F1 relay queue add --from <review> F<n> queues a finding that the branch's check already marked MET, so a fixed finding becomes a new lane (principle 2, waste)"
+  ],
+  "why": [
+    "relay queue add --from queued a review finding that the check had already marked MET (the bin/wt template, fixed on master in c77fba2a before the item was filed); a cycle then built nothing, about 4 agent runs spent (principle 2)."
+  ],
+  "failing_case": [
+    "Live, 31 Oct: review-bin-wt-new-queue-x-still-makes-wt-queue-x-which.json F1 (kind outside, templates/bin-wt:10). The fixer fixed it in",
+    "the same branch (c77fba2a); check-bin-wt-new-queue-x-still-makes-wt-queue-x-which.json records F1 \"Verdict: MET tests/test_bin_wt.py:45\".",
+    "One minute later `relay queue add --from review-...json F1` queued it as the-bin-wt-template-that-relay-setup-writes-into: accepted, no",
+    "warning. A lane was built, a worker ran, and this review ran over an empty range. Expected: refused (or warned) with a line naming the",
+    "check record that gives F1 MET and the commit that fixed it."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. A review JSON with F1 outside, and a check record of the same review (its F1 sourced from that review) with F1 MET:",
+    "   relay queue add --from <review.json> F1 --input why.toml -> refused, the message names the check file and \"MET\", no queue file written.",
+    "2. Same review, check record gives F1 NOT MET (or no check record exists): add --from queues the item as today.",
+    "3. add --from <check.json> N1 (a check's own new finding) queues as today.",
+    "4. A review JSON with F2 outside that the check marks MET while F1 is NOT MET: add --from F1 queues, add --from F2 is refused."
+  ],
+  "where": [
+    "lib/relay_queue.py:1171"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": "2026-10-30T23:12:29Z",
+  "dropped_why": [
+    "Duplicate of queue-add-from-queues-a-finding-a-check-marked-m (same defect: add --from queues a finding the check marked MET); the 30 Oct case (the bin/wt template item, fixed already in c77fba2a) is noted there."
+  ]
+}

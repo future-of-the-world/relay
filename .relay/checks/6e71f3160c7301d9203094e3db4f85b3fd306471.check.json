@@ -1,0 +1,183 @@
+{
+  "branch": "wt/a-landed-worktree-that-git-calls-a-submodule-sta",
+  "findings": [
+    {
+      "details": [
+        "29 Oct: since the land-test leak fix landed (wt/a-land-test-leaks-gate-scripts-that-load, merged), every relay land and every session start prints 'could not remove .worktrees/a-land-test-leaks-gate-scripts-that-load: working trees containing submodules cannot be moved or removed' and keeps the worktree and branch. `git submodule status` there prints nothing; no nested .git was found within 4 levels besides the worktree's own. Every landing repeats the line (principle 2: waste on every run), and relay doctor does not say what to do (principle 10).",
+        "Also: plugins/relay/hooks/session_start.py",
+        "Also: tests/test_land.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay land of any branch prints 'kept .worktrees/a-land-test-leaks-gate-scripts-that-load: git refused to remove it' and the session start prints 'could not remove ... working trees containing submodules cannot be moved or removed', every time, with no next step."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the leftover worktree and its merged branch are gone after one relay land or relay doctor run",
+        "a merged worktree that git refuses to remove is reported once with its cause and the command that clears it",
+        "a merged worktree without nested repositories is removed as today"
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_land.py:764 test_an_empty_modules_folder_is_cleared_and_the_worktree_goes passed; failed on base."
+      ],
+      "severity": "HIGH",
+      "since": "3f621b267f09a275cf9663aeab8da2c2248266d8",
+      "source": "queue",
+      "summary": "A landed worktree that git calls a submodule stays",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by tracing: sweep() (merge.py:629) takes the logged failures, then for every task worktree that removable() accepts",
+        "(merged, own commits, clean) spawns remove_child again; remove_child (569) logs the failure again on every call, so each",
+        "session start reports the previous start's failure. landed_mode (700) runs clean() for [branch] + riders(); riders() (433)",
+        "returns every wt/ branch with own commits whose tip is an ancestor of the landing branch, which a merged-but-kept branch always",
+        "is once the landing branch took the default branch; clean() returns the \"kept ...\" line each time. The brief's own facts",
+        "(5 of 5 landing logs ending with the kept line) are this mechanism. The item's pass case 2 says \"reported once\"; the item's Why",
+        "cites principle 2 (waste on every run), which the project rules rate MEDIUM for waste that repeats on every run. The new",
+        "wording names the cause and the command, which meets half of pass case 2; the \"once\" half has no code and no test.",
+        "Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "merge.py:647-653  if not removable(...): continue ... going.append((path, branch)); spawn_remove(path, branch)",
+        "merge.py:576-579  reason = remove_worktree(main, path); if reason: log_line(main, \"could not remove %s: %s\" ...)",
+        "merge.py:708-711  for name in [branch] + riders(main, branch): line = clean(...); if line: print(line)",
+        "tests/test_land.py:772-781 (refused case) calls cleanup() once and asserts nothing about a second call."
+      ],
+      "failing_case": [
+        "A merged worktree wt/x whose .git/worktrees/x/modules/sub/HEAD is a file (a real clone, so it is not cleared).",
+        "Session 1 start: sweep finds it removable, spawns remove_child, which fails and logs \"could not remove .worktrees/x: git",
+        "refused to remove it: ... run: git -C <main> worktree remove --force <path>\".",
+        "Session 2 start: take_failures prints that line, the sweep spawns the removal again, it fails and logs it again.",
+        "Session 3, 4, ...: the same long line every start. Likewise every `relay land` of any later branch lists wt/x as a rider",
+        "(its tip is inside the landing branch) and prints \"kept .worktrees/x: git refused to remove it: ...; branch wt/x kept\".",
+        "Now: the line repeats on every run (only its wording changed). Should: reported once (pass case 2 of the item), then silent",
+        "until something about it changes."
+      ],
+      "fix_hint": [
+        "Remember a refusal as a dated fact keyed by worktree path and reason (e.g. a line in the git common dir next to",
+        "relay-cleanup.log, or reuse that log's \"seen\" state), and have sweep/remove_child and clean() skip the line (and the retry",
+        "spawn) while the same path still gives the same reason; or skip the retry altogether while <gitdir>/modules holds files and",
+        "name it once. Add a test that calls the cleanup twice and sees the line only the first time."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 578,
+      "pass_cases": [
+        "1. Worktree with a file under <gitdir>/modules, merged: first session start (after the detached removal ran) shows the",
+        "   \"could not remove ... worktree remove --force ...\" line; the second and third session starts show no line for it.",
+        "2. Same worktree: the first `merge.py landed <main> <other>` whose riders include wt/x prints the \"kept ... --force\" line;",
+        "   a second landing prints nothing for wt/x.",
+        "3. Once the person clears modules/ (or runs the --force command), the next land or session start removes the worktree and",
+        "   branch and says \"Removed ...\" (as test_an_empty_modules_folder_is_cleared_and_the_worktree_goes).",
+        "4. A worktree without nested repositories is removed as today (test_a_worktree_without_nested_repositories_is_removed_as_before).",
+        "5. A different refusal for the same worktree later (another reason) is reported once again."
+      ],
+      "path": "plugins/relay/hooks/merge.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_land.py:783 and :796 pass; fail on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "b8f449dd722f9b232cc467bc3f213db5aee00cc7",
+      "source": "review-a-landed-worktree-that-git-calls-a-submodule-sta.json",
+      "source_id": "F1",
+      "summary": "a worktree git still refuses is reported again on every relay land and every session start, not once",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: git's validate_no_submodules refuses for a modules/ folder OR a populated gitlink in the index; remove_worktree",
+        "attributes every \"submodule\" refusal to the first. Reachable only when a committed gitlink is on the default branch, so rare;",
+        "the brief listed \"a gitlink in the index\" as one of the causes to tell apart. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "temp repo: git add nested (own .git) -> `git ls-files -s`: 160000 a0a7cf69... nested; ls .git/worktrees/w/ has no modules;",
+        "git worktree remove -> \"fatal: working trees containing submodules cannot be moved or removed\", rc=128."
+      ],
+      "failing_case": [
+        "A branch commits a nested repository `nested` (git add of a folder holding its own .git: index entry 160000, no",
+        ".git/worktrees/<name>/modules folder). After its merge, `git worktree remove` refuses with \"working trees containing",
+        "submodules cannot be moved or removed\" (reproduced in a temp repo, rc=128). Now: the line says \"(a repository is cloned under",
+        "its git folder)\", which is false, and the --force command would delete <worktree>/nested with its own history. Should: name",
+        "the nested repository at its path (or say the cause is not known) and the step to keep it."
+      ],
+      "fix_hint": [
+        "Pick the wording from what is on disk: modules/ exists under the git folder -> current text; else list index entries of mode",
+        "160000 (`git -C <wt> ls-files -s`) and name their paths."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 545,
+      "pass_cases": [
+        "1. Empty <gitdir>/modules: cleared, worktree removed (existing test).",
+        "2. A file under <gitdir>/modules: the line names the git folder's modules/ and the --force command (existing test).",
+        "3. No modules/ folder, a gitlink `nested` with nested/.git in the worktree: the line names `nested` (not \"cloned under its git",
+        "   folder\"), and nothing is removed."
+      ],
+      "path": "plugins/relay/hooks/merge.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_land.py:804 passes; fails on base."
+      ],
+      "severity": "LOW",
+      "since": "b8f449dd722f9b232cc467bc3f213db5aee00cc7",
+      "source": "review-a-landed-worktree-that-git-calls-a-submodule-sta.json",
+      "source_id": "F2",
+      "summary": "the refusal names 'a repository is cloned under its git folder' also when the cause is a nested repository committed in the worktree",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (not reproduced: depends on the git build's translations and the locale). The fact to check is on disk (the",
+        "modules/ folder), which principle 5 prefers to matching message text. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "merge.py:539  if done.returncode != 0 and \"submodule\" in done.stderr and clear_empty_modules(path):",
+        "merge.py:544  if \"submodule\" in reason:"
+      ],
+      "failing_case": [
+        "git built with gettext and run with LANG=ru_RU.UTF-8 prints the refusal translated (no word \"submodule\"). Now: the empty",
+        "modules/ is never cleared and the old one-line refusal repeats. Should: an empty <gitdir>/modules is cleared whatever the",
+        "locale."
+      ],
+      "fix_hint": [
+        "Call clear_empty_modules(path) on any non-zero exit (it already returns False when there is no modules/ folder), or run git",
+        "with LC_ALL=C for this call."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 539,
+      "pass_cases": [
+        "1. LANG=C, empty modules/: cleared, removed (existing test).",
+        "2. A translated git message (simulated by checking the folder, not the text), empty modules/: cleared, removed.",
+        "3. A file under modules/: nothing deleted, refusal named."
+      ],
+      "path": "plugins/relay/hooks/merge.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_land.py:817 passes; fails on base."
+      ],
+      "severity": "LOW",
+      "since": "b8f449dd722f9b232cc467bc3f213db5aee00cc7",
+      "source": "review-a-landed-worktree-that-git-calls-a-submodule-sta.json",
+      "source_id": "F3",
+      "summary": "the empty-modules clearing only runs when git's message contains the English word 'submodule'",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "cc4abd4323323bfc057279cad77389f87b470780.gate.log",
+  "head": "6e71f3160c7301d9203094e3db4f85b3fd306471",
+  "item": "a-landed-worktree-that-git-calls-a-submodule-sta",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Ran precheck (green), test_land + test_hook_merge (98 passed). Gate log is for cc4abd43; relay changed lists no file after it. Own changed files: merge.py, tests/test_land.py, test_hook_merge.py only. Base worktree at 3f621b267f09 with head tests: 7 failed."
+  ],
+  "type": "check"
+}

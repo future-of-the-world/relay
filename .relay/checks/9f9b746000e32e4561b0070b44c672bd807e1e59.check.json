@@ -1,0 +1,87 @@
+{
+  "branch": "wt/the-relay-wrapper-looks-up-extraknownmarketplace",
+  "findings": [
+    {
+      "details": [
+        "The relay wrapper looks up extraKnownMarketplaces.relay, but the marketplace has been named amidman since 28 Oct, so it always falls back to ~/relay: on a machine where relay lives elsewhere the wrapper runs the wrong copy."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Relay checked out at /opt/relay, `relay setup --global` run (user settings hold extraKnownMarketplaces.amidman.source.path = /opt/relay),",
+        "RELAY_ROOT unset, no ~/relay. A session's `relay ...` on PATH runs the wrapper: jq '.extraKnownMarketplaces.relay.source.path' is empty,",
+        "root = ~/relay, and it fails \"relay: repository not found\". Expected: it runs /opt/relay/bin/relay."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 9,
+      "pass_cases": [
+        "User settings with extraKnownMarketplaces.amidman.source.path = <dir with bin/relay>, RELAY_ROOT unset -> the wrapper execs <dir>/bin/relay.",
+        "RELAY_ROOT=<dir> set -> it uses RELAY_ROOT regardless of settings.",
+        "No settings file and ~/relay present -> falls back to ~/relay."
+      ],
+      "path": "plugins/front/bin/relay",
+      "rank": "high",
+      "reason": [
+        "tests/test_hook_bin_relay.py::WrapperLookup::test_settings_marketplace_path passes at head and fails at 4410a1727cba (empty stdout)."
+      ],
+      "severity": "HIGH",
+      "since": "4410a1727cbab1769a15832c8c776546b77da58e",
+      "source": "queue",
+      "summary": "The relay wrapper looks up extraKnownMarketplaces.relay\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the wrapper's key (plugins/front/bin/relay:9) and the test's settings key (line 122) are both literals; setup builds",
+        "the key from marketplace()[0]. The bug fixed here came from exactly this: the 28 Oct rename missed this one place (principle 6, the same",
+        "kind of failure: check_always_on() already exists for \"a rename that missed one place\"). Correct today, so LOW; cheap to close.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [
+        "$ grep -n 'def marketplace' -A6 lib/relay_setup.py -> returns data[\"name\"] from MARKETPLACE_FILE",
+        "$ head -3 .claude-plugin/marketplace.json -> \"name\": \"amidman\"",
+        "tests/test_hook_bin_relay.py:122: data = {\"extraKnownMarketplaces\": {\"amidman\": ...}}"
+      ],
+      "failing_case": [
+        "Rename the marketplace in .claude-plugin/marketplace.json from \"amidman\" to \"x\" (setup then writes extraKnownMarketplaces.x).",
+        "Today: WrapperLookup still writes settings under \"amidman\" and passes, while the real wrapper reads .amidman, finds nothing and falls",
+        "back to ~/relay: the same bug this change fixes, undetected. Expected: a test goes red, naming the wrapper."
+      ],
+      "fix_hint": [
+        "In the test, read the name from .claude-plugin/marketplace.json (json.load, key \"name\") and use it for the settings key; the wrapper may",
+        "stay a literal. Alternatively the wrapper reads the name with jq from \"$root\"-independent marketplace.json beside the plugin, but the",
+        "test-side tie is the smaller fix."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 122,
+      "pass_cases": [
+        "WrapperLookup.settings() writes the entry under the name read from .claude-plugin/marketplace.json (lib/relay_setup.marketplace()[0]);",
+        "with the wrapper reading .amidman and marketplace.json named \"amidman\", the three WrapperLookup tests pass.",
+        "marketplace.json name changed to \"x\", wrapper unchanged -> test_settings_marketplace_path fails.",
+        "RELAY_ROOT set -> wrapper uses it regardless of settings (unchanged)."
+      ],
+      "path": "tests/test_hook_bin_relay.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_hook_bin_relay.py:122 settings key now read from marketplace.json; a rename turns the test red (fixer showed it with name x)."
+      ],
+      "severity": "LOW",
+      "since": "7ca163faa755453eb055b949f952c26c2144b9fb",
+      "source": "review-the-relay-wrapper-looks-up-extraknownmarketplace.json",
+      "source_id": "F1",
+      "summary": "the wrapper and its test both hard-code the marketplace name amidman; a next rename in .claude-plugin/marketplace.json breaks the wrapper again with every test green",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "26ad820306b454a64fff24a661a58d64b3282e22.gate.log",
+  "head": "9f9b746000e32e4561b0070b44c672bd807e1e59",
+  "item": "the-relay-wrapper-looks-up-extraknownmarketplace",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range 4410a1727cba..HEAD; files: plugins/front/bin/relay, tests/test_hook_bin_relay.py. Precheck and 3 test files pass (55 passed). Gate head 26ad8203 exit 0; only gate logs after."
+  ],
+  "type": "check"
+}

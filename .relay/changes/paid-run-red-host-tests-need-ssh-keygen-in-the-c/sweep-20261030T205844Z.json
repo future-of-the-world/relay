@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0049,
+   "id": "a6e4a7aea1df88dd4",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T19:42:55.707Z",
+   "stop": "2026-10-30T19:56:46.210Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "paid-run-red-host-tests-need-ssh-keygen-in-the-c",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "paid-run-red-host-tests-need-ssh-keygen-in-the-c"
+}
