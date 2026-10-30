@@ -23,8 +23,8 @@
     "lib/relay_lanes.py:293-301",
     "lib/relay_queue.py drop"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T23:53:53Z",
+  "taken_by": "wt/a-dropped-item-s-empty-worktree-still-holds-a-la",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
