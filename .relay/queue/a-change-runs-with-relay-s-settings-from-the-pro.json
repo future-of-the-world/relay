@@ -110,6 +110,17 @@
         "3. Что ты имеешь ввиду, можешь показать пример",
         "4. Можем ли мы использовать это просто как skill, кажется что это внешнее, мы можем использовать это как и любой другой skill"
       ]
+    },
+    {
+      "asked_at": "2026-10-30T11:00:07Z",
+      "question": [
+        "Grilling stays outside relay (owner, 30 Oct). How does a project-only session reach it?"
+      ],
+      "options": [
+        "a. a project that wants it keeps its own copy in the project's skills folder, in that project's git; it travels with the project (recommended)",
+        "b. the launcher passes the owner's personal skills folder through: grilling, synced and tauri load in every relay session, on this Mac only",
+        "c. not in relay sessions at all; grilling is used in plain claude sessions outside relay projects"
+      ]
     }
   ]
 }
