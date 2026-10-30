@@ -121,6 +121,12 @@
         "b. the launcher passes the owner's personal skills folder through: grilling, synced and tauri load in every relay session, on this Mac only",
         "c. not in relay sessions at all; grilling is used in plain claude sessions outside relay projects"
       ]
+    },
+    {
+      "at": "2026-10-30T11:00:08Z",
+      "fact": [
+        "Memory option b needs no copying: probe p7 of the design (30 Oct) showed --settings {\"autoMemoryDirectory\": <folder>} makes Claude Code read and write memory in the given folder. The launcher can point it at a folder inside the project (for example .relay/memory/), kept in git. Front recommendation moved from a to b on the owner's planned full move to Linux (the notes are keyed to the Mac path /Users/amidman/relay and would not be found under /home/...). Cost of b not re-measured."
+      ]
     }
   ]
 }
