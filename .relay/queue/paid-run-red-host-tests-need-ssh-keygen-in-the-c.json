@@ -19,8 +19,8 @@
     "lib/relay_hosts.py",
     "tests/test_gate_hosts.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T19:17:30Z",
+  "taken_by": "wt/paid-run-red-host-tests-need-ssh-keygen-in-the-c",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
