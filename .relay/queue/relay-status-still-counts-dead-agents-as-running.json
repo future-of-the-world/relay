@@ -26,8 +26,8 @@
   "where": [
     "lib/relay_analyze.py:637"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T19:47:27Z",
+  "taken_by": "wt/relay-status-still-counts-dead-agents-as-running",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
