@@ -216,6 +216,16 @@
       "reading": [
         "Option a: the VPS ai.amidman.com decides the gates run while a change is built; the Mac runs only the landing gate. This replaces the 29 Oct rule \"the Mac decides every gate\" for build-time gates; the landing gate on the Mac still decides the merge."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T16:59:45Z",
+      "question": [
+        "Does the Linux gate on the VPS take over the merge decision by itself? The item promised on 27 Oct: after 3 waves in which Linux and Mac agree, the container decides. Design rev 2 dropped that switch on its own; the review (F9) says the choice is the owner's."
+      ],
+      "options": [
+        "a. Show the agreement counts only; the Mac gate decides merges until the owner says to switch (recommended: no Linux result exists yet, so agreement and Linux flakiness are not measured)",
+        "b. The VPS decides after 3 agreeing waves, as promised on 27 Oct: about 60 more agent minutes, and a break seen only on the Mac can land"
+      ]
     }
   ]
 }
