@@ -27,5 +27,60 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T02:11:23Z",
+      "fact": [
+        "Front decision (owner can reverse; measure before recommending): the change's one open finding (Gap: the rate at which the front starts a critic is not measured) is settled by a 10-run bench of scenario review-offbyone on the branch's rules, about $3-8, before any landing. Baseline on master rules: no critic in 5 of 12 runs (29-30 Oct)."
+      ]
+    },
+    {
+      "at": "2026-10-30T02:32:54Z",
+      "fact": [
+        "Bench 2026-10-30T02-11-19Z (scenario review-offbyone, 5 runs on the branch's rules, $0.71 a run): the front started a critic in 5 of 5 runs (grader delegated-to-a-critic passed every run), against 7 of 12 on master rules (29-30 Oct). The off-by-one bug was found in 1 of 5 runs with the Opus critic; earlier benches: Opus critic 1 of 2, Fable critic 5 of 5."
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T02:32:55Z",
+      "question": [
+        "Does the bench (the front started a critic in 5 of 5 runs with the new rule, 7 of 12 without) settle the change's open Gap, so the change lands?"
+      ],
+      "options": [
+        "a. Yes, land it.",
+        "b. Run 10 more runs first (about $7, 20 min)."
+      ],
+      "answered_at": "2026-10-30T02:37:33Z",
+      "answer": [
+        "- a. Да, отправить (рекомендую): 5 из 5 против 7 из 12 — явная разница."
+      ],
+      "reading": [
+        "Option a: the bench settles the Gap; the change lands."
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T02:32:56Z",
+      "question": [
+        "Switch the reviewer (critic) from Opus to Fable? Bench on the off-by-one scenario: Fable found the bug in 5 of 5 runs, Opus in 2 of 7; review is $86.63 of $356.51 agent cost this week (24%), and Fable costs about twice Opus per token."
+      ],
+      "options": [
+        "a. Switch the critic to Fable after 10 runs on the cheap set confirm no other job gets worse (about $10).",
+        "b. Switch now.",
+        "c. Keep Opus."
+      ],
+      "answered_at": "2026-10-30T02:38:01Z",
+      "answer": [
+        "- a. Перевести на Fable после 10 прогонов на общем наборе дешёвых сценариев, чтобы убедиться, что другие работы не стали хуже, примерно за $10 (рекомендую)."
+      ],
+      "reading": [
+        "Option a: bench the critic on Fable against Opus over the cheap scenario set (about 10 runs, about $10); adopt Fable for the critic if no other job gets worse."
+      ]
+    },
+    {
+      "at": "2026-10-30T03:00:18Z",
+      "fact": [
+        "Front decision on the owner's \"a\" (owner can reverse): adopted profile judge-fable (critic on Fable) on 30 Oct. Cheap-set bench 2026-10-30T02-38-10Z: lookup and small-script equal quality (cost +0% and +15%); add-function Fable 1 of 2, its failed run only because the grader read the main tree after a worktree build (fix item bench-graders-read-the-main-tree-after-a-worktree, ip 87); add-function cost +60% with Fable. The sync waits for the paid run started on master f05643e2."
+      ]
+    }
+  ]
 }

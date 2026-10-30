@@ -11,9 +11,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def copy_gate(tree):
     """bin/ci is a wrapper of lib/relay_ci.py: both go into the temporary tree."""
-    for rel in (("bin", "ci"), ("lib", "relay_ci.py"), ("lib", "relay_ci_lines.py"), ("lib", "relay_ci_python.py"), ("lib", "relay_ci_probe.py")):
-        os.makedirs(os.path.join(tree, rel[0]), exist_ok=True)
-        shutil.copy(os.path.join(ROOT, *rel), os.path.join(tree, *rel))
+    os.makedirs(os.path.join(tree, "bin"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(tree, "bin", "ci"))
+    # relay_ci imports relay_precheck, which imports a chain of lib modules (tokens, config, toml): the whole lib
+    shutil.copytree(os.path.join(ROOT, "lib"), os.path.join(tree, "lib"), ignore=shutil.ignore_patterns("__pycache__"))
     shutil.copy(os.path.join(ROOT, "deps.toml"), os.path.join(tree, "deps.toml"))   # bin/ci reads the python pin from it
     # the fast "types and lint" step runs first and ends a red gate: a stub that passes keeps these trees reaching the step under test
     stub = os.path.join(tree, "bin", "types-lint")
@@ -26,6 +27,9 @@ def run_ci(args, drop=(), env_extra=None):
     tmp = tempfile.mkdtemp()
     try:
         copy_gate(tmp)
+        # the "plugin lib links" step reads HEAD of the tree: a tree that is no git repository fails it and ends the gate before the hook step
+        for c in (["init", "-q"], ["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x"]):
+            subprocess.run(["git"] + c, cwd=tmp, check=True, capture_output=True)
         d = os.path.join(tmp, "tests"); os.makedirs(d)
         with open(os.path.join(d, "hooks_live.py"), "w") as f:
             f.write("print('STUB-RAN hooks-live')\n")

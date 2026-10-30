@@ -1,0 +1,127 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1047,
+   "id": "ac6e11fcc38047056",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T00:08:50.141Z",
+   "stop": "2026-10-30T00:09:43.899Z"
+  },
+  {
+   "cost_usd": 0.0044,
+   "id": "ae8e28a6baa721523",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T00:09:57.685Z",
+   "stop": "2026-10-30T00:25:21.950Z"
+  },
+  {
+   "cost_usd": 0.5007,
+   "id": "a02ea55a2ef35a59d",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T00:25:24.727Z",
+   "stop": "2026-10-30T00:27:01.583Z"
+  },
+  {
+   "cost_usd": 0.1408,
+   "id": "adbd85f13ec64b170",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T00:27:04.258Z",
+   "stop": "2026-10-30T00:28:59.920Z"
+  },
+  {
+   "cost_usd": 0.0048,
+   "id": "a1fffb8cc7dad8160",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T00:29:02.717Z",
+   "stop": "2026-10-30T00:50:32.028Z"
+  },
+  {
+   "cost_usd": 0.1105,
+   "id": "a0404367d952bb6b6",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T00:50:34.634Z",
+   "stop": "2026-10-30T00:51:33.119Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a9db82cc83ebadb16",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T00:51:35.582Z",
+   "stop": "2026-10-30T00:51:47.257Z"
+  },
+  {
+   "cost_usd": 0.0019,
+   "id": "a10e192286ae10e0d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T00:51:49.598Z",
+   "stop": "2026-10-30T00:52:05.740Z"
+  }
+ ],
+ "before": "71c062368195ac60e01002a1ebb13392dba07b09",
+ "branch": "wt/a-close-runner-refuses-on-the-run-s-firs",
+ "head": "03efe753ef5cd321b747c4c65d8a3fa77cfe8a6b",
+ "item": "a-close-runner-refuses-on-the-run-s-first-messag",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T14:39:55+00:00",
+   "file": "plugins/delegate/workflows/cycle.js",
+   "holder": "wt/each-change-records-its-stage-times-cost",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-29T23:24:54+00:00",
+   "file": "plugins/delegate/workflows/cycle.js",
+   "holder": "wt/a-dead-workflow-agent-leaves-no-error-te",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T00:52:17+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T01:11:06+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T01:39:07+00:00",
+   "gate_seconds": 1582.4864363749512,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "a-close-runner-refuses-on-the-run-s-first-messag"
+}

@@ -114,12 +114,12 @@ class ArchiveAfterTheMark(ArchiveBase):
             if "ls-tree" in cmd:
                 return subprocess.CompletedProcess(cmd, 128, "", "boom")
             return real(cmd, *a, **k)
-        relay_inert.subprocess.run = broken
+        relay_inert.relay_git.subprocess.run = broken
         try:
             with self.assertRaises(ValueError):
                 relay_inert.changed(self.repo, mark, "HEAD", archive=True)
         finally:
-            relay_inert.subprocess.run = real
+            relay_inert.relay_git.subprocess.run = real
 
 
 RELAY = os.path.join(os.path.dirname(HERE), "bin", "relay")

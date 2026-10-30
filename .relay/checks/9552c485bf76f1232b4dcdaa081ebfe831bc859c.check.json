@@ -1,0 +1,183 @@
+{
+  "branch": "wt/relay-metrics-has-no-time-window",
+  "findings": [
+    {
+      "details": [
+        "The owner asked for stage and gate times over the last hours and expected the metrics command to answer; it groups only by ISO week, so \"the last few hours\" cannot be asked. Its absence from `relay help` is item every-new-relay-command-edits-bin-relay."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "30 Oct 2026: `bin/relay metrics` prints only \"2026-W44:\" with one block for the whole week; no option narrows it to hours."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 459,
+      "pass_cases": [
+        "`relay metrics --since 12h --by hour` prints one block per hour with per-stage median and total, gate time, cost per unit; an empty hour prints a line saying so.",
+        "An unknown option is refused with the usage line, not a traceback."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_metrics_window.py test_coverage_outside_the_window_makes_no_block passes at head, fails at a3dc221d."
+      ],
+      "severity": "HIGH",
+      "since": "a3dc221d05d9ef827018c556d5f633cca42c2bb5",
+      "source": "queue",
+      "summary": "relay metrics has no time window",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED live. summary() filters agents, land rows and front days through inside(), but coverage_by_week(main, rev, label) returns every gate log in history keyed by bucket label, and its keys go straight into `buckets`. The new tests mock coverage_by_week to {} so they pass with the leak. This breaks the brief's pass case (\"one block per hour\" for the window) on the plain use the item exists for. Size: 15."
+      ],
+      "evidence": [
+        "$ bin/relay metrics --since 2026-10-29T12:00 --until 2026-10-29T13:00 --by hour | grep ':$'",
+        "2026-10-29T11: 2026-10-29T12: 2026-10-29T13: 2026-10-29T14: 2026-10-29T16: 2026-10-29T17: 2026-10-29T18: 2026-10-29T21: 2026-10-29T22: 2026-10-29T23: 2026-10-30T00:",
+        "$ bin/relay metrics --since 3h --by hour   (date -u: 00:59)",
+        "2026-10-29T11:",
+        "  coverage: median 89.3% over 2 gates"
+      ],
+      "failing_case": [
+        "30 Oct 2026 00:59 UTC, live repo: `bin/relay metrics --since 2026-10-29T12:00 --until 2026-10-29T13:00 --by hour` prints 11 blocks (2026-10-29T11 through 2026-10-30T00), most holding only a \"coverage:\" line; it should print one block, 2026-10-29T12. `--since 3h --by hour` likewise prints 10 blocks starting at 2026-10-29T11 instead of hours 21-00."
+      ],
+      "fix_hint": [
+        "Let coverage_by_week take the inside() predicate (or return (stamp, value) pairs) and keep only commits whose time is inside the window; add a test that does not mock coverage_by_week to {} but returns a bucket outside the window."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 425,
+      "pass_cases": [
+        "1. records with an agent at 10:05 and a gate log committed at 08:30; summary(since=\"3h\", by=\"hour\", now=13:00) prints blocks only for 10, 11, 12; no 08 block and no coverage from 08:30.",
+        "2. a gate log committed at 10:20 with coverage 85%: the 10 block of the same call ends \"  coverage: median 85.0% over 1 gates\".",
+        "3. no window (`relay metrics`): coverage by week as today (test_summary_... week expectation unchanged).",
+        "4. --until 11:00 with a gate log at 11:30: no coverage counted for 11."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_metrics_window.py:32 and :37 pass; both fail at 6633976c."
+      ],
+      "severity": "HIGH",
+      "since": "3fd93eb2a3d4b379c82cbc1733dfb0c2392f3df1",
+      "source": "review-relay-metrics-has-no-time-window.json",
+      "source_id": "F1",
+      "summary": "coverage is not cut by --since/--until: a window prints blocks for every past hour or day that had a gate log",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED live. low > high makes inside() false for everything and _bucket_labels returns [], so the output is silently empty. Size: 5."
+      ],
+      "evidence": [
+        "$ bin/relay metrics --since 1d --until 2d --by day; echo rc=$?",
+        "records: 198; units: 195",
+        "2026-10-29:",
+        "  coverage: median 89.6% over 32 gates",
+        "...",
+        "rc=0"
+      ],
+      "failing_case": [
+        "`bin/relay metrics --since 1d --until 2d --by day` (since = now-1d, until = now-2d) exits 0 and prints only the header (plus leaked coverage, F1); a person who swapped the two gets \"nothing happened\" instead of a refusal. Expected: refused with a message naming both times and the usage line, exit 2."
+      ],
+      "fix_hint": [
+        "In summary(), raise ValueError(\"--since ... is after --until ...\") when low is not None and low >= high; main already turns it into the usage refusal."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 398,
+      "pass_cases": [
+        "1. --since 1d --until 2d: stderr names that --since is after --until, usage line, exit 2.",
+        "2. --since 2d --until 1d --by day: two day blocks, exit 0.",
+        "3. --since 2026-10-29T10:00 --until 2026-10-29T10:00: refused the same way (empty window) or one explicit \"nothing recorded\"; pick one and test it."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_metrics_window.py:45 (reversed and empty refused) and :53 (forward window) pass; :45 fails at 6633976c."
+      ],
+      "severity": "MEDIUM",
+      "since": "3fd93eb2a3d4b379c82cbc1733dfb0c2392f3df1",
+      "source": "review-relay-metrics-has-no-time-window.json",
+      "source_id": "F2",
+      "summary": "a reversed window (--since after --until) is accepted and answered as an empty report with exit 0",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED live. Correct output, only slow and unreadably long; a set for seen labels and computing the filled set once fixes the time. Size: 5."
+      ],
+      "evidence": [
+        "( bin/relay metrics --since 2024-01-01 --by hour | wc -l; )  9.15s user ... 10.486 total -> 50069"
+      ],
+      "failing_case": [
+        "`bin/relay metrics --since 2024-01-01 --by hour | wc -l` -> 50069 lines in 10.5 s. _bucket_labels checks `label(t) not in out` on a list, and the loop rebuilds the set of filled buckets and rescans all stage/cost items for every bucket."
+      ],
+      "fix_hint": [
+        "Use a seen set in _bucket_labels and compute `filled = {...}` once before the loop; optionally cap the bucket count."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 364,
+      "pass_cases": [
+        "1. --since 2024-01-01 --by hour finishes in under 2 s (or is refused as too many buckets with a hint to use --by day).",
+        "2. --since 12h --by hour: same output as today."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_metrics_window.py:57 passes, but it also passes unfixed (weak guard); code uses a seen set and a filled set computed once."
+      ],
+      "severity": "LOW",
+      "since": "3fd93eb2a3d4b379c82cbc1733dfb0c2392f3df1",
+      "source": "review-relay-metrics-has-no-time-window.json",
+      "source_id": "F3",
+      "summary": "long hourly windows are quadratic: --since 2024-01-01 --by hour takes 10 s and prints 50k lines",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED live. Clarity only. Also note: the first bucket of a relative window (and the first day with --since 1d) is partial yet labelled like a full one, and its front cost (keyed at 00:00) is dropped; worth one line in the output or docstring. Size: 5."
+      ],
+      "evidence": [
+        "bin/relay metrics --since 3h --by hour (block 2026-10-29T22)"
+      ],
+      "failing_case": [
+        "Live block 2026-10-29T22: \"  gate: 3 agents, median 8.2 min, p90 15.7 min, total 28.9 min\" and later \"  gate: 2 runs, total 13.1 min\". A reader cannot tell which is the gate time the owner asked for, and they disagree (28.9 vs 13.1)."
+      ],
+      "fix_hint": [
+        "Rename the landing line; optionally mark a partial first bucket."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 442,
+      "pass_cases": [
+        "1. the landing line reads distinctly, e.g. \"  gate runs at landing: 2, total 13.1 min\".",
+        "2. the stage line for stage \"gate\" stays as it is."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_metrics.py updated for the label \"gate runs at landing\"; passes."
+      ],
+      "severity": "LOW",
+      "since": "3fd93eb2a3d4b379c82cbc1733dfb0c2392f3df1",
+      "source": "review-relay-metrics-has-no-time-window.json",
+      "source_id": "F4",
+      "summary": "two different numbers share the label `gate:` in one block (the gate stage's agent minutes and the landing gate runs)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "049c9728c4d1a8742f5d58696b4db860152c9b4c.gate.log",
+  "head": "9552c485bf76f1232b4dcdaa081ebfe831bc859c",
+  "item": "relay-metrics-has-no-time-window",
+  "notes": [
+    "test_long_hourly_window_is_fast_and_unique passes at the pre-fix commit too, so it is a weak guard for F3 (fixer said so)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Ran pytest tests/test_metrics.py tests/test_metrics_window.py (37 passed) and relay precheck (green). Gate log head 049c9728 exit 0; HEAD only adds that log. Changed files: lib/relay_metrics.py, tests/test_metrics.py, tests/test_metrics_window.py only. Window test file run at base a3dc221d (6 fail) and 6633976c (3 fail: coverage x2, reversed window)."
+  ],
+  "type": "check"
+}

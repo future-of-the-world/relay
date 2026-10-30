@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 87,
+  "time": 30,
+  "found_at": "2026-10-30T03:00:23Z",
+  "found_in": "relay queue add",
+  "title": "Bench graders read the main tree after a worktree build",
+  "what": [
+    "Scenario graders that read files find the change where relay's rules put it: either the scenario's prompt says the change is merged when done, or the grader reads the newest task branch (git show <branch>:path) when the main tree lacks it. Check every scenario under evals/scenarios for the same shape."
+  ],
+  "why": [
+    "Bench 2026-10-30T02-38-10Z, scenario add-function, profile judge-fable run 1: the session succeeded (worker, critic, fixer, checker ran; 14 turns, $1.51), the worker built removeItem on branch wt/remove-item in .worktrees/remove-item and left the merge to the owner, as relay's rules say; the graders grep src/shelf.ts in the main tree and failed. The score fell 0.20 for a reason unrelated to the setup under test, and nearly blocked the owner's Fable decision."
+  ],
+  "failing_case": [
+    "~/.relay/bench/2026-10-30T02-38-10Z: judge-fable add-function run 1 failed function-exists and test-written (grep -q 'export function removeItem' src/shelf.ts in the main tree, exit 1) while the function existed on wt/remove-item at ac97752."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A replay of that run's workspace with the change only on a task branch passes function-exists and test-written.",
+    "A run with no function anywhere still fails them."
+  ],
+  "where": [
+    "evals/scenarios/add-function/scenario.toml:20-27",
+    "evals/scenarios/small-script/scenario.toml"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
