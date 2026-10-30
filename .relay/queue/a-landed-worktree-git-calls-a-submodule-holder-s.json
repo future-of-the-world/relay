@@ -26,6 +26,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-30T21:10:33Z",
+  "dropped_why": [
+    "Duplicate of a-landed-worktree-that-git-calls-a-submodule-sta (same leftover worktree, same git refusal), which landed on master on 30 Oct 2026 at 84cadde6; its facts were carried into that item's brief."
+  ]
 }
