@@ -1,0 +1,84 @@
+{
+  "branch": "wt/paid-run-red-host-tests-need-ssh-keygen-in-the-c",
+  "findings": [
+    {
+      "details": [
+        "Paid run on master 065ffa05, 30 Oct 2026: ci RED, the clean-image quick gate failed and the paid evals were not started. The Mac gate passes because macOS has ssh-keygen.",
+        "Also: tests/test_gate_hosts.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "bin/ci on master 065ffa05: clean image quick gate FAILED; 4 errors in test_gate_hosts.Add, each FileNotFoundError: [Errno 2] No such file or directory: 'ssh-keygen'."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [],
+      "path": "lib/relay_hosts.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate_hosts.py:Add setUp fake ssh-keygen; with ssh-keygen absent from PATH the base tests fail 5 (add tests), the head tests pass them."
+      ],
+      "severity": "HIGH",
+      "since": "a9b72811f8663d7519be96cd95b102185802016c",
+      "source": "queue",
+      "summary": "Paid run red: host tests need ssh-keygen in the clean image",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the fake's loop keeps only the value after -f; nothing logs or asserts the other arguments, and no other test",
+        "calls the real ssh-keygen. Correct today, so LOW: it is a coverage loss the fake introduced, cheap to close by having the fake append",
+        "its \"$@\" to a file and asserting it in the first Add test. Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "grep -rn keygen lib bin tests templates -> only lib/relay_hosts.py:129,131 and the fake in tests/test_gate_hosts.py:68-72.",
+        "Fake body: while [ $# -gt 0 ]; do [ \"$1\" = -f ] && out=\"$2\"; shift; done  (all other arguments dropped)"
+      ],
+      "failing_case": [
+        "Change lib/relay_hosts.py:129 to drop \"-N\", \"\" (or change -t ed25519 to -t dsa, or -f to the wrong path suffix that the fake still",
+        "writes). Today: tests/test_gate_hosts.py Add passes, because the fake ignores every argument except -f. With the real program, the",
+        "missing -N makes ssh-keygen ask for a passphrase and the unattended gate key is never made (or has a passphrase ssh -i cannot use",
+        "in BatchMode). Before this change the Mac gate ran the real program and would have shown it. Should: a test fails."
+      ],
+      "fix_hint": [
+        "In the fake, add: echo \"$@\" >> \"$(dirname \"$0\")/ssh-keygen.calls\"; in test_add_proves_..., read that file and assert",
+        "\"-t ed25519 -N  -C relay-gate -f <key_path>\" (or split and check the pairs)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 70,
+      "pass_cases": [
+        "1. relay_hosts.add(HOST, \"relay-gate\", ...) with the fake on PATH: the fake records its argv; the test asserts it contains",
+        "   \"-t\", \"ed25519\", \"-N\", \"\" and \"-f\", <home>/keys/gate-host -> passes at HEAD.",
+        "2. The same with \"-N\", \"\" removed from relay_hosts.py -> the test fails.",
+        "3. The four Add tests stay green with no ssh-keygen installed (stub exiting 127 placed after the fake on PATH).",
+        "4. Optional: when shutil.which finds a real ssh-keygen outside the fake bin, a test runs ensure_key against it and the .pub starts",
+        "   with \"ssh-ed25519 \" (skipped in the clean image)."
+      ],
+      "path": "tests/test_gate_hosts.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_hosts.py:83 asserts -t ed25519, -N empty, -f key path; passes at head."
+      ],
+      "severity": "LOW",
+      "since": "9ef521a4d12b9f29d486caa8003e369836a77ffd",
+      "source": "review-paid-run-red-host-tests-need-ssh-keygen-in-the-c.json",
+      "source_id": "F1",
+      "summary": "with the real ssh-keygen replaced, no test checks the arguments ensure_key passes it (ed25519, empty passphrase, -f key path)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "f7ac81e0923272103ad7873b4647e1b35def3d40.gate.log",
+  "head": "6b79abf828a1f827e25eafccb2a1ee008110692a",
+  "item": "paid-run-red-host-tests-need-ssh-keygen-in-the-c",
+  "notes": [
+    "Fix is test-only (fake ssh-keygen on the fake PATH); lib unchanged, which matches the problem (tests needed a binary absent from the image)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Changed files own: tests/test_gate_hosts.py only. Gate log is for f7ac81e, relay changed lists nothing after it, exit 0. Ran tests/test_gate_hosts.py at head: 13 passed. Simulated the clean image with a PATH holding all of /bin and /usr/bin except ssh-keygen: base commit a9b72811 with base tests 5 failed; head tests 12 passed, 1 failed (Cli test, fails on an import in my restricted-PATH python, unrelated to ssh-keygen)."
+  ],
+  "type": "check"
+}

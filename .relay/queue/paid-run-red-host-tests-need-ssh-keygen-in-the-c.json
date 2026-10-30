@@ -21,8 +21,8 @@
   ],
   "taken_at": "2026-10-30T19:17:30Z",
   "taken_by": "wt/paid-run-red-host-tests-need-ssh-keygen-in-the-c",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T19:42:38Z",
+  "test": "tests/test_gate_hosts.py::Add::test_add_proves_the_host_installs_the_program_and_records_it_without_building_or_gating",
   "dropped_at": null,
   "dropped_why": null
 }
