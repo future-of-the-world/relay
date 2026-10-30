@@ -53,7 +53,7 @@ SCHEMA: Schema = {
     "coordination": {"mode": Field("str", "leadless")},
     "rules": {"lanes": Field("int", 4, bounds=(1, 8)), "wave_min": Field("int", 3, bounds=(1, 6)),
               "load": Field("strlist", []), "read": Field("strlist", [])},
-    "specs": {"method": Field("str", "none")},
+    "specs": {"method": Field("str", "none", choices=("none", "openspec"))},   # the spec method plugins: plugins/*/flow.json with "slot": "specs"
     "flow": {"kind": Field("str", "none"), "plugin": Field("str", "")},
     "delegate": {
         "typed_only": Field("bool", True),
@@ -64,7 +64,7 @@ SCHEMA: Schema = {
         "label_guard": Field("str", "deny", choices=("deny", "note", "off")),
     },
     "observe": {"log_prompts": Field("bool", False)},
-    "metrics": {"enabled": Field("bool", True), "coverage": Field("str", "every"),
+    "metrics": {"enabled": Field("bool", True), "coverage": Field("str", "every", choices=("every", "landing", "off")),
                 "sweep_quiet_min": Field("int", 60, bounds=(10, 1440), outside="clamp")},
     "front": {"feature_lanes": Field("int", 0, bounds=(0, 8)),   # out of bounds: 0, as relay_lane_features does
               "ask_reminder_days": Field("int", 7, bounds=(1, 30), outside="clamp"),
@@ -175,7 +175,7 @@ def parse(text: str, path: str = KIT_PATH) -> Kit:
     return Kit(path, values, raw, tuple(problems), None)
 
 
-_cache: dict[str, tuple[float, Kit]] = {}
+_cache: dict[str, tuple[tuple[int, int], Kit]] = {}
 
 
 def load(root: str) -> Kit:
@@ -183,7 +183,8 @@ def load(root: str) -> Kit:
     One parse per file and modification time in a process."""
     path = os.path.join(root or ".", KIT_PATH)
     try:
-        stamp = os.stat(path).st_mtime_ns
+        info = os.stat(path)
+        stamp = (info.st_mtime_ns, info.st_size)
     except OSError:
         return parse("", path)
     hit = _cache.get(path)
@@ -253,6 +254,18 @@ def env_problems(environ: dict[str, str]) -> list[Problem]:
         else:
             out.append(Problem(f"env {name}", "", "is not a setting relay knows", ""))
     return [p for p in out if p]
+
+
+def note(kit: Kit, *sections: str) -> Optional[str]:
+    """The text a hook puts in its context for the problems of `sections` (and the file's syntax error), or None."""
+    return say(kit.problems_of(*sections))
+
+
+def say(problems: list[Problem]) -> Optional[str]:
+    """The settings note for `problems`, or None when there are none."""
+    if not problems:
+        return None
+    return "Settings note: " + "; ".join(p.line() for p in problems) + ". Fix the line; relay doctor lists every problem."
 
 
 _said: set[str] = set()

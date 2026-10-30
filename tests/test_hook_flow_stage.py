@@ -24,6 +24,16 @@ class FlowStage(SoftCases):
         with open(os.path.join(self.proj, ".claude", "kit.toml"), "w") as handle:
             handle.write(text)
 
+    def test_a_flow_kind_no_plugin_binds_is_said_in_the_context(self) -> None:
+        # F2 (design test 23): `kind = "jria"` is a typo of a plugin; the hook used to stay silent
+        self.write_kit('[flow]\nkind = "jria"\n')
+        said = json.loads(self.out())["hookSpecificOutput"]["additionalContext"]
+        self.assertIn(".claude/kit.toml [flow] kind = 'jria'", said)
+
+    def test_a_syntax_error_in_kit_toml_is_said_in_the_context(self) -> None:
+        self.write_kit('[flow\nkind =')
+        self.assertIn(".claude/kit.toml cannot be read", json.loads(self.out())["hookSpecificOutput"]["additionalContext"])
+
     def test_no_binding_silent(self) -> None:
         self.assertEqual(self.out(), "")
 

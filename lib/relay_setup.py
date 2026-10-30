@@ -19,8 +19,9 @@ import sys
 import tomllib
 
 import relay_config
+import relay_kit
 import relay_license
-from relay_config import ROOT, bindings_path, claude_dir, load_bindings, read_toml
+from relay_config import ROOT, bindings_path, claude_dir, read_toml
 
 STACKS = [
     ("bun.lock", "typescript", "bun"), ("bun.lockb", "typescript", "bun"), ("pnpm-lock.yaml", "typescript", "pnpm"),
@@ -86,7 +87,7 @@ def detect(root):
     d["default_branch"] = default_branch(root)
     d["openspec"] = os.path.isdir(os.path.join(root, "openspec"))
     d["has_bindings"] = os.path.isfile(bindings_path(root))
-    d["bindings"] = load_bindings(root)
+    d["bindings"] = relay_kit.load(root).raw      # the parsed file as written (setup edits it); wrong values are shown by doctor
     d["scripts"] = {s: os.path.isfile(os.path.join(root, "bin", s)) for s in ("check", "ci", "wt")}
     d["claude_md"] = os.path.isfile(os.path.join(root, "CLAUDE.md"))
     d["handover"] = os.path.isfile(os.path.join(root, "docs", "handover.md"))

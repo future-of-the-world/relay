@@ -19,8 +19,8 @@ sys.path.insert(0, HERE)
 
 from test_gate import Fixture, git, write  # noqa: E402
 
-import relay_config  # noqa: E402
 import relay_coverage  # noqa: E402
+import relay_kit  # noqa: E402
 import relay_queue  # noqa: E402
 import relay_labels  # noqa: E402
 import relay_land  # noqa: E402
@@ -535,10 +535,14 @@ class Coverage(unittest.TestCase):
     def test_landing_mode_measures_only_the_gate_relay_land_runs(self):
         with tempfile.TemporaryDirectory() as root:
             write(os.path.join(root, ".claude", "kit.toml"), '[metrics]\ncoverage = "landing"\n')
-            cfg = relay_config.load_bindings(root)
-            self.assertEqual(relay_coverage.effective_mode(cfg, {"RELAY_LAND": "1"}), "every")
-            self.assertEqual(relay_coverage.effective_mode(cfg, {}), "off")
-            self.assertEqual(relay_coverage.effective_mode({}, {}), "every")
+            kit = relay_kit.load(root)
+            self.assertEqual(relay_coverage.effective_mode(kit, {"RELAY_LAND": "1"}), "every")
+            self.assertEqual(relay_coverage.effective_mode(kit, {}), "off")
+            self.assertEqual(relay_coverage.effective_mode(relay_kit.parse(""), {}), "every")
+            # a mode relay does not know is the default (every) and a problem naming the key
+            wrong = relay_kit.parse('[metrics]\ncoverage = "sometimes"\n')
+            self.assertEqual(relay_coverage.effective_mode(wrong, {}), "every")
+            self.assertIn("[metrics] coverage", wrong.problems[0].line())
 
     def test_off_and_no_uv_leave_the_plain_run(self):
         self.assertEqual(self.run_tests(0, mode="off")[0], (None, None))

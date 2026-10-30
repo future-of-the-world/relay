@@ -90,6 +90,21 @@ class Land(Fixture):
 
 
 class Landing(Land):
+    def test_a_wrong_land_setting_is_said_once_on_stderr_and_the_landing_goes_on(self):
+        # F3 (design test 25): land_tries = 9 is outside 1..3; the landing used 3 without a word before
+        self.start(kit_extra="\n[land]\nland_tries = 9\n")
+        run = self.land()
+        line = "relay: .claude/kit.toml [land] land_tries = 9 is outside 1..3; used 3"
+        self.assertEqual(run.stderr.count(line), 1, run.stderr)
+        # owner decision (a): the gate refuses a branch whose kit.toml has a problem, so this landing stops there, after saying it
+        self.assertIn("land_tries", run.stdout + run.stderr)
+
+    def test_a_right_land_setting_says_nothing(self):
+        self.start(kit_extra="\n[land]\nland_tries = 2\n")
+        run = self.land()
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertNotIn("kit.toml", run.stderr)
+
     def test_land_takes_gates_lands(self):
         # master moved by code: the take is a code take, the gate runs once on it, and master ends at the branch head
         self.start()

@@ -117,26 +117,31 @@ class KitSchema(unittest.TestCase):
         self.assertTrue(kit.problems[0].line().endswith("used 0"), kit.problems[0].line())
         self.assertEqual(relay_kit.parse("[front]\nfeature_lanes = 3\n").problems, ())
 
-    def test_schema_matches_the_readers_own_tables(self) -> None:
-        import relay_land
+    def test_schema_matches_the_readers_own_constants(self) -> None:
+        # the bounds live in SCHEMA only; what a reader still names itself must agree
         import relay_lanes
-        import relay_metrics
         import relay_rules
-        hooks = os.path.join(ROOT, "plugins", "front", "hooks")
-        sys.path.insert(0, hooks)
-        try:
-            import ask_waiting
-        finally:
-            sys.path.remove(hooks)
-        tables = {"land": relay_land.SETTINGS, "front": dict(relay_lanes.SETTINGS), "metrics": relay_metrics.SETTINGS}
-        tables["front"]["ask_reminder_days"] = ask_waiting.DAYS
-        tables["front"]["ask_reminder_lines"] = ask_waiting.LINES
-        for section, table in tables.items():
-            for key, (default, low, high) in table.items():
-                spec = relay_kit.SCHEMA[section][key]
-                self.assertEqual((spec.default, spec.bounds), (default, (low, high)), f"{section}.{key}")
         self.assertEqual(relay_kit.SCHEMA["rules"]["lanes"].bounds, (1, relay_rules.LANES_MAX))
         self.assertEqual(relay_kit.SCHEMA["rules"]["wave_min"].bounds, (1, relay_rules.WAVE_MIN_MAX))
+        self.assertEqual(relay_kit.SCHEMA["front"]["lanes_line_items"].bounds[1], relay_lanes.LINE_ITEMS_MAX)
+
+    def test_no_second_parser_of_kit_toml_settings(self) -> None:
+        # F3: design decision 4. The dict readers and the per-module bound tables are gone; every reader takes the Kit.
+        import subprocess
+        out = subprocess.run(["git", "-C", ROOT, "grep", "-n", "-e", "load_bindings", "-e", "relay_config.get(", "-e", "def setting(",
+                              "--", "lib", "plugins", "bin"], capture_output=True, text=True).stdout
+        self.assertEqual(out, "")
+
+    def test_warn_prints_a_problem_once_per_process(self) -> None:
+        import contextlib
+        import io
+        kit = relay_kit.parse("[land]\nland_tries = 9\n")
+        relay_kit._said.clear()
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            relay_kit.warn(kit, "land")
+            relay_kit.warn(kit, "land")
+        self.assertEqual(err.getvalue(), "relay: .claude/kit.toml [land] land_tries = 9 is outside 1..3; used 3\n")
 
     def test_metrics_problem_reaches_the_route_guard_settings(self) -> None:
         with tempfile.TemporaryDirectory() as root:
