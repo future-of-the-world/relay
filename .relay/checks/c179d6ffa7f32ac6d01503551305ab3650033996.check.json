@@ -1,0 +1,127 @@
+{
+  "branch": "wt/the-cycle-script-ignores-an-unknown-argu",
+  "findings": [
+    {
+      "details": [
+        "Measured 27 Oct: the front resumed the change cycle (plugins/delegate/workflows/cycle.js) with `gate_fixes: 2` at the top level of args instead of under `settings`; the script ignored the key without a word, replayed every stage from cache in 8 ms and stopped at the same red gate, so one run was wasted and the cause was found only by reading the script. Principle 10: a refusal names the next step."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Workflow with cycle.js and args {base, relay, scratch, items, gate_fixes: 2} runs as if gate_fixes were 1, with no message."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "An unknown top-level key stops the run in one line before any agent starts, naming the key and where it belongs (for a known setting: 'gate_fixes goes under settings').",
+        "Known keys and settings run as today.",
+        "tests/test_cycle_workflow.py covers the refusal and fails with the check disabled."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "high",
+      "reason": [
+        "tests/test_cycle_workflow.py::test_unknown_top_level_arg_is_refused_before_any_agent passes, fails at base 3dc9b3e9."
+      ],
+      "severity": "HIGH",
+      "since": "3dc9b3e94c8741887153a4075c60223ada72c7c2",
+      "source": "queue",
+      "summary": "The cycle script ignores an unknown argument silently",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a probe. CFG = Object.assign({}, DEFAULTS, A.settings || {}) copies any key; refusal() checks only the keys in",
+        "BOUNDS and gate_args, so a misspelt setting is dropped without a word. This is the same failure the item measured (a run",
+        "replayed with a setting that never took effect, cause found only by reading the script), one level down, and the queue",
+        "item's title is \"ignores an unknown argument silently\": settings are args. Principle 10 (a refusal names the next step);",
+        "principle 2 (a wasted run). The fix is in the same function the change edited. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "bun plugins/delegate/tests/fake-workflow.js run plugins/delegate/workflows/cycle.js s.json",
+        "with settings {\"gate_fix\":2}:",
+        "{\"events\":[{\"event\":\"start\",\"label\":\"build: u\",\"phase\":\"Build\",\"agentType\":\"delegate:worker\", ..."
+      ],
+      "failing_case": [
+        "args {base: \"master\", relay: true, scratch: S, items: [{name: \"u\", wt: \"/w\", check: \"c\", branch: \"b\"}],",
+        "settings: {gate_fix: 2}} -> no refusal; the build agent starts and the run behaves as gate_fixes 1, with no message.",
+        "Should be: refused in one line naming gate_fix and the known settings (gate_turns, gate_fixes, gate_reruns, retry_dead,",
+        "gate_args), no agent started."
+      ],
+      "fix_hint": [
+        "In refusal(), after the top-level loop: for (const k of Object.keys(A.settings || {})) if (!(k in DEFAULTS)) return",
+        "`refused: unknown setting ${k} (known: ${Object.keys(DEFAULTS).join(', ')})`. Use Object.hasOwn(DEFAULTS, k) for both",
+        "checks. Add the case to the new test."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 30,
+      "pass_cases": [
+        "1. settings {gate_fix: 2} -> result.refused names \"gate_fix\" and lists the known settings; labels == [].",
+        "2. settings {gate_fixes: 2} -> runs as today (no refusal, gate_fixes 2 used).",
+        "3. settings {gate_reruns: 3} -> refused \"setting gate_reruns must be a whole number from 0 to 2\" as today.",
+        "4. top-level gate_fixes: 2 -> refused \"gate_fixes goes under settings\" as in the new test."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "test_unknown_setting_and_unit_field_are_refused_before_any_agent passes, fails at base; cycle.js settings check."
+      ],
+      "severity": "MEDIUM",
+      "since": "fb3a94b5266f50a26a53e1d4310704af1df28ab5",
+      "source": "review-the-cycle-script-ignores-an-unknown-argu.json",
+      "source_id": "F1",
+      "summary": "an unknown key under settings (a typo such as gate_fix) is still ignored silently and the run starts",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE as a reachable mistake, CONFIRMED by reading: the unit loop checks required fields per kind but never refuses",
+        "an unknown one, so an optional field misspelt (item, branch in project mode, review in a design) is dropped. Outside the",
+        "item's literal pass cases (top level), hence LOW; cheap to add with a field list per kind from the header comment.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "cycle.js:63-81: unit checks test only wt, check, branch, fix, fixes, findings, built per kind; no Object.keys(it) check."
+      ],
+      "failing_case": [
+        "relay mode, items [{name: \"u\", wt: \"/w\", check: \"c\", branch: \"b\", itme: \"some-slug\"}] -> no refusal; the cycle runs and,",
+        "having no it.item, never closes the queue item. Should be: refused \"unit u has an unknown field itme\"."
+      ],
+      "fix_hint": [
+        "A per-kind field list (name, kind, wt, check, branch, item, built, fix, fixes, findings) and one loop over Object.keys(it)",
+        "refusing the rest; the same for designs (name, brief, out, review)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 66,
+      "pass_cases": [
+        "1. unit with itme -> refused naming itme; labels == [].",
+        "2. unit {name, wt, check, branch, item} (change) -> runs as today.",
+        "3. kind fix with {fix, fixes, findings} -> runs as today."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "low",
+      "reason": [
+        "Same test covers the unit-field refusal; cycle.js UNIT_KEYS check."
+      ],
+      "severity": "LOW",
+      "since": "fb3a94b5266f50a26a53e1d4310704af1df28ab5",
+      "source": "review-the-cycle-script-ignores-an-unknown-argu.json",
+      "source_id": "F2",
+      "summary": "an unknown key in a unit (e.g. itme for item) is ignored silently, so a queue item is not closed",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "113b2892ce46f7b9618d13ebee9ecb3127642dc9.gate.log",
+  "head": "c179d6ffa7f32ac6d01503551305ab3650033996",
+  "item": "the-cycle-script-ignores-an-unknown-argument-sil",
+  "notes": [
+    "UNIT_KEYS and DESIGN_KEYS cover every field cycle.js reads (it.* and d.*)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range fb3a94b5..HEAD; only cycle.js and test_cycle_workflow.py changed. Ran pytest tests/test_cycle_workflow.py (51 passed); gate log head 113b2892 exit 0, only an inert gate commit after. Standalone precheck not rerun (gate green). Both new tests fail at the pre-fix commit 3dc9b3e9 with the new test file copied in."
+  ],
+  "type": "check"
+}
