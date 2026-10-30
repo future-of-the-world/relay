@@ -18,8 +18,8 @@
   ],
   "taken_at": "2026-10-30T05:54:50Z",
   "taken_by": "wt/one-digest-per-wave-instead-of-status-me",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T07:37:06Z",
+  "test": "tests/test_digest.py::test_closed_on_a_branch_before_the_event_and_merged_after_it_is_listed_once",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
