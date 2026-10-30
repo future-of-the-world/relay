@@ -694,6 +694,12 @@ def cmd_land(args):
             if args[0] == "--waiting":
                 print("\n".join(relay_land_waits.waiting(main)))
             elif args[0] == "--hold":
+                if relay_git.git(main, "rev-parse", "--verify", "-q", "refs/heads/" + args[1])[0] != 0:
+                    _rc, listing = relay_git.git(main, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+                    like = [b for b in listing.split() if args[1] in b]
+                    raise ValueError(f"land: no branch {args[1]} exists, so a hold on it would stop nothing"
+                                     + (f"; branches whose name contains it: {', '.join(sorted(like))}" if like else "")
+                                     + "; name the branch exactly (relay land --hold <branch> \"<the owner's words>\")")
                 relay_land_waits.hold(main, args[1], args[2])
                 print(f"{args[1]} is on hold: relay land {args[1]} now exits 5 until relay land --release {args[1]}")
             else:

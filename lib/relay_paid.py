@@ -21,7 +21,7 @@ import relay_git
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 KINDS = ("started", "synced")
-FREE, GOING, STOPPED, WAITS_SYNC, RED = "free", "going", "stopped", "waits_sync", "red"
+FREE, GOING, STOPPED, WAITS_SYNC, RED, NOT_JUDGED = "free", "going", "stopped", "waits_sync", "red", "not_judged"
 
 
 @dataclass
@@ -34,7 +34,7 @@ class PaidEvent:
 
 @dataclass
 class State:
-    name: str               # free | going | stopped | waits_sync | red
+    name: str               # free | going | stopped | waits_sync | red | not_judged
     since: str              # the ts of the record that decided it, "" for free
     line: str               # one plain line naming what to do
 
@@ -116,14 +116,23 @@ def _when(text: str) -> Optional[datetime]:
     return stamp if stamp.tzinfo else stamp.replace(tzinfo=timezone.utc)
 
 
-def real_judge(data: dict[str, Any]) -> bool:
-    """bin/eval-record's own verdict (is_green)."""
+def _eval_record_module() -> Any:
     loader = SourceFileLoader("eval_record", os.path.join(ROOT, "bin", "eval-record"))
     spec = importlib.util.spec_from_loader("eval_record", loader)
     assert spec is not None
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
-    return bool(module.is_green(data))
+    return module
+
+
+def real_judge(data: dict[str, Any]) -> bool:
+    """bin/eval-record's own verdict (is_green)."""
+    return bool(_eval_record_module().is_green(data))
+
+
+def real_failed(data: dict[str, Any]) -> bool:
+    """True when a case failed its majority (a FAIL line of bin/eval-record's report); False for a record that is only not judged or partial."""
+    return any(line.startswith("    FAIL") for line in _eval_record_module().report(data, ""))
 
 
 def evals_folder(repo: str, home: Optional[str] = None) -> str:
@@ -155,7 +164,7 @@ def _record_of(folder: str, default: str, started: PaidEvent) -> Optional[tuple[
 
 
 def state(repo: str, home: Optional[str] = None, alive: Callable[[int], bool] = pid_alive,
-          judge: Callable[[dict[str, Any]], bool] = real_judge) -> State:
+          judge: Callable[[dict[str, Any]], bool] = real_judge, failed: Callable[[dict[str, Any]], bool] = real_failed) -> State:
     """The paid run's state, computed from the records (table of design 5.4)."""
     events = read_events(repo)
     starts = [e for e in events if e.kind == "started"]
@@ -170,7 +179,9 @@ def state(repo: str, home: Optional[str] = None, alive: Callable[[int], bool] = 
         return State(STOPPED, started.ts, f"the paid run begun {started.ts} ended without a verdict: start the paid run again")
     end, data = found
     if not judge(data):
-        return State(RED, started.ts, f"the paid run begun {started.ts} was red")
+        if failed(data):
+            return State(RED, started.ts, f"the paid run begun {started.ts} was red")
+        return State(NOT_JUDGED, started.ts, f"the paid run begun {started.ts} was not judged (cost ceiling, runs not judged or a partial batch): run the paid run again on the same head")
     synced = [e for e in events if e.kind == "synced" and (_when(e.ts) or end) >= end]
     if synced:
         return State(FREE, synced[-1].ts, "no paid run is going")

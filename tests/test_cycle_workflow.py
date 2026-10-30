@@ -760,6 +760,25 @@ class Cycle(unittest.TestCase):
         for words in ("merge question screen", "digest", "reply rules", "Example that is true", "Example that is false", "fixer\\'s or a worker\\'s instructions"):
             self.assertIn(words, text)
 
+    def test_f4_the_delegate_skill_says_the_cycle_lands_in_relay_mode(self):
+        text = open(os.path.join(ROOT, "plugins", "delegate", "skills", "delegate", "SKILL.md")).read()
+        self.assertNotIn("It does not land a change", text)
+        for words in ("lands a ready unit itself", "`land: false`", "`land_fixes`", "`land_reruns`", "every kind also takes `land`"):
+            self.assertIn(words, text)
+        self.assertNotIn("The front's `relay land` takes it", text)
+
+    def test_f3_the_person_facing_eval_cases_carry_the_definition_the_checker_gets(self):
+        """The paid cases (evals/plugin/person-facing-*) ask the model the field with the script's own description: a drift
+        between the two would test a text the checker never sees."""
+        text = open(SCRIPT).read()
+        definition = re.search(r"const PERSON_FACING = '(.*)'\n", text).group(1).replace("\\'", "'")
+        for name in ("person-facing-true", "person-facing-false-ru", "person-facing-false-reply-word"):
+            prompt = open(os.path.join(ROOT, "evals", "plugin", name, "prompt.md"), encoding="utf-8").read()
+            self.assertIn(definition, prompt, name)
+
+    def test_f6_person_facing_also_covers_what_the_people_of_a_product_project_see(self):
+        self.assertIn("whose product has screens or texts for people", open(SCRIPT).read())
+
     def test_a_land_fixer_whose_recheck_is_person_facing_stops_before_the_second_land(self):
         yes = dict(GREEN["stage:check"], person_facing=True)
         out = self.run_cycle(self.largs([self.unit()]), **{"stage:land": self.landed(3, "c"), "stage:check": {"$seq": [GREEN["stage:check"], yes]}})
@@ -789,6 +808,26 @@ class Cycle(unittest.TestCase):
         out = self.run_cycle(self.largs([self.unit(branch=None)], relay=False))
         self.assertFalse([lb for lb in out["labels"] if lb.startswith("land")])
         self.assertTrue(out["result"]["changes"][0]["ready"])
+
+    def test_f1_the_land_command_writes_its_own_exit_code_and_the_prompts_read_it_from_the_last_log_line(self):
+        """A detached process's exit status cannot be read by a later shell: the command is wrapped so its log ends with
+        `relay land exit <n>`; both the land runner and the recovery runner (step 1 and step 4) read that line."""
+        wrapper = "sh -c 'relay land wt/x -C %s; echo \"relay land exit $?\"'" % self.wt
+        out = self.run_cycle(self.largs([self.unit()]))
+        self.assertIn(wrapper, out["prompts"]["land 1: x"])
+        self.assertIn("relay land exit <n>", out["prompts"]["land 1: x"])
+        land = {"land 1: x": {"$throw": "died"}, "land 2: x": self.landed(0, "landed wt/x")}
+        out = self.run_cycle(self.largs([self.unit()], settings={"retry_dead": 0}), **land)
+        p = out["prompts"]["land 2: x"]
+        self.assertIn("relay land exit <n>", p.split("2. Read the start time")[0])         # step 1 reads the line
+        self.assertIn(wrapper, p.split("4. Otherwise run")[1])                              # step 4 starts the wrapped command
+
+    def test_f1_exit_0_reports_the_line_that_starts_landed_even_when_more_lines_come_first_or_after(self):
+        lines = "cleanup: removed wt/x\nlanded wt/x on master at abc123 (gate 9.0 min)\nclosed: i"
+        out = self.run_cycle(self.largs([self.unit(item="the-item")]), **{"stage:land": self.landed(0, lines)})
+        self.assertEqual(out["result"]["changes"][0]["landed"], "landed wt/x on master at abc123 (gate 9.0 min)")
+        out = self.run_cycle(self.largs([self.unit(item="the-item")]), **{"stage:land": self.landed(0, "something else only")})
+        self.assertEqual(out["result"]["changes"][0]["landed"], "something else only")
 
     def test_dead_land_runner_gets_one_recovery_runner_with_four_steps_in_order(self):
         """A runner that dies is followed by one recovery runner (land 2) whose prompt lists the four steps in this order; its

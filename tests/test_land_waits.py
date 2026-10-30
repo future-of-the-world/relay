@@ -36,10 +36,12 @@ class Waits(Land):
     def started(self, pid, head="a" * 40):
         relay_paid.record(self.main, PaidEvent("started", START, head=head, pid=pid))
 
-    def eval_record(self, partial, head="a" * 40):
+    def eval_record(self, partial, head="a" * 40, failed=False):
         folder = relay_paid.evals_folder(self.main, self.env["RELAY_HOME"])
+        # failed: one case whose only run fails a code grader, so its majority fails (a FAIL line in bin/eval-record's report)
+        cases = [{"name": "c", "arms": {"a": [{"graders": [{"name": "g", "passed": False}]}]}}] if failed else []
         write(os.path.join(folder, "r.json"), json.dumps({"startedAt": "2026-10-30T10:01:00.000Z", "durationSeconds": 60, "partial": partial,
-                                                         "cases": [], "head": head, "branch": "master"}))
+                                                         "cases": cases, "head": head, "branch": "master"}))
 
     def outcomes(self):
         return [e.outcome for e in self.done()]
@@ -62,6 +64,16 @@ class Hold(Waits):
         self.hold_cmd("--release", "wt/x")
         run = self.land()
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+
+    def test_a_hold_on_a_name_that_is_no_branch_is_refused_and_writes_no_event(self):
+        """The slug without `wt/` is a slip the owner can make: the hold would be read by nothing and wt/x would land."""
+        self.start()
+        run = self.hold_cmd("--hold", "x", "wait")
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        self.assertIn("no branch x exists", run.stdout + run.stderr)
+        self.assertIn("wt/x", run.stdout + run.stderr)          # the branch whose name contains it
+        self.assertEqual(self.events(), [])
+        self.assertEqual(self.land().returncode, 0)
 
     def test_a_hold_on_another_branch_does_not_stop_this_one(self):
         self.start()
@@ -140,6 +152,39 @@ class Paid(Waits):
         self.touch_paid()
         self.assertEqual(self.land().returncode, 0)
 
+    def test_an_error_of_paid_cost_touches_refuses_and_does_not_land(self):
+        """Exit 2 of `bin/paid-cost touches` is an error, not "touches no paid path": during a going run the landing is refused."""
+        from unittest import mock
+        import relay_land_waits
+        self.start()
+        self.started(os.getpid())
+        stub = os.path.join(self.tmp, "paid-cost-stub.py")
+        write(stub, "import sys\nprint('boom', file=sys.stderr)\nsys.exit(2)\n")
+        with mock.patch.object(relay_land_waits, "PAID_COST", stub):
+            with self.assertRaises(relay_land.Stop) as caught:
+                relay_land_waits.check(self.main, "master", "wt/x")
+        self.assertEqual(caught.exception.outcome, relay_land.REFUSED)
+        self.assertIn("cannot tell whether wt/x touches the paid paths: boom", "\n".join(caught.exception.lines))
+
+    def test_paid_cost_touches_exits_2_on_an_error(self):
+        self.start()
+        run = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "paid-cost"), "touches", "nosuch-ref", "--repo", self.main],
+                             capture_output=True, text=True, env=self.env)
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+
+    def test_a_record_that_was_not_judged_is_not_red_and_paid_fix_is_refused(self):
+        self.start()
+        self.touch_paid()
+        self.started(1, head=self.master())
+        self.eval_record(True, head=self.master())           # partial, no case failed: not judged
+        run = self.land()
+        self.assertEqual(run.returncode, 6, run.stdout + run.stderr)
+        self.assertIn("not judged", run.stdout)
+        self.assertIn("run the paid run again on the same head", run.stdout)
+        self.assertNotIn("the fix item lands", run.stdout)
+        run = self.land("wt/x", "--paid-fix")
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+
     def test_green_before_sync_waits_and_after_sync_lands(self):
         self.start()
         self.touch_paid()
@@ -163,7 +208,7 @@ class Paid(Waits):
         self.start()
         self.touch_paid()
         self.started(1, head=self.master())
-        self.eval_record(True, head=self.master())
+        self.eval_record(False, head=self.master(), failed=True)
         run = self.land()
         self.assertEqual(run.returncode, 6, run.stdout + run.stderr)
         self.assertIn("--paid-fix", run.stdout)

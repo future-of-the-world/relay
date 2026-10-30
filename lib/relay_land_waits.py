@@ -60,7 +60,10 @@ def unanswered(main: str, branch: str) -> Optional[str]:
 
 
 def touches_paid_paths(main: str, branch: str) -> bool:
+    """True when `bin/paid-cost touches` lists files (exit 0), False when it lists none (exit 1); any other exit is an error and refuses."""
     done = subprocess.run([sys.executable, PAID_COST, "touches", branch, "--repo", main], capture_output=True, text=True)
+    if done.returncode not in (0, 1):
+        raise Stop(REFUSED, [f"land: cannot tell whether {branch} touches the paid paths: {(done.stderr or done.stdout).strip()}"])
     return done.returncode == 0
 
 
@@ -84,7 +87,8 @@ def check(main: str, default: str, branch: str, paid_fix: bool = False) -> None:
     how = {relay_paid.RED: f"; the fix item lands with relay land {branch} --paid-fix, the others after the next green run",
            relay_paid.GOING: f"; relay land {branch} again when it ends",
            relay_paid.WAITS_SYNC: f"; then relay land {branch}",
-           relay_paid.STOPPED: f"; then relay land {branch}"}[paid.name]
+           relay_paid.STOPPED: f"; then relay land {branch}",
+           relay_paid.NOT_JUDGED: f"; then relay land {branch} (no fix item: --paid-fix does not apply)"}[paid.name]
     raise Stop(WAITS_PAID, [f"land: {branch} touches the paid run's paths and {paid.line}{how}"])
 
 

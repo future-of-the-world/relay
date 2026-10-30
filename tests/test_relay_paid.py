@@ -51,8 +51,8 @@ class Repo(unittest.TestCase):
         data = {"startedAt": started_at, "durationSeconds": seconds, "partial": partial, "cases": [], "head": head or self.head, "branch": branch}
         write(os.path.join(folder, name + ".json"), json.dumps(data))
 
-    def state(self, alive=DEAD, judge=GREEN):
-        return relay_paid.state(self.main, self.home, alive, judge)
+    def state(self, alive=DEAD, judge=GREEN, failed=REDV):
+        return relay_paid.state(self.main, self.home, alive, judge, failed)
 
 
 class State(Repo):
@@ -91,7 +91,9 @@ class State(Repo):
         self.started()
         self.evals("a", partial=True)
         relay_paid.record(self.main, PaidEvent("synced", "2026-10-30T10:20:00+00:00", head=self.head))
-        self.assertEqual(self.state(judge=REDV).name, "red")
+        self.assertEqual(self.state(judge=REDV, failed=GREEN).name, "red")           # a case failed its majority
+        self.assertEqual(self.state(judge=REDV, failed=REDV).name, "not_judged")     # only not judged (ceiling, partial batch)
+        self.assertIn("run the paid run again on the same head", self.state(judge=REDV, failed=REDV).line)
 
     def test_a_record_of_an_earlier_run_does_not_answer_a_newer_start(self):
         # the earlier run began 09:00 and was green; a new run started 10:00 on the same head has no record yet
@@ -109,7 +111,12 @@ class State(Repo):
         # bin/eval-record's own rule: not partial and no failing case is a pass, partial is not
         self.started()
         self.evals("a", partial=True)
-        self.assertEqual(relay_paid.state(self.main, self.home, DEAD).name, "red")
+        self.assertEqual(relay_paid.state(self.main, self.home, DEAD).name, "not_judged")     # partial, no FAIL line
+        self.evals("a2", started_at="2026-10-30T10:01:30.000Z", partial=True)
+        data = json.load(open(os.path.join(relay_paid.evals_folder(self.main, self.home), "a2.json")))
+        data["cases"] = [{"name": "c", "arms": {"a": [{"graders": [{"name": "g", "passed": False}]}]}}]
+        write(os.path.join(relay_paid.evals_folder(self.main, self.home), "a2.json"), json.dumps(data))
+        self.assertEqual(relay_paid.state(self.main, self.home, DEAD).name, "red")             # a case failed its majority
         self.evals("b", started_at="2026-10-30T10:02:00.000Z")
         self.assertEqual(relay_paid.state(self.main, self.home, DEAD).name, "waits_sync")
 

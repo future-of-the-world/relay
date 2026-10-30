@@ -50,7 +50,7 @@ const LAND = { type: 'object', properties: {
   lines: { type: 'string', description: 'the last 5 lines of its output, verbatim' } },
   required: ['code', 'lines'] }
 // The owner's definition (30 Oct): only the screens and reply rules the owner reads count; a change to agent instructions does not.
-const PERSON_FACING = 'true only when the change alters what the owner reads in the conversation: the merge question screen, the digest of a wave, or the reply rules the front follows (their wording, order or content). Example that is true: the wording of the merge question screen in the front skill is rewritten. Example that is false: a fixer\'s or a worker\'s instructions, a role text, a test, a lib function, a hook or a queue rule changes with no change to those screens. Judge the change as a whole, not one file.'
+const PERSON_FACING = 'true only when the change alters what the owner reads in the conversation: the merge question screen, the digest of a wave, or the reply rules the front follows (their wording, order or content). Example that is true: the wording of the merge question screen in the front skill is rewritten. Example that is false: a fixer\'s or a worker\'s instructions, a role text, a test, a lib function, a hook or a queue rule changes with no change to those screens. In a project whose product has screens or texts for people (an app), a change to what those people see is true as well. Judge the change as a whole, not one file.'
 const CHECK = { type: 'object', properties: {
   open: { type: 'integer' }, met: { type: 'integer' }, not_met: { type: 'integer' },
   q1_test: { type: 'string', description: 'when the unit names a queue item: the test that proves Q1, as <test file>::<test name>; else empty' },
@@ -275,19 +275,24 @@ function ownerShow(it, shown, line) {
 }
 
 // The land stage: `relay land` in one runner, branching on its exit code (not on a model's reading of the text).
+// The command a land runner starts: the shell writes the exit code of relay land as the last line of the log (a fact, not a reading of the text).
+function wrapped(it) {
+  return `\`sh -c 'relay land ${it.branch} -C ${it.wt}; echo "relay land exit $?"'\``
+}
+
 async function landRun(it, st, again) {
   st.ln += 1
   const n = st.ln
   const log = `${S}/land-${tag(it)}-${n}.log`
   const start = `${S}/land-${tag(it)}-${n}.start.txt`
   const wait = `Wait in bounded calls: each Bash call one loop of at most 230 s (\`i=0; while kill -0 <pid> 2>/dev/null && [ $i -lt 230 ]; do sleep 1; i=$((i+1)); done\`), never a call per check, never a foreground call over 4 minutes. A landing can wait behind another one for the lock and gates for minutes: that is normal.`
-  const prompt = `First write the output of \`date -u +%Y-%m-%dT%H:%M:%SZ\` to ${start} (create the folder first). Then run \`relay land ${it.branch} -C ${it.wt}\` detached with the limits recipe, log ${log}. ${wait} Report code (the exit code of relay land) and lines (the last 5 lines of the log, verbatim).`
+  const prompt = `First write the output of \`date -u +%Y-%m-%dT%H:%M:%SZ\` to ${start} (create the folder first). Then run ${wrapped(it)} detached with the limits recipe, log ${log}. ${wait} When it ends, report code (the number n on the last line of the log, \`relay land exit <n>\`: a detached process's exit status cannot be read any other way; never take it from another "exit" in the text) and lines (the 5 lines of the log before that last line, verbatim; when one of the log's lines starts with \`landed \`, put it first).`
   let r = await ask(prompt + RUN_RULE, agentOpts('runner', LAND, 'Check', `land ${n}: ${lab(it)}`))
   if (r.dead && r.dead !== SKIPPED) {
     // The runner died: the landing may have run or may still run. One recovery runner decides, in this order, and starts relay land at most once (step 4).
     st.ln += 1
     const rec = `${S}/land-${tag(it)}-${st.ln}.log`
-    r = await ask(`The runner of \`relay land ${it.branch}\` ended without a result, so the landing may be running or done. Do in this order and stop at the first that applies. 1. A live \`relay land ${it.branch}\` process (look with ps): wait on its pid in bounded calls (each at most 230 s), then report its exit code if you can read it from its log ${log}, else step 2. 2. Read the start time of that try in ${start} (if the file is missing, the runner never began: go to step 4). Find the newest \`done\` event of ${it.branch} in the file \`$(git -C ${it.wt} rev-parse --path-format=absolute --git-common-dir)/relay-land/events.jsonl\` whose \`asked\` event of the same pid is after that start time, and report its outcome as code: landed 0, red 1, refused or dirty 2, conflict 3, handed_back 4, waits_owner 5, waits_paid 6. 3. If the branch ${it.branch} no longer exists and the reflog of ${A.base} shows \`merge ${it.branch}: Fast-forward\`, report code 0 and the line \`landed ${it.branch}\`. 4. Otherwise run \`relay land ${it.branch} -C ${it.wt}\` once, detached, log ${rec}, and report its code and last 5 lines. Never start a second relay land.${RUN_RULE}`,
+    r = await ask(`The runner of \`relay land ${it.branch}\` ended without a result, so the landing may be running or done. Do in this order and stop at the first that applies. 1. A live \`relay land ${it.branch}\` process (look with ps): wait on its pid in bounded calls (each at most 230 s), then report the number n of the last line \`relay land exit <n>\` of its log ${log} as code (if the log has no such line, go to step 2). 2. Read the start time of that try in ${start} (if the file is missing, the runner never began: go to step 4). Find the newest \`done\` event of ${it.branch} in the file \`$(git -C ${it.wt} rev-parse --path-format=absolute --git-common-dir)/relay-land/events.jsonl\` whose \`asked\` event of the same pid is after that start time, and report its outcome as code: landed 0, red 1, refused or dirty 2, conflict 3, handed_back 4, waits_owner 5, waits_paid 6. 3. If the branch ${it.branch} no longer exists and the reflog of ${A.base} shows \`merge ${it.branch}: Fast-forward\`, report code 0 and the line \`landed ${it.branch}\`. 4. Otherwise run ${wrapped(it)} once, detached, log ${rec}, and report its code (the last line \`relay land exit <n>\` of that log) and the 5 lines before it. Never start a second relay land.${RUN_RULE}`,
       agentOpts('runner', LAND, 'Check', `land ${st.ln}: ${lab(it)}`))
   }
   if (r.dead) return { dead: r.dead }
@@ -300,7 +305,8 @@ async function landStage(it, st, shown, o) {
   while (true) {
     const L = await landRun(it, st)
     if (L.dead) return Object.assign({}, shown, { ready: false, stopped_at: 'land', detail: L.dead, checked: true })
-    const first = L.lines.split('\n').find((x) => x.trim()) || ''
+    const rows = L.lines.split('\n')
+    const first = rows.find((x) => x.startsWith('landed ')) || rows.find((x) => x.trim()) || ''
     const at = (where) => Object.assign({}, shown, { ready: false, stopped_at: where, detail: L.lines.trim() || `relay land exited ${L.code}`, checked: true })
     if (L.code === 0) return Object.assign({}, shown, { landed: first })
     if (L.code === 5) return at('owner')
