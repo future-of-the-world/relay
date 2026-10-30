@@ -27,5 +27,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T18:37:52Z",
+      "fact": [
+        "Seen live 30 Oct 2026 in front session 6c217ef4: the route guard's note said 12 to 14 agents were running (cap 6) when 6 change cycles ran and the front had started one scout or runner at a time; finished workflow agents are counted as running."
+      ]
+    }
+  ]
 }
