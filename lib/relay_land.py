@@ -25,23 +25,12 @@ from typing import IO, Any, Callable, Optional
 import relay_git
 import relay_inert
 
-SETTINGS = {"land_tries": (2, 1, 3), "land_inert_tries": (10, 3, 50), "land_ff_lock_tries": (3, 1, 10)}   # default, lowest, highest
 FF_LOCK_WAIT_S = 1.0          # seconds between two fast-forwards refused by an index.lock (the count is the setting)
 JUDGE_TIMEOUT_S = 300         # one judge reads git only; far above its seconds, finite so a stuck git cannot hold the lock forever
 LANDED, RED, CONFLICT, REFUSED, HANDED_BACK, DIRTY = "landed", "red", "conflict", "refused", "handed_back", "dirty"
 WAITS_OWNER, WAITS_PAID = "waits_owner", "waits_paid"
 EXIT = {LANDED: 0, RED: 1, REFUSED: 2, DIRTY: 2, CONFLICT: 3, HANDED_BACK: 4, WAITS_OWNER: 5, WAITS_PAID: 6}
 HOOK = next((h for n in (2, 4) if os.path.exists(h := os.path.join(os.path.realpath(__file__).rsplit("/", n)[0], "plugins", "relay", "hooks", "merge.py"))), os.path.join(os.path.realpath(__file__).rsplit("/", 2)[0], "plugins", "relay", "hooks", "merge.py"))   # the repository's merge hook: lib/ is 2 path parts below the root, plugins/<name>/lib/ copies 4
-
-
-def setting(cfg: Any, key: str) -> int:
-    """The setting `land.<key>` clamped to its bounds; the default when it is missing or not a whole number."""
-    import relay_config      # not at the top: the merge hook's plugin folder carries this file without relay_config
-    default, low, high = SETTINGS[key]
-    value = relay_config.get(cfg, "land." + key, default)
-    if isinstance(value, bool) or not isinstance(value, int):
-        return default
-    return max(low, min(high, value))
 
 
 @dataclass
@@ -271,15 +260,16 @@ class Result:
 def land(repo: str, branch: str, notify: Callable[[str], None], paid_fix: bool = False, keep_open: bool = False) -> Result:
     """Land `branch`; the steps of design relay-land 4.1. Returns the outcome and the lines to print. `paid_fix` lets the branch
     through a red paid run (lib/relay_land_waits.py). `keep_open` lands an intermediate change of a feature: its item is not closed."""
-    import relay_config      # these are not at the top: the merge hook's plugin folder carries this file without them
+    import relay_kit         # these are not at the top: the merge hook's plugin folder carries this file without them
     import relay_land_waits
     import relay_queue
     try:
         main, default = relay_queue._context_with_relay(repo)
     except relay_queue.Refused as exc:
         return Result(REFUSED, [f"land: {exc}"])
-    cfg = relay_config.load_bindings(main)
-    tries, inert_tries, ff_tries = (setting(cfg, k) for k in ("land_tries", "land_inert_tries", "land_ff_lock_tries"))
+    kit = relay_kit.load(main)
+    relay_kit.warn(kit, "land")
+    tries, inert_tries, ff_tries = (kit.get("land", k) for k in ("land_tries", "land_inert_tries", "land_ff_lock_tries"))
     stats = Event("done", now(), branch=branch, pid=os.getpid())
     try:
         tree = _preflight(main, default, branch)

@@ -1,0 +1,121 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.3841,
+   "id": "a7be7740af515b6a9",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T17:07:04.039Z",
+   "stop": "2026-10-30T17:11:41.423Z"
+  },
+  {
+   "cost_usd": 0.0059,
+   "id": "a5a6bf46db8b5874f",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T17:11:44.156Z",
+   "stop": "2026-10-30T17:24:42.098Z"
+  },
+  {
+   "cost_usd": 1.0129,
+   "id": "a61d95070d5d28257",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T17:24:45.365Z",
+   "stop": "2026-10-30T17:28:17.873Z"
+  },
+  {
+   "cost_usd": 0.3026,
+   "id": "a3fd370a86919ef22",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T17:28:20.893Z",
+   "stop": "2026-10-30T17:32:56.429Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "ad02be7a214db3cac",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T17:32:58.885Z",
+   "stop": "2026-10-30T17:42:17.785Z"
+  },
+  {
+   "cost_usd": 0.1395,
+   "id": "aea1d83676d86d6d7",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T17:42:20.653Z",
+   "stop": "2026-10-30T17:43:39.706Z"
+  },
+  {
+   "cost_usd": 0.0026,
+   "id": "adfe2aa2344749c6d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T17:43:42.274Z",
+   "stop": "2026-10-30T17:43:52.179Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "a8187ae4cc7d0c188",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T17:43:55.071Z",
+   "stop": "2026-10-30T17:44:02.497Z"
+  }
+ ],
+ "before": "6c4c525ab460565231da519665f0444893cfe5d7",
+ "branch": "wt/inert-probe-leaves-worktrees-registered-in-the-l",
+ "head": "940ad69f120e877ebdf1381dace4a21907394f0b",
+ "item": "inert-probe-leaves-worktrees-registered-in-the-l",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T16:17:00+00:00",
+   "file": "lib/relay_inert.py",
+   "holder": "wt/a-rebase-that-changes-nothing-voids-the",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T17:44:09+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T17:44:10+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T18:01:13+00:00",
+   "gate_seconds": 955.1917908330215,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "inert-probe-leaves-worktrees-registered-in-the-l"
+}

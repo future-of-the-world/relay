@@ -62,6 +62,16 @@ class Ledger(SoftCases):
         self.send({"hook_event_name": "SessionStart", "session_id": "s", "cwd": "/p", "source": "startup", "model": "claude-opus-5"})
         self.has(r'"event": "session_start".*"model": "claude-opus-5"')
 
+    def test_log_prompts_text_is_not_true_and_the_session_start_names_it(self) -> None:
+        proj = os.path.join(self.home, "proj")
+        os.makedirs(os.path.join(proj, ".claude"))
+        self.write(os.path.join(proj, ".claude", "kit.toml"), '[observe]\nlog_prompts = "false"\n')
+        self.prompt("secret words", "p1", cwd=proj)
+        self.assertNotIn("secret words", self.ledger())
+        out = run_hook(HOOK, json.dumps({"hook_event_name": "SessionStart", "session_id": "s", "cwd": proj, "source": "startup"}),
+                       {"RELAY_HOME": self.home})
+        self.assertIn("[observe] log_prompts", out)
+
     def test_prompt_with_slash_and_no_text(self) -> None:
         self.prompt("/opsx:apply x", "p1")
         self.has(r'"slash": "/opsx:apply"')

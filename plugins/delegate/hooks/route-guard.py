@@ -32,7 +32,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 import relay_labels  # noqa: E402
-import relay_toml  # noqa: E402
+import relay_kit  # noqa: E402
 
 TYPED = {
     "look": "delegate:scout (read-only lookups, file:line answers)",
@@ -46,20 +46,20 @@ TYPED_ROLES = ("scout", "runner", "worker", "fixer", "thinker", "critic")   # th
 SMALL_TIERS = ("scout", "runner", "worker", "fixer")
 
 
-def settings(cwd):
-    out = {"typed_only": True, "fork_limit": 100_000, "build_tier_opus": "escalate", "max_parallel": 4, "require_skill": "deny", "label_guard": "deny"}
+def project_root(cwd):
+    """The git top level of the session's working folder (a worktree reads its own kit.toml), else the folder."""
+    import subprocess
+    cwd = cwd or os.getcwd()
     try:
-        root = cwd or os.getcwd()
-        path = os.path.join(root, ".claude", "kit.toml")
-        with open(path, "rb") as handle:
-            out.update(relay_toml.load(handle).get("delegate", {}))
-    except Exception:
-        pass
-    for key in ("typed_only", "fork_limit", "build_tier_opus", "max_parallel", "require_skill", "label_guard"):
-        env = os.environ.get("RELAY_DELEGATE_" + key.upper())
-        if env is not None:
-            out[key] = env if key in ("build_tier_opus", "require_skill", "label_guard") else (env.lower() == "true" if key == "typed_only" else int(env))
-    return out
+        out = subprocess.run(["git", "-C", cwd, "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        out = ""
+    return out or cwd
+
+
+def settings(cwd):
+    """The [delegate] values to act on and the problems found in kit.toml and the RELAY_DELEGATE_* overrides (relay_kit)."""
+    return relay_kit.delegate_settings(project_root(cwd))
 
 
 def context_tokens(transcript_path):
@@ -124,7 +124,7 @@ def skill_evidence(transcript_path):
     return loaded, refused
 
 
-def deny(reason):
+def deny_with(reason):
     return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                    "permissionDecisionReason": reason}}
 
@@ -142,17 +142,20 @@ def metrics_on(root):
     """Where the label is demanded: a project with .relay/ whose kit.toml does not set [metrics] enabled = false."""
     if not os.path.isdir(os.path.join(root, ".relay")):
         return False
-    try:
-        with open(os.path.join(root, ".claude", "kit.toml"), "rb") as handle:
-            return relay_toml.load(handle).get("metrics", {}).get("enabled", True) is not False
-    except Exception:
-        return True
+    return relay_kit.load(project_root(root)).get("metrics", "enabled")
 
 
 def decide(data):
     if data.get("tool_name") not in ("Agent", "Task"):
         return None
-    cfg = settings(data.get("cwd"))
+    cfg, problems = settings(data.get("cwd"))
+    extra = ""
+    if problems:
+        extra = " Settings note: " + "; ".join(p.line() for p in problems) + ". Fix the line; relay doctor lists every problem."
+
+    def deny(reason):
+        return deny_with(reason + extra)
+
     ti = data.get("tool_input") or {}
     sub = (ti.get("subagent_type") or "general-purpose").strip()
     model = (ti.get("model") or "").lower()
@@ -170,7 +173,7 @@ def decide(data):
                     "Use the typed agent for the job: " + "; ".join(TYPED.values())
                     + ". For a job none of them fits, set [delegate].typed_only = false in .claude/kit.toml.")
     if "opus" in model and role in SMALL_TIERS:
-        policy = str(cfg["build_tier_opus"])
+        policy = cfg["build_tier_opus"]
         if policy == "deny" or (policy == "escalate" and not is_escalated(prompt)):
             return deny(f"Routing: {sub} runs on the profile's model for its tier; Opus is for thinker and critic. "
                         "To escalate (a Sonnet agent failed the same task, or the project names the case), add a line "
@@ -183,8 +186,6 @@ def decide(data):
             return deny(LABEL_DENIAL)
         notes.append("Routing note: " + LABEL_DENIAL[len("Routing: "):])
     mode = str(cfg["require_skill"])
-    if mode not in ("deny", "note", "off"):
-        mode = "deny"   # an unknown value takes the default
     if mode != "off" and not data.get("agent_id") and sub != "general-purpose":
         loaded, refused = skill_evidence(data.get("transcript_path") or "")
         if loaded is False:
@@ -198,21 +199,26 @@ def decide(data):
     if running >= int(cfg["max_parallel"]):
         notes.append(f"Routing note: {running} agents are already running in this session (cap {cfg['max_parallel']}). "
                      "Agents started together each pay a first read; let one finish or merge the jobs into one brief.")
+    if extra:
+        notes.append(extra.strip())
     if notes:
         return note("\n".join(notes))
     return None
 
 
 def main():
-    data = json.load(sys.stdin)
-    out = decide(data)
+    try:
+        data = json.load(sys.stdin)
+    except ValueError:
+        return   # not an event: nothing to guard
+    try:
+        out = decide(data)
+    except Exception as exc:   # fails open, but says why: a guard that silently allows everything is one nobody knows is off
+        out = note(f"Routing note: the routing guard crashed and allowed this call ({type(exc).__name__}: {exc}).")
     if out:
         json.dump(out, sys.stdout)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception:
-        pass
+    main()
     sys.exit(0)

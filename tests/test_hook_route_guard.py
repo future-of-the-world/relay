@@ -1,6 +1,7 @@
 """Port of plugins/delegate/tests/route-guard.test.sh: the routing guard's decisions on the Agent tool."""
 import json
 import os
+import sys
 import tempfile
 import unittest
 from typing import Optional
@@ -67,6 +68,66 @@ class RouteGuard(SoftCases):
         with open(t, "w") as handle:
             handle.write(json.dumps({"type": "assistant", "message": {"usage": usage}}) + "\n")
         self.assertIn('"deny"', self.agent("fork", transcript_path=t))
+
+    def kit(self, text: str) -> None:
+        os.makedirs(os.path.join(self.cwd, ".claude"), exist_ok=True)
+        with open(os.path.join(self.cwd, ".claude", "kit.toml"), "w") as handle:
+            handle.write(text)
+
+    def test_misspelt_build_tier_opus_still_denies_and_names_the_key(self) -> None:
+        self.kit('[delegate]\nbuild_tier_opus = "denny"\n')
+        out = self.agent("delegate:worker", "x", "opus")
+        self.assertIn('"deny"', out)
+        self.assertIn("[delegate] build_tier_opus", out)
+
+    def test_build_tier_opus_deny_and_default(self) -> None:
+        self.kit('[delegate]\nbuild_tier_opus = "deny"\n')
+        self.assertIn('"deny"', self.agent("delegate:worker", "x\nEscalated: sonnet failed", "opus"))
+        self.kit("")
+        self.assertIn('"deny"', self.agent("delegate:worker", "x", "opus"))
+        self.assertEqual(self.agent("delegate:worker", "x\nEscalated: sonnet failed", "opus"), "")
+
+    def test_syntax_error_is_named(self) -> None:
+        self.kit('[delegate\nbuild_tier_opus = "allow"\n')
+        out = self.agent("delegate:worker", "x", "opus")
+        self.assertIn('"deny"', out)   # the defaults apply, not the unreadable "allow"
+        self.assertIn(".claude/kit.toml", out)
+        self.assertIn("cannot be read", out)
+
+    def test_typed_only_text_is_reported_and_strict(self) -> None:
+        self.kit('[delegate]\ntyped_only = "false"\n')
+        out = self.agent("general-purpose")
+        self.assertIn('"deny"', out)
+        self.assertIn("[delegate] typed_only", out)
+
+    def test_env_typed_only_one_is_not_a_switch(self) -> None:
+        event = {"tool_name": "Agent", "cwd": ".", "tool_input": {"subagent_type": "general-purpose", "prompt": "x"}}
+        out = run_hook(GUARD, json.dumps(event), {"RELAY_HOME": self.home, "RELAY_DELEGATE_TYPED_ONLY": "1"}, cwd=self.cwd)
+        self.assertIn('"deny"', out)
+        self.assertIn("RELAY_DELEGATE_TYPED_ONLY", out)
+
+    def test_delegate_that_is_not_a_table_is_strict_and_named(self) -> None:
+        self.kit('delegate = "x"\n')
+        out = self.agent("general-purpose")
+        self.assertIn('"deny"', out)
+        self.assertIn("[delegate]", out)
+
+    def test_a_crash_is_named_not_silent(self) -> None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("route_guard_under_test", GUARD)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        import io
+        import contextlib
+        module.decide = lambda data: 1 / 0
+        old_stdin, buf = sys.stdin, io.StringIO()
+        sys.stdin = io.StringIO('{"tool_name": "Agent"}')
+        try:
+            with contextlib.redirect_stdout(buf):
+                module.main()
+        finally:
+            sys.stdin = old_stdin
+        self.assertIn("ZeroDivisionError", buf.getvalue())
 
     def test_malformed_input_fails_open(self) -> None:
         self.assertEqual(run_hook(GUARD, "not json", {"RELAY_HOME": self.home}, cwd=self.cwd), "")

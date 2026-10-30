@@ -24,7 +24,7 @@ import sys
 from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
-import relay_toml  # noqa: E402   (relay's one TOML reader: tomllib, else its 3.9 fallback)
+import relay_kit  # noqa: E402   (relay's one checking parser of kit.toml)
 
 METHOD = "openspec"
 PLUGIN = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,13 +39,8 @@ def project_root(cwd: str) -> str:
 
 
 def project_method(root: str) -> str:
-    """The `[specs] method` of the project's .claude/kit.toml; "none" when unset or unreadable."""
-    try:
-        with open(os.path.join(root, ".claude", "kit.toml"), "rb") as handle:
-            method = relay_toml.load(handle).get("specs", {}).get("method", "none")
-    except Exception:
-        return "none"
-    return method if isinstance(method, str) else "none"
+    """The `[specs] method` of the project's .claude/kit.toml; "none" when unset or wrong (relay_kit names the problem)."""
+    return relay_kit.load(root).get("specs", "method")
 
 
 def load_manifest() -> Optional[Dict[str, Any]]:
@@ -116,8 +111,10 @@ def answer(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if event == "UserPromptSubmit" and data.get("agent_id"):
         return None
     root = project_root(data.get("cwd") or os.getcwd())
-    if project_method(root) != METHOD:
-        return None
+    kit = relay_kit.load(root)
+    note = relay_kit.note(kit, "specs") if event == "SessionStart" else None     # a wrong value is said once, at the start of a session
+    if kit.get("specs", "method") != METHOD:
+        return {"hookSpecificOutput": {"hookEventName": event, "additionalContext": note}} if note else None
     manifest = load_manifest()
     if not manifest:
         return None
@@ -127,6 +124,7 @@ def answer(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     else:
         rule = load_rule()
         text = render(rule, manifest) if rule else None
+    text = "\n\n".join(t for t in (note, text) if t)
     if not text:
         return None
     return {"hookSpecificOutput": {"hookEventName": event, "additionalContext": text}}

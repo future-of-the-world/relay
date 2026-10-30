@@ -19,8 +19,9 @@ import sys
 import tomllib
 
 import relay_config
+import relay_kit
 import relay_license
-from relay_config import ROOT, bindings_path, claude_dir, load_bindings, read_toml
+from relay_config import ROOT, bindings_path, claude_dir, read_toml
 
 STACKS = [
     ("bun.lock", "typescript", "bun"), ("bun.lockb", "typescript", "bun"), ("pnpm-lock.yaml", "typescript", "pnpm"),
@@ -86,7 +87,7 @@ def detect(root):
     d["default_branch"] = default_branch(root)
     d["openspec"] = os.path.isdir(os.path.join(root, "openspec"))
     d["has_bindings"] = os.path.isfile(bindings_path(root))
-    d["bindings"] = load_bindings(root)
+    d["bindings"] = relay_kit.load(root).raw      # the parsed file as written (setup edits it); wrong values are shown by doctor
     d["scripts"] = {s: os.path.isfile(os.path.join(root, "bin", s)) for s in ("check", "ci", "wt")}
     d["claude_md"] = os.path.isfile(os.path.join(root, "CLAUDE.md"))
     d["handover"] = os.path.isfile(os.path.join(root, "docs", "handover.md"))
@@ -198,7 +199,7 @@ def bindings_text(d, flow, specs="none"):
         "[flow]", f'kind = "{flow}"', "",
         "[specs]", f'method = "{specs}"   # "none", or a spec method plugin such as "openspec" (docs/flows.md)', "",
         "[delegate]", "typed_only = true", "fork_limit = 100000", "max_parallel = 4", 'build_tier_opus = "escalate"', "",
-        "[observe]", "enabled = true", "log_prompts = false", "",
+        "[observe]", "log_prompts = false", "",
     ]
     if d["ui"]:
         lines += ["[product]", 'medium = "the app on a phone and on a computer"', f'run_skill = "{name}-run"', ""]
@@ -257,8 +258,8 @@ def set_license(root, license_id, holder, todo):
 def merge_bindings(root, specs="none", force_specs=False, spec_folder=False):
     """Add the relay sections a kit.toml lacks, only where the value differs from what a missing section means, without touching what is
     there. `[specs]` for a method other than "none", or when `force_specs` (the run said
-    --specs) or `spec_folder` (an openspec/ folder would otherwise turn the steps on) holds. [delegate] and [observe] equal relay_defaults()
-    and are never added. `force_specs` rewrites an existing [specs] method."""
+    --specs) or `spec_folder` (an openspec/ folder would otherwise turn the steps on) holds. [delegate] and [observe] equal the defaults of
+    relay_kit and are never added. `force_specs` rewrites an existing [specs] method."""
     path = bindings_path(root)
     text = open(path, encoding="utf-8").read()
     cfg = tomllib.loads(text)
@@ -1210,6 +1211,17 @@ def git_first_check(system: str | None = None) -> tuple[str, bool, str] | None:
     return ("git first on PATH is the real git", problem is None, problem or "")
 
 
+GATE_COPIES_LINE = "no gate copy of a killed gate left registered"
+
+
+def gate_copies_check(root: str) -> tuple[str, bool, str]:
+    """The doctor line "no gate copy left registered": removes the copies of gates that were killed (a temporary worktree each,
+    registered in the repository) and names them in the detail. A folder that is missing or no repository has none."""
+    import relay_ci_copy
+    gone = relay_ci_copy.prune_dead_copies(root) if os.path.isdir(root) else []
+    return (GATE_COPIES_LINE, True, "removed: " + ", ".join(gone) if gone else "")
+
+
 def bin_relay_problem(root: str) -> str | None:
     """Why bin/relay in relay's main checkout (not a linked worktree of it: a branch may edit bin/relay there) is not what HEAD
     holds, None when it is, or when the folder is no git checkout. The fix is the next step, since guard-main refuses a restore
@@ -1227,6 +1239,20 @@ def bin_relay_problem(root: str) -> str | None:
 def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[str, bool, str]]:
     machine, project = doctor_parts(root, profile)
     return machine + project
+
+
+def settings_env_problems(root: str) -> list:
+    """Problems in RELAY_DELEGATE_* and RELAY_CTX_* as a session gets them: this shell's env and the `env` blocks of
+    ~/.claude/settings.json and the project's .claude/settings.json and settings.local.json."""
+    import relay_kit
+    out = relay_kit.env_problems(dict(os.environ))
+    for path in (os.path.join(claude_dir(), "settings.json"), os.path.join(root, ".claude", "settings.json"),
+                 os.path.join(root, ".claude", "settings.local.json")):
+        data = read_json(path)
+        block = data.get("env") if isinstance(data, dict) else None
+        if isinstance(block, dict):
+            out += relay_kit.env_problems({str(k): str(v) for k, v in block.items()})
+    return out
 
 
 def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[list[tuple[str, bool, str]], list[tuple[str, bool, str]]]:
@@ -1299,7 +1325,15 @@ def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[
         root = os.path.realpath(root)
         d = detect(root)
         ok("project has .claude/kit.toml", d["has_bindings"], "relay setup " + root)
+        checks.append(gate_copies_check(root))
         ok("rules for this project in sync", not own_stale, "-> relay sync")
+        import relay_kit
+        found = relay_kit.load(root).problems + tuple(settings_env_problems(root))
+        for problem in found:
+            ok(problem.where, False, f"{(problem.value + ' ') if problem.value else ''}{problem.wrong}"
+               + (f"; used {problem.used}" if problem.used else "") + " -> fix it in .claude/kit.toml (or the env block / variable named)")
+        if not found:
+            ok(".claude/kit.toml: keys and values valid", True, "")
         cfg = d["bindings"]
         flow = cfg.get("flow", {}).get("kind", "none")
         old = load_old_names()

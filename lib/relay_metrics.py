@@ -24,7 +24,6 @@ KEYS = {"schema", "kind", "unit", "item", "branch", "before", "head", "agents", 
 AGENT_KEYS = {"id", "session", "stage", "n", "model", "start", "stop", "requests", "cost_usd"}
 LAND_KEYS = {"kind", "at", "gates_run", "gate_seconds", "file", "holder"}
 KINDS = ("change", "design", "other", "front")
-SETTINGS = {"sweep_quiet_min": (60, 10, 1440)}   # default, lowest, highest
 BACKFILL_FROM = "2026-10-27T00:00:00+00:00"
 DESIGN_STAGES = ("design", "design review", "design revise")
 FRONT_KEYS = {"day", "cost_usd", "sessions", "basis"}      # basis: "exact" or "estimate", as `relay report` labels a session
@@ -57,18 +56,6 @@ def parse(text: str) -> dict[str, Any]:
 def dump(rec: dict[str, Any]) -> str:
     parse(json.dumps(rec))      # the writer refuses what the parser would
     return json.dumps(rec, indent=1, sort_keys=True) + "\n"
-
-
-def setting(cfg: Any, key: str) -> int:
-    import relay_config
-    default, low, high = SETTINGS[key]
-    value = relay_config.get(cfg, "metrics." + key, default)
-    return default if isinstance(value, bool) or not isinstance(value, int) else max(low, min(high, value))
-
-
-def enabled(cfg: Any) -> bool:
-    import relay_config
-    return relay_config.get(cfg, "metrics.enabled", True) is not False
 
 
 # ---- the ledger: finished, labelled agents ----
@@ -295,16 +282,18 @@ def record_landing(repo: str, units: list[tuple[str, str]], before: Optional[str
     """Write the records of a landing (one per unit, none for a train branch) and the sweep, in one commit on the default branch.
     `landed` is the branch `relay land` was called with (a train's own branch for its riders); its events are the landing's, shared by every unit."""
     import relay_config
+    import relay_kit
     import relay_queue
     main, _ = relay_queue._context(repo)
-    cfg = relay_config.load_bindings(main)
-    if not enabled(cfg):
+    kit = relay_kit.load(main)
+    relay_kit.warn(kit, "metrics")
+    if not kit.get("metrics", "enabled"):
         return
     items = relay_queue.read_queue(main, closed=True)
     items += [{"slug": slug} for slug, _ in units if slug not in {i["slug"] for i in items}]     # a landed unit always matches its own id
     ledger = ledger_agents(relay_config.ledger_dir())
     moment = time.time() if now is None else now
-    quiet = setting(cfg, "sweep_quiet_min")
+    quiet = kit.get("metrics", "sweep_quiet_min")
     notes: list[str] = []
 
     def writes_at(rev: str) -> dict[str, str]:

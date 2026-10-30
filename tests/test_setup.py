@@ -848,6 +848,13 @@ class RelayFolder(Base):
         out = self._run(env, "--relay-folder", os.path.join(self.tmp, "nope"))
         self.assertEqual(out.returncode, 2)
 
+    def test_new_kit_toml_has_no_observe_enabled(self):
+        import relay_setup
+        repo = self._repo()
+        relay_setup.setup(repo)
+        with open(os.path.join(repo, ".claude", "kit.toml"), encoding="utf-8") as handle:
+            self.assertNotIn("enabled", handle.read().split("[observe]")[1].split("[")[0])
+
     def test_s3_plain_setup_still_writes_kit_toml_settings_and_readme(self):
         import relay_setup
         repo = self._repo()

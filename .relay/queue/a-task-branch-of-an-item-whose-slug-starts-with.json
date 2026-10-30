@@ -33,5 +33,13 @@
   "closed_at": "2026-10-30T18:23:19Z",
   "test": "tests/test_tidy.py::Tidy::test_a_task_branch_of_a_queue_slug_is_not_a_leftover_landing_branch",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T17:40:10Z",
+      "fact": [
+        "Reproduced by code read 30 Oct 2026 on master: task branches are \"wt/\" + the whole slug (lib/relay_lanes.py:569, _short at 479-480) and queue-landing branches are \"wt/queue-\" + slug (lib/relay_queue.py:866), so they collide by prefix. lib/relay_queue.py:758 lists refs/heads/wt/queue-* as leftovers (reported by lib/relay_tidy.py:54-55); lib/relay_tidy.py:39 and lib/relay_inert.py:228 skip any wt/queue- branch. 9 queue files have a slug starting with queue-. Not seen live yet."
+      ]
+    }
+  ]
 }

@@ -475,6 +475,17 @@ class AskHook(tq.Base):
         self.assertNotEqual(out, "")
         self.assertTrue(json.loads(out)["hookSpecificOutput"]["additionalContext"].startswith("Waiting for the owner: job question 'Keep it?'"), out)
 
+    def test_a_wrong_reminder_setting_is_said_in_the_context_and_not_on_stderr(self):
+        # F2 (design test 22 family): `ask_reminder_days = "x"` is not a whole number; the hook used to fall back to 7 without a word
+        os.makedirs(os.path.join(self.main, ".claude"), exist_ok=True)
+        with open(os.path.join(self.main, ".claude", "kit.toml"), "w", encoding="utf-8") as handle:
+            handle.write('[front]\nask_reminder_days = "x"\n')
+        asked = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.write_commit(self.main, {QUEUE + "job.json": with_notes(tq.feature_item("Job"), [decision(asked_at=asked)])}, "fresh question")
+        text = json.loads(self.hook_output())["hookSpecificOutput"]["additionalContext"]
+        self.assertIn(".claude/kit.toml [front] ask_reminder_days = 'x' is not a whole number; used 7", text)
+        self.assertTrue(text.startswith("Waiting for the owner: job"), text)       # the reminder itself is unchanged
+
     def test_f4_hook_script_is_silent_when_nothing_waits(self):
         self.write_commit(self.main, {QUEUE + "job.json": tq.feature_item("Job")}, "none waiting")
         self.assertEqual(self.hook_output(), "")
@@ -487,15 +498,6 @@ class AskHook(tq.Base):
         # the fixture question is old by the real clock, so only the no-error exit is asserted here; the output is asserted in test_f4_*
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertEqual(done.stderr, "")
-        sys.path.insert(0, os.path.join(ROOT, "plugins", "front", "hooks"))
-        try:
-            import ask_waiting
-        finally:
-            sys.path.pop(0)
-        self.assertEqual(ask_waiting.setting({"front": {"ask_reminder_days": 99}}, "ask_reminder_days", ask_waiting.DAYS), 30)
-        self.assertEqual(ask_waiting.setting({"front": {"ask_reminder_lines": 0}}, "ask_reminder_lines", ask_waiting.LINES), 1)
-        self.assertEqual(ask_waiting.setting({}, "ask_reminder_days", ask_waiting.DAYS), 7)
-        self.assertEqual(ask_waiting.setting({"front": {"ask_reminder_days": "x"}}, "ask_reminder_days", ask_waiting.DAYS), 7)
 
 
 if __name__ == "__main__":

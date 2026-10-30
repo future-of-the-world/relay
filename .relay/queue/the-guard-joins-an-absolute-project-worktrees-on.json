@@ -23,10 +23,18 @@
   "where": [
     "plugins/relay/hooks/guard_main.py:231"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T18:01:32Z",
+  "taken_by": "wt/the-guard-joins-an-absolute-project-worktrees-on",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T18:02:15Z",
+      "fact": [
+        "Reproduced by code read 30 Oct 2026 on master: plugins/relay/hooks/guard_main.py:232 keeps an absolute worktrees value as wtdir; line 272 builds main + \"/\" + wtdir (\"<main>//Users/x/wt\"), so the extra-folder check at 273-274 never matches; the advice at 255-256 is right. No live kit.toml sets an absolute worktrees value today."
+      ]
+    }
+  ]
 }

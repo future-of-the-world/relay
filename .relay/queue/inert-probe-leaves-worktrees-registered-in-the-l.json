@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-30T17:06:52Z",
   "taken_by": "wt/inert-probe-leaves-worktrees-registered-in-the-l",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T17:43:49Z",
+  "test": "tests/test_inert.py::GateCopyLeftovers::test_a_copy_whose_gate_was_killed_is_unregistered_and_named",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
