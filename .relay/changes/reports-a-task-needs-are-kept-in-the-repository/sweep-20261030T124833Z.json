@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0035,
+   "id": "ad2124663adeb7c49",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T11:13:17.069Z",
+   "stop": "2026-10-30T11:13:59.821Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "reports-a-task-needs-are-kept-in-the-repository",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "reports-a-task-needs-are-kept-in-the-repository"
+}

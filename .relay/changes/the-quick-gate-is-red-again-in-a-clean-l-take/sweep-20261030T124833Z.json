@@ -1,0 +1,100 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1343,
+   "id": "a0ebf12ced3c91d72",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T08:49:23.734Z",
+   "stop": "2026-10-30T09:02:20.367Z"
+  },
+  {
+   "cost_usd": 0.0062,
+   "id": "ab94affb172144402",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T09:02:25.455Z",
+   "stop": "2026-10-30T09:29:16.553Z"
+  },
+  {
+   "cost_usd": 0.1738,
+   "id": "a07a284e50a95054f",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T09:29:19.909Z",
+   "stop": "2026-10-30T09:37:19.199Z"
+  },
+  {
+   "cost_usd": 0.0061,
+   "id": "afab38f95524a24df",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T09:37:22.080Z",
+   "stop": "2026-10-30T09:50:43.113Z"
+  },
+  {
+   "cost_usd": 0.2954,
+   "id": "a473f83f3c803d34f",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T09:50:45.947Z",
+   "stop": "2026-10-30T10:00:44.447Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "acdfd55725150ec22",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T10:00:48.305Z",
+   "stop": "2026-10-30T10:00:58.170Z"
+  },
+  {
+   "cost_usd": 0.0026,
+   "id": "acdfd55725150ec22",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T10:00:48.305Z",
+   "stop": "2026-10-30T10:01:00.924Z"
+  },
+  {
+   "cost_usd": 0.0063,
+   "id": "af6793567d064ef9e",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T10:01:04.339Z",
+   "stop": "2026-10-30T10:26:25.870Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "the-quick-gate-is-red-again-in-a-clean-l-take"
+}
