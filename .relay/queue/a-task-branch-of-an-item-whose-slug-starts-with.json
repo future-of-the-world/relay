@@ -28,8 +28,8 @@
   "where": [
     "lib/relay_tidy.py:54"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T17:39:28Z",
+  "taken_by": "wt/a-task-branch-of-an-item-whose-slug-starts-with",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
