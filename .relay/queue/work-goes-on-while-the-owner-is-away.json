@@ -15,8 +15,8 @@
     "roles/judge.md",
     "plugins/front/hooks/lanes.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T16:34:08Z",
+  "taken_by": "wt/work-goes-on-while-the-owner-is-away",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
