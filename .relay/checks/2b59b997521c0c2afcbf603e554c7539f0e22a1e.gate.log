@@ -1,0 +1,21 @@
+head 2b59b997521c0c2afcbf603e554c7539f0e22a1e
+cmd bin/ci --quick
+wait 317.2
+ci: types and lint ok (1s)
+ci: plugin lib links ok (1s)
+ci: library tests FAILED (1030s, log: .ci/steps/library-tests.log)
+    FAIL: test_every_case_carries_the_text_built_from_the_rule_files (test_eval_system_rules.SystemRules.test_every_case_carries_the_text_built_from_the_rule_files)
+    AssertionError: 'My n[5792 chars]tus: say what is running and why; prune idle a[14 chars]\n\n' != 'My n[5792 chars]tus: when I give a request, say what is runnin[260 chars]\n\n'
+    FAIL: test_q1_every_relay_subcommand_is_classified_as_read_or_write (test_read_only_guard.ReadOnlyHook.test_q1_every_relay_subcommand_is_classified_as_read_or_write)
+    AssertionError: Items in the first set but not the second:
+    FAIL: test_rules_tests_command_passes_in_the_order_unittest_runs_them (test_rules_gate_isolation.RulesGateIsolation.test_rules_tests_command_passes_in_the_order_unittest_runs_them)
+    AssertionError: 1 != 0 : /Users/amidman/relay/.worktrees/one-digest-per-wave-instead-of-status-me/lib/relay_rules.py:45: ResourceWarning: unclosed file <_io.TextIOWrapper name='/Users/amidman/relay/.worktrees/one-digest-per-wave-instead-of-status-me/rules/working-with-me.md' mode='r' encoding='utf-8'>
+    FAIL: test_every_case_carries_the_text_built_from_the_rule_files (tests.test_eval_system_rules.SystemRules.test_every_case_carries_the_text_built_from_the_rule_files)
+    AssertionError: 'My n[5792 chars]tus: say what is running and why; prune idle a[14 chars]\n\n' != 'My n[5792 chars]tus: when I give a request, say what is runnin[260 chars]\n\n'
+ci: coverage 89.7% of lib, bin, plugins (14696 of 16385 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (0s)
+ci: RED
+exit 1
