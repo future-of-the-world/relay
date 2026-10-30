@@ -1,0 +1,126 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0044,
+   "id": "a4b47e920730b25bb",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-30T18:01:40.763Z",
+   "stop": "2026-10-30T18:02:06.815Z"
+  },
+  {
+   "cost_usd": 0.1538,
+   "id": "a7f4e73420eda95d2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T18:02:16.119Z",
+   "stop": "2026-10-30T18:04:24.678Z"
+  },
+  {
+   "cost_usd": 0.004,
+   "id": "a25e4b7e6ab7536c1",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T18:04:28.100Z",
+   "stop": "2026-10-30T18:14:34.224Z"
+  },
+  {
+   "cost_usd": 0.6075,
+   "id": "af5f97a7d4b95a046",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T18:14:36.866Z",
+   "stop": "2026-10-30T18:16:41.922Z"
+  },
+  {
+   "cost_usd": 0.1747,
+   "id": "af211ca4b69413ee2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T18:16:45.266Z",
+   "stop": "2026-10-30T18:18:49.258Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "a137584646cf40e03",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T18:18:52.027Z",
+   "stop": "2026-10-30T18:29:20.451Z"
+  },
+  {
+   "cost_usd": 0.1147,
+   "id": "ae00f5c7f5df4f7f0",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T18:29:23.668Z",
+   "stop": "2026-10-30T18:31:32.159Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "ad5ba64e413429980",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T18:31:35.247Z",
+   "stop": "2026-10-30T18:31:44.000Z"
+  },
+  {
+   "cost_usd": 0.0019,
+   "id": "ac98f97edce406461",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T18:31:47.196Z",
+   "stop": "2026-10-30T18:31:54.496Z"
+  }
+ ],
+ "before": "938dd9d6249c0fef358a01fa4e7c032dce77b4aa",
+ "branch": "wt/the-guard-joins-an-absolute-project-worktrees-on",
+ "head": "10cdb34038a53a5784833d4219b500a0808fe4c4",
+ "item": "the-guard-joins-an-absolute-project-worktrees-on",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T18:32:02+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T18:37:14+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T18:44:04+00:00",
+   "gate_seconds": 371.39929129194934,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "the-guard-joins-an-absolute-project-worktrees-on"
+}

@@ -20,8 +20,8 @@
   "where": [
     "evals/plugin/critic-role-rule/scaffold.sh"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T18:44:21Z",
+  "taken_by": "wt/critic-rule-test-does-not-prove-relay-delivered",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

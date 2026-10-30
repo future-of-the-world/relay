@@ -27,5 +27,28 @@
   "closed_at": "2026-10-30T19:07:51Z",
   "test": "tests/test_running_agents.py::RunningNow::test_start_alone_older_than_limit_does_not_count",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T18:37:52Z",
+      "fact": [
+        "Seen live 30 Oct 2026 in front session 6c217ef4: the route guard's note said 12 to 14 agents were running (cap 6) when 6 change cycles ran and the front had started one scout or runner at a time; finished workflow agents are counted as running."
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T18:39:18Z",
+      "question": [
+        "After how long without any ledger event does an open agent (no agent_stop) stop counting as running for the route guard?"
+      ],
+      "options": [
+        "a. 10 minutes: agents never block over 4 minutes in one call (the 240 s rule), so a live agent writes an event at least every few minutes",
+        "b. 30 minutes: safer for a long model turn, but keeps most of today's over-count (12 to 14 shown, about 6 real)"
+      ],
+      "decided_by": "front",
+      "chosen": "a",
+      "because": [
+        "the project rule caps every blocking call at 240 s and waits run in calls of at most 240 s, so 10 minutes is more than twice the longest silence a live agent has; the worker's evidence: killed agents leave no stop event, only silence. Owner can reverse."
+      ]
+    }
+  ]
 }
