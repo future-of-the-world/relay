@@ -34,7 +34,7 @@ class FakeSweep(unittest.TestCase):
         self.root = os.path.realpath(tempfile.mkdtemp(prefix="roots-"))
         self.targets = []
         self.killed = []
-        patcher = mock.patch.object(relay_procs, "stop", lambda targets: (self.targets.extend(targets), self.killed)[1])
+        patcher = mock.patch.object(relay_procs, "stop", lambda targets, reason="": (self.targets.extend(targets), self.killed)[1])
         patcher.start()
         self.addCleanup(patcher.stop)
         self.me = [proc(999, 50, 50, "python3 relay gate"), proc(50, 40, 50, "zsh")]

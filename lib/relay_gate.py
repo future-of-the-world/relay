@@ -216,7 +216,7 @@ def reclaim(path: str, text: str, record: Callable[[str], None]) -> bool:
     if not held:
         return False
     record("%s (group %d, %s): its gate process ended, so its result can never be committed" % (KILLED, group, members[held[0]].command[:120]))
-    relay_procs.stop([(group, True)])
+    relay_procs.stop([(group, True)], "reclaim: the gate that held the worktree lock ended")
     return True
 
 
@@ -308,7 +308,7 @@ def sweep(roots: Sequence[str], read_procs: Callable[[], list[relay_procs.Proc]]
             alone[p.pid] = p
         lines.append("%s %d (%s): %s" % (LEFTOVER, p.pid, p.command[:120], why))
     if targets:
-        killed = relay_procs.stop(targets)
+        killed = relay_procs.stop(targets, "leftover sweep: " + "; ".join(sorted({l.rsplit(": ", 1)[-1] for l in lines})))
         # a pid stopped alone and then killed may have left its own command as a leader of a group in a deleted folder: look once more
         if _again and any(not group and pid in alone for pid, group in killed):
             lines += sweep(roots, read_procs, read_cwds, own, _again=False)
@@ -359,9 +359,14 @@ def reused_red(red: tuple[int, str, list[str]]) -> tuple[int, str, list[str]]:
     return red
 
 
-def signal_line(number: int) -> str:
-    """The gate log's line for a command ended by a signal; the sender is unknown (only the receiver can read si_pid)."""
-    return "gate command ended by %s (sender unknown: the stop went to the command, not to the gate)" % {int(s): s.name for s in signal.Signals}.get(number, "signal %d" % number)
+def signal_line(number: int, command_pid: int = 0, since: float = 0.0) -> str:
+    """The gate log's line for a command ended by a signal: the signal log's record of the stop when relay sent it (a stop sent to the
+    command's pid or group, from `since` on), else a line saying relay did not (a signal from outside relay, or the command's own)."""
+    name = {int(s): s.name for s in signal.Signals}.get(number, "signal %d" % number)
+    record = relay_procs.sent_by_relay(command_pid, since) if command_pid else None
+    if record:
+        return "gate command ended by %s, sent by relay: %s" % (name, record)
+    return "gate command ended by %s, not sent by relay (no record of it in %s)" % (name, relay_procs.signal_log())
 
 
 def hold_stops() -> tuple[list[int], Callable[[], None]]:
@@ -471,6 +476,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
     os.makedirs(os.path.join(worktree, ".ci"), exist_ok=True)      # the gate command's own scratch folder (empty, so git sees nothing)
     env = dict(os.environ if environ is None else environ)
     env["RELAY_GATE"] = head
+    env[relay_procs.SIGNAL_LOG_ENV] = relay_procs.signal_log()      # the gate's command (bin/ci) writes its stops to the same log
     home = env.get("RELAY_HOME") or relay_config.home_dir()
     # a stopped gate (SIGTERM, SIGHUP; SIGINT already raises) must end its command too, so it leaves through an exception
     saved = {}
@@ -532,7 +538,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                     tokens, token_wait = relay_tokens.take_base(home, st, relay_tokens.GATE, st.per_gate, lambda line: notify("gate: " + line))
                     waited += token_wait
                     env[relay_tokens.ENV_HOLD] = relay_tokens.hold_value(st.per_gate, home)
-                proc, stopped_by = None, ""
+                proc, stopped_by, started_at = None, "", time.time()
                 try:
                     with open(out_path, "wb") as sink:
                         # the lock file goes to the command: the OS keeps the lock until its last process ends, even if this process is killed
@@ -553,7 +559,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                         lock.flush()
                         returncode = proc.wait()
                     code = returncode if returncode >= 0 else 128 - returncode
-                    stopped_by = signal_line(-returncode) if returncode < 0 else ""
+                    stopped_by = signal_line(-returncode, proc.pid, started_at) if returncode < 0 else ""
                 except OSError as exc:
                     with open(out_path, "w") as text_sink:
                         text_sink.write("gate command could not start: %s\n" % exc)
@@ -561,6 +567,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                 finally:
                     if proc is not None:      # the command's whole process group ends before the slot is freed
                         try:
+                            relay_procs.record_sent(proc.pid, True, signal.SIGKILL, "gate: its command ended, the command's group is cleaned up")
                             os.killpg(proc.pid, signal.SIGKILL)
                         except OSError:
                             pass

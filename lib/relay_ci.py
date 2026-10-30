@@ -40,6 +40,7 @@ from typing import Any, Callable, NoReturn, TextIO
 from relay_ci_copy import remove_leftover_copy, write_shared_record, drop_shared_record
 from relay_ci_lines import _read_lines_keep
 import relay_inert
+import relay_procs
 import relay_precheck
 from relay_ci_image import clean_image
 from relay_ci_python import python_problem  # noqa: F401  (re-exported: tests call relay_ci.python_problem)
@@ -90,6 +91,7 @@ def _live(pids: list[int]) -> list[int]:
 
 
 def _signal(pid: int, sig: int) -> None:
+    relay_procs.record_sent(pid, False, sig, "bin/ci: the time limit of the gate ran out")
     with contextlib.suppress(ProcessLookupError):   # already gone
         os.kill(pid, sig)
 

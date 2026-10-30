@@ -35,7 +35,7 @@ class Stop(unittest.TestCase):
     def test_a_target_that_ignores_sigterm_is_killed_after_the_grace_as_a_group(self):
         """Alive throughout: SIGTERM first, then, once STOP_GRACE (0.2 s here) has passed, SIGKILL, both to the group."""
         sent = []
-        with mock.patch.object(relay_procs, "send", lambda pid, group, sig: sent.append((pid, group, sig))), \
+        with mock.patch.object(relay_procs, "send", lambda pid, group, sig, reason="": sent.append((pid, group, sig))), \
                 mock.patch.object(relay_procs, "_still", return_value=True), mock.patch.object(relay_procs, "STOP_GRACE", 0.2):
             killed = relay_procs.stop([(1469, True)])
         self.assertEqual(sent, [(1469, True, signal.SIGTERM), (1469, True, signal.SIGKILL)])
@@ -43,7 +43,7 @@ class Stop(unittest.TestCase):
 
     def test_a_target_that_ends_on_sigterm_is_not_killed(self):
         sent = []
-        with mock.patch.object(relay_procs, "send", lambda pid, group, sig: sent.append((pid, group, sig))), \
+        with mock.patch.object(relay_procs, "send", lambda pid, group, sig, reason="": sent.append((pid, group, sig))), \
                 mock.patch.object(relay_procs, "_still", return_value=False):
             killed = relay_procs.stop([(500, False)])
         self.assertEqual(sent, [(500, False, signal.SIGTERM)])

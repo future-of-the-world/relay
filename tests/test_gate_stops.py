@@ -5,6 +5,8 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
+import threading
 import time
 import unittest
 from typing import Any
@@ -47,21 +49,72 @@ def alive(pid):
     return True
 
 
+def patch_signal_log(case, path):
+    """Point the signal log at `path` for one test (the environment is restored after)."""
+    patcher = mock.patch.dict(os.environ, {"RELAY_SIGNAL_LOG": path}); patcher.start(); case.addCleanup(patcher.stop)
+    return path
+
+
 class RunnerStopped(unittest.TestCase):
     def test_a_gate_command_ended_by_a_signal_leaves_a_line_in_the_gate_log(self):
         """Live case 29 Oct: a fixture gate script was killed by SIGTERM and the log only said 143. The script stops itself with
-        SIGTERM (killed by a signal, returncode -15): the log must name SIGTERM and say the sender is unknown."""
+        SIGTERM (killed by a signal, returncode -15): the log must name SIGTERM and say relay did not send it (nothing in the signal log)."""
         import test_gate
         import relay_gate
         f = test_gate.Fixture("setUp")
         f.setUp()
         self.addCleanup(f.doCleanups)
         patcher = mock.patch.dict(os.environ, test_gate.GIT_ENV); patcher.start(); self.addCleanup(patcher.stop)      # relay_gate commits its log with this process's environment
+        logdir = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, logdir, ignore_errors=True)
+        patch_signal_log(self, os.path.join(logdir, "signals.log"))
         f.repo(gate="kill -TERM $$\n")
         code, log, _ = relay_gate.run(f.wt, environ=f.env)
         self.assertEqual(code, 143)      # 128 + 15
         text = test_gate.read(log)
-        self.assertIn("gate command ended by SIGTERM (sender unknown", text)
+        self.assertIn("gate command ended by SIGTERM, not sent by relay", text)      # a signal from outside relay
+        self.assertNotIn("sent by relay:", text)
+
+    def test_a_stop_relay_sends_to_the_command_is_named_in_the_gate_log(self):
+        """Each sender of relay is named: here relay's own stop (relay_procs.stop, as the reclaim and the sweep call it) ends the
+        gate's command; the gate log must carry the signal log's line: relay, the sender's pid, SIGTERM, the command's group and the reason."""
+        import test_gate
+        import relay_gate
+        import relay_procs
+        f = test_gate.Fixture("setUp")
+        f.setUp()
+        self.addCleanup(f.doCleanups)
+        patcher = mock.patch.dict(os.environ, test_gate.GIT_ENV); patcher.start(); self.addCleanup(patcher.stop)
+        logdir = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, logdir, ignore_errors=True)
+        patch_signal_log(self, os.path.join(logdir, "signals.log"))
+        f.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % f.tmp)
+
+        def stopper():
+            pid = wait_pid(os.path.join(f.tmp, "pid"), WAIT)
+            relay_procs.stop([(pid, True)], "test: a hang bound")      # the command is its own group leader (start_new_session)
+
+        thread = threading.Thread(target=stopper); thread.start(); self.addCleanup(thread.join)
+        code, log, _ = relay_gate.run(f.wt, environ=f.env)
+        self.assertEqual(code, 143)
+        text = test_gate.read(log)
+        self.assertIn("gate command ended by SIGTERM, sent by relay: relay pid %d sent SIGTERM to group" % os.getpid(), text)
+        self.assertIn(": test: a hang bound", text)
+
+    def test_every_sender_writes_a_line_to_the_signal_log(self):
+        """relay_procs.send, the gate's time-limit stop (relay_ci.stop_tree) each leave a line naming relay, the target and the reason."""
+        import relay_ci
+        import relay_procs
+        logdir = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, logdir, ignore_errors=True)
+        path = os.path.join(logdir, "signals.log")
+        patch_signal_log(self, path)
+        sleeper = subprocess.Popen(["sleep", "600"]); self.addCleanup(sleeper.wait)
+        relay_procs.send(sleeper.pid, False, signal.SIGTERM, "test: send")
+        sleeper.wait()
+        other = subprocess.Popen(["sleep", "600"]); self.addCleanup(other.wait)
+        relay_ci.stop_tree([other.pid], other.pid)
+        other.wait()
+        text = open(path, encoding="utf-8").read()
+        self.assertIn("relay pid %d sent SIGTERM to pid %d: test: send" % (os.getpid(), sleeper.pid), text)
+        self.assertIn("relay pid %d sent SIGTERM to pid %d: bin/ci: the time limit" % (os.getpid(), other.pid), text)
 
     def stop_runner_group_with(self, sig):
         """A runner (its own process group) runs Fixture.gate on a command that sleeps; its group gets `sig`. Returns the

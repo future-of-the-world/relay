@@ -7,6 +7,7 @@ leak scan (tests/leaked_gates.py) all read the process table here, so it is pars
 from __future__ import annotations
 
 import os
+import re
 import signal
 import subprocess
 import time
@@ -129,18 +130,56 @@ def is_alive(pid: int) -> bool:
     return bool(state) and not state.startswith("Z")
 
 
-def send(pid: int, group: bool, sig: int) -> None:
-    """Signal the process, or its whole group; a process that is gone or not ours is not an error."""
+SIGNAL_LOG_ENV = "RELAY_SIGNAL_LOG"      # the shared log of every stop relay sends (a gate's command inherits it)
+
+
+def signal_log() -> str:
+    """The shared log of signals relay sends: `$RELAY_SIGNAL_LOG`, else `$RELAY_HOME/signals.log` (default ~/.relay)."""
+    return os.environ.get(SIGNAL_LOG_ENV) or os.path.join(os.path.expanduser(os.environ.get("RELAY_HOME") or "~/.relay"), "signals.log")
+
+
+def record_sent(pid: int, group: bool, sig: int, reason: str, now: Optional[float] = None) -> None:
+    """Append one line to the shared signal log: when, the sender (this process), the signal, the target and why. The log is
+    best effort: a log that cannot be written never stops the signal."""
+    name = signal.Signals(sig).name if sig in {int(s) for s in signal.Signals} else "signal %d" % sig
+    line = "t=%.3f relay pid %d sent %s to %s %d: %s\n" % (time.time() if now is None else now, os.getpid(), name, "group" if group else "pid", pid, reason or "no reason given")
+    try:
+        path = signal_log()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(line)
+    except OSError:
+        pass
+
+
+def sent_by_relay(number: int, since: float) -> Optional[str]:
+    """The newest line of the signal log from `since` on (epoch seconds) that sent a signal to pid or group `number`, else None."""
+    try:
+        with open(signal_log(), encoding="utf-8", errors="replace") as handle:
+            lines = handle.read().splitlines()
+    except OSError:
+        return None
+    found = None
+    for line in lines:
+        m = re.match(r"t=([0-9.]+) (relay pid .* sent \S+ to (?:pid|group) (\d+): .*)", line)
+        if m and int(m.group(3)) == number and float(m.group(1)) >= since:
+            found = m.group(2)
+    return found
+
+
+def send(pid: int, group: bool, sig: int, reason: str = "") -> None:
+    """Signal the process, or its whole group, and record it in the signal log; a process that is gone or not ours is not an error."""
+    record_sent(pid, group, sig, reason)
     try:
         (os.killpg if group else os.kill)(pid, sig)
     except OSError:
         pass
 
 
-def stop(targets: Sequence[Tuple[int, bool]]) -> List[Tuple[int, bool]]:
+def stop(targets: Sequence[Tuple[int, bool]], reason: str = "") -> List[Tuple[int, bool]]:
     """Stop each (pid, whole group?): SIGTERM, then SIGKILL for those still there after STOP_GRACE. Returns the targets that needed SIGKILL."""
     for pid, group in targets:
-        send(pid, group, signal.SIGTERM)
+        send(pid, group, signal.SIGTERM, reason)
     deadline = time.monotonic() + STOP_GRACE
     pending = list(targets)
     while pending and time.monotonic() < deadline:
@@ -149,7 +188,7 @@ def stop(targets: Sequence[Tuple[int, bool]]) -> List[Tuple[int, bool]]:
             time.sleep(0.05)
     pending = [t for t in pending if _still(t)]
     for pid, group in pending:
-        send(pid, group, signal.SIGKILL)
+        send(pid, group, signal.SIGKILL, reason + " (still there after SIGTERM)")
     return pending
 
 
