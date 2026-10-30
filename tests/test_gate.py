@@ -148,17 +148,22 @@ class Fixture(unittest.TestCase):
                 write(os.path.join(template, ".claude", "kit.toml"), '[gate]\nci = "%s"\n' % self.SCRIPT_REL)
             git(template, "add", "-A")
             git(template, "commit", "-q", "-m", "init")
+            twt = os.path.join(template, ".worktrees", "x")
+            git(template, "worktree", "add", "-q", twt, "-b", "wt/x")
+            write(os.path.join(twt, "lib", "a.py"), "a\n")
+            git(twt, "add", "-A")
+            git(twt, "commit", "-q", "-m", "work")
             _TEMPLATES[key] = template
-        shutil.copytree(_TEMPLATES[key], main, symlinks=True)
+        template = _TEMPLATES[key]
+        shutil.copytree(template, main, symlinks=True)
+        # the worktree came with the copy; its two link files hold absolute paths, so point them at the copy (no git call)
+        for link in (os.path.join(main, ".worktrees", "x", ".git"), os.path.join(main, ".git", "worktrees", "x", "gitdir")):
+            write(link, read(link).replace(template, main))
         if gate is not None:
             self.script = os.path.join(main, ".ci", "gate.sh")
             write(self.script, "#!/bin/sh\n" + gate, stat.S_IRWXU)
         self.main = main
         self.wt = os.path.join(main, ".worktrees", "x")
-        git(main, "worktree", "add", "-q", self.wt, "-b", "wt/x")
-        write(os.path.join(self.wt, "lib", "a.py"), "a\n")
-        git(self.wt, "add", "-A")
-        git(self.wt, "commit", "-q", "-m", "work")
 
     @staticmethod
     def _stop(proc):
