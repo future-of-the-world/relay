@@ -35,6 +35,16 @@
       "fact": [
         "Front decision (owner can reverse; principle 9: a decision that follows from the principles is made and reported afterwards), 30 Oct: the design's open question 'when does a decision the front took alone reach the owner' is answered a, as principle 9 already says: one line per item when its decisions are recorded (5 to 10 a day, grouped by item), work goes on; b (only in the wave digest) would report most decisions after they landed; c (every decision waits) would hold 5 to 10 items a day, median 8 min, p90 2.4 h. Reviewed design rev 2 (8 of 8 findings held and fixed): what is new comes from the git diff of the queue between the head of the last sent digest and now; `relay digest` only prints, `--sent` records delivery; `relay digest --due` plus an end-of-turn hook say when a digest or spend alert is due; every decision note counts (about 27 a day, up to about 50, an upper estimate); the 32 earlier plain-text decisions are shown once."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T10:27:30Z",
+      "question": [
+        "The digest change is ready (review open 0, gate green) and stopped before landing because it changes what the owner reads: land it as shown in the live preview of 30 Oct?"
+      ],
+      "options": [
+        "a. land it as it is; wording fixes come as fix items",
+        "b. hold it; the owner names what to change first"
+      ]
     }
   ]
 }
