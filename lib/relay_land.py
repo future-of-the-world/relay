@@ -5,7 +5,8 @@ judge without its gate step, runs the quick gate on the result, runs the full ju
 `relay land --stats` computes the comparison numbers from the dated events (`record`) and from git; nothing is stored
 but the events. Settings, in the project's .claude/kit.toml under [land]: land_tries, land_inert_tries, land_ff_lock_tries.
 
-Exit codes: 0 landed, 1 red gate, 2 refused (also a dirty main checkout), 3 take conflict, 4 handed back.
+Exit codes: 0 landed, 1 red gate, 2 refused (also a dirty main checkout), 3 take conflict, 4 handed back, 5 waits for the owner
+(a hold or an unanswered question), 6 waits for the paid run. The waits are checked in lib/relay_land_waits.py.
 Tests: tests/test_land.py
 """
 from __future__ import annotations
@@ -28,7 +29,8 @@ SETTINGS = {"land_tries": (2, 1, 3), "land_inert_tries": (10, 3, 50), "land_ff_l
 FF_LOCK_WAIT_S = 1.0          # seconds between two fast-forwards refused by an index.lock (the count is the setting)
 JUDGE_TIMEOUT_S = 300         # one judge reads git only; far above its seconds, finite so a stuck git cannot hold the lock forever
 LANDED, RED, CONFLICT, REFUSED, HANDED_BACK, DIRTY = "landed", "red", "conflict", "refused", "handed_back", "dirty"
-EXIT = {LANDED: 0, RED: 1, REFUSED: 2, DIRTY: 2, CONFLICT: 3, HANDED_BACK: 4}
+WAITS_OWNER, WAITS_PAID = "waits_owner", "waits_paid"
+EXIT = {LANDED: 0, RED: 1, REFUSED: 2, DIRTY: 2, CONFLICT: 3, HANDED_BACK: 4, WAITS_OWNER: 5, WAITS_PAID: 6}
 HOOK = next((h for n in (2, 4) if os.path.exists(h := os.path.join(os.path.realpath(__file__).rsplit("/", n)[0], "plugins", "relay", "hooks", "merge.py"))), os.path.join(os.path.realpath(__file__).rsplit("/", 2)[0], "plugins", "relay", "hooks", "merge.py"))   # the repository's merge hook: lib/ is 2 path parts below the root, plugins/<name>/lib/ copies 4
 
 
@@ -44,7 +46,7 @@ def setting(cfg: Any, key: str) -> int:
 
 @dataclass
 class Event:
-    kind: str                       # asked | locked | done | held
+    kind: str                       # asked | locked | done | held | hold | release
     ts: str                         # ISO 8601 UTC
     branch: str = ""
     pid: int = 0
@@ -58,10 +60,11 @@ class Event:
     slug: str = ""                  # held: the item held at start
     file: str = ""
     holder: str = ""
+    words: str = ""                 # hold: the owner's words
 
 
-KINDS = ("asked", "locked", "done", "held")
-OUTCOMES = (LANDED, RED, CONFLICT, REFUSED, HANDED_BACK, DIRTY)
+KINDS = ("asked", "locked", "done", "held", "hold", "release")
+OUTCOMES = (LANDED, RED, CONFLICT, REFUSED, HANDED_BACK, DIRTY, WAITS_OWNER, WAITS_PAID)
 _TYPES = {f.name: f.type for f in fields(Event)}
 _NUMBERS = ("pid", "gates_run", "code_moves", "inert_moves")
 
@@ -87,7 +90,7 @@ def parse_event(line: str) -> Optional[Event]:
             return None
         if key in ("before", "sha") and value is not None and not isinstance(value, str):
             return None
-        if key in ("kind", "ts", "branch", "outcome", "slug", "file", "holder") and not isinstance(value, str):
+        if key in ("kind", "ts", "branch", "outcome", "slug", "file", "holder", "words") and not isinstance(value, str):
             return None
     if data["kind"] == "done" and data.get("outcome") not in OUTCOMES:
         return None
@@ -265,9 +268,11 @@ class Result:
         return EXIT[self.outcome]
 
 
-def land(repo: str, branch: str, notify: Callable[[str], None]) -> Result:
-    """Land `branch`; the steps of design relay-land 4.1. Returns the outcome and the lines to print."""
+def land(repo: str, branch: str, notify: Callable[[str], None], paid_fix: bool = False) -> Result:
+    """Land `branch`; the steps of design relay-land 4.1. Returns the outcome and the lines to print. `paid_fix` lets the branch
+    through a red paid run (lib/relay_land_waits.py)."""
     import relay_config      # these are not at the top: the merge hook's plugin folder carries this file without them
+    import relay_land_waits
     import relay_queue
     try:
         main, default = relay_queue._context_with_relay(repo)
@@ -280,13 +285,20 @@ def land(repo: str, branch: str, notify: Callable[[str], None]) -> Result:
         tree = _preflight(main, default, branch)
         if (refusal := relay_queue.open_item_refusal(tree, branch)): return Result(REFUSED, [refusal])
         record(main, Event("asked", now(), branch=branch, pid=os.getpid()))
+        try:
+            relay_land_waits.check(main, default, branch, paid_fix)      # before the lock: a waiting branch does not queue for it
+        except Stop as stop:
+            stats.outcome, stats.ts = stop.outcome, now()
+            record(main, stats)
+            return Result(stop.outcome, stop.lines)
         handle = lock(main, branch, notify)
     except Stop as stop:
         return Result(stop.outcome, stop.lines)
     try:
         record(main, Event("locked", now(), branch=branch, pid=os.getpid()))
         try:
-            result = _locked(main, default, branch, tree, stats, tries, inert_tries, ff_tries, notify)
+            relay_land_waits.check(main, default, branch, paid_fix)      # again after the lock: the wait may have begun while this one queued
+            result = _locked(main, default, branch, tree, stats, tries, inert_tries, ff_tries, notify, paid_fix)
         except Stop as stop:
             result = Result(stop.outcome, stop.lines)
             for key, value in stop.fields.items():
@@ -333,8 +345,9 @@ def _preflight(main: str, default: str, branch: str) -> str:
 
 
 def _locked(main: str, default: str, branch: str, tree: str, stats: Event, tries: int, inert_tries: int, ff_tries: int,
-            notify: Callable[[str], None]) -> Result:
+            notify: Callable[[str], None], paid_fix: bool = False) -> Result:
     import relay_gate
+    import relay_land_waits
     code_moves = inert_moves = 0
     ref = "refs/heads/" + default
     while True:
@@ -371,6 +384,7 @@ def _locked(main: str, default: str, branch: str, tree: str, stats: Event, tries
             if reason:
                 raise Stop(REFUSED, [reason], code_moves=code_moves, inert_moves=inert_moves)
             stats.code_moves, stats.inert_moves = code_moves, inert_moves
+            relay_land_waits.check(main, default, branch, paid_fix)      # right before the fast-forward: a paid run or a hold may have begun during the gate
             landed = _fast_forward(main, default, branch, base, ff_tries, notify, judged)
         if landed:
             stats.before = base

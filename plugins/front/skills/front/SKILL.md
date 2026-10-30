@@ -124,14 +124,26 @@ the numbers: `relay check show <branch>` prints three lines (the gate, the
 check, the findings outside the change). You never read the review, the check
 report or the gate log. No page and no Artifact.
 
-Land it: start `relay land <branch>` with Bash `run_in_background` (no `&`, no
-polling); when told it exited, read its last 3 lines. It takes the default
-branch, gates the result and fast-forwards on green, one landing at a time, no
-agent. Exit 0 landed: say in your next reply, in one line: `merged: <what it
-does for the owner>`. Exit 1 red gate: a fix unit. Exit 3 take conflict: the fix
-unit the output prints (kind fix, findings = the branch's last review JSON, no
-item), then `relay land` again. Exit 2 refused or dirty main checkout: do what
-the line says. Exit 4 handed back: run it again.
+The cycle lands a ready change itself as its last stage (`relay land`, with a
+fixer for a red gate or a conflict, once). The Workflow result carries a `landed`
+line for each landed unit: say in your next reply, in one line: `merged: <what it
+does for the owner>`, and start no `relay land`, no log read and no check show
+for it. You land only a unit stopped at `land`, a unit with `land: false`, and a
+change the owner released. Land it: start `relay land <branch>` with Bash
+`run_in_background` (no `&`, no polling); when told it exited, read its last 3
+lines. It takes the default branch, gates the result and fast-forwards on green,
+one landing at a time, no agent. Exit 0 landed: the `merged:` line. Exit 1 red
+gate: a fix unit. Exit 3 take conflict: the fix unit the output prints (kind
+fix, findings = the branch's last review JSON, no item), then `relay land`
+again. Exit 2 refused or dirty main checkout: do what the line says. Exit 4
+handed back: run it again. Exit 5 waits for the owner (a hold, or a question to
+the owner on the change that is not answered): put the line to the owner on the
+merge question screen, "Why I ask" naming (b) or (d). Exit 6 waits for the paid
+run: no question to the owner; the change lands in the paid-run release step
+(`relay land --waiting` lists it). The owner's "hold" is recorded at once, also
+while a cycle runs: `relay land --hold <branch> "<their words>"`; their word to
+go on is `relay land --release <branch>`. A unit the cycle stopped at `owner`
+with "person-facing" was checked and closed but waits for the owner's look.
 
 Ask the owner first, on one chat screen, only when: (a) taking the default
 branch hit a git conflict that a fixer could not resolve (it stopped on it; a resolved
@@ -195,10 +207,13 @@ it, or say in one short sentence why the lane stays free: facts only (what is fr
 what waits), never a reading of what the owner wants or said. Do not repeat your
 earlier answer. A branch that holds two items
 is one lane. Settings under `[front]` in the project's `.claude/kit.toml`:
-`lanes_line_items` (default 3, 1-8, items named in the line), `stop_nudge`
+`lanes_line_items` (default 3, 0-10, startable items named after the picks as "next:"; 0 names none), `stop_nudge`
 (default 1, 0-2, Stop refusals per lane state; 0 is the line only) and
 `lane_quiet_hours` (default 3, 1-24, how long a worktree with no item counts as
-a lane). Do not wait for the other lanes, and never start more than N.
+a lane). The reproduce step's result is recorded as data: `relay queue note` with a `fact` and
+`reproduced = "no"` (or `"yes"`). An item whose newest such note says "no" is not named as a pick
+and the line lists it as "skipped, not reproduced"; a later `reproduced = "yes"` brings it back.
+Do not wait for the other lanes, and never start more than N.
 
 While a paid run goes, lanes keep building. A change that touches the paid
 run's paths waits at the landing until the run ends; `bin/paid-cost touches
@@ -209,10 +224,16 @@ after a green run `bin/paid-cost due` would still list it and `relay sync`
 would stay refused. Any other change lands as usual. How the waiting changes
 are released depends on how the run ends:
 
-- Green: `relay sync`, then start `relay land` for each waiting change (they land
-  one gate apart), and the next paid run starts on that head.
-- Red: the fix item lands first; the next paid run starts on its head at once,
-  with no wave needed, and the waiting changes land after that run is green.
+Code decides the wait: `bin/paid-cost state` prints the state (free, going,
+stopped, waits_sync, red) from dated records, and `relay land` exits 6 by itself
+for a change that touches the paid paths.
+
+- Green: `relay sync` (it prints the waiting branches), then land what
+  `relay land --waiting` lists (one runner, in order, one gate apart), and the
+  next paid run starts on that head.
+- Red: the fix item lands with `relay land <branch> --paid-fix` first; the next
+  paid run starts on its head at once, with no wave needed, and the waiting
+  changes land after that run is green.
 - Not judged (money ceiling, runs not judged, the day's cap): the waiting
   changes keep waiting; run again on the same head as soon as the cap allows,
   and they land after that run is green.

@@ -56,10 +56,17 @@
                                      --again runs it although the same code has a finished gate (a red one is otherwise reported, not run)
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
                                      (a quick gate stopped at its time limit exits 124: run it again)
-  relay land <branch> [-C <repo>] | --stats [--since <date>] [--until <date>]
+  relay land <branch> [--paid-fix] [-C <repo>]
                                      take the default branch into the branch, gate the result, fast-forward on green; one
-                                     landing at a time, no agent (0 landed, 1 red, 2 refused, 3 take conflict, 4 run again);
-                                     --stats prints the counters computed from its events and git
+                                     landing at a time, no agent. Exit 0 landed, 1 red gate, 2 refused, 3 take conflict,
+                                     4 run again, 5 waits for the owner (a hold or an unanswered question: ask the owner),
+                                     6 waits for the paid run (no question to the owner: it lands after the run, see --waiting).
+                                     --paid-fix lets the fix item of a red paid run land (refused in any other state)
+  relay land --hold <branch> "<the owner's words>" | --release <branch> [-C <repo>]
+                                     the owner's hold on a branch (also one with no queue item); a held branch exits 5
+  relay land --waiting [-C <repo>]   the branches that stopped on the paid run and still exist, one per line
+  relay land --stats [--since <date>] [--until <date>] [-C <repo>]
+                                     the counters computed from its events and git
   relay precheck [-C <worktree>]     the gate's quick steps (types and lint, python 3.9 imports, plugin lib links on HEAD,
                                      changed tests and the rules registry test under python3), read-only; the quiet check a worker loops on starts with it; exits 1 when one is red
   relay check show [-C <repo>] [--brief] <branch>
@@ -110,6 +117,7 @@ import relay_git  # noqa: E402
 import relay_inert  # noqa: E402
 import relay_land  # noqa: E402
 import relay_land_counters  # noqa: E402
+import relay_land_waits  # noqa: E402
 import relay_lanes  # noqa: E402
 import relay_ledger  # noqa: E402
 import relay_precheck  # noqa: E402
@@ -395,6 +403,9 @@ def cmd_sync(args):
         return 1
     for name, path, state in results:
         print(f"{name}: {state} ({path})")
+    if not dry and only is None:        # a sync of named targets does not install every setting the paid run reads
+        for line in relay_land_waits.after_sync(relay_config.ROOT):
+            print(line)
     return report_refused(results)
 
 
@@ -651,7 +662,8 @@ def cmd_gate(args):
 
 
 def cmd_land(args):
-    usage = "relay land <branch> [-C <repo>] | relay land --stats [--since <date>] [--until <date>] [-C <repo>]"
+    usage = ("relay land <branch> [--paid-fix] [-C <repo>] | relay land --hold <branch> \"<the owner's words>\" | relay land --release <branch> | "
+             "relay land --waiting | relay land --stats [--since <date>] [--until <date>] [-C <repo>]")
     args = list(args)
     repo = "."
     if "-C" in args:
@@ -674,9 +686,35 @@ def cmd_land(args):
             raise Usage(usage)
         print("\n".join(relay_land_counters.stats(repo, window.get("since"), window.get("until"))))
         return 0
+    if args and args[0] in ("--hold", "--release", "--waiting"):
+        wanted = {"--hold": 3, "--release": 2, "--waiting": 1}[args[0]]
+        if len(args) != wanted or any(a.startswith("-") for a in args[1:]):
+            raise Usage(usage)
+        try:
+            main, _default = relay_queue._context(repo)
+            if args[0] == "--waiting":
+                print("\n".join(relay_land_waits.waiting(main)))
+            elif args[0] == "--hold":
+                if relay_git.git(main, "rev-parse", "--verify", "-q", "refs/heads/" + args[1])[0] != 0:
+                    _rc, listing = relay_git.git(main, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+                    like = [b for b in listing.split() if args[1] in b]
+                    raise ValueError(f"land: no branch {args[1]} exists, so a hold on it would stop nothing"
+                                     + (f"; branches whose name contains it: {', '.join(sorted(like))}" if like else "")
+                                     + "; name the branch exactly (relay land --hold <branch> \"<the owner's words>\")")
+                relay_land_waits.hold(main, args[1], args[2])
+                print(f"{args[1]} is on hold: relay land {args[1]} now exits 5 until relay land --release {args[1]}")
+            else:
+                relay_land_waits.release(main, args[1])
+                print(f"{args[1]} is released: relay land {args[1]} lands it when its other waits are over")
+        except relay_queue.Refused as exc:
+            raise ValueError(str(exc))
+        return 0
+    paid_fix = "--paid-fix" in args
+    if paid_fix:
+        args.remove("--paid-fix")
     if len(args) != 1 or args[0].startswith("-"):
         raise Usage(usage)
-    result = relay_land.land(repo, args[0], lambda line: print("land: " + line, file=sys.stderr, flush=True))
+    result = relay_land.land(repo, args[0], lambda line: print("land: " + line, file=sys.stderr, flush=True), paid_fix=paid_fix)
     print("\n".join(result.lines))
     return result.code
 
@@ -853,6 +891,8 @@ relay queue note <slug> --input <file.toml>
                                              (the question opens with a bold title; the command prints the block back and its asked time: show the owner exactly the block)
                                            answer = '''the owner's whole reply, every explanation''' [+ to = ["<asked time>", ...]] [+ reading = '''your reading''']
                                              (to names the question(s) answered by the asked time `show` prints; without it the answer goes to the only waiting question)
+                                         and, optional, reproduced = "no" (or "yes") with a fact: the reproduce step's result; the newest one on an item
+                                           decides, and an item whose newest result is "no" is not a lanes pick (the line says "skipped, not reproduced")
                                          and, optional, at = "2026-10-27T01:20:00Z" (when it was said; default now). A note is only added, never edited.
 relay queue edit <slug> --input <file.toml>
                                          correct one exact fragment of an item's text, in any state. The TOML holds

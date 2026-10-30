@@ -176,11 +176,13 @@ class Note(NamedTuple):
     chosen: str = ""             # the letter the agent chose; set exactly when decided_by is
     because: list = []           # the agent's reason; set exactly when decided_by is
     answer_choice: str = ""      # the letter the owner's answer carries, "" when it carries none
+    reproduced: str = ""         # a fact note: "yes" or "no", whether the front could reproduce the defect (data, not prose); "" for the others
 
 
+REPRODUCED = ("yes", "no")     # the values of a fact note's `reproduced`: the reproduce step's result; the newest one on an item decides
 DECIDERS = ("front",)       # who may record a decision of their own; a reviewer's decisions live in the check record
 NOTE_ONE_OF = {"said", "fact", "question"}
-NOTE_KEYS = {"said": ("at", "said"), "fact": ("at", "fact", "edited"),
+NOTE_KEYS = {"said": ("at", "said"), "fact": ("at", "fact", "edited", "reproduced"),
              "question": ("asked_at", "number", "question", "options", "decided_by", "chosen", "because", "answered_at", "answer",
                           "answer_choice", "reading")}
 
@@ -190,9 +192,13 @@ def note_dict(note: Note) -> dict:
     if note.kind == "said":
         return {"at": note.at, "said": list(note.text)}
     if note.kind == "fact":
+        out_fact: dict = {"at": note.at}
         if note.edited:
-            return {"at": note.at, "edited": note.edited, "fact": list(note.text)}
-        return {"at": note.at, "fact": list(note.text)}
+            out_fact["edited"] = note.edited
+        out_fact["fact"] = list(note.text)
+        if note.reproduced:
+            out_fact["reproduced"] = note.reproduced
+        return out_fact
     out: dict = {"asked_at": note.at}
     if note.number:
         out["number"] = note.number         # only a question recorded with a number keeps it
@@ -236,8 +242,10 @@ def parse_note(raw: object) -> tuple:
         problems.append(f"{kind} is not a non-empty list of lines")
     if "edited" in raw and (kind != "fact" or raw["edited"] not in EDIT_FIELDS):
         problems.append("edited is not a field that `relay queue edit` edits")
+    if "reproduced" in raw and (kind != "fact" or raw["reproduced"] not in REPRODUCED):
+        problems.append("reproduced is yes or no, on a fact note")
     if kind != "question":
-        return (None, problems) if problems else (Note(kind, raw["at"], list(raw[kind]), edited=raw.get("edited", "")), [])
+        return (None, problems) if problems else (Note(kind, raw["at"], list(raw[kind]), edited=raw.get("edited", ""), reproduced=raw.get("reproduced", "")), [])
     number: Any = raw.get("number", 0)
     options: Any = raw.get("options")
     if "number" in raw and (not isinstance(number, int) or isinstance(number, bool) or number < 1):
@@ -1720,7 +1728,7 @@ def read_note_input(path: str) -> dict:
         raw = relay_verdict.read_input(path, "noted")
     except relay_verdict.VerdictError as exc:
         raise Refused(str(exc))
-    allowed = ("said", "fact", "question", "options", "answer", "to", "reading", "at", "chosen", "decided_by", "because")
+    allowed = ("said", "fact", "question", "options", "answer", "to", "reading", "at", "chosen", "decided_by", "because", "reproduced")
     problems = relay_verdict.table_errors(raw, "in the input", allowed, ())
     if problems:
         raise Refused("nothing noted: " + "; ".join(problems))
@@ -1730,6 +1738,8 @@ def read_note_input(path: str) -> dict:
                       "; a note is one of said (the owner's words), fact (a measurement), question (with options) or answer")
     kind = kinds[0]
     extra = {"question": ("options", "chosen", "decided_by", "because"), "answer": ("to", "reading", "chosen")}
+    if "reproduced" in raw and (kind != "fact" or raw["reproduced"] not in REPRODUCED):
+        raise Refused("nothing noted: `reproduced` is \"yes\" or \"no\" and goes with a `fact` (the result of the reproduce step)")
     for key in ("options", "to", "reading", "chosen", "decided_by", "because"):
         if key in raw and key not in extra.get(kind, ()):
             raise Refused(f"nothing noted: `{key}` does not go with `{kind}`" + ("; it belongs to a question" if key in extra["question"] else "; it belongs to an answer"))
@@ -1737,6 +1747,8 @@ def read_note_input(path: str) -> dict:
         raise Refused("nothing noted: a question needs `options` (the lettered lines as you will show them)")
     out: dict = {"kind": kind}
     errors: list = []
+    if "reproduced" in raw:
+        out["reproduced"] = raw["reproduced"]
     if kind == "question":
         errors += decision_errors(raw)
         out.update({k: raw[k] for k in ("chosen", "decided_by") if k in raw})
@@ -1814,7 +1826,7 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
             raise Refused(f"nothing noted: `at` {when} is before the item was found ({item['found_at']})")
         notes = notes_of(item)
         if kind in ("said", "fact"):
-            new = Note(kind, when, list(fields[kind]))
+            new = Note(kind, when, list(fields[kind]), reproduced=fields.get("reproduced", ""))
         elif kind == "question":
             if any(w.at == when for w in answerable(notes)):
                 raise Refused(f"nothing noted: {slug} already has a question asked at {when} waiting for an answer, and an answer names its "
@@ -2144,6 +2156,8 @@ def notes_text(item: dict, tz: Optional[dt.tzinfo] = None) -> list:
                 out += _quoted(n.text)
             else:
                 out += ["    " + x for x in n.text]
+                if n.reproduced:
+                    out.append("    reproduced: " + n.reproduced)
             continue
         if n.decided_by:
             out.append(f"  {when} decided by the {n.decided_by} (an agent; owner can reverse) '{question_title(n)}', at {n.at}:")

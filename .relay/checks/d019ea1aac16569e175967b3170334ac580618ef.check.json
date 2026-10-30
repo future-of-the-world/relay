@@ -1,0 +1,128 @@
+{
+  "branch": "wt/bench-graders-read-the-main-tree-after-a",
+  "findings": [
+    {
+      "details": [
+        "Bench 2026-10-30T02-38-10Z, scenario add-function, profile judge-fable run 1: the session succeeded (worker, critic, fixer, checker ran; 14 turns, $1.51), the worker built removeItem on branch wt/remove-item in .worktrees/remove-item and left the merge to the owner, as relay's rules say; the graders grep src/shelf.ts in the main tree and failed. The score fell 0.20 for a reason unrelated to the setup under test, and nearly blocked the owner's Fable decision.",
+        "Also: evals/scenarios/small-script/scenario.toml"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "~/.relay/bench/2026-10-30T02-38-10Z: judge-fable add-function run 1 failed function-exists and test-written (grep -q 'export function removeItem' src/shelf.ts in the main tree, exit 1) while the function existed on wt/remove-item at ac97752."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 20,
+      "pass_cases": [
+        "A replay of that run's workspace with the change only on a task branch passes function-exists and test-written.",
+        "A run with no function anywhere still fails them."
+      ],
+      "path": "evals/scenarios/add-function/scenario.toml",
+      "rank": "high",
+      "reason": [
+        "tests/test_bench.py::GradersFindTaskBranch::test_add_function_found_only_on_a_task_branch passes at head, fails at Q1 since."
+      ],
+      "severity": "HIGH",
+      "since": "1254261986578dbaaea105c303a0867dcd84ccb6",
+      "source": "queue",
+      "summary": "Bench graders read the main tree after a worktree build",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. The brief asks to check every scenario for the shape \"a grader reads the main tree while the change lives on",
+        "a task branch\". tests-pass is that shape: grade() runs it with cwd=workspace, and bun does not scan .worktrees/, so it",
+        "runs the fixture's 4 original tests. The failing bench run shows it: judge-fable add-function run 1 tests-pass passed",
+        "with \"Ran 4 tests across 1 file\" while the passing runs ran 7. Before this change a branch build scored 0.6 on these",
+        "three graders whatever its quality; after it, a branch build scores full marks even when its tests fail, so the",
+        "correctness half of the scenario no longer measures the branch's code. Size: 15 minutes."
+      ],
+      "evidence": [
+        "results.json 2026-10-30T02-38-10Z: judge-fable add-function 1 tests-pass True 'Ran 4 tests across 1 file'; active runs 'Ran 7 tests'.",
+        "Scratch repro (scaffold, worktree wt/remove-item with a wrong removeItem and a failing test, committed):",
+        "  branch: bun test -> \" 1 fail\"",
+        "  rb.grade(add-function command graders, ws):",
+        "    tests-pass True exit 0: Ran 4 tests across 1 file. [20.00ms]",
+        "    function-exists True exit 0:",
+        "    test-written True exit 0:"
+      ],
+      "failing_case": [
+        "Workspace from add-function's scaffold; a worker commits on wt/remove-item (worktree .worktrees/remove-item) a",
+        "removeItem whose own test fails (bun test there: \"1 fail\"). Graded with the new scenario.toml:",
+        "tests-pass True (\"Ran 4 tests across 1 file\", the fixture's untouched tests), function-exists True, test-written True.",
+        "The scenario says it measures \"whether the result is right\"; it should give tests-pass False."
+      ],
+      "fix_hint": [
+        "Give tests-pass the same fallback: when src/shelf.ts in the workspace lacks removeItem, take the newest wt/* branch",
+        "that has it, git archive it into a temp dir (or use its path from git worktree list) and run bun test there; add the",
+        "failing-branch case to GradersFindTaskBranch."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 17,
+      "pass_cases": [
+        "1. removeItem and a failing test only on wt/remove-item, main tree untouched -> tests-pass False.",
+        "2. removeItem and passing tests only on wt/remove-item, main tree untouched -> tests-pass True, function-exists True, test-written True.",
+        "3. removeItem and passing tests merged into the workspace (main tree) -> tests-pass True (today's passing runs: \"Ran 7 tests\").",
+        "4. No removeItem anywhere -> function-exists False, test-written False (unchanged)."
+      ],
+      "path": "evals/scenarios/add-function/scenario.toml",
+      "rank": "medium",
+      "reason": [
+        "tests/test_bench.py:281 failing branch gives tests-pass False (fails on old toml); 286, 291, 299 cover the other cases and pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "5f106fc41a990bece5484854fc40408ce1a03ef6",
+      "source": "review-bench-graders-read-the-main-tree-after-a.json",
+      "source_id": "F1",
+      "summary": "tests-pass still runs bun test only in the main tree, so a broken removeItem left on a task branch now passes every file grader",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the command: d=$(mktemp -d) inside the loop, no rm or trap. Harmless today, grows with every bench.",
+        "Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "small-script run where bin/count is only on a task branch: the loop calls mktemp -d for wt/bench and for wt/<task>",
+        "and never removes them; each bench run leaves 1-2 folders behind (TMPDIR already holds 8817 tmp.* folders).",
+        "Should leave none."
+      ],
+      "fix_hint": [
+        "rm -rf \"$d\" after t \"$d\" (keep its exit status), or one mktemp -d before the loop with trap 'rm -rf \"$d\"' EXIT."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 18,
+      "pass_cases": [
+        "1. bin/count only on wt/count -> script-runs True and no new folder left in TMPDIR.",
+        "2. bin/count in the workspace -> script-runs True, no mktemp at all (unchanged).",
+        "3. bin/count nowhere -> script-runs False, no folder left."
+      ],
+      "path": "evals/scenarios/small-script/scenario.toml",
+      "rank": "low",
+      "reason": [
+        "tests/test_bench.py:302 and 311 no temp folder left, fail on old toml; found/absent tests cover the rest."
+      ],
+      "severity": "LOW",
+      "since": "5f106fc41a990bece5484854fc40408ce1a03ef6",
+      "source": "review-bench-graders-read-the-main-tree-after-a.json",
+      "source_id": "F2",
+      "summary": "script-runs leaves one mktemp -d folder per task branch per grading in TMPDIR",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "f11e06fb77bc6a4a6a781d3d236aa024470c97dd.gate.log",
+  "head": "d019ea1aac16569e175967b3170334ac580618ef",
+  "item": "bench-graders-read-the-main-tree-after-a-worktre",
+  "notes": [
+    "Fix diff read: trap EXIT inside tests-pass is in the grader shell, fine."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range per finding since; own files: two scenario.toml, tests/test_bench.py (and test_metrics.py for Q1). Ran tests.test_bench (22 OK). Reran at 5f106fc4 and at Q1 since with head's test file: 3 and 4 failures. Gate log is for f11e06fb, only a gate-log commit after; green exit 0. Precheck green; bin/ci --quick was still in its library tests when stopped, the gate covers the same code."
+  ],
+  "type": "check"
+}

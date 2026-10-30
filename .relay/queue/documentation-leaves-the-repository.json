@@ -1,0 +1,89 @@
+{
+  "kind": "feature",
+  "ip": 90,
+  "time": 120,
+  "found_at": "2026-10-30T05:18:42Z",
+  "found_in": "relay queue add",
+  "title": "Documentation leaves the repository",
+  "what": [
+    "Each file under docs/ is either removed, or its needed content moves where relay ships it (a command's --help, an error or refusal text, install.sh output, a plugin's skill or rule, the queue), or it stays with a stated reason. Readers of docs/ in code, hooks, skills and tests are changed to match."
+  ],
+  "why": [
+    "Owner, 30 Oct: the vector is no documentation in the repository: what a person or an agent needs ships with relay itself (install.sh, `relay --help`, `relay setup --help`, error hints, plugin texts); \"why\" questions are answered by an agent reading the code and by the queue's recorded decisions; the handover's role goes to the queue or to local files. In line with the owner's manifesto of 29 Oct (\"Никаких документаций, исключения - --help и подсказки в командах ... максимум ... краткий набор инструкций в README.md\")."
+  ],
+  "pass_cases": [
+    "`ls docs` lists only files with a recorded reason to stay.",
+    "No hook, skill, test or program reads a removed file.",
+    "A fresh session can set up relay and answer \"how does X work\" from relay's own texts and code."
+  ],
+  "where": [
+    "docs/setup.md",
+    "docs/design.md",
+    "docs/delegation.md",
+    "docs/handover.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T05:18:42Z",
+      "said": [
+        "Почему setup.md лежит в репозитории, я бы хотел чтобы вся документация шла в комплекте с утилитой relay, install.sh и relay setup --help или relay --help уже содержат всю необходимую информацию, design.md - разве это нельзя воспроизвести за один прого Haiku, он будет стоить меньше 5$ для ответа на любой вопрос, delegation.md тоже самое - вся информация уже хранится в плагинах",
+        "",
+        "handover.md - задача уже заведена, думаю что задачи вполне могут выполнять эту функцию, или же впоследствии это будет делегировано локальным файлам на компьютере",
+        "",
+        "Мой вектор это избавление от документации в репозитории, проведи анализ"
+      ]
+    },
+    {
+      "at": "2026-10-30T05:22:24Z",
+      "said": [
+        "Думаю что впоследствии в README.md будут содержаться только одна команда установки с подписью INSTALLATION",
+        "",
+        "Как обычно устроены утилиты",
+        "",
+        "relay --help выдаёт информацию о дочерних командах, setup, queue, land",
+        "",
+        "relay <command> --help выдаёт информацию о конкретной дочерней команды с её опциями и флагами",
+        "",
+        "И так далее, я хочу чтобы ты понял мысль которую я доношу, вероятно ты знаешь это лучше меня, полагаю что именно так сейчас и есть, тебе лишь надо проверить текущее состоянии и выдать мне отчет о том как это устроено сейчас"
+      ]
+    },
+    {
+      "at": "2026-10-30T05:22:25Z",
+      "fact": [
+        "Measured 30 Oct: `relay --help` prints 90 lines, a flat list of 35 command forms with their arguments (not one line per command); `relay <command> --help` prints that command's slice of the same hand-written text (queue 43 lines, check 23, setup 7, gate 7, bench 6, land 4), forms and flags on one line, no per-flag lines; 20 commands in bin/relay's dispatch table, `metrics` missing from help, and `relay metrics --help` prints the whole top-level help instead. README.md is 120 lines."
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T05:40:45Z",
+      "question": [
+        "Where does the session state (today docs/handover.md, which relay setup writes into every project and relay doctor checks) live once docs/ leaves the repository?"
+      ],
+      "options": [
+        "a. keep it in the repository until the item that derives state from facts lands (recommended: measured, 20 of 28 recent owner decisions have no queue item to hold them)",
+        "b. a local file under $RELAY_HOME now, about 75 agent minutes (a guess); not in git, so not seen from other machines",
+        "c. no file; the queue alone, about 60 agent minutes (a guess); decisions about no item are lost at the next compaction"
+      ],
+      "answered_at": "2026-10-30T05:43:14Z",
+      "answer": [
+        "Зачем нам хранить рецензию на план ? Строго говоря ценность плана эфемерна, необходима лишь пока задача не выполнена, однако оставим для историчности, ведь ей необходимо быть в гит репозитории, как мы будем хранить эту рецензию, что если рецензий будет несколько",
+        "",
+        "handover пока не трогаем, оставляем как есть"
+      ],
+      "reading": [
+        "a: the handover stays in the repository as it is for now."
+      ]
+    },
+    {
+      "at": "2026-10-30T05:40:52Z",
+      "fact": [
+        "Front decision (owner can reverse; principle 9), from the reviewed design (rev 2, 30 Oct): docs leave file by file, the handover last. `relay --help` becomes one line per command (about 28 lines from 90; metrics shows; a test fails when a command takes more than one line); `relay <cmd> --help` and `relay help <cmd>` print the command's forms plus an optional long help kept in that command's own module, written only after the command leaves bin/relay (1,173 lines, over the 600 cap). docs/macos.md goes with speed-up-the-quick-gate; START_HERE.md removed; README cut to the install lines; plugins/relay/README.md (227 lines) moves into `relay gate --help` and kit.toml comments. Measured: Haiku answered design questions from the plugins at $0.027 in 29 turns. Estimate about 5 h of agent time (a guess)."
+      ]
+    }
+  ]
+}

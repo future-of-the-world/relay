@@ -142,14 +142,26 @@ class Records(Fixture):
             rows.append({"ts": "2026-10-29T10:10:00.000Z", "event": "agent_stop", "agent_id": aid, "session_id": "s", "label": "build: " + unit,
                          "model": "m", "requests": 2, "cost_est": 0.5})
         write(os.path.join(self.ledger, "2026-10-29.jsonl"), "\n".join(json.dumps(r) for r in rows) + "\n")
-        patcher = mock.patch("relay_config.ledger_dir", return_value=self.ledger)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        # RELAY_HOME, not a patch of relay_config.ledger_dir: a module imported afresh under a patch (relay_ledger binds the name)
+        # would keep the mock for the whole process
+        env = mock.patch.dict(os.environ, {"RELAY_HOME": self.tmp})
+        env.start()
+        self.addCleanup(env.stop)
         # no front days by default (the front's transcripts are the owner's, outside the test); the front tests set them
         self.real_front_days = relay_metrics.front_days
         front = mock.patch.object(relay_metrics, "front_days", return_value=[])
         self.front_days = front.start()
         self.addCleanup(front.stop)
+
+    def test_a_fresh_import_of_relay_ledger_inside_a_records_test_binds_the_real_ledger_dir(self):
+        # a test that dropped relay_* from sys.modules makes code under Records import relay_ledger afresh; whatever it binds must be
+        # the real function (follows RELAY_HOME = self.tmp -> <tmp>/ledger), checked on sys.modules, not on a name held here
+        saved = sys.modules.pop("relay_ledger", None)
+        self.addCleanup(lambda: sys.modules.__setitem__("relay_ledger", saved) if saved else sys.modules.pop("relay_ledger", None))
+        import relay_ledger as fresh
+        self.assertIs(sys.modules["relay_ledger"], fresh)
+        self.assertEqual(fresh.ledger_dir(), self.ledger)
+        self.assertNotIsInstance(fresh.ledger_dir, mock.Mock)
 
     def files(self):
         out = git(self.main, "ls-tree", "-r", "--name-only", "master", "--", ".relay/changes")
@@ -442,7 +454,9 @@ class Reader(unittest.TestCase):
 
     def test_main_refuses_an_unknown_option_with_the_usage_line(self):
         err = io.StringIO()
-        with mock.patch.object(relay_queue, "_context", return_value=("/x", "main")), contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+        # main() imports relay_queue at call time; a test that dropped relay_* from sys.modules leaves the module-level copy stale
+        import relay_queue as queue_now
+        with mock.patch.object(queue_now, "_context", return_value=("/x", "main")), contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             rc = relay_metrics.main(["--sinse", "6h"], "/x")
             bad_by = relay_metrics.main(["--by", "year"], "/x")
         self.assertEqual((rc, bad_by), (2, 2))

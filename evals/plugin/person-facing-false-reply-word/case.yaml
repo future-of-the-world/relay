@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: person-facing-false-reply-word
+description: "a worker instruction that merely mentions reply and merge is not person-facing (false)"
+tags: [delegate, check, person-facing]
+plugins: ["../../../plugins/relay"]
+context:
+  scaffold_script: scaffold.sh

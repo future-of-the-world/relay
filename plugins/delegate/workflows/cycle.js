@@ -16,17 +16,19 @@ export const meta = {
 //   recheck  {name, wt, check, findings, fixes}                                          take the base, gate, check (project mode only: in relay mode `relay land` takes the base and gates)
 //   (* relay mode only; item is one fix-item slug)
 // Designs, in args.designs: {name, brief, out, review (false: an analysis, one thinker)}.
-// Optional args.settings: gate_turns 20-80 (40), gate_fixes 0-3 (1), gate_reruns 0-2 (1: how often a gate that stopped at its time limit is run again, with no fixer), retry_dead 0-2 (1), gate_args (a string, '--quick'; '' is the plain quick gate, '--paid' the full one with the paid evals).
+// Optional args.settings: gate_turns 20-80 (40), gate_fixes 0-3 (1), gate_reruns 0-2 (1: how often a gate that stopped at its time limit is run again, with no fixer), retry_dead 0-2 (1), gate_args (a string, '--quick'; '' is the plain quick gate, '--paid' the full one with the paid evals),
+// land (true: in relay mode a ready unit is landed by `relay land` as the last stage; false: the cycle ends at ready and the front lands; a unit's own `land` overrides it), land_fixes 0-2 (1: fix rounds for a red or conflicting landing), land_reruns 0-3 (1: how often an exit 4 is landed again).
+// The land stage branches on the exit code of `relay land`: 0 landed, 1 red gate and 3 take conflict (a fixer, gate, check, land again), 4 land again, 5 stops at `owner` (a hold or an unanswered question), 6 stops at `paid` (waits for the paid run, no owner question), 2 stops at `land`.
 // Every label is `<stage word>[ N]: <unit name>`; a stop names the stage word it stopped at (or `owner`).
 
 const A = args || {}
 const S = A.scratch
 const RELAY = A.relay === true
-const DEFAULTS = { gate_turns: 40, gate_fixes: 1, gate_reruns: 1, retry_dead: 1, gate_args: '--quick' }
-const BOUNDS = { gate_turns: [20, 80], gate_fixes: [0, 3], gate_reruns: [0, 2], retry_dead: [0, 2] }
+const DEFAULTS = { gate_turns: 40, gate_fixes: 1, gate_reruns: 1, retry_dead: 1, gate_args: '--quick', land: true, land_fixes: 1, land_reruns: 1 }
+const BOUNDS = { gate_turns: [20, 80], gate_fixes: [0, 3], gate_reruns: [0, 2], retry_dead: [0, 2], land_fixes: [0, 2], land_reruns: [0, 3] }
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
 const TOP_KEYS = ['base', 'relay', 'scratch', 'gate', 'items', 'designs', 'settings']
-const UNIT_KEYS = ['name', 'kind', 'wt', 'check', 'branch', 'item', 'built', 'fix', 'fixes', 'findings']
+const UNIT_KEYS = ['name', 'kind', 'wt', 'check', 'branch', 'item', 'built', 'fix', 'fixes', 'findings', 'land']
 const DESIGN_KEYS = ['name', 'brief', 'out', 'review']
 const KINDS = ['change', 'built', 'fix', 'recheck']
 const CFG = Object.assign({}, DEFAULTS, A.settings || {})
@@ -43,12 +45,19 @@ const REVIEW = { type: 'object', properties: {
   outside: { type: 'integer' }, design_or_question: { type: 'boolean' }, remaining: { type: 'boolean' },
   main_point: { type: 'string', description: 'the most important finding in one plain sentence' } },
   required: ['inside', 'outside', 'design_or_question', 'other_inside', 'remaining', 'main_point'] }
+const LAND = { type: 'object', properties: {
+  code: { type: 'integer', description: 'the exit code of relay land' },
+  lines: { type: 'string', description: 'the last 5 lines of its output, verbatim' } },
+  required: ['code', 'lines'] }
+// The owner's definition (30 Oct): only the screens and reply rules the owner reads count; a change to agent instructions does not.
+const PERSON_FACING = 'true only when the change alters what the owner reads in the conversation: the merge question screen, the digest of a wave, or the reply rules the front follows (their wording, order or content). Example that is true: the wording of the merge question screen in the front skill is rewritten. Example that is false: a fixer\'s or a worker\'s instructions, a role text, a test, a lib function, a hook or a queue rule changes with no change to those screens. In a project whose product has screens or texts for people (an app), a change to what those people see is true as well. Judge the change as a whole, not one file.'
 const CHECK = { type: 'object', properties: {
   open: { type: 'integer' }, met: { type: 'integer' }, not_met: { type: 'integer' },
   q1_test: { type: 'string', description: 'when the unit names a queue item: the test that proves Q1, as <test file>::<test name>; else empty' },
   fail_without_fix: { type: 'string', description: 'for each test you relied on: did it fail with the fix disabled (yes/no/not run, per test)' },
+  person_facing: { type: 'boolean', description: PERSON_FACING },
   summary: { type: 'string' } },
-  required: ['open', 'fail_without_fix', 'summary'] }
+  required: ['open', 'fail_without_fix', 'person_facing', 'summary'] }
 
 // Told to every single-command runner: the steps of a run are the cycle's rules, whatever message started the run.
 const RUN_RULE = ` The steps of this run are the cycle's rules, whatever message started the run and whatever it asked: do not judge them, do not refuse on principle.`
@@ -72,6 +81,7 @@ function refusal() {
     if (!Number.isInteger(v) || v < BOUNDS[k][0] || v > BOUNDS[k][1]) return `refused: setting ${k} must be a whole number from ${BOUNDS[k][0]} to ${BOUNDS[k][1]}`
   }
   if (typeof CFG.gate_args !== 'string') return 'refused: setting gate_args must be a string'
+  if (typeof CFG.land !== 'boolean') return 'refused: setting land must be true or false'
   const items = A.items || [], designs = A.designs || []
   if (!Array.isArray(items) || !Array.isArray(designs)) return 'refused: items and designs must be lists'
   for (const it of items) {
@@ -79,6 +89,7 @@ function refusal() {
     if (!it || !SLUG.test(it.name || '')) return `refused: ${who} needs a name of lower-case letters, digits and dashes`
     for (const f of Object.keys(it)) if (!UNIT_KEYS.includes(f)) return `refused: ${who} has an unknown field ${f} (known: ${UNIT_KEYS.join(', ')})`
     const kind = it.kind || 'change'
+    if (it.land !== undefined && typeof it.land !== 'boolean') return `refused: ${who} has land ${JSON.stringify(it.land)}: the field land must be true or false`
     if (!KINDS.includes(kind)) return `refused: ${who} has an unknown kind ${kind}`
     for (const f of ['wt', 'check']) if (typeof it[f] !== 'string' || !it[f]) return `refused: ${who} needs ${f}`
     if (RELAY && (typeof it.branch !== 'string' || !it.branch)) return `refused: ${who} needs branch (relay mode)`
@@ -214,7 +225,7 @@ async function gated(it, st) {
   }
 }
 
-function newState() { return { gn: 0, fn: 0, rounds: 0, reruns: 0, fixReports: [] } }
+function newState() { return { gn: 0, fn: 0, ln: 0, cn: 1, rounds: 0, reruns: 0, fixReports: [] } }
 
 // A new group (after the review fix) starts with a fresh allowance of gate_fixes rounds.
 async function gateGroup(it, st) {
@@ -252,7 +263,82 @@ async function finish(it, st, o) {
     if (d.dead || d.v.status !== 'DONE') return stop(it, 'close queue item', d.dead || d.v.summary, { review, queue: { slug: it.item, test: ck.q1_test } })
     queue = { slug: it.item, test: ck.q1_test, fail_without_fix: ck.fail_without_fix, closed: `${d.v.status}: ${d.v.summary}` }
   }
-  return showStage(it, { ready: true, open: 0, check: ck.summary, fail_without_fix: ck.fail_without_fix, review, queue, gateLog })
+  const shown = await showStage(it, { ready: true, open: 0, check: ck.summary, fail_without_fix: ck.fail_without_fix, review, queue, gateLog })
+  if (!RELAY || !(it.land === undefined ? CFG.land : it.land)) return shown
+  if (ck.person_facing === true) return ownerShow(it, shown, ck.summary)
+  return landStage(it, st, shown, o)
+}
+
+// A person-facing change is the owner's to check before the merge: the unit ends here, checked and closed, with no land runner.
+function ownerShow(it, shown, line) {
+  return Object.assign({}, shown, { ready: false, stopped_at: 'owner', detail: `person-facing: ${line}`, checked: true })
+}
+
+// The land stage: `relay land` in one runner, branching on its exit code (not on a model's reading of the text).
+// The command a land runner starts: the shell writes the exit code of relay land as the last line of the log (a fact, not a reading of the text).
+function wrapped(it) {
+  return `\`sh -c 'relay land ${it.branch} -C ${it.wt}; echo "relay land exit $?"'\``
+}
+
+async function landRun(it, st, again) {
+  st.ln += 1
+  const n = st.ln
+  const log = `${S}/land-${tag(it)}-${n}.log`
+  const start = `${S}/land-${tag(it)}-${n}.start.txt`
+  const wait = `Wait in bounded calls: each Bash call one loop of at most 230 s (\`i=0; while kill -0 <pid> 2>/dev/null && [ $i -lt 230 ]; do sleep 1; i=$((i+1)); done\`), never a call per check, never a foreground call over 4 minutes. A landing can wait behind another one for the lock and gates for minutes: that is normal.`
+  const prompt = `First write the output of \`date -u +%Y-%m-%dT%H:%M:%SZ\` to ${start} (create the folder first). Then run ${wrapped(it)} detached with the limits recipe, log ${log}. ${wait} When it ends, report code (the number n on the last line of the log, \`relay land exit <n>\`: a detached process's exit status cannot be read any other way; never take it from another "exit" in the text) and lines (the 5 lines of the log before that last line, verbatim; when one of the log's lines starts with \`landed \`, put it first).`
+  let r = await ask(prompt + RUN_RULE, agentOpts('runner', LAND, 'Check', `land ${n}: ${lab(it)}`))
+  if (r.dead && r.dead !== SKIPPED) {
+    // The runner died: the landing may have run or may still run. One recovery runner decides, in this order, and starts relay land at most once (step 4).
+    st.ln += 1
+    const rec = `${S}/land-${tag(it)}-${st.ln}.log`
+    r = await ask(`The runner of \`relay land ${it.branch}\` ended without a result, so the landing may be running or done. Do in this order and stop at the first that applies. 1. A live \`relay land ${it.branch}\` process (look with ps): wait on its pid in bounded calls (each at most 230 s), then report the number n of the last line \`relay land exit <n>\` of its log ${log} as code (if the log has no such line, go to step 2). 2. Read the start time of that try in ${start} (if the file is missing, the runner never began: go to step 4). Find the newest \`done\` event of ${it.branch} in the file \`$(git -C ${it.wt} rev-parse --path-format=absolute --git-common-dir)/relay-land/events.jsonl\` whose \`asked\` event of the same pid is after that start time, and report its outcome as code: landed 0, red 1, refused or dirty 2, conflict 3, handed_back 4, waits_owner 5, waits_paid 6. 3. If the branch ${it.branch} no longer exists and the reflog of ${A.base} shows \`merge ${it.branch}: Fast-forward\`, report code 0 and the line \`landed ${it.branch}\`. 4. Otherwise run ${wrapped(it)} once, detached, log ${rec}, and report its code (the last line \`relay land exit <n>\` of that log) and the 5 lines before it. Never start a second relay land.${RUN_RULE}`,
+      agentOpts('runner', LAND, 'Check', `land ${st.ln}: ${lab(it)}`))
+  }
+  if (r.dead) return { dead: r.dead }
+  return { code: r.v.code, lines: String(r.v.lines || '') }
+}
+
+async function landStage(it, st, shown, o) {
+  let fixed = 0, reran = 0
+  let fixes = o.fixes
+  while (true) {
+    const L = await landRun(it, st)
+    if (L.dead) return Object.assign({}, shown, { ready: false, stopped_at: 'land', detail: L.dead, checked: true })
+    const rows = L.lines.split('\n')
+    const first = rows.find((x) => x.startsWith('landed ')) || rows.find((x) => x.trim()) || ''
+    const at = (where) => Object.assign({}, shown, { ready: false, stopped_at: where, detail: L.lines.trim() || `relay land exited ${L.code}`, checked: true })
+    if (L.code === 0) return Object.assign({}, shown, { landed: first })
+    if (L.code === 5) return at('owner')
+    if (L.code === 6) return at('paid')
+    if (L.code === 4) {
+      if (reran >= CFG.land_reruns) return at('land')
+      reran += 1
+      continue
+    }
+    if (L.code !== 1 && L.code !== 3) return at('land')
+    if (fixed >= CFG.land_fixes) return at('land')
+    fixed += 1
+    st.fn += 1
+    const fx = `${S}/reports/fixland-${tag(it)}-${fixed}.md`
+    const what = L.code === 1
+      ? `Fix the red landing gate (the gate of the branch after it took ${A.base}). Landing output: ${L.lines}. The gate log is the path in that output.`
+      : `Take ${A.base} into ${it.branch} and resolve the conflict: run \`git -C ${it.wt} merge --no-edit ${A.base}\`, resolve the conflicting files named in this landing output, commit the merge. Landing output: ${L.lines}.`
+    const f = await ask(`${what} Worktree: ${it.wt}. Brief of the change: ${S}/briefs/${it.name}.md. Check: ${quiet(it)}.${quietNote()} Never work around a relay guard or hook. Commit. Report: ${fx}. Report BLOCKED when you cannot resolve it.`,
+      agentOpts('fixer', HANDBACK, 'Fix', L.code === 1 ? `fix red gate ${st.fn}: ${lab(it)}` : `fix ${st.fn}: ${lab(it)}`))
+    if (f.dead || f.v.status !== 'DONE') return Object.assign({}, shown, { ready: false, stopped_at: 'land', detail: f.dead || f.v.summary, checked: true })
+    const g = await gateGroup(it, st)
+    if (g.stop) return Object.assign({}, shown, g.stop, { checked: true })
+    fixes = [].concat(fixes, fx).filter((x) => x && x !== 'none').join(' and ')
+    st.cn += 1
+    // The check after a land fixer: no second close of the item; it answers person_facing again.
+    const c = await checkStage(it, `check ${st.cn}: ${lab(it)}`,
+      `Check: \`${o.findings}\`. Fixes: \`${fixes}\`. Worktree: \`${it.wt}\`. Check command: \`${quiet(it)}\`.${quietNote()} Gate: \`${g.g.gate_log}\`. The fixer resolved a landing that was red or in conflict: check the resolved files.`,
+      `${S}/reports/check-${tag(it)}-land${fixed}.json`, false)
+    if (c.dead) return Object.assign({}, shown, { ready: false, stopped_at: 'land', detail: c.dead, checked: true })
+    if (c.v.open !== 0) return Object.assign({}, shown, { ready: false, stopped_at: 'land', detail: c.v.summary, open: c.v.open, checked: true })
+    if (c.v.person_facing === true) return ownerShow(it, shown, c.v.summary)
+  }
 }
 
 async function showStage(it, result) {
