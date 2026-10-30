@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Optional
 
 import relay_config
+import relay_git
 
 
 def feature_lanes_read(main: str, capacity: int) -> tuple[int, Optional[str]]:
@@ -29,3 +30,12 @@ def feature_lanes_read(main: str, capacity: int) -> tuple[int, Optional[str]]:
 def feature_lanes_setting(main: str, capacity: int) -> int:
     """The value of `feature_lanes_read`, without its note."""
     return feature_lanes_read(main, capacity)[0]
+
+
+def own_commits(main: str, branch: str) -> bool:
+    """The branch's reflog holds an entry other than its creation, a fast-forward (git appends "(no commit created; -m option ignored)"
+    when a message was given) or a reset: a branch that only took the default branch has no commit of its own."""
+    rc, out = relay_git.git(main, "reflog", "show", "--format=%gs", "refs/heads/" + branch)
+    if rc != 0:
+        return False
+    return any(not (s.startswith("branch: Created from") or s.startswith("reset: moving to") or "Fast-forward" in s) for s in out.splitlines())

@@ -31,7 +31,7 @@ import relay_config
 import relay_git
 import relay_inert
 import relay_queue
-from relay_lane_features import feature_lanes_read, feature_lanes_setting  # noqa: F401  (the setting is re-exported for callers and tests)
+from relay_lane_features import feature_lanes_read, feature_lanes_setting, own_commits  # noqa: F401  (the setting is re-exported for callers and tests)
 
 LANES_DEFAULT, LANES_MAX = 4, 8
 SETTINGS = {"lanes_line_items": (3, 0, 10), "stop_nudge": (1, 0, 2), "lane_quiet_hours": (3, 1, 24)}   # default, lowest, highest
@@ -147,21 +147,12 @@ def _newest_real_commit(main: str, tip: str, since: Optional[str]) -> Optional[s
     return None
 
 
-def _own_commits(main: str, branch: str) -> bool:
-    """The branch's reflog holds an entry other than its creation, a fast-forward (git appends "(no commit created; -m option ignored)"
-    when a message was given) or a reset: a branch that only took the default branch has no commit of its own."""
-    rc, out = _git(main, "reflog", "show", "--format=%gs", "refs/heads/" + branch)
-    if rc != 0:
-        return False
-    return any(not (s.startswith("branch: Created from") or s.startswith("reset: moving to") or "Fast-forward" in s) for s in out.splitlines())
-
-
 def landing(main: str, default: str, branch: str, taken_at: Optional[str]) -> tuple[bool, Optional[str]]:
     """(landed, sha): the branch has own commits and its tip is on the default branch, or its ref is gone and the
     default branch's history holds its merge (a merge commit, in either message form, or a fast-forward in the reflog)."""
     ref, base = "refs/heads/" + branch, "refs/heads/" + default
     if _git(main, "show-ref", "--verify", "--quiet", ref)[0] == 0:
-        if _own_commits(main, branch) and _is_ancestor(main, ref, base):
+        if own_commits(main, branch) and _is_ancestor(main, ref, base):
             return True, _newest_real_commit(main, ref, taken_at)
         return False, None
     named = _branch_name(branch)
