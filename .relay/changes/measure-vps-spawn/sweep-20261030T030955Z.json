@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.6538,
+   "id": "a4f1eab9dd9a1b179",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 35,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-30T01:27:00.893Z",
+   "stop": "2026-10-30T01:42:45.882Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "other",
+ "land": [],
+ "schema": 1,
+ "unit": "measure-vps-spawn"
+}

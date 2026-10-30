@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.5326,
+   "id": "ac758e057f25abc9f",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 27,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design",
+   "start": "2026-10-30T00:28:44.072Z",
+   "stop": "2026-10-30T00:35:07.549Z"
+  },
+  {
+   "cost_usd": 1.6201,
+   "id": "ab260defdea6689af",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 22,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design review",
+   "start": "2026-10-30T00:35:09.909Z",
+   "stop": "2026-10-30T00:40:32.486Z"
+  },
+  {
+   "cost_usd": 2.1577,
+   "id": "a530d2e2f3faf75f6",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 32,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design revise",
+   "start": "2026-10-30T00:40:35.003Z",
+   "stop": "2026-10-30T01:06:24.329Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "remote-gate-host"
+}
