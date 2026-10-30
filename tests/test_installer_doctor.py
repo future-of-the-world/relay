@@ -67,6 +67,19 @@ class GitFirstOnPath(Fakes):
     def test_the_launcher_path_is_not_ok_and_names_the_fix(self):
         self.assertIn("docs/macos.md section 1", relay_setup.git_first_problem("/usr/bin/git", "/Library/Developer/x") or "")
 
+    def test_a_symlink_to_the_launcher_is_not_ok(self):
+        # the launcher is stood in for by a fake file; PATH's git is a link to it, with an exec-path folder that exists
+        libexec = os.path.join(self.tmp, "libexec")
+        os.makedirs(libexec)
+        launcher = os.path.join(self.tmp, "launcher-git")
+        install_fake(launcher, "#!/bin/sh\necho '%s'\n" % libexec)
+        os.symlink(launcher, os.path.join(self.bin, "git"))
+        with unittest.mock.patch.object(relay_setup, "APPLE_GIT_LAUNCHER", launcher):
+            line = relay_setup.git_first_check("Darwin")
+        assert line is not None
+        self.assertFalse(line[1])
+        self.assertIn("docs/macos.md section 1", line[2])
+
     def test_a_git_whose_exec_path_folder_is_missing_is_not_ok(self):
         install_fake(os.path.join(self.bin, "git"), "#!/bin/sh\necho '%s'\n" % os.path.join(self.tmp, "missing-libexec"))
         line = relay_setup.git_first_check("Darwin")

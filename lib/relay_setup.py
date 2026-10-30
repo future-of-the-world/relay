@@ -1183,7 +1183,7 @@ def git_first_problem(git: str | None, exec_path: str | None) -> str | None:
     `git --exec-path` prints (None when it printed nothing). A missing git is the dependency check's to report."""
     if git is None:
         return None
-    if git == APPLE_GIT_LAUNCHER:
+    if os.path.realpath(git) == os.path.realpath(APPLE_GIT_LAUNCHER):   # a link to the launcher still starts through it
         return "the first git on PATH is Apple's launcher (about 8 ms slower per start) -> docs/macos.md section 1"
     if not exec_path or not os.path.isdir(exec_path):
         return f"the first git on PATH looks for its helpers in {exec_path or 'nowhere'}, which is missing (a bare symlink) -> docs/macos.md section 1"
