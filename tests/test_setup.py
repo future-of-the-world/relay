@@ -1007,12 +1007,13 @@ class DefaultBranch(unittest.TestCase):
 
 
 class TestNoOwnerProjects(unittest.TestCase):
-    """relay is portable: its own projects.toml names only global and relay, and install imports nothing."""
+    """relay is portable: the registry it ships names only global, and install imports nothing."""
 
-    def test_projects_toml_has_only_global_and_relay(self):
+    def test_shipped_registry_has_only_global(self):
         import relay_config
-        data = relay_config.read_toml(os.path.join(ROOT, "projects.toml"))
-        self.assertEqual(sorted(data), ["global", "relay"])
+        data = relay_config.read_toml(os.path.join(ROOT, "defaults", "projects.toml"))
+        self.assertEqual(sorted(data), ["global"])
+        self.assertFalse(os.path.exists(os.path.join(ROOT, "projects.toml")))   # the registry is not a tracked file of relay
 
     def test_install_has_no_import_from_a_principles_library(self):
         import inspect
@@ -1097,7 +1098,7 @@ class RegistryLocation(Base):
         self.assertIn('title = "kept"', open(first, encoding="utf-8").read())
         # One line, once: the second call finds nothing to move.
         lines = err.getvalue().strip().splitlines()
-        self.assertEqual(len(lines), 1)
+        self.assertEqual(len(lines), 1, err.getvalue())
         self.assertIn("moved the project registry", lines[0])
 
 

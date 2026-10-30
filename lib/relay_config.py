@@ -10,6 +10,7 @@
 
 from __future__ import annotations   # the hooks may run under Python 3.9: annotations are never evaluated
 
+import json
 import os
 import shutil
 import subprocess
@@ -20,25 +21,60 @@ import relay_toml
 
 ROOT = os.environ.get("RELAY_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+RULE_KEYS = ("lanes", "load", "read", "wave_min")   # a project's own settings: <project>/.claude/kit.toml [rules]
 LEGACY_PROJECTS = os.path.join(ROOT, "projects.toml")   # where the registry used to be: a tracked file of relay
 
 
+def defaults_file() -> str:
+    """relay's shipped defaults for the registry (relay never writes it)."""
+    return os.path.join(ROOT, "defaults", "projects.toml")
+
+
 def projects_file() -> str:
-    """The project registry: RELAY_PROJECTS, else <RELAY_HOME>/projects.toml (per machine, never a tracked file of
-    relay). A registry left in relay's checkout is moved there once, with one line on stderr."""
+    """The registry (the owner's settings and the machine's list of projects): RELAY_PROJECTS, else
+    <RELAY_HOME>/projects.toml. When that file is missing it is made once: from a registry left in relay's checkout
+    (moved there, with one line on stderr; relay's own project settings go to its .claude/kit.toml), else from the
+    shipped defaults. A project's own settings are never here: they are in <project>/.claude/kit.toml [rules]."""
     explicit = os.environ.get("RELAY_PROJECTS")
     if explicit:
         return explicit
     target = os.path.join(home_dir(), "projects.toml")
+    if os.path.isfile(target):
+        return target
+    os.makedirs(home_dir(), exist_ok=True)
     old = LEGACY_PROJECTS
-    if not os.path.isfile(target) and os.path.isfile(old):
-        os.makedirs(home_dir(), exist_ok=True)
+    if os.path.isfile(old):
         try:
+            with open(old, encoding="utf-8") as handle:
+                text = handle.read()
             shutil.move(old, target)
         except FileNotFoundError:   # another relay process moved it between the check and the move
             return target
         print(f"relay: moved the project registry {old} to {target} (it now lives under RELAY_HOME)", file=sys.stderr)
+        _move_project_settings(text)
+    elif os.path.isfile(defaults_file()):
+        tmp = f"{target}.{os.getpid()}.tmp"
+        shutil.copyfile(defaults_file(), tmp)
+        os.replace(tmp, target)   # atomic: two relay processes never see half a file
     return target
+
+
+def _move_project_settings(text: str) -> None:
+    """Relay's own project part of an old in-repo registry (lanes, load, read) goes into ROOT/.claude/kit.toml [rules],
+    unless that file already has the section."""
+    own = os.path.realpath(ROOT)
+    for name, spec in relay_toml.loads(text).items():
+        if name == "global" or not isinstance(spec, dict) or "file" not in spec:
+            continue
+        if os.path.realpath(os.path.dirname(os.path.expanduser(spec["file"]))) != own:
+            continue
+        kit = bindings_path(ROOT)
+        if "rules" in (read_toml(kit) if os.path.isfile(kit) else {}):
+            continue
+        lines = ["", "[rules]"] + [f"{k} = {json.dumps(spec[k])}" for k in RULE_KEYS if k in spec]
+        os.makedirs(os.path.dirname(kit), exist_ok=True)
+        with open(kit, "a", encoding="utf-8") as handle:
+            handle.write("\n".join(lines) + "\n")
 
 
 def home_dir() -> str:

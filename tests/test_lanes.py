@@ -40,8 +40,8 @@ class Lanes(unittest.TestCase):
 
     def test_relay_project_runs_six(self) -> None:
         # the owner's answer of 27 Oct: 6 at once
-        with open(os.path.join(ROOT, "projects.toml"), "rb") as handle:
-            self.assertEqual(relay_toml.load(handle)["relay"]["lanes"], 6)
+        with open(os.path.join(ROOT, ".claude", "kit.toml"), "rb") as handle:
+            self.assertEqual(relay_toml.load(handle)["rules"]["lanes"], 6)
 
     def test_paid_paths_come_from_the_paid_run_source(self) -> None:
         out = subprocess.run([sys.executable, PAID, "paths"], capture_output=True, text=True, check=True).stdout.split()

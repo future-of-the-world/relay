@@ -1,11 +1,13 @@
 """Review fixes for the registry move: F2 (cap lands in the registry in RELAY_HOME) and F4 (move race)."""
-import os, subprocess, sys, tempfile, unittest
+import os, shutil, subprocess, sys, tempfile, unittest
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 import relay_config  # noqa: E402
 import relay_paidcap  # noqa: E402
+import relay_rules  # noqa: E402
+import relay_setup  # noqa: E402
 
 BIN = os.path.join(ROOT, "bin", "paid-cost")
 TOML = '[global]\ntitle = "t"\npaid_cap_usd_per_day = 200   # the owner cap\n'
@@ -66,6 +68,71 @@ class MoveRace(Base):
                 mock.patch.object(relay_config.shutil, "move", side_effect=FileNotFoundError):
             os.environ.pop("RELAY_PROJECTS", None)
             self.assertEqual(relay_config.projects_file(), os.path.join(self.home, "projects.toml"))
+
+
+class SplitRegistry(unittest.TestCase):
+    """Owner answer a: owner settings and the project list in RELAY_HOME, a project's own settings in its git."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+    def test_first_command_in_a_git_checkout_leaves_it_clean(self) -> None:
+        # F1 failing case: a fresh machine, relay in a real git checkout; the first command used to write projects.toml
+        # (or fail on a missing one). Now the registry is made in RELAY_HOME from the shipped defaults.
+        checkout, home = os.path.join(self.tmp.name, "relay"), os.path.join(self.tmp.name, "home")
+        for sub in ("bin", "lib", "defaults"):
+            shutil.copytree(os.path.join(ROOT, sub), os.path.join(checkout, sub), ignore=shutil.ignore_patterns("__pycache__"))
+        git = lambda *a: subprocess.run(["git", "-C", checkout, *a], capture_output=True, text=True, check=True).stdout  # noqa: E731
+        git("init", "-q")
+        git("add", "-A")
+        git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x")
+        env = {k: v for k, v in os.environ.items() if not k.startswith("RELAY_")}
+        env.update(RELAY_HOME=home, PYTHONDONTWRITEBYTECODE="1")
+        done = subprocess.run([sys.executable, os.path.join(checkout, "bin", "paid-cost"), "cap"], capture_output=True, text=True, env=env)
+        self.assertEqual((done.returncode, done.stdout.strip()), (0, "200"), done.stderr)   # 200: the shipped default
+        self.assertTrue(os.path.isfile(os.path.join(home, "projects.toml")))
+        self.assertEqual(git("status", "--porcelain"), "")
+
+    def test_a_project_s_lanes_and_load_come_from_its_own_kit_toml(self) -> None:
+        # Q1 failing case: lanes and load for a registered project are read from <project>/.claude/kit.toml [rules]
+        proj = os.path.join(self.tmp.name, "proj")
+        os.makedirs(os.path.join(proj, ".claude"))
+        with open(os.path.join(proj, ".claude", "kit.toml"), "w") as f:
+            f.write('[rules]\nlanes = 7\nload = ["principles"]\n')
+        reg = os.path.join(self.tmp.name, "reg.toml")
+        with open(reg, "w") as f:
+            f.write(TOML.replace("[global]\n", '[global]\nfile = "/x/CLAUDE.md"\n') + f'[proj]\nfile = "{proj}/CLAUDE.local.md"\ntitle = "t"\n')
+        with mock.patch.dict(os.environ, {"RELAY_PROJECTS": reg}):
+            spec = relay_rules.targets()["proj"]
+        self.assertEqual((spec["lanes"], spec["load"]), (7, ["principles"]))
+        self.assertNotIn("lanes =", open(reg).read())
+
+    def test_register_project_puts_the_rules_in_the_project(self) -> None:
+        proj, home = os.path.join(self.tmp.name, "proj"), os.path.join(self.tmp.name, "home")
+        os.makedirs(os.path.join(proj, ".claude"))
+        open(os.path.join(proj, ".claude", "kit.toml"), "w").write("[gate]\n")
+        with mock.patch.dict(os.environ, {"RELAY_HOME": home}):
+            os.environ.pop("RELAY_PROJECTS", None)
+            self.assertTrue(relay_setup.register_project("proj", proj, ui=True))
+            reg = open(relay_config.projects_file()).read()
+        self.assertIn("[proj]", reg)
+        self.assertNotIn("product-work", reg)
+        self.assertIn('load = ["product-work"]', open(os.path.join(proj, ".claude", "kit.toml")).read())
+
+    def test_old_registry_in_the_checkout_moves_and_relay_s_part_goes_to_kit_toml(self) -> None:
+        root, home = os.path.join(self.tmp.name, "checkout"), os.path.join(self.tmp.name, "home")
+        os.makedirs(root)
+        with open(os.path.join(root, "projects.toml"), "w") as f:
+            f.write(TOML + f'[relay]\nfile = "{root}/CLAUDE.local.md"\ntitle = "t"\nlanes = 6\nload = ["principles"]\nread = []\n')
+        with mock.patch.dict(os.environ, {"RELAY_HOME": home}), mock.patch.object(relay_config, "ROOT", root), \
+                mock.patch.object(relay_config, "LEGACY_PROJECTS", os.path.join(root, "projects.toml")):
+            os.environ.pop("RELAY_PROJECTS", None)
+            target = relay_config.projects_file()
+        self.assertIn("[global]", open(target).read())
+        kit = relay_config.read_toml(os.path.join(root, ".claude", "kit.toml"))
+        self.assertEqual(kit["rules"], {"lanes": 6, "load": ["principles"], "read": []})
+        self.assertFalse(os.path.exists(os.path.join(root, "projects.toml")))
 
 
 if __name__ == "__main__":
