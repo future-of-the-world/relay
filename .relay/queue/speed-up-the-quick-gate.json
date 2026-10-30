@@ -20,8 +20,8 @@
   ],
   "taken_at": "2026-10-30T11:14:10Z",
   "taken_by": "wt/speed-up-the-quick-gate",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T14:50:17Z",
+  "test": "tests/test_gate_reuse.py::test_a_green_log_stands_across_a_queue_commit_and_not_across_a_code_commit",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
