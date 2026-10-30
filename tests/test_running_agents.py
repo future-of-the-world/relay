@@ -3,6 +3,7 @@ import datetime as dt
 import importlib.util
 import os
 import sys
+import types
 import unittest
 from unittest import mock
 
@@ -27,7 +28,7 @@ def stop(agent: str, minutes_ago: float) -> dict:
     return {"event": "agent_stop", "session_id": "s", "agent_id": agent, "ts": at(minutes_ago)}
 
 
-def load_guard():
+def load_guard() -> types.ModuleType:
     spec = importlib.util.spec_from_file_location("route_guard_running", os.path.join(ROOT, "plugins", "delegate", "hooks", "route-guard.py"))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -63,6 +64,12 @@ class RunningNow(unittest.TestCase):
     def test_recent_tool_event_keeps_an_old_agent(self) -> None:
         events = [start("long", 90), {"event": "tool_pre", "session_id": "s", "agent_id": "long", "ts": at(4)}]
         self.assertEqual(self.count(events), 1)
+
+    def test_start_alone_older_than_limit_does_not_count(self) -> None:
+        self.assertEqual(self.count([start("x", 30)]), 0)   # started 30 min ago, never seen again: over the 10-minute limit
+
+    def test_start_alone_within_limit_counts(self) -> None:
+        self.assertEqual(self.count([start("x", 3)]), 1)   # started 3 min ago: still within the limit
 
 
 if __name__ == "__main__":

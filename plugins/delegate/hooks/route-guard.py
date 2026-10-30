@@ -24,6 +24,7 @@ the project's .claude/kit.toml [delegate] section (defaults in brackets):
 Fails open on any error. Tests: tests/test_hook_route_guard.py
 """
 
+import datetime as dt
 import json
 import os
 import re
@@ -70,10 +71,9 @@ def context_tokens(transcript_path):
         return 0
 
 
-def running_now(session_id, now=None):
+def running_now(session_id: "str | None", now: "dt.datetime | None" = None) -> int:
     try:
         import relay_ledger
-        import datetime as dt
         now = now or dt.datetime.now(dt.timezone.utc)
         events = relay_ledger.read(since=now - dt.timedelta(hours=12))
         return len(relay_ledger.running_agents(events, now, relay_ledger.AGENT_IDLE).get(session_id, []))
