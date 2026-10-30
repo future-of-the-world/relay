@@ -401,6 +401,16 @@ class Guard(SoftCases):
         event = {"tool_name": "Edit", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": m + "/.worktree/any-change/x.ex"}}
         self.assertEqual(self.run_hook(m, event).returncode, 0)
 
+    def test_an_absolute_worktrees_folder_is_the_extra_folder(self) -> None:
+        # worktrees = "<main>/wts" (absolute): a write under it is inside a task worktree although git lists none;
+        # joined onto main it would read "<main>//<main>/wts" and the write would be refused as a write to main.
+        m = self.mkrepo("absextra")
+        os.makedirs(os.path.join(m, ".claude"))
+        with open(os.path.join(m, ".claude", "kit.toml"), "w") as handle:
+            handle.write('[project]\nworktrees = "%s/wts"\n' % m)
+        event = {"tool_name": "Edit", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": m + "/wts/a/f.py"}}
+        self.assertEqual(self.run_hook(m, event).returncode, 0)
+
     def test_the_advice_names_the_projects_own_worktree_tool(self) -> None:
         # F5: a project with bin/wt is told to use it, not `git worktree add .worktrees/<name>`.
         m = self.mkrepo("advice")

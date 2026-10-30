@@ -267,9 +267,13 @@ class Guard:
                 self._listed = []       # git could not answer: nothing is exempt, the main checkout stays guarded
         return self._listed
 
+    def extra_dir(self) -> str:
+        """The project.worktrees folder: itself when absolute, else under the main checkout."""
+        return self.wtdir if self.wtdir.startswith("/") else self.main + "/" + self.wtdir
+
     def wt_root(self, path: str) -> str:
         """The root of the task worktree that holds path ("" when none): the project.worktrees folder (an extra) or a worktree git lists."""
-        wt = self.main + "/" + self.wtdir
+        wt = self.extra_dir()
         if path == wt or path.startswith(wt + "/"):
             return wt + "/" + path[len(wt) + 1:].split("/", 1)[0] if path != wt else wt
         if path == self.main or path.startswith(self.main + "/"):
@@ -381,7 +385,7 @@ class Guard:
             self.queue_refuse(a)
         elif kind == "D":
             wtroot = self.wt_root(a)
-            if wtroot and wtroot != self.main + "/" + self.wtdir:
+            if wtroot and wtroot != self.extra_dir():
                 # a session already working inside that worktree moves nowhere by cd'ing within it
                 if self.cwd == wtroot or self.cwd.startswith(wtroot + "/"):
                     return
