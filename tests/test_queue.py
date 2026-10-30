@@ -272,6 +272,39 @@ class TestOrderAndParse(Base):
                                                                   "kind": "outside", "summary": "never checked", "failing_case": ["call c()"]}])
         self.assertIn("queued", rq.add_from(self.main, other, "F1", why="w", minutes=5, **QUIET))      # no check names this review
 
+    def test_met_in_a_check_reads_inside_one_reading_window(self):
+        # F1: one git process per check file per branch took 54 s on the live repo; inside reading() each question is asked once
+        report, _ = self.met_check("review-m.json", {"F1": "MET"})
+        seen = []
+        real = rq.relay_git.stored_text
+        def spy(*args, **kwargs):
+            seen.append(rq.relay_git._window is not None)
+            return real(*args, **kwargs)
+        with mock.patch.object(rq.relay_git, "stored_text", spy):
+            self.assertIsNotNone(rq.met_in_a_check(self.main, report, "F1"))
+        self.assertTrue(seen)
+        self.assertTrue(all(seen))
+
+    def test_add_from_queues_a_finding_when_the_check_is_of_a_review_made_elsewhere_under_the_same_name(self):
+        # F2: same file name, but the review's commit is not in the history of the check's head: another review, so queue it
+        report, _ = self.met_check("review-m.json", {"F1": "MET"})
+        orphan = git(self.main, "commit-tree", git(self.main, "rev-parse", "master^{tree}"), "-m", "unrelated")
+        with open(report) as handle:
+            data = json.load(handle)
+        data["reviewed"] = orphan
+        with open(report, "w") as handle:
+            json.dump(data, handle)
+        self.assertIn("queued", rq.add_from(self.main, report, "F1", why="w", minutes=5, **QUIET))
+
+    def test_add_from_a_review_with_reviewed_unknown_is_queued(self):
+        report, _ = self.met_check("review-m.json", {"F1": "MET"})
+        with open(report) as handle:
+            data = json.load(handle)
+        data["reviewed"] = "unknown"
+        with open(report, "w") as handle:
+            json.dump(data, handle)
+        self.assertIn("queued", rq.add_from(self.main, report, "F1", why="w", minutes=5, **QUIET))
+
     def test_f4_add_from_copies_the_findings_pass_cases_and_q1_carries_them(self):
         both = {"id": "F1", "path": "lib/q.py", "line": 4, "severity": "LOW", "rank": "low", "kind": "outside", "summary": "the thing breaks",
                 "failing_case": ["call c()"], "pass_cases": ["call c(), get d", "call e(), get f"]}

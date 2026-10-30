@@ -1177,20 +1177,21 @@ def met_in_a_check(repo: str, report: str, fid: str) -> Optional[tuple[str, str]
             reviewed = json.load(handle).get("reviewed")
     except (OSError, ValueError, AttributeError):
         return None
-    rc, out = relay_git.git(main, "for-each-ref", "--format=%(refname)", "refs/heads/")
-    for ref in sorted(out.splitlines()) if rc == 0 else []:
-        rc, names = relay_git.git(main, "ls-tree", "--name-only", ref, ".relay/checks/")
-        for name in sorted(os.path.basename(n) for n in names.splitlines() if n.endswith(".check.json")) if rc == 0 else []:
-            text = relay_git.stored_text(main, f"{ref}:.relay/checks/{name}")
-            try:
-                record = relay_verdict.load_record(text, name, stored=True) if text else None
-            except relay_verdict.VerdictError:
-                continue
-            if record is None or not any(f["source"] == os.path.basename(report) and f.get("source_id", f["id"]) == fid and f["verdict"] == "MET"
-                                         for f in record["findings"]):
-                continue
-            if isinstance(reviewed, str) and relay_git.is_ancestor(main, reviewed, record["head"]):
-                return name, record["head"]
+    with relay_git.reading():      # read-only: each distinct git question once, not one process per check file of every branch (54 s -> 3 s)
+        rc, out = relay_git.git(main, "for-each-ref", "--format=%(refname)", "refs/heads/")
+        for ref in sorted(out.splitlines()) if rc == 0 else []:
+            rc, names = relay_git.git(main, "ls-tree", "--name-only", ref, ".relay/checks/")
+            for name in sorted(os.path.basename(n) for n in names.splitlines() if n.endswith(".check.json")) if rc == 0 else []:
+                text = relay_git.stored_text(main, f"{ref}:.relay/checks/{name}")
+                try:
+                    record = relay_verdict.load_record(text, name, stored=True) if text else None
+                except relay_verdict.VerdictError:
+                    continue
+                if record is None or not any(f["source"] == os.path.basename(report) and f.get("source_id", f["id"]) == fid and f["verdict"] == "MET"
+                                             for f in record["findings"]):
+                    continue
+                if isinstance(reviewed, str) and relay_git.is_ancestor(main, reviewed, record["head"]):
+                    return name, record["head"]
     return None
 
 
