@@ -1,0 +1,121 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2236,
+   "id": "a334e2249b7da05d6",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T08:08:03.116Z",
+   "stop": "2026-10-30T08:09:29.951Z"
+  },
+  {
+   "cost_usd": 0.0039,
+   "id": "a5ce530e5e41e0774",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T08:09:38.900Z",
+   "stop": "2026-10-30T08:20:37.565Z"
+  },
+  {
+   "cost_usd": 0.6875,
+   "id": "add879ae0233e7ae9",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T08:20:46.551Z",
+   "stop": "2026-10-30T08:23:06.176Z"
+  },
+  {
+   "cost_usd": 0.2518,
+   "id": "a36452432a9212c7a",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T08:23:09.778Z",
+   "stop": "2026-10-30T08:25:46.750Z"
+  },
+  {
+   "cost_usd": 0.0043,
+   "id": "a94c9eb112a904809",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T08:25:49.538Z",
+   "stop": "2026-10-30T08:44:03.444Z"
+  },
+  {
+   "cost_usd": 0.1154,
+   "id": "ade953b078f25b814",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T08:44:07.245Z",
+   "stop": "2026-10-30T08:45:27.649Z"
+  },
+  {
+   "cost_usd": 0.003,
+   "id": "a6870257ef393c84e",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T08:45:31.555Z",
+   "stop": "2026-10-30T08:45:53.317Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "a2fbb9fc8c9356596",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T08:45:57.542Z",
+   "stop": "2026-10-30T08:46:05.594Z"
+  }
+ ],
+ "before": "ad24435fbc65d388ffc210820c0abc45f487d06c",
+ "branch": "wt/a-feature-s-check-stops-the-cycle-with-n",
+ "head": "44d3646b91a950b6c59b7a9f4861c503c38c4e8f",
+ "item": "a-feature-s-check-stops-the-cycle-with-no-test-n",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T08:04:42+00:00",
+   "file": "plugins/delegate/workflows/cycle.js",
+   "holder": "wt/build-time-gates-on-the-vps-landing-gate",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T08:46:17+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T08:46:17+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T08:47:49+00:00",
+   "gate_seconds": 0.0,
+   "gates_run": 0,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "a-feature-s-check-stops-the-cycle-with-no-test-n"
+}
