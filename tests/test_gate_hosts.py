@@ -65,6 +65,11 @@ class Add(VpsBase):
         patcher = mock.patch.object(relay_gate_ssh, "SUBUID_FILE", self.subuid)
         patcher.start()
         self.addCleanup(patcher.stop)
+        # The clean image has no ssh-keygen: a fake on PATH (as the fake ssh) writes the key pair at the -f path. add() only needs the files to
+        # exist and the program to exit 0; what a real key is made of is ssh-keygen's business, not relay's.
+        keygen = os.path.join(self.vps.bin, "ssh-keygen")
+        write(keygen, '#!/bin/sh\nwhile [ $# -gt 0 ]; do [ "$1" = -f ] && out="$2"; shift; done\n'
+                      'echo "fake private key" > "$out"; echo "ssh-ed25519 AAAAfake relay-gate" > "$out.pub"\n', 0o755)
 
     def test_add_proves_the_host_installs_the_program_and_records_it_without_building_or_gating(self):
         lines = relay_hosts.add(HOST, "relay-gate", self.main, self.home)
