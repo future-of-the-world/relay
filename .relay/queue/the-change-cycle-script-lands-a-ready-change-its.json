@@ -106,6 +106,16 @@
       "said": [
         "Руль возможна был грубой метафорой, я лишь хочу чтобы ты понял разделение и мою роль в механизме relay на текущий момент, давай обратимся к тому как ты уже это делаешь - как ты определяешь - самому принять решение или спросить меня, актуальна ли задача"
       ]
+    },
+    {
+      "asked_at": "2026-10-30T05:54:42Z",
+      "question": [
+        "Is the design revision of which landings wait for the owner (started 30 Oct after the steering-wheel message) still needed, given that design decisions already reach the owner before the build?"
+      ],
+      "options": [
+        "a. stop the revision; a landing waits only for what the owner sees (screens and reply rules); direction is steered before the build through design questions and front decisions recorded as reversible (recommended: the existing rules already route a new mechanism to the owner before any build)",
+        "b. let the revision run (about 20 minutes, about 280k agent tokens, as each of the last three design runs) and measure how many agent decisions of direction the owner never saw"
+      ]
     }
   ]
 }
