@@ -52,10 +52,10 @@ class BranchKit(unittest.TestCase):
     def test_real_kit_unknown_value_refused(self) -> None:
         # pass 3: a wrong value is named
         self._real_kit()
-        self._toml('[delegate]\nbuild_tier_opus = "denny"\n')
+        self._toml('[delegate]\nopus_for_builders = "denny"\n')
         with self.assertRaises(relay_gate.GateRefused) as ctx:
             relay_gate.refuse_bad_settings(self.wt)
-        self.assertIn("build_tier_opus", str(ctx.exception))
+        self.assertIn("opus_for_builders", str(ctx.exception))
 
     def test_installed_schema_without_branch_kit(self) -> None:
         # pass 4
@@ -69,9 +69,9 @@ class BranchKit(unittest.TestCase):
         path = self._real_kit()
         with open(path) as handle:
             text = handle.read()
-        self.assertIn('"build_tier_opus": Field(', text)
+        self.assertIn('"opus_for_builders": Field(', text)
         # pass 2: the branch copy learns the key new_key; the installed schema does not know it
-        _write(path, text.replace('"build_tier_opus": Field(', '"new_key": Field("int", "x"),\n        "build_tier_opus": Field(', 1))
+        _write(path, text.replace('"opus_for_builders": Field(', '"new_key": Field("int", "x"),\n        "opus_for_builders": Field(', 1))
         self._toml("[delegate]\nnew_key = 1\n")
         relay_gate.refuse_bad_settings(self.wt)
         self._toml("[delegate]\nnew_keyy = 1\n")
