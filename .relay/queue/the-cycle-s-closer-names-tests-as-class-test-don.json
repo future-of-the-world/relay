@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 86,
+  "time": 30,
+  "found_at": "2026-10-30T15:56:27Z",
+  "found_in": "relay queue add",
+  "title": "The cycle's closer names tests as Class.test; done refuses",
+  "what": [
+    "The cycle's close step passes --test as <file>::<Class>.<test> (for example tests/test_precheck.py::TestTypesStep.test_a_running_mypy_is_named_and_the_uncached_ruff_is_not_blamed, and tests/test_registry_fixes.py::SplitRegistry.test_first_command_in_a_git_checkout_leaves_it_clean); relay queue done refuses that form (\"does not hold a test named ...\") and accepts <file>::<test>. Either done accepts Class.test and Class::test (unittest names), or the closer passes the form done reads; one of them, with a test."
+  ],
+  "why": [
+    "Twice on 30 Oct a ready change stopped at \"close queue item\" and the front closed it by hand; each stop holds a lane until someone notices."
+  ],
+  "failing_case": [
+    "30 Oct: changes setup-registers-a-project-in-relay-s-own and precheck-s-60-s-timeout-names-no-cause-o both ended with stopped_at \"close queue item\" and the refusal \"tests/<file>.py does not hold a test named <Class>.<test>\"; `relay queue done ... --test <file>::<test>` closed both by hand."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "relay queue done --test tests/x.py::SomeClass.test_y closes when the method exists",
+    "the cycle's close step closes a change whose test is a unittest method without the front"
+  ],
+  "where": [
+    "lib/relay_queue.py",
+    "plugins/delegate/workflows/cycle.js"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

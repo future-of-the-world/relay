@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0063,
+   "id": "a61561efcc8a46251",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T13:59:11.733Z",
+   "stop": "2026-10-30T14:27:15.795Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "paid-run-red-plan-one-line-spec-check-fails-0-of",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "paid-run-red-plan-one-line-spec-check-fails-0-of"
+}

@@ -1,0 +1,179 @@
+{
+  "branch": "wt/precheck-s-60-s-timeout-names-no-cause-o",
+  "findings": [
+    {
+      "details": [
+        "Found 30 Oct by the trial of relay on a copy of relay cleaned of relay (owner, 30 Oct: \"\u041f\u043e\u043b\u0430\u0433\u0430\u044e \u0447\u0442\u043e \u0434\u043b\u044f \u0442\u0435\u043a\u0443\u0449\u0438\u0445 \u0437\u0430\u0434\u0430\u0447 \u0431\u0443\u0434\u0435\u0442 \u043d\u0435 \u043b\u0438\u0448\u043d\u0438\u043c \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 relay \u043a \u0441\u0430\u043c\u043e\u043c\u0443 relay, \u043e\u0447\u0438\u0449\u0435\u043d\u043d\u043e\u043c\u0443 \u043e\u0442 relay\"); sandbox HOME, RELAY_HOME and RELAY_PROJECTS, claude stubbed. `relay precheck` in a task worktree printed 'RED types and lint / FAIL types and lint took longer than 60 s' (about 2 min, rc 1) with no reason; relay doctor in the same sandbox said mypy was not found and the uv cache was cold; the message says neither."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Sandbox with no mypy: `relay precheck` in a worktree prints only 'types and lint took longer than 60 s'."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "with mypy missing, precheck names mypy and the install step",
+        "a real timeout names the tool that was still running",
+        "a green precheck prints as today"
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_precheck.py::TestTypesStep.test_a_running_mypy_is_named_and_the_uncached_ruff_is_not_blamed (line 176) passes at head and fails at base 6f1799bf."
+      ],
+      "severity": "HIGH",
+      "since": "6f1799bf4d3a0115b96eb78826f83017c8d8ee1c",
+      "source": "queue",
+      "summary": "precheck's 60 s timeout names no cause or next step",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by running the branch's check_types against relay's real types-lint on a fresh UV_CACHE_DIR. Two causes:",
+        "(a) `if not out and running` drops the running tool whenever any probe failed, and on a cold cache the tool after the running",
+        "one is always uncached, since types_lint.py runs mypy then ruff in order; (b) a probe TimeoutExpired is read as \"present\",",
+        "while it means the tool's run is blocked, the same state that caused the timeout. The tests model \"missing\" only as a uv that",
+        "fails offline at once, a state the reported case does not reach (the download ends in seconds). The probes also stretch the",
+        "step past its budget by up to 40 s (35.1 s measured for a 15 s budget). The item's pass case \"with mypy missing, precheck names",
+        "mypy\" fails in the item's own scenario. Size: 30 min."
+      ],
+      "evidence": [
+        "UV_CACHE_DIR=<fresh> python3 -I q.py <worktree> <copy of bin/types-lint, bin/types_lint.py, lib/x.py>   (STEP_TIMEOUT=15)",
+        "  FAIL types and lint took longer than 15 s",
+        "      ruff is not installed (not in the uv cache): run uv tool install ruff@0.13.3, or relay doctor",
+        "  35.1 s",
+        "left behind: 42913 ppid 1 `uv tool run mypy==1.18.2 lib/x.py`",
+        "Cold-cache probe: `uv tool run --offline mypy==1.18.2 --version` started 8 s after the download: real 259.05, user 0.29"
+      ],
+      "failing_case": [
+        "Fresh uv cache (UV_CACHE_DIR empty, as in the sandbox), relay's real bin/types-lint and bin/types_lint.py, STEP_TIMEOUT 15.",
+        "types_lint.py runs mypy first: uv downloads it in seconds, then mypy's first run blocks for minutes. At the timeout",
+        "_running_tool finds mypy; the offline probe of mypy==1.18.2 then blocks too (mypy is in the cache, its first run hangs) and",
+        "hits its 20 s timeout, which the code counts as \"present\"; the probe of ruff@0.13.3 fails at once because types_lint.py never",
+        "reached ruff. Output now, after 35.1 s:",
+        "  FAIL types and lint took longer than 15 s",
+        "      ruff is not installed (not in the uv cache): run uv tool install ruff@0.13.3, or relay doctor",
+        "It should name mypy (the tool still running, or not yet usable) and its next step; ruff, not yet reached, is not the cause."
+      ],
+      "fix_hint": [
+        "Report the running tool first and always (it is the cause the timeout saw); list only tools that come before or are the",
+        "running one as missing, or drop the offline probe for the running tool; read a probe timeout as \"first run still blocked\"",
+        "(say so), not as present. Cap the probes to a few seconds in total. Add a test where the running process is mypy and ruff's",
+        "offline probe fails: the lines name mypy and do not blame ruff."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 111,
+      "pass_cases": [
+        "1. Cold cache, mypy downloaded but its first run blocks past the step budget, ruff not yet in the cache: the lines name mypy",
+        "   (still running / first run of a fresh download) with a next step, and do not say \"ruff is not installed\" as the cause.",
+        "2. mypy not in the uv cache and uv tool run fails offline at once (the test's fake uv): the lines name mypy and",
+        "   \"uv tool install mypy==1.18.2\" (test_a_timeout_with_mypy_missing_names_mypy_and_the_install_step keeps passing).",
+        "3. Both tools cached, the step hangs in ruff: \"still running: ruff (ruff@0.13.3)\" (the existing test keeps passing).",
+        "4. The extra diagnosis after a timeout takes at most a few seconds, not 20 s per tool (no probe that runs the blocked tool)."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_precheck.py:176 passes, fails at base."
+      ],
+      "severity": "HIGH",
+      "since": "a647a845231bbaa07c4e7d0bf9e91658e88a842b",
+      "source": "review-precheck-s-60-s-timeout-names-no-cause-o.json",
+      "source_id": "F2",
+      "summary": "on the item's own case (cold uv cache) the timeout blames ruff as not installed and never names mypy, which was the tool running",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: timing probe on the branch and on master with the same script. communicate() reads to EOF, and EOF comes only when",
+        "every holder of the pipe's write end exits; kill() hits only bash. Relay's own types_lint.py captures uv's output on its own",
+        "pipes, so relay itself does not hang today, but the step's real work (uv and mypy) is orphaned and keeps loading the machine",
+        "that was already too slow. Fix both by starting the step in its own session and killing the group. Size: 15 min."
+      ],
+      "evidence": [
+        "python3 -I p.py <branch> repo   -> ['FAIL types and lint took longer than 1 s'] 12.3 s",
+        "python3 -I p.py <master> repo   -> ['FAIL types and lint took longer than 1 s'] 1.0 s",
+        "ps after the fresh-cache run: 42913 ppid 1 /Users/amidman/.local/bin/uv tool run mypy==1.18.2 lib/x.py"
+      ],
+      "failing_case": [
+        "bin/types-lint is `sleep 12; echo done` (bash forks the child; the same for any types-lint that runs mypy without exec or",
+        "without capturing its output). STEP_TIMEOUT 1. Branch: check_types returns after 12.3 s (it waits for sleep to exit, so a",
+        "hung mypy hangs precheck for ever). master: 1.0 s, because subprocess.run on POSIX only calls wait() after kill().",
+        "The step's children also survive: with relay's real types-lint, `uv tool run mypy==1.18.2 ...` was left running with ppid 1",
+        "after precheck returned."
+      ],
+      "fix_hint": [
+        "Popen(..., start_new_session=True); on timeout read the running tool, then os.killpg(proc.pid, SIGKILL) and proc.wait()",
+        "(or communicate with a short timeout), never an unbounded communicate()."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 130,
+      "pass_cases": [
+        "1. types-lint `sleep 12; echo done`, STEP_TIMEOUT 1: check_types returns in under 3 s with the timeout line.",
+        "2. Same script: after check_types returns, no process of the step (the sleep) is still alive.",
+        "3. types-lint `exec sleep 30` (the existing timeout tests): still the timeout line and the tool lines.",
+        "4. A types-lint that fails at once: \"FAIL types and lint (bin/types-lint):\" and its output tail, as today."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_precheck.py:183 (killpg, returns quick, no child left) passes, fails at base; killpg verified by hand."
+      ],
+      "severity": "MEDIUM",
+      "since": "a647a845231bbaa07c4e7d0bf9e91658e88a842b",
+      "source": "review-precheck-s-60-s-timeout-names-no-cause-o.json",
+      "source_id": "F1",
+      "summary": "after the kill, proc.communicate() waits with no bound for any child still holding the output pipe; the 60 s bound is lost",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: deps.toml says the pins of ruff and mypy live there (uv_tool = \"mypy==1.18.2\"); the change adds a",
+        "second reader that searches Python source for a number (principle 4). Reading the constants by importing bin/types_lint.py,",
+        "or reading deps.toml, removes the drift. Size: 15 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "bin/types_lint.py changes `MYPY = \"1.18.2\"` to `MYPY: str = \"1.18.2\"` (a typed constant). _pinned falls back to \"mypy\": the",
+        "probe checks any cached mypy and the advice reads \"uv tool install mypy\", not the pinned 1.18.2; no test notices."
+      ],
+      "fix_hint": [
+        "importlib-load bin/types_lint.py and read MYPY and RUFF, or take uv_tool from deps.toml."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 63,
+      "pass_cases": [
+        "1. The pins as written today: probe and advice use mypy==1.18.2 and ruff@0.13.3.",
+        "2. A typed constant (MYPY: str = \"1.18.2\") still yields mypy==1.18.2.",
+        "3. The advice matches deps.toml's uv_tool for mypy (\"mypy==1.18.2\"), the line relay doctor and install.sh use."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_precheck.py:197 pins from constants and the real-pins test pass; error at base."
+      ],
+      "severity": "LOW",
+      "since": "a647a845231bbaa07c4e7d0bf9e91658e88a842b",
+      "source": "review-precheck-s-60-s-timeout-names-no-cause-o.json",
+      "source_id": "F3",
+      "summary": "the pins are scraped from bin/types_lint.py source by regex; a reworded constant silently probes and advises an unpinned mypy",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "1efa4547ab269a2ed569c37140559d53e8d419e5.gate.log",
+  "head": "931ea9ca1c70d049a8055c01e706a31b6152bb00",
+  "item": "precheck-s-60-s-timeout-names-no-cause-or-next-s",
+  "notes": [
+    "check_types is called only inside relay_precheck."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range a647a845..HEAD; changed own files: lib/relay_precheck.py, tests/test_precheck.py only. Gate log head 1efa4547, exit 0, only a gate-log commit after. tests.test_precheck: 44 OK. relay precheck green on head (an earlier red run was caused by my own base run leaving a sleep process and my command lines containing the test marker). Base proof: test file copied into 6f1799bf worktree: the 3 new timeout tests fail there."
+  ],
+  "type": "check"
+}

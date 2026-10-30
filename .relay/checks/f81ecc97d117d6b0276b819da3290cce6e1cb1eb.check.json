@@ -1,0 +1,177 @@
+{
+  "branch": "wt/a-just-started-branch-with-no-commit-cou",
+  "findings": [
+    {
+      "details": [
+        "Found by the front 30 Oct ~06:20Z: right after `relay queue start one-digest-per-wave-instead-of-status-messages`, before its worker's first commit, the lanes hook said 'landed, still open: one-digest-per-wave-instead-of-status-messages (wt/one-digest-per-wave-instead-of-status-me landed)', told the front to close it by hand with `relay queue done --evidence`, and counted 5 of 6 lanes running while 6 were busy, offering a start that would overfill the lanes. A branch whose head equals the default branch's (nothing committed yet) is read as merged."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Take an item with `relay queue start`; before any commit on its branch, lanes_state lists it under landed_open and not under running."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A taken item with a fresh branch at the default branch's head is running, not landed",
+        "A branch merged into the default branch with the item closed there is not running",
+        "A branch merged with the item still open on the default branch is landed_open"
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py test_fresh_branch_that_took_master_with_a_message_is_running_not_landed passes, fails at e797e981bfa5."
+      ],
+      "severity": "HIGH",
+      "since": "e797e981bfa52dc6ababe852296207f5912ed5a7",
+      "source": "queue",
+      "summary": "A just-started branch with no commit counts as landed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (scratch repo, output in evidence). The change found the real parsing gap (git appends \" (no commit created; -m option ignored)\"",
+        "to a fast-forward reflog entry when -m is given, so `subject.endswith(\"Fast-forward\")` misses it) but fixed it in a new function",
+        "relay_lane_features.own_commits used only by landing(). relay_git.has_own_commits, \"shared\" since 4e38f266 precisely so every program",
+        "reads own commits the same way, is unchanged and still used by relay_lanes._one_lane_per_train (line 267), relay_tidy.lines (line 41),",
+        "and the merge hook's clean (line 81), riders (line 439) and removable (line 567). Two definitions of one fact now disagree; the callers the",
+        "change did not update keep the wrong answer, and in the merge hook that wrong answer removes a worktree. Project rule (CLAUDE.local.md,",
+        "Python): one parser shared by all programs that read a record. Fixing has_own_commits in place also removes the need for the 600-line move.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "$ git reflog show --format=%gs refs/heads/wt/x",
+        "merge master: Fast-forward (no commit created; -m option ignored)",
+        "branch: Created from HEAD",
+        "$ python3 -I -c '... relay_git.has_own_commits, relay_lane_features.own_commits, relay_tidy.lines ...'",
+        "has_own_commits True own_commits False",
+        "tidy lines [(True, 'merged worktree still present: ../x (wt/x)'), ...]",
+        "$ git grep -n has_own_commits -- lib plugins",
+        "lib/relay_lanes.py:267, lib/relay_tidy.py:41, plugins/relay/hooks/merge.py:49,81,439,567"
+      ],
+      "failing_case": [
+        "Repo with master; `git worktree add -b wt/x ../x`; a commit on master; in ../x `git merge -m take master`.",
+        "Reflog of wt/x: \"merge master: Fast-forward (no commit created; -m option ignored)\", \"branch: Created from HEAD\".",
+        "Now: relay_git.has_own_commits(repo, \"wt/x\") -> True while relay_lane_features.own_commits -> False;",
+        "relay_tidy.lines(repo) -> [(True, \"merged worktree still present: ../x (wt/x)\")] (doctor offers to remove a lane that has not started);",
+        "plugins/relay/hooks/merge.py clean()/removable()/riders() pass guard 3 and may remove wt/x and its worktree after the next merge.",
+        "Should: has_own_commits -> False; tidy lists nothing for wt/x; the merge hook keeps wt/x (\"it has no commits of its own\")."
+      ],
+      "fix_hint": [
+        "Put the corrected test in relay_git.has_own_commits (skip subjects that start with \"branch: Created from\" or \"reset: moving to\", or that",
+        "start with \"merge \" and contain \": Fast-forward\"), drop relay_lane_features.own_commits and call relay_git.has_own_commits in landing again;",
+        "add a test for relay_git.has_own_commits (or relay_tidy.lines) with the -m reflog entry."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 508,
+      "pass_cases": [
+        "1. The failing case: relay_git.has_own_commits -> False and relay_tidy.lines lists no \"merged worktree\" line for wt/x.",
+        "2. Fresh branch with only \"branch: Created from refs/heads/master\" and \"merge master: Fast-forward\" (relay queue start's own path) -> False.",
+        "3. A branch with one real commit, then fast-forwarded into master -> True; tidy lists it as a merged worktree; lanes_state lists it landed_open while its item is open.",
+        "4. test_fresh_branch_that_took_master_with_a_message_is_running_not_landed still passes with landing calling the single shared function."
+      ],
+      "path": "lib/relay_git.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_git.py:508 one has_own_commits; test_has_own_commits_ignores_a_fast_forward_taken_with_a_message_and_tidy_lists_nothing passes, fails on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "1e25b2853c7b2fe68f2ccc82661651f3ed78bae7",
+      "source": "review-a-just-started-branch-with-no-commit-cou.json",
+      "source_id": "F1",
+      "summary": "the -m fast-forward fix lives in a second copy (own_commits); relay_git.has_own_commits keeps the bug, so relay doctor and the merge hook still treat a fresh worktree that took master with -m as merged with own work",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: `\"Fast-forward\" in s` matches anywhere in the subject, including a \"commit: <message>\" entry. Anchor it to merge entries",
+        "(s.startswith(\"merge \") and \": Fast-forward\" in s). Rare today, hence LOW; cheap to fix together with F1. Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Fresh wt/x; one commit with message \"docs: explain Fast-forward merges\" (reflog \"commit: docs: explain Fast-forward merges\"); fast-forward",
+        "master to it while the item is still open. Now: own_commits -> False, landing -> (False, None), the item stays \"running\" instead of landed_open.",
+        "Should: own_commits -> True, the item is listed landed_open."
+      ],
+      "fix_hint": [
+        "Match only merge entries: `s.startswith(\"merge \") and \": Fast-forward\" in s`."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 41,
+      "pass_cases": [
+        "1. Reflog \"commit: docs: explain Fast-forward merges\" + \"branch: Created from refs/heads/master\" -> own commits True.",
+        "2. \"merge master: Fast-forward\" -> skipped (no own commit).",
+        "3. \"merge master: Fast-forward (no commit created; -m option ignored)\" -> skipped."
+      ],
+      "path": "lib/relay_lane_features.py",
+      "rank": "low",
+      "reason": [
+        "Anchored to \"merge \" entries (lib/relay_git.py:508); test_commit_message_mentioning_fast_forward_is_an_own_commit_and_lands passes (also on base, as own_commits was the buggy copy and is removed)."
+      ],
+      "severity": "LOW",
+      "since": "1e25b2853c7b2fe68f2ccc82661651f3ed78bae7",
+      "source": "review-a-just-started-branch-with-no-commit-cou.json",
+      "source_id": "F2",
+      "summary": "own_commits skips any reflog entry containing \"Fast-forward\", so a branch whose only own commit has that word in its subject counts as having none",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that the brief's failing case does not fail on master (scratch test, output in evidence); PLAUSIBLE that the live report came from",
+        "something else (an older start path that created the branch from \"master\", a hook reading a different checkout, a branch created by hand).",
+        "The fixer's test is a valid regression for a real gap (F1), but closing this item with it records the live bug as fixed when its cause is",
+        "unknown. This is for the owner: close on the -m fix with a \"not reproduced\" note, or keep the item open for the live cause. Size: 30 minutes",
+        "to look further (master and branch reflogs, hook logs of 30 Oct 06:13-06:21Z)."
+      ],
+      "evidence": [
+        "scratch test_repro_start.py (rl.start then lanes_state), run with WT=/Users/amidman/relay (master) and the worktree:",
+        "REFLOG: merge master: Fast-forward / branch: Created from refs/heads/master",
+        "running [('wt/fx', 'fx')] landed_open []   -> 1 passed (master) / 1 passed (HEAD)",
+        "$ git reflog show --date=iso refs/heads/wt/one-digest-per-wave-instead-of-status-me | tail -3",
+        "@{2026-10-30 10:20:28 +0400} commit: relay digest: ...",
+        "@{2026-10-30 10:13:46 +0400} branch: Created from master"
+      ],
+      "failing_case": [
+        "Brief's failing case: take an item with `relay queue start`; before any commit, lanes_state lists it under landed_open.",
+        "Reproduced on master (scratch test calling rl.start then lanes_state): running [('wt/fx','fx')], landed_open [] -> passes on master already,",
+        "also after the branch takes a newer master with `merge --no-edit` (what relay_queue.take does).",
+        "Live: wt/one-digest-per-wave-instead-of-status-me reflog was only \"branch: Created from master\" (10:13:46 +0400) until its first commit at",
+        "10:20:28 +0400; with that reflog has_own_commits is False, so landing() returns not landed. The hook's \"landed\" at ~06:20Z has no cause found.",
+        "Nothing in relay runs `git merge -m` on a lane (git grep finds it only in tests)."
+      ],
+      "fix_hint": [
+        "Owner choice; either add a fact note with reproduced = no to the item, or replay the live sequence before closing."
+      ],
+      "id": "F3",
+      "kind": "question",
+      "line": 62,
+      "pass_cases": [
+        "1. If the owner wants the live cause: a test that replays the live sequence (branch \"Created from master\", no other reflog entry, item taken on master) and shows landed_open before the fix, running after.",
+        "2. If the owner accepts the -m variant: the item gets a fact note that the reported sequence was not reproduced (reproduced = no) and what was fixed instead."
+      ],
+      "path": "tests/test_lanes_state.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lanes_state.py DesignStart.test_f3_design_start_then_plan_landed_on_master_and_master_moved_is_running_not_landed replays start, plan, master move, -m take; passes, fails on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "1e25b2853c7b2fe68f2ccc82661651f3ed78bae7",
+      "source": "review-a-just-started-branch-with-no-commit-cou.json",
+      "source_id": "F3",
+      "summary": "the item's reported failure (fresh branch read as landed right after relay queue start) is not reproduced; the change fixes a -m variant no relay path produces",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "6f70d766713c308862ec408ef6a5bf09fc9ceb8f.gate.log",
+  "head": "f81ecc97d117d6b0276b819da3290cce6e1cb1eb",
+  "item": "a-just-started-branch-with-no-commit-counts-as-l",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Ran tests/test_lanes_state.py on head (76 ok); on e797e981bfa5 with head's test file 3 new tests fail. Precheck twice green. Gate log is for 6f70d766, only the gate commit follows. No own_commits callers remain."
+  ],
+  "type": "check"
+}
