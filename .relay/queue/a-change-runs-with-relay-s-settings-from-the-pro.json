@@ -91,6 +91,16 @@
         "a. moves into relay's front plugin, versioned with relay (recommended by the design); gone outside relay unless copied back",
         "b. stays personal; the launcher passes the user skills folder through",
         "c. dropped"
+      ],
+      "answered_at": "2026-10-30T10:59:56Z",
+      "answer": [
+        "1. Да, это небольшой trade-off, впоследствии мы переедем полностью",
+        "2. Как это будет работать, это первый шаг к тому чтобы мы использовали только relay для relay ?",
+        "3. Кажется что 2 пункт это отключает, наблюдается конфликт",
+        "4. Если мы применим 2 пункт, смогу ли я загружать его по просьбе, или сможем ли мы включить его в конкретный проект, думаю эту часть как и openspec лучше отделить от relay, он здесь не привносит ничего нового, использовать это можно и без него"
+      ],
+      "reading": [
+        "Point 4: not a. Grilling stays outside relay, like OpenSpec: relay ships nothing for it (relay's code never names it; only this item and the handover do). How a project-only session reaches it (a project that wants it keeps its own copy, or the launcher passes the owner's personal skills through) is a follow-up question. Points 2 and 3 are questions about the session and memory questions, not answers; point 1 confirms the Linux comparison trade-off."
       ]
     },
     {
