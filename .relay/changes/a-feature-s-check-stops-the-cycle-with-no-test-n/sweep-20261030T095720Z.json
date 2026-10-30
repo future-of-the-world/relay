@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0036,
+   "id": "a1f407db6dec73cbc",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T08:46:10.421Z",
+   "stop": "2026-10-30T08:47:55.082Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "a-feature-s-check-stops-the-cycle-with-no-test-n",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "a-feature-s-check-stops-the-cycle-with-no-test-n"
+}
