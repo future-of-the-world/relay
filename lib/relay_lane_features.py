@@ -29,3 +29,4 @@ def feature_lanes_read(main: str, capacity: int) -> tuple[int, Optional[str]]:
 def feature_lanes_setting(main: str, capacity: int) -> int:
     """The value of `feature_lanes_read`, without its note."""
     return feature_lanes_read(main, capacity)[0]
+

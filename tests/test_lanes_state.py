@@ -13,6 +13,8 @@ import test_queue as tq  # noqa: E402
 
 sys.path.insert(0, os.path.join(tq.ROOT, "lib"))
 import relay_lanes as rl  # noqa: E402
+import relay_git  # noqa: E402
+import relay_tidy  # noqa: E402
 
 # the queue module relay_lanes itself holds: a test that dropped relay_* from sys.modules before this file was imported leaves
 # tq.rq a different copy, and a mock or an exception class taken from it would miss the one relay_lanes uses
@@ -58,6 +60,52 @@ class Lanes(LaneBase):
         s = self.state()
         self.assertEqual([(l.branch, l.slug) for l in s.running], [("wt/x", "x")])
         self.assertEqual((s.landed_open, s.free), ([], 5))
+
+    def test_fresh_branch_that_took_master_with_a_message_is_running_not_landed(self):
+        # The branch is created, master moves on, the branch takes it by `git merge -m`: git logs "merge master: Fast-forward (no commit
+        # created; -m option ignored)". That is still no own commit: tip == master, the item runs and is not landed_open.
+        self.seed({Q + "x.json": item("x", **taken("wt/x"))})
+        path = self.worktree("x")
+        self.write_commit(self.main, {"lib/other.py": "o\n"}, "other")
+        git(path, "merge", "-m", "take master", "master")
+        s = self.state()
+        self.assertEqual([(l.branch, l.slug) for l in s.running], [("wt/x", "x")])
+        self.assertEqual(s.landed_open, [])
+
+    def test_has_own_commits_ignores_a_fast_forward_taken_with_a_message_and_tidy_lists_nothing(self):
+        # F1: one shared reading of "own commits". Reflog of wt/x: "branch: Created", then "merge master: Fast-forward (no commit created;
+        # -m option ignored)". No commit of its own, so not "merged with work" for doctor or the merge hook either.
+        path = self.worktree("x")
+        self.write_commit(self.main, {"lib/other.py": "o\n"}, "other")
+        git(path, "merge", "-m", "take master", "master")
+        self.assertFalse(relay_git.has_own_commits(self.main, "wt/x"))
+        self.assertEqual([t for _, t in relay_tidy.lines(self.main) if "(wt/x)" in t], [])
+
+    def test_a_real_commit_then_merged_counts_as_own_commits(self):
+        # F1 pass case 3: one real commit, fast-forwarded into master: own commits, and tidy lists it as a merged worktree.
+        self.branch_with_commit("x", {"lib/x.py": "x\n"})
+        git(self.main, "merge", "-q", "--ff-only", "wt/x")
+        self.assertTrue(relay_git.has_own_commits(self.main, "wt/x"))
+        self.assertEqual(len([t for _, t in relay_tidy.lines(self.main) if "merged worktree" in t and "(wt/x)" in t]), 1)
+
+    def test_commit_message_mentioning_fast_forward_is_an_own_commit_and_lands(self):
+        # F2: reflog "commit: docs: explain Fast-forward merges" is a commit of its own; the merged item is landed_open, not running.
+        self.seed({Q + "x.json": item("x", **taken("wt/x"))})
+        self.branch_with_commit("x", {"lib/x.py": "x\n"}, "docs: explain Fast-forward merges")
+        git(self.main, "merge", "-q", "--ff-only", "wt/x")
+        self.assertTrue(relay_git.has_own_commits(self.main, "wt/x"))
+        s = self.state()
+        self.assertEqual([x.slug for x in s.landed_open], ["x"])
+        self.assertEqual(s.running, [])
+
+    def test_merged_branch_with_item_closed_is_not_running(self):
+        self.seed({Q + "x.json": item("x", **taken("wt/x"))})
+        self.branch_with_commit("x", {"lib/x.py": "x\n"})
+        git(self.main, "merge", "-q", "--ff-only", "wt/x")
+        git(self.main, "rm", "-q", Q + "x.json")
+        self.write_commit(self.main, {".relay/queue/done/x.json": item("x", closed_at="2026-10-24T01:00:00Z", test="t.py::t", **taken("wt/x"))}, "close")
+        s = self.state()
+        self.assertEqual((s.running, s.landed_open), ([], []))
 
     def test_lane_landed_still_open_fast_forward_and_both_train_forms(self):
         self.seed({Q + "a.json": item("a", "feature", **taken("wt/a")), Q + "b.json": item("b", "feature", **taken("wt/b")),
@@ -820,3 +868,25 @@ class FeatureSplit(LaneBase):
         s = rl.lanes_state(self.main, now=time.time(), limit=6, features=3)      # the worktree's activity is real time
         self.assertEqual((s.feature_running, s.itemless), (0, 1))
         self.assertIn("Lanes: 4 of 6 running (3 of 3 fix lanes, 0 of 3 feature lanes, 1 without an item)", rl.line(s))
+
+
+class DesignStart(LaneBase):
+    def test_f3_design_start_then_plan_landed_on_master_and_master_moved_is_running_not_landed(self):
+        # The live sequence (30 Oct, speed-up-the-quick-gate): a feature is started in design mode (branch at master, the take is a queue
+        # commit on master), the design's plan lands on master through `relay queue plan`, master moves on; the branch has no commit of
+        # its own. Expected by hand: the item runs (1 lane), nothing is landed_open, so no hook tells the front to close it.
+        self.seed({Q + "ft.json": item("ft", "feature", ip=99)})
+        scratch = os.path.join(self.tmp, "scratch")
+        out = json.loads(rl.start(self.main, "ft", scratch))
+        src = os.path.join(self.tmp, "plan.md")
+        with open(src, "w", encoding="utf-8") as handle:
+            handle.write("# Plan\n\nbody\n")
+        rq.keep_plan(out["worktree"], "ft", src, environ={})
+        self.write_commit(self.main, {"lib/other.py": "o\n"}, "master moves on")
+        branch = out["branch"]
+        # the design worker takes master with a message: reflog "merge master: Fast-forward (no commit created; -m option ignored)"
+        git(out["worktree"], "merge", "-m", "take master", "master")
+        s = self.state()
+        self.assertEqual([(l.branch, l.slug) for l in s.running], [(branch, "ft")])
+        self.assertEqual(s.landed_open, [])
+        self.assertEqual(rl.close_landed(self.main), [])

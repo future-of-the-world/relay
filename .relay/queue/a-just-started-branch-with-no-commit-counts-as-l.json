@@ -25,8 +25,16 @@
   ],
   "taken_at": "2026-10-30T13:44:54Z",
   "taken_by": "wt/a-just-started-branch-with-no-commit-cou",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T15:38:57Z",
+  "test": "tests/test_lanes_state.py::test_fresh_branch_that_took_master_with_a_message_is_running_not_landed",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T15:10:58Z",
+      "fact": [
+        "Live case again, 30 Oct ~12:20-14:10Z: the lanes hook printed \"landed, still open: speed-up-the-quick-gate (wt/speed-up-the-quick-gate landed)\" and the PostToolUse hook \"speed-up-the-quick-gate: landed, but git no longer shows its commit; close it by hand with relay queue done ... --evidence <sha>\" while that branch had no commit of its own: it was made by a design-mode `relay queue start` (branch at master e2f34301, a queue commit), the design landed its plan through `relay queue plan` on master, and master moved on; the build had not committed yet. Following the hook's advice would have closed an item being built. Front decision on review F3 (owner can reverse): keep the item open for this live cause; replay this sequence in a test and fix it in this change."
+      ]
+    }
+  ]
 }
