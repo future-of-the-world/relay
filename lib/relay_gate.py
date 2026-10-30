@@ -190,17 +190,19 @@ def holder_words(text, path):
     return "pid %d has ended; a process outside the gate's process group still holds %s" % (numbers[0], path)
 
 
-def reclaim(path: str, text: str, record: Callable[[str], None]) -> bool:
+def reclaim(path: str, text: str, record: Callable[[str], None], unknown: Optional[Callable[[str], None]] = None) -> bool:
     """The lock file `path` is held and its text (`<gate pid> <command group>`) names a gate process that has ended: the gate command's
     processes that kept the file are then the only holders, their result can never be committed, and they run outside the slot limit.
-    Stop that group (confirmed with one `lsof -t`: some holder is a member of the group), say so through `record`; True when stopped."""
+    Stop that group (confirmed with one `lsof -t`: some holder is a member of the group), say so through `record`; True when stopped.
+    When lsof could not run nobody can be named: nothing is stopped and `unknown` gets one line saying so."""
     numbers = [int(word) for word in text.split() if word.isdigit()]
     if len(numbers) < 2 or numbers[0] <= 0 or numbers[1] <= 1 or alive(numbers[0]) or numbers[1] == os.getpgrp():
         return False
     group = numbers[1]
     holders = relay_procs.holders_of(path)
     if holders is None:      # lsof could not run: nobody can be named, so nothing is stopped; say why the wait goes on
-        record("gate: cannot tell who holds %s: lsof could not run (install lsof; `relay doctor` checks it); stop group %d by hand if its command hangs" % (path, group))
+        if unknown is not None:
+            unknown("gate: cannot tell who holds %s: lsof could not run (install lsof; `relay doctor` checks it); stop group %d by hand if its command hangs" % (path, group))
         return False
     if not holders:
         return False
@@ -226,6 +228,7 @@ def take_worktree_lock(path: str, notify: Optional[Callable[[str], None]] = None
     handle = open(path, "a+")
     told = False
     tried = set()
+    late: list[str] = []      # lines that follow the waiting line (reclaim runs before it is printed)
     def line(text: str) -> None:
         if notify is not None:
             notify(text)
@@ -243,11 +246,13 @@ def take_worktree_lock(path: str, notify: Optional[Callable[[str], None]] = None
             words = [int(word) for word in text.split() if word.isdigit()]
             if words and words[0] not in tried and not alive(words[0]):
                 tried.add(words[0])      # one lsof per dead gate pid
-                if reclaim(path, text, line):
+                if reclaim(path, text, line, late.append):
                     continue
             if not told and notify is not None:
                 notify("gate: waiting for the gate already running in this worktree (%s)" % holder_words(text, path))
             told = True
+            while late:
+                line(late.pop(0))
             time.sleep(SLOT_POLL)
         handle.seek(0)
         handle.truncate()
