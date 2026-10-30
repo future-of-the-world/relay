@@ -44,6 +44,13 @@
       "options": [
         "a. land it as it is; wording fixes come as fix items",
         "b. hold it; the owner names what to change first"
+      ],
+      "answered_at": "2026-10-30T10:35:19Z",
+      "answer": [
+        "b"
+      ],
+      "reading": [
+        "b: hold the digest change (wt/one-digest-per-wave-instead-of-status-me) before landing; the owner names what to change first."
       ]
     }
   ]
