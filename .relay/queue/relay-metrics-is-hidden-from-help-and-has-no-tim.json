@@ -28,8 +28,10 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null,
+  "dropped_at": "2026-10-30T00:28:12Z",
+  "dropped_why": [
+    "Owner, 30 Oct: \"У нас уже была задача на исправление команды help, должен быть встроенный механизм автоматического включения команды в help, так устроены все библиотеки для cli утилит\". The help part belongs to every-new-relay-command-edits-bin-relay; the time window is filed again on its own as relay-metrics-has-no-time-window."
+  ],
   "notes": [
     {
       "at": "2026-10-30T00:23:59Z",
