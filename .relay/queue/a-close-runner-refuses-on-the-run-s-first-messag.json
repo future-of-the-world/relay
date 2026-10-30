@@ -22,8 +22,8 @@
   "where": [
     "plugins/delegate/workflows/cycle.js (close step)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T00:08:40Z",
+  "taken_by": "wt/a-close-runner-refuses-on-the-run-s-firs",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
