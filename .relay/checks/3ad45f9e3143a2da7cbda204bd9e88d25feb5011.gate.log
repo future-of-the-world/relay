@@ -1,0 +1,13 @@
+head 3ad45f9e3143a2da7cbda204bd9e88d25feb5011
+cmd bin/ci --quick
+wait 152.4
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests ok (601s)
+ci: coverage 88.8% of lib, bin, plugins (15511 of 17466 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (92s)
+ci: green (QUICK MODE: paid steps skipped, not a release gate)
+exit 0
