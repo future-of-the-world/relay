@@ -81,6 +81,17 @@
         "a. stays where Claude Code keeps it, recorded by hash in every run (recommended by the design: the gate never reads memory)",
         "b. saved into the project's git by one relay command, copied in at session start (about 60 agent minutes; travels to other machines and containers)"
       ]
+    },
+    {
+      "asked_at": "2026-10-30T09:59:03Z",
+      "question": [
+        "Where does the owner's grilling skill (today in ~/.claude/skills, not loaded by a project-only session) live?"
+      ],
+      "options": [
+        "a. moves into relay's front plugin, versioned with relay (recommended by the design); gone outside relay unless copied back",
+        "b. stays personal; the launcher passes the user skills folder through",
+        "c. dropped"
+      ]
     }
   ]
 }
