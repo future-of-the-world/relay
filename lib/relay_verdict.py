@@ -32,6 +32,7 @@ RECORD FINDING: a FINDING plus {"source": "queue"|<review file name>|"merge"|"ch
 import json
 import os
 import re
+from typing import Optional
 
 import relay_git
 
@@ -608,11 +609,11 @@ def _ok(wt, *args):
 
 
 def _is_commit(wt, sha):
-    return is_sha(sha) and _ok(wt, "cat-file", "-e", sha + "^{commit}")
+    return is_sha(sha) and relay_git.resolve_commit(wt, sha) is not None
 
 
 def _is_ancestor(wt, older, newer):
-    return _ok(wt, "merge-base", "--is-ancestor", older, newer)
+    return relay_git.is_ancestor(wt, older, newer)
 
 
 def _newer(wt, a, b):
@@ -660,7 +661,7 @@ def _review_findings(wt: str, head: str, paths: list[str]) -> list[dict]:
     return out
 
 
-def _merge_findings(wt, head, anchors):
+def _merge_findings(wt: str, head: str, anchors: list[Optional[str]]) -> list[dict]:
     """One M finding for each file the branch changed (`relay_inert.changed(..., own=True)`) that a merge of the default
     branch (or of a branch it absorbs: a train's merge of a ready change) changed after the anchor, the newest of `anchors` (the branch's last mark and its newest review); with none, the
     point the branch left the default branch. Its `since` is the newest such merge."""
@@ -687,13 +688,12 @@ def _merge_findings(wt, head, anchors):
     rc, out = relay_git.git(wt, "rev-list", "--merges", "--reverse", "%s..%s" % (anchor, head))
     newest = {}
     for merge in (out.splitlines() if rc == 0 else []):
-        if not _ok(wt, "rev-parse", "--verify", "-q", merge + "^2"):
+        second = relay_git.resolve_commit(wt, merge + "^2")
+        if second is None:
             continue
-        second = relay_git.git(wt, "rev-parse", merge + "^2")[1]
         if not _is_ancestor(wt, second, base) and second not in ab.values():
             continue                                                  # not a merge of the default branch or of an absorbed branch
-        rc, names = relay_git.git(wt, "diff", "--name-only", "--no-renames", "-z", merge + "^1", merge)
-        for name in names.split("\0") if rc == 0 else []:
+        for name in relay_git.changed_paths(wt, merge + "^1", merge) or []:
             if name in own:
                 newest[name] = merge
         for name in relay_inert.dropped(wt, merge, own):                  # a hand-resolved merge that threw the other side's change away
@@ -839,7 +839,12 @@ def build_findings(wt, head, review_paths, item=None):
     return branch, item, found
 
 
-def finding_list(wt, review_paths, item=None):
+def finding_list(wt: str, review_paths: list[str], item: Optional[str] = None) -> list[str]:
+    with relay_git.reading():
+        return _finding_list(wt, review_paths, item)
+
+
+def _finding_list(wt: str, review_paths: list[str], item: Optional[str] = None) -> list[str]:
     """The lines `relay check findings` prints: each finding the check must give a verdict for, with its id."""
     rc, head = relay_git.git(wt, "rev-parse", "HEAD")
     if rc != 0:
@@ -851,7 +856,12 @@ def finding_list(wt, review_paths, item=None):
     return out
 
 
-def record_check(input_path):
+def record_check(input_path: str) -> str:
+    with relay_git.reading():      # one run reads, moves no ref: each distinct git question is asked once
+        return _record_check(input_path)
+
+
+def _record_check(input_path: str) -> str:
     """Record the check from the TOML input file at `input_path`: build the record in its one order (the queue item as Q1, the
     reviews' findings, the merge findings, one verdict for each, the checker's own new problems and the gate result) and write
     it at `report`. Refused, nothing written, when a verdict is missing or is for an id that is not a finding. Returns the path."""
@@ -891,7 +901,7 @@ def record_check(input_path):
     for path in review_paths:
         newest_review = _newer(wt, newest_review, load_review(open(os.path.abspath(path), encoding="utf-8").read(), path)["reviewed"])
     name, gate_problems = _gate(wt, head, raw["gate"], newest_review)
-    problems = [_n_finding(n, *p, head) for n, p in enumerate(gate_problems, len(new) + 1)]
+    problems = [_n_finding(n, p[0], p[1], p[2], head) for n, p in enumerate(gate_problems, len(new) + 1)]
     news = []
     for n, f in enumerate(new, 1):
         news.append(_stated(dict(f, id="N%d" % n), "check", head))

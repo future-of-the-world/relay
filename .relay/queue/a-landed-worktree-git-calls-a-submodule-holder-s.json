@@ -1,0 +1,31 @@
+{
+  "kind": "fix",
+  "ip": 80,
+  "time": 30,
+  "found_at": "2026-10-30T01:30:18Z",
+  "found_in": "relay queue add",
+  "title": "A landed worktree git calls a submodule holder stays",
+  "what": [
+    "Find why git sees a submodule there (a test that ran `git submodule` or wrote .git/worktrees/<name>/modules), remove the leftover, and make the landing's cleanup handle that case (or name the exact next step) instead of repeating \"kept\"."
+  ],
+  "why": [
+    "Every landing on 30 Oct (5 of 5 logs) ends with \"kept .worktrees/a-land-test-leaks-gate-scripts-that-load: git refused to remove it\". The branch has no commit beyond master and the tree is clean, but `git worktree remove` says \"working trees containing submodules cannot be moved or removed\", and no nested .git or gitlink is found. The leftover repeats in every land log and in relay doctor."
+  ],
+  "failing_case": [
+    "30 Oct: `git worktree remove .worktrees/a-land-test-leaks-gate-scripts-that-load` prints \"fatal: working trees containing submodules cannot be moved or removed\"; `find <wt> -maxdepth 5 -name .git` finds only the top .git file; `git ls-files -s` has no 160000 entry."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The leftover is gone and the next landing log has no \"kept\" line for it.",
+    "A test: a landed worktree in that state is removed by the landing, or the landing prints the one command that removes it."
+  ],
+  "where": [
+    "lib/relay_land.py cleanup"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

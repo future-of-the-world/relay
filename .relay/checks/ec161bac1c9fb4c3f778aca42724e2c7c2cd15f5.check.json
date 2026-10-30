@@ -1,0 +1,211 @@
+{
+  "branch": "wt/lib-modules-are-committed-in-three-copie",
+  "findings": [
+    {
+      "details": [
+        "Owner, 26 Oct: \"\u0430\u0433\u0435\u043d\u0442\u044b \u043f\u043e\u0437\u0432\u043e\u043b\u044f\u044e\u0442 \u043d\u0430\u043c \u0434\u0435\u043b\u0430\u0442\u044c \u043c\u043d\u043e\u0436\u0435\u0441\u0442\u0432\u043e \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439 \u043e\u0434\u043d\u043e\u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e, \u0431\u043e\u043b\u044c\u0448\u0438\u0435 \u0444\u0430\u0439\u043b\u044b - \u043d\u0430\u0448\u0438 \u0432\u0440\u0430\u0433\u0438, \u043a\u043e\u043d\u0446\u0435\u043d\u0442\u0440\u0438\u0440\u0443\u044f \u0431\u043e\u043b\u044c\u0448\u043e\u0439 \u043e\u0431\u044a\u0435\u043c \u043a\u043e\u0434\u0430 (\u0441\u043c\u044b\u0441\u043b\u0430) \u043e\u043d\u0438 \u044f\u0432\u043b\u044f\u044e\u0442\u0441\u044f \u043f\u043e\u0432\u043e\u0434\u043e\u043c \u0434\u043b\u044f \u043a\u043e\u043d\u0444\u043b\u0438\u043a\u0442\u043e\u0432\", then \"a\" (principle 10 \"one subject per file, no hub files, no copies\" plus four items). Measured over 5 days: bin/relay (887 lines) in 44 commits, lib/relay_queue.py (1189 lines) in 25 commits kept in 3 copies, lib/relay_setup.py (1134 lines) changed by 3 open branches at once (license, setup-wt, the portable-tool design). IP chosen by the front (agent-chosen). Every change to relay_queue.py touches 3 files (25 commits x 3 in 5 days); principle 3, a built file committed beside its source.",
+        "Also: plugins/core/lib/relay_queue.py",
+        "Also: plugins/front/lib/relay_queue.py (and the other copied modules)",
+        "Also: bin/sync-lib-copies"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "git ls-files | grep relay_queue.py lists 3 paths with identical content."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "One path; the plugins' hooks and commands that used a copy still run (their tests pass); a session started with only the plugins folder still finds the module."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lib_links_adopt.py passes at head; at d7bebf3 with the test copied in: failures=2 errors=5."
+      ],
+      "severity": "HIGH",
+      "since": "d7bebf3ecc324c3de4f3d1cc335445e5c8609732",
+      "source": "queue",
+      "summary": "lib modules are committed in three copies",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (not measured either way). The design rests its recommendation of links on Claude Code's docs saying symlinks are followed when a",
+        "plugin is cached, and states it was \"not tested here; the build checks it\". The build did not. On this machine sessions read ~/relay/plugins",
+        "directly (project memory), so today's sessions are not at risk; the owner's development is moving to Linux VMs, where relay would be installed",
+        "through the cache. No existing cache entry holds a symlink to learn from (find ~/.claude/plugins/cache -type l: none).",
+        "Size: 15 agent minutes (one scratch CLAUDE_CONFIG_DIR install and a find; a test only if it is cheap to keep)."
+      ],
+      "evidence": [
+        "builder report lib-modules-are-committed-in-three-copie.md: \"Pass case 4 (claude plugin install cache) NOT tested.\"",
+        "find ~/.claude/plugins/cache -type l  -> (no output)",
+        "git ls-files -s 'plugins/*/lib/*' | awk '{print $1}' | sort | uniq -c  -> 34 120000, 4 100644, 1 100755"
+      ],
+      "failing_case": [
+        "The brief: \"Follow its build steps and pass cases, including pass case 4 (how Claude Code's install cache copies a symlink)\". The design, pass case 4:",
+        "\"A plugin installed with `claude plugin install` into a scratch CLAUDE_CONFIG_DIR has real files, not links, under its cached lib/ and its hooks",
+        "import (if it fails, stop and report: C then needs B's copy for the cache only)\". The builder's report: \"Pass case 4 (claude plugin install cache)",
+        "NOT tested.\" Now: unknown whether a cached relay plugin holds relay_queue.py as a file or as a dangling link ../../../lib/relay_queue.py; if",
+        "the latter, every hook of an installed plugin fails its import and, as a PreToolUse hook exiting 1 is non-blocking, the main-checkout guard and",
+        "the routing guard turn off silently. Should: measured once, with the result recorded."
+      ],
+      "fix_hint": [
+        "Run the design's pass case 4 in a scratch CLAUDE_CONFIG_DIR and record the outcome in the report (and in the queue item's notes); stop and report if links survive into the cache."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 1,
+      "pass_cases": [
+        "1. claude plugin install relay@<local marketplace> with CLAUDE_CONFIG_DIR=<scratch>: find <scratch>/plugins/cache -path '*/lib/relay_*.py' -type l prints nothing; each lib/relay_*.py there is a regular file equal to lib/<name>.",
+        "2. In that cache folder, each plugins hook (hooks/*.py) run with {} on stdin from the cache folder exits as it does from the repo (no ImportError).",
+        "3. If 1 fails: the outcome is reported to the owner before the merge (design: C then needs B's copy for the cache only), not merged silently.",
+        "4. Sessions that read the repo folder (today's setup) keep working: hooks from plugins/<p>/hooks run with {} and import (already green in the gate's hook tests)."
+      ],
+      "path": "tests/test_lib_links_adopt.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer measured a scratch CLAUDE_CONFIG_DIR install (real files, hooks import); not reproduced by me, no test possible."
+      ],
+      "severity": "MEDIUM",
+      "since": "cbb6062bd0b8bb0c4969fb6f4772424a04bf2f3c",
+      "source": "review-lib-modules-are-committed-in-three-copie.json",
+      "source_id": "F1",
+      "summary": "pass case 4 (a plugin installed through Claude Code's cache gets real files and its hooks import) was never run; the design made it a stop condition",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch reproduction calling relay_bench.lib_adoption_conflicts. The comparison is candidate file vs the link's current",
+        "target, so \"differs\" means \"candidate edited it OR lib/ moved on since the candidate was made\"; the message asserts the first. Candidates",
+        "live for a bench run (hours), and lib/ changes many times a day, so the second is the usual case for a --copy candidate. The refusal itself is",
+        "safe (nothing is written); the advice is wrong, and an agent following it ports a reverse diff into lib/. Principle 10: a refusal names the",
+        "right next step. Before this change the same candidate overwrote the copies with stale ones and the gate went red; the change made it safer but",
+        "introduced the misleading text.",
+        "Size: 15 agent minutes (check whether the candidate's blob is in git log -- lib/<name> via git hash-object; skip or word the refusal; one test)."
+      ],
+      "evidence": [
+        "python3 -I -c \"...relay_bench.lib_adoption_conflicts(cand, plugins/delegate)\" after cp -RL of the plugin, then lib/relay_x.py changed",
+        "-> ['the candidate changed lib/relay_x.py (plugins/delegate/lib/relay_x.py links to it): port that edit to lib/ in a change of its own, then adopt again']",
+        "lib/relay_bench.py:94 new_candidate: shutil.copytree(src, dst, ...) (symlinks=False: real copies frozen at creation)"
+      ],
+      "failing_case": [
+        "relay improve new c --copy delegate (candidate holds real copies of lib/relay_toml.py etc. as of today); a lane then lands a change to",
+        "lib/relay_toml.py (25 commits in 5 days touched relay_queue.py alone); relay improve adopt c. Now: refused with \"the candidate changed",
+        "lib/relay_toml.py (plugins/delegate/lib/relay_toml.py links to it): port that edit to lib/ in a change of its own, then adopt again\". The",
+        "candidate changed nothing; the \"edit\" is master's newer code seen backwards, and porting the diff to lib/ undoes master's change.",
+        "Reproduced in a scratch tree: candidate X = 1, lib moved to X = 2 -> ['the candidate changed lib/relay_x.py ... port that edit to lib/ ...'].",
+        "Should: a candidate file equal to some committed version of lib/<name> (stale, not edited) is not called an edit: either it is skipped",
+        "(the link keeps master's current code) or the refusal says the candidate is out of date and names the next step (remake the candidate,",
+        "or diff against the version it was made from)."
+      ],
+      "fix_hint": [
+        "In lib_adoption_conflicts, treat a candidate file whose git blob hash (git hash-object) appears in `git log --format= --raw -- lib/<name>` history as stale, not edited: skip it (adopt_lib already leaves the link). Only a content never committed is named, and the message says \"differs from lib/<name>\" with the next step."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 473,
+      "pass_cases": [
+        "1. Candidate made when lib/relay_x.py was \"X = 1\"; lib/relay_x.py committed as \"X = 2\" since; candidate untouched -> adopt is not refused with \"the candidate changed\"; lib/relay_x.py stays \"X = 2\" and the plugin's link stays a link.",
+        "2. Candidate whose lib/relay_x.py was edited by hand to \"X = 99\" (a content never committed in lib/) -> refused, naming lib/relay_x.py, nothing written (today's test_a_candidate_that_edited_a_shared_module_is_refused_by_name keeps passing).",
+        "3. Candidate equal to the current lib/relay_x.py -> adopted, lib/ unchanged, kit_* adopted (today's test keeps passing).",
+        "4. Any refusal names the next step a newcomer can follow without reverting lib/ (principle 10)."
+      ],
+      "path": "lib/relay_bench.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_lib_links_adopt.py test_a_candidate_made_before_lib_moved_on_is_stale_not_edited passes at head, fails at bac1292e^."
+      ],
+      "severity": "MEDIUM",
+      "since": "cbb6062bd0b8bb0c4969fb6f4772424a04bf2f3c",
+      "source": "review-lib-modules-are-committed-in-three-copie.json",
+      "source_id": "F2",
+      "summary": "adoption blames the candidate for a shared module that only master changed, and tells the agent to port that 'edit' to lib/ (which would revert master)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: test_lib_links_adopt.py imports relay_bench only; no test runs cmd_improve adopt with a candidate holding plugin copies",
+        "(git grep \"improve\\\", \\\"adopt\\\"\" / \"cmd_improve\" in tests). The wiring is correct today. LOW: correct but unguarded.",
+        "Size: 15 agent minutes (a temp ROOT via RELAY_ROOT is needed; may be costlier if cmd_improve's sync step needs stubbing)."
+      ],
+      "evidence": [
+        "tests/test_lib_links_adopt.py: TestAdoptLib calls relay_bench.lib_adoption_conflicts / adopt_lib only."
+      ],
+      "failing_case": [
+        "Delete bin/relay lines 251-258 (the refused loop and its return 1). Now: tests/test_lib_links_adopt.py still passes (it calls",
+        "lib_adoption_conflicts and adopt_lib directly); adopt of an edited candidate then writes the history copy and active.toml and drops the",
+        "candidate's edit silently. Should: a test of the command (design pass case 7: \"adoption refuses, names that file, and lib/ and plugins/ are",
+        "unchanged\") fails."
+      ],
+      "fix_hint": [
+        "One test that runs bin/relay improve adopt in a temp RELAY_ROOT with an edited candidate and asserts exit 1 and nothing written."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 251,
+      "pass_cases": [
+        "1. relay improve adopt <cand> where the candidate's plugins/delegate/lib/relay_labels.py differs from lib/relay_labels.py -> exit 1, stderr names lib/relay_labels.py; profiles/active.toml, profiles/history/, lib/ and plugins/ unchanged.",
+        "2. Same with an equal candidate -> exit 0, lib/ unchanged, plugin lib links still links, kit_* adopted."
+      ],
+      "path": "bin/relay",
+      "rank": "low",
+      "reason": [
+        "tests/test_lib_links_adopt.py TestAdoptCommand test_adopt_of_an_edited_candidate_exits_1_and_writes_nothing passes; failing-without-refusal not run by me."
+      ],
+      "severity": "LOW",
+      "since": "cbb6062bd0b8bb0c4969fb6f4772424a04bf2f3c",
+      "source": "review-lib-modules-are-committed-in-three-copie.json",
+      "source_id": "F3",
+      "summary": "the refusal in relay improve adopt is not tested at the command; removing the bin/relay block leaves every test green",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading _link_problem: every non-link that is not kit_*/agent-roles.tsv and not a lib name falls to the stray message. The",
+        "allow-list is the design's; only the next-step text is one-sided (principle 10). Size: 5 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A change adds plugins/relay/lib/guard_rules.toml (a plugin-only data file, not kit_* nor agent-roles.tsv). Now: precheck and gate print",
+        "\"FAIL plugins/relay/lib/guard_rules.toml is a stray file under plugins/*/lib: git rm it (a merge leaves <name>~HEAD files)\"; an agent",
+        "following it deletes its own new file. Should: name both readings: a merge leftover (git rm it) or a new plugin-only file (name it kit_* or",
+        "add it to the allow-list in relay_precheck._link_problem)."
+      ],
+      "fix_hint": [
+        "Extend the stray message: \"... git rm it if a merge left it; a new plugin-only file is named kit_* (or added to the allow-list in relay_precheck._link_problem)\"."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 116,
+      "pass_cases": [
+        "1. plugins/relay/lib/guard_rules.toml committed -> FAIL line names the file and the allow-list (or the kit_ prefix) as the way to keep it.",
+        "2. plugins/front/lib/relay_q.py~HEAD committed -> FAIL names the file and git rm (test_a_stray_head_file_left_by_a_distinct_types_merge_is_named keeps passing).",
+        "3. plugins/relay/lib/kit_new.py -> no line."
+      ],
+      "path": "lib/relay_precheck.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_lib_links_adopt.py test_a_new_plugin_only_file_is_told_how_to_be_kept passes at head, fails at bac1292e^."
+      ],
+      "severity": "LOW",
+      "since": "cbb6062bd0b8bb0c4969fb6f4772424a04bf2f3c",
+      "source": "review-lib-modules-are-committed-in-three-copie.json",
+      "source_id": "F4",
+      "summary": "a new legitimate plugin-only file under plugins/*/lib is told to be git rm'd",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "315885cee1305db2be2231706a152eb513b9459e.gate.log",
+  "head": "ec161bac1c9fb4c3f778aca42724e2c7c2cd15f5",
+  "item": "lib-modules-are-committed-in-three-copies",
+  "notes": [
+    "F3 test passes at bac1292e^ (the bin/relay refusal pre-existed); fixer claims it fails with the refusal disabled, which I did not run. F1 rests on the fixer's measurement, not reproduced."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fixer report for take2 does not exist (no code fix after bac1292e; only the master merge 315885ce). Gate 315885ce exit 0, HEAD ec161bac adds only the gate log. Ran unittest tests.test_lib_links_adopt + tests.test_ci_python: 50 OK (pytest is not installed). relay precheck did not run: it waited on a test token (all 4 busy) and was stopped. Q1 re-based on d7bebf3: test file copied there gives failures=2 errors=5. F2 and F4 tests fail at bac1292e^ (2 failures)."
+  ],
+  "type": "check"
+}

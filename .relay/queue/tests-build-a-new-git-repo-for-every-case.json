@@ -42,6 +42,12 @@
       "fact": [
         "Edited pass_cases: 29 Oct, owner: a shared repository only helps tests that read; tests that write would collide. Measured by the front the same day at load 30: building a 5-commit template takes 252 ms (18 git calls); a plain file copy of it 18 ms per test, an APFS clone (cp -c) 27 ms; a commit in a copy works and leaves the template untouched."
       ]
+    },
+    {
+      "at": "2026-10-30T01:43:12Z",
+      "fact": [
+        "Measured 30 Oct, same script on this Mac (M2 Max, load 20-48 with 6 lanes) and the VPS ai.amidman.com (8 cores, Linux 6.8, load ~0.2): one process start 5-10 ms on the Mac vs 0.7 ms on the VPS; one git start 27 ms vs 1.5 ms (18x); pure-Python CPU only 1.6x apart (2.6x at 8 copies); the Mac stops gaining at 4 parallel starters (537 starts/s, 405 at 8), the VPS grows to 8 (10,640/s). Three git-heavy test files (150 tests) took 34 s on the VPS vs 158 s on the Mac (4.6-5.6x). Estimated 60,000-95,000 process starts per quick gate, nearly all git; bare git start-up is about 60% of the library-test step (estimate, not counted on the Mac). The owner's hypothesis (process start-up, not CPU) holds."
+      ]
     }
   ]
 }

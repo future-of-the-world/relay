@@ -442,7 +442,9 @@ def plugin_for_run(profile, folder, out_dir):
         return folder
     dest = os.path.join(out_dir, f"plugin-{profile['profile']['name']}-{os.path.basename(folder)}")
     shutil.rmtree(dest, ignore_errors=True)
-    shutil.copytree(folder, dest, symlinks=True)
+    # symlinks=False: the plugin's lib/ files are relative links into the repo's lib/; copied alone into a scratch folder a link
+    # would point nowhere, so the copy holds the content
+    shutil.copytree(folder, dest, symlinks=False)
     models, efforts = profile.get("models", {}), profile.get("effort", {})
     for file in sorted(os.listdir(os.path.join(dest, "agents"))):
         if not file.endswith(".md"):
@@ -457,6 +459,53 @@ def plugin_for_run(profile, folder, out_dir):
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(text)
     return dest
+
+
+def _committed_blobs(source: str) -> set[str]:
+    """Every blob hash lib/<name> ever had in git (empty when the file is not in a repository)."""
+    done = subprocess.run(["git", "-C", os.path.dirname(source), "log", "--format=", "--raw", "--no-abbrev", "--", os.path.basename(source)],
+                          capture_output=True, text=True, check=False)
+    blobs: set[str] = set()
+    for line in done.stdout.splitlines() if done.returncode == 0 else []:
+        head = line.split("\t")[0].split()
+        if len(head) >= 4:
+            blobs.update(head[2:4])
+    return blobs
+
+
+def _is_stale_copy(candidate_file: str, source: str) -> bool:
+    """True when the candidate file is an older committed version of the source: the candidate was made before lib/ moved on."""
+    done = subprocess.run(["git", "hash-object", candidate_file], capture_output=True, text=True, check=False)
+    return done.returncode == 0 and done.stdout.strip() in _committed_blobs(source)
+
+
+def lib_adoption_conflicts(candidate: str, plugin: str) -> list[str]:
+    """Shared modules a candidate plugin edited. plugins/<p>/lib/<name> is a link to the one source in lib/; a candidate holds
+    real copies. A candidate file that differs from the link's target and is not an older committed version of it (a candidate
+    made before lib/ moved on is stale, not edited: the link keeps the current code) would be lost on adoption, so it is named."""
+    out: list[str] = []
+    src = os.path.join(candidate, "lib")
+    for name in sorted(os.listdir(src)) if os.path.isdir(src) else []:
+        dest = os.path.join(plugin, "lib", name)
+        if os.path.islink(dest) and os.path.isfile(os.path.join(src, name)) and not (
+                os.path.isfile(dest) and open(dest, "rb").read() == open(os.path.join(src, name), "rb").read()
+        ) and not _is_stale_copy(os.path.join(src, name), os.path.realpath(dest)):
+            out.append("the candidate's lib/%s differs from lib/%s (plugins/%s/lib/%s links to it) and is not an older version of it: "
+                       "port that edit to lib/ in a change of its own, then adopt again" % (name, name, os.path.basename(plugin), name))
+    return out
+
+
+def adopt_lib(src: str, dest: str) -> None:
+    """Copy a candidate's lib/ onto a plugin's lib/ file by file. A destination that is a link is left alone (callers refuse a
+    candidate that differs first, with lib_adoption_conflicts): copying onto it would write through to the file in lib/."""
+    os.makedirs(dest, exist_ok=True)
+    for name in sorted(os.listdir(src)):
+        if os.path.islink(os.path.join(dest, name)):
+            continue
+        if os.path.isdir(os.path.join(src, name)):
+            shutil.copytree(os.path.join(src, name), os.path.join(dest, name), dirs_exist_ok=True)
+        else:
+            shutil.copy2(os.path.join(src, name), os.path.join(dest, name))
 
 
 def claude_command(profile, scenario, prompt, agents_json_path, rules_path, out_dir=None):

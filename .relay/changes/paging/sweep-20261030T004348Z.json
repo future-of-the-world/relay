@@ -1,0 +1,89 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.0236,
+   "id": "a40b0376c12f7c02f",
+   "model": "claude-fable-5-1",
+   "n": 1,
+   "requests": 7,
+   "session": "afb02ab8-788c-4e4b-b2ff-eb95cfc00889",
+   "stage": "review",
+   "start": "2026-10-29T23:06:25.815Z",
+   "stop": "2026-10-29T23:08:02.126Z"
+  },
+  {
+   "cost_usd": 0.7652,
+   "id": "a7544dbe773af7479",
+   "model": "claude-fable-5-1",
+   "n": 1,
+   "requests": 6,
+   "session": "3229cb4d-4d45-4e40-9aee-dd7017048467",
+   "stage": "review",
+   "start": "2026-10-29T23:09:22.195Z",
+   "stop": "2026-10-29T23:11:00.476Z"
+  },
+  {
+   "cost_usd": 0.9632,
+   "id": "a9c0311d807cb757c",
+   "model": "claude-fable-5-1",
+   "n": 1,
+   "requests": 8,
+   "session": "12174091-2741-4809-9a55-6a64964d62d9",
+   "stage": "review",
+   "start": "2026-10-29T23:13:05.668Z",
+   "stop": "2026-10-29T23:14:46.225Z"
+  },
+  {
+   "cost_usd": 0.4775,
+   "id": "a9e08d0d7edfcb87d",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "a51e9320-111e-4335-876a-43ad9a2de6b4",
+   "stage": "review",
+   "start": "2026-10-29T23:16:48.598Z",
+   "stop": "2026-10-29T23:18:00.853Z"
+  },
+  {
+   "cost_usd": 0.8041,
+   "id": "a5aadd3807fcef0f9",
+   "model": "claude-fable-5-1",
+   "n": 1,
+   "requests": 6,
+   "session": "b083b4cc-8e98-444b-b2a6-a0a6dfee03be",
+   "stage": "review",
+   "start": "2026-10-29T23:18:47.376Z",
+   "stop": "2026-10-29T23:20:29.946Z"
+  },
+  {
+   "cost_usd": 0.3086,
+   "id": "afa90d8175863a12a",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "276a59ce-b9ed-4d03-9be3-ea951a794cb9",
+   "stage": "review",
+   "start": "2026-10-29T23:21:19.240Z",
+   "stop": "2026-10-29T23:22:17.758Z"
+  },
+  {
+   "cost_usd": 0.7714,
+   "id": "aa053c3638bf525c9",
+   "model": "claude-fable-5-1",
+   "n": 1,
+   "requests": 7,
+   "session": "f9ac2fb9-8539-438e-b4cf-373e791ba724",
+   "stage": "review",
+   "start": "2026-10-29T23:23:06.727Z",
+   "stop": "2026-10-29T23:24:36.506Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "paging"
+}

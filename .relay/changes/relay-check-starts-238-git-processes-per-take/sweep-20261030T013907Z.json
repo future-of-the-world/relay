@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1689,
+   "id": "a8f18050abf6a286b",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-29T23:42:21.850Z",
+   "stop": "2026-10-29T23:48:15.956Z"
+  },
+  {
+   "cost_usd": 0.0052,
+   "id": "a98c21229205ffcd7",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-29T23:48:18.119Z",
+   "stop": "2026-10-30T00:12:07.822Z"
+  },
+  {
+   "cost_usd": 0.2024,
+   "id": "a8e930db2132a1904",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T00:12:10.183Z",
+   "stop": "2026-10-30T00:16:07.121Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "relay-check-starts-238-git-processes-per-take"
+}

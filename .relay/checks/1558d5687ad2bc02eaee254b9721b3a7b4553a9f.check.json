@@ -1,0 +1,185 @@
+{
+  "branch": "wt/relay-check-starts-238-git-processes-per",
+  "findings": [
+    {
+      "details": [
+        "Measured 29 Oct by the gate-speed design: one `relay check` run makes 238 git calls; test_check_mark_hook (7 tests) started 2479 git in 167 s. The same code runs in the owner's sessions as a hook, so every call there pays it too. IP chosen by the front (agent-chosen).",
+        "Also: lib/relay_git.py",
+        "Also: tests/test_check_mark_hook.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "29 Oct, master ee932b26: tracing one `relay check` run counts 238 git process starts."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "One relay check run starts a small fixed number of git processes (target set by the measurement, independent of the number of records)."
+      ],
+      "path": "bin/relay",
+      "rank": "high",
+      "reason": [
+        "tests/test_check_mark_hook.py:183 (record asks git each question once, 239 -> 81 processes) fails on the base and passes at head."
+      ],
+      "severity": "HIGH",
+      "since": "a9ad906c0f79f162bd245634a05954135bea7994",
+      "source": "queue",
+      "summary": "relay check starts 238 git processes per run",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the loops (relay_verdict._merge_findings line 681 loops over every merge; relay_inert.resolved per",
+        "merge; relay_marks.get per candidate commit) and by the probe breakdown below. Memoisation removes repeats, not per-item",
+        "calls; batching (one `rev-list --parents`, one `diff-tree --stdin -m --name-only` for all merges, one `cat-file --batch`",
+        "for the stored marks and trees) is what makes the count flat, as the brief's What line suggested.",
+        "Whether 78 is \"small\" is the owner's call; growth with merges is not.",
+        "Size: 60 agent minutes (batching two loops plus a scaling test), or 5 if the owner accepts the current target."
+      ],
+      "evidence": [
+        "python3 -I probe_count.py <wt>/tests out.log   (runs CheckerStop.train_ready + relay_record with the test's own spy)",
+        "  78 calls; ('rev-parse --verify', 18), ('diff --name-only', 8), ('ls-tree -r', 8), ('merge-base --is-ancestor', 6), ...",
+        "  show be0546d3...:.relay/checks/c9818b79....json 1, show 4c225d81...:.relay/checks/8607fc0b....json 1",
+        "  8 ls-tree -r -z <sha>; 8 rev-parse --verify <sha>^{commit}; 4 diff --name-only --no-renames -z <sha>..<sha>",
+        "tests/test_check_mark_hook.py:198  self.assertLess(len(calls), 120)"
+      ],
+      "failing_case": [
+        "The brief's pass case: \"One relay check run starts a small fixed number of git processes ... independent of the number of",
+        "records\". The fix keeps answers so no question is asked twice, but each distinct merge, commit and stored mark is still its",
+        "own process: per merge in _merge_findings (rev-parse --verify -q <m>^2, merge-base --is-ancestor, diff <m>^1 <m>), per merge",
+        "in relay_inert.resolved/dropped (3 rev-parse, merge-tree, diff), per commit tree (ls-tree -r -z <sha>, 8 in one run), per",
+        "stored mark (show <sha>:.relay/checks/<c>.json). One record on the test's train of three merges: 78 processes, of them",
+        "8 ls-tree -r, 8 rev-parse --verify <sha>^{commit}, 8 diff --name-only. A train with ten merges and ten marks starts more,",
+        "and the test (ceiling 120 on one fixture, its own comment: \"not a per-record bound\") passes either way.",
+        "The hook part of the brief (\"Same for the hook that runs it\") got only the process-wide sha cache: no count, no test."
+      ],
+      "fix_hint": [
+        "Batch the per-merge reads of _merge_findings and relay_inert.resolved into one rev-list --parents plus one",
+        "diff-tree --stdin call, and read stored marks with one cat-file --batch; add a test that grows the fixture by k merges and",
+        "asserts the count does not grow. If that is judged too large, ask the owner to set the target in the item's notes."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 681,
+      "pass_cases": [
+        "1. The train fixture of test_one_check_record_..., record run counted: N processes. The same fixture with three more merges of",
+        "   the default branch and two more stored marks: the count is still N (or N + a fixed constant stated in the test), not",
+        "   N + per-merge work.",
+        "2. No distinct question asked twice in one record run (the existing assertion) keeps passing.",
+        "3. The check-mark hook run on one check data file starts at most a stated number of git processes, asserted by a spy test.",
+        "4. Or, if the owner sets the target at \"about 80 and growing with merges\": the item's notes record that word and the",
+        "   brief's pass case is amended; then this finding is closed by that decision."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer reports Gap: per-merge/tree/mark batching (60 min) not done; owner decides between batching or accepting about 80 growing with merges and amending the brief. Test ceiling 120 at test_check_mark_hook.py:198 is not a per-record bound."
+      ],
+      "severity": "MEDIUM",
+      "since": "b2c58614641ea04af9971c992298baa3c3bbc28e",
+      "source": "review-relay-check-starts-238-git-processes-per.json",
+      "source_id": "F1",
+      "summary": "a check run still starts git processes per merge, per commit tree and per stored mark; the brief's 'independent of the number of records' is not met or tested",
+      "verdict": "GAP"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the diff. Rule label: Python rule \"Every new or changed function has types\". Rated MEDIUM because the",
+        "owner's rule and the brief require it and the fix is cheap; no runtime effect.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "grep -n 'def ' : bin/relay:810 def show_check(repo, target, brief); lib/relay_inert.py:53 def _git(repo, *args);",
+        "lib/relay_verdict.py:834 def finding_list(wt, review_paths, item=None); 839 def _finding_list(...); 851 def record_check(input_path);",
+        "856 def _record_check(input_path); 655 def _merge_findings(wt, head, anchors)"
+      ],
+      "failing_case": [
+        "New wrappers finding_list / record_check and the split-out _finding_list / _record_check (lib/relay_verdict.py 834-856),",
+        "the changed relay_inert._git(repo, *args) (lib/relay_inert.py:53), the changed _merge_findings (relay_verdict.py:655) and",
+        "bin/relay show_check (810) have no parameter or return annotations. The project rule (CLAUDE.local.md, Python) and the",
+        "brief's Rules line (\"types on new or changed code\") require them. Now: untyped; should be: typed."
+      ],
+      "fix_hint": [
+        "Add annotations to these seven functions (and their plugin copies via the usual sync)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 834,
+      "pass_cases": [
+        "1. def finding_list(wt: str, review_paths: list[str], item: str | None = None) -> list[str] (and _finding_list likewise).",
+        "2. def record_check(input_path: str) -> str (and _record_check likewise).",
+        "3. def _git(repo: str, *args: str) -> str in lib/relay_inert.py, and the same in both plugin copies.",
+        "4. The type checker in the gate stays green and the plugin copies stay byte-identical to lib/."
+      ],
+      "path": "lib/relay_verdict.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_check_types.py:32,36,39,42 pass at head, 3 of them fail on the base."
+      ],
+      "severity": "MEDIUM",
+      "since": "b2c58614641ea04af9971c992298baa3c3bbc28e",
+      "source": "review-relay-check-starts-238-git-processes-per.json",
+      "source_id": "F2",
+      "summary": "new and changed functions have no types (rule: Python, every new or changed function has types)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a python probe (evidence). `_is_pure` skips every argument that starts with \"-\" and counts only revision",
+        "arguments, so `diff` with one revision (which compares against the working tree) and options that pull in refs (--all,",
+        "--branches, --tags, --glob, --remotes, --cached, --stdin) pass as pure. LOW: correct for every current caller, fragile.",
+        "Size: 10 agent minutes."
+      ],
+      "evidence": [
+        "python3 -I -c \"... relay_git.git(r,'diff','--name-only',sha) ... edit f ... again ... subprocess git diff\"",
+        "  before edit: ''",
+        "  after edit : ''",
+        "  git says   : 'f'"
+      ],
+      "failing_case": [
+        "In one process: relay_git.git(repo, \"diff\", \"--name-only\", <full sha of HEAD>) returns '' ; edit a tracked file; the same",
+        "call returns '' again (kept), while git itself answers 'f'. Same class: rev-list --all <sha>, diff --cached <sha>,",
+        "diff <sha> -- path. No relay caller asks these through relay_git today (relay_precheck asks `diff --name-only <base>` through",
+        "its own subprocess), so nothing is wrong yet; the first caller that moves to relay_git gets stale answers silently."
+      ],
+      "fix_hint": [
+        "In _is_pure: for `diff` require two revisions or one a..b; return False on any of --all, --branches, --tags, --remotes,",
+        "--glob, --cached, --staged, --stdin, --no-index."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 45,
+      "pass_cases": [
+        "1. diff --name-only <sha>, then a worktree edit, then the same call: the second answer lists the edited file.",
+        "2. diff --name-only <sha1> <sha2> asked twice starts one process (kept, as now).",
+        "3. diff --name-only <sha1>..<sha2> asked twice starts one process (kept, as now).",
+        "4. rev-list --all <sha> asked twice starts two processes.",
+        "5. rev-list --count <sha> asked twice starts one process (test_a_question_about_a_full_sha_is_asked_once keeps passing)."
+      ],
+      "path": "lib/relay_git.py",
+      "rank": "low",
+      "reason": [
+        "LOW; the fix report does not address the one-revision git diff or ref options in the process cache."
+      ],
+      "severity": "LOW",
+      "since": "b2c58614641ea04af9971c992298baa3c3bbc28e",
+      "source": "review-relay-check-starts-238-git-processes-per.json",
+      "source_id": "F3",
+      "summary": "the process-wide cache treats a one-revision `git diff <sha>` (worktree compare) and ref options like --all as never changing",
+      "verdict": "NOT MET"
+    }
+  ],
+  "gate": "dfe4787d4a70e3382b1f5c2091edfc01257308fe.gate.log",
+  "head": "1558d5687ad2bc02eaee254b9721b3a7b4553a9f",
+  "item": "relay-check-starts-238-git-processes-per-run",
+  "notes": [
+    "Gate dfe4787d green and matches the code checked."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head dfe4787d, exit 0; HEAD adds only the gate log (relay changed lists no file). Ran precheck + pytest of test_relay_tokens, test_check_mark_hook, test_check_types: green, 38 passed. Proved on a worktree at the Q1 since (a9ad906c) with the head test files copied in: test_check_mark_hook 3 failed (record-once test and two cache tests), test_check_types 3 failed."
+  ],
+  "type": "check"
+}

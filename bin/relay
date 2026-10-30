@@ -60,7 +60,7 @@
                                      take the default branch into the branch, gate the result, fast-forward on green; one
                                      landing at a time, no agent (0 landed, 1 red, 2 refused, 3 take conflict, 4 run again);
                                      --stats prints the counters computed from its events and git
-  relay precheck [-C <worktree>]     the gate's quick steps (types and lint, python 3.9 imports, lib copies on HEAD,
+  relay precheck [-C <worktree>]     the gate's quick steps (types and lint, python 3.9 imports, plugin lib links on HEAD,
                                      changed tests and the rules registry test under python3), read-only; the quiet check a worker loops on starts with it; exits 1 when one is red
   relay check show [-C <repo>] [--brief] <branch>
                                      three lines: the branch's gate, check mark and outside findings; waits (at most
@@ -248,6 +248,14 @@ def cmd_improve(args):
         previous = relay_bench.load_profile("active")
         stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
         history = os.path.join(ROOT, "profiles", "history")
+        refused = []
+        for entry in profile.get("plugins", {}).get("enabled", []):
+            folder = relay_bench.plugin_dir(profile, entry)
+            if folder and folder.startswith(os.path.join(ROOT, "profiles", "candidates")):
+                refused += relay_bench.lib_adoption_conflicts(folder, os.path.join(ROOT, "plugins", os.path.basename(folder)))
+        if refused:   # before anything is written
+            print("relay improve adopt: " + "\n".join(refused), file=sys.stderr)
+            return 1
         os.makedirs(history, exist_ok=True)
         import shutil
         shutil.copy2(active, os.path.join(history, f"{stamp.replace(' ', 'T').replace(':', '-')}-{previous['profile']['name']}.toml"))
@@ -263,7 +271,10 @@ def cmd_improve(args):
                 for sub in ("agents", "skills", "hooks", "lib", "bin"):
                     src = os.path.join(folder, sub)
                     if os.path.isdir(src):
-                        _sh.copytree(src, os.path.join(ROOT, "plugins", plugin, sub), dirs_exist_ok=True)
+                        if sub == "lib":
+                            relay_bench.adopt_lib(src, os.path.join(ROOT, "plugins", plugin, sub))
+                        else:
+                            _sh.copytree(src, os.path.join(ROOT, "plugins", plugin, sub), dirs_exist_ok=True)
                 enabled[i] = plugin
                 print(f"plugins/{plugin}: replaced by the candidate's copy (previous in {keep})")
         profile["plugins"]["enabled"] = enabled
@@ -807,7 +818,7 @@ def cmd_check(args):
     return 0
 
 
-def show_check(repo, target, brief):
+def show_check(repo: str, target: str, brief: bool) -> str:
     """The text of `relay check show`: a recorded JSON file or a stored sha rendered as a readable report, else the branch's three lines."""
     if os.path.isfile(target):
         with open(target, encoding="utf-8") as handle:
@@ -815,7 +826,8 @@ def show_check(repo, target, brief):
     if relay_git.git(repo, "rev-parse", "--verify", "-q", "refs/heads/" + target)[0] != 0 and re.fullmatch(r"[0-9a-f]{4,40}", target):
         texts = relay_marks.stored_texts(repo, target)
         return "\n".join(relay_verdict.render_any(t, brief, target, "the stored report of %s" % target) for t in texts)
-    return "\n".join(relay_marks.show(repo, target)) + "\n"
+    with relay_git.reading():
+        return "\n".join(relay_marks.show(repo, target)) + "\n"
 
 
 QUEUE_USAGE = """relay queue                              the ordered list: ip, kind, time, what, name
