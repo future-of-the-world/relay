@@ -5,6 +5,7 @@ import os
 import shlex
 import subprocess
 import sys
+import threading
 import unittest
 from unittest import mock
 
@@ -222,6 +223,142 @@ class Program(unittest.TestCase):
         names = {a.name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
         names |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
         self.assertTrue(names <= set(sys.stdlib_module_names), sorted(names - set(sys.stdlib_module_names)))
+
+
+class ProgramRuns(VpsBase):
+    """F1, F3 (review of e2e8c23b): the gate program run by hand against the fake podman, standard input an open pipe as under ssh."""
+
+    def start(self, *options):
+        tmp = os.path.join(self.tmp, "programtmp")
+        os.makedirs(tmp, exist_ok=True)
+        bundle = os.path.join(self.tmp, "x.bundle")
+        git(self.main, "bundle", "create", bundle, "--all")
+        sha = git(self.main, "rev-parse", "master")
+        tree = git(self.main, "rev-parse", "master^{tree}")
+        version = hashlib.sha256(read(self.program).encode()).hexdigest()
+        env = dict(os.environ, HOME=os.path.join(self.vps.root, "home"), TMPDIR=tmp, LANG="C")
+        proc = subprocess.Popen([sys.executable, self.program, "gate", version, "refs/heads/master", sha, tree, "master", "600", *options],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        with open(bundle, "rb") as handle:
+            data = handle.read()
+        proc.stdin.write(b"bundle %d\n" % len(data) + data)
+        proc.stdin.flush()
+        self.addCleanup(proc.kill)
+        self.addCleanup(proc.stdin.close)
+        return proc, tmp
+
+    def test_a_normal_end_with_standard_input_still_open_exits_0(self):
+        proc, tmp = self.start()
+        self.assertEqual(proc.wait(timeout=120), 0)      # a bound against a hang only; Python 3.14 aborted (-6) here
+        self.assertEqual(os.listdir(tmp), [])
+
+    def test_an_exception_after_the_watcher_started_is_exit_91_with_an_error_line_and_nothing_left(self):
+        """slots=x raises ValueError in int() after the bundle was read and the watcher started: an uncaught exception left by the normal
+        interpreter exit, which aborted (-6) on Python 3.14 and skipped the clean-up."""
+        proc, tmp = self.start("slots=x")
+        self.assertEqual(proc.wait(timeout=120), 91)
+        self.assertIn(b"relay-gate-error ValueError", proc.stdout.read())
+        self.assertEqual(os.listdir(tmp), [])
+
+    def test_a_cut_during_an_image_build_kills_the_build(self):
+        """F3: stdin closes while `podman build` runs (it is in its own session): the build must be gone, not left running without a slot."""
+        self.vps.mode({"build_hang": True})
+        proc, tmp = self.start()
+        pid_file = os.path.join(self.vps.root, "build.pid")
+        self.assertTrue(wait_until(lambda: os.path.exists(pid_file) and read(pid_file).strip().isdigit()))
+        pid = int(read(pid_file))
+        proc.stdin.close()
+        self.assertEqual(proc.wait(timeout=120), 98)
+
+        def gone():
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return True
+            return False
+        self.assertTrue(wait_until(gone))
+        self.assertEqual(os.listdir(tmp), [])
+
+
+class PassCases(VpsBase):
+    """F4, F5 (review of e2e8c23b): plan 5.8 pass cases of the transport, through relay_gate_ssh.gate directly (deciding_host bypassed)."""
+
+    def lane_commit(self, name, text):
+        write(os.path.join(self.wt, name), text)
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "lane " + name)
+
+    def gate_direct(self, results, key):
+        try:
+            results[key] = relay_gate_ssh.gate(self.host, self.home, self.wt, self.head(), relay_gate_ssh.QUICK_COMMAND)
+        except relay_gate_ssh.Unavailable as exc:
+            results[key] = exc
+
+    def test_a_branch_that_changes_the_recipe_is_refused_and_nothing_is_built(self):
+        self.preinstall()
+        self.lane_commit("container/Containerfile", "FROM y\n")
+        with self.assertRaises(relay_gate_ssh.Unavailable) as caught:
+            relay_gate_ssh.gate(self.host, self.home, self.wt, self.head(), relay_gate_ssh.QUICK_COMMAND)
+        self.assertIn("changes relay's toolchain", str(caught.exception))
+        self.assertIn("container/Containerfile", str(caught.exception))
+        self.assertNotIn("build", self.vps.podman_calls())
+
+    def test_a_recipe_file_absent_on_both_sides_is_unchanged_and_one_added_by_the_branch_is_refused(self):
+        """F5: without deps.toml anywhere the gate runs (git rev-parse would echo `<sha>:deps.toml`, different for each commit)."""
+        self.preinstall()
+        git(self.main, "rm", "-q", "deps.toml")
+        git(self.main, "commit", "-q", "-m", "no deps")
+        self.lane_commit("lane.txt", "lane\n")
+        git(self.wt, "merge", "-q", "--no-edit", "master")      # a merge commit: the gated sha is not the tip of master
+        self.assertNotEqual(self.head(), git(self.main, "rev-parse", "master"))
+        result = relay_gate_ssh.gate(self.host, self.home, self.wt, self.head(), relay_gate_ssh.QUICK_COMMAND)
+        self.assertEqual(result.code, 0)
+        self.lane_commit("deps.toml", "[deps]\n")
+        with self.assertRaises(relay_gate_ssh.Unavailable) as caught:
+            relay_gate_ssh.gate(self.host, self.home, self.wt, self.head(), relay_gate_ssh.QUICK_COMMAND)
+        self.assertIn("deps.toml", str(caught.exception))
+
+    def test_two_gates_started_together_on_one_slot_run_one_and_the_other_is_busy(self):
+        self.preinstall()
+        self.use_host(slots=1, remote_wait_s=0)
+        os.makedirs(os.path.join(self.vps.root, "state", "images"))
+        write(os.path.join(self.vps.root, "state", "images", "relay-gate:" + self.tag()), "")      # the image exists: no build in this test
+        self.vps.mode({"ci_sleep": 3})      # the winner holds the slot far longer than the loser needs to ask
+        results = {}
+        threads = [threading.Thread(target=self.gate_direct, args=(results, k)) for k in ("a", "b")]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        # exactly one result and one busy: two results would mean two containers on a one-slot host
+        done = sorted(type(r).__name__ for r in results.values())
+        self.assertEqual(done, ["RemoteResult", "Unavailable"], results)
+        loser = next(r for r in results.values() if isinstance(r, relay_gate_ssh.Unavailable))
+        self.assertEqual(loser.outcome, "busy")
+
+    def test_two_gates_needing_one_missing_image_start_one_build(self):
+        self.preinstall()
+        self.vps.mode({"build_sleep": 3})
+        results = {}
+        first = threading.Thread(target=self.gate_direct, args=(results, "a"))
+        first.start()
+        self.assertTrue(wait_until(lambda: "build" in self.vps.podman_calls()))      # the first gate holds the build lock now
+        self.gate_direct(results, "b")
+        first.join()
+        self.assertIn("is building image relay-gate:" + self.tag(), str(results["b"]))
+        self.assertEqual(self.vps.podman_calls().count("build"), 1)
+
+    def test_a_traceback_on_the_host_after_the_running_line_is_no_result(self):
+        self.preinstall()
+        self.vps.mode({"create_garbage": True})
+        code, log, err = self.go_err()
+        self.assertIn("could not run the gate", err)
+        self.assertFalse(log.endswith(".remote.gate.log"))      # the Mac ran it
+        self.assertNotIn("Traceback", err)
+        self.assertEqual(relay_gate_ssh.read_events(self.wt, HOST)[-1]["outcome"], "could-not-run")
+        self.assertTrue(wait_until(lambda: self.vps.containers() == []))
+
+    go_err = Transport.go_err
 
 
 class CycleForm(VpsBase):

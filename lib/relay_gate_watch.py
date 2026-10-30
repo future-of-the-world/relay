@@ -102,6 +102,8 @@ def build_remote(worktree: str, home: Optional[str] = None) -> tuple[Optional[Re
     host = relay_hosts.first(home)
     if host is None or not relay_git.current_branch(worktree):
         return None, ""
+    if not os.path.isfile(os.path.join(worktree, "container", "Containerfile")):      # a project that cannot go remote: deciding_host sends it to the Mac silently
+        return None, ""
     last = relay_gate_ssh.stopped(relay_gate_ssh.read_events(worktree, host.name), host.get("stop_after"))
     if last is not None:
         main, default = relay_git.main_checkout(worktree), relay_git.default_branch(worktree)
@@ -185,6 +187,8 @@ def watch(repo: str, sha: Optional[str] = None, home: Optional[str] = None, gate
         handle.close()
         return ["a watch is running already; it gates once more when it ends"]
     try:
+        if os.path.exists(os.path.join(folder, AGAIN)):      # a request left by a watch that ended: it asked for a gate that this one is about to make
+            os.remove(os.path.join(folder, AGAIN))
         _rc, refs = relay_git.git(main, "for-each-ref", "--format=%(refname)", "refs/relay-gate")      # leftovers of a killed watch
         for ref in refs.split():
             relay_git.git(main, "update-ref", "-d", ref)
@@ -211,6 +215,8 @@ def start_after_landing(main: str, spawn: Callable[..., object] = subprocess.Pop
     try:
         host = relay_hosts.first(home)
         if host is None or not host.watch_default or (skip_temp and relay_temp.under(main, relay_temp.temp_roots())):
+            return []
+        if not os.path.isfile(os.path.join(main, "container", "Containerfile")):      # a project that cannot go remote has nothing to watch
             return []
         relay = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "bin", "relay")
         folder = relay_gate_ssh.linux_dir(main)
@@ -239,7 +245,7 @@ def status_lines(repo: str, home: Optional[str] = None, now: Optional[float] = N
             out.append("  default branch: not gated on %s yet" % name)
         else:
             sha, code, _path, age = watch_state
-            verdict = "green" if code == 0 else ("stopped at its limit" if code == LIMIT_EXIT else "red")
+            verdict = "green" if code == 0 else "stopped at its limit" if code == LIMIT_EXIT else "red" if is_red(code) else "ended %s" % code
             out.append("  default branch: last gated on %s at %s, %d landings ago, %s" % (name, sha[:12], age, verdict))
         trip = relay_gate_ssh.stopped(events, host.get("stop_after"))
         out.append("  stop-sending rule: %s" % ("holds since %s" % trip["at"] if trip else "does not hold"))

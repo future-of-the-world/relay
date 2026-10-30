@@ -58,17 +58,24 @@ class Run:
         self.guard = threading.RLock()
         self.creating = False      # `podman create` is running: its container does not exist yet, so a cut must wait for it
         self.cut = 0               # the exit code of a cut that came while creating
+        self.build = 0             # the pid (and process group) of a running `podman build`, 0 when none
 
     def cut_now(self, code: int) -> None:
         """Remove what exists and end, unless the container is being created: then run_container ends after the create returns."""
-        with self.guard:
+        with self.guard:      # held to the end: the main thread's own exit (finish) waits, so a killed build cannot turn this cut into exit 91
             if self.creating:
                 self.cut = code
                 return
-        self.abort()
-        os._exit(code)
+            self.abort()
+            os._exit(code)
 
     def abort(self) -> None:
+        if self.build:
+            try:
+                os.killpg(self.build, signal.SIGKILL)      # the build is in its own session: nothing else would end it
+            except OSError:
+                pass
+            self.build = 0
         if self.container:
             subprocess.run(["podman", "rm", "-f", self.container], capture_output=True, timeout=60)
         if self.tmp:
@@ -85,7 +92,8 @@ def say(text: str) -> None:
 def finish(code: int) -> NoReturn:
     """End the process at once: the thread that watches standard input may still be reading, and a normal exit would abort on it."""
     sys.stdout.flush()
-    os._exit(code)
+    with RUN.guard:
+        os._exit(code)
 
 
 def fail(code: int, text: str) -> NoReturn:
@@ -161,13 +169,16 @@ def build_image(bare: str, tip: str, tag: str, limit_s: float, home: str) -> Non
                 out.write(subprocess.run(["git", "--git-dir", bare, "show", "%s:%s" % (tip, name)], capture_output=True, timeout=60).stdout)
         proc = subprocess.Popen(["podman", "build", "-f", "container/Containerfile", "-t", image, ctx], stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True, start_new_session=True)
+        RUN.build = proc.pid
         try:
             out_text = proc.communicate(timeout=limit_s)[0]
         except subprocess.TimeoutExpired:
             os.killpg(proc.pid, signal.SIGKILL)
             proc.wait()
+            RUN.build = 0
             say("relay-gate-building %s gave-up" % image)
             fail(95, "building")
+    RUN.build = 0
     if proc.returncode != 0:
         last = (out_text.strip().splitlines() or ["no output"])[-1]
         fail(91, "podman build exited %d: %s" % (proc.returncode, last))
@@ -182,7 +193,7 @@ def prune(keep: int) -> None:
 
 def watch_stdin() -> None:
     """End of file on standard input before the end: the Mac is gone or gave up."""
-    while sys.stdin.buffer.read(4096):
+    while os.read(0, 4096):      # not sys.stdin.buffer: a thread blocked in it makes Python 3.14 abort (SIGABRT) at a normal exit
         pass
     if not RUN.done:
         RUN.cut_now(98)
@@ -226,7 +237,23 @@ def run_container(name: str, image: str, sha: str, tree: str, default: str, tip:
     return proc.wait(), end, tail
 
 
+def blob(bare: str, commit: str, name: str) -> str:
+    """The blob id of `name` at `commit`, "" when the file is absent there (rev-parse alone echoes its argument)."""
+    rc, out = git(bare, "rev-parse", "--verify", "-q", "%s:%s" % (commit, name))
+    return out if rc == 0 else ""
+
+
 def main(argv: list[str]) -> int:
+    """The gate; any exception is a could-not-run line and exit 91 with the container and the temporary folder removed."""
+    try:
+        return _main(argv)
+    except Exception as exc:      # noqa: BLE001 - the Mac must read an error line, never a traceback or a crash exit
+        say("relay-gate-error %s: %s" % (type(exc).__name__, exc))
+        RUN.abort()
+        finish(91)
+
+
+def _main(argv: list[str]) -> int:
     if len(argv) < 8 or argv[1] != "gate":
         fail(90, "usage: relay-gate-remote.py gate <version> <ref> <sha> <tree> <default branch> <limit s> [name=value ...]")
     version, ref, sha, tree, default = argv[2:7]
@@ -257,7 +284,7 @@ def main(argv: list[str]) -> int:
     tip = sha if ref.startswith(PINNED) else git(bare, "rev-parse", "--verify", "refs/heads/%s^{commit}" % default)[1]
     if not tip:
         fail(92, "the default branch %s is not in the bundle" % default)
-    blobs = {name: (git(bare, "rev-parse", "%s:%s" % (sha, name))[1], git(bare, "rev-parse", "%s:%s" % (tip, name))[1]) for name in RECIPE_FILES}
+    blobs = {name: (blob(bare, sha, name), blob(bare, tip, name)) for name in RECIPE_FILES}
     changed = [name for name, (mine, theirs) in blobs.items() if mine != theirs]
     if changed:
         fail(94, "the branch changes the image recipe (%s)" % ", ".join(changed))

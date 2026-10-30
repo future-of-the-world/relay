@@ -61,8 +61,10 @@ if a[:2] == ["image", "exists"]:
     sys.exit(0 if os.path.exists(st + "/images/" + a[2]) else 1)
 if a[0] == "build":
     tag = a[a.index("-t") + 1]
+    open(vps + "/build.pid", "w").write(str(os.getpid()))      # the test waits on this and then checks that the build is gone
     if mode.get("build_hang"):
         time.sleep(600)
+    time.sleep(mode.get("build_sleep", 0))
     if mode.get("build_exit"):
         sys.stderr.write("build broke\n"); sys.exit(mode["build_exit"])
     open(st + "/images/" + tag, "w").write("%%f" %% time.time())
@@ -86,6 +88,9 @@ if a[0] == "create":
     rest = a[a.index("sh"):]
     json.dump({"argv": a, "script": rest[2], "args": rest[4:]}, open(st + "/containers/" + name + ".json", "w"))
     open(vps + "/created", "w").close()      # the test waits on this: a create has finished
+    if mode.get("create_garbage"):
+        sys.stdout.buffer.write(b"\xff\xfe\n")      # not text: the program that reads this output raises
+        sys.stdout.flush()
     sys.exit(0)
 if a[0] == "cp":
     name, _, _p = a[2].partition(":")

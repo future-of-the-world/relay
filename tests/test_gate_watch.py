@@ -46,6 +46,12 @@ class Reason(Watching):
         os.remove(os.path.join(self.home, "gate-hosts.json"))
         self.assertEqual(relay_gate_watch.build_remote(self.wt, self.home), (None, ""))
 
+    def test_a_project_without_a_containerfile_gets_no_line_and_no_remote(self):
+        """F2: another project (no container/Containerfile) stays on the Mac silently, as deciding_host does."""
+        os.remove(os.path.join(self.wt, "container", "Containerfile"))
+        self.assertEqual(relay_gate_watch.build_remote(self.wt, self.home), (None, ""))
+        self.assertEqual(self.vps.ssh_calls(), [])
+
     def test_a_green_watch_gives_a_remote_with_no_default_red(self):
         self.watch_file(self.master(), 0)
         remote, reason = relay_gate_watch.build_remote(self.wt, self.home)
@@ -133,6 +139,14 @@ class Watch(Watching):
         self.assertIn("already", lines[0])
         self.assertTrue(os.path.exists(os.path.join(self.folder, relay_gate_watch.AGAIN)))
         self.assertEqual(self.vps.ssh_calls(), [])
+
+    def test_a_stale_again_request_does_not_make_a_later_watch_gate_twice(self):
+        """F6: a request left by a watch that had ended is cleared when the next watch takes the lock; the tip does not move: one gate."""
+        os.makedirs(self.folder)
+        write(os.path.join(self.folder, relay_gate_watch.AGAIN), "")
+        gated = []
+        relay_gate_watch.watch(self.main, None, self.home, gate_one=lambda m, d, h, hm, sha: gated.append(sha) or [])
+        self.assertEqual(gated, [self.master()])
 
     def test_the_running_watch_gates_again_when_the_default_branch_moved_by_code(self):
         """Marker set while it ran -> a second round on the new tip; no marker and no code change -> one round."""
@@ -261,6 +275,22 @@ class StartAfterLanding(VpsBase):
         os.remove(os.path.join(self.home, "gate-hosts.json"))
         relay_gate_watch.start_after_landing(self.main, spawn, self.home, skip_temp=False)
         self.assertEqual(spawned, [])
+
+    def test_a_project_without_a_containerfile_starts_no_watch(self):
+        """F2: the record is global; a project that cannot go remote has no watch to start."""
+        os.remove(os.path.join(self.main, "container", "Containerfile"))
+        spawned = []
+        relay_gate_watch.start_after_landing(self.main, lambda *a, **k: spawned.append(a), self.home, skip_temp=False)
+        self.assertEqual(spawned, [])
+
+    def test_status_calls_only_what_is_red_red(self):
+        """F7: the wording follows is_red: exit 130 is not red, 1 is, 124 is a stop at the limit, 0 is green."""
+        master = git(self.main, "rev-parse", "master")
+        folder = os.path.join(self.main, ".git", "relay-land", "linux")
+        for code, word in ((130, "ended 130"), (1, "red"), (124, "stopped at its limit"), (0, "green")):
+            write(os.path.join(folder, master + ".remote.gate.log"), "head %s\ncmd bin/ci --quick\nwait 0.0\nhost x\nok\nexit %d\n" % (master, code))
+            line = next(l for l in relay_gate_watch.status_lines(self.main, self.home) if "default branch:" in l)
+            self.assertTrue(line.endswith(", " + word), line)
 
     def test_a_repository_in_a_temporary_folder_starts_no_watch(self):
         spawned = []
