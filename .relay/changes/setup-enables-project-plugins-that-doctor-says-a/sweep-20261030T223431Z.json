@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0052,
+   "id": "a93911e55e8e6bab3",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T20:42:47.618Z",
+   "stop": "2026-10-30T20:58:48.885Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "setup-enables-project-plugins-that-doctor-says-a",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "setup-enables-project-plugins-that-doctor-says-a"
+}

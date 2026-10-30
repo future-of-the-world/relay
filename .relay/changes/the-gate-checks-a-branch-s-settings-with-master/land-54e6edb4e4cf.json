@@ -1,0 +1,165 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1613,
+   "id": "aa9d967dec1c3bd2a",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T21:52:30.855Z",
+   "stop": "2026-10-30T21:53:19.920Z"
+  },
+  {
+   "cost_usd": 0.0037,
+   "id": "a3952e1c810ba196d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T21:53:22.207Z",
+   "stop": "2026-10-30T21:59:38.653Z"
+  },
+  {
+   "cost_usd": 0.1754,
+   "id": "ade4358d64d23e424",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T21:59:40.830Z",
+   "stop": "2026-10-30T22:02:16.156Z"
+  },
+  {
+   "cost_usd": 0.0037,
+   "id": "a6fc22e9eaaec01c5",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T22:02:18.463Z",
+   "stop": "2026-10-30T22:08:34.789Z"
+  },
+  {
+   "cost_usd": 0.1568,
+   "id": "a2be807eed88182c7",
+   "model": "claude-sonnet-5-5",
+   "n": 2,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T22:08:37.020Z",
+   "stop": "2026-10-30T22:09:26.496Z"
+  },
+  {
+   "cost_usd": 0.0037,
+   "id": "a16ea233c5efff0f4",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T22:09:28.791Z",
+   "stop": "2026-10-30T22:19:06.447Z"
+  },
+  {
+   "cost_usd": 0.8735,
+   "id": "ab477466d455ec140",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T22:19:08.889Z",
+   "stop": "2026-10-30T22:23:03.244Z"
+  },
+  {
+   "cost_usd": 0.2225,
+   "id": "a7c1bac669217867e",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T22:23:05.645Z",
+   "stop": "2026-10-30T22:24:07.816Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "ad8c254102f36ea60",
+   "model": "claude-haiku-5-5",
+   "n": 4,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T22:24:10.066Z",
+   "stop": "2026-10-30T22:33:05.614Z"
+  },
+  {
+   "cost_usd": 0.0962,
+   "id": "a34cfb658dcb9d249",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T22:33:07.683Z",
+   "stop": "2026-10-30T22:33:43.301Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a29711e32c1033880",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T22:33:45.649Z",
+   "stop": "2026-10-30T22:33:53.915Z"
+  },
+  {
+   "cost_usd": 0.0019,
+   "id": "ac4d8ed2d8c86b957",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T22:33:56.163Z",
+   "stop": "2026-10-30T22:34:01.913Z"
+  }
+ ],
+ "before": "35811a7cab481b74590975c81adbf3994a4d14b0",
+ "branch": "wt/the-gate-checks-a-branch-s-settings-with-master",
+ "head": "54e6edb4e4cf54f8214e8ffe8eb1da1536ea6b7d",
+ "item": "the-gate-checks-a-branch-s-settings-with-master",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T21:52:15+00:00",
+   "file": "lib/relay_gate.py",
+   "holder": "wt/a-sigterm-in-a-gate-does-not-name-its-sender",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T22:34:08+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T22:34:08+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T22:34:31+00:00",
+   "gate_seconds": 0.0,
+   "gates_run": 0,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "the-gate-checks-a-branch-s-settings-with-master"
+}
