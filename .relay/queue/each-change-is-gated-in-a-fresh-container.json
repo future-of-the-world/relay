@@ -216,6 +216,31 @@
       "reading": [
         "Option a: the VPS ai.amidman.com decides the gates run while a change is built; the Mac runs only the landing gate. This replaces the 29 Oct rule \"the Mac decides every gate\" for build-time gates; the landing gate on the Mac still decides the merge."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T16:59:45Z",
+      "question": [
+        "Does the Linux gate on the VPS take over the merge decision by itself? The item promised on 27 Oct: after 3 waves in which Linux and Mac agree, the container decides. Design rev 2 dropped that switch on its own; the review (F9) says the choice is the owner's."
+      ],
+      "options": [
+        "a. Show the agreement counts only; the Mac gate decides merges until the owner says to switch (recommended: no Linux result exists yet, so agreement and Linux flakiness are not measured)",
+        "b. The VPS decides after 3 agreeing waves, as promised on 27 Oct: about 60 more agent minutes, and a break seen only on the Mac can land"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T16:59:46Z",
+      "question": [
+        "Does each red landing gate on the Mac get a Linux twin run on the VPS (an extra Linux gate of the same commit)?"
+      ],
+      "options": [
+        "a. Twins: at most 6.6 extra VPS gates a day, every Mac-only red is seen, about 185 agent minutes",
+        "b. No twins: about 135 agent minutes, about 26% of Mac-only reds are seen (a guess)"
+      ],
+      "decided_by": "front",
+      "chosen": "a",
+      "because": [
+        "principle 1 (correctness first): the comparison exists to tell Mac-only reds from real ones; without twins three of four go unseen, for 50 agent minutes saved. Owner can reverse."
+      ]
     }
   ]
 }
