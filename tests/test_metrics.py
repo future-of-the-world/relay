@@ -1,12 +1,15 @@
 """Change records (lib/relay_metrics.py), the label grammar, the routing guard's label rule, the ledger hook's label and the coverage
 line of the gate. Every test builds a temporary repository or folder; nothing touches the live .relay/ or ~/.relay."""
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import sys
 import tempfile
 import threading
 import unittest
+from datetime import datetime
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +32,10 @@ def load(path, name):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _utc(text):
+    return datetime.fromisoformat(text.replace('Z', '+00:00')).timestamp()
 
 
 def agent(aid, unit, stage="build", start="2026-10-29T10:00:00Z", stop="2026-10-29T10:10:00Z", cost=1.0):
@@ -410,6 +417,36 @@ class Reader(unittest.TestCase):
         self.assertEqual(lines[1:], ["2026-W44:", "  build: 2 agents, median 15.0 min, p90 20.0 min, total 30.0 min", "  cost per unit: median $2.00, total $4.00",
                                      "2026-W45:", "  build: 1 agents, median 30.0 min, p90 30.0 min, total 30.0 min", "  cost per unit: median $2.00, total $2.00",
                                      "  coverage: median 85.0% over 2 gates"])
+
+    def window_recs(self):
+        rec = self.rec("a", "2026-10-29T10:05:00Z", "2026-10-29T10:15:00Z", 1.0)
+        rec["land"] = [{"kind": "done", "at": "2026-10-29T10:40:00Z", "gate_seconds": 120}]
+        return [rec, self.rec("b", "2026-10-29T10:30:00Z", "2026-10-29T10:50:00Z", 3.0), self.rec("c", "2026-10-29T12:10:00Z", "2026-10-29T12:40:00Z", 2.0)]
+
+    def hourly(self, **kw):
+        # now is 13:00 UTC; "3h" is the window 10:00 to 13:00, so hours 10, 11, 12
+        with mock.patch.object(relay_metrics, "stored", return_value=self.window_recs()), mock.patch.object(relay_metrics, "coverage_by_week", return_value={}):
+            return relay_metrics.summary("main", "rev", since="3h", by="hour", now=_utc("2026-10-29T13:00:00Z"), **kw)
+
+    def test_since_by_hour_prints_one_block_per_hour_and_names_the_empty_hour(self):
+        # hour 10: build 10 and 20 min (median 15, total 30), unit costs 1 and 3 (median 2, total 4), one gate of 120 s = 2.0 min; hour 11 empty; hour 12: 30 min, $2
+        lines = self.hourly()
+        self.assertEqual(lines[1:], ["2026-10-29T10:", "  build: 2 agents, median 15.0 min, p90 20.0 min, total 30.0 min", "  cost per unit: median $2.00, total $4.00",
+                                     "  gate: 1 runs, total 2.0 min", "2026-10-29T11:", "  nothing recorded",
+                                     "2026-10-29T12:", "  build: 1 agents, median 30.0 min, p90 30.0 min, total 30.0 min", "  cost per unit: median $2.00, total $2.00"])
+
+    def test_until_cuts_the_window_off(self):
+        with mock.patch.object(relay_metrics, "stored", return_value=self.window_recs()), mock.patch.object(relay_metrics, "coverage_by_week", return_value={}):
+            lines = relay_metrics.summary("main", "rev", since="2026-10-29T10:00:00Z", until="2026-10-29T11:00:00Z", by="hour", now=_utc("2026-10-29T13:00:00Z"))
+        self.assertEqual([x for x in lines if x.endswith(":") and x.startswith("2026")], ["2026-10-29T10:"])
+
+    def test_main_refuses_an_unknown_option_with_the_usage_line(self):
+        err = io.StringIO()
+        with mock.patch.object(relay_queue, "_context", return_value=("/x", "main")), contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            rc = relay_metrics.main(["--sinse", "6h"], "/x")
+            bad_by = relay_metrics.main(["--by", "year"], "/x")
+        self.assertEqual((rc, bad_by), (2, 2))
+        self.assertIn("usage: relay metrics", err.getvalue())
 
     def test_owner_wait_is_asked_to_answered(self):
         # two answered questions: 30 min and 90 min = 120 min; a third is unanswered and counts for nothing
