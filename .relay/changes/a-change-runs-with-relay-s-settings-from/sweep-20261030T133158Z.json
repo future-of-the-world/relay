@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.2334,
+   "id": "a19beb73f4c286cff",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 33,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design",
+   "start": "2026-10-30T09:38:16.847Z",
+   "stop": "2026-10-30T09:47:23.015Z"
+  },
+  {
+   "cost_usd": 1.6046,
+   "id": "a91f67cea0c0429b1",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 24,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design review",
+   "start": "2026-10-30T09:47:26.983Z",
+   "stop": "2026-10-30T09:52:59.024Z"
+  },
+  {
+   "cost_usd": 1.8276,
+   "id": "a90a4b7b9b0e1f0c2",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design revise",
+   "start": "2026-10-30T09:53:01.627Z",
+   "stop": "2026-10-30T09:58:18.951Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "a-change-runs-with-relay-s-settings-from"
+}
