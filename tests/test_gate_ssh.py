@@ -179,6 +179,16 @@ class Transport(VpsBase):
         self.assertIn("gate: the connection to %s was lost after 0.0 min; this gate runs on this Mac" % HOST, err)
         self.assertTrue(wait_until(lambda: self.vps.containers() == []))
 
+    def test_a_cut_while_the_container_is_still_being_created_removes_it_once_created(self):
+        """The running line comes before `podman create`: a cut that arrives while create runs (slow here by the fake) must not leave the container."""
+        self.preinstall()
+        self.vps.mode({"lose_after_running": True, "create_sleep": 2})
+        code, log, err = self.go_err()
+        self.assertIn("was lost after", err)
+        # the create ends (marker) after the cut; the container it made must then be removed (an empty list before the marker proves nothing)
+        self.assertTrue(wait_until(lambda: os.path.exists(os.path.join(self.vps.root, "created"))))
+        self.assertTrue(wait_until(lambda: self.vps.containers() == []))
+
     def test_a_lane_gate_whose_branch_moved_exits_92_and_a_watch_gates_exactly_its_commit(self):
         """F2: a lane gate asked for an older commit than its branch tip is refused by the host; a pinned gate of master~1 runs that commit
         (the host's HEAD is it), leaves no refs/relay-gate/* and is unaffected by a commit added to master afterwards."""

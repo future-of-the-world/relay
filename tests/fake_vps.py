@@ -10,7 +10,7 @@ import sys
 from fake_tools import install_fake
 
 SSH = r'''#!%(py)s
-import json, os, subprocess, sys
+import json, os, signal, subprocess, sys
 vps = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
 args = sys.argv[1:]
 i, target, cmd = 0, None, ""
@@ -38,7 +38,8 @@ if mode.get("lose_after_running"):
     for line in proc.stdout:
         sys.stdout.write(line.decode()); sys.stdout.flush()
         if line.startswith(b"relay-gate-running"):
-            proc.kill()
+            proc.send_signal(signal.SIGHUP)      # what sshd does to the remote command when the connection drops (a kill would leave a created container)
+            proc.wait()
             sys.exit(255)
     sys.exit(proc.wait())
 os.execvpe("sh", ["sh", "-c", cmd], env)
@@ -81,8 +82,10 @@ if a[0] == "create":
     if mode.get("create_exit"):
         sys.stderr.write("Error: boom from podman\n"); sys.exit(mode["create_exit"])
     name = a[a.index("--name") + 1]
+    time.sleep(mode.get("create_sleep", 0))      # a create still running when the Mac's connection is cut
     rest = a[a.index("sh"):]
     json.dump({"argv": a, "script": rest[2], "args": rest[4:]}, open(st + "/containers/" + name + ".json", "w"))
+    open(vps + "/created", "w").close()      # the test waits on this: a create has finished
     sys.exit(0)
 if a[0] == "cp":
     name, _, _p = a[2].partition(":")

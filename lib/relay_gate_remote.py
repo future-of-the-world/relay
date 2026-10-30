@@ -55,6 +55,18 @@ class Run:
         self.container = ""
         self.tmp = ""
         self.done = False
+        self.guard = threading.RLock()
+        self.creating = False      # `podman create` is running: its container does not exist yet, so a cut must wait for it
+        self.cut = 0               # the exit code of a cut that came while creating
+
+    def cut_now(self, code: int) -> None:
+        """Remove what exists and end, unless the container is being created: then run_container ends after the create returns."""
+        with self.guard:
+            if self.creating:
+                self.cut = code
+                return
+        self.abort()
+        os._exit(code)
 
     def abort(self) -> None:
         if self.container:
@@ -173,13 +185,11 @@ def watch_stdin() -> None:
     while sys.stdin.buffer.read(4096):
         pass
     if not RUN.done:
-        RUN.abort()
-        os._exit(98)
+        RUN.cut_now(98)
 
 
 def on_signal(signum: int, frame: object) -> None:
-    RUN.abort()
-    os._exit(128 + signum)
+    RUN.cut_now(128 + signum)
 
 
 def run_container(name: str, image: str, sha: str, tree: str, default: str, tip: str, bundle: str, opts: dict[str, str]) -> tuple[int, int | None, list[str]]:
@@ -187,10 +197,19 @@ def run_container(name: str, image: str, sha: str, tree: str, default: str, tip:
     create = ["podman", "create", "--name", name, "--network", "none", "--cpus", opts["cpus"], "--cpu-shares", opts["cpu_shares"],
               "--memory", opts["memory_gib"] + "g", "--pids-limit", "8192", "-e", "RELAY_GATE=" + sha, image,
               "sh", "-c", CONTAINER_SCRIPT, "sh", sha, tree, default, tip]
-    done = subprocess.run(create, capture_output=True, text=True, timeout=120)
+    with RUN.guard:
+        RUN.creating = True
+    try:
+        done = subprocess.run(create, capture_output=True, text=True, timeout=120)
+    finally:
+        with RUN.guard:
+            RUN.creating = False
+            RUN.container = name      # rm -f of a name that was never created is harmless
+            cut = RUN.cut
+    if cut:
+        RUN.cut_now(cut)
     if done.returncode != 0:
         fail(91, "podman exited %d: %s" % (done.returncode, (done.stderr.strip().splitlines() or ["no output"])[-1]))
-    RUN.container = name
     done = subprocess.run(["podman", "cp", bundle, "%s:%s" % (name, BUNDLE_IN_CONTAINER)], capture_output=True, text=True, timeout=300)
     if done.returncode != 0:
         fail(91, "podman exited %d: %s" % (done.returncode, (done.stderr.strip().splitlines() or ["no output"])[-1]))
