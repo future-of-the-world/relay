@@ -188,6 +188,13 @@
         "a. The VPS decides the gates during the build, the Mac runs only the landing gate: Mac gates per change from 4.8 to 1 (about 79% fewer Mac gate minutes); a Mac-only break is caught only at landing. Needs first: a green clean-Linux gate, a non-root account on the VPS, the pinned tools installed there, a way to send the commit over ssh.",
         "b. The Mac keeps deciding every gate; the VPS only compares: saves no Mac gate time.",
         "c. Leave the VPS alone; make the tests start fewer processes first (each test's git repo built once and copied), which helps both machines."
+      ],
+      "answered_at": "2026-10-30T01:49:42Z",
+      "answer": [
+        "a"
+      ],
+      "reading": [
+        "Option a: the VPS ai.amidman.com decides the gates run while a change is built; the Mac runs only the landing gate. This replaces the 29 Oct rule \"the Mac decides every gate\" for build-time gates; the landing gate on the Mac still decides the merge."
       ]
     }
   ]
