@@ -1,0 +1,29 @@
+{
+  "kind": "fix",
+  "ip": 98,
+  "time": 30,
+  "found_at": "2026-10-30T21:48:02Z",
+  "found_in": "relay queue add",
+  "title": "The gate checks a branch's settings with master's schema",
+  "what": [
+    "relay gate's refuse_bad_settings (lib/relay_gate.py:73, called at :441) checks the worktree's .claude/kit.toml with the schema of the installed relay (master), not the branch's own lib/relay_kit.py. A branch that renames or adds a key is refused by the old schema and can never pass its gate. Check the settings with the branch's own schema (the code under test), falling back to the installed one only when the branch has no lib/relay_kit.py."
+  ],
+  "why": [
+    "30 Oct 2026: the rename branch wt/kit-toml-setting-names-say-nothing-to-a-person (the owner asked for plain setting names on 30 Oct) renamed max_parallel to max_agents_per_change; its precheck is green, but relay gate run by master's relay refuses the new name, and no edit inside the branch can pass both schemas. It blocks every future settings rename or new key."
+  ],
+  "failing_case": [
+    "On wt/kit-toml-setting-names-say-nothing-to-a-person, relay gate -- --quick: refused, unknown key max_agents_per_change in .claude/kit.toml, while the branch's own relay_kit accepts it and refuses the old name."
+  ],
+  "failing_kind": "run",
+  "where": [
+    "lib/relay_gate.py",
+    "lib/relay_kit.py",
+    "tests/test_kit_schema.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
