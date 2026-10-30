@@ -69,6 +69,12 @@
         "b. a local file under $RELAY_HOME now, about 75 agent minutes (a guess); not in git, so not seen from other machines",
         "c. no file; the queue alone, about 60 agent minutes (a guess); decisions about no item are lost at the next compaction"
       ]
+    },
+    {
+      "at": "2026-10-30T05:40:52Z",
+      "fact": [
+        "Front decision (owner can reverse; principle 9), from the reviewed design (rev 2, 30 Oct): docs leave file by file, the handover last. `relay --help` becomes one line per command (about 28 lines from 90; metrics shows; a test fails when a command takes more than one line); `relay <cmd> --help` and `relay help <cmd>` print the command's forms plus an optional long help kept in that command's own module, written only after the command leaves bin/relay (1,173 lines, over the 600 cap). docs/macos.md goes with speed-up-the-quick-gate; START_HERE.md removed; README cut to the install lines; plugins/relay/README.md (227 lines) moves into `relay gate --help` and kit.toml comments. Measured: Haiku answered design questions from the plugins at $0.027 in 29 turns. Estimate about 5 h of agent time (a guess)."
+      ]
     }
   ]
 }
