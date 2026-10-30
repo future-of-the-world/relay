@@ -54,6 +54,16 @@
       "reading": [
         "a for the plan: the plan is kept in git for history although its value ends when the task is done; briefs and build/fix reports are not asked for. The plan review is questioned: why keep it, how it is stored, what if there are several; asked again as a new question."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T05:43:15Z",
+      "question": [
+        "Is the design review of a plan kept as its own file beside the item, or only as the plan's section listing each finding and what was done?"
+      ],
+      "options": [
+        "a. no review file; the revised plan's section 'what changed after the review' keeps each finding, whether it held and the fix (recommended: this plan's section maps all 7 findings; one file per item, no second name in the queue folder)",
+        "b. the latest review as <slug>.plan-review.md beside the item, overwritten by a new review; older reviews only in git history (as designed)"
+      ]
     }
   ]
 }
