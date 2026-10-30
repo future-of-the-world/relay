@@ -632,7 +632,7 @@ def compare(a: dict[str, Any], b: dict[str, Any], label_a: str = "A", label_b: s
     return _table(rows, ["measure", label_a, label_b, "delta"])
 
 
-def status(events, claude_dir, now: dt.datetime | None = None):
+def status(events: list[dict[str, Any]], claude_dir: str, now: dt.datetime | None = None) -> str:
     """What is running now, from today's ledger: one line per session.
     An agent silent for relay_ledger.AGENT_IDLE counts as ended, as in the route guard."""
     now = now or dt.datetime.now(dt.timezone.utc)

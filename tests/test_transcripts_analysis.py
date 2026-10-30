@@ -375,11 +375,11 @@ class Status(Base):
     NOW = dt.datetime(2026, 10, 30, 12, 0, 0, tzinfo=dt.timezone.utc)
 
     @staticmethod
-    def _ev(kind, minutes_ago, aid, atype="delegate:runner"):
+    def _ev(kind: str, minutes_ago: int, aid: str, atype: str = "delegate:runner") -> dict[str, str]:
         ts = (Status.NOW - dt.timedelta(minutes=minutes_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
         return {"ts": ts, "event": kind, "session_id": "s1", "agent_id": aid, "agent_type": atype}
 
-    def _running(self, events):
+    def _running(self, events: list[dict[str, str]]) -> str:
         import relay_analyze as ra
         line = [l for l in ra.status(events, self.claude, self.NOW).splitlines() if l.startswith("s1")][0]
         return line
