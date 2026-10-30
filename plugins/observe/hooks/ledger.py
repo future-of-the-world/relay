@@ -117,15 +117,31 @@ def has_start(agent_id: str, *stamps: str) -> bool:
     return False
 
 
+def log_prompts_setting(cwd):
+    """([observe] log_prompts, the problems found in that section or in the file's syntax), read by relay_kit; a wrong value is false."""
+    import relay_config
+    import relay_kit
+    kit = relay_kit.load(relay_config.project_root(cwd))
+    return kit.get("observe", "log_prompts"), kit.problems_of("observe")
+
+
 def log_prompts_enabled(cwd):
     try:
-        import relay_toml
-        root = cwd or os.getcwd()
-        path = os.path.join(root, ".claude", "kit.toml")
-        with open(path, "rb") as handle:
-            return bool(relay_toml.load(handle).get("observe", {}).get("log_prompts"))
+        return log_prompts_setting(cwd)[0]
     except Exception:
         return False
+
+
+def settings_note(cwd):
+    """The SessionStart context that names the problems in kit.toml's [observe] section, or None."""
+    try:
+        problems = log_prompts_setting(cwd)[1]
+    except Exception:
+        return None
+    if not problems:
+        return None
+    text = "Settings note: " + "; ".join(p.line() for p in problems) + ". Fix the line; relay doctor lists every problem."
+    return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}
 
 
 def main():
@@ -229,6 +245,10 @@ def main():
         out = None
     if out:
         relay_ledger.append(out)
+    if event == "SessionStart":
+        context = settings_note(data.get("cwd"))
+        if context:
+            json.dump(context, sys.stdout)
 
 
 if __name__ == "__main__":

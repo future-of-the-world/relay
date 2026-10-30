@@ -165,20 +165,6 @@ def get(cfg: Any, dotted: str, default: Any = None) -> Any:
     return value
 
 
-def relay_defaults() -> dict[str, dict[str, Any]]:
-    """Defaults for the relay sections of kit.toml (profiles/active.toml holds the policy)."""
-    return {
-        "flow": {"kind": "none"},
-        "delegate": {
-            "typed_only": True,
-            "fork_limit": 100_000,
-            "max_parallel": 4,
-            "build_tier_opus": "escalate",   # escalate | allow | deny
-        },
-        "observe": {"enabled": True, "log_prompts": False},
-    }
-
-
 def active_profile() -> dict[str, Any]:
     path = os.path.join(ROOT, "profiles", "active.toml")
     return read_toml(path) if os.path.isfile(path) else {}

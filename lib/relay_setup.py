@@ -198,7 +198,7 @@ def bindings_text(d, flow, specs="none"):
         "[flow]", f'kind = "{flow}"', "",
         "[specs]", f'method = "{specs}"   # "none", or a spec method plugin such as "openspec" (docs/flows.md)', "",
         "[delegate]", "typed_only = true", "fork_limit = 100000", "max_parallel = 4", 'build_tier_opus = "escalate"', "",
-        "[observe]", "enabled = true", "log_prompts = false", "",
+        "[observe]", "log_prompts = false", "",
     ]
     if d["ui"]:
         lines += ["[product]", 'medium = "the app on a phone and on a computer"', f'run_skill = "{name}-run"', ""]
@@ -257,8 +257,8 @@ def set_license(root, license_id, holder, todo):
 def merge_bindings(root, specs="none", force_specs=False, spec_folder=False):
     """Add the relay sections a kit.toml lacks, only where the value differs from what a missing section means, without touching what is
     there. `[specs]` for a method other than "none", or when `force_specs` (the run said
-    --specs) or `spec_folder` (an openspec/ folder would otherwise turn the steps on) holds. [delegate] and [observe] equal relay_defaults()
-    and are never added. `force_specs` rewrites an existing [specs] method."""
+    --specs) or `spec_folder` (an openspec/ folder would otherwise turn the steps on) holds. [delegate] and [observe] equal the defaults of
+    relay_kit and are never added. `force_specs` rewrites an existing [specs] method."""
     path = bindings_path(root)
     text = open(path, encoding="utf-8").read()
     cfg = tomllib.loads(text)
@@ -1229,6 +1229,20 @@ def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[s
     return machine + project
 
 
+def settings_env_problems(root: str) -> list:
+    """Problems in RELAY_DELEGATE_* and RELAY_CTX_* as a session gets them: this shell's env and the `env` blocks of
+    ~/.claude/settings.json and the project's .claude/settings.json and settings.local.json."""
+    import relay_kit
+    out = relay_kit.env_problems(dict(os.environ))
+    for path in (os.path.join(claude_dir(), "settings.json"), os.path.join(root, ".claude", "settings.json"),
+                 os.path.join(root, ".claude", "settings.local.json")):
+        data = read_json(path)
+        block = data.get("env") if isinstance(data, dict) else None
+        if isinstance(block, dict):
+            out += relay_kit.env_problems({str(k): str(v) for k, v in block.items()})
+    return out
+
+
 def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[list[tuple[str, bool, str]], list[tuple[str, bool, str]]]:
     """The check-up as (machine-wide checks, checks of the project at `root`); the second is empty with no root."""
     checks = []
@@ -1300,6 +1314,13 @@ def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[
         d = detect(root)
         ok("project has .claude/kit.toml", d["has_bindings"], "relay setup " + root)
         ok("rules for this project in sync", not own_stale, "-> relay sync")
+        import relay_kit
+        found = relay_kit.load(root).problems + tuple(settings_env_problems(root))
+        for problem in found:
+            ok(problem.where, False, f"{(problem.value + ' ') if problem.value else ''}{problem.wrong}"
+               + (f"; used {problem.used}" if problem.used else "") + " -> fix it in .claude/kit.toml (or the env block / variable named)")
+        if not found:
+            ok(".claude/kit.toml: keys and values valid", True, "")
         cfg = d["bindings"]
         flow = cfg.get("flow", {}).get("kind", "none")
         old = load_old_names()
