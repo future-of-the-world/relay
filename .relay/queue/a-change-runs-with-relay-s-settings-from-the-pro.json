@@ -144,6 +144,17 @@
         "3. Значит ли это что вопрос исчерпан, до пересмотра",
         "4. Думаю что можно просто добавить строчку - если нашел противоречие между правилами relay и правилами проекта - спроси пользователя, рекомендуй использовать настройки проекта, ты в гостях, уважай место где ты находишься, мягкий способ разрешать конфликты, без строгих проверок"
       ]
+    },
+    {
+      "asked_at": "2026-10-30T11:53:05Z",
+      "question": [
+        "(Design rev 4, shown on the scenarios page 30 Oct) Confirm: `claude` in a relay project (a folder whose repository has .claude/kit.toml) goes through relay's launcher, which keeps everything the project has and adds relay's rules and settings; anywhere else the real claude runs unchanged (tested in zsh and bash)."
+      ],
+      "options": [
+        "a. shell block in ~/.zshrc and ~/.bashrc (recommended; the owner's round-4 \"2. Да\" read as a)",
+        "b. a separate `relay session` command",
+        "c. project files only, no launcher (user rules, memory, agents and skills still load)"
+      ]
     }
   ]
 }
