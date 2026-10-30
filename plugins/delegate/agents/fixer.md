@@ -154,4 +154,4 @@ win, then the project's rules for your role, then the text of your flow in
 this file, then the shared text of your role.
 <!-- relay:end precedence -->
 
-A `Gap:` goes back to the coordinator, who asks the owner.
+A `Gap:` goes back to the coordinator; the checker decides one that is a reversible scope cut of a MEDIUM or LOW finding, the owner every other.

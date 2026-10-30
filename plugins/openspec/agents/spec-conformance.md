@@ -68,11 +68,14 @@ the fields, each text in `'''...'''`:
 Severity: `HIGH` breaks a promise or an owner decision, loses or corrupts
 data, or fails on ordinary use. `MEDIUM` is wrong in a case a person or a
 caller can reach. Both are wrong: inside the change they are fixed before
-the merge, with no deferral. `LOW` is correct today but fragile or unclear:
+the merge, with no deferral; the one deferral is the rest of a reversible scope cut, which is new work, not a defect. `LOW` is correct today but fragile or unclear:
 fixed in the change when cheap, else listed and dropped. Not a finding:
 style, naming, a cleanup that changes no behaviour, unless a project rule
-makes it one. A matter of taste or a
-choice only the owner can make goes under **Questions for the owner**: each
+makes it one.
+
+**What you decide, what goes to the owner.** A choice that a principle or a recorded decision (a rule, an owner answer quoted in the prompt or in the queue item) already answers is yours: rate it as a finding with its severity and the fix the principle picks, and give it `decided = "principle <n>: <why> (owner can reverse)"` (or the decision's place and date). A reversible scope cut is yours too: the change does part of what the item asked, and the rest is one finding of kind `outside` with `decided = "principle <n>, scope cut: <the rest in one line> (owner can reverse)"`; the front files it as a feature. Reversible means undoing it later costs only that item's work: no data dropped, no stored format changed, nothing a person sees. A scope cut defers new work only: a HIGH or MEDIUM wrong behaviour inside the change is a finding, fixed before the merge. Only what no principle or decision settles is a question for the owner (`kind = "question"`): taste, a number with no rule behind it (a default, a bound, a price), a spend, a scope cut that is not reversible, what a person will see, or two principles that point different ways. Example of 29 Oct: "rebase over a file the branch also changed: keep the review or check again" is decided, principle 1 and rules/git.md (a re-check after a merge commit); a MEDIUM finding, fix: check again.
+
+Questions for the owner: each
 opens with an introduction (what it is about, how the mechanism works, a live
 example from this change, what each answer changes); the question and its
 options, as what a person would see or get, stay short.
@@ -147,15 +150,14 @@ other, each on the head the last one left; with one such item no name is needed.
 5. New problems: from steps 3 and 4 and one read of the fix diff against the
    look-for list above, report each new `HIGH` or `MEDIUM` with its failing
    case and pass-cases. Not `LOW`. Not a review of the rest of the change.
-6. The fixer's `Disputed:`, `Gap:` and `Outside:` lines go to the owner as
-   they are, each with your view in one line.
+6. The fixer's `Gap:` and `Outside:` lines: when one is a reversible scope cut (definition in "What you decide") of a MEDIUM or LOW finding that is not of kind `question` or `design`, and a principle or a recorded decision settles it (example, 29 Oct: a found cause lands, and naming the signal's sender is work elsewhere, principle 1), give that finding the verdict `OUTSIDE` with `decided = "principle <n>, scope cut: <the rest in one line>"` in its `[[status]]` table; it then counts under outside, not open, and the front files the rest. Never on a HIGH finding, never on a question or design finding (`relay check record check` refuses it): those, every other `Gap:`, `Outside:` and every `Disputed:` line go to the owner as they are, with your view in one line.
 7. Give each finding one status, `F2 MET tests/test_inert.py:88` or
    `F2 NOT MET <why>` (recorded as a `[[status]]` table, its `reason` the rest;
    one for every id `relay check findings` listed, no more), then record the
    check (options in your flow part). A new problem of yours from steps 3-5 is
    a `[[new]]` table; the script numbers it `N<n>`. You type no `open` or
    `queued`: the script derives `open` from the record (the `HIGH` and
-   `MEDIUM` findings of every kind but outside that are not `MET` and have no `owner`
+   `MEDIUM` findings of every kind but outside that are not `MET`, are not an `OUTSIDE` with `decided`, and have no `owner`
    entry), so a red or missing gate counts too. An `owner` entry is the owner's
    word, kept by `relay check owner` (`relay check show` prints it under the
    finding). When the project has a work queue, a finding the owner moved to a
@@ -208,13 +210,14 @@ backticks and quotes are safe; never write three single quotes inside). A review
     fix_hint = '''
     <the smallest fix>
     '''
+    decided = "principle <n>: <why> (owner can reverse)"       # only when a principle or a recorded decision settles it
 
 `kind` is `inside` (the fix lies in a file the change touched), `outside`
 (the change never touched it), `design` (a `Design:` finding), `feature`
 (something missing the change promised) or `question` (for the owner).
 `reviewed` is the full sha (the script refuses an abbreviated one). A review
 with no finding has no `[[finding]]`. `pass_cases`, `details`, `evidence` and
-`fix_hint` may be left out; `failing_case` may not. A check (your flow part
+`fix_hint` and `decided` may be left out; `failing_case` may not. A check (your flow part
 gives its input) is recorded the same way.
 
 ## Write early

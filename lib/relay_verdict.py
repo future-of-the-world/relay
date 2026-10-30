@@ -15,7 +15,10 @@ The owner's word that a finding is not wrong is data: `relay check owner <review
 (`add_owner`) appends to "owner" the words as the owner said them; a checker counts such a finding as not wrong.
 FINDING:      {"id": "F<n>", "path", "line": int >= 1, "severity": a word of WORDS (the flow's own),
                "rank": high|medium|low, "kind": inside|outside|design|feature|question, "summary",
-               "failing_case": [line, ...] (at least one), "details", "pass_cases", "evidence", "fix_hint": [line, ...]}
+               "failing_case": [line, ...] (at least one), "details", "pass_cases", "evidence", "fix_hint": [line, ...],
+               "decided": one line, optional: the principle or recorded decision that settled it without the owner}
+A scope cut that a principle settles is a finding of kind outside with `decided`; a checker gives such a MEDIUM or LOW
+finding the verdict OUTSIDE with `decided` (never a HIGH one, never a question or design finding): it is then not open.
 
 The check record (schema 2): ONE file per change, `.relay/checks/<head>.check.json`, built in one order by
 `build_record` and written by `relay check record check --input <file.toml>`; every reader (the check hook, `relay queue
@@ -56,6 +59,7 @@ PIPELINE = re.compile(r"^pipeline #[0-9]+ on ([0-9a-f]{40}) passed\Z")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*\Z")
 PROSE = ("details", "pass_cases", "evidence", "fix_hint")       # a finding's optional prose, as lists of lines
+NO_DECIDED_KINDS = ("question", "design")      # a checker never decides these (finding_errors, record_errors)
 # The most lines `relay check show --brief` prints (bound 5-30: at 5 only the verdict and two findings fit, at 30 it is a page).
 BRIEF_LINES = 10
 
@@ -100,7 +104,7 @@ def finding_errors(finding, where, extra=()):
     if not isinstance(finding, dict):
         return ["%s is not an object" % where]
     errors = []
-    allowed = {"id", "path", "line", "severity", "rank", "kind", "summary", "failing_case"} | set(PROSE) | set(extra)
+    allowed = {"id", "path", "line", "severity", "rank", "kind", "summary", "failing_case", "decided"} | set(PROSE) | set(extra)
     for key in sorted(set(finding) - allowed):
         errors.append("%s has an unknown field %s" % (where, key))
     if not (isinstance(finding.get("id"), str) and FINDING_ID.match(finding["id"])):
@@ -122,6 +126,8 @@ def finding_errors(finding, where, extra=()):
         errors.append("%s: failing_case must be a list of lines with at least one non-empty line (no finding without a failing case)" % where)
     for key in PROSE:
         _prose_errors(finding, key, where, errors)
+    if "decided" in finding and not _text(finding["decided"]):
+        errors.append("%s: decided must be a one-line text (the principle or decision, and why)" % where)
     return errors
 
 
@@ -284,6 +290,9 @@ def record_errors(data, stored=False):
         if finding.get("verdict") not in VERDICTS:
             errors.append("%s: verdict must be one of %s, got %r" % (where, "/".join(VERDICTS), finding.get("verdict")))
         _prose_errors(finding, "reason", where, errors)
+        if finding.get("verdict") == "OUTSIDE" and finding.get("decided") and (finding.get("rank") == "high" or finding.get("kind") in NO_DECIDED_KINDS):
+            errors.append("%s: decided is refused on %s: only a reversible scope cut of a medium or low finding that is not a question or design finding may be decided without the owner" % (
+                where, "rank high" if finding.get("rank") == "high" else "kind " + finding["kind"]))
         if "owner" in finding:
             errors += _owner_entry_errors(finding["owner"], where)
     return errors
@@ -295,12 +304,17 @@ def load_record(text, what="the check record", stored=False):
     return _load(text, record_errors, what, stored=stored)
 
 
+def is_decided_cut(finding):
+    """True for a record finding the checker gave OUTSIDE with `decided`: a scope cut settled without the owner."""
+    return finding.get("verdict") == "OUTSIDE" and bool(finding.get("decided"))
+
+
 def open_of(record):
     """How many findings are wrong and unanswered: any kind but outside (a request for new work, a design question or
-    a question is counted too, so none is counted nowhere), rank high or medium, verdict not MET, and no owner entry
-    (the owner's word, or a move to a queue item, answers it)."""
+    a question is counted too, so none is counted nowhere), rank high or medium, verdict not MET, not a decided scope cut
+    (OUTSIDE with `decided`), and no owner entry (the owner's word, or a move to a queue item, answers it)."""
     return sum(1 for f in record["findings"]
-               if f["kind"] != "outside" and f["rank"] in ("high", "medium") and f["verdict"] != "MET" and not f.get("owner"))
+               if f["kind"] != "outside" and f["rank"] in ("high", "medium") and f["verdict"] != "MET" and not is_decided_cut(f) and not f.get("owner"))
 
 
 def queued_of(record):
@@ -309,8 +323,13 @@ def queued_of(record):
 
 
 def outside_of(record):
-    """How many findings of the record are outside the change."""
-    return sum(1 for f in record["findings"] if f["kind"] == "outside")
+    """How many findings of the record are outside the change: of kind outside, or a decided scope cut."""
+    return sum(1 for f in record["findings"] if f["kind"] == "outside" or is_decided_cut(f))
+
+
+def decided_lines(record):
+    """One line `decided: F<n> <text>` for each finding of the record that was decided without the owner."""
+    return ["decided: %s %s" % (f["id"], f["decided"]) for f in record["findings"] if f.get("decided")]
 
 
 def stored_record(record):
@@ -351,6 +370,8 @@ def finding_lines(finding, owner=()):
     out = [linter(finding)]
     if finding["kind"] != "inside":
         out.append("  Kind: %s" % finding["kind"])
+    if finding.get("decided"):
+        out.append("  decided: %s" % finding["decided"])
     for title, key in (("Failing case", "failing_case"), ("Pass cases", "pass_cases"), ("Details", "details"),
                        ("Evidence", "evidence"), ("Fix hint", "fix_hint")):
         _section(out, "  " + title, finding.get(key) or [], indent="    ")
@@ -466,15 +487,15 @@ def as_lines(value, key, where, errors):
     return []
 
 
-FINDING_KEYS = ("id", "path", "line", "severity", "kind", "summary", "failing_case") + PROSE
-NEW_KEYS = FINDING_KEYS[1:]                # a new problem of the checker: its id (N1, ...) is given by the record
-STATUS_KEYS = ("id", "verdict", "reason")
+FINDING_KEYS = ("id", "path", "line", "severity", "kind", "summary", "failing_case") + PROSE + ("decided",)
+NEW_KEYS = FINDING_KEYS[1:-1]              # a new problem of the checker: its id (N1, ...) is given by the record; the checker decides nothing in it
+STATUS_KEYS = ("id", "verdict", "reason", "decided")
 
 
 def _finding_from(raw, where, errors, keys=FINDING_KEYS):
     """A finding dict from one `[[finding]]`/`[[new]]` table of the input; problems are appended to `errors`. `keys` are
     the allowed keys; the first seven (the first six of a new problem, which has no id) are required."""
-    problems = table_errors(raw, where, keys, keys[:len(keys) - len(PROSE)])
+    problems = table_errors(raw, where, keys, [k for k in keys if k not in PROSE and k != "decided"])
     errors += problems
     if not isinstance(raw, dict):
         return {}
@@ -499,7 +520,9 @@ def _status_from(raw, where, errors):
     errors += table_errors(raw, where, STATUS_KEYS, STATUS_KEYS[:2])
     if not isinstance(raw, dict):
         return {}
-    out = {k: raw[k] for k in ("id", "verdict") if k in raw}
+    out = {k: raw[k] for k in ("id", "verdict", "decided") if k in raw}
+    if "decided" in out and out.get("verdict") != "OUTSIDE":
+        errors.append("decided %s is only for the verdict OUTSIDE, got %r" % (where, out.get("verdict")))
     out["reason"] = as_lines(raw.get("reason", []), "reason", where, errors)
     return out
 
@@ -909,7 +932,8 @@ def _record_check(input_path: str) -> str:
     findings = []
     for f in found + news + problems:
         status = said.get(f["id"], {})
-        findings.append(dict(f, verdict=status.get("verdict", "NOT MET"), reason=status.get("reason", [])))
+        extra = {"decided": status["decided"]} if "decided" in status else {}
+        findings.append(dict(f, verdict=status.get("verdict", "NOT MET"), reason=status.get("reason", []), **extra))
     data = {"schema": RECORD_SCHEMA, "type": CHECK_TYPE, "head": head, "branch": branch, "item": item, "gate": name,
             "worktree": wt, "scope": prose["scope"], "notes": prose["notes"], "findings": findings}
     errors += record_errors(data)

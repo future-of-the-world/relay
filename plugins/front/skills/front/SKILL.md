@@ -127,7 +127,7 @@ report or the gate log. No page and no Artifact.
 The cycle lands a ready change itself as its last stage (`relay land`, with a
 fixer for a red gate or a conflict, once). The Workflow result carries a `landed`
 line for each landed unit: say in your next reply, in one line: `merged: <what it
-does for the owner>`, and start no `relay land`, no log read and no check show
+does for the owner>`; when the unit carries `decided:` lines, add one line each: `decided without you (owner can reverse): <text>`. Start no `relay land`, no log read and no check show
 for it. You land only a unit stopped at `land`, a unit with `land: false`, and a
 change the owner released. Land it: start `relay land <branch>` with Bash
 `run_in_background` (no `&`, no polling); when told it exited, read its last 3
@@ -146,6 +146,8 @@ run: no question to the owner; the change lands in the paid-run release step
 while a cycle runs: `relay land --hold <branch> "<their words>"`; their word to
 go on is `relay land --release <branch>`. A unit the cycle stopped at `owner`
 with "person-facing" was checked and closed but waits for the owner's look.
+
+A review's or a check's question is never a front decision: it reached you because the reviewer found no principle that settles it; ask the owner. A decided scope cut is filed like any outside finding, `relay queue add --from <report.json> F<n> --input <why.toml> --ip <the parent's ip>`; the script makes it a feature.
 
 Ask the owner first, on one chat screen, only when: (a) taking the default
 branch hit a git conflict that a fixer could not resolve (it stopped on it; a resolved

@@ -838,6 +838,15 @@ class Cycle(unittest.TestCase):
         for words in ("merge question screen", "digest", "reply rules", "Example that is true", "Example that is false", "fixer\\'s or a worker\\'s instructions"):
             self.assertIn(words, text)
 
+    def test_decided_lines_of_the_check_reach_the_landed_units_result(self):
+        """The checker reports the `decided:` lines `relay check record check` printed; the unit's result carries them so the front
+        can say "decided without you". Disabled (the result not carrying them): fails. A check with none leaves the key out."""
+        line = "decided: F2 principle 1, scope cut: name the sender (owner can reverse)"
+        out = self.run_cycle(self.args([self.unit(item="the-item")]), **{"stage:check": dict(GREEN["stage:check"], decided=line)})
+        self.assertEqual(out["result"]["changes"][0]["decided"], line)
+        plain = self.run_cycle(self.args([self.unit(item="the-item")]))
+        self.assertNotIn("decided", plain["result"]["changes"][0])
+
     def test_f4_the_delegate_skill_says_the_cycle_lands_in_relay_mode(self):
         text = open(os.path.join(ROOT, "plugins", "delegate", "skills", "delegate", "SKILL.md")).read()
         self.assertNotIn("It does not land a change", text)

@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: critic-decides-scope-cut-ru
+description: delegate:critic (Russian item, one typo) files the part of the item a change leaves out as an outside finding with `decided`, and asks no question.
+tags: [delegate, review, decided]
+plugins: ["../../../plugins/relay", "../../../plugins/delegate"]
+context:
+  scaffold_script: scaffold.sh

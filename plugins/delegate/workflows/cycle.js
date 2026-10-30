@@ -57,6 +57,7 @@ const CHECK = { type: 'object', properties: {
   fail_without_fix: { type: 'string', description: 'for each test you relied on: did it fail with the fix disabled (yes/no/not run, per test)' },
   item_kind: { type: 'string', enum: ['fix', 'feature', ''], description: 'when the unit names a queue item: its kind as `relay queue show <item>` prints it on the first line (fix or feature); else empty' },
   person_facing: { type: 'boolean', description: PERSON_FACING },
+  decided: { type: 'string', description: 'the `decided: F<n> <text>` lines that `relay check record check` printed, verbatim, one per line; empty when it printed none' },
   summary: { type: 'string' } },
   required: ['open', 'fail_without_fix', 'person_facing', 'summary'] }
 
@@ -273,7 +274,7 @@ async function finish(it, st, o) {
     if (d.dead || d.v.status !== 'DONE') return stop(it, 'close queue item', d.dead || d.v.summary, { review, queue: { slug: it.item, test: ck.q1_test || 'picked by the closer' } })
     queue = { slug: it.item, test: ck.q1_test || 'picked by the closer', fail_without_fix: ck.fail_without_fix, closed: `${d.v.status}: ${d.v.summary}` }
   }
-  const shown = await showStage(it, { ready: true, open: 0, check: ck.summary, fail_without_fix: ck.fail_without_fix, review, queue, gateLog })
+  const shown = await showStage(it, Object.assign({ ready: true, open: 0, check: ck.summary, fail_without_fix: ck.fail_without_fix, review, queue, gateLog }, ck.decided ? { decided: ck.decided } : {}))
   if (!RELAY || !(it.land === undefined ? CFG.land : it.land)) return shown
   if (ck.person_facing === true) return ownerShow(it, shown, ck.summary)
   return landStage(it, st, shown, o)

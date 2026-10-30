@@ -45,7 +45,7 @@ Every message is understood two days later without the conversation; "Working wi
 - Do: apply "Working with me" before sending; give estimates in agent minutes and percent of limit.
 
 ### 9. Decide inside the principles
-A decision that follows from the principles and recorded decisions is made and reported afterwards; the owner gets only a real choice: a trade-off, a number, a scope cut.
+A decision that follows from the principles and recorded decisions is made and reported afterwards; the owner gets only a real choice: a trade-off, a number, a scope cut that cannot be undone (a reviewer decides a reversible one and files the rest as a queue item).
 - Fires on: a question a principle or past decision already answers.
 - Do: find the recorded decision, decide, record it as "owner can reverse", report after. A "why can't we / why not X?" from the owner is a question (owner-confirmed): answer it with why it is so and a recommendation; act only on the owner's word.
 

@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: critic-asks-a-number
+description: delegate:critic still asks the owner when no rule settles a choice (a number): a question finding and no `decided`.
+tags: [delegate, review, decided]
+plugins: ["../../../plugins/relay", "../../../plugins/delegate"]
+context:
+  scaffold_script: scaffold.sh

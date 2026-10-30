@@ -1168,15 +1168,40 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
     return _run(repo, planner, **engine)
 
 
+SCOPE_CUT = re.compile(r"scope cut:\s*(.+)\Z")
+
+
+def scope_cut_rest(found):
+    """The rest of a decided scope cut (the text after "scope cut:" in `decided`), or None when the finding is no such cut:
+    a finding of kind outside, or a checker's OUTSIDE verdict, with a `decided` that says "scope cut"."""
+    if not (found.get("kind") == "outside" or found.get("verdict") == "OUTSIDE"):
+        return None
+    match = SCOPE_CUT.search(found.get("decided") or "")
+    rest = re.sub(r"\s*\(owner can reverse\)\s*\Z", "", match.group(1)).strip() if match else ""
+    return rest or None
+
+
 def add_from(repo, report, fid, why="", minutes=None, ip=None, now=None, **engine):
     """Queue the finding `fid` recorded beside `report` as a fix item: its place and failing case are copied, its
-    linter line (relay_verdict.linter) is the item's `what`."""
+    linter line (relay_verdict.linter) is the item's `what`. A decided scope cut (`scope_cut_rest`) is queued as a feature
+    instead: its `what` is the rest the cut left, and its ip is the one given (the parent item's), marked agent-chosen in `why`."""
     found = find_finding(report, fid)
     context = f"finding {fid} of {os.path.basename(report)}"
     summary = found["summary"]
     title = summary[0].upper() + summary[1:]     # a summary is a sentence; the capital keeps `add` from taking it for the slug's words
     if len(title) >= TITLE_MAX:                   # a title is the "what" column: cut a long summary at a word (the linter line in `what` holds all of it)
         title = title[:TITLE_MAX - 2].rsplit(" ", 1)[0].rstrip(" ,;:.-") + "…"
+    rest = scope_cut_rest(found)
+    if rest is not None:
+        rest_title = rest[0].upper() + rest[1:]
+        if len(rest_title) >= TITLE_MAX:
+            rest_title = rest_title[:TITLE_MAX - 2].rsplit(" ", 1)[0].rstrip(" ,;:.-") + "…"
+        agent = "ip from the parent item (agent-chosen)" if ip is not None else "ip not given (agent-chosen)"
+        try:
+            return add(repo, "feature", rest_title, why=f"{why.strip()} ({agent}; scope cut decided without the owner: {found['decided']})".strip(),
+                       what=rest, minutes=minutes, ip=ip, where=[f"{found['path']}:{found['line']}"], context=context, now=now, **engine)
+        except Refused as exc:
+            raise Refused(f"{exc}. The rest of the scope cut comes from the recorded finding {fid}: {rest!r}")
     try:
         return add(repo, "fix", title, why=why, what=relay_verdict.linter(found), failing="\n".join(found["failing_case"]),
                    pass_cases="\n".join(found.get("pass_cases") or []), minutes=minutes, ip=ip, where=[f"{found['path']}:{found['line']}"], context=context, now=now,

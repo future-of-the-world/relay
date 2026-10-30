@@ -809,14 +809,17 @@ def cmd_check_record(args):
     try:
         record = relay_verdict.record_review if args[0] == "review" else relay_verdict.record_check
         path = record(args[2])
-        counts = ""
+        counts, decided = "", []
         if args[0] == "check":
             with open(path, encoding="utf-8") as handle:
                 data = relay_verdict.load_record(handle.read(), "the check record")
             counts = " (open %d, queued %d)" % (relay_verdict.open_of(data), relay_verdict.queued_of(data))
+            decided = relay_verdict.decided_lines(data)
     except (relay_verdict.VerdictError, OSError) as exc:
         raise ValueError(str(exc))
     print("recorded %s%s" % (path, counts))
+    for line in decided if args[0] == "check" else ():
+        print(line)
     return 0
 
 
@@ -1085,7 +1088,7 @@ def cmd_queue(args: list) -> int:
             raise Usage(QUEUE_USAGE)
         from_report = "--from" in o
         if from_report and "--kind" in o:
-            raise Usage("--kind does not go with --from: a finding is always queued as a fix")
+            raise Usage("--kind does not go with --from: the kind comes from the recorded finding: a decided scope cut is queued as a feature, any other finding as a fix")
         try:
             if from_report and len(p) != 1 or not from_report and p:
                 raise Usage("relay queue add --from <report.json> F<n> --input <file.toml>  |  relay queue add --input <file.toml>")
