@@ -400,7 +400,7 @@ class Ci:
             # a worktree's .git file points outside the mount, so the image gets a plain clone of the head
             for argv in (["podman", "build", "-q", "-f", "container/Containerfile", "-t", CLEAN_IMAGE, "."],
                          ["git", "clone", "-q", "--no-hardlinks", self.root, src],
-                         ["git", "-C", src, "checkout", "-q", "--detach", head],
+                         ["git", "-C", src, "checkout", "-q", "-B", "master", head],   # the image's clone then has a default branch, as relay's tests need
                          ["podman", "run", "--rm", "-v", "%s:/src:ro" % src, CLEAN_IMAGE, "sh", "-c",
                           "git clone -q /src /work/relay && cd /work/relay && bin/ci --quick"]):
                 rc = self.run(argv, log).returncode
