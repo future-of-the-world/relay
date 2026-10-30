@@ -30,8 +30,8 @@
   ],
   "taken_at": "2026-10-30T17:39:28Z",
   "taken_by": "wt/a-task-branch-of-an-item-whose-slug-starts-with",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T18:23:19Z",
+  "test": "tests/test_tidy.py::Tidy::test_a_task_branch_of_a_queue_slug_is_not_a_leftover_landing_branch",
   "dropped_at": null,
   "dropped_why": null
 }
