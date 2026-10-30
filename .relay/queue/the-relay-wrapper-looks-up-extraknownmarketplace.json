@@ -30,5 +30,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T21:10:59Z",
+      "fact": [
+        "Confirmed 30 Oct 2026 on master: plugins/front/bin/relay:9 reads .extraKnownMarketplaces.relay.source.path, while ~/.claude/settings.json names the marketplace amidman (line 26), so the lookup is always empty and the wrapper falls back to ~/relay."
+      ]
+    }
+  ]
 }
