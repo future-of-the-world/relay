@@ -22,8 +22,8 @@
     "lib/relay_setup.py (the CLAUDE.md skeleton, CLAUDE.local.md registration)",
     "templates/CLAUDE.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T08:05:01Z",
+  "taken_by": "wt/setup-silently-turns-off-a-project-s-age",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
