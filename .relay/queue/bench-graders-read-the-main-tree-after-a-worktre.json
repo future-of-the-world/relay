@@ -23,8 +23,8 @@
     "evals/scenarios/add-function/scenario.toml:20-27",
     "evals/scenarios/small-script/scenario.toml"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T04:19:16Z",
+  "taken_by": "wt/bench-graders-read-the-main-tree-after-a",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
