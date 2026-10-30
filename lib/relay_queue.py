@@ -1168,10 +1168,40 @@ def add(repo, kind, title, why="", what="", failing="", pass_cases="", minutes=N
     return _run(repo, planner, **engine)
 
 
+def met_in_a_check(repo: str, report: str, fid: str) -> Optional[tuple[str, str]]:
+    """(the check's file name, its head) of a check record on any local branch that marks finding `fid` of review `report` MET,
+    its head built on the commit the review was made at; None when there is none. A record that does not load is passed over."""
+    main, _ = _context(repo)
+    try:
+        with open(report, encoding="utf-8") as handle:
+            reviewed = json.load(handle).get("reviewed")
+    except (OSError, ValueError, AttributeError):
+        return None
+    with relay_git.reading():      # read-only: each distinct git question once, not one process per check file of every branch (54 s -> 3 s)
+        rc, out = relay_git.git(main, "for-each-ref", "--format=%(refname)", "refs/heads/")
+        for ref in sorted(out.splitlines()) if rc == 0 else []:
+            rc, names = relay_git.git(main, "ls-tree", "--name-only", ref, ".relay/checks/")
+            for name in sorted(os.path.basename(n) for n in names.splitlines() if n.endswith(".check.json")) if rc == 0 else []:
+                text = relay_git.stored_text(main, f"{ref}:.relay/checks/{name}")
+                try:
+                    record = relay_verdict.load_record(text, name, stored=True) if text else None
+                except relay_verdict.VerdictError:
+                    continue
+                if record is None or not any(f["source"] == os.path.basename(report) and f.get("source_id", f["id"]) == fid and f["verdict"] == "MET"
+                                             for f in record["findings"]):
+                    continue
+                if isinstance(reviewed, str) and relay_git.is_ancestor(main, reviewed, record["head"]):
+                    return name, record["head"]
+    return None
+
+
 def add_from(repo, report, fid, why="", minutes=None, ip=None, now=None, **engine):
     """Queue the finding `fid` recorded beside `report` as a fix item: its place and failing case are copied, its
-    linter line (relay_verdict.linter) is the item's `what`."""
+    linter line (relay_verdict.linter) is the item's `what`. Refused when a later check of the branch marks it MET."""
     found = find_finding(report, fid)
+    met = met_in_a_check(repo, report, fid)
+    if met is not None:
+        raise Refused(f"finding {fid} of {os.path.basename(report)} is already MET in the check {met[0]} (commit {met[1]}): it needs no fix item")
     context = f"finding {fid} of {os.path.basename(report)}"
     summary = found["summary"]
     title = summary[0].upper() + summary[1:]     # a summary is a sentence; the capital keeps `add` from taking it for the slug's words
