@@ -1,0 +1,38 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 45,
+  "found_at": "2026-10-30T22:07:29Z",
+  "found_in": "finding F4 of review-a-sigterm-in-a-gate-does-not-name-its-sender.json",
+  "title": "Several of relay's own senders still signal without a…",
+  "what": [
+    "bin/check:50: MEDIUM: F4 several of relay's own senders still signal without a line in the signal log, so 'not sent by relay' is not a proof"
+  ],
+  "why": [
+    "Several of relay's own senders (bin/check, templates/bin-check, lib/relay_precheck.py, lib/relay_gate_ssh.py, lib/relay_gate_remote.py, tests/parallel_unittest.py) still send signals without a line in the signal log, so the gate's 'not sent by relay' is not yet a proof."
+  ],
+  "failing_case": [
+    "The queue item: \"Every place relay itself sends SIGTERM or SIGKILL (hang bounds, the leftover sweep, test-token waits,",
+    "gate stops) writes one line\". Not recorded today: bin/check stop_group (SIGTERM then SIGKILL, the worker's hang bound,",
+    "bin/check:50,57); lib/relay_precheck.py:139 (SIGKILL, the types-lint time limit); lib/relay_gate_ssh.py:216,232",
+    "(terminate/kill, the remote gate's backstop); lib/relay_gate_remote.py:75,176 (SIGKILL of the build and the command);",
+    "tests/parallel_unittest.py:270 (kill of a worker after 600 s); templates/bin-check:44,51 (the projects' bin/check).",
+    "A process ended by any of them is reported as \"not sent by relay\"."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. bin/check with CHECK_TIMEOUT=1 on a step that sleeps: the signal log gains \"sent SIGTERM to group <step pid>: bin/check: the step passed its time bound\".",
+    "2. relay_precheck's types-lint time limit: a SIGKILL line naming the precheck step.",
+    "3. git grep for os.kill( / os.killpg( / .terminate() / .kill() with a real signal in lib/, bin/, templates/, tests/*.py helpers shows each one next to a record_sent (or through relay_procs.send); os.kill(pid, 0) probes and the gate's re-raise to itself excepted.",
+    "4. The new test_gate_stops tests keep passing."
+  ],
+  "where": [
+    "bin/check:50"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
