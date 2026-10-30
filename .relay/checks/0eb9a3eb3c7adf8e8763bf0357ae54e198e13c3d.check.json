@@ -1,0 +1,214 @@
+{
+  "branch": "wt/one-digest-per-wave-instead-of-status-me",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading and by Python's literal concatenation rule: lines 2243-2245 are f\"...{slug}...\" f\"...{n.at}...\" \"...{slug}...\";",
+        "the third literal has no f prefix, so its braces are kept as text. Demo: (f\"x {slug} \" \"y {slug}\") -> \"x job y {slug}\". The only test",
+        "of the line (test_queue_notes.py:488, :522) checks its start, so the brief's new sentence is untested and the bug passes the gate.",
+        "The line goes to the front on every owner message while a question waits. Size: 5 min."
+      ],
+      "evidence": [
+        "sed -n 2243,2245p lib/relay_queue.py: the last literal \"a question shown again ... (`relay queue show {slug}` prints it); ...\" has no f.",
+        "python3: s=(f\"x {slug} \" \"y {slug}\") -> x job y {slug}"
+      ],
+      "failing_case": [
+        "Item `job` has a question asked 2026-10-09T22:00:00Z with no answer. The UserPromptSubmit hook (plugins/front/hooks/ask_waiting.py ->",
+        "relay_queue.waiting_lines) prints: \"... (answer = the message, to = [\"2026-10-09T22:00:00Z\"]); a question shown again is shown with",
+        "its intro, as if asked the first time (`relay queue show {slug}` prints it); ...\". Expected: \"`relay queue show job` prints it\"."
+      ],
+      "fix_hint": [
+        "Add the `f` prefix to the third literal; extend the test at test_queue_notes.py:488 to assert \"`relay queue show job`\" and \"intro\"."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 2245,
+      "pass_cases": [
+        "1. waiting_lines(main, 7, 5, now=NOW) with one waiting question on `job` -> lines[0] contains \"`relay queue show job`\" and does not contain \"{slug}\".",
+        "2. Same line still starts \"Waiting for the owner: job question 'Should work that never lands get its own record?', asked 2026-10-09T22:00:00Z (2h ago);\" (test_queue_notes.py:488 keeps passing).",
+        "3. Same line contains \"with its intro\" and \"`intro`\" (the brief's hook sentence is asserted, so dropping it fails a test)."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_queue.py:2245 has the f prefix; tests/test_digest.py IntroReview.test_hook_line_fills_the_slug_into_the_show_sentence asserts show job, no {slug}, intro; fails without the fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "79d265484bb29932a6db42b6baec367ff92e8283",
+      "source": "review-digest-intro.json",
+      "source_id": "F1",
+      "summary": "the new hook sentence is a plain string after an f-string: the owner-message hook prints `relay queue show {slug}` literally, and no test reads the sentence",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Before this change the intro lived in `question` (the test itself stores [\"**Keep it?**\", \"Intro.\"]); the live",
+        "waiting questions in the digest carry their context inside `question` too. The change added `intro` without saying the intro leaves",
+        "`question`, so a front that obeys both instructions duplicates it in every view the owner reads (the owner's complaint is exactly",
+        "about reading these). If the front instead moves only the paragraph, a table left in `question` prints before the intro, the",
+        "reverse of the taught shape. The brief asked the skill paragraph to say how to record the intro. Size: 15 min."
+      ],
+      "evidence": [
+        "SKILL.md:101-108 the shape block: title, <intro paragraph>, <table>, options. SKILL.md:111-112: \"`question` (the block above), `intro` (the introduction of the question ...)\".",
+        "lib/relay_queue.py:1806 question_block = text + intro + options; relay_digest.py:321-323, 345-347 same order.",
+        "tests/test_queue_notes.py:148 note(question=[\"**Keep it?**\", \"Intro.\"], ...) with INTRO defaulted: out ends \"**Keep it?**\\nIntro.\\n<INTRO>\\na. Keep it.\""
+      ],
+      "failing_case": [
+        "The front follows SKILL.md:111-112: `question` = the block above (lines 102-108: the bold title, the intro paragraph, the table),",
+        "`intro` = the introduction. Input: question = title line + \"The comparison picks a runner. Example: 3 of 5 runs fit.\" and",
+        "intro = \"The comparison picks a runner. Example: 3 of 5 runs fit.\". The note command's printed block, `relay queue show` and",
+        "`relay digest` print the title, the intro, the intro again, then the options. Expected: the intro once, between the title and the",
+        "options, the table (if any) after the intro as the shape on lines 102-108 teaches."
+      ],
+      "fix_hint": [
+        "In SKILL.md say `question` = the bold title (and the side-by-side table, if any); `intro` = the intro paragraph; reorder the shape",
+        "or the printing so title, intro, table, options is the one order. Update the note test to the split."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 112,
+      "pass_cases": [
+        "1. SKILL.md's recording paragraph names exactly what goes in `question` (the bold title, and the table if any) and what goes in `intro` (the intro paragraph), so no line of the shape goes in both.",
+        "2. A note recorded from that split prints, in note/show/digest: title, intro lines, table (if any), options, in the shape's order (or the skill states the printed order and the shape agrees with it).",
+        "3. tests/test_queue_notes.py test_question_prints_the_block_and_the_answer_fills_it no longer models the intro inside `question` (today question=[\"**Keep it?**\", \"Intro.\"] plus INTRO), or asserts the documented split."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "SKILL.md:112 gives title only to question and the rest to intro; tests/test_digest.py Texts.test_skill_gives_title_to_question_and_the_rest_to_intro, and test_queue_notes.py:148 uses the split; fails without the fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "79d265484bb29932a6db42b6baec367ff92e8283",
+      "source": "review-digest-intro.json",
+      "source_id": "F2",
+      "summary": "the skill still says `question` is \"the block above\", which holds the intro paragraph, and now also asks for `intro`: followed literally, every print shows the intro twice",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The command now refuses any question note without intro (lib/relay_queue.py:1761, :1825), but three places that",
+        "teach its fields were not updated: rules/queue.md:31 (\"a question before it is shown (`question`, `options`)\"), rules/principles.md:50",
+        "(\"record it as a decision note (question, options, chosen, decided_by, because)\") and the refusal at lib/relay_queue.py:1830-1831,",
+        "which leads straight into the second refusal. Principle 2 (waste that repeats on every change: one refused call per new question) and",
+        "principle 10 (a refusal that does not lead to a working next step) make it MEDIUM. SKILL.md:276 says \"as for the owner\", which now",
+        "covers intro only by inference. Size: 10 min."
+      ],
+      "evidence": [
+        "grep -rn decided_by plugins/front/skills rules: SKILL.md:276, principles.md:50, queue.md:33 list the fields without intro.",
+        "sed -n 30,31p rules/queue.md: \"a question before it is shown (`question`, `options`)\".",
+        "lib/relay_queue.py:1830-1831 refusal text lists question, options, chosen, decided_by, because."
+      ],
+      "failing_case": [
+        "The front records a decision as rules/queue.md:31-33 and rules/principles.md:50 say (question, options, chosen, decided_by, because),",
+        "or as the refusal for a \"Front decision\" fact tells it (lib/relay_queue.py, the note function: \"a `question` with `options`, `chosen`",
+        "(the letter), `decided_by = \"front\"` and `because`\"). The note command refuses: \"nothing noted: a question needs `intro` ...\".",
+        "Expected: the texts that teach the note's fields name `intro`, so the first try lands."
+      ],
+      "fix_hint": [
+        "Add `intro` to the field lists in rules/queue.md, rules/principles.md (then relay sync), SKILL.md:276 and the Front-decision refusal."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 31,
+      "pass_cases": [
+        "1. rules/queue.md's line on recording a question names `intro` beside `question` and `options`.",
+        "2. rules/principles.md principle 9's decision-note field list names `intro` (and the generated CLAUDE.local.md after relay sync).",
+        "3. The \"Front decision\" fact refusal in the note function lists `intro` among the fields of a decision note; a test asserts \"intro\" in that refusal (test_digest.py FrontDecisionFact).",
+        "4. A decision note with intro, options, chosen, decided_by and because still lands (test_digest.py:434 keeps passing)."
+      ],
+      "path": "rules/queue.md",
+      "rank": "medium",
+      "reason": [
+        "rules/queue.md, rules/principles.md:50 and the refusal name intro; tests/test_digest.py test_texts_that_teach_the_note_fields_name_intro and test_decision_fact_refusal_names_intro; both fail without the fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "79d265484bb29932a6db42b6baec367ff92e8283",
+      "source": "review-digest-intro.json",
+      "source_id": "F3",
+      "summary": "the rule texts and a refusal still list a question/decision note as `question`, `options` (+ chosen, decided_by, because) with no `intro`: the front is refused on the first try of every new question (principle 2)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the stub's note(): it checks only that one kind key is present. The stub's docstring promises it prints what the",
+        "real command prints for the parts it covers. Correct today in the sense that it never writes; fragile because evals cannot see the",
+        "new refusal. Size: 5 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "In an eval session the front records a question with question and options, no intro, through the stub. The stub prints",
+        "\"noted job: question: [...]\" (exit 0). The real command refuses \"nothing noted: a question needs `intro` ...\". Expected: the stub",
+        "refuses the same way, so the judge sees the front was missing the intro."
+      ],
+      "fix_hint": [
+        "In the stub's note(), when kinds[0] == \"question\" and the intro is missing or blank, print the real refusal to stderr and return 1."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 133,
+      "pass_cases": [
+        "1. stub note with question + options, no intro -> exit 1, stderr names `intro`.",
+        "2. stub note with question + intro + options -> exit 0, prints the noted line as today.",
+        "3. stub note with said/fact/answer -> unchanged."
+      ],
+      "path": "evals/plugin/relay-stub.py",
+      "rank": "low",
+      "reason": [
+        "evals/plugin/relay-stub.py:137 refuses a question without intro; tests/test_digest.py test_eval_stub_refuses_a_question_without_intro passes and fails without the fix."
+      ],
+      "severity": "LOW",
+      "since": "79d265484bb29932a6db42b6baec367ff92e8283",
+      "source": "review-digest-intro.json",
+      "source_id": "F4",
+      "summary": "the eval stub of the note command accepts a question with no intro, so an eval of the front recording a question passes where the real command refuses",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: the file content and a read-only run of ./bin/relay digest in the worktree. A deliverable of the brief's Done-when, not a",
+        "code defect; the front must not show the owner this file. Size: 2 min."
+      ],
+      "evidence": [
+        "head digest-preview-4.txt -> relay: unknown command 'digest'",
+        "./bin/relay digest (worktree) -> the page, 6 questions waiting"
+      ],
+      "failing_case": [
+        "scratchpad/reports/digest-preview-4.txt (16:13) starts \"relay: unknown command 'digest'\" followed by the usage page. Expected: the",
+        "page of <worktree>/bin/relay digest, which works (run during this review: \"relay: since 29 Oct 12:28 UTC: 41 merged, 47 added,",
+        "2 decisions taken without you, 6 questions wait.\" and the six waiting questions)."
+      ],
+      "fix_hint": [
+        "Run <worktree>/bin/relay digest -C /Users/amidman/relay and save its output to digest-preview-4.txt."
+      ],
+      "id": "F5",
+      "kind": "feature",
+      "line": 1,
+      "pass_cases": [
+        "1. digest-preview-4.txt starts with \"relay: since\" (or \"relay: nothing new\") and ends with the \"Page head <sha>: after sending, run relay digest --sent <sha>\" line.",
+        "2. It is produced by the worktree's bin/relay, read-only (no --sent)."
+      ],
+      "path": "lib/relay_digest.py",
+      "rank": "low",
+      "reason": [
+        "LOW, a scratchpad preview file outside the repo; the digest command itself runs from the worktree (tests pass); nothing to change in the code."
+      ],
+      "severity": "LOW",
+      "since": "79d265484bb29932a6db42b6baec367ff92e8283",
+      "source": "review-digest-intro.json",
+      "source_id": "F5",
+      "summary": "the brief's live digest preview (digest-preview-4.txt) holds `relay: unknown command 'digest'` and the help text: it ran the installed relay, not the worktree's",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "3eb8de3861c8ebc4f3b80d717061f00131aa2536.gate.log",
+  "head": "0eb9a3eb3c7adf8e8763bf0357ae54e198e13c3d",
+  "item": null,
+  "notes": [
+    "Not blocking: plugins/delegate/skills/delegate/SKILL.md:250 still lists `question`, `options` without `intro` (the command refuses with the next step named). Extra file plugins/front/hooks/digest_due.py (elapsed/step in overrun message) is outside the findings but tested and gated."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 79d26548..HEAD. Gate log head 3eb8de38, exit 0; HEAD adds only the inert gate log. Ran tests.test_digest + tests.test_queue_notes (110 OK) and relay precheck twice (green). Each new test fails at b3e68d7d~1 (6 failures: the 5 new tests and the StopHook elapsed-step assertion). The fixer report file does not exist; judged from the diff."
+  ],
+  "type": "check"
+}
