@@ -868,3 +868,25 @@ class FeatureSplit(LaneBase):
         s = rl.lanes_state(self.main, now=time.time(), limit=6, features=3)      # the worktree's activity is real time
         self.assertEqual((s.feature_running, s.itemless), (0, 1))
         self.assertIn("Lanes: 4 of 6 running (3 of 3 fix lanes, 0 of 3 feature lanes, 1 without an item)", rl.line(s))
+
+
+class DesignStart(LaneBase):
+    def test_f3_design_start_then_plan_landed_on_master_and_master_moved_is_running_not_landed(self):
+        # The live sequence (30 Oct, speed-up-the-quick-gate): a feature is started in design mode (branch at master, the take is a queue
+        # commit on master), the design's plan lands on master through `relay queue plan`, master moves on; the branch has no commit of
+        # its own. Expected by hand: the item runs (1 lane), nothing is landed_open, so no hook tells the front to close it.
+        self.seed({Q + "ft.json": item("ft", "feature", ip=99)})
+        scratch = os.path.join(self.tmp, "scratch")
+        out = json.loads(rl.start(self.main, "ft", scratch))
+        src = os.path.join(self.tmp, "plan.md")
+        with open(src, "w", encoding="utf-8") as handle:
+            handle.write("# Plan\n\nbody\n")
+        rq.keep_plan(out["worktree"], "ft", src, environ={})
+        self.write_commit(self.main, {"lib/other.py": "o\n"}, "master moves on")
+        branch = out["branch"]
+        # the design worker takes master with a message: reflog "merge master: Fast-forward (no commit created; -m option ignored)"
+        git(out["worktree"], "merge", "-m", "take master", "master")
+        s = self.state()
+        self.assertEqual([(l.branch, l.slug) for l in s.running], [(branch, "ft")])
+        self.assertEqual(s.landed_open, [])
+        self.assertEqual(rl.close_landed(self.main), [])
