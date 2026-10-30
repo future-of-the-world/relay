@@ -24,8 +24,8 @@
     "plugins/delegate/workflows/cycle.js",
     "plugins/delegate/agents/checker.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T08:07:56Z",
+  "taken_by": "wt/a-feature-s-check-stops-the-cycle-with-n",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
