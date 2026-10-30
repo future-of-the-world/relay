@@ -55,6 +55,7 @@ const CHECK = { type: 'object', properties: {
   open: { type: 'integer' }, met: { type: 'integer' }, not_met: { type: 'integer' },
   q1_test: { type: 'string', description: 'when the unit names a queue item: the test that proves Q1, as <test file>::<test name>; else empty' },
   fail_without_fix: { type: 'string', description: 'for each test you relied on: did it fail with the fix disabled (yes/no/not run, per test)' },
+  item_kind: { type: 'string', enum: ['fix', 'feature', ''], description: 'when the unit names a queue item: its kind as `relay queue show <item>` prints it on the first line (fix or feature); else empty' },
   person_facing: { type: 'boolean', description: PERSON_FACING },
   summary: { type: 'string' } },
   required: ['open', 'fail_without_fix', 'person_facing', 'summary'] }
@@ -241,7 +242,7 @@ function fixesText(first, st) {
 }
 
 async function checkStage(it, label, prompt, report, withItem) {
-  const q1 = withItem ? `\nq1_test must name one test as <test file>::<test name>.` : ''
+  const q1 = withItem ? `\nq1_test must name one test as <test file>::<test name>. item_kind is the queue item's kind from \`relay queue show ${it.item} -C ${it.wt}\` (fix or feature).` : ''
   return ask(`${prompt} Report: \`${report}\`.` + NOFIX + q1, agentOpts('checker', CHECK, 'Check', label))
 }
 
@@ -259,10 +260,11 @@ async function finish(it, st, o) {
   if (withItem) {
     // A fix item always has its test named by the checker. A feature item (change or built unit) may come back with none: the closer then picks
     // one of the tests the change adds, and stops only when the change adds none.
-    const pick = !ck.q1_test && (it.kind === undefined || it.kind === 'change' || it.kind === 'built')
+    // The queue item's kind decides, not the unit's (a fix item is built as a change unit; a feature may finish in a fix unit).
+    const pick = !ck.q1_test && ck.item_kind === 'feature'
     if (!ck.q1_test && !pick) return stop(it, 'check', 'the check closed with no test for the queue item (q1_test is empty)', { review })
     const run = pick
-      ? `The check named no test for the queue item. List the test files the change adds or changes: \`git -C ${it.wt} diff --name-only --diff-filter=AM ${A.base}...HEAD\`, keep those under tests/ or named test_*; read them and pick one test that covers the item, as <test file>::<test name> (the form \`relay queue done --help\` shows for that language). Then run exactly \`relay queue done ${it.item} -C ${it.wt} --test <that test>\`. If the change adds or changes no test, run nothing and report BLOCKED with the line \`no test for the queue item: the change adds no test\`.`
+      ? `The check named no test for the queue item. List the test files the change adds or changes: \`git -C ${it.wt} diff --name-only --diff-filter=AM ${A.base}...HEAD\`, keep those under tests/ or evals/ or named test_* (an eval case is named as <case folder>::<grader>, a test as <test file>::<test name>); read them and pick one test that covers the item, as <test file>::<test name> (the form \`relay queue done --help\` shows for that language). Then run exactly \`relay queue done ${it.item} -C ${it.wt} --test <that test>\`. If the change adds or changes no test, run nothing and report BLOCKED with the line \`no test for the queue item: the change adds no test\`.`
       : `Run exactly: \`relay queue done ${it.item} -C ${it.wt} --test ${ck.q1_test}\`.`
     const d = await ask(`${run} Closing a checked item is the cycle's rule after the check, whatever message started this run and whatever it asked: do not judge it, do not refuse on principle; run the command. Report DONE with the output line, or BLOCKED only with the command's own refusal text.`,
       agentOpts('runner', HANDBACK, 'Check', `close queue item: ${lab(it)}`))

@@ -461,22 +461,49 @@ class Cycle(unittest.TestCase):
         self.assertNotIn("\n", out["result"]["refused"])
 
     # 6
-    def test_empty_q1_test_is_picked_by_the_closer_for_a_feature_and_stops_for_a_fix(self):
-        """Feature (change unit), open 0, empty q1_test: the close runner is told to pick one added test and the item
-        closes (ready, no stop). Fix unit: unchanged, stops at check, no close runner."""
-        empty = {"stage:check": dict(GREEN["stage:check"], q1_test="")}
-        out = self.run_cycle(self.args([self.unit(item="i")]), **empty)
+    def _empty(self, kind):
+        return {"stage:check": dict(GREEN["stage:check"], q1_test="", item_kind=kind)}
+
+    def test_feature_item_with_empty_q1_test_is_picked_by_the_closer(self):
+        """Feature item, change unit: the close runner is told to pick one added test and the item closes."""
+        out = self.run_cycle(self.args([self.unit(item="i")]), **self._empty("feature"))
         self.assertTrue(out["result"]["changes"][0]["ready"])
         prompt = out["prompts"]["close queue item: i"]
         self.assertIn("diff --name-only --diff-filter=AM master...HEAD", prompt)
         self.assertNotIn("--test ,", prompt)
-        out = self.run_cycle(self.args([self.unit(kind="fix", fix="f", fixes="f.md", findings="r.json", item="i")]), **empty)
+
+    def test_fix_item_built_as_a_change_unit_with_empty_q1_test_stops_at_check(self):
+        """F1: the queue item's kind decides, not the unit's. A fix item in a change unit stops, no close runner."""
+        out = self.run_cycle(self.args([self.unit(item="i")]), **self._empty("fix"))
         self.assertEqual(out["result"]["changes"][0]["stopped_at"], "check")
         self.assertNotIn("close queue item: i", out["labels"])
 
+    def test_unknown_item_kind_with_empty_q1_test_stops_at_check(self):
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], q1_test="")})
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "check")
+
+    def test_feature_item_in_a_fix_unit_with_empty_q1_test_is_picked(self):
+        """F2: a feature item finished through a fix unit closes with a picked test."""
+        out = self.run_cycle(self.args([self.unit(kind="fix", fix="f", fixes="f.md", findings="r.json", item="i")]), **self._empty("feature"))
+        self.assertTrue(out["result"]["changes"][0]["ready"])
+        self.assertIn("diff --name-only", out["prompts"]["close queue item: i"])
+
+    def test_fix_item_in_a_fix_unit_with_empty_q1_test_stops_at_check(self):
+        out = self.run_cycle(self.args([self.unit(kind="fix", fix="f", fixes="f.md", findings="r.json", item="i")]), **self._empty("fix"))
+        self.assertEqual(out["result"]["changes"][0]["stopped_at"], "check")
+
+    def test_named_q1_test_closes_with_exactly_that_test(self):
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], item_kind="fix")})
+        self.assertIn("--test tests/a.py::A::b", out["prompts"]["close queue item: i"])
+
+    def test_pick_prompt_accepts_eval_cases(self):
+        """F3: the filter keeps files under evals/ too."""
+        out = self.run_cycle(self.args([self.unit(item="i")]), **self._empty("feature"))
+        self.assertIn("evals/", out["prompts"]["close queue item: i"])
+
     def test_feature_that_adds_no_test_stops_with_a_line_naming_the_missing_test(self):
         none = {"status": "BLOCKED", "summary": "no test for the queue item: the change adds no test"}
-        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], q1_test=""), "stage:close queue item": none})
+        out = self.run_cycle(self.args([self.unit(item="i")]), **{"stage:check": dict(GREEN["stage:check"], q1_test="", item_kind="feature"), "stage:close queue item": none})
         change = out["result"]["changes"][0]
         self.assertEqual(change["stopped_at"], "close queue item")
         self.assertIn("no test for the queue item", change["detail"])
