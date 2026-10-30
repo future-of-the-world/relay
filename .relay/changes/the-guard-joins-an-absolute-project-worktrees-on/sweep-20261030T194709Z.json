@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0045,
+   "id": "ad60ddd60d1f762aa",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T18:31:57.665Z",
+   "stop": "2026-10-30T18:44:10.494Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "the-guard-joins-an-absolute-project-worktrees-on",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "the-guard-joins-an-absolute-project-worktrees-on"
+}

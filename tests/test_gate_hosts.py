@@ -65,6 +65,11 @@ class Add(VpsBase):
         patcher = mock.patch.object(relay_gate_ssh, "SUBUID_FILE", self.subuid)
         patcher.start()
         self.addCleanup(patcher.stop)
+        # The clean image has no ssh-keygen: a fake on PATH (as the fake ssh) writes the key pair at the -f path. add() only needs the files to
+        # exist and the program to exit 0; what a real key is made of is ssh-keygen's business, not relay's.
+        keygen = os.path.join(self.vps.bin, "ssh-keygen")
+        write(keygen, '#!/bin/sh\nfor a in "$@"; do printf "%s\\n" "$a"; done >> "$(dirname "$0")/ssh-keygen.calls"\nwhile [ $# -gt 0 ]; do [ "$1" = -f ] && out="$2"; shift; done\n'
+                      'echo "fake private key" > "$out"; echo "ssh-ed25519 AAAAfake relay-gate" > "$out.pub"\n', 0o755)
 
     def test_add_proves_the_host_installs_the_program_and_records_it_without_building_or_gating(self):
         lines = relay_hosts.add(HOST, "relay-gate", self.main, self.home)
@@ -74,6 +79,13 @@ class Add(VpsBase):
         self.assertEqual(set(self.vps.podman_calls()), {"info"})      # no build, no create, no gate
         self.assertTrue(all(call["target"] == "relay-gate@" + HOST for call in self.vps.ssh_calls()))
         self.assertIn("recorded %s as relay-gate" % HOST, lines)
+
+    def test_add_asks_ssh_keygen_for_an_unattended_ed25519_key_at_the_gate_key_path(self):
+        relay_hosts.add(HOST, "relay-gate", self.main, self.home)
+        args = read(os.path.join(self.vps.bin, "ssh-keygen.calls")).split("\n")[:-1]
+        # one argument per line: "-N" is followed by an empty line (empty passphrase), else ssh-keygen would prompt
+        pairs = {args[i]: args[i + 1] for i in range(len(args) - 1) if args[i] in ("-t", "-N", "-f")}
+        self.assertEqual(pairs, {"-t": "ed25519", "-N": "", "-f": os.path.join(self.home, "keys", "gate-host")})
 
     def test_a_refused_key_prints_the_three_root_commands_and_writes_no_record(self):
         self.vps.mode({"refuse": True})

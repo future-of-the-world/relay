@@ -22,8 +22,8 @@
   ],
   "taken_at": "2026-10-30T18:44:21Z",
   "taken_by": "wt/critic-rule-test-does-not-prove-relay-delivered",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T19:33:41Z",
+  "test": "tests/test_eval_cases.py::CriticRoleRuleScaffold::test_the_agent_may_not_read_the_rule_file_but_the_hook_still_can",
   "dropped_at": null,
   "dropped_why": null
 }

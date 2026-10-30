@@ -14,6 +14,8 @@ Project rule ROLE-RULE: a parameter that carries a quantity is named `qty`. Any 
 name for it (`amount`, `count`, `n`, `num`) is a CONFIRMED high finding: label it
 `ROLE-RULE`, name the function and the parameter.
 MD
+# The agent may not read the rule file: that deny lives in prompt.md (`disallowed_tools`), the one channel the eval runner
+# honours (its child loads --setting-sources user, so a fixture .claude/settings.json is never read).
 git add .claude/kit/judge.md
 git -c user.name=fixture -c user.email=fixture@example.invalid commit -qm "Project rules for the judge role"
 git checkout -q -b wt/take
