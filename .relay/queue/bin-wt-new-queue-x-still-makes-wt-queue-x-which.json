@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-30T22:35:47Z",
   "taken_by": "wt/bin-wt-new-queue-x-still-makes-wt-queue-x-which",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T23:07:25Z",
+  "test": "tests/test_bin_wt.py::test_queue_prefix_refused",
   "dropped_at": null,
   "dropped_why": null
 }
