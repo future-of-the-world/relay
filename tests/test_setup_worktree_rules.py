@@ -1,5 +1,5 @@
 """relay setup run in a linked worktree writes nothing outside that worktree: the trailing rules sync does not rewrite
-the main checkout's CLAUDE.local.md, and a sync held by a waiting paid run does not make setup exit 1."""
+the main checkout's CLAUDE.local.md, and setup does not wait for a paid run."""
 import os
 import subprocess
 import sys
@@ -54,17 +54,20 @@ class WorktreeSetup(Base):
         with open(os.path.join(main, "CLAUDE.local.md")) as handle:
             self.assertNotIn("hand written", handle.read())   # the unchanged behaviour outside a worktree
 
-    def test_held_sync_exits_zero(self) -> None:
-        main, _ = self.make()
-        # a held sync is simulated through the sitecustomize-free route: a wrapper script that makes sync raise Held
-        code = ("import sys, runpy; sys.path.insert(0, %r); import relay_rules\n"
-                "def held(*a, **k): raise relay_rules.Held('abc123 something merged')\n"
-                "relay_rules.sync = held\n"
-                "sys.argv = [%r, 'setup', %r]\n"
-                "runpy.run_path(%r, run_name='__main__')\n") % (os.path.join(ROOT, "lib"), RELAY_BIN, main, RELAY_BIN)
-        done = subprocess.run([sys.executable, "-c", code], env=dict(os.environ, RELAY_SKIP_PAID_DUE="1"), capture_output=True, text=True)
-        self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertIn("Not synced", done.stderr)
+    def test_setup_on_a_machine_with_no_paid_run_record_writes_the_rules_file(self) -> None:
+        # a new machine has no green paid run recorded, so the paid hold would be on; setup must not wait for it
+        # (like install, wait=False): exit 0 and the project's CLAUDE.local.md written
+        proj = os.path.join(self.tmp, "shop")
+        os.makedirs(proj)
+        git("init", "-q", proj)
+        git("-C", proj, "commit", "-q", "--allow-empty", "-m", "init")
+        env = {k: v for k, v in os.environ.items() if k != "RELAY_SKIP_PAID_DUE"}
+        env["HOME"] = os.path.join(self.tmp, "empty-home")
+        os.makedirs(env["HOME"])
+        done = subprocess.run([sys.executable, RELAY_BIN, "setup", proj], env=env, capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertNotIn("waits for a green paid run", done.stderr)
+        self.assertTrue(os.path.isfile(os.path.join(proj, "CLAUDE.local.md")))
 
 
 if __name__ == "__main__":

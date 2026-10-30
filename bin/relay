@@ -462,12 +462,8 @@ def cmd_setup(args, migrate=False):
         print("\nNot synced from a worktree: run `relay sync` after this branch is merged into the default branch.")
         print("\nCheck: relay doctor " + root)
         return 0
-    try:
-        results = relay_rules.sync(relay_config.active_profile(), only={d["name"]}, adopt=d["name"])
-    except relay_rules.Held:
-        print("\nNot synced: waits for a green paid run (the setup itself is done); run `relay sync` after it.", file=sys.stderr)
-        print("\nCheck: relay doctor " + root)
-        return 0
+    # like install, setup does not wait for a green paid run: a new machine has no record of one
+    results = relay_rules.sync(relay_config.active_profile(), only={d["name"]}, adopt=d["name"], wait=False)
     print("\nSynced: " + "; ".join(f"{n} {state}" for n, _, state in results))
     print("\nCheck: relay doctor " + root)
     return report_refused(results)
