@@ -172,6 +172,30 @@
       "said": [
         "Хорошо, позже я займусь этим, спасибо за анализ, пока он не готов, можем ли мы начать утилизировать ai.amidman.com, это vps и процессор будет медленнее, однако я думаю что основные ограничения именно системные и связаны именно с запуском большого количества процессов, сделай замер"
       ]
+    },
+    {
+      "at": "2026-10-30T01:43:14Z",
+      "fact": [
+        "Measured 30 Oct, same script on this Mac (M2 Max, load 20-48 with 6 lanes) and the VPS ai.amidman.com (8 cores, Linux 6.8, load ~0.2): one process start 5-10 ms on the Mac vs 0.7 ms on the VPS; one git start 27 ms vs 1.5 ms (18x); pure-Python CPU only 1.6x apart (2.6x at 8 copies); the Mac stops gaining at 4 parallel starters (537 starts/s, 405 at 8), the VPS grows to 8 (10,640/s). Three git-heavy test files (150 tests) took 34 s on the VPS vs 158 s on the Mac (4.6-5.6x). Estimated 60,000-95,000 process starts per quick gate, nearly all git; bare git start-up is about 60% of the library-test step (estimate, not counted on the Mac). The owner's hypothesis (process start-up, not CPU) holds."
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T01:43:15Z",
+      "question": [
+        "Should a gate on the VPS ai.amidman.com decide the gates run while a change is built, with the Mac running only the landing gate, or should the Mac keep deciding every gate (owner, 29 Oct: \"пока мы полностью не перешли на linux продолжим делать проверки на mac\")?"
+      ],
+      "options": [
+        "a. The VPS decides the gates during the build, the Mac runs only the landing gate: Mac gates per change from 4.8 to 1 (about 79% fewer Mac gate minutes); a Mac-only break is caught only at landing. Needs first: a green clean-Linux gate, a non-root account on the VPS, the pinned tools installed there, a way to send the commit over ssh.",
+        "b. The Mac keeps deciding every gate; the VPS only compares: saves no Mac gate time.",
+        "c. Leave the VPS alone; make the tests start fewer processes first (each test's git repo built once and copied), which helps both machines."
+      ],
+      "answered_at": "2026-10-30T01:49:42Z",
+      "answer": [
+        "a"
+      ],
+      "reading": [
+        "Option a: the VPS ai.amidman.com decides the gates run while a change is built; the Mac runs only the landing gate. This replaces the 29 Oct rule \"the Mac decides every gate\" for build-time gates; the landing gate on the Mac still decides the merge."
+      ]
     }
   ]
 }

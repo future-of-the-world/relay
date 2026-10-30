@@ -1,0 +1,39 @@
+{
+  "kind": "feature",
+  "ip": 90,
+  "time": 240,
+  "found_at": "2026-10-30T01:49:51Z",
+  "found_in": "relay queue add",
+  "title": "Build-time gates on the VPS, landing gate on the Mac",
+  "what": [
+    "`relay gate` during a build sends the committed head to the VPS over ssh (a non-root account), runs the pinned gate there and records its log so the cycle's gate, fix-gate and check steps read it; the landing gate (`relay land`) still runs on the Mac and alone decides the merge. Falls back to the Mac when the VPS cannot be reached. Prerequisites: the clean-Linux quick gate green (item the-quick-gate-is-red-again-in-a-clean-linux-ima), a non-root account on the VPS with the pinned Python and tools in its home, no change to the VPS's services (gitea, woodpecker, dockerd, a GitHub Actions runner run there as root)."
+  ],
+  "why": [
+    "Owner, 30 Oct, answered \"a\" to: should a gate on the VPS ai.amidman.com decide the gates run while a change is built, with the Mac running only the landing gate. Measured the same day: one git start 27 ms on the loaded Mac vs 1.5 ms on the VPS; three git-heavy test files 158 s vs 34 s; 4.8 gates per landed change today, so Mac gates per change would drop to 1 (about 79% fewer Mac gate minutes)."
+  ],
+  "pass_cases": [
+    "A build-time gate of a change runs on the VPS and its result is what the cycle's review and check read.",
+    "The merge hook accepts a landing only on a Mac gate log of the landed head.",
+    "With the VPS unreachable, the gate runs on the Mac and says so in one line."
+  ],
+  "where": [
+    "lib/relay_gate.py",
+    "lib/relay_land.py",
+    "plugins/relay/hooks/merge.py",
+    "lib/relay_marks.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T01:49:51Z",
+      "said": [
+        "пока он не готов, можем ли мы начать утилизировать ai.amidman.com, это vps и процессор будет медленнее, однако я думаю что основные ограничения именно системные и связаны именно с запуском большого количества процессов, сделай замер"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 82,
+  "time": 20,
+  "found_at": "2026-10-30T01:43:16Z",
+  "found_in": "relay queue add",
+  "title": "The test runner leaves test tokens outside its temp folder",
+  "what": [
+    "tests/run_unittest.py takes its test-token pool from a temp folder (or the gate's pool when a gate passes one) and leaves nothing outside it."
+  ],
+  "why": [
+    "Found 30 Oct while measuring tests on the VPS ai.amidman.com: run on a machine without relay, tests/run_unittest.py created $RELAY_HOME/test-tokens (default ~/.relay, there /root/.relay) and left it behind. Project rule: tests use a temporary folder and never touch live state."
+  ],
+  "failing_case": [
+    "30 Oct on the VPS: after `python3 tests/run_unittest.py <files>` from a temp copy of lib/, tests/, bin/, `/root/.relay/test-tokens` existed (removed by hand)."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "A test runs the runner with HOME and RELAY_HOME unset or pointing at an empty temp dir and finds no new folder outside its temp dir afterwards.",
+    "Under relay gate, the runner still shares the gate's token pool."
+  ],
+  "where": [
+    "tests/run_unittest.py",
+    "lib/relay_tokens.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
