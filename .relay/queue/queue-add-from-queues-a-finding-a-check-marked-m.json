@@ -23,8 +23,8 @@
     "lib/relay_queue.py (add_from)",
     "tests/test_queue.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T23:13:31Z",
+  "taken_by": "wt/task-queue-add-from-queues-a-finding-a-check-marked-m",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
