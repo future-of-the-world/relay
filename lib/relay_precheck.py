@@ -16,6 +16,8 @@ A link not yet committed is not seen: the gate gates the commit.
 import glob
 import os
 import posixpath
+import re
+import shutil
 import subprocess
 import sys
 import time
@@ -47,17 +49,89 @@ def _tail(text: str) -> list[str]:
     return ["    " + ln for ln in text.strip().splitlines()[-TAIL:]]
 
 
+def _find_uv() -> str | None:
+    return shutil.which("uv") or next((p for p in [os.path.join(os.path.expanduser("~"), ".local", "bin", "uv")] if os.access(p, os.X_OK)), None)
+
+
+def _pinned(worktree: str) -> dict[str, str]:
+    """The tool specs bin/types_lint.py runs through uv, as uv takes them; the unpinned name when the file does not say."""
+    try:
+        with open(os.path.join(worktree, "bin", "types_lint.py"), encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        text = ""
+    mypy = re.search(r'^MYPY = "([^"]+)"', text, re.M)
+    ruff = re.search(r'^RUFF = "([^"]+)"', text, re.M)
+    return {"mypy": "mypy==" + mypy.group(1) if mypy else "mypy", "ruff": "ruff@" + ruff.group(1) if ruff else "ruff"}
+
+
+def _running_tool(root_pid: int) -> str | None:
+    """The tool (mypy or ruff) named in the command line of the step's process or one of its descendants, or None."""
+    try:
+        listing = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,command="], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    rows: dict[int, tuple[int, str]] = {}
+    for line in listing.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+            rows[int(parts[0])] = (int(parts[1]), parts[2])
+    family = {root_pid}
+    grew = True
+    while grew:
+        grew = False
+        for pid, (ppid, _) in rows.items():
+            if ppid in family and pid not in family:
+                family.add(pid)
+                grew = True
+    for pid in sorted(family):
+        command = rows.get(pid, (0, ""))[1]
+        for tool in ("mypy", "ruff"):
+            if re.search(r"(^|[\s/=@])" + tool + r"([\s=@]|$)", command):
+                return tool
+    return None
+
+
+def _timeout_lines(worktree: str, running: str | None) -> list[str]:
+    """What follows the timeout line: a tool uv cannot find offline (cold cache, so the step is downloading it) with its install
+    step, else the tool that was still running."""
+    specs = _pinned(worktree)
+    uv = _find_uv()
+    if uv is None:
+        return ["    uv is not installed: install uv (https://docs.astral.sh/uv/), then run relay doctor"]
+    out: list[str] = []
+    for tool, spec in specs.items():
+        try:
+            probe = subprocess.run([uv, "tool", "run", "--offline", spec, "--version"], capture_output=True, timeout=20)
+            absent = probe.returncode != 0
+        except subprocess.TimeoutExpired:
+            absent = False
+        if absent:
+            out.append("    %s is not installed (not in the uv cache): run uv tool install %s, or relay doctor" % (tool, spec))
+    if not out and running:
+        out.append("    still running: %s (%s); a slow machine or a cold cache: run relay doctor" % (running, specs[running]))
+    return out
+
+
 def check_types(worktree: str) -> list[str]:
     script = os.path.join(worktree, "bin", "types-lint")
     if not os.path.exists(script):
         return ["skipped: no bin/types-lint here"]
     try:
-        done = subprocess.run(["bash", script], cwd=worktree, capture_output=True, text=True, timeout=_left())
+        proc = subprocess.Popen(["bash", script], cwd=worktree, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    except OSError as err:
+        what = err.filename or "bash"
+        return ["FAIL types and lint could not start: %s is not installed or not on PATH (run: relay doctor)" % what]
+    try:
+        output, _ = proc.communicate(timeout=_left())
     except subprocess.TimeoutExpired:
-        return ["FAIL types and lint took longer than %d s" % STEP_TIMEOUT]
-    if done.returncode == 0:
+        running = _running_tool(proc.pid)
+        proc.kill()
+        proc.communicate()
+        return ["FAIL types and lint took longer than %d s" % STEP_TIMEOUT] + _timeout_lines(worktree, running)
+    if proc.returncode == 0:
         return []
-    return ["FAIL types and lint (bin/types-lint):"] + _tail(done.stdout + done.stderr)
+    return ["FAIL types and lint (bin/types-lint):"] + _tail(output)
 
 
 def old_python() -> bool:

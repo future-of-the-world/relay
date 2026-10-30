@@ -130,6 +130,55 @@ class TestTypesStep(Base):
         self.assertEqual(found[0], "FAIL types and lint (bin/types-lint):")
         self.assertIn("bin/relay:9: error: Too many arguments", found[1])
 
+    def _set(self, name: str, value: int) -> None:
+        self.addCleanup(setattr, relay_precheck, name, getattr(relay_precheck, name))
+        setattr(relay_precheck, name, value)
+
+    def fake_uv(self, missing: str) -> dict[str, str]:
+        """A uv on PATH that fails the offline probe of the tool named `missing` (empty: every tool is cached)."""
+        bindir = os.path.join(self.repo, "fakebin")
+        os.makedirs(bindir)
+        uv = os.path.join(bindir, "uv")
+        with open(uv, "w") as f:
+            f.write('#!/bin/sh\ncase "$*" in *--offline*%s*) exit 2;; esac\nexit 0\n' % (missing or "NOTHING"))
+        os.chmod(uv, 0o755)
+        return {"PATH": bindir + os.pathsep + os.environ["PATH"]}
+
+    def timed_out(self, body: str, missing: str) -> list[str]:
+        self.script(body)
+        self.write("bin/types_lint.py", 'MYPY = "1.18.2"\nRUFF = "0.13.3"\n')
+        self._set("STEP_TIMEOUT", 1)
+        with mock.patch.dict(os.environ, self.fake_uv(missing)):
+            return relay_precheck.run(self.repo)[1]
+
+    def test_a_timeout_with_mypy_missing_names_mypy_and_the_install_step(self) -> None:
+        # uv cannot find the pinned mypy offline (cold cache): that is why the step is slow, and the line says so and what to run
+        lines = self.timed_out("exec sleep 30\n", "mypy")
+        text = "\n".join(lines)
+        self.assertIn("  FAIL types and lint took longer than 1 s", lines)
+        self.assertIn("mypy is not installed", text)
+        self.assertIn("uv tool install mypy==1.18.2", text)
+        self.assertIn("relay doctor", text)
+        self.assertNotIn("ruff is not installed", text)
+
+    def test_a_real_timeout_names_the_tool_that_was_still_running(self) -> None:
+        # both tools are cached; the step hangs inside a process whose command line is ruff's
+        lines = self.timed_out("exec python3 -c 'import time; time.sleep(30)' ruff@0.13.3\n", "")
+        text = "\n".join(lines)
+        self.assertIn("  FAIL types and lint took longer than 1 s", lines)
+        self.assertIn("still running: ruff (ruff@0.13.3)", text)
+        self.assertNotIn("not installed", text)
+
+    def test_a_types_step_that_cannot_start_says_why(self) -> None:
+        self.script("exit 0\n")
+
+        def broken(cmd: list[str], *a: object, **k: object) -> None:
+            raise FileNotFoundError(2, "No such file or directory", "bash")
+
+        with mock.patch.object(relay_precheck.subprocess, "Popen", broken):
+            found = relay_precheck.check_types(self.repo)
+        self.assertEqual(found[0], "FAIL types and lint could not start: bash is not installed or not on PATH (run: relay doctor)")
+
     def test_a_clean_types_step_is_clean_and_a_missing_one_says_so(self) -> None:
         self.script("exit 0\n")
         self.assertEqual(relay_precheck.check_types(self.repo), [])
