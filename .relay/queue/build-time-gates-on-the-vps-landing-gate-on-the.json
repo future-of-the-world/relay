@@ -49,6 +49,13 @@
       "options": [
         "a. relay does it: the owner says yes once; 3 commands as root, once.",
         "b. The owner runs the same 3 commands and pastes one key."
+      ],
+      "answered_at": "2026-10-30T02:26:18Z",
+      "answer": [
+        "a"
+      ],
+      "reading": [
+        "relay creates the relay-gate account on ai.amidman.com itself with the owner's root login (3 commands, once, each shown before it runs)."
       ]
     }
   ]
