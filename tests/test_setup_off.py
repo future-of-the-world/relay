@@ -96,11 +96,60 @@ class Writes(Fixture):
         self.run_setup(root, off=[GOPLS])
         self.assertEqual(self.plugins(root), T1_PLUGINS)
         data = self.settings(root)
-        self.assertEqual(data["extraKnownMarketplaces"]["amidman"]["source"], {"source": "directory", "path": self.rs.marketplace_root()})
+        self.assertNotIn("extraKnownMarketplaces", data)   # the marketplace path is the machine's: not in a committed file
         self.assertEqual(data["permissions"]["allow"], ["Bash(kit:*)", "Bash(bin/kit:*)", "Bash(relay:*)"])
         self.assertEqual(self.read(root, ".claude/kit.toml"), kit + "\n[rules]\nload = []\nread = []\n")   # [delegate] equals the default: nothing added; only register_project's [rules] table is appended
         self.assertEqual(self.read(root, "bin/ci"), ci)
         self.assertEqual(self.files(root) - before, {".claude/settings.json", ".gitignore"})   # setup adds the ignore lines a check and worktrees need; no bin/check, bin/wt, CLAUDE.md, settings.local.json
+
+    def test_t1b_committed_settings_hold_no_absolute_path_and_done_names_each_addition(self):
+        # Fresh repo: nothing of this machine's path may land in settings.json; the Done list names the three permissions
+        # and the openspec switch (set false) that setup added, one line each.
+        root = self.relay_tree()
+        *_, done, _ = self.run_setup(root, off=[GOPLS])
+        self.assertNotIn(self.rs.marketplace_root(), self.read(root, ".claude/settings.json"))
+        for rule in ("Bash(kit:*)", "Bash(bin/kit:*)", "Bash(relay:*)"):
+            self.assertTrue(any(f"added permission {rule}" in line for line in done), (rule, done))
+        self.assertTrue(any("added openspec@amidman = false" in line for line in done), done)
+
+    def test_t1c_an_old_marketplace_path_is_removed_and_said_and_own_entries_stay(self):
+        # An earlier setup wrote relay's path; it goes, and the Done list says so. The project's own marketplace, permission and key stay.
+        root = self.relay_tree()
+        self.write(root, ".claude/settings.json", json.dumps({
+            "extraKnownMarketplaces": {"amidman": {"source": {"source": "directory", "path": self.rs.marketplace_root()}},
+                                       "mine": {"source": {"source": "github", "repo": "me/x"}}},
+            "permissions": {"allow": ["Bash(make:*)"]}, "model": "x"}))
+        *_, done, _ = self.run_setup(root, off=[GOPLS])
+        data = self.settings(root)
+        self.assertEqual(data["extraKnownMarketplaces"], {"mine": {"source": {"source": "github", "repo": "me/x"}}})
+        self.assertEqual(data["permissions"]["allow"], ["Bash(make:*)", "Bash(kit:*)", "Bash(bin/kit:*)", "Bash(relay:*)"])
+        self.assertEqual(data["model"], "x")
+        self.assertTrue(any("removed the amidman marketplace path" in line for line in done), done)
+
+    def test_f2_a_switch_flipped_true_to_false_is_named_in_done(self):
+        # Project file has openspec@amidman true; the run turns it false (relay tree, no openspec folder): one Done line names that flip.
+        root = self.relay_tree()
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"openspec@amidman": True}}))
+        *_, done, _ = self.run_setup(root, off=[GOPLS])
+        flips = [line for line in done if "openspec@amidman" in line]
+        self.assertEqual(len(flips), 1, done)
+        self.assertIn("true -> false", flips[0])
+
+    def test_f2_a_key_already_false_gets_no_line(self):
+        root = self.relay_tree()
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"openspec@amidman": False}}))
+        *_, done, _ = self.run_setup(root, off=[GOPLS])
+        self.assertFalse([line for line in done if "openspec@amidman" in line], done)
+
+    def test_f1_docs_describe_what_setup_writes_into_settings_json(self):
+        # docs/setup.md: no marketplace written there, the three permissions named, the old entry removed.
+        with open(os.path.join(ROOT, "docs", "setup.md")) as handle:
+            text = handle.read()
+        bullet = text.split("- `.claude/settings.json`:")[1].split("\n- ")[0]
+        self.assertNotIn("the relay marketplace and the plugins", bullet)
+        for rule in ("Bash(kit:*)", "Bash(bin/kit:*)", "Bash(relay:*)"):
+            self.assertIn(rule, bullet)
+        self.assertIn("relay setup --global", bullet)
 
     def test_t2_second_run_changes_nothing(self):
         root = self.relay_tree()

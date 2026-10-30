@@ -13,8 +13,9 @@ never overwrites:
 - `.claude/kit.toml` with `[project]`, `[gate]`, `[flow]`, `[delegate]`,
   `[observe]`. A project that already has a kit.toml
   gets only the sections whose value is not what a missing section means: `[specs]` for a method other than `none`;
-- `.claude/settings.json`: the relay marketplace and the plugins for the
-  flow (`relay`, `observe`, `delegate`, `front`, + `openspec`), `Bash(kit:*)` allowed. Relay's plugins the project does not use get `false`, and so does each plugin of
+- `.claude/settings.json`: the plugins for the
+  flow (`relay`, `observe`, `delegate`, `front`, + `openspec`), and `Bash(kit:*)`, `Bash(bin/kit:*)`, `Bash(relay:*)` allowed, each named in the done list.
+  No marketplace path is written (it is the machine's, kept in `~/.claude/settings.json` by `relay setup --global`); an old directory entry of relay's marketplace is removed and said in the done list. Relay's plugins the project does not use get `false`, and so does each plugin of
   another marketplace named with `--off <name@marketplace>` (repeat the flag; the id must be one Claude Code's registry
   knows, e.g. `--off gopls-lsp@claude-plugins-official`). A `false` in the project's file beats the user's `true`.
   A key of a plugin relay no longer ships and sits under the marketplace's current name (`issues@amidman`, `product@amidman`) is dropped and said in the done list, and `relay doctor` reports it until setup runs; keys of the old marketplace name (`issues@relay`, `core@relay`) are left as they are (no backward compatibility, 28 Oct). A re-run keeps a key that is already there, except where the run's flags or kit.toml decide it; `relay doctor`
