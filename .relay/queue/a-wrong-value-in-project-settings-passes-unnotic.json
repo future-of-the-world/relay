@@ -46,6 +46,21 @@
       "fact": [
         "Design review 30 Oct 2026 (F3), revised plan section 9: pass case 3 now reads: typed_only = \"false\" (text, not a boolean) is reported as a problem and the strict default true is used."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T16:40:08Z",
+      "question": [
+        "Should the gate stop a branch whose project settings file (.claude/kit.toml) has a mistake (an unknown key, a wrong value such as build_tier_opus = \"denny\")?"
+      ],
+      "options": [
+        "a. the gate refuses the branch and names the key",
+        "b. relay doctor and the hooks only report it"
+      ],
+      "decided_by": "front",
+      "chosen": "a",
+      "because": [
+        "principle 10 and the item itself: the failing case is a typo that silently switches a guard off; a report only in doctor needs someone to remember to run it. A freshly set-up project is tested to have 0 problems, so a refusal only meets a real mistake. Owner can reverse."
+      ]
     }
   ]
 }
