@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0044,
+   "id": "a191b5a96cdb43a8b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T18:04:50.259Z",
+   "stop": "2026-10-30T18:17:23.250Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "a-wrong-value-in-project-settings-passes-unnotic",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "a-wrong-value-in-project-settings-passes-unnotic"
+}

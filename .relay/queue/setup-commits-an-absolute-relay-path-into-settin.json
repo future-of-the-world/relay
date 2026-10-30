@@ -23,8 +23,8 @@
   "where": [
     "lib/relay_setup.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T19:37:10Z",
+  "taken_by": "wt/setup-commits-an-absolute-relay-path-into-settin",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
