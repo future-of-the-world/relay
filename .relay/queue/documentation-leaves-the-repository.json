@@ -58,6 +58,32 @@
       "fact": [
         "Measured 30 Oct: `relay --help` prints 90 lines, a flat list of 35 command forms with their arguments (not one line per command); `relay <command> --help` prints that command's slice of the same hand-written text (queue 43 lines, check 23, setup 7, gate 7, bench 6, land 4), forms and flags on one line, no per-flag lines; 20 commands in bin/relay's dispatch table, `metrics` missing from help, and `relay metrics --help` prints the whole top-level help instead. README.md is 120 lines."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T05:40:45Z",
+      "question": [
+        "Where does the session state (today docs/handover.md, which relay setup writes into every project and relay doctor checks) live once docs/ leaves the repository?"
+      ],
+      "options": [
+        "a. keep it in the repository until the item that derives state from facts lands (recommended: measured, 20 of 28 recent owner decisions have no queue item to hold them)",
+        "b. a local file under $RELAY_HOME now, about 75 agent minutes (a guess); not in git, so not seen from other machines",
+        "c. no file; the queue alone, about 60 agent minutes (a guess); decisions about no item are lost at the next compaction"
+      ],
+      "answered_at": "2026-10-30T05:43:14Z",
+      "answer": [
+        "Зачем нам хранить рецензию на план ? Строго говоря ценность плана эфемерна, необходима лишь пока задача не выполнена, однако оставим для историчности, ведь ей необходимо быть в гит репозитории, как мы будем хранить эту рецензию, что если рецензий будет несколько",
+        "",
+        "handover пока не трогаем, оставляем как есть"
+      ],
+      "reading": [
+        "a: the handover stays in the repository as it is for now."
+      ]
+    },
+    {
+      "at": "2026-10-30T05:40:52Z",
+      "fact": [
+        "Front decision (owner can reverse; principle 9), from the reviewed design (rev 2, 30 Oct): docs leave file by file, the handover last. `relay --help` becomes one line per command (about 28 lines from 90; metrics shows; a test fails when a command takes more than one line); `relay <cmd> --help` and `relay help <cmd>` print the command's forms plus an optional long help kept in that command's own module, written only after the command leaves bin/relay (1,173 lines, over the 600 cap). docs/macos.md goes with speed-up-the-quick-gate; START_HERE.md removed; README cut to the install lines; plugins/relay/README.md (227 lines) moves into `relay gate --help` and kit.toml comments. Measured: Haiku answered design questions from the plugins at $0.027 in 29 turns. Estimate about 5 h of agent time (a guess)."
+      ]
     }
   ]
 }
