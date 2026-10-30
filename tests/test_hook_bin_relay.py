@@ -97,7 +97,7 @@ class BinRelayHook(SoftCases):
         self.assertTrue(os.path.exists(index + ".lock"))
 
 
-class WrapperLookup(unittest.TestCase):
+class WrapperLookup(SoftCases):
     """The plugin's bin/relay wrapper finds the repository through the amidman marketplace entry."""
 
     WRAPPER = os.path.join(ROOT, "plugins", "front", "bin", "relay")
