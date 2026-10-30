@@ -55,27 +55,9 @@ def set_cap(usd, path=None):
 
 
 def land_cap(usd):
-    """Set the cap where the next paid run reads it: with RELAY_PROJECTS the file in place; else one commit of projects.toml
-    on the default branch, landed the way `relay queue` lands its file (the main checkout stays clean). Returns the line to print."""
-    if os.environ.get("RELAY_PROJECTS"):
-        set_cap(usd)
-        return f"{usd:.12g}"
-    import relay_queue
-    from relay_config import ROOT
-
-    def planner(reader):
-        blob = relay_queue.cat_batch(reader.main, [f"{reader.rev}:projects.toml"])[0]
-        if blob is None:
-            raise relay_queue.Refused("the default branch has no projects.toml")
-        try:
-            new = with_cap(blob.decode("utf-8"), usd)
-        except ValueError as e:
-            raise relay_queue.Refused(str(e))
-        return relay_queue.Plan("paid-cap", {"projects.toml": new}, f"cap {usd:.12g}", "set")
-    try:
-        relay_queue._land(ROOT, planner)
-    except relay_queue.Refused as e:
-        raise ValueError(str(e))
+    """Set the cap where the next paid run reads it: the registry file (RELAY_PROJECTS, else <RELAY_HOME>/projects.toml)
+    in place; no commit, the registry is per machine. Returns the line to print."""
+    set_cap(usd)
     return f"{usd:.12g}"
 
 

@@ -33,7 +33,10 @@ def projects_file() -> str:
     old = LEGACY_PROJECTS
     if not os.path.isfile(target) and os.path.isfile(old):
         os.makedirs(home_dir(), exist_ok=True)
-        shutil.move(old, target)
+        try:
+            shutil.move(old, target)
+        except FileNotFoundError:   # another relay process moved it between the check and the move
+            return target
         print(f"relay: moved the project registry {old} to {target} (it now lives under RELAY_HOME)", file=sys.stderr)
     return target
 
