@@ -12,13 +12,10 @@ The pick: queue order (fixes first, then ip), skipping an item with an unanswere
 `where` names a file that a running branch has already changed (committed against the default branch, or modified in its
 worktree): that item waits, and the line says which file and branch. Used by the front's hooks (plugins/front/hooks/lanes.py)
 and by `relay queue start`. Settings, in the project's .claude/kit.toml under [front]:
-  lanes_line_items  default 3, bound 0-10   startable items named after the picks ("next: ...") so a stuck pick hides nothing; 0 is the line
-                                            without "next:" (at 10 about 250 tokens per message). Out of bounds: the default, and the line says so
-  feature_lanes     default 0, bound 0..lanes  lanes kept for features (relay: 3): while fewer feature lanes run, a free lane goes to the top startable
-                                            feature before any fix; the line shows "N of M fix lanes, K of J feature lanes"; 0 is no split
+  lanes_line_items  default 3, bound 0-10   startable items named after the picks ("next: ...") so a stuck pick hides nothing; 0 is the line without "next:" (at 10 about 250 tokens per message). Out of bounds: the default, and the line says so
+  feature_lanes     default 0, bound 0..lanes  lanes kept for features (relay: 3): while fewer feature lanes run, a free lane goes to the top startable feature before any fix; the line shows "N of M fix lanes, K of J feature lanes"; 0 is no split
   stop_nudge        default 1, bound 0-2    Stop refusals per observed lane state and session (0: the line only; 2: a hold costs two extra turns)
-  lane_quiet_hours  default 3, bound 1-24   a worktree with no item counts as a lane while changed within this (at 1 a long gate drops it
-                                            from the count; at 24 a parked branch holds a lane for a day)
+  lane_quiet_hours  default 3, bound 1-24   a worktree with no item counts as a lane while changed within this (at 1 a long gate drops it from the count; at 24 a parked branch holds a lane for a day)
 Tests: tests/test_lanes_state.py
 """
 
@@ -508,8 +505,7 @@ def build_brief(item: dict, worktree: str, branch: str, scratch: str, name: str,
              f"Queue item ({item['kind']}, ip {item['ip']}): `{item['slug']}`, already taken by this branch. Read it with `relay queue show {item['slug']}`: "
              "its notes hold the owner's words and answers.", "",
              "What:", relay_queue.joined(item, "what"), "", "Why:", relay_queue.joined(item, "why")]
-    if plan:
-        lines += ["", f"Plan: {plan} (read it first; the section \"what changed after the review\" says what the design review found)"]
+    if plan: lines += ["", f"Plan: {plan} (read it first; the section \"what changed after the review\" says what the design review found)"]
     if item.get("failing_case"):
         lines += ["", "Failing case:", relay_queue.joined(item, "failing_case")]
     if item.get("pass_cases"):
