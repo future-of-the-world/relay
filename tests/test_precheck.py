@@ -44,49 +44,78 @@ class Base(unittest.TestCase):
         git(self.repo, "commit", "-q", "-m", "x")
 
 
-class TestLibCopies(Base):
+class TestLibLinks(Base):
+    """The step `plugin lib links`: every tracked entry under plugins/*/lib is a link to the one source in lib/ (or prices.toml),
+    or a plugin-only kit_* file or agent-roles.tsv. Read from HEAD."""
+
+    def link(self, rel: str, target: str) -> None:
+        path = os.path.join(self.repo, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        os.symlink(target, path)
+
     def setUp(self) -> None:
         super().setUp()
-        for rel in ("lib/relay_q.py", "plugins/relay/lib/relay_q.py", "plugins/front/lib/relay_q.py"):
-            self.write(rel, "X = 1\n")
+        self.write("lib/relay_q.py", "X = 1\n")
         self.write("prices.toml", "a = 1\n")
+        self.link("plugins/relay/lib/relay_q.py", "../../../lib/relay_q.py")
+        self.link("plugins/front/lib/relay_q.py", "../../../lib/relay_q.py")
+        self.link("plugins/relay/lib/prices.toml", "../../../prices.toml")
+        self.write("plugins/relay/lib/kit_guard.py", "K = 1\n")
+        self.write("plugins/relay/lib/agent-roles.tsv", "a\tb\n")
+        self.commit()
+
+    def test_links_and_plugin_only_files_are_clean(self) -> None:
+        self.assertEqual(relay_precheck.check_lib_links(self.repo), [])
+
+    def test_a_regular_copy_of_a_lib_module_is_named_with_the_link_command(self) -> None:
+        # a copy again, equal to the source: the old identical-copies check would have passed it
+        os.remove(os.path.join(self.repo, "plugins/front/lib/relay_q.py"))
+        self.write("plugins/front/lib/relay_q.py", "X = 1\n")
+        self.commit()
+        found = relay_precheck.check_lib_links(self.repo)
+        self.assertEqual(len(found), 1)
+        self.assertIn("plugins/front/lib/relay_q.py", found[0])
+        self.assertIn("ln -sf ../../../lib/relay_q.py", found[0])
+
+    def test_a_regular_prices_copy_is_named(self) -> None:
+        os.remove(os.path.join(self.repo, "plugins/relay/lib/prices.toml"))
         self.write("plugins/relay/lib/prices.toml", "a = 1\n")
         self.commit()
-
-    def test_identical_copies_are_clean(self) -> None:
-        self.assertEqual(relay_precheck.check_lib_copies(self.repo), [])
-
-    def test_a_stale_copy_names_the_copy_and_the_sync_command_and_nothing_is_written(self) -> None:
-        # lib/ edited and committed, copies left behind: the case of the queue item. The gate would go red on it.
-        self.write("lib/relay_q.py", "X = 2\n")
-        self.commit()
-        before = git(self.repo, "status", "--porcelain") + git(self.repo, "rev-parse", "HEAD")
-        found = relay_precheck.check_lib_copies(self.repo)
-        # both copies differ from lib/, in the gate's plugin order (front before core)
-        self.assertEqual(len(found), 2)
-        self.assertIn("plugins/front/lib/relay_q.py", found[0])
-        self.assertIn("plugins/relay/lib/relay_q.py", found[1])
-        self.assertIn("bin/sync-lib-copies", found[0])
-        self.assertEqual(git(self.repo, "status", "--porcelain") + git(self.repo, "rev-parse", "HEAD"), before)
-        with open(os.path.join(self.repo, "plugins/relay/lib/relay_q.py"), encoding="utf-8") as handle:
-            self.assertEqual(handle.read(), "X = 1\n")
-
-    def test_copies_synced_but_not_committed_still_fail(self) -> None:
-        # the gate gates HEAD: a refreshed working copy that is not committed is still red there
-        self.write("lib/relay_q.py", "X = 2\n")
-        self.commit()
-        for rel in ("plugins/relay/lib/relay_q.py", "plugins/front/lib/relay_q.py"):
-            self.write(rel, "X = 2\n")
-        self.assertEqual(len(relay_precheck.check_lib_copies(self.repo)), 2)
-        self.commit()
-        self.assertEqual(relay_precheck.check_lib_copies(self.repo), [])
-
-    def test_a_stale_prices_copy_fails(self) -> None:
-        self.write("prices.toml", "a = 2\n")
-        self.commit()
-        found = relay_precheck.check_lib_copies(self.repo)
+        found = relay_precheck.check_lib_links(self.repo)
         self.assertEqual(len(found), 1)
         self.assertIn("plugins/relay/lib/prices.toml", found[0])
+
+    def test_a_stray_head_file_left_by_a_distinct_types_merge_is_named(self) -> None:
+        # git renames the branch's regular file to relay_q.py~HEAD when master has a link: a plain `git add -A` commits it
+        self.write("plugins/front/lib/relay_q.py~HEAD", "X = 1\n")
+        self.commit()
+        found = relay_precheck.check_lib_links(self.repo)
+        self.assertEqual(len(found), 1)
+        self.assertIn("plugins/front/lib/relay_q.py~HEAD", found[0])
+        self.assertIn("git rm", found[0])
+
+    def test_a_link_to_the_wrong_file_is_named(self) -> None:
+        os.remove(os.path.join(self.repo, "plugins/front/lib/relay_q.py"))
+        self.write("lib/relay_other.py", "Y = 1\n")
+        self.link("plugins/front/lib/relay_q.py", "../../../lib/relay_other.py")
+        self.commit()
+        found = relay_precheck.check_lib_links(self.repo)
+        self.assertEqual(len(found), 1)
+        self.assertIn("plugins/front/lib/relay_q.py", found[0])
+
+    def test_a_link_to_a_missing_source_is_named(self) -> None:
+        self.link("plugins/front/lib/relay_gone.py", "../../../lib/relay_gone.py")
+        self.commit()
+        found = relay_precheck.check_lib_links(self.repo)
+        self.assertEqual(len(found), 1)
+        self.assertIn("plugins/front/lib/relay_gone.py", found[0])
+
+    def test_the_check_reads_head_and_writes_nothing(self) -> None:
+        os.remove(os.path.join(self.repo, "plugins/front/lib/relay_q.py"))
+        self.write("plugins/front/lib/relay_q.py", "X = 1\n")   # a copy in the working tree only, not committed
+        before = git(self.repo, "status", "--porcelain") + git(self.repo, "rev-parse", "HEAD")
+        self.assertEqual(relay_precheck.check_lib_links(self.repo), [])
+        self.assertEqual(git(self.repo, "status", "--porcelain") + git(self.repo, "rev-parse", "HEAD"), before)
 
 
 class TestTypesStep(Base):
@@ -144,7 +173,7 @@ class TestPython39Hooks(Base):
         self.assertEqual(code, 1)
         self.assertIn("RED  python 3.9", lines)
         self.assertIn("  FAIL python 3.9 took longer than 1 s", lines)
-        self.assertTrue(any(ln.endswith("lib copies identical") or "lib copies identical" in ln for ln in lines))
+        self.assertTrue(any(ln.endswith("plugin lib links") or "plugin lib links" in ln for ln in lines))
 
 
 class TestRootAndSkips(Base):
@@ -155,7 +184,7 @@ class TestRootAndSkips(Base):
         self.commit()
 
     def test_from_a_subfolder_the_repository_is_checked(self) -> None:
-        # F2: git ls-tree from tests/ lists paths relative to it, so the stale copy was never seen
+        # F2: git ls-tree from tests/ lists paths relative to it, so the stray copy was never seen
         self.stale()
         code, lines = relay_precheck.run(os.path.join(self.repo, "tests"))
         self.assertEqual(code, 1)
@@ -163,12 +192,13 @@ class TestRootAndSkips(Base):
 
     def test_from_a_subfolder_identical_copies_are_green(self) -> None:
         self.write("lib/relay_q.py", "X = 1\n")
-        self.write("plugins/relay/lib/relay_q.py", "X = 1\n")
+        os.makedirs(os.path.join(self.repo, "plugins/relay/lib"))
+        os.symlink("../../../lib/relay_q.py", os.path.join(self.repo, "plugins/relay/lib/relay_q.py"))
         self.write("tests/keep.txt", "x\n")
         self.commit()
         code, lines = relay_precheck.run(os.path.join(self.repo, "tests"))
         self.assertEqual(code, 0, lines)
-        self.assertIn("ok   lib copies identical", lines)
+        self.assertIn("ok   plugin lib links", lines)
 
     def test_outside_a_repository_head_cannot_be_read(self) -> None:
         plain = tempfile.mkdtemp(prefix="precheck-plain-")
@@ -183,16 +213,17 @@ class TestRootAndSkips(Base):
         self.commit()
         code, lines = relay_precheck.run(self.repo)
         self.assertEqual(code, 0, lines)
-        self.assertFalse([ln for ln in lines if ln.startswith("ok   python") or ln.startswith("ok   lib copies")], lines)
-        self.assertTrue(any(ln.startswith("skip lib copies identical") for ln in lines), lines)
+        self.assertFalse([ln for ln in lines if ln.startswith("ok   python") or ln.startswith("ok   plugin lib links")], lines)
+        self.assertTrue(any(ln.startswith("skip plugin lib links") for ln in lines), lines)
         if relay_precheck.old_python():
             self.assertTrue(any(ln.startswith("skip python 3.9") for ln in lines), lines)
 
     def test_a_checked_copy_is_still_ok(self) -> None:
         self.write("lib/relay_q.py", "X = 1\n")
-        self.write("plugins/relay/lib/relay_q.py", "X = 1\n")
+        os.makedirs(os.path.join(self.repo, "plugins/relay/lib"))
+        os.symlink("../../../lib/relay_q.py", os.path.join(self.repo, "plugins/relay/lib/relay_q.py"))
         self.commit()
-        self.assertIn("ok   lib copies identical", relay_precheck.run(self.repo)[1])
+        self.assertIn("ok   plugin lib links", relay_precheck.run(self.repo)[1])
 
 
 class TestChangedTests(Base):
@@ -416,13 +447,11 @@ class TestChangedTests(Base):
 class TestCommand(Base):
     def test_run_reports_every_step_and_exits_1_when_one_is_red(self) -> None:
         self.write("lib/relay_q.py", "X = 1\n")
-        self.write("plugins/relay/lib/relay_q.py", "X = 1\n")
-        self.commit()
-        self.write("lib/relay_q.py", "X = 2\n")
+        self.write("plugins/relay/lib/relay_q.py", "X = 1\n")   # a regular copy: the step is red
         self.commit()
         code, lines = relay_precheck.run(self.repo)
         self.assertEqual(code, 1)
-        self.assertIn("RED  lib copies identical", lines)
+        self.assertIn("RED  plugin lib links", lines)
         self.assertTrue(lines[-1].startswith("precheck: RED"))
 
     def test_the_relay_command_runs_it_and_passes_the_exit_code(self) -> None:
@@ -432,7 +461,7 @@ class TestCommand(Base):
         done = subprocess.run([sys.executable, RELAY, "precheck", "-C", self.repo], capture_output=True, text=True)
         self.assertEqual(done.returncode, 1, done.stderr)
         self.assertIn("plugins/relay/lib/relay_q.py", done.stdout)
-        self.assertIn("bin/sync-lib-copies", done.stdout)
+        self.assertIn("ln -sf ../../../lib/relay_q.py", done.stdout)
 
 
 if __name__ == "__main__":

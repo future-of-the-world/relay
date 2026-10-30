@@ -4,17 +4,18 @@
 Steps, in this order:
   types and lint   bin/types-lint, the whole tree (a changed signature breaks callers in other files)
   python 3.9       every plugin lib module imports, and every hook survives an empty event, under /usr/bin/python3
-  lib copies       each lib/relay_*.py and prices.toml against its copies under plugins/*/lib, read from HEAD, as the gate
-                   reads them; a difference prints the copy's path and the sync command, then fails
+  plugin lib links every tracked entry under plugins/*/lib is a link to its one source in lib/ (or prices.toml), or a plugin-only
+                   kit_* file or agent-roles.tsv, read from HEAD as the gate reads it; a copy or a stray file prints its path and the fix
 
   changed tests    the tests/test_*.py files changed since the default branch, and test_rules_gate.RuleTestsComplete, under plain
                    python3 with tests/run_unittest.py: the gate's runner (a pytest-only import or an unlisted rules reader fails here too)
 
-A copy refreshed by bin/sync-lib-copies but not committed still fails: the gate gates the commit.
+A link not yet committed is not seen: the gate gates the commit.
 """
 
 import glob
 import os
+import posixpath
 import subprocess
 import sys
 import time
@@ -93,34 +94,53 @@ def check_python39(worktree: str) -> list[str]:
     return out
 
 
-def _head_file(worktree: str, rel: str) -> bytes | None:
-    done = _git(worktree, "show", "HEAD:" + rel)
-    return done.stdout if done.returncode == 0 else None
+def _link_problem(worktree: str, rel: str, mode: str, sha: str, files: set[str]) -> str | None:
+    """Why one tracked entry under plugins/<p>/lib/ breaks the allow-list; None when it is allowed."""
+    name = rel.rsplit("/", 1)[-1]
+    in_lib = ("lib/" + name in files) or name == "prices.toml"
+    source = "prices.toml" if name == "prices.toml" else "lib/" + name
+    if mode == "120000":
+        blob = _git(worktree, "cat-file", "blob", sha)
+        target = blob.stdout.decode("utf-8", "replace") if blob.returncode == 0 else ""
+        resolved = posixpath.normpath(posixpath.join(posixpath.dirname(rel), target))
+        if resolved == source and source in files:
+            return None
+        return "FAIL %s is a link to %r: it must point to the one source, %s (ln -sf %s %s)" % (
+            rel, target, source, "../../../" + source, rel)
+    # kit_* are the plugin-only modules and agent-roles.tsv the role table: they exist once already. A name with "~" is never one
+    # (git leaves `<name>~HEAD` when a merge meets a file on one side and a link on the other).
+    if "~" not in name and (name.startswith("kit_") or name == "agent-roles.tsv") and rel.count("/") == 3:
+        return None
+    if in_lib and rel.count("/") == 3:
+        return "FAIL %s is a copy of %s: replace it with a link, ln -sf ../../../%s %s" % (rel, source, source, rel)
+    return ("FAIL %s is a stray file under plugins/*/lib: git rm it if a merge left it (<name>~HEAD); "
+            "a new plugin-only file is named kit_* or added to the allow-list in relay_precheck._link_problem" % rel)
 
 
-def check_lib_copies(worktree: str) -> list[str]:
-    """The gate's `lib copies identical` step, on the committed tree. Read-only."""
-    listing = _git(worktree, "ls-tree", "-r", "--name-only", "HEAD")
+def check_lib_links(worktree: str) -> list[str]:
+    """The gate's `plugin lib links` step, on the committed tree: each lib module exists once, in lib/ (and prices.toml at the root);
+    every tracked entry under plugins/*/lib/ is a link to it or a plugin-only file. Read-only."""
+    listing = _git(worktree, "ls-tree", "-r", "-z", "HEAD")
     if listing.returncode != 0:
-        return ["FAIL lib copies: cannot read HEAD: " + listing.stderr.decode("utf-8", "replace").strip()]
-    files = set(listing.stdout.decode("utf-8").splitlines())
+        return ["FAIL plugin lib links: cannot read HEAD: " + listing.stderr.decode("utf-8", "replace").strip()]
+    entries: dict[str, tuple[str, str]] = {}
+    for record in listing.stdout.decode("utf-8", "replace").split("\0"):
+        info, _, rel = record.partition("\t")
+        parts = info.split()
+        if rel and len(parts) == 3:
+            entries[rel] = (parts[0], parts[2])
+    files = set(entries)
     out: list[str] = []
     checked = 0
-    for plugin in PLUGINS:
-        for rel in sorted(files):
-            parts = rel.split("/")
-            if len(parts) == 4 and parts[:2] == ["plugins", plugin] and parts[2] == "lib" and parts[3].startswith("relay_") \
-                    and parts[3].endswith(".py"):
-                lib = "lib/" + parts[3]
-                checked += 1
-                if lib not in files or _head_file(worktree, rel) != _head_file(worktree, lib):
-                    out.append("FAIL %s differs from %s in the last commit: run bin/sync-lib-copies and commit" % (rel, lib))
-        prices = "plugins/%s/lib/prices.toml" % plugin
-        checked += prices in files
-        if prices in files and (("prices.toml" not in files) or _head_file(worktree, prices) != _head_file(worktree, "prices.toml")):
-            out.append("FAIL %s differs from prices.toml in the last commit: run bin/sync-lib-copies and commit" % prices)
+    for rel in sorted(entries):
+        parts = rel.split("/")
+        if len(parts) >= 4 and parts[0] == "plugins" and parts[2] == "lib":
+            checked += 1
+            problem = _link_problem(worktree, rel, entries[rel][0], entries[rel][1], files)
+            if problem:
+                out.append(problem)
     if not out and checked == 0:
-        return ["skipped: no plugin lib copies here"]
+        return ["skipped: no plugin lib files here"]
     return out
 
 
@@ -187,7 +207,7 @@ def check_changed_tests(worktree: str) -> list[str]:
     return failed
 
 
-STEPS = (("types and lint", check_types), ("python 3.9", check_python39), ("lib copies identical", check_lib_copies),
+STEPS = (("types and lint", check_types), ("python 3.9", check_python39), ("plugin lib links", check_lib_links),
          ("changed tests", check_changed_tests))
 
 

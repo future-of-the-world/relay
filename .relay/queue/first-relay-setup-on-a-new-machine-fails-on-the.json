@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-30T00:52:19Z",
   "taken_by": "wt/first-relay-setup-on-a-new-machine-fails",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T02:52:21Z",
+  "test": "tests/test_setup_worktree_rules.py::WorktreeSetup::test_setup_on_a_machine_with_no_paid_run_record_writes_the_rules_file",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

@@ -1,0 +1,99 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1773,
+   "id": "ab7117fbe7d821607",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T00:22:01.564Z",
+   "stop": "2026-10-30T00:38:55.704Z"
+  },
+  {
+   "cost_usd": 0.0052,
+   "id": "a63f14431fb08e61d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T00:38:57.844Z",
+   "stop": "2026-10-30T01:03:46.179Z"
+  },
+  {
+   "cost_usd": 0.6984,
+   "id": "ae87c0094b026fc18",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T01:03:48.503Z",
+   "stop": "2026-10-30T01:05:58.549Z"
+  },
+  {
+   "cost_usd": 0.3177,
+   "id": "aeeb129f2ae321c44",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 34,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T01:06:00.949Z",
+   "stop": "2026-10-30T01:40:18.926Z"
+  },
+  {
+   "cost_usd": 0.0064,
+   "id": "af2f85795800ade95",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T01:40:21.304Z",
+   "stop": "2026-10-30T02:09:42.249Z"
+  },
+  {
+   "cost_usd": 0.1368,
+   "id": "a8237c6ad75773e3b",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T02:09:44.506Z",
+   "stop": "2026-10-30T02:10:34.419Z"
+  }
+ ],
+ "before": "cd279b90ef8e773bf2185dfd914d621cb5ca0207",
+ "branch": "wt/the-front-reviews-code-itself-instead-of",
+ "head": "c79f75c3fdf63566ce9c74c4ab5d44450ebd8a06",
+ "item": "the-front-reviews-code-itself-instead-of-startin",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T00:08:28+00:00",
+   "file": "plugins/front/skills/front/SKILL.md",
+   "holder": "wt/a-queue-question-can-be-answered-by-an-a",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T03:45:59+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T04:01:55+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T04:18:59+00:00",
+   "gate_seconds": 943.5537230418995,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "the-front-reviews-code-itself-instead-of-startin"
+}

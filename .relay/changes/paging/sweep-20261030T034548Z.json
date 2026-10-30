@@ -1,0 +1,56 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.5744,
+   "id": "a7da2e88bc9d26dbb",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "c80f90a0-8007-4b93-a72e-e077d61ec758",
+   "stage": "review",
+   "start": "2026-10-30T02:16:22.019Z",
+   "stop": "2026-10-30T02:18:22.301Z"
+  },
+  {
+   "cost_usd": 0.362,
+   "id": "af469968aa18949de",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "611b5f43-e5d4-46c6-bdc4-d5ba1600c9fc",
+   "stage": "review",
+   "start": "2026-10-30T02:20:46.809Z",
+   "stop": "2026-10-30T02:21:47.157Z"
+  },
+  {
+   "cost_usd": 0.507,
+   "id": "a1ec5df44ed5bf209",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "d877381a-3b0a-48a3-ae00-e9d555310ad0",
+   "stage": "review",
+   "start": "2026-10-30T02:26:41.875Z",
+   "stop": "2026-10-30T02:28:08.432Z"
+  },
+  {
+   "cost_usd": 0.3644,
+   "id": "ad6f642bd400860ed",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "382e8eb3-b99c-4a04-b490-78bf7a37ee38",
+   "stage": "review",
+   "start": "2026-10-30T02:31:03.929Z",
+   "stop": "2026-10-30T02:32:09.026Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "paging"
+}

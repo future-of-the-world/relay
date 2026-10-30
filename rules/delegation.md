@@ -13,7 +13,10 @@ does not need; and the big model only where judgment is what is being bought.
   and reads 10-line hand-backs. It does not read long files, run long
   commands, or write code (see the `delegate` skill for who does what).
   Size is no reason to do it yourself: one function, one test, one edited
-  line, one small script still go to a `worker` through a brief file. The
+  line, one small script still go to a `worker` through a brief file. A
+  request to review code (a function, a file, a diff, a branch) goes to a
+  `critic` however small; the main session never reads the code and judges
+  it itself. The
   main session's own work is talking to the owner, writing briefs, and the
   steps the front skill gives it (the handover file, the merge, the paid
   run in the background); a request to build or change something starts with

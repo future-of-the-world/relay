@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.8635,
+   "id": "a11f773d8d2f4095b",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 36,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design",
+   "start": "2026-10-30T01:50:20.033Z",
+   "stop": "2026-10-30T02:03:20.187Z"
+  },
+  {
+   "cost_usd": 1.8816,
+   "id": "a31519ccee004bdba",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 21,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design review",
+   "start": "2026-10-30T02:03:22.760Z",
+   "stop": "2026-10-30T02:10:59.485Z"
+  },
+  {
+   "cost_usd": 2.8404,
+   "id": "a4de50d04f1dc9066",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 16,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design revise",
+   "start": "2026-10-30T02:11:02.083Z",
+   "stop": "2026-10-30T02:19:00.788Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "vps-build-gates"
+}
