@@ -362,10 +362,8 @@ def reused_red(red: tuple[int, str, list[str]]) -> tuple[int, str, list[str]]:
 def signal_line(number: int, command_pid: int = 0, since: float = 0.0) -> str:
     """The gate log's line for a command ended by a signal: relay's record of the stop (to its pid or group, from `since`), else "not sent by relay"."""
     name = {int(s): s.name for s in signal.Signals}.get(number, "signal %d" % number)
-    try:
-        record = relay_procs.sent_by_relay(command_pid, since) if command_pid else None
-    except OSError as exc:
-        return "gate command ended by %s, cannot tell whether relay sent it (the signal log %s could not be read: %s)" % (name, relay_procs.signal_log(), exc)
+    try: record = relay_procs.sent_by_relay(command_pid, since) if command_pid else None
+    except OSError as exc: return "gate command ended by %s, cannot tell whether relay sent it (the signal log %s could not be read: %s)" % (name, relay_procs.signal_log(), exc)
     return "gate command ended by %s, sent by relay: %s" % (name, record) if record else "gate command ended by %s, not sent by relay (no record of it in %s)" % (name, relay_procs.signal_log())
 
 
@@ -567,11 +565,9 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                 finally:
                     if proc is not None:      # the command's whole process group ends before the slot is freed
                         try:
-                            relay_procs.record_sent(proc.pid, True, signal.SIGKILL, "gate: its command ended, the command's group is cleaned up" if proc.poll() is not None
-                                                    else "gate: the gate was stopped while its command ran, the command's group is ended")
+                            relay_procs.record_sent(proc.pid, True, signal.SIGKILL, "gate: its command ended, the command's group is cleaned up" if proc.poll() is not None else "gate: the gate was stopped while its command ran, the command's group is ended")
                             os.killpg(proc.pid, signal.SIGKILL)
-                        except OSError:
-                            pass
+                        except OSError: pass
                         proc.wait()
                 why = tree_moved(worktree, head)
                 if why is not None:

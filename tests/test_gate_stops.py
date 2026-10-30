@@ -292,7 +292,7 @@ class SenderReasons(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, test_gate.GIT_ENV); patcher.start(); self.addCleanup(patcher.stop)
         f.repo(gate='echo $$ > "%s/pid"\nexit 0\n' % f.tmp)
         relay_gate.run(f.wt, environ=f.env)
-        pid = int(open(os.path.join(f.tmp, "pid")).read())
+        pid = wait_pid(os.path.join(f.tmp, "pid"), WAIT)
         self.assertIn("sent SIGKILL to group %d: gate: its command ended" % pid, open(path, encoding="utf-8").read())
 
     def test_f6_a_gate_stopped_while_its_command_runs_names_the_stop(self):
@@ -311,7 +311,7 @@ class SenderReasons(unittest.TestCase):
         thread = threading.Thread(target=stopper); thread.start(); self.addCleanup(thread.join)
         with self.assertRaises(SystemExit):
             relay_gate.run(f.wt, environ=f.env)
-        pid = int(open(os.path.join(f.tmp, "pid")).read())
+        pid = wait_pid(os.path.join(f.tmp, "pid"), WAIT)
         text = open(path, encoding="utf-8").read()
         self.assertIn("sent SIGKILL to group %d: gate: the gate was stopped while its command ran" % pid, text)
         self.assertNotIn("its command ended", text)
