@@ -127,6 +127,15 @@ class Tidy(unittest.TestCase):
         self.assertIn("merged worktree still present: .worktrees/%s (wt/%s)" % (name, name), text)
         self.assertEqual([t for t in text if t.startswith("leftover queue branch")], ["leftover queue branch: wt/queue-y"])
 
+    def test_short_is_one_to_one_on_queue_slugs(self):
+        # Hand-worked: "queue-x" -> "task-queue-x"; "task-queue-x" must not collide, so it gets one more "task-".
+        s = relay_lanes._short
+        self.assertNotEqual(s("queue-x"), s("task-queue-x"))
+        self.assertNotEqual(s("task-queue-x"), s("task-task-queue-x"))
+        self.assertFalse(s("queue-items-x").startswith("queue-"))
+        self.assertEqual(s("refuse-folder-x"), "refuse-folder-x")
+        self.assertEqual(s("task-other"), "task-other")
+
     def test_nothing_to_report_is_empty(self):
         self.task("u")                                   # unmerged only
         self.assertEqual(relay_tidy.lines(self.main), [])

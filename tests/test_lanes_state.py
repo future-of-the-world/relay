@@ -907,6 +907,13 @@ class BranchNames(LaneBase):
         self.assertEqual(second["branch"], "wt/" + self.B)
         self.assertNotEqual(first["worktree"], second["worktree"])
 
+    def test_start_names_a_queue_slug_branch_task_queue(self):
+        # Hand-worked: wt/queue-* is a landing branch, so start() on slug queue-items-x makes wt/task-queue-items-x
+        slug = "queue-items-x"
+        self.seed({Q + slug + ".json": item(slug)})
+        out = json.loads(rl.start(self.main, slug, os.path.join(self.tmp, "scratch")))
+        self.assertEqual(out["branch"], "wt/task-queue-items-x")
+
     def test_a_branch_name_never_ends_inside_a_word(self):
         # the name is the whole slug, so it ends where the slug ends (here after "tokens-outside-its-t", a slug the queue cut itself)
         slug = "the-test-runner-leaves-test-tokens-outside-its-t"

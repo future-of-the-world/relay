@@ -476,8 +476,8 @@ def stop_refusal(state: State, stamp: str, nudge: int, session: str) -> Optional
 
 # ---------------------------------------------------------------- relay queue start
 
-def _short(slug: str) -> str:  # whole slug (unique); `wt/queue-*` is a queue-landing branch, so a task branch never starts so
-    return "task-" + slug if slug.startswith("queue-") else slug
+def _short(slug: str) -> str:  # whole slug; `wt/queue-*` is a landing branch, so (task-)*queue-* gets one more "task-": one-to-one
+    return "task-" + slug if re.match(r"(task-)*queue-", slug) else slug
 
 
 def _check_for(worktree: str, where: list[str]) -> str:
