@@ -22,10 +22,10 @@
   "where": [
     "plugins/delegate/workflows/cycle.js (close step)"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-30T00:08:40Z",
+  "taken_by": "wt/a-close-runner-refuses-on-the-run-s-firs",
+  "closed_at": "2026-10-30T00:51:44Z",
+  "test": "tests/test_cycle_workflow.py::test_close_prompt_says_closing_is_the_cycles_rule_not_the_agents_call",
   "dropped_at": null,
   "dropped_why": null
 }

@@ -36,6 +36,12 @@
       "fact": [
         "30 Oct, front decision (owner can reverse; principle 9, follows from principles 2 and 7): build the reviewed design reports/design-lib-one-copy.md now with relative symlinks for the 34 copied files under plugins/*/lib (31 .py, 3 prices.toml); estimated 55 agent minutes plus 35-40 to resolve the two open branches that touch copies, against about 30 agent minutes a day of fix-up commits if it waited (design estimates, not measured). Relay's folder as seen by shared code stays as today; its three wrong reads are a separate fix item. Windows out of scope."
       ]
+    },
+    {
+      "at": "2026-10-30T02:26:55Z",
+      "fact": [
+        "Front decision (owner can reverse; principle 6, the same conflict a second time): the take of master conflicted twice (30 Oct) because other branches landed edits to plugins/*/lib copies while this branch was being checked. Until this branch lands, the front holds the landing of other ready branches that change plugins/*/lib or lib/, so the second take is the last."
+      ]
     }
   ]
 }

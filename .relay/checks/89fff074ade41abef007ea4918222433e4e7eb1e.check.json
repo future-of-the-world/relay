@@ -1,0 +1,133 @@
+{
+  "branch": "wt/a-queue-question-can-be-answered-by-an-a",
+  "findings": [
+    {
+      "details": [
+        "_haystack (lib/relay_queue.py:2120-2124) joins n.text + n.options + n.answer + n.reading; the new `because` field is left out.",
+        "The owner's stated purpose is to come back later and find who took a decision; the reason is the part most likely to hold the",
+        "search word. evals/plugin/relay-stub.py `find` searches the whole JSON file, so in evals the stub finds what the real command",
+        "misses (its comment says \"like the real command\"). CONFIRMED by a direct call. Size: 5 agent minutes (one term in _haystack,",
+        "three copies, one test)."
+      ],
+      "evidence": [
+        "python3 -I -c '... rq._haystack(item) ...' on the worktree:",
+        "because-word found: False",
+        "question-word found: True"
+      ],
+      "failing_case": [
+        "Item job with one decided note: question [\"**Timer length**\"], options a/b, decided_by \"front\", chosen \"a\", because [\"Principle 2: cache rewrite\"].",
+        "`relay queue show rewrite` (search_items over _haystack) finds nothing; `relay queue show timer` finds job.",
+        "Expected: a word of the reason finds the item, as a word of the question, options, answer or reading does."
+      ],
+      "fix_hint": [
+        "parts += n.text + n.options + n.because + n.answer + n.reading in _haystack (and the two plugin copies)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 2122,
+      "pass_cases": [
+        "1. decided note with because [\"Principle 2: cache rewrite\"]: search_items([item], \"rewrite\") returns [item].",
+        "2. same item: search_items([item], \"timer\") returns [item] (today).",
+        "3. owner question with no decision, answer [\"\u0434\u0430\u0432\u0430\u0439 30\"]: search_items([item], \"\u0434\u0430\u0432\u0430\u0439\") returns [item] (today).",
+        "4. item without the word anywhere: search_items([item], \"zebra\") returns []."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue_notes.py:657-667 passes; fails at base 41512b276acc; lib change adds n.because to _haystack in all three copies."
+      ],
+      "severity": "LOW",
+      "since": "41512b276acc0779bf31113389068af1121b0e85",
+      "source": "review-a-queue-question-can-be-answered-by-an-a.json",
+      "source_id": "F1",
+      "summary": "relay queue show <words> does not search a decision's `because`, so a decision cannot be found by its reason (the eval stub does find it)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "lib/relay_queue.py note(): `if len(waiting) > 1 or waiting[0].decided_by` refuses an answer without `to` when any answerable note",
+        "is a decision. Standing decisions are never answered, so every later owner answer on that item needs `to`, permanently. The",
+        "refusal names the times (principle 10 holds), so this costs one refused call, not wrong data. CONFIRMED by reading",
+        "(test_an_answer_without_to_names_every_answerable_question_when_a_decision_is_among_them). Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "grep -n \"without `to` the answer goes\" plugins/front/skills/front/SKILL.md -> 97",
+        "lib/relay_queue.py note(), answer branch: refusal when several answerable or waiting[0].decided_by"
+      ],
+      "failing_case": [
+        "Item job has a standing front decision D (asked T1, never answered: decisions stay unanswered by design) and later one owner question Q (T2).",
+        "The front follows SKILL.md line 97 and records the owner's reply with `answer` and no `to`.",
+        "Now: refused (\"job can take this answer on 'Q' (asked T2) and 'D' (decided T1); add `to`\"); the skill text promised it lands on Q.",
+        "Expected: the skill text says `to` is needed whenever the item carries an unanswered decision of the front, so the first try is right."
+      ],
+      "fix_hint": [
+        "Reword the parenthesis on line 97: \"without `to` the answer goes to the only waiting question when the item has no unanswered decision of yours; otherwise name it in `to`\"."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 97,
+      "pass_cases": [
+        "1. SKILL.md line on `answer` names the case: without `to` it goes to the only waiting owner question, and only when no decision of the front is still unanswered on the item.",
+        "2. The decisions paragraph (SKILL.md:234-237) keeps: a reversal names the decision's time in `to`.",
+        "3. rules/queue.md stays consistent with 1 (\"`to` = the asked time when several wait\" or a decision is on the item)."
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "low",
+      "reason": [
+        "plugins/front/skills/front/SKILL.md and rules/queue.md reworded to say the answer needs `to` when a decision of the front is on the item."
+      ],
+      "severity": "LOW",
+      "since": "41512b276acc0779bf31113389068af1121b0e85",
+      "source": "review-a-queue-question-can-be-answered-by-an-a.json",
+      "source_id": "F2",
+      "summary": "front skill still says an answer without `to` goes to the only waiting question; it is now refused whenever a standing decision is on the item",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "The brief said the front had already filed the list item and the build should not file a second one; the queue shows two,",
+        "filed a minute apart. Queue records are the front's, not part of this change. CONFIRMED by reading the items. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "git log: dc849888 03:06:55 queue: relay-queue-decisions-a-list-of-every-decision; f7c187ca 03:07:52 queue: all-decisions-by-owner-and-agents-readable-in-on",
+        "both open, ip 70 and 80."
+      ],
+      "failing_case": [
+        "master .relay/queue holds relay-queue-decisions-a-list-of-every-decision (ip 70, found 2026-10-29T23:06:55Z, title \"relay queue decisions: a list of every decision\")",
+        "and all-decisions-by-owner-and-agents-readable-in-on (ip 80, found 23:07:51Z, \"All decisions, by owner and agents, readable in one place\").",
+        "Both stay open; two lanes could build the same view. Expected: one item."
+      ],
+      "fix_hint": [
+        "The front closes the ip-70 one as a duplicate of the ip-80 one (moving any text it lacks)."
+      ],
+      "id": "F3",
+      "kind": "outside",
+      "line": 1,
+      "pass_cases": [
+        "1. Exactly one open item on master describes the decisions list (Part 2 of the design).",
+        "2. The kept item holds the owner's words and the design pointer of the other.",
+        "3. guard-hook-an-agent-never-records-the-owner-s-an (ip 70) stays open, untouched."
+      ],
+      "path": ".relay/queue/relay-queue-decisions-a-list-of-every-decision.json",
+      "rank": "low",
+      "reason": [
+        "Duplicate queue items; the front closes the ip-70 one. Agreed."
+      ],
+      "severity": "LOW",
+      "since": "41512b276acc0779bf31113389068af1121b0e85",
+      "source": "review-a-queue-question-can-be-answered-by-an-a.json",
+      "source_id": "F3",
+      "summary": "two open queue items ask for the same list of all decisions (ip 70 and ip 80)",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "a60259723d4ffa9463132bd8e496e1782464eee5.gate.log",
+  "head": "89fff074ade41abef007ea4918222433e4e7eb1e",
+  "item": null,
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range 41512b276acc..HEAD. Gate log head a602597 exit 0, no file changed since. test_queue_notes.py 65 passed. New test fails at the base commit (line 662)."
+  ],
+  "type": "check"
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 30,
+  "found_at": "2026-10-30T00:28:13Z",
+  "found_in": "relay queue add",
+  "title": "relay metrics has no time window",
+  "what": [
+    "Add a time window (`--since 6h|1d|<date>`, `--until`) and a bucket option (`--by hour|day|week`, default week) to the `relay metrics` summary, so stage medians, gate time and cost per unit can be compared across buckets."
+  ],
+  "why": [
+    "The owner asked for stage and gate times over the last hours and expected the metrics command to answer; it groups only by ISO week, so \"the last few hours\" cannot be asked. Its absence from `relay help` is item every-new-relay-command-edits-bin-relay."
+  ],
+  "failing_case": [
+    "30 Oct 2026: `bin/relay metrics` prints only \"2026-W44:\" with one block for the whole week; no option narrows it to hours."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "`relay metrics --since 12h --by hour` prints one block per hour with per-stage median and total, gate time, cost per unit; an empty hour prints a line saying so.",
+    "An unknown option is refused with the usage line, not a traceback."
+  ],
+  "where": [
+    "lib/relay_metrics.py:459-470 main"
+  ],
+  "taken_at": "2026-10-30T00:34:19Z",
+  "taken_by": "wt/relay-metrics-has-no-time-window",
+  "closed_at": "2026-10-30T01:28:56Z",
+  "test": "tests/test_metrics_window.py::Window::test_coverage_outside_the_window_makes_no_block",
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T00:28:13Z",
+      "said": [
+        "Я полагал что ты воспользуешься встроенным механизмом metrics, он должен отвечать на эти вопросы, он был введен совсем недавно и мне было интересно как он работает"
+      ]
+    }
+  ]
+}

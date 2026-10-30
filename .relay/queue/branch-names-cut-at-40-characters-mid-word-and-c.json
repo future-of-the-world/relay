@@ -1,0 +1,41 @@
+{
+  "kind": "fix",
+  "ip": 84,
+  "time": 30,
+  "found_at": "2026-10-30T01:57:17Z",
+  "found_in": "relay queue add",
+  "title": "Branch names cut at 40 characters mid-word and can collide",
+  "what": [
+    "Find whether the 40-character limit has a reason (a path or socket length limit); if not, use the full slug; if so, cut at a word boundary and make the name unique (refuse or add a short suffix when a branch of that name exists or a second item maps to it). Match metrics units by the item's recorded branch, not by a prefix."
+  ],
+  "why": [
+    "The owner saw \"taken_by\": \"wt/the-test-runner-leaves-test-tokens-outsi\" and asked why it is cut. lib/relay_lanes.py:401 `_short` cuts the slug at 40 characters with no reason in code or history; 259 of 303 queue slugs are longer than 40. Measured 30 Oct: 4 pairs of items share the same 40-character name (read-only-guard-lets-a-critic-run-relay, refuse-folder-and-pattern-entries-in-whe, test-scaffolding-for-per-command-modules, type-check-subfolders-and-cap-module-siz), so two such items would get one branch, and relay_metrics.py:126 matches units by the first 40 characters too."
+  ],
+  "failing_case": [
+    "30 Oct: `relay queue start` gave branch wt/the-test-runner-leaves-test-tokens-outsi for item the-test-runner-leaves-test-tokens-outside-its-t; 4 pairs of existing slugs map to one 40-character name."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "Two items whose slugs share the first 40 characters get two different branches.",
+    "A branch name never ends inside a word, or is the full slug.",
+    "relay metrics shows one unit per item for those two items."
+  ],
+  "where": [
+    "lib/relay_lanes.py:401-402 _short",
+    "lib/relay_metrics.py:126"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T01:57:17Z",
+      "said": [
+        "\"taken_by\": \"wt/the-test-runner-leaves-test-tokens-outsi\", this is cutted, why /"
+      ]
+    }
+  ]
+}

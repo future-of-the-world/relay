@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0034,
+   "id": "a044278a1a96a28ca",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-29T22:27:48.949Z",
+   "stop": "2026-10-29T22:28:06.184Z"
+  },
+  {
+   "cost_usd": 0.0046,
+   "id": "a044278a1a96a28ca",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-29T22:27:48.949Z",
+   "stop": "2026-10-29T22:28:09.796Z"
+  },
+  {
+   "cost_usd": 0.0076,
+   "id": "a4d17911504e1a9f1",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-29T22:43:57.986Z",
+   "stop": "2026-10-29T22:44:38.549Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "other",
+ "land": [],
+ "schema": 1,
+ "unit": "stale-worktrees"
+}

@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1355,
+   "id": "a28349a1bfbfddce4",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-29T22:39:40.197Z",
+   "stop": "2026-10-29T22:43:56.531Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "test-churn-keeps-fseventsd-at-a-full-core-and-7",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "test-churn-keeps-fseventsd-at-a-full-core-and-7"
+}

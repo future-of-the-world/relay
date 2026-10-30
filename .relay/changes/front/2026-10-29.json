@@ -1,0 +1,17 @@
+{
+ "agents": [],
+ "before": null,
+ "branch": null,
+ "front": {
+  "basis": "estimate",
+  "cost_usd": 77.4974,
+  "day": "2026-10-29",
+  "sessions": 4
+ },
+ "head": null,
+ "item": null,
+ "kind": "front",
+ "land": [],
+ "schema": 1,
+ "unit": "front"
+}

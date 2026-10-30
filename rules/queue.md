@@ -29,7 +29,8 @@ An item holds the owner's words verbatim and dated facts, never a link to a sess
 written fresh when the item is taken. What is said or measured about an item after it was created goes into it as a
 note the same turn, without being asked: the owner's words (`said`), a measurement (`fact`), a question before it is
 shown (`question`, `options`), the owner's whole reply when it comes (`answer`, with the front's `reading`
-apart; `to` = the asked time when several wait). A question about no item first adds the item; one about several is noted on the item it decides.
+apart, `chosen` = the letters; `to` = the asked time when several wait or a decision of the front is on the item). A decision the front takes itself is a question note
+with `chosen`, `decided_by` and `because`, never a fact, and never on a question the owner was asked. A question about no item first adds the item; one about several is noted on the item it decides.
 `relay queue note <slug> --input <file.toml>` writes notes; `relay queue show <slug or words>` prints them. A session
 file path (`/tmp/...`, `/private/tmp/...`, a scratchpad file) in text the front writes is refused by `add`, `drop`,
 `done --evidence` and `note`; the owner's own words are kept as given.

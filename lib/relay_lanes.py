@@ -223,7 +223,7 @@ def mode_of(item: dict) -> str:
 
 
 def _waiting_question(item: dict) -> bool:
-    return bool(relay_queue._waiting(relay_queue.notes_of(item)))
+    return bool(relay_queue.owner_waiting(relay_queue.notes_of(item)))
 
 
 def _one_lane_per_train(main: str, running: list[Lane], trees: dict[str, str], when: float, quiet_hours: int) -> list[Lane]:

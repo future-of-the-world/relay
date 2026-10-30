@@ -76,6 +76,56 @@ class Ledger(SoftCases):
         self.send({"hook_event_name": "Stop", "session_id": "s", "cwd": "/p", "transcript_path": self.t, "last_assistant_message": "hello"})
         self.has(r'"event": "stop".*"context": 50100')  # 100 input + 50000 cache read
 
+    def test_workflow_agent_without_a_start_hook_still_gets_a_start_event(self) -> None:
+        # Claude Code sent no SubagentStart for this workflow agent: only the stop arrives. The ledger must still hold
+        # one agent_start (stamped with the agent's first transcript line, 10:00:00Z) before the one agent_stop.
+        folder = os.path.join(self.home, "sub", "workflows", "wf_abc")
+        os.makedirs(folder)
+        transcript = os.path.join(folder, "agent-w1.jsonl")
+        self.write(transcript, json.dumps(TRANSCRIPT_LINE) + "\n")
+        stop = {"hook_event_name": "SubagentStop", "session_id": "s", "cwd": "/p", "agent_id": "w1", "agent_type": "delegate:runner",
+                "agent_transcript_path": transcript}
+        self.send(stop)
+        self.assertEqual(self.count(r'"event": "agent_start".*"agent_id": "w1"'), 1)
+        self.assertEqual(self.count(r'"event": "agent_stop".*"agent_id": "w1"'), 1)
+        self.has(r'"ts": "2026-10-19T10:00:00Z", "event": "agent_start"')
+
+    def test_stop_without_type_or_transcript_is_a_side_call_not_an_agent_stop(self) -> None:
+        # The shape of 222 of 222 unmatched stops on 29 Oct: empty agent_type, no agent transcript anywhere.
+        self.send({"hook_event_name": "SubagentStop", "session_id": "s", "cwd": "/p", "agent_id": "zz9", "agent_type": "",
+                   "transcript_path": os.path.join(self.home, "none.jsonl"), "last_assistant_message": "x" * 35})
+        self.assertEqual(self.count(r'"event": "agent_stop"'), 0)  # no agent_stop left without an agent_start
+        self.assertEqual(self.count(r'"event": "side_call".*"agent_id": "zz9".*"reply_chars": 35'), 1)
+
+    def test_typed_agent_without_transcript_is_still_an_agent_stop(self) -> None:
+        self.send({"hook_event_name": "SubagentStop", "session_id": "s", "cwd": "/p", "agent_id": "r9", "agent_type": "delegate:runner",
+                   "transcript_path": os.path.join(self.home, "none.jsonl"), "last_assistant_message": "hello"})
+        self.assertEqual(self.count(r'"event": "agent_stop".*"agent_id": "r9".*"reply_chars": 5'), 1)
+
+    def test_has_start_scans_each_day_file_once_and_finds_either_day(self) -> None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("ledger_hook", HOOK)
+        mod = importlib.util.module_from_spec(spec)
+        old = os.environ.get("RELAY_HOME")
+        os.environ["RELAY_HOME"] = self.home
+        self.addCleanup(lambda: os.environ.pop("RELAY_HOME") if old is None else os.environ.__setitem__("RELAY_HOME", old))
+        spec.loader.exec_module(mod)
+        opened = []
+        real = open
+        mod.open = lambda p, *a, **k: (opened.append(p), real(p, *a, **k))[1]
+        self.assertFalse(mod.has_start("w1", "2026-10-19T10:00:00Z", "2026-10-19T11:00:00Z"))
+        self.assertEqual(len(opened), 1)  # same day: one open
+        os.makedirs(os.path.join(self.home, "ledger"), exist_ok=True)
+        self.write(os.path.join(self.home, "ledger", "2026-10-20.jsonl"), '{"event": "agent_start", "agent_id": "w1"}\n')
+        self.assertTrue(mod.has_start("w1", "2026-10-19T23:59:00Z", "2026-10-20T00:01:00Z"))
+
+    def test_a_recorded_start_is_not_doubled_by_the_stop(self) -> None:
+        # The start hook did fire: the stop must add no second start (the start is stamped now, the stop reads the same day file).
+        self.send({"hook_event_name": "SubagentStart", "session_id": "s", "cwd": "/p", "agent_id": "a1", "agent_type": "delegate:scout"})
+        self.send({"hook_event_name": "SubagentStop", "session_id": "s", "cwd": "/p", "agent_id": "a1", "agent_type": "delegate:scout",
+                   "transcript_path": self.t})
+        self.assertEqual(self.count(r'"event": "agent_start"'), 1)
+
     def test_tool_pre_with_subagent_and_escalated_flag(self) -> None:
         self.send({"hook_event_name": "PreToolUse", "session_id": "s", "cwd": "/p", "tool_name": "Agent", "tool_use_id": "t1",
                    "tool_input": {"subagent_type": "delegate:worker", "model": "sonnet"}})
