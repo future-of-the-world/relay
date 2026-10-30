@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.4022,
+   "id": "a0fcb88e2760431bc",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 25,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-30T08:14:14.875Z",
+   "stop": "2026-10-30T08:19:31.403Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "other",
+ "land": [],
+ "schema": 1,
+ "unit": "trial-relay-on-clean-relay"
+}
