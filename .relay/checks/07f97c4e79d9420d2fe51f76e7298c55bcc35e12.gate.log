@@ -1,0 +1,18 @@
+head 07f97c4e79d9420d2fe51f76e7298c55bcc35e12
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (1s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (399s, log: .ci/steps/library-tests.log)
+    FAIL: test_no_test_parses_a_file_it_read_itself_with_int (test_pidfile.OnlyThroughTheHelper.test_no_test_parses_a_file_it_read_itself_with_int)
+    AssertionError: Lists differ: ['test_gate_stops.py:295', 'test_gate_stops.py:314'] != []
+    FAIL: test_tree_passes (test_module_sizes.ModuleSizes.test_tree_passes)
+    AssertionError: Lists differ: ['lib/relay_gate.py has 604 lines, limit 6[63 chars]ct)'] != []
+    FAILED (failures=2)
+ci: coverage 89.1% of lib, bin, plugins (15999 of 17958 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (5s)
+ci: plugin validate ok (4s)
+ran on a copy without queue, handover and check records; covers every commit with the same code
+ci: RED
+exit 1
