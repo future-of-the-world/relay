@@ -177,6 +177,28 @@ class MacOnlyRed(Comparing):
         self.assertIn("Mac-only red, flaky on the Mac: %s" % judged[:12], text)
         self.assertIn("agreeing pairs in a row: 1", text)
 
+    def mac_log(self, commit, step, code=1):
+        write(os.path.join(self.main, ".relay", "checks", commit + ".gate.log"), "head %s\ncmd bin/ci --quick\nci: %s FAILED\n  boom\nexit %d\n" % (commit, step, code))
+        git(self.main, "add", "-A")
+        git(self.main, "commit", "-q", "-m", "relay: gate of " + commit)
+
+    def red_at_step_then_later_red_at(self, later_step):
+        judged = self.setup_red()
+        self.mac_log(judged, "library tests")      # the red landing's own Mac log (first step: library tests)
+        c0 = self.inert()
+        self.mac_log(c0, later_step)
+        return judged
+
+    def test_a_later_red_mac_gate_at_the_same_step_is_reproduced(self):
+        judged = self.red_at_step_then_later_red_at("library tests")
+        self.assertIn("Mac-only red, reproduced on the Mac: %s" % judged[:12], self.text())
+
+    def test_a_later_red_mac_gate_at_another_step_is_not_reproduced(self):
+        self.red_at_step_then_later_red_at("lint")
+        text = self.text()
+        self.assertNotIn("reproduced on the Mac", text)
+        self.assertIn("not re-run on the Mac", text)
+
     def test_a_later_red_mac_gate_is_reproduced_and_breaks_the_streak(self):
         judged = self.setup_red()
         self.later_mac_log(judged, 1)
@@ -301,6 +323,45 @@ class Rerun(Comparing):
         self.assertEqual([os.path.basename(p) for p in relay_gate_compare.run_files(self.folder, sha)], [sha + ".remote.gate.log"])
 
 
+class StaleAndNoVerdict(Rerun):
+    def test_a_watch_that_cannot_run_keeps_the_earlier_green_result_of_that_commit(self):
+        self.run_watch([0])
+        sha = self.master()
+        with mock.patch.object(relay_gate_ssh, "gate", side_effect=relay_gate_ssh.Unavailable("gone", "unreachable")):
+            relay_gate_watch.watch(self.main, sha, self.home)
+        # the host answered nothing: the green file of `sha` stays until a new run has an end line
+        self.assertEqual([os.path.basename(p) for p in relay_gate_compare.run_files(self.folder, sha)], [sha + ".remote.gate.log"])
+        found = relay_gate_watch.newest_watch(self.wt)
+        self.assertEqual((found[0], found[1]), (sha, 0))
+
+    def test_a_twin_gating_that_cannot_run_a_second_time_keeps_the_first_twins_file(self):
+        sha = self.master()
+        folder, host = os.path.join(self.folder, "twin"), relay_hosts.first(self.home)
+        with mock.patch.object(relay_gate_ssh, "gate", side_effect=[result(0)]):
+            relay_gate_watch.gate_runs(self.main, host, self.home, sha, folder, relay_gate_ssh.TWIN_PINNED)
+        with mock.patch.object(relay_gate_ssh, "gate", side_effect=relay_gate_ssh.Unavailable("gone", "unreachable")):
+            relay_gate_watch.gate_runs(self.main, host, self.home, sha, folder, relay_gate_ssh.TWIN_PINNED)
+        self.assertEqual(read(os.path.join(folder, sha + ".remote.gate.log")).splitlines()[-1], "exit 0")
+
+    def test_a_red_run_then_a_rerun_stopped_at_its_limit_files_nothing_and_the_red_run_stands(self):
+        self.run_watch([1, 124])
+        self.assertEqual(self.fix_items(), [])
+        remote, _ = relay_gate_watch.build_remote(self.wt, self.home)
+        self.assertNotEqual(remote.default_red, "")
+
+    def test_a_first_run_stopped_at_its_limit_alone_files_nothing_and_leaves_the_branch_clean(self):
+        self.run_watch([124])
+        self.assertEqual(self.fix_items(), [])
+        self.assertEqual(relay_gate_watch.build_remote(self.wt, self.home)[0].default_red, "")
+
+    def test_the_comparison_takes_the_newest_run_with_a_verdict(self):
+        sha = self.master()
+        self.watch_file(sha, 1)
+        self.rerun_file(sha, 1, 124)
+        linux = relay_gate_compare.linux_result(self.main, sha)
+        self.assertEqual(linux.codes, [1])
+
+
 class LandingTwin(Land):
     def setUp(self):
         super().setUp()
@@ -384,10 +445,33 @@ class Twin(Comparing):
         self.assertEqual(self.spawned(), [])
         self.assertIn("no Linux result (sending stopped): %s" % self.judged[:12], self.text())
 
-    def test_no_twin_when_the_stretch_has_a_remote_log_and_the_pair_comes_from_that_log(self):
-        write(os.path.join(self.main, ".relay", "checks", self.judged + ".remote.gate.log"), "head %s\ncmd bin/ci --quick\nwait 0.0\nhost x\nok\nexit 1\n" % self.judged)
+    def committed_branch_log(self, code):
+        """A build-time remote log committed on the branch (not in the main checkout's working tree), after the commit it names."""
+        b = self.judged
+        write(os.path.join(self.wt, ".relay", "checks", b + ".remote.gate.log"), "head %s\ncmd bin/ci --quick\nwait 0.0\nhost x\nok\nexit %d\n" % (b, code))
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "relay: remote gate of " + b)
+        self.assertFalse(os.path.exists(os.path.join(self.main, ".relay", "checks", b + ".remote.gate.log")))
+        # setUp's red event judged b; only the inert log came after b on the branch, so the landing's stretch holds the log
+
+    def spawned_for(self, sha):
+        calls = []
+        relay_gate_watch.start_twin_after_landing(self.main, sha, lambda argv, **k: calls.append(argv), self.home, skip_temp=False)
+        return calls
+
+    def test_no_twin_when_a_log_committed_on_the_branch_covers_the_stretch_and_the_pair_comes_from_it(self):
+        self.committed_branch_log(1)
         self.assertEqual(self.spawned(), [])
         self.assertIn("0 landed, 1 red landings; 1 agree", self.text())
+
+    def test_a_green_log_committed_on_the_branch_makes_a_mac_only_red_not_a_missing_result(self):
+        self.committed_branch_log(0)
+        text = self.text()
+        self.assertIn("Mac-only red", text)
+        self.assertNotIn("no Linux result", text)
+
+    def test_a_red_landing_whose_stretch_has_no_log_still_gets_a_twin(self):
+        self.assertEqual(len(self.spawned()), 1)
 
     def test_the_twin_writes_its_own_file_with_the_branch_and_leaves_no_ref_and_no_watch_request(self):
         folder = self.folder

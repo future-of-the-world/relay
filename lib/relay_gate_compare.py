@@ -79,51 +79,94 @@ def stretch(main: str, sha: str, refs: tuple[str, ...] = ()) -> list[str]:
 
 @dataclass
 class Linux:
-    codes: list[int]      # exit codes of the runs of the commit that decides, oldest first (first run, re-runs)
-    path: str             # the newest run's file
+    codes: list[int]      # exit codes of the runs of the commit that decides that reached a verdict, oldest first (first run, re-runs)
+    lines: list[str]      # the newest of those runs' log
 
     @property
     def code(self) -> int:
         return self.codes[-1]
 
 
+def _committed_runs(main: str, commit: str, refs: tuple[str, ...]) -> list[list[str]]:
+    """The build-time remote logs of `commit` committed on one of `refs` (the first run, then its re-runs), read from git: a branch's log
+    exists only in the branch's commits, not in the main checkout's working tree. The ref with the most runs wins."""
+    best: list[list[str]] = []
+    for ref in refs:
+        runs: list[list[str]] = []
+        for k in range(0, relay_hosts.SETTINGS["rerun_disagreement"][2] + 1):
+            rc, text = relay_git.git(main, "show", "%s:%s/%s" % (ref, relay_marks.FOLDER, run_name(commit, k)))
+            if rc != 0:
+                break
+            runs.append(text.splitlines())
+        if len(runs) > len(best):
+            best = runs
+    return best
+
+
+def _verdict(code: Optional[int]) -> bool:
+    return code is not None and (code == 0 or _red(code))
+
+
 def linux_result(main: str, sha: str, refs: tuple[str, ...] = ()) -> Optional[Linux]:
     """The Linux result of `sha`: the newest remote run of its inert stretch (a committed build-time log, a watch file, a twin file or a
-    re-run of any of them). None when there is none, or when the newest run reached no verdict (a stop at the limit, a kill)."""
+    re-run of any of them) that reached a verdict. A run with no verdict (a stop at the limit, a kill) confirms nothing and is skipped.
+    None when there is none."""
     linux = relay_gate_ssh.linux_dir(main)
     places = (linux, os.path.join(linux, TWIN_DIR), os.path.join(main, relay_marks.FOLDER))
     for commit in stretch(main, sha, refs):
-        best: list[str] = []
+        best: list[list[str]] = []
         for place in places:
-            files = run_files(place, commit)
-            if len(files) > len(best):
-                best = files
+            runs = [_lines(p) for p in run_files(place, commit)]
+            if len(runs) > len(best):
+                best = runs
+        committed = _committed_runs(main, commit, refs)
+        if len(committed) > len(best):
+            best = committed
         if not best:
             continue
-        codes = [_exit_code(_lines(p)) for p in best]
-        if codes[-1] is None or not (codes[-1] == 0 or _red(codes[-1])):
+        decided = [(code, lines) for lines in best for code in (_exit_code(lines),) if code is not None and _verdict(code)]
+        if not decided:
             return None
-        return Linux([c for c in codes if c is not None], best[-1])
+        return Linux([c for c, _ in decided], decided[-1][1])
     return None
 
 
-def step_of(path: str) -> str:
-    """The first failing step of a log file, "" when the log has none."""
-    lines = _lines(path)
-    start = next((i for i, line in enumerate(lines) if line.startswith("host ")), 3)
+def _step(lines: list[str], fallback: int = 3) -> str:
+    start = next((i for i, line in enumerate(lines) if line.startswith("host ")), fallback)      # a Mac log has no host line: its output starts at line 3 (index 2)
     block = first_failure("\n".join(lines[start + 1:-1])) if len(lines) > start + 1 else []
     return block[0].strip() if block else ""
 
 
-def _mac_code(main: str, ref: str, commit: str) -> Optional[int]:
+def step_of(path: str) -> str:
+    """The first failing step of a log file, "" when the log has none."""
+    return _step(_lines(path))
+
+
+def _mac_log(main: str, ref: str, commit: str) -> list[str]:
     rc, text = relay_git.git(main, "show", "%s:%s/%s%s" % (ref, relay_marks.FOLDER, commit, MAC_SUFFIX))
     lines = text.splitlines() if rc == 0 else []
-    code = _exit_code(lines) if lines and lines[0] == "head %s" % commit else None
-    return code if code == 0 or _red(code) else None
+    return lines if lines and lines[0] == "head %s" % commit else []
 
 
-def mac_next(main: str, default: str, judged: str, branch: str) -> Optional[int]:
-    """The exit of the next Mac gate of the same code as `judged`, on the branch the red event names or on the default branch: a gate log of a
+def _mac_code(main: str, ref: str, commit: str) -> Optional[tuple[int, str]]:
+    """(exit, first failing step) of the Mac gate log of `commit` on `ref`, None when there is none or it reached no verdict."""
+    lines = _mac_log(main, ref, commit)
+    code = _exit_code(lines)
+    return (code, _step(lines, 1)) if code is not None and (code == 0 or _red(code)) else None
+
+
+def _judged_step(main: str, default: str, judged: str, branch: str) -> str:
+    """The first failing step of the red landing's own Mac gate log ("" when the log is not found)."""
+    for ref in (branch, default):
+        if ref and relay_git.git(main, "rev-parse", "--verify", "-q", "refs/heads/" + ref)[0] == 0:
+            lines = _mac_log(main, "refs/heads/" + ref, judged)
+            if lines:
+                return _step(lines, 1)
+    return ""
+
+
+def mac_next(main: str, default: str, judged: str, branch: str) -> Optional[tuple[int, str]]:
+    """(exit, first failing step) of the next Mac gate of the same code as `judged`, on the branch the red event names or on the default branch: a gate log of a
     later commit whose inert stretch holds `judged`. No new Mac run is ever made for this."""
     for ref in (branch, default):
         if not ref or relay_git.git(main, "rev-parse", "--verify", "-q", "refs/heads/" + ref)[0] != 0:
@@ -171,13 +214,20 @@ def _entry(main: str, default: str, event: relay_land.Event, reruns: int, host: 
         if _red(linux.code):
             entry.verdict = AGREE
             return entry
-        code = mac_next(main, default, sha, event.branch)
-        entry.verdict = MAC_OPEN if code is None else MAC_FLAKY if code == 0 else MAC_RED
+        later = mac_next(main, default, sha, event.branch)
+        if later is None:
+            entry.verdict = MAC_OPEN
+        elif later[0] == 0:
+            entry.verdict = MAC_FLAKY
+        else:
+            first = _judged_step(main, default, sha, event.branch)
+            # reproduced only when the later gate failed at the same step; another step is another break, so it is not counted as one
+            entry.verdict = MAC_OPEN if first and later[1] and first != later[1] else MAC_RED
         return entry
     if linux.code == 0:
         entry.verdict = FLAKY if any(_red(c) for c in linux.codes) else AGREE
         return entry
-    entry.note = step_of(linux.path)
+    entry.note = _step(linux.lines)
     entry.verdict = LINUX_RED if len(linux.codes) > 1 or reruns == 0 else NONE
     if entry.verdict == NONE:
         entry.note += " (re-run not finished)"

@@ -46,15 +46,19 @@ def newest_watch(worktree: str) -> Optional[tuple[str, Optional[int], str, int]]
         return None
     folder = relay_gate_ssh.linux_dir(worktree)
     for age, sha in enumerate(_first_parent(main, default)):
-        files = run_files(folder, sha)      # the newest run of a commit is its Linux state: a green re-run clears a red first run
-        if not files:
+        files = run_files(folder, sha)      # the newest run of a commit with a verdict is its Linux state: a green re-run clears a red first run, a re-run stopped at its limit confirms nothing
+        found: list[tuple[str, Optional[int]]] = []
+        for path in files:
+            try:
+                with open(path, encoding="utf-8", errors="replace") as handle:
+                    found.append((path, _exit_code(handle.read().splitlines())))
+            except OSError:
+                continue
+        if not found:
             continue
-        try:
-            with open(files[-1], encoding="utf-8", errors="replace") as handle:
-                lines = handle.read().splitlines()
-        except OSError:
-            continue
-        return sha, _exit_code(lines), files[-1], age
+        verdicts = [f for f in found if f[1] == 0 or is_red(f[1])]
+        path, code = (verdicts or found)[-1]
+        return sha, code, path, age
     return None
 
 
@@ -146,11 +150,9 @@ def log_text(head: str, result: RemoteResult) -> str:
 def gate_runs(main: str, host: relay_hosts.Host, home: Optional[str], sha: str, folder: str, prefix: str = relay_gate_ssh.PINNED,
               header: str = "") -> tuple[list[str], Optional[RemoteResult], str, bool]:
     """One gate of `sha` on the host and, while the newest run is red, up to `rerun_disagreement` more, each in a file of its own beside
-    the first (written when an end line arrives, and only then). Returns (lines, newest result, its file, whether the last run needed
+    the first (written when an end line arrives, and only then; an earlier gating's files go when the first new one is written). Returns (lines, newest result, its file, whether the last run needed
     was made): False when a re-run could not run, so a red first run stands but has not been confirmed."""
     os.makedirs(folder, exist_ok=True)
-    for stale in run_files(folder, sha):      # runs of an earlier gating of this commit
-        os.remove(stale)
     lines: list[str] = []
     last, path = None, ""
     for k in range(host.get("rerun_disagreement") + 1):
@@ -160,13 +162,16 @@ def gate_runs(main: str, host: relay_hosts.Host, home: Optional[str], sha: str, 
             maybe_file_stop(main, host)
             lines.append("gate: %s; no Linux %s for %s" % (exc, "result" if k == 0 else "re-run result", sha[:12]))
             return lines, last, path, False
+        if k == 0:
+            for stale in run_files(folder, sha):      # runs of an earlier gating of this commit go only when a new run has an answer
+                os.remove(stale)
         path = os.path.join(folder, run_name(sha, k))
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(header + log_text(sha, result))
         lines += ["watch %s: exit %d (on %s)" % (sha[:12], result.code, host.name) if k == 0 else "re-run %d of %s: exit %d" % (k, sha[:12], result.code), path]
         last = result
         if not is_red(result.code):
-            break
+            return lines, last, path, k == 0 or result.code == 0      # a re-run with no verdict confirms nothing
     return lines, last, path, True
 
 
@@ -239,7 +244,10 @@ def _twin_reason(main: str, host: Optional[relay_hosts.Host], sha: str) -> str:
         return "this project cannot go remote"
     if relay_gate_ssh.stopped(relay_gate_ssh.read_events(main, host.name), host.get("stop_after")) is not None:
         return "sending to %s is stopped" % host.name
-    if relay_gate_compare.linux_result(main, sha, ("refs/heads/" + (relay_git.default_branch(main) or ""),)) is not None:
+    import relay_land
+    branch = next((e.branch for e in reversed(relay_land.read_events(main)[0]) if e.kind == "done" and e.judged == sha), "")
+    refs = ("refs/heads/" + (relay_git.default_branch(main) or ""), *(("refs/heads/" + branch,) if branch else ()))      # a red landing's logs are committed on its branch only
+    if relay_gate_compare.linux_result(main, sha, refs) is not None:
         return "the code of %s has a Linux result already" % sha[:12]
     return ""
 
