@@ -198,7 +198,8 @@ class Lanes(LaneBase):
         # f2 (fix 95), f1 (fix 80), f3 (fix 70) fill the 3 free lanes; ft (feature, 99) comes after every fix
         self.assertEqual([(p.slug, p.mode) for p in s.picks], [("f2", "start"), ("f1", "start"), ("f3", "start")])
         text = rl.line(s, 2)
-        self.assertEqual(text, "Lanes: 1 of 4 running; start: f2 (fix, ip 95), start: f1 (fix, ip 80)")
+        # every pick is named (a pick is a lane to fill); the setting counts only the "next:" names
+        self.assertEqual(text, "Lanes: 1 of 4 running; start: f2 (fix, ip 95), start: f1 (fix, ip 80), start: f3 (fix, ip 70); next: ft (feature, ip 99)")
 
     def test_readiness_feature_is_design_and_unanswered_question_is_skipped(self):
         asked = {"asked_at": "2026-10-09T22:00:00Z", "question": ["**Keep it?**"], "options": ["a. Yes.", "b. No."]}
@@ -292,7 +293,43 @@ class Lanes(LaneBase):
     def test_setting_bounds(self):
         self.assertEqual(rl.setting({"front": {"stop_nudge": 5}}, "stop_nudge"), 2)
         self.assertEqual(rl.setting({"front": {"stop_nudge": True}}, "stop_nudge"), 1)
-        self.assertEqual(rl.setting({"front": {"lanes_line_items": 0}}, "lanes_line_items"), 1)
+        self.assertEqual(rl.setting({"front": {"lanes_line_items": 0}}, "lanes_line_items"), 0)
+        self.assertEqual(rl.setting({"front": {"lanes_line_items": 10}}, "lanes_line_items"), 10)
+        # out of bounds: the default is used, and the note says so
+        for bad in (11, -1, "5", True):
+            cfg = {"front": {"lanes_line_items": bad}}
+            self.assertEqual(rl.setting(cfg, "lanes_line_items"), 3)
+            self.assertIn("lanes_line_items", rl.setting_note(cfg, "lanes_line_items") or "")
+        self.assertIsNone(rl.setting_note({"front": {"lanes_line_items": 0}}, "lanes_line_items"))
+        self.assertIsNone(rl.setting_note({}, "lanes_line_items"))
+
+    def stuck_queue(self):
+        # X is first by ip and carries a "not reproduced" fact; Y, Z, W follow; one lane is free
+        fact = {"at": "2026-10-29T22:00:00Z", "fact": ["Not reproduced: the front could not make this happen."]}
+        self.seed({Q + "x.json": item("x", ip=99, where=("lib/x.py",), notes=[fact]), Q + "y.json": item("y", ip=90, where=("lib/y.py",)),
+                   Q + "z.json": item("z", ip=80, where=("lib/z.py",)), Q + "w.json": item("w", ip=70, where=("lib/w.py",))})
+        return self.state(limit=1)
+
+    def test_not_reproduced_item_is_not_a_pick_and_the_next_items_are_named(self):
+        # one free lane: X (not reproduced) is skipped, so Y is the pick; Z and W are the next startable items
+        s = self.stuck_queue()
+        self.assertEqual(([p.slug for p in s.picks], [p.slug for p in s.upcoming]), (["y"], ["z", "w"]))
+        self.assertEqual(rl.line(s), "Lanes: 0 of 1 running; start: y (fix, ip 90); next: z (fix, ip 80), w (fix, ip 70)")
+        self.assertEqual(rl.line(s, 1), "Lanes: 0 of 1 running; start: y (fix, ip 90); next: z (fix, ip 80)")
+
+    def test_line_items_zero_is_the_line_without_next(self):
+        self.assertEqual(rl.line(self.stuck_queue(), 0), "Lanes: 0 of 1 running; start: y (fix, ip 90)")
+
+    def test_next_skips_items_that_wait_or_ask_and_is_empty_when_lanes_are_full(self):
+        asked = {"asked_at": "2026-10-09T22:00:00Z", "question": ["**Keep it?**"], "options": ["a. Yes.", "b. No."]}
+        self.seed({Q + "run.json": item("run", where=("lib/r.py",), **taken("wt/run")), Q + "a.json": item("a", ip=95, where=("lib/a.py",)),
+                   Q + "ask.json": item("ask", ip=94, where=("lib/q.py",), notes=[asked]),
+                   Q + "hold.json": item("hold", ip=93, where=("lib/r.py",)), Q + "c.json": item("c", ip=92, where=("lib/c.py",))})
+        self.write_commit(self.worktree("run"), {"lib/r.py": "1\n"}, "work")
+        # one lane runs and has changed lib/r.py: "hold" waits for it, "ask" has an open question; a (pick) and c are startable
+        s = self.state(limit=2)
+        self.assertEqual(([p.slug for p in s.picks], [p.slug for p in s.upcoming]), (["a"], ["c"]))
+        self.assertEqual(self.state(limit=1).upcoming, [])        # no free lane: nothing starts, nothing is named
         self.assertEqual(rl.setting({}, "lane_quiet_hours"), 3)
 
 
@@ -337,6 +374,21 @@ class Stop(LaneBase):
         self.assertEqual(self.run_hook("Stop", os.path.join(self.tmp, "home3"), agent_id="x"), "")
         self.assertTrue(os.path.isfile(os.path.join(home, "state", "lanes-stop", "sess1.json")))
         self.assertFalse(os.path.exists(os.path.join(self.main, "state")))
+
+    def test_prompt_hook_names_next_items_and_notes_an_out_of_bounds_setting(self):
+        fact = {"at": "2026-10-29T22:00:00Z", "fact": ["Not reproduced."]}
+        self.seed({Q + "x.json": item("x", ip=99, where=("lib/x.py",), notes=[fact]), Q + "y.json": item("y", ip=90, where=("lib/y.py",)),
+                   Q + "z.json": item("z", ip=80, where=("lib/z.py",))})
+        with open(os.path.join(self.main, "CLAUDE.local.md"), "w") as handle:
+            handle.write("Changes built at once: 1.\n")
+        text = json.loads(self.run_hook("UserPromptSubmit", os.path.join(self.tmp, "h")))["hookSpecificOutput"]["additionalContext"]
+        self.assertEqual(text, "Lanes: 0 of 1 running; start: y (fix, ip 90); next: z (fix, ip 80)")
+        os.makedirs(os.path.join(self.main, ".claude"))
+        with open(os.path.join(self.main, ".claude", "kit.toml"), "w") as handle:
+            handle.write("[front]\nlanes_line_items = 11\n")
+        text = json.loads(self.run_hook("UserPromptSubmit", os.path.join(self.tmp, "h")))["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("next: z (fix, ip 80)", text)             # 11 is out of bounds: the default 3 is used
+        self.assertIn("lanes_line_items 11 is out of bounds 0-10", text)
 
     def test_prompt_hook_prints_the_line_and_is_silent_when_full(self):
         self.seed({Q + "a.json": item("a")})

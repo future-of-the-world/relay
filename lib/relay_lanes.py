@@ -12,7 +12,8 @@ The pick: queue order (fixes first, then ip), skipping an item with an unanswere
 `where` names a file that a running branch has already changed (committed against the default branch, or modified in its
 worktree): that item waits, and the line says which file and branch. Used by the front's hooks (plugins/front/hooks/lanes.py)
 and by `relay queue start`. Settings, in the project's .claude/kit.toml under [front]:
-  lanes_line_items  default 3, bound 1-8    items named in the line (at 8 about 200 tokens per message)
+  lanes_line_items  default 3, bound 0-10   startable items named after the picks ("next: ...") so a stuck pick hides nothing; 0 is the line
+                                            without "next:" (at 10 about 250 tokens per message). Out of bounds: the default, and the line says so
   stop_nudge        default 1, bound 0-2    Stop refusals per observed lane state and session (0: the line only; 2: a hold costs two extra turns)
   lane_quiet_hours  default 3, bound 1-24   a worktree with no item counts as a lane while changed within this (at 1 a long gate drops it
                                             from the count; at 24 a parked branch holds a lane for a day)
@@ -33,7 +34,9 @@ import relay_inert
 import relay_queue
 
 LANES_DEFAULT, LANES_MAX = 4, 8
-SETTINGS = {"lanes_line_items": (3, 1, 8), "stop_nudge": (1, 0, 2), "lane_quiet_hours": (3, 1, 24)}   # default, lowest, highest
+SETTINGS = {"lanes_line_items": (3, 0, 10), "stop_nudge": (1, 0, 2), "lane_quiet_hours": (3, 1, 24)}   # default, lowest, highest
+LIST_ITEMS = 3             # waits, landed and uncounted worktrees named in the line
+NOT_REPRODUCED = "not reproduced"     # a fact note with these words: the front could not reproduce the defect, so the item is no pick
 LOG_DEPTH = 500            # newest merges of the default branch searched for the landing of a branch whose ref is gone
 SHA_COMMITS = 40           # newest commits of a landed branch looked at for the one that names the change
 
@@ -73,6 +76,7 @@ class State(NamedTuple):
     waits: list[Wait]
     landed_open: list[Landed]
     quiet: list[str]           # no-item worktrees not counted (quiet or already landed)
+    upcoming: list[Pick] = []  # the startable items after the picks (at most SETTINGS["lanes_line_items"] high), named so one stuck pick hides nothing
 
 
 def setting(cfg: Any, key: str) -> int:
@@ -81,7 +85,18 @@ def setting(cfg: Any, key: str) -> int:
     value = relay_config.get(cfg, "front." + key, default)
     if isinstance(value, bool) or not isinstance(value, int):
         return default
+    if key == "lanes_line_items" and not low <= value <= high:
+        return default
     return max(low, min(high, value))
+
+
+def setting_note(cfg: Any, key: str) -> Optional[str]:
+    """Why `front.<key>` was not used as written (set, but out of bounds or not a whole number); None when it is unset or used."""
+    default, low, high = SETTINGS[key]
+    value = relay_config.get(cfg, "front." + key)
+    if value is None or (isinstance(value, int) and not isinstance(value, bool) and low <= value <= high):
+        return None
+    return f"{key} {value} is out of bounds {low}-{high}: {default} is used"
 
 
 def lanes_setting(main: str) -> int:
@@ -226,6 +241,11 @@ def _waiting_question(item: dict) -> bool:
     return bool(relay_queue.owner_waiting(relay_queue.notes_of(item)))
 
 
+def _not_reproduced(item: dict) -> bool:
+    """True when a fact note of the item says the defect was not reproduced: the item is no pick (it would hide every item behind it)."""
+    return any(n.kind == "fact" and NOT_REPRODUCED in " ".join(n.text).lower() for n in relay_queue.notes_of(item))
+
+
 def _one_lane_per_train(main: str, running: list[Lane], trees: dict[str, str], when: float, quiet_hours: int) -> list[Lane]:
     """A running branch with own commits whose tip is inside an open `wt/*` branch (a train rider) is not a lane of its own:
     the branch it was merged into is the lane, with the riders listed so their files still count. A holder counts as open while it
@@ -303,6 +323,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
     running = _one_lane_per_train(main, running, trees, when, quiet_hours)
     free = max(0, capacity - len(running))
     picks: list[Pick] = []
+    upcoming: list[Pick] = []
     waits: list[Wait] = []
     chosen: list[tuple[str, list[str]]] = []      # the picks so far in this call, with the paths their `where` names
     for item in open_items:                       # a running lane holds the files its taken item names, before its branch has changed any
@@ -311,22 +332,29 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
     if free:
         changed = {lane.branch: _lane_files(main, default, lane, trees) for lane in running}
         for item in relay_queue.ordered(open_items):
-            if item["state"] != "open" or _waiting_question(item):
+            if item["state"] != "open" or _waiting_question(item) or _not_reproduced(item):
                 continue
             where = item.get("where") or []
+            full = len(picks) == free          # past the picks: the same checks, but nothing is recorded as a wait and nothing is chosen
             hit = next(((f, b) for b, files in sorted(changed.items()) for f in [_overlap(where, files)] if f), None)
             if hit:
-                waits.append(Wait(item["slug"], hit[0], hit[1]))
+                if not full:
+                    waits.append(Wait(item["slug"], hit[0], hit[1]))
                 continue
             twin = next(((slug, shared) for slug, paths in chosen for shared in [_shared(where, paths)] if shared), None)
             if twin:
-                waits.append(Wait(item["slug"], twin[1], "", twin[0]))
+                if not full:
+                    waits.append(Wait(item["slug"], twin[1], "", twin[0]))
+                continue
+            pick = Pick(item["slug"], item["kind"], item["ip"], mode_of(item))
+            if full:
+                upcoming.append(pick)
+                if len(upcoming) == SETTINGS["lanes_line_items"][2]:
+                    break
                 continue
             chosen.append((item["slug"], _paths(where)))
-            picks.append(Pick(item["slug"], item["kind"], item["ip"], mode_of(item)))
-            if len(picks) == free:
-                break
-    return State(capacity, running, free, picks, waits, landed_open, quiet)
+            picks.append(pick)
+    return State(capacity, running, free, picks, waits, landed_open, quiet, upcoming)
 
 
 def wait_text(w: Wait) -> str:
@@ -334,19 +362,24 @@ def wait_text(w: Wait) -> str:
     return f"{w.slug} waits for {w.file} (same file as {w.pick})" if w.pick else f"{w.slug} waits for {w.file} ({w.branch})"
 
 
-def line(state: State, items: int = SETTINGS["lanes_line_items"][0]) -> Optional[str]:
-    """The one line for the front; None when there is nothing to say (lanes full, or no item can start, and nothing landed)."""
+def line(state: State, items: int = SETTINGS["lanes_line_items"][0], note: Optional[str] = None) -> Optional[str]:
+    """The one line for the front; None when there is nothing to say (lanes full, or no item can start, and nothing landed).
+    `items` startable items after the picks are named ("next:"); 0 names none. `note` (a setting that was not used) ends the line."""
     if not (state.picks or state.waits or state.landed_open):
         return None
     parts = [f"Lanes: {len(state.running)} of {state.setting} running"]
     if state.picks:
-        parts.append(", ".join(f"{p.mode}: {p.slug} ({p.kind}, ip {p.ip})" for p in state.picks[:items]))
+        parts.append(", ".join(f"{p.mode}: {p.slug} ({p.kind}, ip {p.ip})" for p in state.picks))
+    if items and state.upcoming:
+        parts.append("next: " + ", ".join(f"{p.slug} ({p.kind}, ip {p.ip})" for p in state.upcoming[:items]))
     if state.waits:
-        parts.append("waits: " + ", ".join((f"{w.slug} (same file as {w.pick}: {w.file})" if w.pick else f"{w.slug} ({w.file}, {w.branch})") for w in state.waits[:items]))
+        parts.append("waits: " + ", ".join((f"{w.slug} (same file as {w.pick}: {w.file})" if w.pick else f"{w.slug} ({w.file}, {w.branch})") for w in state.waits[:LIST_ITEMS]))
     if state.landed_open:
-        parts.append("landed, still open: " + ", ".join(f"{x.slug} ({x.branch} landed)" for x in state.landed_open[:items]))
+        parts.append("landed, still open: " + ", ".join(f"{x.slug} ({x.branch} landed)" for x in state.landed_open[:LIST_ITEMS]))
     if state.quiet:
-        parts.append("no lane, not counted: " + ", ".join(state.quiet[:items]))
+        parts.append("no lane, not counted: " + ", ".join(state.quiet[:LIST_ITEMS]))
+    if note:
+        parts.append(note)
     return "; ".join(parts)
 
 
@@ -514,5 +547,5 @@ def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_
     return json.dumps({"started": slug, "branch": branch, "worktree": worktree, "brief": brief, "mode": mode, "cycle_args": unit, "other_waits": waits}, indent=2)
 
 
-__all__ = ["Lane", "Pick", "Wait", "Landed", "State", "setting", "lanes_setting", "landing", "touched", "lanes_state", "line",
+__all__ = ["Lane", "Pick", "Wait", "Landed", "State", "setting", "lanes_setting", "setting_note", "landing", "touched", "lanes_state", "line",
            "close_landed", "stop_refusal", "start", "mode_of"]

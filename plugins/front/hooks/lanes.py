@@ -139,13 +139,14 @@ def work(data: "dict[str, Any]", event: Optional[str], budget: float) -> "tuple[
     cfg = relay_config.load_bindings(root)
     quiet = relay_lanes.setting(cfg, "lane_quiet_hours")
     cap = relay_lanes.setting(cfg, "lanes_line_items")
+    unused = relay_lanes.setting_note(cfg, "lanes_line_items")      # an out-of-bounds value is said in the line
     if event == "UserPromptSubmit":
         state = timed("lanes", lambda: relay_lanes.lanes_state(root, quiet))
         try:
             relay_land.note_held(root, state.waits)      # the start counter: the first time an item is held at start, once
         except Exception:
             pass                                         # a counter must never hide the lanes line
-        return relay_lanes.line(state, cap) or None, None
+        return relay_lanes.line(state, cap, unused) or None, None
     if event == "PostToolUse":
         command = (data.get("tool_input") or {}).get("command")
         if data.get("tool_name") != "Bash" or not isinstance(command, str) or not LANDING.search(command):
@@ -157,7 +158,7 @@ def work(data: "dict[str, Any]", event: Optional[str], budget: float) -> "tuple[
         bound_git()
         arm(budget)         # a fresh deadline for the final read; on an overrun the closes already made are still shown
         try:
-            shown = relay_lanes.line(relay_lanes.lanes_state(root, quiet), cap)
+            shown = relay_lanes.line(relay_lanes.lanes_state(root, quiet), cap, unused)
         except Overrun:
             shown = UNKNOWN
         return "\n".join(closed + ([shown] if shown else [])) or None, None
