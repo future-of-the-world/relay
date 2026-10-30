@@ -23,8 +23,8 @@
     "tests/test_queue.py",
     "tests/test_gate.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T10:26:42Z",
+  "taken_by": "wt/tests-build-a-new-git-repo-for-every-cas",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

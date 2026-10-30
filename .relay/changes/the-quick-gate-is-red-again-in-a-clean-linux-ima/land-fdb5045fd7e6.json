@@ -1,0 +1,159 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.9144,
+   "id": "ae1bb2f85db9d5b53",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 70,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T01:27:01.232Z",
+   "stop": "2026-10-30T02:21:57.545Z"
+  },
+  {
+   "cost_usd": 0.0051,
+   "id": "a82e0cbb483a80beb",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T02:21:59.900Z",
+   "stop": "2026-10-30T02:41:50.203Z"
+  },
+  {
+   "cost_usd": 1.0854,
+   "id": "a698cfaedc31dc3c4",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 25,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T02:41:52.303Z",
+   "stop": "2026-10-30T02:45:39.662Z"
+  },
+  {
+   "cost_usd": 0.8212,
+   "id": "a2e25e64cb5226e8c",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 40,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T02:45:42.585Z",
+   "stop": "2026-10-30T03:38:13.499Z"
+  },
+  {
+   "cost_usd": 0.0039,
+   "id": "a3a386f65cf305436",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T03:38:15.685Z",
+   "stop": "2026-10-30T03:50:56.386Z"
+  },
+  {
+   "cost_usd": 0.1761,
+   "id": "a39251dc63d58dda3",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T03:50:58.722Z",
+   "stop": "2026-10-30T03:58:02.571Z"
+  },
+  {
+   "cost_usd": 1.407,
+   "id": "aab14764de83813be",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 62,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T03:58:32.182Z",
+   "stop": "2026-10-30T05:15:54.949Z"
+  },
+  {
+   "cost_usd": 0.0038,
+   "id": "abf1ceb3653a2d02e",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T05:15:58.047Z",
+   "stop": "2026-10-30T05:30:18.603Z"
+  },
+  {
+   "cost_usd": 0.2154,
+   "id": "afb10df24e21f35cb",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T05:30:21.079Z",
+   "stop": "2026-10-30T05:37:16.907Z"
+  },
+  {
+   "cost_usd": 0.0021,
+   "id": "a20c55d5297379101",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T05:37:19.987Z",
+   "stop": "2026-10-30T05:37:33.595Z"
+  },
+  {
+   "cost_usd": 0.0029,
+   "id": "a20c55d5297379101",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T05:37:19.987Z",
+   "stop": "2026-10-30T05:37:36.186Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "a48147422d0ee25f8",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T05:37:38.535Z",
+   "stop": "2026-10-30T05:37:46.732Z"
+  }
+ ],
+ "before": "8757766b30c2907a50f4fa26d8e62df1bac66569",
+ "branch": "wt/the-quick-gate-is-red-again-in-a-clean-l",
+ "head": "fdb5045fd7e6dd237c5b2f1c35e8b90288428ba1",
+ "item": "the-quick-gate-is-red-again-in-a-clean-linux-ima",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T10:01:12+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T10:10:49+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T10:26:20+00:00",
+   "gate_seconds": 893.903659707983,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "the-quick-gate-is-red-again-in-a-clean-linux-ima"
+}
