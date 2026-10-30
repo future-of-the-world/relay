@@ -27,5 +27,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T02:11:23Z",
+      "fact": [
+        "Front decision (owner can reverse; measure before recommending): the change's one open finding (Gap: the rate at which the front starts a critic is not measured) is settled by a 10-run bench of scenario review-offbyone on the branch's rules, about $3-8, before any landing. Baseline on master rules: no critic in 5 of 12 runs (29-30 Oct)."
+      ]
+    }
+  ]
 }
