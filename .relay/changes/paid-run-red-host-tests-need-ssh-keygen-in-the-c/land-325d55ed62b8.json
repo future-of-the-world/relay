@@ -1,0 +1,143 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1704,
+   "id": "afc93a358f890043b",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T19:17:36.074Z",
+   "stop": "2026-10-30T19:19:55.490Z"
+  },
+  {
+   "cost_usd": 0.2024,
+   "id": "afc93a358f890043b",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T19:17:36.074Z",
+   "stop": "2026-10-30T19:20:00.368Z"
+  },
+  {
+   "cost_usd": 0.0036,
+   "id": "a0635cc2d7541a04c",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T19:20:03.345Z",
+   "stop": "2026-10-30T19:28:41.575Z"
+  },
+  {
+   "cost_usd": 0.4428,
+   "id": "a0770138e614bca50",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T19:28:44.578Z",
+   "stop": "2026-10-30T19:30:22.165Z"
+  },
+  {
+   "cost_usd": 0.1486,
+   "id": "a14be12a67c699e69",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T19:30:24.577Z",
+   "stop": "2026-10-30T19:32:09.411Z"
+  },
+  {
+   "cost_usd": 0.003,
+   "id": "a032466a436e1c60d",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T19:32:21.052Z",
+   "stop": "2026-10-30T19:39:43.258Z"
+  },
+  {
+   "cost_usd": 0.1802,
+   "id": "aa827a48ab53a209a",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T19:39:45.435Z",
+   "stop": "2026-10-30T19:42:29.563Z"
+  },
+  {
+   "cost_usd": 0.0026,
+   "id": "a8428628f08191e88",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T19:42:32.142Z",
+   "stop": "2026-10-30T19:42:41.571Z"
+  },
+  {
+   "cost_usd": 0.0016,
+   "id": "a7fc492028241ad85",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T19:42:43.892Z",
+   "stop": "2026-10-30T19:42:50.186Z"
+  },
+  {
+   "cost_usd": 0.0021,
+   "id": "a7fc492028241ad85",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T19:42:43.892Z",
+   "stop": "2026-10-30T19:42:53.527Z"
+  }
+ ],
+ "before": "d75a4f172291b4324140d7a137d4be79d1076b39",
+ "branch": "wt/paid-run-red-host-tests-need-ssh-keygen-in-the-c",
+ "head": "325d55ed62b8d6a6d24a62e3c99dd93ccf5ee51a",
+ "item": "paid-run-red-host-tests-need-ssh-keygen-in-the-c",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T19:17:19+00:00",
+   "file": "lib/relay_hosts.py",
+   "holder": "wt/each-change-is-gated-in-a-fresh-containe",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T19:43:00+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T19:47:09+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T19:56:38+00:00",
+   "gate_seconds": 516.7324352919823,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "paid-run-red-host-tests-need-ssh-keygen-in-the-c"
+}
