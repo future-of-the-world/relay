@@ -352,6 +352,18 @@
         "",
         "Разделение занимает больше 10 часов, и это только по оценке, разве мы не разделили всё что требовалось ранее, relay и queue ?"
       ]
+    },
+    {
+      "at": "2026-10-30T01:07:23Z",
+      "said": [
+        "Если у нас уже есть лимит по gate - может мы можем добавить количество lane, обычные этапы вроде build, fix ничего не стоят ресурсам компьютера, лимит на gate остается, необходимо будет лишь подпитывать эту машину вычислительными мощностям"
+      ]
+    },
+    {
+      "at": "2026-10-30T01:07:24Z",
+      "fact": [
+        "Front decision (owner can reverse; principle 1, cheap before expensive; rests on measurements of 30 Oct): lanes stay 6. This Mac ran at load 25-49 on 12 cores with 6 lanes; builders and fixers run tests too, so a 7th and 8th lane slow the gates; gate waiting is already 25% of gate time. Gate agents cost $1.21 in the week (0.3% of $356.51), so who waits for a slot is not a cost question. The levers first: speed-up-the-quick-gate (1,225 -> 720 s measured), fewer gates per change (4.8 now, 1.72 of them after new commits), then more lanes once gates run elsewhere."
+      ]
     }
   ]
 }
