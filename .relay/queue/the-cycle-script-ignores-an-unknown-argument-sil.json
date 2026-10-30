@@ -23,8 +23,8 @@
   "where": [
     "plugins/delegate/workflows/cycle.js (args check)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T01:39:45Z",
+  "taken_by": "wt/the-cycle-script-ignores-an-unknown-argu",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
