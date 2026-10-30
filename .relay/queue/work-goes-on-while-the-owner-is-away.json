@@ -17,8 +17,8 @@
   ],
   "taken_at": "2026-10-30T16:34:08Z",
   "taken_by": "wt/work-goes-on-while-the-owner-is-away",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T17:49:06Z",
+  "test": "tests/test_decided.py::Record::test_a_medium_scope_cut_decided_by_the_checker_is_recorded_and_the_owner_is_told",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
