@@ -1,0 +1,138 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1884,
+   "id": "aaf91f7f66a3927a6",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T18:37:52.835Z",
+   "stop": "2026-10-30T18:38:59.114Z"
+  },
+  {
+   "cost_usd": 0.2454,
+   "id": "ab7364efbc4aac9ad",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T18:39:19.111Z",
+   "stop": "2026-10-30T18:43:35.762Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "aa20ad8a968787b81",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T18:43:38.278Z",
+   "stop": "2026-10-30T18:53:38.919Z"
+  },
+  {
+   "cost_usd": 0.7762,
+   "id": "ab0738f5f1f7cbc45",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T18:53:41.486Z",
+   "stop": "2026-10-30T18:56:11.803Z"
+  },
+  {
+   "cost_usd": 0.1552,
+   "id": "a03b68d16c2eb96c2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T18:56:15.296Z",
+   "stop": "2026-10-30T18:57:34.534Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "a57d1fc02179084c1",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T18:57:36.821Z",
+   "stop": "2026-10-30T19:05:55.713Z"
+  },
+  {
+   "cost_usd": 0.1149,
+   "id": "a6e21888a564ec34d",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T19:05:58.085Z",
+   "stop": "2026-10-30T19:07:39.547Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "ac164636d9d59d947",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T19:07:41.991Z",
+   "stop": "2026-10-30T19:07:55.262Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "a49469c2db29a38fe",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T19:07:57.532Z",
+   "stop": "2026-10-30T19:08:06.299Z"
+  }
+ ],
+ "before": "569cb7f4a455a6bfbccddce3df9dddc5455f067c",
+ "branch": "wt/the-routing-guard-counts-finished-agents-as-runn",
+ "head": "ff40a7f4e607794f5f18e37b6428e9fe981f12a4",
+ "item": "the-routing-guard-counts-finished-agents-as-runn",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T16:51:26+00:00",
+   "file": "plugins/delegate/hooks/route-guard.py",
+   "holder": "wt/each-change-records-its-stage-times-cost",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T17:39:17+00:00",
+   "file": "plugins/delegate/hooks/route-guard.py",
+   "holder": "wt/a-wrong-value-in-project-settings-passes",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T19:08:16+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T19:08:16+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T19:17:10+00:00",
+   "gate_seconds": 503.9629181670025,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "the-routing-guard-counts-finished-agents-as-runn"
+}
