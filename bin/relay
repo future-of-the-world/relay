@@ -56,12 +56,13 @@
                                      --again runs it although the same code has a finished gate (a red one is otherwise reported, not run)
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
                                      (a quick gate stopped at its time limit exits 124: run it again)
-  relay land <branch> [--paid-fix] [-C <repo>]
+  relay land <branch> [--paid-fix] [--keep-open] [-C <repo>]
                                      take the default branch into the branch, gate the result, fast-forward on green; one
                                      landing at a time, no agent. Exit 0 landed, 1 red gate, 2 refused, 3 take conflict,
                                      4 run again, 5 waits for the owner (a hold or an unanswered question: ask the owner),
                                      6 waits for the paid run (no question to the owner: it lands after the run, see --waiting).
                                      --paid-fix lets the fix item of a red paid run land (refused in any other state)
+                                     --keep-open lands an intermediate change of a feature and leaves its item open for the next change (default: the landing closes it)
   relay land --hold <branch> "<the owner's words>" | --release <branch> [-C <repo>]
                                      the owner's hold on a branch (also one with no queue item); a held branch exits 5
   relay land --waiting [-C <repo>]   the branches that stopped on the paid run and still exist, one per line
@@ -92,7 +93,7 @@
                                      `owner` list; a checker counts that finding as not wrong; show prints it.
                                      With `queue = "<slug>"` in the TOML the word is that the finding moved to that queue
                                      item (it must be on the default branch): it counts under `queued`, not `open`
-  relay queue [count|show|history|check|migrate|land|ip|take|release|done|drop|add|note|edit] ...
+  relay queue [count|show|history|check|migrate|land|ip|take|release|done|drop|add|note|edit|plan] ...
                                      the work queue (.relay/queue/ on the default branch): `relay queue` lists it,
                                      `relay queue count` gives the one-line count; see `relay queue -h`
 
@@ -662,7 +663,7 @@ def cmd_gate(args):
 
 
 def cmd_land(args):
-    usage = ("relay land <branch> [--paid-fix] [-C <repo>] | relay land --hold <branch> \"<the owner's words>\" | relay land --release <branch> | "
+    usage = ("relay land <branch> [--paid-fix] [--keep-open] [-C <repo>] | relay land --hold <branch> \"<the owner's words>\" | relay land --release <branch> | "
              "relay land --waiting | relay land --stats [--since <date>] [--until <date>] [-C <repo>]")
     args = list(args)
     repo = "."
@@ -712,9 +713,12 @@ def cmd_land(args):
     paid_fix = "--paid-fix" in args
     if paid_fix:
         args.remove("--paid-fix")
+    keep_open = "--keep-open" in args
+    if keep_open:
+        args.remove("--keep-open")
     if len(args) != 1 or args[0].startswith("-"):
         raise Usage(usage)
-    result = relay_land.land(repo, args[0], lambda line: print("land: " + line, file=sys.stderr, flush=True), paid_fix=paid_fix)
+    result = relay_land.land(repo, args[0], lambda line: print("land: " + line, file=sys.stderr, flush=True), paid_fix=paid_fix, keep_open=keep_open)
     print("\n".join(result.lines))
     return result.code
 
@@ -902,6 +906,10 @@ relay queue edit <slug> --input <file.toml>
                                            because = '''what was found, and when''' (becomes a dated fact note)
                                          Quoted text ("...", «...», '...') is never changed. `test` only on a closed item, to a test that exists.
                                          This is the only way to change an item's text; a hand edit is refused (guard and merge).
+relay queue plan <slug> --input <file.md>
+                                         keep a task's plan beside its item as .relay/queue/<slug>.plan.md, landed on the default branch (any item, any state;
+                                         a changed plan is a new version in git, an unchanged one writes nothing). Key shapes and the home folder are removed;
+                                         over RELAY_PLAN_MAX_KB (default 200, 20-2000) it is refused. `relay queue show <slug>` names the plan's path
 relay queue land <slug>                  try again to land a kept wt/queue-<slug>
 relay queue ip <slug> <n>
 relay queue take <slug> -C <worktree>   (a branch holds one fix item; the check states its problem as finding Q1)
@@ -938,10 +946,10 @@ def _queue_options(args, spec):
     return opts, rest
 
 
-QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "start", "done", "note", "edit")
+QUEUE_WRITES = ("add", "land", "ip", "release", "drop", "take", "start", "done", "note", "edit", "plan")
 
 
-def cmd_queue(args):
+def cmd_queue(args: list) -> int:
     sub = args[0] if args and not args[0].startswith("-") else ""
     rest = args[1:] if sub else args
     if sub in ("-h", "--help") or (args and args[0] in ("-h", "--help")):
@@ -973,6 +981,9 @@ def cmd_queue(args):
         if how == "words":
             print(f"found by words '{query}':")
         print(relay_queue.show_text(found[0]))
+        plan = relay_queue.plan_line(os.path.realpath(o.get("-C", ".")), found[0]["slug"])
+        if plan:
+            print(plan)
         return 0
     if sub == "history":
         o, p = _queue_options(rest, common)
@@ -1062,9 +1073,9 @@ def cmd_queue(args):
             raise Usage(str(e))
         return 0
     spec = {"land": ({}, 1), "ip": ({}, 2), "release": ({}, 1), "drop": ({"--input": str}, 1),
-            "take": ({}, 1), "note": ({"--input": str}, 1), "edit": ({"--input": str}, 1), "done": ({"--test": str, "--evidence": str, "--fixed-by": str}, 1)}
-    extra, count = spec[sub]
-    o, p = _queue_options(rest, dict(common, **extra))
+            "take": ({}, 1), "note": ({"--input": str}, 1), "edit": ({"--input": str}, 1), "plan": ({"--input": str}, 1), "done": ({"--test": str, "--evidence": str, "--fixed-by": str}, 1)}
+    spec_extra, count = spec[sub]
+    o, p = _queue_options(rest, dict(common, **spec_extra))
     if len(p) != count:
         raise Usage(QUEUE_USAGE)
     if sub == "land":
@@ -1091,6 +1102,13 @@ def cmd_queue(args):
             raise Usage("relay queue edit <slug> --input <file.toml>: the TOML holds field, old, new and because; see relay queue --help")
         try:
             print(relay_queue.edit(repo(o), p[0], **relay_queue.read_edit_input(o["--input"])))
+        except relay_queue.Refused as e:
+            raise Usage(str(e))
+    elif sub == "plan":
+        if "--input" not in o:
+            raise Usage("relay queue plan <slug> --input <file.md>: the markdown file holds the plan; it is kept beside the item")
+        try:
+            print(relay_queue.keep_plan(repo(o), p[0], o["--input"]))
         except relay_queue.Refused as e:
             raise Usage(str(e))
     elif sub == "note":

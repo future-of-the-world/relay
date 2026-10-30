@@ -155,6 +155,16 @@
       "options": [
         "a. The laptop: the Mac keeps its cores; the owner installs podman and sshd, accepts relay's key once and keeps it on power; when it is off, the comparison is skipped.",
         "b. This Mac's podman: no setup; up to ~27 min more gate time per change while comparisons overlap (a guess from 27 Oct scaling)."
+      ],
+      "answered_at": "2026-10-30T10:53:18Z",
+      "answer": [
+        "1. Сравнивать данные с удаленной машиной ai.amidman.com",
+        "2. Пункт про запуск сессии мне не понятен, давай разберем отдельно",
+        "3. Что ты имеешь ввиду, можешь показать пример",
+        "4. Можем ли мы использовать это просто как skill, кажется что это внешнее, мы можем использовать это как и любой другой skill"
+      ],
+      "reading": [
+        "Point 1 answers this question: the Linux comparison runs on the VPS ai.amidman.com, neither the laptop nor this Mac's podman. Since the owner answered \"a\" at 05:49 (the VPS decides the build gates, the Mac runs the landing gate), every change already gets one Linux gate and one Mac gate; the comparison reads those two results and starts no extra run (front decision, owner can reverse). Caveat: the two gates run on different heads (the landing gate runs after the default branch is taken)."
       ]
     },
     {
@@ -165,6 +175,16 @@
       "options": [
         "a. The laptop: the Mac keeps its cores; the owner installs podman and sshd, accepts relay's key once and keeps it on power; when it is off, the comparison is skipped.",
         "b. This Mac's podman: no setup; up to ~27 min more gate time per change while comparisons overlap (a guess from 27 Oct scaling)."
+      ],
+      "answered_at": "2026-10-30T10:53:18Z",
+      "answer": [
+        "1. Сравнивать данные с удаленной машиной ai.amidman.com",
+        "2. Пункт про запуск сессии мне не понятен, давай разберем отдельно",
+        "3. Что ты имеешь ввиду, можешь показать пример",
+        "4. Можем ли мы использовать это просто как skill, кажется что это внешнее, мы можем использовать это как и любой другой skill"
+      ],
+      "reading": [
+        "Point 1 answers this question: the Linux comparison runs on the VPS ai.amidman.com, neither the laptop nor this Mac's podman. Since the owner answered \"a\" at 05:49 (the VPS decides the build gates, the Mac runs the landing gate), every change already gets one Linux gate and one Mac gate; the comparison reads those two results and starts no extra run (front decision, owner can reverse). Caveat: the two gates run on different heads (the landing gate runs after the default branch is taken)."
       ]
     },
     {

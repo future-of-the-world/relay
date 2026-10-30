@@ -28,8 +28,8 @@ const DEFAULTS = { gate_turns: 40, gate_fixes: 1, gate_reruns: 1, retry_dead: 1,
 const BOUNDS = { gate_turns: [20, 80], gate_fixes: [0, 3], gate_reruns: [0, 2], retry_dead: [0, 2], land_fixes: [0, 2], land_reruns: [0, 3] }
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
 const TOP_KEYS = ['base', 'relay', 'scratch', 'gate', 'items', 'designs', 'settings']
-const UNIT_KEYS = ['name', 'kind', 'wt', 'check', 'branch', 'item', 'built', 'fix', 'fixes', 'findings', 'land']
-const DESIGN_KEYS = ['name', 'brief', 'out', 'review']
+const UNIT_KEYS = ['name', 'kind', 'wt', 'check', 'branch', 'item', 'built', 'fix', 'fixes', 'findings', 'land', 'keep_open']
+const DESIGN_KEYS = ['name', 'brief', 'out', 'review', 'item']
 const KINDS = ['change', 'built', 'fix', 'recheck']
 const CFG = Object.assign({}, DEFAULTS, A.settings || {})
 
@@ -90,6 +90,7 @@ function refusal() {
     if (!it || !SLUG.test(it.name || '')) return `refused: ${who} needs a name of lower-case letters, digits and dashes`
     for (const f of Object.keys(it)) if (!UNIT_KEYS.includes(f)) return `refused: ${who} has an unknown field ${f} (known: ${UNIT_KEYS.join(', ')})`
     const kind = it.kind || 'change'
+    if (it.keep_open !== undefined && typeof it.keep_open !== 'boolean') return `refused: ${who} has keep_open ${JSON.stringify(it.keep_open)}: the field keep_open must be true or false`
     if (it.land !== undefined && typeof it.land !== 'boolean') return `refused: ${who} has land ${JSON.stringify(it.land)}: the field land must be true or false`
     if (!KINDS.includes(kind)) return `refused: ${who} has an unknown kind ${kind}`
     for (const f of ['wt', 'check']) if (typeof it[f] !== 'string' || !it[f]) return `refused: ${who} needs ${f}`
@@ -106,6 +107,7 @@ function refusal() {
   }
   for (const d of designs) {
     if (!d || !SLUG.test(d.name || '') || !d.brief || !d.out) return `refused: a design needs a name, a brief and an out`
+    if (d.item !== undefined && !SLUG.test(d.item)) return `refused: design ${d.name} has an item that is not a queue slug`
     for (const f of Object.keys(d)) if (!DESIGN_KEYS.includes(f)) return `refused: design ${d.name} has an unknown field ${f} (known: ${DESIGN_KEYS.join(', ')})`
   }
   return ''
@@ -285,7 +287,7 @@ function ownerShow(it, shown, line) {
 // The land stage: `relay land` in one runner, branching on its exit code (not on a model's reading of the text).
 // The command a land runner starts: the shell writes the exit code of relay land as the last line of the log (a fact, not a reading of the text).
 function wrapped(it) {
-  return `\`sh -c 'relay land ${it.branch} -C ${it.wt}; echo "relay land exit $?"'\``
+  return `\`sh -c 'relay land ${it.branch}${it.keep_open === true ? ' --keep-open' : ''} -C ${it.wt}; echo "relay land exit $?"'\``
 }
 
 async function landRun(it, st, again) {
@@ -428,18 +430,26 @@ async function unit(it) {
   return changeUnit(Object.assign({}, it, { kind }))
 }
 
+// Whether a thinker's hand-back carries the last line of `relay queue plan` (landed or unchanged). A design with no queue item is not kept.
+function planKept(d, answer) {
+  if (!d.item) return 'not kept: this design has no queue item, so no plan is written beside one'
+  const said = answer && !answer.dead && answer.v ? String(answer.v.summary || '') : ''
+  if (said.includes(`plan ${d.item}: landed`) || said.includes(`plan ${d.item}: unchanged`)) return 'kept'
+  return `plan not kept: run relay queue plan ${d.item} --input ${d.out}`
+}
+
 async function design(d) {
   const stem = d.out.replace(/\.[A-Za-z0-9]+$/, '')
   const reviewPath = `${stem}-review.json`
   const t = await ask(`Brief: \`${d.brief}\`. Output: \`${d.out}\`.`, agentOpts('thinker', HANDBACK, 'Design', `design: ${d.name}`))
   if (t.dead || t.v.status !== 'DONE') return { name: d.name, design: 'failed', detail: t.dead || t.v.summary }
-  if (d.review === false) return { name: d.name, design: d.out }
+  if (d.review === false) return { name: d.name, design: d.out, plan: planKept(d, t) }
   const rv = await ask(`Review the design ${d.out} adversarially (design review before a risky build; the brief is ${d.brief}). Each finding names file:line where it names code and a concrete failing case. Reply with the count by severity and the main point. Report: \`${reviewPath}\`.`,
     agentOpts('critic', HANDBACK, 'Design', `design review: ${d.name}`))
-  if (rv.dead) return { name: d.name, design: d.out, review: rv.dead }
-  const t2 = await ask(`Brief: \`${d.brief}\`. Output: \`${d.out}\`. Revise the design against the review ${reviewPath} (read it with \`relay check show ${reviewPath}\`): fix what holds, answer what does not with the reason, and end with an "Open for the owner" list (only real trade-offs).`,
+  if (rv.dead) return { name: d.name, design: d.out, review: rv.dead, plan: planKept(d, t) }
+  const t2 = await ask(`Brief: \`${d.brief}\`. Output: \`${d.out}\`. Revise the design against the review ${reviewPath} (read it with \`relay check show ${reviewPath}\`): fix what holds, answer what does not with the reason, and end with an "Open for the owner" list (only real trade-offs). Put the section "what changed after the review" in the plan: each finding, whether it held, the fix. The review itself is not kept anywhere else.${d.item ? ` Last step: run \`relay queue plan ${d.item} --input ${d.out}\` and put its last line in your hand-back.` : ''}`,
     agentOpts('thinker', HANDBACK, 'Design', `design revise: ${d.name}`))
-  return { name: d.name, design: d.out, review: rv.v.summary, revised: t2.dead ? t2.dead : t2.v.summary }
+  return { name: d.name, design: d.out, review: rv.v.summary, revised: t2.dead ? t2.dead : t2.v.summary, plan: planKept(d, t2) }
 }
 
 const refused = refusal()

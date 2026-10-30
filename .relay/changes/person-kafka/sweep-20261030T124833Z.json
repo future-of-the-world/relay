@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0109,
+   "id": "adbc292896d067180",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "be3adaa7-653a-4169-91a2-d067c99c42f4",
+   "stage": "other",
+   "start": "2026-10-30T10:23:08.553Z",
+   "stop": "2026-10-30T10:23:53.340Z"
+  },
+  {
+   "cost_usd": 0.0156,
+   "id": "adbc292896d067180",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "be3adaa7-653a-4169-91a2-d067c99c42f4",
+   "stage": "other",
+   "start": "2026-10-30T10:23:08.553Z",
+   "stop": "2026-10-30T10:23:59.836Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "ab331b0925f719b47",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "be3adaa7-653a-4169-91a2-d067c99c42f4",
+   "stage": "other",
+   "start": "2026-10-30T10:24:14.644Z",
+   "stop": "2026-10-30T10:24:31.383Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "other",
+ "land": [],
+ "schema": 1,
+ "unit": "person-kafka"
+}

@@ -23,10 +23,27 @@
   "where": [
     "lib/relay_land.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-30T10:26:44Z",
+  "taken_by": "wt/relay-land-closes-a-feature-after-its-fi",
+  "closed_at": "2026-10-30T12:25:23Z",
+  "test": "tests/test_land.py::ReviewFixes::test_keep_open_feature_stays_open_after_the_lanes_sweep",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-30T12:24:41Z",
+      "question": [
+        "After an intermediate landing of a multi-change feature (relay land --keep-open), does the feature stay taken by the deleted branch, or go back to open for the next change? (review F4)"
+      ],
+      "options": [
+        "a. released: open, not taken, with a dated fact of the landed sha; relay queue start starts the next change at once",
+        "b. stays taken by the deleted branch; the next change needs relay queue release first, or start learns to accept it"
+      ],
+      "decided_by": "front",
+      "chosen": "a",
+      "because": [
+        "principles 10 and 3: the next change starts with one command, and a take by a branch that no longer exists is state that contradicts git; \"open and taken\" in the pass case was the front's wording, not the owner's"
+      ]
+    }
+  ]
 }

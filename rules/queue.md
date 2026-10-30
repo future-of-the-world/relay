@@ -25,8 +25,11 @@ never write items. An item keeps dated events, not a state: `found_at`, `taken_a
 `dropped_why` (UTC times, null until it happens); open, taken, done or dropped is computed from them (there is no `done/` folder: a close or a drop edits the item file in place, and `relay queue` lists the open and taken ones), and `relay queue check`
 validates the files. Only in a project whose default branch has `.relay/`.
 
-An item holds the owner's words verbatim and dated facts, never a link to a session file, and no plan: a design is
-written fresh when the item is taken. What is said or measured about an item after it was created goes into it as a
+An item holds the owner's words verbatim and dated facts, never a link to a session file, and no plan. A task's plan lives beside
+its item as `.relay/queue/<slug>.plan.md`, written only by `relay queue plan <slug> --input <file.md>` (any item, any state; git keeps
+each version; `relay queue show` names its path); the design review is not kept, its findings go into the revised plan's section "what
+changed after the review". `docs/` holds lasting explanations only: a plan whose content becomes a subsystem's reference is rewritten
+into `docs/` as such, and code cites a plan as `(.relay/queue/<slug>.plan.md 5.1)`, a cited plan keeping its section numbers when revised. What is said or measured about an item after it was created goes into it as a
 note the same turn, without being asked: the owner's words (`said`), a measurement (`fact`), a question before it is
 shown (`question`, `options`), the owner's whole reply when it comes (`answer`, with the front's `reading`
 apart, `chosen` = the letters; `to` = the asked time when several wait or a decision of the front is on the item). A decision the front takes itself is a question note
