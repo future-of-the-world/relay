@@ -1211,6 +1211,17 @@ def git_first_check(system: str | None = None) -> tuple[str, bool, str] | None:
     return ("git first on PATH is the real git", problem is None, problem or "")
 
 
+GATE_COPIES_LINE = "no gate copy of a killed gate left registered"
+
+
+def gate_copies_check(root: str) -> tuple[str, bool, str]:
+    """The doctor line "no gate copy left registered": removes the copies of gates that were killed (a temporary worktree each,
+    registered in the repository) and names them in the detail. A folder that is missing or no repository has none."""
+    import relay_ci_copy
+    gone = relay_ci_copy.prune_dead_copies(root) if os.path.isdir(root) else []
+    return (GATE_COPIES_LINE, True, "removed: " + ", ".join(gone) if gone else "")
+
+
 def bin_relay_problem(root: str) -> str | None:
     """Why bin/relay in relay's main checkout (not a linked worktree of it: a branch may edit bin/relay there) is not what HEAD
     holds, None when it is, or when the folder is no git checkout. The fix is the next step, since guard-main refuses a restore
@@ -1314,6 +1325,7 @@ def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[
         root = os.path.realpath(root)
         d = detect(root)
         ok("project has .claude/kit.toml", d["has_bindings"], "relay setup " + root)
+        checks.append(gate_copies_check(root))
         ok("rules for this project in sync", not own_stale, "-> relay sync")
         import relay_kit
         found = relay_kit.load(root).problems + tuple(settings_env_problems(root))

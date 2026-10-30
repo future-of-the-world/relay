@@ -1,0 +1,199 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.2953,
+   "id": "ad0c55e3844a84799",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 29,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design",
+   "start": "2026-10-30T12:04:11.273Z",
+   "stop": "2026-10-30T12:11:34.145Z"
+  },
+  {
+   "cost_usd": 2.3599,
+   "id": "a548be9d9361d2089",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 29,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design review",
+   "start": "2026-10-30T12:11:37.131Z",
+   "stop": "2026-10-30T12:20:16.003Z"
+  },
+  {
+   "cost_usd": 2.1256,
+   "id": "a02ae24ccc1c8bea6",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design revise",
+   "start": "2026-10-30T12:20:24.933Z",
+   "stop": "2026-10-30T12:26:23.987Z"
+  },
+  {
+   "cost_usd": 2.5872,
+   "id": "a04a901663c5348dd",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 60,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T12:26:59.403Z",
+   "stop": "2026-10-30T13:04:36.205Z"
+  },
+  {
+   "cost_usd": 0.006,
+   "id": "a96ab91e22b07abf6",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T13:04:40.046Z",
+   "stop": "2026-10-30T13:30:01.573Z"
+  },
+  {
+   "cost_usd": 0.1192,
+   "id": "a0cc64e3ef0306a2c",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T13:30:04.506Z",
+   "stop": "2026-10-30T13:33:26.010Z"
+  },
+  {
+   "cost_usd": 0.0048,
+   "id": "ae40337deb5b1e8fe",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T13:33:29.898Z",
+   "stop": "2026-10-30T13:59:48.854Z"
+  },
+  {
+   "cost_usd": 0.3167,
+   "id": "a23fe63ae34ecc2b7",
+   "model": "claude-sonnet-5-5",
+   "n": 2,
+   "requests": 19,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T13:59:52.112Z",
+   "stop": "2026-10-30T14:12:49.521Z"
+  },
+  {
+   "cost_usd": 0.0044,
+   "id": "a9cdb2a0d4c73b081",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T14:12:53.166Z",
+   "stop": "2026-10-30T14:27:21.288Z"
+  },
+  {
+   "cost_usd": 2.0217,
+   "id": "aacebff0ec667b8a1",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 25,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T14:27:29.021Z",
+   "stop": "2026-10-30T14:36:57.443Z"
+  },
+  {
+   "cost_usd": 0.5391,
+   "id": "a571fd66e5dcbc7a0",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T14:37:00.525Z",
+   "stop": "2026-10-30T14:47:42.656Z"
+  },
+  {
+   "cost_usd": 0.0046,
+   "id": "a44e33105bacfd499",
+   "model": "claude-haiku-5-5",
+   "n": 4,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T14:47:45.754Z",
+   "stop": "2026-10-30T15:03:56.144Z"
+  },
+  {
+   "cost_usd": 0.151,
+   "id": "aab5eef7747b8f26c",
+   "model": "claude-sonnet-5-5",
+   "n": 3,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T15:03:59.467Z",
+   "stop": "2026-10-30T15:12:56.513Z"
+  },
+  {
+   "cost_usd": 0.0052,
+   "id": "a66c6d410fc9fd3db",
+   "model": "claude-haiku-5-5",
+   "n": 5,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T15:12:59.501Z",
+   "stop": "2026-10-30T15:32:34.563Z"
+  },
+  {
+   "cost_usd": 0.1678,
+   "id": "a28bca12a10b8656d",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T15:32:37.245Z",
+   "stop": "2026-10-30T15:38:28.740Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "a116347f6cca59635",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T15:38:31.827Z",
+   "stop": "2026-10-30T15:38:38.006Z"
+  },
+  {
+   "cost_usd": 0.0026,
+   "id": "a116347f6cca59635",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T15:38:31.827Z",
+   "stop": "2026-10-30T15:38:40.610Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "gates-on-the-vps-hosts-transport-watch-b"
+}

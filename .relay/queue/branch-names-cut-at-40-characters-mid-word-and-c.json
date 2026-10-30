@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-30T16:03:24Z",
   "taken_by": "wt/branch-names-cut-at-40-characters-mid-wo",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T16:56:21Z",
+  "test": "tests/test_lanes_state.py::test_two_slugs_sharing_forty_characters_get_two_branches_that_are_the_full_slugs",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

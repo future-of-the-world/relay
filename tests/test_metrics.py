@@ -71,8 +71,8 @@ class Labels(unittest.TestCase):
     def test_window_matching_old_forty_char_labels(self):
         # the 40-char slug is shared by items A and A-2; each owns the agents that started inside its own taken..closed window
         a, b = "refuse-folder-and-pattern-entries-in-where", "refuse-folder-and-pattern-entries-in-where-2"
-        items = [{"slug": a, "taken_at": "2026-10-28T00:00:00Z", "closed_at": "2026-10-28T12:00:00Z"},
-                 {"slug": b, "taken_at": "2026-10-28T10:00:00Z", "closed_at": "2026-10-29T00:00:00Z"}]
+        items = [{"slug": a, "taken_at": "2026-10-28T00:00:00Z", "closed_at": "2026-10-28T12:00:00Z", "taken_by": "wt/" + a[:40]},
+                 {"slug": b, "taken_at": "2026-10-28T10:00:00Z", "closed_at": "2026-10-29T00:00:00Z", "taken_by": "wt/" + a[:40]}]
         notes = []
         unit = a[:40]
         self.assertEqual(relay_metrics.match_unit(agent("1", unit, start="2026-10-28T05:00:00Z"), items, notes), a)
@@ -84,6 +84,32 @@ class Labels(unittest.TestCase):
         self.assertIn("3", notes[0])
         # a full item id matches exactly, whatever the window
         self.assertEqual(relay_metrics.match_unit(agent("4", b, start="2026-10-28T11:00:00Z"), items, notes), b)
+
+
+class UnitsByBranch(unittest.TestCase):
+    def test_two_items_with_one_long_shared_start_stay_two_units(self):
+        # the slugs share 40 characters but their recorded branches differ (full slugs): a label equal to a branch name matches
+        # that item, and the shared first 40 characters alone match nothing
+        a, b = "refuse-folder-and-pattern-entries-in-where-a", "refuse-folder-and-pattern-entries-in-where-b"
+        items = [{"slug": a, "taken_at": "2026-10-28T00:00:00Z", "taken_by": "wt/" + a},
+                 {"slug": b, "taken_at": "2026-10-28T00:00:00Z", "taken_by": "wt/" + b}]
+        notes = []
+        self.assertEqual(relay_metrics.match_unit(agent("1", "fix-" + a, start="2026-10-28T05:00:00Z"), items, notes), a)
+        self.assertEqual(relay_metrics.match_unit(agent("2", b, start="2026-10-28T05:00:00Z"), items, notes), b)
+        self.assertIsNone(relay_metrics.match_unit(agent("3", a[:40], start="2026-10-28T05:00:00Z"), items, notes))
+        self.assertEqual(notes, [])
+
+    def test_take_conflict_unit_named_branch_plus_word_matches_its_item(self):
+        # live case: unit "<branch>-take" (no item on a take unit) must land in the item taken by wt/<branch>, inside its window
+        slug = "one-digest-per-wave-instead-of-status-messages"
+        branch = slug[:40].rstrip("-")
+        items = [{"slug": slug, "taken_at": "2026-10-28T00:00:00Z", "taken_by": "wt/" + branch}]
+        notes = []
+        for unit in (branch + "-take", "fix-" + branch + "-take"):
+            self.assertEqual(relay_metrics.match_unit(agent("1", unit, start="2026-10-28T05:00:00Z"), items, notes), slug)
+        self.assertIsNone(relay_metrics.match_unit(agent("2", branch + "-take", start="2026-10-27T05:00:00Z"), items, notes))  # before the window
+        self.assertIsNone(relay_metrics.match_unit(agent("3", branch + "-more-words", start="2026-10-28T05:00:00Z"), items, notes))
+        self.assertEqual(notes, [])
 
 
 class Guard(unittest.TestCase):

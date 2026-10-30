@@ -1,0 +1,258 @@
+{
+  "branch": "wt/inert-probe-leaves-worktrees-registered-in-the-l",
+  "findings": [
+    {
+      "details": [
+        "28 Oct ~07:50 UTC: `git worktree list` in ~/relay shows 20 detached worktrees under the macOS temp folder (tmp*/wt), each HEAD an 'inert probe' commit by relay-ci; 9 still exist (2-4 days old, clean), 11 point at deleted folders. A test or the gate's inert probe registers its worktree in the live repo and does not remove it when it ends or is killed. The rule: tests use a temporary folder and never touch the live repo.",
+        "Also: plugins/front/lib/relay_inert.py (copy)",
+        "Also: tests/test_inert.py (temporary repo)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "After a gate run, `git -C ~/relay worktree list` has a new tmp*/wt entry that stays after the gate ends."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A gate run leaves `git worktree list` as it found it.",
+        "A probe killed mid-run leaves no registered worktree after the next relay doctor."
+      ],
+      "path": "lib/relay_inert.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_inert.py:213 test_a_copy_whose_gate_was_killed_is_unregistered_and_named passes, fails at 09cbdfe."
+      ],
+      "severity": "HIGH",
+      "since": "09cbdfe930bab50881989b385398b7d9124c4f15",
+      "source": "queue",
+      "summary": "Inert probe leaves worktrees registered in the live repo",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced). gate_copies_check returns (name, True, \"removed: <T>\"), and cmd_doctor's show() appends the detail",
+        "only when `detail and not good`. The new test test_doctor_line_removes_leftovers_and_names_them asserts on the returned",
+        "tuple, so it passes while the person sees nothing. Size: 15."
+      ],
+      "evidence": [
+        "$ git worktree list (temp repo): repo + .../doc/tmpcopy/wt (detached HEAD); record written with a dead pid",
+        "$ bin/relay doctor <repo> | grep 'gate copy'",
+        "3:ok   no gate copy of a killed gate left registered",
+        "$ git worktree list: only the repo left",
+        "bin/relay cmd_doctor: print(... + (f\"  ({detail})\" if detail and not good else \"\"))"
+      ],
+      "failing_case": [
+        "A temporary repo with a copy worktree <T>/wt registered and a shared record whose pid is dead. `bin/relay doctor <repo>`",
+        "prints `ok   no gate copy of a killed gate left registered` with no path; the copy is gone, and nothing says which one was",
+        "removed. The item promises \"relay doctor names and prunes leftover probe worktrees\"."
+      ],
+      "fix_hint": [
+        "Print the detail of an ok line too (in show(): `if detail and (not good or <info line>)`), or emit one `note` line per",
+        "removed copy the way relay_tidy's information lines print; test the printed text of cmd_doctor, not the tuple."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1218,
+      "pass_cases": [
+        "1. Dead-pid copy at <T>: the text `relay doctor <repo>` prints contains <T> on or under the gate-copy line, and afterwards",
+        "   `git worktree list` shows only the repo.",
+        "2. No leftover: the line prints as `ok   no gate copy of a killed gate left registered` with nothing after it.",
+        "3. Copy of a running gate (record pid = a live process): not named, not removed.",
+        "4. Exit code of `relay doctor <repo>` stays 0-to-fix for that line in all three cases (a removal done is not a FIX)."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_inert.py:261, fails at base (assertion on doctor line)."
+      ],
+      "severity": "MEDIUM",
+      "since": "851dbc435b49bcafd511efa24bdf3977557f65e0",
+      "source": "review-inert-probe-leaves-worktrees-registered-in-the-l.json",
+      "source_id": "F1",
+      "summary": "relay doctor removes a killed gate's copy but never names it: the line is always ok and doctor prints details only for FIX lines",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: cmd_doctor passes root=None to doctor_parts; the project list is [] (tests/test_setup.py:146 asserts",
+        "it), and the call sits in the project part only. Only relay_tidy.lines runs on the cwd repo with no folder, and it is",
+        "read-only by design. Every gate start also prunes (remove_leftover_copy), which covers the common case, but the item names",
+        "relay doctor. Size: 15."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:1307-1310: ok(\"project has .claude/kit.toml\", ...); checks.append(gate_copies_check(root)) inside `if root`",
+        "bin/relay:557: root = os.path.realpath(args[0]) if args else None",
+        "tests/test_setup.py:146: self.assertEqual(relay_setup.doctor_parts(None, profile={})[1], [])"
+      ],
+      "failing_case": [
+        "In ~/relay, a gate of lane A is killed (its copy stays, record pid dead) and lane A is not gated again. `relay doctor`",
+        "(no folder, the form README.md:39 and :61 give) runs only the machine part: doctor_parts(None) has no project checks, so",
+        "gate_copies_check never runs and `git worktree list` still shows the tmp*/wt copy. Item pass case: \"A probe killed",
+        "mid-run leaves no registered worktree after the next relay doctor.\""
+      ],
+      "fix_hint": [
+        "In cmd_doctor (or doctor_parts) run gate_copies_check on `root or <repo of cwd>` when that is a git repository, beside the",
+        "tidy lines, and print its result in both forms."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 1310,
+      "pass_cases": [
+        "1. cwd = a worktree of a repo holding a dead-pid copy; `relay doctor` with no folder: the copy is unregistered and named.",
+        "2. `relay doctor <repo>` (folder given): same outcome as today plus the name (F1).",
+        "3. `relay doctor` with no folder outside any git repository: no gate-copy line or an ok line, no error."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_inert.py:281, fails at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "851dbc435b49bcafd511efa24bdf3977557f65e0",
+      "source": "review-inert-probe-leaves-worktrees-registered-in-the-l.json",
+      "source_id": "F2",
+      "summary": "relay doctor with no folder (the README's form) never prunes or names leftover gate copies",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (reproduced on branch and master). relay_ci_copy._run uses cwd=root; for a missing root subprocess.run raises",
+        "before git starts. Principle 10: an error that does not say what to do next. Size: 10."
+      ],
+      "evidence": [
+        "$ <wt>/bin/relay doctor <scratch>/doc/missing",
+        "relay doctor: [Errno 2] No such file or directory: '<scratch>/doc/missing'",
+        "$ ~/relay/bin/relay doctor <scratch>/doc/missing",
+        "# Project <scratch>/doc/missing",
+        "FIX  project has .claude/kit.toml  (relay setup <scratch>/doc/missing)"
+      ],
+      "failing_case": [
+        "`relay doctor /path/typo` (a folder that does not exist, or a lane worktree just removed). Master prints `# Project ...`",
+        "then `FIX  project has .claude/kit.toml  (relay setup ...)` and the rest of the check-up. The branch prints only",
+        "`relay doctor: [Errno 2] No such file or directory: '<path>'`: shared_dir runs git with cwd=<missing folder>, subprocess",
+        "raises FileNotFoundError, and the whole doctor stops."
+      ],
+      "fix_hint": [
+        "gate_copies_check returns the ok line with no detail when `not os.path.isdir(root)` (or shared_dir/_run treat a missing cwd",
+        "as \"no repository\"); add the missing-folder case to tests."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1217,
+      "pass_cases": [
+        "1. `relay doctor <missing folder>`: prints the project block with the kit.toml FIX line as on master; the gate-copy line is",
+        "   ok (or absent), no traceback or Errno line.",
+        "2. `relay doctor <folder that is not a git repo>`: the gate-copy line is ok with no detail.",
+        "3. `relay doctor <repo>` with a dead-pid copy: removed (and named, F1)."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_inert.py:294, fails at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "851dbc435b49bcafd511efa24bdf3977557f65e0",
+      "source": "review-inert-probe-leaves-worktrees-registered-in-the-l.json",
+      "source_id": "F3",
+      "summary": "relay doctor on a missing folder now crashes with Errno 2 instead of saying 'relay setup <dir>'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "(a) PLAUSIBLE: depends on whether a gate ever runs with a separate pid namespace while writing this repository's shared git",
+        "folder (Claude Code's Linux sandbox; not measured here, macOS host). (b) CONFIRMED by reading, low odds per run. A lock the",
+        "gate holds for its life (fcntl.flock LOCK_EX on the record file, kept open; the pruner tries LOCK_EX|LOCK_NB and removes only",
+        "when it gets the lock) is released by the kernel on kill, works across pid namespaces on one kernel, and is immune to pid",
+        "reuse. Size: 30."
+      ],
+      "evidence": [
+        "lib/relay_ci_copy.py:34-41 _running: os.kill(pid, 0); ProcessLookupError -> not running",
+        "lib/relay_ci_copy.py:51: `_running(int(lines[2]))` is the only liveness test before _remove_copy (rmtree + worktree remove --force)"
+      ],
+      "failing_case": [
+        "(a) A gate runs inside an agent's Linux sandbox with its own pid namespace (the owner is moving development to Linux VMs",
+        "with the Linux sandbox): its record holds namespace pid 37. The front's `relay doctor ~/relay`, or another lane's gate",
+        "start, runs in another namespace where pid 37 does not exist: ProcessLookupError, so prune_dead_copies removes the RUNNING",
+        "gate's copy and its test run fails mid-way with missing files (a spurious red gate). It should leave it alone.",
+        "(b) A gate killed at pid 51234; by the next doctor macOS has handed 51234 to another process (pids wrap at 99999 and the",
+        "gate starts thousands of processes): the copy is kept and never named while that process lives."
+      ],
+      "fix_hint": [
+        "GateCopy.start opens the shared record and holds an exclusive flock on it until stop(); prune_dead_copies treats a record",
+        "as dead only when a non-blocking flock succeeds (keep the pid line for the name only)."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 34,
+      "pass_cases": [
+        "1. Record of a gate whose liveness token is held by a running process in another pid namespace (or simulated: a held lock",
+        "   with an unknown pid): prune_dead_copies returns [] and the copy stays registered.",
+        "2. Record of a killed gate whose pid now belongs to an unrelated live process: the copy is removed and named.",
+        "3. Record of a gate in this process (alive): left alone (today's test_a_copy_of_a_running_gate_is_left_alone).",
+        "4. Old 2-line record: left to the owner-folder rule, as today."
+      ],
+      "path": "lib/relay_ci_copy.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_inert.py:236 and :242 pass with flock-held semantics; fail at base (TypeError on helper)."
+      ],
+      "severity": "MEDIUM",
+      "since": "851dbc435b49bcafd511efa24bdf3977557f65e0",
+      "source": "review-inert-probe-leaves-worktrees-registered-in-the-l.json",
+      "source_id": "F4",
+      "summary": "a gate is judged alive by its pid alone: in another pid namespace a running gate's copy is removed, and after pid reuse a dead gate's copy is kept",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the callers in tests (grep remove_leftover_copy / prune_dead_copies). Size: 10."
+      ],
+      "evidence": [
+        "$ git grep -n 'remove_leftover_copy\\|prune_dead_copies' -- tests",
+        "tests/test_ci_python.py:550, 577, 598 (live pid or missing owner); tests/test_inert.py:209, 216 (prune_dead_copies direct)"
+      ],
+      "failing_case": [
+        "Delete line 86 `prune_dead_copies(root)` from remove_leftover_copy. Lane A (worktree still present) had its gate killed",
+        "(dead-pid record); lane B's gate starts: lane A's copy should go, it stays. Every test still passes: the new tests call",
+        "prune_dead_copies and gate_copies_check directly, and tests/test_ci_python.py's leftover tests only use live-pid copies",
+        "or gone-owner records."
+      ],
+      "fix_hint": [
+        "One test in GateCopyLeftovers: two lane worktrees, a dead-pid copy for lane A, remove_leftover_copy(lane B), assert one",
+        "fewer registered worktree."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 182,
+      "pass_cases": [
+        "1. Lanes A and B exist; a copy for A with a dead-pid record; remove_leftover_copy(B): the copy is unregistered, the record",
+        "   is gone.",
+        "2. Same with a live pid: the copy stays (test_a_copy_of_a_live_lane_is_not_touched_by_the_gate_of_another_lane)."
+      ],
+      "path": "tests/test_inert.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_inert.py:248 passes; fails at base (helper TypeError; the fixer reports it also fails when the prune call is deleted)."
+      ],
+      "severity": "LOW",
+      "since": "851dbc435b49bcafd511efa24bdf3977557f65e0",
+      "source": "review-inert-probe-leaves-worktrees-registered-in-the-l.json",
+      "source_id": "F5",
+      "summary": "no test covers the new prune at every gate start: removing remove_leftover_copy's prune_dead_copies call fails no test",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "2ce64660f8a2d223f7d9533e9b3cd636f1f2bae5.gate.log",
+  "head": "25855362c3c0ce3ea110c40219464b678347cc14",
+  "item": "inert-probe-leaves-worktrees-registered-in-the-l",
+  "notes": [
+    "Some base failures are a TypeError on the test helper's pid kwarg, but F1/F2/F3 tests fail on real assertions."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 09cbdfe..HEAD; relay changed from the gate sha lists nothing. Files: bin/relay, lib/relay_ci_copy.py, lib/relay_setup.py, tests/test_inert.py. precheck green; pytest test_inert+test_archive_inert 37 passed. Tests run at 09cbdfe and 851dbc4 with the head test file: 10 and 8 GateCopyLeftovers tests fail there."
+  ],
+  "type": "check"
+}

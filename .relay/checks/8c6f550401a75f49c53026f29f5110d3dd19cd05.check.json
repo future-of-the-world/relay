@@ -1,0 +1,93 @@
+{
+  "branch": "wt/pytest-on-a-machine-without-relay-still",
+  "findings": [
+    {
+      "details": [
+        "Found by the review of the test-token fix (30 Oct): the fix covers tests/run_unittest.py, but pytest on a machine without relay still creates and leaves $HOME/.relay/test-tokens, the same leak seen on the VPS ai.amidman.com. Its twin finding F4 (relay_ledger binds ledger_dir at import) is item a-test-leaves-relay-ledger-bound-to-a-patched-le."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "HOME=<empty scratch folder>, RELAY_HOME and RELAY_TEST_TOKENS unset:",
+        "`pytest -q tests/test_relay_tokens.py -k 'test_defaults or RunnerPool'` -> 5 passed, and afterwards",
+        "<HOME>/.relay/test-tokens/token-8 and <HOME>/.relay/test-tokens/waiting exist. Expected: HOME left empty."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 40,
+      "pass_cases": [
+        "1. Empty HOME, RELAY_HOME unset: after a pytest run HOME is empty.",
+        "2. Under relay gate (RELAY_TEST_TOKENS passed), the pytest session still uses the gate's pool and takes no token.",
+        "3. On a machine whose pool exists, a pytest session still takes one SHARED token of it."
+      ],
+      "path": "tests/conftest.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_pytest_pool_home.py::test_empty_home_stays_empty passes on head, fails at f7d7626 without the fix."
+      ],
+      "severity": "HIGH",
+      "since": "f7d7626bb93a3d370eb8ef45f86e1d281979716b",
+      "source": "queue",
+      "summary": "Pytest on a machine without relay still creates and\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by mutation. The test asserts only that HOME stays empty and that P/test-tokens was not created. A conftest",
+        "that ignores the passed-down base also leaves both untouched: it makes a temporary pool, takes a token there, and",
+        "removes it. So the brief's pass case 2 (\"still uses the gate's pool and takes no token\") has no test that tells the",
+        "two apart. The behaviour itself is correct today (own_pool_home returns run_home when passed_down is non-zero, and",
+        "its own tests in test_relay_tokens.py cover that), so this is a weak test, not wrong code. Size: 15 minutes."
+      ],
+      "evidence": [
+        "sed 's/home = run_unittest.own_pool_home(environ)/home = os.path.realpath(tempfile.mkdtemp(prefix=\"relay-pool-\"))/' tests/conftest.py > <base worktree>/tests/conftest.py",
+        "python3 -m unittest -v tests.test_pytest_pool_home",
+        "  test_empty_home_stays_empty ... ok",
+        "  test_existing_pool_is_used ... FAIL",
+        "  test_gate_pool_is_used_and_no_token_taken ... ok"
+      ],
+      "failing_case": [
+        "Change tests/conftest.py pytest_sessionstart to always use a temporary pool",
+        "(home = os.path.realpath(tempfile.mkdtemp(prefix=\"relay-pool-\")) instead of run_unittest.own_pool_home(environ)).",
+        "Now: test_gate_pool_is_used_and_no_token_taken still passes (only test_existing_pool_is_used fails).",
+        "Expected: the gate-pool test fails, since the session took a token instead of using the base the gate passed down."
+      ],
+      "fix_hint": [
+        "Make the child show what it saw: e.g. let the pytest child print os.environ RELAY_TEST_TOKENS from a session hook",
+        "(or run a tiny test via -p with a plugin that writes it to a file) and assert it equals the hold the gate passed;",
+        "or test pytest_sessionstart directly with a monkeypatched environment and assert _session_base[0].passed is True",
+        "and _session_temp_homes is empty."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 35,
+      "pass_cases": [
+        "1. RELAY_HOME=P, RELAY_TEST_TOKENS=hold_value(2, P), P/test-tokens absent: the session's base is passed down",
+        "   (base.passed is True, workers 2), no temporary pool is made, and RELAY_TEST_TOKENS is left as the gate gave it.",
+        "2. Same, with the conftest mutated to always use a temporary pool: the test fails.",
+        "3. Empty HOME, RELAY_HOME and RELAY_TEST_TOKENS unset: HOME stays empty (test_empty_home_stays_empty, unchanged).",
+        "4. RELAY_HOME=P with P/test-tokens existing: a token-N file appears in P/test-tokens (test_existing_pool_is_used, unchanged)."
+      ],
+      "path": "tests/test_pytest_pool_home.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_pytest_pool_home.py: gate-pool test now uses a spy plugin asserting passed, workers, no temp homes; it passes on head and fails on base (module has no _session_temp_homes)."
+      ],
+      "severity": "LOW",
+      "since": "d21977ddff34a00d8a700f436c9b2fd36324a7c2",
+      "source": "review-pytest-on-a-machine-without-relay-still.json",
+      "source_id": "F1",
+      "summary": "test_gate_pool_is_used_and_no_token_taken passes when the conftest ignores the gate's pool and takes a token of a temporary one",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "c78ebf20902bbedc106ea505cc1d0da18d7e13c6.gate.log",
+  "head": "8c6f550401a75f49c53026f29f5110d3dd19cd05",
+  "item": "pytest-on-a-machine-without-relay-still-creates",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Files changed: tests/conftest.py, tests/test_pytest_pool_home.py only. Ran the test file (3 OK), precheck and bin/ci --quick (green). Gate sha c78ebf2 is code-equal to HEAD (no file changed after it). Base worktree at f7d7626 with the new test: 2 of 3 fail."
+  ],
+  "type": "check"
+}

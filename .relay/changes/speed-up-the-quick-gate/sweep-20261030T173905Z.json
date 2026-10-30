@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0052,
+   "id": "ad83958fb523387e8",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T16:03:10.183Z",
+   "stop": "2026-10-30T16:23:35.374Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "speed-up-the-quick-gate",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "speed-up-the-quick-gate"
+}

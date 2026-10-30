@@ -1,0 +1,105 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.25,
+   "id": "adcc37933be228740",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 22,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T13:32:41.352Z",
+   "stop": "2026-10-30T13:35:29.251Z"
+  },
+  {
+   "cost_usd": 0.0642,
+   "id": "ad2659ca79b24957f",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T15:42:29.229Z",
+   "stop": "2026-10-30T15:44:43.548Z"
+  },
+  {
+   "cost_usd": 0.0039,
+   "id": "a604a9e33d6403eb0",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T15:44:46.173Z",
+   "stop": "2026-10-30T16:02:32.548Z"
+  },
+  {
+   "cost_usd": 0.1721,
+   "id": "a84ad9b20e1e1e024",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T16:02:35.484Z",
+   "stop": "2026-10-30T16:11:14.870Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a7492e1aeeca15e03",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T16:11:17.831Z",
+   "stop": "2026-10-30T16:11:29.050Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "a0abc7bd167728d4c",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T16:11:31.783Z",
+   "stop": "2026-10-30T16:11:40.372Z"
+  }
+ ],
+ "before": "a15e07dd41af698bc0a038ae262bd7e528f4d21e",
+ "branch": "wt/gates-on-the-vps-hosts-transport-watch-b",
+ "head": "e4e99dc15af7de1e9e462642abdf4ace16bfc430",
+ "item": "python-aborts-at-exit-in-gates-macos-shows-crash",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T13:32:08+00:00",
+   "file": "lib/relay_ci.py",
+   "holder": "wt/paid-run-red-plan-one-line-spec-check-fa",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T14:27:20+00:00",
+   "file": "lib/relay_ci.py",
+   "holder": "wt/speed-up-the-quick-gate",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T16:23:27+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T16:33:51+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T16:42:41+00:00",
+   "gate_seconds": 485.7071692919126,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "python-aborts-at-exit-in-gates-macos-shows-crash"
+}

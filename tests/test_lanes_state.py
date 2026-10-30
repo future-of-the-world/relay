@@ -908,3 +908,26 @@ class DesignStart(LaneBase):
         self.assertEqual([(l.branch, l.slug) for l in s.running], [(branch, "ft")])
         self.assertEqual(s.landed_open, [])
         self.assertEqual(rl.close_landed(self.main), [])
+
+
+class BranchNames(LaneBase):
+    A = "refuse-folder-and-pattern-entries-in-where-a"
+    B = "refuse-folder-and-pattern-entries-in-where-b"
+
+    def test_two_slugs_sharing_forty_characters_get_two_branches_that_are_the_full_slugs(self):
+        # A and B agree on their first 40 characters (the old cut), so the old name was one branch for both; the full slug is unique
+        self.assertEqual(self.A[:40], self.B[:40])
+        self.seed({Q + self.A + ".json": item(self.A, where=("lib/a.py",)), Q + self.B + ".json": item(self.B, where=("lib/b.py",))})
+        scratch = os.path.join(self.tmp, "scratch")
+        first = json.loads(rl.start(self.main, self.A, scratch))
+        second = json.loads(rl.start(self.main, self.B, scratch))
+        self.assertEqual(first["branch"], "wt/" + self.A)
+        self.assertEqual(second["branch"], "wt/" + self.B)
+        self.assertNotEqual(first["worktree"], second["worktree"])
+
+    def test_a_branch_name_never_ends_inside_a_word(self):
+        # the name is the whole slug, so it ends where the slug ends (here after "tokens-outside-its-t", a slug the queue cut itself)
+        slug = "the-test-runner-leaves-test-tokens-outside-its-t"
+        self.seed({Q + slug + ".json": item(slug)})
+        out = json.loads(rl.start(self.main, slug, os.path.join(self.tmp, "scratch")))
+        self.assertEqual(out["branch"], "wt/" + slug)

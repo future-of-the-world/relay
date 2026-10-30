@@ -1,0 +1,17 @@
+head 9d65aca3218d8e36af8ef2281aed20e72acf51c7
+cmd bin/ci --quick
+wait 14.9
+gate: stopped a leftover test process 42453 (/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Py): parent gone, folder deleted
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (681s, log: .ci/steps/library-tests.log)
+    FAIL: test_tree_passes (test_module_sizes.ModuleSizes.test_tree_passes)
+    AssertionError: Lists differ: ['lib/relay_lanes.py has 603 lines, limit [64 chars]ct)'] != []
+    FAILED (failures=1)
+ci: coverage 90.0% of lib, bin, plugins (15031 of 16693 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (0s)
+ci: RED
+exit 1

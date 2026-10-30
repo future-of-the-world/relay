@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0066,
+   "id": "a875e0d0f768fceae",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T15:39:15.964Z",
+   "stop": "2026-10-30T16:02:50.015Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "a-just-started-branch-with-no-commit-counts-as-l",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "a-just-started-branch-with-no-commit-counts-as-l"
+}

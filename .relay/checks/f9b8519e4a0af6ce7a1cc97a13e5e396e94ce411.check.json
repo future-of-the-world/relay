@@ -1,0 +1,172 @@
+{
+  "branch": "wt/branch-names-cut-at-40-characters-mid-wo",
+  "findings": [
+    {
+      "details": [
+        "The owner saw \"taken_by\": \"wt/the-test-runner-leaves-test-tokens-outsi\" and asked why it is cut. lib/relay_lanes.py:401 `_short` cuts the slug at 40 characters with no reason in code or history; 259 of 303 queue slugs are longer than 40. Measured 30 Oct: 4 pairs of items share the same 40-character name (read-only-guard-lets-a-critic-run-relay, refuse-folder-and-pattern-entries-in-whe, test-scaffolding-for-per-command-modules, type-check-subfolders-and-cap-module-siz), so two such items would get one branch, and relay_metrics.py:126 matches units by the first 40 characters too.",
+        "Also: lib/relay_metrics.py:126"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "30 Oct: `relay queue start` gave branch wt/the-test-runner-leaves-test-tokens-outsi for item the-test-runner-leaves-test-tokens-outside-its-t; 4 pairs of existing slugs map to one 40-character name."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 401,
+      "pass_cases": [
+        "Two items whose slugs share the first 40 characters get two different branches.",
+        "A branch name never ends inside a word, or is the full slug.",
+        "relay metrics shows one unit per item for those two items."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_lanes_state.py:899 BranchNames.test_two_slugs_sharing_forty_characters_get_two_branches_that_are_the_full_slugs passes; at 1e44ba75 it errors (the old cut gives one branch)."
+      ],
+      "severity": "HIGH",
+      "since": "1e44ba75d1a2ca4f22141aaaf6e0a8913d785c78",
+      "source": "queue",
+      "summary": "Branch names cut at 40 characters mid-word and can collide",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by measurement on live data (old vs new match_unit over 1581 ledger agents): 5 agents go from matched to unmatched, 255 go from",
+        "unmatched to matched. The loss is a consequence of the brief's decision \"match by recorded branch, not by a prefix\"; it only hits units the",
+        "front names with a suffix and no item, which cycle.js forces for take-conflict units (\"a take conflict is kind fix ... and no item\").",
+        "Rated LOW: metrics only, a handful of agents, correct per the decision. Size: 15 (either let a take unit carry its item in cycle.js, or",
+        "match \"<branch name>-<word>\" by taken_by + window)."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/cmp_match.py <worktree>",
+        "agents 1581 matched by either 958 differ 260",
+        "5 ('one-digest-per-wave-instead-of-status-me-take', 'one-digest-per-wave-instead-of-status-messages', None) taken_by of old: wt/one-digest-per-wave-instead-of-status-me",
+        "cycle.js:104 \"a take conflict is kind fix with fix 'take ... and resolve <files>' ... and no item\""
+      ],
+      "failing_case": [
+        "Live ledger, 30 Oct: 5 agents with label unit \"one-digest-per-wave-instead-of-status-me-take\" (a take-conflict unit; cycle.js refuses an",
+        "item on it, so its label is the name the front chose). Item one-digest-per-wave-instead-of-status-messages has taken_by",
+        "wt/one-digest-per-wave-instead-of-status-me. Old match_unit: the item (shared first 40 characters). New match_unit: None, the 5 agents are",
+        "counted in no unit."
+      ],
+      "fix_hint": [
+        "In match_unit, after the exact taken_by test, also accept a unit that starts with the branch name plus \"-\" inside the window (still never",
+        "two items); or allow `item` on a take-conflict unit in cycle.js so its label is the item id."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 126,
+      "pass_cases": [
+        "1. Agent unit \"<slug>-take\" (or \"fix-<slug>-take\") started inside the window of the item taken by wt/<slug>: matches that item, or the",
+        "   cycle labels a take unit with the branch's item so the exact path matches (either way the 5 live agents land in the item).",
+        "2. Agent unit \"refuse-folder-and-pattern-entries-in-where-a\" with items -a and -b taken by their full-slug branches: matches -a (test_metrics UnitsByBranch).",
+        "3. Agent unit equal to a 40-char prefix shared by two items whose branches are the full slugs: None, no note (UnitsByBranch).",
+        "4. The old window test (two items both taken by the same 40-char branch): each agent goes to the item whose window holds it."
+      ],
+      "path": "lib/relay_metrics.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_metrics.py UnitsByBranch.test_take_conflict_unit_named_branch_plus_word_matches_its_item passes, fails at 1e44ba75; existing UnitsByBranch cases cover the other pass cases."
+      ],
+      "severity": "LOW",
+      "since": "b1f4004adb705598d2f7ce8923df2a47354ab0da",
+      "source": "review-branch-names-cut-at-40-characters-mid-wo.json",
+      "source_id": "F1",
+      "summary": "a unit the front named <branch>-<suffix> (a take-conflict fix unit, which carries no item) no longer matches its item in metrics",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: relay_queue.leftover_branches is for-each-ref refs/heads/wt/queue-*; relay_tidy.py:39 and :54, relay_inert.py:228",
+        "key on the \"wt/queue-\" prefix. Pre-existing: the old 40-char name kept the \"queue-\" prefix too, so this change neither adds nor fixes it;",
+        "with full slugs an exact clash also becomes possible (task branch of item \"queue-X\" == landing branch of item \"X\"). Not run live.",
+        "Size: 30 (a reserved-prefix rule: refuse or rename slugs starting queue-/train- in slugify, or give landing branches a namespace task",
+        "branches cannot reach, e.g. refs/heads/relay-queue/<slug>)."
+      ],
+      "evidence": [
+        "ls .relay/queue | grep -E '^queue-'  -> 9 items (queue-add-from-queues-..., queue-items-point-at-session-files-that-vanish, ...)",
+        "lib/relay_queue.py:758 for-each-ref refs/heads/wt/queue-*",
+        "lib/relay_tidy.py:54 found.append((True, \"leftover queue branch: %s\" % branch))"
+      ],
+      "failing_case": [
+        "Live queue has 9 open-or-closed items whose slug starts with \"queue-\" (e.g. queue-items-point-at-session-files-that-vanish).",
+        "`relay queue start queue-items-point-at-session-files-that-vanish` makes branch wt/queue-items-point-at-session-files-that-vanish.",
+        "relay_queue.leftover_branches lists it, so relay tidy/doctor reports \"leftover queue branch: wt/queue-items-...\" (a fixable leftover) while",
+        "the change is being built; relay_tidy.lines skips its worktree after merge; relay_inert absorbed() ignores it. Expected: a task branch is",
+        "never mistaken for a queue-landing branch."
+      ],
+      "fix_hint": [
+        "Keep queue-landing branches out of the wt/ task namespace, or have slugify never produce a slug starting with queue- or train-."
+      ],
+      "id": "F2",
+      "kind": "outside",
+      "line": 54,
+      "pass_cases": [
+        "1. Start item \"queue-items-point-at-session-files-that-vanish\": relay doctor/tidy do not list its branch as a leftover queue branch.",
+        "2. A real leftover landing branch wt/queue-<slug> (left by a failed `relay queue` landing) is still listed.",
+        "3. After that task branch merges, tidy reports its worktree as \"merged worktree still present\" like any other task worktree.",
+        "4. Start item \"refuse-folder-and-pattern-entries-in-where-a\": branch wt/refuse-folder-and-pattern-entries-in-where-a, unchanged."
+      ],
+      "path": "lib/relay_tidy.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer names it Outside (wt/queue- prefix reading in relay_tidy/relay_queue/relay_inert, pre-existing). View: agree, it is pre-existing and not made by this change; it should be a fix item."
+      ],
+      "severity": "MEDIUM",
+      "since": "b1f4004adb705598d2f7ce8923df2a47354ab0da",
+      "source": "review-branch-names-cut-at-40-characters-mid-wo.json",
+      "source_id": "F2",
+      "summary": "a task branch of an item whose slug starts with queue- is named wt/queue-..., which relay reads as a leftover queue-landing branch",
+      "verdict": "OUTSIDE"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading slugify: re.sub(...)[:48].strip(\"-\"). Outside this change (relay_queue.py untouched); existing slugs stay (they are",
+        "ids). The brief's pass case \"never ends inside a word, or is the full slug\" is met by the full-slug path. Size: 15."
+      ],
+      "evidence": [
+        "lib/relay_queue.py:474 slug = re.sub(r\"[^a-z0-9]+\", \"-\", title.lower()).strip(\"-\")[:48].strip(\"-\")"
+      ],
+      "failing_case": [
+        "Title \"The test runner leaves test tokens outside its temp folder\" -> slug the-test-runner-leaves-test-tokens-outside-its-t; the branch is now",
+        "wt/the-test-runner-leaves-test-tokens-outside-its-t (full slug, as the brief allows), still ending in \"-t\", which is what the owner asked",
+        "about (\"this is cutted, why\"). Expected: a slug cut at the last word boundary within 48 characters (...-outside-its)."
+      ],
+      "fix_hint": [
+        "Cut at the last \"-\" at or before 48 when the slug is longer than 48 and that leaves a non-empty slug."
+      ],
+      "id": "F3",
+      "kind": "outside",
+      "line": 474,
+      "pass_cases": [
+        "1. Title \"The test runner leaves test tokens outside its temp folder\": slug ends at a whole word, at most 48 characters.",
+        "2. A title of 48 characters or fewer: slug unchanged (e.g. \"Speed up the quick gate\" -> speed-up-the-quick-gate).",
+        "3. A single word longer than 48 characters: cut at 48 (no empty slug).",
+        "4. Two titles whose word-cut slugs agree: the second gets \"-2\" as today."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "low",
+      "reason": [
+        "Fixer names it Outside (slugify in relay_queue.py). View: agree, untouched file; a fix item for the word-boundary cut."
+      ],
+      "severity": "LOW",
+      "since": "b1f4004adb705598d2f7ce8923df2a47354ab0da",
+      "source": "review-branch-names-cut-at-40-characters-mid-wo.json",
+      "source_id": "F3",
+      "summary": "slugify cuts titles at 48 characters mid-word, so the branch the owner saw still ends inside a word",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "eb7909611e3b064794128575801c4e68c0d93090.gate.log",
+  "head": "f9b8519e4a0af6ce7a1cc97a13e5e396e94ce411",
+  "item": "branch-names-cut-at-40-characters-mid-word-and-c",
+  "notes": [
+    "match_unit callers: record_landing only; exact-id path unchanged. Suffix rule -[a-z]+ is checked after exact ids, so no new two-item clash."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 1e44ba75..HEAD; own files: lib/relay_lanes.py, lib/relay_metrics.py, tests/test_lanes_state.py, tests/test_metrics.py (all in scope). Ran unittest for test_metrics, test_lanes_state, test_metrics_window: 119 OK. relay precheck green. Gate log head eb790961 exit 0; only the gate-log commit after it. Fail-without-fix run at 1e44ba75 with head tests copied in."
+  ],
+  "type": "check"
+}
