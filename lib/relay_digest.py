@@ -300,13 +300,14 @@ def project_spend(main: str) -> Spend:
 
 # ---------------------------------------------------------------- the page
 
-def option_text(options: "list[str]", letter: str) -> str:
-    index = ord(letter) - 97
-    return options[index][3:] if 0 <= index < len(options) else letter
+def plural(count: int, noun: str) -> str:
+    """'1 decision', '0 decisions', '2 decisions', '21 decisions': the English noun with its count."""
+    return "%d %s%s" % (count, noun, "" if count == 1 else "s")
 
 
 def decision_lines(decisions: "list[Decision]", room: int) -> "tuple[list[str], int]":
-    """The decisions grouped by item, at most `room` decision lines; (lines, how many decisions were left out)."""
+    """The decisions grouped by item, at most `room` of them, each in full (the question, every option, the chosen letter and why);
+    (lines, how many decisions were left out)."""
     lines: "list[str]" = []
     shown = 0
     last = None
@@ -317,8 +318,9 @@ def decision_lines(decisions: "list[Decision]", room: int) -> "tuple[list[str], 
             lines.append("  %s (%s)" % (d.title, "merged" if d.merged else "not merged yet"))
             last = d.slug
         n = d.note
-        because = " ".join(x.strip() for x in n.because)
-        lines.append("    **%s** chosen %s. %s (%s: %s)" % (relay_queue.question_title(n), n.chosen, option_text(n.options, n.chosen), n.decided_by, because))
+        lines += ["    " + x.strip() for x in n.text if x.strip()]
+        lines += ["      " + x.strip() for x in n.options]
+        lines.append("      chosen %s by %s, because %s" % (n.chosen, n.decided_by, " ".join(x.strip() for x in n.because)))
         shown += 1
     return lines, len(decisions) - shown
 
@@ -365,8 +367,9 @@ def page(main: str, default: str, cfg: Any, since: Optional[str] = None, show_al
     if quiet:
         lines.append("relay: nothing new %s." % since_text)
     else:
-        lines.append("relay: %s: %d merged, %d added, %d decisions taken without you, %d question%s wait." %
-                     (since_text, len(diff.merged), len(diff.added), len(diff.decisions), len(waiting), "" if len(waiting) == 1 else "s"))
+        lines.append("relay: %s: %d merged, %d added, %s taken without you, %s %s." %
+                     (since_text, len(diff.merged), len(diff.added), plural(len(diff.decisions), "decision"), plural(len(waiting), "question"),
+                      "waits" if len(waiting) == 1 else "wait"))
     if diff.merged or diff.dropped:
         counts = ", ".join("%s %d" % (k, sum(1 for i in diff.merged if i["kind"] == k)) for k in relay_queue.KINDS)
         lines.append("Merged (%s)%s:" % (counts, "; dropped %d" % diff.dropped if diff.dropped else ""))
@@ -378,7 +381,7 @@ def page(main: str, default: str, cfg: Any, since: Optional[str] = None, show_al
         lines.append("Decisions taken without you (answer by title to reverse):")
         lines += shown_decisions
         if left:
-            lines.append("  and %d more decisions: relay digest --all" % left)
+            lines.append("  and %d more %s: relay digest --all" % (left, "decision" if left == 1 else "decisions"))
     if waiting:
         lines.append("Waiting for you: " + "; ".join("**%s** (asked %s)" % (title, show_time(epoch_of(at))) for at, title in waiting))
     lines.append(numbers_line(items, (spend or (lambda: project_spend(main)))(), paid_runs(evals or evals_dir(main), default)))

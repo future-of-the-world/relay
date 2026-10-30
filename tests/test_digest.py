@@ -125,9 +125,11 @@ class Page(DigestBase):
         # asked 20 Oct, long before the event at 30 Oct 10:00; it reaches master only now
         self.commit(with_notes(make("Cycle lands itself"), [decision("2026-10-20T00:00:00Z", "Does the cycle land a ready change itself?")]))
         lines = self.page()
-        self.assertIn("1 decisions taken without you", lines[0])
+        self.assertIn("1 decision taken without you", lines[0])
         self.assertIn("  Cycle lands itself (not merged yet)", lines)
-        self.assertIn("    **Does the cycle land a ready change itself?** chosen a. yes, no merge train (front: principle 7)", lines)
+        self.assertIn("    **Does the cycle land a ready change itself?**", lines)
+        self.assertIn("      b. a merge train", lines)
+        self.assertIn("      chosen a by front, because principle 7", lines)
 
     def test_two_pages_with_nothing_merged_between_say_nothing_new(self):
         self.commit(closed("Beta change"))
@@ -161,7 +163,7 @@ class Page(DigestBase):
         self.assertEqual(rd.read_events(self.main)[-1]["head"], git(self.main, "rev-parse", printed))
         after = self.page()
         self.assertEqual(self.merged_lines(after), ["  - Item Z"])          # listed once, X is not repeated
-        self.assertIn("1 decisions taken", after[0])
+        self.assertIn("1 decision taken", after[0])
 
     def test_sent_with_nothing_landed_says_nothing_new_and_a_bad_sha_is_refused(self):
         self.sent()
@@ -213,10 +215,24 @@ class Page(DigestBase):
     def test_an_answered_decision_leaves_the_next_page(self):
         self.sent()
         self.commit(with_notes(make("Cycle lands itself"), [decision("2026-10-29T10:00:00Z", "Does it land?")]))
-        self.assertIn("1 decisions taken", self.page()[0])
+        self.assertIn("1 decision taken", self.page()[0])
         slug = "cycle-lands-itself"
         rq.note(self.main, slug, {"kind": "answer", "answer": ["a"], "to": ["2026-10-29T10:00:00Z"], "chosen": ["a"]}, now=NOW, **tq.QUIET)
         self.assertIn("0 decisions taken", self.page()[0])
+
+    def test_a_front_decision_is_shown_in_full_and_counts_read_in_the_right_form(self):
+        self.sent()
+        self.commit(with_notes(make("Cycle lands itself"), [decision("2026-10-29T10:00:00Z", "Does it land?", chosen="b")]))
+        lines = self.page()
+        # one decision, one waiting question none: "1 decision", "0 questions" (plural rule: only 1 is singular)
+        self.assertIn("1 decision taken without you, 0 questions wait.", lines[0])
+        text = "\n".join(lines)
+        for part in ("**Does it land?**", "a. yes, no merge train", "b. a merge train", "chosen b by front, because principle 7"):
+            self.assertIn(part, text)
+        self.commit(with_notes(make("Second item"), [decision("2026-10-29T11:00:00Z", "Another?"), decision("2026-10-29T11:05:00Z", "Third?")]))
+        self.assertIn("3 decisions taken without you", self.page()[0])
+        self.assertEqual([rd.plural(n, "decision") for n in (0, 1, 2, 5, 21)],
+                         ["0 decisions", "1 decision", "2 decisions", "5 decisions", "21 decisions"])
 
 
 class Due(DigestBase):
