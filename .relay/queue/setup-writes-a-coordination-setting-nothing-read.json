@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 70,
+  "time": 20,
+  "found_at": "2026-10-30T08:50:57Z",
+  "found_in": "relay queue add",
+  "title": "setup writes a [coordination] setting nothing reads",
+  "what": [
+    "setup stops writing [coordination]; the README row goes; a migration removes the section from existing kit.toml files with one line; doctor does not ask for it."
+  ],
+  "why": [
+    "Found by the front 30 Oct while answering the owner (\"что такое leadless coordination\"): lib/relay_setup.py:205 writes [coordination] mode = \"leadless\" into every project's kit.toml and plugins/relay/README.md:203 documents three values (leadless, single-lead, multi-lead), but no code in lib, bin or the plugin hooks reads coordination.mode (grep, 30 Oct); docs/handover.md already says the key is unused. A setting that does nothing misleads the owner and every newcomer (principles 3 and 7)."
+  ],
+  "failing_case": [
+    "`relay setup` in a fresh repo writes [coordination] mode = \"leadless\" into .claude/kit.toml; `grep -rn coordination lib bin plugins/*/hooks` finds no reader besides relay_setup.py."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "setup writes no [coordination] section",
+    "an existing kit.toml loses it with one line",
+    "doctor stays green without it"
+  ],
+  "where": [
+    "lib/relay_setup.py",
+    "plugins/relay/README.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
