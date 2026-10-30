@@ -354,8 +354,9 @@ class Slots(Fixture):
         with mock.patch.object(relay_gate.relay_procs, "holders_of", return_value=None):
             waiter = threading.Thread(target=lambda: box.append(relay_gate.take_worktree_lock(lock, lines.append)), daemon=True)
             waiter.start()
-            self.wait_until(lambda: lines)
-        match = re.match(r"^gate: waiting for the gate already running in this worktree \(pid (\d+)", lines[0])
+            self.wait_until(lambda: any(line.startswith("gate: waiting") for line in lines))
+        # the lsof line (F4) may come first or after: the waiting line is the one that names the live command
+        match = re.match(r"^gate: waiting for the gate already running in this worktree \(pid (\d+)", [l for l in lines if l.startswith("gate: waiting")][0])
         self.assertIsNotNone(match)
         self.assertEqual(int(match.group(1)), command_pid)
         os.kill(command_pid, 0)      # alive while the waiter waits
