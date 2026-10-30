@@ -126,6 +126,31 @@ class Writes(Fixture):
         self.assertEqual(data["model"], "x")
         self.assertTrue(any("removed the amidman marketplace path" in line for line in done), done)
 
+    def test_f2_a_switch_flipped_true_to_false_is_named_in_done(self):
+        # Project file has openspec@amidman true; the run turns it false (relay tree, no openspec folder): one Done line names that flip.
+        root = self.relay_tree()
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"openspec@amidman": True}}))
+        *_, done, _ = self.run_setup(root, off=[GOPLS])
+        flips = [line for line in done if "openspec@amidman" in line]
+        self.assertEqual(len(flips), 1, done)
+        self.assertIn("true -> false", flips[0])
+
+    def test_f2_a_key_already_false_gets_no_line(self):
+        root = self.relay_tree()
+        self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"openspec@amidman": False}}))
+        *_, done, _ = self.run_setup(root, off=[GOPLS])
+        self.assertFalse([line for line in done if "openspec@amidman" in line], done)
+
+    def test_f1_docs_describe_what_setup_writes_into_settings_json(self):
+        # docs/setup.md: no marketplace written there, the three permissions named, the old entry removed.
+        with open(os.path.join(ROOT, "docs", "setup.md")) as handle:
+            text = handle.read()
+        bullet = text.split("- `.claude/settings.json`:")[1].split("\n- ")[0]
+        self.assertNotIn("the relay marketplace and the plugins", bullet)
+        for rule in ("Bash(kit:*)", "Bash(bin/kit:*)", "Bash(relay:*)"):
+            self.assertIn(rule, bullet)
+        self.assertIn("relay setup --global", bullet)
+
     def test_t2_second_run_changes_nothing(self):
         root = self.relay_tree()
         self.run_setup(root, off=[GOPLS])

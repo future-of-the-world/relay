@@ -404,6 +404,8 @@ def settings_additions(before: dict, after: dict) -> list[str]:
     lines = [f".claude/settings.json: added permission {rule}" for rule in allowed(after) if rule not in allowed(before)]
     lines += [f".claude/settings.json: added {key} = {str(value).lower()}" for key, value in plugins(after).items()
               if key not in plugins(before) and value is False]
+    lines += [f".claude/settings.json: {key} {str(plugins(before)[key]).lower()} -> {str(value).lower()}" for key, value in plugins(after).items()
+              if key in plugins(before) and isinstance(value, bool) and plugins(before)[key] is not value]
     gone = [k for k in ("amidman", "principles") if k in (before.get("extraKnownMarketplaces") or {}) and k not in (after.get("extraKnownMarketplaces") or {})]
     lines += [f".claude/settings.json: removed the {k} marketplace path (it is this machine's; `relay setup --global` keeps it in ~/.claude/settings.json)" for k in gone]
     return lines
