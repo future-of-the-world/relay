@@ -1,0 +1,258 @@
+{
+  "branch": "wt/one-digest-per-wave-instead-of-status-me",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading: main() line 451 calls record_event(main_dir, kind, now_stamp(), head_of(main_dir, default)); page() never prints",
+        "the head it used, so the front cannot pass it back. Landings are frequent (44 first-parent landing commits in the last 24 h on the live",
+        "repo, 6 lanes) and the front takes a turn or more between printing, writing the message in Russian, and --sent (more when the page says",
+        "\"and N more\" and it runs --all). Each lost window drops decisions, and the owner's 30 Oct words ask every decision to reach him once.",
+        "Size: 15 min."
+      ],
+      "evidence": [
+        "lib/relay_digest.py:449-452: record_event(main_dir, kind, now_stamp(), head_of(main_dir, default))",
+        "lib/relay_digest.py:363: the header prints \"since <time>\" only; no head sha on the page"
+      ],
+      "failing_case": [
+        "Master at H1 with item X closed and decision note D on item Y unanswered since the last event. Front runs `relay digest` (page from",
+        "last..H1, shows X and D). While it writes the owner message, a lane lands H2 that closes item Z and adds decision note E on item W.",
+        "Front runs `relay digest --sent`: record_event stores head_of(...) = H2. Next `relay digest` starts at H2: Z and E appear on no page,",
+        "ever. Expected: the next page lists Z under Merged and E under Decisions, because the owner never saw them."
+      ],
+      "fix_hint": [
+        "Print the head on the page (\"... up to <sha8>\") and make `--sent <sha>` record that sha (refuse --sent without it, naming the page's",
+        "last line as where to find it); the hook's message and the skill name `relay digest --sent <sha from the page>`."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 451,
+      "pass_cases": [
+        "1. page printed at H1, landing H2 (closes Z, adds decision E), then --sent: the next page lists Z and E exactly once.",
+        "2. page printed at H1, nothing lands, --sent: the next page says \"nothing new since <time>\" (today's behaviour).",
+        "3. two `relay digest` runs with no --sent print the same page (today's behaviour, test_printing_records_nothing).",
+        "4. --sent with a head that is not an ancestor of master is refused, or falls back as resolve_start does today."
+      ],
+      "path": "lib/relay_digest.py",
+      "rank": "medium",
+      "reason": [
+        "unchanged by 8c50f5eb; tests/test_digest.py and tests/test_rules_gate.py pass on head (44 OK); earlier checks met it with a test failing at the review base"
+      ],
+      "severity": "MEDIUM",
+      "since": "f478fb4b5971ec815261dc08f9b96093f428d254",
+      "source": "review-one-digest-per-wave-instead-of-status-me.json",
+      "source_id": "F1",
+      "summary": "`relay digest --sent` stores the head at the moment it runs, not the head the page was computed on: anything that lands between printing and --sent is never shown",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: relay lands by fast-forward (the brief's own term), so master's first parent follows the branch's first-parent chain,",
+        "including its \"Merge branch 'master' into wt/...\" commits. Live: the last 48 h list (git log --first-parent) shows runs like",
+        "02e84019, 9d4ae8e9, 2251e6b6, 619cc9e1, 92990a4c, aeac9423, all one change. The tests build one commit per \"landing\", so they pass.",
+        "The setting's documented meaning (\"at 5 about 4 digests a day\", \"15 landings\") and the line the owner sees are wrong by a factor of",
+        "about 3; the digest fires that much more often, which is the noise this change exists to remove. docs/handover.md commits on master",
+        "also count (relay_inert.INERT lists it; landings() excludes only queue and checks). Size: 15 min."
+      ],
+      "evidence": [
+        "$ git rev-list --first-parent --count master..HEAD -- . ':(exclude).relay/queue' ':(exclude).relay/checks'",
+        "3",
+        "$ bin/relay digest --due -C /Users/amidman/relay",
+        "digest due: 44 landings since the last digest (limit 15)"
+      ],
+      "failing_case": [
+        "This branch itself: `git rev-list --first-parent --count master..HEAD -- . ':(exclude).relay/queue' ':(exclude).relay/checks'` = 3",
+        "(b196c6a1, 2b59b997, caf2d44b). After `relay land` fast-forwards it, `relay digest --due` counts 3 landings for one change. Five such",
+        "changes print \"digest due: 15 landings since the last digest (limit 15)\". Expected: 5 landings, nothing due until the 15th change."
+      ],
+      "fix_hint": [
+        "Count landings from facts that are one per landing: the \"done\"/landed events in <git common dir>/relay-land/events.jsonl after the last",
+        "sent event, or the items newly closed in the queue difference (changes().merged), and exclude every relay_inert.INERT path."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 385,
+      "pass_cases": [
+        "1. one branch with 3 work commits and one \"merge master\" commit fast-forwarded onto master after the event: --due counts 1 landing.",
+        "2. 15 such landed branches after the event and no paid run: \"digest due: 15 landings ...\"; 14: nothing.",
+        "3. commits that touch only .relay/queue, .relay/checks or docs/handover.md count 0 (today's test_queue_commits_are_no_landing, plus handover).",
+        "4. a paid run ended after the event is due at any count (today's behaviour)."
+      ],
+      "path": "lib/relay_digest.py",
+      "rank": "medium",
+      "reason": [
+        "unchanged by 8c50f5eb; tests/test_digest.py and tests/test_rules_gate.py pass on head (44 OK); earlier checks met it with a test failing at the review base"
+      ],
+      "severity": "MEDIUM",
+      "since": "f478fb4b5971ec815261dc08f9b96093f428d254",
+      "source": "review-one-digest-per-wave-instead-of-status-me.json",
+      "source_id": "F2",
+      "summary": "landings() counts first-parent commits, but a fast-forward landing puts every commit of the branch on master's first-parent chain, so one landing counts 3 or more",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the three diffs. Brief decision: \"the open question is answered a: one line per item when its decisions are",
+        "recorded, work goes on\". Only SKILL.md:24-29 carries it. Global instructions win over a skill when they differ (the project's precedence),",
+        "so the contradiction resolves against the owner-reversible decision. Size: 10 min."
+      ],
+      "evidence": [
+        "rules/front.md:28: in a turn an agent's or a job's end started, say nothing unless it is a question, a red default branch, a spend alert or a block only he can lift;",
+        "rules/working-with-me.md:80: say nothing unless it is a question for me, a red default branch, a spend alert or a block only I can lift",
+        "SKILL.md:28: or, once per item whose decisions were just recorded, one line with the item's title, up to three decision titles"
+      ],
+      "failing_case": [
+        "A notification turn after a design agent recorded 5 decision notes on item \"The change cycle lands a ready change itself\". Global",
+        "instructions (from rules/front.md:27-29 and rules/working-with-me.md:79-81) say: \"say nothing unless it is a question, a red default",
+        "branch, a spend alert or a block only he can lift\". The front skill says to send one line for that item. A front that follows the",
+        "always-loaded text (the skill loads only on demand) sends nothing; the owner sees the decisions only in the evening digest, after merge,",
+        "which is option b, not the decided a. Expected: every status text lists the per-item decision line among the exceptions."
+      ],
+      "fix_hint": [
+        "Add \"or one line per item whose decisions were just recorded\" to the exception lists of rules/front.md and rules/working-with-me.md,",
+        "regenerate the eval system rules, extend the Texts test."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 27,
+      "pass_cases": [
+        "1. rules/front.md contains, among the notification-turn exceptions, one line per item whose decisions were just recorded (titles, \"answer by title to reverse\").",
+        "2. rules/working-with-me.md says the same in the owner's voice.",
+        "3. SKILL.md keeps its exception list (unchanged).",
+        "4. test_every_status_text_limits_the_line_to_owner_requests still passes, and a new assertion finds the per-item line in all three texts."
+      ],
+      "path": "rules/front.md",
+      "rank": "medium",
+      "reason": [
+        "unchanged by 8c50f5eb; tests/test_digest.py and tests/test_rules_gate.py pass on head (44 OK); earlier checks met it with a test failing at the review base"
+      ],
+      "severity": "MEDIUM",
+      "since": "f478fb4b5971ec815261dc08f9b96093f428d254",
+      "source": "review-one-digest-per-wave-instead-of-status-me.json",
+      "source_id": "F3",
+      "summary": "the always-loaded status texts (rules/front.md, rules/working-with-me.md) forbid the per-item decision line that the front decided (7a) and the skill requires",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: git diff b196c6a1 2b59b997 shows only the path split, with the comment \"adding it to relay_textonly.RULE_TESTS is outside this",
+        "change's files\". Keeping the guard's promise requires that file; a test hidden from its gate is a test that passes with the behaviour",
+        "undone on exactly the changes it guards. Size: 5 min."
+      ],
+      "evidence": [
+        "tests/test_digest.py:311-313 comment; tests/test_rules_gate.py:107 READS_RULES matches rules/[\\w*-]+\\.md",
+        "lib/relay_textonly.py:21 RULE_TESTS has no tests.test_digest entry"
+      ],
+      "failing_case": [
+        "A later rules-only change edits rules/front.md:27 back to \"Say what is running and why, once.\" The short (rules-only) gate runs only",
+        "relay_textonly.RULE_TESTS; tests.test_digest.Texts is not on it, so the gate is green. Before commit 2b59b997 the guard",
+        "tests/test_rules_gate.py RuleTestsComplete flagged the class (its regex matches \"rules/front.md\"); the commit split the paths into",
+        "(\"rules\", \"front.md\") so the regex no longer sees them. Expected: the short gate runs Texts and goes red."
+      ],
+      "fix_hint": [
+        "Add \"tests.test_digest.Texts\" to RULE_TESTS in lib/relay_textonly.py and restore the plain relative paths in the test."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 310,
+      "pass_cases": [
+        "1. \"tests.test_digest.Texts\" is in relay_textonly.RULE_TESTS, and the short gate on a rules-only change runs it.",
+        "2. RuleTestsComplete passes with the plain paths \"rules/working-with-me.md\", \"rules/front.md\" restored in Texts.",
+        "3. Texts still passes on the current texts; it fails when rules/front.md drops \"when the owner gives a request\"."
+      ],
+      "path": "tests/test_digest.py",
+      "rank": "medium",
+      "reason": [
+        "unchanged by 8c50f5eb; tests/test_digest.py and tests/test_rules_gate.py pass on head (44 OK); earlier checks met it with a test failing at the review base"
+      ],
+      "severity": "MEDIUM",
+      "since": "f478fb4b5971ec815261dc08f9b96093f428d254",
+      "source": "review-one-digest-per-wave-instead-of-status-me.json",
+      "source_id": "F4",
+      "summary": "the Texts test was rewritten to slip past the rules-registry guard instead of being registered, so the rules-only short gate never runs it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading paid_runs and listing ~/.relay/evals/relay (15 wt-* records). Rare today (paid runs go on the default branch per wave),",
+        "so LOW. Size: 5 min."
+      ],
+      "evidence": [
+        "ls ~/.relay/evals/relay | grep -v master -> 15 files, e.g. 2026-10-27T14-53-11Z-wt-majority.json; records carry \"branch\"."
+      ],
+      "failing_case": [
+        "An eval run on a branch writes ~/.relay/evals/relay/<time>-wt-<branch>.json (15 such files exist, last 27 Oct). --due then prints",
+        "\"digest due: a paid run ended ...\" and the page's Numbers show that branch run as \"last paid run\". Expected: only runs on the default",
+        "branch (record field \"branch\") end a wave and count as the last paid run."
+      ],
+      "fix_hint": [
+        "Skip records whose \"branch\" is not the default branch."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 262,
+      "pass_cases": [
+        "1. a record with \"branch\": \"wt/x\" ended after the event: --due prints nothing for it.",
+        "2. a record with \"branch\": \"master\" ended after the event: \"digest due: a paid run ended ...\" (today's behaviour).",
+        "3. Numbers shows the newest default-branch run, not a newer branch run."
+      ],
+      "path": "lib/relay_digest.py",
+      "rank": "low",
+      "reason": [
+        "unchanged by 8c50f5eb; tests/test_digest.py and tests/test_rules_gate.py pass on head (44 OK); earlier checks met it with a test failing at the review base"
+      ],
+      "severity": "LOW",
+      "since": "f478fb4b5971ec815261dc08f9b96093f428d254",
+      "source": "review-one-digest-per-wave-instead-of-status-me.json",
+      "source_id": "F5",
+      "summary": "paid_runs reads every eval record, branch runs included, so a branch eval ends a 'wave' and shows as the last paid run",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading refusal(): key = \"\\n\".join(lines) and the lines carry counts and dollar amounts. Correct in intent (still due), but",
+        "louder than the design's once-per-state. Size: 5 min."
+      ],
+      "evidence": [
+        "digest_due.py:41 key = \"\\n\".join(lines); relay_digest.py:411 and 417 put the count and the amount in the line."
+      ],
+      "failing_case": [
+        "Digest due at 15 landings; the front was refused once and is mid-answer to the owner. A lane lands: the line becomes \"16 landings\", a",
+        "new key, and the next Stop is refused again; the same on every landing until --sent. The design says the hook refuses once for that state.",
+        "Expected: one refusal per reason (paid run ended at T, landing limit reached, alert of the day), not per count."
+      ],
+      "fix_hint": [
+        "Key the stamp on the reason kinds plus the paid run's end time (drop the counts and amounts)."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 41,
+      "pass_cases": [
+        "1. 15 landings: refused; 16 landings without --sent: not refused again.",
+        "2. after --sent and 15 new landings: refused again (today's test).",
+        "3. a paid run ended at a new time after a refusal for landings: refused again."
+      ],
+      "path": "plugins/front/hooks/digest_due.py",
+      "rank": "low",
+      "reason": [
+        "unchanged by 8c50f5eb; tests/test_digest.py and tests/test_rules_gate.py pass on head (44 OK); earlier checks met it with a test failing at the review base"
+      ],
+      "severity": "LOW",
+      "since": "f478fb4b5971ec815261dc08f9b96093f428d254",
+      "source": "review-one-digest-per-wave-instead-of-status-me.json",
+      "source_id": "F6",
+      "summary": "the hook's 'once per due state' key holds the landing count and spend amount, so each new landing or spend change refuses the turn again",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "8c50f5eb3390f5f42099bc522d412237c49f8de3.gate.log",
+  "head": "e8f893704669357b563f7097e45e06ce3222e99d",
+  "item": null,
+  "notes": [
+    "New test test_waiting_question_is_printed_in_full_with_every_option fails at 8c50f5eb^ (1 failure with the new test file; the page there has one Waiting line, no item block). The reworked dedupe test is weaker at the base and passes there too; it is kept as a regression guard only. waiting_for_owner has one caller (page), updated. No finding of the review is touched by this commit."
+  ],
+  "schema": 2,
+  "scope": [
+    "Fixer report fix3-digest.md does not exist; used the diff. Last fix commit 8c50f5eb (lib/relay_digest.py, tests/test_digest.py: waiting questions printed in full). Gate log head 8c50f5eb, exit 0; HEAD adds only the inert gate log. Ran tests.test_digest and tests.test_rules_gate (44 OK) and the check command (relay precheck and bin/relay precheck, both green). Earlier checks already marked F1-F6 MET at their tests; the full test_digest suite still passes, so no regression."
+  ],
+  "type": "check"
+}
