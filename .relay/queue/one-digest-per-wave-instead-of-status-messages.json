@@ -52,6 +52,18 @@
       "reading": [
         "b: hold the digest change (wt/one-digest-per-wave-instead-of-status-me) before landing; the owner names what to change first."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T10:39:43Z",
+      "question": [
+        "What changes in the digest before it lands?"
+      ],
+      "options": [
+        "a. language and grammar only (\"1 decisions\"; the page itself stays short)",
+        "b. decisions taken without the owner shown in full, with their options, not one cut line",
+        "c. fewer merged titles: numbers and the 3 main changes",
+        "d. something else, in the owner's words"
+      ]
     }
   ]
 }
