@@ -24,8 +24,8 @@
   "where": [
     "lib/relay_setup.py:195"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T20:59:01Z",
+  "taken_by": "wt/relay-setup-writes-worktrees-worktrees-and-ignor",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
