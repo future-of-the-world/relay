@@ -24,8 +24,8 @@
   "where": [
     "bin/wt:12"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T22:35:47Z",
+  "taken_by": "wt/bin-wt-new-queue-x-still-makes-wt-queue-x-which",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
