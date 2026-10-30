@@ -75,6 +75,12 @@
       "reading": [
         "Option a: bench the critic on Fable against Opus over the cheap scenario set (about 10 runs, about $10); adopt Fable for the critic if no other job gets worse."
       ]
+    },
+    {
+      "at": "2026-10-30T03:00:18Z",
+      "fact": [
+        "Front decision on the owner's \"a\" (owner can reverse): adopted profile judge-fable (critic on Fable) on 30 Oct. Cheap-set bench 2026-10-30T02-38-10Z: lookup and small-script equal quality (cost +0% and +15%); add-function Fable 1 of 2, its failed run only because the grader read the main tree after a worktree build (fix item bench-graders-read-the-main-tree-after-a-worktree, ip 87); add-function cost +60% with Fable. The sync waits for the paid run started on master f05643e2."
+      ]
     }
   ]
 }
