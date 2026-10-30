@@ -22,8 +22,8 @@
     "plugins/relay/hooks/merge.py",
     "lib/relay_marks.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T05:07:52Z",
+  "taken_by": "wt/build-time-gates-on-the-vps-landing-gate",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
