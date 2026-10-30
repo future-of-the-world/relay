@@ -168,6 +168,13 @@
       "options": [
         "a. tests run on a copy of the tree without the queue, handover and check files; a green gate stays valid after commits that touch only those files, now proven rather than by convention (recommended: 0 extra gates, no test to fix)",
         "b. only the exact tree lands: any commit after the gate, even a queue note, means a new gate (~165 extra gates a day)"
+      ],
+      "answered_at": "2026-10-30T12:02:42Z",
+      "answer": [
+        "- a. Копия без служебных файлов (рекомендую. Стоит ноль лишних прогонов, а гарантия та же по сути: в master не попадёт непроверенный код)"
+      ],
+      "reading": [
+        "a: the single test run happens on a copy of the gated tree without the queue, handover and check records; a green gate stays valid after commits that touch only those files. Replaces the 29 Oct pick (exact tree), which rested on a wrong price."
       ]
     }
   ]
