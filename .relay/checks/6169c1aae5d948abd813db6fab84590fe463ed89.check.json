@@ -1,0 +1,240 @@
+{
+  "branch": "wt/build-time-gates-on-the-vps-landing-gate",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by a scratch test that wraps relay_gate.take_worktree_lock to commit, before taking the lock, either a remote log of the head or a code",
+        "change; with the remote path the fake runner is called once in both. In run(), the Mac branch after the lock does `now = check_ready(...)`, the",
+        "license check, reusable/finished_red on `now`, and `if now != head: raise GateRefused`; _remote_gate is entered before all of that.",
+        "The worktree lock exists for exactly this race (the cycle's recovery step starts a second gate when it cannot see the first). Waste on every",
+        "such race (principle 2). Size: 15 min (move the re-check block above the remote branch, or repeat it there, plus two tests)."
+      ],
+      "evidence": [
+        "scratchpad/repro/test_repro_remote.py:",
+        "LOCKWAIT remote calls after a log landed meanwhile: 1",
+        "MOVED remote calls=1 refusal=the worktree changed while the gate ran (HEAD moved to 572988e3ac44 (files: lib/z.py)): commit, then run it again"
+      ],
+      "failing_case": [
+        "Two `relay gate` calls on one worktree with a remote host: the second waits on the worktree lock while the first finishes and commits",
+        "<H>.remote.gate.log. The second then calls remote.run again on H (scratch repro: 1 remote call after a green remote log of H was committed",
+        "during the wait), a duplicate 13-minute remote gate. Same with code committed during the wait: the remote runs the old head to the end, then",
+        "the gate is refused \"the worktree changed while the gate ran (HEAD moved to 572988e3ac44 (files: lib/z.py))\" (repro: remote calls=1).",
+        "The Mac path re-runs check_ready, the license check and both reuses after the wait and refuses \"moved to another commit while the gate waited\"",
+        "before running anything; the remote path should do the same."
+      ],
+      "fix_hint": [
+        "After take_worktree_lock and before `_remote_gate`, do the same as the Mac branch: now = check_ready(worktree); re-run the license check;",
+        "reusable/finished_red on `now` with `host`; raise GateRefused when now != head. Simplest: hoist that block out of the slot try so both paths share it."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 504,
+      "pass_cases": [
+        "1. A green remote log of H committed while the gate waits on the lock: the gate returns (0, that log) and the fake runner records no call.",
+        "2. A code commit made while the gate waits on the lock: GateRefused \"...moved to another commit while the gate waited...\" and the fake runner records no call.",
+        "3. A red remote log of H committed during the wait: the red is reported (\"reported, not run\"), no runner call.",
+        "4. No change during the wait: the runner is called once and <H>.remote.gate.log is committed (test_a_remote_gate_writes_its_own_log_and_runs_nothing_here keeps passing)."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_remote.py Waited tests (3 failing on base) plus test_no_change_during_the_wait_runs_the_remote_once:266 pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "9535a46d5911e5486c39e07c2a4d4d8235d48b16",
+      "source": "review-vps-change-2.json",
+      "source_id": "F1",
+      "summary": "the remote path runs right after the worktree lock with no re-check: a gate that waited runs the remote again on code that moved or that was gated meanwhile",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch test on the RemoteBase fixture (commit install.sh on main, then go(fake.remote())). _toolchain_changed runs",
+        "`git diff --name-only base HEAD -- <files>`, a two-tree diff of the default branch's tip against HEAD, so changes made on master count as the",
+        "branch's own. The design row says \"the branch changes container/Containerfile, deps.toml or install.sh against the default branch\" and its",
+        "reason is \"no branch recipe runs with network on the server\": only the branch's own recipe change matters; the printed line also says \"this",
+        "branch changes\". The line also says \"on this Mac\" twice (\"its gates run on this Mac until it lands; this gate runs on this Mac\"): drop the first.",
+        "Size: 10 min."
+      ],
+      "evidence": [
+        "TOOLCHAIN calls=[] runs=1 err=\"gate: this branch changes relay's toolchain (install.sh); its gates run on this Mac until it lands; this gate runs on this Mac\"",
+        "git log --since=2026-09-30 --format=%h master -- install.sh deps.toml container/Containerfile | wc -l  ->  9"
+      ],
+      "failing_case": [
+        "A lane forked from master; master then lands a change to install.sh (9 master commits touched install.sh, deps.toml or container/Containerfile",
+        "since 30 Sep). The lane itself never touches those files. Its next build-time gate: no remote call, the Mac runs, and it prints",
+        "\"gate: this branch changes relay's toolchain (install.sh); its gates run on this Mac until it lands; this gate runs on this Mac\" (scratch repro:",
+        "calls=[] runs=1 with that line). It should go to the remote: the branch changed no toolchain file. Lanes take the default branch only at the",
+        "landing, so such a lane gates on the Mac for its whole life."
+      ],
+      "fix_hint": [
+        "Use the three-dot form: `git diff --name-only <base>...HEAD -- <TOOLCHAIN>` (fork point to HEAD). Shorten the line to",
+        "\"this branch changes relay's toolchain (install.sh) and gates on this Mac until it lands\"."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 162,
+      "pass_cases": [
+        "1. Master changes install.sh after the fork, the branch does not touch it: the fake runner is called, no toolchain line.",
+        "2. The branch changes install.sh (test_a_branch_that_changes_the_toolchain_gates_on_the_mac): no runner call, the toolchain line naming install.sh.",
+        "3. The branch changes deps.toml and master changes install.sh: the line names deps.toml only.",
+        "4. The branch changes install.sh and back to master's content: no toolchain line (content equals the fork point)."
+      ],
+      "path": "lib/relay_gate_logs.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_remote.py Details toolchain tests fail on base, pass on head."
+      ],
+      "severity": "MEDIUM",
+      "since": "9535a46d5911e5486c39e07c2a4d4d8235d48b16",
+      "source": "review-vps-change-2.json",
+      "source_id": "F2",
+      "summary": "the toolchain rule diffs the default branch's tip, not the fork point: a toolchain change landed on master sends every lane that has not taken it to the Mac, with a line saying the branch changed it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading run(): the print comes before reusable/finished_red; `swept` is built after and never receives why_mac. Size: 5 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Mac gate red at C, no code change since, gate again with a remote: stderr says \"gate: the last gate of this branch on this Mac is red; this gate",
+        "runs on this Mac\" and then \"the code is unchanged since the red gate of C: reported, not run\": two lines that contradict. When the Mac does run,",
+        "the log's first output line is not that reason (design 5.5: the line is \"also the first output line of the Mac log\"); only the unreachable",
+        "line is added to `swept`."
+      ],
+      "fix_hint": [
+        "Print the reason after the reuse checks and append it to `swept` (as _remote_gate does for the unreachable line)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 466,
+      "pass_cases": [
+        "1. Deciding host Mac for \"default branch red\" and a Mac run: the reason line is on stderr and is the first output line of the Mac log.",
+        "2. Deciding host Mac and a reused log: no \"this gate runs on this Mac\" line.",
+        "3. The unreachable case keeps its one line in stderr and in the log (test_an_unreachable_host_gives_one_line_and_a_mac_log)."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_remote.py Details mac_reason tests fail on base, pass on head."
+      ],
+      "severity": "LOW",
+      "since": "9535a46d5911e5486c39e07c2a4d4d8235d48b16",
+      "source": "review-vps-change-2.json",
+      "source_id": "F3",
+      "summary": "the deciding-host reason is printed before reuse and is not written into the Mac log, against design 5.5",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: `return code != 0`. The design's F7 reason is \"the gate that failed is the gate that confirms the fix\"; a stop or a kill is",
+        "no failure of the code. Size: 5 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A build-time Mac gate stopped at the time limit under load (exit 124) or killed when the session ended (exit 143): the next gate of the branch",
+        "is kept on the Mac (\"the last gate of this branch on this Mac is red\"), the loaded machine, though finished_red treats exactly these exits as",
+        "\"came from outside the commit\". It should count only a finished red (0 < n < 127, n != 124), as finished_red does."
+      ],
+      "fix_hint": [
+        "Return `0 < code < 127 and code != LIMIT_EXIT`, and skip the log (keep walking) for 124/127/>=128, or treat it as not red."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 152,
+      "pass_cases": [
+        "1. Newest Mac log exit 124, then a gate with a remote: the runner is called.",
+        "2. Newest Mac log exit 1: no runner call, the \"last gate ... is red\" line (test_after_a_red_mac_log_... keeps passing).",
+        "3. Newest Mac log exit 0: the runner is called."
+      ],
+      "path": "lib/relay_gate_logs.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_remote.py:296 fails on base, passes on head."
+      ],
+      "severity": "LOW",
+      "since": "9535a46d5911e5486c39e07c2a4d4d8235d48b16",
+      "source": "review-vps-change-2.json",
+      "source_id": "F4",
+      "summary": "a Mac log stopped at the time limit (124) or killed (127, >=128) counts as a red Mac gate and keeps the branch on the Mac",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Rule label: Python, \"Every new or changed function has types\". The rule sets no severity: LOW. Size: 5 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`def remote_gate_logs(repo, ref):` and `def first_failure(output):` in lib/relay_gate_logs.py carry no types. Project rule (CLAUDE.local.md,",
+        "Python): \"Every new or changed function has types.\""
+      ],
+      "fix_hint": [
+        "Add the two annotations."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 240,
+      "pass_cases": [
+        "1. remote_gate_logs(repo: str, ref: str) -> list[tuple[str, int, str]].",
+        "2. first_failure(output: str) -> list[str]."
+      ],
+      "path": "lib/relay_marks.py",
+      "rank": "low",
+      "reason": [
+        "Annotations present at lib/relay_gate_logs.py:64 and lib/relay_marks.py:240; gate precheck green."
+      ],
+      "severity": "LOW",
+      "since": "9535a46d5911e5486c39e07c2a4d4d8235d48b16",
+      "source": "review-vps-change-2.json",
+      "source_id": "F5",
+      "summary": "Python rule: new remote_gate_logs (and first_failure, moved into a new module) have no type annotations",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_land_counters.py:59-70 and the builder's report. No remote log exists before change 3, so nothing is miscounted",
+        "today; the Mac counter stays right because the remote subject does not start with \"relay: gate of \". The brief contradicts itself (scope names",
+        "the counter, Files omits the file): build it here (cheap) or move it to change 3. Size: 10 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Design 5.1: \"The remote log is committed with the subject `relay: remote gate of <sha>`, so the landing counters keep counting Mac gates; a",
+        "second counter counts remote ones.\" The brief's scope names \"the subject and counter\". gate_counts counts only \"relay: gate of \" subjects;",
+        "nothing counts \"relay: remote gate of \". The builder says it was skipped because the file was not in the brief's Files list."
+      ],
+      "fix_hint": [
+        "Count subjects starting \"relay: remote gate of \" in gate_counts as a third value, and show it where the landing stats print."
+      ],
+      "id": "F6",
+      "kind": "feature",
+      "line": 65,
+      "pass_cases": [
+        "1. A span with one \"relay: gate of\" and two \"relay: remote gate of\" commits: Mac count 1, remote count 2.",
+        "2. A span with only Mac gate commits: remote count 0, Mac count unchanged."
+      ],
+      "path": "lib/relay_land_counters.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_remote.py:319 fails on base, passes on head."
+      ],
+      "severity": "LOW",
+      "since": "9535a46d5911e5486c39e07c2a4d4d8235d48b16",
+      "source": "review-vps-change-2.json",
+      "source_id": "F6",
+      "summary": "the second counter for remote gates (design 5.1, brief: \"the subject and counter\") is not built",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "09441c929da37c12a3849cc2116ea1189a731112.gate.log",
+  "head": "6169c1aae5d948abd813db6fab84590fe463ed89",
+  "item": null,
+  "notes": [
+    "Precheck is covered by the gate log (ci green)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 9535a46d5911..HEAD; own files only the findings' lib files and tests/test_gate_remote.py. Ran test_gate_remote, test_gate, test_cycle_workflow (114 passed). Gate log head 09441c92, exit 0, only inert commit after. Ran the new test file against the pre-fix commit: 9 failed, 18 passed."
+  ],
+  "type": "check"
+}
