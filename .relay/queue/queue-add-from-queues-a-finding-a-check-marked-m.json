@@ -28,5 +28,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T23:12:29Z",
+      "fact": [
+        "Seen again 30 Oct 2026: the review finding F1 of wt/bin-wt-new-queue-x (the bin/wt template), already MET in its check and fixed on master in c77fba2a, was queued with add --from as the-bin-wt-template-that-relay-setup-writes-into; a whole cycle (4 agents) built nothing; closed with done --fixed-by c77fba2a."
+      ]
+    }
+  ]
 }
