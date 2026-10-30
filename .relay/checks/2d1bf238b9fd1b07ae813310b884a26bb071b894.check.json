@@ -1,0 +1,194 @@
+{
+  "branch": "wt/each-change-is-gated-in-a-fresh-containe",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by a reproduction on the repo's fixtures. gate_runs (lib/relay_gate_watch.py:152-153) removes every run file of `sha`",
+        "before the first gate call; on Unavailable at k == 0 it returns with nothing written. Before this change the watch wrote its",
+        "file only when an end line arrived and never removed one, so a failed re-watch kept the last result. The docstring still says",
+        "\"written when an end line arrives (and only then)\". Same code path for the twin folder.",
+        "Size: 15 min."
+      ],
+      "evidence": [
+        "scratchpad/cmpmeasure/test_repro_stale.py (watch green, then watch with Unavailable):",
+        "before: ['7f2635c3d0046492c07fc973341eb573ff7452ab.remote.gate.log']",
+        "after: []",
+        "newest_watch: None",
+        "AssertionError: 0 != 1"
+      ],
+      "failing_case": [
+        "Watch of master tip T ends green (T.remote.gate.log, exit 0). The host then goes down and the owner (or a second watch on the",
+        "same tip, as the stop-sending message invites: \"gates stay on this Mac until a Linux watch there finishes\") runs",
+        "`relay gate --watch-default` again. gate_runs removes T's run files first, then the gate raises Unavailable.",
+        "Now: run_files(folder, T) == [] and newest_watch() returns None (or an older commit's file, possibly an old red one), so",
+        "build_remote says \"has not yet gated the default branch\" or shows a stale red; the comparison loses T's pair.",
+        "Should: T keeps its green file until a new run of T has an end line."
+      ],
+      "fix_hint": [
+        "Remove the stale runs only after the first new run returned a result (just before writing run 0), not before the gate call."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 152,
+      "pass_cases": [
+        "1. watch [green] on T, then watch on T with gate raising Unavailable: run_files(folder, T) is [T.remote.gate.log] and newest_watch(wt)[0] == T with code 0.",
+        "2. watch [red, red] on T, then watch [green] on T: only T.remote.gate.log, exit 0 (tests/test_gate_compare.py:297 keeps passing).",
+        "3. watch [red, green] on T: two files, default_red \"\" (tests/test_gate_compare.py:262 keeps passing).",
+        "4. twin of J that cannot run on a second try keeps the first twin's file."
+      ],
+      "path": "lib/relay_gate_watch.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_compare.py test_a_watch_that_cannot_run_keeps_the_earlier_green_result_of_that_commit passes, fails at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "daa03840ceca7b59c3fff65abd95563263bcee41",
+      "source": "review-each-change-is-gated-in-a-fresh-containe.json",
+      "source_id": "F1",
+      "summary": "a new gating of a commit deletes its earlier Linux result before the host answers; a re-watch that cannot run leaves no result",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a reproduction. linux_result reads committed build-time logs from os.path.join(main, \".relay/checks\"), the main",
+        "checkout's working tree, which is on the default branch. A red landing's branch never reached the default branch, so its",
+        "committed remote logs are only in the branch's commits; the check never sees them. Test 11",
+        "(tests/test_gate_compare.py:387) passes only because it writes the log as an untracked file into the main checkout, which no",
+        "real gate does: the test passes with the behaviour absent. Effect: the \"no twin when a remote log exists\" rule never fires in",
+        "practice (one redundant VPS gate per such red landing, the waste the design's F5 removed), and until a twin result exists the",
+        "comparison shows those red landings as unresolved. mac_next already reads logs with `git show <ref>:<path>`; the same is needed",
+        "here.",
+        "Size: 20 min."
+      ],
+      "evidence": [
+        "scratchpad/cmpmeasure/test_repro_branchlog.py (log committed in the branch worktree, red(judged=that commit)):",
+        "twin spawned: 1",
+        "linux_result: None",
+        "'      no Linux result: afc60ca973f0 (red landing)'"
+      ],
+      "failing_case": [
+        "Branch wt/x: code commit B, then its build-time remote gate log committed on the branch (.relay/checks/B.remote.gate.log in",
+        "commit C, only an inert file). The landing judges C (the take brought nothing or only inert files) and goes red; red done event",
+        "judged = C. start_twin_after_landing(main, C) spawns a twin, and linux_result(main, C, (master, wt/x)) is None, so the",
+        "comparison shows \"no Linux result: C (red landing)\".",
+        "Should (design 7.3, decision 1, test 11): the stretch of C has a Linux result (B's log), so no twin starts and the pair comes",
+        "from that log."
+      ],
+      "fix_hint": [
+        "For the committed-log place, read `.relay/checks/<commit>.remote.gate.log` (and its re-runs) with `git show <sha>:<path>` and",
+        "`git show <ref>:<path>` for the refs passed (the log is committed after the commit it names, so read it from the later commits",
+        "of the stretch or the ref tips), instead of the working tree. Rewrite test 11 to commit the log on the branch."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 94,
+      "pass_cases": [
+        "1. The failing case: log committed on the branch only (not in the main checkout): start_twin_after_landing spawns nothing; compare_lines shows \"0 landed, 1 red landings; 1 agree\" for an exit-1 log.",
+        "2. Same with the log exit 0: no twin; verdict is a Mac-only red (not \"no Linux result\").",
+        "3. A landed head whose remote log came in with the landing (file present on master): still pairs (tests/test_gate_compare.py:150).",
+        "4. A red landing whose take brought code from master (stretch of J stops at J): the twin still starts."
+      ],
+      "path": "lib/relay_gate_compare.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_compare.py Twin tests on branch-committed logs pass, fail at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "daa03840ceca7b59c3fff65abd95563263bcee41",
+      "source": "review-each-change-is-gated-in-a-fresh-containe.json",
+      "source_id": "F2",
+      "summary": "a branch's committed build-time remote log is looked for only in the main checkout's working tree, so a red landing always gets a twin and its pair misses that log",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Design 7.4 makes \"the newest run\" the state and the fix item conditional on the last re-run being red;",
+        "it did not foresee a no-verdict re-run. The code treats 124 (and codes >= 127) like a green re-run in both newest_watch and",
+        "gate_runs, which turns an unconfirmed red into a clean default branch. A hang-type Linux failure is exactly the case where the",
+        "second run hits the limit.",
+        "Size: 15 min."
+      ],
+      "evidence": [
+        "gate_runs: `if not is_red(result.code): break` then `return lines, last, path, True`;",
+        "gate_commit: `if complete and last is not None and is_red(last.code)`;",
+        "newest_watch: `files = run_files(folder, sha)` ... `return sha, _exit_code(lines), files[-1], age`;",
+        "build_remote: `if is_red(code):` sets red, else red \"\"."
+      ],
+      "failing_case": [
+        "Watch of tip T: run 0 exit 1 (red), re-run 1 exit 124 (stopped at its limit, no verdict). gate_runs stops the loop (124 is",
+        "not red) with complete=True; gate_commit files nothing (is_red(124) is False); newest_watch reads the re-run file (124), so",
+        "build_remote sets default_red \"\" and lane gates go to the VPS whose default branch was just seen red. The comparison shows",
+        "\"no Linux result\". Should: a re-run with no verdict confirms nothing; the red first run stays the state (default_red set, as",
+        "when a re-run cannot run, tests/test_gate_compare.py:291)."
+      ],
+      "fix_hint": [
+        "In gate_runs, a run that is neither 0 nor red ends the loop with complete=False; newest_watch (and linux_result) take the",
+        "newest run with a verdict (0 or red)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 168,
+      "pass_cases": [
+        "1. watch [1, 124]: no fix item filed, build_remote(...).default_red != \"\" (the red run stands, like the could-not-run case).",
+        "2. watch [1, 0]: default_red \"\" (tests/test_gate_compare.py:262 keeps passing).",
+        "3. watch [1, 1]: one fix item (tests/test_gate_compare.py:274 keeps passing).",
+        "4. watch [124] alone: no fix item, default_red \"\" (today's behaviour for a first-run stop)."
+      ],
+      "path": "lib/relay_gate_watch.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_compare.py test_a_red_run_then_a_rerun_stopped_at_its_limit_files_nothing_and_the_red_run_stands passes, fails at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "daa03840ceca7b59c3fff65abd95563263bcee41",
+      "source": "review-each-change-is-gated-in-a-fresh-containe.json",
+      "source_id": "F3",
+      "summary": "a red watch whose re-run stops at the time limit (124) or is killed clears the red: no fix item, lanes go back to the VPS",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: mac_next returns only the exit code; _entry maps any red code to MAC_RED. Size: 15 min."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Red landing J failed at step \"library tests\"; a later Mac gate of the same code is red at step \"lint\" (a different, unrelated",
+        "break). Now: \"Mac-only red, reproduced on the Mac\", which breaks the streak. Design 7.2/test 15: reproduced only with the same",
+        "first step."
+      ],
+      "fix_hint": [
+        "Return the later log's first failing step from mac_next and compare it with the red landing log's (J.gate.log) first step."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 175,
+      "pass_cases": [
+        "1. later Mac gate red at the same first step: \"reproduced on the Mac\".",
+        "2. later Mac gate red at another step: not \"reproduced\" (shown as unresolved or as a separate verdict).",
+        "3. later Mac gate green: \"flaky on the Mac\" (tests/test_gate_compare.py:173)."
+      ],
+      "path": "lib/relay_gate_compare.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_compare.py test_a_later_red_mac_gate_at_another_step_is_not_reproduced passes, fails at base."
+      ],
+      "severity": "LOW",
+      "since": "daa03840ceca7b59c3fff65abd95563263bcee41",
+      "source": "review-each-change-is-gated-in-a-fresh-containe.json",
+      "source_id": "F4",
+      "summary": "a later red Mac gate of the same code counts as 'reproduced on the Mac' whatever step failed",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "920b2cad12cfe9d0be7325ddc5d894b773464350.gate.log",
+  "head": "2d1bf238b9fd1b07ae813310b884a26bb071b894",
+  "item": null,
+  "notes": [
+    "Gate is the quick mode (--quick). Callers of _twin_reason updated (branch refs passed)."
+  ],
+  "schema": 2,
+  "scope": [
+    "daa03840ceca..HEAD; changed files are lib/relay_gate_compare.py, lib/relay_gate_watch.py, tests/test_gate_compare.py only. Ran tests.test_gate_compare (51 OK); at 920b2cad^ with the head test file 5 failures and 2 errors, covering all fixer tests. Gate log head 920b2cad, exit 0; only the gate-log commit followed."
+  ],
+  "type": "check"
+}
