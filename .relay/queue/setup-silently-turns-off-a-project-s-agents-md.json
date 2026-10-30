@@ -41,6 +41,17 @@
       "said": [
         "Что касаемо использования сторонних проектов (в том числе миграция AGENTS.md) давай пока не будем их делать, составь список и предоставь его мне, после подтверждения мы понизим их приоритет до -1"
       ]
+    },
+    {
+      "asked_at": "2026-10-30T08:07:48Z",
+      "question": [
+        "Which queue items about using relay on other projects get ip -1 for now (the build of setup-silently-turns-off-a-project-s-agents-md was stopped on the owner's word, 30 Oct)?"
+      ],
+      "options": [
+        "a. the 8 clear ones: setup-silently-turns-off-a-project-s-agents-md, a-project-added-by-setup-cannot-be-removed-again, setup-enables-project-plugins-that-doctor-says-a, relay-setup-writes-worktrees-worktrees-and-ignor, the-guard-joins-an-absolute-project-worktrees-on, setup-in-a-shared-repo-keeps-relay-out-of-the-te, setup-docs-and-todo-list-name-steps-not-needed, relay-doctor-checks-the-project-of-the-current-f; plus principles-become-a-relay-rule-other-projects-ca (already 0) (recommended)",
+        "b. a plus the 3 OpenSpec items (openspec-stages-by-meaning, openspec-tools-live-in-the-core-plugin, a-feature-is-written-once-in-the-queue-or-in-ope)",
+        "c. b plus a-wrong-value-in-project-settings-passes-unnotic and relay-as-a-portable-tool-project-data-out-of-rel"
+      ]
     }
   ]
 }
