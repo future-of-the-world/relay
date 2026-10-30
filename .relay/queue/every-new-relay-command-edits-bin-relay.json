@@ -26,5 +26,19 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T00:28:14Z",
+      "said": [
+        "У нас уже была задача на исправление команды help, должен быть встроенный механизм автоматического включения команды в help, так устроены все библиотеки для cli утилит, также необходимо добавить проверку на соответствие в review"
+      ]
+    },
+    {
+      "at": "2026-10-30T00:28:15Z",
+      "fact": [
+        "Live case, 30 Oct: `relay metrics` (landed 29 Oct) and `relay queue release` are missing from help; the front did not find metrics and built a manual collector instead. Front decision (owner can reverse; principle 5, fact to code): that a command is listed is checked by code (the item's pass case, in the gate); the review check the owner asked for goes into the judge base as \"a change to a command's behaviour or options updates its usage line; a usage line that no longer matches the code is a finding\", the part that needs reading."
+      ]
+    }
+  ]
 }
