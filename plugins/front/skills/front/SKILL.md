@@ -184,7 +184,7 @@ in your instruction file (projects.toml `lanes`, 1-8, default 4; relay's own
 is 6). Each lane is its own cycle run: one queue item per Workflow call. When a
 lane finishes, start the next call at once. The hooks print the pick as one
 line ("Lanes: 2 of 6 running; start: ...; waits: ..."): the top of the queue
-order, skipping an item with an unanswered owner question and an item whose
+order (while fewer feature lanes run than `feature_lanes`, the free lane goes to the top startable feature first), skipping an item with an unanswered owner question and an item whose
 `where` names a file a running branch already changed (that one is listed under
 "waits:"; `relay queue start` refuses it, naming what it waits for, and
 `--despite-wait` starts it anyway, only with a stated reason). Fill a lane with
@@ -195,7 +195,7 @@ it, or say in one short sentence why the lane stays free: facts only (what is fr
 what waits), never a reading of what the owner wants or said. Do not repeat your
 earlier answer. A branch that holds two items
 is one lane. Settings under `[front]` in the project's `.claude/kit.toml`:
-`lanes_line_items` (default 3, 0-10, startable items named after the picks as "next:"; 0 names none), `stop_nudge`
+`feature_lanes` (default 0, 0 to the lanes, how many lanes are kept for features; out of bounds or not a whole number: 0, and the line says so), `lanes_line_items` (default 3, 0-10, startable items named after the picks as "next:"; 0 names none), `stop_nudge`
 (default 1, 0-2, Stop refusals per lane state; 0 is the line only) and
 `lane_quiet_hours` (default 3, 1-24, how long a worktree with no item counts as
 a lane). The reproduce step's result is recorded as data: `relay queue note` with a `fact` and

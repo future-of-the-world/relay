@@ -744,10 +744,79 @@ class FeatureSplit(LaneBase):
 
     def test_setting_is_read_from_kit_toml_and_clamped_to_the_lanes(self):
         self.seed({".claude/kit.toml": "[front]\nfeature_lanes = 9\n"})
-        self.assertEqual(rl.feature_lanes_setting(self.main, 4), 4)       # above the lanes: clamped to them
-        self.assertEqual(rl.feature_lanes_setting(self.main, 8), 8)
+        self.assertEqual(rl.feature_lanes_setting(self.main, 4), 0)       # above the lanes: the default (see test_out_of_bounds_is_said_in_the_line)
+        self.assertEqual(rl.feature_lanes_setting(self.main, 9), 9)
         self.seed({".claude/kit.toml": "[front]\nfeature_lanes = 3\n"})
         self.assertEqual(rl.feature_lanes_setting(self.main, 6), 3)
         self.seed({".claude/kit.toml": "[front]\nfeature_lanes = \"x\"\n"})
         self.assertEqual(rl.feature_lanes_setting(self.main, 6), 0)       # not a whole number: the default
         self.assertEqual(rl.lanes_state(self.main, now=NOW, limit=6).feature_split, 0)
+
+    def test_split_is_read_from_kit_toml_by_lanes_state(self):
+        # no features= passed (the hook's call): kit.toml 3, three fixes running, limit 6: ft1 (feature ip 90) goes before fa (fix ip 99)
+        self.three_fixes_running({".claude/kit.toml": "[front]\nfeature_lanes = 3\n", Q + "fa.json": item("fa", ip=99, where=("lib/a.py",)),
+                                  Q + "ft1.json": item("ft1", "feature", ip=90, where=("lib/b.py",))})
+        s = rl.lanes_state(self.main, now=NOW, limit=6)
+        self.assertEqual(s.feature_split, 3)
+        self.assertEqual([p.slug for p in s.picks][0], "ft1")
+
+    def test_no_kit_toml_means_no_split(self):
+        self.three_fixes_running({Q + "fa.json": item("fa", ip=99, where=("lib/a.py",)), Q + "ft1.json": item("ft1", "feature", ip=90, where=("lib/b.py",))})
+        s = rl.lanes_state(self.main, now=NOW, limit=6)
+        self.assertEqual((s.feature_split, [p.slug for p in s.picks]), (0, ["fa", "ft1"]))
+
+    def test_out_of_bounds_is_said_in_the_line(self):
+        # lanes 2, feature_lanes 3: not used (0), and the line says which value and why; "x": not a whole number; 3 of 6: no note
+        files = {Q + "fa.json": item("fa", ip=99, where=("lib/a.py",))}
+        self.seed({**files, ".claude/kit.toml": "[front]\nfeature_lanes = 3\n"})
+        s = rl.lanes_state(self.main, now=NOW, limit=2)
+        self.assertEqual((s.feature_split, s.feature_note), (0, "feature_lanes 3 is out of bounds 0-2: 0 is used"))
+        self.assertTrue(rl.line(s).endswith("feature_lanes 3 is out of bounds 0-2: 0 is used"))
+        self.assertIsNone(rl.lanes_state(self.main, now=NOW, limit=6).feature_note)
+        self.seed({".claude/kit.toml": "[front]\nfeature_lanes = \"x\"\n"})
+        self.assertEqual(rl.lanes_state(self.main, now=NOW, limit=6).feature_note, "feature_lanes x is not a whole number: 0 is used")
+
+    def _feature_on_a_train(self, kinds):
+        """Three lanes wt/f1..f3 with items of `kinds`; f3 merged into the open train wt/train-x. Returns nothing; two fix lanes run besides."""
+        files = {Q + f"f{n}.json": item(f"f{n}", k, where=(f"lib/f{n}.py",), **taken(f"wt/f{n}")) for n, k in zip((1, 2, 3), kinds)}
+        files.update({Q + f"r{n}.json": item(f"r{n}", where=(f"lib/run{n}.py",), **taken(f"wt/r{n}")) for n in (1, 2)})
+        files.update({Q + "fa.json": item("fa", ip=99, where=("lib/a.py",)), Q + "ft1.json": item("ft1", "feature", ip=80, where=("lib/b.py",))})
+        self.seed(files)
+        for n in (1, 2):
+            self.worktree(f"r{n}")
+        self.branch_with_commit("f1", {"lib/f1.py": "x\n"})
+        self.branch_with_commit("f2", {"lib/f2.py": "x\n"})
+        self.branch_with_commit("f3", {"lib/f3.py": "x\n"})
+        train = self.branch_with_commit("train-x", {"lib/t.py": "x\n"})
+        git(train, "merge", "-q", "--no-ff", "-m", "Merge wt/f3 into wt/train-x", "wt/f3")
+        return rl.lanes_state(self.main, now=time.time(), limit=6, features=3)
+
+    def test_feature_riding_a_train_counts_as_a_running_feature(self):
+        # lanes: f1, f2, train(f3), r1, r2 = 5 of 6, 1 free. Features running = 3 = the split, so the free lane goes to the fix fa (ip 99), not to ft1
+        s = self._feature_on_a_train(["feature"] * 3)
+        self.assertEqual(s.feature_running, 3)
+        self.assertEqual([p.slug for p in s.picks], ["fa"])
+        self.assertIn("(2 of 3 fix lanes, 3 of 3 feature lanes)", rl.line(s))
+
+    def test_train_of_fixes_is_not_a_feature_lane(self):
+        # f1, f2 are features; f3 (a fix) rides the train: 2 features run, quota 3 - 2 = 1, so ft1 (ip 80) goes before fa (ip 99)
+        s = self._feature_on_a_train(["feature", "feature", "fix"])
+        self.assertEqual(s.feature_running, 2)
+        self.assertEqual([p.slug for p in s.picks], ["ft1"])
+
+    def test_three_feature_lanes_on_their_own_branches(self):
+        self.seed({Q + f"f{n}.json": item(f"f{n}", "feature", where=(f"lib/f{n}.py",), **taken(f"wt/f{n}")) for n in (1, 2, 3)} |
+                  {Q + "fa.json": item("fa", ip=99, where=("lib/a.py",)), Q + "ft1.json": item("ft1", "feature", ip=80, where=("lib/b.py",))})
+        for n in (1, 2, 3):
+            self.worktree(f"f{n}")
+        s = self.state(limit=4, features=3)
+        self.assertEqual(s.feature_running, 3)
+        self.assertEqual([p.slug for p in s.picks], ["fa"])
+
+    def test_a_lane_with_no_item_is_named_apart_from_the_fix_lanes(self):
+        # three fixes and a design worktree wt/d with no item: the line says 3 of 3 fix lanes and 1 without an item, never 4 of 3
+        self.three_fixes_running({Q + "ft1.json": item("ft1", "feature", ip=90, where=("lib/b.py",))})
+        self.worktree("d")
+        s = rl.lanes_state(self.main, now=time.time(), limit=6, features=3)      # the worktree's activity is real time
+        self.assertEqual((s.feature_running, s.itemless), (0, 1))
+        self.assertIn("Lanes: 4 of 6 running (3 of 3 fix lanes, 0 of 3 feature lanes, 1 without an item)", rl.line(s))

@@ -80,7 +80,9 @@ class State(NamedTuple):
     upcoming: list[Pick] = []  # the startable items after the picks (at most SETTINGS["lanes_line_items"] high), named so one stuck pick hides nothing
     skipped: list[str] = []    # open items left out of the picks because their newest reproduce result is "no" (`relay queue note` with reproduced = "no")
     feature_split: int = 0     # lanes kept for features (front.feature_lanes); 0 = no split
-    feature_running: int = 0   # running lanes whose queue item is a feature
+    feature_running: int = 0   # running lanes (a train counts its riders) that took a feature
+    itemless: int = 0          # running lanes that took no queue item (a design worktree): neither fix nor feature lanes
+    feature_note: Optional[str] = None   # why front.feature_lanes was not used as written (out of bounds, not a whole number)
 
 
 def setting(cfg: Any, key: str) -> int:
@@ -107,16 +109,25 @@ def setting_note(cfg: Any, key: str) -> Optional[str]:
     return f"{key} {value} is out of bounds {low}-{high}: {default} is used"
 
 
-def feature_lanes_setting(main: str, capacity: int) -> int:
+def feature_lanes_read(main: str, capacity: int) -> tuple[int, Optional[str]]:
     """`front.feature_lanes` of the project's kit.toml: lanes kept for features (the owner's 3 and 3 split, 29 Oct). Default 0 (no split),
-    bound 0..capacity; not a whole number: the default."""
+    bound 0..capacity; out of bounds or not a whole number: the default, and the note that says so (clamping would turn a 3 and 3 into all features)."""
     try:
-        value = relay_config.get(relay_config.load_bindings(main), "front.feature_lanes", 0)
+        value = relay_config.get(relay_config.load_bindings(main), "front.feature_lanes", None)
     except (OSError, ValueError):
-        return 0
+        return 0, None
+    if value is None:
+        return 0, None
     if isinstance(value, bool) or not isinstance(value, int):
-        return 0
-    return max(0, min(capacity, value))
+        return 0, f"feature_lanes {value} is not a whole number: 0 is used"
+    if 0 <= value <= capacity:
+        return value, None
+    return 0, f"feature_lanes {value} is out of bounds 0-{capacity}: 0 is used"
+
+
+def feature_lanes_setting(main: str, capacity: int) -> int:
+    """The value of `feature_lanes_read`, without its note."""
+    return feature_lanes_read(main, capacity)[0]
 
 
 def lanes_setting(main: str) -> int:
@@ -344,9 +355,14 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
             quiet.append(f"{branch} (quiet)")
     running = _one_lane_per_train(main, running, trees, when, quiet_hours)
     free = max(0, capacity - len(running))
-    split = feature_lanes_setting(main, capacity) if features is None else max(0, min(capacity, features))
-    kinds = {i["slug"]: i["kind"] for i in open_items}
-    feature_running = sum(1 for lane in running if lane.slug and kinds.get(lane.slug) == "feature")
+    split, split_note = feature_lanes_read(main, capacity) if features is None else (max(0, min(capacity, features)), None)
+    taken_kinds: dict[str, set[str]] = {}          # a lane is a branch: the kinds of the items it took (a train: those of its riders too)
+    for i in open_items:
+        if i["state"] == "taken" and i.get("taken_by"):
+            taken_kinds.setdefault(i["taken_by"], set()).add(i["kind"])
+    lane_kinds = [set().union(*(taken_kinds.get(b, set()) for b in (lane.branch,) + tuple(lane.riders))) for lane in running]
+    feature_running = sum(1 for k in lane_kinds if "feature" in k)
+    itemless = sum(1 for k in lane_kinds if not k)
     picks: list[Pick] = []
     upcoming: list[Pick] = []
     skipped: list[str] = []
@@ -398,7 +414,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
                 continue
             chosen.append((item["slug"], _paths(where)))
             picks.append(pick)
-    return State(capacity, running, free, picks, waits, landed_open, quiet, upcoming, skipped, split, feature_running)
+    return State(capacity, running, free, picks, waits, landed_open, quiet, upcoming, skipped, split, feature_running, itemless, split_note)
 
 
 def wait_text(w: Wait) -> str:
@@ -413,8 +429,10 @@ def line(state: State, items: int = SETTINGS["lanes_line_items"][0], note: Optio
         return None
     parts = [f"Lanes: {len(state.running)} of {state.setting} running"]
     if state.feature_split:
-        parts[0] += (f" ({len(state.running) - state.feature_running} of {state.setting - state.feature_split} fix lanes, "
-                     f"{state.feature_running} of {state.feature_split} feature lanes)")
+        fixes = len(state.running) - state.feature_running - state.itemless
+        parts[0] += (f" ({fixes} of {state.setting - state.feature_split} fix lanes, "
+                     f"{state.feature_running} of {state.feature_split} feature lanes"
+                     + (f", {state.itemless} without an item" if state.itemless else "") + ")")
     if state.picks:
         parts.append(", ".join(f"{p.mode}: {p.slug} ({p.kind}, ip {p.ip})" for p in state.picks))
     if items and state.upcoming:
@@ -427,8 +445,9 @@ def line(state: State, items: int = SETTINGS["lanes_line_items"][0], note: Optio
         parts.append("skipped, not reproduced: " + ", ".join(state.skipped[:LIST_ITEMS]))
     if state.quiet:
         parts.append("no lane, not counted: " + ", ".join(state.quiet[:LIST_ITEMS]))
-    if note:
-        parts.append(note)
+    for text in (note, state.feature_note):
+        if text:
+            parts.append(text)
     return "; ".join(parts)
 
 
