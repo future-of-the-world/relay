@@ -6,12 +6,13 @@ tests/run_unittest.py calls patch_unittest, which wraps TestCase.run the same wa
 Each test's folder is named for the test (`relay-home-<method>-XXXX`) and is the test's TMPDIR, so every temporary file or
 folder a test makes lands under it: a process a test leaves behind shows the test's name in its path, and the gate's sweep
 (lib/relay_gate.py) finds it by the prefix."""
+import atexit
 import os
 import re
 import shutil
 import tempfile
 import unittest
-from typing import Dict, Optional
+from typing import Dict, MutableMapping, Optional
 
 REAL_HOME = os.path.expanduser("~")  # captured at import, before any runner swaps HOME
 
@@ -49,12 +50,31 @@ def temporary_environment(base: str) -> Dict[str, Optional[str]]:
     }
 
 
+SIGNAL_LOG_ENV = "RELAY_SIGNAL_LOG"      # lib/relay_procs.py SIGNAL_LOG_ENV: the log of every stop relay sends
+SIGNAL_RUN_PREFIX = "relay-signals-"     # the folder of a run's own log; a log in a folder with this prefix is already a run's
+
+
+def pin_signal_log(environ: MutableMapping[str, str]) -> Optional[str]:
+    """One signal log per test run, in a temporary folder of the run's own (removed at exit), set in `environ` before the per-test
+    RELAY_HOME switch: every test of the run, and every worker that inherits `environ`, shares it, so a stop one test sends is found
+    by the others, and no test writes the owner's ~/.relay/signals.log (a gate passes that one down). A log already in a run's
+    folder (passed down by the runner above) is kept. Returns the log's path when this call made it, else None."""
+    current = environ.get(SIGNAL_LOG_ENV)
+    if current and os.path.basename(os.path.dirname(current)).startswith(SIGNAL_RUN_PREFIX):
+        return None
+    folder = tempfile.mkdtemp(prefix=SIGNAL_RUN_PREFIX)
+    atexit.register(shutil.rmtree, folder, True)
+    environ[SIGNAL_LOG_ENV] = os.path.join(folder, "signals.log")
+    return environ[SIGNAL_LOG_ENV]
+
+
 def patch_unittest() -> None:
     """Make every TestCase.run use its own folders. Called twice it patches once: a second wrapper would nest a second folder in each test."""
     if getattr(unittest.TestCase, "_relay_tmp_patched", False):
         return
     global RUN_TEMP
     RUN_TEMP = tempfile.gettempdir()
+    pin_signal_log(os.environ)
     original = unittest.TestCase.run
 
     def run(self: unittest.TestCase, result: Optional[unittest.result.TestResult] = None) -> Optional[unittest.result.TestResult]:

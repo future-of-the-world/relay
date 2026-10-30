@@ -281,6 +281,9 @@ class Pool:
 
 def run(root: str = ROOT, env: Optional[Dict[str, str]] = None, tests_dir: str = HERE) -> int:
     env = dict(os.environ if env is None else env)
+    sys.path.insert(0, tests_dir)
+    import tmp_default
+    tmp_default.pin_signal_log(env)      # the workers inherit env: one signal log for the whole run
     jobs, note = jobs_setting(env)
     if jobs == 0:
         print(note)

@@ -1,5 +1,6 @@
 """Every test runs with HOME, CLAUDE_CONFIG_DIR and RELAY_HOME pointing at a fresh temporary folder,
 so a test that forgets to set them cannot read or write the owner's ~/.claude, ~/.relay or ~/.claude.json.
+The signal log (RELAY_SIGNAL_LOG) is one temporary file for the whole session, never ~/.relay/signals.log (tmp_default.pin_signal_log).
 The path functions in lib/relay_config.py read the environment at call time, so setting it is enough.
 ROOT stays the checkout (RELAY_ROOT is not touched). A test that sets these itself overrides this
 for its own duration; no test needs the real folders, so there is no opt-out.
@@ -21,6 +22,7 @@ import run_unittest  # own_pool_home: the same pool choice as bin/ci's unittest 
 import tmp_default  # the shared definition; bin/ci's unittest runner (tests/run_unittest.py) uses it too
 
 tmp_default.RUN_TEMP = tempfile.gettempdir()      # before any test's own TMPDIR
+tmp_default.pin_signal_log(os.environ)      # one signal log for the whole session, before the per-test RELAY_HOME switch
 
 
 @pytest.fixture(autouse=True)
