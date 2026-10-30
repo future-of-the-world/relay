@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0049,
+   "id": "a68cd2633a0dca4be",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T17:44:05.394Z",
+   "stop": "2026-10-30T18:01:20.489Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "inert-probe-leaves-worktrees-registered-in-the-l",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "inert-probe-leaves-worktrees-registered-in-the-l"
+}

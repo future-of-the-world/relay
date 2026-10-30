@@ -13,6 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
+import relay_lanes  # noqa: E402
 import relay_queue  # noqa: E402
 import relay_tidy  # noqa: E402
 
@@ -112,6 +113,28 @@ class Tidy(unittest.TestCase):
             (True, "queue item foo is taken by wt/gone2, which no longer exists"),
         ])
         self.assertEqual(got, want)
+
+    def test_a_task_branch_of_a_queue_slug_is_not_a_leftover_landing_branch(self):
+        # Hand-worked: the item "queue-items-x" gets the branch built from _short; it must not match wt/queue-*, so no leftover line,
+        # and once merged its worktree is listed like any task worktree. A real landing branch wt/queue-y is still a leftover.
+        name = relay_lanes._short("queue-items-x")
+        self.assertFalse(("wt/" + name).startswith("wt/queue-"))
+        self.assertEqual(relay_lanes._short("refuse-folder-x"), "refuse-folder-x")
+        self.task(name)
+        git(self.main, "merge", "-q", "--ff-only", "wt/" + name)
+        git(self.main, "branch", "wt/queue-y")
+        text = [t for _, t in relay_tidy.lines(self.main)]
+        self.assertIn("merged worktree still present: .worktrees/%s (wt/%s)" % (name, name), text)
+        self.assertEqual([t for t in text if t.startswith("leftover queue branch")], ["leftover queue branch: wt/queue-y"])
+
+    def test_short_is_one_to_one_on_queue_slugs(self):
+        # Hand-worked: "queue-x" -> "task-queue-x"; "task-queue-x" must not collide, so it gets one more "task-".
+        s = relay_lanes._short
+        self.assertNotEqual(s("queue-x"), s("task-queue-x"))
+        self.assertNotEqual(s("task-queue-x"), s("task-task-queue-x"))
+        self.assertFalse(s("queue-items-x").startswith("queue-"))
+        self.assertEqual(s("refuse-folder-x"), "refuse-folder-x")
+        self.assertEqual(s("task-other"), "task-other")
 
     def test_nothing_to_report_is_empty(self):
         self.task("u")                                   # unmerged only

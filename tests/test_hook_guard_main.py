@@ -401,6 +401,40 @@ class Guard(SoftCases):
         event = {"tool_name": "Edit", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": m + "/.worktree/any-change/x.ex"}}
         self.assertEqual(self.run_hook(m, event).returncode, 0)
 
+    def test_an_absolute_worktrees_folder_is_the_extra_folder(self) -> None:
+        # worktrees = "<main>/wts" (absolute): a write under it is inside a task worktree although git lists none;
+        # joined onto main it would read "<main>//<main>/wts" and the write would be refused as a write to main.
+        m = self.mkrepo("absextra")
+        os.makedirs(os.path.join(m, ".claude"))
+        with open(os.path.join(m, ".claude", "kit.toml"), "w") as handle:
+            handle.write('[project]\nworktrees = "%s/wts"\n' % m)
+        event = {"tool_name": "Edit", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": m + "/wts/a/f.py"}}
+        self.assertEqual(self.run_hook(m, event).returncode, 0)
+
+    def test_a_worktrees_folder_holding_main_does_not_unguard_main(self) -> None:
+        # F1: worktrees = the parent of main: main itself is not a task worktree (exit 2), a sibling folder is (exit 0).
+        # worktrees = main itself: also exit 2.
+        m = self.mkrepo("par")
+        os.makedirs(os.path.join(m, ".claude"))
+        kit = os.path.join(m, ".claude", "kit.toml")
+        parent = os.path.dirname(m)
+        for folder, rel, want in ((parent, "README.md", 2), (parent, "../feature/f.py", 0), (m, "README.md", 2)):
+            with open(kit, "w") as handle:
+                handle.write('[project]\nworktrees = "%s"\n' % folder)
+            event = {"tool_name": "Edit", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": os.path.normpath(os.path.join(m, rel))}}
+            self.assertEqual(self.run_hook(m, event).returncode, want, (folder, rel))
+
+    def test_an_absolute_worktrees_folder_spelled_through_a_symlink(self) -> None:
+        # F2: the folder is spelled through a symlink to main; paths are realpath'd, so the folder must be too.
+        m = self.mkrepo("sym")
+        link = m + "-link"
+        os.symlink(m, link)
+        os.makedirs(os.path.join(m, ".claude"))
+        with open(os.path.join(m, ".claude", "kit.toml"), "w") as handle:
+            handle.write('[project]\nworktrees = "%s/wts"\n' % link)
+        event = {"tool_name": "Edit", "cwd": m, "agent_id": "a1", "tool_input": {"file_path": m + "/wts/a/f.py"}}
+        self.assertEqual(self.run_hook(m, event).returncode, 0)
+
     def test_the_advice_names_the_projects_own_worktree_tool(self) -> None:
         # F5: a project with bin/wt is told to use it, not `git worktree add .worktrees/<name>`.
         m = self.mkrepo("advice")

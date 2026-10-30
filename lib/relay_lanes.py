@@ -455,8 +455,8 @@ def stop_refusal(state: State, stamp: str, nudge: int, session: str) -> Optional
 
 # ---------------------------------------------------------------- relay queue start
 
-def _short(slug: str) -> str:
-    return slug  # the whole slug: slugs are unique, so the names are; the old 40-character cut had no limit behind it
+def _short(slug: str) -> str:  # whole slug; `wt/queue-*` is a landing branch, so (task-)*queue-* gets one more "task-": one-to-one
+    return "task-" + slug if re.match(r"(task-)*queue-", slug) else slug
 
 
 def _check_for(worktree: str, where: list[str]) -> str:

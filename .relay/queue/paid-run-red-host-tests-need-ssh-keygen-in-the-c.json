@@ -1,0 +1,28 @@
+{
+  "kind": "fix",
+  "ip": 99,
+  "time": 30,
+  "found_at": "2026-10-30T19:02:19Z",
+  "found_in": "relay queue add",
+  "title": "Paid run red: host tests need ssh-keygen in the clean image",
+  "what": [
+    "The clean-image quick gate (podman) runs tests/test_gate_hosts.py Add tests, which call ssh-keygen through lib/relay_hosts.py; the image has no ssh-keygen. Either the tests stop depending on the real program (a fake on PATH, as the ssh tests do) or the image installs it; pick the one that keeps the tests honest and say why."
+  ],
+  "why": [
+    "Paid run on master 065ffa05, 30 Oct 2026: ci RED, the clean-image quick gate failed and the paid evals were not started. The Mac gate passes because macOS has ssh-keygen."
+  ],
+  "failing_case": [
+    "bin/ci on master 065ffa05: clean image quick gate FAILED; 4 errors in test_gate_hosts.Add, each FileNotFoundError: [Errno 2] No such file or directory: 'ssh-keygen'."
+  ],
+  "failing_kind": "run",
+  "where": [
+    "lib/relay_hosts.py",
+    "tests/test_gate_hosts.py"
+  ],
+  "taken_at": "2026-10-30T19:17:30Z",
+  "taken_by": "wt/paid-run-red-host-tests-need-ssh-keygen-in-the-c",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

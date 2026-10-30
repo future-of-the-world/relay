@@ -1,0 +1,158 @@
+{
+  "branch": "wt/a-task-branch-of-an-item-whose-slug-starts-with",
+  "findings": [
+    {
+      "details": [
+        "A task branch for an item whose slug starts with queue- is named wt/queue-..., which relay reads as a leftover queue-landing branch and may treat wrongly."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Live queue has 9 open-or-closed items whose slug starts with \"queue-\" (e.g. queue-items-point-at-session-files-that-vanish).",
+        "`relay queue start queue-items-point-at-session-files-that-vanish` makes branch wt/queue-items-point-at-session-files-that-vanish.",
+        "relay_queue.leftover_branches lists it, so relay tidy/doctor reports \"leftover queue branch: wt/queue-items-...\" (a fixable leftover) while",
+        "the change is being built; relay_tidy.lines skips its worktree after merge; relay_inert absorbed() ignores it. Expected: a task branch is",
+        "never mistaken for a queue-landing branch."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 54,
+      "pass_cases": [
+        "1. Start item \"queue-items-point-at-session-files-that-vanish\": relay doctor/tidy do not list its branch as a leftover queue branch.",
+        "2. A real leftover landing branch wt/queue-<slug> (left by a failed `relay queue` landing) is still listed.",
+        "3. After that task branch merges, tidy reports its worktree as \"merged worktree still present\" like any other task worktree.",
+        "4. Start item \"refuse-folder-and-pattern-entries-in-where-a\": branch wt/refuse-folder-and-pattern-entries-in-where-a, unchanged."
+      ],
+      "path": "lib/relay_tidy.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_tidy.py:117 test_a_task_branch_of_a_queue_slug_is_not_a_leftover_landing_branch passes; fails at base 4620a75."
+      ],
+      "severity": "HIGH",
+      "since": "4620a75ecd3d640c4f86b80eeb100d805d41aed2",
+      "source": "queue",
+      "summary": "A task branch of an item whose slug starts with queue- is\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading _short. No live slug starts with \"task-queue-\" today (ls .relay/queue | grep -c ^task-queue- -> 0), and the",
+        "start refusal and measure_item's window split keep it safe, so this is fragility, not a live failure. Size: 5 minutes (a prefix",
+        "that slugify can never produce, or a refusal in queue add for slugs starting \"task-queue-\", or just correcting the comment)."
+      ],
+      "evidence": [
+        "sed -n 479,480p lib/relay_lanes.py -> return \"task-\" + slug if slug.startswith(\"queue-\") else slug",
+        "ls /Users/amidman/relay/.relay/queue | grep -c '^task-queue-' -> 0"
+      ],
+      "failing_case": [
+        "Queue holds open items \"queue-x\" and \"task-queue-x\". relay queue start queue-x makes wt/task-queue-x; while it runs,",
+        "relay queue start task-queue-x is refused \"wt/task-queue-x or .worktrees/task-queue-x exists already\". After both close,",
+        "relay_estimate.measure_item sees two items with the same taken_by. Expected: distinct slugs give distinct names (the comment",
+        "on the line still says \"slugs are unique, so the names are\")."
+      ],
+      "fix_hint": [
+        "Correct the comment; optionally make relay queue add skip a slug \"task-queue-*\" the way it skips one whose wt/queue- branch is left over."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 479,
+      "pass_cases": [
+        "1. _short(\"queue-x\") != _short(\"task-queue-x\").",
+        "2. _short(\"queue-items-x\") does not start with \"queue-\".",
+        "3. _short(\"refuse-folder-x\") == \"refuse-folder-x\"."
+      ],
+      "path": "lib/relay_lanes.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_tidy.py test_short_is_one_to_one_on_queue_slugs passes, fails at base."
+      ],
+      "severity": "LOW",
+      "since": "12ff5cf3b3bb03b0a251ba48702695dcac54ef6e",
+      "source": "review-a-task-branch-of-an-item-whose-slug-starts-with.json",
+      "source_id": "F1",
+      "summary": "the name is no longer one-to-one with the slug: items queue-x and task-queue-x both map to wt/task-queue-x",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the test: it never calls start(). The behaviour that matters (the branch start() creates) is covered only",
+        "through the helper. tests/test_lanes_state.py already drives start() (around line 911), so one assertion there closes it. Size: 10 minutes."
+      ],
+      "evidence": [
+        "tests/test_tidy.py:120 name = relay_lanes._short(\"queue-items-x\"); self.task(name) creates the branch by hand (line 69-70)."
+      ],
+      "failing_case": [
+        "Change start() to name = slug (dropping _short): relay queue start queue-items-x again makes wt/queue-items-x, and",
+        "test_a_task_branch_of_a_queue_slug_is_not_a_leftover_landing_branch still passes, since it builds the name itself from _short."
+      ],
+      "fix_hint": [
+        "Add a start() case to tests/test_lanes_state.py next to the line-911 test, asserting the returned branch for a queue- slug."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 117,
+      "pass_cases": [
+        "1. relay_lanes.start(repo, \"queue-items-x\", scratch) on a temp repo returns JSON with \"branch\": \"wt/task-queue-items-x\" and no wt/queue-items-x exists.",
+        "2. relay_lanes.start(repo, \"refuse-folder-x\", scratch) returns \"branch\": \"wt/refuse-folder-x\"."
+      ],
+      "path": "tests/test_tidy.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_lanes_state.py test_start_names_a_queue_slug_branch_task_queue drives start(); passes, fails at base."
+      ],
+      "severity": "LOW",
+      "since": "12ff5cf3b3bb03b0a251ba48702695dcac54ef6e",
+      "source": "review-a-task-branch-of-an-item-whose-slug-starts-with.json",
+      "source_id": "F2",
+      "summary": "the test calls _short directly, so it still passes if start() stops using _short for the branch",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading bin/wt and templates/bin-wt (both \"wt/$name\"). Same clash as this item, through the hand-made path",
+        "the change does not touch. Rare (a person must pick that name). Size: 10 minutes; bin/wt is bash and would move to Python when changed."
+      ],
+      "evidence": [
+        "bin/wt:12 git -C \"$root\" worktree add \"$dir/$name\" -b \"wt/$name\" \"$base\"",
+        "lib/relay_queue.py:758 for-each-ref refs/heads/wt/queue-*"
+      ],
+      "failing_case": [
+        "The front, told by guard_main to \"git worktree add ... / bin/wt new <name>\", runs bin/wt new queue-docs master: the branch is",
+        "wt/queue-docs; relay doctor lists \"leftover queue branch: wt/queue-docs\" while it is being built, and after merge tidy never",
+        "reports its worktree. Expected: bin/wt refuses (or renames) a name starting with \"queue-\"."
+      ],
+      "fix_hint": [
+        "Refuse a name starting with \"queue-\" in bin/wt and templates/bin-wt."
+      ],
+      "id": "F3",
+      "kind": "outside",
+      "line": 12,
+      "pass_cases": [
+        "1. bin/wt new queue-docs master -> refused with a message naming the reserved prefix, or makes wt/task-queue-docs.",
+        "2. bin/wt new docs master -> .worktrees/docs on wt/docs, unchanged."
+      ],
+      "path": "bin/wt",
+      "rank": "low",
+      "reason": [
+        "bin/wt and templates/bin-wt are untouched; fixer lists as Outside; a fix item is right."
+      ],
+      "severity": "LOW",
+      "since": "12ff5cf3b3bb03b0a251ba48702695dcac54ef6e",
+      "source": "review-a-task-branch-of-an-item-whose-slug-starts-with.json",
+      "source_id": "F3",
+      "summary": "bin/wt new queue-<x> still makes wt/queue-<x>, which tidy, doctor, inert and the merge hook read as a queue-landing branch",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "cd02d87f6665498e131855ed97718350aac129fc.gate.log",
+  "head": "53a870479d5cf7c7ee8d276596c961edc6b9ef40",
+  "item": "a-task-branch-of-an-item-whose-slug-starts-with",
+  "notes": [
+    "F3 is outside (bin/wt), reported by fixer as Outside."
+  ],
+  "schema": 2,
+  "scope": [
+    "Ran tests.test_tidy and tests.test_lanes_state.BranchNames at head: 14 OK. Gate log is for cd02d87, exit 0; no file changed after it. Base 4620a75 with head tests: all 3 new tests fail. Only caller of _short is start()."
+  ],
+  "type": "check"
+}
