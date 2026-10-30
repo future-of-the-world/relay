@@ -308,6 +308,12 @@ def paid_due():
     return done.stdout.strip() or None
 
 
+def no_green_record():
+    """True on a machine with no green paid run recorded (a new machine): there is no wave to wait for."""
+    held = paid_due()
+    return held is not None and held.startswith("no green run recorded")
+
+
 def sync(profile, only=None, adopt=None, dry=False, wait=True):
     """Raises Held when a target outside the checkout would be written before the paid run is green.
     `only` limited to agents writes nothing outside the checkout, so it never waits; the env name is for

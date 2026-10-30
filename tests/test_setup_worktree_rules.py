@@ -1,5 +1,6 @@
 """relay setup run in a linked worktree writes nothing outside that worktree: the trailing rules sync does not rewrite
 the main checkout's CLAUDE.local.md, and setup does not wait for a paid run."""
+import json
 import os
 import subprocess
 import sys
@@ -68,6 +69,36 @@ class WorktreeSetup(Base):
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertNotIn("waits for a green paid run", done.stderr)
         self.assertTrue(os.path.isfile(os.path.join(proj, "CLAUDE.local.md")))
+
+    def setup_with_a_green_record(self, command: str) -> tuple[subprocess.CompletedProcess, str]:
+        """Run `relay <command> <tmp project>` on a machine whose RELAY_HOME holds a green paid run at relay's first commit,
+        so every later commit on the default branch that touches the checked paths is due (a wave is waiting)."""
+        proj = os.path.join(self.tmp, "shop")
+        os.makedirs(proj)
+        git("init", "-q", proj)
+        git("-C", proj, "commit", "-q", "--allow-empty", "-m", "init")
+        default = "master" if subprocess.run(["git", "-C", ROOT, "rev-parse", "--verify", "-q", "refs/heads/master"], capture_output=True).returncode == 0 else "main"
+        first = subprocess.run(["git", "-C", ROOT, "rev-list", "--max-parents=0", "refs/heads/" + default], capture_output=True, text=True, check=True).stdout.split()[0]
+        folder = os.path.join(os.environ["RELAY_HOME"], "evals", "relay")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "1.json"), "w") as handle:
+            json.dump({"startedAt": "2026-10-24T10:00:00.000Z", "costUsd": 1.0, "cases": [], "head": first, "branch": default}, handle)
+        env = {k: v for k, v in os.environ.items() if k != "RELAY_SKIP_PAID_DUE"}
+        args = ["migrate", proj, "--apply"] if command == "migrate" else ["setup", proj]
+        return subprocess.run([sys.executable, RELAY_BIN, *args], env=env, capture_output=True, text=True), proj
+
+    def test_setup_on_a_machine_with_a_paid_run_record_keeps_the_hold(self) -> None:
+        # a record exists and rules commits came after it: setup is done, exit 0, the one hold line, no rules file
+        done, proj = self.setup_with_a_green_record("setup")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(done.stderr.count("Not synced: waits for a green paid run"), 1, done.stderr)
+        self.assertFalse(os.path.exists(os.path.join(proj, "CLAUDE.local.md")))
+
+    def test_migrate_apply_on_a_machine_with_a_paid_run_record_keeps_the_hold(self) -> None:
+        done, proj = self.setup_with_a_green_record("migrate")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(done.stderr.count("Not synced: waits for a green paid run"), 1, done.stderr)
+        self.assertFalse(os.path.exists(os.path.join(proj, "CLAUDE.local.md")))
 
 
 if __name__ == "__main__":

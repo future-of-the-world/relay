@@ -26,7 +26,7 @@ never overwrites:
   a project's first setup (when it has no kit.toml yet). Later a missing script is a to-do line and a doctor FIX;
 - the project in `projects.toml`, then `relay sync` writes its
   `CLAUDE.local.md` (never committed). In a linked worktree setup skips the sync and says so; run `relay sync`
-  after the branch is merged. A sync held by a waiting paid run leaves setup at exit 0 with one line;
+  after the branch is merged. On a machine with no paid-run record (a new machine) setup syncs at once; with a record, a waiting paid run leaves setup at exit 0 with one line;
 - the spec plugin (`openspec`) installed at project scope
   with `claude plugin install <name>@relay --scope project`; when that cannot
   run, the command is in the to-do list. `relay doctor <dir>` reports FIX for
