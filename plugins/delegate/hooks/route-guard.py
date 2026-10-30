@@ -70,13 +70,13 @@ def context_tokens(transcript_path):
         return 0
 
 
-def running_now(session_id):
+def running_now(session_id, now=None):
     try:
         import relay_ledger
         import datetime as dt
-        since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=12)
-        events = relay_ledger.read(since=since)
-        return len(relay_ledger.running_agents(events).get(session_id, []))
+        now = now or dt.datetime.now(dt.timezone.utc)
+        events = relay_ledger.read(since=now - dt.timedelta(hours=12))
+        return len(relay_ledger.running_agents(events, now, relay_ledger.AGENT_IDLE).get(session_id, []))
     except Exception:
         return 0
 
