@@ -62,6 +62,11 @@ class ReadOnlyHook(unittest.TestCase):
         for command in ("relay metrics", "relay metrics item-a"):
             self.assertEqual(hook("delegate:critic", command), "allow", command)
         self.assertEqual(hook("delegate:critic", "relay land wt/x"), "deny")
+        # digest: --sent and --alert-sent record the send; the page and --due only read
+        for command in ("relay digest --sent", "relay digest --alert-sent"):
+            self.assertEqual(hook("delegate:critic", command), "deny", command)
+        for command in ("relay digest", "relay digest --due", "relay digest --all"):
+            self.assertEqual(hook("delegate:critic", command), "allow", command)
 
     def test_q1_every_relay_subcommand_is_classified_as_read_or_write(self) -> None:
         """A subcommand bin/relay gains must be put on the guard's list (WRITERS) or its READS: none is left unclassified."""

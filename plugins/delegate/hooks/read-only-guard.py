@@ -28,6 +28,7 @@ WRITERS: dict[str, Optional[set[str]]] = {
     "check": {"migrate", "owner"},
     "improve": {"adopt"},
     "license": {"add"},
+    "digest": set(),                        # only the flags --sent and --alert-sent write (relay_writes); the page and --due read
     "metrics": {"sweep", "backfill"},       # both land commits on the default branch; `relay metrics` and `relay metrics <unit>` only read
 }
 READS = {"status", "report", "profile", "doctor", "flows", "rules", "changed", "precheck"}
@@ -120,6 +121,8 @@ def relay_writes(args: list[str]) -> Optional[str]:
     second = rest[1] if len(rest) > 1 else ""
     if sub == "sync":
         return None if "--dry" in args else "relay sync"
+    if sub == "digest":
+        return "relay digest --sent" if "--sent" in args or "--alert-sent" in args else None
     after = WRITERS[sub]
     if after is None:
         return None if second in READ_WORDS.get(sub, ()) else "relay " + sub
