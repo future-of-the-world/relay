@@ -691,6 +691,24 @@ def copy_template(name, dest, mode_exec=False, replacements=None):
     return True
 
 
+def agents_import(root: str) -> str:
+    """The first lines of a new CLAUDE.md: it imports the project's AGENTS.md, which Claude Code stops loading by itself once CLAUDE.md exists."""
+    return "@AGENTS.md\n\n" if os.path.isfile(os.path.join(root, "AGENTS.md")) else ""
+
+
+def agents_md_loaded(root: str) -> bool:
+    """True when the project has no AGENTS.md, or CLAUDE.md imports it, or the claude-md-and-agents-md setting is on in a project settings file."""
+    if not os.path.isfile(os.path.join(root, "AGENTS.md")):
+        return True
+    try:
+        text = open(os.path.join(root, "CLAUDE.md"), encoding="utf-8").read()
+    except FileNotFoundError:
+        text = ""
+    if any(line.strip() == "@AGENTS.md" for line in text.splitlines()):
+        return True
+    return any(read_json(os.path.join(root, ".claude", f)).get("claude-md-and-agents-md") for f in ("settings.json", "settings.local.json"))
+
+
 def strip_stored_spec_rules(name):
     """Remove spec-rule entries from the stored `load` of [name] in projects.toml (spec rules come from kit.toml [specs]); True when changed."""
     path = relay_config.projects_file()
@@ -898,7 +916,7 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
     if license_id is not None:
         done += set_license(root, license_id, holder, todo)
     if first_setup:
-        if copy_template("CLAUDE.md", os.path.join(root, "CLAUDE.md"), replacements={"name": d["name"], "stack": d["stack"]}):
+        if copy_template("CLAUDE.md", os.path.join(root, "CLAUDE.md"), replacements={"name": d["name"], "stack": d["stack"], "agents_import": agents_import(root)}):
             done.append("wrote CLAUDE.md (a skeleton: what the product is, the commands, the product surface)")
             todo.append("CLAUDE.md: write what the project is in two lines, and its product surface if a person sees it")
         if copy_template("handover.md", os.path.join(root, "docs", "handover.md"), replacements={"name": d["name"], "date": str(dt.date.today())}):
@@ -1290,6 +1308,8 @@ def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[
         for s in ("check", "ci", "wt"):
             path = os.path.join(root, cfg.get("gate", {}).get(s, f"bin/{s}"))
             ok(f"gate.{s} exists and is executable", os.path.isfile(path) and os.access(path, os.X_OK), path)
+        ok("AGENTS.md is loaded (imported by CLAUDE.md)", agents_md_loaded(root),
+           "the project has AGENTS.md but CLAUDE.md does not import it, so Claude Code skips it: add a line `@AGENTS.md` at the top of CLAUDE.md")
         ok("docs/handover.md exists", d["handover"], "the front desk keeps state there")
         old_agents = [a for a in d["agents"] if a.startswith(d["name"] + "-")]
         ok("no old prefixed agents left", not old_agents, ", ".join(old_agents) + " -> relay migrate --apply" if old_agents else "")
