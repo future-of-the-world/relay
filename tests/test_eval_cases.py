@@ -50,8 +50,14 @@ class CriticRoleRuleScaffold(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             subprocess.run(["bash", scaffold], cwd=tmp, check=True, capture_output=True, text=True)
             self.assertTrue(os.path.isfile(os.path.join(tmp, ".claude", "kit", "judge.md")))
-            with open(os.path.join(tmp, ".claude", "settings.json"), encoding="utf-8") as fh:
-                deny = json.load(fh)["permissions"]["deny"]
+            # The runner starts its child with --setting-sources user, so only the case's own frontmatter reaches the child's
+            # --disallowed-tools; a deny in the fixture's .claude/settings.json is never read and must not count.
+            self.assertFalse(os.path.exists(os.path.join(tmp, ".claude", "settings.json")))
+            with open(os.path.join(PLUGIN, "critic-role-rule", "prompt.md"), encoding="utf-8") as fh:
+                front = fh.read().split("---")[1]
+            line = [x for x in front.splitlines() if x.startswith("disallowed_tools:")]
+            self.assertEqual(len(line), 1)
+            deny = json.loads(line[0].partition(":")[2])
             self.assertIn("Read(./.claude/kit/**)", deny)
             self.assertIn("Read(./.claude/**)", deny)
             # committed on master, so it is in neither `git status` nor the diff under review
