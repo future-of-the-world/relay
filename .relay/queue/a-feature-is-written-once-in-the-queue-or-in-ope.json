@@ -35,6 +35,12 @@
       "said": [
         "Что это означает ? Что такое flow, какие есть виды ? Что такое specs, какие есть виды, я подумываю о том что мой принцип zerodocs противоречит sdd, думаю от этого следует отказаться"
       ]
+    },
+    {
+      "at": "2026-10-30T08:45:34Z",
+      "fact": [
+        "Measured 30 Oct: projects.toml registers 1 project (relay itself), with no [specs] method set, so 0 projects use OpenSpec; plugins/openspec is 14 files (156K) with 16 commits in the last 7 days; 52 files in lib, bin, plugins/relay|delegate|front, rules and tests mention openspec; 3 open queue items are about it (openspec-stages-by-meaning, openspec-tools-live-in-the-core-plugin, a-feature-is-written-once-in-the-queue-or-in-ope). The [flow] work slot ships no flow: every project's kind is \"none\"."
+      ]
     }
   ]
 }
