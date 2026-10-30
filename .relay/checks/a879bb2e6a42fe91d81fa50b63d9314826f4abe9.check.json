@@ -1,0 +1,159 @@
+{
+  "branch": "wt/bin-wt-new-queue-x-still-makes-wt-queue-x-which",
+  "findings": [
+    {
+      "details": [
+        "bin/wt new queue-<x> still makes wt/queue-<x>, which tidy, doctor, inert and the merge hook read as a queue-landing branch; relay queue start was fixed on 30 Oct (wt/task-queue-...), bin/wt was not."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "The front, told by guard_main to \"git worktree add ... / bin/wt new <name>\", runs bin/wt new queue-docs master: the branch is",
+        "wt/queue-docs; relay doctor lists \"leftover queue branch: wt/queue-docs\" while it is being built, and after merge tidy never",
+        "reports its worktree. Expected: bin/wt refuses (or renames) a name starting with \"queue-\"."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 12,
+      "pass_cases": [
+        "1. bin/wt new queue-docs master -> refused with a message naming the reserved prefix, or makes wt/task-queue-docs.",
+        "2. bin/wt new docs master -> .worktrees/docs on wt/docs, unchanged."
+      ],
+      "path": "bin/wt",
+      "rank": "high",
+      "reason": [
+        "tests/test_bin_wt.py:27 test_queue_prefix_refused passes, fails at base 1c845d78."
+      ],
+      "severity": "HIGH",
+      "since": "1c845d78b3861a917a48e1ef364b8e7d17b06747",
+      "source": "queue",
+      "summary": "Bin/wt new queue-<x> still makes wt/queue-<x>, which\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: templates/bin-wt lines 9-12 have no case on the name; lib/relay_setup.py:972-976 copies it to",
+        "<project>/bin/wt on first setup. The wt/queue-* readers (tidy, doctor, inert, merge hook, relay queue) run in every project, so",
+        "the item's failing case is reachable in each project relay sets up, not only in relay. Same defect as the item, so the same",
+        "severity (LOW). Projects already set up keep their old bin/wt (setup writes it only when missing); that part is not fixable",
+        "here. Size: 10 agent minutes (3 lines plus one test over the rendered template)."
+      ],
+      "evidence": [
+        "sed -n 9,12p templates/bin-wt -> new) name=\"${2:?name}\"; base=\"${3:-{{branch}}}\" / mkdir -p \"$dir\" / git worktree add ... -b \"wt/$name\"",
+        "lib/relay_setup.py:976: copy_template(f\"bin-{script}\", os.path.join(root, \"bin\", script), ...)"
+      ],
+      "failing_case": [
+        "A project set up by relay (bin/wt written from templates/bin-wt). The front, told by guard_main to use bin/wt new <name>, runs",
+        "bin/wt new queue-docs main there: it makes .worktrees/queue-docs on wt/queue-docs, which relay doctor lists as a leftover queue",
+        "branch and tidy and the merge hook skip as a landing branch. Expected: refused as in relay's own bin/wt."
+      ],
+      "fix_hint": [
+        "Copy the same case \"$name\" in queue-*) ... exit 2 ;; esac block into templates/bin-wt after line 10, and extend",
+        "tests/test_bin_wt.py to run it over the rendered template too."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 10,
+      "pass_cases": [
+        "1. templates/bin-wt rendered (branch=main), run in a temp repo: new queue-docs main -> exit non-zero, stderr names \"queue-\",",
+        "   no .worktrees/queue-docs, no wt/* branch.",
+        "2. Same rendered template: new docs main -> .worktrees/docs on wt/docs, exit 0, prints the path.",
+        "3. relay's own bin/wt keeps both behaviours of tests/test_bin_wt.py."
+      ],
+      "path": "templates/bin-wt",
+      "rank": "low",
+      "reason": [
+        "tests/test_bin_wt.py:45 TemplateBinWtNew runs both cases over the rendered template; fails at base, passes now."
+      ],
+      "severity": "LOW",
+      "since": "c0d0fa57c80161d61019c7cf128cb9ad9b7c853a",
+      "source": "review-bin-wt-new-queue-x-still-makes-wt-queue-x-which.json",
+      "source_id": "F1",
+      "summary": "the bin/wt template that relay setup writes into every project still makes wt/queue-<x>; only relay's own copy was fixed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the diff. The same rule also says \"Anything beyond a thin wrapper is Python\", and bin/wt is still a thin",
+        "wrapper over git worktree (26 lines), so the breach is small; rated LOW (the rule sets no severity). Moving it to Python would",
+        "also mean deciding whether the project template (templates/bin-wt, used by bun/mix projects) moves, which is larger than this",
+        "item. Listed so the owner sees it; dropping it is acceptable. Size: 30 agent minutes for relay's own bin/wt."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- bin/wt -> +case \"$name\" in / +queue-*) echo \"bin/wt: the name prefix 'queue-' is reserved ...\" >&2; exit 2 ;; / +esac"
+      ],
+      "failing_case": [
+        "Project rule (CLAUDE.local.md, Python): \"Bash is on its way out: do not grow a bash script, move it to Python when you next change",
+        "it.\" This change adds 3 lines of bash logic to bin/wt (a name check with its own message and exit code) and keeps it bash.",
+        "Expected by the rule: bin/wt moved to Python, or the check left out of bash."
+      ],
+      "fix_hint": [
+        "Leave as is (thin wrapper) and drop, or rewrite bin/wt as a Python script with the same contract when bin/wt is next changed."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 11,
+      "pass_cases": [
+        "1. bin/wt new queue-docs master -> refused as now (tests/test_bin_wt.py test_queue_prefix_refused).",
+        "2. bin/wt new docs master -> .worktrees/docs on wt/docs (test_plain_name_unchanged).",
+        "3. bin/wt rm docs and bin/wt ls behave as before."
+      ],
+      "path": "bin/wt",
+      "rank": "low",
+      "reason": [
+        "LOW, dropped per the finding (thin wrapper); fixer left it. Not a defect to fix."
+      ],
+      "severity": "LOW",
+      "since": "c0d0fa57c80161d61019c7cf128cb9ad9b7c853a",
+      "source": "review-bin-wt-new-queue-x-still-makes-wt-queue-x-which.json",
+      "source_id": "F2",
+      "summary": "Python rule: the fix grows a bash script instead of moving it to Python, as the project rule asks on its next change",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: no eval names a queue- worktree today (scaffolds use sort-by-name, remove-item, add-low-stock), so it is reachable only",
+        "if an agent under eval picks such a name. Changing it touches the paid eval fixture. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n \"bin/wt\" evals/plugin/fixture/bin/wt -> line 2: worktrees in .worktrees/<name> on branch wt/<name>; no name check."
+      ],
+      "failing_case": [
+        "In an eval run, an agent runs bin/wt new queue-x master in the fixture project: it makes wt/queue-x, which relay's tidy, doctor",
+        "and merge hook read as a queue-landing branch. Expected: refused like relay's own bin/wt."
+      ],
+      "fix_hint": [
+        "Add the same queue-* refusal to the fixture's bin/wt in the next eval-fixture change."
+      ],
+      "id": "F3",
+      "kind": "outside",
+      "line": 1,
+      "pass_cases": [
+        "1. fixture bin/wt new queue-x master -> non-zero exit, no wt/queue-x branch.",
+        "2. fixture bin/wt new sort-by-name master (every scaffold.sh) -> unchanged."
+      ],
+      "path": "evals/plugin/fixture/bin/wt",
+      "rank": "low",
+      "reason": [
+        "Eval fixture bin/wt, outside the change; fixer lists it as Outside. Agree: add to the next eval-fixture change."
+      ],
+      "severity": "LOW",
+      "since": "c0d0fa57c80161d61019c7cf128cb9ad9b7c853a",
+      "source": "review-bin-wt-new-queue-x-still-makes-wt-queue-x-which.json",
+      "source_id": "F3",
+      "summary": "the eval fixture's bin/wt also makes wt/queue-<x> for a queue- name",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "c77fba2a2b3ed118eecc47b780911c94ee2237cd.gate.log",
+  "head": "a879bb2e6a42fe91d81fa50b63d9314826f4abe9",
+  "item": "bin-wt-new-queue-x-still-makes-wt-queue-x-which",
+  "notes": [
+    "Scope clean. No callers changed."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 1c845d78..HEAD; files bin/wt, templates/bin-wt, tests/test_bin_wt.py. Ran tests.test_bin_wt (4 ok), precheck green, gate log head c77fba2a exit 0 (only gate log after it). Ran the test file at base 1c845d78: both test_queue_prefix_refused (bin/wt and template) fail 0 == 0."
+  ],
+  "type": "check"
+}
