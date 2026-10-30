@@ -33,6 +33,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-30T23:12:29Z",
+  "dropped_why": [
+    "Duplicate of queue-add-from-queues-a-finding-a-check-marked-m (same defect: add --from queues a finding the check marked MET); the 30 Oct case (the bin/wt template item, fixed already in c77fba2a) is noted there."
+  ]
 }
