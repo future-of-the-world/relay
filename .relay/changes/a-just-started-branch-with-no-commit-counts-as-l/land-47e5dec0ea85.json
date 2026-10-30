@@ -1,0 +1,193 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2361,
+   "id": "a83dbbc344b91cf94",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T13:45:01.998Z",
+   "stop": "2026-10-30T13:51:44.118Z"
+  },
+  {
+   "cost_usd": 0.0054,
+   "id": "a7c8fa62643cd2f94",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T13:51:48.723Z",
+   "stop": "2026-10-30T14:15:48.937Z"
+  },
+  {
+   "cost_usd": 0.1338,
+   "id": "a2f8f79ae33ec87b2",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T14:15:51.475Z",
+   "stop": "2026-10-30T14:18:04.655Z"
+  },
+  {
+   "cost_usd": 0.0027,
+   "id": "a663cbacff4452b42",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-30T14:36:43.239Z",
+   "stop": "2026-10-30T14:36:52.045Z"
+  },
+  {
+   "cost_usd": 0.0032,
+   "id": "a3576ed294bd1e348",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T14:36:54.780Z",
+   "stop": "2026-10-30T14:41:44.336Z"
+  },
+  {
+   "cost_usd": 0.9652,
+   "id": "a47f9fe33a72211c0",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 24,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T14:41:47.948Z",
+   "stop": "2026-10-30T14:47:02.864Z"
+  },
+  {
+   "cost_usd": 0.1747,
+   "id": "a51a76365f96c107b",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T14:47:05.785Z",
+   "stop": "2026-10-30T14:51:19.299Z"
+  },
+  {
+   "cost_usd": 0.004,
+   "id": "af3e001d57f433192",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T14:51:22.483Z",
+   "stop": "2026-10-30T15:06:06.746Z"
+  },
+  {
+   "cost_usd": 0.1228,
+   "id": "a7e23a15843f896ac",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T15:06:09.756Z",
+   "stop": "2026-10-30T15:10:31.009Z"
+  },
+  {
+   "cost_usd": 0.2251,
+   "id": "a47f31f7cca7ea1de",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 16,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T15:11:09.742Z",
+   "stop": "2026-10-30T15:13:22.649Z"
+  },
+  {
+   "cost_usd": 0.0048,
+   "id": "a6985644c2c6a29cc",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T15:13:26.550Z",
+   "stop": "2026-10-30T15:35:58.104Z"
+  },
+  {
+   "cost_usd": 0.11,
+   "id": "a05d37ef04dbc2f50",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T15:36:02.220Z",
+   "stop": "2026-10-30T15:38:48.101Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "ad41cd75612151cb0",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T15:38:51.277Z",
+   "stop": "2026-10-30T15:39:00.998Z"
+  },
+  {
+   "cost_usd": 0.0021,
+   "id": "aed8f6108d9ddf404",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T15:39:03.681Z",
+   "stop": "2026-10-30T15:39:12.969Z"
+  }
+ ],
+ "before": "e488fe81f8beac8bbc48811040829bf03dd5bde6",
+ "branch": "wt/a-just-started-branch-with-no-commit-cou",
+ "head": "47e5dec0ea85be9ea7e37ff602d4abafb17067a6",
+ "item": "a-just-started-branch-with-no-commit-counts-as-l",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T08:04:42+00:00",
+   "file": "lib/relay_lanes.py",
+   "holder": "wt/the-lane-pick-ignores-the-owner-s-3-and",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T09:37:47+00:00",
+   "file": "lib/relay_lanes.py",
+   "holder": "wt/reports-a-task-needs-are-kept-in-the-rep",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T15:39:27+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T15:39:27+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T16:02:42+00:00",
+   "gate_seconds": 1347.5003274159972,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "a-just-started-branch-with-no-commit-counts-as-l"
+}
