@@ -1,0 +1,16 @@
+head b56a0f7eb0190dcea0d86fd7a77c5779d372275d
+cmd bin/ci --quick
+wait 378.8
+ci: types and lint ok (1s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (753s, log: .ci/steps/library-tests.log)
+    FAIL: test_tree_passes (test_module_sizes.ModuleSizes.test_tree_passes)
+    AssertionError: Lists differ: ['lib/relay_gate.py has 759 lines, limit 6[63 chars]ct)'] != []
+    FAILED (failures=1)
+ci: coverage 89.8% of lib, bin, plugins (14421 of 16058 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (4s)
+ci: plugin validate ok (5s)
+ci: inert ok (54s)
+ci: RED
+exit 1
