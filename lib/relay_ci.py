@@ -41,6 +41,7 @@ from typing import Any, Callable, NoReturn, TextIO
 from relay_ci_probe import remove_leftover_probe, write_shared_record, drop_shared_record
 from relay_ci_lines import _read_lines, _read_lines_keep, outcome  # noqa: F401  (outcome is called by other programs through relay_ci)
 import relay_precheck
+from relay_ci_image import clean_image
 from relay_ci_python import python_problem  # noqa: F401  (re-exported: tests call relay_ci.python_problem)
 
 StepFn = Callable[[TextIO], int]
@@ -53,7 +54,6 @@ QUICK_LIMIT_SECONDS = 1800
 LIMIT_ENV = "RELAY_CI_QUICK_LIMIT"   # whole seconds, 1 or more; replaces QUICK_LIMIT_SECONDS (tests, or a person debugging)
 LIMIT_EXIT = 124            # the exit of a gate stopped at its time limit (GNU `timeout`'s code); relay_gate.LIMIT_EXIT is the same number
 PROBE_LINE = "inert probe line"
-CLEAN_IMAGE = "relay-clean-gate"   # the podman image tag of container/Containerfile
 HOOK_TOOLS = (("git", "install git"), ("jq", "brew install jq"), ("python3", "install python3"),
               ("bun", "curl -fsSL https://bun.sh/install | bash (the packet and check-contract tests run on it)"))
 
@@ -389,25 +389,8 @@ class Ci:
 
     # ---- the paid part --------------------------------------------------------------------------------------------
     def clean_image(self, log: TextIO) -> int:
-        """The clean-image quick gate (container/Containerfile's recipe, podman only): build the image, clone the head
-        with no hardlinks into a temporary folder, run `bin/ci --quick` in a fresh clone inside the image. Red when it is."""
-        if self.which("podman") is None:
-            log.write("podman is not on PATH: the clean-image gate cannot run (install podman)\n")
-            return 127
-        head = self.run(["git", "rev-parse", "HEAD"], capture=True).stdout.strip()
-        with tempfile.TemporaryDirectory(prefix="relay-clean-gate-") as tmp:
-            src = os.path.join(tmp, "src")
-            # a worktree's .git file points outside the mount, so the image gets a plain clone of the head
-            for argv in (["podman", "build", "-q", "-f", "container/Containerfile", "-t", CLEAN_IMAGE, "."],
-                         ["git", "clone", "-q", "--no-hardlinks", self.root, src],
-                         ["git", "-C", src, "checkout", "-q", "-B", "master", head],   # the image's clone then has a default branch, as relay's tests need
-                         ["podman", "run", "--rm", "-v", "%s:/src:ro" % src, CLEAN_IMAGE, "sh", "-c",
-                          "git clone -q /src /work/relay && cd /work/relay && bin/ci --quick"]):
-                rc = self.run(argv, log).returncode
-                if rc != 0:
-                    log.write("clean image gate: `%s` exited %d\n" % (" ".join(argv[:3]), rc))
-                    return rc
-        return 0
+        """The clean-image quick gate (podman only; the recipe is in relay_ci_image). Red when the image's gate is."""
+        return clean_image(self, log)
 
     def plugin_evals(self) -> int | None:
         """The paid eval step. Returns the exit code when the gate must end here (the cap, no ceiling), else None."""
