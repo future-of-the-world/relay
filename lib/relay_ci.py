@@ -399,7 +399,10 @@ class Ci:
         def evals(log: TextIO) -> int:
             # the tool exits 1 when any single run failed; the verdict is the record's majority rule (bin/eval-record, in
             # record()), which is also red when the tool wrote no record. The tool's own code goes to the log.
-            code = self.run(argv, log, cwd=self.path("evals", "plugin"), env=env).returncode
+            sys.path.insert(0, self.path("lib"))
+            import relay_plugin_links   # the eval's sandbox does not read a link's target outside the plugin: real files for the run
+            with relay_plugin_links.real_files(self.root):
+                code = self.run(argv, log, cwd=self.path("evals", "plugin"), env=env).returncode
             log.write("claude plugin eval exited %d; the gate judges the record by the majority rule, not this code\n" % code)
             return 0
         self.step("plugin evals", evals)

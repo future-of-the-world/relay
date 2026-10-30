@@ -8,6 +8,8 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
+sys.path.insert(0, os.path.join(ROOT, "tests"))
+from relay_testbase import shipped_specs  # noqa: E402
 import relay_config  # noqa: E402
 import relay_rules  # noqa: E402
 
@@ -16,7 +18,7 @@ PROFILE = {"profile": {"name": "t", "description": "t"}, "models": {}, "rules": 
 
 class PythonRule(unittest.TestCase):
     def setUp(self) -> None:
-        self.specs = relay_config.read_toml(os.path.join(ROOT, "projects.toml"))
+        self.specs = shipped_specs()
         self.rules = relay_rules.rules()
 
     def render(self, name: str) -> str:

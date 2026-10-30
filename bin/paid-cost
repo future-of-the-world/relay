@@ -9,7 +9,7 @@
   bin/paid-cost due [--dir DIR] [--repo REPO]            prints the merged changes no green paid run covers yet; nothing when none
   bin/paid-cost state [--repo REPO]                      prints the paid run's state from dated records (run started, its eval record, relay sync): "free", "going", "stopped", "waits_sync", "red" or "not_judged", then a plain line
   bin/paid-cost today                                    prints the day's spend, the owner's daily cap and the run count (UTC day)
-  bin/paid-cost cap [USD]                                prints the daily cap from projects.toml [global]; with USD it lands the change as one commit on the default branch
+  bin/paid-cost cap [USD]                                prints the daily cap from projects.toml [global]; with USD it sets it in place in the registry (RELAY_PROJECTS, else $RELAY_HOME/projects.toml)
   bin/paid-cost guard eval                               exits 1 with a refusal line when the next plugin eval batch (the repo's current cases, new ones at the mean case cost) would pass the day's cap
 
 DIR holds the eval records bin/eval-record stores ($RELAY_HOME/evals/<repo>/*.json, RELAY_HOME defaults to ~/.relay).
@@ -232,7 +232,7 @@ def money_command(a: argparse.Namespace) -> int:
     bench = os.path.join(home, "bench") if home else None
     try:
         if a.cmd == "cap" and a.arg is not None:
-            print(relay_paidcap.land_cap(float(a.arg)))   # one commit on the default branch; the value just landed, not this checkout's file
+            print(relay_paidcap.land_cap(float(a.arg)))   # the value just written to the registry
             return 0
         if a.cmd == "guard":
             if a.arg != "eval":

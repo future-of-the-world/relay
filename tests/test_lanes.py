@@ -40,8 +40,8 @@ class Lanes(unittest.TestCase):
 
     def test_relay_project_runs_six(self) -> None:
         # the owner's answer of 27 Oct: 6 at once
-        with open(os.path.join(ROOT, "projects.toml"), "rb") as handle:
-            self.assertEqual(relay_toml.load(handle)["relay"]["lanes"], 6)
+        with open(os.path.join(ROOT, ".claude", "kit.toml"), "rb") as handle:
+            self.assertEqual(relay_toml.load(handle)["rules"]["lanes"], 6)
 
     def test_paid_paths_come_from_the_paid_run_source(self) -> None:
         out = subprocess.run([sys.executable, PAID, "paths"], capture_output=True, text=True, check=True).stdout.split()
@@ -182,9 +182,11 @@ class LanesHookBounds(tls.LaneBase):
         # git hangs only on cat-file, which the queue read runs outside the bounded git: show-ref etc. returned long before
         self.seed({tls.Q + "a.json": tls.item("a")})
         home = os.path.join(self.tmp, "h")
-        self.run_hook(home, budget="3", path=self.git_sleeping_on("cat-file", 30))
+        # the budget leaves room for the earlier git calls (ls-tree, show-ref) under load: with 3 s a busy machine
+        # still sat in one of them when the deadline hit, and the hook rightly named that call (it was in progress)
+        self.run_hook(home, budget="10", path=self.git_sleeping_on("cat-file", 60))
         log = open(os.path.join(home, "state", "lanes-slow.log"), encoding="utf-8").read().splitlines()
-        self.assertRegex(log[-1], r"overrun in (lanes|config) took 3\.0 s", log)
+        self.assertRegex(log[-1], r"overrun in (lanes|config) took 10\.0 s", log)
 
     def test_overrun_names_the_first_git_call_when_git_never_answers(self) -> None:
         self.seed({})

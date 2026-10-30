@@ -747,7 +747,7 @@ def strip_stored_spec_rules(name):
     return changed
 
 
-def register_project(name, root, specs="none", ui=False):
+def register_project(name, root, specs="none", ui=False, kit_root=None):
     """Add the project to projects.toml so `relay sync` writes its CLAUDE.local.md."""
     path = relay_config.projects_file()
     text = open(path, encoding="utf-8").read() if os.path.isfile(path) else ""
@@ -759,8 +759,12 @@ def register_project(name, root, specs="none", ui=False):
         load += ["quality-gate"]   # spec rules are not stored here: relay sync derives them from kit.toml [specs]
     if ui:
         load.append("product-work")
-    block = (f'\n[{name}]\nfile = "{os.path.join(root, "CLAUDE.local.md")}"\ntitle = "Rules this project loads"\n'
-             f'load = {json.dumps(load)}\nread = []\n')
+    block = f'\n[{name}]\nfile = "{os.path.join(root, "CLAUDE.local.md")}"\ntitle = "Rules this project loads"\n'
+    kit = relay_config.bindings_path(kit_root or root)   # the project's own settings go into its git, not into the registry
+    if os.path.isfile(kit) and "rules" not in relay_config.read_toml(kit):
+        with open(kit, "a", encoding="utf-8") as handle:
+            handle.write(f"\n[rules]\nload = {json.dumps(load)}\nread = []\n")
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)   # <RELAY_HOME> may not exist yet
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(block)
     return True
@@ -930,7 +934,7 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
             todo.append("CLAUDE.md: write what the project is in two lines, and its product surface if a person sees it")
         if copy_template("handover.md", os.path.join(root, "docs", "handover.md"), replacements={"name": d["name"], "date": str(dt.date.today())}):
             done.append("wrote docs/handover.md")
-    if register_project(d["name"], main_checkout(root) or root, specs, ui=d["ui"]):
+    if register_project(d["name"], main_checkout(root) or root, specs, ui=d["ui"], kit_root=root):
         done.append(f"registered {d['name']} in projects.toml")
     if strip_stored_spec_rules(d["name"]):
         done.append(f"projects.toml [{d['name']}]: removed the stored spec rule from load (it comes from kit.toml [specs])")

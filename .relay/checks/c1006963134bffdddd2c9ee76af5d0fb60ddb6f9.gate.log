@@ -1,0 +1,21 @@
+head c1006963134bffdddd2c9ee76af5d0fb60ddb6f9
+cmd bin/ci --quick
+wait 10.0
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (789s, log: .ci/steps/library-tests.log)
+    FAIL: test_f1_a_screen_project_gets_product_binding_and_rule (test_drop_plugins_fixes.DropPluginsFixes.test_f1_a_screen_project_gets_product_binding_and_rule)
+    AssertionError: '"product-work"' not found in '[global]\nfile = "~/.claude/CLAUDE.md"\ntitle = "Defaults for all projects"\nintro = "Test."\nload = []\npaid_cap_usd_per_day = 1000\n\n[demo]\nfile = "/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-jlvtb11y/relay-home-test_f1_a_screen_project_gets_product_bi-2jkh0_uf/relay-test-9f9d_5k3/demo/CLAUDE.local.md"\ntitle = "Principles this project loads"\nload = ["quality-gate"]\nread = []\n\n[scr]\nfile = "/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-jlvtb11y/relay-home-test_f1_a_screen_project_gets_product_bi-2jkh0_uf/relay-test-9f9d_5k3/scr/CLAUDE.local.md"\ntitle = "Rules this project loads"\n'
+    ERROR: test_global_target_carries_no_openspec_rule (test_spec_steps.RenderedRules.test_global_target_carries_no_openspec_rule)
+    KeyError: 'global'
+    ERROR: test_q1_without_spec_steps_no_openspec_rule_and_with_them_the_steps (test_spec_steps.RenderedRules.test_q1_without_spec_steps_no_openspec_rule_and_with_them_the_steps)
+    KeyError: 'global'
+    FAIL: test_rules_tests_command_passes_in_the_order_unittest_runs_them (test_rules_gate_isolation.RulesGateIsolation.test_rules_tests_command_passes_in_the_order_unittest_runs_them)
+    AssertionError: 1 != 0 : o get the object allocation traceback
+ci: coverage 90.0% of lib, bin, plugins (14851 of 16504 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (3s)
+ci: plugin validate ok (4s)
+ci: inert ok (105s)
+ci: RED
+exit 1

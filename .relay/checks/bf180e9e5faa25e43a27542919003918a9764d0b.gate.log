@@ -1,0 +1,16 @@
+head bf180e9e5faa25e43a27542919003918a9764d0b
+cmd bin/ci --quick
+wait 27.7
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (811s, log: .ci/steps/library-tests.log)
+    FAIL: test_overrun_names_the_step_in_progress_not_a_git_call_that_returned (test_lanes.LanesHookBounds.test_overrun_names_the_step_in_progress_not_a_git_call_that_returned)
+    AssertionError: Regex didn't match: 'overrun in (lanes|config) took 3\\.0 s' not found in '2026-10-30T16:28:17 lanes hook: overrun in git ls-tree -d --name-only took 3.0 s' : ['2026-10-30T16:28:17 lanes hook: lanes took 2.7 s', '2026-10-30T16:28:17 lanes hook: overrun in git ls-tree -d --name-only took 3.0 s']
+    FAILED (failures=1)
+ci: coverage 90.0% of lib, bin, plugins (14852 of 16504 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (94s)
+ci: RED
+exit 1

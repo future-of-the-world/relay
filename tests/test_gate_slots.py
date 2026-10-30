@@ -411,7 +411,7 @@ class Slots(Fixture):
         return head, os.path.join(self.wt2, ".relay", "checks", head + ".gate.log")
 
     def put_green_log(self, head, log):
-        write(log, "head %s\ncmd %s\nwait 0.0\nexit 0\n" % (head, shlex.quote(self.script)))
+        write(log, "head %s\ncmd %s\nwait 0.0\nexit 0\n" % (head, shlex.quote(self.SCRIPT_REL)))
 
     def test_a_license_deleted_during_the_wait_fails_the_gate_and_the_green_log_is_not_reused(self):
         """A holds the only slot; B (license good when it starts) waits. While B waits LICENSE is deleted and a green log

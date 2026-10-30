@@ -98,7 +98,7 @@ class Writes(Fixture):
         data = self.settings(root)
         self.assertEqual(data["extraKnownMarketplaces"]["amidman"]["source"], {"source": "directory", "path": self.rs.marketplace_root()})
         self.assertEqual(data["permissions"]["allow"], ["Bash(kit:*)", "Bash(bin/kit:*)", "Bash(relay:*)"])
-        self.assertEqual(self.read(root, ".claude/kit.toml"), kit)   # [delegate] equals the default: nothing added
+        self.assertEqual(self.read(root, ".claude/kit.toml"), kit + "\n[rules]\nload = []\nread = []\n")   # [delegate] equals the default: nothing added; only register_project's [rules] table is appended
         self.assertEqual(self.read(root, "bin/ci"), ci)
         self.assertEqual(self.files(root) - before, {".claude/settings.json", ".gitignore"})   # setup adds the ignore lines a check and worktrees need; no bin/check, bin/wt, CLAUDE.md, settings.local.json
 
@@ -201,7 +201,8 @@ class KitToml(Fixture):
         self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {"issues@amidman": True}}))
         d, flow, done, todo = self.run_setup(root)
         self.assertEqual(flow, "issues")
-        self.assertEqual(self.read(root, ".claude/kit.toml"), kit)
+        # setup only appends the project's own [rules] table (register_project); the owner's [flow] text is kept as it was
+        self.assertEqual(self.read(root, ".claude/kit.toml"), kit + "\n[rules]\nload = []\nread = []\n")
         self.assertNotIn("issues@amidman", self.plugins(root))
 
 
