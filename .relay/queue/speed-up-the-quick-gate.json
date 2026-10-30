@@ -18,8 +18,8 @@
     "tests/parallel_unittest.py:35-44 jobs",
     "docs/macos.md:30 git launcher"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T11:14:10Z",
+  "taken_by": "wt/speed-up-the-quick-gate",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
