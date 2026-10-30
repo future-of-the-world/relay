@@ -14,7 +14,8 @@ runs = 1
 [[graders]]
 name = "tests-pass"
 type = "command"
-command = "bun test 2>&1 | tail -3 && bun test >/dev/null 2>&1"
+# The tests run where removeItem lives: the workspace, else the newest task branch that has it (git archive into a temp folder).
+command = '''d=.; grep -q 'export function removeItem' src/shelf.ts || for b in $(git for-each-ref --sort=-committerdate --format='%(refname:short)' 'refs/heads/wt/*'); do if git show "$b:src/shelf.ts" 2>/dev/null | grep -q 'export function removeItem'; then d=$(mktemp -d); trap 'rm -rf "$d"' EXIT; git archive "$b" | tar -x -C "$d"; break; fi; done; cd "$d" && bun test 2>&1 | tail -3 && bun test >/dev/null 2>&1'''
 
 # The worker builds on a task branch and leaves the merge to the owner, so a file grader also reads the task branches.
 [[graders]]
