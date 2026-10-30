@@ -17,8 +17,8 @@
     "deps.toml",
     "a container image definition in the repo"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T16:42:57Z",
+  "taken_by": "wt/each-change-is-gated-in-a-fresh-containe",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
