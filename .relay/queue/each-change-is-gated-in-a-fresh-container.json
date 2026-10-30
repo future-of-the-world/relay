@@ -134,6 +134,12 @@
       "fact": [
         "29 Oct ~14:10 local, podman machine running (10 CPUs, 20 GiB set): the host process com.apple.Virtualization.VirtualMachine holds 1.0 GiB of RAM and used 96.6% CPU (about one core) at that moment; inside, free -m shows 862 MB used, 3268 MB cache, 16209 MB free of 19946; the disk image is 23 GB on disk of 100 GiB apparent. Set CPUs and memory are limits, not reservations; memory the guest touches (its file cache included) is not given back to the Mac until the machine stops (by design of the virtualization, not measured here)."
       ]
+    },
+    {
+      "at": "2026-10-30T01:07:21Z",
+      "said": [
+        "Вопрос - если я подключу свой ноутбук по ssh через локальную сеть - сможешь ли ты использовать его как вычислительные ресурсы, он на Linux, думаю это позволит ускорить gate"
+      ]
     }
   ]
 }
