@@ -35,6 +35,12 @@
       "fact": [
         "Seen again 30 Oct 2026: the review finding F1 of wt/bin-wt-new-queue-x (the bin/wt template), already MET in its check and fixed on master in c77fba2a, was queued with add --from as the-bin-wt-template-that-relay-setup-writes-into; a whole cycle (4 agents) built nothing; closed with done --fixed-by c77fba2a."
       ]
+    },
+    {
+      "at": "2026-10-30T23:26:46Z",
+      "said": [
+        "А как отчет review хранится, может проблема в том что он хранится не в структурированном виде ?"
+      ]
     }
   ]
 }
