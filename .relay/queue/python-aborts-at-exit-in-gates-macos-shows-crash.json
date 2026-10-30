@@ -26,8 +26,8 @@
     "tests/test_precheck.py",
     "tests/test_relay_tokens.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T15:39:06Z",
+  "taken_by": "wt/gates-on-the-vps-hosts-transport-watch-b",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
