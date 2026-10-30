@@ -19,8 +19,8 @@
   ],
   "taken_at": "2026-10-30T16:42:57Z",
   "taken_by": "wt/each-change-is-gated-in-a-fresh-containe",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T18:11:55Z",
+  "test": "tests/test_gate_watch.py::Watch::test_a_watch_gates_exactly_the_commit_it_names_and_writes_its_file_uncommitted",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
