@@ -26,10 +26,18 @@
   "where": [
     "lib/relay_analyze.py:637"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T19:47:27Z",
+  "taken_by": "wt/relay-status-still-counts-dead-agents-as-running",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T19:47:39Z",
+      "fact": [
+        "Seen live 30 Oct 2026 ~19:20Z: relay status shows 9 running agents for front session 6c217ef4 while 4 change cycles were running; the route guard, fixed the same day, counts by a 10-minute idle limit."
+      ]
+    }
+  ]
 }
