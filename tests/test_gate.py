@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -63,6 +64,9 @@ class Fixture(unittest.TestCase):
         self.addCleanup(self.remove_tree)
         self.env = {**os.environ, **GIT_ENV, "RELAY_ROOT": ROOT, "RELAY_HOME": os.path.join(self.tmp, "home")}      # slots in the temp dir, never the live ~/.relay
         self.env.pop("RELAY_GATE", None)
+        # relay code that runs in the test's own process (a gate's log commit, a landing) commits with os.environ, not self.env:
+        # give it the same identity, so a machine that cannot guess one (Linux, a hostname with no domain) does not matter
+        patcher = mock.patch.dict(os.environ, GIT_ENV); patcher.start(); self.addCleanup(patcher.stop)
 
     def remove_tree(self):
         """E: remove the fixture's folder, then make sure no gate process it started outlives it. The worktree locks
