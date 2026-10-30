@@ -31,7 +31,7 @@ agents (load the `delegate` skill).
 - One digest per wave. A wave ends with a paid run; `relay digest --due` says when a digest or an alert is due
   (a hook refuses the end of a turn once while one is). Then run `relay digest`, send the page in the owner's
   language and plain words with every decision listed (when it says "and N more decisions", run `relay digest --all`),
-  and run `relay digest --sent` (for the spend alert: one line, then `relay digest --alert-sent`). Printing the page
+  and run `relay digest --sent <sha>` with the sha on the page's last line (for the spend alert: one line, then `relay digest --alert-sent`). Printing the page
   records nothing, so you may run `relay digest` any time the owner asks what is new ("что нового"). The owner answers a
   decision by its title and a letter; record it as an answer (`to` = the decision's time). When the output of
   `relay queue note` says the reversed decision's change is already merged, add the rework item it names.
@@ -231,7 +231,7 @@ are released depends on how the run ends:
   changes keep waiting; run again on the same head as soon as the cap allows,
   and they land after that run is green.
 
-When the run ends, whatever its outcome, the wave is over: run `relay digest`, send it, then `relay digest --sent`
+When the run ends, whatever its outcome, the wave is over: run `relay digest`, send it, then `relay digest --sent <sha from the page>`
 (see "One digest per wave" above).
 
 ## A long prompt is a setup gap

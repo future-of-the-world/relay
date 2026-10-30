@@ -77,6 +77,7 @@
 - Keep it simple. When I reject a direction, drop it and restart; don't
   patch it.
 - Status: when I give a request, say what is running and why, once; prune idle agents at once. In a turn started by an agent or a job
-  ending, say nothing unless it is a question for me, a red default branch, a spend alert or a block only I can lift: one digest per wave
+  ending, say nothing unless it is a question for me, a red default branch, a spend alert or a block only I can lift, or, once per item whose decisions were just recorded, one line with its title
+  (I answer by title to reverse): one digest per wave
   (`relay digest`) tells me the rest.
 

@@ -13,6 +13,7 @@ import test_queue as tq  # noqa: E402
 
 sys.path.insert(0, os.path.join(tq.ROOT, "lib"))
 import relay_digest as rd  # noqa: E402
+import relay_land  # noqa: E402
 
 rq = rd.relay_queue
 git = tq.git
@@ -75,12 +76,22 @@ class DigestBase(tq.Base):
     def due(self, cfg=None, spend=None, now=NOW):
         return rd.due(self.main, "master", cfg or {}, now=now, spend=lambda: spend, evals=self.evals)
 
-    def paid_run(self, name, ended):
-        """A stored paid run that ended at `ended` (one hour long)."""
+    def paid_run(self, name, ended, branch=None):
+        """A stored paid run that ended at `ended` (one hour long), on `branch` when given."""
         start = rd.stamp_of(rd.epoch_of(ended) - 3600)
         rec = {"startedAt": start[:-1] + ".000Z", "durationSeconds": 3600, "partial": False, "aggregates": {"casesTotal": 31, "casesPassed": 31}}
+        if branch:
+            rec["branch"] = branch
         with open(os.path.join(self.evals, name + ".json"), "w") as handle:
             json.dump(rec, handle)
+
+    def land_change(self, commits=3, files=None, at="2026-10-30T11:00:00+00:00"):
+        """One change landed by fast-forward: `commits` commits on master (each touching `files`, default one code file) and the one
+        `done` event `relay land` records for it."""
+        before = self.head()
+        for n in range(commits):
+            self.commit(extra=files or {"f.txt": "%s-%d\n" % (before, n)}, message="branch work %d" % n)
+        relay_land.record(self.main, relay_land.Event("done", at, branch="wt/x", outcome=relay_land.LANDED, before=before, sha=self.head()))
 
     def merged_lines(self, lines):
         return [x for x in lines if x.startswith("  - ")]
@@ -133,9 +144,39 @@ class Page(DigestBase):
         self.assertEqual(self.page(), before)                         # printed twice: the same page
         self.assertEqual(len(rd.read_events(self.main)), 1)           # and no event was recorded by printing
         out: list = []
-        self.assertEqual(rd.main(["-C", self.main, "--sent"], out.append), 0)
+        self.assertEqual(rd.main(["-C", self.main, "--sent", self.head()], out.append), 0)
         self.assertEqual([e["kind"] for e in rd.read_events(self.main)], ["sent", "sent"])
         self.assertTrue(self.page()[0].startswith("relay: nothing new since "))      # after --sent: nothing new
+
+    def test_sent_records_the_head_the_page_was_computed_on_not_the_head_at_sending(self):
+        self.sent()
+        self.commit(closed("Item X"))
+        lines = self.page()
+        self.assertTrue(lines[-1].startswith("Page head %s:" % self.head()[:8]), lines[-1])
+        printed = lines[-1].split()[2].rstrip(":")
+        # while the front writes the message a lane lands item Z with a decision on it
+        self.commit(with_notes(closed("Item Z"), [decision("2026-10-30T11:00:00Z", "Does Z land?")]))
+        out: list = []
+        self.assertEqual(rd.main(["-C", self.main, "--sent", printed], out.append), 0)
+        self.assertEqual(rd.read_events(self.main)[-1]["head"], git(self.main, "rev-parse", printed))
+        after = self.page()
+        self.assertEqual(self.merged_lines(after), ["  - Item Z"])          # listed once, X is not repeated
+        self.assertIn("1 decisions taken", after[0])
+
+    def test_sent_with_nothing_landed_says_nothing_new_and_a_bad_sha_is_refused(self):
+        self.sent()
+        self.commit(closed("Item X"))
+        out: list = []
+        rd.main(["-C", self.main, "--sent", self.head()], out.append)
+        self.assertTrue(self.page()[0].startswith("relay: nothing new since "))
+        with self.assertRaises(rd.DigestError) as raised:
+            rd.main(["-C", self.main, "--sent"], out.append)
+        self.assertIn("Page head", str(raised.exception))
+        side = self.worktree("side2")
+        self.write_commit(side, {"side.txt": "s\n"}, "side work")
+        with self.assertRaises(rd.DigestError):
+            rd.main(["-C", self.main, "--sent", git(side, "rev-parse", "HEAD")], out.append)
+        self.assertEqual(len(rd.read_events(self.main)), 2)             # the setUp event and the one good --sent
 
     def test_a_stored_head_off_the_history_is_said_and_covers_24_hours(self):
         side = self.worktree("side")
@@ -186,7 +227,36 @@ class Due(DigestBase):
 
     def land(self, count):
         for n in range(count):
-            self.commit(extra={"f.txt": "%d\n" % (n + 1)}, message="landing %d" % n)
+            self.land_change()
+
+    def test_a_change_of_four_commits_is_one_landing(self):
+        # each change = 3 work commits + 1 merge-of-master commit fast-forwarded = 4 first-parent commits but 1 landing:
+        # 14 changes are 56 commits and still not due (counting commits would say due at 4 changes); the 15th change is due.
+        for _ in range(14):
+            self.land_change(commits=4)
+        self.assertEqual(self.due(), [])
+        self.land_change(commits=4)
+        self.assertEqual(self.due(), ["digest due: 15 landings since the last digest (limit 15)"])
+
+    def test_landings_before_the_digest_and_failed_ones_do_not_count(self):
+        for _ in range(15):
+            self.land_change(at="2026-10-30T09:00:00+00:00")        # landed before the digest at 10:00
+        self.assertEqual(self.due(), [])
+        before = self.head()
+        self.commit(extra={"g.txt": "1\n"})
+        for _ in range(15):
+            relay_land.record(self.main, relay_land.Event("done", "2026-10-30T11:00:00+00:00", branch="wt/y", outcome=relay_land.RED,
+                                                          before=before, sha=self.head()))
+        self.assertEqual(self.due(), [])
+
+    def test_a_landing_that_moved_only_inert_files_is_no_landing(self):
+        for n in range(15):
+            self.land_change(commits=1, files={"docs/handover.md": "%d\n" % n})
+        for n in range(15):
+            self.land_change(commits=1, files={".relay/checks/%d.log" % n: "x\n", ".relay/queue/z%d.json" % n: "{}\n"})
+        self.assertEqual(self.due(), [])
+        self.land(1)
+        self.assertEqual(self.due(), [])               # 1 landing of code
 
     def test_fifteen_landings_without_a_paid_run_are_due_and_fourteen_are_not(self):
         self.land(14)
@@ -202,6 +272,15 @@ class Due(DigestBase):
     def test_a_paid_run_that_ended_after_the_digest_is_due_at_any_count(self):
         self.paid_run("late", "2026-10-30T11:00:00Z")          # ended 11:00, digest sent 10:00
         self.assertEqual(self.due(), ["digest due: a paid run ended 30 Oct 11:00 UTC"])
+
+    def test_a_branch_run_is_no_paid_run_and_a_default_branch_run_is(self):
+        self.paid_run("wt-x", "2026-10-30T11:00:00Z", branch="wt/x")
+        self.assertEqual(self.due(), [])
+        self.paid_run("older-master", "2026-10-30T10:30:00Z", branch="master")
+        self.assertEqual(self.due(), ["digest due: a paid run ended 30 Oct 10:30 UTC"])
+        # the numbers line shows the newest default-branch run, not the newer branch run
+        runs = rd.paid_runs(self.evals, "master")
+        self.assertEqual([r.ended for r in runs], [rd.epoch_of("2026-10-30T10:30:00Z")])
 
     def test_a_paid_run_that_ended_before_the_digest_is_not_due(self):
         self.paid_run("early", "2026-10-30T09:00:00Z")
@@ -236,9 +315,9 @@ class StopHook(DigestBase):
         self.assertEqual(done.returncode, 0, done.stderr)
         return json.loads(done.stdout) if done.stdout.strip() else None
 
-    def land(self, count):
+    def land(self, count, at="2026-10-30T11:00:00+00:00"):
         for n in range(count):
-            self.commit(extra={"f.txt": "%d-%d\n" % (n, len(rd.read_events(self.main)))}, message="landing")
+            self.land_change(commits=1, at=at)
 
     def test_refuses_once_per_due_state_and_is_silent_after_sent(self):
         self.assertIsNone(self.run_hook())                    # nothing due
@@ -250,8 +329,20 @@ class StopHook(DigestBase):
         self.assertIsNone(self.run_hook())                    # the same state: refused once
         self.sent("2026-10-30T11:00:00Z")                     # the digest was sent: nothing due, the stamp is cleared
         self.assertIsNone(self.run_hook())
-        self.land(15)
+        self.land(15, at="2026-10-30T11:30:00+00:00")
         self.assertEqual(self.run_hook()["decision"], "block")      # a new due state is refused again
+
+    def test_a_new_landing_or_amount_does_not_refuse_again_but_a_new_reason_does(self):
+        self.land(15)
+        self.assertEqual(self.run_hook()["decision"], "block")      # 15 landings
+        self.land(1)
+        self.assertIsNone(self.run_hook())                          # 16 landings: the same reason, no second refusal
+        self.evals = os.path.join(self.tmp, "home", "evals", os.path.basename(self.main))      # where the hook looks
+        os.makedirs(self.evals)
+        self.paid_run("late", "2026-10-30T11:30:00Z")
+        self.assertEqual(self.run_hook()["decision"], "block")      # a paid run ended: a new reason
+        self.land(1)
+        self.assertIsNone(self.run_hook())
 
     def test_silent_when_the_stop_is_already_a_hook_refusal_or_for_a_subagent(self):
         self.land(15)
@@ -263,7 +354,7 @@ class StopHook(DigestBase):
         self.env["RELAY_DIGEST_HOOK_BUDGET_S"] = "0.000001"       # the deadline passes before the check ends
         out = self.run_hook()
         self.assertNotIn("decision", out or {})
-        self.assertTrue((out or {}).get("systemMessage", "").startswith("digest hook: could not tell"), out)
+        self.assertTrue((out or {}).get("systemMessage", "").startswith("digest hook: could not tell"), repr(out))
 
 
 class Reversal(DigestBase):
@@ -308,12 +399,15 @@ class Texts(unittest.TestCase):
             return handle.read()
 
     def test_every_status_text_limits_the_line_to_owner_requests(self):
-        # The rules folder is reached by parts, so the short (rules-only) gate does not list this class: adding it to
-        # relay_textonly.RULE_TESTS is outside this change's files; the full gate runs it.
-        for parts in (("rules", "working-with-me.md"), ("rules", "front.md"), ("plugins", "front", "skills", "front", "SKILL.md")):
-            text = " ".join(self.read(os.path.join(*parts)).split())
+        for rel in ("rules/working-with-me.md", "rules/front.md", "plugins/front/skills/front/SKILL.md"):
+            text = " ".join(self.read(rel).split())
             at = text.index("running and why")
-            self.assertRegex(text[max(0, at - 60):at + 60], r"gives? (me )?a request", parts[-1])
+            self.assertRegex(text[max(0, at - 60):at + 60], r"gives? (me )?a request", rel)
+
+    def test_every_status_text_keeps_the_per_item_decision_line_among_the_exceptions(self):
+        for rel in ("rules/working-with-me.md", "rules/front.md", "plugins/front/skills/front/SKILL.md"):
+            text = " ".join(self.read(rel).split())
+            self.assertIn("once per item whose decisions were just recorded", text, rel)
 
     def test_help_lists_digest(self):
         done = subprocess.run([sys.executable, os.path.join(tq.ROOT, "bin", "relay"), "--help"], capture_output=True, text=True, timeout=60)

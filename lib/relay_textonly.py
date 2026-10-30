@@ -34,6 +34,7 @@ RULE_TESTS = (
     "tests.test_delegate_small_builds",
     "tests.test_review_goes_to_critic.ReviewGoesToACritic",
     "tests.test_queue.TestStructuredRule",
+    "tests.test_digest.Texts",
     "tests.test_lanes.Lanes",
     "tests.test_rules.Rules",
     "tests.test_rules.RulesInWorktree",

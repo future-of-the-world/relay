@@ -3,7 +3,7 @@
 
 Stop (every turn of the front, notification turns included): runs the due check of `relay digest --due` (lib/relay_digest.py). When it
 names a reason, the end of the turn is refused once for that exact state, with the next step in the message: run `relay digest`, send
-the page to the owner in plain words, then `relay digest --sent` (for a spend alert: send the one line, then `relay digest --alert-sent`).
+the page to the owner in plain words, then `relay digest --sent <sha>` (the head on the page's last line; for a spend alert: send the one line, then `relay digest --alert-sent`).
 Nothing when `stop_hook_active` is true, for subagents, outside a project with .relay/, or when nothing is due (the stamp is then
 cleared, so the next due state is refused again). The stamp is per session under $RELAY_HOME/state/digest-stop/, outside the repository.
 Fails open: a git call that does not answer, or a run over BUDGET_S, ends the turn as it was, with a one-line note.
@@ -36,9 +36,16 @@ def deadline(signum: int, frame: Any) -> None:
     raise Overrun()
 
 
+def reason_key(line: str) -> str:
+    """The reason a due line names, without its counts and amounts: a paid run keeps its end time, the rest are one reason each."""
+    if " landings " in line:
+        return "landings"
+    return "alert" if line.startswith("alert due") else line
+
+
 def refusal(lines: "list[str]", stamp: str) -> Optional[str]:
     """The reason to refuse the end of the turn, or None. One refusal per due state: `stamp` keeps the last state refused."""
-    key = "\n".join(lines)
+    key = "\n".join(sorted(reason_key(x) for x in lines))
     if not lines:
         try:
             os.remove(stamp)
@@ -56,7 +63,7 @@ def refusal(lines: "list[str]", stamp: str) -> Optional[str]:
         json.dump({"state": key}, handle)
     steps = []
     if any(x.startswith("digest due") for x in lines):
-        steps.append("run `relay digest`, send the page to the owner in plain words (his language, every decision listed), then run `relay digest --sent`")
+        steps.append("run `relay digest`, send the page to the owner in plain words (his language, every decision listed), then run `relay digest --sent <sha from the last line of the page>`")
     if any(x.startswith("alert due") for x in lines):
         steps.append("send the owner the one spend line in plain words, then run `relay digest --alert-sent`")
     return "; ".join(lines) + ". Next: " + "; and ".join(steps) + "."
@@ -71,11 +78,11 @@ def main() -> None:
     if not relay_git.has_relay(data["cwd"]):
         return
     stamp = os.path.join(relay_config.home_dir(), "state", "digest-stop", session + ".json")
-    if hasattr(signal, "setitimer"):
-        signal.signal(signal.SIGALRM, deadline)
-        signal.setitimer(signal.ITIMER_REAL, float(os.environ.get("RELAY_DIGEST_HOOK_BUDGET_S") or BUDGET_S))
     out: Optional[dict] = None
     try:
+        if hasattr(signal, "setitimer"):        # armed inside the try: a deadline that passes at once is still caught below
+            signal.signal(signal.SIGALRM, deadline)
+            signal.setitimer(signal.ITIMER_REAL, float(os.environ.get("RELAY_DIGEST_HOOK_BUDGET_S") or BUDGET_S))
         root = relay_config.main_checkout(data["cwd"])
         default = relay_git.default_branch(root)
         if default is None:

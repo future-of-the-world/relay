@@ -1,7 +1,7 @@
 """`relay digest`: one page for the owner per wave of landings, and when such a page (or a spend alert) is due.
 
 Everything is computed from git and the queue each time; the only thing stored is a dated event when a page or an alert was sent
-(`<git common dir>/relay-digest/events.jsonl`, the same pattern as relay-land). Printing never records: `--sent` does.
+(`<git common dir>/relay-digest/events.jsonl`, the same pattern as relay-land). Printing never records: `--sent <sha>` does, with the head the page printed on its last line (what landed meanwhile is on the next page).
 
 The page covers the queue difference between the default branch head stored at the last sent digest and the head now (no timestamp
 inside a record decides what is new: a close is recorded on a change's branch hours before it reaches the default branch).
@@ -32,6 +32,8 @@ from typing import Any, Callable, NamedTuple, Optional
 
 import relay_config
 import relay_git
+import relay_inert
+import relay_land
 import relay_queue
 
 SETTINGS = {"digest_max_landings": (15, 5, 50), "spend_alert_share": (0.8, 0.5, 1.0),
@@ -42,7 +44,7 @@ STAMP = "%Y-%m-%dT%H:%M:%SZ"
 SPEND_LINE = re.compile(r"spent \$([0-9.]+) of the \$([0-9.]+) cap")
 SPEND_TIMEOUT_S = 3.0
 USAGE = ("relay digest [--since <sha|date>] [--all] [-C <repo>] | relay digest --due [-C <repo>] | "
-         "relay digest --sent [-C <repo>] | relay digest --alert-sent [-C <repo>]")
+         "relay digest --sent <sha> [-C <repo>] | relay digest --alert-sent [-C <repo>]")
 
 Spend = Optional[tuple]      # (spent, cap) in USD, None when not known
 
@@ -259,8 +261,9 @@ class PaidRun(NamedTuple):
     partial: bool
 
 
-def paid_runs(folder: str) -> "list[PaidRun]":
-    """The stored paid runs (any outcome), oldest end first. A record that does not have the fields is skipped."""
+def paid_runs(folder: str, default: str) -> "list[PaidRun]":
+    """The stored paid runs on the default branch (any outcome), oldest end first. A record that does not have the fields is skipped,
+    and so is one of another branch (a branch run does not end a wave)."""
     out: "list[PaidRun]" = []
     try:
         names = sorted(os.listdir(folder))
@@ -273,6 +276,8 @@ def paid_runs(folder: str) -> "list[PaidRun]":
             with open(os.path.join(folder, name), encoding="utf-8") as handle:
                 rec = json.load(handle)
             started = dt.datetime.strptime(rec["startedAt"][:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=dt.timezone.utc).timestamp()
+            if rec.get("branch", default) != default:
+                continue
             agg = rec["aggregates"]
             out.append(PaidRun(started + float(rec["durationSeconds"]), int(agg["casesPassed"]), int(agg["casesTotal"]), bool(rec.get("partial"))))
         except (OSError, ValueError, KeyError, TypeError):
@@ -376,36 +381,40 @@ def page(main: str, default: str, cfg: Any, since: Optional[str] = None, show_al
             lines.append("  and %d more decisions: relay digest --all" % left)
     if waiting:
         lines.append("Waiting for you: " + "; ".join("**%s** (asked %s)" % (title, show_time(epoch_of(at))) for at, title in waiting))
-    lines.append(numbers_line(items, (spend or (lambda: project_spend(main)))(), paid_runs(evals or evals_dir(main))))
+    lines.append(numbers_line(items, (spend or (lambda: project_spend(main)))(), paid_runs(evals or evals_dir(main), default)))
+    lines.append("Page head %s: after sending, run relay digest --sent %s" % (head[:8], head[:8]))
     return lines
 
 
 # ---------------------------------------------------------------- when something is due
 
-def landings(main: str, start: Optional[str], head: str) -> int:
-    """First-parent commits since `start` that touch more than the queue and the check files (the queue's own commits are no landing)."""
-    spec = ["rev-list", "--first-parent", "--count", head if start is None else "%s..%s" % (start, head), "--",
-            ".", ":(exclude)" + QDIR, ":(exclude).relay/checks"]
-    out = git(main, *spec)
-    if out is None or not out.isdigit():
-        raise DigestError("git could not count the landings")
-    return int(out)
+def landings(main: str, since: float) -> int:
+    """Changes landed by `relay land` after `since` (epoch): one landed `done` event each, counted only when the landing moved a file
+    that is not inert (a queue-only or handover-only landing is no landing). A fast-forward puts every commit of the branch on the
+    default branch's first-parent chain, so commits cannot be counted."""
+    count = 0
+    for event in relay_land.read_events(main)[0]:
+        if event.kind != "done" or event.outcome != relay_land.LANDED or dt.datetime.fromisoformat(event.ts).timestamp() <= since:
+            continue
+        names = git(main, "diff", "--name-only", event.before, event.sha) if event.before and event.sha else None
+        if names is None or any(not relay_inert.matches(n) for n in names.splitlines()):      # git cannot tell: count it
+            count += 1
+    return count
 
 
 def due(main: str, default: str, cfg: Any, now: Optional[str] = None, spend: Optional[Callable[[], Spend]] = None,
         evals: Optional[str] = None) -> "list[str]":
     """One line per reason a digest or an alert is due now; [] when none."""
     clock = epoch_of(now or now_stamp())
-    head = head_of(main, default)
+    head_of(main, default)       # no local default branch: the same refusal as the page
     events = read_events(main)
-    start = resolve_start(main, head, events, None, clock)
     sent = [e for e in events if e["kind"] == "sent"]
     since = epoch_of(sent[-1]["at"]) if sent else clock - WINDOW_HOURS * 3600
     lines: "list[str]" = []
-    ended = [r for r in paid_runs(evals or evals_dir(main)) if r.ended > since]
+    ended = [r for r in paid_runs(evals or evals_dir(main), default) if r.ended > since]
     if ended:
         lines.append("digest due: a paid run ended %s" % show_time(ended[-1].ended))
-    count = landings(main, start.sha, head)
+    count = landings(main, since)
     limit = setting(cfg, "digest_max_landings")
     if count >= limit:
         lines.append("digest due: %d landings since the last digest (limit %d)" % (count, limit))
@@ -436,9 +445,14 @@ def main(args: "list[str]", out: Callable[[str], None] = print) -> int:
     args = list(args)
     repo = take_flag(args, "-C") or "."
     since = take_flag(args, "--since")
-    modes = [f for f in ("--due", "--sent", "--alert-sent", "--all") if f in args]
+    if "--sent" in args and args.index("--sent") + 1 >= len(args):
+        raise DigestError("relay digest --sent needs the head the page printed: take <sha> from the page's last line (\"Page head <sha>\"), "
+                          "run relay digest --sent <sha>")
+    sent_sha = take_flag(args, "--sent")
+    modes = [f for f in ("--due", "--alert-sent", "--all") if f in args] + (["--sent"] if sent_sha is not None else [])
     for flag in modes:
-        args.remove(flag)
+        if flag in args:
+            args.remove(flag)
     if args or (len(modes) > 1 and "--all" not in modes) or (since is not None and any(m in modes for m in ("--due", "--sent", "--alert-sent"))):
         raise DigestError(USAGE)
     main_dir = relay_git.main_checkout(repo)
@@ -448,7 +462,14 @@ def main(args: "list[str]", out: Callable[[str], None] = print) -> int:
     cfg = relay_config.load_bindings(main_dir)
     if "--sent" in modes or "--alert-sent" in modes:
         kind = "sent" if "--sent" in modes else "alert"
-        record_event(main_dir, kind, now_stamp(), head_of(main_dir, default))
+        head = head_of(main_dir, default)
+        if sent_sha is not None:
+            full = git(main_dir, "rev-parse", "--verify", "-q", sent_sha + "^{commit}")
+            if not full or not relay_git.is_ancestor(main_dir, full, head):
+                raise DigestError("%s is not a commit on the %s history: take <sha> from the last line of the page (\"Page head <sha>\")"
+                                  % (sent_sha, default))
+            head = full
+        record_event(main_dir, kind, now_stamp(), head)
         out("recorded: %s at %s" % ("digest sent" if kind == "sent" else "spend alert sent", now_stamp()))
         return 0
     if "--due" in modes:

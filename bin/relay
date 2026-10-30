@@ -63,8 +63,8 @@
   relay digest [--since <sha|date>] [--all] [-C <repo>]
                                      the one page for the owner: what merged and was added since the last digest sent, the decisions
                                      agents took without him, questions waiting, numbers; printing it records nothing
-  relay digest --sent|--alert-sent [-C <repo>]
-                                     record that the page (or the spend alert) was sent to the owner: the next page starts here
+  relay digest --sent <sha> | --alert-sent [-C <repo>]
+                                     record that the page (sha: the head on its last line) or the spend alert was sent: the next page starts there
   relay digest --due [-C <repo>]     one line per reason a digest or an alert is due (a paid run ended, enough landings, spend
                                      at the alert share of the day's cap); nothing when none is
   relay precheck [-C <worktree>]     the gate's quick steps (types and lint, python 3.9 imports, plugin lib links on HEAD,
