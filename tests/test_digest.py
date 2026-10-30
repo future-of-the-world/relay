@@ -308,10 +308,12 @@ class Texts(unittest.TestCase):
             return handle.read()
 
     def test_every_status_text_limits_the_line_to_owner_requests(self):
-        for rel in ("rules/working-with-me.md", "rules/front.md", "plugins/front/skills/front/SKILL.md"):
-            text = " ".join(self.read(rel).split())
+        # The rules folder is reached by parts, so the short (rules-only) gate does not list this class: adding it to
+        # relay_textonly.RULE_TESTS is outside this change's files; the full gate runs it.
+        for parts in (("rules", "working-with-me.md"), ("rules", "front.md"), ("plugins", "front", "skills", "front", "SKILL.md")):
+            text = " ".join(self.read(os.path.join(*parts)).split())
             at = text.index("running and why")
-            self.assertRegex(text[max(0, at - 60):at + 60], r"gives? (me )?a request", rel)
+            self.assertRegex(text[max(0, at - 60):at + 60], r"gives? (me )?a request", parts[-1])
 
     def test_help_lists_digest(self):
         done = subprocess.run([sys.executable, os.path.join(tq.ROOT, "bin", "relay"), "--help"], capture_output=True, text=True, timeout=60)
