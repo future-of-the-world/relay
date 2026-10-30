@@ -82,10 +82,10 @@ class StepGateAcrossInertCommits(Fixture):
         self.assertEqual(self.gate(self.wt).returncode, 0)
         hook.step_gate(self.wt, "wt/x", "its worktree")            # the gate's own log covers the head
         queue = self.commit(".relay/queue/x.json", "{}\n")
-        self.assertIsNotNone(relay_gate.reusable(self.wt, queue, [self.script]))
+        self.assertIsNotNone(relay_gate.reusable(self.wt, queue, [self.SCRIPT_REL]))
         hook.step_gate(self.wt, "wt/x", "its worktree")            # returns: only an inert file changed since the green log
         code = self.commit("lib/b.py", "b\n")
-        self.assertIsNone(relay_gate.reusable(self.wt, code, [self.script]))
+        self.assertIsNone(relay_gate.reusable(self.wt, code, [self.SCRIPT_REL]))
         with self.assertRaises(hook.Refused) as caught:
             hook.step_gate(self.wt, "wt/x", "its worktree")
         self.assertIn("code changed since", str(caught.exception))
