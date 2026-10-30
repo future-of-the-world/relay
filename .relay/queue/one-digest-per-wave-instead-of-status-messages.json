@@ -71,6 +71,16 @@
       "reading": [
         "a and b: fix the grammar (\"1 decisions\") and the wording; show each decision taken without the owner in full, with its options and the chosen letter, not one cut line. The merged list stays as it is."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T11:28:17Z",
+      "question": [
+        "The digest after the \"a, b\" fix (preview shown 30 Oct): does it land?"
+      ],
+      "options": [
+        "a. land it as shown",
+        "b. change something first, in the owner's words"
+      ]
     }
   ]
 }
