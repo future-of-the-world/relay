@@ -38,6 +38,26 @@
         "",
         "Мой вектор это избавление от документации в репозитории, проведи анализ"
       ]
+    },
+    {
+      "at": "2026-10-30T05:22:24Z",
+      "said": [
+        "Думаю что впоследствии в README.md будут содержаться только одна команда установки с подписью INSTALLATION",
+        "",
+        "Как обычно устроены утилиты",
+        "",
+        "relay --help выдаёт информацию о дочерних командах, setup, queue, land",
+        "",
+        "relay <command> --help выдаёт информацию о конкретной дочерней команды с её опциями и флагами",
+        "",
+        "И так далее, я хочу чтобы ты понял мысль которую я доношу, вероятно ты знаешь это лучше меня, полагаю что именно так сейчас и есть, тебе лишь надо проверить текущее состоянии и выдать мне отчет о том как это устроено сейчас"
+      ]
+    },
+    {
+      "at": "2026-10-30T05:22:25Z",
+      "fact": [
+        "Measured 30 Oct: `relay --help` prints 90 lines, a flat list of 35 command forms with their arguments (not one line per command); `relay <command> --help` prints that command's slice of the same hand-written text (queue 43 lines, check 23, setup 7, gate 7, bench 6, land 4), forms and flags on one line, no per-flag lines; 20 commands in bin/relay's dispatch table, `metrics` missing from help, and `relay metrics --help` prints the whole top-level help instead. README.md is 120 lines."
+      ]
     }
   ]
 }
