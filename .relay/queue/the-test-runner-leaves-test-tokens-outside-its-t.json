@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-30T01:55:54Z",
   "taken_by": "wt/the-test-runner-leaves-test-tokens-outsi",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T03:40:33Z",
+  "test": "tests/test_relay_tokens.py::RunnerPoolTest::test_no_pool_left_in_home",
   "dropped_at": null,
   "dropped_why": null
 }

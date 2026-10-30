@@ -11,8 +11,8 @@
   "why": [
     "30 Oct: designs, reviews (with the owner's words recorded against findings), fix reports and briefs live in the session's temporary folder, which macOS clears on restart; queue items and check records point at them by name. Measured 30 Oct: this session's folder holds 1354 report files (15 MB with briefs); all sessions' temporary folders for relay take 1.1 GB. A manual copy was made to the relay backup folder the same day. IP chosen by the front (agent-chosen)."
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T08:49:34Z",
+  "taken_by": "wt/reports-a-task-needs-are-kept-in-the-rep",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
@@ -70,6 +70,35 @@
       ],
       "reading": [
         "a: no review file; the findings live in the revised plan's section on what changed after the review."
+      ]
+    },
+    {
+      "at": "2026-10-30T09:06:21Z",
+      "said": [
+        "Почему мы не можем делать эту копию всегда, как мы её восстановим ? Нужно ли это вообще исходя из моих сообщений и типичного рабочего workflow",
+        "",
+        "Как relay диктует claude управлять временными файлами, черновиками, те файлы что не попадают в git и могут быть утеряны при перезагрузке"
+      ]
+    },
+    {
+      "at": "2026-10-30T09:06:29Z",
+      "fact": [
+        "Front decision (owner can reverse; principles 2 and 3), 30 Oct: the front's hand-made copy of this session's temporary files under $RELAY_HOME/backup (2053 files, 17 MB; one full copy at 03:10, 8 designs picked by the front later, refreshed in full at the owner's question) is not made a standing mechanism: nothing reads it, it has no restore path (a new session gets a new temporary folder, so briefs naming the old absolute paths break), and what the owner chose to keep (the plan) lands beside its item in git with this feature. It is kept until this feature lands, then deleted."
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T09:06:37Z",
+      "question": [
+        "Does the front's copy of the session's temporary files become a standing backup?"
+      ],
+      "options": [
+        "a. no: keep the one copy until plans land beside their items, then delete it",
+        "b. yes: copy them on every write to $RELAY_HOME"
+      ],
+      "decided_by": "front",
+      "chosen": "a",
+      "because": [
+        "principles 2 and 3: nothing reads the copy, it has no restore path (a new session gets a new temporary folder), and the plan the owner chose to keep lands in git with this feature"
       ]
     }
   ]

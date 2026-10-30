@@ -17,8 +17,8 @@
     "lib/relay_gate.py",
     "deps.toml"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T09:38:11Z",
+  "taken_by": "wt/a-change-runs-with-relay-s-settings-from",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
@@ -59,6 +59,38 @@
       "edited": "where",
       "fact": [
         "Edited where: folder entry named as a file (plugins/core is now plugins/relay; hooks.json is the file that lists the hooks a change run loads)"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T09:58:55Z",
+      "question": [
+        "How does a Claude Code session in a relay project become project-only (plugins, rules, agents and memory from the project, not from ~/.claude)?"
+      ],
+      "options": [
+        "a. a shell function: `claude` in a relay project goes through relay's launcher; IDE and desktop-app sessions stay as today and are told so (recommended; about 245 agent minutes)",
+        "b. a separate command the owner types, `relay session`; plain `claude` stays global",
+        "c. project files only, no launcher; user rules, memory, agents and skills still load (about 45 agent minutes)"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T09:59:02Z",
+      "question": [
+        "Where does a project's Claude Code memory (37 notes for relay today, kept under the user folder, keyed to this Mac's path) live?"
+      ],
+      "options": [
+        "a. stays where Claude Code keeps it, recorded by hash in every run (recommended by the design: the gate never reads memory)",
+        "b. saved into the project's git by one relay command, copied in at session start (about 60 agent minutes; travels to other machines and containers)"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T09:59:03Z",
+      "question": [
+        "Where does the owner's grilling skill (today in ~/.claude/skills, not loaded by a project-only session) live?"
+      ],
+      "options": [
+        "a. moves into relay's front plugin, versioned with relay (recommended by the design); gone outside relay unless copied back",
+        "b. stays personal; the launcher passes the user skills folder through",
+        "c. dropped"
       ]
     }
   ]

@@ -1,0 +1,143 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.3578,
+   "id": "afe3ff43a5e602b1f",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T07:34:44.270Z",
+   "stop": "2026-10-30T07:43:11.492Z"
+  },
+  {
+   "cost_usd": 0.0058,
+   "id": "ab8aeaa3e826a1fe9",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T07:43:17.882Z",
+   "stop": "2026-10-30T08:08:58.310Z"
+  },
+  {
+   "cost_usd": 0.9276,
+   "id": "aef2d283cf16d201b",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 16,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T08:09:03.418Z",
+   "stop": "2026-10-30T08:12:10.053Z"
+  },
+  {
+   "cost_usd": 0.2801,
+   "id": "a64e9bb6f00cdbd7e",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T08:12:15.131Z",
+   "stop": "2026-10-30T08:16:58.502Z"
+  },
+  {
+   "cost_usd": 0.0043,
+   "id": "abe6d3d643e86b2e7",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T08:17:05.229Z",
+   "stop": "2026-10-30T08:34:33.045Z"
+  },
+  {
+   "cost_usd": 0.1971,
+   "id": "a3de90f9f13d5716c",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T08:34:38.541Z",
+   "stop": "2026-10-30T08:39:28.696Z"
+  },
+  {
+   "cost_usd": 0.0046,
+   "id": "afc049cbd3dce33be",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T08:39:31.504Z",
+   "stop": "2026-10-30T09:00:02.342Z"
+  },
+  {
+   "cost_usd": 0.1608,
+   "id": "a60c14844e25cb280",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T09:00:06.362Z",
+   "stop": "2026-10-30T09:03:57.971Z"
+  },
+  {
+   "cost_usd": 0.0022,
+   "id": "a6a85e14ba1649bef",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T09:04:01.989Z",
+   "stop": "2026-10-30T09:04:16.762Z"
+  },
+  {
+   "cost_usd": 0.0019,
+   "id": "a1d5d46dde920a158",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T09:04:22.427Z",
+   "stop": "2026-10-30T09:04:32.159Z"
+  }
+ ],
+ "before": "7f094a847e4378f5fd5fc740224f383b20c3c8d4",
+ "branch": "wt/the-lane-pick-ignores-the-owner-s-3-and",
+ "head": "b03bb7b737532223fbc9713341f96b402056065a",
+ "item": "the-lane-pick-ignores-the-owner-s-3-and-3-lane-s",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T05:07:39+00:00",
+   "file": "lib/relay_lanes.py",
+   "holder": "wt/one-stuck-queue-pick-hides-every-other-s",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T09:04:52+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T09:37:38+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T09:57:20+00:00",
+   "gate_seconds": 1146.430879124906,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "the-lane-pick-ignores-the-owner-s-3-and-3-lane-s"
+}

@@ -24,8 +24,8 @@
     "lib/relay_config.py",
     "lib/relay_setup.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T09:58:39Z",
+  "taken_by": "wt/setup-registers-a-project-in-relay-s-own",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
