@@ -17,6 +17,7 @@ import os
 import re
 import signal
 import sys
+import time
 from typing import Any, Optional
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -79,19 +80,25 @@ def main() -> None:
         return
     stamp = os.path.join(relay_config.home_dir(), "state", "digest-stop", session + ".json")
     out: Optional[dict] = None
+    started = time.monotonic()
+    step = "start"        # the step the run was in when it stopped: a hang is located by it
     try:
         if hasattr(signal, "setitimer"):        # armed inside the try: a deadline that passes at once is still caught below
             signal.signal(signal.SIGALRM, deadline)
             signal.setitimer(signal.ITIMER_REAL, float(os.environ.get("RELAY_DIGEST_HOOK_BUDGET_S") or BUDGET_S))
+        step = "main checkout"
         root = relay_config.main_checkout(data["cwd"])
+        step = "default branch"
         default = relay_git.default_branch(root)
         if default is None:
             return
+        step = "due check"
         reason = refusal(relay_digest.due(root, default, relay_config.load_bindings(root)), stamp)
         if reason:
             out = {"decision": "block", "reason": reason}
     except (Overrun, relay_digest.DigestError, OSError) as exc:
-        out = {"systemMessage": "digest hook: could not tell whether a digest is due (%s)" % (str(exc) or type(exc).__name__)}
+        out = {"systemMessage": "digest hook: could not tell whether a digest is due (%s; %.1fs elapsed, in step: %s)" % (
+            str(exc) or type(exc).__name__, time.monotonic() - started, step)}
     finally:
         if hasattr(signal, "setitimer"):
             signal.setitimer(signal.ITIMER_REAL, 0)     # before anything is printed, so stdout never holds half an object

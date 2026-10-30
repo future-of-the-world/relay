@@ -399,6 +399,8 @@ class StopHook(DigestBase):
         out = self.run_hook()
         self.assertNotIn("decision", out or {})
         self.assertTrue((out or {}).get("systemMessage", "").startswith("digest hook: could not tell"), repr(out))
+        # the message locates the hang: seconds elapsed and the step the run was in
+        self.assertRegex(out["systemMessage"], r"\d+\.\ds elapsed, in step: (start|main checkout|default branch|due check)\)$")
 
 
 class Reversal(DigestBase):
