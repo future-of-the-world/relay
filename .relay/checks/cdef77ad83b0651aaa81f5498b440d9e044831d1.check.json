@@ -1,0 +1,158 @@
+{
+  "branch": "wt/the-routing-guard-counts-finished-agents-as-runn",
+  "findings": [
+    {
+      "details": [
+        "26 Oct evening, measured: after workflow wami2lmn7 ended (15 agents, one of them ended without StructuredOutput), starting one fixer got \"Routing note: 7 agents are already running in this session (cap 6)\", while ListAgents at the same moment showed 1 running subagent and one workflow with one agent. running_now counts relay_ledger.running_agents over the last 12 h. IP chosen by the front (agent-chosen).",
+        "Also: lib/relay_ledger.py (running_agents)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A ledger for one session with 7 agent-start events from a workflow that ended and no matching stop events, and 1 live agent: running_now reports 7 or 8 instead of 1."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same ledger with stop events reports only the live agent; a session with 2 live agents reports 2; a cap warning still fires at the cap when the agents really run."
+      ],
+      "path": "plugins/delegate/hooks/route-guard.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_running_agents.py RunningNow tests pass; fail at the base commit."
+      ],
+      "severity": "HIGH",
+      "since": "59813ed06057fb5f4185d51fb15f24646fbeb1bd",
+      "source": "queue",
+      "summary": "The routing guard counts finished agents as running",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by measurement (scratchpad/rv/measure.py: old 11, new 3 for 6c217ef4). bin/relay:203 prints",
+        "relay_analyze.status(events, ...), which calls relay_ledger.running_agents(events) with no now/idle, so the person-",
+        "facing status keeps the over-count the item fixed for the guard. Outside: the change never touched relay_analyze.py",
+        "and its promise names the routing guard only. Size: 10 minutes."
+      ],
+      "evidence": [
+        "git grep -n running_agents -> lib/relay_analyze.py:637: running = relay_ledger.running_agents(events)",
+        "python3 -I scratchpad/rv/measure.py -> 6c217ef4 old 11 new 3"
+      ],
+      "failing_case": [
+        "Live ledger now, session 6c217ef4 (the front): `relay status` shows running = 11 (runners from 07:27, 10:45, 12:58,",
+        "13:58, 14:18, a thinker from 11:12, workers from 08:05, 12:03 ...), while 3 agents are running (all with ledger events",
+        "in the last 3 minutes). It should show 3, the same count the routing guard now uses."
+      ],
+      "fix_hint": [
+        "In status(): running = relay_ledger.running_agents(events, now, relay_ledger.AGENT_IDLE) with now computed before it;",
+        "a test beside the analysis tests with the dead-workflow ledger."
+      ],
+      "id": "F1",
+      "kind": "outside",
+      "line": 637,
+      "pass_cases": [
+        "1. Ledger: session s with 7 agent_start an hour ago, last event 50 min ago, no stop, plus 1 start 3 min ago: status row for s shows running 1.",
+        "2. Ledger: session s with 2 starts 8 min and 1 min ago, no stops: running 2.",
+        "3. Ledger: 7 starts and 7 matching stops plus 1 live start: running 1 (works today).",
+        "4. Agent names column lists only the counted agents' types."
+      ],
+      "path": "lib/relay_analyze.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer: lib/relay_analyze.py status still calls running_agents without idle. Agree it is outside the change's route-guard scope; should become a fix item."
+      ],
+      "severity": "MEDIUM",
+      "since": "912b04f7ace59c5622649e6d177a0e5ce2c95c3b",
+      "source": "review-the-routing-guard-counts-finished-agents-as-runn.json",
+      "source_id": "F1",
+      "summary": "relay status still counts dead agents as running: it calls running_agents without the idle limit",
+      "verdict": "OUTSIDE"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Project rule (CLAUDE.local.md, Python: \"Every new or changed function has types\"), repeated in",
+        "the brief (\"types on new or changed code\"). Rated LOW: no behaviour is wrong. Note `dt` is imported inside the",
+        "function, so the annotation needs a module-level `import datetime as dt` or a string annotation. Size: 5 minutes."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- plugins/delegate/hooks/route-guard.py: -def running_now(session_id): +def running_now(session_id, now=None):"
+      ],
+      "failing_case": [
+        "route-guard.py:73 `def running_now(session_id, now=None):` - changed in this commit (new parameter), no annotations.",
+        "tests/test_running_agents.py:31 `def load_guard():` - new, no return type. The project rule says every new or",
+        "changed function has types; it should read e.g. `def running_now(session_id: str | None, now: dt.datetime | None = None) -> int:`."
+      ],
+      "fix_hint": [
+        "Annotate running_now (session_id: str | None, now: \"dt.datetime | None\" = None) -> int, and load_guard() -> types.ModuleType."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 73,
+      "pass_cases": [
+        "1. running_now carries parameter and return annotations; the type checker of the gate passes.",
+        "2. tests/test_running_agents.py still passes 5 of 5.",
+        "3. route-guard still fails open: running_now returns 0 when the ledger read raises."
+      ],
+      "path": "plugins/delegate/hooks/route-guard.py",
+      "rank": "low",
+      "reason": [
+        "route-guard.py:74 and tests/test_running_agents.py:31 now typed."
+      ],
+      "severity": "LOW",
+      "since": "912b04f7ace59c5622649e6d177a0e5ce2c95c3b",
+      "source": "review-the-routing-guard-counts-finished-agents-as-runn.json",
+      "source_id": "F2",
+      "summary": "Python rule (types on changed functions): running_now was changed and has no types; the new test's load_guard has no return type",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the tests and the code path: the current code does put the start in last_seen (it has a ts and",
+        "an agent_id), so behaviour is right today; the test set just does not pin it. Fragile, hence LOW. Size: 5 minutes."
+      ],
+      "evidence": [
+        "tests/test_running_agents.py:44-47 dead_workflow() adds a tool_post for every started agent; no test has a start alone older than 10 minutes."
+      ],
+      "failing_case": [
+        "Change running_agents to record last_seen only for tool events (not agent_start): an agent started 30 min ago that",
+        "died before its first tool call is then never in last_seen and is kept by the `not in last_seen` branch, so it",
+        "counts forever. All 5 tests still pass, because the dead workflow in the tests always has a tool_post 50 min ago.",
+        "The same `not in last_seen` branch keeps forever an agent whose start has an unparseable ts."
+      ],
+      "fix_hint": [
+        "Add test_start_alone_older_than_limit_does_not_count with [start(\"x\", 30)] -> 0."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 44,
+      "pass_cases": [
+        "1. Ledger: one agent_start 30 min ago, no other events, no stop: running_now(\"s\", NOW) == 0.",
+        "2. Ledger: one agent_start 3 min ago, no other events: running_now == 1.",
+        "3. Ledger: agent_start 90 min ago and a tool_pre 4 min ago: running_now == 1 (existing test)."
+      ],
+      "path": "tests/test_running_agents.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_running_agents.py::RunningNow::test_start_alone_older_than_limit_does_not_count passes."
+      ],
+      "severity": "LOW",
+      "since": "912b04f7ace59c5622649e6d177a0e5ce2c95c3b",
+      "source": "review-the-routing-guard-counts-finished-agents-as-runn.json",
+      "source_id": "F3",
+      "summary": "no test that an agent whose only event is an old agent_start is dropped; an implementation that ignored the start's own time would still pass",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "61c5677cd2fbb7afc19a4b93605fbe5e3bfa8fdc.gate.log",
+  "head": "cdef77ad83b0651aaa81f5498b440d9e044831d1",
+  "item": "the-routing-guard-counts-finished-agents-as-runn",
+  "notes": [
+    "Base run of the new tests at 59813ed fails (7 errors: running_now takes 1 arg)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Files changed: lib/relay_ledger.py, route-guard.py, tests/test_running_agents.py; all in scope. Gate log is for 61c5677, only the gate log came after. Precheck green, 22 tests pass, test_running_agents 7 pass."
+  ],
+  "type": "check"
+}
