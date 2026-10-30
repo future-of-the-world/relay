@@ -1,0 +1,14 @@
+head a2d28b38eccde01641df393e8cf6a27fd3dd4239
+cmd bin/ci --quick
+wait 539.2
+gate: stopped a leftover test process 54975 (/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Py): parent gone, folder deleted
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests ok (799s)
+ci: coverage 90.0% of lib, bin, plugins (15029 of 16693 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ci: inert ok (0s)
+ci: green (QUICK MODE: paid steps skipped, not a release gate)
+exit 0
