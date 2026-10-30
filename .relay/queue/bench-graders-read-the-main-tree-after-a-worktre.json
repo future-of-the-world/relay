@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-30T04:19:16Z",
   "taken_by": "wt/bench-graders-read-the-main-tree-after-a",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T06:36:23Z",
+  "test": "tests/test_bench.py::GradersFindTaskBranch::test_add_function_found_only_on_a_task_branch",
   "dropped_at": null,
   "dropped_why": null
 }

@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 1.8719,
+   "id": "a72bed59e2c9db9b7",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 29,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design",
+   "start": "2026-10-30T05:19:03.940Z",
+   "stop": "2026-10-30T05:26:14.353Z"
+  },
+  {
+   "cost_usd": 1.409,
+   "id": "ad87accc16869097f",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 30,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design review",
+   "start": "2026-10-30T05:26:16.960Z",
+   "stop": "2026-10-30T05:31:50.256Z"
+  },
+  {
+   "cost_usd": 2.3516,
+   "id": "a6079dbffeea509d7",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 23,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design revise",
+   "start": "2026-10-30T05:31:52.733Z",
+   "stop": "2026-10-30T05:40:25.814Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "docs-leave-repo"
+}

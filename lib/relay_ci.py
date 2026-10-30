@@ -429,6 +429,8 @@ class Ci:
             self.say("ci: RED (no money ceiling for the plugin evals)")
             return 1
         jobs, ceiling = words
+        if not self.note_paid_start():
+            return 1
         estimate = self.run(["python3", "bin/paid-cost", "estimate"], capture=True).stdout.strip()
         self.say("plugin evals: estimate %s; -j %s, ceiling $%s (%s)" % (estimate, jobs, ceiling, " ".join(cap_args)))
         env = dict(self.env, PATH=self.path("plugins", "relay", "bin") + os.pathsep + self.env.get("PATH", ""))
@@ -446,6 +448,24 @@ class Ci:
             return 0
         self.step("plugin evals", evals)
         return None
+
+    def note_paid_start(self) -> bool:
+        """Write the `started` record of the paid run (lib/relay_paid.py) when the tree gated is the default branch's head; a full
+        run in a task worktree writes none. False (the run ends, before any money is spent) when the record cannot be written."""
+        sys.path.insert(0, self.path("lib"))
+        import relay_git   # the lib of the tree being gated
+        import relay_paid
+        head = self.run(["git", "rev-parse", "HEAD"], capture=True).stdout.strip()
+        branch = (self.run(["git", "symbolic-ref", "--short", "-q", "HEAD"], capture=True).stdout or "").strip() or relay_git.default_branch(self.root) or "detached"
+        default = relay_git.default_branch(self.root)
+        if not default or branch != default or relay_git.git(self.root, "rev-parse", "--verify", "-q", "refs/heads/" + default)[1] != head:
+            return True
+        try:
+            relay_paid.record(self.root, relay_paid.PaidEvent("started", relay_paid.now(), head=head, pid=os.getpid()))
+        except (OSError, ValueError) as exc:
+            self.say("ci: RED (the paid run's start could not be recorded: %s)" % exc)
+            return False
+        return True
 
     def record(self) -> None:
         """File the eval result; the record names the commit it ran on and the branch it counts for: a detached worktree of

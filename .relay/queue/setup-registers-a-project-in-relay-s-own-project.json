@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 45,
+  "found_at": "2026-10-30T08:20:36Z",
+  "found_in": "relay queue add",
+  "title": "Setup registers a project in relay's own projects.toml",
+  "what": [
+    "The project registry lives under $RELAY_HOME (per machine), not in relay's checkout; setup never writes a tracked file of relay itself; an existing registry in the checkout is read once and moved, with one line saying so."
+  ],
+  "why": [
+    "Found 30 Oct by the trial of relay on a copy of relay cleaned of relay (owner, 30 Oct: \"Полагаю что для текущих задач будет не лишним проверить подключение relay к самому relay, очищенному от relay\"); sandbox HOME, RELAY_HOME and RELAY_PROJECTS, claude stubbed. lib/relay_config.py:22-23: with no RELAY_PROJECTS set, projects_file defaults to <relay checkout>/projects.toml, a file tracked in relay's repository, so registering any project (from a sandbox, another machine or a newcomer) edits relay's tracked file; nothing says so."
+  ],
+  "failing_case": [
+    "With RELAY_PROJECTS unset, `relay setup` in a fresh repo adds an entry to /Users/amidman/relay/projects.toml (git status of relay shows it modified)."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "setup with RELAY_PROJECTS unset writes only under $RELAY_HOME",
+    "relay's own checkout stays clean after setup of another project",
+    "an old registry in the checkout is moved once with a line"
+  ],
+  "where": [
+    "lib/relay_config.py",
+    "lib/relay_setup.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
