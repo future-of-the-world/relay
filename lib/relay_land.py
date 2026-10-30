@@ -311,7 +311,18 @@ def land(repo: str, branch: str, notify: Callable[[str], None], paid_fix: bool =
         handle.close()
     if result.outcome == LANDED:                  # after the done event and the lock: the landing stays LANDED whatever the record does
         result.lines.extend(_change_records(repo, main, result, stats))
+        result.lines.extend(_start_watch(main))
     return result
+
+
+def _start_watch(main: str) -> list[str]:
+    """Start the Linux watch of the new head, detached, when a gate host is recorded. The modules are imported here, never at the top:
+    the merge hook loads this file from its plugin folder, which carries neither relay_gate_watch nor relay_hosts."""
+    try:
+        import relay_gate_watch
+        return relay_gate_watch.start_after_landing(main)
+    except Exception as exc:        # the landing already happened (the rule _change_records follows)
+        return [f"land: landed, but the Linux watch did not start: {exc}; next: relay gate --watch-default"]
 
 
 def _change_records(repo: str, main: str, result: Result, stats: Event) -> list[str]:

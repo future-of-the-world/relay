@@ -28,6 +28,7 @@ WRITERS: dict[str, Optional[set[str]]] = {
     "check": {"migrate", "owner"},
     "improve": {"adopt"},
     "license": {"add"},
+    "hosts": {"add", "set", "remove"},      # `relay hosts status` and bare `relay hosts` only read
     "metrics": {"sweep", "backfill"},       # both land commits on the default branch; `relay metrics` and `relay metrics <unit>` only read
 }
 READS = {"status", "report", "profile", "doctor", "flows", "rules", "changed", "precheck"}

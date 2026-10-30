@@ -30,5 +30,13 @@
   "closed_at": "2026-10-30T17:29:05Z",
   "test": "tests/test_pytest_pool_home.py::PytestPoolHome::test_empty_home_stays_empty",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T16:33:10Z",
+      "fact": [
+        "Reproduced 30 Oct 2026 on master: HOME=<empty folder>, RELAY_HOME and RELAY_TEST_TOKENS unset, pytest -q tests/test_relay_tokens.py -k 'test_defaults or RunnerPool' -> 9 passed (not 5: the selection now holds 9 of 32 tests) and HOME was left with .relay/test-tokens/token-8 and .relay/test-tokens/waiting."
+      ]
+    }
+  ]
 }

@@ -16,10 +16,18 @@
     "lib/relay_land.py",
     "bin/relay"
   ],
-  "taken_at": "2026-10-30T12:03:56Z",
-  "taken_by": "wt/gates-on-the-vps-hosts-transport-watch-b",
+  "taken_at": null,
+  "taken_by": null,
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T16:42:40Z",
+      "fact": [
+        "wt/gates-on-the-vps-hosts-transport-watch-b landed at e4e99dc15af7de1e9e462642abdf4ace16bfc430; the feature stays open for its next change"
+      ]
+    }
+  ]
 }

@@ -15,8 +15,8 @@
     "roles/judge.md",
     "plugins/front/hooks/lanes.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T16:34:08Z",
+  "taken_by": "wt/work-goes-on-while-the-owner-is-away",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
@@ -68,6 +68,27 @@
       "at": "2026-10-29T21:42:19Z",
       "fact": [
         "30 Oct, front decisions (owner can reverse): (1) waiting changes keep their lanes for now; measure a week after the cycle fix lands (design recount: 0-1 lanes would have been freed that night, not 5); (2) the self-wake timer is at most 55 minutes (8 wakes per idle 7-hour night; above 60 minutes each wake re-writes the 1-hour cache); (3) default-on-timeout is not built. Cost per wake not measured."
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T17:00:50Z",
+      "question": [
+        "Build the self-wake (a timer that wakes an idle front while the owner is away) now, or after one measured night?"
+      ],
+      "options": [
+        "a. Measure tonight first: since the fixes no idle gap over 43 minutes in 3 absences, and the 25 Oct outage gets at most one useful retry from a timer",
+        "b. Build now: about 75 agent minutes and about $1 per idle night"
+      ],
+      "decided_by": "front",
+      "chosen": "a",
+      "because": [
+        "principles 2 and 7: the measured gaps (none over 43 minutes in 3 absences) do not show the need yet, and the review showed the timer would not have covered the 25 Oct outage. Part A (reviewers and checkers decide reversible scope cuts) is built now. Owner can reverse."
+      ]
+    },
+    {
+      "at": "2026-10-30T17:00:51Z",
+      "fact": [
+        "Design rev 2, 30 Oct 2026: part A (reviewers and checkers decide reversible scope cuts on MEDIUM or LOW findings, code refuses the rest) is about 130 agent minutes, above the item's 2 hours (not measured: a guess)."
       ]
     }
   ]

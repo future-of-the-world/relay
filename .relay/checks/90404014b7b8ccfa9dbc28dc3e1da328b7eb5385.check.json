@@ -1,0 +1,300 @@
+{
+  "branch": "wt/gates-on-the-vps-hosts-transport-watch-b",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by a probe on this Mac (Python 3.14.6): a script whose daemon thread loops on sys.stdin.buffer.read(4096) exits -6 both on",
+        "sys.exit(0) and on an uncaught exception; with os.read(0, 4096) it exits 0 and 1. The change's own approach (finish() = os._exit)",
+        "covers only the paths that reach finish(); main() has no try/except around the steps after line 246, so every exception path",
+        "still aborts and skips RUN.abort(). The queue item python-aborts-at-exit-in-gates-macos-shows-crash is meant to close with this",
+        "change. Rated HIGH: the brief made this a must-hold line before landing and named the fix and its test; neither is met.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "$ python3 --version -> Python 3.14.6",
+        "probe (scratchpad/abort_probe.py, daemon thread on sys.stdin.buffer.read): \"raise -6\", \"exit -6\"",
+        "same probe with os.read(0, 4096): \"raise 1\", \"exit 0\"",
+        "lib/relay_gate_remote.py:185  while sys.stdin.buffer.read(4096):",
+        "grep -n \"134|abort|SIGABRT|os.read\" tests/test_gate_ssh.py tests/fake_vps.py -> no dedicated test"
+      ],
+      "failing_case": [
+        "The program has read the frame and started the stdin watcher (line 246); then any uncaught exception leaves main by the normal",
+        "interpreter exit, e.g. subprocess.TimeoutExpired from `podman create` (timeout=120, line 203), `podman cp` (300), `git fetch` (300),",
+        "`podman ps` (60), or ValueError from int(opts[\"slots\"]). Now: Python 3.14 aborts (exit -6 / 134, a macOS crash report each time the",
+        "fake-host tests hit such a path) and RUN.abort() never runs, so the temporary folder and a created container stay. Should: the",
+        "process ends with a plain non-zero exit (1), no SIGABRT, and the container and the temporary folder are removed.",
+        "The brief said: \"Use os.read(0, 4096) and add a test that runs the program with an open stdin pipe and a normal end and asserts",
+        "exit 0\". The change instead routes the normal paths through os._exit (finish) and keeps sys.stdin.buffer.read; no dedicated test exists."
+      ],
+      "fix_hint": [
+        "watch_stdin: `while os.read(0, 4096): pass` (read_frame has consumed exactly the frame from the buffered reader, so nothing is lost);",
+        "wrap main's body after RUN.tmp is set in try/except BaseException that prints relay-gate-error, calls RUN.abort() and finish(91).",
+        "Add the test the brief names (open stdin pipe, normal end, exit 0) plus one exception-path test asserting no -6."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 185,
+      "pass_cases": [
+        "1. Run lib/relay_gate_remote.py under the fake host with stdin an open pipe and a normal end (a green gate): exit 0, no -6/134.",
+        "2. The same with an exception raised after the watcher starts (e.g. a mock raising in run_container, or a fake podman create that",
+        "   outlives a patched timeout): exit code is a positive number (not -6/134), and the temporary folder RUN.tmp no longer exists.",
+        "3. Stdin closed by the Mac before the end: still the 98 path and the container removed",
+        "   (test_a_lost_connection_after_the_running_line_is_a_could_not_run keeps passing).",
+        "4. The cut during podman create (test_a_cut_while_the_container_is_still_being_created_removes_it_once_created) keeps passing."
+      ],
+      "path": "lib/relay_gate_remote.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate_ssh.py ProgramRuns exception test (fails -6 on base, passes at head)"
+      ],
+      "severity": "HIGH",
+      "since": "e2e8c23b14952e771870248745d125cf0fac5b08",
+      "source": "review-gates-on-the-vps-hosts-transport-watch-b.json",
+      "source_id": "F1",
+      "summary": "the brief's must-hold fix is not made: watch_stdin still reads sys.stdin.buffer, so any exit that is not os._exit (an uncaught exception) still aborts with SIGABRT on Python 3.14",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: build_remote (line 99) checks only the record and the current branch, then the stop rule and newest_watch, and",
+        "returns a reason; cmd_gate prints it before relay_gate.run, where deciding_host would have sent the gate to the Mac silently",
+        "for want of container/Containerfile (lib/relay_gate_logs.py:193). start_after_landing (line 207) checks only the record, watch_default",
+        "and the temporary folder. relay serves other projects (ALIX, arsenal, linter per the owner's rules), and the record lives in",
+        "RELAY_HOME, not in the project. Principle 10: a line whose next step does not work. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_gate_watch.py:102-113 build_remote: no Containerfile / project check before the reason lines",
+        "lib/relay_gate_watch.py:212-219 start_after_landing: spawns for any main checkout",
+        "lib/relay_gate_ssh.py:139-141 program_source: \"the gate program is not on %s yet\" for such a project"
+      ],
+      "failing_case": [
+        "With the gate hosts record in RELAY_HOME holding ai.amidman.com (after change 5), a quick gate of a worktree of another project (ALIX,",
+        "linter: no container/Containerfile, no lib/relay_gate_remote.py). Now: stderr says \"gate: ai.amidman.com has not yet gated the default",
+        "branch (run relay gate --watch-default); this gate runs on this Mac\" on every gate; running the suggested command gives \"gate: the gate",
+        "program is not on master yet; no Linux result\". A landing in that project spawns the detached watch after every landing",
+        "(start_after_landing has no project check). Should: a project that cannot go remote (deciding_host's \"no container/Containerfile ->",
+        "Mac, silently\") gets no line and no watch."
+      ],
+      "fix_hint": [
+        "In build_remote and start_after_landing, return (None, \"\") / [] when the worktree (main) has no container/Containerfile (the same",
+        "test deciding_host makes), or when the default branch has no lib/relay_gate_remote.py."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 102,
+      "pass_cases": [
+        "1. Host recorded, a repo without container/Containerfile: the quick gate prints no \"gate: ...\" line, makes no ssh call, exits as today.",
+        "2. Host recorded, the same repo: start_after_landing(main, spawn) spawns nothing.",
+        "3. Host recorded, a relay-shaped repo (Containerfile present) with no watch file: the \"has not yet gated\" line still prints, no ssh",
+        "   call (test_without_a_linux_result_of_the_default_branch_a_lane_gates_on_the_mac keeps passing).",
+        "4. Host recorded, relay-shaped repo with a green watch file: one ssh call (test_both_quick_forms_make_one_ssh_call_and_the_others_none)."
+      ],
+      "path": "lib/relay_gate_watch.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_watch.py Reason/StartAfterLanding no-Containerfile tests (error on base, pass at head)"
+      ],
+      "severity": "MEDIUM",
+      "since": "e2e8c23b14952e771870248745d125cf0fac5b08",
+      "source": "review-gates-on-the-vps-hosts-transport-watch-b.json",
+      "source_id": "F2",
+      "summary": "the gate host record is global, so every other project's quick gate prints 'has not yet gated the default branch (run ... --watch-default)' and every landing there spawns a useless watch",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading (lines 162-170, 62-75): Run holds only container and tmp; build_image's Popen handle is local. The plan's F5",
+        "says \"a build never runs without a slot\". The systemd Linger=no backstop only kills it when the account's last session closes, which",
+        "with other gates open does not happen. Consequence on the real host PLAUSIBLE (not run). Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_gate_remote.py:162 proc = subprocess.Popen([\"podman\", \"build\", ...], start_new_session=True)",
+        "lib/relay_gate_remote.py:71-75 abort(): podman rm -f container; rmtree tmp  (no build process)"
+      ],
+      "failing_case": [
+        "A watch's first build (311 s cold on this Mac; bound 3600 s for a watch) is running when the Mac sleeps or its connection drops:",
+        "stdin closes, watch_stdin calls RUN.cut_now(98) -> abort() removes RUN.tmp (the build context under it) and os._exit. The podman build",
+        "was started with start_new_session=True and is not in RUN, so it keeps running, unbounded (its communicate timeout died with the",
+        "process), holding CPU outside any slot; the slot and build locks are released, so the next gate starts a second build of the same",
+        "tag. Should: a cut kills the build's process group, as the build-limit path does (os.killpg)."
+      ],
+      "fix_hint": [
+        "Keep the build's pid in RUN (RUN.build = proc.pid) and in abort() os.killpg(RUN.build, SIGKILL) when set; clear it after communicate."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 162,
+      "pass_cases": [
+        "1. Fake podman build that sleeps (build_hang); the Mac's connection is lost after the build starts (a fake ssh mode that sends SIGHUP",
+        "   once the build has begun): the fake podman build process is gone within a few seconds and the build lock is free.",
+        "2. A build past build_limit_s still ends with the \"still building\" line and is killed",
+        "   (test_a_build_runs_inside_its_slot_and_is_killed_at_its_bound keeps passing).",
+        "3. A cut during podman create still removes the created container (existing test keeps passing)."
+      ],
+      "path": "lib/relay_gate_remote.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_ssh.py ProgramRuns cut-during-build test (fails on base, passes at head)"
+      ],
+      "severity": "MEDIUM",
+      "since": "e2e8c23b14952e771870248745d125cf0fac5b08",
+      "source": "review-gates-on-the-vps-hosts-transport-watch-b.json",
+      "source_id": "F3",
+      "summary": "a cut during an image build leaves the podman build running with no bound and outside any slot (it is in its own session and RUN.abort does not know it)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep: no \"94\", \"recipe\", \"race\" or traceback test in tests/test_gate_ssh.py or tests/test_gate_watch.py; the build-lock",
+        "test covers a held lock taken by the test itself, not two gates. The remote 94 check is the only backstop when deciding_host is",
+        "bypassed (a watch, or relay_gate_ssh.gate called directly). Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "grep -n \"race|94|recipe|one build|traceback\" tests/test_gate_ssh.py tests/test_gate_watch.py -> only the vps_base \"recipe\" commit setup",
+        "plan 5.8: \"no branch recipe is built\", \"slots hold under a race\", \"two gates needing one missing tag start one build\", \"a traceback\""
+      ],
+      "failing_case": [
+        "The brief's \"Done when: the plan's pass cases for changes 3 and 4 hold with tests that fail without the change\". grep of the new",
+        "tests finds no test that drives the host's exit 94 (a branch whose container/Containerfile, install.sh or deps.toml differs from the",
+        "default branch's: the host must refuse to build it), none that starts two gates at once on one free slot, none where two gates",
+        "need the same missing image and only one podman build runs, and none where the remote program dies with a traceback after a",
+        "running line. Breaking any of these behaviours today leaves the suite green (e.g. deleting lines 260-263 of relay_gate_remote.py)."
+      ],
+      "fix_hint": [
+        "Add the four tests to tests/test_gate_ssh.py against the fake host; each must fail with the matching code removed."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. Recipe: a lane branch that changes deps.toml, gated through relay_gate_ssh.gate directly (bypassing deciding_host): Unavailable",
+        "   with \"changes relay's toolchain\", no podman build call in the fake's log.",
+        "2. Race: slots=1, two gates started together against the fake host: one runs, the other gets the busy line (remote_wait_s=0);",
+        "   never two relay-gate-s1-* containers at once.",
+        "3. One build: two gates needing the same missing tag: exactly one \"build\" in the fake podman log; the other gets \"is building image\".",
+        "4. Traceback: the remote program raising after the running line: no remote log, a Mac log, a could-not-run event."
+      ],
+      "path": "tests/test_gate_ssh.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_ssh.py PassCases four tests; traceback test fails on base; the other three test existing code (fixer showed by mutation)"
+      ],
+      "severity": "MEDIUM",
+      "since": "e2e8c23b14952e771870248745d125cf0fac5b08",
+      "source": "review-gates-on-the-vps-hosts-transport-watch-b.json",
+      "source_id": "F4",
+      "summary": "four pass cases of plan 5.8 for change 3 have no test: no branch recipe is built (exit 94), slots hold under a race, two gates needing one missing tag start one build, a traceback is no result",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: `git rev-parse HEAD:no-such-file` prints \"HEAD:no-such-file\", rc 128; git() returns stdout regardless of rc. Size: 5 min."
+      ],
+      "evidence": [
+        "$ git rev-parse HEAD:no-such-file -> out=[HEAD:no-such-file] rc=128"
+      ],
+      "failing_case": [
+        "A repository without deps.toml (or install.sh): `git rev-parse <sha>:deps.toml` prints \"<sha>:deps.toml\" on stdout (exit 128) and",
+        "`git rev-parse <tip>:deps.toml` prints \"<tip>:deps.toml\"; they differ, so every lane gate exits 94 \"the branch changes the image",
+        "recipe (deps.toml)\". Should: a file absent in both is unchanged. relay has all three files today, so it does not fire now."
+      ],
+      "fix_hint": [
+        "Use `rev-parse --verify -q` and map rc != 0 to \"\" in the blobs dict."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 260,
+      "pass_cases": [
+        "1. Repo without deps.toml in both commits: blobs compare equal, the gate runs.",
+        "2. Branch that adds deps.toml: 94.",
+        "3. Branch that changes container/Containerfile: 94."
+      ],
+      "path": "lib/relay_gate_remote.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_ssh.py PassCases recipe-absent test (errors on base, passes at head)"
+      ],
+      "severity": "LOW",
+      "since": "e2e8c23b14952e771870248745d125cf0fac5b08",
+      "source": "review-gates-on-the-vps-hosts-transport-watch-b.json",
+      "source_id": "F5",
+      "summary": "a recipe file missing from both commits counts as changed: git rev-parse echoes the unresolved argument, so mine and theirs differ whenever sha != tip",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE race; CONFIRMED by reading that nothing clears AGAIN at start and the re-gate does not check tip != target when again.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Watch A finishes its last round check (lines 195-199, no AGAIN) and is about to release the lock; watch B fails flock and writes",
+        "watch.again, returns. A releases. The next landing's watch C gates its tip, then sees the stale AGAIN, and (tip unchanged) gates the",
+        "same tip a second time: one wasted VPS gate. Should: C gates once."
+      ],
+      "fix_hint": [
+        "Remove watch.again right after taking the lock, or re-gate on AGAIN only when the tip moved from the last target."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 184,
+      "pass_cases": [
+        "1. Stale watch.again present at the start of a watch with an unchanged tip: one gate_one call.",
+        "2. A second call while a watch runs still makes the running one gate once more (test_a_second_watch_asks_the_running_one_to_gate_once_more)."
+      ],
+      "path": "lib/relay_gate_watch.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_watch.py Watch stale-again test (errors on base, passes at head)"
+      ],
+      "severity": "LOW",
+      "since": "e2e8c23b14952e771870248745d125cf0fac5b08",
+      "source": "review-gates-on-the-vps-hosts-transport-watch-b.json",
+      "source_id": "F6",
+      "summary": "watch.again can outlive the watch that should read it, so a later watch gates the same commit twice",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading line 242 against is_red at line 36. Size: 5 agent minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A watch file ending `exit 130`: build_remote gives default_red \"\" (lanes go remote), but `relay hosts status` says \"..., red\".",
+        "Should: the status wording follows is_red."
+      ],
+      "fix_hint": [
+        "verdict = \"green\" if code == 0 else \"stopped at its limit\" if code == LIMIT_EXIT else \"red\" if is_red(code) else \"ended %d\" % code"
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 242,
+      "pass_cases": [
+        "1. exit 130 watch: status does not say \"red\".",
+        "2. exit 1: \"red\". 3. exit 124: \"stopped at its limit\". 4. exit 0: \"green\"."
+      ],
+      "path": "lib/relay_gate_watch.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_watch.py StartAfterLanding status red test (errors on base, passes at head)"
+      ],
+      "severity": "LOW",
+      "since": "e2e8c23b14952e771870248745d125cf0fac5b08",
+      "source": "review-gates-on-the-vps-hosts-transport-watch-b.json",
+      "source_id": "F7",
+      "summary": "relay hosts status calls a watch ending 127 or above 'red' while is_red (F11) treats it as not red",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "a550d8dfe90a359f8919da1d69a28f2ace376a51.gate.log",
+  "head": "90404014b7b8ccfa9dbc28dc3e1da328b7eb5385",
+  "item": null,
+  "notes": [
+    "Precheck not re-run: the gate on the head covers it."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range e2e8c23b..HEAD. Gate log head a550d8df green (exit 0); only the inert gate log came after. Ran test_gate_ssh and test_gate_watch at head: 55 OK. Ran them at 1c0f7e89~1 with head tests copied: 3 FAIL, 36 ERROR (listed). Changed files are lib/relay_gate_remote.py, relay_gate_watch.py and the tests/fake_vps."
+  ],
+  "type": "check"
+}
