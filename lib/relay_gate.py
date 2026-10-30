@@ -196,8 +196,8 @@ def reclaim(path: str, text: str, record: Callable[[str], None]) -> bool:
     if len(numbers) < 2 or numbers[0] <= 0 or numbers[1] <= 1 or alive(numbers[0]) or numbers[1] == os.getpgrp():
         return False
     group = numbers[1]
-    holders = relay_procs.holders_of(path)
-    if not holders:
+    if not (holders := relay_procs.holders_of(path)):
+        if holders is None: record("gate: cannot tell who holds %s: lsof could not run (install lsof; `relay doctor` checks it); stop group %d by hand if its command hangs" % (path, group))
         return False
     try:
         members = {p.pid: p for p in relay_procs.read_procs() if p.pgid == group}

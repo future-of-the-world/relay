@@ -3,3 +3,6 @@ ci_quick = "bin/ci --quick"
 
 [delegate]
 max_parallel = 6
+
+[front]
+feature_lanes = 3   # the owner's 3 and 3 split (29 Oct): 3 lanes for features, 3 for fixes

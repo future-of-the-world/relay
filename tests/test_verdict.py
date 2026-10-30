@@ -600,6 +600,8 @@ class RebasedRecords(unittest.TestCase):
         os.makedirs(self.wt)
         self.env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t",
                     "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        # relay_marks commits with the process's own environment: give it the same identity and no global config
+        patcher = mock.patch.dict(os.environ, self.env); patcher.start(); self.addCleanup(patcher.stop)
         self.git("init", "-q", "-b", "master")
         self.commit("base.txt", "base\n")
         self.git("checkout", "-q", "-b", "wt/x")

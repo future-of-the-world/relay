@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -63,6 +64,9 @@ class Fixture(unittest.TestCase):
         self.addCleanup(self.remove_tree)
         self.env = {**os.environ, **GIT_ENV, "RELAY_ROOT": ROOT, "RELAY_HOME": os.path.join(self.tmp, "home")}      # slots in the temp dir, never the live ~/.relay
         self.env.pop("RELAY_GATE", None)
+        # relay code that runs in the test's own process (a gate's log commit, a landing) commits with os.environ, not self.env:
+        # give it the same identity, so a machine that cannot guess one (Linux, a hostname with no domain) does not matter
+        patcher = mock.patch.dict(os.environ, GIT_ENV); patcher.start(); self.addCleanup(patcher.stop)
 
     def remove_tree(self):
         """E: remove the fixture's folder, then make sure no gate process it started outlives it. The worktree locks
@@ -111,6 +115,8 @@ class Fixture(unittest.TestCase):
         procs = relay_procs.read_procs()
         candidates = {p.pid: p for p in procs if (numbers and p.pid == numbers[0]) or (len(numbers) > 1 and p.pgid == numbers[1])}
         names = relay_procs.open_names(list(candidates)) or {}
+        # Linux lsof names a file whose folder was removed "<path> (deleted)"; macOS gives the bare path
+        names = {pid: [re.sub(r" \(deleted\)$", "", name) for name in held] for pid, held in names.items()}
         mine = {pid: p for pid, p in candidates.items() if any(os.path.basename(name) == "relay-gate.lock" and (name == path or name.startswith(path)) for name in names.get(pid, []))}
         if numbers and numbers[0] in mine:
             relay_procs.send(numbers[0], False, signal.SIGTERM)

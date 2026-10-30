@@ -59,6 +59,14 @@ apt = "procps"
 why = "the gate's leaked-gate scan, inert probe and check migration list processes (a slim Linux image lacks it)"
 
 [[dep]]
+name = "lsof"
+command = "lsof"
+version_arg = "-v"
+presence = true
+apt = "lsof"
+why = "the gate's slot reclaim and leaked-process scan ask which process holds a file (a slim Linux image lacks it, and the reclaim then hangs)"
+
+[[dep]]
 name = "jq"
 command = "jq"
 version_arg = "--version"

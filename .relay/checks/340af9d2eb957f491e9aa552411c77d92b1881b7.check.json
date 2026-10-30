@@ -1,0 +1,225 @@
+{
+  "branch": "wt/the-quick-gate-is-red-again-in-a-clean-l",
+  "findings": [
+    {
+      "details": [
+        "Found by the remote-gate-host design (30 Oct) while measuring whether a Linux machine would speed up gates. The item the-quick-gate-is-red-in-a-clean-linux-container was closed green on 29 Oct; on master b55c82b9 the Containerfile recipe is red again, so no Linux gate, deciding or comparing, means anything until it is green.",
+        "Also: deps.toml",
+        "Also: tests/test_paid_batch.py",
+        "Also: tests/test_rules_gate_isolation.py",
+        "Also: tests/test_gate_slots.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "30 Oct, master b55c82b9, podman image built 15 h earlier, `podman run ... bin/ci --quick` from a `--no-hardlinks` clone: 12 failing test batches. Seen: test_paid_batch (\"paid-cost: the default branch cannot be told\": the clone has no default branch), test_rules_gate_isolation (a ResourceWarning turns into a failure), test_gate_slots test_t4_a_gate_already_waiting_reclaims_* hung 10 min (the image has no lsof: not verified). The run was stopped at 1,272 s."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same recipe on the fixed head: exit 0, no test hangs.",
+        "lsof present in the image or the slot reclaim not needing it on Linux."
+      ],
+      "path": "Containerfile",
+      "rank": "high",
+      "reason": [
+        "The gate log is green on the host, but no test fails at Q1's since (687dff55): test_quick_gate_image.py passes 3 of 3 there. The clean-image result itself was not reproduced here (no podman run), and nothing keeps it green."
+      ],
+      "severity": "HIGH",
+      "since": "687dff5520ffdb2fd9e2f6976a068ba494310219",
+      "source": "queue",
+      "summary": "The quick gate is red again in a clean Linux image",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by grep. The What line is the item's promise and \"red again\" is the second occurrence of the same kind of failure:",
+        "principle 6 (cause, not symptom: fix the rule behind it, not one example) asks for the guard that keeps it green, which the",
+        "item itself names. Without it the remote/Linux gate host the owner is now asking about (ai.amidman.com) has no guarantee the",
+        "gate means the same thing there. The item allows either the gate or a paid step; a paid step on the default branch after a",
+        "wave is the cheap one (one image run per wave, ~15-20 min of a Linux/podman machine). Size: 45 agent minutes."
+      ],
+      "evidence": [
+        "git grep -n -i \"podman\\|Containerfile\\|clean-gate\" -- bin lib tests plugins templates docs/*.md  -> (no output)",
+        "relay queue show the-quick-gate-is-red-again-in-a-clean-linux-ima -> What: \"... and keep it green (the gate or a paid step runs it).\"",
+        "fixer report: \"DONE: bin/ci --quick exit 0 in rebuilt clean image\" (no step added, no log kept)"
+      ],
+      "failing_case": [
+        "The item's What: \"Make bin/ci --quick green in the clean image ... and keep it green (the gate or a paid step runs it).\"",
+        "At ddea7ab8, `git grep -i 'podman|Containerfile|clean-gate' -- bin lib tests plugins templates` finds nothing: no gate step,",
+        "paid step or test builds the image or runs the recipe. The recipe was closed green on 29 Oct (the-quick-gate-is-red-in-a-clean-",
+        "linux-container) and was red again on 30 Oct (b55c82b9, 12 failing batches) with nobody noticing until a design measured it.",
+        "After this change the same happens: a test that relies on macOS (lsof name form, git identity guessing, origin/HEAD) lands green",
+        "on the Mac gate and turns the image red silently. Should be: a paid step (or a gate step) that builds the image and runs the recipe",
+        "on the head and is red when it is."
+      ],
+      "fix_hint": [
+        "Add a paid-run step (where the paid run lists its steps) that builds container/Containerfile with podman, clones the head into",
+        "the image as the comment's recipe does, runs bin/ci --quick with a time bound, and keeps the log; red on a non-zero exit,",
+        "\"skipped: no podman\" when podman is absent. A test of the step's command list with a fake podman."
+      ],
+      "id": "F1",
+      "kind": "feature",
+      "line": 5,
+      "pass_cases": [
+        "1. A paid run (or the gate, whichever the fix picks) on a head whose quick gate is green in the image: the step runs",
+        "   `podman build` + the Containerfile recipe and reports green with the image run's own log (head sha, exit 0).",
+        "2. The same step on a head with a test that fails only on Linux (e.g. assert sys.platform == \"darwin\"): the step is red and names the test.",
+        "3. A machine without podman: the step says it was skipped and why, not green.",
+        "4. This Mac's quick gate keeps its current duration (the image run is not added to every quick gate unless that is the choice made)."
+      ],
+      "path": "container/Containerfile",
+      "rank": "high",
+      "reason": [
+        "Nothing runs the clean-image recipe in the gate or a paid step; the fixer put it outside as a feature needing its own queue item. The queue item's 'keep it green' is not built."
+      ],
+      "severity": "HIGH",
+      "since": "ddea7ab8dba85151a7cb97dcd4b5264ccec9fc87",
+      "source": "review-the-quick-gate-is-red-again-in-a-clean-l.json",
+      "source_id": "F1",
+      "summary": "the item's 'and keep it green (the gate or a paid step runs it)' is not built: nothing runs the clean-image recipe, so it can go red a third time unseen",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that git refuses in the image without the variables (reproduced); PLAUSIBLE which tests depended on it: the fixer did",
+        "not name them (heuristic grep candidates: tests/test_gate_slots.py, tests/test_lanes_state.py, tests/test_queue_close.py, and",
+        "tests whose fixtures set GIT_CONFIG_GLOBAL=/dev/null without an author). Principle 6: the image is changed to fit the tests'",
+        "macOS assumption instead of fixing the assumption, and the item's Why is that a Linux gate must mean the same thing; the owner",
+        "is now asking to run gates on a Linux VPS. Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "podman run --rm relay-clean-gate sh -c 'unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL; export HOME=/tmp/h; ... git init -q && git commit -q --allow-empty -m x'",
+        "  -> fatal: unable to auto-detect email address (got 'dev@7cc4df9b5a7e.(none)')  exit=128",
+        "container/Containerfile:15-16 comment: \"tests run git with a HOME of their own (no ~/.gitconfig): the author has to come from the environment, as macOS guesses it from the user\""
+      ],
+      "failing_case": [
+        "In the image without the new ENV line: HOME=/tmp/h git init && git commit --allow-empty -m x ->",
+        "\"fatal: unable to auto-detect email address (got 'dev@7cc4df9b5a7e.(none)')\", exit 128. The fixer's own comment says some tests",
+        "\"run git with a HOME of their own (no ~/.gitconfig)\" and pass on macOS only because macOS guesses an identity. The image now",
+        "sets the identity in its environment, so those tests are green in the image but still fail on any Linux machine or container that",
+        "runs bin/ci --quick without that variable and with a hostname lacking a domain (a podman/CI container, many VPS setups).",
+        "Should be: each such test gives its git calls an identity itself (as tests/test_gate.py GIT_ENV and tests/test_hook_merge.py do),",
+        "and the image needs no identity variable."
+      ],
+      "fix_hint": [
+        "Run the quick gate in the image once without the ENV line, list the failing tests, give their fixtures an identity",
+        "(GIT_AUTHOR_*/GIT_COMMITTER_* in the env they pass, or -c user.name/-c user.email), then drop the ENV line."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 16,
+      "pass_cases": [
+        "1. The clean image with the ENV GIT_AUTHOR_*/GIT_COMMITTER_* line removed: bin/ci --quick exits 0.",
+        "2. Each test the ENV line was covering (the fixer names them) passes with env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL",
+        "   -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL HOME=<empty temp> on Linux.",
+        "3. This Mac's quick gate stays green."
+      ],
+      "path": "container/Containerfile",
+      "rank": "medium",
+      "reason": [
+        "tests/test_quick_gate_image.py:41 asserts no GIT_AUTHOR/GIT_COMMITTER in the Containerfile; seen to fail at ddea7ab8 and pass at head. The Fixture/verdict/gate_stops tests now give their own identity."
+      ],
+      "severity": "MEDIUM",
+      "since": "ddea7ab8dba85151a7cb97dcd4b5264ccec9fc87",
+      "source": "review-the-quick-gate-is-red-again-in-a-clean-l.json",
+      "source_id": "F2",
+      "summary": "GIT_AUTHOR/COMMITTER env in the image hides tests that commit with no identity; on a Linux host whose hostname has no domain they fail",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: os.path.join(root, \"bin\", \"relay\") with root = a git clone of ROOT. The gate runs on a committed head, so",
+        "the gate result is right; the gap is the worker's loop before a commit. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "tests/test_paid_batch.py:179-183 clone ROOT -> root; checkout -B master HEAD; run python3 root/bin/relay sync",
+        "time git clone -q . <tmp>  -> real 5.14; du -sh -> 76M"
+      ],
+      "failing_case": [
+        "A worker edits bin/relay's sync wait (or bin/paid-cost due) in the worktree and runs pytest tests/test_paid_batch.py before",
+        "committing: run_sync clones ROOT (committed objects only) and runs <clone>/bin/relay, so the test checks the old committed code",
+        "and passes with the new behaviour disabled or broken. Each of the 2 calls also clones the whole repository (measured 5.1 s,",
+        "76 MB on this Mac). Should be: the code under test is the working tree's; only the git data needs a master branch."
+      ],
+      "fix_hint": [
+        "Keep running ROOT/bin/relay and give the default branch to git only: e.g. clone with --shared --no-checkout (or a bare clone) for",
+        "the repo paid-cost reads, if sync takes the repo from RELAY_ROOT, or set a refs/heads/master in a temp GIT_DIR alternate; or",
+        "create refs/heads/master in ROOT only when it is missing and remove it in cleanup."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 179,
+      "pass_cases": [
+        "1. An uncommitted edit that removes the \"waits for a green paid run\" refusal: test_sync_refuses_with_the_due_list_and_writes_nothing fails.",
+        "2. A fresh clone of a detached commit (the image recipe): both SyncWaits tests pass.",
+        "3. This worktree with master present: both pass."
+      ],
+      "path": "tests/test_paid_batch.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_quick_gate_image.py:14 (no clone, runs this checkout's bin/relay) fails at ddea7ab8, passes at head; :31 checks no master is left behind."
+      ],
+      "severity": "LOW",
+      "since": "ddea7ab8dba85151a7cb97dcd4b5264ccec9fc87",
+      "source": "review-the-quick-gate-is-red-again-in-a-clean-l.json",
+      "source_id": "F3",
+      "summary": "run_sync runs bin/relay from a clone of HEAD, so an uncommitted change to sync or paid-cost is not what this test exercises, and each call clones the repo (5 s)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lib/relay_gate.py:200-203 and lib/relay_procs.py:91-96. Outside: neither file is touched by this change;",
+        "the change makes lsof present in the image and listed in deps.toml, which meets the item's pass case but leaves the silent unbounded",
+        "wait on any machine that lacks it. Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "lib/relay_procs.py:93 subprocess.run([\"lsof\", \"-t\", \"--\", path]) ... except (OSError, ...): return None",
+        "lib/relay_gate.py:201-203 holders = relay_procs.holders_of(path); if not holders: return False"
+      ],
+      "failing_case": [
+        "A Linux machine without lsof (the state of the image before this change; any Debian/Ubuntu slim host): a gate's process dies",
+        "while its command keeps relay-gate.lock open; the next relay gate in that worktree calls take_worktree_lock -> reclaim ->",
+        "relay_procs.holders_of returns None (lsof not found) -> reclaim returns False -> the loop polls forever with only",
+        "\"gate: waiting for the gate already running in this worktree (pid N has ended; ...)\". The item saw this as a 10-minute hang of",
+        "test_gate_slots test_t4_a_gate_already_waiting_reclaims_*. Should be: on Linux find holders through /proc/*/fd (as read_cwds",
+        "already uses /proc), or say once \"cannot tell who holds <lock>: lsof is missing (relay doctor)\"."
+      ],
+      "fix_hint": [
+        "holders_of: on Linux read /proc/<pid>/fd links (no lsof); elsewhere, when lsof is missing, return None and have",
+        "take_worktree_lock print one line naming lsof and relay doctor."
+      ],
+      "id": "F4",
+      "kind": "outside",
+      "line": 201,
+      "pass_cases": [
+        "1. PATH without lsof on Linux, a dead gate pid and its group holding the lock: the waiting gate reclaims (via /proc) or prints the lsof line once.",
+        "2. lsof present: the reclaim works as today (test_gate_slots t4 tests pass).",
+        "3. A live holder: the gate waits, as today."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_gate.py not changed; the unbounded wait when lsof is missing is still there. The fixer lists it as Outside, but the file is one the change touched."
+      ],
+      "severity": "MEDIUM",
+      "since": "ddea7ab8dba85151a7cb97dcd4b5264ccec9fc87",
+      "source": "review-the-quick-gate-is-red-again-in-a-clean-l.json",
+      "source_id": "F4",
+      "summary": "when lsof cannot run, the wait for a dead gate's worktree lock never ends and never says lsof is missing",
+      "verdict": "NOT MET"
+    }
+  ],
+  "gate": "1a13e6e31d36f165337c3e7d20762a2b1b788534.gate.log",
+  "head": "340af9d2eb957f491e9aa552411c77d92b1881b7",
+  "item": "the-quick-gate-is-red-again-in-a-clean-linux-ima",
+  "notes": [
+    "Fixer says F1 and F4 are outside the change; F1 is a promise of the queue item (keep it green), so it stays open."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log is for 1a13e6e3 (exit 0); HEAD 340af9d2 adds only the gate log, no code file. Ran pytest on test_paid_batch, test_rules_gate_isolation, test_gate_slots, test_quick_gate_image: 46 passed. relay precheck RED only on plugin lib copy-vs-link (branch has not taken master; not from this change). Ran test_quick_gate_image.py in throwaway worktrees at ddea7ab8 (2 failed, 1 passed) and at 687dff55 (3 passed). I did not run podman."
+  ],
+  "type": "check"
+}

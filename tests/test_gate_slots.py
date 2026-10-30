@@ -354,8 +354,9 @@ class Slots(Fixture):
         with mock.patch.object(relay_gate.relay_procs, "holders_of", return_value=None):
             waiter = threading.Thread(target=lambda: box.append(relay_gate.take_worktree_lock(lock, lines.append)), daemon=True)
             waiter.start()
-            self.wait_until(lambda: lines)
-        match = re.match(r"^gate: waiting for the gate already running in this worktree \(pid (\d+)", lines[0])
+            self.wait_until(lambda: any(line.startswith("gate: waiting") for line in lines))
+        # the lsof line (F4) may come first or after: the waiting line is the one that names the live command
+        match = re.match(r"^gate: waiting for the gate already running in this worktree \(pid (\d+)", [l for l in lines if l.startswith("gate: waiting")][0])
         self.assertIsNotNone(match)
         self.assertEqual(int(match.group(1)), command_pid)
         os.kill(command_pid, 0)      # alive while the waiter waits
@@ -459,6 +460,38 @@ class Slots(Fixture):
         self.assertEqual(code, 0)
         self.assertTrue(os.path.isdir(os.path.join(self.env["RELAY_HOME"], "gate-slots")))
         self.assertFalse(os.path.exists(os.path.join(other, "gate-slots")))
+
+
+class LsofCannotRun(unittest.TestCase):
+    def test_f4_a_dead_gates_lock_with_no_lsof_says_so_once_and_waits(self):
+        """F4: the lock file names a gate pid that has ended; another handle holds the lock; lsof cannot run (holders_of is None).
+        By hand: reclaim needs lsof to name the holders, so it stops nothing (False) and the waiter prints one line naming lsof;
+        the dead pid is tried once, so two polling rounds still give one line."""
+        import fcntl
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            dead = subprocess.Popen([sys.executable, "-c", "pass"])
+            dead.wait()
+            lock = os.path.join(tmp, "relay-gate.lock")
+            write(lock, "%d %d\n" % (dead.pid, dead.pid + 1000000))
+            holder = open(lock, "a+")
+            fcntl.flock(holder, fcntl.LOCK_EX)
+            lines: list[str] = []
+            box: list = []
+            with mock.patch.object(relay_gate.relay_procs, "holders_of", return_value=None), \
+                    mock.patch.object(relay_gate, "SLOT_POLL", 0.01), mock.patch.object(relay_gate, "alive", lambda pid, group=False: False):
+                waiter = threading.Thread(target=lambda: box.append(relay_gate.take_worktree_lock(lock, None, lines.append)), daemon=True)
+                waiter.start()
+                deadline = time.monotonic() + 20      # without the fix no line ever comes
+                while not lines and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                holder.close()      # frees the lock: the waiter takes it
+                waiter.join(BOUND)
+            self.assertTrue(box)
+            box[0].close()
+            self.assertEqual(len(lines), 1, lines)
+            self.assertIn("lsof could not run", lines[0])
+            self.assertIn("relay doctor", lines[0])
 
 
 if __name__ == "__main__":
