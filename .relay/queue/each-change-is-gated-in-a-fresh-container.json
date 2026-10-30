@@ -140,6 +140,12 @@
       "said": [
         "Вопрос - если я подключу свой ноутбук по ssh через локальную сеть - сможешь ли ты использовать его как вычислительные ресурсы, он на Linux, думаю это позволит ускорить gate"
       ]
+    },
+    {
+      "at": "2026-10-30T01:07:22Z",
+      "fact": [
+        "Design remote-gate-host rev 2, 30 Oct (measured over 3 days of gate logs): 4.8 gates per landed change (71 landings; median 4, max 30), mean wait 3.9 min + run 11.6 min, so about 74 min of gate per change; waiting is 25% of gate time. This Mac (M2 Max, 12 cores) ran at load 25-49; 27 Oct: throughput stops growing at 2 gates. A container quick gate on this Mac's podman was not faster than the native one at that load (about 830 s against 799 s) and was red. While the Mac gate decides merges (owner, 29 Oct), a laptop can only take the Linux comparison run off this Mac; it does not shorten the deciding gate."
+      ]
     }
   ]
 }
